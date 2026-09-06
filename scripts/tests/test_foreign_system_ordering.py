@@ -37,8 +37,15 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 
 #  measured 2026-09-06. Both may fall; neither may rise.
-CAPABILITY_ORDERING_CEILING = 15
-TOTAL_ORDERING_CEILING = 87
+#
+# ⭐ 15 -> 13 AND 87 -> 85 BY THE WORKED EXAMPLE: `ambition_mount` now publishes
+# `DismountRequestsApplied`, the runtime installs `apply_dismount_requests` into
+# it, and `ambition_demo_smash`'s two shark-ride orderings name the SET. The
+# ruleset was naming the function because there was nothing else to name — the
+# system belonged to no published set — which is the shape of most of what is
+# left here.
+CAPABILITY_ORDERING_CEILING = 13
+TOTAL_ORDERING_CEILING = 85
 
 
 def _module():

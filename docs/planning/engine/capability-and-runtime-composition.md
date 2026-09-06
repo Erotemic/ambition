@@ -119,8 +119,8 @@ identities."* Turned from a principle into a work list.
 
 | population | count | meaning |
 |---|---|---|
-| ORDERING a foreign system | **87** | a crate fixing the relative order of systems it does not own |
-| — written by a capability / ruleset | **15** | no defence: not composing anything, just reaching in |
+| ORDERING a foreign system | **85** (was 87) | a crate fixing the relative order of systems it does not own |
+| — written by a capability / ruleset | **13** (was 15) | no defence: not composing anything, just reaching in |
 | — written by a composition layer | 72 | ⚠ **still the defect** — see below |
 | INSTALLING a foreign system | 203 | the broader *"who installs it"* question |
 
@@ -154,11 +154,46 @@ because its poison PASSED: collapsing `is_composition_layer` to `true` empties t
 capability bucket, so the ceiling reads as perfect compliance. **A ceiling sees the
 number grow; it cannot see the classifier collapse.**
 
-### The 15 with no defence
+### ✔ THE WORKED EXAMPLE — 15 -> 13, AND IT SHOWS WHY MOST OF THE REST EXIST
+
+`ambition_demo_smash` ordered its shark-ride systems `.before(...)` and
+`.after(ambition_platformer2d::mount::apply_dismount_requests)` — a ruleset
+asserting the relative order of a system in a domain it does not own.
+
+⛔ **AND IT DID SO BECAUSE THERE WAS NOTHING ELSE TO NAME.** That system is
+installed by the runtime and belonged to no published set, so the only vocabulary
+available to a consumer was the function itself. **The defect was an absence, not
+a shortcut** — which is worth knowing before reading the remaining thirteen as
+carelessness.
+
+⇒ The fix is three edits and a shape worth copying:
+
+| crate | what it does |
+|---|---|
+| `ambition_mount` | publishes `DismountRequestsApplied` — a bare marker set, no `configure_sets` |
+| runtime | installs `apply_dismount_requests` **into** that set |
+| `ambition_demo_smash` | orders against the SET; what it writes is now a membership, not a reference |
+
+⭐ **THE DOMAIN PUBLISHES THE VOCABULARY, THE COMPOSITION DECIDES WHICH SCHEDULE
+IT LIVES IN.** That split is why the set ships as a bare marker: `ambition_mount`
+does not know, and should not, whether the runtime puts it in `CombatSet::Settle`.
+
+⚠ **AND THE SET COVERS THE DISMOUNT APPLICATION ALONE, not the lease tick it is
+chained after.** A consumer wanting *"before riders are put down"* means this one;
+one wanting *"before leases are decided"* means something else. One set for both
+would let a future caller get the wrong half without noticing — the granularity is
+part of the contract.
+
+✔ Verified end-to-end, not just by compilation: the ordering-sensitive ride tests
+(`killing_the_shark_puts_the_admiral_down_and_frees_the_up_b`,
+`a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off`) pass, and
+`ambition_demo_smash` is 249 green.
+
+### The 13 remaining with no defence
 
 `ambition_content -> actor_monolith::features::ecs::dormancy::assess_dormancy`;
-`ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects` and
-`-> platformer2d::mount::apply_dismount_requests`; `ambition_platformer2d ->
+`ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects`;
+`ambition_platformer2d ->
 platformer2d_runtime::host_input::{commit_seat_raw_frames,
 publish_seat_controls_when_nobody_else_does}` (a capability ordering against the
 COMPOSITION layer — an inverted dependency); and `actor_monolith ->

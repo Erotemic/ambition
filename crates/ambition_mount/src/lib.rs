@@ -915,6 +915,29 @@ pub struct RiderDismounted {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountRiderLinkEnforced;
 
+/// The set [`apply_dismount_requests`] runs in — **published so a ruleset can
+/// order against a PHASE instead of against this function's identity.**
+///
+/// ⭐⭐ IT EXISTS BECAUSE A RULESET WAS NAMING THE SYSTEM. `ambition_demo_smash`
+/// had `.before(ambition_platformer2d::mount::apply_dismount_requests)` and
+/// `.after(...)` on its shark-ride systems, which is a ruleset crate asserting
+/// the relative order of a system in a domain it does not own — the exact shape
+/// the architecture program calls private cross-domain ordering authority. It
+/// did so because there was nothing else to name: the system is installed by the
+/// runtime and belonged to no published set.
+///
+/// ⛔ THE MEMBERSHIP IS THE RUNTIME'S TO DECLARE, NOT THIS CRATE'S. `ambition_mount`
+/// publishes the vocabulary; the composition decides which schedule the set lives
+/// in and what else shares it. That split is why this is a bare marker with no
+/// `configure_sets` beside it.
+///
+/// ⚠ IT COVERS THE DISMOUNT APPLICATION ALONE, deliberately — not the lease tick
+/// it is chained after. A consumer that wants "before riders are put down" means
+/// this; one that wants "before leases are decided" means something else, and one
+/// set for both would let a future caller get the wrong half without noticing.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DismountRequestsApplied;
+
 /// Dissolve a rider / mount link when either side dies. Runs after
 /// the damage pass.
 ///

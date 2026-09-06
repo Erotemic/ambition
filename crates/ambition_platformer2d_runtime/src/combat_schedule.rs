@@ -401,7 +401,11 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             (
                 ambition_mount::tick_ride_leases,
-                ambition_mount::apply_dismount_requests,
+                // ⭐ THE MEMBERSHIP THE RULESET ORDERS AGAINST. Published by
+                // `ambition_mount`, installed here: the domain owns the
+                // vocabulary, the composition owns which schedule it lives in.
+                ambition_mount::apply_dismount_requests
+                    .in_set(ambition_mount::DismountRequestsApplied),
             )
                 .chain()
                 .after(ambition_mount::MountRiderLinkEnforced)

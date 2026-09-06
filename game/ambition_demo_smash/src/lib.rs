@@ -1266,9 +1266,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⛔ `Settle` and CHAINED, because all three are opinions about a state
         // the tick has already produced: whether the rider is tumbling, whether
         // it pressed jump, and whether its saddle emptied. The two that ASK run
-        // before `apply_dismount_requests` (which the runtime schedules in the
-        // same set) and the departure reads the announcement that one makes, so
-        // a shark left riderless this tick is already leaving this tick.
+        // before `DismountRequestsApplied` — the PHASE, not the function. This
+        // ruleset used to name `apply_dismount_requests` itself, which is a
+        // ruleset asserting order over a domain it does not own; `ambition_mount`
+        // publishes the set now and the runtime installs the system into it, so
+        // what is written here is a membership rather than a reference.
         app.add_systems(
             sim,
             (
@@ -1278,7 +1280,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 crate::shark_ride::bail_out_of_the_saddle,
             )
                 .chain()
-                .before(ambition_platformer2d::mount::apply_dismount_requests)
+                .before(ambition_platformer2d::mount::DismountRequestsApplied)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         app.add_systems(
@@ -1288,7 +1290,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 crate::shark_ride::send_away_a_shark_nobody_boarded,
             )
                 .chain()
-                .after(ambition_platformer2d::mount::apply_dismount_requests)
+                .after(ambition_platformer2d::mount::DismountRequestsApplied)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // ⛔⛔ THE DEPARTURE'S INTENT IS WRITTEN WHERE INTEGRATION WILL READ IT.

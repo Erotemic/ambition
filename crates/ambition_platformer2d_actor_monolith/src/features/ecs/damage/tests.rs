@@ -1389,6 +1389,15 @@ fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
         "an actor with no guard up published a BLOCK, so the channel is not \
          reporting the guard at all",
     );
+    // ⛔ AND THE PREMISE HAS TO BITE. The line above is satisfied by a fixture
+    // whose strike never reached anybody, so the unguarded actor must actually
+    // have TAKEN the hit — otherwise "no block was published" is true for the
+    // wrong reason and the guarded arm below proves nothing by contrast.
+    assert!(
+        actor_hp(&app, open) < 5,
+        "the unguarded actor took no damage, so this fixture's strike never \
+         landed and neither arm of this test is measuring a guard",
+    );
 
     let mut app = shield_test_app();
     let guarded = spawn_shielding_actor(&mut app, true);

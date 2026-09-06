@@ -210,7 +210,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // survives longest. That is deliberate and it is the risk: a heavyweight
     // who also lands the biggest hits is only fair because he can never throw
     // one without being seen doing it.
-    let mut f_smash = strike(Strike {
+    let f_smash = strike(Strike {
         id: "smash_forward",
         clip: "attack",
         startup_s: 0.40,
@@ -224,14 +224,18 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.44)),
         on_hit: None,
     });
-    f_smash.smash_charge_mult = 1.7;
-    f_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    let mut f_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        f_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.7,
+        },
+    );
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // a body reached by both takes it. This is the base: the same commitment
     // landed at the wrong distance, which hurts and does not kill.
@@ -267,7 +271,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     let f_smash = feel(f_smash, Feel::Heavy);
 
-    let mut up_smash = strike(Strike {
+    let up_smash = strike(Strike {
         id: "smash_up",
         clip: "attack",
         startup_s: 0.36,
@@ -281,17 +285,21 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });
-    up_smash.smash_charge_mult = 1.7;
-    up_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    let up_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        up_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.7,
+        },
+    );
     let up_smash = feel(up_smash, Feel::Heavy);
 
-    let mut down_smash = strike(Strike {
+    let down_smash = strike(Strike {
         id: "smash_down",
         clip: "attack",
         startup_s: 0.34,
@@ -305,14 +313,18 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.95, -0.45)),
         on_hit: None,
     });
-    down_smash.smash_charge_mult = 1.7;
-    down_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    let down_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        down_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.7,
+        },
+    );
     let down_smash = feel(down_smash, Feel::Heavy);
 
     // ── the committed aerials ────────────────────────────────────────────────

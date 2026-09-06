@@ -14,7 +14,7 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract, SmashChargeSpec};
+use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 pub fn pugnacious_polygon_moveset() -> MovesetContract {
     let jab = strike(Strike {
@@ -268,7 +268,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     // fighter", and this brawler is on the free-to-change list. Quoting him here
     // about ANOTHER fighter's move would tell a future polish pass that these
     // moves are his. It caught me doing exactly that.
-    let mut haymaker = strike(Strike {
+    let haymaker = strike(Strike {
         id: "polygon_brawler_haymaker",
         clip: "attack_side",
         startup_s: 0.16,
@@ -282,26 +282,30 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.28)),
         on_hit: None,
     });
-    haymaker.smash_charge = Some(SmashChargeSpec {
-        // Early in the 0.16s startup: the wind-up is visible before the freeze,
-        // so the opponent sees it begin rather than seeing a statue appear.
-        hold_at_s: 0.06,
-        // A LONG hold, because the whole move is the threat of it. 1.2s is far
-        // longer than the Polygon's fill per tier and it is meant to be: this is
-        // a punch you have to be made to respect, not one you sneak out.
-        max_hold_s: 1.2,
-        stores: false,
-        // ⭐ ROOTED, which is the rule every smash in the game follows and doubly
-        // right here: a brawler planting his feet to wind up is the tell the
-        // opponent is reading, and a charge you could walk around with would be
-        // a threat with no commitment behind it.
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
-    // The button that charges it is the SPECIAL, not a smash-attack gesture.
-    haymaker.charge_gesture = ambition_platformer2d::entity_catalog::ChargeGesture::Special;
-    // 1.6x at a full hold — 13 damage becomes 20, and the knockback with it.
-    haymaker.smash_charge_mult = 1.6;
+    let haymaker = ambition_characters::moveset_authoring::charge(
+        haymaker,
+        ambition_characters::moveset_authoring::Charge {
+            // Early in the 0.16s startup: the wind-up is visible before the
+            // freeze, so the opponent sees it begin rather than a statue appear.
+            hold_at_s: 0.06,
+            // A LONG hold, because the whole move is the threat of it. 1.2s is
+            // far longer than the Polygon's fill per tier and it is meant to be:
+            // this is a punch you have to be made to respect, not one you sneak
+            // out.
+            max_hold_s: 1.2,
+            stores: false,
+            // ⭐ ROOTED, which is the rule every smash in the game follows and
+            // doubly right here: a brawler planting his feet to wind up is the
+            // tell the opponent is reading, and a charge you could walk around
+            // with would be a threat with no commitment behind it.
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            // The button that charges it is the SPECIAL, not a smash gesture.
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Special,
+            // 1.6x at a full hold — 13 damage becomes 20, and the knockback too.
+            multiplier: 1.6,
+        },
+    );
     let neutral_special = committed_tail(haymaker, 0.58, 0.18);
     // SIDE — `polygon_brawler_collar`. A COMMAND GRAB, replacing a shoulder rush
     // that was a dash with a hitbox on it.

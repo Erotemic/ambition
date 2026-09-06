@@ -423,14 +423,22 @@ pub fn fighter_moveset() -> MovesetContract {
     // AND knockback by how far the owner's clock got through the leading
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
-    f_smash.smash_charge_mult = 1.7;
-    f_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
+    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
+    // an author who set the spec alone got a charge that buys nothing. The verb
+    // refuses that.
+    let mut f_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        f_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.7,
+        },
+    );
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // it is the one a body reached by both takes. This is the base: the same
     // swing landed at the wrong distance, which hurts and does not kill.
@@ -478,14 +486,22 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_smash.gates = grounded_only();
-    up_smash.smash_charge_mult = 1.7;
-    up_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
+    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
+    // an author who set the spec alone got a charge that buys nothing. The verb
+    // refuses that.
+    let up_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        up_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.7,
+        },
+    );
     moves.push(up_smash);
 
     let mut down_smash = strike(Strike {
@@ -504,14 +520,22 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     down_smash.gates = grounded_only();
-    down_smash.smash_charge_mult = 1.6;
-    down_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
-        hold_at_s: CHARGE_POSE_AT_S,
-        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        stores: false,
-        roots: true,
-        sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-    });
+    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
+    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
+    // an author who set the spec alone got a charge that buys nothing. The verb
+    // refuses that.
+    let down_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+        down_smash,
+        ambition_platformer2d::characters::moveset_authoring::Charge {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            stores: false,
+            roots: true,
+            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            multiplier: 1.6,
+        },
+    );
     moves.push(down_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────

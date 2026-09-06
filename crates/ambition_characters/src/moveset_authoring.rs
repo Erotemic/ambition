@@ -1183,6 +1183,122 @@ mod refusal_tests {
 }
 
 #[cfg(test)]
+mod charge_tests {
+    //! Written BEFORE the ten call sites were converted, which is the order
+    //! `tipper` did not get: it shipped the same morning with its one
+    //! load-bearing decision held only by a fighter in another crate.
+    //!
+    //! ⭐ POISONED, all four guarantees separately: removing the hold-inside-the-
+    //! move assert, the positive-max-hold assert, or the multiplier floor each
+    //! reddens its own `should_panic`, and dropping `m.charge_gesture = ..`
+    //! reddens the one test that reads all three facts back.
+    //!
+    //! ⛔⛔ AND THE FIRST POISON RUN REPORTED THREE FALSE "DID NOT FIRE" — the
+    //! FOURTH time in one session. A regex meant to delete one `assert!` block
+    //! matched 53,730 characters (from the file's first `assert!` to a much later
+    //! `);`), the crate stopped compiling, and the harness's failure-list helper
+    //! read the empty `failures:` block as "no test failed". ⇒ **A poison harness
+    //! must check for a COMPILE ERROR before reading the failure list, and must
+    //! assert that its edit removed exactly what it meant to.** Exact anchors and
+    //! a length check found all three immediately.
+    use super::*;
+
+    fn swing() -> MoveSpec {
+        strike(Strike {
+            id: "test_charge",
+            clip: "attack",
+            startup_s: 0.16,
+            active_s: 0.08,
+            recover_s: 0.30,
+            offset: (30.0, 0.0),
+            half_extents: (18.0, 14.0),
+            damage: 13,
+            knockback: 142.0,
+            knockback_growth: 2.75,
+            launch_dir: Some((1.0, -0.28)),
+            on_hit: None,
+        })
+    }
+
+    fn held() -> Charge {
+        Charge {
+            hold_at_s: 0.06,
+            max_hold_s: 1.2,
+            stores: false,
+            roots: true,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Special,
+            multiplier: 1.6,
+        }
+    }
+
+    /// ⭐ ALL THREE FACTS, FROM ONE CALL. The gesture and the multiplier were
+    /// separate statements at every call site, set beside the charge in 3 and 4
+    /// of ten cases respectively — which is to say a caller could forget either.
+    #[test]
+    fn a_charge_sets_its_spec_its_gesture_and_its_payoff() {
+        let m = charge(swing(), held());
+        let spec = m.smash_charge.as_ref().expect("the charge is authored");
+        assert_eq!(spec.max_hold_s, 1.2);
+        assert!(spec.roots, "the hold roots him");
+        assert!(!spec.stores, "and does not bank");
+        assert_eq!(m.charge_gesture, ambition_entity_catalog::ChargeGesture::Special);
+        assert_eq!(m.smash_charge_mult, 1.6);
+    }
+
+    /// The move's own timeline is untouched — a charge is a hold ON a move, not
+    /// a different move.
+    #[test]
+    fn a_charge_moves_no_window() {
+        let base = swing();
+        let m = charge(base.clone(), held());
+        assert_eq!(m.windows.len(), base.windows.len());
+        assert_eq!(m.duration_s, base.duration_s);
+    }
+
+    #[test]
+    #[should_panic(expected = "never arrives")]
+    fn a_hold_after_the_move_ends_is_refused() {
+        let mut late = held();
+        late.hold_at_s = 99.0;
+        let _ = charge(swing(), late);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot be held")]
+    fn a_zero_length_hold_is_refused() {
+        let mut instant = held();
+        instant.max_hold_s = 0.0;
+        let _ = charge(swing(), instant);
+    }
+
+    /// ⛔⛔ AND THE FIRST VERSION OF THIS TEST ASSERTED THE WRONG RULE. It
+    /// refused a multiplier of exactly 1.0 as "a charge that buys nothing" — and
+    /// the Projectile Polygon's charge shot authors precisely that, because its
+    /// payoff is `RangedCharge`'s tier ladder rather than a bigger swing. ⇒ A
+    /// charge's reward may live outside the move, where the verb cannot see it.
+    /// The conversion of the ten call sites is what caught it, before either the
+    /// verb or the assertion had shipped.
+    #[test]
+    fn a_multiplier_of_one_is_allowed_because_the_payoff_may_be_elsewhere() {
+        let mut flat = held();
+        flat.multiplier = 1.0;
+        let m = charge(swing(), flat);
+        assert_eq!(m.smash_charge_mult, 1.0);
+        assert!(m.smash_charge.is_some(), "and it is still a charge");
+    }
+
+    /// What cannot be right: a hold that makes the move weaker.
+    #[test]
+    #[should_panic(expected = "WEAKER")]
+    fn a_charge_that_weakens_the_move_is_refused() {
+        let mut worse = held();
+        worse.multiplier = 0.8;
+        let _ = charge(swing(), worse);
+    }
+}
+
+#[cfg(test)]
 mod wake_tests {
     use super::*;
 
@@ -1436,6 +1552,100 @@ mod tipper_tests {
             .expect("an active window");
         assert_eq!(window.volumes.len(), 2);
     }
+}
+
+/// A SMASH CHARGE: the hold, what it buys, and which button drives it.
+///
+/// ⭐⭐ THE MOST-REPEATED RAW AUTHORING IN THE GAME, measured 2026-09-06: TEN
+/// sites set `smash_charge` as a struct literal, and all ten set all five of
+/// `SmashChargeSpec`'s fields. What made it cost more than the struct is the two
+/// companions that travel BESIDE it — `charge_gesture` (3 of 10) and
+/// `smash_charge_mult` (4 of 10) — as separate statements a caller can forget
+/// one of.
+///
+/// ⇒ One call instead of three statements, and the two companions become FIELDS
+/// so they are set where the charge is decided rather than two lines later.
+///
+/// ⚠ **ONE SHIPPED CHARGE DOES NOT GO THROUGH THIS, and the reason is structural
+/// rather than an oversight.** `projectile_polygon_moveset.rs` builds its charge
+/// shot as a whole `MoveSpec` LITERAL, so there is no spec to hand a
+/// `MoveSpec -> MoveSpec` verb; converting it would mean restructuring the move's
+/// construction, not its charge. ⇒ Nine of ten call sites use this; the tenth is
+/// a different authoring shape rather than a second way to author a charge.
+pub struct Charge {
+    /// When the hold begins, in move-seconds. ⭐ Inside the startup: the wind-up
+    /// should read before the freeze, or an opponent sees a statue appear.
+    pub hold_at_s: f32,
+    /// The longest hold, in seconds.
+    pub max_hold_s: f32,
+    /// May the charge be BANKED for a later press?
+    ///
+    /// ⛔ A stored charge is a threat carried into the next exchange, which is a
+    /// different character from one that must commit now. It is the field that
+    /// most changes what a fighter IS, which is why it has no default here.
+    pub stores: bool,
+    /// Is the fighter ROOTED while holding?
+    pub roots: bool,
+    /// What sustains the hold — see [`ChargeSustain`].
+    pub sustain: ambition_entity_catalog::ChargeSustain,
+    /// Which press drives it. `Smash` is the genre's default; `Special` is for a
+    /// charge that lives on a special button.
+    pub gesture: ambition_entity_catalog::ChargeGesture,
+    /// What a FULL hold multiplies THIS MOVE by.
+    ///
+    /// ⚠ `1.0` IS LEGITIMATE AND THE FIRST DRAFT OF THIS VERB REFUSED IT. The
+    /// Projectile Polygon's charge shot authors exactly that, deliberately: its
+    /// payoff is `RangedCharge`'s tier ladder — *"it needs to be able to store a
+    /// charge and fire at different sizes"* — so the hold buys a bigger SHOT
+    /// rather than a bigger swing. ⇒ **A charge's payoff may live outside the
+    /// move, where this verb cannot see it**, so a multiplier of 1.0 says "the
+    /// reward is elsewhere" rather than "there is no reward".
+    /// ⛔ Below 1.0 is still refused: a hold that makes the move WORSE is not a
+    /// design anybody has asked for, and it is the one reading of this number
+    /// that cannot be correct.
+    pub multiplier: f32,
+}
+
+/// Give a move a smash charge, its gesture and its payoff in one call.
+///
+/// # Panics
+///
+/// If the hold begins outside the move (a freeze that never arrives, or one
+/// after the move has ended); if `max_hold_s` is not positive; or if the
+/// multiplier is BELOW `1.0`, which is a hold that makes the move weaker.
+///
+/// ⚠ It does NOT refuse a multiplier of exactly `1.0` — see [`Charge::multiplier`]
+/// for the shipped customer that needs it.
+pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
+    let id = m.id.clone();
+    assert!(
+        charge.hold_at_s >= 0.0 && charge.hold_at_s < m.duration_s,
+        "move `{id}` freezes at {}s in a move lasting {}s — a hold outside the \
+         move never arrives",
+        charge.hold_at_s,
+        m.duration_s,
+    );
+    assert!(
+        charge.max_hold_s > 0.0,
+        "move `{id}` authors a {}s maximum hold, so the charge cannot be held",
+        charge.max_hold_s,
+    );
+    assert!(
+        charge.multiplier >= 1.0,
+        "move `{id}` authors a charge multiplier of {} — a hold that makes the \
+         move WEAKER is the one reading of this number that cannot be right",
+        charge.multiplier,
+    );
+    m.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
+        hold_at_s: charge.hold_at_s,
+        max_hold_s: charge.max_hold_s,
+        stores: charge.stores,
+        roots: charge.roots,
+        sustain: charge.sustain,
+    });
+    m.charge_gesture = charge.gesture;
+    m.smash_charge_mult = charge.multiplier;
+    m
 }
 
 /// The push a move leaves BEYOND its hit — the dust, the wake, the displaced air.

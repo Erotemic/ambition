@@ -174,6 +174,32 @@ pub fn sync_authored_gated_lock_walls(
     world: &mut World,
     mut rooms: bevy::prelude::Local<Option<RoomSetQuery>>,
 ) {
+    // ⭐ THE RETRACTION IS STATED ONCE, AND THE TYPE IS WHAT ENFORCES IT.
+    // Four early exits each ran `retract_gated_lock_wall_verdicts(world); return;`
+    // — and the comment on the last of them says why that matters: *"skipping the
+    // publication below is not the same as publishing nothing, and the difference
+    // is the previous room's verdicts outliving the room they describe."* A fifth
+    // exit that forgot would be SILENT, because the only symptom is a stale
+    // verdict nobody re-derives.
+    // ⇒ The decision half answers an `Option` now, so "nothing to publish" IS the
+    // `None`, and an exit that forgets to retract is no longer expressible.
+    let Some(walls) = gated_lock_walls_to_publish(world, &mut rooms) else {
+        retract_gated_lock_wall_verdicts(world);
+        return;
+    };
+    publish_gated_lock_wall_verdicts(world, walls);
+}
+
+/// The room's cached walls, or `None` when there is nothing to publish.
+///
+/// ⚠ EVERY `None` HERE MEANS "RETRACT", and the caller is the one place that says
+/// so. The four reasons: no room set (twice — the borrow is taken in two scopes),
+/// no `ConditionCatalog` in this composition, and a room whose cache holds no
+/// gated walls at all, which is the COMMON case.
+fn gated_lock_walls_to_publish(
+    world: &mut World,
+    rooms: &mut bevy::prelude::Local<Option<RoomSetQuery>>,
+) -> Option<Vec<CachedWall>> {
     // the room set is a COMPONENT on the session root, not a resource — the `SessionWorldRef` a
     // normal system takes is a `Single<Ref<T>, With<SessionRoot>>`. An exclusive system has to
     // ask for it the long way.
@@ -187,14 +213,12 @@ pub fn sync_authored_gated_lock_walls(
     // first and pay for the walls second.
     let (active_room_id, rooms_changed) = {
         let Some(set) = rooms.iter(world).next() else {
-            retract_gated_lock_wall_verdicts(world);
-            return;
+            return None;
         };
         (set.active_spec().id.clone(), set.is_changed())
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
-        retract_gated_lock_wall_verdicts(world);
-        return;
+        return None;
     }
 
     // ── refresh the cache if any of its inputs moved ─────────────────────────
@@ -221,8 +245,7 @@ pub fn sync_authored_gated_lock_walls(
     if rooms_changed || stale || catalog_moved {
         let walls = {
             let Some(set) = rooms.iter(world).next() else {
-                retract_gated_lock_wall_verdicts(world);
-                return;
+                return None;
             };
             authored_gated_lock_walls(set.active_spec())
         };
@@ -249,10 +272,20 @@ pub fn sync_authored_gated_lock_walls(
         .get_resource::<GatedLockWallCache>()
         .is_none_or(|cache| cache.walls.is_empty())
     {
-        retract_gated_lock_wall_verdicts(world);
-        return;
+        return None;
     }
 
+    Some(
+        world
+            .get_resource::<GatedLockWallCache>()
+            .map(|cache| cache.walls.clone())
+            .unwrap_or_default(),
+    )
+}
+
+/// Ask each cached wall's question, publish every verdict, and contribute the
+/// walls that still stand to the overlay.
+fn publish_gated_lock_wall_verdicts(world: &mut World, walls: Vec<CachedWall>) {
     // ── ask, then contribute ─────────────────────────────────────────────────
     //
     // The catalog and the cache are cloned out because evaluating needs `&World`
@@ -316,8 +349,7 @@ pub fn sync_authored_gated_lock_walls(
                 wall.min,
                 wall.size,
             ));
-    }
-}
+    }}
 
 /// Prepare one wall's authored question, or `None` when the catalog cannot yet
 /// answer for it.

@@ -144,16 +144,52 @@ def test_a_commit_reachable_from_no_ref_is_reported(module, doc):
     assert "reachable from NO ref" in findings[0][2], findings[0][2]
 
 
-#: Commit citations that existed in `docs/planning` when the epoch root was cut.
-GRANDFATHERED = REPO / "dev/epoch-grandfathered-citations.txt"
-
-
 def grandfathered() -> set[str]:
-    return {
-        line.strip()
-        for line in GRANDFATHERED.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    }
+    """Commit citations that existed in `docs/planning` when the epoch was cut.
+
+    ⭐⭐ DERIVED, NOT STORED — 2026-09-06. This read
+    `dev/epoch-grandfathered-citations.txt`, a committed 381-line list. Measured:
+    the list and this derivation agree EXACTLY, 381 = 381, zero difference in
+    either direction. ⇒ the file was a second copy of a fact the repository
+    already holds, and the epoch tree is the copy that cannot drift.
+
+    ⛔⛔ AND THE STORED FORM HAD A HOLE THE DERIVED FORM CANNOT HAVE. This set is
+    an AMNESTY: a name in it is exempt from "resolves nowhere ⇒ fabrication". With
+    a file, the way to silence a real fabrication was to append one line to it —
+    the guard would then certify its own blind spot, and the diff would look like
+    housekeeping. You cannot append to the epoch's tree.
+
+    ⚠ It answers about the DOCUMENTS, so it is identical on every checkout — which
+    is the property the whole guard was rewritten for (a count over the object
+    store is not an invariant; a shallow clone answers differently). One batched
+    `git cat-file`, ~86 ms.
+    """
+    epoch = subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split()[0]
+    files = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", epoch, "docs/planning"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    blobs = subprocess.run(
+        ["git", "cat-file", "--batch"],
+        cwd=REPO, input="".join(f"{epoch}:{f}\n" for f in files),
+        capture_output=True, text=True, check=True,
+    ).stdout
+    module = load()
+    names: set[str] = set()
+    for line in blobs.splitlines():
+        if module.MARKER in line:
+            continue
+        for match in module.COMMIT.finditer(line):
+            names.add(match.group(1))
+    assert names, (
+        "the epoch tree yielded NO citations, so every unresolved sha would read "
+        "as a fabrication.\n  Either `docs/planning` did not exist at the epoch "
+        "root, or this checkout cannot read it."
+    )
+    return names
 
 
 def test_no_unresolvable_citation_that_the_epoch_did_not_grandfather():

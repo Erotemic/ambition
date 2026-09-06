@@ -937,10 +937,20 @@ THE FIXTURE'S SCALE, NOT ABOUT THE SWAP.** `form_world_per_pixel` ignores its
 target and returns ONE shared scale, `MARY_O_STANDING_HEIGHT / small_form_pixel_height()`
 — and that function has an explicit arm: *"No baked art (a headless fixture). Any
 scale is arbitrary here because nothing will resolve a body from it; 1.0 keeps the
-arithmetic honest."* ⇒ If the demo app's fixture takes that arm, a box that does
-not move is the DEGENERATE SCALE, not a failed swap, and reading it as a swap
-defect is reading the instrument. **Establish which arm runs before building on
-the number below.**
+arithmetic honest."* ⇒ If the demo app's fixture took that arm, a box that did
+not move would be the DEGENERATE SCALE rather than a failed swap.
+
+✔ **RESOLVED THE SAME HOUR — THE FALLBACK DOES NOT RUN, AND THE MEASUREMENT
+STANDS.** `small_form_pixel_height()` calls `posed_body_geometry("mary_o_v2",
+Idle, 1.0)`, the same BAKED-manifest lookup `ambition_character_sprites`' own
+tests make with no `App` at all. It resolves to the sheet's 84px, so the scale is
+`32 / 84 = 0.381`. ⭐ **And the arithmetic closes on the measured number: 84px ×
+0.381 = exactly 32.0, which is what the fixture reported.** The instrument was
+working.
+
+⇒ **SO THIS IS A CONFIRMED DEFECT, and its size is known: her box should go 32 →
+64** (the tall sheet's bbox is 168px, and 168 × 0.381 = 64.0). It stays at 32. ⇒
+`SpritePosedBody.target` is not following the worn form onto the tall sheet.
 
 ⭐ **AND A DOC/CODE DISAGREEMENT FOUND ON THE WAY, WHICH IS THE BETTER LEAD.** The
 registration comment says each form *"scales its own art to its own AUTHORED height

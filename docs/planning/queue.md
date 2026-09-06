@@ -2081,6 +2081,13 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   **22 minutes** for the disabling — against a reclaim that took **under one
   second** for 419 MB, and completed 37 GB across 451 crate sessions inside a
   single command invocation earlier the same day.
+  ✔ **AND THE PRESCRIPTION PROVED ITSELF THE SAME HOUR IT WAS WRITTEN.** Nine
+  charge call sites converted across four crates, with a `cargo test -p` after
+  each, took the box from 54 GB to **33.2 GB — under the floor — with 22 GB of
+  fresh `debug/incremental`.** The reclaim took **5 seconds** and returned it to
+  54.2 GB. ⇒ Two data points now: 419 MB in under a second, 22 GB in five. The
+  cost of the chore is not the thing that scales.
+
   ⇒ **So the refined prescription is the opposite of the one above: keep
   incremental ON for ad-hoc runs and reclaim on the FLOOR rather than on a
   schedule.** The row's objection — *"a chore that comes back, not a fix"* — is

@@ -711,6 +711,37 @@ more contended run. Load-sensitive, not code. ⇒ If it recurs, the question is
 what in that test depends on wall-clock progress rather than ticks; nothing in
 the assertion should.
 
+## ⛔⛔ IT IS NOT A FLAKE ANY MORE — 2026-09-06, deterministic ALONE in 0.85 s
+
+It recurred in a `--rust` lane (workspace job 912.3 s, in the same contended band
+the note above describes), so the load hypothesis looked confirmed. It is not.
+**Run alone, `cargo test -p ambition_app --test app_it dive_drill_lunges` fails
+THREE times out of three, in 0.84–0.86 s, with the identical line**:
+
+```text
+dive: x 405->405 (+0px), target HP [2] -> [2], resets=0
+```
+
+⇒ The row's *"alone, `-p ambition_app` 10/10 pass"* is no longer true, and the
+wall-clock question it poses is answered NO: the harness is
+`TimestepMode::fixed_60hz()`, the test steps a fixed count, and nothing here waits
+on a clock.
+
+⭐ **AND THE FIRST HALF OF THE CHAIN IS NOW EXCLUDED BY CONSTRUCTION.** The setup
+walks to the pickup and to the firing spot with BOUNDED loops that `break` on
+reaching an x — and **a loop that EXHAUSTS looks exactly like one that arrived**,
+so a failed walk would surface forty lines later as "the dive should carry the
+player across the hazard gap": an assertion about the dive, in a run where the
+ability was never held. Both walks now assert where they got to, and both PASS.
+⇒ The player reaches the pickup, presses grab on it, reaches x405 — and the dive
+then moves the body **zero pixels** and deals no damage. The remaining suspects
+are the grab not granting the ability, or the dive not firing; the room, the walk
+and the timing are ruled out.
+
+⚠ NOT ATTRIBUTED. It is not a bisect I have run, and the honest candidates are
+combat-side changes landed the same day (the fighter lane moved when limit meters
+fill relative to `Trigger`), not this row's original load story.
+
 ⇒ ⛔ NOT a regression, and three of us started by assuming it was. Only 7 `.rs`
 files had changed since the previous all-green gate; calculex cleared the only
 gameplay candidate BY MECHANISM (its changed line runs only when an encounter

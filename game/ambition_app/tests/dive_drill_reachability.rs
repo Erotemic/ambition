@@ -56,19 +56,36 @@ fn dive_drill_lunges_through_the_targets() {
     }
 
     // Grab the Dive ability off the floor (pickup x[110,150]).
+    //
+    // ⛔⛔ A BOUNDED WALK THAT EXHAUSTS LOOKS EXACTLY LIKE ONE THAT ARRIVED, and
+    // that is what made this test's failure unreadable. If sixty frames do not
+    // carry the player to the pickup, the loop simply ENDS, the `attack` below
+    // presses on empty floor, no Dive is acquired, and the failure surfaces forty
+    // lines later as "the dive should carry the player across the hazard gap" —
+    // an assertion about the dive, in a run where the ability was never held.
+    // ⇒ Each walk now states where it got to. See the KNOWN FLAKE row in
+    // `engine/performance-and-iteration.md`, which asks what in this test depends
+    // on something other than ticks; a bounded loop's EXHAUSTION is such a thing,
+    // because the number of frames a walk needs is not fixed by the assertion.
+    let mut reached = 0.0_f32;
     for _ in 0..60 {
-        if sim
+        reached = sim
             .step(AgentAction {
                 move_x: 1.0,
                 ..base()
             })
             .player_pos
-            .0
-            >= 120.0
-        {
+            .0;
+        if reached >= 120.0 {
             break;
         }
     }
+    assert!(
+        reached >= 120.0,
+        "sixty frames did not carry the player to the Dive pickup (x={reached:.0}, \
+         wanted >=120). The grab below would press on empty floor and every later \
+         assertion would be about a dive the player never had."
+    );
     sim.step(AgentAction {
         attack: true,
         ..base()
@@ -76,19 +93,24 @@ fn dive_drill_lunges_through_the_targets() {
     sim.step(base());
 
     // Walk to the firing spot ~x400 (left of the target line at x440..540).
+    let mut reached = 0.0_f32;
     for _ in 0..80 {
-        if sim
+        reached = sim
             .step(AgentAction {
                 move_x: 1.0,
                 ..base()
             })
             .player_pos
-            .0
-            >= 400.0
-        {
+            .0;
+        if reached >= 400.0 {
             break;
         }
     }
+    assert!(
+        reached >= 400.0,
+        "eighty frames did not carry the player to the firing spot (x={reached:.0}, \
+         wanted >=400), so the dive below starts from the wrong place."
+    );
     sim.step(base());
 
     let before_x = sim.observation().player_pos.0;

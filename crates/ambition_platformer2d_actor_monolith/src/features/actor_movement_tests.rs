@@ -61,7 +61,7 @@ fn world_with_patrolling_npc(
             seed.spawn.pos.x,
             patrol_radius.max(0.0),
         );
-        cfg.aggro_radius = crate::features::NPC_TALK_RADIUS;
+        cfg.aggro_radius = crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
         ambition_characters::brain::Brain::StateMachine(
             ambition_characters::brain::StateMachineCfg::Patrol {
                 cfg,

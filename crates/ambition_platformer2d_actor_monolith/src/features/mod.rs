@@ -163,10 +163,13 @@ pub use enemies::ENEMY_DEAD_UNTIL_REST_SUFFIX;
 // crate for types it does not own, and `damage_apply`'s own tests reached the
 // monolith for exactly two names, both of them these. Callers name the owner.
 pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
-pub use npcs::NPC_TALK_RADIUS;
+// ⛔ MOVED DOWN TO `crate::actor_spawn::npc_policy` — spawn-time NPC policy went
+// with the primitives that consume it; `npcs` keeps NPC BEHAVIOUR. Re-exported
+// here because `damage_apply`'s tests name the owner, and the owner changed.
+pub use crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
 
 use ambition_combat::util::*;
-pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
+pub(super) use crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
 
 /// Schedules the gameplay-effect bus chain into
 /// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].

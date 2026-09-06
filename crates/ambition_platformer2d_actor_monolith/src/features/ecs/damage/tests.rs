@@ -496,7 +496,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
     );
     let aggression = ambition_combat::components::ActorAggression {
         mode: ambition_combat::components::AggressionMode::RetaliatesWhenHit {
-            strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+            strike_threshold: crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
         },
         target: None,
         strikes: 0,
@@ -514,7 +514,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
             ambition_platformer2d_core::movement::MotionModel::default(),
             ambition_combat::components::ActorInteraction {
                 interactable,
-                talk_radius: crate::features::NPC_TALK_RADIUS,
+                talk_radius: crate::actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             identity,
             disposition,

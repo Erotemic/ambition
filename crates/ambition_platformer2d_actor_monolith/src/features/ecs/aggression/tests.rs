@@ -1,5 +1,5 @@
 use super::*;
-use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
+use crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
 use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -61,7 +61,7 @@ fn spawn_actor_from_seed(
             seed.into_components(),
             ActorInteraction {
                 interactable,
-                talk_radius: crate::features::NPC_TALK_RADIUS,
+                talk_radius: crate::actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             identity,
             disposition,

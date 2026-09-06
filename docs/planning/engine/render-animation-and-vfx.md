@@ -927,6 +927,26 @@ small sprite inside it. ⇒ **Find the other writer of her box during that windo
 `PhysicalBaseline` is not it — `physical_baseline.rs:163` returns `None` for
 `BodySource::SpriteAuthored` on purpose.
 
+✔ **MEASURED IN THE SHIPPED DEMO APP (2026-09-06): TAKING THE WAND CHANGES HER
+WORN FORM AND DOES NOT CHANGE HER COLLISION BOX AT ALL.** Driven through
+`course_playthrough`'s real wand grab: `worn_form` becomes `mary_o_tall`, and
+`BodyKinematics.size` reads `Vec2(21.33, 32.0)` both before and after.
+
+⇒ **That is a strong pointer, because the sheet data is NOT the missing piece.**
+`posed_body_geometry` reads a BAKED manifest — compile-time data, which is why
+`ambition_character_sprites`' own tests call it with no `App` at all — so the tall
+metrics are reachable in a headless composition. The box does not grow anyway. ⇒
+**What the headless app lacks is the PREPARED entry**, and `posed_body_for` returns
+`None` without `prepared.sheet`, leaving `SpritePosedBody` still targeting the small
+sheet. That is the on-demand materialisation above, never completing.
+
+⚠ **THE FIXTURE THEREFORE CANNOT REPRODUCE JON'S EXACT SYMPTOM and should not be
+made to.** He sees a TALL box with a small sprite; this sees a small box. Same
+cause, different half visible: in his session the prepared entry eventually
+arrives and the box follows, and the question becomes why the drawn quad does not.
+⛔ An assertion that the box grows does NOT belong in that test — I wrote one, its
+premise failed, and it was reverted rather than weakened to pass.
+
 ⭐ **AND THE INSTRUMENT THIS NEEDS, per the rule the shell bug taught today:
 assert the OUTPUT.** The proxy is the drawn sprite's world-space bottom edge
 against the body's collision-box bottom edge, sampled on the FIRST grab and the

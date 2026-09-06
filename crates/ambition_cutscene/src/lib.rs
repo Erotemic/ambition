@@ -266,12 +266,19 @@ pub struct ActiveCutscene {
 }
 
 impl ActiveCutscene {
+    /// Is a cutscene running?
+    ///
+    /// ⚠ THIS IS A STATE QUESTION, NOT A POLICY ONE. It used to have a second
+    /// name, `freezes_player_input`, whose whole body was `self.is_playing()` —
+    /// a POLICY spelled as a fact, with zero callers in the tree. Input during a
+    /// cutscene is decided where every other input claim is decided: the
+    /// participant declares `CUTSCENE_CONTEXT` at
+    /// `context_priority::CUTSCENE` on the shared `ParticipantContexts` seam
+    /// (`schedule/input_systems.rs:460`), the same way dialogue declares
+    /// `DIALOGUE_CONTEXT`. A cutscene answers whether it is playing; it does not
+    /// get an opinion about the pad.
     pub fn is_playing(&self) -> bool {
         self.runtime.is_some()
-    }
-
-    pub fn freezes_player_input(&self) -> bool {
-        self.is_playing()
     }
 }
 

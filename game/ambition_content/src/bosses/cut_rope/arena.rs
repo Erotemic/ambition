@@ -59,9 +59,17 @@ pub fn detect_cut_rope_rope_cut(
     if state.active_room != room.id {
         reset_cut_rope_arena_state_for_room(&mut state, &room.id);
     }
-    if reset_events.read().next().is_some() {
-        reset_cut_rope_arena_state_for_room(&mut state, &room.id);
-    }
+    // ⛔⛔ DRAINED, NOT ACTED ON — and it used to be both.
+    // `reset_cut_rope_boss_arena_on_room_reset` is the system NAMED for this job
+    // and registered in `ContentRoomResetSet`; it clears the arena on exactly this
+    // message. This system cleared it too, so ONE fact had TWO retractors on ONE
+    // trigger, and each hid the other's absence: deleting either alone left the
+    // end-to-end replay test green, and only deleting BOTH turned it red.
+    //
+    // ⚠ THE READ STAYS. The cursor rule is not optional -- a `MessageReader` that
+    // skips a frame carries the backlog into the next one, and this system's early
+    // return already drains for that reason.
+    for _ in reset_events.read() {}
 
     let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) else {
         for _ in hit_events.read() {}

@@ -138,3 +138,61 @@ fn the_rope_gate_does_not_fire_without_a_hit_on_the_rope() {
          the rope's geometry at all"
     );
 }
+
+/// A replay lets the rope be cut AGAIN — the reset path, which nothing pinned.
+///
+/// ⭐⭐ THIS IS THE ARM THE OTHER THREE DO NOT REACH. `detect_cut_rope_rope_cut`
+/// short-circuits on `if state.rope_cut { continue; }`, so once the rope is cut
+/// the trigger is dead until something clears the flag. If the reset never ran,
+/// a player who died mid-fight would re-enter a room whose rope is already cut
+/// and whose anvil will never drop again — the fight becomes unwinnable, and
+/// every other test here still passes because they each cut the rope exactly
+/// once in a fresh world.
+///
+/// ⇒ It also pins the seam a refactor wants to move.
+/// `CutRopeBossArenaState.active_room` hand-rolls a room-change detector that
+/// `FreshAttempt::began_in` already is, spelled three times, with a fourth site
+/// checking the same condition and BAILING rather than resetting. Swapping that
+/// for the engine's own mechanism carries a one-frame ordering hazard, and this
+/// is the arm that would catch it.
+#[test]
+fn a_replay_lets_the_rope_be_cut_again() {
+    use ambition_platformer2d::combat::events::{RoomReplayAdmitted, RoomResetReason};
+
+    let mut sim = cut_rope_sim();
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let rope = rope_pos(&mut sim);
+
+    slash(&mut sim, rope);
+    sim.step(AgentAction::default());
+    assert!(rope_cut_gates(&mut sim) > 0, "the first cut must land");
+
+    // ⚠ The premise the rest of this test rests on: a SECOND slash with no replay
+    // does nothing, because the detector short-circuits on `rope_cut`. Without
+    // this, "the gate fired again after a replay" would prove nothing -- it would
+    // pass on a detector that simply fires on every hit.
+    slash(&mut sim, rope);
+    sim.step(AgentAction::default());
+    assert_eq!(
+        rope_cut_gates(&mut sim),
+        0,
+        "a second slash fired the gate with no replay, so this test cannot tell a \
+         working reset from a detector that never latched"
+    );
+
+    sim.world_mut().write_message(RoomReplayAdmitted {
+        reason: RoomResetReason::PlayerDeath,
+        subject: None,
+    });
+    sim.step(AgentAction::default());
+
+    slash(&mut sim, rope);
+    sim.step(AgentAction::default());
+    assert!(
+        rope_cut_gates(&mut sim) > 0,
+        "after a replay the rope could not be cut again: the arena kept last \
+         attempt's `rope_cut`, so the anvil never drops and the fight is unwinnable"
+    );
+}

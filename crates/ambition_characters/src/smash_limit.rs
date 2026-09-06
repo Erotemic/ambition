@@ -83,6 +83,29 @@ pub struct LimitMeterFill {
     pub on_damage_taken: f32,
     /// Added per point of damage taken.
     pub per_damage_taken: f32,
+    /// Added once per strike this fighter's GUARD ATE — a successful block.
+    ///
+    /// ⭐⭐ THE SIXTH INDEPENDENT SOURCE, AND THE FIRST CONSEQUENCE A SUCCESSFUL
+    /// BLOCK HAS EVER HAD FOR THE DEFENDER. `BlockedBodyHit` has been published
+    /// and rollback-cleared for a long time and was read in exactly ONE place —
+    /// to set `blocked_hit` on the ATTACKER's playback so an `OnBlock` cancel
+    /// could fire. ⇒ The hard defensive read (a parry) had four vocabularies;
+    /// the soft one had none, so patient guarding was mechanically invisible.
+    ///
+    /// ⛔ IT IS NOT `on_damage_taken` AND CANNOT BE. A blocked strike deals no
+    /// damage, so it writes no `ResolvedBodyHit` and every existing source
+    /// reads zero. That is why the gap survived: the meter looked complete.
+    ///
+    /// ⚠ AUTHOR IT BELOW `on_damage_taken`, and the baseline does. Blocking is
+    /// the SAFE option; a meter that paid more for guarding than for eating the
+    /// hit would make taking damage the mistake it already is AND make blocking
+    /// the greedy play, which is backwards. `problems()` refuses the inversion.
+    ///
+    /// ⭐ PER STRIKE, NOT PER POINT — there is no per-point sibling because a
+    /// blocked hit has no damage to scale by. The size of the swing you ate is
+    /// not a fact this road carries, and inventing one would mean reading the
+    /// attacker's volume from the defender's meter.
+    pub on_block: f32,
     /// SUBTRACTED every second — the Limit that must be spent rather than banked.
     ///
     /// ⭐ THE TIMEOUT LEVER, and the fifth independent source. A meter that only
@@ -131,6 +154,13 @@ impl LimitMeterFill {
         per_damage_dealt: 0.1,
         on_damage_taken: 2.0,
         per_damage_taken: 0.2,
+        // ⚠ A NUMBER I CHOSE AND JON DID NOT — the SHAPE is his ruling ("make
+        // sure the meter doesn't push future uses of it into a box"), the value
+        // is mine and is filed for him. One good block is worth exactly one
+        // landed hit (`on_damage_dealt`) and half of eating one (2.0), which
+        // keeps guarding a real defensive read without making it the greedy
+        // play. Zero is a legitimate setting and turns the source off entirely.
+        on_block: 1.0,
         // ⚠ HE ASKED FOR NO DECAY. The lever exists; the baseline does not pull
         // it, so the goblin's charge keeps until it is spent.
         decay_per_second: 0.0,
@@ -146,6 +176,29 @@ impl LimitMeterFill {
         self.on_damage_taken + self.per_damage_taken * damage.max(0) as f32
     }
 
+    /// What one BLOCKED strike contributes to the fighter whose guard ate it.
+    ///
+    /// A method rather than a bare field read, for the same reason [`dealt`] and
+    /// [`taken`] are: the three answers to "what did this contact pay, and to
+    /// whom" belong beside each other, so a fourth road cannot quietly invent a
+    /// different arithmetic for itself.
+    pub fn blocked(&self) -> f32 {
+        self.on_block
+    }
+
+    /// Is guarding the SAFE option rather than the greedy one under this rule?
+    ///
+    /// ⭐ THE ONE RELATIONSHIP BETWEEN TWO SOURCES THAT IS A DESIGN RULE AND NOT
+    /// A TUNING NUMBER. Every other field here is independent by construction —
+    /// that independence is Jon's ruling — but a meter that pays MORE for
+    /// blocking than for eating the hit inverts the whole defensive read: the
+    /// maximising play becomes to guard, and taking damage stops being a cost.
+    /// ⇒ Stated as a predicate so the shipped baseline can be asserted against
+    /// it, rather than as prose nobody re-checks.
+    pub fn guarding_is_the_safe_option(&self) -> bool {
+        self.on_block <= 0.0 || self.on_block < self.on_damage_taken
+    }
+
     /// Everything wrong with this fill, as sentences an author can act on.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
@@ -153,6 +206,14 @@ impl LimitMeterFill {
             problems.push(format!(
                 "cap {} gives a meter nothing can ever fill",
                 self.cap
+            ));
+        }
+        if self.on_block > 0.0 && self.on_block >= self.on_damage_taken {
+            problems.push(format!(
+                "a block pays {} and eating the hit pays {}, so guarding is the \
+                 GREEDY play rather than the safe one — a fighter maximises the \
+                 meter by blocking, and taking damage stops being the cost it is",
+                self.on_block, self.on_damage_taken,
             ));
         }
         // ⛔ NOT "at least one source must be non-zero" — a meter filled ONLY by
@@ -211,6 +272,7 @@ impl Default for LimitMeterFill {
             per_damage_dealt: 0.0,
             on_damage_taken: 0.0,
             per_damage_taken: 0.0,
+            on_block: 0.0,
             decay_per_second: 0.0,
         }
     }

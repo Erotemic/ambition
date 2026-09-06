@@ -1,11 +1,12 @@
 use super::*;
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
-use ambition_platformer2d::combat::hitbox::ResolvedBodyHit;
+use ambition_platformer2d::combat::hitbox::{BlockedBodyHit, ResolvedBodyHit};
 
 fn app(fill: LimitMeterFill) -> App {
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
     app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.insert_resource(SmashLimitFill(fill));
     {
@@ -27,7 +28,95 @@ fn meter(app: &App, who: Entity) -> f32 {
     app.world().get::<ae::BodyMana>(who).expect("has a meter").meter.current
 }
 
-/// ⭐⭐ ALL FOUR SOURCES EXPRESS, WHICH IS THE RULING RATHER THAN THE NUMBERS.
+/// ⛔⛔ THE SHIPPED BASELINE MUST NOT MAKE GUARDING THE GREEDY PLAY.
+///
+/// ⭐ THE ONE RELATIONSHIP BETWEEN TWO SOURCES THAT IS A RULE RATHER THAN A
+/// NUMBER. Every other field on `LimitMeterFill` is independent by construction
+/// and that independence IS Jon's ruling — but if a block ever paid more than
+/// eating the hit, the maximising play would be to guard and taking damage would
+/// stop being a cost. ⇒ Asserted against the SHIPPED constant, because the way
+/// this breaks is somebody tuning `on_block` up and nothing noticing.
+#[test]
+fn jons_baseline_keeps_guarding_the_safe_option_and_not_the_greedy_one() {
+    let fill = LimitMeterFill::JONS_BASELINE;
+    assert!(
+        fill.guarding_is_the_safe_option(),
+        "a block pays {} and eating the hit pays {} — so a fighter maximises \
+         the Limit by blocking, which inverts the defensive read",
+        fill.on_block,
+        fill.on_damage_taken,
+    );
+    assert!(
+        fill.on_block > 0.0,
+        "the shipped baseline pays nothing for a successful block, so the \
+         source ships turned off and every test below it proves only the road",
+    );
+    assert!(
+        fill.problems().is_empty(),
+        "the shipped baseline is not a legal fill: {:?}",
+        fill.problems(),
+    );
+}
+
+/// ⛔⛔ A BLOCKED STRIKE IS NOT A DAMAGE INSTANCE, WHICH IS WHY THE GAP LASTED.
+///
+/// The campaign's B1 row measured it: `BlockedBodyHit` was read in exactly ONE
+/// place, to arm an `OnBlock` cancel on the ATTACKER. Nothing paid the fighter
+/// whose guard ate the hit — so the hard defensive read had four vocabularies
+/// and the soft one had none.
+///
+/// ⭐ THIS IS THE ARM THAT PROVES IT WAS A GAP AND NOT AN OVERSIGHT IN THE
+/// FIXTURE: the same exchange under the FULL baseline, where every damage source
+/// is non-zero, still moves nothing without `on_block`. A blocked strike writes
+/// no `ResolvedBodyHit`, so `taken()` and `dealt()` are never consulted.
+#[test]
+fn a_block_moves_nothing_at_all_unless_the_block_source_is_authored() {
+    let mut silent = app(LimitMeterFill {
+        on_block: 0.0,
+        per_second: 0.0,
+        ..LimitMeterFill::JONS_BASELINE
+    });
+    let guard = fighter(&mut silent);
+    let poker = fighter(&mut silent);
+    silent.world_mut().write_message(BlockedBodyHit {
+        victim: guard,
+        attacker: Some(poker),
+    });
+    silent.update();
+    assert_eq!(
+        (meter(&silent, guard), meter(&silent, poker)),
+        (0.0, 0.0),
+        "a blocked strike moved a meter through some OTHER source, so this \
+         source is not the thing being measured",
+    );
+}
+
+/// ⭐ THE STRIKER MAY BE UNKNOWN AND THE GUARD STILL ATE IT.
+///
+/// `BlockedBodyHit::attacker` is an `Option` because a hazard has no striker.
+/// A fighter who blocks a stage spike blocked something, and the defender is the
+/// half this road always knows — so the fill must not be gated on the other one.
+#[test]
+fn a_block_with_no_known_striker_still_pays_the_guard() {
+    let mut app = app(LimitMeterFill {
+        cap: 60.0,
+        on_block: 1.0,
+        ..Default::default()
+    });
+    let guard = fighter(&mut app);
+    app.world_mut().write_message(BlockedBodyHit {
+        victim: guard,
+        attacker: None,
+    });
+    app.update();
+    assert!(
+        (meter(&app, guard) - 1.0).abs() < 0.001,
+        "a block with no known striker paid nothing: {}",
+        meter(&app, guard),
+    );
+}
+
+/// ⭐⭐ ALL FIVE SOURCES EXPRESS, WHICH IS THE RULING RATHER THAN THE NUMBERS.
 ///
 /// Jon, 2026-09-05: *"make sure the meter doesn't push future uses of it into a
 /// box"* — so the claim under test is not that his baseline is right, it is that
@@ -109,7 +198,34 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         "a taken-only rule paid the ATTACKER"
     );
 
-    // 4. A MOVE FILLS IT — the "cloud like meter", with every other source zero.
+    // 4. A SUCCESSFUL BLOCK ONLY — the soft defensive read, and the source that
+    //    every other one reads zero for: a blocked strike deals no damage, so it
+    //    writes no `ResolvedBodyHit` at all.
+    let mut blocked = app(only(LimitMeterFill {
+        cap: 60.0,
+        on_block: 1.5,
+        ..Default::default()
+    }));
+    let guard = fighter(&mut blocked);
+    let poker = fighter(&mut blocked);
+    blocked.world_mut().write_message(BlockedBodyHit {
+        victim: guard,
+        attacker: Some(poker),
+    });
+    blocked.update();
+    assert!(
+        (meter(&blocked, guard) - 1.5).abs() < 0.001,
+        "a block-only rule paid the fighter who blocked {}, not 1.5",
+        meter(&blocked, guard),
+    );
+    assert_eq!(
+        meter(&blocked, poker),
+        0.0,
+        "a block-only rule paid the fighter who SWUNG — so throwing attacks into \
+         a shield charges your own meter, which is backwards",
+    );
+
+    // 5. A MOVE FILLS IT — the "cloud like meter", with every other source zero.
     let mut cloud = app(only(LimitMeterFill {
         cap: 60.0,
         ..Default::default()
@@ -309,6 +425,7 @@ fn a_meter_that_arrives_as_a_full_mana_pool_is_not_spendable_when_a_move_is_pric
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
     app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.init_resource::<SeenWhenAMoveIsPriced>();
     app.insert_resource(SmashLimitFill(LimitMeterFill {

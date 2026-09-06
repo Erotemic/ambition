@@ -1352,6 +1352,64 @@ fn a_blocked_hit_publishes_no_resolved_connect_and_a_landed_one_names_its_attack
     );
 }
 
+/// ⭐⭐ A BLOCK SAYS SO ON ITS OWN CHANNEL, and until 2026-09-06 nothing asserted
+/// that it did.
+///
+/// ⛔ THE TEST ABOVE IS NEGATIVE ON BOTH ARMS THAT MATTER HERE — "a blocked
+/// strike publishes no `ResolvedBodyHit`" is equally true of a road that
+/// publishes NOTHING AT ALL, so it cannot tell a working block channel from a
+/// missing one. That distinction became load-bearing the moment a consequence
+/// hung off it: `LimitMeterFill::on_block` pays the fighter whose guard ate the
+/// hit, and it can only pay what this road publishes.
+///
+/// ⚠ AND IT NAMES THE ATTACKER, for the reason the resolved-connect arm above
+/// names one: a defensive consequence that cannot say who it answered is the
+/// same dead end the block road spent a year in.
+#[test]
+fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
+    fn blocked_hits(app: &mut App) -> Vec<ambition_combat::hitbox::BlockedBodyHit> {
+        let world = app.world_mut();
+        let messages =
+            world.resource::<bevy::prelude::Messages<ambition_combat::hitbox::BlockedBodyHit>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).cloned().collect()
+    }
+
+    // ⛔ THE PREMISE FIRST, exactly as the sibling test does it: an UNGUARDED
+    // actor must publish no block, or "the guard published one" proves nothing.
+    let mut app = shield_test_app();
+    let open = spawn_shielding_actor(&mut app, false);
+    let attacker = app.world_mut().spawn_empty().id();
+    let mut hit = slash_at(ae::Vec2::new(14.0, 0.0), 2);
+    hit.attacker = Some(attacker);
+    app.world_mut().write_message(hit.clone());
+    app.update();
+    assert!(
+        blocked_hits(&mut app).is_empty(),
+        "an actor with no guard up published a BLOCK, so the channel is not \
+         reporting the guard at all",
+    );
+
+    let mut app = shield_test_app();
+    let guarded = spawn_shielding_actor(&mut app, true);
+    app.world_mut().write_message(hit);
+    app.update();
+    assert_eq!(
+        actor_hp(&app, guarded),
+        5,
+        "the guard did not block, so this arm is not measuring a block"
+    );
+    let published = blocked_hits(&mut app);
+    assert_eq!(
+        published.len(),
+        1,
+        "a guard ate a strike and the block channel said nothing, so every \
+         consequence hung off a successful block is unreachable: {published:?}",
+    );
+    assert_eq!(published[0].victim, guarded, "{published:?}");
+    assert_eq!(published[0].attacker, Some(attacker), "{published:?}");
+}
+
 // ── §A2 step 6: a struck actor rides the shared knockback resolution ─────────
 
 /// A knockback-carrying hit (an aggressor swing pre-resolved to an actor

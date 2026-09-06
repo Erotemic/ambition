@@ -94,7 +94,7 @@ pub(crate) fn apply_actor_hit(
     // match, not to the world's exploration economy.
     ruleset_owns_death: bool,
     active_combatant: bool,
-    em: &mut super::super::actor_clusters::ActorMut<'_>,
+    em: &mut crate::actor_spawn::actor_clusters::ActorMut<'_>,
     // The body's explicit movement policy, for typed policy operations (the
     // crawler cling-break detach).
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
@@ -175,7 +175,7 @@ pub(crate) fn apply_actor_hit(
         let pos = em.kin.pos;
         let bark_anchor = em.bark_anchor();
         combat.hit_flash = 0.18;
-        combat.damage_invuln_timer = super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
+        combat.damage_invuln_timer = crate::actor_spawn::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
         // the VICTIM's, so both are resolved before the emitter borrows the writers.
@@ -302,10 +302,10 @@ pub(crate) fn apply_actor_hit(
                 // their own multi-hit cadence can say it has no blanket window
                 // — see `DeclaredCombatRules::hit_repeat_window_scale`. An
                 // undeclared world multiplies by `1.0`.
-                damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S
+                damage_invuln_time: crate::actor_spawn::actor_clusters::ACTOR_DAMAGE_IFRAME_S
                     * feel.hit_repeat_window_scale,
                 block_hit_flash: 0.16,
-                block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S
+                block_invuln_floor: crate::actor_spawn::actor_clusters::ACTOR_DAMAGE_IFRAME_S
                     * feel.hit_repeat_window_scale,
                 armor_hitstop_time: 0.070,
             },

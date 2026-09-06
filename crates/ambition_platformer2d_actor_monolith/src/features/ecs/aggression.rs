@@ -33,7 +33,7 @@ pub fn apply_actor_stimuli(
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            super::actor_clusters::ActorClusterQueryData,
+            crate::actor_spawn::actor_clusters::ActorClusterQueryData,
             // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,

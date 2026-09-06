@@ -69,7 +69,7 @@ pub(crate) fn provoked_projection(
     // the POLICY is the provoked one; the BODY is the one that was struck.
     let mut hostile_config = current_config.clone();
     hostile_config.brain_profile = brain_profile;
-    let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+    let (brain, action_set) = crate::actor_spawn::brain_builders::aggressive_brain_and_action_set_for_enemy(
         &hostile_config,
         combat_kit,
         held_item,
@@ -234,7 +234,7 @@ mod tests {
 
         let before = config.clone();
         let proj = provoked_projection(
-            crate::features::ecs::brain_builders::default_provoked_policy(),
+            crate::actor_spawn::brain_builders::default_provoked_policy(),
             &config,
             &CombatKit::default(),
             None,
@@ -252,7 +252,7 @@ mod tests {
         // THE POISON. Without this, deleting the whole projection passes.
         assert_eq!(
             proj.brain_profile,
-            crate::features::ecs::brain_builders::default_provoked_policy(),
+            crate::actor_spawn::brain_builders::default_provoked_policy(),
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );

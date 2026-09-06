@@ -3,7 +3,7 @@
 //! body owns the burst — a possessing human and an AI brain dash identically
 //! because both only set `burst_pressed` (invariants I2/I3).
 use super::*;
-use crate::features::ecs::actor_clusters::SeedActorMut;
+use crate::actor_spawn::actor_clusters::SeedActorMut;
 use ambition_body_seed::{ActorBody, ActorClusterSeed};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_entity_catalog::placements::CharacterBrain;

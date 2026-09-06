@@ -116,20 +116,37 @@ after:   construction  -->  actor_spawn  -->  features  -->  construction
 ⇒ **F1 is complete when `actor_spawn -> features` reaches zero, and that number is
 now the whole of the remaining work.** It stands on six modules:
 
-| module | lines | its own `crate::` refs | note |
+| module | lines | intra-crate refs | state |
 |---|---|---|---|
-| `features/ecs/brain_builders.rs` | 926 | **0** | pure leaf — moves for free |
-| `features/ecs/actors/conversion.rs` | 274 | **0** | pure leaf — moves for free |
-| `features/ecs/spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | near-leaf |
-| `features/ecs/held_items/` | (dir) | — | 3 references, all `HeldItem` |
-| `features/npcs.rs` | 915 | 7, 3 to `features` | drags |
-| `features/ecs/spawn_static.rs` | 697 | 9, 2 to `features` | drags |
+| `ecs/brain_builders.rs` | 926 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/brain_builders.rs` |
+| `ecs/actor_clusters.rs` | 298 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/actor_clusters.rs` |
+| `ecs/actors/conversion.rs` | 274 | 0 `crate::`, **3** `super::` | ✔ MOVED — traded 2 refs for 1 |
+| `ecs/spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | ▢ 3 refs, the next cheap one |
+| `ecs/held_items/` | (dir) | — | ▢ 3 refs, all `HeldItem` |
+| `features/npcs.rs` | 915 | 7, 3 to `features` | ▢ 3 refs, drags |
+| `ecs/spawn_static.rs` | 697 | 9, 2 to `features` | ▢ 1 ref, drags |
+| `ecs/autonomous_reconcile.rs` | — | — | ▢ 1 ref, arrived WITH `conversion` |
 
-⭐ **THREE OF THE SIX MAKE NO INTRA-CRATE REFERENCE AT ALL**, so roughly a third of
-the residual edge is a free move. That is the next agent's cheapest start, and it
-is a measurement rather than a guess.
+⇒ **16 → 13 refs.** `construction -> actor_spawn` is 15 and one-way;
+`features -> actor_spawn` rose 8 → 33, which is the correct direction and is what
+moving three helpers down looks like from above.
 
-⚠ **THE GUARD'S CEILING IS 16 AND IT IS DELIBERATELY NOT ZERO.** A guard asserting
+⛔⛔ **AND THE "THREE PURE LEAVES" CLAIM IN THE FIRST VERSION OF THIS SECTION WAS
+A BAD MEASUREMENT — mine, corrected here rather than quietly.** I counted
+`crate::` paths and called three modules leaf-clean. `conversion.rs` reaches
+`autonomous_reconcile` through `super::super::`, which that count cannot see. **A
+relative path is a reference**; two of the three were genuinely pure and the
+third was worth moving anyway, but the number I published was produced by an
+instrument narrower than the claim.
+
+⭐ **THE DEAD RE-EXPORTS ARE THE EVIDENCE THE INVERSION IS REAL RATHER THAN
+COSMETIC.** `features/mod.rs` and `features/ecs/mod.rs` carried
+`pub(crate) use` lines for the six recipe primitives that existed only so
+`construction` could reach them through `crate::features`. With `construction`
+naming `actor_spawn` directly the compiler reported every one as unused. A carve
+that leaves its shims behind has only moved files.
+
+⚠ **THE GUARD'S CEILING IS 13 AND IT IS DELIBERATELY NOT ZERO.** A guard asserting
 zero would have to be deleted to land the first half, which is how a half-finished
 carve loses its ratchet. The number may fall and may not rise.
 

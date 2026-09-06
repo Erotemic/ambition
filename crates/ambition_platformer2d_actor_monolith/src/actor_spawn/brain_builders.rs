@@ -185,7 +185,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// [`enemy_default_brain`] so cove PirateHeavy variants remain peaceful until
 /// struck; this override gives them the same concrete heavy swing/capability
 /// once the hostility flag is set.
-pub(super) fn aggressive_brain_and_action_set_for_enemy(
+pub(crate) fn aggressive_brain_and_action_set_for_enemy(
     enemy: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&HeldItem>,

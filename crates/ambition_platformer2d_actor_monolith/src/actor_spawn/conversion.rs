@@ -7,6 +7,10 @@
 //! `Brain`/`ActionSet`, and flips `ActorDisposition` (the single source of
 //! truth for hostility — "enemy" is a state, not a class).
 
+// Named rather than inherited: this module used to sit under a `use super::*`
+// that surfaced it from the reusable actor crate.
+use ambition_characters::actor::BodyCombat;
+
 use super::*;
 use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 
@@ -77,12 +81,12 @@ pub fn enemy_component_snapshot(
 fn rebuild_provoked_brain(
     commands: &mut Commands,
     entity: Entity,
-    em: &mut super::super::actor_clusters::ActorMut<'_>,
+    em: &mut super::actor_clusters::ActorMut<'_>,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
     chase: bool,
 ) {
-    let (brain, _) = super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+    let (brain, _) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
         em.config,
         combat_kit,
         held_item,
@@ -112,7 +116,7 @@ fn rebuild_provoked_brain(
 pub(crate) fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
-    em: &mut super::super::actor_clusters::ActorMut<'_>,
+    em: &mut super::actor_clusters::ActorMut<'_>,
     disposition: &mut ActorDisposition,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
@@ -191,8 +195,8 @@ pub(crate) fn provoke_actor_in_place(
         // / brain-spec (an already-hostile actor is NOT re-derived here — that would
         // zero its accumulated fire/footsies/mode cadence every stimulus; escalation
         // that needs a different brain flows through the flip's archetype swap).
-        let proj = super::super::autonomous_reconcile::provoked_projection(
-            super::super::brain_builders::default_provoked_policy(),
+        let proj = crate::features::ecs::autonomous_reconcile::provoked_projection(
+            super::brain_builders::default_provoked_policy(),
             em.config,
             combat_kit,
             held_item,

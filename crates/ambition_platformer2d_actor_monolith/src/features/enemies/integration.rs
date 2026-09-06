@@ -8,7 +8,7 @@
 //! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
 //! from the [`super::CharacterRoster`].
 
-use super::super::ecs::actor_clusters::ActorMut;
+use crate::actor_spawn::actor_clusters::ActorMut;
 use super::*;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::events::{

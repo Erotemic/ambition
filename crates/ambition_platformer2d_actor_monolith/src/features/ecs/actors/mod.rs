@@ -8,7 +8,7 @@
 use super::*;
 
 fn shark_charge_crashed(
-    em: &super::actor_clusters::ActorMut<'_>,
+    em: &crate::actor_spawn::actor_clusters::ActorMut<'_>,
     is_being_ridden: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
@@ -61,12 +61,14 @@ fn shark_charge_crashed_geometry(
         || crashed(charge_vec.y, pos.y, prev_pos.y, vel.y)
 }
 
-pub(crate) mod conversion;
 mod crowd_observation;
 mod limbs;
 mod motion;
 mod update;
-pub use conversion::*;
+// ⛔ MOVED DOWN TO `crate::actor_spawn::conversion` — it made zero `crate::`
+// references, so it was never part of this layer; it was filed beside its first
+// caller. Re-exported here because the actor feature modules are real consumers.
+pub use crate::actor_spawn::conversion::*;
 pub use limbs::*;
 pub use motion::*;
 pub use update::*;

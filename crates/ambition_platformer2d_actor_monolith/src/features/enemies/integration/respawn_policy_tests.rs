@@ -4,7 +4,7 @@
 //! place the old behavior was observable.
 
 use super::*;
-use crate::features::ecs::actor_clusters::SeedActorMut;
+use crate::actor_spawn::actor_clusters::SeedActorMut;
 use ambition_body_seed::ActorClusterSeed;
 use ambition_entity_catalog::placements::{CharacterBrain, RespawnPolicy};
 

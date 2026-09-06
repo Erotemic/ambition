@@ -4,6 +4,20 @@
 //! boss minions, and encounter mobs. Static pickups/chests/breakables live in
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
+// ⭐⭐ TWO LEAVES CAME DOWN WITH THE PRIMITIVES, and they are the free third of
+// F1's residual edge. Measured before moving: `brain_builders.rs` (926 lines) and
+// `conversion.rs` (274) make ZERO `crate::` references between them, so neither
+// was holding the feature layer up — they were simply filed next to their first
+// caller. `conversion` uses `brain_builders`, so they travel as a pair.
+//
+// ⛔ THE TEST OF WHETHER SOMETHING BELONGS HERE IS NOT "the primitives call it".
+// It is "does it name anything above this layer": a helper that needs a
+// construction plan or a feature system belongs where it is and the primitives
+// should stop calling it instead.
+pub(crate) mod actor_clusters;
+pub(crate) mod brain_builders;
+pub(crate) mod conversion;
+
 // ⭐⭐ EVERY DEPENDENCY NAMED, BECAUSE `use super::*` IS WHAT HID THE LAYER.
 // While this file lived under `features::ecs` it inherited that module's whole
 // scope, so nothing in it announced which parts of the feature layer it actually
@@ -11,9 +25,7 @@
 // The list below IS the argument: these are spawn primitives, and what they
 // reach for is bundles, brains and component snapshots, never a construction
 // plan, a receipt or a request builder.
-use crate::features::ecs::actors::conversion::enemy_component_snapshot;
 use crate::features::ecs::boss_component_snapshot;
-use crate::features::ecs::brain_builders::enemy_default_brain;
 use crate::features::ecs::HeldItem;
 use crate::features::{EnemyActorBundle, FeatureBaseBundle};
 use ambition_platformer2d_core as ae;
@@ -383,7 +395,7 @@ impl EnemyActorSpawnPlan {
         feature_aabb: CenteredAabb,
         enemy: ambition_body_seed::ActorClusterSeed,
     ) -> Self {
-        let brain = enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
+        let brain = self::brain_builders::enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
         // A CHARACTER-FIRST BODY HAS NO ARCHETYPE TO ASK — and as of AC6 there is no other kind
         // of body. The kit that actually reaches such a body arrives from
         // `grant_prepared_character_body` moments later, so nothing at all is both the honest
@@ -457,7 +469,7 @@ impl EnemyActorSpawnPlan {
     ) {
         let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
-        let (identity, disposition, combat) = enemy_component_snapshot(&self.enemy);
+        let (identity, disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         let entity = commands
             .insert_session_scoped(
@@ -628,7 +640,7 @@ impl NpcActorSpawnPlan {
             // have nothing to swing — the same gap Smash's generic fighter floor
             // filled for a seat whose character stated no repertoire, and the
             // reason both are one concept.
-            None => crate::features::ecs::brain_builders::default_fighting_kit(),
+            None => self::brain_builders::default_fighting_kit(),
         };
         let (mut seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
@@ -726,7 +738,7 @@ impl NpcActorSpawnPlan {
             interactable: self.interactable,
             talk_radius: crate::features::npcs::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, combat) = crate::features::ecs::actors::actor_component_snapshot(
+        let (identity, disposition, combat) = self::conversion::actor_component_snapshot(
             &self.seed,
             ambition_combat::components::ActorDisposition::Peaceful,
         );

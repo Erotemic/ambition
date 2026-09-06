@@ -42,7 +42,7 @@ pub fn sync_ecs_actors_with_save(
             // Talkable actors (NPCs) carry the interaction payload + a persisted
             // `npc_<id>_hostile` provoke flag.
             Option<&ActorInteraction>,
-            super::actor_clusters::ActorClusterQueryData,
+            crate::actor_spawn::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
             // WHICH CHARACTER THIS BODY IS — gameplay identity, not the

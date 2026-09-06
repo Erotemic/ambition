@@ -1633,11 +1633,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // `component-canonical`), which is exactly the split the entry below draws.
     (
         "ambition_platformer2d_actor_monolith::avatar::systems::PlayerManaRegen",
-        "the composition's mana refill rate: inserted once at plugin build, never written by a system; the meter it fills (BodyMana) is registered component-canonical",
+        "the composition's mana refill rate: ROUTE-SCOPED — the smash ruleset declares it on entering its stage and gives the prior owner's value back on leaving, from a system in `Update` and never inside the rollback schedule; the meter it fills (BodyMana) is registered component-canonical",
     ),
     (
         "ambition_demo_smash::limit::SmashLimitFill",
-        "authored fill rules inserted once at plugin build and never written by a system; the charge it seeds (BodyMana) is registered component-canonical",
+        "authored fill rules, ROUTE-SCOPED for the same reason the mana rate above is: inserted on entering the smash stage and given back on leaving, from a system in `Update` outside the rollback schedule. ⛔ It was inserted at PLUGIN BUILD until 2026-09-06, which meant the two systems reading it walked every `BodyMana` in whatever app composed the ruleset. The charge it seeds (BodyMana) is registered component-canonical",
     ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),

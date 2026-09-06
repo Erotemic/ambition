@@ -1054,9 +1054,15 @@ pub struct Tip {
 /// # Panics
 ///
 /// If the move has no Active volume to be the base; if the tip does not reach
-/// FURTHER than the base (a sweetspot inside the sourspot is unreachable, since
-/// anything the tip covers the base covers too); or if it does not hit HARDER
-/// (a tipper whose tip is weaker is a sourspot with extra steps).
+/// FURTHER than the base; or if it does not hit HARDER (a tipper whose tip is
+/// weaker is a sourspot with extra steps).
+///
+/// ⚠ THE REACH RULE IS ABOUT THE NAME, NOT ABOUT REACHABILITY, and the first
+/// version of this doc said the opposite. A tip the base entirely contains is
+/// NOT unreachable: rank 0 is never outranked, so it wins wherever it reaches.
+/// What it is not is a TIP. A sweetspot at the hilt is a real mechanic and a
+/// different one; it should be authored on its own terms rather than through a
+/// helper whose name promises the far end.
 pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
     let id = m.id.clone();
     let window = m
@@ -1072,8 +1078,9 @@ pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
     assert!(
         tip_edge > base_edge,
         "move `{id}` authors a tip reaching {tip_edge}px and a base reaching \
-         {base_edge}px — a sweetspot the sourspot entirely contains can never be \
-         the only volume that reaches, so it would never be felt",
+         {base_edge}px. The tip WOULD still be felt — rank 0 is never outranked \
+         — but it would not be a TIP, and this helper's name promises the far \
+         end. Author a sweetspot elsewhere on its own terms.",
     );
     assert!(
         tip.damage > base.damage || tip.knockback > base.knockback,

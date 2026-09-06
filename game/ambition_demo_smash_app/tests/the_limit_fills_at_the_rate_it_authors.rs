@@ -355,6 +355,20 @@ fn leaving_the_stage_restores_another_owners_portal_config() {
          there. Restoring a default is not restoring: a developer-selected \
          configuration is still destroyed, just less visibly."
     );
+    // ⛔⛔ AND THE LIMIT RULE MUST GO WITH IT, which nothing checked until a
+    // poison walked out of this test unharmed. Removing the give-back branch for
+    // `SmashLimitFill` failed NO test: the "declares nothing" arm asks an app
+    // that never entered the stage, so it cannot see a rule that was declared
+    // and then left standing. ⇒ A pair of arms for arrival is not a pair for
+    // DEPARTURE, and a resource whose readers walk every `BodyMana` is exactly
+    // the one that must not outlive the mode.
+    assert!(
+        app.world()
+            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
+            .is_none(),
+        "leaving Smash left its Limit rule standing, so every body in the binary \
+         keeps getting its mana re-capped and emptied by a mode nobody is in."
+    );
 }
 
 /// ⛔⛔ WHAT SMASH DECLARES, SMASH GIVES BACK — and composing it declares nothing.
@@ -390,6 +404,20 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
          Ambition IS the portal game and would draw Smash's cones because Smash \
          happens to be linked."
     );
+    // ⛔⛔ AND THE THIRD ONE, WHICH REACHED FURTHER THAN EITHER. `SmashLimitFill`
+    // was inserted at PLUGIN BUILD, and the two systems that read it walk every
+    // `BodyMana` in the composing app — so Ambition's own player had its mana
+    // pool re-capped to the Limit's cap and emptied, by a rule for a mode it was
+    // not in. ⇒ Same lifetime error as the two above, one layer deeper: those
+    // changed how something LOOKS, this changed what a body HAS.
+    assert!(
+        app.world()
+            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
+            .is_none(),
+        "composing Smash declared its Limit rule for the whole process, so every \
+         body in the binary gets its mana re-capped and emptied by a mode it \
+         never enters."
+    );
 }
 
 /// ⛔ AND ON THE STAGE IT IS DECLARED. Without this arm the one above is
@@ -418,5 +446,15 @@ fn the_stage_declares_the_rulesets_own_answers() {
         Some(ambition_platformer2d::portal_presentation::PortalViewConeMode::Static),
         "on the Smash stage the cone is {cone:?}. `Dynamic` is the engine default \
          and means a viewer-dependent window, which is undefined with two seats."
+    );
+    // The paired arm for the Limit: absent off-stage is only meaningful if it is
+    // PRESENT here, or "nothing declared" would be satisfied by a rule that was
+    // never declared at all.
+    assert!(
+        app.world()
+            .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
+            .is_some(),
+        "on the Smash stage the ruleset does not declare its Limit rule, so the \
+         meter never fills and the move priced at the cap is unreachable"
     );
 }

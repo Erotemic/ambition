@@ -1017,9 +1017,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // sure the meter doesn't push future uses of it into a box."* A mechanic
         // that wants a pure clock, or damage only, or a move that charges it,
         // authors that one and gets nothing else.
-        app.insert_resource(crate::limit::SmashLimitFill(
-            ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE,
-        ));
+        // ⛔⛤ NOT INSERTED HERE ANY MORE — see
+        // `the_stage_declares_smashs_presentation_and_gives_it_back`. A rule
+        // inserted at plugin build reaches every body in the COMPOSING app, and
+        // `ambition_app` installs this plugin: Ambition's own player had its mana
+        // re-capped and emptied by the smash Limit rule while playing Ambition.
+        // The stage declares it and gives it back, like the portal cone beside
+        // it.
         // ⛔⛔ THE TWO HALVES OF THE LIMIT SIT IN DIFFERENT PHASES, AND THE SPLIT
         // IS THE WHOLE CORRECTNESS ARGUMENT — this was one chained pair in
         // `ContentSpecials` and it broke rollback determinism outright.
@@ -2357,6 +2361,14 @@ struct SmashPresentationPrior {
     mana: Option<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
     transit: Option<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
+    /// ⛔ THE LIMIT RULE IS STAGE STATE TOO, and it was the third instance in one
+    /// day of smash plugin state reaching the composing app. Inserted at plugin
+    /// BUILD, `fill_limit_meters` and `adopt_the_limit_cap` walk every
+    /// `BodyMana` in whatever app installed the ruleset — so Ambition's own
+    /// player had its mana pool re-capped and emptied by a rule for a mode it
+    /// was not in. Jon's `99ab15e32` and this morning's `PlayerManaRegen` were
+    /// the other two; three fixes and no guard is how a shape survives.
+    limit: Option<crate::limit::SmashLimitFill>,
 }
 
 /// Smash's presentation and meter policy, for as long as Smash is on the stage.
@@ -2385,6 +2397,7 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
     cone: Option<bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalViewConeConfig>>,
+    limit: Option<bevy::prelude::Res<crate::limit::SmashLimitFill>>,
 ) {
     use ambition_platformer2d::portal_presentation as portal_view;
 
@@ -2399,7 +2412,11 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             mana: mana.map(|r| *r),
             transit: transit.map(|r| *r),
             cone: cone.map(|r| r.clone()),
+            limit: limit.map(|r| *r),
         });
+        commands.insert_resource(crate::limit::SmashLimitFill(
+            ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE,
+        ));
         commands.insert_resource(
             ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0),
         );
@@ -2427,6 +2444,10 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         match prior.cone {
             Some(value) => commands.insert_resource(value),
             None => commands.remove_resource::<portal_view::PortalViewConeConfig>(),
+        }
+        match prior.limit {
+            Some(value) => commands.insert_resource(value),
+            None => commands.remove_resource::<crate::limit::SmashLimitFill>(),
         }
         commands.remove_resource::<SmashPresentationPrior>();
     }

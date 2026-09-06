@@ -237,10 +237,12 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     let neutral_special = ambition_characters::moveset_authoring::tipper(
         neutral_special,
         ambition_characters::moveset_authoring::Tip {
-            // The far 28px of the thrust: it reaches 80px where the base reaches
-            // 76, so there is a band only the tip covers — which is the whole
-            // move. A tip the base contains could never be the only volume that
-            // reaches, and the helper refuses one.
+            // The far 28px of the thrust, reaching 80px where the base reaches
+            // 76. ⭐ THE SWEETSPOT IS THE TIP'S WHOLE 28px, not the 4px the base
+            // misses: the tip is authored FIRST, and the strike seam takes the
+            // first volume that reaches, so anywhere the tip covers is a tip
+            // hit. The 4px band is only what makes it a TIP rather than a
+            // sweetspot somewhere else.
             offset: (66.0, -3.0),
             half_extents: (14.0, 10.0),
             // ⛔ ENGINE-UNIT LAUNCH, like the `Strike` above it and NOT like a

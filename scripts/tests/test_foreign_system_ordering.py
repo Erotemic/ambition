@@ -57,8 +57,8 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 # ruleset was naming the function because there was nothing else to name — the
 # system belonged to no published set — which is the shape of most of what is
 # left here.
-CAPABILITY_ORDERING_CEILING = 7
-TOTAL_ORDERING_CEILING = 79
+CAPABILITY_ORDERING_CEILING = 6
+TOTAL_ORDERING_CEILING = 78
 
 
 def _module():

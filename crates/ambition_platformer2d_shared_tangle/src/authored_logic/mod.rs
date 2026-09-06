@@ -164,7 +164,15 @@ pub enum ParamKind {
     ///    kind was named for.
     /// 3. **UNEXAMINED** — `encounter.cleared` alone. It reads a save whose
     ///    accessor reconstructs ANY string as an "untouched" row and does not
-    ///    say which of (1) or (2) it intends.
+    ///    say which of (1) or (2) it intends. ⚠ **And it has no authored callers
+    ///    to protect: measured 2026-09-06, zero by every road** — no Yarn alias
+    ///    is registered for it, no `gated_by` names it (there are exactly two
+    ///    authored `gated_by` rows tree-wide, both `intro.ldtk` LockWalls, both
+    ///    `bob_field_survey_received`), and no authored condition line mentions
+    ///    it. ⇒ A guard modelled on the boss one would certify the empty set, so
+    ///    the honest reason this is unexamined is that **nobody has typed a
+    ///    misspelling yet** — not that the question was dodged. It becomes a real
+    ///    question the day the first author writes one.
     ///
     /// ⚠ **`boss.cleared` BELONGS IN (2) AND I FILED IT WRONG — twice in one
     /// day, on the same condition.** It is the worked example of this whole

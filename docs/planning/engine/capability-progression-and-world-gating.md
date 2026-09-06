@@ -102,7 +102,12 @@
 > (`platformer2d_ldtk/src/conversion/entity_converters.rs:64` →
 > `platformer2d_world/src/rooms/specs.rs:202`), and across all five authored
 > worlds it is set exactly **twice**, both in `intro.ldtk`, both to the same
-> value — `"bob_field_survey_received"`, a story flag. So widening the field
+> value — `"bob_field_survey_received"`, a story flag. (✔ RE-DERIVED against HEAD
+> 2026-09-06: the two rows are the `alice_relay` and `gate_stack_lower`
+> `LockWall`s. ⚠ My first count said ONE, because the extractor collected
+> `(file, entity, value)` into a SET and two identical rows in one file collapse
+> — a de-duplicating census cannot count repetitions, which is the only thing
+> this row is about.) So widening the field
 > costs either a two-row edit or a "bare string still means `flag_set`"
 > fallback, and either is small. ⚠ I did not check what the LDtk *editor* needs
 > to define a second field, which is the remaining unknown.

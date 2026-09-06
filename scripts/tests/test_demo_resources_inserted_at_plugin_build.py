@@ -119,3 +119,32 @@ def test_a_demo_that_inserts_nothing_is_reported_as_zero_not_omitted(capsys) -> 
     module = _module()
     assert module.main() == 0
     assert "ambition_demo_pocket: 0" in capsys.readouterr().out
+
+
+def test_a_new_overwriting_insert_fails_even_though_the_floor_stays_green() -> None:
+    """⭐⭐ THE DIRECTION A FLOOR CANNOT SEE. The membership floor catches a demo
+    DISAPPEARING from the sweep; it is structurally blind to a demo ADDING an
+    overwriting insert of a foreign type — the shape behind three separate bugs in
+    one day. The report printed such a line and the run still exited 0.
+
+    ⚠ The ceiling is a COUNT and never an allowlist of names: a name list is an
+    amnesty, where silencing a real one becomes adding a row that reads as
+    housekeeping.
+    """
+    module = _module()
+    real = module.inserted_at_build
+    try:
+        module.inserted_at_build = lambda: {
+            **real(),
+            "ambition_demo_twintrack": real().get("ambition_demo_twintrack", [])
+            + [("lib.rs", "SomeEngineThing  ⚠ OVERWRITING insert of a foreign type")],
+        }
+        assert module.main() == 1
+    finally:
+        module.inserted_at_build = real
+
+
+def test_the_ceiling_is_a_number_and_not_a_list_of_names() -> None:
+    """A guard whose exemption is a NAME can be silenced by adding a name."""
+    module = _module()
+    assert isinstance(module.MAX_OVERWRITING_FOREIGN_INSERTS, int)

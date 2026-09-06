@@ -67,6 +67,20 @@ INSERT = re.compile(r"(?:init_resource::<|insert_resource\()\s*([A-Za-z_][\w:]*)
 #: `BUILD`, so a bug in the signature regex cannot cancel on both sides.
 PLUGIN_IMPL = re.compile(r"impl\s+(?:[\w:]+\s*)?Plugin\s+for\b")
 MIN_DEMOS = 3
+#: ⭐⭐ A CEILING, BECAUSE A FLOOR IS BLIND TO THE DIRECTION THAT GETS WORSE.
+#: The membership floor catches a demo DISAPPEARING from the sweep. It is
+#: structurally blind to a demo ADDING an overwriting insert of a foreign type --
+#: the very shape behind Jon's `99ab15e32`, the `PlayerManaRegen` bug and the
+#: `SmashLimitFill` one. A new one would print in the report and still exit 0.
+#: ⚠ A COUNT AND NEVER AN ALLOWLIST OF NAMES. A name list is an amnesty: the way
+#: to silence a real one becomes adding a row, and the diff reads as housekeeping.
+#: A ceiling can only be raised deliberately, with a reason, in a commit.
+#: ⚠ Today's one is `ambition_demo_smash` inserting `ambition_combat`'s
+#: `RespawnInterval` -- a per-MATCH knob whose own doc says no shipped room
+#: carries both it and `DeathRules`, so smash is the sole production owner.
+#: (Formulation from the fighter lane, which hit the same blindness the same day:
+#: a floor catches a mechanic being REMOVED and cannot see a plain one ADDED.)
+MAX_OVERWRITING_FOREIGN_INSERTS = 1
 
 
 def body_of(src: str, start: int) -> str:
@@ -164,6 +178,27 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    overwriting = [
+        f"{crate}/{name}"
+        for crate, hits in found.items()
+        for _f, name in hits
+        if "OVERWRITING" in name
+    ]
+    if len(overwriting) > MAX_OVERWRITING_FOREIGN_INSERTS:
+        print(
+            f"FAIL: {len(overwriting)} overwriting insert(s) of a foreign type at "
+            f"plugin build, ceiling {MAX_OVERWRITING_FOREIGN_INSERTS}:\n    "
+            + "\n    ".join(sorted(overwriting))
+            + "\n  `insert_resource` REPLACES whatever another plugin put there, and a"
+            "\n  plugin's `build` cannot be gated by `run_if` -- this is the shape behind"
+            "\n  three separate bugs on 2026-09-06.\n"
+            "  ⇒ Route-scope it (declare on arrival, give the prior value back on"
+            " leaving),\n  or use `init_resource` if the demo only needs it to EXIST."
+            "\n  ⚠ Raising this ceiling is a decision: say why in the commit.",
+            file=sys.stderr,
+        )
+        return 1
+
     total = sum(len(v) for v in found.values())
     print(f"resources inserted at demo PLUGIN BUILD: {total} across {len(found)} demos")
     for crate, hits in sorted(found.items(), key=lambda kv: -len(kv[1])):

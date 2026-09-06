@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import tempfile
 import re
 import subprocess
 import sys
@@ -42,6 +43,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 # External waiters read this state file; process-name polling can match the waiter itself.
 STATUS_NAME = "run_tests_status.json"
+#: Set for every child process a run spawns, so a `run_tests.py` started
+#: INSIDE a job can tell it is nested and must not overwrite the shared
+#: status file. The value is the OUTER run's pid, so the outer run itself
+#: still recognises the variable as its own.
+NESTED_ENV = "AMBITION_RUN_TESTS_OUTER_PID"
 # Share the repository disk-headroom policy rather than duplicating it in this runner.
 from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 
@@ -881,6 +887,9 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
     tests" under either.
     """
     executed: float | None = None
+    # ⭐ EVERY CHILD LEARNS IT IS INSIDE A RUN. A `run_tests.py` started by a job
+    # reads this and writes its status somewhere private instead of over ours.
+    env = {**env, NESTED_ENV: str(os.getpid())}
     proc = subprocess.Popen(
         job.argv,
         cwd=job.cwd or REPO,
@@ -1266,7 +1275,30 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         )
         return 1
 
-    status = Path(status_json) if status_json else REPO / "target" / STATUS_NAME
+    # ⛔⛔ A NESTED RUN MUST NOT NARRATE THE OUTER ONE. `scripts/tests` shells out
+    # to this script, and the repo-tooling job runs those tests -- so an inner run
+    # used to overwrite `target/run_tests_status.json` DURING the outer run's very
+    # first job. A poller then read `{"jobs": 1, "state": "done"}` while a six-job
+    # lane was mid-flight, and the outer run silently corrected it moments later.
+    # ⚠ THE WINDOW IS WHAT MAKES IT DANGEROUS: the bad value is transient, so a
+    # reader either side of it sees nothing wrong, and it lies in the GREEN
+    # direction -- a waiter fires early and reports a lane that never finished.
+    # Found by the fighter lane polling this file during its own `--rust` run.
+    #
+    # ⭐ FIXED HERE RATHER THAN AT THE CALL SITES. One test already passed
+    # `--status-json` to a tmp path, so the hazard was known and handled ONCE
+    # while every other caller inherited the default -- a constraint filed on the
+    # first case that suffered it. Making the DEFAULT safe means a new test cannot
+    # reintroduce it by simply not knowing.
+    # ⚠ An EXPLICIT `--status-json` is always honoured: a caller that asks for a
+    # path has said where it wants the narration.
+    nested = os.environ.get(NESTED_ENV) not in (None, str(os.getpid()))
+    if status_json:
+        status = Path(status_json)
+    elif nested:
+        status = Path(tempfile.gettempdir()) / f"run_tests_status.nested.{os.getpid()}.json"
+    else:
+        status = REPO / "target" / STATUS_NAME
     results: list[JobResult] = []
     # `free_gb` travels in the status file so a long autonomous run can WATCH
     # the headroom fall instead of discovering it at zero.

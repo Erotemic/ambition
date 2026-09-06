@@ -66,12 +66,26 @@ pub fn drive_the_local_participant(app: &mut App) {
             // Ordering against a system nobody composed is a silent no-op; ordering against
             // `PrimarySlotInputCommit` is the same guarantee on every host, which is why the
             // boundary is a set.
-            .before(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit)
-            // Both edges are stated; each is vacuous exactly where the other applies.
-            .before(ambition_platformer2d_runtime::host_input::commit_seat_raw_frames)
-            .before(
-                ambition_platformer2d_runtime::host_input::publish_seat_controls_when_nobody_else_does,
-            ),
+            //
+            // ⛔⛔ ~~Both edges are stated; each is vacuous exactly where the other
+            // applies.~~ THE TWO SYSTEM EDGES ARE GONE, AND THE BELT-AND-BRACES
+            // READING WAS MEASURED RATHER THAN ARGUED. Both named systems are
+            // installed INTO this set in production — `commit_seat_raw_frames` by
+            // `ambition_platformer2d_host` and
+            // `publish_seat_controls_when_nobody_else_does` by the runtime's
+            // player schedule — so the set edge already covers every production
+            // composition.
+            //
+            // ⚠ AND THE ONE FIXTURE THAT COMPOSES EITHER SYSTEM WITHOUT THE SET
+            // DOES NOT INSTALL THIS ONE. `avatar/systems/tests.rs` names
+            // `publish_seat_controls_when_nobody_else_does` and has zero
+            // references to `write_scripted_controls`, `ScriptedControls` or
+            // `drive_the_local_participant` — so the edge was vacuous there too,
+            // not protective. A peer read the same rows and reached the opposite
+            // conclusion from the target's registration alone; what settles it is
+            // whether the ORDERED-FROM system is present, which is a different
+            // question and the one that matters.
+            .before(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
     );
     // `Last`, and it reads the SLOT TABLE. The observation has to come
     // from the far side of the pipeline or it would only be restating the write

@@ -252,7 +252,18 @@ impl Plugin for CombatSchedulePlugin {
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
-                    ambition_platformer2d_actor_monolith::features::apply_summon_effects.in_set(GameplayGated),
+                    // ⭐⭐ IN `EffectExecutionSet`, NOT MERELY CHAINED AFTER ITS
+                    // OTHER MEMBER. It was chained after `apply_effects` without
+                    // being in the set, so `ContentSpecials.before(EffectExecutionSet)`
+                    // implied NOTHING about it — and `ambition_demo_smash` had to
+                    // write `.before(...apply_summon_effects)` by hand, a ruleset
+                    // naming an engine system because the phase did not cover the
+                    // thing it obviously meant. A summon executor IS an effect
+                    // executor; saying so is what lets a consumer order against
+                    // the phase.
+                    ambition_platformer2d_actor_monolith::features::apply_summon_effects
+                        .in_set(ambition_combat::strike::EffectExecutionSet)
+                        .in_set(GameplayGated),
                 )
                     .chain(),
                 // Immediate projectile materializer: actor/item/boss fire above

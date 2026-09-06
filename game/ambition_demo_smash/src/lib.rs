@@ -1237,14 +1237,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             crate::shark_ride::translate_shark_summons
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
-                // ⛔⛔ AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY.
-                // `ContentSpecials.before(EffectExecutionSet)` orders this ahead
-                // of `apply_effects`, and `apply_summon_effects` is CHAINED
-                // after that system without being IN the set — so the summon
-                // executor inherited no order from the phase at all. Measured,
-                // not reasoned: with the set alone the executor ran every tick
-                // and read zero requests, and the shark never appeared.
-                .before(ambition_platformer2d::actors::features::apply_summon_effects),
+                // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
+                // THE SET IMPLIES IT NOW, AND THE FIX WAS IN THE ENGINE RATHER
+                // THAN HERE. `apply_summon_effects` was CHAINED after
+                // `apply_effects` without being IN `EffectExecutionSet`, so the
+                // summon executor inherited no order from the phase and this
+                // ruleset had to name an engine system by hand to get one. The
+                // runtime installs it into the set now, so
+                // `ContentSpecials.before(EffectExecutionSet)` covers it and the
+                // membership above is the whole ordering.
+                //
+                // ⚠ THE ORIGINAL MEASUREMENT STILL STANDS AND IS WHY THIS IS NOT
+                // A TIDY-UP: with the set alone the executor ran every tick and
+                // read zero requests, and the shark never appeared. What changed
+                // is that the phase now MEANS what that measurement assumed.
         );
         // THE BOMB. Recognised where the shark's summon is, for the same reason
         // — both are authored techniques dispatched as `ActorActionMessage` —

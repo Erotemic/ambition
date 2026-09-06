@@ -38,14 +38,27 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 
 #  measured 2026-09-06. Both may fall; neither may rise.
 #
+# ⭐ 15 -> 10 AND 87 -> 82 IN THREE STEPS, AND ONLY TWO OF THEM WERE FIXES:
+#   · the dismount worked example (below) — 15 -> 13;
+#   · `apply_summon_effects` joining `EffectExecutionSet` — 13 -> 12;
+#   · a peer's dormancy fix — the set was already published and unused;
+#   · the two `scripted_input.rs` edges, redundant with a set edge already
+#     beside them — 9 -> 7;
+#   · ⛔ and a MEASUREMENT correction, 12 -> 10: `#![cfg(test)]` is a FILE-level
+#     gate, invisible both to a filename heuristic and to the inline-`mod`
+#     stripper, so `features/ecs/fighter_harness.rs` was counted as production
+#     and contributed two false violations. Exactly one file in the tree carries
+#     that attribute, which is why it hid — a rule with a single instance is one
+#     nobody trips over until it matters.
+#
 # ⭐ 15 -> 13 AND 87 -> 85 BY THE WORKED EXAMPLE: `ambition_mount` now publishes
 # `DismountRequestsApplied`, the runtime installs `apply_dismount_requests` into
 # it, and `ambition_demo_smash`'s two shark-ride orderings name the SET. The
 # ruleset was naming the function because there was nothing else to name — the
 # system belonged to no published set — which is the shape of most of what is
 # left here.
-CAPABILITY_ORDERING_CEILING = 13
-TOTAL_ORDERING_CEILING = 85
+CAPABILITY_ORDERING_CEILING = 7
+TOTAL_ORDERING_CEILING = 79
 
 
 def _module():

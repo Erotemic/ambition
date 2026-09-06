@@ -114,7 +114,16 @@ def main() -> int:
         print(
             "cannot check: the ambition_sprite2d_renderer package is not importable.\n"
             "  This is NOT a pass -- the gauntlet declarations went unexamined.\n"
-            "  fix: git submodule update --init tools/ambition_sprite2d_renderer",
+            "  ⇒ If the submodule directory is EMPTY, it is not checked out:\n"
+            "       git submodule update --init tools/ambition_sprite2d_renderer\n"
+            "  ⛔⛔ IF IT IS POPULATED, DO NOT RUN THAT COMMAND BLIND. A checkout\n"
+            "  BEHIND or DIVERGENT from the pin gives this same answer, and\n"
+            "  `submodule update` would move it -- ORPHANING any commit that\n"
+            "  exists only there. Live hazard on THIS submodule, not a\n"
+            "  hypothetical: see Q65 in `awaiting-maintainer-decision.md`.\n"
+            "  Check first, and let a maintainer reconcile it:\n"
+            "       git -C tools/ambition_sprite2d_renderer log origin/main..HEAD\n"
+            "       git -C tools/ambition_sprite2d_renderer merge-base HEAD <pin>",
             file=sys.stderr,
         )
         return 3

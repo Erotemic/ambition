@@ -762,3 +762,40 @@ body-naming components, counting `SlashVisual { owner }` twice. One of those two
 is a FUNCTION PARAMETER (`fn spawn_one(.., owner: Entity, ..)`). Five components
 draw a body; the sixth name, `PortalCaptureParallaxLayerVisual`, is a portal rig's
 parallax layer and is excluded after reading it.
+
+## ◐ A NON-SPRITE portal dependant still takes a WHOLE-DRAWABLE hide — the deeper half of the 2026-09-06 HIGH (`82af28e25` closed the rest)
+
+A GPT review found `resolve_portal_source_visibility`'s dependant pass forcing
+`Visibility::Hidden` onto every `PresentationOf(body)` drawable with no claim and
+no release. ✔ **Closed**: `PortalDependantHidden` is the claim and the release
+RESTORES (the opposite of the body branch, and for the reason that branch gives —
+a body always has a per-frame visibility owner, a dependant may have none). ✔ Also
+closed: an unparented **sprite** dependant now skips the fallback entirely, because
+`publish_portal_compositing_candidates` already admits `PresentationOf` drawables
+and classifies them from their own bounds.
+
+⛔ **WHAT REMAINS: the hit-flash `Mesh2d` is not a compositing candidate**, so when
+its owner is far-side it takes a whole-drawable hide rather than losing only the
+pixels behind the pane. The latch is gone; the clipping is still scalar.
+
+⭐ **THE ROUTE IS ALREADY DESIGNED, and by this crate's own admission.**
+`clip_material.rs`'s docstring says its "quad + atlas-frame UV mapping follows the
+hit-flash overlay pattern (`ambition_render::rendering::hit_flash`), the
+established way to draw 'the sprite's current frame' as a mesh." ⇒ The portal clip
+material was MODELLED ON the hit flash. Both are `Material2d` quads over the
+sprite's current atlas frame, so giving `HitFlashMaterial` the same world-space
+clip half-plane uniform is the symmetric change, not a new mechanism.
+
+⚠ **WHAT MAKES IT A REAL PIECE OF WORK RATHER THAN A UNIFORM**: the pane plane has
+to reach the hit-flash overlay (it is published for candidates, not for arbitrary
+meshes), and a body straddling a pair needs TWO flash pieces the way a transiting
+body needs two sprite slices — so the overlay stops being "one sibling mesh per
+character sprite", which is the sentence its module opens with.
+
+⇒ Acceptance for whoever takes it, from the review: an active far-side hit flash
+loses only its pane-overlapping pixels; the actor returns near-side and flashes
+again with no manual visibility repair (**already guarded** —
+`a_drawable_that_names_a_hidden_body_is_hidden_with_it`); a long flyline disjoint
+from the pane stays visible while its body overlaps (**already guarded** —
+`a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner`); morph ball
+and the two-visible-portals poison stay correct.

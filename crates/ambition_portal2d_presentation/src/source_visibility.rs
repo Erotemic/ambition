@@ -43,6 +43,25 @@ pub struct PortalTransitHidden;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct PortalSourceHidden;
 
+/// Bookkeeping for a DEPENDANT drawable, and a separate marker from
+/// [`PortalSourceHidden`] for two reasons.
+///
+/// ⛔⛔ IT MUST NOT JOIN THE `bodies` QUERY'S FILTER. That query takes
+/// `&mut Visibility` over exactly the entities carrying a body marker; a
+/// dependant carrying one too would be matched by both queries and Bevy refuses
+/// the system (B0001). A fourth, dependant-only marker keeps the two populations
+/// disjoint by construction.
+///
+/// ⭐ AND THE RELEASE IS NOT THE SAME AS A BODY'S. When the portal drops a claim
+/// on a BODY it asserts no value, because every body it reaches has a per-frame
+/// visibility owner that will write the right answer anyway. **A dependant may
+/// have no such owner** — the hit-flash overlay's update path says "Visibility
+/// stays `Visible` permanently" and only moves its transform, so a dropped claim
+/// with no assertion leaves it hidden forever. This marker is what makes
+/// restoring safe: the resolver restores ONLY what it took away.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct PortalDependantHidden;
+
 /// Resolve every hide reason into the one `Visibility` write.
 ///
 /// Runs after every system that states a reason; the ordering edges are declared
@@ -82,6 +101,14 @@ pub fn resolve_portal_source_visibility(
         (
             Entity,
             &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
+            Has<PortalDependantHidden>,
+            // ⭐ CAN THE COMPOSITOR SEE THIS DRAWABLE ITSELF? Its candidate
+            // publisher takes `&Sprite` + `&Transform` with `Without<ChildOf>`
+            // and now admits `PresentationOf` drawables — so an unparented sprite
+            // dependant is classified FROM ITS OWN GEOMETRY and needs no help
+            // from its owner's answer.
+            Has<Sprite>,
+            Has<ChildOf>,
         ),
         Without<PortalSourceHidden>,
     >,
@@ -159,14 +186,52 @@ pub fn resolve_portal_source_visibility(
     // a body are touched, and only while that body is portal-hidden -- a
     // dependant with its own portal reason is excluded by the query, because
     // then it is a source in its own right and the loop above owns it.
-    for (drawable, owner) in &dependants {
-        if !hidden_bodies.contains(&owner.0) {
+    for (drawable, owner, we_hid_it, has_sprite, is_parented) in &dependants {
+        // ⛔⛔ A DEPENDANT THE COMPOSITOR CAN CLASSIFY ANSWERS FOR ITSELF, and
+        // copying its owner's scalar answer onto it is geometrically WRONG.
+        // A tether line whose own pixels are nowhere near the pane was hidden
+        // wholesale because the BODY it names overlaps one — body ownership
+        // silently became compositing authority. An unparented sprite is exactly
+        // the population `publish_portal_compositing_candidates` evaluates, so
+        // its own bounds already decide, and a dependant that IS far-side gets
+        // its own reason and never reaches this loop at all.
+        // ⚠ `is_parented` is not pedantry: the publisher requires
+        // `Without<ChildOf>` because it substitutes the LOCAL transform for the
+        // world one. A parented sprite is not a candidate, so it still needs the
+        // fallback below.
+        if has_sprite && !is_parented {
             continue;
         }
-        if let Ok(mut visibility) = dependant_visibility.get_mut(drawable) {
-            if *visibility != Visibility::Hidden {
-                *visibility = Visibility::Hidden;
+        if hidden_bodies.contains(&owner.0) {
+            if let Ok(mut visibility) = dependant_visibility.get_mut(drawable) {
+                if *visibility != Visibility::Hidden {
+                    *visibility = Visibility::Hidden;
+                }
             }
+            if !we_hid_it {
+                commands.entity(drawable).insert(PortalDependantHidden);
+            }
+        } else if we_hid_it {
+            // ⛔⛔ RESTORE, WHICH IS THE OPPOSITE OF THE BODY BRANCH ABOVE, AND
+            // FOR THE REASON THAT BRANCH GIVES. Releasing without asserting a
+            // value is correct there because "every population this reaches has a
+            // per-frame owner". THIS population does not: the hit-flash overlay
+            // is spawned `Visible` and its update path states that visibility
+            // "stays `Visible` permanently", writing only transform and material.
+            // ⇒ Dropping the claim silently would latch it hidden for the rest of
+            // the session — one far-side crossing and that character never flashes
+            // again. Found by a GPT review 2026-09-06.
+            //
+            // ⭐ `Inherited`, not `Visible`: it is the "no opinion" value, so a
+            // dependant that is someone's child defers to its parent instead of
+            // being resurrected over a legitimate hide. At a root it reads as
+            // visible, which is what these overlays want.
+            if let Ok(mut visibility) = dependant_visibility.get_mut(drawable) {
+                if *visibility == Visibility::Hidden {
+                    *visibility = Visibility::Inherited;
+                }
+            }
+            commands.entity(drawable).remove::<PortalDependantHidden>();
         }
     }
 }

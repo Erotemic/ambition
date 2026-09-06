@@ -21,7 +21,8 @@ and this file is that sweep, committed.
 `ambition_platformer2d_actor_monolith::session::reset::AttemptScoped`. This census
 reports which collection-holding content resources implement it and which do not.
 
-⛔⛔ IT DOES NOT FAIL ON "DOES NOT IMPLEMENT IT", AND THAT IS DELIBERATE. Most of
+⛔⛔ IT DOES NOT FAIL ON "DOES NOT IMPLEMENT IT", AND THAT IS DELIBERATE — but
+since 2026-09-06 it DOES fail on "nobody has said which it is". Most of
 this population is NOT per-attempt: catalogs, caches, dev-tool probes, prefetch
 ledgers and a character roster all hold collections and must survive a death.
 "Not `AttemptScoped`" is therefore not evidence of anything, exactly as
@@ -51,6 +52,40 @@ COLLECTION = re.compile(r"\b(Vec|HashSet|BTreeSet|HashMap|BTreeMap|VecDeque)\s*<
 #: ⭐ The three that ARE per-attempt, each verified by a test that a death
 #: re-arms it. Named here so a rename or a dropped impl is loud.
 KNOWN_PER_ATTEMPT = {"BrokenBricks", "SpentPowerBlocks", "SpentMonitors"}
+
+#: ⭐⭐ AND THE REST, TRIAGED — because "not `AttemptScoped`" was previously not a
+#: finding AND not a decision either, which left the row's real open half ("state
+#: that is never cleared by ANY room signal is still invisible") permanently
+#: unanswerable. Each entry is a reason someone checked, not a silence.
+#: ⇒ A resource in NEITHER map is UNTRIAGED and fails. That is the whole point:
+#: the cost of adding one is a line and a sentence, and the alternative is the
+#: Sanic bug, which cost a whole run's speed shoes.
+NOT_PER_ATTEMPT = {
+    # Rollback state, restored by the rollback registry rather than re-armed.
+    "VersusMatch": "per-MATCH scoreboard, and its own doc says it is rollback state",
+    # Presentation caches that re-seed themselves when their subject changes.
+    "AmbitionDialogPortraitPlayback": "re-seeds on a key change (`if self.key == Some(&key) { return }`)",
+    "CachedSystemMenu": "menu render cache, rebuilt from the model",
+    # Catalogs and registries: authored data, must SURVIVE a death.
+    "AmbitionDialogPortraitCatalog": "authored catalog",
+    "FallingSandTypeIds": "id table built once from the type registry",
+    "SmashRoster": "authored roster",
+    # Load/asset plumbing scoped to a transition, not to an attempt.
+    "FirstRoomArtJobs": "in-flight art jobs for one load",
+    "RoomPreparationPrefetchState": "prefetch bookkeeping for one transition",
+    "ContributedRoomAssets": "asset contributions for one room build",
+    "RoomTransitionTelemetry": "bounded ring of timing samples, accumulates on purpose",
+    # Developer tools: not gameplay state at all.
+    "DebugOverlayLabels": "dev overlay",
+    "GamepadProbes": "dev probe",
+    "PresentationProbeState": "dev probe",
+    "RollbackProofState": "dev probe",
+    # ⚠ `AttemptsSeen` and `Forced` were listed here on the first pass and the
+    # stale check above removed them the same hour: both are `(u32)` tuple
+    # structs that only ever appeared in the population through the 40-line
+    # window bug this file fixed (19 -> 17). A triage list rots toward its
+    # author's memory of the tree, which is why the check exists.
+}
 
 
 def struct_body(src: list[str], start: int) -> str:
@@ -121,6 +156,24 @@ def main() -> int:
     for path, line, name in plain:
         print(f"    {path}:{line}  {name}")
 
+    untriaged = [
+        row for row in plain if row[2] not in NOT_PER_ATTEMPT
+    ]
+    if untriaged:
+        print(
+            "\nFAIL: collection-holding content resource(s) nobody has classified:\n"
+            + "\n".join(f"    {path}:{line}  {name}" for path, line, name in untriaged)
+            + "\n  Is this state PER-ATTEMPT — does a death or an in-place replay have to\n"
+            "  re-arm it? A resource is NOT retracted by the room rebuild; only entities are.\n"
+            "  ⇒ If YES: implement `AttemptScoped` and register `rearm_attempt_scoped::<T>`\n"
+            "     in `ContentRoomReplayResetSet`.\n"
+            "  ⇒ If NO: add one line to `NOT_PER_ATTEMPT` in this file saying why.\n"
+            "  ⛔ Do not skip it. Sanic's `SpentMonitors` was exactly this question\n"
+            "     unasked, and a broken monitor stayed broken for the rest of the run.",
+            file=sys.stderr,
+        )
+        return 1
+
     missing = KNOWN_PER_ATTEMPT - {row[2] for row in scoped}
     if missing:
         print(
@@ -137,9 +190,24 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    stale = sorted(
+        set(NOT_PER_ATTEMPT) - {row[2] for row in population}
+    )
+    if stale:
+        print(
+            f"\nFAIL: NOT_PER_ATTEMPT names {stale}, which this sweep no longer "
+            "finds.\n  A triage entry for a resource nobody can see is a claim "
+            "nothing checks —\n  delete the line, or find out why the sweep "
+            "stopped seeing it.",
+            file=sys.stderr,
+        )
+        return 1
     print(f"\nok: all {len(KNOWN_PER_ATTEMPT)} known per-attempt resources retract "
-          f"through `{TRAIT}`.")
-    print("⇒ Reported, not enforced: 'not AttemptScoped' is not a finding.")
+          f"through `{TRAIT}`, and all {len(plain)} others carry a triage reason.")
+    print(
+        "⇒ 'not AttemptScoped' is still not a FINDING — but it is now a DECISION:\n"
+        "  a resource in neither list fails until somebody classifies it."
+    )
     return 0
 
 

@@ -62,6 +62,28 @@ def default_features(crate: Path) -> set[str]:
         return set()
     closure: set[str] = set()
     stack = list(table.get('default', []))
+    # ⭐⭐ A THIRD ROAD TO "ON", AND IT IS ON BY DEFAULT *FOR THE TEST PROFILE*.
+    # A crate can dev-depend on ITSELF with features:
+    #
+    #     [dev-dependencies]
+    #     ambition_content = { path = ".", features = ["portal"] }
+    #
+    # which turns the feature on for `cargo test -p <crate>` while leaving
+    # downstream consumers untouched -- the manifest says so in a comment. Those
+    # tests are NOT hidden from a bare `cargo test -p`, and counting them as
+    # hidden tells whoever moves the ledger a false sentence about their own test.
+    # ⚠ MEASURED 2026-09-06: exactly ONE crate in the workspace does this
+    # (`ambition_content`, `portal`), so the correction is small and bounded --
+    # but I found it only because a test I had just added ran in a `-p` invocation
+    # this survey said was hiding it.
+    try:
+        manifest_table = tomllib.loads(manifest.read_text(encoding='utf8'))
+        me = manifest_table.get('package', {}).get('name')
+        own = manifest_table.get('dev-dependencies', {}).get(me)
+        if isinstance(own, dict):
+            stack.extend(own.get('features', []))
+    except Exception:
+        pass
     while stack:
         name = stack.pop()
         if '/' in name or name.startswith('dep:') or name in closure:

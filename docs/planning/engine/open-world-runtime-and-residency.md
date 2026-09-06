@@ -265,10 +265,17 @@ second, is the heaviest PRODUCTION dependent and has no test references at all.
 tests they live in — so the sizing this row exists to hand the next attempt was
 overstated for `world` by 4× and understated for `snapshot_impls` relative to it.
 
-⭐ **The prose above already had the right number and the table disagreed with
-it**: *"the three `world → session` references are all in
-`world/rooms/systems.rs`"* — three, not thirteen. One row, two counts of the same
-thing, and the table is the one a planner reads.
+⭐ **AND THE TWO NUMBERS CAME FROM TWO INSTRUMENTS, one of which was already
+right.** The prose's *"three `world → session` references"* is
+`measure_kernel_module_graph.py`, whose docstring says it excludes test files from
+edges *"because a test reaching across modules is a fixture, not a dependency"* —
+and its 3 matches the production count here exactly. The table was a HAND GREP
+that counted every occurrence. ⇒ the committed tool had the right rule and the
+hand count silently overrode it, in the same row.
+⚠ **That is the failure to guard against when a script exists**: not that the
+instrument is wrong, but that someone reaches past it for a quick grep and writes
+the answer into the same document. One row, two counts of one thing, and the
+TABLE is the one a planner reads.
 ⚠ And `shrine` is BOTH a file and a directory (`shrine.rs` 6 production,
 `shrine/tests.rs` 7), which is how a per-module tally silently merges them. My
 first re-count said "shrine nearly doubled, 7 → 13"; `shrine.rs` has not changed

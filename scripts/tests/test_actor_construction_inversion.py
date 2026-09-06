@@ -47,7 +47,7 @@ LINE_COMMENT = re.compile(r"//.*$", re.MULTILINE)
 # `ecs::held_items` (3), `npcs` (3, one of them a re-exported constant),
 # `ecs::spawn_static` (1), `ecs::autonomous_reconcile` (1), plus
 # `ecs::boss_component_snapshot` and the `EnemyActorBundle` pair.
-PRIMITIVE_UPWARD_REACH_CEILING = 5
+PRIMITIVE_UPWARD_REACH_CEILING = 2
 
 
 def _production_files(root: pathlib.Path) -> list[pathlib.Path]:

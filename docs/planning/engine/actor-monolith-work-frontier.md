@@ -281,21 +281,66 @@ does not own. **Four one-line edits, no code moved, and nothing looked wrong at
 any of the four sites.** ⇒ Before pricing a module move, resolve the paths: an
 edge drawn through a re-export is an edge to a module that owns nothing in it.
 
-⇒ **The last five, all singletons, and they ARE real dependencies:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}` and `NPC_HOSTILE_STRIKE_THRESHOLD`
+✔ **THREE OF THE FIVE ARE LANDED — 5 → 2.** `resolve_npc_brain` and the two NPC
+constants moved DOWN into `actor_spawn::npc_policy`, per the decision above, and
+two more references turned out to be the re-export lens for the sixth time
+(`enemy_default_brain`, reached through `features::ecs` from the file that had
+just moved beside it).
+
+⛔⛔ **AND I MADE THE PEER'S OWN MISTAKE WHILE DOING IT.** My extraction script's
+byte offset clipped `pub` to `ub` in **two** files — the identical defect a peer
+confessed hours earlier (`pub fn` → `ub fn` in three files, found by grepping the
+PATTERN rather than trusting the compiler's first error). Being told about a bug
+does not inoculate you against writing it; the same offset arithmetic produced the
+same clip.
+
+⇒ **The last two, and both are decided above:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}` and `NPC_HOSTILE_STRIKE_THRESHOLD`
 (3), `ecs::spawn_static::interactable_from_authored`, and
 `ecs::autonomous_reconcile::provoked_projection`.
+
+### ⭐⭐ THE FIVE, DECIDED — 2026-09-06, at a review's request
+
+*"For each one, decide whether it is generic spawn/materialization vocabulary that
+should move down, actor-domain policy that should be supplied into spawn, or
+authored-content conversion that belongs above both."* ⇒ Measured at each use site,
+not guessed from the name:
+
+| ref | what it is | category | decision |
+|---|---|---|---|
+| `interactable_from_authored` | `Authored<InteractableSpec> -> Interactable`, a pure conversion | **authored-content conversion** | ⇒ belongs ABOVE. And the caller already has it: `spawn_interactable_into` is called from `features/ecs/spawn_static.rs`, **the same file that defines the conversion**. The primitive should take the component. ⚠ It also reads `authored.name`, which `Interactable` does not carry, so the signature takes the component plus that one field. |
+| `NPC_TALK_RADIUS` (`f32 = 80.0`) | a tuning scalar, zero dependencies | **actor-domain policy** | ⇒ supplied into spawn |
+| `NPC_HOSTILE_STRIKE_THRESHOLD` (`i32 = 3`) | a tuning scalar, zero dependencies | **actor-domain policy** | ⇒ supplied into spawn |
+| `resolve_npc_brain` | picks an NPC's brain from catalog + prepared registry + interactable + **the body being built** | **actor-domain policy** — but see below | ⇒ **move DOWN, not up** |
+| `provoked_projection` | what an actor BECOMES when provoked | **actor-domain policy** | ⇒ move down with `conversion`, which is already in `actor_spawn` |
+
+⛔⛔ **AND `resolve_npc_brain` IS THE ONE THAT BREAKS THE OBVIOUS ANSWER, which
+is why it is worth the paragraph.** "Policy is supplied into spawn" says the caller
+resolves the brain and passes it. **It cannot**: `resolve_npc_brain` takes the
+`ActorConfig` of the body being built — *"so a character whose default policy is a
+`BrainProfile` can have it lowered against its OWN top speed rather than against a
+preset's absolute numbers"* — and that config does not exist until the primitive
+has built it. ⇒ **The policy depends on the artifact the primitive produces**, so
+hoisting it to the caller is not available without passing a closure or a trait,
+which trades one coupling for a worse one.
+
+⇒ **So the decision is the other direction: `resolve_npc_brain` and the two
+constants move DOWN beside the primitives, and `npcs.rs` keeps NPC BEHAVIOUR.**
+The split is spawn-time policy resolution versus runtime NPC systems, and the
+measurement supports it — `npcs.rs`'s only production reach into the feature layer
+was `enemy_default_brain`, which already lives in `actor_spawn::brain_builders`.
+
+⚠ **THE GENERAL LESSON, AND IT REFINES THE REVIEW'S OWN TAXONOMY: "supplied into
+spawn" is unavailable when the policy is a function of what spawn BUILDS.** Three
+of these five are scalars and yield to it; the fourth does not, and the difference
+is visible only in the signature.
 
 ⛔ **THESE WILL NOT YIELD TO A MOVE AND THE PACKET SHOULD STOP PRETENDING THEY
 MIGHT.** Spawning an interactable NPC genuinely needs NPC constants and brain
 resolution; `npcs.rs` is 915 lines of NPC behaviour and does not belong under a
 spawn-primitives module because the primitives happen to call three things in it.
-⇒ **The remaining question is a PLACEMENT decision, not a mechanical one**: do
-`NPC_TALK_RADIUS`, `resolve_npc_brain`, `interactable_from_authored` and
-`provoked_projection` belong in the feature layer at all, or are they lower-level
-definitions filed with their first caller — the shape that has now accounted for
-four of the sixteen and for the cheapest cut in the whole kernel graph? That is a
-question for whoever owns NPC authoring, and it is the honest end of this packet's
-mechanical half.
+⇒ **The remaining question was a PLACEMENT decision, not a mechanical one — and
+it is decided in the table above.** F1's completion criterion stays
+`actor_spawn -> features == 0` before the F2 carve list is generated.
 
 ⇒ ~~16 → 13 refs.~~ `construction -> actor_spawn` is 15 and one-way;
 `features -> actor_spawn` rose 8 → 33, which is the correct direction and is what

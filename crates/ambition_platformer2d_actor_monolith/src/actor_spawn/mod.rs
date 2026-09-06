@@ -15,6 +15,7 @@
 // construction plan or a feature system belongs where it is and the primitives
 // should stop calling it instead.
 pub(crate) mod actor_clusters;
+pub(crate) mod npc_policy;
 // ⭐ THE CHARACTER SPAWN PLAN CAME DOWN TOO. Measured before moving: it makes
 // no `super::` reference and its only `crate::` dependency is
 // `character_runtime`, which this module already needs — so it added no edge
@@ -679,7 +680,7 @@ impl NpcActorSpawnPlan {
         // inference. A catalog-backed NPC also gets a `BrainBinding` +
         // `AuthoredBrainContext` so its brain can be switched at runtime, rebuilt
         // around its authored home, and its selection survives snapshot.
-        let (brain, brain_binding) = crate::features::npcs::resolve_npc_brain(
+        let (brain, brain_binding) = self::npc_policy::resolve_npc_brain(
             catalog,
             prepared,
             &interactable,
@@ -729,7 +730,7 @@ impl NpcActorSpawnPlan {
             action_set: combat_kit.to_action_set(None),
             combat_kit,
             aggression: ambition_combat::components::ActorAggression::retaliates_when_hit(
-                crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+                self::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
         }
     }
@@ -757,7 +758,7 @@ impl NpcActorSpawnPlan {
         // Dialogue is a SHARED actor capability (`ActorInteraction`).
         let interaction = ambition_combat::components::ActorInteraction {
             interactable: self.interactable,
-            talk_radius: crate::features::npcs::NPC_TALK_RADIUS,
+            talk_radius: self::npc_policy::NPC_TALK_RADIUS,
         };
         let (identity, disposition, combat) = self::conversion::actor_component_snapshot(
             &self.seed,

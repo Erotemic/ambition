@@ -46,24 +46,33 @@ pub struct FillMeterParams {
 
 /// What fills a fighter's Limit meter, per second and per hit.
 ///
-/// ⛔⛔ **THIS IS NOT THE ONLY THING THAT FILLS `BodyMana`, AND THAT IS AN OPEN
-/// DEFECT.** `ambition_platformer2d_actor_monolith::avatar::regen_player_mana`
-/// refills every DRIVEN body at **14.0 per second**, unconditionally, from the
+/// ⛔⛔ ~~**THIS IS NOT THE ONLY THING THAT FILLS `BodyMana`, AND THAT IS AN OPEN
+/// DEFECT.**~~ **CLOSED 2026-09-06 — and the record stays because the lesson
+/// outlived the bug.** `ambition_platformer2d_actor_monolith::avatar::regen_player_mana`
+/// refilled every DRIVEN body at **14.0 per second**, unconditionally, from the
 /// monolith's `FeatureCollection` phase — a platformer rule that exists so mana
 /// is "a genuine spendable resource" for charge attacks. A composition carrying
-/// both gets both, so a fighter accrues `14.0 + per_second` rather than
-/// `per_second`. ⇒ Jon's 60-point baseline, authored to take **120 s** of clock,
-/// reaches its cap in about **4.1 s**, and a locally-driven fighter has a
-/// different Limit economy from an otherwise identical undriven one.
+/// both got both, so a fighter accrued `14.0 + per_second`: Jon's 60-point
+/// baseline, authored to take **120 s** of clock, reached its cap in about
+/// **4.1 s**, and a locally-driven fighter had a different Limit economy from an
+/// otherwise identical undriven one.
 ///
-/// ⚠ THE TESTS IN `limit/tests.rs` CANNOT SEE IT: they install the Limit systems
-/// directly and never compose the monolith's feature plugin, so the 14/s
-/// producer does not exist in that world. A guard whose world lacks the thing it
-/// is guarding against.
+/// ⇒ **The fix was the one this note called for**: not a gate on
+/// `DrivingParticipant`, which preserves the leak for driven bodies and merely
+/// hides the asymmetry, but **a meter's fill policy belonging to the RULESET**.
+/// `regen_player_mana` takes `Option<Res<PlayerManaRegen>>`; the smash ruleset
+/// installs `PlayerManaRegen(0.0)` on entering its stage and restores whatever
+/// was there on leaving, through the `SmashPresentationPrior` snapshot that
+/// prerequisite E's pattern is named for. Two rulesets no longer both write it —
+/// one owns the mechanism, the active one supplies the policy, and it hands it
+/// back.
 ///
-/// ⇒ The fix is not a gate on `DrivingParticipant` — that preserves the leak for
-/// driven bodies and merely hides the asymmetry. **A meter's fill policy belongs
-/// to the RULESET**, and two rulesets currently both write this one.
+/// ⚠ **THE OBSERVATION THAT STILL STANDS, AND IS WHY THIS PARAGRAPH SURVIVES THE
+/// FIX: the tests in `limit/tests.rs` COULD NOT SEE IT.** They install the Limit
+/// systems directly and never compose the monolith's feature plugin, so the 14/s
+/// producer does not exist in that world — a guard whose world lacks the thing it
+/// guards against. That is still true of them today, and it is the reason this
+/// defect was found by reading rather than by a red test.
 ///
 /// ⭐ EVERY FIELD DEFAULTS TO ZERO AND THAT IS THE POINT: a mechanic authors the
 /// sources it wants and gets nothing it did not ask for. A damage-only meter is

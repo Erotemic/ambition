@@ -1094,10 +1094,26 @@ deliberately because its payoff is `RangedCharge`'s tier ladder rather than a
 bigger swing. **A charge's reward may live outside the move, where the verb cannot
 see it.**
 
-⇒ **`flow` is the next candidate by the same measure and it is NOT built here**,
-because three authored customers is a thin case and the shape is unsettled — a
-verb over `nodes: vec![…]` would freeze a node vocabulary that A1's own row says
-is still one part short. ⚠ Recorded as the measurement, not as a plan.
+⇒ **`flow` is the next candidate by that measure and it is NOT built — and the
+first reason I gave for that was weak, so here is the measured one.** I wrote that
+a verb would "freeze a node vocabulary still one part short". ⚠ That does not
+survive: slots were closed the same day as deliberately unbuilt with a stated
+reopening condition, so the vocabulary IS settled at this scope.
+
+⭐⭐ **THE REAL REASON IS THAT A VERB CANNOT REACH THE COST.** Counted on the
+Shadow Oni's `iaijutsu`, the longest of the three: **49 lines, of which 5 are the
+`flow: Some(TechniqueFlow { nodes: vec![…] })` wrapper a verb could remove and 44
+are node content it cannot.** ⇒ **A `flow` verb buys 10%.**
+
+⛔ **Because a flow's difficulty is its INDEX WIRING** — `then: usize`,
+`on_timeout: usize`, each node pointing at another by position — and a parameter
+struct cannot remove cross-references. `charge` worked because its cost was five
+scalar fields plus two forgettable companions; a flow's cost is a graph.
+⇒ **The only thing that would reduce it is a change to the node vocabulary itself
+— named nodes instead of positional indices — which is a language change, and the
+goal's own rule (`emit`/`wait`/`branch`/`finish`, no variables, no arithmetic)
+is what bounds that.** ⚠ Recorded as the measurement, not as a plan: naming that
+change is not the same as asking for it.
 
 ⚠ **The 24-line outlier is the honest shape of the vocabulary, not a defect.**
 `multihit` takes a whole `Pulse` — offset, extents, damage, active window, gap and

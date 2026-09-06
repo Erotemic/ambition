@@ -887,3 +887,48 @@ published, found none for sleep, and concluded a fact was missing. The fact was 
 missing — the INPUT to an existing ranking was. Asking "what is published?" and
 asking "who already decides this?" are different questions, and only the second
 finds a ladder.
+
+## ⛔ OPEN — MARY-O'S SPRITE DOES NOT FILL HER COLLISION BOX ON THE FIRST WAND (2026-09-06)
+
+**Jon's report, verbatim:** *"the sprites on mayro are still messed up, she is not
+standing on the ground wrt to visuals and don't align with the collision boxes
+anymore. It gets worse when she grabs a wand. But the strange thing is sometimes
+when I grab a wand, the sprite is correctly sized for the collision box, its
+usually just the first time that the smaller centered sprite for tall maryo
+happens. And getting a lantern has always been correct so far."*
+
+⭐ **THE FINGERPRINT NARROWS IT BEFORE ANY CODE IS READ.** It is worse with ONE
+item and never wrong with another, so it is not "sprite scaling is broken" — it is
+something the wand path does. And it is **first-time biased**, which is an
+ORDERING or a CACHE: *a wrong constant is wrong every time.*
+
+⇒ **THREE HYPOTHESES MEASURED AND REFUTED**, recorded so nobody spends the
+afternoon I did:
+
+| hypothesis | how it died |
+|---|---|
+| The deferred `ActorRenderSize` write lags the direct `kin.size` write by a frame | POISON DID NOT FIRE. Ordering between systems inserts a sync point, so a consumer ordered after `sync_sprite_posed_bodies` sees the flushed value. A `Commands` write is not late for anyone ordered after it. |
+| `mary_o_tall` points at a spritesheet that does not exist | It exists. My `ls … \| head -12` truncated before the `*_tall_*` rows, which sort after the first twelve — **a filter's removals are invisible in its own output**, and I nearly filed the absence as the finding. |
+| The tall sheet publishes no body metrics, so the pose cannot resolve | All three sheets publish them, and the numbers are right: `mary_o_v2` `body_pixel_bbox` h=**84**, `mary_o_v2_tall` h=**168**, `mary_o_v2_fire` h=**168**. Tall really is twice as tall. |
+
+⇒ **THE HYPOTHESIS THAT SURVIVES, and it fits the fingerprint exactly: the tall
+form's prepared character is materialised ON DEMAND.** The shipped schedule runs
+`demand_worn_character_sheets` → `materialize_demanded_character_sheets`, so the
+FIRST time she wears `mary_o_tall` the prepared entry does not exist yet;
+`posed_body_for` reads `prepared.sheet` and returns `None` without it, and
+`sync_sprite_posed_bodies` `continue`s when `posed_body_geometry` yields nothing.
+Later grabs find the entry already materialised — which is precisely "usually just
+the first time".
+
+⚠ **THE ONE THING THAT DOES NOT YET FIT, and it is the next measurement:** if the
+pose cannot resolve, that system writes NEITHER the box nor the render size, so
+the box should stay small too. Jon's screenshots show the box already TALL with a
+small sprite inside it. ⇒ **Find the other writer of her box during that window.**
+`PhysicalBaseline` is not it — `physical_baseline.rs:163` returns `None` for
+`BodySource::SpriteAuthored` on purpose.
+
+⭐ **AND THE INSTRUMENT THIS NEEDS, per the rule the shell bug taught today:
+assert the OUTPUT.** The proxy is the drawn sprite's world-space bottom edge
+against the body's collision-box bottom edge, sampled on the FIRST grab and the
+second. Every proof that the box is correct is a proof about state; the report is
+about what is drawn.

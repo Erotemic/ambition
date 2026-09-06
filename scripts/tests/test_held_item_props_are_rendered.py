@@ -133,15 +133,28 @@ def test_a_self_named_orphan_fails_only_once_its_family_is_covered() -> None:
     """
     module = _module()
     real_drawn, real_registered = module.drawn_art, module.registered_art
+    # ⛔ A MATCHING PAIR UNDERNEATH THE SUBJECT, because the check now refuses an
+    # EMPTY INTERSECTION — it printed `ok: 0 compared` for a commit, so comparing
+    # nothing is a failure rather than a cheerful zero. Without this pair the
+    # fixture would exercise the intersection floor instead of the family rule,
+    # and the test would be green for the wrong reason in the "abstains" arm.
+    agreed = {"shared_thing": "sprites/props/shared_thing.png"}
     try:
         module.registered_art = lambda: {
+            **agreed,
             "fam_thing": "sprites/props/fam_thing.png",
         }
         # No `fam` spec: the family is uncovered, so the rule abstains.
-        module.drawn_art = lambda: {"other_thing": "sprites/props/other_thing.png"}
+        module.drawn_art = lambda: {
+            **agreed,
+            "other_thing": "sprites/props/other_thing.png",
+        }
         assert module.main() == 0, "an uncovered family must not fail"
         # One `fam` drawing arrives and the SAME registration is now an orphan.
-        module.drawn_art = lambda: {"fam_other": "sprites/props/fam_other.png"}
+        module.drawn_art = lambda: {
+            **agreed,
+            "fam_other": "sprites/props/fam_other.png",
+        }
         assert module.main() == 1, "a covered family must fail the self-named orphan"
     finally:
         module.drawn_art, module.registered_art = real_drawn, real_registered
@@ -152,6 +165,29 @@ def test_an_empty_spec_list_is_a_failure_not_a_vacuous_pass() -> None:
     real = module.drawn_art
     try:
         module.drawn_art = lambda: {}
+        assert module.main() == 1
+    finally:
+        module.drawn_art = real
+
+
+def test_an_empty_intersection_is_a_failure_not_a_cheerful_zero() -> None:
+    """⛔⛔ THE STATE THIS CHECK WAS IN FOR THE LENGTH OF ONE COMMIT.
+
+    Repointed at a spec list whose ids the game does not register, it printed
+    `ok: 0 held-item prop(s) compared` and exited 0. Both halves were non-empty —
+    7 drawn, 8 registered — so every anti-vacuity arm was satisfied; what was
+    empty was the OVERLAP, which is the only thing this file verifies.
+
+    ⇒ A guard whose population is an INTERSECTION has to floor the intersection,
+    not its operands. That is the general form, and it is why this test exists
+    rather than a comment saying to be careful.
+    """
+    module = _module()
+    real = module.drawn_art
+    try:
+        module.drawn_art = lambda: {
+            "an_id_the_game_does_not_register": "sprites/props/nobody.png"
+        }
         assert module.main() == 1
     finally:
         module.drawn_art = real

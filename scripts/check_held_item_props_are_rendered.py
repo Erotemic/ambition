@@ -96,14 +96,24 @@ def drawn_art() -> dict[str, str] | None:
     try:
         from ambition_sprite2d_renderer.targets.icons.item_icons import (
             GAUNTLET_ICON_SPECS,
+            HELD_ITEM_ICON_SPECS,
         )
     except ImportError as error:
         # ⛔⛔ A BARE `except Exception` HERE REPORTED ITS OWN BLINDNESS AS A FACT
         # ABOUT THE MACHINE, and this check sat SKIPPED for as long as that was
-        # true. The renderer consolidated `HELD_ITEM_ICON_SPECS` into `ICON_SPECS`
-        # with a `category` field; the import then raised `ImportError`, `None`
-        # came back, and six tests skipped with "renderer submodule not
-        # importable" — which was FALSE. The submodule was right there.
+        # true: an ImportError on a NAME came back as `None`, and six tests
+        # skipped with "renderer submodule not importable" — which was FALSE.
+        # The submodule was right there.
+        #
+        # ⚠ THE DIAGNOSIS THAT CAME WITH THAT FIX WAS WRONG, and it is worth
+        # keeping the correction next to the fix. It read the ImportError as
+        # "the renderer consolidated `HELD_ITEM_ICON_SPECS` into `ICON_SPECS`"
+        # and repointed this check at the gauntlet list alone. The submodule had
+        # done no such thing: the list exists on the renderer's `origin/main` at
+        # the exact commit this superproject pins, and the ImportError was a
+        # STALE WORKING COPY of the submodule — which is the normal state here,
+        # because `git submodule update` is forbidden in this repo. ⇒ Repointing
+        # left the check comparing ZERO pairs while printing `ok`.
         #
         # ⇒ Distinguish the two, because they want opposite responses: a missing
         # MODULE is a machine that cannot check, and a missing NAME is exactly
@@ -116,15 +126,25 @@ def drawn_art() -> dict[str, str] | None:
             "  That is DRIFT, not an unavailable machine. Repoint this check at "
             "the renderer's current spec list rather than letting it skip."
         )
-    # ⚠ `GAUNTLET_ICON_SPECS`, NOT `ICON_SPECS`. The file defines TWO lists, and
-    # the obvious-looking one holds the 20 movement/combat/utility ability tiles
-    # — no held items at all. The held-item props are the `held_item` half of the
-    # gauntlet list (7 of its 14). Filtering the wrong list produced an EMPTY map,
-    # which this file's own anti-vacuity guard caught rather than certifying zero.
+    # ⭐⭐ BOTH LISTS, BECAUSE THE RENDERER DRAWS HELD ITEMS FROM BOTH AND EITHER
+    # ONE ALONE MAKES THIS CHECK VACUOUS.
+    #
+    #   * `HELD_ITEM_ICON_SPECS` — the three the Projectile Polygon authored.
+    #     These are the ones the game REGISTERS, so they are the pairs actually
+    #     compared. Reading the gauntlet list alone compared nothing at all.
+    #   * the `held_item` half of `GAUNTLET_ICON_SPECS` (7 of its 14) — drawn,
+    #     and not registered as held items today, so they land in the "art ahead
+    #     of wiring" note. Keeping them means the day one IS wired, this check
+    #     already holds it.
+    #
+    # ⚠ NOT `ICON_SPECS`, which holds the 20 movement/combat/utility ability
+    # tiles and no held items at all: filtering it produces an empty map.
     return {
         spec.key: PROP_DIR + spec.filename
-        for spec in GAUNTLET_ICON_SPECS
-        if spec.category == "held_item"
+        for spec in (
+            *HELD_ITEM_ICON_SPECS,
+            *(s for s in GAUNTLET_ICON_SPECS if s.category == "held_item"),
+        )
     }
 
 
@@ -235,6 +255,25 @@ def main() -> int:
             "while an id whose art nothing\n  draws logs 'failed to load' every "
             "spawn. This check cannot tell them apart."
         )
+    # ⛔⛔ AN EMPTY INTERSECTION IS NOT A PASS, and this arm exists because the
+    # check printed `ok` while comparing ZERO pairs for the length of one commit.
+    # Both halves were individually non-empty — 7 drawn, 8 registered — so every
+    # anti-vacuity check above was satisfied; what was empty was the OVERLAP,
+    # which is the only thing this file actually verifies. ⇒ A guard whose
+    # population is an intersection has to floor the INTERSECTION.
+    if not compared:
+        print(
+            f"NOTHING WAS COMPARED: {len(drawn)} drawn and {len(registered)} "
+            "registered, and not one id appears in both.\n"
+            "  Every check above passed on that, which is what makes this the "
+            "dangerous state rather than a quiet one.\n"
+            "  fix: the two sides have drifted apart entirely — check that this "
+            "script reads the spec list the renderer actually defines, and that "
+            "the submodule working copy is not stale (`git submodule update` is "
+            "forbidden here, so a stale checkout is the normal way this happens).",
+            file=sys.stderr,
+        )
+        return 1
     print(
         f"ok: {len(compared)} held-item prop(s) compared "
         f"({len(drawn)} drawn, {len(registered)} registered); every compared "

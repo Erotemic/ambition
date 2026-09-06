@@ -1041,7 +1041,42 @@ four without is a DECISION somebody made and wrote down:**
 | `performer_the_line` | an explicit refusal of `MoveEventKind::Ranged` — *"she would need a weapon to state one, and the point of the move is that there is nothing in her hand"* |
 | `performer_trapdoor_air` | a deliberate FAKE — the same first frames as the real trapdoor and no door; *"it spends no recovery and grants no i-frames"*, and its whole benefit is that an opponent must read which one it was |
 
-⇒ **"Plain" was never the defect. Plain that nobody chose was.** ⭐ Nine specials
+⇒ **"Plain" was never the defect. Plain that nobody chose was.**
+
+### ⭐⭐ WHAT AN EXPRESSIVE SPECIAL COSTS TO AUTHOR — the goal's own acceptance test, measured
+
+Jon's test is *"a move must be expressible and AUTHORABLE easily and creatively"*,
+and this campaign has argued it from readings. ⇒ Counted from the nine specials
+authored on 2026-09-06, taking the authoring STATEMENT only — the verb call that
+carries the mechanic, from its opening line to its terminating `;`:
+
+| special | verb | lines |
+|---|---|---|
+| `one_time_pad` | `armor` | **1** |
+| `stabilizer_slam` | `armor` | **1** |
+| `light_argument` | `fixed_knockback` | **1** |
+| `medic_tourniquet` | `fixed_knockback` | **1** |
+| `shadow_answer` | `cancelable` | 7 |
+| `pale_blue_dot` | `tipper` | 11 |
+| `dirt_kick` | `wake` | 13 |
+| `cosmic_calendar` | `smash_charge` | 14 |
+| `hash_collision` | `multihit` | 24 |
+
+⇒ **Nine expressive specials for 73 lines of authoring — a median of 7, and four
+of them are a single line.** Super armour, and a launch that does not scale with
+the victim's damage, are each ONE LINE on an existing move.
+
+⛔ **AND THE HONEST OTHER HALF: the commits are far larger than that** — +186,
++157, +130, +72 lines of content each. The difference is the COMMENT explaining
+the design decision and the GUARD asserting it, which are this project's
+standards rather than the vocabulary's cost. ⇒ Quote 73 for "is it authorable";
+do not quote it for "what does a move cost to land here".
+
+⚠ **The 24-line outlier is the honest shape of the vocabulary, not a defect.**
+`multihit` takes a whole `Pulse` — offset, extents, damage, active window, gap and
+an `AutolinkVolume` — because a gather has that many decisions in it. A verb whose
+arity matches its idea is the thing being tested; a one-line multihit would be a
+verb that decided for you. ⭐ Nine specials
 were authored on 2026-09-06 to get here: `pale_blue_dot` a tipper,
 `hash_collision` a gather, `light_argument` set knockback, `one_time_pad` armour,
 `cosmic_calendar` a charge, `medic_tourniquet` a repair (its comment forbade a

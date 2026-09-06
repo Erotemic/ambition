@@ -1015,7 +1015,23 @@ profile:
 | default | **61 × 73** | a magnified CROP of her face, floating high above the ground |
 | `AMBITION_QUALITY_PROFILE=ultra` | **21 × 32** | a correct, recognisable Mary-O — **still floating above the tiles** |
 
-⇒ **THE DRAWN QUAD TRACKS THE TEXTURE VARIANT.** `sprites/` is 160×192,
+⚠ **FIRST, A CORRECTION TO MY OWN READING OF THOSE TWO NUMBERS (MEASURED).** 21×32
+is not a smaller variant's frame — it is `pose.size`, the COLLISION BOX, which
+`sync_visuals` uses in its first branch: *"Colored-rectangle fallback only — stretch
+to the collision-box size"*, taken while `texture_atlas.is_none() && image ==
+default`. ⇒ **The `[sprite-size] first observed` line fires on the first frame,
+before the art has loaded**, so the two numbers are a LOAD-TIMING artifact of the
+diagnostic and not two authorities. 61×73 is the `authored_render` branch, which is
+the real one.
+
+⇒ **THE MECHANISM THAT REMAINS, and it is the original one (REASONED from the code,
+with the pictures as the measured symptom): `authored_render` is `frame_w × frame_h
+× world_per_pixel` read from the BAKED manifest, while the IMAGE is whichever
+resolution variant the runtime loaded.** The baked frame is 160×192 for every tier;
+the `sprites_potato/` image declares 10×12. Nothing reconciles them, so the art is
+drawn into a quad sized for a frame it does not have.
+
+⇒ **THE DRAWN QUAD TRACKS THE BAKED FRAME, NOT THE LOADED VARIANT.** `sprites/` is 160×192,
 `sprites_0_5x/` 80×96, `sprites_0_25x/` 40×48, `sprites_potato/` 10×12 — all
 declaring `target: "mary_o_v2"`. ⛔ **But `posed_body_geometry` reads the BAKED
 manifest and computes `render: Vec2::new(frame_w, frame_h) * world_per_pixel` plus

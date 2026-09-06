@@ -51,16 +51,32 @@
 > mechanism, it is a missing input to one that already works.
 >
 > ⛔ **AND THE INPUT IS BLOCKED BY ONE HARDCODED ARGUMENT, WHICH IS THE REAL
-> FIRST SLICE.** The authored road resolves its question through the shared
-> `ConditionCatalog`, which is extensible and already carries three published
-> production conditions (⚠ three when this was written; **five** at
-> `4b8ef1b04` — `body.can` and `body.fits` joined below):
+> FIRST SLICE.** (✔ **HISTORY — this was closed on 2026-09-04**; the narrative is
+> kept because the shape of the mistake is the useful part. The reversal is the
+> `THE FIRST SLICE IS LANDED` row below, re-derived against HEAD 2026-09-06:
+> `prepare_question` now chooses `prepare_line` when the authored value names a
+> condition and `flag_set` only for a bare one.) The authored road resolves its question through the shared
+> `ConditionCatalog`, which is extensible and carries a growing roster of
+> published production conditions.
 >
-> | published condition | publisher | family |
-> |---|---|---|
-> | `flag_set` | `actor_monolith/src/world_facts.rs:139` | story gate |
-> | `is_held` | `ambition_held_items/src/lib.rs:60` | item/equipment |
-> | `holds` | `actor_monolith/src/items/conditions.rs:92` | item/equipment |
+> ⛔ **THIS PAGE NO LONGER KEEPS THAT ROSTER, because it kept it wrongly three
+> times over.** It said "three" in a table, "five" in the sentence introducing
+> that table, and the truth on 2026-09-06 was **ten**; one of the three rows
+> also cited `ambition_held_items/src/lib.rs:60` for a publisher that had since
+> moved to that crate's `conditions.rs`. A roster copied into prose decays
+> silently in every direction at once. ⇒ **The code is the authority. Ask it:**
+>
+> ```bash
+> grep -rn 'ConditionId::new(DOMAIN,' --include=*.rs crates game | grep -v tests
+> ```
+>
+> ✔ **MEASURED 2026-09-06 — ten, in eight files:** `world.flag_set` and
+> `world.switch_on` (story gates), `inventory.holds` / `custody.is_held` /
+> `wallet.can_afford` (item, custody, and money), `body.can` / `body.fits`
+> (capability and posture — see Q58), `boss.cleared` / `encounter.cleared`
+> (defeat — see Q57), `quest.active`. The argument below does not depend on the
+> number, only on the fact that the roster is extensible and that the FAMILIES
+> above are already represented.
 >
 > But a gated wall cannot ask for two of them. `prepare_question`
 > (`world/gated_lock_walls.rs:295`) calls

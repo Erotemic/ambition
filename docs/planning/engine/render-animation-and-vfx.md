@@ -1072,6 +1072,29 @@ cargo build -p ambition_demo_mary_o_app --bin capture_mary_o --features capture
 AMBITION_QUALITY_PROFILE=ultra ./target/debug/capture_mary_o out2.png 640x360 --warmup 60 --walk 400
 ```
 
+## ⛔ THE F1 ART MODE IS SHELL-ONLY, WHICH IS WHY THIS BUG IS HARD TO PHOTOGRAPH (2026-09-06)
+
+Tried to teach `capture_mary_o` a `--boxes` flag so the ART and the BOX could be
+photographed side by side — the only way to SEE a misalignment rather than argue
+about two numbers. The flag set the mode (`[boxes] debug art mode set to
+Placeholder`) and **the picture did not change**.
+
+⇒ **MEASURED, tree-wide: `apply_placeholder_sprites_override` and
+`apply_hide_sprites_override` are registered in exactly ONE place —
+`game/ambition_app/src/app/plugins.rs:761-762`.** The standalone demo hosts compose
+their own thin host and never install them. ⇒ **`DebugArtMode` is a live setting in
+the shell and a dead one in every demo host**: a developer pressing F1 in the
+Mary-O or Sanic demo changes a resource nothing reads.
+
+⭐ **THE FIX SHAPE IS THE C2 PATTERN:** the two systems belong to the capability
+that owns `DebugArtMode`, installed by a plugin any host can compose, rather than
+hand-registered by one composition. Today the mode's REACH is a property of which
+host you launched, which is exactly what a capability plugin exists to stop.
+
+⚠ **The flag was REVERTED rather than shipped.** A `--boxes` that sets a resource
+nothing reads is the same defect as the `detail: _` this page's neighbour records:
+authored, paid for, and read by nobody. It goes in when the systems are reachable.
+
 ⛔ **NOT YET IDENTIFIED: WHICH system spawns the second drawable.** That is the next
 step, and it is now a component question rather than a pixel one — find the two
 entities' markers. `[sprite-size] player first observed at 61x73` in the capture's

@@ -198,6 +198,50 @@ move. A slot exists so a move references a semantic occurrence (`"thunder"`)
 instead of holding an `Entity`, which is what keeps rewind, inspection and
 remote detonation clean.
 
+⛔⛔ **THE FOUR NODES AND THREE SIGNALS SHIPPED; THE SLOTS DID NOT, AND THAT IS
+NOW A MEASUREMENT RATHER THAN A GAP — 2026-09-06.** This page's own rule is that a
+general rule representation *"deliberately waits for a customer"*, so the same
+standard was applied to slots instead of building them because the vocabulary
+named them:
+
+* **Every flow authored in the game has exactly ONE `Emit`.** All three of them —
+  the Shadow Oni's `iaijutsu`, the goblin's `headlong_charge`, the smash demo's
+  `read_and_seize`. Each waits for a verdict and fires one effect. ⇒ **No node
+  ever names something an earlier node made**, which is the only thing a slot is
+  for.
+* **`FlowNode::Emit` is caster-anchored**: it writes `world_offset: Vec2::ZERO`,
+  and technique handlers compute position from the body's own `kin.pos` plus
+  authored params rather than reading the event's offset. A slot would have
+  nothing to point AT without changing every handler.
+* **The candidate customers each already carry a domain-owned name.** The remote
+  mine answers to `PlacedMine::owner_seat` and is one-per-seat by construction (a
+  press with one out detonates it or is ignored); the portal pair links by
+  `Indexed(n)` / `Indexed(n ^ 1)`; the goblin's grab-on-connect reads
+  `MovePlayback::hit_targets`.
+* ⚠ **The mine is the sharpest refusal, and it is this page's own example.**
+  "Remote detonation" is cited above as the motivating case, and the mine
+  deliberately OUTLIVES its move — placed by one press, set off by a later one.
+  `MovePlayback` is per-occurrence memory, so a move-scoped slot **cannot hold
+  it**. The example that motivates slots is the example that rules them out at
+  this scope.
+
+⇒ **Sequencing IS being authored, just not through flows: 3 flows against 8 cancel
+windows.** When nine specials were authored on 2026-09-06 and one wanted "land
+this, then that" (the oni's `shadow_answer` into `iaijutsu`), what it reached for
+was `cancelable` — the timeline's answer, already shipped.
+
+⭐ **The reopening condition, stated so it can be checked rather than re-argued: a
+move that creates TWO live things of the same kind within one occurrence**, where
+every seat-scan and link-group index becomes ambiguous and only a symbol can
+disambiguate. Nothing on the roster does.
+
+⛔ **And the cost is recorded because it is small and that is the trap.**
+`MovePlayback` is registered `rollback_component_resolved`
+(`crates/ambition_combat/src/rollback_registration.rs:153`), so an
+`Option<Vec2>` slot would be carried by clone with no codec and no schema bump.
+**A rung being cheap is not a reason to build it** — that is the speculative
+generalisation the top of this page refuses.
+
 ⇒ Design and capability map:
 [`expressive-move-capabilities.md`](expressive-move-capabilities.md).
 Execution order:

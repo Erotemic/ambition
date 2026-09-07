@@ -985,6 +985,33 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   because they compose no launcher.
   ⚠ **NOT SEEN ON SCREEN.** Layout numbers are asserted by tests, not by eyes.
 
+- ▢ **D-INSPECTOR-MIRROR — `EditableMovementTuning` omits two knobs, found by making
+  its sibling exhaustive.** `crates/ambition_dev_tools/src/dev_tools/editable.rs` holds
+  hand-kept mirrors of `ae::AbilitySet` and `ae::MovementTuning` so the live inspector
+  can edit them through `Reflect`. `EditableAbilitySet::from` is now an exhaustive
+  destructure (`adeefe90e`, E0027-verified), so a new ability cannot go unmirrored.
+  Applying the same to `EditableMovementTuning` named SEVEN unread fields:
+
+  | field | verdict |
+  |---|---|
+  | `shield`, `footstool` | ✔ FLATTENED into `shield_*` / `footstool_*` leaves — correctly consumed |
+  | `horizontal_law`, `jump_law` | ✔ enums; this inspector edits scalars — deliberate |
+  | `flight_invariant_speed` | ✔ `Option<f32>`; same reason |
+  | `flight_direct_velocity` | ▢ a plain `bool` with no reason to be absent |
+  | `ledge_momentum` | ▢ a nested group that `shield` and `footstool` both got flattened and it did not |
+
+  ⇒ Two genuine gaps: a bool the inspector cannot edit, and a tuning group excluded
+  where two identical-shaped siblings are included. ⚠ Both are DEV-TOOL reach, not
+  player-visible, so this is low priority — filed because the finding is cheap to lose
+  and the fix wants a decision (flattening `ledge_momentum` changes what the inspector
+  SHOWS) rather than a mechanical edit.
+
+  ⛔ The `From` impl is UNCHANGED at HEAD. A mechanical rewrite of its 71-field
+  initializer kept producing brace errors, and landing a half-converted 100-line impl to
+  chase a dev-tool gap is not worth the risk to a file that works. ⇒ Whoever takes it
+  should convert the destructure and the initializer together, in one edit, with the
+  exclusions bound as `field: _` and commented.
+
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

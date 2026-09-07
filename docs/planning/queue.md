@@ -1325,6 +1325,43 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   wants one run with the probe open, not a blind repair; the evidence it needs is
   already being printed.
 
+
+  ⭐⭐ **AND A SECOND MECHANISM, MEASURED 2026-09-06 AND PARTLY REPAIRED AT
+  `a3039d644` — THE ASSET GAP WAS NOT THE WHOLE OF IT.** A per-sheet A/B in ONE
+  frame of the demo course, comparing every body against the quad drawn for it
+  (joined on `FeatureId` <-> `FeatureVisual.id`; the player is joined by markers
+  because it carries no feature id), scored as `body_feet + sprite_feet` -- a
+  y-flip between the two spaces leaves the SUM invariant, so its spread across
+  sheets is the misalignment and the raw difference is meaningless:
+
+  | | before | after |
+  |---|---|---|
+  | three actor-road sheets | 383.8..384.3 | 383.1..384.2 |
+  | Mary-O, the player road | **413.333** | **393.524** |
+
+  ⇒ **Three sheet-authored characters in the same frame were already correct.** The
+  defect was not the shared `authored_offset` seam: the ACTOR road applied it and
+  landed sub-pixel, while the PLAYER road sized from the COLLISION box with a feet
+  anchor. `character_render_basis` is now the one authority both roads call, and
+  Mary-O closed 19.809 -- `authored_offset.y` is 19.8095, i.e. exactly one offset's
+  worth of double-count.
+
+  ▢ **STILL OPEN: +9.5 remains**, and the next step is measurement, not a guess.
+  The drawn quad is 22.10x32.38 while `authored_render` is 60.95x73.14, so a TRIM
+  scale (0.4427) sits between the units the offset is authored in and the world
+  units it is applied in at `actors/mod.rs`'s `translation.y -= offset.y`. Whether
+  the offset should be trim-scaled is the question to answer FIRST, because it also
+  decides whether the asset-side per-pose fix above is still needed or is now
+  double-counting. ⚠ The two mechanisms are not independent and must not be fixed
+  in parallel by two sessions.
+
+  ⚠ **Instrument caveat, so the next reader does not over-trust the table:** the
+  actor band shifts ~0.6 between runs because the animation FRAME is not
+  deterministic, and a MOVING body's sprite samples its box a frame from where the
+  reporter reads it (two snakes with an identical quad read 6.8 apart until the
+  reporter began dropping anything with velocity). The player's row is stable to
+  three decimals; the actor rows are only comparable within one run.
+
 - ✔✔ **THE FEATURE UNION IS PERFECT AT `40d078509` (2026-09-04, after the
   GPT-review repairs): 49/49 JOBS, 7,243 tests passed, ZERO failures, 3,273 s.**
   The union job itself — one graph, every gated test — green in 993.8 s.

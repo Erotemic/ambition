@@ -1038,6 +1038,23 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   single character the row was opened on. ⇒ `0_5x` is effectively clean and `potato`
   is unusable for aspect-sensitive art; `0_25x` is the interesting middle.
 
+  ⭐⭐ **THE MECHANISM SURVIVES A DIRECTIONAL TEST IT COULD HAVE FAILED.** "Alpha-trim
+  over-measures because of an anti-aliasing fringe" predicts the tier's fraction is
+  systematically LARGER than the base's, and that the bias grows as the frame shrinks.
+  Plain rounding predicts a symmetric ~50/50 split and a mean near zero. Measured over
+  every comparable row, both axes:
+
+  | tier | larger | smaller | mean delta |
+  |---|---|---|---|
+  | `sprites_0_5x` | 37.8% | 31.6% | **+0.0011** |
+  | `sprites_0_25x` | 50.4% | 38.6% | **+0.0042** |
+  | `sprites_potato` | **71.1%** | 27.9% | **+0.0884** |
+
+  ⇒ Biased toward larger at every tier, and the bias grows 80x from `0_5x` to
+  `potato`. `0_5x` is near-symmetric with a mean of +0.001, i.e. the effect is
+  essentially absent at a large frame -- which is the null result the hypothesis
+  needs at that end and gets.
+
   ⚠ **AND IT IS NOT CONCENTRATED IN VFX, WHICH IS WHAT I EXPECTED AND CHECKED.** The
   worst individual rows are all `*_vfx_*` sheets, so the obvious guess is that the
   drift lands on effects, where aspect matters least. Split by category it is the

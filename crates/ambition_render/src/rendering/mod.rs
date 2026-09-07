@@ -11,7 +11,29 @@
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SpriteVisualSync;
 
+/// Every writer of a BODY-OWNED drawable's geometry this frame: the clock bar
+/// above a marked fighter, the hit-flash silhouette, the morph ball, the wire,
+/// the tether, the bubble. When this set is done, what each of those draws
+/// this frame is final.
+///
+/// ⭐⭐ THE PHASE THE PORTAL PUBLISHER CONSUMES. `publish_portal_compositing_
+/// candidates` reads a drawable's pose and frame to say what a pane may hide;
+/// it was ordered after the ANIMATORS and nothing else, so a body-owned
+/// drawable spawned or moved this frame could reach the renderer never having
+/// been classified, and one moved this frame could be classified where it was
+/// last frame. Rather than an edge per overlay -- the next overlay forgets --
+/// every such writer joins this set and the publisher runs `.after` it. The
+/// schedule edge is what makes Bevy flush their commands in between, so a
+/// drawable spawned inside the set is a candidate on its first frame. A GPT
+/// review named the gap 2026-09-07.
+///
+/// ⚠ A NEW BODY-OWNED DRAWABLE WRITER JOINS THIS SET. That is the whole
+/// contract; a writer outside it is composited a frame late at best.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BodyOwnedDrawableSync;
+
 pub mod actors;
+pub mod body_clock;
 pub mod body_cues;
 pub mod bubble_shield;
 mod camera;
@@ -26,13 +48,14 @@ pub mod tether;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
 mod health;
-mod hit_flash;
+/// Public so the shipped schedule can be asked, by type, whether its writer
+/// sits in `BodyOwnedDrawableSync`.
+pub mod hit_flash;
 mod item_visuals;
 pub mod label_layout;
 pub mod knockout;
 pub mod launch_trail;
 pub mod mark_beacon;
-pub mod body_clock;
 pub mod morph_ball;
 pub mod submerged;
 pub mod moving_platforms;
@@ -229,6 +252,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     tether::sync_tether_visuals.in_set(SpriteVisualSync),
                 )
                     .chain()
+                    // Body-owned drawables, every one: the portal publisher
+                    // waits for this set. See `BodyOwnedDrawableSync`.
+                    .in_set(BodyOwnedDrawableSync)
                     .after(actors::sync_visuals)
                     .run_if(session_presentation_is_ready),
             )
@@ -243,6 +269,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     bubble_shield::sync_bubble_shield_visual.in_set(SpriteVisualSync),
                 )
                     .chain()
+                    .in_set(BodyOwnedDrawableSync)
                     .after(actors::sync_visuals)
                     .run_if(session_presentation_is_ready),
             )
@@ -280,7 +307,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // A readable clock above a body that carries one — the
                     // delayed mark's telegraph. After `sync_visuals` so it sits
                     // on this frame's pose.
-                    body_clock::sync_body_clock_visuals.after(actors::sync_visuals),
+                    body_clock::sync_body_clock_visuals
+                        .in_set(BodyOwnedDrawableSync)
+                        .after(actors::sync_visuals),
                     // Reconciled from `MovingPlatformSet` here, it derives and never writes — see
                     // `moving_platforms`.
                     moving_platforms::sync_moving_platform_visuals,
@@ -475,7 +504,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // hit-flash overlay and gate visibility on the current
                 // hit_flash timer. Runs after the animator so the overlay
                 // tracks the same frame the source draws this tick.
-                hit_flash::sync_hit_flash_overlays,
+                hit_flash::sync_hit_flash_overlays.in_set(BodyOwnedDrawableSync),
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_feature_sprites,

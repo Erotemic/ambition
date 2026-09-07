@@ -104,6 +104,12 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .after(crate::rendering::actors::animate_player)
                 .after(crate::rendering::actors::animate_characters)
                 .after(crate::rendering::actors::animate_feature_sprites)
+                // ⭐ AND AFTER EVERY BODY-OWNED DRAWABLE WRITER, as ONE edge to
+                // a published set rather than one per overlay: the clock bar,
+                // the flash silhouette, the ball, the wire. The set edge is
+                // also the command flush, so a drawable spawned this frame is
+                // a candidate this frame. See `BodyOwnedDrawableSync`.
+                .after(crate::rendering::BodyOwnedDrawableSync)
                 .before(ambition_portal2d_presentation::PortalPresentationSet)
                 .run_if(bevy::prelude::any_with_component::<
                     ambition_portal2d_presentation::PlacedPortal,

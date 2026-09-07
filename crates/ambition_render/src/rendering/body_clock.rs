@@ -53,7 +53,13 @@ pub fn sync_body_clock_visuals(
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     clocks: Res<BodyClocksView>,
-    mut bars: Query<(Entity, &BodyClockVisual, &mut Sprite, &mut Transform)>,
+    mut bars: Query<(
+        Entity,
+        &BodyClockVisual,
+        &mut Sprite,
+        &mut Transform,
+        &mut Visibility,
+    )>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -61,7 +67,7 @@ pub fn sync_body_clock_visuals(
         return;
     };
     let mut drawn: Vec<Entity> = Vec::with_capacity(clocks.0.len());
-    for (entity, bar, mut sprite, mut transform) in &mut bars {
+    for (entity, bar, mut sprite, mut transform, mut visibility) in &mut bars {
         let Some(fact) = clocks.0.iter().find(|fact| fact.body == bar.body) else {
             // The clock ran out or the body left: the bar goes with it.
             commands.entity(entity).despawn();
@@ -70,6 +76,17 @@ pub fn sync_body_clock_visuals(
         drawn.push(bar.body);
         sprite.custom_size = Some(bar_size(fact.remaining_fraction));
         transform.translation = bar_translation(&world.0, fact);
+        // ⭐ THIS SYSTEM OWNS THE BAR'S VISIBILITY, EVERY FRAME. The bar is a
+        // compositing candidate in its own right; the portal resolver hides it
+        // while a pane covers it and RELEASES WITHOUT ASSERTING once the pane
+        // does not, on the premise that every candidate's owner writes its
+        // value each frame. A bar that walked out from behind a pane stayed
+        // hidden until the clock ended, because nothing here said otherwise.
+        // `Inherited` is the no-opinion value; the resolver, which runs later,
+        // reasserts `Hidden` while a reason stands.
+        if *visibility != Visibility::Inherited {
+            *visibility = Visibility::Inherited;
+        }
     }
     for fact in clocks.0.iter().filter(|fact| !drawn.contains(&fact.body)) {
         let mut sprite = Sprite::from_color(COLOUR, bar_size(fact.remaining_fraction));

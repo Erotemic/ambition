@@ -832,6 +832,15 @@ mod bridge_meets_compositor_tests {
         );
     }
 
+    fn candidate(
+        app: &App,
+        entity: Entity,
+    ) -> Option<ambition_portal2d_presentation::PortalCompositingCandidate> {
+        app.world()
+            .get::<ambition_portal2d_presentation::PortalCompositingCandidate>(entity)
+            .copied()
+    }
+
     /// Far-side pieces, split by what they paint: `(sampled sprite, silhouette)`.
     fn pieces_by_look(app: &mut App) -> (usize, usize) {
         let world = app.world_mut();
@@ -849,6 +858,163 @@ mod bridge_meets_compositor_tests {
                 (sprite + 1, silhouette)
             }
         })
+    }
+
+    /// The bridge app plus the REAL body-owned drawable writers, wired the way
+    /// production wires them: writers in `BodyOwnedDrawableSync`, the publisher
+    /// `.after` that set. The set edge is the command flush, so a drawable
+    /// spawned inside the set is a candidate on its first frame.
+    fn app_with_body_drawables() -> App {
+        use crate::rendering::BodyOwnedDrawableSync;
+        let mut app = app();
+        // What `ImagePlugin` inserts in a real app: the 1x1 white image under
+        // the default handle, which a colour sprite samples. Without it the
+        // compositor cannot rebuild the bar and gives it back whole.
+        app.world_mut()
+            .resource_mut::<Assets<Image>>()
+            .insert(&Handle::default(), Image::default())
+            .expect("the default image handle is insertable");
+        app.init_resource::<ambition_sim_view::BodyClocksView>();
+        app.init_resource::<ambition_time::SimTick>();
+        app.init_resource::<ambition_sim_view::FeatureViewIndex>();
+        app.init_resource::<ambition_sim_view::ActorAnimIndex>();
+        app.init_resource::<
+            ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
+        >();
+        app.insert_resource(Assets::<crate::rendering::hit_flash::HitFlashMaterial>::default());
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::hit_flash::attach_hit_flash_overlays,
+                crate::rendering::hit_flash::sync_hit_flash_overlays,
+                crate::rendering::body_clock::sync_body_clock_visuals,
+            )
+                .chain()
+                .in_set(BodyOwnedDrawableSync),
+        );
+        app.configure_sets(
+            Update,
+            BodyOwnedDrawableSync.before(publish_portal_compositing_candidates),
+        );
+        app
+    }
+
+    /// ⛔⛔ THE CLOCK BAR IS CLASSIFIED ON THE FRAME IT APPEARS, AND WHERE IT IS
+    /// NOW. `sync_body_clock_visuals` spawns and moves the bar through
+    /// commands and a transform write; with no edge to the publisher a bar
+    /// spawned this frame reached the renderer never classified, and a moved
+    /// one was classified at last frame's rectangle. A GPT review named both
+    /// 2026-09-07. The bar here straddles the pane's edge, so "composited"
+    /// means hidden-and-redrawn rather than merely present.
+    #[test]
+    fn a_clock_bar_is_composited_on_its_first_frame_and_follows_its_body() {
+        use crate::rendering::body_clock::BodyClockVisual;
+        use ambition_sim_view::{BodyClockFact, BodyClocksView};
+
+        let mut app = app_with_body_drawables();
+        let body = far_side_player(&mut app);
+        // A full clock on a body whose head sits just under the pane's top edge:
+        // the bar (28x4) straddles the pane's x extent, so part of it is covered.
+        let fact = |remaining_fraction: f32, x: f32| BodyClockFact {
+            body,
+            pos: ambition_platformer2d_core::Vec2::new(x, 300.0),
+            half_height: 16.0,
+            remaining_fraction,
+        };
+        app.world_mut().resource_mut::<BodyClocksView>().0 = vec![fact(1.0, 505.0)];
+        app.update();
+
+        let bar = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<Entity, With<BodyClockVisual>>();
+            q.single(world).expect("one clock, one bar")
+        };
+        let first = candidate(&app, bar).expect(
+            "the bar was drawn this frame and never became a compositing \
+             candidate: a pane cannot clip it on the frame it appears",
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(bar).expect("visibility"),
+            Visibility::Hidden,
+            "the bar overlaps a far-side pane and still draws whole"
+        );
+
+        // The clock runs down and the body moves clear of the pane.
+        app.world_mut().resource_mut::<BodyClocksView>().0 = vec![fact(0.5, 540.0)];
+        app.update();
+        let moved = candidate(&app, bar).expect("still a candidate");
+        assert!(
+            moved.drawn_centre.x > first.drawn_centre.x + 20.0,
+            "the candidate was published from LAST frame's bar ({:.0}) rather than \
+             this frame's ({:.0})",
+            first.drawn_centre.x,
+            moved.drawn_centre.x
+        );
+        assert!(
+            moved.drawn_half.x < first.drawn_half.x,
+            "the bar shrank and the candidate did not: {:?} -> {:?}",
+            first.drawn_half,
+            moved.drawn_half
+        );
+        assert_ne!(
+            *app.world().get::<Visibility>(bar).expect("visibility"),
+            Visibility::Hidden,
+            "the bar moved clear of the pane and is still hidden"
+        );
+    }
+
+    /// ⛔⛔ NO MISSING FRAME ON THE WAY BACK. Frame N: the flashing body is
+    /// far-side and its silhouette is hidden with the portal's marker on it.
+    /// Frame N+1: the body crosses to the near side. The resolver drops its
+    /// claim without asserting a value (its rule), so the overlay's own owner
+    /// must have asserted `Visible` earlier that frame -- and the first version
+    /// skipped that write while last frame's marker was still present. One
+    /// frame of no flash, every time a flashing body left a pane. A GPT review
+    /// found it 2026-09-07.
+    #[test]
+    fn a_flashing_silhouette_is_back_the_frame_its_body_returns_to_the_near_side() {
+        use crate::rendering::hit_flash::HitFlashOverlay;
+
+        let mut app = app_with_body_drawables();
+        let body = far_side_player(&mut app);
+        // The flash is ACTIVE: the pose row the overlay reads carries a timer.
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_sim_view::BodyPoseView {
+                hit_flash_secs: 0.5,
+                ..Default::default()
+            });
+        app.update();
+        app.update();
+        let overlay = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<Entity, With<HitFlashOverlay>>();
+            q.single(world).expect("one overlay")
+        };
+        assert_eq!(
+            *app.world().get::<Visibility>(overlay).expect("visibility"),
+            Visibility::Hidden,
+            "premise: the far-side silhouette is composited (hidden whole)"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_portal2d_presentation::PortalSourceHidden>(overlay)
+                .is_some(),
+            "premise: the portal holds the claim"
+        );
+
+        // The body crosses to the near side: engine x 495 is in front of the pane.
+        let frame = PortalWorldFrame { size: WORLD };
+        let near = frame.to_render(ambition_platformer2d_core::Vec2::new(480.0, 300.0), 20.0);
+        *app.world_mut().get_mut::<Transform>(body).expect("pose") =
+            Transform::from_translation(near);
+        app.update();
+        assert_ne!(
+            *app.world().get::<Visibility>(overlay).expect("visibility"),
+            Visibility::Hidden,
+            "the body is near-side, the portal has no reason, and the silhouette \
+             is still hidden: one missing frame of flash on every crossing"
+        );
     }
 
     /// ⛔⛔ THE WHOLE POINT: a far-side PLAYER, published by the real bridge and

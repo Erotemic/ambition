@@ -397,7 +397,6 @@ pub fn sync_hit_flash_overlays(
         &HitFlashOverlay,
         &mut ambition_sprite_fx::DeclaredFrame,
         &mut Visibility,
-        PortalHidIt,
     )>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
 ) {
@@ -451,7 +450,6 @@ pub fn sync_hit_flash_overlays(
             overlay,
             mut declared,
             mut overlay_visibility,
-            portal_hid_overlay,
         )) = overlays.get_mut(source.overlay)
         else {
             // Overlay despawned underneath us (could happen if a
@@ -467,16 +465,23 @@ pub fn sync_hit_flash_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        // ⭐ THIS SYSTEM OWNS THE OVERLAY'S VISIBILITY, EVERY FRAME. It used to
-        // stay `Visible` permanently (the shader's `discard` arm makes an idle
-        // overlay free), and that was fine while nothing else wrote it. Now the
-        // overlay is a compositing candidate in its own right: the portal
-        // resolver hides it while a pane covers it and RELEASES WITHOUT
-        // ASSERTING when the pane no longer does -- on the stated premise that
-        // every candidate has a per-frame owner. This is that owner. While the
-        // portal's claim stands the resolver reasserts `Hidden` after this, the
-        // same arrangement `sync_visuals` has with bodies.
-        if !portal_hid_it(portal_hid_overlay) && *overlay_visibility != Visibility::Visible {
+        // ⭐ THIS SYSTEM OWNS THE OVERLAY'S VISIBILITY, EVERY FRAME,
+        // UNCONDITIONALLY. It used to stay `Visible` permanently (the shader's
+        // `discard` arm makes an idle overlay free), and that was fine while
+        // nothing else wrote it. Now the overlay is a compositing candidate in
+        // its own right: the portal resolver hides it while a pane covers it
+        // and RELEASES WITHOUT ASSERTING when the pane no longer does -- on the
+        // stated premise that every candidate has a per-frame owner. This is
+        // that owner, and it asserts `Visible` here and lets the resolver, which
+        // runs later, reassert `Hidden` while a reason stands -- exactly
+        // `sync_visuals`' arrangement with bodies.
+        // ⛔⛔ NOT "unless the portal's marker is on it". The first version
+        // skipped the write while last frame's `PortalSourceHidden` was still
+        // present, so on the frame a body crossed to the near side the resolver
+        // dropped its claim without asserting, this system had not asserted
+        // either, and the flash vanished for one frame. Found by a GPT review
+        // 2026-09-07.
+        if *overlay_visibility != Visibility::Visible {
             *overlay_visibility = Visibility::Visible;
         }
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);

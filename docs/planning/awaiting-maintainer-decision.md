@@ -4138,6 +4138,24 @@ choose is a design claim nobody has made, and the roster would be measured again
 my taste. ⇒ The measurement harness is cheap once the numbers exist; the numbers
 are the deliverable.
 
+⭐⭐ **ONE TASTE-FREE INPUT, MEASURED 2026-09-06 while chasing a sprite placement
+defect: THE NOISE FLOOR ANY TOLERANCE MUST CLEAR.** These are properties of the
+instrument, not design claims, so they constrain the answer without pre-empting it:
+* **The ANIMATION ROW must be pinned or the number moves.** Each row carries its own
+  trim, so quad and anchor change per row while the body box does not. A placement
+  measurement that did not name its row read a `death` frame as `idle` and produced a
+  confident 25px "defect" that did not exist.
+* **A MOVING body contributes its own travel.** Its sprite samples the box a frame
+  from where a reporter reads it — two bodies with an IDENTICAL quad measured 6.8
+  units apart until anything with velocity was excluded. ⇒ Either assert at rest, or
+  the tolerance must exceed one frame of travel at the fastest speed sampled.
+* **At rest and with the row pinned, the measurement is exact** — repeated runs of one
+  binary agreed to three decimals. So the floor is set by those two confounds, not by
+  jitter in the projection.
+⇒ None of this says what the tolerance SHOULD be. It says a tolerance below one
+frame's travel is unmeasurable, and that the harness must record which animation row
+it sampled or its numbers cannot be compared across runs.
+
 ### 67. The compile ratchet's baseline holds one fact twice. Derive it, or keep storing it? (2026-09-06)
 
 ⚠ **THIS IS A GATE-MEANING QUESTION, WHICH IS WHY IT IS HERE AND NOT IN
@@ -4180,7 +4198,23 @@ inflated size. That is a real reduction in reported pressure, and if the intent 
 "hold the line at the stricter reading", (b) is the honest choice and the
 disclosure now makes it readable.
 
-⛔ **I have not implemented either.** `compile_ratchet.py`'s own comment reserves
+✔ **OPTION (a) HAS NOW BEEN IMPLEMENTED, MEASURED AND REVERTED (2026-09-06,
+priced at `fb7c01f3a`), so the cost is executed evidence rather than a projection.**
+With the derived scalars read from the `crates` table:
+
+| crate | vs stored | vs table | budget | verdict if derived |
+|---|---|---|---|---|
+| `ambition_geometry` | +72,837 | **+20,973** | +10,804 | STILL RED |
+| `..._actor_monolith` | +20,295 | **+11,181** | +5,704 | STILL RED |
+| `..._platformer2d_core` | +72,358 | **+20,973** | +10,747 | STILL RED |
+
+⇒ **(a) banks no finding: every row stays red either way.** What it does is relax the
+gate by 51,864 / 9,114 / 51,385 lines, so a FRESH regression of that size would then
+land silently. That is the whole of the cost, and it is why the change was reverted
+rather than landed. ⚠ Note this cuts against reading (a) as dangerous *and* against
+reading it as free — the verdicts are unchanged today and the headroom is not.
+
+⛔ **I have not landed either.** `compile_ratchet.py`'s own comment reserves
 this: *"Changing which number the findings compare against is a change to what the
 gate MEANS, and that belongs to whoever owns the carve programme — not to the run
 that noticed."*

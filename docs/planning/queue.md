@@ -1373,7 +1373,31 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   0.3118 and quad, and came out at oy=80.00 exactly -- an integer, which is the
   check that the derivation is sound.)
 
+  ⭐⭐⭐ **AND THE GENERATING LINE IS FOUND** (`tools/ambition_sprite2d_renderer`,
+  `ambition_sprite2d_renderer/authoring/sheet.py`):
+
+      if body_metric_frame is None:      # ~line 215
+          body_metric_frame = cropped
+      ...
+      metrics = _measure_body_extent(body_metric_frame)   # ~line 249
+
+  ⇒ **The body box is the alpha extent of THE FIRST FRAME RENDERED** -- whichever
+  animation happens to sort first -- and that one measurement becomes
+  `body_pixel_bbox` for every pose on the sheet. That is precisely "measures her
+  stance and calls it a pose", in one line.
+
+  THE FULL CHAIN, each link measured: first frame's alpha box -> feet at sheet row
+  190 -> `authored_offset` (2,-52) derived correctly FROM that box -> sim collision
+  box 56x84 matching that box exactly -> but the idle frame actually drawn ends at
+  row 165. Everything downstream is right; the box is 25px taller than the art it
+  claims to describe.
+
   ▢ **NEXT: the generator must measure the ART per pose**, not carry one stance box.
+  ⛔ THE FIX LIVES IN A SUBMODULE (`tools/ambition_sprite2d_renderer`) whose pointer
+  on this box is DIVERGENT from the superproject's record (recorded `0828faede`,
+  checked out `2b4d59f46`), so it was deliberately not committed into from here --
+  that reconciliation is Jon's. The diagnosis above is complete enough that the fix
+  is a small, well-specified job for whoever holds the submodule.
   ⛔ Do NOT "fix" this by adjusting the offset or the collision box: both currently
   agree with the authored bbox, and changing either to chase the art would put the
   collider somewhere the art still is not.

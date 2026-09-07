@@ -1050,6 +1050,25 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   lane. Splitting the chain to carve the combat half changes the ordering the comments
   above it argue for at length.
 
+  ⭐⭐⭐ **AND THE CAMPAIGN'S TARGET IS ABOUT HALF THE HEADLINE NUMBER, measured
+  2026-09-06 by `scripts/measure_carveable_installations.py` (committed).** Splitting
+  every `add_systems` / `configure_sets` block in the six host files by the capabilities
+  it names — resolving `use` imports, so bare names are attributed correctly:
+
+      REDUCIBLE   25   one capability + shared vocabulary; it could install itself
+      IRREDUCIBLE 24   two capabilities that do NOT depend on each other
+
+  ⇒ **An irreducible block is not a leak — it is the composition doing its job.**
+  Measured example: `projectile_visuals` orders `ambition_render` systems `.after` a
+  `ambition_platformer2d_runtime` set, and render does not depend on runtime
+  (`grep -c ambition_platformer2d_runtime crates/ambition_render/Cargo.toml` = 0). No
+  crate but the host can name both, so that block cannot move anywhere.
+
+  ⚠ **REDUCIBLE IS AN UPPER BOUND, and the script says so in its own output**: a
+  single-capability block can still be entangled by a `.chain()` crossing a lane
+  boundary — `CombatSet::Playback` chains eleven `ambition_combat` systems with one
+  `actor_monolith` system and counts as reducible here while it is not.
+
   ⇒ **Three candidates, three different entanglements**: an inverted dependency (time), a
   cross-lane chain (moveset playback), and active concurrent work (combat at large). None
   is a reason the campaign is wrong; all three are reasons the next step is a

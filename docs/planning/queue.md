@@ -985,8 +985,33 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   because they compose no launcher.
   ⚠ **NOT SEEN ON SCREEN.** Layout numbers are asserted by tests, not by eyes.
 
-- ▢ **D-MARYO-SPRITE — Mary-O's sprite is mispositioned against her collision
-  box (regression).** Reported by Jon 2026-09-05: collision looks correct, so he
+- ✔ **D-MARYO-SPRITE — FIXED AND VERIFIED IN NORMAL PLAY, 2026-09-06
+  (`a3039d644`).** Mary-O's sprite is mispositioned against her collision box.**
+
+  ⭐⭐ **THE CLOSING A/B, one binary, the poison toggled in place, IDLE frame:**
+
+  | player render basis | `space_sum` | anchor_y | vs actor band 383.1..384.2 |
+  |---|---|---|---|
+  | collision-derived (the defect) | **403.429** | 0.0000 | +19.8, OUTSIDE |
+  | authored quad + CENTER (the fix) | **383.619** | 0.6047 | **INSIDE** |
+
+  403.429 - 383.619 = **19.810**, and `authored_offset.y` is 19.8095. ⇒ The fix moves
+  her by exactly one authored offset and lands her in the same band as every other
+  sheet-authored character in the frame. The cause was TWO derivations of one fact:
+  the actor road sized from the sheet's authored quad and anchored CENTER, the player
+  road sized from the COLLISION box with a feet anchor, and `apply_character_frame`
+  wrote whichever basis ran last. `character_render_basis` is now the one authority
+  both roads call.
+
+  ⚠ Jon's second symptom -- *"the size of the snake has seemed to vary depending on
+  the global game state"* -- is NOT explained by this and is NOT closed here. It was
+  never reproduced. Acceptance said "the offset is gone AND the mechanism explains
+  the snake, or the two are shown to be separate with evidence": the offset is gone
+  with evidence; the snake is simply untested, so it stays open as its own question
+  rather than being declared separate on no evidence.
+
+  ⛔ ORIGINAL ROW BELOW, kept because two of its readings were retracted and the
+  retractions are the useful part: Reported by Jon 2026-09-05: collision looks correct, so he
   reads it as presentation. ⚠ **He suspects it is not local:** *"the size of the
   snake has seemed to vary depending on the global game state, so maybe something
   else exposed it"* — a second character's SIZE varying with global state is the

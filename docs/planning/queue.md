@@ -1293,6 +1293,24 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   while the log said `build failed` — because the command was piped to `tail`, and a
   pipe voids the exit status exactly the way `| grep` does. The failure was visible
   only in the text. Same trap, different filter.
+
+  ⭐⭐ **AND THE CAUSE IS BIGGER THAN ONE LIBRARY: NINE of the THIRTY-THREE system
+  packages `scripts/setup/system_packages.sh` DECLARES are absent on this box, and
+  nothing checked.** `libfontconfig1-dev` plus the whole X11/xcb/xkb set. The
+  declaration was never the problem — `libfontconfig1-dev` is already in that
+  script's required list — the problem is that **nothing verified the declaration
+  HELD on a given host**, and `desktop_check.sh` cannot: it compiles `ambition_app`
+  at DEFAULT features, which needs none of the nine.
+  ✔ **`scripts/check_declared_system_packages.py` (new) names them in under a
+  second**, parsing the list FROM the setup script rather than copying it, with an
+  anti-vacuity floor so a broken parse says so instead of reporting a tidy host, and
+  poison-verified by renaming the array in a COPY.
+  ⚠ **It is a REPORT, not a gate, and that is measured rather than timid:** this box
+  is headless and never opens a window, so it builds and tests fine without the X11
+  set. One declared list serves several kinds of machine, so "missing" does not mean
+  "broken" — `--strict` is there for a host that has opted into being fully
+  provisioned. ⇒ What IS broken here is only the union, and only because of
+  `fontconfig`.
 - ▢ **D-APPIT-FLAKE — `ambition_app --test app_it` fails intermittently at ~2 in 6,
   and the failing test is UNIDENTIFIED because I filtered it away twice.** Observed
   2026-09-06 at `7ebf6320d` and neighbours: two runs reported

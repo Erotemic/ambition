@@ -985,6 +985,25 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   because they compose no launcher.
   ⚠ **NOT SEEN ON SCREEN.** Layout numbers are asserted by tests, not by eyes.
 
+- ▢ **D-APPIT-FLAKE — `ambition_app --test app_it` fails intermittently at ~2 in 6,
+  and the failing test is UNIDENTIFIED because I filtered it away twice.** Observed
+  2026-09-06 at `7ebf6320d` and neighbours: two runs reported
+  `577 passed; 1 failed; 23 ignored`, four runs reported `578 passed; 0 failed`. Same
+  binary, same tree, no edits in flight on the second failure.
+
+  ⛔⛔ **THE EVIDENCE WAS DESTROYED BY MY OWN INVOCATION, BOTH TIMES.** Each failing run
+  was piped through `grep -E "^test result|^error"`, which keeps the summary and drops
+  the `---- <name> stdout ----` block that names the test. ⇒ A suite run whose result
+  you might need to diagnose must be redirected to a FILE and grepped afterwards, never
+  filtered inline. (This is the `| grep` lesson in a new costume: the pipe did not void
+  an exit code here, it voided the only line that mattered.)
+
+  ▢ NEXT: run `cargo test -p ambition_app --test app_it > LOG 2>&1` in a loop until it
+  reddens, then read `^---- ` from LOG. ⚠ Four consecutive clean runs at ~4 minutes
+  each did not reproduce it, so budget for several. ⚠ And until it is named, every
+  `app_it` green in this file's receipts carries a ~30% chance of having been a
+  different draw — including mine.
+
 - ▢ **D-POTATO-ASPECT — Jon's SECOND symptom reproduced 2026-09-06: at the `potato`
   quality profile sprite quads change ASPECT RATIO, and the mechanism is alpha-trim
   measured on a 10px frame.** This is the *"the size of the snake has seemed to vary

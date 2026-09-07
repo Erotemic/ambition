@@ -10,11 +10,21 @@ distinction is structural rather than a matter of effort:
               vocabulary every crate already depends on). That capability can install
               itself, and the composition names one function instead of N paths.
 
-  IRREDUCIBLE the block names TWO capabilities that do not depend on each other. The
-              composition is the ONLY place that can name both, so the naming is its
-              job rather than a leak. Measured example: `projectile_visuals` orders
-              `ambition_render` systems `.after` a `ambition_platformer2d_runtime` set,
-              and render does not depend on runtime — that block cannot move anywhere.
+  IRREDUCIBLE the composition is the only place that can express it, for any of FOUR
+              reasons — each one measured against a real block rather than imagined:
+                · it names two capabilities that do not depend on each other
+                  (`projectile_visuals` orders `ambition_render` systems `.after` a
+                  `ambition_platformer2d_runtime` set; render does not depend on runtime);
+                · the owner cannot NAME its anchors, shared vocabulary included
+                  (`ambition_characters` uses `GameplaySimulationRoot` and does not depend
+                  on `shared_tangle`);
+                · it installs the HOST'S OWN system and merely orders it against a foreign
+                  set (`crate::portal::tag_portal_camera_continuity_camera`);
+                · it PLACES a capability's published set inside the host's phase
+                  vocabulary (`EncounterLifecycleSet` between two `ProgressionSet`
+                  phases; mount's four stages `.in_set(CombatSet::Settle)`). The
+                  capability orders its own stages; only the composition knows where the
+                  whole thing sits.
 
 ⛔⛔ AND THE OBVIOUS IMPLEMENTATION IS WRONG, which is why this is a script and not a
 grep. Classifying a block by the `crate::path::` prefixes written in it MISSES every
@@ -219,6 +229,17 @@ def main() -> int:
             named -= SHARED | {own_crate}
             if installs_shared and named:
                 irr.append((line, sorted(named | SHARED)))
+                continue
+            # ⛔⛔ A `configure_sets` THAT PLACES A CAPABILITY'S SET INSIDE THE HOST'S OWN
+            # PHASE VOCABULARY IS THE COMPOSITION'S JOB, not a leak. The capability
+            # PUBLISHES a set and decides the order among its own stages; the composition
+            # decides where that set sits in ITS phase order — which is the one thing a
+            # capability cannot know. Measured: `ambition_encounter::EncounterLifecycleSet`
+            # placed between `ProgressionSet::BossAdvance` and `BossHazards`, and mount's
+            # four stages placed `.in_set(CombatSet::Settle)`, whose own comment says
+            # exactly this. Both read as carveable until this line existed.
+            if "configure_sets(" in body and "add_systems(" not in body:
+                irr.append((line, sorted(named) or ["<set placement>"]))
                 continue
             if owns_a_system:
                 # The host installs one of its own systems here; the block stays.

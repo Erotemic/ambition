@@ -814,6 +814,51 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   differently-shaped ask than the row states, and the screen-watching is needed to
   confirm the judgment rather than to discover the pattern.
 
+  ⭐⭐ **RE-MEASURED 2026-09-07 at `61040cbb2`, AND THE SCHEDULE ANSWERS A
+  QUESTION THIS ROW SAID NEEDED A SCREEN.** Two of this row's own numbers were
+  wrong, and its central claim was attributed too narrowly:
+  - **"25 non-test readers" is FILES referencing the type**, tests and
+    re-exports included. The SYSTEM count is **9**, of which ~2 are producers.
+    A `Res`-only grep finds 4; `any_navigation` in the earlier list is a METHOD,
+    not a system.
+  - **`populate_seat_menu_frames` does not ask the arbitration either**, so the
+    finding is not global-channel-specific: BOTH menu roads build frames from raw
+    `ActionState` with no `SeatInputContexts` parameter.
+  - ⛔ **And my first census claimed "no ordering edges exist between them",
+    which was false.** It was a grep over `add_systems` lines, and a grep cannot
+    see `configure_sets` in another crate. `MenuFrameConsume`, `MenuNavConsume`
+    and `MenuFrameCutsceneSkip` already existed, with a test proving the umbrella
+    `.before` is not vacuous. Ask the schedule, not the registration lines.
+  ⇒ **MEASURED, by asking `bevy_ecs` for what it already computes** — 11
+  unordered pairs conflict on `MenuControlFrame` in the shipped app
+  (`update_schedule_census.rs`, attributed by SET MEMBERSHIP because system names
+  are stripped without bevy's `debug` feature and `get_node_name` panics on this
+  graph): 6 `MenuNavConsume` x NO MENU SET, 3 `MenuFrameCutsceneSkip` x
+  `MenuNavConsume`, 2 `MenuNavConsume` x `MenuNavConsume`.
+  ⭐ **The last row is the mechanism behind Jon's "it also seems non
+  deterministic which menu is chosen".** `MenuFrameConsume` orders the frame
+  WRITER before the readers and says nothing about reader vs READER — and one
+  reader mutates: `consume_nav_edges()` clears the nav edges for every later
+  reader in ANY crate. `consume_nav_edges()` exists to stop the two inventory
+  backends double-acting when the "Menu Backend" row flips the effective backend
+  mid-frame, and the two systems it arbitrates between were themselves unordered.
+  The mitigation for a first-writer-wins race was resolved by a first-writer-wins
+  race.
+  ✔ **FIXED at `0e2b46bc0`, 11 -> 9**, poison-verified both directions (removing
+  the one `configure_sets` brings back exactly 11 with the original 3/2/6 split).
+  The order is stated ONCE in the composition, because that is the only place
+  that knows both backends exist — they register under different features, so a
+  system-to-system `.after()` would exist only in builds compiling both.
+  ⇒ **WHAT IS ACTUALLY LEFT is 9 pairs, not 25 readers**, and the largest group
+  is `MenuNavConsume` x NO MENU SET: readers that never joined the umbrella. THAT
+  is the per-surface judgement this row describes, and it is now a list of 9
+  rather than an open audit. A guard holds the line meanwhile: a tenth cannot
+  land silently.
+  ⚠ **A holder allowlist was the wrong instrument and the peer talked me out of
+  it** before I built it — "a bidirectional allowlist over holders will pin
+  whatever shape is there today". Consumption is legitimate; the ORDER being
+  emergent is the defect, and an allowlist over holders says nothing about order.
+
 ## Current execution order
 
 - ✔ **D-CUT-VOICE — LANDED 2026-09-06, and EVERY BLOCKING CLAIM BELOW WAS

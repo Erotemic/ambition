@@ -293,6 +293,22 @@ pub fn attach_hit_flash_overlays(
                     HitFlashOverlay {
                         source: source_entity,
                     },
+                    // ⭐⭐ WHAT THIS MESH PAINTS, DECLARED, so the portal
+                    // compositor can clip it like a sprite instead of hiding it
+                    // wholesale when its body is partly behind a pane. A unit
+                    // quad whose transform scale is the drawn size, centre
+                    // origin with the anchor already folded into the
+                    // translation: `size` ONE, `anchor` ZERO. Kept current by
+                    // `sync_hit_flash_overlays` beside the material.
+                    ambition_sprite_fx::DeclaredFrame {
+                        color_texture: sprite.image.clone(),
+                        uv_rect,
+                        flip_x: sprite.flip_x,
+                        tint: FLASH_TINT.extend(0.0),
+                        silhouette: true,
+                        size: Vec2::ONE,
+                        anchor: Vec2::ZERO,
+                    },
                     // ⭐ THE OWNERSHIP FACT, stated where the drawable is made.
                     // `source` above is this overlay's own business (it mirrors
                     // that sprite); this says WHOSE BODY it draws, in the one
@@ -364,9 +380,14 @@ pub fn sync_hit_flash_overlays(
             Option<&PlayerVisual>,
             &HitFlashSource,
             // The source's OWN visibility. The overlay is a separate root entity
-            // that stays `Visible` forever (see the spawn site), so it does not
-            // inherit a hidden source — see `overlay_look`.
+            // (see the spawn site), so it does not inherit a hidden source — see
+            // `overlay_look`.
             Option<&Visibility>,
+            // ⭐ ...EXCEPT WHEN THE PORTAL IS THE ONE HIDING IT. A far-side body
+            // is `Hidden` because clipped pieces are drawing it, and the overlay
+            // now composites into pieces of its own — so the flash must keep
+            // its intensity, or the pieces would be silhouettes of nothing.
+            PortalHidIt,
         ),
         Without<HitFlashOverlay>,
     >,
@@ -374,6 +395,9 @@ pub fn sync_hit_flash_overlays(
         &mut Transform,
         &MeshMaterial2d<HitFlashMaterial>,
         &HitFlashOverlay,
+        &mut ambition_sprite_fx::DeclaredFrame,
+        &mut Visibility,
+        PortalHidIt,
     )>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
 ) {
@@ -386,6 +410,7 @@ pub fn sync_hit_flash_overlays(
         player,
         source,
         source_visibility,
+        portal_hid_source,
     ) in &sources
     {
         let Some(render_size) = source_sprite.custom_size else {
@@ -413,10 +438,21 @@ pub fn sync_hit_flash_overlays(
             &poses,
             defense_policy.0,
         );
-        let (intensity, tint) = overlay_look(facts, tick.0, source_visibility.copied());
+        let source_visibility = if portal_hid_it(portal_hid_source) {
+            None
+        } else {
+            source_visibility.copied()
+        };
+        let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
 
-        let Ok((mut overlay_transform, material_handle, overlay)) =
-            overlays.get_mut(source.overlay)
+        let Ok((
+            mut overlay_transform,
+            material_handle,
+            overlay,
+            mut declared,
+            mut overlay_visibility,
+            portal_hid_overlay,
+        )) = overlays.get_mut(source.overlay)
         else {
             // Overlay despawned underneath us (could happen if a
             // cleanup pass beat us this tick on a source that's
@@ -431,10 +467,18 @@ pub fn sync_hit_flash_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        // Visibility stays `Visible` permanently; the shader's
-        // `discard` arm makes the overlay free when intensity == 0,
-        // and we sidestep the InheritedVisibility-propagation gotcha
-        // documented at the spawn site.
+        // ⭐ THIS SYSTEM OWNS THE OVERLAY'S VISIBILITY, EVERY FRAME. It used to
+        // stay `Visible` permanently (the shader's `discard` arm makes an idle
+        // overlay free), and that was fine while nothing else wrote it. Now the
+        // overlay is a compositing candidate in its own right: the portal
+        // resolver hides it while a pane covers it and RELEASES WITHOUT
+        // ASSERTING when the pane no longer does -- on the stated premise that
+        // every candidate has a per-frame owner. This is that owner. While the
+        // portal's claim stands the resolver reasserts `Hidden` after this, the
+        // same arrangement `sync_visuals` has with bodies.
+        if !portal_hid_it(portal_hid_overlay) && *overlay_visibility != Visibility::Visible {
+            *overlay_visibility = Visibility::Visible;
+        }
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
         // ⛔⛔ READ BEFORE WRITING, AND ONLY WRITE A CHANGE. `Assets::get_mut`
         // MARKS THE ASSET MODIFIED, and a modified material is re-uploaded to the
@@ -468,7 +512,38 @@ pub fn sync_hit_flash_overlays(
                 material.tint = tint;
             }
         }
+        // The declaration, kept current beside the material and under the same
+        // read-before-write rule (a component write is cheaper than an asset
+        // re-upload, but `Changed` still fans out).
+        let declared_now = ambition_sprite_fx::DeclaredFrame {
+            color_texture: source_sprite.image.clone(),
+            uv_rect,
+            flip_x: flip > 0.5,
+            tint: Vec4::new(tint.x, tint.y, tint.z, intensity),
+            silhouette: true,
+            size: Vec2::ONE,
+            anchor: Vec2::ZERO,
+        };
+        if *declared != declared_now {
+            *declared = declared_now;
+        }
     }
+}
+
+/// "Is the portal the one hiding this entity" -- a fact the render crate can
+/// only ask when the portal presentation crate is composed in.
+#[cfg(feature = "portal_render")]
+type PortalHidIt = Has<ambition_portal2d_presentation::PortalSourceHidden>;
+#[cfg(feature = "portal_render")]
+fn portal_hid_it(has: bool) -> bool {
+    has
+}
+/// Without portals nothing hides a body for the compositor's reasons.
+#[cfg(not(feature = "portal_render"))]
+type PortalHidIt = ();
+#[cfg(not(feature = "portal_render"))]
+fn portal_hid_it((): ()) -> bool {
+    false
 }
 
 /// Remove orphan overlays whose source entity despawned. Mirrors the

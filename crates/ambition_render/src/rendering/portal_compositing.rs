@@ -83,11 +83,40 @@ pub fn publish_portal_compositing_candidates(
             Without<bevy::prelude::ChildOf>,
         ),
     >,
+    // ⭐⭐ THE NON-SPRITE POPULATION. A body-owned `Mesh2d` that DECLARES what it
+    // paints (`DeclaredFrame`) is published from that declaration and its
+    // transform, so the compositor can clip it like a sprite. The hit-flash
+    // silhouette is the first; before this it could only be hidden wholesale.
+    // `Without<Sprite>` keeps the two populations disjoint, so a drawable is
+    // published exactly once: a sprite that ALSO declares goes through the
+    // sprite arm, and the compositor prefers its declaration when it paints.
+    declared: Query<
+        (
+            Entity,
+            &ambition_sprite_fx::DeclaredFrame,
+            &Transform,
+            &Visibility,
+            Option<&ambition_portal2d_presentation::PortalSourceHidden>,
+        ),
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
+            Without<Sprite>,
+            Without<bevy::prelude::ChildOf>,
+        ),
+    >,
 ) {
     // ⚠ `SessionWorldRef` is a `Single`, so this system simply does not run
     // without a session world -- which is the honest behaviour: there is no
     // coordinate frame to publish engine positions in.
     let size = world.0.size;
+    for (entity, frame, transform, visibility, portal_hid_it) in &declared {
+        if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
+            continue;
+        }
+        commands
+            .entity(entity)
+            .insert(candidate_for(size, transform, frame.anchor, frame.size));
+    }
     for (entity, sprite, transform, anchor, visibility, portal_hid_it) in &drawables {
         // ⛔⛔ A DRAWABLE NOBODY IS DRAWING IS NOT A CANDIDATE. Publication took
         // no account of visibility, so while a player was MORPHED its hidden base
@@ -108,46 +137,53 @@ pub fn publish_portal_compositing_candidates(
         let Some(drawn) = sprite.custom_size else {
             continue;
         };
-        // ⛔⛔ A SPRITE PIVOTS ON ITS ANCHOR; A QUAD IS CENTRE-ORIGIN. Character
-        // sprites are FEET-anchored (`feet_anchor_for_render_size`), so the
-        // drawn rectangle's centre is nowhere near the transform translation --
-        // it is most of a body-height above it. Publishing the translation as
-        // the centre handed the compositor a rectangle offset by that much, and
-        // it then subtracted the wrong region.
-        //
-        // ⭐ Derived by the SAME helper the compositor uses to place its pieces,
-        // rather than a second copy of the rule here. If these two ever disagreed
-        // about where a sprite is, the subtracted region and the drawn region
-        // would differ -- which is the whole defect, one layer down.
-        let posed = ambition_portal2d_presentation::clip_piece_transform(
+        commands.entity(entity).insert(candidate_for(
+            size,
             transform,
             anchor.map_or(Vec2::ZERO, |a| a.0),
             drawn,
-        );
-        let bevy_centre = posed.translation.truncate();
-        // ⭐ The ONE definition of the y-flip, called rather than repeated.
-        let centre =
-            ambition_platformer2d_core::config::bevy_size_to_world(size, bevy_centre);
-        commands
-            .entity(entity)
-            .insert(ambition_portal2d_presentation::PortalCompositingCandidate {
-                drawn_centre: centre,
-                // ⚠ A y-flip moves a CENTRE, never a size -- but SCALE does
-                // change a size, and `clip_piece_transform` folds the sprite
-                // scale into the quad it poses, so the half-extent reads it back
-                // from there rather than from `custom_size` alone.
-                //
-                // ⛔ AND ROTATION CHANGES IT TOO. The candidate is a world-space
-                // AABB; a ROTATED non-square sprite does not occupy its
-                // unrotated rectangle, so publishing the scaled half-extents
-                // under-reported the region for any rolled body (`ActorRoll` --
-                // an aerial/gravity roll is ordinary, not exotic) and the pane
-                // then failed to subtract the corners that actually overhang it.
-                drawn_half: rotated_half_extent(
-                    posed.scale.truncate().abs() * 0.5,
-                    posed.rotation,
-                ),
-            });
+        ));
+    }
+}
+
+/// The compositing candidate for a drawable posed by `transform`, pivoting on
+/// `anchor`, painting a `drawn`-sized quad before scale.
+///
+/// ⛔⛔ A SPRITE PIVOTS ON ITS ANCHOR; A QUAD IS CENTRE-ORIGIN. Character
+/// sprites are FEET-anchored (`feet_anchor_for_render_size`), so the
+/// drawn rectangle's centre is nowhere near the transform translation --
+/// it is most of a body-height above it. Publishing the translation as
+/// the centre handed the compositor a rectangle offset by that much, and
+/// it then subtracted the wrong region.
+///
+/// ⭐ Derived by the SAME helper the compositor uses to place its pieces,
+/// rather than a second copy of the rule here. If these two ever disagreed
+/// about where a sprite is, the subtracted region and the drawn region
+/// would differ -- which is the whole defect, one layer down.
+fn candidate_for(
+    size: ambition_platformer2d_core::Vec2,
+    transform: &Transform,
+    anchor: Vec2,
+    drawn: Vec2,
+) -> ambition_portal2d_presentation::PortalCompositingCandidate {
+    let posed = ambition_portal2d_presentation::clip_piece_transform(transform, anchor, drawn);
+    let bevy_centre = posed.translation.truncate();
+    // ⭐ The ONE definition of the y-flip, called rather than repeated.
+    let centre = ambition_platformer2d_core::config::bevy_size_to_world(size, bevy_centre);
+    ambition_portal2d_presentation::PortalCompositingCandidate {
+        drawn_centre: centre,
+        // ⚠ A y-flip moves a CENTRE, never a size -- but SCALE does
+        // change a size, and `clip_piece_transform` folds the sprite
+        // scale into the quad it poses, so the half-extent reads it back
+        // from there rather than from `custom_size` alone.
+        //
+        // ⛔ AND ROTATION CHANGES IT TOO. The candidate is a world-space
+        // AABB; a ROTATED non-square sprite does not occupy its
+        // unrotated rectangle, so publishing the scaled half-extents
+        // under-reported the region for any rolled body (`ActorRoll` --
+        // an aerial/gravity roll is ordinary, not exotic) and the pane
+        // then failed to subtract the corners that actually overhang it.
+        drawn_half: rotated_half_extent(posed.scale.truncate().abs() * 0.5, posed.rotation),
     }
 }
 
@@ -310,6 +346,44 @@ mod tests {
              candidate, so a pane cannot clip it and it draws over the aperture \
              the body is standing behind"
         );
+    }
+
+    /// ⭐⭐ A NON-SPRITE DRAWABLE THAT DECLARES ITS FRAME IS PUBLISHED FROM THE
+    /// DECLARATION. A unit quad scaled to 48x48 by its transform, the hit-flash
+    /// overlay's shape, publishes a 24x24 half-extent -- so the compositor can
+    /// classify it rather than the resolver hiding it wholesale.
+    #[test]
+    fn a_declared_non_sprite_drawable_is_published_from_its_declaration() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let mut app = app();
+        let body = app.world_mut().spawn(PlayerVisual).id();
+        let mut transform = Transform::from_translation(Vec3::new(300.0, 300.0, 21.5));
+        transform.scale = Vec3::new(48.0, 48.0, 1.0);
+        let overlay = app
+            .world_mut()
+            .spawn((
+                ambition_sprite_fx::DeclaredFrame {
+                    color_texture: Handle::default(),
+                    uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
+                    flip_x: false,
+                    tint: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                    silhouette: true,
+                    size: Vec2::ONE,
+                    anchor: Vec2::ZERO,
+                },
+                transform,
+                GlobalTransform::from(transform),
+                Visibility::Visible,
+                PresentationOf(body),
+            ))
+            .id();
+        app.update();
+        let published = candidate(&app, overlay).expect(
+            "a declared non-sprite drawable is not a compositing candidate, so a \
+             pane can only hide it whole",
+        );
+        assert_eq!(published.drawn_half, Vec2::new(24.0, 24.0));
     }
 
     /// ⛔⛔ THE POSE MUST BE THIS FRAME'S, and the two components are made to
@@ -694,6 +768,87 @@ mod bridge_meets_compositor_tests {
             "the NPC's whole-sprite draw was not withdrawn, so it still punches \
              through the pane — the reported bug"
         );
+    }
+
+    /// ⭐⭐ THE REAL HIT-FLASH OVERLAY, ATTACHED BY ITS OWN SYSTEM, IS COMPOSITED
+    /// LIKE THE SPRITE IT MIRRORS. The overlay is a `Mesh2d` root; until it
+    /// declared its frame it was not a candidate and the resolver hid it whole
+    /// whenever its body was far-side. Here the real `attach_hit_flash_overlays`
+    /// spawns it beside a far-side player, and the chain publishes it,
+    /// composites it into pieces of its own, and hides the whole mesh -- the
+    /// same three facts the sprite gets.
+    #[test]
+    fn the_real_hit_flash_overlay_of_a_far_side_body_is_composited_not_hidden_whole() {
+        use ambition_portal2d_presentation::{PortalDependantHidden, PortalFarSideHidden};
+
+        let mut app = app();
+        app.insert_resource(Assets::<crate::rendering::hit_flash::HitFlashMaterial>::default());
+        app.add_systems(
+            Update,
+            crate::rendering::hit_flash::attach_hit_flash_overlays
+                .before(publish_portal_compositing_candidates),
+        );
+        let body = far_side_player(&mut app);
+        // The attach runs ahead of the publisher with a sync point between, so
+        // the overlay is published and composited on the frame it is spawned.
+        // ⚠ The first draft counted "body-only" pieces on frame 1 and expected
+        // more on frame 2; both frames already had the overlay's, and the test
+        // failed against a working mechanism. Pieces are told apart by LOOK.
+        app.update();
+        let _ = body;
+
+        let overlay = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<Entity, With<crate::rendering::hit_flash::HitFlashOverlay>>();
+            q.single(world).expect("the real attach spawned exactly one overlay")
+        };
+        assert!(
+            app.world()
+                .get::<ambition_portal2d_presentation::PortalCompositingCandidate>(overlay)
+                .is_some(),
+            "the real overlay was never published as a candidate"
+        );
+        assert!(
+            app.world().get::<PortalFarSideHidden>(overlay).is_some()
+                && app.world().get::<PortalDependantHidden>(overlay).is_none(),
+            "the overlay was hidden as a DEPENDANT of its body (the scalar \
+             fallback) rather than composited as a candidate in its own right"
+        );
+        assert_eq!(
+            *app.world().get::<Visibility>(overlay).expect("visibility"),
+            Visibility::Hidden,
+            "the whole silhouette mesh still draws over the pane"
+        );
+        let (sprite_pieces, silhouette_pieces) = pieces_by_look(&mut app);
+        assert!(
+            sprite_pieces >= 1,
+            "premise: the body's own sprite composites into pieces"
+        );
+        assert!(
+            silhouette_pieces >= 1,
+            "the overlay was hidden but nothing redraws its uncovered part as a \
+             silhouette: {sprite_pieces} sprite pieces, {silhouette_pieces} \
+             silhouette pieces"
+        );
+    }
+
+    /// Far-side pieces, split by what they paint: `(sampled sprite, silhouette)`.
+    fn pieces_by_look(app: &mut App) -> (usize, usize) {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &MeshMaterial2d<ambition_portal2d_presentation::PortalClipMaterial>,
+            With<ambition_portal2d_presentation::PortalFarSidePiece>,
+        >();
+        let handles: Vec<_> = q.iter(world).map(|m| m.0.clone()).collect();
+        let materials = world.resource::<Assets<ambition_portal2d_presentation::PortalClipMaterial>>();
+        handles.iter().fold((0, 0), |(sprite, silhouette), h| {
+            let m = materials.get(h).expect("piece material");
+            if m.control.z > 0.5 {
+                (sprite, silhouette + 1)
+            } else {
+                (sprite + 1, silhouette)
+            }
+        })
     }
 
     /// ⛔⛔ THE WHOLE POINT: a far-side PLAYER, published by the real bridge and

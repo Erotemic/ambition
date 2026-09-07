@@ -108,6 +108,12 @@ pub fn resolve_portal_source_visibility(
             // dependant is classified FROM ITS OWN GEOMETRY and needs no help
             // from its owner's answer.
             Has<Sprite>,
+            // ⭐ OR DECLARES ITS FRAME. A `Mesh2d` overlay carrying
+            // `DeclaredFrame` is published and composited exactly like a sprite,
+            // so it answers for itself too. Without this a flashing far-side
+            // body had its base art clipped and its silhouette hidden WHOLE --
+            // the non-sprite gap two reviews named.
+            Has<ambition_sprite_fx::DeclaredFrame>,
             Has<ChildOf>,
         ),
         Without<PortalSourceHidden>,
@@ -186,7 +192,7 @@ pub fn resolve_portal_source_visibility(
     // a body are touched, and only while that body is portal-hidden -- a
     // dependant with its own portal reason is excluded by the query, because
     // then it is a source in its own right and the loop above owns it.
-    for (drawable, owner, we_hid_it, has_sprite, is_parented) in &dependants {
+    for (drawable, owner, we_hid_it, has_sprite, has_declared, is_parented) in &dependants {
         // ⛔⛔ A DEPENDANT THE COMPOSITOR CAN CLASSIFY ANSWERS FOR ITSELF, and
         // copying its owner's scalar answer onto it is geometrically WRONG.
         // A tether line whose own pixels are nowhere near the pane was hidden
@@ -199,7 +205,7 @@ pub fn resolve_portal_source_visibility(
         // `Without<ChildOf>` because it substitutes the LOCAL transform for the
         // world one. A parented sprite is not a candidate, so it still needs the
         // fallback below.
-        if has_sprite && !is_parented {
+        if (has_sprite || has_declared) && !is_parented {
             continue;
         }
         if hidden_bodies.contains(&owner.0) {

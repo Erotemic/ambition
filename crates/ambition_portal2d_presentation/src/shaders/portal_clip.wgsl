@@ -16,7 +16,10 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
 // control.x = flip_x flag (0 = no flip, >0.5 = mirror UV horizontally)
 // control.y = flip_y flag (0 = no flip, >0.5 = mirror UV vertically)
-// control.z/w = reserved
+// control.z = silhouette flag (>0.5 = paint tint.rgb masked by the sample's
+//             alpha and tint.a, the hit-flash overlay's look, instead of the
+//             sampled colour). A declared non-sprite drawable is what sets it.
+// control.w = reserved
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
 // Straight-alpha sprite tint (linear RGBA), multiplied into the sample.
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
@@ -61,6 +64,14 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     }
     if sample.a <= 0.01 {
         discard;
+    }
+    if control.z > 0.5 {
+        // Silhouette: the same output the hit-flash shader produces, so a
+        // clipped piece of a flashing body looks like the flash it replaces.
+        if tint.a <= 0.001 {
+            discard;
+        }
+        return vec4<f32>(tint.rgb, sample.a * tint.a);
     }
     return sample * tint;
 }

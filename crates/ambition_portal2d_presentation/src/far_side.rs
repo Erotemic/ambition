@@ -42,6 +42,7 @@ use crate::clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
 use crate::{PortalCompositingCandidate, PortalViewer, PortalWorldFrame};
+use ambition_sprite_fx::DeclaredFrame;
 
 /// One drawn fragment of a far-side body. Rebuilt every frame from the source
 /// sprite, so it can never drift from what the sprite currently looks like.
@@ -83,7 +84,12 @@ pub fn composite_far_side_bodies(
     mut candidates: Query<(
         Entity,
         &PortalCompositingCandidate,
-        &Sprite,
+        // ⭐ EITHER DESCRIPTION OF WHAT THE DRAWABLE PAINTS. A `Sprite` is read
+        // for its frame; a non-sprite drawable DECLARES its frame. Both reach
+        // the same piece builder, which is what makes a `Mesh2d` overlay
+        // composite like a sprite instead of hiding wholesale.
+        Option<&Sprite>,
+        Option<&DeclaredFrame>,
         Option<&Anchor>,
         // ⛔⛔ THE LOCAL `Transform`, MATCHING THE PUBLISHER. This read used
         // `GlobalTransform`, which transform propagation only updates in
@@ -129,7 +135,7 @@ pub fn composite_far_side_bodies(
         .get_or_insert_with(|| meshes.add(Rectangle::default()))
         .clone();
 
-    for (entity, candidate, sprite, anchor, transform, transit) in &mut candidates {
+    for (entity, candidate, sprite, declared, anchor, transform, transit) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
 
@@ -157,7 +163,7 @@ pub fn composite_far_side_bodies(
             give_back(&mut commands, entity, &hidden);
             continue;
         };
-        let Some(basis) = sprite_frame_basis(sprite, &layouts, &images) else {
+        let Some(look) = piece_look(sprite, declared, anchor, &layouts, &images) else {
             // No loaded texture to rebuild from: leaving the whole sprite drawn
             // is the old bug, but blanking the body is a worse one.
             give_back(&mut commands, entity, &hidden);
@@ -175,14 +181,14 @@ pub fn composite_far_side_bodies(
         // two-writer defect this replaced.
         commands.entity(entity).insert(PortalFarSideHidden);
 
-        let tint = {
-            let c = sprite.color.to_linear();
-            Vec4::new(c.red, c.green, c.blue, c.alpha)
-        };
-        let control = Vec4::new(if sprite.flip_x { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
+        let control = Vec4::new(
+            if look.flip_x { 1.0 } else { 0.0 },
+            0.0,
+            if look.silhouette { 1.0 } else { 0.0 },
+            0.0,
+        );
         // The pose the candidate was classified from, not a second reading of it.
         let base = *transform;
-        let anchor_v = anchor.map_or(Vec2::ZERO, |a| a.0);
 
         for piece in pieces.iter() {
             let edges = crate::piece_clip_edges(&piece, min, max);
@@ -203,19 +209,67 @@ pub fn composite_far_side_bodies(
                 PortalFarSidePiece,
                 Mesh2d(mesh.clone()),
                 MeshMaterial2d(materials.add(PortalClipMaterial {
-                    uv_rect: basis.uv_rect,
+                    uv_rect: look.uv_rect,
                     control,
-                    tint,
+                    tint: look.tint,
                     clip0,
                     clip1,
                     clip2,
-                    color_texture: sprite.image.clone(),
+                    color_texture: look.image.clone(),
                 })),
-                clip_piece_transform(&base, anchor_v, basis.size),
+                clip_piece_transform(&base, look.anchor, look.size),
                 Name::new("Portal far-side piece"),
             ));
         }
     }
+}
+
+/// Everything a piece needs to look like the drawable it replaces.
+struct PieceLook {
+    uv_rect: Vec4,
+    size: Vec2,
+    anchor: Vec2,
+    image: Handle<Image>,
+    flip_x: bool,
+    tint: Vec4,
+    silhouette: bool,
+}
+
+/// The look of a candidate, from whichever description it carries.
+///
+/// ⭐ A DECLARATION WINS OVER A SPRITE, because a drawable that took the trouble
+/// to declare is saying "what I paint is not what my `Sprite` says" -- and a
+/// plain sprite declares nothing, so the ordinary road is untouched.
+fn piece_look(
+    sprite: Option<&Sprite>,
+    declared: Option<&DeclaredFrame>,
+    anchor: Option<&Anchor>,
+    layouts: &Assets<TextureAtlasLayout>,
+    images: &Assets<Image>,
+) -> Option<PieceLook> {
+    if let Some(declared) = declared {
+        return Some(PieceLook {
+            uv_rect: declared.uv_rect,
+            size: declared.size,
+            anchor: declared.anchor,
+            image: declared.color_texture.clone(),
+            flip_x: declared.flip_x,
+            tint: declared.tint,
+            silhouette: declared.silhouette,
+        });
+    }
+    let sprite = sprite?;
+    let basis = sprite_frame_basis(sprite, layouts, images)?;
+    let c = sprite.color.to_linear();
+    Some(PieceLook {
+        uv_rect: basis.uv_rect,
+        size: basis.size,
+        anchor: anchor.map_or(Vec2::ZERO, |a| a.0),
+        image: sprite.image.clone(),
+        flip_x: sprite.flip_x,
+        tint: Vec4::new(c.red, c.green, c.blue, c.alpha),
+        silhouette: false,
+    })
 }
 
 /// Give back only the bodies THIS system hid, on the roads where no
@@ -227,7 +281,8 @@ fn restore_hidden(
     candidates: &mut Query<(
         Entity,
         &PortalCompositingCandidate,
-        &Sprite,
+        Option<&Sprite>,
+        Option<&DeclaredFrame>,
         Option<&Anchor>,
         // ⛔⛔ THE LOCAL `Transform`, MATCHING THE PUBLISHER. This read used
         // `GlobalTransform`, which transform propagation only updates in
@@ -864,6 +919,136 @@ mod tests {
             Visibility::Hidden,
             "a sprite dependant 380px from the pane was hidden because the body it \
              names overlaps one — body ownership became compositing authority"
+        );
+    }
+
+    /// A loaded 48x48 image, the way `loaded_sprite` makes one, for a drawable
+    /// that is not a sprite.
+    fn loaded_image(app: &mut App) -> Handle<Image> {
+        let mut image = Image::default();
+        image.texture_descriptor.size.width = 48;
+        image.texture_descriptor.size.height = 48;
+        app.world_mut().resource_mut::<Assets<Image>>().add(image)
+    }
+
+    /// A `Mesh2d`-shaped drawable: no `Sprite`, a declared frame, a unit quad
+    /// scaled to its drawn size -- the hit-flash overlay's exact shape.
+    fn spawn_declared(app: &mut App, centre: Vec2, half: Vec2, alpha: f32) -> Entity {
+        let image = loaded_image(app);
+        let frame = PortalWorldFrame { size: WORLD };
+        let mut transform = Transform::from_translation(frame.to_render(centre, 11.5));
+        transform.scale = (half * 2.0).extend(1.0);
+        app.world_mut()
+            .spawn((
+                PortalCompositingCandidate {
+                    drawn_centre: centre,
+                    drawn_half: half,
+                },
+                DeclaredFrame {
+                    color_texture: image,
+                    uv_rect: Vec4::new(0.0, 0.0, 1.0, 1.0),
+                    flip_x: false,
+                    tint: Vec4::new(1.0, 1.0, 1.0, alpha),
+                    silhouette: true,
+                    size: Vec2::ONE,
+                    anchor: Vec2::ZERO,
+                },
+                transform,
+                GlobalTransform::from(transform),
+                Visibility::Inherited,
+            ))
+            .id()
+    }
+
+    /// ⭐⭐ THE NON-SPRITE ROAD. A `Mesh2d` overlay that DECLARES what it paints
+    /// is composited exactly like a sprite: hidden whole, redrawn as the
+    /// uncovered pieces, and the pieces carry its silhouette look rather than
+    /// the sprite's sampled colour. Before this the compositor's candidate
+    /// query took `&Sprite`, so a declared drawable was never a candidate at
+    /// all and fell to the scalar fallback. Named by two GPT reviews.
+    #[test]
+    fn a_declared_non_sprite_drawable_is_redrawn_as_silhouette_pieces() {
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let overlay = spawn_declared(
+            &mut app,
+            Vec2::new(505.0, 300.0),
+            Vec2::new(24.0, 24.0),
+            0.8,
+        );
+        app.update();
+        assert_eq!(
+            visibility(&app, overlay),
+            Visibility::Hidden,
+            "a far-covered declared drawable must be withdrawn whole; its pieces \
+             are it now"
+        );
+        let n = pieces(&mut app);
+        assert!((1..=4).contains(&n), "expected uncovered pieces, got {n}");
+        // ⛔ AND THEY LOOK LIKE THE OVERLAY, NOT LIKE A SPRITE OF IT. A piece
+        // that sampled the texture's colour would paint the character's art in
+        // the place of its flash.
+        let looks: Vec<(f32, f32)> = {
+            let world = app.world_mut();
+            let mut q = world
+                .query_filtered::<&MeshMaterial2d<PortalClipMaterial>, With<PortalFarSidePiece>>();
+            let handles: Vec<_> = q.iter(world).map(|m| m.0.clone()).collect();
+            let materials = world.resource::<Assets<PortalClipMaterial>>();
+            handles
+                .iter()
+                .map(|h| {
+                    let m = materials.get(h).expect("piece material");
+                    (m.control.z, m.tint.w)
+                })
+                .collect()
+        };
+        assert!(
+            looks
+                .iter()
+                .all(|(silhouette, alpha)| *silhouette > 0.5 && (*alpha - 0.8).abs() < 1e-6),
+            "the pieces of a silhouette overlay are not silhouettes at its \
+             intensity: {looks:?}"
+        );
+    }
+
+    /// ⭐ A DECLARED DEPENDANT ANSWERS FOR ITSELF, exactly as a sprite dependant
+    /// does: its OWN geometry decides, so a silhouette drawn nowhere near the
+    /// pane is not hidden because the body it names is behind one. This is the
+    /// reported defect -- a flashing far-side fighter whose lower half met the
+    /// pane lost its entire silhouette.
+    #[test]
+    fn a_declared_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner() {
+        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
+
+        let mut app = test_app();
+        app.world_mut().spawn(pane());
+        spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+        let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
+        // Its silhouette, far from the pane, declaring what it paints.
+        let silhouette = spawn_declared(
+            &mut app,
+            Vec2::new(120.0, 300.0),
+            Vec2::new(24.0, 24.0),
+            1.0,
+        );
+        app.world_mut()
+            .entity_mut(silhouette)
+            .insert(PresentationOf(body));
+
+        app.update();
+
+        assert_eq!(
+            visibility(&app, body),
+            Visibility::Hidden,
+            "premise: the OWNER is far-side and hidden, or this proves nothing"
+        );
+        assert_ne!(
+            visibility(&app, silhouette),
+            Visibility::Hidden,
+            "a declared drawable 380px from the pane was hidden because the body \
+             it names overlaps one -- the scalar fallback is still deciding for a \
+             drawable the compositor can classify"
         );
     }
 

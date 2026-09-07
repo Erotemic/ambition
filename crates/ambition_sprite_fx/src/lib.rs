@@ -476,5 +476,44 @@ pub fn sprite_frame_basis(
     })
 }
 
+/// What a body-owned drawable that is NOT a `Sprite` would paint this frame,
+/// declared so a compositor can rebuild clipped pieces of it.
+///
+/// ⭐⭐ THE GENERAL ROAD FOR NON-SPRITE PRESENTATION. The portal compositor
+/// classifies a drawable from its own geometry and redraws the uncovered part
+/// as clipped quads -- for a `Sprite`, because it can read the sprite's frame.
+/// A `Mesh2d` overlay (the hit-flash silhouette) had no such description, so
+/// it fell through to a SCALAR fallback: hidden wholesale whenever its body was
+/// portal-hidden, even for pixels nowhere near the pane. A GPT review named it
+/// twice (2026-09-06, 2026-09-07). This component is the missing description:
+/// a drawable that carries it is composited exactly like a sprite, and the next
+/// overlay type needs no portal workaround of its own.
+///
+/// ⚠ THE DRAWABLE KEEPS IT CURRENT. It is a declaration, not a mirror: whoever
+/// updates the drawable's material updates this beside it, in the same system.
+/// Lives at the render floor for the same reason [`SpriteFrameBasis`] does --
+/// both `ambition_render` and the portal presentation crate need it, and the
+/// dependency runs render -> portal.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct DeclaredFrame {
+    /// The texture the drawable samples.
+    pub color_texture: Handle<Image>,
+    /// `(min.x, min.y, max.x, max.y)` normalized on that texture.
+    pub uv_rect: Vec4,
+    pub flip_x: bool,
+    /// Straight-alpha tint. In silhouette mode the alpha is the intensity, and
+    /// `0.0` means "draws nothing right now".
+    pub tint: Vec4,
+    /// Paint `tint.rgb` masked by the sample's alpha rather than the sample's
+    /// colour -- the hit-flash overlay's whole look.
+    pub silhouette: bool,
+    /// The quad's size BEFORE the entity's transform scale. A unit quad whose
+    /// transform scale is the drawn size declares `Vec2::ONE`.
+    pub size: Vec2,
+    /// Where the quad pivots, in the sprite `Anchor` convention. A centre-origin
+    /// mesh whose translation already includes its offset declares `Vec2::ZERO`.
+    pub anchor: Vec2,
+}
+
 #[cfg(test)]
 mod tests;

@@ -49,7 +49,9 @@ pub struct PortalClipMaterial {
     /// `(min.x, min.y, max.x, max.y)` normalized.
     #[uniform(0)]
     pub uv_rect: Vec4,
-    /// `(flip_x, _, _, _)`. `flip_x > 0.5` mirrors the frame horizontally.
+    /// `(flip_x, flip_y, silhouette, _)`. `flip_x > 0.5` mirrors the frame
+    /// horizontally; `silhouette > 0.5` paints `tint.rgb` masked by the sample's
+    /// alpha and `tint.a` -- the look a declared non-sprite drawable asks for.
     #[uniform(1)]
     pub control: Vec4,
     /// Sprite tint (linear RGBA), multiplied into the sample.

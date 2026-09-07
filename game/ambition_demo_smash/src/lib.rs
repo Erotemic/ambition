@@ -1167,13 +1167,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::counter::hold_counter_parry_windows
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
         );
-        // THE MARK'S READ. The generic body-clock view is cleared by its owner
-        // in the sim tail; this contributes the marks after the clear.
+        // THE MARK'S READ. The generic body-clock view publishes a Reset set
+        // and a Contribute set; this ruleset contributes in the vocabulary and
+        // names no foreign system. ⚠ The first version ordered `.after` the
+        // view's private clearer and the C1 ratchet went 0 -> 1 on exactly that
+        // edge (GPT review 2026-09-07).
         app.add_systems(
             sim,
             crate::mark::publish_mark_clocks
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync)
-                .after(ambition_platformer2d::sim_view::rebuild_body_clocks_view),
+                .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute),
         );
         // …and the ANSWER, once the verdict is in.
         //
@@ -2906,6 +2908,20 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.body_mark",
                 crate::mark::body_mark_probe,
+            );
+            // ⛔ THE CREDIT THAT OUTLIVES A BODY. A stand-in spawned at a
+            // detonation whose attacker has been eliminated; a rewind across
+            // that detonation must put it back, seat and clock both, or the
+            // resimulated blast credits nobody.
+            app.rollback_component_clone_probed::<ambition_platformer2d::actor::SeatCredit>(
+                "ambition_demo_smash",
+                "smash.seat_credit",
+                crate::mark::seat_credit_probe,
+            );
+            app.rollback_component_clone_probed::<crate::mark::SeatCreditStandIn>(
+                "ambition_demo_smash",
+                "smash.seat_credit_stand_in",
+                crate::mark::seat_credit_stand_in_probe,
             );
 
             // The bolt in flight: where it is, where it is going, how long it has

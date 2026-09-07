@@ -339,6 +339,19 @@ pub struct BodyClockFact {
 #[derive(Resource, Default, Clone, Debug)]
 pub struct BodyClocksView(pub Vec<BodyClockFact>);
 
+/// The body-clock view's two phases, published so a contributor orders against
+/// vocabulary rather than against this crate's private clearer.
+///
+/// ⭐ `Reset` empties the view; `Contribute` is where every mechanic pushes its
+/// clocks. Both live inside `FeatureViewSync`, chained here once, so a ruleset
+/// adding clocks writes `.in_set(BodyClockViewSet::Contribute)` and nothing
+/// else -- and prerequisite C1 (no cross-crate private-system ordering) holds.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum BodyClockViewSet {
+    Reset,
+    Contribute,
+}
+
 pub fn rebuild_body_clocks_view(mut view: ResMut<BodyClocksView>) {
     view.0.clear();
 }
@@ -865,7 +878,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_ground_items_view,
                 rebuild_world_items_view,
                 rebuild_mark_beacons_view,
-                rebuild_body_clocks_view,
+                rebuild_body_clocks_view.in_set(BodyClockViewSet::Reset),
                 rebuild_gravity_switches_view,
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,
@@ -873,6 +886,12 @@ impl Plugin for SimViewPlugin {
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+        );
+        app.configure_sets(
+            sim,
+            (BodyClockViewSet::Reset, BodyClockViewSet::Contribute)
+                .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );
     }

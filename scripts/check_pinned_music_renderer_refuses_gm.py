@@ -20,7 +20,7 @@ different commits. See
 pin does not satisfy the requirement today; making this exit non-zero would paint
 CI red for a condition only a maintainer can clear (it needs a submodule
 fast-forward and a pointer bump — see
-`docs/planning/yardrat-open-measurements.md`). ⇒ **Flip `GATES` to `True` in the
+`docs/planning/awaiting-maintainer-decision.md` Q95). ⇒ **Flip `GATES` to `True` in the
 same commit that lands the pointer**, and this becomes the guard that stops the
 requirement silently regressing again.
 """
@@ -95,7 +95,7 @@ def main() -> int:
         "   which fast-forwards onto the submodule's main. The fix is that\n"
         "   fast-forward plus a pointer bump — NOT re-pointing at the branch\n"
         "   commit, which is deletable. See docs/planning/"
-        "yardrat-open-measurements.md."
+        "awaiting-maintainer-decision.md Q95."
     )
     return 1 if GATES else 0
 

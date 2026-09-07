@@ -46,6 +46,11 @@ Landed:
 Remaining acceptance work
 (**this list is the single source; [`status.md`](../status.md) and [`tracks.md`](../tracks.md) refer here**):
 
+- ▢ **Multi-coin blocks need the coin-pop visual.** The mechanical reward already
+  works; what is missing is the short player-visible coin/reward pop at the block.
+  Keep the reward/economy authority where it is and add presentation from the
+  resolved block/reward event rather than a second coin-spawn mechanism.
+
 - ✅ **The secret pipe and underground room** (landed 2026-07-21). A warp pipe
   between pits A and B drops into a coin vault dug under the ground slab, in the
   SAME `RoomSpec` rather than a second room — cross-room transition didn't exist

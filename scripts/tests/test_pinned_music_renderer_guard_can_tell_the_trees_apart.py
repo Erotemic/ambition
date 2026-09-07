@@ -2,7 +2,7 @@
 
 ⛔⛔ THIS TESTS THE INSTRUMENT, NOT THE PIN, and deliberately so. The pin does
 not satisfy the requirement today — that is a maintainer decision, recorded in
-`docs/planning/yardrat-open-measurements.md`, and asserting it here would be a
+`docs/planning/awaiting-maintainer-decision.md` Q95, and asserting it here would be a
 red nobody in CI can clear.
 
 What CAN be asserted, and is the thing that would silently rot, is that the

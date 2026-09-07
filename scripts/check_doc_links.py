@@ -92,7 +92,7 @@ def local_target_exists(root: Path, source: Path, target: str) -> bool:
 
 
 # ⛔ A LINK INSIDE A CODE SPAN IS AN EXAMPLE, NOT A LINK, and this checker used
-# to fail on one. `docs/planning/yardrat-open-measurements.md` explains why a
+# to fail on one. the retired Yardrat measurement notebook explained why a
 # link checker for anchors is not worth building, and quotes the syntax it is
 # talking about as `` `[text](other.md#anchor)` `` — inside backticks, which is
 # how a document names a construct rather than uses it. The gate reported it as

@@ -459,7 +459,7 @@ def check_markdown_links(errors: list[str]) -> None:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         # ⛔ A LINK INSIDE A CODE SPAN IS AN EXAMPLE, NOT NAVIGATION, and this
-        # check called one broken for it: `yardrat-open-measurements.md` writes
+        # check called one broken for it: the retired Yardrat measurement notebook wrote
         # `[text](other.md#anchor)` in backticks to NAME the class of link it is
         # discussing, and this exited 1 on it while `check_doc_links.py` --
         # scanning the same tree -- reported 927 links clean. Two link checkers

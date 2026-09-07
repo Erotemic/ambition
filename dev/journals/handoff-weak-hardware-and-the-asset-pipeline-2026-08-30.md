@@ -31,7 +31,7 @@ timestamps against the run's start before believing the tree is broken.
 
 ⚠ **Another agent works in this tree.** At session end it had uncommitted edits in
 `ambition_input`, `platformer2d_host`, `smash_in_the_host.rs` and
-`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` (its Quit-to-Title fix). Do not commit
+the now-retired maintainer observation scratchpad (its Quit-to-Title fix). Do not commit
 files you did not change; `git pull --rebase --autostash` is the safe form.
 
 ## What is set up and should be left alone

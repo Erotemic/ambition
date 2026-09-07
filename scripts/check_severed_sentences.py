@@ -41,8 +41,6 @@ import sys
 
 MARKERS = "⛔⭐⚠✔▢ⓘ⏳◐⊙"
 # A block opener: a bare marker glyph. NOT a list bullet -- `* ✔ ...` is how
-# JONS_OBSERVATIONS_BUGS_AND_ISSUES.md formats every agent reply under a
-# maintainer bullet that legitimately ends without punctuation.
 BLOCK_OPENER = re.compile(r"^\s*[" + MARKERS + r"]")
 STARTS_LOWER = re.compile(r"^\s+[a-z]")
 # Three or more numeric tokens means a data row pasted into prose, not a clause.

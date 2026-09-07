@@ -1,9 +1,8 @@
 """The fx-row census, which a maintainer decision rests on.
 
-`awaiting-maintainer-decision.md` carries *"nothing in the repository names 34 of
-those 35 rows"* for `npc_pirate_admiral` and `smash_george_booul`, and asks
-whether to wire them or treat them as superseded. That row is only as good as
-this script.
+`awaiting-maintainer-decision.md` Q81 asks what to do with the mostly-unreferenced
+FX rows for `npc_pirate_admiral` and `smash_george_booul`. The exact population is
+owned by this census rather than copied into the decision ledger.
 
 ⛔ THE SCRIPT IS FLAT — no functions, so there is nothing to unit-test. The
 honest guard is to RUN it and check the invariants its own output must satisfy,

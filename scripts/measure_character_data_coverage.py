@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Two per-character coverage questions Jon's reports keep asking.
 
-Both live in `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, both have been re-counted
+Both originated as character-data coverage questions and have been re-counted
 by hand three times, and both are one grep away from a wrong answer.
 
   KNOCKDOWN ROWS  which sheets carry all four of `knockdown` / `getup` / `tech`

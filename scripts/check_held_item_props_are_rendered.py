@@ -218,7 +218,7 @@ def main() -> int:
             "  BEHIND or DIVERGENT from the pin gives this same answer, and\n"
             "  `submodule update` would move it -- ORPHANING any commit that\n"
             "  exists only there. That is a live hazard in this repo, not a\n"
-            "  hypothetical: see Q65 in `awaiting-maintainer-decision.md`, where\n"
+            "  hypothetical: see Q78 in `awaiting-maintainer-decision.md`, where\n"
             "  the working copy holds an unpushed commit the pin does not contain.\n"
             "  Check first, and let a maintainer reconcile it:\n"
             "       git -C tools/ambition_sprite2d_renderer log origin/main..HEAD\n"

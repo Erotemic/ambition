@@ -120,7 +120,7 @@ def main() -> int:
             "  BEHIND or DIVERGENT from the pin gives this same answer, and\n"
             "  `submodule update` would move it -- ORPHANING any commit that\n"
             "  exists only there. Live hazard on THIS submodule, not a\n"
-            "  hypothetical: see Q65 in `awaiting-maintainer-decision.md`.\n"
+            "  hypothetical: see Q78 in `awaiting-maintainer-decision.md`.\n"
             "  Check first, and let a maintainer reconcile it:\n"
             "       git -C tools/ambition_sprite2d_renderer log origin/main..HEAD\n"
             "       git -C tools/ambition_sprite2d_renderer merge-base HEAD <pin>",

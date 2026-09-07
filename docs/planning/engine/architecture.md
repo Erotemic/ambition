@@ -17,7 +17,7 @@ references should use the durable document directly.
 > | citer | rows | can it move? |
 > |---|---|---|
 > | `tests/ambition_workspace_policy/` — `policies/{engine,game,repository}.toml`, `src/custom/session_world.rs`, `tests/policy.rs` | 5 files, **16 citations** | yes — these are `reason`/doc fields naming where a rule is argued |
-> | `scripts/check_agent_kb.py`, `dev/journals/code_smells.md`, `docs/planning/yardrat-open-measurements.md` | 3 files | yes |
+> | `scripts/check_agent_kb.py`, `dev/journals/code_smells.md` | 2 files | yes |
 >
 > ⇒ **So the receipt is genuinely load-bearing, and the workspace policy engine
 > is why** — `policies/engine.toml` alone cites this path 10 times. ⇒ The exit

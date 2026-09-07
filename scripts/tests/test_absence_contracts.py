@@ -163,9 +163,9 @@ def test_every_path_a_contract_names_still_exists(contract):
 
     ⚠ THIS IS NOT THE LOUD CASE. A carve that moves the owner usually makes the
     contract flag the NEW location, which is red and obvious. This catches the
-    quiet one: the exclusion left behind, pointing at nothing. Three D33 carves
-    are in flight as of 2026-09-02 and the path→contract map in `queue.md`'s D33
-    row lists which files trip which rule.
+    quiet one: the exclusion left behind, pointing at nothing. The durable path→contract map lives in
+    `docs/planning/engine/actor-monolith-decomposition.md` so a queue cleanup cannot
+    erase the carve safety rule.
 
     ⇒ When this fails, MOVE the path. Widening it to a directory, or deleting
     the contract, launders the rule the carve was supposed to preserve.

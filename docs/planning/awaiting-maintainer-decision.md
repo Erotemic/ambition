@@ -4610,3 +4610,69 @@ enforcement system is wired for a customer, and "no constructor yet" is exactly
 what an unfinished authored feature looks like from the code side. Removing it
 would be indistinguishable, in the diff, from removing a feature you are midway
 through.
+
+## Q77 — the target reclaim has TWO rules and they contradict. Which one stands? (2026-09-07)
+
+⛔ **I TRIPPED THIS ONE THIS MORNING, which is why it is filed rather than
+noticed.** After the 08:07 reboot dropped the bind mount I re-bound, then ran
+`scripts/clean_workspace_crates.sh --incremental-only --apply` and deleted
+**113 G across 1529 crate sessions** from
+`~/.cache/ambition-targets/ambition--144244d099/debug/incremental`. I did that
+because the armed goal text names that script as "the reclaim". I read
+`AGENTS.md`'s prohibition ten minutes later, in a refusal message inside
+`check_disk_headroom.py`, while investigating something else.
+
+**Four statements of one fact, MEASURED at HEAD `19701e3ab`:**
+
+1. `AGENTS.md:122-127` — *"NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT
+   `incremental`, NOT `deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN
+   THE DISK IS FULL. … the reclaim is Jon's call, on Jon's machine, and
+   `cargo clean` is his to run."* Blanket, and it names `incremental` first.
+2. `AGENTS.md:107-111` — a paragraph that *used to* end with
+   `rm -rf target/debug/incremental` as "safe", now carrying its own retraction:
+   *"It contradicted the standing rule ten lines below it, and the contradiction
+   was LOAD-BEARING: an agent pruning by mtime on 2026-09-03 was following this
+   paragraph."*
+3. `scripts/check_disk_headroom.py:83-95` — restates (1) inside the refusal an
+   operator reads at the exact moment they are under pressure to free space, with
+   a comment explaining that a deletion ladder was removed from that very
+   message for contradicting the rule.
+4. `scripts/clean_workspace_crates.sh` — committed, and it performs the
+   deletion (1) forbids: `mv "$inc" "$doomed"; rm -rf "$doomed"` on
+   `target/<profile>/incremental`. It is not careless — it cites AGENTS.md at
+   :76 and REFUSES to apply on an unbound virtiofs target — but the half of the
+   rule it encodes is *"fix the mount first"*, not *"never delete"*.
+
+⇒ **The script's guard is why it let me through, and it worked as designed.** I
+had already re-bound, so `--status` reported BOUND and the refusal did not fire.
+There is no path by which that script tells you AGENTS.md forbids what it is
+about to do.
+
+⇒ **Neither side can be dated against the other**: `git log -L` puts both in
+`b924f419c "Start git epoch 1"` (2026-09-06), so the squash means history cannot
+say which is the newer intent. `AGENTS.md` does not mention
+`clean_workspace_crates.sh`, `sweep_target.py` or `sweep_cargo_target.sh`
+anywhere — verified by grep, zero hits — so the blanket rule was not written
+with the sanctioned mechanisms in view.
+
+⇒ **THE QUESTION: is `clean_workspace_crates.sh` a sanctioned exception to the
+NEVER rule, or is the NEVER rule the one that stands?**
+* If the **script is sanctioned**, `AGENTS.md`'s rule needs the exception written
+  into it — naming the script and its precondition — and
+  `check_disk_headroom.py`'s refusal should route to it instead of to
+  "report and stop", because that message is the one people read while deciding.
+* If the **rule stands**, the script should not be executable by an agent, and
+  the goal text that names it as "the reclaim" is the thing to correct.
+
+⛔ **I am not editing either file until this is ruled.** Both readings are
+defensible from the tree, and the failure mode of guessing is the one AGENTS.md
+already documents twice: a plausible licence, followed by a deletion, followed by
+a rule written to forbid it.
+
+⇒ **Also still yours, and unrelated to the ruling**: the reboot left **192 G** of
+orphaned build artifacts in `/home/joncrall/code/ambition/target` on the SHARED
+virtiofs volume, hidden under the re-established bind mount. Only 1.06 GiB of it
+was written after boot; the rest is dated 2026-08-27 to 09-02. That volume is at
+**99% (33 G free)**. Binding stopped it growing but reclaimed nothing, exactly as
+`AGENTS.md:135-141` says. Removing it means unmounting and deleting, which is
+`rm -rf` under a `target/` — your call, not mine.

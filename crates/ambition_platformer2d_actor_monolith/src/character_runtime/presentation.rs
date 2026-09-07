@@ -440,7 +440,7 @@ pub enum KitOwnership {
     /// override and so cannot be read off the definition alone.
     ///
     /// everything else is granted, and BOTH applied-template records are stamped. That is
-    /// the difference from [`Self:PersonaDerive`], which leaves the gameplay baseline to the
+    /// the difference from [`Self::PersonaDerive`], which leaves the gameplay baseline to the
     /// derive because the derive is coming.
     CallerResolved,
 }

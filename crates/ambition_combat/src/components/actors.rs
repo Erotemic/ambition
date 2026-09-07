@@ -387,7 +387,7 @@ impl ActorAggression {
 
     /// Who this actor wants to look at / chase this frame, derived from
     /// its aggression mode rather than its [`ActorFaction`]. This is the
-    /// seam [`select_actor_targets`](crate::features::ecs::select_actor_targets)
+    /// seam [`select_actor_targets`](crate::targeting::select_actor_targets)
     /// reads: faction no longer decides targeting.
     ///
     /// Intentionally minimal today — every non-passive actor tracks the
@@ -435,7 +435,7 @@ pub enum AggressionMode {
 
 /// Resolved targeting policy for one frame, produced by
 /// [`ActorAggression::target_policy`] and consumed by
-/// [`select_actor_targets`](crate::features::ecs::select_actor_targets).
+/// [`select_actor_targets`](crate::targeting::select_actor_targets).
 /// Keeps target selection aggression-driven instead of branching on
 /// [`ActorFaction`]. New relationship policies (target a specific
 /// entity, nearest hostile faction member, ...) extend this enum.

@@ -4,7 +4,14 @@
 //! movement profiles, attack profiles, pattern steps, looping/cyclic attack
 //! schedules, per-boss tuning, per-actor cursors, and transient attack intent.
 //!
-//! [`tick_boss_pattern`] turns [`BossPatternCfg`] + [`BossPatternState`] +
+//! ⭐ THE TICK ITSELF LIVES DOWNSTREAM, so every mention of it below is a code
+//! span and not a link. `tick_boss_pattern` is
+//! `ambition_boss_encounter::pattern::tick_boss_pattern`; this module defines the
+//! vocabulary that function consumes, and `ambition_boss_encounter` depends on
+//! this crate rather than the other way round. An intra-doc link here would need
+//! the edge to run backwards.
+//!
+//! `tick_boss_pattern` turns [`BossPatternCfg`] + [`BossPatternState`] +
 //! [`BossPatternContext`] into an [`crate::actor::control::ActorControlFrame`]
 //! plus [`BossAttackIntent`]. The matching move owns the execution timeline and
 //! projects [`BossAttackState`]. The boss tick is separate from
@@ -699,7 +706,7 @@ impl BossPatternCfg {
     }
 }
 
-/// Per-actor cursor and clock state advanced by [`tick_boss_pattern`].
+/// Per-actor cursor and clock state advanced by `tick_boss_pattern`.
 /// Component-equivalent — held inside the `Brain::StateMachine(BossPattern{...})`
 /// variant so brain swaps don't accidentally drop the cursor.
 ///
@@ -744,7 +751,7 @@ pub struct BossPatternState {
     /// Tiny deterministic RNG state used only by optional probabilistic
     /// idle attack gates. Zero means "seed from cfg on first roll."
     pub rng_seed: u64,
-    /// Transient per-tick attack request emitted by [`tick_boss_pattern`].
+    /// Transient per-tick attack request emitted by `tick_boss_pattern`.
     /// This is not an execution timeline and is not snapshotted: the live move
     /// owns execution, while the ECS [`BossAttackState`] is projected from it.
     pub attack_intent: BossAttackIntent,
@@ -958,7 +965,7 @@ pub struct LiveBossAttack {
     pub striking: bool,
 }
 
-/// Per-tick read-only inputs to [`tick_boss_pattern`]. The boss tick
+/// Per-tick read-only inputs to `tick_boss_pattern`. The boss tick
 /// system builds this from the boss entity's components.
 #[derive(Default, Clone, Debug)]
 pub struct BossPatternContext {

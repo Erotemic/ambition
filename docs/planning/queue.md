@@ -859,6 +859,44 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   whatever shape is there today". Consumption is legitimate; the ORDER being
   emergent is the defect, and an allowlist over holders says nothing about order.
 
+  ⭐⭐ **THE REMAINING 9 ARE IDENTIFIED, and the sharpest way to state the defect
+  is that a comment in the tree already predicted it.** `fold_touch_gestures`
+  (`touch_input/bevy_plugin.rs:305`) pins ONE `.before(MenuFrameConsume)` with the
+  reason written beside it: *"ONE pin, not one per reader. Naming each reader set
+  is a pin that stops covering them the day a third reader is added and nothing
+  says so."* ⇒ **Two readers are outside that umbrella, so the pin does not cover
+  them, and nothing said so.** `ambition_dialog::dialog_input` (registered in
+  `ambition_conversation/src/dialog.rs:48`, ordered only `.after(CoreSimulation)`)
+  and `ambition_menu::map::input::handle_map_menu_hotkeys`
+  (`ambition_menu/src/map/mod.rs:226`) both read `MenuControlFrame` and join no
+  menu set.
+  ⚠ **NEITHER CRATE CAN NAME THE UMBRELLA** — measured by parsing the manifests,
+  not by grepping them: `ambition_conversation` and `ambition_menu` have NO
+  dependency on `ambition_platformer2d_actor_monolith`, where the sets live. (A
+  `grep -c actor_monolith Cargo.toml` says otherwise and is wrong; it matches a
+  substring. I tried the one-line `.in_set` first and it failed to compile, which
+  is the honest way to find this out.) ⇒ Same irreducibility as the peer's
+  `player_schedule.rs:325`: only a composition that depends on both sides can
+  state the relation. `ambition_platformer2d_runtime` is the one that can — it
+  depends on menu, conversation AND the monolith.
+  ⇒ **SIZED: each crate names its own reader set, the runtime nests it under
+  `MenuFrameConsume`** — the pattern `GridMenuNav` already uses. Neither crate has
+  a set that fits today (`MapMenuSpawnSet` is startup timing, the dialog sets are
+  Yarn-mirror boundaries), so it is two new sets plus one `configure_sets`.
+  ⚠ **GATE IT ON REACHABILITY FIRST, which is NOT yet measured.** The pairs are
+  unordered, but that only bites where both surfaces are live in one frame. Ask
+  whether a dialogue can be active while the inventory is open, and — the more
+  likely one, because it needs no inventory at all — whether the touch fold's
+  gesture contribution is one the dialogue actually reads, since `dialog_input`
+  uses discrete `up`/`down`/`select`/`back` while the fold contributes `scroll_y`
+  and analog. A pair that cannot co-occur is a theoretical conflict and ordering
+  it is churn.
+  ⛔ **And a no-op I tried and reverted, recorded so nobody repeats it:** adding
+  `grid_menu_open_routing` to `GridMenuNav` changes NOTHING — it is already
+  `.chain()`ed with `grid_menu_nav`, so the order was already carried. Predicted
+  -2, measured 0. A second way to say what the chain already says is the same
+  two-authorities shape this row is about.
+
 ## Current execution order
 
 - ✔ **D-CUT-VOICE — LANDED 2026-09-06, and EVERY BLOCKING CLAIM BELOW WAS

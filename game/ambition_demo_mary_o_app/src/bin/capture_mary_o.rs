@@ -283,12 +283,24 @@ fn report_body_against_sprite(
     // and not enough for an automatic per-sheet misalignment table. ⇒ The pairing
     // is the next thing this tool wants, and it wants a real link rather than a
     // proximity heuristic.
-    bodies: Query<(bevy::prelude::Entity, &ae::BodyKinematics)>,
+    bodies: Query<(
+        bevy::prelude::Entity,
+        &ae::BodyKinematics,
+        Option<&ambition_platformer2d::combat::components::FeatureId>,
+    )>,
     drawn: Query<(
         Entity,
         &GlobalTransform,
         &Sprite,
         Has<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
+        // ⭐ THE JOIN KEY. The drawable is a DIFFERENT entity from the body -- measured,
+        // ids 684..695 against 824..946, disjoint -- and only some drawables carry
+        // `PresentationOf` (the effect overlays do; the actor sprite does not). What
+        // the actor sprite DOES carry is the feature id the renderer bound it from,
+        // and the body carries the same id as `FeatureId`. That is a REAL link rather
+        // than a position heuristic, which is the difference between a table that is
+        // right and one that is usually right.
+        Option<&ambition_platformer2d::render::rendering::FeatureVisual>,
         Option<&ambition_platformer2d::platformer::lifecycle::PresentationOf>,
         // The ANCHOR, because size and anchor arrive together from the trimmed
         // basis and only one of them can be checked against the box by eye.
@@ -304,6 +316,9 @@ fn report_body_against_sprite(
         &ambition_platformer2d::sim_view::BodyPoseView,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    // Membership test for "is this body the player", so the marker pairing above can
+    // ask it of a body it already has rather than running a second positional query.
+    player_body: Query<(), ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>,
     mut reported: Local<bool>,
 ) {
     // ⛔⛔ THE SHUTTER'S OWN CONDITION, NOT AN APPROXIMATION OF IT. This gated on
@@ -329,20 +344,64 @@ fn report_body_against_sprite(
     if std::mem::replace(&mut *reported, true) {
         return;
     }
-    let mut rows: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)> = bodies
+    let mut rows: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2, Option<String>)> = bodies
         .iter()
-        .map(|(e, kin)| (e, kin.pos, kin.size))
-        .filter(|(_, _, size)| size.x > 1.0 && size.y > 1.0)
+        .map(|(e, kin, id)| (e, kin.pos, kin.size, id.map(|i| i.0.clone())))
+        .filter(|(_, _, size, _)| size.x > 1.0 && size.y > 1.0)
         .collect();
-    rows.sort_by_key(|(e, _, _)| e.index());
-    for (entity, pos, size) in &rows {
+    rows.sort_by_key(|(e, _, _, _)| e.index());
+    for (entity, pos, size, id) in &rows {
         eprintln!(
-            "[align] body {entity:?} pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
+            "[align] body {entity:?} id={} pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
+            id.as_deref().unwrap_or("-"),
             pos.x,
             pos.y,
             size.x,
             size.y,
             pos.y + size.y * 0.5,
+        );
+    }
+    // ⭐ THE JOINED TABLE, which is the thing the review actually asked for: for each
+    // body that has a drawable bound to its feature id, the body's box and the quad
+    // drawn for it, side by side, in ONE frame. A per-sheet misalignment row is
+    // `sprite_feet - body_feet`; a sheet whose placement is correct reads ~0.
+    for (entity, pos, size, id) in &rows {
+        let Some(id) = id.as_deref() else { continue };
+        let Some((de, dt, ds, da)) = drawn
+            .iter()
+            .find(|(_, _, _, _, v, _, _)| v.is_some_and(|v| v.id == id))
+            .map(|(e, t, s, _, _, _, a)| (e, t, s, a))
+        else {
+            continue;
+        };
+        let t = dt.translation();
+        let body_feet = pos.y + size.y * 0.5;
+        // The quad's feet depend on the anchor: `Anchor` is a fraction of the quad
+        // measured from its CENTRE, y up, so the bottom edge sits at
+        // `translation.y - (0.5 + anchor.y) * height`.
+        let (qh, ay) = (
+            ds.custom_size.map(|q| q.y).unwrap_or(0.0),
+            da.map(|a| a.0.y).unwrap_or(0.0),
+        );
+        let sprite_feet = t.y - (0.5 + ay) * qh;
+        // ⛔⛔ `sprite_feet - body_feet` IS NOT THE MISALIGNMENT, and reading it as one
+        // would have made every actor in this scene look ~448px wrong. MEASURED: the
+        // two numbers live in DIFFERENT SPACES -- the body's y runs DOWN in sim pixels,
+        // the sprite's runs UP in Bevy world units -- so the two are related by a
+        // y-flip about some origin, and a flip makes the raw difference track the
+        // body's POSITION rather than any error.
+        //
+        // ⭐ WHAT A FLIP LEAVES INVARIANT IS THE SUM. `body_feet + sprite_feet` is a
+        // CONSTANT for every correctly-placed body, whatever its position -- measured
+        // 383.14 across five snakes standing at five different heights. So the honest
+        // instrument is the sum, and the SPREAD of the sum across bodies is the
+        // misalignment: two sheets whose sums differ by N are drawn N pixels apart
+        // relative to their own feet. An absolute verdict needs the origin; a
+        // per-sheet COMPARISON, which is what the review asked for, does not.
+        eprintln!(
+            "[align] JOIN id={id} body={entity:?} draw={de:?} space_sum={:.3} body_feet={body_feet:.2} sprite_feet={sprite_feet:.2} quad={:?} anchor_y={ay:.4}",
+            body_feet + sprite_feet,
+            ds.custom_size,
         );
     }
     for pose in &poses {
@@ -351,10 +410,36 @@ fn report_body_against_sprite(
             pose.authored_render, pose.authored_offset,
         );
     }
+    // ⭐ THE PLAYER IS NOT IN THE JOIN ABOVE, and that is the one character this whole
+    // investigation is about. Its sprite is bound by the `PlayerVisual` path rather
+    // than from a feature id, so it carries no `FeatureVisual` and the id join cannot
+    // see it. ⇒ Pair it by its MARKERS instead, which is a real link too: exactly one
+    // body is `PrimaryPlayerOnly` and exactly one drawable is `PlayerVisual`.
+    if let (Some((pe, ppos, psize, _)), Some((de, dt, ds, da))) = (
+        rows.iter()
+            .find(|(e, _, _, _)| player_body.get(*e).is_ok())
+            .cloned(),
+        drawn
+            .iter()
+            .find(|(_, _, _, is_player, _, _, _)| *is_player)
+            .map(|(e, t, s, _, _, _, a)| (e, t, s, a)),
+    ) {
+        let body_feet = ppos.y + psize.y * 0.5;
+        let (qh, ay) = (
+            ds.custom_size.map(|q| q.y).unwrap_or(0.0),
+            da.map(|a| a.0.y).unwrap_or(0.0),
+        );
+        let sprite_feet = dt.translation().y - (0.5 + ay) * qh;
+        eprintln!(
+            "[align] JOIN id=<PLAYER> body={pe:?} draw={de:?} space_sum={:.3} body_feet={body_feet:.2} sprite_feet={sprite_feet:.2} quad={:?} anchor_y={ay:.4}",
+            body_feet + sprite_feet,
+            ds.custom_size,
+        );
+    }
     // EVERY drawable, with its markers — because "the player's sprite" turned out
     // to name more than one entity, and a diagnostic that reports `single()` hides
     // exactly that.
-    for (entity, transform, sprite, visual, presented, anchor) in &drawn {
+    for (entity, transform, sprite, visual, _feature, presented, anchor) in &drawn {
         let t = transform.translation();
         eprintln!(
             "[align]   {entity:?} xy=({:.2},{:.2}) quad={:?} anchor={:?} player_visual={} presentation_of={:?}",

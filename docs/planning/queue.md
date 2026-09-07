@@ -1038,6 +1038,19 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   single character the row was opened on. ⇒ `0_5x` is effectively clean and `potato`
   is unusable for aspect-sensitive art; `0_25x` is the interesting middle.
 
+  ⚠ **AND IT IS NOT CONCENTRATED IN VFX, WHICH IS WHAT I EXPECTED AND CHECKED.** The
+  worst individual rows are all `*_vfx_*` sheets, so the obvious guess is that the
+  drift lands on effects, where aspect matters least. Split by category it is the
+  opposite:
+
+  | tier | character/other | props | vfx/fx |
+  |---|---|---|---|
+  | `sprites_0_25x` | **142/3397 (4.2%)** | 0/5 | 0/190 |
+  | `sprites_potato` | **2648/3397 (78.0%)** | 5/5 | 189/190 |
+
+  ⇒ At `0_25x` EVERY drifting row is a character; vfx and props are clean. The defect
+  lands hardest on exactly the art whose aspect a player reads as "wrong shape".
+
   ⛔⛔ **AND `potato` IS NOT A DEV FLAG -- IT IS AUTO-SELECTED.**
   `settings/video/quality.rs:196` reads `DetectedGpuClass::Cpu =>
   VisualQualityProfile::Potato`, so a SOFTWARE-RENDERING machine gets this tier

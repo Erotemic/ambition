@@ -1396,6 +1396,48 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   real bonk — `course_playthrough.rs:429` and `level_1_acceptance.rs:503` have that
   machinery. ⛔ Do NOT widen the type's API to make the test cheap; the privacy is
   what keeps one authority over which bricks are broken.
+- ▢ **D-BUILD-GRAPH-BLINDNESS — five instrument defects in one day, one cause: a guard's
+  SUBJECT is the tree and its PRECONDITION is the build graph, and only the subject is
+  ever stated.** Named 2026-09-07 with YardratAmbition; neither of us would have seen
+  the category from one instance.
+
+  **The five, all measured today:**
+  1. `--rust` exits 2 having run NOTHING when the ambient interpreter is outside the
+     tool-venv store, and the printed cause names a third situation (D-LANE-UNRUNNABLE).
+  2. The fontconfig chain: no workspace subset can verify a feature change on this box,
+     and the chain first named (`bevy_rich_text3d -> cosmic-text`) reaches fontconfig
+     ZERO times. The real one is `bevy_text -> parley -> fontique`.
+  3. `--rust` drops the slow Python checkers, so a green from it names a LANE, not the
+     gate — and the run that says so is the only place that fact appears.
+  4. The doc-link ratchet lives ONLY in `--maintenance`. It was RED at HEAD for a day
+     while three sessions committed past it, because no default, `--rust`, or union run
+     touches it.
+  5. **Bevy system names exist only because `bevy_egui` turns on `bevy_utils/debug`.**
+     MEASURED (`cargo tree -e features -i bevy_utils@0.19.1`): 65 manifests pin bevy
+     `default-features = false`, ZERO list `"debug"`, and the single dependent of that
+     feature is `bevy_egui 0.40.1` — reached through the OPTIONAL `bevy-inspector-egui`
+     behind `dev_tools`, which `ambition_app`'s `default = ["desktop_dev"]` happens to
+     include. ⇒ A name-based schedule guard carries an unnamed dependency on a dev-tools
+     GUI crate, and trimming features for a shipping profile turns every
+     `name.contains(..)` into a comparison against
+     `<Enable the debug feature to see the name>` — which does not error, it silently
+     matches nothing.
+
+  ⛔⛔ **IN FOUR OF THE FIVE THE GUARD WAS CORRECT AND THE ENVIRONMENT WAS NOT WHAT ITS
+  AUTHOR PICTURED.** None is a code defect; none is reachable by any check we have,
+  because every check takes its own build for granted — the one thing a test cannot see
+  from inside itself.
+
+  ▢ **The small honest instrument, not a framework:** one named test per build whose job
+  is to assert the build-graph facts its SIBLING guards assume, each with its reason and
+  its PROVIDER named, so a red says *"the names are gone and here is who used to supply
+  them"* rather than *"your system is missing"*. ⇒ **A guard whose failure message names
+  the wrong cause is worse than a count**: a count sends you to look, a wrong name sends
+  you to fix the wrong thing.
+
+  ⚠ **A REAL instrument for the category would be a bigger thing and is Jon's call** —
+  it would have to compare, per gate lane, what that lane's build graph supplies against
+  what the guards in it assume, and today nothing writes the second half down.
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

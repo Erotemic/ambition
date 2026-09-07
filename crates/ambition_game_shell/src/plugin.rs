@@ -724,6 +724,16 @@ fn process_launcher_commands(
                     adjust_settings_row(state.selected, &mut state, settings.as_mut());
                     continue;
                 }
+                // ⛔ ZERO ROWS UNDERFLOWS `selectable - 1`. An empty catalog with no
+                // exit label is a SUPPORTED state -- `basic_presentation` has an
+                // explicit empty-page branch for it -- so this is reachable, not
+                // theoretical. `Previous`/`Next` already return early on
+                // `!has_launchable`; these three did the arithmetic first.
+                // ⚠ AFTER the Settings check on purpose: settings rows have their own
+                // count and must keep working on an empty Home list.
+                if !has_launchable {
+                    continue;
+                }
                 let selected = state.selected.min(selectable - 1);
                 if exit_index == Some(selected) {
                     shell.write(ShellCommand::ExitProcess);
@@ -731,11 +741,18 @@ fn process_launcher_commands(
                     shell.write(ShellCommand::GoTo(entry.route_id.clone()));
                 }
             }
-            ShellLauncherCommand::Focus(index) if state.tab == crate::launcher::LauncherTab::Settings => {
+            ShellLauncherCommand::Focus(index)
+                if state.tab == crate::launcher::LauncherTab::Settings =>
+            {
                 // The settings tab has its OWN row count; clamping a hover to the
                 // number of GAMES puts the cursor on the wrong row whenever the
                 // two lists differ in length.
                 state.selected = (*index).min(ShellAudioControl::ALL.len() - 1);
+            }
+            ShellLauncherCommand::Focus(index) if !has_launchable => {
+                // Same zero-row rule as the confirm arms; a hover on an empty Home
+                // list has no row to settle on. Settings `Focus` is matched above.
+                let _ = index;
             }
             ShellLauncherCommand::Focus(index) => {
                 // Clamped, not ignored: the row count can shrink between the
@@ -758,6 +775,16 @@ fn process_launcher_commands(
                 // ⇒ The index is a position in WHICHEVER LIST THE TAB IS SHOWING.
                 if state.tab == crate::launcher::LauncherTab::Settings {
                     adjust_settings_row(*index, &mut state, settings.as_mut());
+                    continue;
+                }
+                // ⛔ ZERO ROWS UNDERFLOWS `selectable - 1`. An empty catalog with no
+                // exit label is a SUPPORTED state -- `basic_presentation` has an
+                // explicit empty-page branch for it -- so this is reachable, not
+                // theoretical. `Previous`/`Next` already return early on
+                // `!has_launchable`; these three did the arithmetic first.
+                // ⚠ AFTER the Settings check on purpose: settings rows have their own
+                // count and must keep working on an empty Home list.
+                if !has_launchable {
                     continue;
                 }
                 let selected = (*index).min(selectable - 1);

@@ -389,6 +389,76 @@ mod composed {
         assert_eq!(active_route(&app), Some("beta-route".to_owned()));
     }
 
+    /// An empty Home list survives confirm / focus / activate.
+    ///
+    /// ⛔ `selectable` is `available.len() + usize::from(exit_index.is_some())`, and an
+    /// empty catalog with NO exit label makes it zero. `basic_presentation` has an
+    /// explicit empty-page branch, so that is a supported state rather than a
+    /// theoretical one — and three command arms computed `selectable - 1` before
+    /// checking it, which underflows. `Previous`/`Next` already returned early on
+    /// `!has_launchable`; these three did the arithmetic first.
+    #[test]
+    fn an_empty_home_list_survives_confirm_focus_and_activate() {
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        // No experiences registered: `available` is empty. No exit label either, so
+        // `selectable == 0` — the underflow case.
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("launcher", "launcher"));
+        app.update();
+
+        // ⛔ AND CLEAR THE EXIT LABEL. It defaults to `Some("Exit")`, which makes
+        // `selectable == 1` and `selectable - 1 == 0` — no underflow, and a poison run
+        // proved the test was passing for exactly that reason. The review's state is
+        // an empty catalog AND no exit row.
+        app.world_mut()
+            .resource_mut::<crate::ShellLauncherPresentation>()
+            .exit_label = None;
+        app.update();
+
+        // ⚠ ANTI-VACUITY: prove the zero-row state actually exists before asserting
+        // that it survives. A test that never reaches `selectable == 0` passes whether
+        // or not the guards are there — which is exactly what a poison run revealed.
+        {
+            let catalog = app.world().resource::<crate::ShellLaunchCatalog>();
+            assert!(
+                catalog.entries.is_empty(),
+                "this test needs an EMPTY catalog to reach `selectable == 0`; it has {:?}",
+                catalog.entries
+            );
+        }
+        assert!(
+            app.world()
+                .resource::<crate::ShellLauncherPresentation>()
+                .exit_label
+                .is_none(),
+            "this test needs NO exit row; with one, `selectable == 1` and the \
+             subtraction it is guarding cannot underflow"
+        );
+        for command in [
+            ShellLauncherCommand::LaunchSelected,
+            ShellLauncherCommand::Focus(0),
+            ShellLauncherCommand::Activate(0),
+            ShellLauncherCommand::Focus(7),
+            ShellLauncherCommand::Activate(7),
+        ] {
+            app.world_mut().write_message(command);
+            app.update();
+        }
+        // Reaching here at all is the assertion: without the zero-row guards each
+        // confirm arm panics on `0 - 1` in debug. Nothing should have been launched.
+        // ⚠ The launcher's OWN route is the expected value here, not `None`: the shell
+        // is sitting on its home page. The assertion is that it did not NAVIGATE
+        // anywhere, which on an empty list means staying exactly where it was.
+        assert_eq!(
+            active_route(&app),
+            Some("launcher".to_owned()),
+            "an empty Home list navigated away from the launcher — there is nothing \
+             to launch, so every confirm/activate should be inert"
+        );
+    }
+
     #[test]
     fn same_provider_returns_to_each_hosts_home() {
         // Host A enters gameplay directly and returns to home-a.

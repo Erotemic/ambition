@@ -48,6 +48,29 @@ has BOTH a live form and a durable row, which does a rule read, and is that choi
 recorded anywhere? Today it is implicit in each evaluator. `boss.cleared`'s docstring is
 the only one that argues its choice out loud.
 
+⭐ **THE OBVIOUS (B) ANSWER IS A `reads: FactSource` FIELD ON `ConditionDescriptor`** —
+28 construction sites, ~18 of them production — so E0063 would stop a new condition being
+added without choosing SAVE or LIVE. The defect it would prevent is named in decision 57:
+a gate that reads live world state instead of the durable row has an answer that depends
+on which room the player is standing in.
+
+⛔⛔ **NOT DONE, AND THE REASON IS THE WEEK'S OWN LESSON: NOTHING WOULD READ THE FIELD.**
+Five capabilities were found this week that are defined, installed and consumed by
+nobody — the EncounterScript music owner, the Limit meter, `MountedBrainCache`, the
+provider action road, the abandon seam. A field every author must fill and no code ever
+reads is the same shape, and adding it would be paying the cost of a constraint to get
+documentation.
+
+▢ **ITS PRECONDITION IS A CONSUMER.** Any ONE of these makes it worth adding:
+* the condition catalog / inspector SHOWS the source, so an author picking a condition
+  can see whether it survives a session boundary;
+* a guard asserts every SAVE-reading condition is rollback-safe, or that no LIVE-reading
+  condition is used by a gate whose answer must be durable;
+* agent tooling filters conditions by source when composing authored logic.
+
+⇒ Until one of those exists, the honest form is this row plus `boss.cleared`'s docstring,
+which already argues the choice where it matters most.
+
 ⭐⭐ **MEASURED 2026-09-04: THIS LAYER IS NOT MISSING — IT IS `AmbitionGameSaveData`,
 and the open question was which of its rows a rule can READ.** The page's
 "Candidate crate" section says *"do not begin with a universal key-value fact

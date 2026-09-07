@@ -1021,6 +1021,28 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   statement about how the tier is generated; the exact fractions are a statement about
   this machine's copy.
 
+  ⭐⭐ **CORPUS CENSUS, and the GRADIENT confirms the mechanism**
+  (`scripts/measure_sprite_tier_trim_drift.py`, committed). Comparing every base row's
+  trim fraction against each tier's, excluding rows the base leaves UNTRIMMED (a
+  packing-mode difference, not a measurement error -- they dominated the first run):
+
+  | tier | frame (mary_o_v2) | rows drifting >0.05 |
+  |---|---|---|
+  | `sprites_0_5x` | 80x96 | **1** / 3592 (0.0%) |
+  | `sprites_0_25x` | 40x48 | **142** / 3592 (4.0%) |
+  | `sprites_potato` | 10x12 | **2842** / 3592 (79.1%) |
+
+  ⇒ **Drift grows monotonically as the frame shrinks**, which is precisely what a
+  roughly fixed-PIXEL-width anti-aliasing fringe predicts: its FRACTION of the frame
+  grows as the frame does not. A dose-response curve is much better evidence than the
+  single character the row was opened on. ⇒ `0_5x` is effectively clean and `potato`
+  is unusable for aspect-sensitive art; `0_25x` is the interesting middle.
+
+  ⛔ THE SCRIPT IS A REPORT AND MUST STAY ONE: the variant directories are GITIGNORED
+  generated art, so it measures THIS MACHINE's copy. A gate over them would answer a
+  question about the machine, and would be silently green on any box that never ran
+  the variant generator. It names absent tiers as UNMEASURED rather than passing.
+
   ▢ NEXT: the downscale should carry the BASE sheet's trim fractions rather than
   re-measuring alpha on the shrunken image, or trim with an alpha threshold that
   scales with the frame. ⛔ Same submodule caveat as the row below -- the generator is

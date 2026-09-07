@@ -178,9 +178,34 @@
   stands in a differently-oriented gravity zone.** A bug whose trigger is where a
   DIFFERENT body is standing is exactly the kind that survives play-testing.
 
-  ▢ So the exercise has a shape now: put a non-primary body and the player in
-  DIFFERENT zones, transit the non-primary one, and assert its post-transit orientation
-  follows ITS OWN frame. ⛔ Nothing above is measured — it is a source reading, and
+  ⛔⛔ **I WROTE THE OBVIOUS INTEGRATION TEST AND IT CANNOT ISOLATE THE DEFECT. Deleted
+  rather than landed, because it PASSED for a reason unrelated to transit.** The shape
+  was: transit one body through `portal_lab`'s first authored pair twice, once with a
+  `GravityZone` (horizontal down) covering only that body, and require the outcomes to
+  differ. It passed. Measured, `(vel, roll)`:
+
+      without zone   (Vec2(0.0, -400.0), 6.179)
+      with zone      (Vec2(0.0, -400.0), 0.000)
+
+  ⇒ **Velocity is IDENTICAL, so the whole difference is `ActorRoll` — and `ActorRoll`
+  is exactly what the ORIENT-TO-GRAVITY system writes**, per `GravityZone`'s own doc
+  ("reorients via the shared `ActorRoll`"). That system is already per-body and
+  zone-aware, so it explains the entire delta with portal transit contributing nothing.
+  A green assertion here would have been read as "transit honours per-body gravity"
+  when it shows only that *something* does.
+
+  ⚠ **THE OBSTACLE, for whoever writes the real one:** transit's `gravity_dir` and the
+  orient-to-gravity system consume the same fact and write the same observable
+  (`ActorRoll`). Any test that puts a body in a zone moves both. ⇒ It needs an
+  observable only `wall_to_wall` can move — a portal pair whose WALL-vs-FLOOR
+  classification flips under the body's own down while the ambient stays put, with the
+  roll contribution held constant or subtracted. Confirming the defect may be cheaper
+  as a direct unit test of the wiring (does transit ever read `GravityZones`? it does
+  not) than as an end-to-end assertion.
+
+  ▢ The exercise still wants: a non-primary body and the player in DIFFERENT zones,
+  transit the non-primary one, and assert its post-transit orientation follows ITS OWN
+  frame — with the confound above defeated rather than ignored. ⛔ Nothing above is measured — it is a source reading, and
   `a_coherent_source_reading_is_not_a_measurement` applies. The test is still the
   deliverable.
 

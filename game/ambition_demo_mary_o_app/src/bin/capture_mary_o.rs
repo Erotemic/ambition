@@ -270,10 +270,20 @@ fn shoot_when_warm(
 fn report_body_against_sprite(
     target: Option<Res<CaptureTarget>>,
     warmup: Res<Warmup>,
-    bodies: Query<
-        &ae::BodyKinematics,
-        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-    >,
+    // ⭐ EVERY BODY, not just the player. The review asks for representative-sheet
+    // A/Bs before the placement seam is repaired, and the demo course already
+    // stages several sheet-authored characters in one frame -- the snake, the AI
+    // slop, the player. One capture can price them all if the reporter stops
+    // filtering to `PrimaryPlayerOnly`.
+    //
+    // ⚠ WHAT THIS STILL CANNOT DO: PAIR a body with its drawable. They are separate
+    // entities and only some carry `PresentationOf`, so the two lists below are
+    // printed side by side and matched by eye or by position. That is enough to
+    // price ONE character you can identify (the player, by `player_visual=true`)
+    // and not enough for an automatic per-sheet misalignment table. ⇒ The pairing
+    // is the next thing this tool wants, and it wants a real link rather than a
+    // proximity heuristic.
+    bodies: Query<(bevy::prelude::Entity, &ae::BodyKinematics)>,
     drawn: Query<(
         Entity,
         &GlobalTransform,
@@ -319,17 +329,22 @@ fn report_body_against_sprite(
     if std::mem::replace(&mut *reported, true) {
         return;
     }
-    let Ok(kin) = bodies.single() else {
-        return;
-    };
-    eprintln!(
-        "[align] body pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
-        kin.pos.x,
-        kin.pos.y,
-        kin.size.x,
-        kin.size.y,
-        kin.pos.y + kin.size.y * 0.5,
-    );
+    let mut rows: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)> = bodies
+        .iter()
+        .map(|(e, kin)| (e, kin.pos, kin.size))
+        .filter(|(_, _, size)| size.x > 1.0 && size.y > 1.0)
+        .collect();
+    rows.sort_by_key(|(e, _, _)| e.index());
+    for (entity, pos, size) in &rows {
+        eprintln!(
+            "[align] body {entity:?} pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
+            pos.x,
+            pos.y,
+            size.x,
+            size.y,
+            pos.y + size.y * 0.5,
+        );
+    }
     for pose in &poses {
         eprintln!(
             "[align]   pose authored_render={:?} authored_offset={:?}",

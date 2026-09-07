@@ -15,7 +15,10 @@ default = []
 # input layer; forwarded so a mismatched combination is a compile error.
 input = ["ambition_platformer2d_actor_monolith/input"]
 # The portal read-model, offered to a game that has portals.
-portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
+# No source file in this crate names `ambition_portal2d`; the portal types this
+# view reads arrive through the monolith. The `dep:` was a second edge to the
+# same crate with no user, and the feature keeps its meaning without it.
+portal = ["ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
 ambition_abilities = { path = "../ambition_abilities" }
@@ -44,7 +47,6 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_time = { path = "../ambition_time" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }

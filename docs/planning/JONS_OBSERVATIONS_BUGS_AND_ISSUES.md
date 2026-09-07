@@ -85,6 +85,27 @@
 * JON (2026-08-08 STILL OPEN) The snake and AI slop are still way too big visually, and the sprite might not match the box for the snake.
 
   ◐ Their collision bodies are the right size in world units now (snake 1.00x Mary-O's width, slop 1.09x), and what is left is that the drawn quad is 2.46x the body inside it.
+  * ⭐⭐ **AND PART OF "TOO BIG" IS TIER-DEPENDENT, measured 2026-09-06.** Ratio of the
+    drawn quad's height fraction to the sheet's own authored body-box height fraction:
+
+    | sheet | base | `0_25x` | `potato` |
+    |---|---|---|---|
+    | `solid_snake` | 1.000 | 1.000 | **1.667** |
+    | `ai_slop` | 1.000 | 1.000 | 1.000 |
+    | `mary_o_v2` | 1.024 | 1.048 | 1.000 |
+
+    ⇒ **At `potato` the snake is drawn 67% larger relative to its own authored body
+    while the slop is unchanged** — so the two characters in this one report diverge,
+    at a tier that is AUTO-SELECTED on software rendering. That is also the measurable
+    half of the separate remark that *"the size of the snake has seemed to vary
+    depending on the global game state"*: it does, and the state is the quality
+    profile. Cause is D-POTATO-ASPECT in `queue.md`.
+
+    ⚠ **NOT the same number as the 2.46x above and not a replacement for it.** That
+    figure is the quad against the RUNTIME COLLISION box; this is the quad against the
+    SHEET'S AUTHORED box, so they are different questions and 1.000 here does not
+    contradict 2.46 there. The claim is only that a tier-dependent component exists,
+    is 67% on this character, and must be held constant before the residual is tuned.
   * ✔ DECIDED 2026-08-17 (now D165): shared unit FIRST, quad-from-bbox revisited after. A character DECLARES its height in base-grid pixels (16 to a tile) and art scales to it. Every `collision_scale` will multiply one shared reference unit instead of its own sheet's frame size, so the numbers become comparable; `collision_scale` is NOT deleted in this slice.
   * Sizing the quad from the bbox without also cropping the drawn region was tried and reverted: it stretches the art badly.
   * It needs four coupled sites, not the three the design doc names — there are two render-size publishers, and fixing one leaves both of the characters you complained about untouched.

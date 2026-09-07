@@ -200,7 +200,37 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
 /// the sets rather than in whichever composition happens to install the road.
 #[cfg(feature = "input")]
 pub fn install_provider_action_road(app: &mut bevy::prelude::App) {
-    use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate, Update};
+    use bevy::prelude::{IntoScheduleConfigs as _, PostUpdate, PreUpdate, Update};
+
+    // ⛔⛔ THE PER-ACTION SYSTEMS, NOT THE PLUGIN, and the reason is a live defect this
+    // shape avoids. `InputManagerPlugin::<A>::build` adds `clear_central_input_store`
+    // and `filter_captured_input` UNCONDITIONALLY — it guards only
+    // `CentralInputStorePlugin` — so a SECOND action type registers both TWICE, and
+    // `clear_central_input_store` DRAINS the store. Caught by
+    // `no_system_is_registered_twice_in_one_schedule`, whose own words are the general
+    // rule: a doubled system that drains or decays is a rate bug that reads as bad
+    // tuning. ⇒ These are exactly the generic half of that plugin, in the sets it puts
+    // them in.
+    //
+    // ⚠ `ProviderAction` is the SECOND map, over a keyspace a capability can mint. It is
+    // a second component on the same participant entity, not a second road: the seats,
+    // the resolve pass and the readers are the ones already here.
+    app.add_systems(
+        PreUpdate,
+        (
+            leafwing_input_manager::systems::tick_action_state::<ProviderAction>
+                .in_set(leafwing_input_manager::plugin::InputManagerSystem::Tick)
+                .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+            leafwing_input_manager::systems::update_action_state::<ProviderAction>
+                .in_set(leafwing_input_manager::plugin::InputManagerSystem::Update),
+        ),
+    );
+    app.add_systems(
+        PostUpdate,
+        leafwing_input_manager::systems::release_on_input_map_removed::<ProviderAction>,
+    );
+    app.init_resource::<ProviderBindings>();
+    app.add_message::<SemanticActionPressed>();
 
     app.add_systems(
         PreUpdate,

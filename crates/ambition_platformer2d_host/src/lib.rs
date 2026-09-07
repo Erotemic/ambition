@@ -173,42 +173,12 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
-            // The SECOND map, over a keyspace a capability can mint. It is a
-            // second component on the same participant entity, not a second
-            // road: the seats, the resolve pass and the readers are all the
-            // ones already here.
-            //
-            // ⛔⛔ AND IT IS THE PER-ACTION SYSTEMS, NOT THE PLUGIN.
-            // `InputManagerPlugin::<A>::build` adds `clear_central_input_store`
-            // and `filter_captured_input` UNCONDITIONALLY — it guards only
-            // `CentralInputStorePlugin` — so a SECOND action type registers both
-            // twice, and `clear_central_input_store` DRAINS the store. Caught by
-            // `no_system_is_registered_twice_in_one_schedule`, which says why in
-            // its own words: a doubled system that drains or decays is a rate bug
-            // that reads as bad tuning. These are exactly the generic half of that
-            // plugin, in the sets it puts them in.
-            .add_systems(
-                bevy::app::PreUpdate,
-                (
-                    leafwing_input_manager::systems::tick_action_state::<
-                        ambition_input::ProviderAction,
-                    >
-                        .in_set(leafwing_input_manager::plugin::InputManagerSystem::Tick)
-                        .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
-                    leafwing_input_manager::systems::update_action_state::<
-                        ambition_input::ProviderAction,
-                    >
-                        .in_set(leafwing_input_manager::plugin::InputManagerSystem::Update),
-                ),
-            )
-            .add_systems(
-                bevy::app::PostUpdate,
-                leafwing_input_manager::systems::release_on_input_map_removed::<
-                    ambition_input::ProviderAction,
-                >,
-            )
-            .init_resource::<ambition_input::ProviderBindings>()
-            .add_message::<ambition_input::SemanticActionPressed>()
+            // ⭐ The SECOND action map's per-action registrations moved into
+            // `ambition_input::install_provider_action_road` with the defect they
+            // avoid: `InputManagerPlugin::<A>::build` adds two systems
+            // UNCONDITIONALLY, so a second action type registers them twice and one of
+            // them DRAINS the central input store. That is a fact about leafwing and
+            // this crate's own action type, not about the host.
             // ⭐ The provider action road installs itself — including the
             // two-schedule split and the measured reason for it, which is a fact
             // about `ambition_input`'s own set layout rather than about this host.

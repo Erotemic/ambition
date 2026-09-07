@@ -184,3 +184,44 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
             .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
     );
 }
+
+/// Install the PROVIDER action road: seat bindings in, semantic edges out.
+///
+/// ⭐ ONE CALL FOR A TWO-SCHEDULE RULE the composition had to know. Both systems are
+/// this crate's, and so is the reason they are split:
+///
+/// ⛔⛔ TWO SCHEDULES, AND THE SPLIT IS THE POINT. The provider's map has to be on the
+/// seat BEFORE leafwing resolves this frame, which happens in `PreUpdate`; the edge it
+/// produces is a routed semantic and belongs in `InputSet::Route` — and those sets are
+/// configured in `Update`, so an `in_set` on the `PreUpdate` half would have ordered
+/// NOTHING AT ALL. Measured: with both in `PreUpdate` the press published on no frame.
+///
+/// ⚠ That is a fact about this crate's own set layout, which is why it belongs beside
+/// the sets rather than in whichever composition happens to install the road.
+#[cfg(feature = "input")]
+pub fn install_provider_action_road(app: &mut bevy::prelude::App) {
+    use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate, Update};
+
+    app.add_systems(
+        PreUpdate,
+        install_provider_bindings_on_seats
+            .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+    );
+    app.add_systems(
+        Update,
+        publish_provider_action_edges.in_set(InputSet::Route),
+    );
+}
+
+/// Publish which physical device each seat is currently driving.
+///
+/// ⭐ In `InputSet::Route` because "which device is this seat on" is a routed fact, not
+/// a device reading — the same phase the provider edge above lands in. One system, kept
+/// as its own installer so a composition names the FACT it wants rather than the
+/// function that computes it.
+#[cfg(feature = "input")]
+pub fn install_seat_device_tracking(app: &mut bevy::prelude::App) {
+    use bevy::prelude::{IntoScheduleConfigs as _, Update};
+
+    app.add_systems(Update, update_seat_active_devices.in_set(InputSet::Route));
+}

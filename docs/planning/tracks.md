@@ -296,6 +296,16 @@ actual product requirement.
   registration exists; finite controller/touch presentation and multi-map reader
   policy remain real. Owner:
   [`engine/participant-action-system.md`](engine/participant-action-system.md).
+  ⭐ **MEASURED 2026-09-06, and it sharpens "registration exists": the seam is wired
+  END TO END and read by NOBODY.** `ProviderBindings` + `install_provider_bindings_on_seats`
+  (PreUpdate, before leafwing) + `publish_provider_action_edges` (`InputSet::Route`) +
+  the `SemanticActionPressed` message are all installed — and `SemanticActionPressed`
+  has ZERO consumers outside `ambition_input`; its only other mention in the tree is the
+  host's own `add_message` registration. ⇒ Deleting the whole road's installer leaves
+  `app_it` at 578/578, which is how this was found: a poison on it cannot fire.
+  ⚠ **DORMANT, NOT DEAD** — this row is the customer it is waiting for, so the plumbing
+  is restraint rather than rot. The useful half for whoever takes it: the producer side
+  needs no work, only a reader and the presentation policy above.
 - ▢ **Declared-ID/binding diagnostics.** Keep source-qualified authoring failures
   and repair/validation useful where real authored references still bypass them.
   The current residuals are source-qualified per-frame item-art diagnostics and

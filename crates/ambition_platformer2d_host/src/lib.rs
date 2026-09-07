@@ -63,6 +63,8 @@ impl Plugin for HostInputBindingsPlugin {
         // leaving it behind is the half that gets forgotten, and it fails silently by
         // turning "consumed this frame" into "may arrive one frame later".
         ambition_input::install_input_pipeline(app);
+        ambition_input::install_provider_action_road(app);
+        ambition_input::install_seat_device_tracking(app);
 
         // See `ambition_input::seating`.
         app.init_resource::<ambition_input::SessionSeatingSource>();
@@ -207,22 +209,9 @@ impl Plugin for HostInputBindingsPlugin {
             )
             .init_resource::<ambition_input::ProviderBindings>()
             .add_message::<ambition_input::SemanticActionPressed>()
-            // ⛔ TWO SCHEDULES, AND THE SPLIT IS THE POINT. The map has to be on
-            // the seat BEFORE leafwing resolves this frame, which happens in
-            // `PreUpdate`; the edge is a routed semantic, which belongs in
-            // `InputSet::Route` — and those sets are configured in `Update`, so
-            // an `in_set` here would have ordered nothing at all. Measured: with
-            // both in `PreUpdate` the press published on no frame.
-            .add_systems(
-                bevy::app::PreUpdate,
-                ambition_input::install_provider_bindings_on_seats
-                    .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
-            )
-            .add_systems(
-                Update,
-                ambition_input::publish_provider_action_edges
-                    .in_set(ambition_input::InputSet::Route),
-            )
+            // ⭐ The provider action road installs itself — including the
+            // two-schedule split and the measured reason for it, which is a fact
+            // about `ambition_input`'s own set layout rather than about this host.
             .add_systems(
                 bevy::app::PreUpdate,
                 tune_clash_strategy_to_bindings
@@ -246,10 +235,6 @@ impl Plugin for HostInputBindingsPlugin {
             // the cursor back while a player navigates with keyboard / gamepad / touch). The
             // detector covers keyboard / mouse / gamepad / raw touch; the touch virtual-device
             // gesture adapter additionally marks `Touch` for overlay input a mouse can drive.
-            .add_systems(
-                Update,
-                ambition_input::update_seat_active_devices.in_set(ambition_input::InputSet::Route),
-            )
             // The persistent participant spawns ONCE at boot — before any
             // route, session, or gameplay actor exists — and is never
             // session-scoped. Startup cards and the launcher read the same

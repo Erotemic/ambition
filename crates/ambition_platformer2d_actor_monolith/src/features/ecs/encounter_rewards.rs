@@ -61,7 +61,7 @@ pub fn sync_encounter_reward_chests_ecs(
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
     for (encounter_id, spec) in cleared.iter() {
-        let chest_id = format!("encounter_chest_{encounter_id}");
+        let chest_id = ambition_encounter::encounter_chest_feature_id(encounter_id);
         let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             encounter_id,
         ));

@@ -60,7 +60,7 @@ pub fn sync_boss_reward_chests_ecs(
         ) {
             continue;
         }
-        let chest_id = format!("encounter_chest_{placement_id}");
+        let chest_id = ambition_encounter::encounter_chest_feature_id(placement_id);
         let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             placement_id,
         ));

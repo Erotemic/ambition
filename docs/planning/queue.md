@@ -1426,6 +1426,46 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   real bonk — `course_playthrough.rs:429` and `level_1_acceptance.rs:503` have that
   machinery. ⛔ Do NOT widen the type's API to make the test cheap; the privacy is
   what keeps one authority over which bricks are broken.
+- ▢ **D-ID-CONVENTION-DRIFT — an id spelled by a producer and parsed by a consumer is
+  a fact with two authorities, and the suite cannot see them disagree.** Named
+  2026-09-07; two closed here, one open in the smash lane.
+
+  ⛔⛔ **THE MEASUREMENT, and it is a player-visible progression defect invisible to
+  the whole suite.** `encounter_chest_<id>` was spelled THREE times in TWO crates —
+  producers in `ambition_boss_encounter::rewards` and the monolith's
+  `encounter_rewards`, consumer in `features/ecs/chests.rs`, whose `strip_prefix` is
+  what sets the chest's looted flag. POISONING ONLY THE CONSUMER'S LITERAL — exactly
+  what a rename produces — left **all 590 `app_it` tests green**. A chest that never
+  records being looted refills on every load.
+
+  ⚠ **AND THE LESSON WAS WRITTEN ONE LINE BELOW THE DRIFT.** A comment there says the
+  FLAG name was collapsed into one helper *"which is a second one that agrees only
+  until somebody edits the helper"* — and the ID that flag is keyed by had been left
+  behind. ⇒ **Understanding a class does not fix its members, and a comment recording
+  a fix reads as coverage of the class.**
+
+  ✔ **CLOSED:** `encounter_chest_` (one const + `encounter_chest_feature_id` /
+  `encounter_id_from_chest_feature_id` in `ambition_encounter`, three sites now ask);
+  `npc_<id>_talked` (the runtime wrote it and `ambition_content`'s
+  `content_validation` rebuilt the same id to enumerate what content can set — the
+  validator's model of the runtime was only as good as two literals agreeing).
+  `room_visited_` closed earlier the same day.
+
+  ▢ **OPEN, YARDRAT'S LANE (verified by them, not by me alone):**
+  `game/ambition_demo_smash/src/lib.rs` — `respawn_platform_id(seat)` builds the id at
+  :2242 and :2123 reads it back with an independent `starts_with`. A rename inside the
+  helper leaves the retain matching nothing and every respawn platform survives
+  forever, with the helper's own tests green because they exercise the producer.
+
+  ⭐ **THE SWEEP IS COMMITTED:** `scripts/measure_id_prefixes_spelled_twice.py`, with
+  `scripts/tests/test_id_prefix_sweep.py`. 38 prefixes spelled as literals, 2 pairs
+  left — the smash one and a FALSE pair (`npc_` collides between the save-flag helpers
+  and a `npc_` stripped off a CHARACTER ID in `ambition_sprite_sheet`). ⚠ The false
+  pair is DISCLOSED, not exempted: an amnesty list is how you stop looking at what it
+  exempts. ⚠ And the first version of the sweep reported `room_visited_` **out of the
+  doc comment recording its own repair** — a sweep that reads prose finds the sentence
+  about the defect and calls it the defect.
+
 - ▢ **D-BUILD-GRAPH-BLINDNESS — five instrument defects in one day, one cause: a guard's
   SUBJECT is the tree and its PRECONDITION is the build graph, and only the subject is
   ever stated.** Named 2026-09-07 with YardratAmbition; neither of us would have seen

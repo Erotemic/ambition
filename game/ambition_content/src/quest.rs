@@ -118,7 +118,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                 ambition_persistence::quest::QuestStepSpec::new(
                     "Return the treasure to the pirate admiral.",
                     ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "npc_pirate_admiral_talked".into(),
+                        ambition_platformer2d::actors::features::npc_talked_flag("pirate_admiral"),
                     ),
                 ),
             ],
@@ -165,7 +165,7 @@ pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
                 ambition_persistence::quest::QuestStepSpec::new(
                     "Speak with Oiler in Drain Market.",
                     ambition_persistence::quest::QuestStepCondition::FlagSet(
-                        "npc_oiler_intro_talked".into(),
+                        ambition_platformer2d::actors::features::npc_talked_flag("oiler_intro"),
                     ),
                 ),
                 ambition_persistence::quest::QuestStepSpec::new(

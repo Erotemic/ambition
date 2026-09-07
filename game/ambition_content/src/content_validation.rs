@@ -539,7 +539,9 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                 if let Some(dialogue_id) = field_string(entity, "dialogue_id") {
                     let dialogue_id = dialogue_id.trim();
                     if !dialogue_id.is_empty() {
-                        flags.insert(format!("npc_{dialogue_id}_talked"));
+                        flags.insert(ambition_platformer2d::actors::features::npc_talked_flag(
+                            dialogue_id,
+                        ));
                     }
                 }
             }

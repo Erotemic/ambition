@@ -12,6 +12,48 @@ pub fn encounter_reward_looted_flag(encounter_id: &str) -> String {
     format!("encounter_{encounter_id}_reward_dropped")
 }
 
+/// The prefix a reward chest's `FeatureId` carries, so the encounter it belongs
+/// to can be read back off it.
+///
+/// ⭐ IT WAS SPELLED THREE TIMES, IN TWO CRATES. Two producers built the id with
+/// `format!("encounter_chest_{{id}}")` — `ambition_boss_encounter::rewards` and the
+/// monolith's `encounter_rewards` — and the consumer read it back with
+/// `strip_prefix("encounter_chest_")` in `features/ecs/chests.rs`. Three literals
+/// that must agree, and the loot path is what breaks when they stop: a chest whose
+/// id no longer parses sets NO looted flag, so it re-fills on every load. The flag
+/// NAME was collapsed into [`encounter_reward_looted_flag`] for exactly this
+/// reason, and the ID it is keyed by was left behind.
+const ENCOUNTER_CHEST_FEATURE_PREFIX: &str = "encounter_chest_";
+
+/// The `FeatureId` a reward chest for `encounter_id` is spawned under.
+pub fn encounter_chest_feature_id(encounter_id: &str) -> String {
+    format!("{ENCOUNTER_CHEST_FEATURE_PREFIX}{encounter_id}")
+}
+
+/// The encounter a chest `FeatureId` belongs to, or `None` for any other feature.
+pub fn encounter_id_from_chest_feature_id(feature_id: &str) -> Option<&str> {
+    feature_id.strip_prefix(ENCOUNTER_CHEST_FEATURE_PREFIX)
+}
+
+#[cfg(test)]
+mod feature_id_tests {
+    use super::*;
+
+    /// ⚠ THE ROUND TRIP IS THE WHOLE CONTRACT: the producer's id must be the one
+    /// the consumer can read an encounter back out of. It cannot fail now that one
+    /// const feeds both, which is the point — before this, the same assertion was
+    /// a claim about three literals staying in step.
+    #[test]
+    fn a_chest_id_reads_back_as_its_encounter() {
+        let id = encounter_chest_feature_id("boss:mockingbird");
+        assert_eq!(
+            encounter_id_from_chest_feature_id(&id),
+            Some("boss:mockingbird")
+        );
+        assert_eq!(encounter_id_from_chest_feature_id("something_else"), None);
+    }
+}
+
 /// Position the reward chest is spawned at, given an encounter spec.
 /// Bottom edge of the chest snaps to the trigger AABB's `max.y` (the
 /// lower edge in y-down world space, which the LDtk authoring puts

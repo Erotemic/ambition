@@ -217,7 +217,7 @@ pub fn interact_ecs_actors_and_switches(
                 on: true,
             });
             set_flag.write(SetFlagRequested {
-                id: format!("npc_{}_talked", request.dialogue_id),
+                id: crate::features::npc_talked_flag(&request.dialogue_id),
                 on: true,
             });
             vfx.write(VfxMessage::Burst {

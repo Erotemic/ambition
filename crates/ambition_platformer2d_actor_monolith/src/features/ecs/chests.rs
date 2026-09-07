@@ -126,7 +126,9 @@ pub fn open_ecs_chests(
                 id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
                 pos,
             });
-            if let Some(encounter_id) = id.as_str().strip_prefix("encounter_chest_") {
+            if let Some(encounter_id) =
+                ambition_encounter::encounter_id_from_chest_feature_id(id.as_str())
+            {
                 set_flag.write(SetFlagRequested {
                     // The flag NAME has one authority; this used to spell the
                     // same `format!` by hand, which is a second one that agrees

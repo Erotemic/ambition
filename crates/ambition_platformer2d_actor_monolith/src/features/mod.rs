@@ -55,7 +55,7 @@ pub mod ecs;
 pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The one spelling of the persisted-hostile NPC flag — see [`npcs::npc_flag_id`].
-pub use npcs::npc_flag_id;
+pub use npcs::{npc_flag_id, npc_talked_flag};
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx

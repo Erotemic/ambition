@@ -4381,3 +4381,18 @@ this, which is exactly why the gap survived review of the tests.
 and 1 vs 2 changes a type five owners share. The constraint is written at the claim
 site (`encounter_script.rs`) so the first content author to emit `SetMusic` meets it
 there rather than here.
+
+✔ **ONE OF THE TWO FAILURE MODES IS NOW STRUCTURALLY CLOSED (2026-09-06,
+`7ebf6320d`), and it did NOT need this ruling.** Jon's report names two things: settings
+that are *"not there"* and settings that are *"not hooked up"*. The second was already
+forced — `settings/apply.rs` matches `SettingsOptionId` exhaustively, so an option
+cannot be added without deciding what changing it does. The first was not: `build.rs`
+composes each screen by pushing rows explicitly, so a fully wired option could appear
+on NO SCREEN with every test green. `every_settings_option_id_reaches_a_screen` now
+fails in that case. ⚠ Measured: 58 of 59 ids are reachable today (only `Close`, a
+momentary Back action, is not), so it caught nothing and is prevention.
+
+⇒ **WHAT IS STILL YOURS is the harder half and is untouched by that:** which settings
+every GAME inherits. The guard proves each declared option reaches SOME screen in the
+system menu; it says nothing about which options a given game's menu SHOULD offer, and
+nothing about a game that ships its own menu lacking rows this one has.

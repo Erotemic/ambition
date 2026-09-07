@@ -906,7 +906,7 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   chain" — and it is REASONED, not measured; retracted here.** Tried to close it
   and could not: `InputSet` really is chained `Collect -> ResolveActions ->
   ResolveContext -> Route`, and `InputSet::Route` really is pinned
-  `.before(PrimarySlotInputCommit)` (`schedule.rs:256`), but NO edge from either to
+  `.before(PrimarySlotInputCommit)` (`shared_tangle/src/schedule.rs:256`), but NO edge from either to
   `CoreSimulation` was found, and `dialog_input` hangs off `.after(CoreSimulation)`.
   ⇒ The two are ordered; WHY is unestablished. Splitting them because half a claim
   being measured is exactly what makes the other half sound checked. ⚠ In the same hour I nearly published the

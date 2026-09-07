@@ -1050,7 +1050,25 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   lane. Splitting the chain to carve the combat half changes the ordering the comments
   above it argue for at length.
 
-  ⭐⭐⭐ **AND THE CAMPAIGN'S TARGET IS ABOUT HALF THE HEADLINE NUMBER, measured
+  ✔✔ **CLOSED ON THIS SIDE 2026-09-06. Every remaining reducible block belongs to
+  `ambition_platformer2d_actor_monolith` — the other session's lane.** Eight capabilities
+  now install themselves, each poison-verified or guarded where the poison could not
+  fire: `ambition_combat::install_settle_presentation_systems` (poison fails 57 tests),
+  `ambition_input::{install_input_pipeline, install_provider_action_road,
+  install_seat_device_tracking, install_rebind_edge_swallow}` (41, and one by name),
+  `ambition_render::fx::install_fx_pipeline`, `ambition_menu::map::install_map_simulation_systems`,
+  `ambition_damage::install_staged_hit_lifecycle_guard`. Foreign installations **205 ->
+  185**, total foreign systems 280 -> 258, capability ordering still 0.
+
+  ⛔⛔ **AND THE CLASSIFIER TOOK SIX CORRECTIONS, EVERY ONE IN THE FLATTERING
+  DIRECTION** — 25 reducible at first reading, 11 once it was right. A measurement whose
+  errors all make the work look larger is one to keep testing against cases whose answer
+  you can predict; seven were, and each predicted before it was run. Untested, the first
+  number would have sent six carves into the wrong crate and one across a lane boundary.
+  The four reasons a block is IRREDUCIBLE are now in the script's docstring, each tied to
+  the block that taught it.
+
+  ⭐⭐⭐ **THE CAMPAIGN'S TARGET WAS ABOUT HALF THE HEADLINE NUMBER, measured
   2026-09-06 by `scripts/measure_carveable_installations.py` (committed).** Splitting
   every `add_systems` / `configure_sets` block in the six host files by the capabilities
   it names — resolving `use` imports, so bare names are attributed correctly:

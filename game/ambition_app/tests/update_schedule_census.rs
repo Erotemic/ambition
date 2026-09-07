@@ -587,3 +587,41 @@ fn name_the_menu_frame_conflicts() {
          nothing while appearing to pass"
     );
 }
+
+/// Set MEMBERSHIP is not an ORDER between siblings.
+///
+/// This decides whether "put the remaining readers in `MenuFrameConsume`" is a
+/// fix or a no-op, so it is answered by exercising the mechanism rather than
+/// assumed from the umbrella's name. `MenuFrameConsume` gives a frame WRITER one
+/// pin that covers every reader; it does not arrange the readers among
+/// themselves, and two direct members still race.
+///
+/// ⇒ The remaining pairs therefore need an explicit order (a chain, or nested
+/// sets), which is the per-surface judgement D-MENU-CHANNEL describes — not
+/// merely membership.
+#[test]
+fn two_direct_members_of_one_set_are_still_unordered() {
+    #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    struct Umbrella;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+    app.add_systems(
+        Update,
+        (
+            (|mut f: ResMut<ambition_platformer2d::input::MenuControlFrame>| f.back = false)
+                .in_set(Umbrella),
+            (|mut f: ResMut<ambition_platformer2d::input::MenuControlFrame>| f.start = false)
+                .in_set(Umbrella),
+        ),
+    );
+    app.update();
+
+    let (on_menu_frame, _, _, _) = menu_frame_conflicts(&mut app);
+    assert!(
+        on_menu_frame >= 1,
+        "two systems in the SAME set reported no conflict, so membership alone \
+         orders them — if that were true, joining `MenuFrameConsume` would be \
+         enough for the remaining readers and this file's advice is wrong"
+    );
+}

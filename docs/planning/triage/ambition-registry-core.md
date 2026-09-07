@@ -663,8 +663,9 @@ that matters:
 usually rots.** The crate doc prescribes that a registry with a genuinely
 different policy "says so by not using `classify` — and then has to say why in
 place." All three JUSTIFIED entries do exactly that, at the declaration site:
-`EncounterRegistry` (`registry.rs:52`), `MovePrefabRegistry`
-(`prefab_registry.rs:59`), and `ParamSchemaRegistry` (`lib.rs:167`, which states
+`EncounterRegistry` (`ambition_encounter/src/registry.rs:52`), `MovePrefabRegistry`
+(`prefab_registry.rs:59`), and `ParamSchemaRegistry`
+(`ambition_entity_catalog/src/lib.rs:167`, which states
 outright that `classify` CANNOT be adopted and why). ⇒ 8 of 31 registries have
 ANSWERED the question; the other 23 were never asked it.
 

@@ -4499,7 +4499,19 @@ every GAME inherits. The guard proves each declared option reaches SOME screen i
 system menu; it says nothing about which options a given game's menu SHOULD offer, and
 nothing about a game that ships its own menu lacking rows this one has.
 
-## Q73 — can the inventory, a dialogue, and the map be live in the SAME frame? (2026-09-07)
+## Q75 — can the inventory, a dialogue, and the map be live in the SAME frame? (2026-09-07)
+
+⚠ **RENUMBERED Q73 → Q75 ON 2026-09-07, AND IT TOOK TWO TRIES, which is the
+lesson rather than a footnote.** I first renumbered it to Q74 — free in my
+checkout — and a fetch showed Q74 already taken on the remote. ⇒ **The next free
+number is a measurement against a tree somebody else is also writing to, so
+taking one is only safe after a fetch, and even then only until the next push.**
+Neither author was careless. Two
+sessions each measured the next free number and each was right when it looked;
+the measurement expires between reading it and writing it, which is the whole
+reason `test_maintainer_questions_are_uniquely_numbered.py` exists. The OLDER
+row keeps the number because it is already cited in commits and cross-session
+messages — a citation that has left the file cannot be renumbered.
 
 **One minute at a screen closes four measured defects.** Not a design question and
 not a feel ruling — a factual question about what the game permits, which decides

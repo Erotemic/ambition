@@ -57,6 +57,7 @@ fn main() {
     let mut warmup = 90u32;
     let mut include_ui = true;
     let mut walk = 0u32;
+    let mut debug_boxes = false;
     let mut at: Option<ae::Vec2> = None;
     let mut room = ambition_demo_mary_o::LEVEL_1_1_ROOM_ID.to_string();
 
@@ -83,6 +84,21 @@ fn main() {
                     .next()
                     .and_then(|v| v.parse().ok())
                     .unwrap_or_else(|| fail("--warmup needs a frame count"));
+            }
+            // ⛔⛔ MEASURED AND IT DOES NOT WORK FOR THE THING IT WAS ADDED FOR: the
+            // debug boxes are GIZMOS, and gizmos do not appear in this tool's OFFSCREEN
+            // render path. The flag flips the flag correctly (verified: the resource is
+            // true by `Startup`), the systems run, and the captured PNG is
+            // byte-comparable to one taken without it. ⇒ Comparing a captured frame
+            // against a player's F1 screenshot is NOT available here, and the numeric
+            // report above is the instrument. Kept because the flag itself is right and
+            // the next person will otherwise re-add it; the comment is the finding.
+            "--debug-boxes" => {
+                // ⭐ THE SAME VIEW A PLAYER SEES WHEN THEY PRESS F1. Numbers in this
+                // probe compare the sprite to the body BOX; a screenshot compares it to
+                // everything else on screen. Rendering the boxes lets the two be put
+                // side by side instead of argued about.
+                debug_boxes = true;
             }
             "--walk" => {
                 walk = args
@@ -152,6 +168,20 @@ fn main() {
         include_ui,
     });
     app.init_resource::<CaptureProgress>();
+    if debug_boxes {
+        // ⛔ IN `Startup`, NOT HERE. Setting the resource at build time ran BEFORE the
+        // plugins that own it initialise it, so the flag was overwritten by their
+        // default and the first attempt rendered no boxes at all while reporting
+        // success. A one-shot startup system runs after every plugin has had its say.
+        app.add_systems(
+            bevy::prelude::Startup,
+            |mut dev: bevy::prelude::ResMut<
+                ambition_platformer2d::dev_tools::DeveloperRuntimeState,
+            >| {
+                dev.debug = true;
+            },
+        );
+    }
     app.insert_resource(Warmup {
         remaining: warmup,
         walk_right: walk,

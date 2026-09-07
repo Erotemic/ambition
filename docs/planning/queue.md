@@ -1083,9 +1083,23 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   question about the machine, and would be silently green on any box that never ran
   the variant generator. It names absent tiers as UNMEASURED rather than passing.
 
+  ⚠ **WHY NO TEST GUARDS THIS, stated so the absence is a decision and not an
+  oversight.** `quality_change_keeps_each_character.rs` asserts which character a
+  token resolves to and that a quality round-trip reloads every page with nothing
+  orphaned. Neither asks about the drawn SHAPE, so a sprite at the wrong aspect passes
+  both. The obvious repair is a test comparing tier trim fractions against the base's
+  -- and it must NOT be written, for the reason this row's own script documents: the
+  variant directories are GITIGNORED, so such a test would answer a question about the
+  MACHINE and would sit silently green on every box that never ran the variant
+  generator. ⇒ The report is the substitute for the guard, deliberately, and the thing
+  that makes it honest is that it names absent tiers as UNMEASURED rather than
+  passing. A real guard becomes possible only if the variants become tracked artifacts.
+
   ▢ NEXT: the downscale should carry the BASE sheet's trim fractions rather than
   re-measuring alpha on the shrunken image, or trim with an alpha threshold that
-  scales with the frame. ⛔ Same submodule caveat as the row below -- the generator is
+  scales with the frame. ⛔ A renderer-side repair is NOT available and should not be
+  attempted: the tier RON has LOST the true fraction, so no consumer of it can
+  recover the correct quad. The information only exists at generation time. ⛔ Same submodule caveat as the row below -- the generator is
   in `tools/ambition_sprite2d_renderer`, whose pointer here is divergent.
 
 - ✔ **D-MARYO-SPRITE — FIXED AND VERIFIED IN NORMAL PLAY, 2026-09-06

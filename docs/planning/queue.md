@@ -1039,6 +1039,22 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
     area the other session is actively reworking (control claims / custody, prerequisite
     B). ⇒ Wants coordination BEFORE starting, per the lane rule, not a unilateral start.
 
+  ⭐ **A THIRD CANDIDATE EXAMINED AND ALSO ENTANGLED, so this is a pattern rather than
+  two awkward cases.** `CombatSet::Playback` (combat_schedule.rs:142) looks like the
+  cleanest carve in the file: eleven consecutive `ambition_combat::moveset::*` systems in
+  one `.chain()`. And the dependency direction is FINE — `GameplayGated` and `CombatSet`
+  both live in `shared_tangle`, which `ambition_combat` already depends on, so a
+  combat-owned installer could name both with no new edge and no inversion. ⚠ The block
+  ends with `ambition_platformer2d_actor_monolith::features::project_boss_attack_state_from_move`
+  INSIDE the same `.chain()`, and `actor_monolith/src/features/**` is the other session's
+  lane. Splitting the chain to carve the combat half changes the ordering the comments
+  above it argue for at length.
+
+  ⇒ **Three candidates, three different entanglements**: an inverted dependency (time), a
+  cross-lane chain (moveset playback), and active concurrent work (combat at large). None
+  is a reason the campaign is wrong; all three are reasons the next step is a
+  CONVERSATION rather than a carve.
+
   ▢ NEXT: whoever takes combat should say so first. ⚠ And the honest framing for the
   metric: a falling `installing` count is only progress where the move does not invert a
   dependency — the time cluster would lower the number and worsen the architecture.

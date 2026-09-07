@@ -1346,7 +1346,39 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   Mary-O closed 19.809 -- `authored_offset.y` is 19.8095, i.e. exactly one offset's
   worth of double-count.
 
-  ▢ **STILL OPEN: +9.5 remains**, and the next step is measurement, not a guess.
+  ⭐⭐⭐ **THE RESIDUAL IS THE ASSET GAP, AND IT IS NOW EXACT: 25.0 SHEET PIXELS.**
+  Measured 2026-09-06, and it CLOSES the question of whether the two mechanisms above
+  are independent -- they are the same defect, and the code half is repaired.
+
+  The sheet's logical frame is 160x192 and the world scale is exactly 8/21 world
+  units per sheet pixel (`authored_render` 60.95238x73.14286 = 160x192 * 8/21). In
+  those units every authored number is an INTEGER, which is what rules out a float,
+  trim or scale bug:
+
+  | quantity | sheet px | agrees with |
+  |---|---|---|
+  | `body_pixel_bbox` | x50 y106 w56 h84, so feet at y=**190** | `feet_pixel: (78, 190)` |
+  | `authored_offset` | (2, -52) = frame centre (80,96) -> box centre (78,148) | the bbox, exactly |
+  | sim collision box | 21.33x32.00 world = **56x84** | the bbox, exactly |
+  | the DRAWN frame's trim | spans sheet y **80..165** | nothing |
+  | residual misplacement | **25.0** = 190 - 165 | -- |
+
+  ⇒ **THE BOX AND THE SIM AGREE WITH EACH OTHER AND BOTH DISAGREE WITH THE ART.** The
+  authored body box claims her feet are at sheet row 190; the art actually drawn for
+  this frame ends at row 165. The offset is correctly derived FROM the box, and the
+  collision box correctly matches it -- so every code road is doing exactly what the
+  asset told it, and the asset is wrong by 25px. The `idle` row's hurtbox is the same
+  `(50,106,56,84)`, i.e. the one-stance-box-for-nine-poses named above.
+  (The trim was not read from the file; it was DERIVED from the measured anchor
+  0.3118 and quad, and came out at oy=80.00 exactly -- an integer, which is the
+  check that the derivation is sound.)
+
+  ▢ **NEXT: the generator must measure the ART per pose**, not carry one stance box.
+  ⛔ Do NOT "fix" this by adjusting the offset or the collision box: both currently
+  agree with the authored bbox, and changing either to chase the art would put the
+  collider somewhere the art still is not.
+
+  ▢ **SUPERSEDED SUB-QUESTION: +9.5 remains**, and the next step is measurement, not a guess.
   The drawn quad is 22.10x32.38 while `authored_render` is 60.95x73.14, so a TRIM
   scale (0.4427) sits between the units the offset is authored in and the world
   units it is applied in at `actors/mod.rs`'s `translation.y -= offset.y`. Whether
@@ -1354,6 +1386,9 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   decides whether the asset-side per-pose fix above is still needed or is now
   double-counting. ⚠ The two mechanisms are not independent and must not be fixed
   in parallel by two sessions.
+  ✔ **ANSWERED the same day, above: the trim is NOT the culprit** -- `trimmed_render`
+  maps the logical frame centre to the same world point (its own fixed-point test
+  pins that), so no trim scaling is owed. The residual is the asset's 25px.
 
   ⚠ **Instrument caveat, so the next reader does not over-trust the table:** the
   actor band shifts ~0.6 between runs because the animation FRAME is not

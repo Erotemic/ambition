@@ -921,7 +921,18 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   `.after(MenuNavConsume)`, at `grid_backend.rs:1148` and `:1177`, and its reason
   ("so an in-menu Menu Backend flip is seen on the SAME frame") is current.
   ⇒ Read the comment before "fixing" a set relation; the friction is the feature.
-  ⚠ **GATE IT ON REACHABILITY FIRST, which is NOT yet measured.** The pairs are
+  ⭐ **REACHABILITY, HALF-ANSWERED and the half matters.** MEASURED over the
+  WHOLE functions and files, not a slice: `grid_menu_open_routing` contains no
+  dialogue or cutscene interlock, `ambition_dialog/src/systems.rs` contains no
+  inventory interlock, and nothing anywhere suppresses one surface on the other.
+  ⇒ **Nothing in code stops a dialogue and the inventory being live in the same
+  frame**, so the four named pairs are not structurally unreachable.
+  ⚠ **That is NOT the same as "play reaches it."** An absent interlock is weaker
+  evidence than an observed state, and confirming it wants somebody who can drive
+  the game — which is the screen this row asked for from the start, now narrowed
+  to one question instead of an open audit: *can you open the inventory during a
+  dialogue, and does the map panel coexist with either?*
+  ⚠ **The ORIGINAL reachability gate, still NOT measured:** The pairs are
   unordered, but that only bites where both surfaces are live in one frame. Ask
   whether a dialogue can be active while the inventory is open, and — the more
   likely one, because it needs no inventory at all — whether the touch fold's

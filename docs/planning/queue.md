@@ -879,10 +879,35 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   `player_schedule.rs:325`: only a composition that depends on both sides can
   state the relation. `ambition_platformer2d_runtime` is the one that can — it
   depends on menu, conversation AND the monolith.
-  ⇒ **SIZED: each crate names its own reader set, the runtime nests it under
-  `MenuFrameConsume`** — the pattern `GridMenuNav` already uses. Neither crate has
-  a set that fits today (`MapMenuSpawnSet` is startup timing, the dialog sets are
-  Yarn-mirror boundaries), so it is two new sets plus one `configure_sets`.
+  ⛔ **AND THAT SIZING WAS WRONG — corrected `c3f9f4243`+1.** I wrote that each
+  crate should name a set and the runtime nest it under `MenuFrameConsume`.
+  MEASURED on a hand-built app: **two DIRECT MEMBERS of one set still conflict**,
+  and nesting a set does not order it against its siblings. An umbrella gives a
+  frame WRITER one pin covering every reader; it does not arrange the readers
+  among themselves. ⇒ Membership would have removed ZERO pairs. The remaining
+  ones need an explicit ORDER — a chain, or nested sets that are chained — and
+  choosing it decides which surface wins a press. That is the per-surface
+  judgement this row claimed from the start; I had converted a judgement call into
+  a mechanical one because the mechanical one was cheaper to write.
+  ⭐ **THE 9 ARE NAMED, measured `c3f9f4243`.** bevy gives every system its own
+  `SystemTypeSet`, so a named function can be looked up as a set and its
+  `SystemKey` recovered — no `debug` feature, no rebuild, and it sidesteps
+  `get_node_name`'s panic. Of the 9: `dialog_input` x2,
+  `handle_map_menu_hotkeys` x2, `apply_menu_frame_to_cutscene_request` x1, and 4
+  among app-private systems an integration test cannot name.
+  ⛔ **AND A DEFECT I HAD REASONED INTO EXISTENCE IS RETRACTED.** I had a
+  mechanical chain — `fold_touch_gestures` writes `frame.scroll_y +=`,
+  `vertical_scroll_steps()` derives from `scroll_y`, `dialog_input` calls it, and
+  dialog sits outside the umbrella the fold pins `.before` — concluding that a
+  touch drag-scroll in a dialogue is dropped when the read runs first. The data
+  flow is real; the ORDERING premise was false. The fold does not appear in the
+  conflict list at all: it is ordered against the dialogue through the input-phase
+  -> simulation -> dialog chain. ⚠ In the same hour I nearly published the
+  opposite error — that the touch lane was outside the measured composition —
+  from grepping the app's own source for `ambition_touch_input`, which is composed
+  via `ambition_platformer2d` and enabled by `mobile_touch` in the DEFAULT feature
+  set. Both mistakes were one shape: a coherent source reading standing in for a
+  measurement.
   ⚠ **GATE IT ON REACHABILITY FIRST, which is NOT yet measured.** The pairs are
   unordered, but that only bites where both surfaces are live in one frame. Ask
   whether a dialogue can be active while the inventory is open, and — the more

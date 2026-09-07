@@ -10,7 +10,7 @@ distinction is structural rather than a matter of effort:
               vocabulary every crate already depends on). That capability can install
               itself, and the composition names one function instead of N paths.
 
-  IRREDUCIBLE the composition is the only place that can express it, for any of FOUR
+  IRREDUCIBLE the composition is the only place that can express it, for any of FIVE
               reasons — each one measured against a real block rather than imagined:
                 · it names two capabilities that do not depend on each other
                   (`projectile_visuals` orders `ambition_render` systems `.after` a
@@ -24,7 +24,13 @@ distinction is structural rather than a matter of effort:
                   vocabulary (`EncounterLifecycleSet` between two `ProgressionSet`
                   phases; mount's four stages `.in_set(CombatSet::Settle)`). The
                   capability orders its own stages; only the composition knows where the
-                  whole thing sits.
+                  whole thing sits;
+                · it ORDERS AGAINST THE COMPOSITION'S OWN SET, spelled `crate::`. No
+                  capability can name that — depending on your own composition is the
+                  edge every carve exists to avoid. Measured 2026-09-07:
+                  `player_schedule.rs:309` puts `close_death_interlude`
+                  `.before(crate::sandbox_reset::RoomReplayAdmission)`, and the monolith
+                  has ZERO references to the runtime in its manifest.
 
 ⛔⛔ AND THE OBVIOUS IMPLEMENTATION IS WRONG, which is why this is a script and not a
 grep. Classifying a block by the `crate::path::` prefixes written in it MISSES every
@@ -68,8 +74,11 @@ crosses a lane boundary (measured: `CombatSet::Playback` chains eleven
 `ambition_combat` systems with one `actor_monolith` system). Those show as REDUCIBLE
 here and are not.
 
-⛔ A FIFTH IRREDUCIBILITY REASON THE SCRIPT CANNOT SEE, found 2026-09-07 by
-carving one of its own REDUCIBLE rows: THE GUARD AROUND THE BLOCK.
+⛔ THE ONE IRREDUCIBILITY REASON THE SCRIPT STILL CANNOT SEE, found 2026-09-07 by
+carving one of its own REDUCIBLE rows: THE GUARD AROUND THE BLOCK. (The `crate::`
+anchor above was found the same day and IS detected now -- it is a property of the
+block's own text, which is exactly why it could be taught rather than annotated.
+This one is a property of the enclosing statement, and is not.)
 `host/src/lib.rs:144` reads as one capability plus shared vocabulary and is
 irreducible anyway, because it sits inside
 
@@ -221,10 +230,28 @@ def main() -> int:
             #
             # ⇒ Strip the ordering combinators before attributing, so `.after(...)`,
             # `.before(...)`, `.in_set(...)` and `.run_if(...)` arguments do not count.
-            installed = re.sub(
-                r"\.(?:after|before|in_set|run_if|ambiguous_with)\s*\([^()]*(?:\([^()]*\)[^()]*)*\)",
-                "",
-                body,
+            COMBINATOR = (
+                r"\.(?:after|before|in_set|run_if|ambiguous_with)"
+                r"\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)"
+            )
+            installed = re.sub(COMBINATOR, "", body)
+            # ⛔⛔ AND THE ANCHORS ARE KEPT, not only discarded. A block that ORDERS
+            # against `crate::` is ordering against the COMPOSITION'S OWN set, and no
+            # capability can name that: depending on your own composition is the
+            # dependency edge every carve exists to avoid. Measured 2026-09-07,
+            # `runtime/src/player_schedule.rs:309` --
+            # `close_death_interlude .before(crate::sandbox_reset::RoomReplayAdmission)`,
+            # where `RoomReplayAdmission` is defined at
+            # `runtime/src/sandbox_reset.rs:114` and the monolith has ZERO references
+            # to the runtime in its manifest.
+            #
+            # ⭐ THE SAME MISTAKE THIS FILE ALREADY FIXED ONCE, one identifier over:
+            # "SHARED IS EXCLUDED FROM `named`, NOT FROM REACHABILITY". `own_crate` was
+            # excluded from BOTH -- correctly from `named`, because the host's own
+            # systems are not a foreign capability, and wrongly from reachability, where
+            # it is the one anchor that can never be reached.
+            orders_against_the_composition = any(
+                "crate::" in arg for arg in re.findall(COMBINATOR, body)
             )
             # A block naming `crate::` installs something of the host's own.
             owns_a_system = "crate::" in installed or any(
@@ -287,9 +314,12 @@ def main() -> int:
                 # phases and does NOT depend on `shared_tangle`, so its block read as
                 # carveable while the owner could not compile the carve.
                 shared_used = {s for s in SHARED if f"{s}::" in body}
+                candidates = anchors | shared_used
+                if orders_against_the_composition:
+                    candidates.add(own_crate)
                 unreachable = sorted(
                     a
-                    for a in (anchors | shared_used)
+                    for a in candidates
                     if not depends_on(owner_crate, a)
                 )
                 if unreachable:

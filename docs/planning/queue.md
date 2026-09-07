@@ -1270,6 +1270,29 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   interpreter outside the store) alongside the stale-.venv one. ⚠ The refusal itself is
   CORRECT behaviour — exit 2, nothing run — and must not be "fixed" into a skip.
 
+
+  ⛔⛔ **A SECOND LANE IS UNRUNNABLE ON THIS BOX, measured 2026-09-07, and the cause
+  is a SYSTEM LIBRARY rather than an interpreter.** `cargo check --workspace
+  --all-features --all-targets` — the FEATURE UNION — cannot build here:
+  `bevy_rich_text3d` -> `cosmic-text` -> `yeslogic-fontconfig-sys`, whose build
+  script panics because the system `fontconfig` is not installed. ⇒ **A manifest or
+  feature change cannot be union-verified on this machine**, which matters because
+  the union is precisely the lane that catches a feature change, and the default
+  workspace run is silent about it (the union job lives inside
+  `--run-everything-you-probably-dont-need-this`).
+  ⚠ **The repo already knew this dependency was special and the note is two lines
+  from where it bites**: `game/ambition_app/Cargo.toml` says of that stack *"which a
+  headless/CI build never touches"*. The union touches it by definition, so
+  "never touched by CI" and "reachable from `--all-features`" are both true and
+  read as contradictory.
+  ⭐ **The closest available substitute, and it is weaker: per-crate
+  `--all-features`.** Both crates cut on 2026-09-07 were checked that way and are
+  clean, but a per-crate check cannot see a feature UNIFICATION effect across the
+  workspace, which is the thing the union exists to find.
+  ⛔ **AND I READ THE RESULT WRONG FIRST.** The task reported `[exited with code 0]`
+  while the log said `build failed` — because the command was piped to `tail`, and a
+  pipe voids the exit status exactly the way `| grep` does. The failure was visible
+  only in the text. Same trap, different filter.
 - ▢ **D-APPIT-FLAKE — `ambition_app --test app_it` fails intermittently at ~2 in 6,
   and the failing test is UNIDENTIFIED because I filtered it away twice.** Observed
   2026-09-06 at `7ebf6320d` and neighbours: two runs reported

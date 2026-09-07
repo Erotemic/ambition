@@ -901,8 +901,15 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   dialog sits outside the umbrella the fold pins `.before` — concluding that a
   touch drag-scroll in a dialogue is dropped when the read runs first. The data
   flow is real; the ORDERING premise was false. The fold does not appear in the
-  conflict list at all: it is ordered against the dialogue through the input-phase
-  -> simulation -> dialog chain. ⚠ In the same hour I nearly published the
+  conflict list at all, so the two ARE ordered (MEASURED). ⛔ **I then gave a
+  MECHANISM for that ordering — "through the input-phase -> simulation -> dialog
+  chain" — and it is REASONED, not measured; retracted here.** Tried to close it
+  and could not: `InputSet` really is chained `Collect -> ResolveActions ->
+  ResolveContext -> Route`, and `InputSet::Route` really is pinned
+  `.before(PrimarySlotInputCommit)` (`schedule.rs:256`), but NO edge from either to
+  `CoreSimulation` was found, and `dialog_input` hangs off `.after(CoreSimulation)`.
+  ⇒ The two are ordered; WHY is unestablished. Splitting them because half a claim
+  being measured is exactly what makes the other half sound checked. ⚠ In the same hour I nearly published the
   opposite error — that the touch lane was outside the measured composition —
   from grepping the app's own source for `ambition_touch_input`, which is composed
   via `ambition_platformer2d` and enabled by `mobile_touch` in the DEFAULT feature

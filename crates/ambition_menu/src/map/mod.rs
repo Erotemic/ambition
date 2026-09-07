@@ -167,27 +167,25 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
     #[cfg(feature = "ldtk")]
     app.add_systems(
         bevy::prelude::Startup,
-        systems::populate_map_rooms
-            .in_set(MapMenuSpawnSet)
-            .run_if(bevy::prelude::resource_exists::<
-                ambition_platformer2d_ldtk::ActiveLdtkProject,
-            >),
+        systems::populate_map_rooms.in_set(MapMenuSpawnSet).run_if(
+            bevy::prelude::resource_exists::<ambition_platformer2d_ldtk::ActiveLdtkProject>,
+        ),
     );
-        // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
-        // reason is a real prerequisite rather than an oversight.
-        // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by
-        // profiling marks (`after_map_menu_spawn` exists to time it) and ordered
-        // `.after(setup_simulation_system)` — a host FUNCTION, which this crate
-        // cannot name and should not.
-        //
-        // ⭐ THE PATTERN TO FOLLOW IS THREE LINES ABOVE IT IN THAT FILE: *"the
-        // plugin publishes `AudioInitSet` and the host brackets it here"*. ⇒ The
-        // carve wants this plugin to publish a `MapMenuSpawnSet`, install
-        // `populate_map_rooms` into it, and the host to order its phase mark
-        // `.after(MapMenuSpawnSet)` — plus a published set standing where
-        // `setup_simulation_system` stands today, which is the host's to make.
-        // ⚠ It is also `#[cfg(feature = "ldtk")]`, so the install carries the gate.
-        app.add_systems(
+    // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
+    // reason is a real prerequisite rather than an oversight.
+    // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by
+    // profiling marks (`after_map_menu_spawn` exists to time it) and ordered
+    // `.after(setup_simulation_system)` — a host FUNCTION, which this crate
+    // cannot name and should not.
+    //
+    // ⭐ THE PATTERN TO FOLLOW IS THREE LINES ABOVE IT IN THAT FILE: *"the
+    // plugin publishes `AudioInitSet` and the host brackets it here"*. ⇒ The
+    // carve wants this plugin to publish a `MapMenuSpawnSet`, install
+    // `populate_map_rooms` into it, and the host to order its phase mark
+    // `.after(MapMenuSpawnSet)` — plus a published set standing where
+    // `setup_simulation_system` stands today, which is the host's to make.
+    // ⚠ It is also `#[cfg(feature = "ldtk")]`, so the install carries the gate.
+    app.add_systems(
             bevy::prelude::Update,
             (
                 // ⛔⛔ GATED ON THE INPUT RESOURCE, and the carve is why. While the
@@ -208,8 +206,17 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
                 // plus queries, and a query that matches nothing is an empty
                 // iteration rather than a panic. The hotkey was the only one
                 // reaching outside the plugin's own resources.
-                input::handle_map_menu_hotkeys
-                    .run_if(bevy::prelude::resource_exists::<bevy::input::ButtonInput<bevy::prelude::KeyCode>>),
+                // ⛔⛔ NO `run_if` HERE, and the absence is the contract. A
+                // `resource_exists::<ButtonInput>` guard stood on this line while the
+                // docstring above said it had been removed -- the doc described the
+                // decision and the code kept the sniff, so the two disagreed and a
+                // review had to find it. ⚠ It was also only HALF a guard: it tested
+                // `ButtonInput` while this system equally requires `MenuControlFrame`
+                // from `HostInputBindingsPlugin`, so a composition with Bevy's
+                // `InputPlugin` and no host passed the condition and then failed the
+                // parameter anyway. ⇒ Calling this installer without input is a
+                // COMPOSITION ERROR and crashes loudly, which is the point.
+                input::handle_map_menu_hotkeys,
                 pointer::map_menu_pointer_dismiss,
                 // ⭐ THE VIEW JOINS ITS OWN DOMAIN. The host registered this with
                 // the IDENTICAL ordering the hotkey needed -- after the simulation

@@ -1261,6 +1261,38 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   ⇒ **Carve by how much SCHEDULING AUTHORITY the composition is holding, not by how
   many blocks are reducible.** On that measure the three rows in this file were one
   carve, one no-op and one mistake.
+
+  ✔ **TWO MORE CARVED 2026-09-07 AND THE COUNT IS NOW 3, re-measured against HEAD.**
+  `install_actor_spawn_requests` (`421f20f20`) takes `SpawnActorRequest`'s message
+  registration and its drainer's `CombatSet::Materialize` membership back to the file
+  that defines both — in a composition whose own comment eight lines above already
+  said *"a writer whose message is registered by a different plugin is a composition
+  that works until somebody composes differently"*. `install_save_mirror`
+  (`e06504a2b`) takes the save-mirror pair's ORDER and its `ProgressionSet::SaveMirror`
+  membership. Neither adds a dependency edge: `CombatSet` and `ProgressionSet` are in
+  `shared_tangle`, which the monolith already depends on. **REDUCIBLE 6 → 4 → 3.**
+
+  ⭐ **AND ONE OF THAT DROP WAS A CLASSIFIER FIX, NOT A CARVE** (`1bcc3f8fa`), which
+  is why the number moved by one more than the carves account for. `player_schedule.rs`
+  orders `close_death_interlude` `.before(crate::sandbox_reset::RoomReplayAdmission)`
+  — an anchor in the COMPOSITION crate, which no capability can ever name, since the
+  monolith has zero references to the runtime. The classifier built its anchor set from
+  `ambition_*::` prefixes and `use`-resolved bare names, so `crate::` was invisible; and
+  `own_crate` was then subtracted from anchors as well. ⇒ **The same mistake this file
+  had already fixed one identifier over** — its own comment reads *"SHARED IS EXCLUDED
+  FROM `named`, NOT FROM REACHABILITY"*, and `own_crate` needed exactly that split.
+  A SIXTH irreducibility reason, and unlike the fifth it is a property of the block's
+  own text, so it is DETECTED rather than annotated.
+
+  ⛔⛔ **THE PATTERN HAS A COST NOBODY HAD PRICED, and the first measurement of it is
+  in `scripts/measure_installer_call_coverage.py` (committed).** Every C2 carve turns N
+  inline registrations into ONE call — the point, one authority — and concentrates the
+  failure into one deletable line. **MEASURED: deleting `install_save_mirror(app, sim)`
+  leaves the ENTIRE `app_it` suite green, 583 passed.** The two systems have crate-level
+  tests, and those cannot close the gap by construction: they call
+  `app.add_systems(...)` themselves, so a test that CONSTRUCTS its subject can never
+  witness the shipped app failing to install it. ⇒ The carve pattern earns a
+  composition-level witness and does not have one.
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

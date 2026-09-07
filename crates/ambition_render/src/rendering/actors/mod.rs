@@ -403,9 +403,28 @@ pub fn sync_visuals(
                 // to 12x16.4 against a 64-unit box. Turning one authority off does
                 // not make another one complete.
                 //
-                // ⇒ The repair the seam actually needs is for the trimmed basis to
-                // supply size, anchor AND translation together, so nothing here has
-                // to guess which of them somebody else will overwrite.
+                // ⭐⭐⭐ AND THE ROOT IS TWO DERIVATIONS OF ONE PLACEMENT, FROM TWO
+                // DIFFERENT SOURCES, IN TWO DIFFERENT ANCHOR CONVENTIONS:
+                //
+                //   · `player_presentation_for_collision` seeds the animator's
+                //     render basis from `sprite_render_size(spec, COLLISION)` and
+                //     `feet_anchor_for_render_size(..)` — sized from the BODY BOX,
+                //     anchored at the FEET;
+                //   · `authored_render` / `authored_offset` are computed from the
+                //     SHEET FRAME and applied with `Anchor::CENTER`.
+                //
+                // ⇒ Every frame, `sync_visuals` writes the frame-derived pair and
+                // `animate_player` overwrites size+anchor from the collision-derived
+                // basis, keeping the frame-derived translation. THE TWO NEVER AGREED;
+                // they only differ visibly where a sheet's body sits far from its
+                // frame centre, which is why Mary-O shows it and 190 sheets do not.
+                //
+                // ⇒ THE REPAIR IS ONE BASIS, NOT A CONDITION HERE: seed the
+                // animator from the same source the offset is computed from, so
+                // size, anchor and translation all speak one coordinate system.
+                // ⚠ That touches every sheet-authored character, so it wants the
+                // representative A/B first — Mary-O small and tall, a zero-offset
+                // sheet, and a high-offset one (`actor`/`performer` at 48%).
                 if let Some(offset) = pose.authored_offset {
                     transform.translation.x += offset.x;
                     transform.translation.y -= offset.y;

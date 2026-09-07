@@ -34,9 +34,57 @@ and a measurement never taken — and one habit fixes both.
 Direct new maintainer observations outrank this ordering when they are
 reproducible.
 
-**Reviewed baseline:** `4e5f59cf753a62105cbc9fd53aa9697d337d0eed`.
+**Reviewed baseline:** `12cbf92024f53bd295e6493fb9bc742cf4bfbc1d` (GPT review 2026-09-07; it supersedes the unseen review of `19701e3ab`).
 
 ## Recent structural receipts
+
+- ✔ **GPT REVIEW 2026-09-07 (HEAD `12cbf9202`, superseding the unseen review of
+  `19701e3ab`) — every finding addressed, in seven commits.**
+  ✔ **HIGH ×2 + MEDIUM ×2 — the Author's delayed mark, as ONE feature**
+  (`c1e4f70f4`): the blast is credited to the marking attacker by SEAT, resolved
+  when it materialises (the bolt's road); the LAST striker owns a refreshed mark,
+  stated and poisoned; a mark is retired from any `OutOfPlay` body in the one
+  system that ends marks, re-derived from state so a rewind ticks it again and a
+  resimulated KO retires it again; tick-then-apply makes the tick of application
+  tick ZERO of the fuse (pinned at dt = 1/64, N ∈ {1,3,8}); and the READ exists —
+  `BodyClocksView` (generic, cleared by its owner, contributed after) drawn by
+  `ambition_render::body_clock` as one persistent unparented colour `Sprite` per
+  clocked body with `PresentationOf`, portal-correct by construction. Assembled
+  road in `ambition_app` (the demo's grid cannot seat the Author): real
+  `author_tilt_down` → real resolver → mark → clock row AND drawn bar → fuse →
+  one detonation owned by the Author → the damage METER rising; and a KO past the
+  blast line inside the fuse leaves no mark in the interlude and no blast on the
+  fresh stock. Wire: schema 165→166. ⚠ My first draft asserted `health.current`
+  fell; under an unbounded death policy the pool sits at max while
+  `damage_taken` climbs — the test was wrong, not the blast.
+  ✔ **HIGH — non-Sprite portal compositing** (`3aee23b9a`): `ambition_sprite_fx::
+  DeclaredFrame` at the render floor; a drawable that carries it is published
+  from it, composited from it (a declaration beats a sprite), skipped by the
+  resolver's scalar fallback, and the clip shader grew a silhouette mode
+  (`control.z`) producing the hit-flash shader's exact output. The hit-flash
+  overlay declares its frame and now OWNS its visibility per frame (the resolver
+  releases without asserting on that premise), and a portal-hidden SOURCE no
+  longer blanks the flash. Witnessed with the REAL `attach_hit_flash_overlays`
+  beside a far-side player: candidate, `PortalFarSideHidden` not
+  `PortalDependantHidden`, silhouette pieces on screen; and a declared dependant
+  380px from the pane stays drawn while its owner is far-side.
+  ✔ **MEDIUM — map progress lifetime** (`5f8067228`): `visited` is a projection
+  of the save, rebuilt on `save.is_changed()` and assigned only when different;
+  the visit edge is the save's own flag, no `Local` in either system. Three saves
+  in one process follow exactly; a new game re-flags the room the player stands
+  in.
+  ✔ **MEDIUM tooling — mutation runner preflight** (`78ead1edd`, `4fc7c218f`):
+  `--run` asks the verified-target + headroom policy before the first mutation
+  and the floor before each subject; `--list` stays source-only. ⚠ Poisoning
+  its own guard test mutated two real installer lines before the restore; the
+  tests now trip on `_write_line`, and the tree was repaired byte-identical.
+  ✔ **LOW (earlier review) — the single-line message census** (`9f5c30e07`):
+  deleted in favour of `messages_nothing_reads.py`; Q71 carries a dated
+  addendum — Smash provides and consumes the Exit Match seam.
+  ⊙ **Left as the review asked:** Q62/Q68/Q69/Q75 untouched (Q75 already filed
+  with the pause-menu addendum); prerequisite B not reopened; C2 by ownership;
+  `EncounterScript::SetMusic` claimant debt still latent with no authored
+  customer.
 
 ⛔⛔ **A SHARED TYPE IS A WORKSPACE EDIT, HOWEVER LOCAL THE BEHAVIOUR — two main
 breaks on 2026-09-05, one per session, and one command catches both.**

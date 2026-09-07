@@ -1691,10 +1691,8 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
   ▢ **NEXT: the generator must measure the ART per pose**, not carry one stance box.
   ⛔ THE FIX LIVES IN A SUBMODULE (`tools/ambition_sprite2d_renderer`) whose pointer
-  on this box is DIVERGENT from the superproject's record (the superproject's recorded pointer and the local
-  checkout disagree,
-  checked out at a DIFFERENT submodule commit), so it was deliberately not committed
-  into from here --
+  on this box is DIVERGENT from the superproject's record (recorded `0828faede`,
+  checked out `2b4d59f46`), so it was deliberately not committed into from here --  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
   that reconciliation is Jon's. The diagnosis above is complete enough that the fix
   is a small, well-specified job for whoever holds the submodule.
   ⛔ Do NOT "fix" this by adjusting the offset or the collision box: both currently

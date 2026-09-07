@@ -51,6 +51,16 @@ edit, every restore is verified with `git diff --quiet`, and the run ABORTS on t
 first restore that does not verify rather than continuing to poison more files.
 `--restore` alone recovers a tree left dirty by a killed run.
 
+⛔ `--run` GOES THROUGH THE REPOSITORY'S BUILD POLICY, `--list` DOES NOT. Every
+subject is a full `app_it` build, and the first version invoked cargo directly:
+no verified-target check, no disk floor -- a second door around the policy that
+`free_gb_on_target()` had just been hardened to close (an agent once built all
+day on the wrong volume and then deleted 205 GB of the live target). A GPT
+review found the door 2026-09-07. Now the target binding and the headroom floor
+are asked BEFORE the first mutation, and the floor is asked again before each
+subject, because a run of fourteen builds can start above it and finish below.
+`--list` stays source-only: it needs neither cargo nor a bound target.
+
 ⚠ A `compile_error` outcome is NOT a coverage result. It means the call cannot be
 removed in isolation (an unused import or binding becomes an error), which is a
 weaker kind of witness than a failing test and is reported separately rather than
@@ -75,6 +85,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SIDECAR = REPO / "target" / "installer-coverage-sidecar.json"
+# `check_disk_headroom` lives beside this file and is imported by name inside
+# `--run` only, so `--list` never touches the build policy.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # The compositions this asks about: the engine-side hosts that assemble
 # capabilities. The game crate's own `install_*` helpers are a different
@@ -181,8 +194,29 @@ def main() -> int:
         )
         return 1
 
+    # ⛔ THE POLICY, BEFORE ANY FILE IS TOUCHED. `free_gb_on_target()` refuses
+    # (exit 2) on an unverified target volume, so an unbound checkout never
+    # reaches the first mutation; and a full disk is refused up front rather
+    # than discovered fourteen builds in.
+    from check_disk_headroom import MIN_FREE_GB, free_gb_on_target
+
+    def require_headroom(when: str) -> None:
+        free = free_gb_on_target()
+        if free < MIN_FREE_GB:
+            print(
+                f"⛔ REFUSING {when}: {free:.1f} GB free on the target volume, "
+                f"below the {MIN_FREE_GB:.0f} GB floor `check_disk_headroom.py` "
+                "holds for a build. Nothing was mutated.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+    require_headroom("before the first subject")
+
     results = []
     for index, (rel, number, call) in enumerate(found, 1):
+        if index > 1:
+            require_headroom(f"before subject {index}")
         original = (REPO / rel).read_text().splitlines(keepends=True)[number - 1]
         SIDECAR.parent.mkdir(parents=True, exist_ok=True)
         SIDECAR.write_text(json.dumps({"file": rel, "line": number, "original": original}))

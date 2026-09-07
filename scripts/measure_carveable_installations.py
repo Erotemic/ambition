@@ -23,6 +23,22 @@ blocks "pure input" while they contained the host's own
 `sync_primary_recipe_from_settings` and `declare_gameplay_input_context`. This resolves
 the file's `use` statements first and attributes bare names through them.
 
+⚠ WHAT "REDUCIBLE" REQUIRES, both halves — the second was missing at first and made the
+count wrong in the safe-looking direction:
+
+  1. every system the block INSTALLS belongs to one capability (ordering combinators are
+     stripped first, because a block can install the HOST'S OWN system and merely order
+     it against a foreign set — that is the composition's job and cannot move);
+  2. that capability can NAME everything the block orders against, i.e. its manifest
+     depends on each anchor's crate. Measured counter-example: `projectile_visuals`
+     installs `ambition_render` systems `.after` an `ambition_platformer2d_runtime` set
+     and render does NOT depend on runtime, so carving it would invert a dependency.
+
+⚠ KNOWN GAP, stated rather than papered over: `SHARED` is excluded wholesale, so a block
+that installs `shared_tangle`'s own SYSTEMS (not merely names its sets) reads as
+single-capability. Naming shared vocabulary and installing shared systems are different
+acts and this does not yet separate them.
+
 ⚠ IT IS A REPORT, NOT A GATE. The reducible count is an upper bound on easy carves, not
 a promise: a block can be single-capability and still be entangled by a `.chain()` that
 crosses a lane boundary (measured: `CombatSet::Playback` chains eleven
@@ -49,6 +65,24 @@ def use_map(text: str) -> dict[str, str]:
         for name in re.findall(r"\b([A-Z][A-Za-z0-9]*)\b", tail):
             owner.setdefault(name, crate)
     return owner
+
+
+_DEPS: dict[str, set[str]] = {}
+
+
+def depends_on(crate: str, other: str) -> bool:
+    """Does `crate`'s manifest name `other` as a dependency?
+
+    ⭐ THIS IS THE HALF THAT MAKES "REDUCIBLE" MEAN SOMETHING. Without it a block whose
+    systems all belong to one capability looks carveable even when that capability
+    cannot name what the block orders against — and carving it would invert a
+    dependency, which is the failure a count-driven campaign walks into.
+    """
+    if crate not in _DEPS:
+        manifest = ROOT / "crates" / crate / "Cargo.toml"
+        text = manifest.read_text() if manifest.exists() else ""
+        _DEPS[crate] = set(re.findall(r"^(ambition_[a-z_0-9]+)\s*=", text, re.M))
+    return other in _DEPS[crate]
 
 
 def blocks(lines: list[str]) -> list[tuple[int, str]]:
@@ -90,11 +124,51 @@ def main() -> int:
         own_crate = own_crate.group(1) if own_crate else ""
         red, irr = [], []
         for line, body in blocks(text.splitlines()):
-            named = set(re.findall(r"\b(ambition_[a-z_0-9]+)::", body))
-            for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", body):
+            # ⛔⛔ THE SYSTEMS INSTALLED, NOT EVERY NAME MENTIONED. A block can install
+            # the HOST'S OWN system and merely ORDER it against a foreign set — that is
+            # the composition's job and cannot be carved anywhere, because the system
+            # belongs to the host. Counting anchors as evidence of carveability called
+            # `crate::portal::tag_portal_camera_continuity_camera .after(camera_follow)`
+            # reducible, which is backwards: the only foreign name in it is the anchor.
+            #
+            # ⇒ Strip the ordering combinators before attributing, so `.after(...)`,
+            # `.before(...)`, `.in_set(...)` and `.run_if(...)` arguments do not count.
+            installed = re.sub(
+                r"\.(?:after|before|in_set|run_if|ambiguous_with)\s*\([^()]*(?:\([^()]*\)[^()]*)*\)",
+                "",
+                body,
+            )
+            # A block naming `crate::` installs something of the host's own.
+            owns_a_system = "crate::" in installed or any(
+                bare in owners and owners[bare] == own_crate
+                for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", installed)
+            )
+            named = set(re.findall(r"\b(ambition_[a-z_0-9]+)::", installed))
+            for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", installed):
                 if bare in owners:
                     named.add(owners[bare])
             named -= SHARED | {own_crate}
+            if owns_a_system:
+                # The host installs one of its own systems here; the block stays.
+                irr.append((line, sorted(named) or ["<host-owned>"]))
+                continue
+            # ⛔⛔ AND THE ANCHORS DECIDE WHETHER THE OWNER CAN ACTUALLY TAKE IT. A block
+            # installing ONE capability's systems is only carveable if that capability
+            # can NAME everything the block orders against. Measured counter-example:
+            # `projectile_visuals` installs `ambition_render` systems `.after` an
+            # `ambition_platformer2d_runtime` set, and render does not depend on runtime
+            # — carving it would invert a dependency to lower a number.
+            anchors = set(re.findall(r"\b(ambition_[a-z_0-9]+)::", body)) - SHARED
+            for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", body):
+                if bare in owners:
+                    anchors.add(owners[bare])
+            anchors -= SHARED | {own_crate} | named
+            if len(named) == 1:
+                owner_crate = next(iter(named))
+                unreachable = sorted(a for a in anchors if not depends_on(owner_crate, a))
+                if unreachable:
+                    irr.append((line, [owner_crate, *unreachable]))
+                    continue
             if len(named) == 1:
                 red.append((line, next(iter(named))))
             elif len(named) > 1:

@@ -991,6 +991,20 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   depending on the global game state"* half of D-MARYO-SPRITE, which that row could
   not close. It is a DIFFERENT defect from the placement one and wants its own fix.
 
+  ⭐⭐⭐ **FOUR OF JON'S OWN REPORTS TOUCH THIS ONE MECHANISM**, which is the argument
+  for its priority — each is annotated in `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`:
+
+  | his report | what potato does to it |
+  |---|---|
+  | *"my sprite went from robot v3 to robot v2 when I changed video quality"* | `player_robot_v3` drawn aspect 0.703 -> **1.000**, i.e. SQUARE (+42%). Ten prior eliminations all tested IDENTITY; none looked at the quad |
+  | *"the snake and AI slop are way too big visually"* | snake drawn 1.667x its authored body at potato vs 1.000 at base; the slop unchanged, so the pair DIVERGES |
+  | *"the size of the snake varies with global game state"* | it does — the state is the quality profile |
+  | *"pirates as tall as the player robot who is supposed to be chibi"* | robot +26.7% height at potato, Standard pirates +1.8% |
+
+  ⇒ These were four separate investigations. ⛔ And the risk is concrete, not tidiness:
+  the pirate row is about to author SIX AUTHORED SIZES against observed proportions, so
+  a tier confound would bake a compensation for a RENDERING bug into the CONTENT.
+
   MEASURED, one scene, `capture_mary_o --walk 0`, only `AMBITION_QUALITY_PROFILE`
   changed:
 

@@ -80,9 +80,22 @@ pub struct MenuFramePopulate;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameCutsceneSkip;
 
-/// Umbrella for all [`MenuControlFrame`] consumers in this schedule.
+/// Umbrella for [`MenuControlFrame`] consumers in this schedule.
 ///
 /// Bevy set ordering is schedule-local, so all member sets must live here.
+///
+/// ⚠ MEMBERSHIP IS NOT COMPLETE, and a writer pinning `.before` this set should
+/// know what it does not cover. Measured 2026-09-07: `ambition_dialog::dialog_input`
+/// and `ambition_menu::map::handle_map_menu_hotkeys` consume the frame and are NOT
+/// members. Neither crate depends on this one, so neither can name this set; only a
+/// composition depending on both sides can place them.
+///
+/// ⚠ AND MEMBERSHIP IS NOT AN ORDER. This set gives a WRITER one pin covering every
+/// member; it does not arrange the members among themselves, and nesting a set here
+/// does not order it against its siblings — which is why `MenuFrameCutsceneSkip` and
+/// `MenuNavConsume` still race, deliberately (the backend switch pins `.after` the
+/// latter and must not wait on the former). Two direct members still conflict,
+/// proven on a three-system app in `update_schedule_census`.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameConsume;
 

@@ -381,6 +381,31 @@ pub fn sync_visuals(
                 // space share +y down, but Bevy's UI/render y runs UP — hence the
                 // negated y, the same conversion `sync_sprite_posed_bodies`
                 // documents at its own seam.
+                // ⛔⛔ TWO MECHANISMS OWN THIS PLACEMENT AND THE SEAM IS HERE.
+                // This offset is computed for the LOGICAL FRAME —
+                // `(frame/2 - body_centre) * world_per_pixel` — and is correct only
+                // if the quad it moves is that frame. For a body with an ANIMATOR,
+                // `animate_player` runs later in this same stage and replaces
+                // `custom_size` AND `Anchor` from the TRIMMED atlas basis, leaving
+                // this translation behind: a placement assembled from two bases.
+                //
+                // ⇒ MEASURED on Mary-O (pinned body, one input varied): suppressing
+                // the offset moves the drawable +3.81 -> -16.00, exactly the
+                // published 19.81, which is 62% of her 32-unit height. Her sheet's
+                // body sits 52px below its frame centre — the largest such gap in
+                // the tree by 6x (`scripts/measure_sheet_body_offsets.py`), which is
+                // why she is where this shows and 190 other sheets are not.
+                //
+                // ⛔ AND SUPPRESSING IT IS NOT THE FIX — TRIED AND PHOTOGRAPHED
+                // 2026-09-06. `.filter(|_| animator.is_none())` routes an animated
+                // body into the `else` arm below, a THIRD mechanism with its own
+                // feet-anchor derivation: she still floated and her quad collapsed
+                // to 12x16.4 against a 64-unit box. Turning one authority off does
+                // not make another one complete.
+                //
+                // ⇒ The repair the seam actually needs is for the trimmed basis to
+                // supply size, anchor AND translation together, so nothing here has
+                // to guess which of them somebody else will overwrite.
                 if let Some(offset) = pose.authored_offset {
                     transform.translation.x += offset.x;
                     transform.translation.y -= offset.y;

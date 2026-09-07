@@ -84,8 +84,18 @@
   ) { gravity.dir = bodies.single().map_or(base_dir, |frame| frame.down())… }
   ```
 
-  ⇒ **`GravityField` is a MIRROR OF THE PRIMARY BODY'S resolved frame** — `pose_view`
-  says so in as many words where it deliberately reads `ResolvedMotionFrame` instead.
+  ⇒ **`GravityField` is a MIRROR OF THE PRIMARY BODY'S resolved frame**, and this is
+  not my inference — a sibling consumer already identified the trap and avoided it.
+  `sim_view/src/pose_view.rs:206`, verbatim:
+
+  > This body's own resolved basis, so the locomotion metric is measured along ITS run
+  > axis. deliberately not the global `GravityField` read below: that one drives the
+  > facing flip and **is a mirror of the PRIMARY body's frame**.
+
+  ⇒ So one reader of this fact took the per-body frame ON PURPOSE and wrote down why;
+  `transit.rs` takes the global one and mentions `ResolvedMotionFrame` zero times. Two
+  consumers, one hazard, and only one of them heeded it. That asymmetry is the finding
+  — much more than a suspicion about a resource.
   `transit.rs` mentions `ResolvedMotionFrame` ZERO times. ⇒ **The predicted defect is
   that a NON-PRIMARY body transiting a portal is oriented by the PRIMARY body's
   gravity**, which is wrong whenever the two are in different zones — and

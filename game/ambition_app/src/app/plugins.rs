@@ -47,7 +47,6 @@ use super::player_tick::sync_player_presentation;
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
-    setup_simulation_system,
 };
 use super::sim_systems::apply_player_reset_input_system;
 use ambition_platformer2d::platformer::schedule::GameplayGated;
@@ -567,7 +566,24 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
-                .after(setup_simulation_system)
+                // ⛔⛔ `.after(setup_simulation_system)` REMOVED: IT ORDERED AGAINST
+                // A SYSTEM THAT IS NEVER REGISTERED. Measured 2026-09-06 — that
+                // function has THREE mentions in the whole tree: its definition,
+                // its import, and this constraint. Bevy accepts an ordering edge
+                // to an unscheduled system silently, so this chain has had NO
+                // guarantee relative to world setup for as long as the direct-entry
+                // path has been gone (see "the direct-entry presentation startup is
+                // gone with its entry path", above).
+                //
+                // ⚠ REMOVING IT CHANGES NOTHING AT RUNTIME — that is the point. It
+                // was a claim, not a constraint, and a false claim about ordering is
+                // worse than none because it answers the question a reader came to
+                // ask.
+                //
+                // ⇒ AND THE CLAIM WAS WRONG EVEN IF IT HAD WORKED: the system it
+                // was protecting, `populate_map_rooms`, needs
+                // `Res<ActiveLdtkProject>` — a RESOURCE inserted during app
+                // construction — not the simulation world.
                 .after(ui_fonts::UiFontsLoaded),
         )
         // ⛔⛔ F1 IS NOT A SESSION FACT, AND IT USED TO BE GATED LIKE ONE.

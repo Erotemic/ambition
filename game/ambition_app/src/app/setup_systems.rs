@@ -7,9 +7,6 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
 use ambition_platformer2d::world::rooms as world_rooms;
 
-use ambition_platformer2d::actors::session::setup;
-use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
-use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 
@@ -31,115 +28,8 @@ pub(crate) struct PresentationCatalogs<'w> {
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
 }
 
-/// The three App-installed authorities room construction reads: how authored
-/// placements lower, what content stages into a room, and which construction
-/// recipes exist. Grouped for the same reason [`PresentationCatalogs`] is —
-/// Bevy's system-parameter limit — and they belong together anyway.
-#[derive(SystemParam)]
-pub(crate) struct RoomConstructionAuthorities<'w> {
-    placement_lowering:
-        Res<'w, ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<'w, ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
-    recipes: Res<'w, ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
-    /// What a DEVELOPER has forced every authored actor's brain to.
-    ///
-    /// ⛔ `Option`, and its absence is the ordinary case: a composition with no
-    /// developer tools installs no such resource, and "the author decides" is
-    /// what an unset environment variable has always meant. It rides with the
-    /// other construction authorities because it IS one — lowering consults it
-    /// while building a brain, and it used to do that by calling into
-    /// `ambition_dev_tools` from inside the actor kernel.
-    forced_brains:
-        Option<Res<'w, ambition_platformer2d::characters::brain::AuthoredBrainOverride>>,
-    /// The developer's actor population cap — same class, same road.
-    population_cap:
-        Option<Res<'w, ambition_platformer2d::characters::actor::AuthoredPopulationCap>>,
-}
 
-/// Who this app's characters ARE, in one parameter.
-///
-/// The catalog is the legacy cast's authority, the prepared registry is the
-/// registered cast's, the sheets say what art they may reach, and the roster
-/// says what a hostile one is built from. Four questions about the same subject,
-/// and grouping them is what keeps this system under Bevy's 16-parameter limit —
-/// which it went over the moment the prepared registry joined.
-#[derive(SystemParam)]
-pub(crate) struct CharacterAuthorities<'w> {
-    catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-    /// `None` for a composition that registers no characters — the ordinary
-    /// case, not a degraded one.
-    prepared:
-        Option<Res<'w, ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
-    sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
-    brain_profiles: Option<
-        Res<'w, ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
-    >,
-}
 
-/// Sim-only startup. Calls `ambition_platformer2d::actors::session::setup::simulation_world` to spawn the
-/// LdtkWorldBundle and the player entity (with gameplay-essential components
-/// but no Sprite). The presentation startup system discovers the home avatar by
-/// its `PrimaryPlayer` marker and spawns the HUD/quest text as session-scoped,
-/// marker-tagged entities.
-pub(super) fn setup_simulation_system(
-    mut commands: Commands,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
-    active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
-    editable_abilities: Res<EditableAbilitySet>,
-    initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::actors::avatar::InitialBodyPolicy,
-    >,
-    characters: CharacterAuthorities,
-    boss_catalog: Res<ambition_platformer2d::boss_encounter::BossCatalog>,
-    construction: RoomConstructionAuthorities,
-    mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
-) {
-    let _player = setup::simulation_world(
-        &mut commands,
-        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        setup::SimulationSetup {
-            world: &world,
-            room_set: &room_set,
-            // The CALLER converts: who edits the set is a developer
-            // facility, and construction needs only the set.
-            fallback_abilities: editable_abilities.as_engine(),
-            tuning: &active_tuning,
-            initial_body: &initial_body,
-            character_catalog: &characters.catalog,
-            prepared_characters: characters.prepared.as_deref(),
-            authored_sheets: &characters.sheets,
-            placement_lowering: &construction.placement_lowering,
-            content_staging: &construction.content_staging,
-            // Direct entry builds its session root at plugin-build time rather
-            // than through provider activation, so no prepared-content
-            // generation is available to state here — but the CAST is, two
-            // lines above, and this road was handing over neither it nor the
-            // published policies.
-            construction:
-                ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
-                    &construction.recipes,
-                    Default::default(),
-                    None,
-                    characters.prepared.as_deref(),
-                    characters.brain_profiles.as_deref(),
-                    // Direct entry builds the world at plugin-build time; no
-                    // occurrence of anything exists yet to have a disposition.
-                    None,
-                    construction.forced_brains.as_deref(),
-                    construction.population_cap.as_deref(),
-                ),
-            boss_catalog: &boss_catalog,
-            default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
-        },
-    );
-    platform_set.0 =
-        ambition_platformer2d::world::platforms::moving_platforms_for_room(room_set.active_spec());
-    // `PlayerSafetyState::last_safe_pos` is initialized by the player
-    // bundle to the player's spawn position (which is `world.0.spawn`),
-    // so we don't need to overwrite it here. See
-    // `ambition_platformer2d::actors::avatar::PlayerSimulationBundle::new`.
-}
 
 /// HOST-mode presentation startup: cameras, `GameAssets`, and the audio library.
 /// No world visuals, no HUD, no player — those are SESSION-owned and spawn per activation

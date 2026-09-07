@@ -1,1574 +1,280 @@
 # Capability and runtime composition
 
-**State:** OPEN successor program.
-
-
-
-
-## ✔ PREREQUISITE E, 2026-09-06 — THE PATTERN ALREADY EXISTS AND NOW HAS ITS GUARD
-
-The program asks: *"How does an active experience provide policy to a shared
-capability without becoming permanent process-global authority?"* ⇒ The answer is
-shipping and it is worth naming, because it will recur for mana regen, respawn
-rules, camera behaviour, stocks, damage rules, HUD, persistence, input maps and
-audio — the program's own list.
-
-### The pattern: a PRIOR SNAPSHOT
-
-On activation the ruleset captures each shared resource it is about to override
-into one `…Prior` struct; on deactivation it puts each one back, **or removes it
-if there was none**. `SmashPresentationPrior` is the worked instance, covering
-`PlayerManaRegen`, two portal-presentation resources, and `SmashLimitFill`.
-
-⭐ The `None => remove_resource` arm is the half that makes it correct rather than
-approximate: a ruleset that overrode a resource **nobody had set** must leave the
-App with nobody having set it, not with a default it invented.
-
-### ⛔⛔ THE FAILURE MODE IS NOT THE PATTERN, IT IS THE FIFTH FIELD
-
-Adding an override means editing THREE places — the struct, the capture, the
-restore — and **the restore is the one no compiler asks for**. A `…Prior` field
-nobody reads back is a warning at most, and the ruleset silently keeps its policy
-installed after it deactivates.
-
-That has happened three times. The struct's own comment keeps the tally:
-*"Jon's `99ab15e32` and this morning's `PlayerManaRegen` fix are the other two;
-**three fixes and no guard is how a shape stays broken**."*
-
-⇒ ✔ `scripts/tests/test_scoped_ruleset_policy_restores_everything.py`, written
-from that sentence: every field of any `struct …Prior` in a game crate must be
-declared, captured and restored — the three lists have to agree. Poisoned three
-ways: a fifth field captured but never restored, an existing field's restore arm
-deleted, and the struct matcher blinded.
-
-⚠ **SHAPE-BASED, NOT NAME-BASED, ON PURPOSE.** Any `…Prior` in `game/` is checked,
-so the second ruleset to adopt the pattern is covered the day it is written rather
-than the day somebody remembers to extend the guard. ⭐ And the positive control
-matters more here than usual: there is exactly ONE instance in the tree, so the
-discovered set collapsing to empty is a single edit away — and an empty set
-satisfies the main assertion silently.
-
-
-## ⭐⭐ PREREQUISITE D, ANSWERED 2026-09-06 — THE DECISION IS COMPILE-TIME, AND IT IS ALREADY MADE
-
-The program says the composition-aware rollback declaration *"needs an actual
-architecture decision"* and names the obstacle correctly: `RollbackRegistrar` is
-generic and not object-safe, so *"store domain registration callbacks and invoke
-them later"* does not work. ⇒ Measured, and the answer is smaller than the
-question.
-
-### What is actually there
-
-| measured | |
-|---|---|
-| domain registration calls in the runtime's one list | **21** |
-| of those, `#[cfg(feature)]`-gated | **1** (`portal`) |
-| optional dependencies in the RUNTIME's own manifest | **3** — `ldtk`, `causal`, `portal2d` |
-| of those three, ones that declare rollback state | **1**, and it is the gated one |
-| domain crates that depend on a rollback BACKEND | **0** |
-
-⇒ **The registration list is already consistent with the composition surface as
-it stands.** The twenty-domain census is not a correctness problem today; it is a
-correctness problem the moment a capability outside those three becomes optional.
-
-⚠ **AND THE PRESSURE IS REAL, WHICH IS WHAT MAKES THIS WORTH A GUARD RATHER THAN
-A SHRUG.** Eight of the domains in that list are already optional dependencies in
-OTHER manifests — `portal2d` in seven, `persistence` and `cutscene` in two each,
-`vfx`, `sim_view`, `projectiles`, `items`, `encounter` in one. The runtime is the
-lagging manifest, so the next capability to go optional there breaks the contract
-**by omission**: a line that was correct until the dependency changed under it.
-⇒ `scripts/tests/test_optional_capability_rollback_is_gated.py`.
-
-### The decision, and the second reason it is not obvious
-
-**Composition here stays COMPILE-TIME, through Cargo features, and that is a
-choice rather than an accident.** The route to runtime composition fails twice:
-
-1. **Storage.** `RollbackRegistrar` has twenty GENERIC methods, so
-   `Vec<fn(&mut impl RollbackRegistrar)>` cannot exist — the obstacle the program
-   already names.
-2. ⭐ **Erasure, which is the non-obvious half and the one that settles it.** The
-   natural repair is to erase the OPERATION instead of the registrar: have each
-   generic call site emit a monomorphic thunk. But the thunk has to apply the
-   registration, and applying it needs the backend's `AmbitionRollbackApp`
-   extension trait in scope — which lives in the **backend crate**. Building
-   thunks inside domain crates would therefore make every domain depend on a
-   rollback backend, **giving back exactly the property the
-   `GgrsBackendPlugin` / `AmbitionRollbackPlugin` split bought** (measured above:
-   zero domains depend on a backend today).
-
-⇒ Cargo features are the composition granularity that keeps domains
-backend-neutral, and `portal` is the worked example of the whole pattern: one
-feature gating the dependency, the plugin and the rollback line together.
-
-⛔ **THE CONDITION THAT REOPENS IT, so it is checked rather than re-argued: one
-binary needing to compose different capability sets at RUNTIME.** At that point
-the registrar must be redesigned around erased descriptors plus a
-backend-provided applier — a real project, not a refactor, and worth pricing
-before anything depends on it.
-
-
-## ⭐⭐ PREREQUISITE C, MEASURED 2026-09-06 — 87 FOREIGN ORDERINGS, 15 OF THEM WRITTEN BY CAPABILITIES
-
-The rule: *"Every load-bearing cross-capability ordering relationship must be
-expressible using public phase/set vocabulary rather than foreign system
-identities."* Turned from a principle into a work list.
-
-`python3 scripts/measure_foreign_system_ordering.py`, ratcheted by
-`scripts/tests/test_foreign_system_ordering.py`:
-
-| population | count | meaning |
-|---|---|---|
-| ORDERING a foreign system | **72** (was 87) | a crate fixing the relative order of systems it does not own |
-| — written by a capability / ruleset | **0** (was 15) ✔ | no defence: not composing anything, just reaching in |
-| — written by a composition layer | 72 | ⚠ **still the defect** — see below |
-| INSTALLING a foreign system | 203 | the broader *"who installs it"* question |
-
-⛔⛔ **BEING THE RUNTIME IS NOT AN EXEMPTION, AND THE FIRST VERSION OF THIS MEASURE
-MADE IT ONE — which excused the architecture note's own named example.** The
-runtime owns phases and the order of phases. It does not own the pairwise order of
-two capabilities' private systems, and
-`ambition_mount::enforce_mount_rider_link` chained with
-`actor_monolith::rebuild_dismounted_rider_brains` is written by
-`ambition_platformer2d_runtime`. Writer role is reported as information, never as
-a reason to drop a row.
-
-⚠ **THE MEASURE TOOK FOUR CORRECTIONS AND EVERY ONE CHANGED THE NUMBER BY MORE
-THAN THE FIXES WOULD HAVE**, which is the transferable part:
-
-| the version said | it was wrong because |
-|---|---|
-| 28 capability violations | a bare module path (`actors::sync_visuals`) is INTRA-crate; most were a crate ordering itself |
-| the runtime is exempt | the program's own example is written by the runtime |
-| 9 orderings | `.before(` is not the only spelling — the named example is a CHAINED TUPLE and scored as absent |
-| 174 orderings | a chain is only the defect when it spans TWO DIFFERENT foreign crates; the rest is a runtime doing its job |
-
-⇒ **A measurement instrument's first number is a hypothesis.** Four times the
-population was wider or narrower than the claim, and each time the error ran in
-the direction that made the finding look cleaner.
-
-⭐ **THE GUARD PINS THE NAMED EXAMPLE ON PURPOSE.** Two versions of the matcher
-stopped seeing `enforce_mount_rider_link`; a ceiling cannot notice that, because a
-matcher that finds nothing satisfies every ceiling. ⛔ And a fourth test exists
-because its poison PASSED: collapsing `is_composition_layer` to `true` empties the
-capability bucket, so the ceiling reads as perfect compliance. **A ceiling sees the
-number grow; it cannot see the classifier collapse.**
-
-### ✔ THE WORKED EXAMPLE — 15 -> 13, AND IT SHOWS WHY MOST OF THE REST EXIST
-
-`ambition_demo_smash` ordered its shark-ride systems `.before(...)` and
-`.after(ambition_platformer2d::mount::apply_dismount_requests)` — a ruleset
-asserting the relative order of a system in a domain it does not own.
-
-⛔ **AND IT DID SO BECAUSE THERE WAS NOTHING ELSE TO NAME.** That system is
-installed by the runtime and belonged to no published set, so the only vocabulary
-available to a consumer was the function itself. **The defect was an absence, not
-a shortcut** — which is worth knowing before reading the remaining thirteen as
-carelessness.
-
-⇒ The fix is three edits and a shape worth copying:
-
-| crate | what it does |
-|---|---|
-| `ambition_mount` | publishes `DismountRequestsApplied` — a bare marker set, no `configure_sets` |
-| runtime | installs `apply_dismount_requests` **into** that set |
-| `ambition_demo_smash` | orders against the SET; what it writes is now a membership, not a reference |
-
-⭐ **THE DOMAIN PUBLISHES THE VOCABULARY, THE COMPOSITION DECIDES WHICH SCHEDULE
-IT LIVES IN.** That split is why the set ships as a bare marker: `ambition_mount`
-does not know, and should not, whether the runtime puts it in `CombatSet::Settle`.
-
-⚠ **AND THE SET COVERS THE DISMOUNT APPLICATION ALONE, not the lease tick it is
-chained after.** A consumer wanting *"before riders are put down"* means this one;
-one wanting *"before leases are decided"* means something else. One set for both
-would let a future caller get the wrong half without noticing — the granularity is
-part of the contract.
-
-✔ Verified end-to-end, not just by compilation: the ordering-sensitive ride tests
-(`killing_the_shark_puts_the_admiral_down_and_frees_the_up_b`,
-`a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off`) pass, and
-`ambition_demo_smash` is 249 green.
-
-### ⭐ A SECOND EXAMPLE, AND IT NEEDED NO NEW SET AT ALL
-
-`ambition_demo_smash` also wrote `.before(...features::apply_summon_effects)`, and
-its own comment said why: *"`ContentSpecials.before(EffectExecutionSet)` orders
-this ahead of `apply_effects`, and `apply_summon_effects` is CHAINED after that
-system without being IN the set — so the summon executor inherited no order from
-the phase at all."*
-
-⇒ **The phase existed and the executor was not in it.** A summon executor IS an
-effect executor; the runtime now installs it into `EffectExecutionSet` and the
-ruleset's hand-written edge is gone. ⭐ **Cheaper than publishing a set: check
-first whether the right phase already exists and the system simply is not a
-member.** Verified by the shark-summon integration tests, 13 green.
-
-### ⛔ AND TWO OF THE REMAINING WERE NEVER REAL — A THIRD MEASUREMENT CORRECTION
-
-`features/ecs/fighter_harness.rs` carries `#![cfg(test)]` — a FILE-level gate,
-invisible both to a filename heuristic and to the inline-`mod` stripper, which are
-the two exclusions that look like they cover tests. It was counted as production
-and contributed two capability violations that do not exist. **Exactly one file in
-the tree carries that attribute**, which is why it survived: a rule with a single
-instance is one nobody trips over until the instance matters. Both instruments
-fixed; the kernel SCC is unaffected and stays at 12.
-
-### ⭐⭐ THE ROWS ARE AT LEAST FOUR JOBS, AND THE CENSUS NOW SORTS THEM
-
-A peer taking one of these found the shapes read identically in the report and are
-not the same work at all. The census prints the discriminator now — whether the
-named system is ALREADY in a published set:
-
-| shape | fix | cost |
-|---|---|---|
-| **ABSENCE** — nothing to name (shark ride) | publish a marker set, install into it, order against it | 3 crates |
-| **WRONG MEMBERSHIP** — the phase exists, the system is not in it (`apply_summon_effects`) | one `.in_set(...)` where it is installed | 1 line, engine side |
-| **UNUSED PUBLISHED SET** — the vocabulary exists and the author did not use it (dormancy) | order against the set | 1 line, consumer side |
-| **REDUNDANT** — the consumer ALREADY orders against the set and states system edges beside it | delete the system edges | 1 line, consumer side |
-
-⛔⛔ **AND THE FOURTH SHAPE NEARLY BECAME A WRONG EXEMPTION, WHICH IS THE PART
-WORTH KEEPING.** The two `scripted_input.rs` rows were read — by a peer, carefully
-— as *fixture-only targets*: systems with no production registration, where no set
-edge can substitute and the row is permanently correct. That conclusion would have
-put a floor of 2 into the ratchet.
-
-⇒ **Both legs of it were false, and each needed a different check:**
-· `host_input::…` is a **re-export**; both systems ARE registered in production
-  and both ARE in `PrimarySlotInputCommit` (`ambition_platformer2d_host` installs
-  one, the runtime's player schedule the other).
-· the one fixture that composes either system **without** the set
-  (`avatar/systems/tests.rs`) has **zero** references to `write_scripted_controls`,
-  `ScriptedControls` or `drive_the_local_participant` — so the edge was vacuous
-  there too, not protective.
-
-⭐ **THE DISCRIMINATOR IS NOT "is the target registered" BUT "is the ORDERED-FROM
-system present in that composition".** An edge protects nothing in a fixture that
-never installs its left-hand side, and that is a different question from the one
-the target's registration answers.
-
-⚠ **AND MY OWN HINT SAID "in no set" FOR ONE OF THEM.** The matcher required the
-system name adjacent to `.in_set(`, and the commonest spelling is
-`name.after(X).in_set(S)` across lines — so it reported nothing for a system
-installed into the set three lines down. Fixed to allow the chain. **Seventh
-instrument correction of the day, same direction as the other six.**
-
-### ⇒ C2 — THE REMAINING HALF, AND ITS WORK LIST BY TRUE OWNER (2026-09-06)
-
-A review's sequencing: *"stop looking for more capability-private ordering edges:
-that count is already zero. The remaining problem is composition ownership — the
-composition layer still orders 72 foreign systems and installs roughly 200. Move
-installation into capability-owned plugins that place private systems into the
-public sets/phases already established."* And, importantly: **C2 does not have to
-reach zero before the crate-composition wave starts, because moving installation
-into capability plugins IS that work.**
-
-⛔⛔ **BUT THE FIRST WORK LIST I BUILT WAS ABOUT SPELLINGS, NOT OWNERSHIP.** By the
-path each caller wrote, the biggest target was `ambition_platformer2d` with **101**
-rows — the UMBRELLA crate, which owns none of them. Resolving each system to the
-crate that DEFINES it: **31 of those 101 are `ambition_platformer2d_runtime`
-installing its OWN systems through a re-export**, counted as reaching into
-somebody else's crate. ⇒ **Seventh time in one day a re-export split a name from
-what it owns**, and the first time it inflated a plan rather than a measurement.
-
-⇒ The census resolves by definition now. **By true owner — this is the C2 list:**
-
-| capability | foreign rows | note |
-|---|---|---|
-| `ambition_combat` | 53 | |
-| `ambition_platformer2d_actor_monolith` | 53 | |
-| `ambition_platformer2d_shared_tangle` | 45 | floor crate — some of these may be correct as installs |
-| `ambition_render` | 34 | |
-| `ambition_platformer2d_runtime` | 31 | ⚠ the INVERSE case: systems the runtime defines that others install |
-| `ambition_input` 13, `ambition_dev_tools` 12, `ambition_mount` 7, `ambition_time` 7, `ambition_menu` 6 | | the tractable tail |
-
-⚠ **AND THE TOTAL WENT 72 → 78 WITHOUT THE TREE GETTING WORSE.** The instrument
-changed under the ratchet: dropping 31 self-installs and catching more whose head
-looked local, net +6. ⇒ **A ratchet is only meaningful while the instrument is
-fixed**, and re-baselining after an instrument change is indistinguishable from
-laundering a regression unless the reason sits next to the number. It does, in the
-guard. ⭐ The invariant that matters survived the change: **capability-written is
-still 0, measured the new way.**
-
-### ⚠ C2 FEASIBILITY, MEASURED — GOOD NEWS AND ONE DOCUMENTED REFUSAL
-
-**The precondition holds where it matters.** A capability plugin can only install
-itself if it can NAME the published phases, so I checked whether the targets depend
-on the phase-vocabulary crate:
-
-| capability | depends on `shared_tangle` | has a `Plugin` |
-|---|---|---|
-| `ambition_mount` | ✔ | ✗ — **none at all** |
-| `ambition_combat` | ✔ | ✗ — see below |
-| `ambition_menu` | ✔ | ✔ |
-| `ambition_time` | ✗ | ✔ (publishes its own) |
-
-⇒ **The two biggest tractable targets already depend on the vocabulary, so C2
-needs no new dependency for them.** `ambition_mount` is the exemplar: **seven rows,
-no plugin, and all seven installed by two other crates** (the runtime's combat
-schedule × 4, the actor monolith × 2, plus 2 orderings). One plugin absorbs the
-whole capability.
-
-⛔⛔ **BUT THE OTHER BIG TARGET CARRIES A STATED REFUSAL, AND IT IS ARGUED RATHER
-THAN ASSUMED.** `ambition_combat`, on `EffectExecutionSet`:
-
-> *"this crate has no `Plugin` and deliberately keeps none: it is an effect
-> VOCABULARY plus one executor, and the host decides when to run it. **A set is the
-> smaller thing that makes the host's decision expressible** — it says WHERE the
-> executor sits without claiming when the host should install it."*
-
-⇒ That is a direct tension with C2's *"move installation into capability-owned
-plugins"*, and it is the `ProjectileAllegiance` shape again: **a deliberate
-placement that a structural census cannot distinguish from a gap.** 53 rows sit
-behind it.
-
-⭐ **A SYNTHESIS MAY EXIST AND IT IS NOT MINE TO PICK.** The refusal objects to a
-capability claiming *when* it runs. A plugin that installs its systems into a
-PUBLISHED SET claims where, not when — the host still decides whether to compose
-the plugin at all, and which schedule the set lives in. If that reading is
-accepted the refusal and C2 are compatible; if not, `ambition_combat` stays a
-vocabulary and its 53 rows are correct as they are. ⇒ **Filed as a question for
-whoever owns the carve, not resolved here** — the comment is the only record that
-the decision was ever made, and overruling it silently is how a considered choice
-becomes an accident.
-
-⇒ **Recommended order regardless of that answer:** `ambition_mount` first (7 rows,
-no plugin, no dependency change, and a worked example of the whole pattern), then
-`menu`/`time`/`input`/`dev_tools`, and `combat` only after the refusal is
-readdressed.
-
-### ✔ THE CAPABILITY-WRITTEN HALF IS ZERO — 15 → 0
-
-Every row a ruleset or capability wrote is now published-set vocabulary. The last
-group needed the shape none of the earlier ones did:
-
-⭐⭐ **A CHAIN OF SYSTEMS BECAME A CHAIN OF SETS.** `actor_monolith` chained
-`ambition_combat::…::tick_capture_holds` directly to
-`ambition_mount::steer_mount_from_rider` inside `BeforeIntegrate` — one crate
-fixing the relative order of two OTHER crates' private systems, which is the
-named form of the defect. A peer published `CaptureHoldsTicked` and
-`MountsSteeredByRiders` as bare markers; the order between them is now stated
-with `configure_sets`, in vocabulary both owning crates hold.
-
-⛔ **AND THE SYSTEM CHAIN HAD TO GO, not just gain set memberships.** Leaving
-`.chain()` around the pair as well would say the same thing twice in two
-vocabularies, and the system-level one is the half neither domain can reason
-about. The local tail (`advance_moving_platforms`, `snapshot_body_contact`) keeps
-its chain and hangs off the last published set, so the four-step contract is
-unchanged end to end.
-
-⚠ **THE COMPOSITION-LAYER HALF (72) IS UNTOUCHED AND IS NOT THE SAME JOB.** Those
-are the runtime and host installing capabilities' systems — the *"who installs
-it"* question, which the program answers with *"its own plugin/composition
-unit"*. That is a plugin-ownership project, not an ordering one.
-
-⛔⛔ **AND REACHING ZERO BROKE MY OWN ANTI-VACUITY FLOOR**, which is worth more
-than the zero. The guard floored the CAPABILITY bucket — *"zero would be excellent
-news and is not what this tree contains"* — and that stopped being true. Deleting
-the floor would have left the classifier free to collapse unnoticed; it now floors
-the population still non-empty, with the classifier pinned separately. ⇒ **A floor
-protects the population it names, and that population can be fixed out from under
-it.**
-
-### ~~The 7 remaining with no defence~~ — all landed
-
-`ambition_content -> actor_monolith::features::ecs::dormancy::assess_dormancy`;
-`ambition_demo_smash -> platformer2d::actors::features::apply_summon_effects`;
-`ambition_platformer2d ->
-platformer2d_runtime::host_input::{commit_seat_raw_frames,
-publish_seat_controls_when_nobody_else_does}` (a capability ordering against the
-COMPOSITION layer — an inverted dependency); and `actor_monolith ->
-{ambition_characters::brain::emit_brain_action_messages,
-ambition_combat::capture::systems::tick_capture_holds,
-ambition_combat::hurtbox_resolution::resolve_body_hurtboxes,
-ambition_items::equipment::reconcile_equipment_grants,
-ambition_mount::steer_mount_from_rider}`.
-
-⇒ Each is a published-phase question: what SET should the named system belong to,
-such that the ordering becomes a membership rather than a reference?
-
-
-## Goal
-
-⭐ **THIS PROGRAM OWNS THE SECOND OF THE TWO ARCHITECTURAL GOALS.** Authority
-decomposition — one authority per fact, dependencies pointing the right way — is
-the actor-monolith program's. Independently installable capability composition,
-the Bevy-like property, is this one's, and the durable statement of the criterion
-with its user-facing examples and its named risks is
-[`decomposition.md`](decomposition.md) ("Decomposition has two dimensions"). ⇒ A carve that lands
-elsewhere does not close a row here; the question this program asks is whether
-the capability can be INSTALLED alone.
-
-Make engine composition reflect what a game actually chooses to use.
-
-## The first measured baseline for this goal (2026-09-04)
-
-⭐⭐ **A CAPABILITY CAN BE COMPILED IN AND NEVER INSTALLED, AND THIS PROGRAM'S
-TEST CANNOT SEE IT (2026-09-05).** This page asks whether a capability can be
-INSTALLED ALONE. The sibling failure is the one the fighter lane hit: authored,
-compiled, and never SCHEDULED.
-
-⛔ `all_capabilities` turns on the optional `ambition_portal2d` DEPENDENCY; the
-`portal` FEATURE is what installs `PortalSchedulePlugin`. **They are not the same
-switch, and the crate compiles fine without the second one** — `PlacedPortal` is
-just a type, and the authored pair spawns happily. So a portal recovery landed
-and guarded in the smash demo opened two apertures a fighter fell straight
-through, while working correctly in `ambition_app`.
-
-⭐ **RE-DERIVED HERE, and the re-derivation is what makes it trustworthy**,
-because a first pass measured the wrong composition:
+**State:** ACTIVE — the prerequisite authority work is far enough along for
+capability/plugin/crate composition to be the primary architecture workstream.
+The remaining task is to move genuine capability installation to its owner while
+preserving irreducible composition where only the composition layer can name
+both sides.
+
+This page is a **current composition contract and execution guide**. Historical
+censuses, individual carve diaries, corrected counts and superseded candidate
+lists live in git history.
+
+## Scope
+
+This page owns:
+
+- who installs a capability's private systems;
+- how capabilities participate in runtime phases without naming foreign private
+  systems;
+- optional-capability compile/runtime contracts;
+- rollback declaration participation;
+- active-ruleset policy borrowing/restoration;
+- where cross-capability composition legitimately remains centralized;
+- the public facade boundary after composition is sound.
+
+The actor-monolith SCC/package split is owned by
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) and the
+current execution frontier it links to.
+
+## Current architecture checkpoint
+
+At the current reviewed baseline, measured by the repository tools:
 
 ```text
-                       ambition_app   smash*   sanic*   mary_o*   twintrack*
-SIMULATION  portal               ON        .        .         .            .
-PRESENTATION portal_render       ON        .        .         .            .
-            audio                ON       ON       ON        ON            .
-            ui                   ON        .        .         .            .
-            content_pack         ON       ON        .         .            .
-            rollback / ldtk      ON       ON       ON        ON           ON
-* = measured under `--features visible`; these apps' `default` is EMPTY
+foreign private-system ordering
+    capability/ruleset       1
+    composition             73
+    total                   74
+
+foreign system installations
+                           174
+
+carveability upper bound
+    reducible                2
+    irreducible             39
 ```
 
-⭐⭐ **THE TWO PORTAL ROWS ARE NOT ONE FACT WITH A REDUNDANT SECOND ROW — they
-are SIMULATION and PRESENTATION, and getting their homes backwards is how the bug
-happened.** The distinction, not the feature names:
+Re-measure instead of copying these numbers forward:
 
-- **SIMULATION belongs on the LIBRARY** that registers the systems, because that
-  crate is what makes the requirement true in EVERY composition including
-  headless tests, and no app should be able to compose it wrong.
-- **PRESENTATION belongs on the APP's `visible` feature**, because a headless
-  build linking a renderer is a real cost and there is no correctness argument
-  for it.
-
-⇒ `portal=1, portal_render=0` is a fighter simulating a correct recovery INTO
-NOTHING VISIBLE — the same symptom as the original bug, a different bug, and the
-one you ship if you stop at "portal=1". ⚠ The mirror case
-`portal=0, portal_render=1` should be impossible by construction, and is:
-`portal_render` names `portal` in its own feature list, so the manifest already
-encodes this asymmetry. It is the SIMULATION half that had no such protection.
-
-⛔⛔ **MEASURING A DEMO AT DEFAULT FEATURES MEASURES NOTHING — `default = []`.**
-My first table read `audio` as OFF for every demo and it is ON in all three that
-ship it; that row was an artefact of asking for a build nobody runs. ⇒ **a
-capability table must name the feature set each app SHIPS with**, or it invents
-absences. The portal row is the one that SURVIVES the correction: still absent
-under `visible`, which is the build that ships.
-
-⚠ **AND NO TEST CAN CATCH THIS CLASS TODAY**, which is why it belongs on this
-page rather than in a queue row: every fixture registers its own systems by hand,
-so a hand-assembled test app cannot detect a missing PLUGIN. The dormant-mode
-census (`scripts/authored_parameter_modes.py`) finds fields nobody authors; this
-is its sibling — behaviour authored and compiled and never scheduled — and
-neither instrument sees it. The query that would is per-app: which systems does a
-shipped composition actually install.
-ⓘ Unlike the dormant-mode census, this one probably SHOULD be gated eventually:
-"this app installs a system whose capability nothing registers" is a crash, not a
-taste.
-
-⭐ **ONE RUNTIME FILE INITIALISES 40 RESOURCES BELONGING TO 14 OTHER CRATES.**
-
-⚠ **RE-MEASURED 2026-09-05: it is 37 across 12 now** (38 `init_resource` calls,
-one of which is the runtime's own `crate::`). The shape is unchanged and the
-baseline below still reads correctly; the digits moved because carves landed, so
-RE-RUN the count rather than quoting it. ⭐ What the recount adds is the
-per-crate breakdown, which is what actually sizes a first pilot:
-
-```text
-10  ambition_platformer2d_shared_tangle      3  ambition_platformer2d_actor_monolith
- 5  ambition_time                            3  ambition_combat
- 4  ambition_persistence                     2  ambition_encounter
- 3  ambition_platformer2d_world              1  each: projectiles, core, items, input, gameplay_trace
+```bash
+python scripts/measure_foreign_system_ordering.py
+python scripts/measure_carveable_installations.py
+python scripts/check_declared_system_packages.py
 ```
 
-ⓘ ⇒ **`ambition_encounter` is the cheapest non-trivial pilot at two resources**
-(`switches::SwitchActivationQueue`, `switches::EncounterSwitchIndex`), and
-`shared_tangle` at ten is the one that would prove the pattern.
-⛔ **But a pilot is only elegance if something can then DECLINE the capability.**
-Moving two `init_resource` lines into a plugin the runtime adds unconditionally
-relocates code and removes no authority — the test this program sets is whether
-the capability can be INSTALLED ALONE, so the pilot must come with a composition
-that omits it, or it is churn. Recorded as a sizing, not as a proposal.
-ⓘ **UNOWNED as of 2026-09-05, said out loud so it does not sit assumed.** The
-fighter session was asked whether it wanted the `shared_tangle` half and declined
-explicitly (the moveset is its stated priority); this session sized the row
-without taking it. ⇒ neither lane holds it.
+The one capability-written ordering at this baseline is the body-clock
+contribution naming a concrete `sim_view` reset system. It is a local regression
+against the C1 invariant and should return to zero through published scheduling
+vocabulary.
 
-`crates/ambition_platformer2d_runtime/src/sim_core_resources.rs` calls
-`init_resource` forty times, and `lib.rs` adds fifty-two plugins. That is the
-runtime acting as the semantic owner of every capability's state — the failure
-mode [`decomposition.md`](decomposition.md) names — rather than as the provider
-of schedules and lifecycle seams.
+## Prerequisite status
 
-⛔ **AND TEN OF THE FOURTEEN OWNING CRATES CONTAIN NO `impl Plugin` AT ALL:**
-`ambition_boss_encounter`, `ambition_combat`, `ambition_encounter`,
-`ambition_gameplay_trace`, `ambition_input`, `ambition_items`,
-`ambition_persistence`, `ambition_platformer2d_core`,
-`ambition_platformer2d_world`, `ambition_projectiles`. They have no way to
-install themselves, so the runtime has to. ⇒ *"Capabilities register themselves
-against stable seams"* is not one edit away from any of them; it is this
-program's work, and this is its size.
+### A/F1 — construction/actor inversion: crossed
 
-⚠ **AND AUTHORITY STILL COMES FIRST, demonstrated by the cheapest-looking
-candidate.** Projectiles read like a clean first move — one resource
-(`ProjectileSeqCounter`), a named reusable capability. But
-`runtime/src/projectile_schedule.rs` is seventeen lines of RE-EXPORTS whose
-steppers live in `actor_monolith::projectile`, because they still touch
-un-carved actor/player/boss/world state. A projectile plugin today would own a
-counter and none of its systems. ⇒ Pick the first capability to self-install by
-where its SYSTEMS already live, not by how few resources it has.
+Construction no longer depends upward on feature implementation. Continue the
+residual monolith split through the SCC plan; do not reopen the old F1 migration
+unless the direct dependency returns.
 
-⚠ Not a crate classification and not a carve list: some of the fourteen are
-foundation (`ambition_time`, `ambition_platformer2d_core`) where central
-initialisation is appropriate. The number is the baseline, not the target.
+### B — control/custody authority: crossed
 
-✔ **FIRST STEPS TAKEN 2026-09-04, chosen by the rule above rather than by size,
-and the count is 40 → 36.**
-`7f666117a`: `ambition_sim_view`'s `FeatureViewIndex`, `ActorRenderIndex` and
-`BossRenderIndex` now initialise in `FeatureViewSyncSchedulePlugin`, which
-schedules their rebuilds and already stated the rule in its own doc — *"the
-plugin that rebuilds the index initializes it; consumers only read"* — while
-those three of its twenty siblings were initialised by the runtime.
-Then `NewGameResetRequested` moved into `NewGameResetPlugin`, whose
-`process_new_game_reset_request` is its sole consumer.
-⚠ **Both were the same shape and it is the only cheap one: a resource whose
-CONSUMER is already a plugin.** `PendingLifecycleCommit` is the counter-example
-and was left alone — `shrine.rs` and `world/rooms/systems.rs` both write it, so
-there is no single plugin to move it to, and inventing one would be
-composability reasoning driving an authority decision. Each step here is
-verified by `app_it` (551 passed / 0 failed), because a resource that stops being
-initialised is a whole app failing, not a unit test.
+`ControlClaims` retains simultaneous claims and deterministically projects the
+effective `TemporaryControl`. Mount custody and actual control masking are
+separate facts, ordinary dismount retracts its claim, and rollback restores the
+claim state before projection.
 
-⭐ **AND ONE CRATE ALREADY SHIPS AN INSTALL PATH THE RUNTIME BYPASSES, which is a
-different shape worth recognising before someone "fixes" it.**
-`ambition_time::TimePlugin` initialises `ClockState` and `WorldTime` and
-schedules `refresh_world_time` — and **nothing in this repository installs it**;
-the runtime does both halves itself, scheduling that system in `player_schedule`
-with an explicit ordering. ⛔ Installing the plugin alongside the runtime would
-add a SECOND, UNORDERED copy of `refresh_world_time`. ⇒ It is not dead code and
-not a gap: its audience is an external frame-stepped host that is not using the
-Ambition runtime, which is exactly the kind of install path a foundation
-capability should offer. The hazard is now documented on the plugin itself.
-⚠ The lesson for this program: "the crate has no plugin" and "the crate has a
-plugin nobody installs" want different answers, and the second can be correct.
+Do not return to multiple features overwriting `TemporaryControl` directly.
 
-✔ **THE FIRST MINIMUM-HOST PROBE EXISTS AND IT PASSES (2026-09-04).**
-`a_host_that_omits_cutscenes_still_builds_and_steps` builds the engine group with
-`.disable::<CutsceneSchedulePlugin>()` and steps eight frames, against a CONTROL
-arm that installs the same group whole. *"A platformer without cutscenes"* is one
-of [`decomposition.md`](decomposition.md)'s named target compositions, and it is
-reachable today.
-⭐ **AND THE PROBE'S TWO FAILED ATTEMPTS ARE THE MORE USEFUL RESULT.** Both
-failed in the CONTROL: first inside `bevy_asset`, then in
-`finalize_unpresented_room_transition_failure_system` for want of
-`NextState<GameMode>`. Neither says anything about cutscenes. ⇒ **The engine's
-prerequisites are DECLARED — `add_headless_foundation` is exactly this set
-(MinimalPlugins, asset, image, transform, states, `init_engine_states`) and its
-doc calls itself "the minimal Bevy foundation for a HEADLESS engine app"** — they
-are simply not what `MinimalPlugins` gives you. A probe that hand-rolls the host
-measures the host.
-⚠ What it does NOT prove, stated on the test: that a cutscene-free composition is
-USEFUL, or that content triggering a cutscene degrades gracefully, or that any
-other capability can be omitted. Each is its own probe.
+### C1 — scheduling vocabulary: invariant is zero private foreign ordering
 
-⭐ **THREE OF THE DOCTRINE'S NAMED COMPOSITIONS, PROBED — and the two that could
-not be probed are the more useful half.**
+A capability may place its systems in published semantic phases/sets. It may not
+order itself against another crate's concrete private function.
 
-```text
-without cutscenes   ✔ builds and steps, against a whole-group control arm
-without portals     ✔ the same
-without dialogue    ⚠ NOT PROBED — the plugin cannot be NAMED from this test
-                       target: the facade re-exports `ambition_dialog` only
-                       behind a feature this target does not enable, and
-                       `ambition_app` has no direct dependency on it. A
-                       `#[cfg]`-guarded test would have compiled to nothing and
-                       reported success.
-encounters without  ⛔ NOT EXPRESSIBLE — `ambition_boss_encounter` contains no
-boss encounters        `impl Plugin` at all, so there is no seam to omit it
-                       through. A stronger statement than a failing probe.
+Current action: repair the one body-clock edge and keep the ratchet at zero.
+
+### D — optional rollback composition: crossed for the current model
+
+Optional simulation capabilities are compile-time composition choices. Their
+rollback declarations participate only when the capability is compiled/installed.
+
+If Ambition later requires one binary to dynamically load/unload arbitrary
+rollback-owning capabilities, reopen this decision explicitly rather than
+stretching the current registrar model.
+
+### E — scoped ruleset policy: crossed
+
+A game/ruleset may temporarily override engine policy by:
+
+1. snapshotting the prior value;
+2. applying the active-ruleset policy;
+3. restoring the exact prior value on departure.
+
+Do not make a demo plugin permanently own process-global engine policy.
+
+## Composition model
+
+### Capability ownership
+
+A reusable capability should own:
+
+- its authoritative state and semantic messages;
+- its private systems;
+- its rollback declaration when applicable;
+- its installation function/plugin;
+- its public scheduling sets/milestones;
+- its absence behavior.
+
+The host/composition layer decides **which capabilities exist together**, not
+how each capability internally works.
+
+### Runtime ownership
+
+The runtime owns global simulation phases and cross-domain ordering vocabulary.
+It may compose published capability sets into a deterministic pipeline.
+
+The runtime should not accumulate a list of private functions merely because it
+is the central place where they historically happened to be registered.
+
+### Irreducible composition is legitimate
+
+A block is irreducible when its job is genuinely to coordinate two independent
+capabilities that cannot name each other without reversing dependency direction.
+
+Do not create an artificial “installer” whose only purpose is to make a foreign
+installation count decrease. Preserve explicit composition when composition is
+the owner.
+
+### Optional means absent-capable
+
+For a capability advertised as optional:
+
+- removing it from the compile/composition graph must not require its resource,
+  message or rollback state elsewhere;
+- a minimal host must not panic because an unrelated system assumes it exists;
+- tests should include a tiny app/absence contract rather than only a full game.
+
+### Content requirements are explicit
+
+A capability that requires authored data should declare the requirement through
+catalog/validation vocabulary. Missing content should be diagnosed before the
+runtime reaches a private implementation panic.
+
+## C2 execution procedure
+
+For every remaining foreign installation block:
+
+1. **Name the owner.** Is the block one capability, shared runtime vocabulary, or
+   genuine cross-capability composition?
+2. **Inspect chaining.** A syntactically single-capability block may still be
+   semantically entangled by `.chain()` or private ordering.
+3. **Move only owned internals.** If one capability owns the block, provide an
+   installer/plugin in that capability and let composition call it.
+4. **Publish milestones, not functions.** If another domain needs ordering,
+   expose a `SystemSet`/phase fact.
+5. **Prove population.** A source test that counts systems is insufficient when
+   the bug can be “installed in the wrong host.” Include the supported minimal
+   and assembled populations.
+6. **Prove absence.** Optional capabilities need a no-capability composition
+   test/contract.
+7. **Remeasure.** Record only the current command/result in the owning queue
+   item; do not append a carve diary here.
+
+## Current C2 work
+
+### C2.1 — restore the C1 zero-ordering invariant
+
+Replace the Smash body-clock contribution's direct ordering against
+`sim_view::rebuild_body_clocks_view` with a published body-clock/reset/contribute
+milestone owned by the read-model/presentation vocabulary.
+
+Acceptance:
+
+```bash
+python -m pytest -q scripts/tests/test_foreign_system_ordering.py
 ```
 
-⇒ Two capabilities can be omitted today and it takes one line each to say so.
-The third needs the probe to live where the plugin is nameable rather than a
-feature flag added to make it nameable. The fourth needs an installation seam
-that does not exist — and that seam is now SIZED rather than merely missing.
+must return the capability/ruleset count to zero.
 
-### The boss-encounter installation seam, sized 2026-09-04
+### C2.2 — inspect the remaining reducible blocks
 
-⭐ **`ambition_boss_encounter` owns its systems already; what it does not own is
-their INSTALLATION.** The driver is `update_boss_encounters` in that crate, and
-the runtime's `progression_schedule.rs` schedules it alongside seven siblings
-(`notify_bosses_on_mount_death`, `sync_boss_encounter_entities`,
-`update_encounter_progress`, `tick_falling_hazards`, `tick_encounter_scripts`,
-`release_payloads_on_death`, `boss_phase_transition_feedback`) and registers
-three of its messages (`EncounterGate`, `PayloadReleased`, `BossPhaseChanged`).
-Fourteen references in that one file, six more elsewhere in the runtime, plus two
-resources the runtime initialises (`BossCatalog`, `BossEncounterRegistry`).
+The current carveability tool reports only a very small reducible tail. For each
+row, verify semantic ownership before moving it. If a row crosses a real lane
+boundary, reclassify it as composition rather than manufacturing a package to
+absorb it.
 
-✔ **BUILT 2026-09-04 (`bd93f978f`), and it was a plugin.**
-`BossEncounterSimulationPlugin` owns the eight systems, the three messages and
-the two resources; `a_host_that_omits_boss_encounters_still_builds_and_steps` is
-its acceptance, and the doctrine's *"generic encounters without boss
-encounters"* is a `.disable::<_>()` today.
+### C2.3 — preserve the irreducible composition ledger
 
-⭐ **THE MEASUREMENT THAT DECIDED THE SIZE IS THE REUSABLE PART, and it is the
-check to run before proposing the next capability:** those eight systems' ordering
-edges name only `ProgressionSet::BossAdvance` / `BossHazards`, which
-`shared_tangle::schedule` already publishes and the crate already depended on. So
-nothing moved and no ordering was renegotiated. ⛔ **A capability whose ordering
-edges name another capability's SYSTEMS cannot be installed this way, however
-coherent its authority is** — that is a carve with a negotiation inside it, and
-the difference is knowable in one read.
+For the remaining cross-capability blocks, maintain an explicit reason the
+composition layer must name both sides. A future carve requires a new authority
+fact, not another wrapper function.
 
-⚠ **THE HOST STILL OWNS THE SETS.** The plugin does not `configure_sets`; the
-runtime anchors `ProgressionSet` into the engine chain and the capability only
-says which systems belong in two of its slots. A capability that configured the
-ordering it runs in would be a second authority over the schedule — the failure
-this page names for runtime and for shared scheduling alike.
+### C2.4 — narrow the public facade after ownership is stable
 
-⛔ And 87 files outside the crate still reference `ambition_boss_encounter`. That
-number did not move and was never the point: this packet answered INSTALLATION,
-not dependency reduction, and sizing it by that count would have asked the wrong
-question.
+The public facade should export stable semantic types, capability plugins and
+supported host composition—not the actor monolith's internal organization.
 
-### The sweep that rule enables, run 2026-09-04
+Do not perform broad facade churn ahead of the crate/SCC work. Compatibility
+adapters can disappear only after their consumers have moved to durable owners.
 
-⭐ **The runtime schedules systems from exactly FOUR crates**, and applying the
-check above resolves every one of them without a further carve being proposed:
+## Rollback composition contract
 
-| crate | verdict |
-|---|---|
-| `ambition_boss_encounter` | ✔ installs itself since `bd93f978f` |
-| `ambition_encounter_features` | ✔ already had `EncounterSimulationSchedulePlugin` |
-| `ambition_time` | ✔ has `TimePlugin` for an external host; the runtime deliberately does not install it (see above) |
-| `ambition_mount` | ⛔ **FAILS THE CHECK, and it is the worked example** |
+The domain that owns authoritative rewind state also owns the declaration that it
+must be registered. The backend implements a backend-neutral registration
+vocabulary.
 
-⛔ **Mounts cannot be installed this way today.** `combat_schedule.rs` chains
-`ambition_mount::enforce_mount_rider_link` with
-`ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains`
-— one capability's system named directly in another's ordering, with a comment
-explaining why the order is load-bearing ("a dismount request landing first would
-remove the link it is relying on… the other order is silent"). ⇒ That is a CARVE
-with an ordering negotiation inside it, not a plugin: the two systems' relation
-would have to become a published set before either side could own its own
-installation. Do not promote mounts as "the next easy one".
+Do not centralize a growing list of optional domain components inside the GGRS
+backend merely because the backend performs the final registration call.
 
-⚠ **HOW TO RUN THIS CHECK, because I ran it with half an instrument and said
-so.** I searched `combat_schedule.rs` for `.after(..)` / `.before(..)` naming a
-foreign path, found one edge, and reported combat clean — while the mount failure
-directly above is a **`.chain()`**, which my regex never looked at. ⇒ **An
-ordering edge is `.after`, `.before`, `.chain()`, AND set membership**, and a
-`.chain()` of two systems from different crates is the most system-to-system of
-all of them. Grep all four or the answer is optimistic by construction.
+Stable wire names/encoded shapes are compatibility state. Moving a type between
+crates does not authorize changing those IDs.
 
-⚠ And a nuance the mount case carries: that chain sits INSIDE
-`.in_set(ambition_mount::MountRiderLinkEnforced)`. The GROUP is published
-vocabulary; the order WITHIN the pair is not. A set wrapping two systems does not
-publish their relative order, so "it is in a set" is not by itself the property
-this check is looking for.
+## Ruleset/session/host separation
 
-⭐ **AND THE CHECK RUN ON THE NEXT CANDIDATE COMES BACK CLEAN (yardrat,
-2026-09-04): `ambition_combat` PASSES.** Every `.after(..)` / `.before(..)` in
-`combat_schedule.rs` that names a foreign path resolves to one crate other than
-combat itself — `ambition_mount` — and to a `SystemSet` rather than a system:
-`MountRiderLinkEnforced`, whose own doc says it exists because *"the consumer is
-itself in `Settle`, so pinning the parent would be a cycle — this is the shape
-only a nested set can express."* Published vocabulary in exactly the sense
-`ProgressionSet` is.
-⚠ **That is one check passing, and the sizing it needed says NOT YET.** Measured
-2026-09-04: `combat_schedule.rs` names `ambition_combat::` 36 times — and also
-`ambition_mount::` 12 times, `ambition_sprite_sheet::` 4, `ambition_projectiles::`
-2, `ambition_damage::` 2 and `ambition_vfx::` 1, plus one `configure_sets` that
-must stay with the host. Three of the 36 `init_resource` calls are combat's.
+Use this vocabulary consistently:
 
-⇒ **It is not combat's schedule; it is a schedule six capabilities share.** So
-"install combat" is not "move 36 lines into a plugin" — it is deciding what the
-other 26 belong to, and the largest of those is the mount block that FAILS the
-ordering check. Boss encounters were 14 references in one contiguous block with
-one owner, which is why that one was a two-hour packet and this is not.
+- **capability** — reusable mechanism;
+- **ruleset/game** — policy values and feature selection;
+- **session** — active lifetime/instance;
+- **host** — platform/window/input/audio/network composition.
 
-⛔ **AND THE CHECK ITSELF WAS RUN WITH HALF AN INSTRUMENT — twice worth
-recording, because both halves were wrong in the same optimistic direction.**
-An ordering edge is `.after`, `.before`, **`.chain()`** AND set membership. The
-first pass grepped only `.after`/`.before`, found one foreign edge, and called
-combat clean; the mount failure is a `.chain()`
-(`combat_schedule.rs:379-380`, `ambition_mount::enforce_mount_rider_link`
-chained with `actor_monolith::features::rebuild_dismounted_rider_brains`) — the
-most system-to-system ordering of the four, and invisible to that regex. Fixed
-in the check at `9eb50b6bc`.
-
-⚠ **And "it is inside a published set" is NOT the property to look for.** That
-chain sits within `.in_set(ambition_mount::MountRiderLinkEnforced)`. The GROUP
-is published vocabulary; the order of the two systems *within* it is not — a set
-wrapping two systems says nothing about their relative order, so a member pair
-can still be privately ordered against a foreign path. ⇒ Set membership counts
-as an ordering edge to be examined, never as evidence the edge is public.
-
-⭐ **SO THE SIZING RULE HAS A SECOND QUESTION, and combat is what taught it:**
-after "do this capability's ordering edges name only published sets", ask **"is
-the schedule file this capability's, or does it install several?"** The first can
-pass while the second fails, and a candidate that clears only the first looks
-ready and is not.
-⚠ **The mount edge that FAILS is a different edge from the one that passes**, and
-conflating them would lose both findings: combat's `.after` names a SET, while
-the runtime separately CHAINS `ambition_mount::enforce_mount_rider_link` with the
-monolith's `rebuild_dismounted_rider_brains` inside one `add_systems`. The first
-is installable vocabulary; the second is two capabilities' systems ordered by a
-third party.
-
-⇒ **So the runtime's remaining knowledge of capabilities is now resources and
-plugin lists, not scheduling.** 36 `init_resource` calls and ~53 `.add(...)`
-lines. The next reduction comes from resources whose consumer is already a
-plugin (three taken, see above) or from a capability gaining one — not from more
-schedule moves, because there are none left to make.
-
-A consumer building a small platformer should not inherit portal rendering, boss
-orchestration, networking integration, persistence, debug presentation or
-Ambition-only content merely because a broad historical crate sits in the middle
-of the dependency graph.
-
-## Why this program still matters
-
-Current measurements changed the rationale.
-
-Removing several non-Smash experiences from a measured Smash composition did not
-materially improve representative frame time, and the associated plugin/system
-removal did not improve plugin-registration startup in the measured probe.
-Therefore capability composition is **not currently a funded generic runtime CPU
-or startup optimization**.
-
-Its demonstrated value is:
-
-- dependency closure;
-- coherent ownership;
-- smaller/minimal consumers;
-- compile/change and test isolation;
-- host/platform composition;
-- public SDK quality;
-- making optional domains actually optional.
-
-> ⛔⛔ **AND THE OBVIOUS WAY TO PICK THE NEXT CARVE IS BACKWARDS (2026-09-05).**
-> The headline pair says HOW MANY crates a movement-only game never asked for; it
-> says nothing about which is cheap to unlink, and ranking by DEPENDENT COUNT
-> sends you at nearly the worst one. MEASURED with
-> `scripts/capability_edge_weight.py`:
->
-> ```text
->                          manifests  files
->   ambition_sfx_bank              2      3   <- actually cheapest
->   ambition_registry_core         4      8
->   ambition_encounter_features    4     11
->   ...
->   ambition_match                 2     18   <- FEWEST manifests, 6x the files
->   ...
->   ambition_persistence          18    119
-> ```
->
-> ⇒ **`ambition_match` has the fewest dependent manifests but eighteen files use
-> it** — across `character_runtime/`, `features/` and `avatar/` in the monolith
-> alone. A carve sized by "only two crates depend on it" would be sized at the
-> wrong granularity, which this repo has already done more than once.
->
-> ⛔⛔ **AND THE CHEAPEST-LOOKING ROW WAS NOT CUTTABLE AT ALL.** `ambition_sfx_bank`
-> has the fewest files of all 23 — **three, of which TWO ARE COMMENTS** and the
-> third is a re-export inside `ambition_sfx`, which is itself unasked-for and 118
-> files wide. ⇒ A crate can RIDE IN on another crate in the same list, and then
-> neither count means anything: it cannot leave the closure until its carrier
-> does. The script marks those `CARRIED` and sorts them last.
->
-> ⚠ **Optional dependencies do not put a crate in the closure**, and counting them
-> hid exactly this case: `ambition_platformer2d` declares `ambition_sfx_bank` as
-> `optional = true`, so the only real road in is `ambition_sfx`. Until that was
-> excluded, the uncuttable row looked independently cuttable.
->
-> ⇒ **Cheapest genuinely cuttable today: `ambition_registry_core` (8 files)** —
-> which is a DELIBERATE shared protocol four crates adopted, so it is in the
-> closure on purpose and the script cannot know that. The real candidates behind
-> it are `ambition_encounter_features` (11) and `ambition_world_items` (12), both
-> in the exploration lane.
->
-> ⚠ **The script is a SIZING AID, not a verdict.** A crate named in many files may
-> still be cheap if every use is one re-export, and one named in three may be
-> load-bearing in all three. Its job is to stop the rankings that are confidently
-> backwards — and there turned out to be two of them.
->
-> **RE-MEASURED against `f32eb7274` (2026-09-02): this program has a LIVE MECHANICAL
-> GUARD, and the page does not mention it.**
->
-> `scripts/check_absence_contracts.py` runs
-> **`capability-footprint-may-not-grow`**, which reports the program's headline
-> number every time the gate runs. ⛔ **THE NUMBER IS NOT QUOTED HERE ANY MORE —
-> re-derive it:** `python3 scripts/check_absence_contracts.py | grep footprint`,
-> which prints the live pair from
-> `scripts/baselines/capability-footprint-baseline.json`, and that file's dated
-> `*_entered_the_closure_*` rows say why each crate is there.
-> ⚠ The quoted pair drifted FOUR times in a week — 43/16 → 44/16 → 44/17 →
-> 45/18 — and then FOUR carves landed in one night (2026-09-03: body_seed,
-> match, encounter_features, abilities: → 48/21 → 49/22 → 50/23), every one a
-> crate boundary drawn through code the sentinel already linked. A number that
-> moves faster than the paragraph quoting it is not a fact the paragraph can hold. A
->
-> ⛔ **AND THE DIRECTION OF THAT DRIFT NEEDS SAYING OUT LOUD: 45→49 AND 18→22 IS
-> +4 AND +4, THE SAME FOUR.** Every crate that joined the closure since
-> `479f9d3e4` landed in `never_asked_for` — verified against the baseline JSON:
-> `ambition_held_items`, `ambition_body_seed`, `ambition_encounter_features`,
-> `ambition_match` and `ambition_registry_core` are all in that list. Each
-> arrived by a carve commit whose subject is some form of *"X leaves the actor
-> kernel"*.
->
-> ⇒ **So the headline number gets WORSE as the decomposition succeeds, and that
-> is arithmetic rather than regression.** `closure_size` counts CRATES. Splitting
-> a monolith into a sibling the facade still pulls adds one; it does not add a
-> line of linked code, and it is the work this program asked for. ⚠ **The
-> consequence is that the pair cannot be read as a progress metric in the
-> direction everyone will read it.** A reviewer seeing 22 where the page said 18
-> will infer the footprint got worse, and what actually happened is that four
-> domains became separately nameable.
->
-> ⭐ **The number that WOULD mean progress is a crate LEAVING the closure, and
-> that is a different act from carving.** It has happened and the log names it —
-> `ab99e70aa` *"Portals leave the movement-only closure too: 43 -> 42"* — and
-> `51600d168` records five leaving unnoticed because the ratchet *"only ever
-> watched crates ENTER"*. ⇒ A carve makes a domain nameable; only cutting the
-> facade's edge to it makes the footprint smaller. Both are needed and the
-> ratchet counts only the first.
->
-> ⛔ **RETRACTED 2026-09-03, SAME DAY, BY THE FILE I WAS ALREADY READING.** This
-> block first claimed the lever was the facade's dependency list — that 21 of the
-> 22 `never_asked_for` crates are named directly in
-> `crates/ambition_platformer2d/Cargo.toml`, that 10 of them are unconditional
-> there, and that making those optional would move the number. **The count is
-> right and the conclusion was wrong.**
->
-> `reachable_via_ambition_platformer2d_actor_monolith_alone` in the baseline JSON
-> holds **all 22**. The sentinel links `ambition_platformer2d_actor_monolith`, and
-> the monolith's own manifest names every one of them unconditionally — so each
-> facade edge is REDUNDANT, and cutting it prints the same 49/22. The baseline
-> even says so in a row I did not open: *"cuttable at the facade, worthless to
-> cut, because the monolith brings them regardless"*
-> (`damage_and_mount_classified_2026_09_02`). ⚠ **I read `never_asked_for` and
-> `ambition_closure` out of that file and stopped at the two keys my hypothesis
-> needed** — which is the failure mode this repo's own recipe warns about, one
-> level up: not a missing instrument, an instrument read only as far as it agreed.
->
-> ⇒ **What survives, and it is the useful part:** the +4/+4 identity above, and
-> that the measurement is already minimal (`fixtures/minimal_game` uses
-> `default-features = false`; the contract asks cargo's resolver, not a source
-> walk). All 22 are linked by a game asking for as little as the facade permits,
-> and no feature flag on the facade changes that.
->
-> ⛔ **BUT THE FACADE EDGE IS NOT THE LEVER FOR THOSE TEN, and the baseline
-> already says so** (`damage_and_mount_classified_2026_09_02`: *"cuttable at the
-> facade, worthless to cut, because the monolith brings them regardless"*). Every
-> one of the ten is an UNCONDITIONAL dependency of
-> `ambition_platformer2d_actor_monolith`, which the sentinel links through the
-> facade whatever the facade's own list says — the baseline's
-> `reachable_via_ambition_platformer2d_actor_monolith_alone` list is the proof,
-> and it is the same set. Making the facade's `ambition_match` edge optional would
-> print 49/22 again. ⇒ The step that moves the number is the one the mount and
-> damage rows name: *the closure should follow the plugin a game INSTALLS, not the
-> dependency its crate declares* — which means the KERNEL's use of each domain
-> becoming optional, and that is this program's stated non-goal ("scatter feature
-> gates through the kernel merely to move a `cargo tree` number") until the
-> domain's construction road has left the kernel as well. Carves land
-> unconditional, by design, until then. (Ruled 2026-09-03 when the facade
-> demonstration was offered.)
->
-> ⇒ **This also explains the +4/+4 exactly.** `held_items`, `body_seed`, `match`,
-> `encounter_features` and `world_items` are all recent carve outputs, and every
-> one was added to the facade as an UNCONDITIONAL dependency. The carve creates
-> the crate; the facade then names it the only way that guarantees a minimal
-> game links it.
-> ⛔ **DO NOT RETYPE IT — re-derive:**
-> `python3 scripts/check_absence_contracts.py | grep footprint`, which prints
-> the live pair from `scripts/baselines/capability-footprint-baseline.json`.
-> ⚠ It has now drifted FOUR times — 43/16 → 44/16 → 44/17 → 45/18 — and the
-> fourth happened INSIDE the edit that corrected the third, hours apart. A
-> hand-copied ratchet value is a claim with nothing holding it, which is the very
-> failure §2e is about; the command is the only form of this fact that stays
-> true. It ratchets — a new crate entering the
-> minimal consumer's closure turns it RED, naming each one — and its failure
-> text is this page's §2e in one sentence: *"a perfectly semantic API can still
-> force a movement-only game to compile and link every unrelated gameplay
-> domain — no forbidden path is named and the footprint is still wrong."*
->
-> Four sibling contracts pin the public-SDK half — `outlander-`,
-> `minimal-game-`, `sim-harness-` and `capability-demo-names-only-the-public-sdk`
-> — each at 0 of 0 baseline modules still naming internals. All 37 absence
-> contracts hold at this commit.
->
-> ⇒ **So "dependency closure" and "smaller/minimal consumers", two of the six
-> values listed above, are no longer arguments — they are a number with a
-> ratchet under it.** ⛔ And the number says the work is real and unfinished: 16
-> of 43. A slice here has a ready-made acceptance condition (that count falls)
-> and a ready-made regression guard (it may not rise), neither of which this page
-> currently tells a reader exists.
->
-> ⛔⛔ **BUT THE RATCHET COUNTS CRATES, NOT BYTES, AND A CARVE RAISES IT BY
-> CONSTRUCTION.** Read "that count falls" as an acceptance condition without
-> this and a decomposition slice looks like a regression on the very page that
-> recommends decomposition. The closure is **44** as of 2026-09-02, not 43,
-> because `ambition_world_items` entered it — the touched-collectible domain
-> carved OUT of the actor monolith (D33). ⭐ **No new code entered the closure:
-> the same `WorldItem` and `ItemMotion` were linked the day before, inside the
-> monolith, and the monolith shed ~1,044 lines doing it.** The same is true of
-> the `ambition_mount` and `ambition_damage` rows that preceded it.
->
-> ⇒ **So the number answers "how many `ambition_*` crates does a movement-only
-> game link", and NOT "how much does it link".** Both are worth knowing and they
-> move in opposite directions under a carve. A row whose acceptance is "the
-> count falls" is asking for edges to be made OPTIONAL or removed — the
-> `ldtk_left_the_closure_2026_08_22` and `settings_menu_left_the_closure_2026_08_22`
-> shape — and a carve cannot satisfy it, so the two lines of work must not be
-> scored against each other. The baseline file records the reason beside every
-> entry that arrived this way; ⚠ read those before quoting the delta.
->
-> **Two more guards belong to this program and were also unnamed here:**
->
-> - `scripts/check_capability_ships.py` — *"a capability whose only installer is
->   behind a DEV feature does not ship."* Green at `ce25540b1`: every Option-read
->   capability has at least one shipping writer, across 1437 files and 177
->   optional-read types. This is the mechanical form of "dependency closure and
->   installed runtime behavior should agree", the second principle below.
-> - `scripts/check_engine_systems_are_engine_installed.py` — finds reusable
->   engine systems whose registration has leaked into a game host, so
->   headless/demo consumers cannot accidentally omit required behaviour. Green
->   at `ce25540b1`.
->
-> **A fourth, and it is a PROHIBITION rather than a number:**
-> `engine-crates-do-not-consume-the-umbrella-facade`
-> (`check_absence_contracts.py`) forbids
-> `ambition_platformer2d_actor_monolith` from depending on `ambition_platformer2d`.
-> Its stated reason is this program's thesis in one sentence — an engine crate
-> reaching back through the facade "is circular by construction, and it is how a
-> headless consumer ends up compiling the render stack".
-> ⚠ **And it records a deliberate exception that belongs on this page:** the rule
-> is scoped to ENGINE crates because `ambition_content` DOES depend on the facade
-> today, and whether that should stop is "a MEASUREMENT question the campaign
-> defers rather than a rule". Green at `ec6d5150b`.
->
-> ⛔ **A program with three green guards and one red-capable number is in a very
-> different state from one with none, and a reader could not tell that from this
-> page.** Name a guard where its program lives, or the next session re-derives
-> the check that already exists.
-
-### ⛔ 16 of 43 CANNOT be cut by a manifest change — do not start there
-
-Re-derived at `8621f2a7e` (2026-09-02) after being asked to cut the count, and the
-answer is that the cheap version of this work is already finished.
-
-- **Slice H already took every available facade cut**, 2026-07-30: closure 41 →
-  38 by making facade edges optional, which removed `ambition_inventory_ui`,
-  `ambition_portal2d_presentation` and `ambition_touch_input`.
-- **Every one of the remaining 16 also arrives through
-  `ambition_platformer2d_actor_monolith`**, so gating its facade edge cuts
-  nothing. A game that needs actors needs the monolith, and the monolith brings
-  them. That is the §4 carve condition, i.e. `actor-monolith-decomposition.md`
-  (D33) — not a manifest edit.
-- ✔ **CLOSED 2026-09-03 — the two lists are the same set again, and it now
-  says something stronger.** `ambition_damage` and `ambition_mount` entered the
-  closure on 2026-08-26 after the
-  `reachable_via_ambition_platformer2d_actor_monolith_alone` list was written and
-  were classified at `f1445c142`; the drift in the OTHER direction was found the
-  same week and was larger — five crates that had LEFT the closure were still
-  listed as reachable, because the ratchet reports crates that ENTER and nothing
-  looked the other way. Pruned against a live re-measurement (46, zero entered,
-  zero left), and guarded by
-  `scripts/tests/test_capability_footprint_baseline_is_coherent.py`.
-  ⇒ **All 23 that a movement-only game never asked for arrive through the
-  monolith alone** — the two lists are literally equal — so no facade cut
-  removes a single one. (19 when this was written on 2026-09-03; re-derived the
-  same day at 23 after `ambition_abilities` and `ambition_encounter_features`
-  landed. ⚠ The NUMBER moves with every carve; the EQUALITY is the claim, and
-  `test_capability_footprint_baseline_is_coherent.py` is what keeps it honest.) `ambition_render` is the only crate reachable only
-  through the facade, and it is asked for (90 in-repo call sites). Both of the
-  2026-08-26 pair behave like `ambition_audio`: cuttable at the facade,
-  worthless to cut.
-
-⭐ **And the baseline records why "make the edges optional" undersold itself the
-first time.** The four facade-only crates are named through `ambition::` by
-in-repo code 170 times (`render` alone 90). Making an edge optional means
-cfg-gating its re-export, so every one of those call sites must gain the same
-feature. The baseline's own words: *"calling it cheap was wrong"*, caught *"by
-counting the call sites before starting, rather than after."*
-
-⇒ **So the honest acceptance for this row is not "the count falls."** It is
-either a carve slice under D33, or a facade-optionality migration with 170
-consumer call sites. Both are real; neither is mechanical.
-## Principles
-
-⭐⭐ **A REQUIRED `MessageWriter` IS A COMPOSITION DEPENDENCY, AND ADDING ONE
-BREAKS EVERY APP THAT HAND-LISTS ITS REGISTRATIONS. Measured 2026-09-05.**
-Folding three loose writer params into one SystemParam struct and adding a fourth
-(`StrikeOutcomeWriters::parried`) reddened nine tests with:
-
-```text
-Parameter `StrikeOutcomeWriters<'_>::parried` failed validation: Message not initialized
-```
-
-Those apps register the three messages the system used to need and then run it
-directly. ⇒ **A hand-listed set of dependencies is a POPULATION, and adding to
-the SOURCE does not update the LISTS** — with no help from the compiler, because
-this is runtime parameter validation, not a type error.
-
-⛔⛔ **AND THE FIX IS NOT `Option` — I RECOMMENDED THAT HERE AND IT WAS WRONG.
-THIS REPO HAS RULED AGAINST IT TWICE, BOTH IN WRITING.** Verified in the tree
-rather than taken on report (`crates/ambition_render/src/rendering/camera.rs:126`):
-
-> ⛔ REQUIRED, not `Option<Res<..>>`, and the first version of this was the
-> Option. The select screen's stage button already ruled on this exact question
-> when its `ResMut` turned 28 tests red: *"an Option would have kept the fixtures
-> green and silently no-opped the stage button in production if the real
-> registration were ever dropped."* … The Option bought nothing in production and
-> cost the protection against a silent no-op.
-
-⇒ **`Option` buys GREEN FIXTURES and sells the guarantee that the thing happens.**
-A parry that goes unpublished is a counter that never fires, and nothing says so.
-
-⭐⭐ **A THIRD, INDEPENDENT INSTANCE LANDED 2026-09-05, and it argues the ruling
-better than either ruling argues for itself — because the cost was paid AT A
-DISTANCE.** The fighter lane added a FOURTH `MessageWriter` to
-`translate_smash_capture_effects`, and the whole system failed parameter
-validation in a fixture that registered three: George silently could not grab,
-and the red landed on a test about CARRYING. ⇒ a fixture caught a capability
-quietly going missing on a system it has no relationship with, which is exactly
-the protection an `Option` removes. Reported by that lane; the two earlier
-instances were verified in the tree here.
-
-⚠ **The distinction that survives all three is INSTRUMENT vs OUTCOME.** An
-instrument a composition may legitimately omit — a tracer, a census sink — is
-optional. An OUTCOME the system exists to produce is required, and a composition
-that cannot receive it should fail to run rather than run without it.
-
-⭐ **THE ANSWER IS TO STOP HAND-LISTING, NOT TO WEAKEN THE PARAM.** The landed
-fix is `register_strike_outcome_messages` (`ambition_combat/src/hitbox/mod.rs:429`)
-sitting beside the struct it mirrors, so the population is registered in one
-place and a fifth writer updates every consumer for free.
-⚠ ⓘ **And `damage/tests.rs` already had that idea, one crate too low to help** —
-its own registrar's doc says *"One list, one edit"*. ⇒ **The right pattern in the
-wrong scope is indistinguishable from the wrong pattern until the edge is
-crossed**, which is the sharpest form of this finding.
-
-⇒ **Where `Option` IS right, stated so the two are not confused:** an
-INSTRUMENT — something that only observes, which nothing acts on — versus an
-OUTCOME, which something acts on. `ambition_damage`'s `BodyHitResolved` is the
-former by its own doc (*"an optional instrument, not required gameplay
-authority"*, `crates/ambition_damage/src/lib.rs:470`) and is correctly `Option`.
-A parry is the latter. ⛔ *"Can a composition legitimately not care?"* is NOT the
-test — a hand-built test app not caring is exactly the wrong reason, and it is
-the reason `Option` gets reached for.
-
-- capability selection is a semantic engine API, not a Cargo-feature illusion;
-- dependency closure and installed runtime behavior should agree;
-- the easy default may install a broad useful engine while narrow composition
-  remains real and tested;
-- internal implementation crates are not public capability names;
-- a capability owns its data/schema/install declarations close to its domain;
-- headless, rendered, desktop and mobile hosts compose from one capability
-  vocabulary with host-specific services layered on top;
-- domain-owned rollback/content declarations compose through backend-neutral
-  registrars/catalogs; the generic runtime does not own concrete domain-type
-  censuses.
-- ⛔⛔ **a capability DECLINES when its prerequisites are absent; it does not
-  crash.** In Bevy 0.19 a missing system parameter is a hard failure that takes
-  the whole `App` down, so a plugin whose systems demand resources a minimum host
-  does not have is not "degraded" — it is a capability that cannot be composed at
-  all. `run_if(resource_exists::<..>)` per demanded resource is how a capability
-  says *"not in this host"* in the only vocabulary the scheduler has.
-
-⭐ **THAT PRINCIPLE HAS COST TWICE AND THE SECOND TIME WAS 40 OF 40 FAILURES**, so
-it carries a test shape rather than only a rule:
-
-- `sync_portal_view_cones` — 37 of the union's original 48.
-- `ambition_sprite_fx::draw_sprite_effects` — 2026-09-04, **every one of 40
-  failures against 7,072 passes**, fixed at `52666d1c7`.
-
-⛔ **The trap both times was a guard that reads like the right one.**
-`SpriteFxPlugin` already returned early when there was no
-`EmbeddedAssetRegistry` — which answers *"is there an `AssetPlugin`"*, and the
-demo hosts HAVE one. What they lack is a render stack, and that is a different
-question wearing the same clothes.
-⇒ **A prerequisite guard must name the RESOURCE the system demands**, not a
-proxy for the subsystem it belongs to. And guard them all at once: the portal
-comment records three hiding in succession, "each looking identical to the last",
-so fixing one only moves the failure onto the next.
-
-⭐ **The test that catches this builds the PLUGIN, never the systems.** Every
-existing `ambition_sprite_fx` test called `add_systems(draw_sprite_effects)`
-directly, so not one of them could witness a plugin-level wiring defect. And it
-must assert the UNGUARDED half still runs — disabling the whole plugin also stops
-the panic and silently deletes the free path, so a bare "does not panic"
-assertion accepts the wrong fix.
-
-⚠ **Only the feature UNION sees this class.** A default build composes the render
-stack, so every local check is green while the demo hosts are the ones that
-break. That is the same reason the union is the sizing instrument for this
-program and not an optional extra.
-
-### ⛔⛔ THE ROLLBACK BACKEND DECLARES TWENTY DOMAINS' STATE, AND THAT BREAKS THIS PAGE'S OWN PRINCIPLE
-
-Measured 2026-09-04. `AmbitionRollbackPlugin::build` calls
-`register_engine_rollback_state`
-(`crates/ambition_platformer2d_runtime/src/rollback/mod.rs:40`), which declares
-the rollback state of **twenty domains** — encounter, combat, the actor
-monolith, mount, characters, `platformer2d_core`, time, boss encounter,
-conversation, sprite sheet, the shared tangle, vfx, items, cutscene,
-persistence, projectiles, sim_view, world rooms and gate portals. **One of the
-twenty is conditional** (`ambition_portal2d`, behind `feature = "portal"`).
-
-⇒ **Installing the BACKEND therefore installs save/restore/checksum systems for
-capabilities the host never composed.** The failure is not theoretical: a
-`rollback_resource_canonical::<T>` installs `bevy_ggrs`'s
-`ResourceChecksumPlugin`, whose system takes `Res<T>` and — per the registrar's
-own doc comment — *"panics on any frame the resource is absent"*, quoting the
-message it already cost somebody: *"Parameter `Res<'_, ActiveMatch>` failed
-validation: Resource does not exist"*.
-
-⭐ **`examples/capability_demo` is the proof, and it is this repository's own
-minimum-host fixture.** Its rollback round trip composes exactly two plugins —
-`AmbitionRollbackPlugin` and `PulsePlugin` — and dies on frame one. Three
-distinct faults have been fixed or named in it, and the third
-(`rollback_resource_canonical::<MovingPlatformSet>`, whose resource
-`platformer2d_runtime/src/sim_core_resources.rs:89` inserts) makes the shape
-plain: they are not three bugs, they are one seam producing a fault per
-canonical resource the twenty declare that a two-plugin host never inserts.
-
-⛔ **The principle this page already states is the answer, applied one level
-further out:** *"domain-owned rollback/content declarations compose through
-backend-neutral registrars; the generic runtime does not own concrete
-domain-type censuses."* The REGISTRAR is backend-neutral and the declarations
-are domain-owned — that half landed. What did not is the CALL SITE: it lives in
-the backend's plugin and names all twenty unconditionally, so composing the
-backend composes their expectations.
-
-⭐⭐ **AND THE POPULATION IS SIX, not "however many" — measured 2026-09-04 by
-`scripts/rollback_checksum_prerequisites.py`, which is committed.** Only two
-declaration forms route through `checksum_resource` and therefore through the
-unwrapped `Res<R>`: `rollback_resource_canonical` and
-`rollback_resource_clone_checksum`. (`rollback_resource_optional_canonical`
-exists precisely to tolerate absence, and the plain `_clone` forms use
-`ResourceSnapshotPlugin`, which maps `(Some, None)` to `remove_resource`.)
-
-| resource | declared in | inserted by |
-|---|---|---|
-| `MovingPlatformSet` | `platformer2d_runtime/src/rollback/mod.rs` | `sim_core_resources.rs`, `actor_monolith/session/setup.rs` |
-| `GatePortalPhases` | `platformer2d_world/src/rooms/gate_portal.rs` | `sim_core_resources.rs` |
-| `MintedItemBaseline` | `actor_monolith/src/items/pickup/minted_horizon.rs` | the same module |
-| `OwnedItemsBaseline` | `actor_monolith/src/items/pickup/minted_horizon.rs` | the same module |
-| `CustodyBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | `lifecycle/custody_horizon.rs` |
-| `OccurrenceBaseline` | `shared_tangle/src/lifecycle/horizon.rs` | the same module |
-
-⇒ **FOUR of the six are inserted only by plugins a two-plugin host does not add**
-(`sim_core_resources`, the actor monolith). ⚠ The other TWO —`CustodyBaseline`
-and `OccurrenceBaseline` — are inserted by the same crate that declares them, so
-they would never have faulted; re-derived by yardrat from the script rather than
-from this page. That four/two split matters: the two self-inserting ones are
-evidence for nothing, and the four are what make this one seam rather than four
-bugs.
-
-⚠ **AND THE SEAM HAS A SIBLING THE SPLIT DOES NOT ADDRESS.** The same script
-lists **six GAME-side** checksummed declarations (`VersusMatch`,
-`SpentMonitors`, `SpentPowerBlocks`, `BrokenBricks`, and two boss ones), each
-made by a game's own composition. That is the right shape — a game declaring its
-own state — but a host composing a GAME rather than the engine hits the
-structurally identical trap, and `GgrsBackendPlugin` is no help there because the
-declarations are not the backend's to withhold.
-⭐ Six game-side declarations exist too (`VersusMatch`, `SpentMonitors`,
-`BrokenBricks`, …) and are NOT part of this problem: a game declares its own
-state in its own composition, which is exactly the shape the engine side should
-have.
-
-✔ **LANDED 2026-09-04: `GgrsBackendPlugin` is the backend alone, and
-`AmbitionRollbackPlugin` is that plus the engine's declarations.** No call site
-moved, every engine composition is unchanged, and
-`examples/capability_demo`'s rollback round trip went from frame-one death to
-green — its whole suite 21 passed / 0 failed. ⭐ ONE change removing ALL SIX
-faults is what makes "one seam, not a list" a measurement rather than a claim.
-
-✔ **AND THE PAIRING IS A GUARD, NOT A DOC LINE (yardrat asked for this, and it
-is the repository's habit).** `EngineRollbackStateDeclared` is inserted only by
-`AmbitionRollbackPlugin`, and `Platformer2dSimulationFoundationPlugin` asserts
-it beside the existing `RollbackHostReady` check — so composing the engine group
-with a backend that declared nothing PANICS AT BUILD TIME naming both plugins,
-instead of running as a silent desync. ⛔ It is a build-time assert deliberately
-and not a `finish` hook: `Plugin::finish` never runs under `App::update()`, so a
-guard placed there would be dead in every headless test.
-
-⇒ **What is still open is the twenty-domain call site**: a domain declares its
-own rollback state when that domain is composed, through whichever registrar the
-host installed.
-
-⛔⛔ **AND THE OBVIOUS FIX IS IMPOSSIBLE, WHICH IS WHY THE CALLS ARE ALL IN ONE
-FUNCTION — measured 2026-09-04 so the next reader does not spend the afternoon
-finding out.** "Let each domain's plugin call its own `register_rollback_state`"
-fails on a hard constraint: **`RollbackRegistrar` is NOT object-safe.** Its
-methods are generic over `T` (`rollback_resource_canonical<T>`, and twenty more)
-and return `&mut Self`, so `&mut dyn RollbackRegistrar` does not exist and a
-domain's declaration cannot be stored as a boxed closure for the backend to drain
-later. ⇒ Every call must be made with the CONCRETE registrar type at a site that
-knows both it and the domain — which is exactly one site.
-⚠ Note what this does NOT block: a domain already declares against a
-backend-neutral trait that lives in the FLOOR
-(`ambition_platformer2d_core/src/snapshot.rs:338`), not against GGRS. The
-domain-owned half of the doctrine landed; only the invocation is centralised.
-
-⭐ **SO THE TRACTABLE SHAPE IS "CONDITIONAL", NOT "DISTRIBUTED":** keep the one
-call list — it cannot move — and gate each line on whether that domain was
-actually composed. That needs two things and neither is a service locator:
-1. each domain's plugin inserting a plain marker when it builds, the way
-   `AmbitionRollbackPlugin` now inserts `EngineRollbackStateDeclared`;
-2. `register_engine_rollback_state` taking the composed-domain set alongside the
-   registrar, since today it takes only `&mut impl RollbackRegistrar` and can
-   read no resources.
-
-⚠ **And it inherits an ordering requirement the current design does not have:**
-every domain plugin must build BEFORE the backend, or its marker is not there to
-be read. The engine foundation already asserts backend-before-group in the other
-direction (`RollbackHostReady`), so the two constraints have to be reconciled
-rather than assumed compatible. ⛔ That reconciliation is the actual work, and it
-is why this is still a design item and not a patch. That is the same
-move `BossEncounterSimulationPlugin` made for systems and messages, one contract
-over.
-⚠ **Sizing is not done and this is not a licence to start.** Twenty call sites
-is the count of domains, not of work: each needs a place to declare from (most
-already have a plugin), and the ORDER matters because `bevy_ggrs` wants its
-registrations before the session exists. ⛔ And the tempting cheap fix —
-converting each failing resource to `rollback_resource_optional_canonical`, as
-`ActiveMatch` was — treats the symptom: it makes absence representable for one
-type without making the domain optional.
-
-## Current pressure points
-
-- `ambition_platformer2d_actor_monolith` still owns several unrelated domains
-  and therefore acts as a dependency/composition hub;
-- `ambition_platformer2d_shared_tangle` still has high fan-in and mixed ownership;
-- the public facade can expose semantic APIs beside historical implementation
-  topology;
-- some optional domains remain reachable through dependency closure even when a
-  consumer did not ask for them;
-- construction/content capability installation can still have compile-time and
-  runtime-install assumptions that need explicit closure proofs.
-
-Rollback registration itself is no longer the earlier central-census problem:
-concrete gameplay declarations are federated by domain and the GGRS backend is
-separate from the generic runtime. Do not use that completed migration as the
-justification for another capability layer.
-
-### Carve recorded 2026-09-04 — `ambition_sprite_fx`, capability independence: **IMPROVED**
-
-A new render-floor crate, made while giving the portal gun per-gun colours, and
-recorded here because the doctrine asks every carve to say which way it moved
-capability independence rather than only authority.
-
-⭐ **What it is.** `SpriteEffect` — one component naming "this sprite, with one
-simple visual manipulation": `Tint` (multiply), `HueShift`, `Saturate`,
-`Silhouette`. The engine had **four** unrelated implementations of that idea and
-no name for it: `Sprite.color`, the projectile catalog's `EnergyTinted` art
-source, the hit-flash silhouette overlay, and `PortalClipMaterial`'s `tint`
-uniform. A fifth caller had to pick one and copy it.
-
-⇒ **IMPROVED, on each of the doctrine's four questions:**
-
-- **Can it be absent?** Yes. Nothing depends on the effect existing; a caller
-  that never adds `SpriteEffect` never pays for it, and a build without
-  `SpriteFxPlugin` still compiles and draws every sprite.
-- **Does the rest cohere without it?** Yes — it is additive. It was carved with
-  a `pub use` where its one moved item used to live (`sprite_frame_basis` /
-  `SpriteFrameBasis`, which the portal crate wrote and never owned), so no
-  existing caller changed.
-- **Does it declare only real prerequisites?** ⭐ **It declares NO `ambition_*`
-  dependency at all** — bevy's 2D render, asset and image features and nothing
-  else. It is the first crate in this workspace that a foreign game could take
-  on its own.
-- **Is the composition a convenience?** Yes. `SpriteFxPlugin` installs its own
-  systems and its own material; `ambition_render` adds it in one line and
-  initialises nothing on its behalf — the shape
-  `capability-and-runtime-composition.md` asks for and the opposite of the 40
-  `init_resource` calls the runtime makes for other crates.
-
-⚠ **Where it sits, and why it is not somewhere cheaper.** Not in
-`ambition_platformer2d_shared_tangle`: that crate refuses render features on
-purpose (*"No render, audio, or asset features — this crate stays reusable and
-headless"*) and a `Material2d` cannot be declared without them. Not in
-`ambition_portal2d_presentation`: `ambition_render` depends on THAT crate, so a
-general facility has to sit at or below it, and a sprite effect is not a portal
-concept. ⇒ The render floor was genuinely empty and the crate is what fills it.
-
-⚠ **What it did NOT do.** It did not migrate the four existing tint
-implementations onto itself. Each is load-bearing and differently shaped — the
-hit-flash overlay is a sibling mesh with its own pulse schedule, `EnergyTinted`
-is an art-source variant resolved at spawn — and converting them is a separate
-carve with its own before/after. The duplication is named here so the next
-person does not have to rediscover that it is four things.
-
-### Measured 2026-09-03 — the closure bullet above, with its number and its paths
-
-`fixtures/external_consumer` ("outlander") is the honest test: its own
-`[workspace]`, its own lockfile, no workspace dependency table, and it asks the
-facade for exactly TWO capabilities with `default-features = false` —
-`ambition_render` and rollback. Its manifest even says so: *"What else still
-links is the carve's problem, not this manifest's."*
-
-It links **46 `ambition_*` crates**, including **10 of the 14** optional
-capability crates it never named:
-
-| inherited | not inherited |
-|---|---|
-| cutscene, dialog, encounter, items, menu, persistence, projectiles, sfx, ui_nav, vfx | inventory_ui, portal2d, settings_menu, touch_input |
-
-⛔ **CORRECTION, same day — my first causal split here was wrong, and the
-repository already had a better one.** I wrote that six of the ten "arrive
-through a capability it DID request", because `ambition_render`'s manifest names
-them. That is one path among several and it is not the binding one:
-`cargo tree -i ambition_cutscene` in the sentinel shows it arriving through
-`ambition_boss_encounter` → `ambition_damage` → the facade AND the monolith.
-Removing render's edge would not remove it.
-
-✔ **The authoritative instrument is `scripts/baselines/capability-footprint-baseline.json`,
-guarded by the `capability-footprint-may-not-grow` absence contract**, and its
-split is by REACHABILITY rather than by manifest:
-
-* **20 reachable via `ambition_platformer2d_actor_monolith` alone** — irreducible
-  without moving code;
-* **4 reachable only through the facade** (`ambition_inventory_ui`,
-  `ambition_portal2d_presentation`, `ambition_render`, `ambition_touch_input`) —
-  closable by making facade edges optional, a manifest change.
-
-Its own note states the conclusion I arrived at independently and less precisely:
-*"The second list can be closed by making facade edges optional — a manifest
-change. The first cannot: a game that needs actors needs
-`ambition_platformer2d_actor_monolith`, which brings them. That is what makes the
-footprint irreducible without moving code."*
-
-⇒ **So this pressure point is already measured, already guarded, and already
-kept current** — the baseline records `registry_core_entered_the_closure_2026_09_03`,
-the same day that edge landed. Anyone re-measuring should run
-`scripts/check_absence_contracts.py` rather than a fresh `cargo tree`.
-
-⭐ **What an independent measurement DID add**, having agreed with the baseline
-at the `closure_size` of the day (45 then; 46 since `bbfa38a3d` added
-`ambition_held_items` — the pair drifts with every carve, so
-`python3 scripts/check_absence_contracts.py | grep footprint` prints the live
-one rather than this sentence): the closure is insensitive to what a consumer
-asks for.
-`fixtures/external_consumer` requests TWO capabilities and
-`fixtures/minimal_game` requests ONE, and both inherit the SAME ten optional
-capability crates. The baseline uses only the one-capability sentinel, so this is
-the half it does not cover.
-
-⭐⭐ **AND THE STRICTER SENTINEL GETS THE SAME TEN.** `fixtures/minimal_game`
-asks the facade for exactly ONE capability — `ambition_render`, nothing else —
-and links **45** `ambition_*` crates and the SAME ten capability crates as
-outlander, which asked for two. ⇒ **The closure is not a function of what a
-consumer requests.** Asking for less changes the count by one crate, because
-what arrives is decided by the facade's non-optional core, not by the feature
-list. That is the sharpest available statement of this pressure point, and it is
-why more feature flags cannot answer it.
-
-⚠ Fixture-quality note, not a finding: `minimal_game` has a committed
-`Cargo.lock` and resolves `--offline`; `external_consumer` has neither and needs
-`bevy_gltf`, which the main workspace never fetches, so it cannot be measured on
-a fresh host without network.
-
-## ✔ C2's first carve — `ambition_mount`, 7 rows → 0
-
-⭐ The crate had **no `Plugin` at all**: the runtime added three message channels
-and four of its private systems by name, and the actor monolith added two more.
-It now ships `MountPlugin`, `install_mount_simulation_systems` and
-`install_mount_pose_systems`; every caller adds a plugin and names a PHASE.
-
-⇒ **The architecture note's own worked example is gone from the tree.** It named
-`(ambition_mount::enforce_mount_rider_link, actor_monolith::features::rebuild_dismounted_rider_brains).chain()`
-— one crate fixing the relative order of two OTHERS' private systems. The rebuild
-answers a `MountDied` the mount crate announces, so it orders itself
-`.after(MountRiderLinkEnforced)`. Foreign ordering 78 → 75.
-
-⛔⛔ **AND A REVIEW ARRIVED AFTER IT LANDED SAYING NOT TO CARVE MOUNT FIRST.** The
-objection is sound and worth recording rather than quietly keeping: mount is one
-of the two direct writers in unresolved prerequisite **B**, and carving its
-scheduling ownership first risks freezing a control-authority violation into the
-new capability contract. Sequencing offered instead: menu / time / input /
-dev-tools.
-
-⇒ **MY ASSESSMENT, stated so it can be argued with.** The risk did not
-materialise, and the reason is checkable: **not one published set names control
-authority.** `MountRiderLinkEnforced`, `MountsBoarded`, `RideLeasesTicked`,
-`DismountRequestsApplied`, `MountsSteeredByRiders`, `RidersSyncedToMounts` all
-name RIDE LIFECYCLE stages. B's arbiter changed what those systems DO — they file
-a claim instead of assigning `TemporaryControl` — and renamed none of them. B is
-now landed, which settles the sequencing question in the only way that actually
-closes it. ⚠ Had the carve published a set called anything like
-`RiderControlAssigned`, the objection would have been right and the fix would have
-been a rename in every consumer.
-
-### The next C2 rows
-
-| capability | rows | note |
-|---|---|---|
-| `ambition_menu` | 6 | plugin and `shared_tangle` dep both present; held by the peer |
-| `ambition_time` | 7 | |
-| `ambition_input` | 13 | |
-| `ambition_dev_tools` | 12 | |
-| `ambition_combat` | 53 | blocked on **Q73** — a written no-plugin refusal |
-
-⭐⭐ **AND A NEW ONE, FOUND BY ACCIDENT, WHICH IS THE BEST ARGUMENT ON THIS PAGE.**
-A peer measured that `apply_placeholder_sprites_override` and
-`apply_hide_sprites_override` are registered in exactly ONE place tree-wide —
-`game/ambition_app/src/app/plugins.rs`. The standalone demo hosts compose their
-own thin host and never install them. ⇒ **`DebugArtMode` is a live setting in the
-shell and a DEAD one in every demo host**: pressing the key in the Mary-O or Sanic
-demo changes a resource nothing reads, and nothing says so.
-
-⇒ **A capability whose REACH is a property of which binary you launched is not a
-capability, it is a coincidence.** Every other row here is an argument that can be
-answered with "but nothing is broken today". This one cannot. Owner:
-`ambition_render` + `ambition_dev_tools`. ⚠ It also sharpens **Q73**: a plugin
-that installs a debug mode unconditionally claims WHEN as well as WHERE, and
-which hosts get a debug art mode is a host decision.
+A capability should not infer game policy from which demo plugin happened to be
+installed. A game should not permanently mutate host-global policy to activate a
+session rule.
 
 ## Target shape
 
 ```text
-Game / Experience definition
-    + authored content providers
-    + capability declarations
-    + host services
-    + local presentation policy
-          |
-          v
-Prepared capability plan
-          |
-          +--> headless runtime host
-          +--> desktop rendered host
-          +--> mobile rendered host
+game / experience
+    -> selects ruleset policy + capability composition
+
+runtime
+    -> owns global phases and deterministic cross-domain schedule
+
+capability plugin/installer
+    -> owns private systems + state + rollback declarations
+    -> installs into published phases/sets
+
+host
+    -> adds window/input/audio/network/presentation services
+
+public facade
+    -> exports supported semantic composition surfaces
 ```
-
-The plan is not a service locator. It records what is installed, validates
-requirements/conflicts and lowers to ordinary Bevy plugins/resources.
-
-## Phases
-
-### C1 — inventory from actual consumers
-
-Use Ambition, Mary-O, Sanic, TwinTrack, Smash and the external-consumer fixture to
-identify capability families that have independent customers.
-
-### C2 — choose one leaky capability
-
-Pick a capability whose absence still drags in unrelated crates/runtime behavior.
-Carve its declaration/installation boundary and prove a minimal consumer no
-longer inherits the unwanted dependency.
-
-Choose the slice for dependency/ownership value, not because system count is
-expected to move frame time.
-
-### C3 — align content/construction declarations
-
-A capability that contributes authored schema/construction lanes must have a
-coherent installation contract. Avoid states where compile-time support says a
-room may build a feature while the runtime fingerprint says that capability is
-absent.
-
-### C4 — separate host services where substitution is real
-
-Audio, persistence, networking transport, window/input devices and renderer
-services may become explicit host/service contracts where actual consumers need
-substitution. Do not abstract all of them preemptively.
-
-### C5 — narrow the facade
-
-Expose semantic capability names and stable game-author APIs. Keep internal crate
-moves behind the facade.
 
 ## Acceptance
 
-- a minimal external game selects a small capability set and its dependency tree
-  reflects that choice;
-- Ambition composes the rich engine without privileged hidden paths;
-- adding an optional domain does not require edits in unrelated runtime/game
-  crates merely to register its state/content;
-- capability conflicts/missing requirements fail during preparation with useful
-  diagnostics;
-- internal decomposition can continue without forcing external game code to
-  follow crate topology;
-- any claimed performance/startup benefit is backed by a new comparable
-  measurement rather than inferred from fewer plugins/crates.
+C2 is complete enough for Engine 1.0 when:
 
-## ⭐ A DEMO PLUGIN'S `build` REACHES THE AGGREGATE APP, and `run_if` cannot gate it — 2026-09-06
+1. capability/ruleset code has zero foreign-private-system ordering;
+2. capability-owned private systems are installed by their capability;
+3. remaining centralized registrations are documented cross-capability
+   composition rather than historical leftovers;
+4. optional capabilities are absent-capable and rollback-gated;
+5. ruleset policy restores prior engine policy exactly;
+6. supported minimal/headless/windowed compositions install only the populations
+   they claim;
+7. the public facade exposes durable semantic boundaries rather than monolith
+   internals.
 
-**Three bugs in one day, by three different people, all the same shape:**
+## Standing prohibitions
 
-```text
-99ab15e32  Smash was deleting another plugin's resources on the way out
-03e6f6638  a stock loss wipes the Limit
-0d6ace5a7  dying granted the Limit for a frame
-```
+- do not chase a zero foreign-install count;
+- do not add public sets merely to make a metric smaller;
+- do not order a capability against a foreign concrete system;
+- do not move cross-capability policy into one participant to make composition
+  disappear;
+- do not call compile-time optionality runtime dynamism;
+- do not preserve dated carve transcripts in this live page.
 
-Each was smash-plugin state reaching `ambition_app`, Ambition's own game.
-
-⛔⛔ **AND A MODE GATE CANNOT HELP, WHICH IS THE MECHANISM.** A demo gates its
-SYSTEMS by mode — smash binds `in_mode(SMASH_MODE)` to a `gate` and reuses it,
-mary_o spells it inline eleven times — but `app.insert_resource(..)` inside
-`Plugin::build` runs when the plugin is ADDED, and **there is no run condition on
-a plugin's build**. So every resource inserted there exists in whatever app
-composes the demo, for the whole process, in every mode.
-
-⭐ **MEASURED** (`scripts/demo_resources_inserted_at_plugin_build.py`), and the
-SPREAD is the finding:
-
-```text
-ambition_demo_smash      14        ← every known instance of the leak is here
-ambition_demo_mary_o      5
-ambition_demo_sanic       3
-ambition_demo_twintrack   2
-ambition_demo_pocket      0   ← defines a plugin, inserts NOTHING
-```
-
-⚠ **Not all 14 are wrong, and the census says so rather than failing.** A demo's
-own tuning and its own select-screen state belong there; so does
-`FeatureEcsWorldOverlay`, which mary_o and sanic both insert because a composition
-without the engine's plugin still needs the overlay to exist. The ones to look at
-are types the demo does NOT define which another system in the aggregate app also
-reads — `SeatMenuFrames`, `ActiveUiCues` and `LocalSeatOffer` are in smash's
-column and in the engine's resource population both.
-
-⇒ **The fix the fighter lane already named for its own case is the general one:
-route-scope the insertion** rather than gating the readers. That is their lane;
-this row is the census and the pattern, so the next instance is recognised as the
-fourth rather than diagnosed from scratch.
-
-✔ **AND THE FIRST ONE IS DONE, MEASURED HERE RATHER THAN REPORTED.**
-`SmashLimitFill` is route-scoped: the census reads **23 across FIVE demos, smash 13**,
-down from 24/14, and the resource now moves through the stage route's
-insert-on-arrival / restore-prior-on-leave pair. ⇒ the count is a receipt, which
-is why it is worth having a census for a pattern rather than only fixes.
-⚠ **AND THE POPULATION IS FIVE, NOT FOUR — the fifth was invisible until a
-count floor was replaced by MEMBERSHIP.** `ambition_demo_pocket` defines a
-`Plugin::build` and inserts nothing in it, so it never appeared in a report that
-only listed demos WITH insertions — and a reader seeing four rows concludes there
-are four demos. Zero is printed now. ⇒ the floor that found it also could not have
-caught this file's own spelling bug (`MIN_DEMOS = 3` against four passes when
-exactly one drops out, which is what losing `&mut bevy::prelude::App` did).
-
-✔ **AND A SECOND OVERWRITING INSERT NOW FAILS — `MAX_OVERWRITING_FOREIGN_INSERTS
-= 1`, 2026-09-06.** The membership floor catches a demo disappearing from the
-sweep and was blind to one ADDING an overwriting `insert_resource` of a foreign
-type — precisely the shape behind all three bugs above. The report printed such a
-line and the run exited 0. ⚠ Today's one is smash's `RespawnInterval`, whose own
-doc makes smash the sole production owner, so the ceiling is 1 rather than 0.
-Poison-verified in the ADDITION direction, which is the case a floor cannot reach.
-
-⚠ **AND THE NARROWING RULE I PROPOSED WOULD HAVE MISSED IT.** "Inserted at build
-AND defined outside the demo" catches six of smash's remaining thirteen
-(`RespawnInterval`, `SmashStageChoice`, `SmashStockChoice`, `SeatMenuFrames`,
-`LocalSeatOffer`, `ActiveUiCues`) — but `SmashLimitFill` is smash's OWN type, and
-it caused two of the three bugs. The property that catches both is on the READER
-side: a system that holds the resource and queries a component the demo does not
-own. ⛔ Measured, that rule as stated is too broad — every select-screen system
-matches it through bevy's `Node`/`Text`/`Visibility`, so it wants "a component
-defined in an `ambition_*` crate", and even then the population needs a human.
-
-⛔ **A measurement note that is half the value here.** This file's matcher was
-wrong twice, and the failure direction is the dangerous one: `fn build` is written
-both `&mut App` and `&mut bevy::prelude::App`, and the short spelling ALONE
-reported smash as **zero** — the demo with the most insertions and every known
-instance of the bug. An under-matching census reports the cleanest possible answer
-about the dirtiest crate. Both spellings are pinned by a unit test.
+Use git history for the removed 2026-09-03 through 2026-09-07 measurement and
+carve narrative.

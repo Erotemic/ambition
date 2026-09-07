@@ -492,6 +492,68 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     let bivalence = feel(bivalence, Feel::Special);
 
+    // ⭐⭐ THE LIMIT PAYOFF, AND IT IS THE SAME PRESS. A full Limit meter turns
+    // George's neutral special into the version below; an empty one gives him
+    // exactly the `bivalence` that has always been there. ⇒ **A button the player
+    // already knows gives a different answer once the match has been fought**,
+    // and it took no engine change at all: `meter_cost`, `when_refused` and
+    // `afford_meter` were all already shipped, and the goblin's charged dive
+    // already proves the shape.
+    //
+    // ⚠ AND IT IS THE WHOLE METER, NOT "BLOCK YOUR WAY TO IT" — I wrote that
+    // first and the arithmetic does not support it. Against `JONS_BASELINE`
+    // (cap 60), blocking ALONE would take 60 blocks; damage taken alone 30 hits;
+    // the clock alone 120 seconds. What actually fills it is the mixture: a
+    // sixty-second exchange with ten hits taken, ten dealt and eight blocks
+    // scores 68. ⇒ Blocking CONTRIBUTES to the payoff — eight of those
+    // sixty-eight — which is the honest version of "successful defence has a
+    // consequence". A comment claiming the stronger thing would have been a
+    // design promise no number keeps.
+    //
+    // ⛔ THE SMASH ROSTER HAD NO CUSTOMER FOR THIS METER, MEASURED 2026-09-06.
+    // Every non-zero `meter_cost` in production belonged to `goblin_moveset.rs`
+    // — an enemy, not a 1v1 fighter — so the block source added that morning
+    // filled a meter no fighter on the roster could spend. A capability with a
+    // filler and no spender is the same defect as one with a spender and no
+    // filler; it just fails quietly on the other end.
+    //
+    // ⛔⛔ THE CLONE IS TAKEN BEFORE THE BUFF, and the goblin's own comment says
+    // why in as many words: cloned AFTER, the "cheap" fallback would be the
+    // expensive move and the meter would buy nothing. The order is the mechanic.
+    let bivalence_unmetered = {
+        let mut spec = bivalence.clone();
+        spec.id = "bivalence_unmetered".to_string();
+        spec
+    };
+    let bivalence = ambition_platformer2d::entity_catalog::MoveSpec {
+        gates: ambition_platformer2d::entity_catalog::MoveGates {
+            // ⚠ EXACTLY THE CAP (`LimitMeterFill::JONS_BASELINE.cap`), which is
+            // how "available when the meter is full" is spelled here — nothing
+            // new decides it, `afford_meter` refuses anything less.
+            meter_cost: 60.0,
+            // ⚠ BOUND TO NO VERB, like the goblin's fallback: `move_by_id`
+            // searches every move the contract carries, so this needs an id and a
+            // place in `moves`, not a press of its own.
+            when_refused: Some(bivalence_unmetered.id.clone()),
+            ..bivalence.gates.clone()
+        },
+        ..bivalence
+    };
+    // The payoff is THE SAME STRIKE MADE DECISIVE rather than a second move:
+    // everything a player already read about the two windows stays true, and the
+    // number they cannot miss is what changed. George's late window is his
+    // commitment; this is what committing all match buys.
+    let bivalence = {
+        let mut spec = bivalence;
+        for window in &mut spec.windows {
+            for volume in &mut window.volumes {
+                volume.damage = (volume.damage as f32 * 1.5).round() as i32;
+                volume.knockback *= 1.35;
+            }
+        }
+        spec
+    };
+
     // SIDE — `modus_ponens`. *If you are there, then you are here.* A
     // travelling body-check: the burst is `Set`, so it erases whatever George was
     // doing and replaces it with one committed direction, and the tail cannot be
@@ -709,6 +771,10 @@ pub fn george_booul_moveset() -> MovesetContract {
     repertoire
         .moves
         .extend(crate::moveset::jab_string_continuations());
+    // ⇒ AND THE UNMETERED FALLBACK, which is a move the contract must CARRY and
+    // no input may reach. Pressed with an empty meter, `accepted_or_variant`
+    // finds it by id and George swings the special he always had.
+    repertoire.moves.push(bivalence_unmetered);
 
     // the disjunction is checked WHERE IT IS AUTHORED, not only in the
     // test module. These two numbers are the character; a move edited into the
@@ -1378,6 +1444,106 @@ mod tests {
             !targets.is_empty(),
             "`grab` named a continuation nothing in George's table answers to; \
              the window would open onto nothing"
+        );
+    }
+}
+
+#[cfg(test)]
+mod limit_payoff_tests {
+    use super::george_booul_moveset;
+
+    fn spec(id: &str) -> ambition_platformer2d::entity_catalog::MoveSpec {
+        george_booul_moveset()
+            .move_by_id(id)
+            .unwrap_or_else(|| panic!("the contract carries `{id}`"))
+            .clone()
+    }
+
+    fn top_damage(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> i32 {
+        spec.windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.damage)
+            .max()
+            .expect("the special hits")
+    }
+
+    /// ⛔⛔ AN `id` WITH NO MOVE BEHIND IT IS A DEAD BUTTON, and nothing else in
+    /// the build says so. `when_refused` is resolved with `move_by_id` against
+    /// the moves the contract CARRIES; a fallback that is authored, named, and
+    /// never pushed into `moves` resolves to `None`, and `accepted_or_variant`
+    /// returns `None` — so pressing neutral-B on an empty meter does NOTHING.
+    ///
+    /// ⇒ The compiler cannot ask for this: the id is a `String`. It is the exact
+    /// shape of the `detail: _` defect a peer found this morning — a field
+    /// authored, paid for, and read by nobody, except here the silence is a
+    /// button that stops working.
+    #[test]
+    fn the_metered_special_falls_back_to_a_move_the_contract_actually_carries() {
+        let payoff = spec("bivalence");
+        let fallback_id = payoff
+            .gates
+            .when_refused
+            .clone()
+            .expect("the metered special names a fallback");
+        assert!(
+            george_booul_moveset().move_by_id(&fallback_id).is_some(),
+            "`bivalence` falls back to `{fallback_id}`, which the contract does \
+             not carry — on an empty meter the press resolves to nothing and the \
+             button is dead"
+        );
+    }
+
+    /// ⛔⛔ THE ORDER IS THE MECHANIC, and the goblin's own charged dive carries
+    /// the warning in as many words: clone the fallback AFTER the buff and the
+    /// "cheap" version IS the expensive one, so the meter buys nothing and every
+    /// other test still passes — the move works, it is simply free.
+    ///
+    /// ⇒ This is the assertion that the meter is worth spending. It compares the
+    /// two specs a player can actually receive from one press.
+    #[test]
+    fn a_full_meter_buys_a_strictly_harder_answer_from_the_same_press() {
+        let payoff = spec("bivalence");
+        let unmetered = spec("bivalence_unmetered");
+        assert!(
+            top_damage(&payoff) > top_damage(&unmetered),
+            "the metered neutral special ({}) must hit harder than the one an \
+             empty meter gives ({}), or blocking all match bought nothing",
+            top_damage(&payoff),
+            top_damage(&unmetered),
+        );
+        assert_eq!(
+            unmetered.gates.meter_cost, 0.0,
+            "the fallback must be free; a priced fallback is refused by the same \
+             affordance that refused the payoff, and the press dies"
+        );
+    }
+
+    /// ⚠ THE PRICE IS THE CAP, which is how "available exactly when the meter is
+    /// full" is spelled — `afford_meter` refuses anything less and nothing new
+    /// decides it. A price BELOW the cap is a different mechanic (a chargeable
+    /// resource) and would be a balance decision, not a typo to leave standing.
+    #[test]
+    fn the_price_is_the_whole_meter() {
+        assert_eq!(
+            spec("bivalence").gates.meter_cost,
+            ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE.cap,
+            "the payoff must cost exactly the match's Limit cap"
+        );
+    }
+
+    /// ⭐ THE FALLBACK IS CARRIED, NOT PRESSABLE. If it ever acquires a verb the
+    /// player can reach the cheap version directly and the meter stops being a
+    /// choice.
+    #[test]
+    fn the_fallback_is_bound_to_no_input() {
+        assert!(
+            !george_booul_moveset()
+                .verbs
+                .iter()
+                .any(|(_, id)| id == "bivalence_unmetered"),
+            "the unmetered fallback has been bound to an input; it is reachable \
+             only by refusal, or the meter buys nothing"
         );
     }
 }

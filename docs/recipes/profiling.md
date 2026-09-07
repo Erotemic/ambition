@@ -217,7 +217,18 @@ tick and prints the per-phase deltas + total to stderr:
 
 Phase marks are inserted between Startup-chained systems via
 `profiling::phase_mark("name")`. The defaults today bracket
-`load_data_asset_handle` and `setup_simulation_system`. Add more by
+`setup_host_presentation_system` (`before_setup_presentation` /
+`after_setup_presentation`), audio init, and the map-menu spawn.
+
+<!-- ⚠ REPOINTED 2026-09-06. This named `load_data_asset_handle` and
+`setup_simulation_system`; the latter was DELETED as dead — it was ordered  <!-- cite-ok: recording the deleted name on purpose -->
+against by an `.after(...)` and never registered, so removing that one false
+edge let rustc name it plus two `SystemParam` structs it had been keeping
+alive. ⇒ A recipe naming a system is a citation, and a dead system is exactly
+the kind that leaves no compiler error behind when the prose keeps mentioning
+it. -->
+
+Add more by
 chaining `phase_mark(...)` between Startup systems in
 [game/ambition_app/src/app/plugins.rs](../../game/ambition_app/src/app/plugins.rs):
 

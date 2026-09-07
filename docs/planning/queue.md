@@ -5467,12 +5467,17 @@ OPTIONAL dep + feature, never used:
   ⭐ **Validated in both directions before it was believed.** Three
   newly-reported names were spot-checked by hand and all three are genuinely
   test-only — `new_peaceful_npc` looked like a false positive (a caller at
-  `features/npcs.rs:770`, not a test path) until the file showed `#[cfg(test)]`
-  at :666, so the caller is inside the module. The dangerous direction is pinned
+  `features/npcs.rs:611`, not a test path) until the file showed `#[cfg(test)]`
+  at :507, so the caller is inside the module. The dangerous direction is pinned
   by `test_the_orphan_census_reads_inline_test_modules.py`, whose
   `test_code_after_the_test_module_is_still_production` reddens under exactly
   the naive truncation above — poison-verified by making that change and
   watching that one arm fail while the other three passed.
+  ⚠ **BOTH LINE NUMBERS REPOINTED 2026-09-06** — they were `:770` and `:666`
+  when measured and the file has shrunk since. The CLAIM is unchanged and was
+  re-verified against the current file: the caller is still inside the inline
+  test module. ⇒ A historical row's citations still have to resolve, or the
+  checker cannot tell a record from a fabrication.
   ⓘ **The same blind spot appears on the `Consumed` card in `tracks.md`**, found
   an hour earlier from the other end: two mentions that CONSTRUCT the variant
   sit in in-file test modules and read as producers to a path-based filter.

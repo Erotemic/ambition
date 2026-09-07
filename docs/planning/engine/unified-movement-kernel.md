@@ -116,6 +116,34 @@
   is reachable in production rather than theoretical, which is what decides whether the
   exercise is worth writing.
 
+  ⭐⭐⭐ **AND THE CORRECT API ALREADY EXISTS AND A SIBLING USES IT — this is the
+  strongest form of the finding.** `shared_tangle::gravity::gravity_dir_for(aabb, zones,
+  base_dir)` resolves gravity for a body AT ITS OWN POSITION. `character_sprites`'
+  `sync_sprite_posed_bodies` takes BOTH `Res<GravityField>` and `Res<GravityZones>` and
+  calls it with the body's own box (`posed_body.rs:154`):
+
+  ```rust
+  let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
+      (Some(field), Some(zones)) =>
+          gravity_dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5), zones, field.dir),
+      (Some(field), None) => field.dir,
+      _ => ae::DEFAULT_GRAVITY_DIR,
+  };
+  ```
+
+  `portal2d/transit.rs` calls `gravity_dir_or_default(field)` and mentions
+  `GravityZones` **ZERO** times. ⇒ Two consumers of "which way is down for THIS body",
+  one per-body resolver, and only one caller uses it. ⭐ **The repair is therefore named
+  rather than designed:** transit takes `zones` and calls `gravity_dir_for` with the
+  transiting body's AABB, inside the per-body loop rather than once above it.
+
+  ⚠ **TWO WRONG READINGS WERE DISCARDED GETTING HERE, both recorded so nobody repeats
+  them:** (1) "transit ignores zones entirely" — false, `resolve_active_gravity` copies
+  a zone's direction into the field; the defect is the single global mirror, not
+  zone-blindness. (2) "`posed_body`'s comment claiming *the body's LOCAL gravity* is
+  false" — also false; it takes `GravityZones` on the next line and genuinely resolves
+  per-body. It is the CORRECT example, not a second defect.
+
   ⭐ **AND THE SYMPTOM IS SPECIFIC, which is what makes it findable in play.**
   `gravity_dir` feeds exactly one decision — `placement.rs:92`:
 

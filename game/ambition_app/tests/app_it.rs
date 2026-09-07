@@ -28,6 +28,7 @@ mod app_local_catalog_composition;
 mod attempt_scoped_retraction;
 mod asset_id_platform_parity;
 mod author_teleport_blink;
+mod the_author_leaves_a_note;
 mod authored_fighter_ladder;
 mod blink_run_reachability;
 mod boomerang_hits_both_legs;

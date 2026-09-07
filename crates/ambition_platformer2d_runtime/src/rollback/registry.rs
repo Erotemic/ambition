@@ -281,7 +281,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// arbiter — and the projection alone is not enough to restore, because a rewind
 /// that dropped a shadowed claim would resume with a possession or a ride the
 /// simulation had forgotten. New state on the wire, so peers must agree on it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 165;
+/// ⭐ 165 -> 166 (2026-09-07): `smash.body_mark` grew two fields and its probe
+/// changed. The mark now carries the ATTACKER'S SEAT (the blast's credit) and
+/// the authored fuse (the telegraph's denominator), and the probe folds the
+/// seat in — two peers agreeing on WHEN a mark goes off and disagreeing on WHO
+/// is credited is a kill on different fighters on the two screens.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 166;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

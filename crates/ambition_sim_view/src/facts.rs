@@ -310,6 +310,39 @@ pub fn rebuild_mark_beacons_view(
     view.0.extend(marks.iter().filter_map(|mark| mark.pos));
 }
 
+/// A countdown riding one body that the PLAYER must be able to read.
+///
+/// ⭐ THE GENERIC HALF OF A STATUS TELEGRAPH. A delayed mark, a poison, a
+/// burning fuse — anything that puts a clock on a body and sells the read — is
+/// this row: where the body is, how tall it is, and how much of the clock is
+/// left. Presentation draws the row and knows nothing about which mechanic wrote
+/// it, which is the E4 rule every other view here follows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyClockFact {
+    /// The body the clock rides. A drawable that presents it says so with
+    /// `PresentationOf(body)`, which is how a portal pane learns to clip it.
+    pub body: Entity,
+    pub pos: ae::Vec2,
+    /// Half the body's height, so the telegraph can sit above the head.
+    pub half_height: f32,
+    /// `1.0` fresh down to `0.0` on the tick it runs out.
+    pub remaining_fraction: f32,
+}
+
+/// Every readable clock on every body this tick.
+///
+/// ⚠ CLEARED HERE, FILLED ELSEWHERE. This crate cannot see the mechanics that
+/// put clocks on bodies — the delayed mark is a smash ruleset component — so
+/// `rebuild_body_clocks_view` only empties the row set, and each contributor
+/// pushes its clocks ordered `.after` it in the same phase. A contributor that
+/// forgot the ordering would race the clear and flicker, which is visible.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct BodyClocksView(pub Vec<BodyClockFact>);
+
+pub fn rebuild_body_clocks_view(mut view: ResMut<BodyClocksView>) {
+    view.0.clear();
+}
+
 /// Every gravity-flip switch's geometry.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct GravitySwitchesView(pub Vec<GravitySwitchFact>);
@@ -808,6 +841,7 @@ impl Plugin for SimViewPlugin {
             .init_resource::<GroundItemsView>()
             .init_resource::<WorldItemsView>()
             .init_resource::<MarkBeaconsView>()
+            .init_resource::<BodyClocksView>()
             .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
             .init_resource::<HostileWieldedItemsView>()
@@ -831,6 +865,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_ground_items_view,
                 rebuild_world_items_view,
                 rebuild_mark_beacons_view,
+                rebuild_body_clocks_view,
                 rebuild_gravity_switches_view,
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,

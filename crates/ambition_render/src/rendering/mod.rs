@@ -32,6 +32,7 @@ pub mod label_layout;
 pub mod knockout;
 pub mod launch_trail;
 pub mod mark_beacon;
+pub mod body_clock;
 pub mod morph_ball;
 pub mod submerged;
 pub mod moving_platforms;
@@ -276,6 +277,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
+                    // A readable clock above a body that carries one — the
+                    // delayed mark's telegraph. After `sync_visuals` so it sits
+                    // on this frame's pose.
+                    body_clock::sync_body_clock_visuals.after(actors::sync_visuals),
                     // Reconciled from `MovingPlatformSet` here, it derives and never writes — see
                     // `moving_platforms`.
                     moving_platforms::sync_moving_platform_visuals,

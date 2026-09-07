@@ -1149,12 +1149,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::mine::arm_placed_mines,
                 crate::mine::place_or_detonate_authored_mines,
-                // ⭐ THE MARK'S TWO HALVES, chained for the same reason the
-                // mine's are: a mark applied on this tick must not also DETONATE
-                // on it. Apply-then-tick means the fuse the moveset authored is
-                // the fuse the victim gets, rather than one frame less.
-                crate::mark::apply_authored_body_marks,
+                // ⭐ THE MARK'S TWO HALVES, TICK THEN APPLY. This read
+                // apply-then-tick with a comment claiming it gave the victim the
+                // authored fuse; it did the opposite — the tick that applied a
+                // mark also spent one `sim_dt` of it, so a one-tick fuse went
+                // off on the tick it was attached. Ticking first makes the tick
+                // of application tick ZERO of the fuse. A GPT review found the
+                // comment and the code disagreeing, 2026-09-07.
                 crate::mark::detonate_body_marks,
+                crate::mark::apply_authored_body_marks,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -1163,6 +1166,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             crate::counter::hold_counter_parry_windows
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // THE MARK'S READ. The generic body-clock view is cleared by its owner
+        // in the sim tail; this contributes the marks after the clear.
+        app.add_systems(
+            sim,
+            crate::mark::publish_mark_clocks
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync)
+                .after(ambition_platformer2d::sim_view::rebuild_body_clocks_view),
         );
         // …and the ANSWER, once the verdict is in.
         //

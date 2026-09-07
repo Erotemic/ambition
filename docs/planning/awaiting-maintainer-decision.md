@@ -4533,3 +4533,32 @@ already in place (`GridMenuNav` / `KaleidoscopeMenuNav`, landed `0e2b46bc0`).
 sharpest — the inventory backends racing each other, which is the mechanism behind
 your *"it also seems non deterministic which menu is chosen"* — are fixed and
 poison-verified. A tenth cannot land silently. This is the residue.
+
+## Q74 — three declared dependency seams have no user. Keep the seam, or cut it? (2026-09-07)
+
+**Two of the five optional edges are already cut and needed no ruling** — their
+features do more than pull the dep, so dropping the `dep:` left them meaningful
+(`6892a9cbe`, `2f6c857c1`). The three below cannot be settled by measurement,
+because each one's answer is what you MEANT, and cutting changes a declared seam
+rather than removing a redundancy.
+
+**All three re-derived at HEAD 2026-09-07: zero `.rs` files in the owning crate
+name the dependency.** That is not in question; what to do about it is.
+
+| edge | the feature | what cutting COSTS |
+|---|---|---|
+| `ambition_characters` → `ambition_causal` | `causal = ["dep:ambition_causal"]` | the feature becomes EMPTY. Its comment says *"Publish this capability's causal facts (brain decisions, for now)"* — a seam declared ahead of its use. Cutting says the plan is off; keeping says it is pending |
+| `ambition_platformer2d` → `ambition_sfx_bank` | `all_capabilities`, which is the crate's `default` | narrows what `default` MEANS. This is a ROSTER of ~20 crates the facade offers, not a wiring; removing one line changes the advertised surface |
+| `ambition_touch_input` → `ambition_cutscene` | `mobile_touch` | least costly of the three: it sits among nine `dep:` lines that ARE used, and only this one is unnamed in source — it reads as a wire planned and never run |
+
+⇒ **THE QUESTION, per edge: is this a seam you still intend to use, or a plan that
+lapsed?** A "cut all three" is one line each plus a lockfile, and I will verify each
+the way the two cut ones were (crate checked with its own feature on, lockfile
+losing exactly the edge, absence contracts). A "keep" is equally fine and costs
+nothing — but then the row should say KEPT-ON-PURPOSE, because right now these read
+as oversights to every future reader who counts them.
+
+⚠ **The capability footprint does NOT move either way** (51 linked / 23
+never-asked-for, unchanged across both cuts). This is not a cost win and should not
+be sold as one. The value is that the dependency graph stops claiming edges nobody
+uses, which is why it is worth a minute of your intent and not more.

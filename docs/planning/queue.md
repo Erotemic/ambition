@@ -1112,6 +1112,16 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   | collision-derived (the defect) | **403.429** | 0.0000 | +19.8, OUTSIDE |
   | authored quad + CENTER (the fix) | **383.619** | 0.6047 | **INSIDE** |
 
+  ⚠ **THE POISON IS SHARED, SO IT A/Bs THE PLAYER AND NOT THE ACTORS.** Disabling the
+  CENTER arm disables it for BOTH roads, and pre-fix the ACTOR road already took that
+  arm -- so the poisoned actor rows (3-group sum 384.547, snakes 383.713 -> 384.287)
+  are an artifact of the toggle, NOT a pre-fix actor baseline. Anyone re-running this
+  A/B will see actors move and must not read it as a regression.
+  ⇒ Actors are unchanged by ARGUMENT, which is sound here because the condition is
+  textually the same: `view.sprite_offset.is_some()` became
+  `view.sprite_offset.map(..).is_some()`, and `.map(f).is_some()` equals `.is_some()`.
+  A measured actor A/B would need the original two-road code restored, not this toggle.
+
   403.429 - 383.619 = **19.810**, and `authored_offset.y` is 19.8095. ⇒ The fix moves
   her by exactly one authored offset and lands her in the same band as every other
   sheet-authored character in the frame. The cause was TWO derivations of one fact:

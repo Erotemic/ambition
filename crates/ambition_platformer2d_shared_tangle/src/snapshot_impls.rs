@@ -193,6 +193,40 @@ impl SnapshotState for crate::gravity::GravityField {
 /// possess/release boundary left the body in the wrong mode. Reconciliation
 /// rebuilds the live control (`DrivingParticipant` / `Mounted`) and its relationships
 /// from the restored id.
+/// ⭐⭐ THE CLAIMS TRAVEL, NOT JUST THE WINNER. `TemporaryControl` is the
+/// projection and is snapshotted too, but restoring only the projection loses
+/// every SHADOWED claim — rewind across a possession taken over a live ride and
+/// the ride would come back as nothing at all, so releasing the possession would
+/// project `Autonomous` on a body that is still riding. ⇒ Both optional ids are
+/// on the wire, and the projection is recomputed from them every tick anyway.
+impl SnapshotState for crate::temporary_control::ControlClaims {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for slot in [self.possession(), self.mount()] {
+            match slot {
+                Some(id) => {
+                    put_u8(out, 1);
+                    put_str(out, id.as_str());
+                }
+                None => put_u8(out, 0),
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use crate::sim_id::SimId;
+        let mut slots = [None, None];
+        for slot in slots.iter_mut() {
+            *slot = match r.u8()? {
+                0 => None,
+                1 => Some(SimId::from_snapshot(r.str()?.to_string())),
+                _ => return None,
+            };
+        }
+        let [possession, mount] = slots;
+        Some(Self::from_parts(possession, mount))
+    }
+}
+
 impl SnapshotState for crate::temporary_control::TemporaryControl {
     fn encode(&self, out: &mut Vec<u8>) {
         use crate::temporary_control::TemporaryControl as T;

@@ -145,6 +145,22 @@ pub use ecs::{
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
+
+/// The actor read model has been rebuilt for this tick.
+///
+/// ⭐⭐ PUBLISHED BECAUSE TWO OTHER DOMAINS ALREADY DEPENDED ON IT AND HAD
+/// NOTHING TO NAME. `ambition_mount`'s rider mirror and `ambition_combat`'s
+/// capture pose both have to run after this module rebuilds its read model, and
+/// both were saying so by naming `sync_actor_read_model` — a private function of
+/// this crate. ⇒ That is a contract with no signature: splitting the system in
+/// two, renaming it, or moving it behind a wrapper breaks a promise to two
+/// crates that never agreed to it and cannot see it break.
+///
+/// ⚠ ONE MEMBER TODAY, deliberately, so `.after(ActorReadModelSynced)` means
+/// exactly what `.after(sync_actor_read_model)` meant. The point is not to add a
+/// stage; it is to give the existing stage a name its dependents may hold.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ActorReadModelSynced;
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
     publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
@@ -169,7 +185,6 @@ pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
 pub use crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
 
 use ambition_combat::util::*;
-pub(super) use crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
 
 /// Schedules the gameplay-effect bus chain into
 /// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
@@ -327,7 +342,8 @@ fn configure_actor_decision_phases(app: &mut App) {
 #[cfg(test)]
 mod actor_decision_phase_tests {
     use super::*;
-    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey};
+    use bevy::ecs::schedule::graph::Direction;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey, SystemSetKey};
 
     const DECISION_PHASES: [ActorDecisionSet; 6] = [
         ActorDecisionSet::Targeting,
@@ -425,11 +441,110 @@ mod actor_decision_phase_tests {
             .get_key(set.intern())
             .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet"));
         assert!(
-            graph
-                .hierarchy()
-                .graph()
-                .contains_edge(NodeId::Set(set_key), NodeId::System(system_key)),
-            "{leaf} must be a direct member of {set:?}"
+            phase_ancestors(graph, system_key).contains(&set_key),
+            "{leaf} must run in {set:?}, and no chain of set memberships puts it there"
+        );
+    }
+
+    /// Every set that contains `system`, directly or through other sets.
+    ///
+    /// ⛔⛔ THIS USED TO BE A SINGLE `contains_edge`, AND THE DIFFERENCE IS THE
+    /// WHOLE CAPABILITY-PLUGIN PATTERN. When `ambition_mount` grew its own
+    /// `install_mount_pose_systems`, `steer_mount_from_rider` stopped being a
+    /// direct member of `BeforeIntegrate` and became a member of
+    /// `MountsSteeredByRiders`, which this layer places IN `BeforeIntegrate`. It
+    /// runs in exactly the same phase; only the number of hops changed. A
+    /// one-edge check reads that as the system having left the phase.
+    ///
+    /// ⇒ The question worth guarding is "does this run in that phase", and
+    /// membership is transitive. ⚠ What is NOT relaxed: a system in no phase at
+    /// all still fails, and so does one whose set is placed in a DIFFERENT phase
+    /// — see `a_system_outside_the_phase_is_still_caught`.
+    fn phase_ancestors(graph: &ScheduleGraph, system: SystemKey) -> Vec<SystemSetKey> {
+        let hierarchy = graph.hierarchy().graph();
+        let mut seen: Vec<SystemSetKey> = Vec::new();
+        let mut frontier = vec![NodeId::System(system)];
+        while let Some(node) = frontier.pop() {
+            for parent in hierarchy.neighbors_directed(node, Direction::Incoming) {
+                if let NodeId::Set(key) = parent {
+                    if !seen.contains(&key) {
+                        seen.push(key);
+                        frontier.push(parent);
+                    }
+                }
+            }
+        }
+        seen
+    }
+
+    /// ⭐⭐ THE POISON FOR THE RELAXATION ABOVE, and it is the reason the
+    /// relaxation is allowed to exist.
+    ///
+    /// `assert_membership` was widened from ONE hierarchy edge to any chain of
+    /// them, so that a capability installing its own systems into its own
+    /// published set still counts as running in the phase this layer places that
+    /// set in. ⛔ A widened check is the classic way a guard dies quietly: the
+    /// obvious over-widening — "walk far enough and everything is inside
+    /// everything" — would make it pass for any system in the schedule at all.
+    ///
+    /// ⇒ So this pins the two failures that must survive: a system that belongs
+    /// to NO set anywhere, and a system whose set sits in a DIFFERENT phase. If
+    /// either of these ever passes, the transitive walk has stopped
+    /// discriminating and every assertion above it is decoration.
+    #[test]
+    fn a_system_outside_the_phase_is_still_caught() {
+        use ambition_platformer2d_shared_tangle::schedule::WorldPrepSet;
+        use bevy::prelude::IntoScheduleConfigs as _;
+
+        #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        struct SomeOtherSet;
+
+        fn orphan_system() {}
+        fn wrongly_placed_system() {}
+
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        app.add_systems(sim, orphan_system);
+        app.add_systems(sim, wrongly_placed_system.in_set(SomeOtherSet));
+        app.configure_sets(sim, SomeOtherSet.in_set(WorldPrepSet::ContactDamage));
+
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules.get(sim).expect("sim schedule must exist");
+        let graph = schedule.graph();
+
+        let before_integrate = graph
+            .system_sets
+            .get_key(WorldPrepSet::BeforeIntegrate.intern())
+            .expect("the phase is registered");
+
+        // ⚠ NOT "has no ancestors at all" — the first draft of this asserted that
+        // and failed, correctly. Bevy gives EVERY system its own automatic
+        // `SystemTypeSet`, so a system in no authored set still reports one
+        // ancestor. ⇒ The claim worth making is about AUTHORED PHASES, which is
+        // also the only thing `assert_membership` is ever asked about.
+        let orphan = system_key(graph, "orphan_system");
+        assert!(
+            !phase_ancestors(graph, orphan).contains(&before_integrate),
+            "a system in no authored set is being reported as a member of a phase, \
+             so the walk is inventing membership"
+        );
+
+        let misplaced = system_key(graph, "wrongly_placed_system");
+        let ancestors = phase_ancestors(graph, misplaced);
+        assert!(
+            !ancestors.contains(&before_integrate),
+            "a system placed in ContactDamage is being reported as a member of \
+             BeforeIntegrate, so the transitive walk no longer discriminates \
+             between phases"
+        );
+        let contact_damage = graph
+            .system_sets
+            .get_key(WorldPrepSet::ContactDamage.intern())
+            .expect("the phase is registered");
+        assert!(
+            ancestors.contains(&contact_damage),
+            "and the positive half: a two-hop membership must still be FOUND, or \
+             the walk has been narrowed back to one edge"
         );
     }
 
@@ -940,14 +1055,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `.chain()` around them as well would say the same thing twice, in two
         // vocabularies, and the system-level one is the half that cannot be
         // reasoned about from either domain's crate.
+        // ⛔⛔ AND `steer_mount_from_rider` IS NOT INSTALLED HERE ANY MORE — it
+        // arrives with `install_mount_pose_systems` below, already in its own set.
+        // Installing it in both places is not a duplicate DECLARATION that a
+        // compiler would reject; Bevy adds a SECOND INSTANCE and the mount steers
+        // twice a tick. ⇒ Moving an install is not additive: the old site has to go
+        // in the same edit, and a census that reports the row as MOVED cannot tell
+        // you it was COPIED — both spellings score identically.
         app.add_systems(
             sim,
-            (
-                ambition_combat::capture::systems::tick_capture_holds
-                    .in_set(ambition_combat::capture::systems::CaptureHoldsTicked),
-                ambition_mount::steer_mount_from_rider
-                    .in_set(ambition_mount::MountsSteeredByRiders),
-            )
+            ambition_combat::capture::systems::tick_capture_holds
+                .in_set(ambition_combat::capture::systems::CaptureHoldsTicked)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
@@ -986,30 +1104,42 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
-            sync_actor_read_model.in_set(
+            sync_actor_read_model.in_set(ActorReadModelSynced).in_set(
                 ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
             ),
         );
-        // ⭐ AND IT FOLLOWS THE READ MODEL, exactly as the capture constraint
-        // below does: the coarse-box mirror runs first so an external pose
-        // authority gets the last word.
-        app.add_systems(
+        // ⭐⭐ THE MOUNT CRATE POSES ITSELF (prerequisite C2). This block used
+        // to install `ambition_mount::sync_riders_to_mounts` by name and order it
+        // after a function private to this module. Now the mount crate installs
+        // its own pose stage and this layer says only WHICH PHASE each half
+        // belongs to and that the mirror follows our read model — two set names,
+        // no foreign function.
+        ambition_mount::install_mount_pose_systems(app, sim);
+        app.configure_sets(
             sim,
-            ambition_mount::sync_riders_to_mounts
-                .after(sync_actor_read_model)
-                .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+            (
+                ambition_mount::MountsSteeredByRiders.in_set(
+                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
+                ambition_mount::RidersSyncedToMounts
+                    .after(ActorReadModelSynced)
+                    .in_set(
+                        ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+                    ),
+            ),
         );
         // A body already in somebody's hands is put back after it moved. The
         // coarse-box mirror runs first so this external constraint is the last
         // word. (A body grabbed THIS tick is posed by the ruleset's own
         // `finalize_new_capture_pose`, later in the tick — two named phases, one
         // rule.)
+        // ⇒ AND IT ORDERS AGAINST THE PUBLISHED SET NOW, not against this
+        // module's private `sync_actor_read_model`. Same guarantee; a name the
+        // capture domain is allowed to depend on.
         app.add_systems(
             sim,
             ambition_combat::capture::systems::maintain_existing_capture_pose
-                .after(sync_actor_read_model)
+                .after(ActorReadModelSynced)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
                 ),

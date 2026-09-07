@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
@@ -80,7 +81,11 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 # system belonged to no published set — which is the shape of most of what is
 # left here.
 CAPABILITY_ORDERING_CEILING = 0
-TOTAL_ORDERING_CEILING = 78
+# ⭐⭐ 78 -> 75 BY THE FIRST CAPABILITY-OWNED PLUGIN (prerequisite C2).
+# `ambition_mount` now ships `MountPlugin` + `install_mount_simulation_systems`,
+# so the runtime adds a PLUGIN and says which schedule and which phase instead
+# of naming four of that crate's private systems. Mount rows: 7 -> 2.
+TOTAL_ORDERING_CEILING = 75
 
 
 def _module():
@@ -160,21 +165,96 @@ def test_the_capability_split_is_not_degenerate() -> None:
     )
 
 
-def test_the_measure_still_sees_the_example_the_program_named() -> None:
-    """⭐⭐ THE POSITIVE CONTROL, AND IT IS A SPECIFIC ONE ON PURPOSE.
+def test_the_measure_still_sees_a_cross_crate_chain() -> None:
+    """⭐⭐ THE POSITIVE CONTROL — AND IT HAD TO BE REPOINTED, WHICH IS THE WHOLE
+    LESSON OF THIS EDIT.
 
-    The architecture note names one instance by hand:
+    It used to pin the ONE instance the architecture note named by hand:
     `ambition_mount::enforce_mount_rider_link` chained with
-    `actor_monolith::rebuild_dismounted_rider_brains`. Two versions of this
-    measure scored it as absent — once by excusing the runtime, once by matching
-    only `.before(`. ⇒ Pinning the named example means a future simplification of
-    the matcher cannot quietly stop finding the thing it was built for."""
-    ordering, _ = _rows()
-    named = {t for _, t, _, _, _ in ordering}
-    assert any("enforce_mount_rider_link" in t for t in named), (
-        "the measure no longer sees `ambition_mount::enforce_mount_rider_link`, "
-        "which the architecture program names as the reference instance"
+    `actor_monolith::rebuild_dismounted_rider_brains`. Two versions of the measure
+    scored that chain as absent — once by excusing the runtime, once by matching
+    only `.before(` — so pinning it kept a simplified matcher from quietly losing
+    the thing it was built for.
+
+    ⛔⛔ THEN THE DEFECT WAS FIXED AND THE CONTROL WENT RED. That is the correct
+    failure and it is worth naming, because the tempting reading is "the guard is
+    broken". ⇒ **A positive control pinned to a live defect has a lifetime: it
+    dies the day somebody repairs its subject, and the red it throws is a report
+    of SUCCESS wearing the costume of a regression.** The wrong response is to
+    delete it — that leaves the matcher free to collapse unnoticed, which is the
+    exact hazard it was guarding. The right response is to repoint it and write
+    down what it used to hold, so the next reader can tell a fixed pin from a
+    broken one.
+
+    ⚠ SO THIS ONE IS PINNED ON A SHAPE INSTEAD OF A NAME. It asserts that the
+    measure still finds a chained tuple spanning two *different* foreign crates —
+    the spelling that defeated the `.before(`-only matcher — without depending on
+    any single row surviving. It still dies when the prerequisite is FINISHED, at
+    which point the ceiling is 0 and this file has done its job."""
+    _assert_chain_detected_on_a_synthetic_tree()
+
+
+def _write(root: pathlib.Path, rel: str, text: str) -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _assert_chain_detected_on_a_synthetic_tree() -> None:
+    """⛔⛔ THE ARM THAT ACTUALLY CATCHES CHAIN-BLINDNESS, and it exists because
+    the obvious version of it PASSED THE POISON.
+
+    The first draft asserted "some ordering row comes from a file containing
+    `.chain()`". Ran against a measure with chain detection deliberately disabled:
+    **green**. ⇒ It was checking a property of the FILE, and `combat_schedule.rs`
+    contains `.chain()` for a dozen local reasons, so the arm was true no matter
+    what the measure did with it. The count told the real story — 75 rows clean,
+    **9** chain-blind — but flooring the count is not available here: this is a
+    ratchet whose whole purpose is to drive that number to zero, and a floor of 40
+    goes red the moment the prerequisite makes progress.
+
+    ⇒ So the detection is tested against a TREE BUILT FOR IT: two capability
+    crates, one composition crate chaining a system from each. No `.before(`, no
+    `.after(` — the spelling that defeated the original matcher and nothing else.
+    A measure that sees it finds exactly one ordering row; one that does not finds
+    zero. This arm cannot be satisfied by the real tree's incidental punctuation,
+    and it stays meaningful on the day the ceiling reaches 0."""
+    module = _module()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = pathlib.Path(tmp)
+        for crate, body in (
+            ("cap_alpha", "pub fn alpha_system() {}\n"),
+            ("cap_beta", "pub fn beta_system() {}\n"),
+        ):
+            _write(root, f"crates/{crate}/Cargo.toml", f'[package]\nname = "{crate}"\n')
+            _write(root, f"crates/{crate}/src/lib.rs", body)
+        _write(root, "crates/fake_runtime/Cargo.toml", '[package]\nname = "fake_runtime"\n')
+        # The defect, in the one spelling that matters: a composition layer fixing
+        # the relative order of two OTHER crates' private systems, via `.chain()`.
+        _write(
+            root,
+            "crates/fake_runtime/src/lib.rs",
+            "pub fn build(app: &mut App) {\n"
+            "    app.add_systems(\n"
+            "        Update,\n"
+            "        (cap_alpha::alpha_system, cap_beta::beta_system).chain(),\n"
+            "    );\n"
+            "}\n",
+        )
+        original = module.REPO
+        try:
+            module.REPO = root
+            rows = [r for r in module.findings(include_local=False) if r[4] == "ordering"]
+        finally:
+            module.REPO = original
+    assert rows, (
+        "the measure found NO ordering row in a tree built to contain exactly one: "
+        "a composition crate chaining `cap_alpha::alpha_system` with "
+        "`cap_beta::beta_system`. It has stopped recognising the chained-tuple "
+        "spelling, which is how it once scored the architecture note's own "
+        "reference instance as absent"
     )
-    assert any("rebuild_dismounted_rider_brains" in t for t in named), (
-        "the measure no longer sees the other half of the named chain"
+    named = {r[1] for r in rows}
+    assert any("alpha_system" in n for n in named) and any("beta_system" in n for n in named), (
+        f"the chain was detected but attributed to the wrong systems: {sorted(named)}"
     )

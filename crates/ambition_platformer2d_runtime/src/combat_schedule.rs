@@ -378,20 +378,38 @@ impl Plugin for CombatSchedulePlugin {
         // the rebuilt brain must be inserted before the dismounted body is next
         // simulated. Chaining puts both facts in one line instead of an ordering
         // that happens to hold.
-        app.add_message::<ambition_mount::DismountRequested>();
-        app.add_message::<ambition_mount::RiderDismounted>();
-        // A summon that asked to be ridden and was refused. Written by the
-        // construction road inside its exclusive command, read by whichever
-        // ruleset decides what an unclaimed mount is for.
-        app.add_message::<ambition_mount::RideRefused>();
-        app.add_systems(
+        // ⭐⭐ THE MOUNT CAPABILITY INSTALLS ITSELF — prerequisite C2 on its
+        // smallest complete instance. This block used to add three message
+        // channels and four of that crate's systems by name; it now adds the
+        // plugin and says WHICH SCHEDULE and WHICH PHASE, which is what a
+        // composition is for. `ambition_mount` decides the order among its own
+        // stages because that order is its own fact.
+        app.add_plugins(ambition_mount::MountPlugin);
+        ambition_mount::install_mount_simulation_systems(app, sim);
+        app.configure_sets(
             sim,
             (
-                ambition_mount::enforce_mount_rider_link,
-                ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains,
+                ambition_mount::MountRiderLinkEnforced,
+                ambition_mount::MountsBoarded,
+                ambition_mount::RideLeasesTicked,
+                ambition_mount::DismountRequestsApplied,
             )
-                .chain()
-                .in_set(ambition_mount::MountRiderLinkEnforced)
+                .in_set(CombatSet::Settle),
+        );
+        // ⛔⛔ AND THE REFERENCE DEFECT IS GONE FROM THIS LINE. It used to be
+        // `(ambition_mount::enforce_mount_rider_link,
+        //   actor_monolith::features::rebuild_dismounted_rider_brains).chain()`
+        // — one crate fixing the relative order of two OTHER crates' private
+        // systems, which the architecture program names as its example of private
+        // cross-domain ordering authority.
+        //
+        // ⇒ The rebuild ANSWERS the `MountDied` the mount crate announces, so it
+        // orders itself against the published set and neither crate names the
+        // other's function. The same guarantee, in vocabulary both own.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains
+                .after(ambition_mount::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
@@ -408,20 +426,8 @@ impl Plugin for CombatSchedulePlugin {
         // reason: the request is written and consumed in one frame, so a reader
         // scheduled merely "in the same set" would read it a frame late and put
         // riders down one tick after their lease expired.
-        app.add_systems(
-            sim,
-            (
-                ambition_mount::tick_ride_leases,
-                // ⭐ THE MEMBERSHIP THE RULESET ORDERS AGAINST. Published by
-                // `ambition_mount`, installed here: the domain owns the
-                // vocabulary, the composition owns which schedule it lives in.
-                ambition_mount::apply_dismount_requests
-                    .in_set(ambition_mount::DismountRequestsApplied),
-            )
-                .chain()
-                .after(ambition_mount::MountRiderLinkEnforced)
-                .in_set(CombatSet::Settle),
-        );
+        // ⇒ `tick_ride_leases` and `apply_dismount_requests` are installed by
+        // `MountPlugin` now, in that order, by the crate that knows why.
         // GETTING ON — the counterpart to the two systems above, and the half a
         // summon no longer does for itself.
         //
@@ -429,13 +435,8 @@ impl Plugin for CombatSchedulePlugin {
         // gets its full lease: the alternative spends a frame of a five-second
         // clock before the rider is even welded, which is invisible and wrong in
         // exactly the way clocks usually are.
-        app.add_systems(
-            sim,
-            ambition_mount::board_reserved_mounts
-                .before(ambition_mount::tick_ride_leases)
-                .after(ambition_mount::MountRiderLinkEnforced)
-                .in_set(CombatSet::Settle),
-        );
+        // ⇒ `board_reserved_mounts` likewise. Its "before the lease tick" reason
+        // travelled with it: a ride that boards this tick gets its full lease.
 
         // it is the one system in this schedule that writes non-rollback
         // PRESENTATION state, so it carries its own authoritative-pass guard

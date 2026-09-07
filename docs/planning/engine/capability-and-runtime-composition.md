@@ -1368,6 +1368,62 @@ why more feature flags cannot answer it.
 `bevy_gltf`, which the main workspace never fetches, so it cannot be measured on
 a fresh host without network.
 
+## ✔ C2's first carve — `ambition_mount`, 7 rows → 0
+
+⭐ The crate had **no `Plugin` at all**: the runtime added three message channels
+and four of its private systems by name, and the actor monolith added two more.
+It now ships `MountPlugin`, `install_mount_simulation_systems` and
+`install_mount_pose_systems`; every caller adds a plugin and names a PHASE.
+
+⇒ **The architecture note's own worked example is gone from the tree.** It named
+`(ambition_mount::enforce_mount_rider_link, actor_monolith::features::rebuild_dismounted_rider_brains).chain()`
+— one crate fixing the relative order of two OTHERS' private systems. The rebuild
+answers a `MountDied` the mount crate announces, so it orders itself
+`.after(MountRiderLinkEnforced)`. Foreign ordering 78 → 75.
+
+⛔⛔ **AND A REVIEW ARRIVED AFTER IT LANDED SAYING NOT TO CARVE MOUNT FIRST.** The
+objection is sound and worth recording rather than quietly keeping: mount is one
+of the two direct writers in unresolved prerequisite **B**, and carving its
+scheduling ownership first risks freezing a control-authority violation into the
+new capability contract. Sequencing offered instead: menu / time / input /
+dev-tools.
+
+⇒ **MY ASSESSMENT, stated so it can be argued with.** The risk did not
+materialise, and the reason is checkable: **not one published set names control
+authority.** `MountRiderLinkEnforced`, `MountsBoarded`, `RideLeasesTicked`,
+`DismountRequestsApplied`, `MountsSteeredByRiders`, `RidersSyncedToMounts` all
+name RIDE LIFECYCLE stages. B's arbiter changed what those systems DO — they file
+a claim instead of assigning `TemporaryControl` — and renamed none of them. B is
+now landed, which settles the sequencing question in the only way that actually
+closes it. ⚠ Had the carve published a set called anything like
+`RiderControlAssigned`, the objection would have been right and the fix would have
+been a rename in every consumer.
+
+### The next C2 rows
+
+| capability | rows | note |
+|---|---|---|
+| `ambition_menu` | 6 | plugin and `shared_tangle` dep both present; held by the peer |
+| `ambition_time` | 7 | |
+| `ambition_input` | 13 | |
+| `ambition_dev_tools` | 12 | |
+| `ambition_combat` | 53 | blocked on **Q73** — a written no-plugin refusal |
+
+⭐⭐ **AND A NEW ONE, FOUND BY ACCIDENT, WHICH IS THE BEST ARGUMENT ON THIS PAGE.**
+A peer measured that `apply_placeholder_sprites_override` and
+`apply_hide_sprites_override` are registered in exactly ONE place tree-wide —
+`game/ambition_app/src/app/plugins.rs`. The standalone demo hosts compose their
+own thin host and never install them. ⇒ **`DebugArtMode` is a live setting in the
+shell and a DEAD one in every demo host**: pressing the key in the Mary-O or Sanic
+demo changes a resource nothing reads, and nothing says so.
+
+⇒ **A capability whose REACH is a property of which binary you launched is not a
+capability, it is a coincidence.** Every other row here is an argument that can be
+answered with "but nothing is broken today". This one cannot. Owner:
+`ambition_render` + `ambition_dev_tools`. ⚠ It also sharpens **Q73**: a plugin
+that installs a debug mode unconditionally claims WHEN as well as WHERE, and
+which hosts get a debug art mode is a host decision.
+
 ## Target shape
 
 ```text

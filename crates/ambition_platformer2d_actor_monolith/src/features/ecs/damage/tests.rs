@@ -455,6 +455,23 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
 #[derive(bevy::prelude::Resource, Default)]
 struct CapturedBubbles(usize);
 
+/// ⚠ A CAPTURE SYSTEM, NOT A READ OF `Messages` AT THE END. The first draft of
+/// the threshold poison below read the message buffer after the last `update()`
+/// and counted ZERO even when the flag plainly fired — a message written on an
+/// earlier frame is gone by then, and "no flag" and "a flag I stopped being able
+/// to see" are the same number. ⛔ That is the failure mode the poison exists to
+/// prevent, reproduced inside the poison itself. ⇒ Accumulate as they are
+/// written, which is what `CapturedBubbles` beside this already does.
+#[derive(bevy::prelude::Resource, Default)]
+struct CapturedHostileFlags(usize);
+
+fn capture_hostile_flags(
+    mut reader: bevy::prelude::MessageReader<SetFlagRequested>,
+    mut cap: bevy::prelude::ResMut<CapturedHostileFlags>,
+) {
+    cap.0 += reader.read().filter(|m| m.on).count();
+}
+
 fn capture_bubbles(
     mut reader: bevy::prelude::MessageReader<VfxMessage>,
     mut cap: bevy::prelude::ResMut<CapturedBubbles>,
@@ -470,6 +487,24 @@ fn capture_bubbles(
 /// its strike branch reaches the on-hit bark. `hp` sets the initial HP so the
 /// same body can be exercised alive or as a corpse.
 fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
+    spawn_talkable_npc_with_threshold(
+        app,
+        hp,
+        crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+    )
+}
+
+/// ⛔⛔ THE THRESHOLD IS A PARAMETER NOW, AND THAT IS THE ENTIRE POINT. Every
+/// fixture here used to build `ActorAggression` from
+/// `NPC_HOSTILE_STRIKE_THRESHOLD` — the same constant the damage road compared
+/// against — so both sides computed 3 and agreed no matter which one was the
+/// authority. A test whose fixture supplies both halves of an equality cannot
+/// discover that they are two different facts.
+fn spawn_talkable_npc_with_threshold(
+    app: &mut App,
+    hp: i32,
+    strike_threshold: u8,
+) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
         "alice",
@@ -496,7 +531,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
     );
     let aggression = ambition_combat::components::ActorAggression {
         mode: ambition_combat::components::AggressionMode::RetaliatesWhenHit {
-            strike_threshold: crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+            strike_threshold,
         },
         target: None,
         strikes: 0,
@@ -2410,4 +2445,88 @@ mod bark_rate {
             );
         }
     }
+}
+
+/// ⛔⛔ THE HOSTILE FLAG MUST OBEY THE BODY'S OWN THRESHOLD, NOT A GLOBAL DEFAULT.
+///
+/// `ActorAggression::RetaliatesWhenHit { strike_threshold }` is per-body policy
+/// and canonical aggression resolution reads it. The damage road compared against
+/// `NPC_HOSTILE_STRIKE_THRESHOLD` instead — a spawn DEFAULT — before writing the
+/// persistent hostile flag, the hostile bark and the banner.
+///
+/// ⚠ AND THE TWO AGREED BY COINCIDENCE, which is exactly why no test caught it:
+/// ordinary NPC spawn policy sets the field FROM that constant, and every fixture
+/// here did the same, so both sides computed 3 and matched. ⇒ A test whose
+/// fixture supplies both halves of an equality cannot discover that they are two
+/// different facts. These use 5 and 1 — values no default produces — so the
+/// assertion can only pass by reading the field.
+#[test]
+fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
+    fn hostile_flags_after(strikes: usize, strike_threshold: u8) -> usize {
+        let mut app = App::new();
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        register_hit_pipeline_messages(&mut app);
+        app.init_resource::<CapturedHostileFlags>();
+        app.add_systems(
+            Update,
+            (apply_feature_hit_events, capture_hostile_flags).chain(),
+        );
+
+        let body = spawn_talkable_npc_with_threshold(&mut app, 9, strike_threshold);
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        for _ in 0..strikes {
+            // ⛔ I-FRAMES, AND THEY COST ME THE FIRST RUN. `apply_actor_hit`
+            // returns early on `!combat.vulnerable()`, and this loop never
+            // advances a clock — so five `HitEvent`s produced ONE strike and the
+            // test read "never turns hostile" as a threshold result. ⇒ Decay the
+            // reaction timers between blows, which is what a real tick does.
+            {
+                let mut combat = app
+                    .world_mut()
+                    .get_mut::<ambition_characters::actor::BodyCombat>(body)
+                    .expect("the fixture body carries combat reaction state");
+                combat.decay_reaction_timers(10.0);
+            }
+            app.world_mut().write_message(HitEvent {
+                strike_sfx: None,
+                volume: event_volume.into(),
+                damage: 3,
+                source: HitSource::Melee,
+                attacker: None,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            });
+            app.update();
+        }
+        let _ = body;
+        app.world().resource::<CapturedHostileFlags>().0
+    }
+
+    // ⛔ THE HIGH POISON. Three hits against a threshold of five: the default says
+    // hostile, the body says not yet. Before the fix this wrote the flag.
+    assert_eq!(
+        hostile_flags_after(3, 5),
+        0,
+        "an NPC authored to retaliate on the FIFTH strike must not be flagged \
+         hostile on the third — that is the spawn default answering for a body \
+         that declined it"
+    );
+    // ...and it does turn at five, so the arm is reachable at all.
+    assert!(
+        hostile_flags_after(5, 5) > 0,
+        "the same body must turn hostile once its OWN threshold is crossed, or \
+         this test proves only that nothing ever fires"
+    );
+    // ⛔ THE LOW POISON, the inverse error: mechanics turn hostile on hit one
+    // while presentation and the save flag wait for three.
+    assert!(
+        hostile_flags_after(1, 1) > 0,
+        "an NPC authored to retaliate on the FIRST strike must be flagged hostile \
+         on the first — the default made it wait two more hits"
+    );
 }

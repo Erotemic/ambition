@@ -157,14 +157,40 @@ fn the_composition_registers_no_more_systems_than_its_budget() {
 /// Anything else appearing twice in one schedule ran twice.
 #[test]
 fn no_system_is_registered_twice_in_one_schedule() {
-    let app = boot_and_settle();
-    let schedules = app.world().resource::<bevy::ecs::schedule::Schedules>();
+    let mut app = boot_and_settle();
 
+    // ⛔⛔ THIS USED TO READ THE SCHEDULES AS THEY LAY, AND THE ONE THAT MATTERS
+    // MOST WAS NOT AMONG THEM. `Schedule::systems()` fails until the graph is
+    // built, and a schedule only builds it when it first RUNS — so an app that
+    // boots to the launcher and never enters a match has never run `GgrsSchedule`.
+    // The skip carried a comment saying an uninitialized schedule "holds no
+    // registrations to duplicate", which is the plausible-sounding half of the
+    // truth: it holds every registration ever added to it, it simply has not
+    // sorted them yet.
+    //
+    // ⇒ Measured 2026-09-06, the schedules this test was silently skipping:
+    // `GgrsSchedule` (the ENTIRE rollback simulation — every gameplay system in
+    // the game), `PhysicsSchedule`, `SubstepSchedule`, `ReadInputs`, `Render`,
+    // `AdvanceWorld`, `LoadWorld`, `SaveWorld`. The guard was pinned to `Update`
+    // and `Startup` and reported the whole app clean.
+    //
+    // ⚠ AND IT WAS FOUND BY A POISON, NOT BY READING. A deliberate double-install
+    // of `ambition_mount::steer_mount_from_rider` — the exact slip of copying an
+    // install instead of moving it, while moving capability installs into
+    // capability-owned plugins — left this test GREEN. ⇒ A guard that skips a
+    // subject reports on the subjects it kept, in the same words it would use if
+    // it had checked everything.
+    //
+    // `update_schedule_census.rs` had the answer already: initialize, then read.
     let mut counts = std::collections::BTreeMap::<(String, String), usize>::new();
-    for (label, schedule) in schedules.iter() {
-        // An uninitialized schedule (an `OnEnter` for a state never entered) has
-        // no system list to read. Skipped rather than unwrapped: it holds no
-        // registrations to duplicate.
+    app.world_mut()
+        .resource_scope(|world, mut schedules: bevy::prelude::Mut<bevy::ecs::schedule::Schedules>| {
+    for (label, schedule) in schedules.iter_mut() {
+        // Building the graph can legitimately fail (a schedule whose ordering
+        // constraints reference systems this composition never installed). Such a
+        // schedule is skipped for a REASON now, rather than because it had not
+        // been asked to run.
+        let _ = schedule.initialize(world);
         let Ok(systems) = schedule.systems() else {
             continue;
         };
@@ -176,17 +202,89 @@ fn no_system_is_registered_twice_in_one_schedule() {
             *counts.entry((format!("{label:?}"), name)).or_default() += 1;
         }
     }
+        });
 
     assert!(
         !counts.is_empty(),
         "no systems at all — this is measuring an app that was never composed"
     );
 
+    // ⭐⭐ THE TEN DELIBERATE ONES, EACH WITH THE REASON ITS OWN SITE GIVES.
+    //
+    // Widening the guard to `GgrsSchedule` turned up ten duplicates, and every
+    // one of them is intentional and already argued for in the code that writes
+    // it. ⇒ The allow-list is not an exemption for them; it is the point at which
+    // an accident becomes a DECISION. Anything doubled that is not on this list is
+    // a system nobody decided to run twice.
+    //
+    // ⚠ AND THE LIST IS CHECKED IN BOTH DIRECTIONS, which matters more than it
+    // looks: an entry that has stopped being duplicated is a stale exemption, and
+    // a stale exemption silently re-opens the hole the day somebody duplicates
+    // that system for real. A reason expires exactly like a measurement.
+    let deliberate: &[(&str, &str, &str)] = &[
+        // `ambition_platformer2d_runtime/src/lib.rs` — the identity trio runs at
+        // the HEAD of the frame and again at the TAIL, after the last in-tick
+        // spawner, so a GGRS save at a transition boundary cannot capture a
+        // freshly-lowered body without its `SimId`. `Without<SimId>` makes the
+        // second pass a no-op on everything the first pass reached.
+        ("GgrsSchedule", "sim_identity::ensure_sim_id", "head and tail of the frame"),
+        ("GgrsSchedule", "sim_identity::mint_spawned_sim_ids", "head and tail of the frame"),
+        ("GgrsSchedule", "sim_identity::heal_projectile_owners", "head and tail of the frame"),
+        // `combat_schedule.rs` — the second stamp catches a bolt that materialized
+        // THIS tick, whose firer can still be eliminated later in `Settle`.
+        (
+            "GgrsSchedule",
+            "allegiance::stamp_new_projectile_allegiance",
+            "delayed bolts take their side inside Materialize, not next frame",
+        ),
+        // `features/mod.rs` — once in `WorldPrep` for the pogo derivation and the
+        // collision overlay, once between `Playback` and `Resolve` for the damage
+        // pass. Same rule, two consumers with different timing needs.
+        (
+            "GgrsSchedule",
+            "target_volumes::refresh_body_damageable_volumes",
+            "two consumers with different timing needs",
+        ),
+        // `ambition_portal2d/src/rollback_registration.rs` — each of these is
+        // registered under BOTH its old and its new name, deliberately, so the
+        // compatibility registration keeps the rollback schema byte-for-byte. The
+        // clear runs twice on a channel that is already empty the second time.
+        ("LoadWorld", "ClearPortals", "historical alias, schema compatibility"),
+        ("LoadWorld", "DropPortalGun", "historical alias, schema compatibility"),
+        ("LoadWorld", "FirePortalGun", "historical alias, schema compatibility"),
+        ("LoadWorld", "PickUpPortalGun", "historical alias, schema compatibility"),
+        ("LoadWorld", "TogglePortalGun", "historical alias, schema compatibility"),
+    ];
+    let excused = |schedule: &str, name: &str| {
+        deliberate
+            .iter()
+            .any(|(s, fragment, _)| *s == schedule && name.contains(fragment))
+    };
+
     let doubled: Vec<String> = counts
         .iter()
-        .filter(|(_, count)| **count > 1)
+        .filter(|((schedule, name), count)| **count > 1 && !excused(schedule, name))
         .map(|((schedule, name), count)| format!("  {count}x  {schedule}  {name}"))
         .collect();
+
+    // ⛔ THE OTHER DIRECTION. Every excuse must still describe something real.
+    let stale: Vec<String> = deliberate
+        .iter()
+        .filter(|(schedule, fragment, _)| {
+            !counts.iter().any(|((s, name), count)| {
+                s == schedule && name.contains(fragment) && *count > 1
+            })
+        })
+        .map(|(schedule, fragment, why)| format!("  {schedule}  {fragment}  ({why})"))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "{} entr(ies) on the deliberate-duplicate list are no longer duplicated:\n{}\n\n\
+         Delete them. A stale exemption is indistinguishable from a live one and \
+         re-opens the hole the day somebody duplicates that system by accident.",
+        stale.len(),
+        stale.join("\n"),
+    );
 
     assert!(
         doubled.is_empty(),

@@ -506,3 +506,75 @@ fn the_generic_meter_permits_a_fill_this_ruleset_calls_greedy() {
          out of `problems()` lost the rule rather than relocating it",
     );
 }
+
+/// ⛔⛔ A NEGATIVE BLOCK REWARD IS MECHANICALLY INVALID, NOT A BALANCE CHOICE.
+///
+/// `fill_limit_meters` runs `mana.meter.refill(fill.blocked())` and
+/// `ResourceMeter::refill` adds whatever it is handed and clamps. So `on_block =
+/// -10` was accepted as WELL FORMED and a successful block DRAINED TEN METER.
+///
+/// ⚠ THE FIELD WAS ADDED TO THE MECHANISM AND NOT TO THE CHECK THAT VALIDATES
+/// THE MECHANISM. Every other fill source is in that loop; `on_block` joined the
+/// struct as a fourth source and the loop is DATA, so no compiler asked for it.
+/// ⇒ Adding a field to an enumerated list means visiting every list that
+/// enumerates its siblings — and the way to find them is to grep the field NEXT
+/// to it, not the feature's name.
+#[test]
+fn a_negative_block_reward_is_rejected() {
+    let mut fill = LimitMeterFill::JONS_BASELINE;
+    fill.on_block = -1.0;
+    let problems = fill.problems();
+    assert!(
+        problems.iter().any(|p| p.contains("on_block")),
+        "a block that DRAINS the meter must be reported as malformed; got {problems:?}"
+    );
+
+    // ⭐ AND THE POSITIVE HALF: the baseline's own positive reward stays legal, so
+    // this is not a check that simply refuses the field.
+    let baseline = LimitMeterFill::JONS_BASELINE;
+    assert!(
+        baseline.on_block > 0.0 && !baseline.problems().iter().any(|p| p.contains("on_block")),
+        "the shipping baseline rewards blocking and must remain valid"
+    );
+}
+
+/// ⛔⛔ A METER FILLED ONLY BY BLOCKING IS REACHABLE, AND VALIDATION SAID IT WAS NOT.
+///
+/// The decay/reachability check asked whether decay cancels the passive clock and
+/// no DAMAGE source remains — a sentence written when there were three sources.
+/// A defensive scheme whose only reward is blocking was reported as impossible to
+/// fill, and repeated blocks plainly fill it.
+///
+/// ⚠ THE ERROR MESSAGE WAS THE TELL: "no damage source fills this meter", in a
+/// struct that had grown a block source. ⇒ When a message enumerates the world,
+/// it is a specification, and it goes stale exactly like the code beside it.
+#[test]
+fn blocking_alone_can_fill_a_meter_the_clock_cannot() {
+    let fill = LimitMeterFill {
+        cap: 60.0,
+        per_second: 0.5,
+        decay_per_second: 0.5,
+        on_block: 10.0,
+        on_damage_dealt: 0.0,
+        per_damage_dealt: 0.0,
+        on_damage_taken: 0.0,
+        per_damage_taken: 0.0,
+    };
+    assert!(
+        !fill.problems().iter().any(|p| p.contains("never reach")),
+        "a meter whose passive fill is cancelled by decay is still fillable by \
+         blocking; got {:?}",
+        fill.problems()
+    );
+
+    // ⭐ THE CASE THE CHECK IS FOR MUST STILL FAIL: same meter, no block reward.
+    let unfillable = LimitMeterFill {
+        on_block: 0.0,
+        ..fill
+    };
+    assert!(
+        unfillable.problems().iter().any(|p| p.contains("never reach")),
+        "with no block reward and decay cancelling the clock, nothing fills this \
+         meter — the check must still say so, or adding `on_block` has disabled it"
+    );
+}

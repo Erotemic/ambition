@@ -5,7 +5,6 @@
 
 use bevy::prelude::Entity;
 
-use super::super::super::NPC_HOSTILE_STRIKE_THRESHOLD;
 use super::super::ae;
 use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
@@ -200,7 +199,13 @@ pub(crate) fn apply_actor_hit(
         if let Some(aggression) = aggression {
             aggression.strikes = aggression.strikes.saturating_add(1);
             if let Some(interactable) = interactable {
-                if aggression.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+                // ⛔ WAS `aggression.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD`, a
+                // GLOBAL DEFAULT standing in for a per-body policy. The flag
+                // written here is persistent and the bark is what the player
+                // hears, so a disagreement with the mechanics is both saved and
+                // seen. `provoked()` is the same question aggression resolution
+                // asks.
+                if aggression.provoked() {
                     writers.set_flag.write(SetFlagRequested {
                         id: super::super::super::npcs::npc_flag_id(&em.config.id),
                         on: true,

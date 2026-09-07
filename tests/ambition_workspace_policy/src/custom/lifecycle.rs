@@ -22,6 +22,22 @@ use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
 const SPAWN_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs";
+/// ⛔⛔ THE SECOND ROOT, AND IT EXISTS BECAUSE THE FIRST ONE LOST ITS SUBJECT.
+/// `spawn_actors.rs` was the largest thing this gate watched. The F1 construction
+/// inversion moved it to `src/actor_spawn/` — out of `features/ecs` entirely — and
+/// the gate did not report a hole, it reported a smaller CORPUS: nine scanned
+/// files became seven, and only the anti-vacuity floor said anything at all.
+///
+/// ⇒ A SCAN ROOT IS A CITATION AND A MOVE BREAKS IT SILENTLY. The floor caught
+/// this one; the honest reading of a floor tripping is "find out what left", not
+/// "lower the number". Measured at the time: `actor_spawn/` contains ZERO raw
+/// `commands.spawn(` calls, so nothing escaped — but the whole module is spawn
+/// code by name, which is exactly what this gate is for, so it is watched now.
+///
+/// ⚠ NO `spawn` PREFIX FILTER HERE. Under `features/ecs` the filter picks the
+/// spawn files out of a general directory; `actor_spawn/` IS the spawn module, so
+/// every file in it is in scope.
+const SPAWN_MODULE_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/actor_spawn";
 const CRATE_SRC: &str = "crates/ambition_platformer2d_actor_monolith/src";
 const ALLOWLIST: &str = "docs/architecture/architecture-boundary-allowlist.txt";
 const POLICY_ID: &str = "engine.room-feature-spawns";
@@ -61,7 +77,11 @@ pub fn metas() -> Vec<CustomMeta> {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
         owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
-        watch_paths: vec![SPAWN_DIR.to_string(), ALLOWLIST.to_string()],
+        watch_paths: vec![
+            SPAWN_DIR.to_string(),
+            SPAWN_MODULE_DIR.to_string(),
+            ALLOWLIST.to_string(),
+        ],
         source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
         severity: Severity::Error,
     }]
@@ -79,17 +99,25 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     let mut scanned = 0usize;
     let mut seen = BTreeSet::new();
 
-    for file in workspace::rust_sources_under(&spawn_dir) {
+    let spawn_module_dir = ws.abs(SPAWN_MODULE_DIR);
+    assert!(
+        spawn_module_dir.is_dir(),
+        "raw-spawn gate path does not exist: {}",
+        spawn_module_dir.display()
+    );
+
+    for (root, require_spawn_prefix) in [(&spawn_dir, true), (&spawn_module_dir, false)] {
+    for file in workspace::rust_sources_under(root) {
         // Relative to the SCAN ROOT (`features/ecs`), so `spawn_actors.rs` and
         // `spawn/portal_construction.rs` both begin with `spawn` and a future
         // `spawn/foo/bar.rs` still would. Matching the file name instead is what
         // let the `spawn/` directory escape this gate for three months.
         let under = file
-            .strip_prefix(&spawn_dir)
+            .strip_prefix(root)
             .expect("scanned file under the spawn scan root")
             .to_string_lossy()
             .replace('\\', "/");
-        if !under.starts_with("spawn") {
+        if require_spawn_prefix && !under.starts_with("spawn") {
             continue;
         }
         scanned += 1;
@@ -123,6 +151,8 @@ pub fn run(ws: &Workspace, report: &mut Report) {
             Some(_) => {}
         }
     }
+    }
+
     for stale in allowlist.keys().filter(|rel| !seen.contains(*rel)) {
         report.push(Diagnostic {
             policy_id: POLICY_ID.to_string(),
@@ -138,9 +168,14 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     // and proved nothing. Nine is what the path rule sees today; a split or a
     // rename may raise it, and only a DELETION should lower it — which is a
     // review, not a silent pass.
+    // ⭐ 9 -> 13 ON 2026-09-06, and the reason travels with the number: seven
+    // spawn-prefixed files under `features/ecs` plus six in the `actor_spawn`
+    // module the F1 inversion created. A floor of 9 would be satisfied by the
+    // first root alone, so it would stop protecting the second one the moment it
+    // was added — a floor only guards the corpus it can distinguish.
     assert!(
-        scanned >= 9,
-        "raw-spawn gate scanned {scanned} files under {SPAWN_DIR}, expected at          least 9 — a filter that stops matching is how this gate went blind before"
+        scanned >= 13,
+        "raw-spawn gate scanned {scanned} files under {SPAWN_DIR} and {SPAWN_MODULE_DIR}, expected at least 13 — a filter that stops matching is how this gate went blind before"
     );
 }
 

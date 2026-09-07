@@ -24,6 +24,14 @@ capabilities' private systems. The named poison is
 chain is `ambition_platformer2d_runtime` — a composition layer. ⇒ Writer is
 reported as INFORMATION, never as a reason to drop a row.
 
+⭐ THAT NAMED EXAMPLE IS REPAIRED AS OF 2026-09-06 — do not go looking for it.
+`ambition_mount` ships `MountPlugin` + `install_mount_simulation_systems`, the
+runtime composes the plugin and names a PHASE, and the rebuild orders itself
+`.after(MountRiderLinkEnforced)` — a published set, not a foreign function. It
+is kept in this docstring because it is what the measure was BUILT to see, and
+a reader who cannot find it should conclude the tree improved, not that the
+instrument is describing a different repository.
+
 ⚠ AND `.before(...)` / `.after(...)` IS NOT THE ONLY SPELLING. That same example
 is a CHAINED TUPLE, so a regex over `.before(` misses it entirely — the first
 version of this script scored the architecture note's own example as absent. The

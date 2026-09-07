@@ -997,6 +997,9 @@ pub fn enforce_mount_rider_link(
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
+            // ⭐ THE RIDE'S CLAIM, read so it can be kept in step with the ride
+            // itself rather than only with the tick the ride was ARMED.
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
             // The same four columns the saddle sync names, plus the rider's
             // AUTHORED baseline — the body a reset hands back.
             //
@@ -1076,6 +1079,7 @@ pub fn enforce_mount_rider_link(
         mut rider_aabb,
         cache,
         was_mounted,
+        rider_claims,
         mut rider_kin,
         mut rider_surface,
         mut rider_health,
@@ -1129,7 +1133,26 @@ pub fn enforce_mount_rider_link(
         match (alive, was_mounted.is_some()) {
             // Mount alive, rider already mounted → steady state. The
             // sync system snaps each frame; nothing to do here.
-            (true, true) => {}
+            // ⛔⛔ NOT QUITE NOTHING ANY MORE. The ride's CLAIM used to be filed
+            // only on the tick the pair was armed, so a rider authored already
+            // mounted — which is what `pirate_sky_lookout` ships — held a live
+            // ride and no claim to show for it. The claim is the RIDE, not the
+            // moment the ride began, so it is reconciled here where the ride is
+            // known to be true.
+            (true, true) => {
+                let wanted = sim_ids.get(riding.mount).ok();
+                let held = rider_claims.and_then(|c| c.mount());
+                if let Some(wanted) = wanted {
+                    if held != Some(wanted) {
+                        ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+                            &mut commands,
+                            rider_entity,
+                            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                            wanted.clone(),
+                        );
+                    }
+                }
+            }
             // Mount alive, rider missing the Mounted marker → we
             // either just spawned without the marker (first tick)
             // or the same-room reset path brought the mount back to
@@ -1147,11 +1170,18 @@ pub fn enforce_mount_rider_link(
                     // Record the mount by stable id for snapshot restore. Only when
                     // the mount carries a `SimId` (otherwise the link isn't
                     // reconstructible); the marker above still tracks live state.
+                    // ⭐ A CLAIM, NOT AN ASSIGNMENT. Recorded by stable id for
+                    // snapshot restore, and only when the mount carries a `SimId`
+                    // (otherwise the link isn't reconstructible); the marker above
+                    // still tracks live state. Filing it as the MOUNT's claim means a
+                    // possession taken while this ride is live shadows it instead of
+                    // erasing it.
                     if let Ok(mount_id) = sim_ids.get(riding.mount) {
-                        commands.entity(rider_entity).insert(
-                            ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Mounted {
-                                mount: mount_id.clone(),
-                            },
+                        ambition_platformer2d_shared_tangle::temporary_control::file_claim(
+                            &mut commands,
+                            rider_entity,
+                            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                            mount_id.clone(),
                         );
                     }
                 }
@@ -1215,13 +1245,19 @@ pub fn enforce_mount_rider_link(
                     // locomotion of a body this same statement just declared
                     // autonomous.
                     .remove::<RideConstraints>()
-                    // Back to autonomous control for snapshot purposes (a boss rider
-                    // keeps its authored brain but is no longer mount-controlled).
-                    .insert(ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous)
+                    // ⛔ THE `Autonomous` WRITE THAT USED TO SIT HERE WAS THE BUG.
+                    // A dead mount ends the RIDE's claim; it does not make the body
+                    // autonomous, and saying so erased a live possession. The claim
+                    // is dropped below and the projection decides what remains.
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
                     .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>(
                     );
+                ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+                    &mut commands,
+                    rider_entity,
+                    ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                );
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}
@@ -1601,4 +1637,122 @@ mod saddle_tests {
             offset
         );
     }
+}
+
+/// The set [`board_reserved_mounts`] runs in.
+///
+/// ⭐ PUBLISHED SO THE ORDER BETWEEN THIS CAPABILITY'S OWN STAGES IS SAYABLE
+/// WITHOUT NAMING ITS FUNCTIONS. Boarding must precede the lease tick — a ride
+/// that boards this tick gets its full lease, and the alternative spends a frame
+/// of a five-second clock before the rider is even welded.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountsBoarded;
+
+/// The set [`tick_ride_leases`] runs in.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RideLeasesTicked;
+
+/// ⭐⭐ THE CAPABILITY INSTALLS ITSELF — prerequisite C2's shape, on the smallest
+/// complete instance in the tree.
+///
+/// Before this, every one of this crate's systems was installed by somebody else:
+/// four by `ambition_platformer2d_runtime`'s combat schedule, two by the actor
+/// monolith's feature module, plus its three message channels. A capability whose
+/// systems are added by two other crates cannot be composed away from either, and
+/// "move mount into its own crate" was already done — the carve that remained was
+/// the schedule.
+///
+/// ⛔ IT CLAIMS *WHERE*, NEVER *WHEN*. The plugin puts each system into a set this
+/// crate publishes and states the order BETWEEN those sets, because that order is
+/// this domain's own fact: board, then tick leases, then apply dismounts. It does
+/// NOT say which schedule those sets live in or which phase contains them — the
+/// composition still decides that, and still decides whether to add the plugin at
+/// all. That is the distinction `ambition_combat`'s no-plugin note is about, and
+/// the reason this one is safe to write: nothing here decides when the host runs.
+///
+/// ⚠ MESSAGES COME WITH IT. `DismountRequested`, `RiderDismounted` and
+/// `RideRefused` are this crate's vocabulary; a composition that adds the plugin
+/// should not also have to remember three `add_message` calls, and one that does
+/// not add it should not carry the channels.
+pub struct MountPlugin;
+
+impl bevy::prelude::Plugin for MountPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        // A summon that asked to be ridden and was refused. Written by the
+        // construction road inside its exclusive command, read by whichever
+        // ruleset decides what an unclaimed mount is for.
+        app.add_message::<RideRefused>();
+    }
+}
+
+/// Install this crate's simulation systems into the schedule the host names.
+///
+/// ⛔ A FUNCTION AND NOT A SECOND `Plugin`, because the SCHEDULE is the host's
+/// choice and a `Plugin` has no way to take one. The composition passes the label
+/// it runs its simulation in; everything about the ORDER inside is decided here.
+///
+/// ⚠ `enforce_mount_rider_link` is deliberately NOT chained to
+/// `actor_monolith::rebuild_dismounted_rider_brains` any more. That chain — one
+/// crate fixing the relative order of two OTHER crates' private systems — is the
+/// instance the architecture program names as its reference defect. The rebuild
+/// answers the `MountDied` this crate announces, so the consumer orders itself
+/// `.after(MountRiderLinkEnforced)` and neither crate names the other's function.
+pub fn install_mount_simulation_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.configure_sets(
+        schedule.clone(),
+        (MountsBoarded, RideLeasesTicked, DismountRequestsApplied)
+            .chain()
+            .after(MountRiderLinkEnforced),
+    );
+    app.add_systems(
+        schedule.clone(),
+        enforce_mount_rider_link.in_set(MountRiderLinkEnforced),
+    );
+    app.add_systems(schedule.clone(), board_reserved_mounts.in_set(MountsBoarded));
+    app.add_systems(schedule.clone(), tick_ride_leases.in_set(RideLeasesTicked));
+    app.add_systems(
+        schedule,
+        apply_dismount_requests.in_set(DismountRequestsApplied),
+    );
+}
+
+/// The rider's pose mirrored onto its mount, after whatever moved either of them.
+///
+/// ⭐ THE SECOND HALF OF THE MOUNT CRATE'S POSE STAGE, and it is published for
+/// one reason: `sync_riders_to_mounts` must run AFTER its host's actor read
+/// model, and the host was saying so by naming the read model's FUNCTION. A
+/// function is not a contract — it can be split, renamed or reordered inside its
+/// own crate without anyone noticing that a foreign ordering depended on it.
+/// ⇒ The host publishes a set for its read model, this set orders against it,
+/// and neither crate names the other's private system.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RidersSyncedToMounts;
+
+/// Install the mount crate's POSE stage into `schedule`.
+///
+/// ⚠ SEPARATE FROM `install_mount_simulation_systems` ON PURPOSE, because these
+/// two run in different PHASES of the same schedule and the phase is the
+/// composition's call, not this crate's. What this crate owns and states here is
+/// that steering happens before integration and the mirror happens after it —
+/// facts about what a mount IS, which no composition should have to rediscover.
+///
+/// ⇒ The caller places `MountsSteeredByRiders` and `RidersSyncedToMounts` into
+/// its own phases and orders the latter after its read model. It never names
+/// `steer_mount_from_rider` or `sync_riders_to_mounts`.
+pub fn install_mount_pose_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.add_systems(
+        schedule.clone(),
+        steer_mount_from_rider.in_set(MountsSteeredByRiders),
+    );
+    app.add_systems(schedule, sync_riders_to_mounts.in_set(RidersSyncedToMounts));
 }

@@ -230,6 +230,18 @@ impl LimitMeterFill {
             // be the one source whose sign nobody reading the field name would
             // check. Same arm as the rest for that reason.
             ("decay_per_second", self.decay_per_second),
+            // ⛔⛔ AND `on_block` WAS MISSING FROM THIS LIST UNTIL 2026-09-06 —
+            // added as a fill source without being added to the check that says a
+            // fill source fills. `fill_limit_meters` runs
+            // `mana.meter.refill(fill.blocked())` and `ResourceMeter::refill`
+            // adds whatever it is handed and clamps, so `on_block = -10` was
+            // WELL FORMED and a successful block DRAINED TEN METER.
+            // ⇒ That is mechanical invalidity, not balance doctrine: no author
+            // asking for a defensive scheme is asking for blocking to cost them
+            // the meter. A new field belongs in every loop that enumerates the
+            // old ones, and the compiler cannot ask for it because the list is
+            // data.
+            ("on_block", self.on_block),
         ] {
             if v < 0.0 {
                 problems.push(format!(
@@ -251,10 +263,17 @@ impl LimitMeterFill {
             && self.per_damage_dealt <= 0.0
             && self.on_damage_taken <= 0.0
             && self.per_damage_taken <= 0.0
+            // ⛔⛔ AND BLOCKING IS A FOURTH SOURCE. Without this arm a meter with
+            // `cap 60, per_second 0.5, decay 0.5, on_block 10` was reported
+            // impossible to fill — and repeated blocks plainly fill it. The
+            // message below said "no DAMAGE source", which is the tell: the
+            // sentence was written when there were three sources and never
+            // re-read when a fourth arrived.
+            && self.on_block <= 0.0
         {
             problems.push(format!(
-                "decay_per_second {} is at least per_second {} and no damage \
-                 source fills this meter, so it can never reach its cap",
+                "decay_per_second {} is at least per_second {} and no damage or \
+                 block source fills this meter, so it can never reach its cap",
                 self.decay_per_second, self.per_second
             ));
         }

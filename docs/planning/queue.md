@@ -1346,6 +1346,35 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   Mary-O closed 19.809 -- `authored_offset.y` is 19.8095, i.e. exactly one offset's
   worth of double-count.
 
+  ⛔⛔⛔ **RETRACTED 2026-09-06, SAME DAY, BY ME: EVERYTHING IN THE BLOCK BELOW
+  MEASURED A DEATH FRAME.** The capture ran `--walk 200`, which walks Mary-O off the
+  course and KILLS her, so the quad I measured was the `death` row, not `idle`.
+
+  PROOF, and it is exact rather than suggestive: the drawn quad 22.09524 x 32.380955
+  world / (8/21) = **58.0 x 85.0 sheet px**, and the sheet's rows are
+  `idle: 63x86 off=(43,105)` and `death: 58x85 off=(49,80)`. 58x85 is death, to the
+  pixel. The trim I "derived" (oy=80, th=85) is literally death's `off.y` and `h`.
+
+  ⭐⭐ **RE-MEASURED WITH HER ALIVE (`--walk 0`): `space_sum` = 383.619, quad 24.0 x
+  32.761906 = 63x86 = the IDLE rect. The actor band is 383.1..384.2. SHE IS INSIDE
+  IT.** ⇒ `a3039d644` did not close 19.81 of 29.33 leaving a residual -- it closed
+  the defect. There is no residual and no asset gap to chase.
+
+  ⚠ And the gap for the idle pose runs the OTHER way and is a rounding artifact:
+  idle art spans sheet y 105..191 against a box bottom of 190, i.e. **-1px**.
+
+  ⇒ What survives from the block below: the generator DOES take one frame's alpha
+  extent as the whole sheet's body box (`sheet.py:215`, `if body_metric_frame is
+  None: body_metric_frame = cropped`) -- that reading is correct and unchanged. What
+  does NOT survive is the claim that it costs 25px on screen. A corpse's art not
+  filling a standing body box is expected, not a defect, and I had no live-play
+  evidence for a per-pose cost. ⛔ Do not open asset work on the strength of it.
+
+  ⚠ THE LESSON FOR THE NEXT MEASUREMENT: the capture tool's own default walk kills
+  the subject. A sprite census must assert WHICH ANIMATION it sampled -- the reporter
+  prints the quad, and the quad names the row once converted to sheet pixels.
+
+  ⛔ SUPERSEDED, KEPT FOR THE ARITHMETIC ONLY:
   ⭐⭐⭐ **THE RESIDUAL IS THE ASSET GAP, AND IT IS NOW EXACT: 25.0 SHEET PIXELS.**
   Measured 2026-09-06, and it CLOSES the question of whether the two mechanisms above
   are independent -- they are the same defect, and the code half is repaired.

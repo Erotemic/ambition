@@ -669,7 +669,34 @@ so nothing reconciles them, and no reader of `occurrences()` cross-checks either
 would have its OCCURRENCE row dropped and its MINTED row kept: an orphan pointing at
 nothing.
 
-⛔ **NOT DEMONSTRATED REACHABLE, and that is the open question.** It requires an
+✔ **ANSWERED THE SAME DAY, by tracing both components to their writers.** The two
+filters read DIFFERENT components:
+
+* `InCustody` is published by `project_custody_onto_authored_occurrences` from
+  `Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>`;
+* restorable is `Query<&SimId, With<ambition_held_items::ItemCustody>>`.
+
+⇒ **The minted-item orphan looks UNREACHABLE**: `InCustodyOf` is inserted for held items
+by `ambition_held_items` (lib.rs:666), which is the crate that owns `ItemCustody`, so a
+minted ITEM carries both and survives both filters. The divergence needs a subject with
+`InCustodyOf` and no `ItemCustody`.
+
+⚠ **AND THERE IS SUCH A SUBJECT, but it is not a minted item: a CARRIED BODY.**
+`body_custody.rs:106` inserts `InCustodyOf(custodian)` on a BODY, which is not a held
+item and carries no `ItemCustody` — so a carried body's occurrence is dropped from the
+saved horizon. That may be entirely intended (a carried body is not a durable item), and
+it is a different question from the one this section opened. ▢ Worth one sentence from
+whoever owns custody: is a carried body meant to be absent from the durable horizon?
+
+⚠ **A SECOND, SMALLER OBSERVATION while tracing:** `durably_held` matches
+`With<ItemCustody>` — the COMPONENT, not the `Held { holder }` VARIANT — and
+`ItemCustody::InWorld` is also a variant. So the filter admits items lying in the world,
+which is wider than its own comment claims (*"a hand it can reconstruct"*). ⇒ Wider means
+FEWER occurrences dropped, so it cannot cause the orphan above; it is a mismatch between
+a comment and a query rather than a defect, and is recorded so a future tightening of
+that filter knows the comment is the stricter of the two.
+
+⛔ **ORIGINAL FRAMING, kept because the reasoning is the useful part:** It requires an
 occurrence marked `InCustody` whose entity lacks `ItemCustody` (or its `SimId`). If those
 two are always written together, the divergence is structural and unreachable — the same
 shape as the portal `Reflection` finding, where a real asymmetry sat behind a branch

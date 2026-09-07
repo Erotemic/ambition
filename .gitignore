@@ -235,3 +235,5 @@ git-of-theseus
 # Machine-local launcher config (see ambition.local.toml.example).
 # Describes ONE machine: what it can afford to draw and what it boots into.
 ambition.local.toml
+
+*.local.json

@@ -4498,3 +4498,38 @@ momentary Back action, is not), so it caught nothing and is prevention.
 every GAME inherits. The guard proves each declared option reaches SOME screen in the
 system menu; it says nothing about which options a given game's menu SHOULD offer, and
 nothing about a game that ships its own menu lacking rows this one has.
+
+## D72 — can the inventory, a dialogue, and the map be live in the SAME frame? (2026-09-07)
+
+**One minute at a screen closes four measured defects.** Not a design question and
+not a feel ruling — a factual question about what the game permits, which decides
+whether four unordered-input pairs matter at all.
+
+⭐ **MEASURED** (`update_schedule_census.rs`, shipped composition): nine pairs of
+systems touch `MenuControlFrame` with no ordering edge between them. Four are named:
+`ambition_dialog::dialog_input` x2 and `ambition_menu::map::handle_map_menu_hotkeys`
+x2, each against a menu-nav consumer. One reader mutates the shared frame —
+`consume_nav_edges()` clears `up`/`down`/`left`/`right`/`select`/`back`/`page_*` for
+every later reader in any crate — so when two of these are live at once, which surface
+acts on a press is decided by an order Bevy does not fix.
+
+⚠ **Nothing in code prevents the overlap.** Checked over the whole functions:
+`grid_menu_open_routing` has no dialogue or cutscene interlock,
+`ambition_dialog/src/systems.rs` has no inventory interlock, and nothing suppresses
+either surface on the other. But an absent interlock is weaker evidence than an
+observed state, and I cannot drive the game.
+
+⇒ **THE QUESTION:** (a) can you open the inventory while a dialogue is on screen?
+(b) can the map panel be up at the same time as either? (c) if yes to either — when
+both are up and you press Confirm or Back, which one *should* act?
+
+**(a) and (b) are the ones that matter.** Two NOs and the four pairs are theoretical,
+ordering them is churn, and the row closes at a guard holding the line. A YES to
+either makes (c) a real decision, and (c) is the only part that is yours rather than
+measurable — I will implement whichever you say, since the ordering mechanism is
+already in place (`GridMenuNav` / `KaleidoscopeMenuNav`, landed `0e2b46bc0`).
+
+⚠ **Do NOT read this as "menus are broken."** 11 pairs existed this morning; the two
+sharpest — the inventory backends racing each other, which is the mechanism behind
+your *"it also seems non deterministic which menu is chosen"* — are fixed and
+poison-verified. A tenth cannot land silently. This is the residue.

@@ -1435,6 +1435,23 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   the wrong cause is worse than a count**: a count sends you to look, a wrong name sends
   you to fix the wrong thing.
 
+  ⛔⛔ **TWO TRAPS IN THAT TEST'S OWN DESIGN, and both are shapes that bit us today
+  (YardratAmbition, 2026-09-07):**
+  * **DO NOT GATE IT ON THE FEATURE IT CHECKS.** A names-render assertion behind
+    `#[cfg(feature = "dev_tools")]` can only run in the world where it passes. That is
+    the purest form of a check that cannot fail, and it reads as tidy to a reviewer,
+    because gating a dev-tools assertion on dev-tools looks like good hygiene.
+  * **THE LANE DECIDES WHETHER IT EXISTS.** The doc-link ratchet was correct, RED and
+    invisible for a day because it lived only in `--maintenance`. A build-graph
+    precondition suite in a lane nobody runs is the category describing itself. ⇒ Put it
+    where the everyday lane trips over it and SAY WHICH LANE in its docstring — that
+    sentence is the difference between a guard and a document.
+  * **NAME THE PROVIDER, NOT JUST THE FACT.** *"System names render — supplied by
+    `bevy_egui` via `bevy-inspector-egui`, optional behind `dev_tools`, pulled by
+    `ambition_app`'s `default = ["desktop_dev"]`"* tells whoever trims a feature exactly
+    what they took. Without the chain a red says the world changed; with it, a red says
+    who changed it.
+
   ⚠ **A REAL instrument for the category would be a bigger thing and is Jon's call** —
   it would have to compare, per gate lane, what that lane's build graph supplies against
   what the guards in it assume, and today nothing writes the second half down.

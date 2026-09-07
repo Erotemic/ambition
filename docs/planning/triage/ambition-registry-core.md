@@ -428,6 +428,39 @@ enemy, should conflict is a question for whoever owns those domains. What the
 inventory can say is that they are the only two where nobody wrote down the
 answer.
 
+✔ **BOTH OF THOSE TWO ARE ANSWERED NOW — RE-READ 2026-09-07 AT `d6db30705`, AND
+THE COUNT OF UNANSWERED SILENT OVERWRITES IS ZERO.** A reader acting on the table
+above would go and do work that is already done, which is the failure a dated
+review page has when it is read as status.
+
+* `GatePortalRegistry` **REFUSES**, and has ADOPTED the core to do it:
+  `gate_portal.rs:145` calls `ambition_registry_core::classify` and returns
+  `Result<RegistrationOutcome, GatePortalConflict>`, with a `Display` that names
+  the zone, the incumbent switch and the incoming one. Its field is SEALED, and
+  the comment on the seal is the general lesson: *"A registry that validates in
+  one function and leaves its map open has one authority for the checked road and
+  none for the other."* ⚠ Sealing it also turned a `HashMap` into a `BTreeMap` —
+  the iteration used to happen in `ambition_render` and `actor_monolith` through
+  the public map, where the determinism policy did not look.
+* `CombatBanterRegistry` **STATES THE REPLACE**. `banter.rs:37` reads *"Bulk-register
+  a set of hit-bark lines for one enemy name. **Overwrites any existing entry for
+  that name.**"* — and the row above quotes the first sentence and concludes
+  "nothing about a second registration" from it. ⚠ Either the sentence was added
+  after 2026-09-02 or the row was written from a truncated read; the epoch squash
+  means git cannot say which, so this records only what is true now. **A negative
+  claim about a doc comment needs the WHOLE comment.**
+
+⛔ **AND I CONSIDERED SEALING `CombatBanterRegistry`'s FIELDS TO MATCH, THEN DID
+NOT, which is the more useful half.** Its `on_hit` / `idle` maps are `pub`, so the
+stated policy is advice rather than a rule — the same shape `GatePortalRegistry`
+sealed. MEASURED: the only direct field access outside the crate is one READ in a
+`#[cfg(test)]` block (`ambition_content/src/intro/banter.rs:58`); no production
+code writes through the open map. ⇒ **The asymmetry that made sealing right next
+door is absent here.** There, the checked road REFUSED and the open road bypassed
+a refusal — two different answers. Here the checked road overwrites, so an open
+`insert` does exactly what `set_hit_barks` does and there is no second answer to
+have. Sealing would move code and remove no authority.
+
 ## Problem
 
 Ambition has several independently useful registries whose implementations keep

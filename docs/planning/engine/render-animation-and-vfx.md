@@ -1210,7 +1210,7 @@ time"* is a settings seed, not a cache.
 lines — *"visual quality forced to `ultra` by AMBITION_QUALITY_PROFILE"* followed
 0.3s later by *"visual quality seeded to `potato` for a Cpu adapter"* — as an
 override being announced and then defeated. **It is not.** `resolved_budget`
-matches on `profile_override_from_env()` FIRST (`quality.rs:818` and `:833`), and a
+matches on `profile_override_from_env()` FIRST (`settings/video/quality.rs:818` and `:833`), and a
 test in that file states the contract outright: *"The forced-profile env var wins
 over settings by design."*
 

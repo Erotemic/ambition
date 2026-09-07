@@ -119,9 +119,9 @@
   ⛔⛔⛔ **CORRECTION 2026-09-06, AND IT DE-PRIORITISES EVERYTHING BELOW: THE
   `gravity_dir` PATH DOES NOT RUN IN SHIPPED PLAY.** `gravity_dir` reaches exactly two
   decisions — `somersault_roll_for_convention` and `portal_facing_flips_for_convention`
-  (`placement.rs:112,131`) — and BOTH open with
+  (`portal2d/src/placement.rs:112,131`) — and BOTH open with
   `convention == MapConvention::Reflection`. `PortalTuning::default()` ships
-  `PortalConvention::Rotation` (`tuning.rs:91`), and Reflection is selectable ONLY from
+  `PortalConvention::Rotation` (`portal2d/src/tuning.rs:91`), and Reflection is selectable ONLY from
   the dev portal inspector (`dev/portal_inspector.rs:772`).
 
   ⇒ **So the wiring asymmetry is real and the player cannot reach it.** Everything below
@@ -179,7 +179,7 @@
   per-body. It is the CORRECT example, not a second defect.
 
   ⭐ **AND THE SYMPTOM IS SPECIFIC, which is what makes it findable in play.**
-  `gravity_dir` feeds exactly one decision — `placement.rs:92`:
+  `gravity_dir` feeds exactly one decision — `portal2d/src/placement.rs:92`:
 
   ```rust
   fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {

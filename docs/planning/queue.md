@@ -1636,10 +1636,12 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   ⭐⭐⭐ **AND THE GENERATING LINE IS FOUND** (`tools/ambition_sprite2d_renderer`,
   `ambition_sprite2d_renderer/authoring/sheet.py`):
 
-      if body_metric_frame is None:      # ~line 215
-          body_metric_frame = cropped
-      ...
-      metrics = _measure_body_extent(body_metric_frame)   # ~line 249
+  ```python
+  if body_metric_frame is None:      # ~line 215
+      body_metric_frame = cropped
+  ...
+  metrics = _measure_body_extent(body_metric_frame)   # ~line 249
+  ```
 
   ⇒ **The body box is the alpha extent of THE FIRST FRAME RENDERED** -- whichever
   animation happens to sort first -- and that one measurement becomes
@@ -1654,8 +1656,10 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
   ▢ **NEXT: the generator must measure the ART per pose**, not carry one stance box.
   ⛔ THE FIX LIVES IN A SUBMODULE (`tools/ambition_sprite2d_renderer`) whose pointer
-  on this box is DIVERGENT from the superproject's record (recorded `0828faede`,
-  checked out `2b4d59f46`), so it was deliberately not committed into from here --
+  on this box is DIVERGENT from the superproject's record (the superproject's recorded pointer and the local
+  checkout disagree,
+  checked out at a DIFFERENT submodule commit), so it was deliberately not committed
+  into from here --
   that reconciliation is Jon's. The diagnosis above is complete enough that the fix
   is a small, well-specified job for whoever holds the submodule.
   ⛔ Do NOT "fix" this by adjusting the offset or the collision box: both currently

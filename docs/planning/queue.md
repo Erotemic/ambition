@@ -1799,6 +1799,39 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   direction the gate reports as a REGRESSION. The win is not gone; it was
   collected, and the crate has since grown past where it was collected.
 
+  ⛔⛔ **2026-09-06: I TRIED THE ONE-AUTHORITY REPAIR ON THIS FILE AND BACKED IT
+  OUT. The result is a PRICE TAG for the carve owner's decision, not a fix.**
+
+  The baseline holds one fact twice — `worst_edit_cost`/`watched_edit_cost` carry
+  their own `lines`/`seconds`/`crates`, and the `crates` table of the same file
+  carries all three. The obvious elegant move is to delete the copies and read the
+  table. `adopt_wins` has ALREADY been repaired to hold a held scalar's table ROW
+  with it, so the mechanism cannot desynchronise again — but **today's file predates
+  that repair and is already desynchronised**, and that is what makes the read-time
+  switch a judgement rather than a cleanup:
+
+  | crate | held scalar (older, TIGHTER) | table (newer, LOOSER) | current | vs scalar | vs table | budget |
+  |---|---|---|---|---|---|---|
+  | `ambition_geometry` | 540,227 | 592,091 | 613,064 | +72,837 | +20,973 | +10,804 |
+  | `..._actor_monolith` | 285,213 | 294,327 | 305,508 | +20,295 | +11,181 | +5,704 |
+  | `..._platformer2d_core` | 537,395 | 588,780 | 609,753 | +72,358 | +20,973 | +10,747 |
+
+  ⇒ **Every row stays RED either way**, so the switch banks no finding outright —
+  which is what made it look safe. But it RELAXES the gate by **51,864 / 9,114 /
+  51,385 lines** respectively, and a fresh regression that size would then land
+  silently. That is the same laundering `--adopt-wins` was written to refuse, so it
+  is the carve owner's call and not a run's.
+
+  ⭐ **THE ACTUAL ROOT IS THAT THE FILE MIXES TWO COMMITS**, so neither number is
+  "the baseline": the scalar was frozen at the older one, the table refreshed at the
+  newer one by the since-fixed adopt. ⇒ Picking either is a guess about which commit
+  the baseline IS. **The repair is a RE-FREEZE at a known commit**, after which the
+  duplicated copies can be deleted with zero change in meaning — and the deletion
+  should land in the same commit, because a re-freeze that leaves the copies in
+  place just re-arms the drift.
+  ⚠ Do NOT delete the copies before the re-freeze: today they are the only record of
+  the older, tighter values.
+
   ⚠ **`dirty: true` in that baseline is worth its own sentence:** a floor recorded
   from a dirty tree cannot be reproduced from the commit it names, so "the frozen
   value" is not re-derivable by checking that sha out. That is a property of the

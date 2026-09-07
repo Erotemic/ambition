@@ -1536,8 +1536,10 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   filling a standing body box is expected, not a defect, and I had no live-play
   evidence for a per-pose cost. ⛔ Do not open asset work on the strength of it.
 
-  ⚠ THE LESSON FOR THE NEXT MEASUREMENT: the capture tool's own default walk kills
-  the subject. A sprite census must assert WHICH ANIMATION it sampled -- the reporter
+  ⚠ THE LESSON FOR THE NEXT MEASUREMENT, corrected: the tool's DEFAULT is `--walk 0`
+  and is safe -- I passed `--walk 200` myself, and 200 frames of walking right carries
+  her off the course. Nothing needs changing in the tool's default; what needed
+  changing was that its output did not say which animation it had sampled. A sprite census must assert WHICH ANIMATION it sampled -- the reporter
   prints the quad, and the quad names the row once converted to sheet pixels.
 
   ⛔ SUPERSEDED, KEPT FOR THE ARITHMETIC ONLY:

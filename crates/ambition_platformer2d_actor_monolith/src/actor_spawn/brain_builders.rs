@@ -888,9 +888,44 @@ pub fn project_authored_fighter_ladder(
 /// The component IS the marker — no new flag.
 ///
 /// ⚠ ORDER, not shape, is what this had to preserve: the insert must land
-/// before the dismounted body is simulated. It runs chained straight after
-/// `enforce_mount_rider_link` in `CombatSet::Settle`, so its commands flush at
-/// the same barrier the direct call's did.
+/// before the dismounted body is simulated. It runs after
+/// `ambition_mount::MountRiderLinkEnforced` in `CombatSet::Settle`, so its
+/// commands flush at the same barrier the direct call's did.
+/// ⚠ This said "chained straight after `enforce_mount_rider_link`" until
+/// 2026-09-07, describing an arrangement the composition had already replaced
+/// with the published-set anchor — a doc comment outliving the wiring it
+/// describes. `install_dismounted_rider_rebuild` above is now the wiring.
+/// Install the dismounted-rider rebuild against the mount crate's published set.
+///
+/// ⭐ BOTH ANCHORS ARE NAMEABLE HERE, which is the whole reason this moved.
+/// `ambition_mount` is a dependency of this crate and `CombatSet` lives in
+/// `shared_tangle`, so "run after the mount link is enforced, inside Settle" needs
+/// no composition to know it. The rebuild ANSWERS the `MountDied` the mount crate
+/// announces; ordering itself against that crate's PUBLISHED set is the system's
+/// own business.
+///
+/// ⛔ THE REFERENCE DEFECT THIS REPLACED, kept because it is the lesson rather
+/// than history: the composition used to write
+/// `(ambition_mount::enforce_mount_rider_link, rebuild_dismounted_rider_brains).chain()`
+/// — one crate fixing the relative order of two OTHER crates' private systems,
+/// which the architecture program names as its example of private cross-domain
+/// ordering authority. Anchoring on the published set fixed the reference; moving
+/// the statement here fixes who says it.
+///
+/// ⚠ The SCHEDULE stays the caller's: `app.sim_schedule()` differs by host.
+pub fn install_dismounted_rider_rebuild(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+) {
+    use bevy::prelude::IntoScheduleConfigs;
+    app.add_systems(
+        schedule,
+        rebuild_dismounted_rider_brains
+            .after(ambition_mount::MountRiderLinkEnforced)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
+    );
+}
+
 pub fn rebuild_dismounted_rider_brains(
     mut commands: bevy::prelude::Commands,
     mut dismounts: bevy::prelude::MessageReader<

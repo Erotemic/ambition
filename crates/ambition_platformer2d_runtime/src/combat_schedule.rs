@@ -390,22 +390,11 @@ impl Plugin for CombatSchedulePlugin {
             )
                 .in_set(CombatSet::Settle),
         );
-        // ⛔⛔ AND THE REFERENCE DEFECT IS GONE FROM THIS LINE. It used to be
-        // `(ambition_mount::enforce_mount_rider_link,
-        //   actor_monolith::features::rebuild_dismounted_rider_brains).chain()`
-        // — one crate fixing the relative order of two OTHER crates' private
-        // systems, which the architecture program names as its example of private
-        // cross-domain ordering authority.
-        //
-        // ⇒ The rebuild ANSWERS the `MountDied` the mount crate announces, so it
-        // orders itself against the published set and neither crate names the
-        // other's function. The same guarantee, in vocabulary both own.
-        app.add_systems(
-            sim,
-            ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains
-                .after(ambition_mount::MountRiderLinkEnforced)
-                .in_set(CombatSet::Settle),
-        );
+        // The dismounted-rider rebuild installs itself against the mount crate's
+        // PUBLISHED set; this composition supplies only the schedule. The
+        // reference defect that line used to carry, and why both anchors are the
+        // monolith's to name, are in `install_dismounted_rider_rebuild`.
+        ambition_platformer2d_actor_monolith::features::install_dismounted_rider_rebuild(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

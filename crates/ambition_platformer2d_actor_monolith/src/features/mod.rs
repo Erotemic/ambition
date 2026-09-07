@@ -112,6 +112,7 @@ pub use crate::actor_bundles::{
     FeatureRenderedBundle, PickupBundle,
 };
 pub use crate::actor_spawn::actor_clusters::ActorMut;
+pub use crate::actor_spawn::brain_builders::install_dismounted_rider_rebuild;
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.

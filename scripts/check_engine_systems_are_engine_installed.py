@@ -277,7 +277,10 @@ def strip_run_conditions(body: str) -> str:
 
 
 def registered_engine_systems(
-    root: Path, subdirs: list[str], every_crate: bool = False
+    root: Path,
+    subdirs: list[str],
+    every_crate: bool = False,
+    include_bare: bool = False,
 ) -> dict[str, set[str]]:
     """system name → the files under `subdirs` whose `add_systems` name it
     through an engine-rooted path."""
@@ -307,13 +310,69 @@ def registered_engine_systems(
                     if not name.islower():
                         continue
                     found.setdefault(name, set()).add(relative)
+                # ⛔⛔ A BARE NAME IS A REGISTRATION TOO, which this missed until
+                # 2026-09-06 and which the capability-plugin carve made
+                # load-bearing. `_QUALIFIED_PATH` needs two segments, so an engine
+                # crate installing its OWN system — `install_fx_pipeline` naming
+                # `process_fx_requests` with no path, because it is right there —
+                # was invisible, and the system read as APP-ONLY the moment its
+                # qualified registration moved into that installer.
+                #
+                # ⇒ The carve did not change WHAT is registered, it changed HOW IT
+                # IS SPELLED, and an instrument keyed on spelling reported a
+                # regression. Same class as `defining_crate()` in
+                # `measure_foreign_system_ordering.py`: resolve to what DEFINES a
+                # system, never to the path the caller happened to write.
+                #
+                # ⚠ THE SAME-CRATE CHECK IS DEFENCE IN DEPTH, NOT A LIVE GUARD —
+                # measured: removing it leaves the suite green, because no host
+                # today names a foreign system bare. It stays because that is the
+                # one way this widening could start crediting a registration the
+                # engine did not make, and it costs one set lookup.
+                if not include_bare:
+                    continue
+                for bare in _BARE_IDENT.findall(body):
+                    if not bare.islower() or bare in _NOT_SYSTEMS:
+                        continue
+                    if bare in _crate_defined_fns(root, path):
+                        found.setdefault(bare, set()).add(relative)
     return found
+
+
+_BARE_IDENT = re.compile(r"(?<![\w:])([a-z_][a-z0-9_]*)(?![\w:(])")
+# Words that appear inside an `add_systems` body and are not systems.
+_NOT_SYSTEMS = frozenset({"app", "sim", "schedule", "in_set", "after", "before", "chain"})
+_CRATE_FNS: dict[str, set[str]] = {}
+_FN_DEF = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)\s*[(<]")
+
+
+def _crate_defined_fns(root: Path, path: Path) -> set[str]:
+    """Every `fn` name defined anywhere in the crate that owns `path`, cached."""
+    crate_root = path
+    while crate_root != root and not (crate_root / "Cargo.toml").exists():
+        crate_root = crate_root.parent
+    key = crate_root.as_posix()
+    cached = _CRATE_FNS.get(key)
+    if cached is not None:
+        return cached
+    names: set[str] = set()
+    for rs in crate_root.rglob("*.rs"):
+        names.update(_FN_DEF.findall(rs.read_text(encoding="utf-8", errors="replace")))
+    _CRATE_FNS[key] = names
+    return names
 
 
 def app_only_systems(root: Path, every_crate: bool = False) -> dict[str, set[str]]:
     """Engine systems an app registers that no engine crate registers."""
+    # ⚠ BARE NAMES ON THE ENGINE SIDE ONLY, and the asymmetry is the point.
+    # `by_engine` answers "does any engine crate register this", and an engine
+    # crate installing its own system names it bare. `by_app` answers "which
+    # ENGINE systems does a game register" — those are foreign to the game and so
+    # always qualified, and counting bare identifiers there sweeps in every system
+    # a game defines and installs itself. Measured: it took the offender list from
+    # 1 to 277.
     by_app = registered_engine_systems(root, APP_ROOTS, every_crate)
-    by_engine = registered_engine_systems(root, ENGINE_ROOTS, every_crate)
+    by_engine = registered_engine_systems(root, ENGINE_ROOTS, every_crate, include_bare=True)
     return {
         name: files
         for name, files in by_app.items()

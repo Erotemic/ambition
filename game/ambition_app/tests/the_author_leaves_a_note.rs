@@ -74,6 +74,12 @@ fn damage_taken_by(app: &App, body: Entity) -> i32 {
 /// SEATS ON PADS NOBODY IS HOLDING, so neither body moves unless this test
 /// moves it — a CPU target walks out of the volume the test stands it in.
 fn a_settled_match() -> (App, Entity, Entity) {
+    let (app, author, target, _) = a_settled_match_of(2, None);
+    (app, author, target)
+}
+
+/// `seats` Authors, all on pads nobody holds, with an optional stock count.
+fn a_settled_match_of(seats: usize, stocks: Option<u32>) -> (App, Entity, Entity, Vec<Entity>) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.init_resource::<Blasts>();
@@ -81,10 +87,15 @@ fn a_settled_match() -> (App, Entity, Entity) {
     for _ in 0..30 {
         app.update();
     }
-    let mut roster = ambition_demo_smash::smash_roster([AUTHOR, AUTHOR]);
-    roster.participants[1].controller = ambition_platformer2d::actor::ControllerBinding::Human {
-        source: ambition_platformer2d::actor::LocalInputSource::Pad(1),
-    };
+    let mut roster = ambition_demo_smash::smash_roster(vec![AUTHOR; seats]);
+    for (index, participant) in roster.participants.iter_mut().enumerate().skip(1) {
+        participant.controller = ambition_platformer2d::actor::ControllerBinding::Human {
+            source: ambition_platformer2d::actor::LocalInputSource::Pad(index as u8),
+        };
+    }
+    if let Some(stocks) = stocks {
+        roster.rules.stocks = Some(stocks);
+    }
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -102,13 +113,16 @@ fn a_settled_match() -> (App, Entity, Entity) {
             >();
             (seated, q.iter(world).count())
         };
-        if seated >= 2 && held == 0 {
+        if seated >= seats && held == 0 {
             break;
         }
     }
     let author = body_of_seat(&mut app, 0);
     let target = body_of_seat(&mut app, 1);
-    (app, author, target)
+    let others: Vec<Entity> = (2..seats)
+        .map(|seat| body_of_seat(&mut app, seat))
+        .collect();
+    (app, author, target, others)
 }
 
 /// Put the target inside the tilt's first damaging volume and start the real
@@ -255,6 +269,96 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_au
         after > before,
         "the note went off and the target's meter did not move ({before} -> {after}): \
          the blast was requested and never became combat damage"
+    );
+}
+
+/// ⛔⛔ THE CREDIT OUTLIVES THE AUTHOR'S BODY. Three-way, one stock each: the
+/// Author marks the target, is knocked out past the blast line inside the fuse,
+/// eliminated and despawned; a third fighter stands on the target when the note
+/// goes off. The blast is owned by a stand-in naming the Author's SEAT -- not by
+/// the target, which is what the first fix fell back to -- and the third fighter
+/// is hurt by it.
+#[test]
+fn a_note_whose_author_was_eliminated_still_credits_the_authors_seat() {
+    use ambition_platformer2d::actor::{FighterEliminated, FighterStocks, SeatCredit};
+
+    let (mut app, author, target, others) = a_settled_match_of(3, Some(1));
+    let third = others[0];
+    land_the_tilt(&mut app, author, target);
+
+    // The Author leaves the match: past the blast line, launched outward.
+    {
+        let mut kin = app
+            .world_mut()
+            .get_mut::<ae::BodyKinematics>(author)
+            .expect("the Author has a body");
+        kin.pos = ae::Vec2::new(-400.0, kin.pos.y);
+        kin.vel = ae::Vec2::new(-2_400.0, -200.0);
+    }
+    let mut gone = false;
+    for _ in 0..60 {
+        app.update();
+        let eliminated = app.world().get::<FighterEliminated>(author).is_some();
+        if app.world().get_entity(author).is_err() || eliminated {
+            gone = true;
+        }
+        if app.world().get_entity(author).is_err() {
+            break;
+        }
+    }
+    assert!(gone, "premise: the Author never lost the last stock");
+    assert!(
+        app.world().get::<BodyMark>(target).is_some(),
+        "premise: the note is still on the target after the Author left; the \
+         fuse ran out before the elimination and this proves nothing"
+    );
+    assert!(
+        app.world().get::<FighterStocks>(target).is_some()
+            && app.world().get::<FighterStocks>(third).is_some(),
+        "premise: two fighters remain and the match continues"
+    );
+
+    // The third fighter stands where the note is.
+    {
+        let at = app
+            .world()
+            .get::<ae::BodyKinematics>(target)
+            .expect("the target has a body")
+            .pos;
+        let mut kin = app
+            .world_mut()
+            .get_mut::<ae::BodyKinematics>(third)
+            .expect("the third fighter has a body");
+        kin.pos = at;
+        kin.vel = ae::Vec2::ZERO;
+    }
+    let third_before = damage_taken_by(&app, third);
+    for _ in 0..180 {
+        app.update();
+        if app.world().get::<BodyMark>(target).is_none() {
+            break;
+        }
+    }
+    for _ in 0..6 {
+        app.update();
+    }
+    let owner = app
+        .world()
+        .resource::<Blasts>()
+        .last_owner
+        .expect("the note went off");
+    assert_ne!(
+        owner, target,
+        "the blast fell back to the marked target as its owner"
+    );
+    assert_eq!(
+        app.world().get::<SeatCredit>(owner).copied(),
+        Some(SeatCredit(0)),
+        "the blast's owner does not name the Author's seat"
+    );
+    assert!(
+        damage_taken_by(&app, third) > third_before,
+        "the third fighter stood in the blast and was not hurt"
     );
 }
 

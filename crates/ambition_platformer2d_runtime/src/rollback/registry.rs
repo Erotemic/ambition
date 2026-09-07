@@ -286,7 +286,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// the authored fuse (the telegraph's denominator), and the probe folds the
 /// seat in — two peers agreeing on WHEN a mark goes off and disagreeing on WHO
 /// is credited is a kill on different fighters on the two screens.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 166;
+/// ⭐ 166 -> 167 (2026-09-07): `smash.seat_credit` + `smash.seat_credit_stand_in`
+/// joined -- the credit of a mark whose attacker was eliminated inside the fuse
+/// rides a stand-in entity for the blast's lifetime, and a rewind across the
+/// detonation has to restore it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 167;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -7,6 +7,29 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatchSeat(pub usize);
 
+/// An entity that stands for a seat's COMBAT CREDIT and nothing else.
+///
+/// ⭐⭐ SEMANTIC ATTRIBUTION OUTLIVES THE BODY. A delayed attack -- a mark with a
+/// 1.4s fuse -- can materialise after the fighter who authored it has lost
+/// their last stock and been despawned. Every hitbox names its credited
+/// attacker as an `Entity`, so a ruleset that could not find a live body for
+/// the seat had two bad answers: credit the VICTIM (the first mark did; a
+/// bystander it KO'd was credited to the fighter who was marked) or credit a
+/// dead `Entity` nobody can resolve to a seat. A GPT review named the case
+/// 2026-09-07.
+///
+/// ⇒ This is the third answer: a stand-in carrying the seat, spawned by the
+/// ruleset for the blast's lifetime. It is NOT a participant -- it carries no
+/// [`MatchSeat`], so [`match_participants`] cannot count it and the match
+/// decides exactly as before -- and it has no body, so the live-source
+/// projections a resolver reads off an attacker (rage, staleness, grudge) read
+/// as absent, which is the honest value for a fighter who is out.
+///
+/// A consumer that resolves "which seat did this" from an attacker entity asks
+/// `MatchSeat` OR `SeatCredit`; the two never coexist on one entity.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SeatCredit(pub usize);
+
 /// Derive live fighter entities from rollback-restored [`MatchSeat`] components, sorted by seat.
 /// No resource stores live entity handles for the cast.
 pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {

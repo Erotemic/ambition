@@ -483,3 +483,53 @@ fn a_live_mark_is_a_readable_clock_on_its_body() {
         "the mark went off and its clock is still published"
     );
 }
+
+/// ⛔⛔ THE CREDIT OUTLIVES THE BODY. A fighter eliminated inside the fuse has
+/// no live `MatchSeat` when the mark goes off, and the first fix fell back to
+/// the marked VICTIM as the blast's owner -- the original defect one case over.
+/// The seat is the credit; a `SeatCredit` stand-in names it for the blast's
+/// lifetime and then leaves. Never the victim.
+#[test]
+fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_victim() {
+    let mut app = app();
+    let attacker = fighter(&mut app, 0, ae::Vec2::ZERO);
+    let victim = fighter(&mut app, 1, ae::Vec2::new(50.0, 0.0));
+    land_a_marking_hit(&mut app, attacker, victim, 0.1);
+    app.update();
+    assert!(
+        app.world().get::<BodyMark>(victim).is_some(),
+        "premise: marked"
+    );
+
+    // The attacker loses their last stock and is despawned, as
+    // `take_eliminated_fighters_out_of_play` despawns an eliminated body.
+    app.world_mut().entity_mut(attacker).despawn();
+    for _ in 0..10 {
+        app.update();
+    }
+    assert_eq!(blast_count(&app), 1, "premise: the mark detonated");
+    let owner = last_owner(&app).expect("the blast named an owner");
+    assert_ne!(
+        owner, victim,
+        "the attacker's body was gone and the blast fell back to the VICTIM as \
+         its owner: a bystander it KOs is credited to the fighter who was marked"
+    );
+    assert_eq!(
+        app.world().get::<SeatCredit>(owner).copied(),
+        Some(SeatCredit(0)),
+        "the owner does not name the attacker's seat"
+    );
+    assert!(
+        app.world().get::<MatchSeat>(owner).is_none(),
+        "a credit stand-in must not be a PARTICIPANT, or the match counts a \
+         fighter who is out"
+    );
+    // And it leaves once the blast can no longer land.
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(
+        app.world().get_entity(owner).is_err(),
+        "the credit stand-in outlived the blast it stood in for"
+    );
+}

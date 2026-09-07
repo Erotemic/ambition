@@ -320,7 +320,7 @@ pub mod actor {
     /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
     /// embarrassing of the two and the harder one to notice.
-    pub use ambition_match::MatchSeat;
+    pub use ambition_match::{MatchSeat, SeatCredit};
 
     /// Declaring a MATCH: who is in it, who drives them, and what it costs to
     /// lose.

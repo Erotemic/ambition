@@ -37,7 +37,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::actor::{MatchSeat, SeatCredit};
 use ambition_platformer2d::characters::smash_mark::{MarkBodyParams, MARK_BODY};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
 
@@ -72,6 +72,34 @@ pub struct BodyMark {
     /// reading (the first marker keeps the credit through refreshes) would let a
     /// fighter farm a kill off a teammate's follow-ups.
     pub attacker_seat: usize,
+}
+
+/// How long a credit stand-in outlives the detonation it was spawned for.
+///
+/// The blast's own lifetime is 0.08s; this is comfortably past it, so every
+/// contact the blast makes can still resolve the attacker to a seat. Ticked on
+/// the sim clock by the same system that spawns it.
+pub const SEAT_CREDIT_STAND_IN_S: f32 = 0.25;
+
+/// A seat's credit, standing in for a body that has left the match.
+///
+/// ⛔ ROLLBACK STATE, like the mark that spawned it: a rewind across the
+/// detonation must put the stand-in back or the resimulated blast credits
+/// nobody. The seat rides the `SeatCredit` beside it, which is the vocabulary
+/// consumers read; this is the ruleset's lifetime bookkeeping.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct SeatCreditStandIn {
+    pub remaining_s: f32,
+}
+
+/// Value projection for the rollback checksum: the clock.
+pub fn seat_credit_stand_in_probe(stand_in: &SeatCreditStandIn) -> u64 {
+    (stand_in.remaining_s * 1000.0).round().max(0.0) as u64
+}
+
+/// Value projection for the seat a stand-in credits.
+pub fn seat_credit_probe(credit: &SeatCredit) -> u64 {
+    credit.0 as u64
 }
 
 impl BodyMark {
@@ -171,8 +199,18 @@ pub fn detonate_body_marks(
         Has<OutOfPlay>,
     )>,
     seats: Query<(Entity, &MatchSeat)>,
+    mut stand_ins: Query<(Entity, &mut SeatCreditStandIn)>,
+    active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
 ) {
     let dt = time.sim_dt();
+    // The stand-ins from earlier detonations run out here, in the one system
+    // that decides how a mark ends, so their clock and the mark's are one clock.
+    for (stand_in, mut credit) in &mut stand_ins {
+        credit.remaining_s -= dt;
+        if credit.remaining_s <= 0.0 {
+            commands.entity(stand_in).despawn();
+        }
+    }
     for (entity, mut mark, kin, out_of_play) in &mut marked {
         if out_of_play {
             info!(
@@ -193,23 +231,36 @@ pub fn detonate_body_marks(
         // field is not geometry. Resolved by seat at the moment the blast
         // materialises, exactly as the bolt resolves its caster.
         //
-        // ⚠ A seat that has left the match cannot be credited. The clock still
-        // ran and the blast still happens; it is owned by the marked body as a
-        // plain hazard, and the log says so, because dropping the blast would
-        // change what the victim experienced on account of somebody else's
-        // elimination.
+        // ⛔⛔ AND THE CREDIT OUTLIVES THE BODY. The first version fell back
+        // to the marked body when the attacker's seat had no live fighter -- a
+        // fighter eliminated inside the 1.4s fuse in a three-way match -- which
+        // re-created the defect one case over: a bystander KO'd by the blast was
+        // credited to the victim. The seat is the credit; the body is an
+        // OPTIONAL live source. With no body, a `SeatCredit` stand-in names the
+        // seat for the blast's lifetime, carries no `MatchSeat` so the match
+        // still counts two participants, and has no rage or staleness to read,
+        // which is the honest value for a fighter who is out. Never the victim.
         let owner = seats
             .iter()
             .find(|(_, seat)| seat.0 == mark.attacker_seat)
             .map(|(attacker, _)| attacker)
             .unwrap_or_else(|| {
-                warn!(
+                info!(
                     target: "ambition::moves",
-                    "mark detonation: seat {} has no body to credit; the blast is \
-                     owned by the marked body",
+                    "mark detonation: seat {} has left the match; its credit stands in",
                     mark.attacker_seat,
                 );
-                entity
+                let stand_in = commands
+                    .spawn((
+                        SeatCredit(mark.attacker_seat),
+                        SeatCreditStandIn {
+                            remaining_s: SEAT_CREDIT_STAND_IN_S,
+                        },
+                        Name::new("Seat credit stand-in"),
+                    ))
+                    .id();
+                crate::match_scope::stamp(&mut commands, stand_in, active_match.as_deref());
+                stand_in
             });
         effects.write(ambition_platformer2d::vfx::EffectRequest {
             owner,

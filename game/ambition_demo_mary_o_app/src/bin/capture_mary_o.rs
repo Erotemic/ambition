@@ -159,9 +159,16 @@ fn main() {
         at,
     });
     app.add_systems(Startup, setup_capture_target);
-    // Reports on the shutter frame; see the function's own note for why the two
-    // halves have to be printed together.
-    app.add_systems(Update, report_body_against_sprite);
+    // ⛔⛔ IN `PostUpdate`, AFTER TRANSFORM PROPAGATION, and that placement is the
+    // whole point. As an unordered `Update` system this read `GlobalTransform`
+    // while the presentation writers (`sync_visuals`, `animate_player`) were still
+    // running in the same stage — so a row could pair THIS frame's sprite with LAST
+    // frame's transform and call the mixture "the drawn placement". A GPT review
+    // caught it, and it is the same class of error the reporter exists to prevent.
+    app.add_systems(
+        PostUpdate,
+        report_body_against_sprite.after(bevy::transform::TransformSystems::Propagate),
+    );
     // the placement runs in the SIM schedule, not beside the other capture
     // systems. It calls `transit_body`, which writes `MotionModel` — rollback
     // state — and `scripts/check_rollback_mutators_run_in_sim.py` catches
@@ -287,9 +294,29 @@ fn report_body_against_sprite(
         &ambition_platformer2d::sim_view::BodyPoseView,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    mut reported: Local<bool>,
 ) {
-    // Only on the frame the shutter fires, so the line is one row and not a stream.
-    if target.is_none_or(|target| target.adopted == 0) || warmup.remaining > 0 {
+    // ⛔⛔ THE SHUTTER'S OWN CONDITION, NOT AN APPROXIMATION OF IT. This gated on
+    // `warmup.remaining` alone, while `shoot_when_warm` ALSO waits for the walk and
+    // the settle — so `--warmup 10 --walk 300` printed ~290 rows of travel and
+    // labelled each one the drawn placement. A GPT review caught it: the comment
+    // said "the frame the shutter fires" and the code said "some frame after the
+    // warmup".
+    //
+    // ⇒ Mirroring the three conditions would be a SECOND copy of the shutter rule,
+    // which is how the two come to disagree again. `CaptureProgress::requested` is
+    // what `request_capture` sets, so asking IT is asking the shutter.
+    if target.is_none_or(|target| target.adopted == 0) {
+        return;
+    }
+    if warmup.remaining > 0 || warmup.walk_right > 0 || warmup.settle > 0 {
+        return;
+    }
+    // ⚠ ONCE. The gate above stays true for the handful of frames the readback
+    // takes, so without this it prints five near-identical rows and a reader has to
+    // decide which one was the photograph. Measured: 5 rows before this line, and
+    // ~120 before the walk/settle conditions were added.
+    if std::mem::replace(&mut *reported, true) {
         return;
     }
     let Ok(kin) = bodies.single() else {

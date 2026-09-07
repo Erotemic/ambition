@@ -1117,10 +1117,24 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   arm -- so the poisoned actor rows (3-group sum 384.547, snakes 383.713 -> 384.287)
   are an artifact of the toggle, NOT a pre-fix actor baseline. Anyone re-running this
   A/B will see actors move and must not read it as a regression.
-  ⇒ Actors are unchanged by ARGUMENT, which is sound here because the condition is
-  textually the same: `view.sprite_offset.is_some()` became
-  `view.sprite_offset.map(..).is_some()`, and `.map(f).is_some()` equals `.is_some()`.
-  A measured actor A/B would need the original two-road code restored, not this toggle.
+  ⇒ Actors are unchanged by ARGUMENT: the condition is textually the same
+  (`view.sprite_offset.is_some()` became `view.sprite_offset.map(..).is_some()`, and
+  `.map(f).is_some()` equals `.is_some()`).
+
+  ✔✔ **AND NOW BY MEASUREMENT.** Restoring the ORIGINAL TWO-ROAD code -- player
+  collision-derived, actors still on the shared arm, which the shared toggle cannot
+  express -- and running both binaries at `--walk 0`, ultra, repeated:
+
+  | | pre-fix (two-road) | post-fix |
+  |---|---|---|
+  | 3-body group | 384.000 | **384.000** |
+  | snakes (x10) | 384.287 | **384.287** |
+  | player | 403.429 | **383.619** |
+
+  ⇒ **Actors identical to three decimals; only the player moved.** ⚠ And the sums are
+  what to compare, not the quads: the 3-group's quad alternates 9.299/9.481 between
+  runs of the SAME binary (its animation frame is not deterministic) while its sum
+  stays 384.000. Reading the quad would have shown a phantom difference.
 
   403.429 - 383.619 = **19.810**, and `authored_offset.y` is 19.8095. ⇒ The fix moves
   her by exactly one authored offset and lands her in the same band as every other

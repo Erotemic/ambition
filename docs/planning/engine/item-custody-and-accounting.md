@@ -681,12 +681,26 @@ by `ambition_held_items` (lib.rs:666), which is the crate that owns `ItemCustody
 minted ITEM carries both and survives both filters. The divergence needs a subject with
 `InCustodyOf` and no `ItemCustody`.
 
-⚠ **AND THERE IS SUCH A SUBJECT, but it is not a minted item: a CARRIED BODY.**
-`body_custody.rs:106` inserts `InCustodyOf(custodian)` on a BODY, which is not a held
-item and carries no `ItemCustody` — so a carried body's occurrence is dropped from the
-saved horizon. That may be entirely intended (a carried body is not a durable item), and
-it is a different question from the one this section opened. ▢ Worth one sentence from
-whoever owns custody: is a carried body meant to be absent from the durable horizon?
+✔ **AND THERE IS SUCH A SUBJECT — a CARRIED BODY — BUT THE BEHAVIOUR IS CORRECT, traced
+2026-09-06 rather than left as a question.** `project_body_custody` writes `InCustodyOf`
+for riders, limbs and possessed bodies, explicitly `Without<GroundItem>` because *"the
+item domain owns its custody projection"*. So a carried BODY does get an `InCustody`
+occurrence row from `project_custody_onto_authored_occurrences`, and is then dropped by
+`durable_horizon`'s filter for having no `ItemCustody`.
+
+⇒ **That is the filter doing exactly what its comment says**: *"the file may only make
+that claim about a hand it can reconstruct."* A mount's grip or a possession is session
+state — the save does not restore a rider onto a mount — so a durable row claiming
+"somebody is holding this body" would be a claim the loader cannot honour. ⇒ Dropping it
+is the correct answer, and the two custody projections (bodies vs items) writing ONE
+marker while only one of them is durable is the design rather than an accident.
+
+⚠ **What this does confirm: `InCustodyOf` has TWO producers with different durability.**
+Nothing marks that difference at the marker itself, so the durability of an `InCustody`
+row depends on which projection wrote it — recoverable only by knowing that
+`durably_held` filters on `ItemCustody`. That is worth a sentence at
+`project_custody_onto_authored_occurrences` if anyone touches it, and is not worth a
+change today.
 
 ⚠ **A SECOND, SMALLER OBSERVATION while tracing:** `durably_held` matches
 `With<ItemCustody>` — the COMPONENT, not the `Held { holder }` VARIANT — and

@@ -22,6 +22,27 @@
 use bevy::ecs::schedule::{ScheduleLabel, Schedules};
 use bevy::prelude::*;
 
+/// What Bevy renders instead of a system name when `bevy_utils/debug` is OFF.
+///
+/// ⛔⛔ AND IT IS ON HERE ONLY BECAUSE OF AN INSPECTOR GUI. MEASURED 2026-09-07
+/// (`cargo tree -e features -i bevy_utils@0.19.1`): 65 manifests in this workspace
+/// pin `bevy = { default-features = false, .. }`, NONE list `"debug"`, and the one
+/// dependent that turns it on is `bevy_egui 0.40.1` — reached through the OPTIONAL
+/// `bevy-inspector-egui`, behind the `dev_tools` feature, which `ambition_app`'s
+/// `default = ["desktop_dev"]` happens to include.
+///
+/// ⚠ THE FEATURE SET THAT LOSES IT ALREADY EXISTS. `android = [.., "rl_sim", ..]`
+/// carries the sim harness WITHOUT `dev_tools` (`android_dev` is the one that adds
+/// it), so a build under that persona renders every system as the placeholder. The
+/// gate's feature jobs deny `android`, so no lane hits it today — which is exactly
+/// the kind of "true until someone trims features" edge that goes unrecorded.
+///
+/// ⇒ So this guard states its precondition instead of assuming it. Without the
+/// check below, a build with names stripped would fail saying THE RE-ARM IS
+/// MISSING, and send its reader to fix a schedule that was never broken. A guard
+/// whose failure message names the wrong cause is worse than a count.
+const NAMES_STRIPPED: &str = "<Enable the debug feature to see the name>";
+
 /// The names of the systems `ContentRoomReplayResetSet` holds in `label`.
 ///
 /// The set is asked by IDENTITY, so a renamed set is a `SetNotFound` here rather
@@ -54,6 +75,14 @@ fn retraction_slot_members(app: &mut App, label: impl ScheduleLabel) -> Vec<Stri
 /// is not — a diagnostic that names the neighbours is the difference between "this
 /// demo lost its retraction" and "this demo has none at all".
 fn assert_rearms(members: &[String], type_name: &str, demo: &str) {
+    assert!(
+        !members.iter().any(|name| name.contains(NAMES_STRIPPED)),
+        "{demo}: THIS BUILD RENDERS NO SYSTEM NAMES, so nothing below can identify \
+         `{type_name}` and the failure you would otherwise read is not the one you \
+         have. Names come from `bevy_utils/debug`, supplied ONLY by `bevy_egui` via \
+         the optional `bevy-inspector-egui` behind the `dev_tools` feature. Someone \
+         trimmed that feature out of this build. Members: {members:#?}"
+    );
     let hit = members
         .iter()
         .any(|m| m.contains("rearm_attempt_scoped") && m.contains(type_name));

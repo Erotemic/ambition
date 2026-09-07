@@ -693,3 +693,78 @@ fn a_gauntlet_left_in_a_room_is_rebuilt_when_the_room_is() {
         "and it is where it fell: dropped at {where_it_fell:?}, rebuilt at {now:?}"
     );
 }
+
+/// A REAL save holds the occurrence every minted-item row names.
+///
+/// ⛔⛔ THE UNIT TEST FOR THIS INVARIANT CANNOT WITNESS ITS VIOLATION.
+/// `save_data.rs`'s `no_durable_row_names_an_occurrence_the_save_does_not_hold`
+/// builds a save, calls `set_durable_horizon` and `set_minted_items` with matching
+/// ids, and then asserts they match — a test that CONSTRUCTS its subject cannot
+/// witness its absence. Its own doc names the defect it is standing in for:
+/// *"`set_minted_items` is a separate authority from `set_durable_horizon` and
+/// nothing reconciles them"*, with separate production writers
+/// (`items/pickup/minted_horizon.rs` vs `session/durable_horizon.rs`) each
+/// idempotent against its OWN field.
+///
+/// ⇒ So this drives both production writers and asks the file. Mint a gauntlet
+/// off a real boss kill, take it into a hand, commit a checkpoint — the minted
+/// capture takes only occurrences in custody, which is why the pick-up precedes
+/// the bank — and then read what the autosave would commit.
+#[test]
+fn a_real_save_holds_the_occurrence_every_minted_row_names() {
+    let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
+    sim.step_n(base(), 30);
+
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, "minted_horizon_boss");
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, "minted_horizon_boss", 600);
+    sim.step_n(base(), 120);
+    let dropped = dropped_gauntlet(&mut sim);
+    assert_eq!(
+        dropped.len(),
+        1,
+        "the kill must leave exactly one runtime-minted gauntlet, or there is no \
+         minted row for the file to hold"
+    );
+    let occurrence = dropped.into_iter().next().expect("one drop");
+
+    pick_up(&mut sim, &occurrence);
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    sim.step_n(base(), 60);
+
+    let file = the_file(&sim);
+    // ⚠ ANTI-VACUITY, and it is the whole reason this test exists at app level: a
+    // file with no minted rows satisfies "no orphaned minted row" for free, which
+    // is exactly how the unit-test version of this question stays green.
+    assert!(
+        !file.minted_items().is_empty(),
+        "the save carries NO minted-item rows after a mint taken into a hand and \
+         banked, so nothing below is being checked. occurrences={:?}",
+        file.occurrences().len()
+    );
+    let known: Vec<&str> = file.occurrences().iter().map(|o| o.id.as_str()).collect();
+    assert!(
+        !known.is_empty(),
+        "the save carries minted rows and NO occurrence rows at all — the two \
+         writers have already disagreed about whether anything durable happened"
+    );
+    for row in file.minted_items() {
+        assert!(
+            known.contains(&row.occurrence.as_str()),
+            "minted-item row names occurrence {:?}, which the REAL save does not \
+             hold. `set_minted_items` (items/pickup/minted_horizon.rs) and \
+             `set_durable_horizon` (session/durable_horizon.rs) are separate \
+             authorities, each idempotent against its own field, and this is what \
+             their disagreement looks like on the file. occurrences={known:?}",
+            row.occurrence
+        );
+    }
+    for row in file.custody() {
+        assert!(
+            known.contains(&row.occurrence.as_str()),
+            "custody row names occurrence {:?}, which the REAL save does not hold \
+             — and these two DO share a setter, so this failing means the setter's \
+             own pairing was bypassed. occurrences={known:?}",
+            row.occurrence
+        );
+    }
+}

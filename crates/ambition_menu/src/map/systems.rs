@@ -10,6 +10,27 @@ use super::MapMenuState;
 #[cfg(feature = "ldtk")]
 use super::MapRoomNode;
 
+/// The one spelling of "the player has been in this room", as a save flag.
+///
+/// ⭐ IT WAS TWO, ELEVEN LINES APART. `track_room_visits` wrote
+/// `format!("room_visited_{id}")` and `sync_map_from_save` read
+/// `strip_prefix("room_visited_")`, so renaming either one was SILENT in the other
+/// direction: the writer would stamp a flag the reader no longer recognised, the
+/// map would come back empty from every load, and both functions would still read
+/// correctly on their own. The agreement was the fact worth guarding, and it now
+/// cannot disagree.
+pub const ROOM_VISITED_FLAG_PREFIX: &str = "room_visited_";
+
+/// The save flag id that records a visit to `room_id`.
+pub fn room_visited_flag(room_id: &str) -> String {
+    format!("{ROOM_VISITED_FLAG_PREFIX}{room_id}")
+}
+
+/// The room a visit flag names, or `None` for any other flag.
+pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
+    flag_id.strip_prefix(ROOM_VISITED_FLAG_PREFIX)
+}
+
 pub fn track_room_visits(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,
@@ -24,8 +45,7 @@ pub fn track_room_visits(
     }
     *last = Some(current.clone());
     map.record_visit(&current);
-    save.data_mut()
-        .set_flag(format!("room_visited_{current}"), true);
+    save.data_mut().set_flag(room_visited_flag(&current), true);
 }
 
 pub fn sync_map_from_save(
@@ -38,7 +58,7 @@ pub fn sync_map_from_save(
     }
     *hydrated = true;
     for flag in save.data().flags() {
-        if let Some(room_id) = flag.id.strip_prefix("room_visited_") {
+        if let Some(room_id) = room_from_visited_flag(&flag.id) {
             map.record_visit(room_id);
         }
     }

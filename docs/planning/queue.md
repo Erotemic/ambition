@@ -1304,12 +1304,27 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   Coverage is not thin across the board; it is ABSENT in six named places.
 
   ▢ **NEXT — six shipped behaviours with no app-level test, each one a piece of
-  work needing its domain:**
-  1. `combat_schedule.rs:472` `ambition_damage::install_staged_hit_lifecycle_guard`
-     — a room boundary voids staged hits from the OUTGOING population.
-     ⚠ ALREADY KNOWN and the fix stopped one level short: `ambition_damage`'s
-     `the_lifecycle_guard_installer_registers_the_guard` builds its OWN `App` and
-     calls the installer, so it witnesses the installer and not the composition.
+  work needing its domain. THREE CLOSED 2026-09-07, three remain (4, 5, 6).**
+
+  ⛔⛔ **AND ONE OF THE THREE FIXTURES WAS WRONG THE FIRST TIME, IN THE WAY THAT
+  MATTERS.** My first `install_staged_hit_lifecycle_guard` test pushed a staged hit
+  from OUTSIDE the frame, so `apply_player_hit_events` (which runs early, in
+  `PlayerSimulation`) drained it before the boundary, the damage landed on the OLD
+  body, and the rebuild refilled the player — so *"no damage across the boundary"*
+  was true with the guard UNINSTALLED and **the poison passed**. ⇒ **The window the
+  rule acts in is between the drain and `ResetProcessing`**, and a fixture that
+  stages outside that window is not testing the rule whatever it asserts. The
+  landed version stages from INSIDE the frame, after `PlayerHitResolutionSet`, and
+  runs three arms because two cannot tell the guard from the refill.
+  1. ✔ **CLOSED 2026-09-07** — `combat_schedule.rs` `install_staged_hit_lifecycle_guard`.
+     `game/ambition_app/tests/staged_hit_lifecycle.rs` stages a real victim hit on the
+     player in the shipped app, crosses a room boundary, and requires zero damage and an
+     empty FIFO — with a CONTROL arm that runs the same fixture WITHOUT the boundary and
+     requires the player actually takes the hit. ⚠ The control is the load-bearing half:
+     a staged hit that could not have landed makes "it did not land" true for free.
+     POISONED (installer call deleted, restored). ⚠ The two pre-existing tests each stop
+     one level short — one builds its OWN `App` and adds the system, the other calls the
+     installer on its own `App`; neither can witness a composition that never calls it.
   2. ✔ **CLOSED 2026-09-07** — `progression_schedule.rs:69` `install_save_mirror`.
      `game/ambition_app/tests/save_mirror_flips_a_persisted_npc.rs` sets the save's
      `npc_<id>_hostile` flag on the start room's one talkable NPC and requires it
@@ -1341,7 +1356,13 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
      states it correctly; the title does not. A number that changes denominator
      between a title and its body is the kind a later reader quotes from whichever
      they saw first.
-  3. `progression_schedule.rs:98` `ambition_menu::map::install_map_simulation_systems`
+  3. ✔ **CLOSED 2026-09-07** — `progression_schedule.rs` `install_map_simulation_systems`.
+     `game/ambition_app/tests/map_simulation.rs` requires the map to record at least one
+     visited room after 120 frames (an EMPTY visited set is exactly what the missing
+     installer produces, so that is the assertion that witnesses the deletion) and every
+     room it calls visited to carry its `room_visited_<id>` flag on the save.
+     ⭐ AND THE PAIR IS THE POINT: `track_room_visits` writes the live state and the
+     durable flag in ONE statement, so a disagreement is that system not running.
   4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
   5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`
   6. `host/src/lib.rs:66` `ambition_input::install_seat_device_tracking`

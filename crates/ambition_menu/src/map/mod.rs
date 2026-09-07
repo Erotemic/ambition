@@ -253,7 +253,10 @@ pub use input::handle_map_menu_hotkeys;
 pub use pointer::map_menu_pointer_dismiss;
 #[cfg(feature = "ldtk")]
 pub use systems::populate_map_rooms;
-pub use systems::{sync_map_from_save, track_room_visits};
+pub use systems::{
+    room_from_visited_flag, room_visited_flag, sync_map_from_save, track_room_visits,
+    ROOM_VISITED_FLAG_PREFIX,
+};
 pub use ui::{spawn_map_menu_with_scope, sync_map_menu, MapMenuRoot};
 
 #[cfg(test)]

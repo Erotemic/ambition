@@ -23,6 +23,21 @@ because it is drained MANUALLY —
 `world.get_resource_mut::<Messages<T>>()` then `.drain()` — rather than through a
 `MessageReader`. Any hit must be grepped by hand before it is believed. A test-only
 reader (`SuddenDeathBegan`) is a fourth answer again: covered, but not shipped.
+⛔⛔ AND THE TECHNIQUE DOES NOT TRANSFER TO RESOURCES — tried 2026-09-06, abandoned, and
+recorded here so nobody builds the noisy version. The same census over the 388 declared
+`Resource` types reported 43 "never read", and the first THREE spot-checks were all
+false positives:
+
+  · `KeyboardOwner`      read as `Option<Res<crate::sources::KeyboardOwner>>` — the
+                         pattern demanded an unqualified `Res<KeyboardOwner>`;
+  · `LdtkWorldAssets`    read as `Option<&LdtkWorldAssets>`, a plain reference param;
+  · `CharacterSpriteAssets` passed as `&mut CharacterSpriteAssets` to a helper.
+
+⇒ A MESSAGE has essentially one read shape (`MessageReader<T>`), which is why this census
+works. A RESOURCE has many — `Res`/`ResMut`, path-qualified or not, `Option<..>`, plain
+`&T`/`&mut T` params, `SystemParam` struct fields, `world.resource::<T>()`, `Single<&T>` —
+so a grep-shaped census produces a list nobody can act on. Resolving it properly needs
+type resolution, not regex.
 """
 import pathlib
 import re

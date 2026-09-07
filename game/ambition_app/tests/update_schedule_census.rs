@@ -506,3 +506,84 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
          conflicting pairs: {by_membership:?}"
     );
 }
+
+/// DIAGNOSTIC: name the systems in each conflicting pair.
+///
+/// Bevy gives every system its own `SystemTypeSet`, so a NAMED function can be
+/// looked up as a set and its `SystemKey` recovered — which is how a report can
+/// name who without the `debug` feature and without `get_node_name` (which panics
+/// on this graph).
+#[test]
+fn name_the_menu_frame_conflicts() {
+    use bevy::ecs::schedule::IntoSystemSet;
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+    let menu_id = app
+        .world()
+        .components()
+        .component_id::<ambition_platformer2d::input::MenuControlFrame>()
+        .expect("registered");
+
+    let labels: Vec<bevy::ecs::schedule::InternedScheduleLabel> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, s)| s.label())
+        .collect();
+
+    let mut resolved = 0usize;
+    for label in labels {
+        app.world_mut()
+            .resource_scope(|world, mut schedules: Mut<Schedules>| {
+                let schedule = schedules.get_mut(label).expect("exists");
+                let _ = schedule.initialize(world);
+                let graph = schedule.graph();
+                let mut named: Vec<(&str, std::collections::HashSet<bevy::ecs::schedule::SystemKey>)> =
+                    Vec::new();
+                macro_rules! name {
+                    ($n:expr, $s:expr) => {
+                        named.push(($n, set_members(graph, $s.into_system_set())));
+                    };
+                }
+                name!("dialog_input", ambition_platformer2d::dialog::dialog_input);
+                name!("fold_touch_gestures", ambition_platformer2d::touch_input::menu_bridge::fold_touch_gestures);
+                name!("handle_map_menu_hotkeys", ambition_platformer2d::menu::map::handle_map_menu_hotkeys);
+                name!("apply_menu_frame_to_cutscene_request", ambition_platformer2d::actors::schedule::apply_menu_frame_to_cutscene_request);
+                name!("populate_menu_control_frame_from_actions", ambition_platformer2d::actors::schedule::populate_menu_control_frame_from_actions);
+
+                let who = |k: &bevy::ecs::schedule::SystemKey| -> String {
+                    for (n, keys) in &named {
+                        if keys.contains(k) {
+                            return (*n).to_string();
+                        }
+                    }
+                    "<other>".to_string()
+                };
+                for (a, b, ids) in &graph.conflicting_systems().0 {
+                    if ids.contains(&menu_id) {
+                        let (x, y) = (who(a), who(b));
+                        if x != "<other>" || y != "<other>" {
+                            resolved += 1;
+                        }
+                        eprintln!("[named] {label:?}: {x} x {y}");
+                    }
+                }
+            });
+    }
+
+    // ANTI-VACUITY: if `into_system_set()` ever stopped resolving, every pair
+    // would print `<other> x <other>` and this diagnostic would be silently
+    // useless while still passing. At least one side must be named.
+    //
+    // Not pinned to WHICH systems: that would freeze today's shape, which is the
+    // thing the ratchet above is meant to let us change.
+    assert!(
+        resolved > 0,
+        "no conflicting pair could be attributed to a named system — the \
+         SystemTypeSet lookup stopped working, so this diagnostic is reporting \
+         nothing while appearing to pass"
+    );
+}

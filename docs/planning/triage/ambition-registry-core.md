@@ -683,3 +683,23 @@ number — the previous one went stale in two days.
 canonical registry at all", not "convert 26".** Several will be internal lookup
 tables where the four questions do not arise, and saying so in place is itself an
 answer that moves them to JUSTIFIED.
+
+### A ratchet on SILENT was considered and NOT built — the sizing input does not exist
+
+The obvious next move is a guard: a new `*Registry` must either adopt `classify`
+or say in place why it does not, riding at the current 23 so the next one cannot
+land undecided. It is the right SHAPE — the opt-out is prose and prose cannot be a
+type, so a guard is the correct fallback rather than a second-best one.
+
+⛔ **It was not built because the number that justifies it is unmeasurable here.**
+A ratchet on a population that never grows is cost with no return, so the question
+is how often a new `*Registry` actually appears. `git log -G` over 30 days returns
+one commit — `Start git epoch 1` — because this repository's history was
+restarted, so the addition rate cannot be recovered from it. ⇒ Building the guard
+would mean asserting a growth rate I cannot measure.
+
+⇒ **What would settle it:** the rate at which the 31 grew, from whoever has the
+pre-epoch history or simply from watching this census move. Re-run
+`scripts/measure_registry_core_adoption.py` when the triage is next touched; two
+readings a week apart size the guard properly. Until then the census is the
+deliverable and the escape hatch is doing the work a guard would.

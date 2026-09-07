@@ -255,3 +255,27 @@ pub fn install_seat_device_tracking(app: &mut bevy::prelude::App) {
 
     app.add_systems(Update, update_seat_active_devices.in_set(InputSet::Route));
 }
+
+/// Swallow the edges a REBIND itself produced, one frame later.
+///
+/// ⭐ THE PLACEMENT IS THE MECHANIC, and it is a fact about this crate's rebuild rather
+/// than about any host. `rebuild_maps_from_recipes` clears the seat's `ActionState` so
+/// no press latches across a rebind; leafwing then re-reads the devices in the NEXT
+/// `PreUpdate` and would call a control that never moved a fresh press. This runs in
+/// leafwing's `ManualControl` — its own name for "after Update, on purpose" — to eat
+/// exactly those edges.
+///
+/// ⚠ ONE FRAME LATER AND ONE SCHEDULE EARLIER than the rebuild that causes it. That
+/// asymmetry is why it cannot simply be chained onto the rebuild: the edges it swallows
+/// do not exist until leafwing has re-read the devices.
+#[cfg(feature = "input")]
+pub fn install_rebind_edge_swallow(app: &mut bevy::prelude::App) {
+    use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate};
+
+    app.add_systems(
+        PreUpdate,
+        swallow_the_rebinds_own_edges
+            .in_set(leafwing_input_manager::plugin::InputManagerSystem::ManualControl)
+            .after(leafwing_input_manager::plugin::InputManagerSystem::Update),
+    );
+}

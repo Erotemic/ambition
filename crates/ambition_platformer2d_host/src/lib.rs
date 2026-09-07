@@ -65,6 +65,7 @@ impl Plugin for HostInputBindingsPlugin {
         ambition_input::install_input_pipeline(app);
         ambition_input::install_provider_action_road(app);
         ambition_input::install_seat_device_tracking(app);
+        ambition_input::install_rebind_edge_swallow(app);
 
         // See `ambition_input::seating`.
         app.init_resource::<ambition_input::SessionSeatingSource>();
@@ -250,18 +251,6 @@ impl Plugin for HostInputBindingsPlugin {
                 )
                     .chain()
                     .in_set(ambition_input::InputSet::Collect),
-            )
-            // The other half of that rebuild, one frame later and one schedule
-            // earlier. `rebuild_maps_from_recipes` clears the seat's
-            // `ActionState` so no press latches across a rebind; leafwing then
-            // re-reads the devices in the NEXT `PreUpdate` and calls a control
-            // that never moved a fresh press. `ManualControl` is leafwing's own
-            // name for "after Update, on purpose".
-            .add_systems(
-                bevy::app::PreUpdate,
-                ambition_input::swallow_the_rebinds_own_edges
-                    .in_set(leafwing_input_manager::plugin::InputManagerSystem::ManualControl)
-                    .after(leafwing_input_manager::plugin::InputManagerSystem::Update),
             )
             // Context ownership: surfaces declare claims during
             // `ResolveContext` (the session lifecycle here; the shell's

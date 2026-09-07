@@ -90,6 +90,18 @@ impl MapMenuState {
 /// owns its own visited-rooms/map state; the sim assembly only adds the
 /// plugin. Deliberately a bare resource init — the menu-host reusable/product
 /// line is drawn by the second consumer (decision #7), not in advance.
+/// The set [`populate_map_rooms`] runs in — **published so a composition can
+/// bracket it by PHASE instead of by naming the function.**
+///
+/// ⭐ THE PATTERN IS THE ONE `ambition_app` ALREADY USES NEXT DOOR: *"the plugin
+/// publishes `AudioInitSet` and the host brackets it here, beside every other
+/// `phase_mark`."* The app's startup profile has a mark named
+/// `after_map_menu_spawn` whose whole job is to time this system, so the mark
+/// needs something to order against once the system stops being written inline.
+#[cfg(feature = "ldtk")]
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MapMenuSpawnSet;
+
 pub struct MapStatePlugin;
 
 impl bevy::prelude::Plugin for MapStatePlugin {
@@ -133,7 +145,34 @@ impl bevy::prelude::Plugin for MapStatePlugin {
 /// composition's to answer. ⇒ The caller names ONE function instead of three
 /// private systems -- the whole benefit of the carve -- without deciding for
 /// hosts that never wanted a map.
+///
+/// ⛔⛔ **THE CONTRACT: CALL THIS FROM A COMPOSITION THAT HAS INPUT.** These systems
+/// take `Res<ButtonInput<KeyCode>>` and `Res<MenuControlFrame>` STRICTLY, and both
+/// come from the windowed host's input plugins. ⇒ There is deliberately NO
+/// `resource_exists` guard: one was added after this carve panicked headless apps,
+/// and a review named it correctly as runtime feature-detection standing in for a
+/// composition contract. ⚠ **It was also only half a guard** — it tested
+/// `ButtonInput` while `MenuControlFrame` comes from `HostInputBindingsPlugin`, so
+/// a composition with Bevy's `InputPlugin` and without the host would have passed
+/// the condition and still failed the parameter.
+///
+/// ⇒ Calling this from a host with no input is a COMPOSITION ERROR and should
+/// crash loudly at startup rather than be silently skipped for the process's life.
 pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
+    // ⭐ THE STARTUP HALF. `populate_map_rooms` reads `Res<ActiveLdtkProject>` and
+    // writes the room list once; the app had it inline in a Startup chain ordered
+    // `.after(setup_simulation_system)` — a system that is never registered, so
+    // that edge was a no-op (removed 2026-09-06). ⇒ ITS REAL PREREQUISITE IS THE
+    // RESOURCE, which is a `run_if` and needs no host anchor at all.
+    #[cfg(feature = "ldtk")]
+    app.add_systems(
+        bevy::prelude::Startup,
+        systems::populate_map_rooms
+            .in_set(MapMenuSpawnSet)
+            .run_if(bevy::prelude::resource_exists::<
+                ambition_platformer2d_ldtk::ActiveLdtkProject,
+            >),
+    );
         // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
         // reason is a real prerequisite rather than an oversight.
         // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by

@@ -96,6 +96,29 @@ fn installing_the_map_menu_adds_the_systems_it_owns() {
     // its `debug` feature is on, so every row here reads
     // "<Enable the debug feature to see the name>". A name-based assertion passes
     // vacuously in this build — it would find nothing and say nothing.
+    // ⛔ AND THE STARTUP HALF, because this guard counted UPDATE only and silently
+    // did not cover `populate_map_rooms` when it was carved in. A count guard's
+    // population is whatever schedule it names, and adding a system to a DIFFERENT
+    // schedule slips past it without a word.
+    #[cfg(feature = "ldtk")]
+    {
+        let mut startup = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::schedule::Schedules>()
+            .remove(bevy::prelude::Startup)
+            .expect("the install added a Startup system");
+        startup
+            .initialize(app.world_mut())
+            .expect("the Startup schedule initializes");
+        assert_eq!(
+            startup.systems().expect("initialized").count(),
+            1,
+            "`install_map_menu_systems` should add exactly one Startup system \
+             (`populate_map_rooms`); the app's `after_map_menu_spawn` profile mark \
+             brackets its set and has nothing to time without it"
+        );
+    }
+
     let installed = update.systems().expect("initialized").count();
     assert_eq!(
         installed, 3,

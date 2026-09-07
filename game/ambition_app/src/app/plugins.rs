@@ -566,8 +566,12 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                     .before(ambition_platformer2d::platformer::schedule::AudioInitSet),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_audio_init")
                     .after(ambition_platformer2d::platformer::schedule::AudioInitSet),
-                ambition_platformer2d::menu::map::populate_map_rooms,
-                ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
+                // `populate_map_rooms` is installed by `install_map_menu_systems`,
+                // in the published `MapMenuSpawnSet` — the same shape as
+                // `AudioInitSet` above. The mark brackets the SET now, so the
+                // startup profile keeps its name and stops naming the function.
+                ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn")
+                    .after(ambition_platformer2d::menu::map::MapMenuSpawnSet),
             )
                 .chain()
                 // ⛔⛔ `.after(setup_simulation_system)` REMOVED: IT ORDERED AGAINST

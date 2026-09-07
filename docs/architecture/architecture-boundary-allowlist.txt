@@ -11,11 +11,30 @@
 # 2026-06-14 split (`cdd0a0a0d`) onward, and this file listed two rows while
 # nine files qualified. The seven rows below are that missing coverage, not new
 # permission: every production file among them is at 0 and was already at 0.
-features/ecs/spawn_actors.rs=0
+#
+# ⛔⛔ AND ON 2026-09-06 THE SAME GATE LOST ITS BIGGEST SUBJECT THE OTHER WAY.
+# The F1 construction inversion moved `features/ecs/spawn_actors.rs` to
+# `src/actor_spawn/` — OUT of the scan root entirely — and the gate reported no
+# hole, only a smaller corpus: nine scanned files became seven. Nothing but the
+# anti-vacuity floor said a word.
+#
+# ⇒ A SCAN ROOT IS A CITATION AND A FILE MOVE BREAKS IT IN SILENCE. Twice now,
+# in opposite directions: once a directory the matcher could not see, once a
+# directory the code walked out of. The floor is what caught this one, which is
+# the argument for keeping floors on gates whose corpus is discovered.
+#
+# `src/actor_spawn/` is a second scan root now, unfiltered — the whole module is
+# spawn code by name. Its six rows are at 0 and were at 0 before the move: this
+# is restored coverage, not new permission.
+actor_spawn/actor_clusters.rs=0
+actor_spawn/brain_builders.rs=0
+actor_spawn/character_spawn_plan.rs=0
+actor_spawn/conversion.rs=0
+actor_spawn/mod.rs=0
+actor_spawn/npc_policy.rs=0
 features/ecs/spawn_static.rs=0
 features/ecs/spawn/mod.rs=0
 features/ecs/spawn/capability_lanes.rs=0
-features/ecs/spawn/character_spawn_plan.rs=0
 features/ecs/spawn/content_staging.rs=0
 features/ecs/spawn/gravity_construction.rs=0
 features/ecs/spawn/portal_construction.rs=0

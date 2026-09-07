@@ -357,6 +357,34 @@ impl ActorAggression {
         matches!(self.mode, AggressionMode::Hostile)
     }
 
+    /// Has this actor been provoked past its own threshold?
+    ///
+    /// ⛔⛔ THE ONE AUTHORITY, and it exists because there were two. The
+    /// per-body `strike_threshold` in [`AggressionMode::RetaliatesWhenHit`] is
+    /// what canonical aggression resolution asks, but the damage road asked a
+    /// GLOBAL DEFAULT constant instead — `NPC_HOSTILE_STRIKE_THRESHOLD` — when
+    /// deciding to write the persistent hostile flag, play the hostile bark and
+    /// raise the banner.
+    ///
+    /// ⚠ AND THE TWO AGREED BY COINCIDENCE, which is why nothing caught it:
+    /// ordinary NPC spawn policy sets `strike_threshold` FROM that same constant,
+    /// so both sides computed 3 and matched. Author a body with a threshold of 5
+    /// and the third hit turns it hostile in the save file and in the speech
+    /// bubble while the mechanics say it is still peaceful; author 1 and the
+    /// mechanics turn hostile two hits before anything tells the player.
+    ///
+    /// ⇒ The constant remains correct as the DEFAULT SPAWN VALUE. It stopped
+    /// being the answer the moment it was copied into a per-body field.
+    pub fn provoked(self) -> bool {
+        match self.mode {
+            AggressionMode::RetaliatesWhenHit { strike_threshold } => {
+                self.strikes >= i32::from(strike_threshold)
+            }
+            AggressionMode::Hostile => true,
+            AggressionMode::Passive => false,
+        }
+    }
+
     /// Who this actor wants to look at / chase this frame, derived from
     /// its aggression mode rather than its [`ActorFaction`]. This is the
     /// seam [`select_actor_targets`](crate::features::ecs::select_actor_targets)

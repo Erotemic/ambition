@@ -2065,3 +2065,125 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
          used to disagree with it"
     );
 }
+
+/// ⭐⭐ THE SAME TRANSITIONS, UNDER A HOST THAT REWINDS THEM CONSTANTLY.
+///
+/// The test above proves the arbiter picks the right winner. This proves the
+/// winner SURVIVES A REWIND, which is a different claim about a different
+/// mechanism: `ControlClaims` is rollback-canonical state, and a claim collection
+/// that restored badly would resume a match having forgotten a possession or a
+/// ride nobody released.
+///
+/// ⚠ AND IT ASSERTS THE OUTCOME, NOT A DESYNC REPORT. GGRS's sync-test session
+/// re-simulates the last `check_distance` frames every step and compares
+/// checksums — but whether a mismatch panics, logs, or is swallowed is bevy_ggrs's
+/// business, and a test that depends on somebody else's error channel is testing
+/// the channel. ⇒ With `check_distance: 4` every frame past the fourth is
+/// simulated more than once, so if the claims failed to restore, the control mode
+/// read here is simply WRONG. That is a fact this test owns.
+///
+/// ⛔⛔ AND THE POISON THAT PROVES IT HAD TO BE CHOSEN CAREFULLY — the obvious
+/// one PASSED. Making the codec drop the MOUNT claim on decode changes nothing
+/// here, because `enforce_mount_rider_link` reconciles that claim against the
+/// live ride every tick: a lossy restore self-heals on the next frame. The
+/// POSSESSION claim has no such reconciler — it is filed once, at the moment
+/// possession is taken — so dropping it on decode is permanent, and this test
+/// goes red with `left: Some(Autonomous)` while its non-rewinding sibling stays
+/// green.
+///
+/// ⇒ **Two claims on one component, and only one of them is self-healing.** That
+/// asymmetry is worth knowing before trusting either: a restore bug in the ride's
+/// half hides behind its own reconciliation, and the only claim whose rollback
+/// coverage this test can actually speak for is possession's.
+#[test]
+fn a_mount_dying_under_a_possession_survives_rewinds() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::RidingOn;
+    use ambition_platformer2d::platformer::temporary_control::{
+        ControlClaimant, ControlClaims, TemporaryControl,
+    };
+
+    use ambition_app::AmbitionSim as _;
+    let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("pirate_sky_lookout")
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the rewinding harness builds on an authored room");
+    for _ in 0..30 {
+        sim.step(base());
+    }
+
+    let (rider, mount) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &SimId, &RidingOn, &Brain)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, _, riding, _)| (entity, riding.mount))
+            .expect("'pirate_sky_lookout' authors a rider on a mount")
+    };
+
+    let mut possessed = false;
+    for i in 0..900 {
+        if let Some(here) = sim
+            .world()
+            .get::<BodyKinematics>(rider)
+            .map(|k| (k.pos.x, k.pos.y))
+        {
+            sim.teleport_player(here);
+        }
+        sim.step(AgentAction {
+            move_y: 1.0,
+            interact: i == 0,
+            interact_held: true,
+            ..base()
+        });
+        if sim.world_mut().resource::<PossessionState>().possessed == Some(rider) {
+            possessed = true;
+            break;
+        }
+    }
+    assert!(possessed, "setup: the rider was never possessed under rewind");
+
+    // Both claims live, having been saved and restored several times over by now.
+    let claims = sim
+        .world()
+        .get::<ControlClaims>(rider)
+        .cloned()
+        .expect("a possessed rider has filed claims");
+    assert!(
+        claims.holds(ControlClaimant::Possession) && claims.holds(ControlClaimant::Mount),
+        "a rewind lost a claim: {claims:?}"
+    );
+
+    {
+        let world = sim.world_mut();
+        let mut health = world
+            .get_mut::<ambition_platformer2d::characters::actor::BodyHealth>(mount)
+            .expect("the authored mount carries a health pool");
+        let current = health.current();
+        health.damage(current);
+    }
+    // Well past `check_distance`, so the death frame itself is re-simulated.
+    for _ in 0..20 {
+        sim.step(base());
+    }
+
+    assert_eq!(
+        sim.world().get::<TemporaryControl>(rider),
+        Some(&TemporaryControl::Player {
+            controller: SimId::player_slot(0)
+        }),
+        "after rewinding across the mount's death the player is still driving"
+    );
+    let after = sim
+        .world()
+        .get::<ControlClaims>(rider)
+        .cloned()
+        .expect("the rider still carries its claims");
+    assert!(
+        after.holds(ControlClaimant::Possession) && !after.holds(ControlClaimant::Mount),
+        "the ride's claim ended and the possession's did not: {after:?}"
+    );
+}

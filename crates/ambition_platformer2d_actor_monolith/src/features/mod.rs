@@ -185,7 +185,6 @@ pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
 pub use crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
 
 use ambition_combat::util::*;
-pub(super) use crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
 
 /// Schedules the gameplay-effect bus chain into
 /// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].

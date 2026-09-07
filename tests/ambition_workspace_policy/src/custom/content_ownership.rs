@@ -26,7 +26,7 @@ const STRUCTS: &[(&str, &str)] = &[
     ),
     (
         "pub struct ActorMut<'a> {",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actor_clusters.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/actor_spawn/actor_clusters.rs",
     ),
 ];
 

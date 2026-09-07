@@ -1,731 +1,405 @@
-# Actor-monolith decomposition - executable work frontier
+# Actor-monolith decomposition — executable SCC frontier
 
-> **Verified against `06b25ee8772a7c5bdf934dce5d49a692ebc2f37b` (2026-09-03).**
-> ⭐ **Receipt re-measured 2026-09-04 on the registration commit and the READY
-> packet is UNCHANGED:** `features -> construction : 30` / `construction ->
-> features : 15`, the same strongest mutual edge, and `grep -rn "crate::features"
-> construction/` still returns hits.
-> ⭐ **Re-measured a second time 2026-09-04 evening at `b208d9e22`, and the
-> packet still stands:** the same `30` / `15` mutual edge, still the strongest
-> pair in the graph, with `rollback_registration -> features : 28` second and
-> carrying no edge back — a ledger naming many domains, which this page's own
-> rules say not to mistake for semantic coupling. The production line total has drifted upward
-> by a new leaf module (`body_conditions`, no out-edges), which does not touch
-> the 14-module cycle — a receipt, not a score.
+> **Measured at `625fa79af45e6eff40cbefabd8cdae33c5b5e9db` on 2026-09-07.**
+>
+> This page is the executable D33 handoff. Git history is the execution diary.
+> Do not append old carve narratives here.
 
-**State:** ACTIVE TASK BRIDGE. This page exists to make D33 resumable by an
-agent that should not have to reconstruct the whole decomposition history before
-choosing one bounded task.
+**State:** ACTIVE.
 
-This page is deliberately narrow:
+Owners and scope:
 
-- [`../queue.md`](../queue.md) decides whether D33 is the work to run now.
 - [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) owns the
-  measurements, reasoning, carve history, and architectural evidence.
+  durable decomposition rules and the meaning of success.
 - [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md)
-  owns the target semantics of the residual actor/body kernel.
-- **This page only turns the current measured frontier into executable task
-  packets.** It does not replace any of the authorities above.
+  owns what the residual actor/body kernel is allowed to contain.
+- [`../queue.md`](../queue.md) decides when D33 runs.
+- **This page says exactly what to do next.**
 
-Do not copy historical investigation into this file. When a packet lands,
-replace its current-state description with the new frontier instead of growing
-an execution diary. Git history is the diary.
+## Re-measure before every packet
 
-## How to use this page
+Run:
 
-When D33 is selected by the live queue:
-
-1. Re-measure HEAD before touching code:
-
-   ```bash
-   python3 scripts/measure_kernel_module_graph.py --edges 20
-   ```
-
-2. Compare the result with the receipt below. If the named seam or dependency
-   direction changed, update this page from the code and the focused plan before
-   implementing an old packet.
-3. Take the first **READY** packet. Do not implement a **DESIGN NEEDED** or
-   **RE-MEASURE AFTER ...** candidate by guessing its owner.
-4. Make one coherent authority/dependency cut. Do not choose a different task
-   because it removes more lines.
-5. Run the normal D33 post-carve checks in
-   [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) and the
-   D33 row of [`../queue.md`](../queue.md).
-6. Re-run the module graph after the carve. Update this frontier before starting
-   another D33 slice. A carve can change which next step is correct.
-
-## Current receipt
-
-At the verified SHA, `scripts/measure_kernel_module_graph.py` reports 53,489
-production lines under the actor crate's `src/`. The largest strongly connected
-module component contains 14 modules and 48,238 production lines:
-
-`abilities`, `assets`, `avatar`, `character_runtime`, `character_sprites`,
-`construction`, `control`, `features`, `items`, `projectile`, `schedule`,
-`session`, `shrine`, `world`.
-
-The strongest mutual edge is still:
-
-```text
-features -> construction : 30 references
-construction -> features : 15 references
+```bash
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-The focused plan has already measured the direction. `features -> construction`
-is consumption of the construction protocol. `construction -> features` is the
-protocol reaching upward to name concrete actor recipes. The next packet removes
-that reverse dependency.
-
-The line counts above are a receipt, not a score. The objective is a smaller
-semantic cycle and cleaner ownership.
-
-## ⭐⭐ THE AUTHORITY-TOPOLOGY CHECKPOINT — MEASURED 2026-09-06
-
-Jon's sequencing asks for a point where *"the remaining boundaries are
-semantically known"* before any crate-composition push, and names re-measuring
-the actor/world/session graph as the last step before the go line. **Measured, and
-the answer is a single number.**
-
-⛔⛔ **THE RESIDUAL KERNEL HAS ONE STRONGLY-CONNECTED COMPONENT OF 12 OF ITS 38
-TOP-LEVEL MODULES.** Reproduce with
-`python3 scripts/measure_kernel_module_graph.py --scc --cuts`:
+At the receipt above, the nontrivial SCCs are:
 
 ```text
-abilities, actor_spawn, avatar, character_runtime, construction,
-control, features, items, projectile, session, shrine, world
+11: abilities, actor_spawn, character_runtime, construction, control,
+    features, items, projectile, session, shrine, world
+
+ 2: assets, character_sprites
 ```
 
-⇒ **No member of that set can be extracted into its own crate without the other
-eleven.** That is the whole prerequisite question answered at once, and it
-re-frames every packet on this page: F1's `construction <-> features` was **one
-edge pair inside a twelve-module knot**, not a boundary of its own.
-
-⛔⛔ **AND THE FIRST NUMBER I PUBLISHED WAS 13, BECAUSE THE INSTRUMENT DID HALF OF
-WHAT ITS OWN DOCSTRING PROMISED.** `measure_kernel_module_graph.py` says test
-files are excluded *"because a test reaching across modules is a fixture, not a
-dependency"* — and it excluded test FILES while counting inline
-`#[cfg(test)] mod` blocks inside production files as production. On the strength
-of **one line** in a `composed_app()` fixture,
-`crate::schedule::configure_platformer2d_simulation_phases(&mut app)`,
-**`schedule` appeared to be inside the cycle and is not.** Fixed by brace-matching
-those blocks away; every number on this page is post-fix.
-
-⇒ *A stated rule the code applies to one of its two cases is worse than no rule*,
-because the docstring is what the next reader checks instead of the code.
-
-⭐ **IT STILL CONFIRMS JON'S PREREQUISITE LIST, WITH ONE FEWER MEMBER THAN I
-FIRST WROTE.** Two of the five things he wants resolved before composition —
-control/possession topology and session/provider policy — are `control` and
-`session`, and **both are inside the knot**. ⚠ Cross-domain schedule authority is
-NOT: `schedule` has no production inbound edge from the component at all, which
-makes it the one prerequisite that can be worked independently of this carve
-rather than through it.
-
-### ⛔ WHERE THE MECHANICAL PHASE ENDS — 14 → 11, AND THE REST NEED DECISIONS
-
-Five edges fell to two lenses and no design work: **a type filed beside its first
-consumer**, and **a dependency drawn through a re-export**. What is left does not.
-
-| remaining cut | refs | why it is not mechanical |
-|---|---|---|
-| `features -> projectile` | 1 | `ProjectileAllegiance` is rollback-registered with a comment stating the ACTOR side owns it deliberately — *"domain-owned registration follows the concrete type to the actor-side projectile integration that owns it"*. A considered placement, not a misfiling. |
-| `projectile -> features` | 2 | genuine calls into feature systems (`spawn_encounter_mob`, `apply_feature_hit_events`) |
-| `shrine -> session` | 6 | not yet read |
-
-⭐⭐ **AND THE LENS HAS A LIMIT WORTH STATING: A DELIBERATE PLACEMENT LOOKS
-EXACTLY LIKE A MISFILING UNTIL YOU READ THE COMMENT.** `ProjectileAllegiance` is a
-zero-dependency two-field struct used by a lower crate — by every structural
-signal, the same shape as `Platformer2dGameplayDefaults` and `LocalPlayer`, both
-of which moved for a component each. The difference is a sentence in its rollback
-registration, and no census can see it.
-
-⇒ **So the ranking says where to LOOK and the comment says whether to MOVE.**
-
-### ⭐ AND THE CHEAPEST CUT WAS ONE LINE, WHICH THE EDGE TABLE COULD NOT SHOW
-
-An edge list says which modules reference which. It does not say which
-**cannot be separated**, and the two answers rank the work very differently:
-
-| edge | refs | effect on the knot |
-|---|---|---|
-| `assets -> session` | **1** | **14 -> 12** — took `assets` AND `character_sprites` out |
-| `avatar -> control` | **1** | ✔ **12 -> 11** — took `avatar` out |
-| `features -> projectile` | 1 | 12 -> 11 |
-| `shrine -> session` | 6 | 12 -> 11 |
-| ~~`features -> schedule`~~ | ~~1~~ | **not real** — a `#[cfg(test)]` fixture, see above |
-
-⇒ ✔ **THE FIRST ONE IS DONE.** `assets -> session` was a single `use` of
-`Platformer2dGameplayDefaults` — a two-field `Deserialize + Asset` struct with a
-`load_embedded`, naming nothing in `session` and nothing in the crate. It had been
-filed beside the system that first registered a handle for it. Moved to
-`assets::gameplay_defaults`, where it always belonged, for eleven lines of
-housekeeping.
-
-⚠ **AND THE PRECISE RESULT IS NOT "two modules fell out", which is how I first
-wrote it and how a peer correctly read it back to me.** What the cut bought is
-**one 14-knot → one 12-knot PLUS one 2-knot**: `assets` and `character_sprites`
-left the big component and now cycle with each other. Neither is extractable
-alone. ⇒ The sentence matters because "fell out" reads, to somebody planning a
-carve, as "those two are ready", and they are not — they are a smaller, separate
-problem, which is still a strictly better position than being inside the twelve.
-
-✔ **AND THE SECOND ONE FELL TO THE SAME LENS, AFTER I HAD JUDGED IT "CORRECT AS
-IT STANDS".** `avatar -> control` was a bundle carrying `LocalPlayer`, and I read
-that as a real dependency because both ends looked right. ⛔ `LocalPlayer` is a
-**zero-field marker with no dependencies**, and `shared_tangle::markers` — whose
-own first line is *"content-free entity markers shared by reusable mechanics and
-presentation"* — already held `ControlledSubject` and `PrimaryPlayer`, its two
-siblings. ⇒ The question was never *"should a marker live in the floor crate"*; it
-was *"why did this one not"*. Moved, and the component went **12 → 11**.
-
-⚠ **AND THE MOVE ONLY WORKED AFTER THE RE-EXPORT WAS ALSO REMOVED.** Leaving
-`pub use …markers::LocalPlayer` in `control` and letting `avatar/bundles.rs` say
-`use crate::control::LocalPlayer` compiles, passes, and **leaves the edge exactly
-where it was** — the graph did not move until the consumer named the definition.
-That is the fourth time today the same trap has decided an outcome.
-
-⚠ **THE REMAINING CHEAP CUTS ARE STILL NOT ALL RIGHT, which is the
-distinction the ranking cannot make.** `avatar -> control` is a bundle carrying
-`LocalPlayer`, and `features -> projectile` is a perception query reading
-`ProjectileAllegiance`: both types are where they belong, so removing those edges
-means changing what the consumer DOES, not where a type lives. ⇒ **The cheapest
-cut and the correct cut are different sets.** The instrument ranks by cost;
-reading the edge decides. `assets -> session` was worth taking because the type
-was genuinely misfiled — that is what made it free.
-
-⛔ **A DATA TYPE FILED BESIDE ITS FIRST CONSUMER IS HOW A DEPENDENCY GRAPH
-ACQUIRES AN EDGE NOBODY INTENDED**, and it is invisible in review: the `use` line
-is correct, the type is correct, and only a component analysis shows what it
-costs. Three of the four remaining cuts are also single references.
-
-⚠ **THE `include_str!` SURVIVED BY ARITHMETIC AND I CHECKED RATHER THAN HOPED**:
-it is relative to the FILE, and `src/session/data.rs` and
-`src/assets/gameplay_defaults.rs` are the same depth. One level deeper and the
-path would have needed rewriting.
-
-⚠ **AND THE MOVE'S REAL BLAST RADIUS WAS TYPE-PATH STRINGS, NOT CODE**: two
-rollback oracles assert fully-qualified type names
-(`bevy_asset::event::AssetEvent<...::session::data::Platformer2dGameplayDefaults>`),
-so a module move edits test data. Those tests are doing their job — but it means
-**every type move in this crate has a documentation-shaped cost that a compiler
-cannot find**, and that belongs in the price of any composition wave.
-
-## ✔ LANDED - F1: invert actor construction recipe ownership
-
-### ✔ COMPLETE 2026-09-06 — `actor_spawn -> features == 0`
-
-**The completion criterion a review set is met: `construction -> features` is 0 and
-`actor_spawn -> features` is 0.** The guard's ceiling is now a **gate** rather than
-a ratchet — any new reference re-opens a closed carve instead of slowing an open
-one.
-
-⚠ **AND THE KERNEL'S CYCLIC COMPONENT IS STILL 11, WHICH IS THE POINT WORTH
-KEEPING.** F1 removed the `construction ↔ features` edge pair; the component
-survives on other edges entirely. ⇒ **Closing this carve was necessary and is not
-sufficient**, exactly as this page has said since the first step, and the F2 list
-should be generated against the 11-module graph rather than against the assumption
-that F1 loosened it.
-
-### ◐ (superseded) STATUS — THE STATED CONDITION IS MET AND THE CYCLE IS NOT CLOSED
-
-⭐⭐ **THE PACKET'S FRAMING WAS WRONG IN A WAY THAT MADE THE WORK LOOK HARDER THAN
-IT IS, AND THEN EASIER.** It reads as two authorities depending on each other.
-Measured: **all fifteen** of `construction/mod.rs`'s upward references resolve to
-symbols defined in **one file**, `crates/ambition_platformer2d_actor_monolith/actor_spawn/mod.rs`; and of the thirty
-references the other way, the five in that same file were **all inside one
-function**, `apply_summon_effects`. ⇒ The cycle was **one file holding two
-layers** — the spawn primitives that construction legitimately consumes, and one
-orchestration system that legitimately consumes construction. No move of
-`construction` could have broken it while that was true.
-
-**What landed:**
-
-| step | result |
-|---|---|
-| the summon road left the primitives' file | `features/ecs/summon.rs`; `spawn_actors.rs` names `crate::construction` **0** times, was 5 |
-| the primitives became a named layer | `crate::actor_spawn`, declared above `construction` in `lib.rs` |
-| the recipes point down | `construction -> crate::features` is **0**, was 15; `construction -> actor_spawn` is 15 |
-| guard | `scripts/tests/test_actor_construction_inversion.py`, poisoned in both import spellings |
-
-⛔⛔ **AND THE PART THAT IS NOT DONE, MEASURED RATHER THAN ESTIMATED.** The
-packet's own Required Result forbids introducing a new upward dependency to hide
-the old one, and by `scripts/measure_kernel_module_graph.py` the edge **moved one
-hop** rather than vanishing:
+The single edges whose removal shrinks the 11-module SCC are:
 
 ```text
-before:  construction  <->  features            (15 / 30)
-after:   construction  -->  actor_spawn  -->  features  -->  construction
-                                    (15)          (16)          (30)
+->  9    1 ref   character_runtime -> features
+-> 10    1 ref   features -> projectile
+-> 10    2 refs  actor_spawn -> character_runtime
+-> 10    2 refs  projectile -> features
+-> 10    6 refs  shrine -> session
 ```
 
-⇒ **F1 is complete when `actor_spawn -> features` reaches zero, and that number is
-now the whole of the remaining work.** It stands on six modules:
+The raw reference count is a locator, not a priority. Prefer the direction that
+restores ownership. In particular, `features -> projectile` is one reference,
+but a feature observer reading projectile allegiance is a plausible downward
+consumer edge; the two `projectile -> features` calls are the more suspicious
+upward dependency.
 
-| module | lines | intra-crate refs | state |
-|---|---|---|---|
-| `actor_spawn/brain_builders.rs` | 926 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/brain_builders.rs` |
-| `actor_spawn/actor_clusters.rs` | 298 | **0** `crate::`, **0** `super::` | ✔ MOVED — `actor_spawn/actor_clusters.rs` |
-| `actor_spawn/conversion.rs` | 274 | 0 `crate::`, **3** `super::` | ✔ MOVED — traded 2 refs for 1 |
-| `actor_spawn/character_spawn_plan.rs` | 209 | 4, none to `features` | ✔ MOVED out of `features` <!-- cite-ok: the old path is deliberately not repeated; naming it would be a citation to a file that no longer exists --> |
-| `ecs/held_items/` | (dir) | — | ▢ 3 refs, all `HeldItem` |
-| `features/npcs.rs` | 915 | 7, 3 to `features` | ▢ 3 refs, drags |
-| `ecs/spawn_static.rs` | 697 | 9, 2 to `features` | ▢ 1 ref, drags |
-| `ecs/autonomous_reconcile.rs` | — | — | ▢ 1 ref, arrived WITH `conversion` |
+After every packet:
 
-⇒ **16 → 7 refs.** Two more steps, and NEITHER was a module that needed moving:
+1. re-run the graph;
+2. verify the predicted SCC change;
+3. inspect any surviving re-export or alias before declaring the cut ineffective;
+4. update this page from the new graph before starting another packet.
 
-| step | refs | what it was |
-|---|---|---|
-| `HeldItem` repointed to its definition | 10 → 7... (3) | ⛔ **a re-export, not a dependency.** `HeldItem` lives in `ambition_combat::held_items`, a crate BELOW this one; `features::ecs` merely re-exports it. Naming the re-export made the primitives depend on the feature layer for a type it does not own. **One line.** |
-| `character_spawn_plan` moved down | 13 → 10 (3) | measured first this time — no `super::` at all, and its only `crate::` dependency is `character_runtime`, which `actor_spawn` already needs. It added no edge and removed three. |
+If the SCC does not change as predicted, stop. Do not compensate by taking a
+second unrelated cut.
 
-⭐ **THE RE-EXPORT ONE IS THE TRANSFERABLE FINDING: a dependency drawn through a
-re-export is an edge to a module that owns nothing in it.** It cost one line and
-three references, and nothing in the code looked wrong — the same shape as
-`assets -> session`, and the same shape as the `host_input` re-export that made a
-foreign-ordering census see half its registrations. **Check what a path RESOLVES
-to before believing the edge it draws.**
+## P1 — READY: sever `character_runtime -> features`
 
-⭐⭐ **FOUR OF THE SIXTEEN WERE RE-EXPORTS, NOT DEPENDENCIES — and that is the
-single most useful thing this packet produced.** `HeldItem` (`ambition_combat`),
-`boss_component_snapshot` (`ambition_boss_encounter`), and the
-`EnemyActorBundle`/`FeatureBaseBundle` pair (`crate::actor_bundles` after the
-hoist) were all reached through a `features` re-export of something `features`
-does not own. **Four one-line edits, no code moved, and nothing looked wrong at
-any of the four sites.** ⇒ Before pricing a module move, resolve the paths: an
-edge drawn through a re-export is an edge to a module that owns nothing in it.
+**Why first:** one production reference splits two modules out of the large SCC.
+It is the highest-leverage current cut.
 
-✔ **THREE OF THE FIVE ARE LANDED — 5 → 2.** `resolve_npc_brain` and the two NPC
-constants moved DOWN into `actor_spawn::npc_policy`, per the decision above, and
-two more references turned out to be the re-export lens for the sixth time
-(`enemy_default_brain`, reached through `features::ecs` from the file that had
-just moved beside it).
-
-⛔⛔ **AND I MADE THE PEER'S OWN MISTAKE WHILE DOING IT.** My extraction script's
-byte offset clipped `pub` to `ub` in **two** files — the identical defect a peer
-confessed hours earlier (`pub fn` → `ub fn` in three files, found by grepping the
-PATTERN rather than trusting the compiler's first error). Being told about a bug
-does not inoculate you against writing it; the same offset arithmetic produced the
-same clip.
-
-⇒ **The last two, and both are decided above:** `npcs::{resolve_npc_brain, NPC_TALK_RADIUS}` and `NPC_HOSTILE_STRIKE_THRESHOLD`
-(3), `ecs::spawn_static::interactable_from_authored`, and
-`ecs::autonomous_reconcile::provoked_projection`.
-
-### ⭐⭐ THE FIVE, DECIDED — 2026-09-06, at a review's request
-
-*"For each one, decide whether it is generic spawn/materialization vocabulary that
-should move down, actor-domain policy that should be supplied into spawn, or
-authored-content conversion that belongs above both."* ⇒ Measured at each use site,
-not guessed from the name:
-
-| ref | what it is | category | decision |
-|---|---|---|---|
-| `interactable_from_authored` | `Authored<InteractableSpec> -> Interactable`, a pure conversion | **authored-content conversion** | ⇒ belongs ABOVE. And the caller already has it: `spawn_interactable_into` is called from `features/ecs/spawn_static.rs`, **the same file that defines the conversion**. The primitive should take the component. ⚠ It also reads `authored.name`, which `Interactable` does not carry, so the signature takes the component plus that one field. |
-| `NPC_TALK_RADIUS` (`f32 = 80.0`) | a tuning scalar, zero dependencies | **actor-domain policy** | ⇒ supplied into spawn |
-| `NPC_HOSTILE_STRIKE_THRESHOLD` (`i32 = 3`) | a tuning scalar, zero dependencies | **actor-domain policy** | ⇒ supplied into spawn |
-| `resolve_npc_brain` | picks an NPC's brain from catalog + prepared registry + interactable + **the body being built** | **actor-domain policy** — but see below | ⇒ **move DOWN, not up** |
-| `provoked_projection` | what an actor BECOMES when provoked | **actor-domain policy** | ⇒ move down with `conversion`, which is already in `actor_spawn` |
-
-⛔⛔ **AND `resolve_npc_brain` IS THE ONE THAT BREAKS THE OBVIOUS ANSWER, which
-is why it is worth the paragraph.** "Policy is supplied into spawn" says the caller
-resolves the brain and passes it. **It cannot**: `resolve_npc_brain` takes the
-`ActorConfig` of the body being built — *"so a character whose default policy is a
-`BrainProfile` can have it lowered against its OWN top speed rather than against a
-preset's absolute numbers"* — and that config does not exist until the primitive
-has built it. ⇒ **The policy depends on the artifact the primitive produces**, so
-hoisting it to the caller is not available without passing a closure or a trait,
-which trades one coupling for a worse one.
-
-⇒ **So the decision is the other direction: `resolve_npc_brain` and the two
-constants move DOWN beside the primitives, and `npcs.rs` keeps NPC BEHAVIOUR.**
-The split is spawn-time policy resolution versus runtime NPC systems, and the
-measurement supports it — `npcs.rs`'s only production reach into the feature layer
-was `enemy_default_brain`, which already lives in `actor_spawn::brain_builders`.
-
-⚠ **THE GENERAL LESSON, AND IT REFINES THE REVIEW'S OWN TAXONOMY: "supplied into
-spawn" is unavailable when the policy is a function of what spawn BUILDS.** Three
-of these five are scalars and yield to it; the fourth does not, and the difference
-is visible only in the signature.
-
-⛔ **THESE WILL NOT YIELD TO A MOVE AND THE PACKET SHOULD STOP PRETENDING THEY
-MIGHT.** Spawning an interactable NPC genuinely needs NPC constants and brain
-resolution; `npcs.rs` is 915 lines of NPC behaviour and does not belong under a
-spawn-primitives module because the primitives happen to call three things in it.
-⇒ **The remaining question was a PLACEMENT decision, not a mechanical one — and
-it is decided in the table above.** F1's completion criterion stays
-`actor_spawn -> features == 0` before the F2 carve list is generated.
-
-⇒ ~~16 → 13 refs.~~ `construction -> actor_spawn` is 15 and one-way;
-`features -> actor_spawn` rose 8 → 33, which is the correct direction and is what
-moving three helpers down looks like from above.
-
-⛔⛔ **AND THE "THREE PURE LEAVES" CLAIM IN THE FIRST VERSION OF THIS SECTION WAS
-A BAD MEASUREMENT — mine, corrected here rather than quietly.** I counted
-`crate::` paths and called three modules leaf-clean. `conversion.rs` reaches
-`autonomous_reconcile` through `super::super::`, which that count cannot see. **A
-relative path is a reference**; two of the three were genuinely pure and the
-third was worth moving anyway, but the number I published was produced by an
-instrument narrower than the claim.
-
-⭐ **THE DEAD RE-EXPORTS ARE THE EVIDENCE THE INVERSION IS REAL RATHER THAN
-COSMETIC.** `features/mod.rs` and `features/ecs/mod.rs` carried
-`pub(crate) use` lines for the six recipe primitives that existed only so
-`construction` could reach them through `crate::features`. With `construction`
-naming `actor_spawn` directly the compiler reported every one as unused. A carve
-that leaves its shims behind has only moved files.
-
-⚠ **THE GUARD'S CEILING IS 13 AND IT IS DELIBERATELY NOT ZERO.** A guard asserting
-zero would have to be deleted to land the first half, which is how a half-finished
-carve loses its ratchet. The number may fall and may not rise.
-
-⛔ **AND ITS FIRST POISON PASSED**, which is worth carrying forward: the checker
-matched `crate::features::[A-Za-z_]\w*`, so a **brace import** —
-`use crate::features::{SpawnActorKind, SpawnActorRequest}` — was invisible, and
-putting the original reverse dependency back left the guard green. The one
-spelling it could not see was the most likely one. Fixed and re-poisoned in both
-forms.
-
-ⓘ **A SECOND FINDING THE CUT SURFACED, filed for prerequisite C rather than
-fixed here:** `ambition_demo_smash` orders a system with
-`.before(ambition_platformer2d::actors::features::apply_summon_effects)` — a
-ruleset crate naming a foreign system identity, which is exactly the
-private-cross-domain-ordering shape the schedule-authority prerequisite exists to
-remove. Moving `apply_summon_effects` had to preserve its public path for that
-reason alone.
-
-### Original packet
-
-### Goal
-
-Make actor construction a lower-level protocol/mechanism consumed by the actor
-simulation, rather than a lower-level module that imports the actor simulation's
-concrete recipe implementation.
-
-Desired dependency direction:
+Current edge:
 
 ```text
-actor-owned recipe registration
-            |
-            v
-construction protocol / registry
-            ^
-            |
-      actor simulation consumes it
+character_runtime/live_match_clock.rs
+    -> features::stocks_match::StocksMatchSettled
 ```
 
-The important condition is simple:
+`LiveMatchTicks` needs the rollback-stable fact that the current match has
+settled. It does not need the `features` module or the systems that decide a
+stocks match.
 
-> Production construction code must stop naming `features`.
+### Ownership decision
 
-At the verified SHA, the reverse dependency is concentrated in one production
-file: `crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs`.
-The focused plan measures 15 code references to `features` there, plus the
-corresponding test shape in `construction/tests.rs`.
+Move the **settlement value type** downward to the stock/match vocabulary owner;
+do not move `LiveMatchTicks` into `features` and do not add a callback/service
+locator.
 
-The concrete names currently crossing upward include:
+Preferred destination order:
 
-- `spawn_staged_actor_into`
-- `spawn_runtime_minion_into`
-- `spawn_enemy_with_faction_into`
-- `spawn_boss_with_overrides_into`
-- `is_limbed_host`
-- `giant_hand_plans`
-- `SpawnActorKind`
-- `SpawnActorRequest`
-- `GiantHandPlan`
+1. `ambition_combat::stocks` if the type remains stocks-ruleset vocabulary — it
+   already owns `MatchVerdict` and stock-count semantics;
+2. a lower match vocabulary module only if that avoids adding a reverse
+   dependency.
 
-The focused plan reduces the actual inversion to five recipe registrations.
-Use the existing construction-domain/registry patterns and the already-landed
-capability construction examples as precedent. Do not replace the dependency
-with string dispatch, `Any`, a service locator, or another central switch.
+Keep `decide_stocks_match` and the ruleset systems where their policy belongs.
+`SuddenDeathEntered` should move with the settlement vocabulary if the resulting
+owner is coherent, but P1 does not require bundling unrelated code just to make
+one commit larger.
 
-⚠ **READ THIS BEFORE PLANNING THE CUT — measured 2026-09-04, and it narrows what
-"registration" can mean here.** `ActorConstruction::dispatch` is a CLOSED match
-on the parameter enum (`construction/mod.rs:238-277`), and the file defends that
-deliberately: its sibling `dispatch_relation` says the ops come from there
-*"rather than from a registry lookup, so nothing outside this crate can supply,
-replace, or race to install actor relation wiring."* So a registry that
-`features` installs into would spend a property this domain chose on purpose,
-and the prohibition above already rules out the usual ways of faking one.
-⇒ **The direction that does not fight the existing design is to move the DOMAIN
-IMPL to the side that owns the recipes, not to make the protocol call upward.**
-`construction/` then keeps the protocol — plan, roster, receipt, transaction —
-and the `ActorConstruction` implementation with its nine `construct_*` bodies
-goes where the actor recipes live. That is also what makes the sentence below
-about a dedicated lower crate follow rather than be hoped for.
-⚠ The 15 references split three ways, which is worth knowing before sizing:
-two are TYPE imports (`SpawnActorKind`, `SpawnActorRequest`, used by the params
-enum and `canonical_summary`), six are the recipe constructors the row names, and
-three are the limbed-host/giant-hand shape helpers (`is_limbed_host`,
-`giant_hand_plans`, `GiantHandPlan`). The type half may move on its own and is
-the cheapest first cut; the helper half is a shape query that may belong to
-neither side as it stands.
-⛔⛔ **"CHEAPEST" IS RELATIVE AND READS FAR CHEAPER THAN IT IS — measured
-2026-09-04, and the packet did not carry this.** The 15 production references
-are confirmed exactly, all in `construction/mod.rs`, splitting 3 / 6 / 6 across
-types, recipe constructors, and the limbed-host/giant-hand helpers — so that
-part of the packet is sound. ⚠ **But `SpawnActorKind` and `SpawnActorRequest`
-are PUBLIC SURFACE**: 90 sites, of which **55 are inside the monolith and 35 are
-outside it, across nine crates** — `ambition_content` 11, `ambition_sim_harness`
-9, `ambition_demo_twintrack` 5, `ambition_demo_mary_o` 2,
-`ambition_demo_mary_o_app` 2, `ambition_platformer2d_runtime` 2,
-`ambition_platformer2d_rollback_ggrs` 2, `ambition_app` 1,
-`ambition_platformer2d` 1.
-⇒ **So the "cheapest first cut" moves two types out from under nine crates**,
-and [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md)'s
-non-goals forbid the escape hatch — *"keep historical re-exports for
-compatibility in this pre-release engine"* is on its **do not** list, so those
-35 are edits rather than a re-export.
-ⓘ **Count those sites by PATH, not by filtering the crate name out of the
-text.** `grep -v ambition_platformer2d_actor_monolith` answers **31**, four
-short, because four lines outside the monolith name it in a fully-qualified
-path — the filter deleted part of the denominator it was measuring.
-⭐ None of this argues against the cut: the types are spawn-request vocabulary
-and `construction/` is the construction protocol, so moving them DOWN is the
-semantically right direction. It argues against sequencing the packet as though
-the cheap half were cheap.
+### Required migration
 
-### Required result
-
-The packet is complete only when all of these are true:
-
-- production `construction` has zero dependency on `crate::features`;
-- concrete actor recipe behavior is registered from the actor-owning side;
-- `features` may continue to consume construction vocabulary and plans;
-- recipe identity, deterministic dispatch/fingerprints, refusal behavior,
-  construction receipts, and reconstitution behavior remain stable;
-- tests follow the new ownership instead of preserving the old reverse import;
-- no new upward dependency is introduced to hide the old one;
-- the module graph is re-measured after the change;
-- ⭐ **the packet states which of the TWO architectural goals it advanced and
-  what it left standing** — see the section directly below.
-
-### ⭐⭐ WHICH GOAL DOES THIS CARVE ADVANCE? A packet must answer, and F1's answer is "the first one only"
-
-**Added 2026-09-04, and it is the newest architectural direction in the
-repository rather than a restatement of an old one.** Doctrine now names TWO
-architectural success criteria and says the second does not follow from the
-first: **authority decomposition** (which crate owns the fact, what may mutate
-it, one lifecycle, dependency direction) and **capability composability** (can
-this capability be ABSENT, does the rest still form a coherent application,
-does it declare only its real prerequisites). The rule and its ordering live in
-[`decomposition.md`](decomposition.md) under "Decomposition has two dimensions",
-with the durable statement in
-[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md).
-
-⛔⛔ **THE GAP THIS SECTION CLOSES IS NOT "NOBODY WROTE IT DOWN" — it is that the
-criterion sits in the program's EXIT and in no carve's ACCEPTANCE.**
-[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) already
-requires it, twice, in its own vocabulary: exit criterion **2**, *"optional
-domains install through semantic capability/plugin seams rather than
-actor-kernel imports"*, and exit criterion **4**, *"minimal consumers do not
-inherit unrelated domains through the residual kernel"*. ⭐ **Those two ARE
-capability composability** — the doctrine's words and the plan's words name one
-criterion, and reading them as two is how a reader concludes the plan does not
-cover it.
-
-⇒ **So the defect is a seam between two documents, not a missing idea.** The
-program is complete only when criteria 2 and 4 hold; no individual packet has
-ever been asked about them. A run of carves can therefore pass every acceptance
-it is given and arrive at the exit with criterion 2 unmet, because nothing along
-the way was scored against it. ⚠ That is precisely the outcome the doctrine
-commit named in advance — *"a carve could satisfy every ownership rule on the
-page and leave a capability nobody can install alone, with no document to
-notice."*
-
-ⓘ **Measured, not assumed, 2026-09-04:** the string `composab` appears zero times
-in this page (before this section), in
-[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md), in
-`roadmap.md` and in `status.md`. ⛔ **And that count is why the finding above is
-worded the way it is.** The spelling search says "absent" on a page whose exit
-criteria state the concept in full; searching the CONCEPT — *optional*,
-*install*, *minimal consumer*, *inherit* — is what found criteria 2 and 4.
-`roadmap.md` is the one page where both searches agree on absence.
-
-**F1's answer, stated so it cannot be quietly upgraded:**
-
-| goal | what F1 does |
-|---|---|
-| authority decomposition | ⭐ **ADVANCES IT** — one reverse dependency removed, the `ActorConstruction` impl moved to the side that owns the recipes |
-| capability composability | ▢ **DOES NOT ADVANCE IT, AND IS NOT REQUIRED TO** — after F1, actor construction is still mandatory in every supported composition. What F1 buys is the precondition: the extraction into a lower crate becomes clean, and only then is "can a host install this capability alone" a question with a possible answer |
-
-⭐ **That is the doctrine's own ordering, not a weakening of it.** *"Sequencing
-is explicitly permitted: move authority into the right domain now, invert a
-remaining dependency later, make the capability independently installable after
-that. A carve need not deliver all three at once."* ⇒ The requirement this
-section adds is a **declaration**, not a second body of work: say which goal the
-carve advanced, so that a run of carves cannot add up to *"the engine is
-decomposed"* when every one of them moved only the first dimension.
-
-### ⛔⛔ THE COST THIS PROGRAM PAYS, MEASURED — every carve lengthens the compile critical path
-
-**Measured 2026-09-04 and not previously written down anywhere.** The D33 carves
-are working on the metric they were aimed at, and they are paying in a currency
-nothing on this page priced. Both halves, from `scripts/compile_ratchet.py`
-against the baseline frozen at `11ef33c5b5a5` (2026-08-27):
-
-| what the carves BOUGHT | what they COST |
-|---|---|
-| `largest_unit_lines` 108,364 → **100,153** (−8,211) | `critical_path_crates` 14 → **16** — LONGER |
-| the monolith's `edit_cost_lines` share 50.5% → **47.1%** (−3.4 pts) | `worst_edit_cost_lines` +41,400 and `edit_cost_lines` +40,921 |
-| `edit_cost_seconds` 1,264.9s → **1,163.8s** (−101.1s) | |
-
-⚠ **THAT TABLE IS HISTORY, NOT CURRENT STATE, AND THE BASELINE IT NAMES HAS SINCE
-BEEN SUPERSEDED — noted 2026-09-05 so `100,153` is not read as today's size.**
-`dev/compile_ratchet_baseline.json` now records `largest_unit: 100742`,
-`recorded_at: 2026-09-05T17:07`, `dirty: true`: the win was BANKED into a new
-floor. Measured against that floor with the tool's own `crate_lines`, the
-monolith is **101,130 lines — `+388` ABOVE it**, which is the direction the gate
-reports as a regression. ⇒ What the carves bought is unchanged and this table
-still records it correctly; what changed is the number a reader would compare
-against.
-
-⭐ **The two crates that lengthened the chain are named, by deriving it rather
-than guessing:** `ambition_abilities` and `ambition_held_items`, both D33 carve
-outputs, now sit at positions 9 and 10 of the longest first-party chain:
-
-```text
-ambition_app → content → platformer2d → platformer2d_host → platformer2d_runtime
-  → sim_view → platformer2d_actor_monolith → abilities → held_items → items
-  → combat → sprite_sheet → interaction → characters → platformer2d_core → geometry
-```
-
-ⓘ **That chain was derived independently from `cargo metadata` — normal and build
-deps only, since dev-dependencies may form cycles — and it reproduces the
-ratchet's `16` exactly** once restricted to the same population the ratchet
-declares (`consumer = ambition_app`). ⚠ The crate COUNT does not reconcile as
-cleanly: 68 by that walk against the ratchet's 66, a difference of two I have not
-chased. The chain length is the load-bearing figure here and it agrees to the
-digit.
-
-⚠ **And the two `REGRESSED` line metrics are NOT a structural regression in
-`geometry` or `platformer2d_core`.** The workspace gained **4 first-party crates
-and 44,056 lines** since the baseline; +41,400 and +40,921 are that growth
-passing *through* those crates' blast radius, not those crates changing.
-⇒ Triaged rather than re-frozen blind, which is what the ratchet's own message
-asks for.
-
-⭐⭐ **WHY THIS BELONGS ON THIS PAGE AND NOT ONLY IN THE QUEUE: it prices the
-second dimension.** Capability composability is bought by making capabilities
-independently installable, and on this dependency graph that means **more
-crates**. Every crate added to the serial chain lengthens a wall clock that
-**parallelism cannot compress** — the ratchet says so in those words. The
-capability-footprint row already records the sibling tension for the crate COUNT
-(*"a carve that adds a crate RAISES the count — the two lines of work must not be
-scored against each other"*); nobody had said it about the critical PATH, which
-is the worse of the two because it is serial.
-
-⇒ **So the declaration this page now requires has a third line available to it
-when it is honest:** what the carve bought, what goal it advanced, and **what it
-cost the compile graph**. ⛔ This is not an argument against carving. It is an
-argument against reporting a carve as free, and against discovering the price
-only when someone re-runs a gate that `--rust` does not include.
-
-⚠ **The seconds columns for eight crates are a PLACEHOLDER and stay one.**
-`ambition_abilities`, `ambition_body_seed`, `ambition_encounter_features`,
-`ambition_held_items`, `ambition_match`, `ambition_registry_core`,
-`ambition_sprite_fx` and `ambition_world_items` are priced at the population
-median 2.9059 ms/line, and the ratchet says size predicts compile cost with
-**R² = 0.12** — so those seconds are wrong by an unknown factor. ⓘ Measuring them
-needs `compile_collect.py --config release`, which builds into a SEPARATE target
-root; this volume had **61.3 GB free against a 40 GB floor** when that was
-considered, and a cold release tree plausibly exceeds the 21 GB of headroom. Not
-run. ⇒ It would move no verdict either way — every metric currently failing is a
-LINES metric or the path length, none of which read the weights.
-
-⚠ **And do not answer it by reaching for the wrong mechanism.** Doctrine
-prohibits a service locator, a type-erased registry, dynamic dependency
-injection, or global plugin discovery to make a crate look optional — which
-matters here specifically, because `ActorConstruction::dispatch` is a CLOSED
-match that this domain defends on purpose. Composability is bought with a static
-dependency graph and explicit plugin composition, or it is not bought.
-
-Moving the `construction` module into a dedicated lower crate is the expected
-consequence once the inversion makes that move clean. Do not invent a package
-name or force the extraction in the same commit if the post-inversion graph
-reveals another unresolved owner. The authority inversion is the first hard
-acceptance condition; the graph decides whether physical extraction is then
-mechanical.
+- update the rollback registration to the new type path;
+- update Smash/read-model consumers to the semantic type path;
+- update snapshot codecs without changing the wire meaning;
+- do not leave a `features` re-export that remains the discovery path for the
+  moved type;
+- a facade-level compatibility export is acceptable only if it does not restore
+  the monolith dependency.
 
 ### Acceptance
 
-At minimum:
-
-```bash
-python3 scripts/measure_kernel_module_graph.py --edges 20
-grep -rn "crate::features" \
-  crates/ambition_platformer2d_actor_monolith/src/construction \
-  --include='*.rs'
+```text
+character_runtime -> features == 0
 ```
 
-The production portion of the second command must have no hits. Test references
-must either move with the new owner or be justified as black-box test usage,
-not as a way to keep production dispatch coupled.
+Expected SCC result:
 
-Then run the D33 post-carve checks already owned by the queue/focused plan,
-including generated module maps, planning citations, doc links, absence
-contracts/capability accounting where affected, and the relevant Rust gates.
+```text
+9: abilities, construction, control, features, items, projectile,
+   session, shrine, world
+2: actor_spawn, character_runtime
+2: assets, character_sprites
+```
 
-### Stop condition
+Keep the existing live-match-clock rollback, pause/hitstop and settled-match
+acceptance green.
 
-After F1 lands, **stop selecting work from the candidate list below until the
-module graph is re-measured and this page is updated.** The purpose of F1 is to
-change the graph that chooses F2.
+## P2 — READY AFTER P1: peel projectile by removing `projectile -> features`
 
-## Candidates - not yet executable packets
+Current production calls:
 
-These are recorded so the next agent knows which questions are real without
-mistaking them for approved moves.
+```text
+projectile/systems.rs
+    -> features::ecs_hit_event_hits_breakable(...)
+    -> features::ecs_hit_event_hits_boss(...)
+```
 
-| Candidate | State | What must be resolved before implementation |
-|---|---|---|
-| control / possession / body custody | **DESIGN NEEDED** | Decide the authority topology and final home of `PossessionState`; do not move the leftover `abilities/{possession,teleport,trapdoor,flyline}` family by directory name. |
-| character materialization / presentation | **DESIGN NEEDED** | Decide ownership of `CharacterLoadStates`, then separate load/materialization, presentation, and live match activation along their real dependency directions. |
-| world integration | **RE-MEASURE AFTER F1** | Re-count `world <-> features`, `world <-> construction`, and `world <-> session` after construction inversion before choosing an extraction boundary. |
-| session / Ambition-game orchestration | **DESIGN NEEDED** | Name the composition owner above reusable actor/body domains before moving session, shrine, music/audio, or related policy glue. |
-| remaining items adapters | **RE-MEASURE AFTER F1** | The world-item and held-item authorities already left. Re-measure the residue instead of treating the old `items/` line count as one domain. |
-| low-coupling islands | **DEFER** | Do not choose these only because they are easy to move. Break the central semantic cycle first unless the live queue gives another reason. |
+The reverse edge is one read from feature perception to
+`projectile::ProjectileAllegiance`.
 
-## Rules that prevent false progress
+### Direction
 
-- **No LOC target.** Crossing 100k was a useful milestone; it is no longer a
-  task-selection rule.
-- **No wrapper carve.** A new crate that imports the actor monolith or leaves the
-  same mutual authority cycle is not decomposition.
-- **Move authority with lifecycle.** State, registration, scheduling, rollback
-  declarations, tests, and public construction/SDK seams move with the domain
-  when they are part of that authority.
-- **Do not mistake ledgers for semantic coupling.** Broad registration files
-  such as rollback/snapshot ledgers are expected to name many domains.
-- **One graph-changing carve, then re-measure.** Do not pre-commit to F2/F3/F4
-  from today's graph.
-- **If the code contradicts this page, the code wins.** Re-measure, update the
-  receipt, then continue. Do not implement a stale packet because it is marked
-  READY here.
-- ⭐ **A carve is scored on TWO dimensions and must say which one it moved.**
-  Satisfying every ownership and dependency rule above is necessary and is not
-  sufficient for *"decomposed"* in the sense the doctrine now uses. See "Which
-  goal does this carve advance?" above; the criterion itself lives in
-  [`decomposition.md`](decomposition.md) and is not restated here.
+Preserve the useful direction:
 
-## Updating this frontier after a carve
+```text
+feature/observation code -> projectile state vocabulary
+```
 
-Keep the update small:
+Remove the upward direction:
 
-1. stamp a new verified SHA/date;
-2. replace the current graph receipt;
-3. mark the landed packet complete in the live queue/focused plan as their
-   contracts require;
-4. promote exactly one next packet to **READY** only when its owner, dependency
-   direction, production sites, and acceptance are measured;
-5. ⭐ **record which of the two architectural goals the landed carve advanced**,
-   in one line — authority decomposition, capability composability, or both.
-   A frontier that never records the second is how a repository arrives at
-   excellent internal boundaries and an externally indivisible engine;
-5. leave unresolved candidates blocked rather than filling in an architecture
-   from intuition.
+```text
+projectile simulation -> feature implementation
+```
 
-A weaker agent should be able to open this page, re-run one measurement, and
-know either exactly which bounded D33 task is safe to execute or exactly why no
-next carve has been specified yet.
+The projectile step should emit/forward a generic hit fact or ask a lower combat
+receiver/disposition seam. Breakable/boss feature policy then consumes that fact.
+Do not teach the projectile domain a growing list of feature kinds.
+
+Do **not** move `ProjectileAllegiance` merely because the one-reference cut is
+cheaper. Move that type only if an independent ownership analysis says its
+current module is wrong.
+
+### Acceptance
+
+```text
+projectile -> features == 0
+```
+
+Expected result after P1 + P2:
+
+```text
+8: abilities, construction, control, features, items, session, shrine, world
+2: actor_spawn, character_runtime
+2: assets, character_sprites
+```
+
+Preserve same-tick projectile hit settlement, consumed-projectile termination,
+breakable/boss hits and rollback determinism.
+
+## P3 — READY AFTER P2: move lifecycle-intent vocabulary below `shrine`
+
+The six `shrine -> session` references are one conceptual dependency:
+`shrine.rs` records a confirmed-frame lifecycle operation through
+`session::lifecycle_commit`.
+
+The deterministic vocabulary involved is:
+
+- `LifecycleIntent`;
+- `RoomTransitionIntent`;
+- `RoomReconstitutionIntent`;
+- `Admission`;
+- `PendingLifecycleCommit` and its record/query API.
+
+A shrine is a **producer** of a lifecycle intent. It should not import the
+session implementation that later commits it.
+
+### Direction
+
+Move the rollback-safe intent/slot vocabulary to the lower lifecycle owner —
+prefer the existing shared lifecycle layer unless a dedicated lifecycle crate is
+already justified by another customer.
+
+Keep host/session commit execution in the session domain. The lower type may say
+what is pending; it must not execute room/session policy.
+
+Do not invent a shrine-specific transition request as an escape hatch. All
+producers should continue to compete for the same earliest-sticky lifecycle
+slot.
+
+### Acceptance
+
+```text
+shrine -> session == 0
+```
+
+Expected result after P1–P3:
+
+```text
+7: abilities, construction, control, features, items, session, world
+2: actor_spawn, character_runtime
+2: assets, character_sprites
+```
+
+Preserve checkpoint save/resume, death reset, admission refusal and confirmed
+commit rollback tests.
+
+## P4 — READY AFTER P3: move actor placement-lowering specialization out of `world`
+
+The four `construction -> world` references all point to the same adapter family
+currently filed under `world/placements.rs`:
+
+```text
+ActorPlacementContext
+LoweringCtx
+LoweringFn
+PlacementLoweringRegistry
+```
+
+`ambition_platformer2d_world` already owns the generic placement-lowering
+machinery. These aliases specialize it with actor construction/catalog state.
+That specialization is actor construction vocabulary, even though room staging
+also consumes it.
+
+### Direction
+
+Move the actor-specific specialization to `construction` (or a lower dedicated
+actor-construction vocabulary module if one already exists by then).
+
+Expected dependency direction afterward:
+
+```text
+world/session/features -> construction placement vocabulary
+```
+
+not:
+
+```text
+construction -> world implementation
+```
+
+Moving the adapter is allowed to create a one-way `world -> construction` edge.
+The objective is to remove construction from the strongly connected core, not to
+make every consumer independent of construction vocabulary.
+
+### Acceptance
+
+```text
+construction -> world == 0
+```
+
+Expected result after P1–P4:
+
+```text
+6: abilities, control, features, items, session, world
+2: actor_spawn, character_runtime
+2: assets, character_sprites
+```
+
+At this point **STOP THE MECHANICAL PEEL PHASE**.
+
+## P5 — DESIGN CHECKPOINT: the six-module hard core
+
+After P1–P4, no single edge shrinks the remaining six-module SCC. At the current
+head its internal edges are:
+
+```text
+abilities -> control   2       control -> abilities 3
+abilities -> features  1       control -> features  1
+features  -> control   2
+features  -> world    12       world   -> features  6
+features  -> items     3
+items     -> session   2       session -> items     5
+items     -> abilities 1
+session   -> world     5       world   -> session   3
+session   -> features  4
+session   -> abilities 3
+```
+
+The direct two-way knots are therefore:
+
+```text
+abilities <-> control
+features  <-> control
+features  <-> world
+items     <-> session
+world     <-> session
+```
+
+Do not continue by deleting whichever reference count is smallest.
+
+### Required design pass
+
+Before another code carve, classify every edge in those five two-way pairs as
+one of:
+
+```text
+DATA/VOCABULARY    a lower type consumed upward
+POLICY             one domain deciding another domain's result
+SCHEDULING         concrete system ordering/installation
+CONSTRUCTION       authored lowering/materialization
+LIFETIME           session/reset/rollback ownership
+```
+
+For each pair, answer:
+
+1. which side owns the fact or decision;
+2. whether the two modules should actually become one package;
+3. whether one direction is legitimate downward consumption;
+4. which exact opposite-direction references violate that ownership;
+5. what production poison proves the cut did not change semantics.
+
+Write the result into this page as P5a/P5b/etc. **before implementation**.
+
+Likely coherent groups to test, not conclusions to assume:
+
+```text
+abilities + control      actor-local control/action kernel
+world + session          world/session lifecycle
+features                 residual orchestration that should dissolve by owner
+items                    residual adapters/policy after prior item carves
+```
+
+A good P5 result may choose to extract a two-module group together. SCC reduction
+is evidence about boundaries; it does not require every top-level module to
+become its own crate.
+
+## Satellite SCCs — do not confuse “left the big knot” with “already separable”
+
+P1 is expected to leave a new two-module SCC:
+
+```text
+actor_spawn <-> character_runtime
+```
+
+That is a successful peel: the pair no longer participates in the central actor
+knot. It is not evidence that either module should immediately become its own
+crate. Treat the pair as a grouped actor-construction/runtime package candidate
+and decide its internal seam only when a package carve needs one. Do not delay
+P2–P5 to make this pair acyclic.
+
+The current tree already has another independent two-module SCC:
+
+```text
+assets <-> character_sprites
+```
+
+Current directions there are:
+
+```text
+assets -> character_sprites   sprite enumeration/loading
+character_sprites -> assets   platformer asset catalog/ids
+```
+
+Treat it as a **grouped extraction question**, not a prerequisite to the actor
+kernel peel. Before changing it, decide whether the two modules are one asset
+preparation domain or whether the catalog/loader dependency should be inverted.
+The existing external `ambition_character_sprites` crate owns pose/geometry
+derivation, so do not dump asset loading into it merely because the names match.
+
+## Post-carve checks
+
+For every D33 packet:
+
+```bash
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+python3 scripts/modules_md.py
+python3 scripts/check_doc_links.py
+python3 scripts/check_planning_citations.py
+```
+
+Also run the focused production tests named by the packet. Run broad Rust gates
+only when the environment supports the repository's target/disk preconditions.
+
+If a carve adds or changes a crate boundary, also run the capability/absence and
+compile-cost ratchets required by the owning planning pages. Do not re-freeze a
+red baseline merely because a carve changed topology.
+
+## Definition of progress
+
+D33 progress is one of:
+
+- a module/group leaves the large SCC for a coherent ownership reason;
+- a reverse authority edge becomes one-way downward consumption;
+- a residual catch-all (`features`, `items`, etc.) loses a responsibility to its
+  actual owner;
+- an explicit design checkpoint proves two modules belong together.
+
+Line count, number of crates, number of dependencies and raw edge-reference
+count are supporting measurements. None is the goal.

@@ -157,8 +157,16 @@ Move boss, encounter, item, portal, persistence, presentation, developer and
 other domain authority when a real ownership boundary exists. Carves should
 reduce dependency/change fanout or improve capability/test/package isolation.
 
+**Current state (2026-09-07):** the residual monolith has one 11-module central
+SCC plus a separate `assets <-> character_sprites` SCC. Four bounded peel packets
+are specified and expected to reduce the central component `11 -> 9 -> 8 -> 7
+-> 6`; after that, the six-module core requires an ownership design pass rather
+than another mechanical cut. This work no longer blocks beginning E5/C2, but it
+remains the package-boundary owner for actor/runtime decomposition.
+
 Owners:
 
+- [`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md)
 - [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md)
 - [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md)
 

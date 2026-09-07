@@ -142,6 +142,22 @@ The residual-kernel definition should guide
 valuable when it removes an unrelated authority/dependency from the actor kernel,
 not when it merely makes this file's implementation smaller.
 
+The current SCC peel is explicit in
+[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md). The first
+four packets remove satellite dependencies before touching the hard core. After
+those cuts, the expected six-module SCC is:
+
+```text
+abilities, control, features, items, session, world
+```
+
+At that checkpoint, do not make `abilities` and `control` independent merely to
+reduce the SCC: they are plausible members of this kernel's actor-local
+control/action package. Conversely, `world`, `session`, residual `items` policy
+and the `features` catch-all need an ownership classification before they are
+allowed to remain. The SCC is a prompt to justify a package boundary, not a
+requirement that every top-level module become a crate.
+
 ## Acceptance pressure
 
 - zero-human-controlled-body headless simulation;

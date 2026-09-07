@@ -533,9 +533,13 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // A save is not presentation; it belongs to every composition that simulates a world.
     // `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin` owns it now,
     // beside the checkpoint horizon it serializes.
+    // ⭐ THE MAP MENU'S THREE SYSTEMS, IN ONE CALL. They used to be three separate
+    // `add_systems` registrations here, naming three private functions inside
+    // `ambition_menu`. The crate owns their ordering now; this composition still
+    // decides that it wants them at all, which is what keeps a host without a
+    // keyboard from being handed a keyboard system.
+    ambition_platformer2d::menu::map::install_map_menu_systems(app);
     app.insert_resource(inventory_ui::InventoryUiState::default())
-        // `sync_map_menu` is installed by `MapStatePlugin`, with the hotkey and
-        // the pointer dismissal it shares an ordering with.
         .add_systems(
             Startup,
             (

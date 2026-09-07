@@ -114,6 +114,26 @@ impl bevy::prelude::Plugin for MapStatePlugin {
         // exists. No new dependency edge — `Platformer2dSimulationPhaseMonolith`
         // and `session_world_exists` both live in `shared_tangle`.
 
+        // ⛔⛔ VOCABULARY ONLY. The systems live in
+        // [`install_map_menu_systems`], and that is a FUNCTION on purpose:
+        // a `Plugin` inside a plugin group answers "does this composition
+        // run these?" for everybody. When this plugin added them, the
+        // runtime group carried them into EVERY composition and
+        // `handle_map_menu_hotkeys` panicked in headless apps with no
+        // `ButtonInput` -- six unrelated tests, from a population nobody
+        // enumerated.
+    }
+}
+
+/// Install the map menu's systems.
+///
+/// ⭐⭐ A FUNCTION, NOT A PLUGIN, AND THE DISTINCTION IS THE POINT. The
+/// capability declares its own vocabulary unconditionally ([`MapStatePlugin`]
+/// owns [`MapMenuState`]); WHETHER a composition runs these systems is the
+/// composition's to answer. ⇒ The caller names ONE function instead of three
+/// private systems -- the whole benefit of the carve -- without deciding for
+/// hosts that never wanted a map.
+pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
         // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
         // reason is a real prerequisite rather than an oversight.
         // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by
@@ -164,7 +184,6 @@ impl bevy::prelude::Plugin for MapStatePlugin {
                 )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-    }
 }
 
 // Nothing in the simulation ever called them: their only consumers are the runtime's progression

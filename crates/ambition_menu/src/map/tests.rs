@@ -73,11 +73,15 @@ fn short_room_label_uppercase_truncates_single_word() {
 /// is covered by the tests around this one; what no other test can see is whether
 /// anybody still runs them.
 #[test]
-fn the_plugin_installs_the_map_menu_systems_it_owns() {
+fn installing_the_map_menu_adds_the_systems_it_owns() {
     use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(super::MapStatePlugin);
+    // ⇒ THE INSTALL IS A SEPARATE CALL, and this test follows it there. The plugin
+    // declares vocabulary; a composition asks for the systems. Asserting against
+    // the PLUGIN would now certify an empty schedule.
+    super::install_map_menu_systems(&mut app);
     // The schedule builds its graph on first run, so an uninitialized one reports
     // nothing — the same trap `boot_budget`'s duplicate check had to be taught.
     let mut update = app
@@ -95,7 +99,8 @@ fn the_plugin_installs_the_map_menu_systems_it_owns() {
     let installed = update.systems().expect("initialized").count();
     assert_eq!(
         installed, 3,
-        "`MapStatePlugin` installs {installed} Update system(s); it owns exactly \
+        "`install_map_menu_systems` added {installed} Update system(s); it owns \
+         exactly \
          three — `handle_map_menu_hotkeys`, `map_menu_pointer_dismiss` and \
          `sync_map_menu`. ⇒ If this DROPPED, the map menu is dead in every \
          composition and nothing else in the tree says so (there is no app-level \

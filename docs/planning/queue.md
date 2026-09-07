@@ -1363,7 +1363,16 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
      room it calls visited to carry its `room_visited_<id>` flag on the save.
      ⭐ AND THE PAIR IS THE POINT: `track_room_visits` writes the live state and the
      durable flag in ONE statement, so a disagreement is that system not running.
-  4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
+  4. `sim_core_resources.rs` `install_sim_clock_reporting` — ⚠ **STILL OPEN, and now
+     with a measured reason it is hard rather than a to-do.** Its consumer is an
+     `eprintln!` through `world_log::sim_clock`; the only process-global handle is a
+     `LINES: AtomicUsize` counter, and `app_it` runs its tests as THREADS of one
+     process, so any test reading that counter would be counting sibling tests' lines
+     too. ⇒ There is no capturable sink, and making one is a design change (a fact
+     message with the log as one consumer), not a test. ⭐ What DID land 2026-09-07:
+     the installer guard now names its subject instead of counting — poison receipt,
+     an installer registering ONE system that is not the reporter fails by name where
+     the count accepted it.
   5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`
   6. `host/src/lib.rs:66` `ambition_input::install_seat_device_tracking`
 

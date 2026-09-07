@@ -284,32 +284,73 @@ mod install_tests {
     /// diagnostic is exactly the kind of output that vanishes without a single
     /// test noticing, and an Android freeze is where somebody finds out.
     ///
-    /// ⚠ A COUNT, NOT A NAME. Bevy strips system names without its `debug`
-    /// feature, so every row reads `<Enable the debug feature to see the name>`
-    /// and a name-based assertion passes against anything. Raise this number
-    /// deliberately and say what joined.
+    /// ⛔⛔ THIS GUARD USED TO COUNT, AND THE REASON GIVEN WAS FALSE WHERE IT SAT.
+    /// The comment here said *"Bevy strips system names without its `debug` feature,
+    /// so every row reads `<Enable the debug feature to see the name>` and a
+    /// name-based assertion passes against anything."* True of Bevy; false of the
+    /// build this test runs in. MEASURED 2026-09-07
+    /// (`cargo tree -e features -i bevy_utils@0.19.1`): the one dependent that turns
+    /// `bevy_utils/debug` on is `bevy_egui 0.40.1`, reached through the OPTIONAL
+    /// `bevy-inspector-egui` behind the `dev_tools` feature — which this crate's own
+    /// `default = ["desktop_dev"]` includes. So the names are here, and the guard was
+    /// counting for a reason that did not apply.
+    ///
+    /// ⚠ A COUNT CANNOT BE WRONG, ONLY UNDER-POWERED: it passes if the installer
+    /// registers ANY one system, so an installer that registered the wrong system
+    /// would satisfy it. Naming the subject is what closes that.
+    ///
+    /// ⭐ AND THE NAME IS NOT FREE EITHER, so the precondition is stated rather than
+    /// assumed. `android = [.., "rl_sim", ..]` is a real feature set in this tree that
+    /// carries no `dev_tools`; under it every row IS the placeholder, and a bare
+    /// `contains` would then fail claiming the installer registered nothing.
     #[test]
-    fn the_installer_registers_the_clock_reporter() {
+    fn the_installer_registers_the_clock_reporter_by_name() {
         let mut app = App::new();
-        let before = post_update_systems(&mut app);
+        let before = post_update_system_names(&mut app);
         install_sim_clock_reporting(&mut app);
-        let after = post_update_systems(&mut app);
+        let after = post_update_system_names(&mut app);
+
+        let added: Vec<&String> = after.iter().filter(|name| !before.contains(name)).collect();
         assert_eq!(
-            after - before,
+            added.len(),
             1,
-            "the sim-clock installer registered {} systems, not 1",
-            after - before
+            "the sim-clock installer registered {} systems, not 1: {added:?}",
+            added.len()
+        );
+        assert!(
+            !added[0].contains(NAMES_STRIPPED),
+            "this build renders no system names, so the assertion below cannot \
+             identify its subject. Names come from `bevy_utils/debug`, supplied only \
+             by `bevy_egui` via the optional `bevy-inspector-egui` behind `dev_tools` \
+             — someone trimmed that feature out of this build."
+        );
+        assert!(
+            added[0].contains("report_sim_clock_changes"),
+            "the sim-clock installer registered `{}`, which is not the clock \
+             reporter. A count would have accepted it.",
+            added[0]
         );
     }
 
-    fn post_update_systems(app: &mut App) -> usize {
-        app.world_mut()
-            .resource_scope(|world, mut schedules: Mut<bevy::ecs::schedule::Schedules>| {
+    /// What Bevy renders instead of a system name when `bevy_utils/debug` is OFF.
+    const NAMES_STRIPPED: &str = "<Enable the debug feature to see the name>";
+
+    fn post_update_system_names(app: &mut App) -> Vec<String> {
+        app.world_mut().resource_scope(
+            |world, mut schedules: Mut<bevy::ecs::schedule::Schedules>| {
                 let Some(schedule) = schedules.get_mut(PostUpdate) else {
-                    return 0;
+                    return Vec::new();
                 };
                 let _ = schedule.initialize(world);
-                schedule.systems().map(|s| s.count()).unwrap_or(0)
-            })
+                schedule
+                    .systems()
+                    .map(|systems| {
+                        systems
+                            .map(|(_, system)| format!("{}", system.name()))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            },
+        )
     }
 }

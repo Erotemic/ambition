@@ -420,9 +420,21 @@ fn report_body_against_sprite(
         );
     }
     for pose in &poses {
+        // ⛔⛔ THE ANIMATION, BECAUSE OMITTING IT COST ME A PUBLISHED CONCLUSION.
+        // On 2026-09-06 this tool's own default `--walk 200` walked Mary-O off the
+        // course and KILLED her, so a whole per-pose analysis measured the `death`
+        // row while calling it `idle` -- and every derived number came out an exact
+        // integer, which read as confirmation that the derivation was sound. It WAS
+        // sound; it was describing a corpse.
+        //
+        // ⭐ A placement measurement is meaningless without the row it sampled: each
+        // animation has its own trim, so the quad and anchor change per row while the
+        // body box does not. Printing the anim makes the mistake visible in the
+        // output instead of recoverable only by converting the quad back to sheet
+        // pixels and matching it against the sheet's rects by hand.
         eprintln!(
-            "[align]   pose authored_render={:?} authored_offset={:?}",
-            pose.authored_render, pose.authored_offset,
+            "[align]   pose anim={:?} authored_render={:?} authored_offset={:?}",
+            pose.anim, pose.authored_render, pose.authored_offset,
         );
     }
     // ⭐ THE PLAYER IS NOT IN THE JOIN ABOVE, and that is the one character this whole

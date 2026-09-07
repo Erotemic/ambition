@@ -34,9 +34,35 @@ and a measurement never taken — and one habit fixes both.
 Direct new maintainer observations outrank this ordering when they are
 reproducible.
 
-**Reviewed baseline:** `12cbf92024f53bd295e6493fb9bc742cf4bfbc1d` (GPT review 2026-09-07; it supersedes the unseen review of `19701e3ab`).
+**Reviewed baseline:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db` (GPT review 2026-09-07, the second that day).
 
 ## Recent structural receipts
+
+- ✔ **GPT REVIEW 2026-09-07 #2 (HEAD `625fa79af`) — all four findings addressed,
+  three commits.**
+  ✔ **HIGH — a mark's credit outlives its author's body** (`d8e251e2a`):
+  `ambition_match::SeatCredit` stand-in (no `MatchSeat`, so the cast count is
+  untouched; no body, so live-source projections read absent), spawned at a
+  detonation whose seat has no fighter, match-scoped, alive 0.25s past the blast,
+  rollback-registered with its clock (GGRS 166→167). Never the victim. Assembled
+  three-way poison: Author eliminated inside the fuse, third fighter hurt, owner
+  names seat 0.
+  ✔ **MEDIUM ×2 — the body-owned drawable phase and two release frames**
+  (`2f194c388`): `BodyOwnedDrawableSync` — every body-owned drawable writer joins
+  it and the portal publisher runs `.after` it (one edge, one flush). The shipped
+  `Update` graph is asked by system TYPE, before the first update, that the edge
+  and the four memberships exist. The hit-flash owner asserts `Visible`
+  unconditionally and the clock bar's owner asserts `Inherited`, so neither is
+  latched hidden when the resolver releases without asserting. Bridge poisons: a
+  bar straddling a pane is composited on its first frame and follows its body;
+  a flashing silhouette is back the frame its body returns near.
+  ✔ **MEDIUM — C1 regression** (`91b643368`): `BodyClockViewSet::{Reset,
+  Contribute}` published by `sim_view`; the ruleset contributes by set. Ratchet
+  green: capability/ruleset foreign ordering 0.
+  ⚠ **Left for Jon:** `check_no_warnings.py` is red at HEAD on `SeedActorMut`
+  (`actor_clusters.rs:198`, his F1 step-3 carve of 2026-09-06): the trait's only
+  callers are test modules, so the default-features build reports it dead. Not
+  touched — the doc says a pre-spawn production path is intended.
 
 - ✔ **GPT REVIEW 2026-09-07 (HEAD `12cbf9202`, superseding the unseen review of
   `19701e3ab`) — every finding addressed, in seven commits.**

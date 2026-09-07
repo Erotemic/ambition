@@ -646,3 +646,40 @@ name:
 The work is successful when registry implementations become smaller **and** it
 becomes harder for them to disagree about canonical identity, conflict handling,
 and fingerprinting. Line-count reduction alone is not sufficient.
+
+## Census 2026-09-07: 5 adopted, 3 justified, 23 SILENT — and the third bucket is the finding
+
+`scripts/measure_registry_core_adoption.py` (committed with this) classifies every
+`*Registry` type outside tests into three states, because two states hide the one
+that matters:
+
+| state | n | meaning |
+|---|---|---|
+| ADOPTED | 5 | manifest dependency AND a non-comment reference |
+| JUSTIFIED | 3 | names `registry_core` only in prose — the documented opt-out |
+| SILENT | 23 | no reference at all: nobody has decided either way |
+
+⭐ **The opt-out is WORKING, which is worth saying because it is the part that
+usually rots.** The crate doc prescribes that a registry with a genuinely
+different policy "says so by not using `classify` — and then has to say why in
+place." All three JUSTIFIED entries do exactly that, at the declaration site:
+`EncounterRegistry` (`registry.rs:52`), `MovePrefabRegistry`
+(`prefab_registry.rs:59`), and `ParamSchemaRegistry` (`lib.rs:167`, which states
+outright that `classify` CANNOT be adopted and why). ⇒ 8 of 31 registries have
+ANSWERED the question; the other 23 were never asked it.
+
+⛔ **A SOURCE GREP ALONE REPORTS 8 ADOPTERS AND THREE OF THEM ARE THE OPT-OUTS.**
+`git grep registry_core` cannot tell a call from a comment explaining why there is
+no call. The manifest is what separates them: a crate whose `Cargo.toml` lacks the
+dependency cannot be calling into it. That over-count is the script's whole reason
+for existing, and it is the same shape as counting FILES that mention a type and
+reporting them as READERS.
+
+⚠ **This corrects the header above, which says FOUR adopters (2026-09-05).** It is
+five: `RoomContentStagingRegistry` joined. Cite the script rather than copying the
+number — the previous one went stale in two days.
+
+⇒ **The next-pilot question is therefore "which of the 23 SILENT ones is a
+canonical registry at all", not "convert 26".** Several will be internal lookup
+tables where the four questions do not arise, and saying so in place is itself an
+answer that moves them to JUSTIFIED.

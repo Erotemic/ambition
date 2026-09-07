@@ -69,6 +69,40 @@
   ⇒ The row is no longer customer-gated. There is still no known porting bug —
   the exercise is to find out whether one exists.
 
+  ⭐⭐ **SCOPED 2026-09-06 — REASONED FROM SOURCE, NOT MEASURED. There is a specific
+  thing to assert, and a specific population it would bite.** `portal2d/transit.rs:238`
+  takes `Option<Res<GravityField>>` and derives `gravity_dir` from it (:260), which
+  `portal2d/placement.rs:110` uses for the wall↔wall upright accommodation. And
+  `GravityField` is not a per-body fact:
+
+  ```rust
+  // shared_tangle/src/gravity.rs:432
+  pub fn resolve_active_gravity(
+      base: Option<Res<BaseGravity>>,
+      bodies: Query<&ResolvedMotionFrame, With<PrimaryBody>>,   // ⭐ PRIMARY ONLY
+      mut gravity: ResMut<GravityField>,
+  ) { gravity.dir = bodies.single().map_or(base_dir, |frame| frame.down())… }
+  ```
+
+  ⇒ **`GravityField` is a MIRROR OF THE PRIMARY BODY'S resolved frame** — `pose_view`
+  says so in as many words where it deliberately reads `ResolvedMotionFrame` instead.
+  `transit.rs` mentions `ResolvedMotionFrame` ZERO times. ⇒ **The predicted defect is
+  that a NON-PRIMARY body transiting a portal is oriented by the PRIMARY body's
+  gravity**, which is wrong whenever the two are in different zones — and
+  `symmetry_room` has FOUR zones, so it is the room that can produce that state.
+
+  ⚠ **AND I NEARLY FILED A WRONG MECHANISM HERE.** My first reading said transit uses
+  the ambient field and ignores zones entirely. That is FALSE: the doc I took it from
+  is on `BaseGravity`, not `GravityField`, and it says `resolve_active_gravity` copies
+  "an overlapping zone's direction" INTO the live field. Zones ARE honoured — for one
+  body. The defect is the single global mirror, not zone-blindness.
+
+  ▢ So the exercise has a shape now: put a non-primary body and the player in
+  DIFFERENT zones, transit the non-primary one, and assert its post-transit orientation
+  follows ITS OWN frame. ⛔ Nothing above is measured — it is a source reading, and
+  `a_coherent_source_reading_is_not_a_measurement` applies. The test is still the
+  deliverable.
+
 ## Re-measured 2026-09-03 — both gates still closed, and both counts reproduce
 
 Swept every `.ldtk` in the `game/ambition_map_assets` submodule (6 files, at the

@@ -1028,6 +1028,16 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   frame against ~0.6% of a 160px one, so the trim over-measures the art badly and
   anisotropically.
 
+  ⚠ **THE DOMINANT TERM DIFFERS BY TIER, and "anti-aliasing fringe" is the umbrella
+  rather than the whole story.** Verified independently from the RONs, `player_robot_v3`
+  idle: base rect **71x101 in a 256x256** frame (aspect 0.7030); potato rect **8x8 in a
+  16x16** frame (aspect 1.0000) -- +42.3% aspect, +26.7% height. At 16x16 the art is an
+  8-pixel blob filling exactly half the frame each way, so what dominates there is
+  QUANTIZATION, not a fringe. At `mary_o_v2`'s 10x12 (trim 7x5 against a base 63x86 in
+  160x192) the fringe reading fits better. ⇒ Both are the same root -- alpha is
+  RE-MEASURED on the downscaled image -- and the fix is the same, but a reader should
+  not expect one clean arithmetic law across the tiers.
+
   ⚠ **NOT a missing-asset problem, checked:** `sprites_potato/mary_o_v2_spritesheet.ron`
   exists on this box and its frame aspect is right. ⚠ But `sprites_potato` IS
   GITIGNORED (655 files against base's 1244), so the RON I measured is per-machine

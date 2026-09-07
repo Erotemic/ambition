@@ -529,6 +529,19 @@ pub fn restore_occurrence_baseline(
 /// is an archetype accident and this value reaches a construction plan, so an
 /// unordered read here would be a determinism bug that reproduces perfectly on
 /// one machine.
+/// ⚠ **`InCustodyOf` HAS TWO PRODUCERS AND THEY DIFFER IN DURABILITY, which nothing
+/// marks at the marker.** The item domain writes it for held items (which also carry
+/// `ItemCustody`); `project_body_custody` writes it for riders, limbs and possessed
+/// BODIES, explicitly `Without<GroundItem>`. Both land in the set below, so both get an
+/// `InCustody` occurrence row — but `durable_horizon`'s save filter keeps such a row only
+/// when the subject also has `ItemCustody`, so the BODY rows are dropped on the way to
+/// the file.
+///
+/// ⇒ That is correct, not a leak: a mount's grip or a possession is session state and the
+/// save does not restore a rider onto a mount, so a durable "somebody is holding this"
+/// row would be a claim the loader cannot honour. ⭐ It is recorded here because the
+/// DURABILITY of a row this function writes depends on WHICH PRODUCER wrote the marker,
+/// and that is recoverable today only by reading a filter two crates away.
 pub fn project_custody_onto_authored_occurrences(
     carried: Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,

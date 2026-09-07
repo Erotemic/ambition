@@ -97,6 +97,15 @@
   "an overlapping zone's direction" INTO the live field. Zones ARE honoured — for one
   body. The defect is the single global mirror, not zone-blindness.
 
+  ✔ **AND THE POPULATION IS WIDE, checked rather than assumed.** The transit system
+  filters `With<PortalBody>`, not `With<PrimaryBody>` — and
+  `ambition_content/src/portal/transit_body_adapter.rs`'s `ensure_portal_bodies` grants
+  `PortalBody` to EVERY body with `BodyKinematics` (`Without<ProjectileGameplay>`), not
+  only the player. ⇒ So "non-primary body transiting a portal" is not a contrived
+  state: it is every enemy, NPC and actor in any room that has portals. The prediction
+  is reachable in production rather than theoretical, which is what decides whether the
+  exercise is worth writing.
+
   ▢ So the exercise has a shape now: put a non-primary body and the player in
   DIFFERENT zones, transit the non-primary one, and assert its post-transit orientation
   follows ITS OWN frame. ⛔ Nothing above is measured — it is a source reading, and

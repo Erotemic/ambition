@@ -1028,6 +1028,26 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   frame against ~0.6% of a 160px one, so the trim over-measures the art badly and
   anisotropically.
 
+  ⚠ **A TEMPTING LAW THAT ONLY PARTLY HOLDS — recorded so nobody re-derives it and
+  over-trusts it.** The per-character numbers suggest "drift is proportional to how
+  much EMPTY MARGIN a sheet carries": `player_robot_v3` has 0.605 of headroom
+  (base h-frac 0.395) and drifts +26.7%, while `pirate_admiral` has 0.018 (h-frac
+  0.9825, art already fills its frame) and can only drift +1.8% before saturating at
+  1.0. Tested over 3,571 rows at potato:
+
+      corr(headroom, drift) = 0.276
+      headroom 0.0-0.2  n=1006  mean drift +0.0251
+      headroom 0.2-0.4  n=1085  mean drift +0.0079
+      headroom 0.4-0.6  n= 887  mean drift +0.0462
+      headroom 0.6-0.8  n= 500  mean drift +0.0650
+      headroom 0.8-1.0  n=  93  mean drift +0.2056
+
+  ⇒ **A TENDENCY, NOT A LAW.** Drift rises sharply above 0.4 of headroom and is
+  dramatic above 0.8, which explains the robot-vs-pirate case that prompted it. But
+  r=0.276 means most of the variance is elsewhere, and the lowest bin breaks
+  monotonicity outright. ⛔ Do not use headroom to PREDICT a given sheet's drift, and
+  do not treat a tightly-cropped sheet as safe: measure the sheet.
+
   ⚠ **THE DOMINANT TERM DIFFERS BY TIER, and "anti-aliasing fringe" is the umbrella
   rather than the whole story.** Verified independently from the RONs, `player_robot_v3`
   idle: base rect **71x101 in a 256x256** frame (aspect 0.7030); potato rect **8x8 in a

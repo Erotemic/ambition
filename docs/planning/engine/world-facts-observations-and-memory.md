@@ -31,7 +31,7 @@ FOR FOUR FAMILIES AND LIVE STATE FOR EVERYTHING ELSE.** Every registered
 | `world.flag_set` | **the save** — `data().flag(id)` |
 | `world.switch_on` | **the save** — `data().switch(id)` |
 | `body.can`, `body.fits` | live ECS |
-| `inventory.holds`, `item.is_held` | live ECS — `try_query::<(&SimId, &ItemCustody)>()` |
+| `inventory.holds`, `custody.is_held` | live ECS — `try_query::<(&SimId, &ItemCustody)>()` |
 | `wallet.can_afford` | live ECS |
 
 ⇒ **The save is NOT the rule-readable surface; it is the durable MIRROR of one.** Four of

@@ -162,6 +162,27 @@ different question, and comparing it against a placement expectation manufacture
 right of true with a quad of 42.67x30.48 instead of 24x32.76 (D-POTATO-ASPECT), and
 `potato` is AUTO-SELECTED on software rendering.
 
+✔✔ **AND ALL FOUR MARY-O ROOMS ARE NOW SWEPT, at `ultra`, with the corrected probe.
+None shows the reported defect.**
+
+| room | floor gap | `space_sum` | expected (`world.size.y/2`) |
+|---|---|---|---|
+| `mary_o_1_1` | **0.00** | 383.619 | 384.000 |
+| `mary_o_1_2` | **0.00** | 223.619 | 224.000 |
+| `mary_o_1_3` | **0.00** | 383.619 | 384.000 |
+| `mary_o_test_course` | **0.00** | 239.619 | 240.000 |
+
+⭐ **The residual is a CONSTANT 0.381 in every room, and it is my metric rather than a
+placement error.** 0.381 world / (8/21) = **exactly 1.0 sheet pixel** — and the idle
+rect spans sheet rows 105..191 (`off.y` 105 + `h` 86) while the sheet's authored
+`feet_pixel` is row **190**. So the quad's bottom edge, which the probe uses as "sprite
+feet", sits one pixel below the authored feet row. Identical in all four rooms because
+it is a property of the sheet, not of any room.
+
+⇒ **The Mary-O platformer at `ultra` is eliminated as the location of this report**, in
+every room it has, on the floor check as well as the placement check. That narrows the
+two questions below rather than answering them.
+
 ⇒ **THE TWO QUESTIONS.**
 1. **Which screen is the screenshot?** It shows health bars, a `player` label, a green
    aim arrow and "Solid Snake / fight" — that is not the room the probe captures. Smash

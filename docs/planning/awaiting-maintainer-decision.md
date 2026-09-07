@@ -4633,10 +4633,12 @@ because the armed goal text names that script as "the reclaim". I read
    *"It contradicted the standing rule ten lines below it, and the contradiction
    was LOAD-BEARING: an agent pruning by mtime on 2026-09-03 was following this
    paragraph."*
-3. `scripts/check_disk_headroom.py:83-95` — restates (1) inside the refusal an
+3. `scripts/check_disk_headroom.py:157-172` — restates (1) inside the refusal an
    operator reads at the exact moment they are under pressure to free space, with
    a comment explaining that a deletion ladder was removed from that very
-   message for contradicting the rule.
+   message for contradicting the rule. ⚠ Cited at :83-95 when this row was
+   written; 94eff4a6b inserted the bind precondition above it and moved the
+   passage to :157-172 the same day. My own edit rotted my own citation.
 4. `scripts/clean_workspace_crates.sh` — committed, and it performs the
    deletion (1) forbids: `mv "$inc" "$doomed"; rm -rf "$doomed"` on
    `target/<profile>/incremental`. It is not careless — it cites AGENTS.md at

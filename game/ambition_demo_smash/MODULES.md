@@ -14,6 +14,7 @@
 | [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
+| [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`match_scope`](src/match_scope.rs) | What a match created, and what ends when the match does. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
 | [`motion`](src/motion.rs) | THE SMASH RULESET'S COMMANDED-VELOCITY SEAM (ADR 0024, authority #4). |
@@ -28,7 +29,7 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

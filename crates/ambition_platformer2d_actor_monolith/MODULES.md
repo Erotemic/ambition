@@ -8,7 +8,7 @@
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
-| [`actor_bundles`](src/actor_bundles.rs) | _(no `//!` header — see D-B navigability standard)_ |
+| [`actor_bundles`](src/actor_bundles.rs) | Component bundles for a simulated feature entity. |
 | [`actor_spawn`](src/actor_spawn/mod.rs) | Actor spawn helpers for ECS feature entities. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |

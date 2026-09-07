@@ -173,6 +173,30 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         app.world().get::<RideLease>(seat0).is_some(),
         "the ride has no clock on it, so it would never end"
     );
+    // ⛔⛔ CARRIED, NOT CONTROLLED — and the distinction has to be asserted HERE,
+    // while he is aboard, because after the dismount it is released either way
+    // and the assertion cannot tell the two apart.
+    //
+    // `board()`'s own doc states the rule: `TemporaryControl` records which
+    // transient controller is MASKING the body's autonomous brain, and boarding
+    // masks a brain only when there is a `MountedBrainCache` to swap in. The
+    // Admiral has none — he keeps driving himself from the saddle — so the mount
+    // must file NO control claim on him. A version of the reconciler that claimed
+    // every live ride made the architecture describe a masking that never
+    // happened, and this is the assertion that says so.
+    {
+        use ambition_platformer2d::platformer::temporary_control::{
+            ControlClaimant, ControlClaims,
+        };
+        if let Some(claims) = app.world().get::<ControlClaims>(seat0) {
+            assert!(
+                !claims.holds(ControlClaimant::Mount),
+                "the admiral is CARRIED by his shark, not controlled by it — he \
+                 has no mounted brain cache — yet the mount filed a control \
+                 claim on him: {claims:?}"
+            );
+        }
+    }
 
     // ── IT CARRIES HIM. Hold the stick and the pair travels. ──
     let x_of = |app: &mut App, e: Entity| -> f32 {
@@ -222,6 +246,12 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         app.world().get::<RidingOn>(seat0).is_none(),
         "the admiral jumped and stayed in the saddle"
     );
+    // ⇒ THE CLAIM'S RELEASE IS GUARDED IN `ambition_mount`, NOT HERE, and the
+    // reason is worth the two lines: I wrote an assertion at this point first and
+    // it could not fail. The Admiral is CARRIED — no `MountedBrainCache` — so he
+    // never files a mount claim, and after the dismount the claim is absent
+    // whether or not the release exists. ⇒ `an_ordinary_dismount_releases_the_mount_claim`
+    // constructs a CACHED rider, which is the body that defect can happen to.
     // The departure is a flight, not a despawn, so give it its clock.
     for _ in 0..180 {
         app.update();

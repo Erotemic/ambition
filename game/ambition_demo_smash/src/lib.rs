@@ -24,6 +24,7 @@ pub mod homing;
 pub mod limit;
 pub mod match_scope;
 pub mod mine;
+pub mod mark;
 pub mod motion;
 pub mod moveset;
 pub mod portal;
@@ -1148,6 +1149,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::mine::arm_placed_mines,
                 crate::mine::place_or_detonate_authored_mines,
+                // ⭐ THE MARK'S TWO HALVES, chained for the same reason the
+                // mine's are: a mark applied on this tick must not also DETONATE
+                // on it. Apply-then-tick means the fuse the moveset authored is
+                // the fuse the victim gets, rather than one frame less.
+                crate::mark::apply_authored_body_marks,
+                crate::mark::detonate_body_marks,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -2877,6 +2884,17 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.placed_mine",
                 crate::mine::placed_mine_probe,
+            );
+
+            // ⛔ THE MARK ON A BODY, and the same argument the mine's clock
+            // carries: it outlives the tick that made it, so a rewind restoring
+            // the mark WITHOUT its clock would detonate on a different frame on
+            // the two peers. The probe is the clock for exactly that reason — a
+            // presence-only probe cannot see the disagreement that matters.
+            app.rollback_component_clone_probed::<crate::mark::BodyMark>(
+                "ambition_demo_smash",
+                "smash.body_mark",
+                crate::mark::body_mark_probe,
             );
 
             // The bolt in flight: where it is, where it is going, how long it has

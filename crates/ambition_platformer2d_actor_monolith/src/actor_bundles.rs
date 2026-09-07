@@ -1,3 +1,11 @@
+//! Component bundles for a simulated feature entity.
+//!
+//! ⚠ ONE CONCERN: what a body IS MADE OF at spawn — the marker, the box, the
+//! combat state — and nothing about who spawns it or why. It lost its header
+//! when it was hoisted out of `features/ecs/` on 2026-09-06 and the module-map
+//! guard is what noticed: a file's concern statement does not travel with the
+//! file unless somebody carries it.
+
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;

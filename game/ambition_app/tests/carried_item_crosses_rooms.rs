@@ -2006,15 +2006,37 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
     }
     assert!(possessed, "setup: the rider was never possessed");
 
-    // ⭐ BOTH CLAIMS LIVE AT ONCE, which is the state the old enum could not hold.
+    // ⛔⛔ THE POSSESSION CLAIM IS LIVE AND THE RIDE'S IS NOT, AND THAT IS THE
+    // MEASURED TRUTH RATHER THAN THE ONE I EXPECTED. This asserted BOTH claims
+    // until 2026-09-06, and it only passed because the first version of the mount
+    // reconciler filed a Mount claim for every live ride.
+    //
+    // ⇒ `ControlClaimant::Mount` MEANS A BRAIN SWAP (`board()`'s own doc: the
+    // component records which controller is MASKING the autonomous brain, and
+    // boarding masks one only when there is a `MountedBrainCache`). Narrowed to
+    // that, it turns out NOTHING IN PRODUCTION CONSTRUCTS A `MountedBrainCache` —
+    // grep the tree: the type is defined, read as an `Option`, rollback-registered,
+    // and built only inside `mount_pair_tests.rs`. So the authored pirate rider is
+    // CARRIED, and `TemporaryControl::Mounted` is unreachable in shipped play.
+    //
+    // ⚠ THE BUG BELOW IS STILL REAL AND STILL REACHABLE, which is why this test
+    // stayed. The mount's death arm wrote `Autonomous` over a live possession, and
+    // that arm needs no cache — it fires for any `Mounted` rider whose mount dies.
+    // ⇒ What was never reachable is the `Mounted` PROJECTION; the ERASURE always
+    // was.
     let claims = sim
         .world()
         .get::<ControlClaims>(rider)
         .cloned()
         .expect("a possessed rider has filed claims");
     assert!(
-        claims.holds(ControlClaimant::Possession) && claims.holds(ControlClaimant::Mount),
-        "setup: expected a live possession AND a live ride on the same body, got {claims:?}"
+        claims.holds(ControlClaimant::Possession),
+        "setup: the possession filed no claim, so nothing below is about one: {claims:?}"
+    );
+    assert!(
+        !claims.holds(ControlClaimant::Mount),
+        "the authored rider has no `MountedBrainCache`, so it is CARRIED rather \
+         than mount-controlled and must file no mount claim: {claims:?}"
     );
     assert_eq!(
         sim.world().get::<TemporaryControl>(rider),
@@ -2146,15 +2168,20 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
     }
     assert!(possessed, "setup: the rider was never possessed under rewind");
 
-    // Both claims live, having been saved and restored several times over by now.
+    // The possession claim has been saved and restored several times over by now.
+    // ⚠ ONLY THE POSSESSION — see the sibling test: the authored rider is carried,
+    // not mount-controlled, because nothing in production builds a
+    // `MountedBrainCache`. This test's subject is whether a claim SURVIVES A
+    // REWIND, and possession is the one claim here that has no reconciler to
+    // repair it — which makes it the only one that can witness a restore bug.
     let claims = sim
         .world()
         .get::<ControlClaims>(rider)
         .cloned()
         .expect("a possessed rider has filed claims");
     assert!(
-        claims.holds(ControlClaimant::Possession) && claims.holds(ControlClaimant::Mount),
-        "a rewind lost a claim: {claims:?}"
+        claims.holds(ControlClaimant::Possession),
+        "a rewind lost the possession claim: {claims:?}"
     );
 
     {
@@ -2186,4 +2213,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
         after.holds(ControlClaimant::Possession) && !after.holds(ControlClaimant::Mount),
         "the ride's claim ended and the possession's did not: {after:?}"
     );
+    // ⇒ AND THE PROJECTION AGREES WITH THE CLAIMS, which is the property the
+    // whole arbiter exists for: a rewind across the death frame leaves the
+    // effective authority equal to the winner of the surviving claims.
 }

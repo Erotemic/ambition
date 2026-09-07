@@ -58,6 +58,38 @@ pub fn author_moveset() -> MovesetContract {
     crate::special_slots::replace_special(&mut set, "special_up", authors_teleport());
     crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
     crate::special_slots::replace_special(&mut set, "special_forward", a_train_of_thought());
+
+    // ⭐⭐ HIS LOW POKE LEAVES A NOTE — the campaign's `Shadow-Flare delayed mark`
+    // row, and the fiction is exact for this fighter: a writer does not finish
+    // the argument on the spot, the revision lands later.
+    //
+    // ⛔ ON THE WEAKEST THING HE HAS, DELIBERATELY. `author_tilt_down` does 4.
+    // Stamping the mark on his forward smash would make a move that already wins
+    // exchanges win them harder; stamping it here turns a NEUTRAL-GAME TOOL into
+    // a threat, which changes what the match is about rather than how much it
+    // hurts. ⇒ In a 1v1 the question stops being "did you press attack" and
+    // becomes "what do you do for the next second and a half", and the answer is
+    // never "the same thing".
+    //
+    // ⚠ 1.4s IS A DECISION, not a hit arriving late. Under roughly half a second
+    // the victim cannot act on it at all. This is long enough to run, to shield,
+    // or to try to stand next to him and trade the blast back — the detonation is
+    // `Environment`, so it does not care who planted it.
+    //
+    // ⇒ AND IT NEEDED NO NEW ENGINE AUTHORITY. `OnHitEffectMessage` already
+    // carries the victim, `HitVolume::on_hit` already carries an authored
+    // payload, `DamageBoxEffect` already owns a blast, and the clock is a
+    // ruleset component with `PlacedMine`'s exact precedent.
+    ambition_platformer2d::characters::smash_mark::mark_move_in(
+        &mut set,
+        "author_tilt_down",
+        ambition_platformer2d::characters::smash_mark::MarkBodyParams {
+            fuse_s: 1.4,
+            damage: 6,
+            blast_radius: 44.0,
+            knockback: 1.2,
+        },
+    );
     set
 }
 

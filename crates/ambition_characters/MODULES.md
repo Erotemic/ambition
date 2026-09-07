@@ -28,6 +28,7 @@
 | [`smash_flyline`](src/smash_flyline.rs) | Being lifted out of the scene on a wire: the authored vocabulary. |
 | [`smash_homing`](src/smash_homing.rs) | Carry the fighter at whoever they were pointing at: the authored vocabulary. |
 | [`smash_limit`](src/smash_limit.rs) | The Limit meter: what fills a fighter's meter, authored rather than assumed. |
+| [`smash_mark`](src/smash_mark.rs) | A strike that leaves a delayed mark on the body it hits: the authored vocabulary. |
 | [`smash_mine`](src/smash_mine.rs) | Place a mine the placer can set off from anywhere: the authored vocabulary. |
 | [`smash_portal`](src/smash_portal.rs) | The portal recovery: the authored vocabulary for "open a way up". |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
@@ -43,7 +44,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

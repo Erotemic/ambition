@@ -892,6 +892,23 @@ pub fn apply_dismount_requests(
             RideLease,
             ambition_platformer2d_core::PoseOwnedExternally,
         )>();
+        // ⛔⛔ AND THE RIDE'S CLAIM ENDS HERE, which it did not until 2026-09-06.
+        // This arm removes `RidingOn`, and the only other place that released the
+        // mount's claim queries bodies that HAVE `RidingOn` — so after an ordinary
+        // dismount the rider could never reconcile: a stale, rollback-canonical
+        // claim projecting `TemporaryControl::Mounted` for the rest of the match.
+        // ⇒ The Pirate Admiral's timed shark is the production path: its lease
+        // expires, `DismountRequested` fires, and he walks away still described as
+        // mount-controlled.
+        //
+        // ⚠ A CLAIM MUST BE RELEASED WHERE ITS FACT ENDS, not only where the
+        // dramatic version of its ending is handled. The death arm was the
+        // ending somebody thought of; the lease expiring is the one that ships.
+        ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+            &mut commands,
+            request.rider,
+            ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+        );
         if let Ok(mut slot) = mounts.get_mut(mount) {
             // Only if it is still THIS rider's slot: a mount already re-crewed
             // must not be emptied by a stale request.
@@ -1140,8 +1157,33 @@ pub fn enforce_mount_rider_link(
             // moment the ride began, so it is reconciled here where the ride is
             // known to be true.
             (true, true) => {
-                let wanted = sim_ids.get(riding.mount).ok();
+                // ⛔⛔ ONLY WHEN A BRAIN WAS ACTUALLY SWAPPED, and `board()`'s own
+                // doc says so in as many words: `TemporaryControl` records "which
+                // transient controller is MASKING the body's autonomous brain",
+                // and boarding masks a brain only when there is a
+                // `MountedBrainCache` to swap in. A seated fighter — the Smash
+                // Admiral, every runtime `board()` customer — keeps driving
+                // itself from the saddle.
+                //
+                // ⇒ MY FIRST VERSION FILED THE CLAIM FOR EVERY LIVE RIDE, on the
+                // reasoning that "the claim is the RIDE, not the moment the ride
+                // began". That was wrong, and the correction is not a smaller
+                // version of it: the claim is the BRAIN SWAP. A carried body and
+                // a controlled body are different facts, and calling both
+                // `Mounted` makes the architecture describe a masking that never
+                // happened. The rule was written three lines above the function I
+                // was editing.
+                let wanted = cache.and_then(|_| sim_ids.get(riding.mount).ok());
                 let held = rider_claims.and_then(|c| c.mount());
+                if wanted.is_none() && held.is_some() {
+                    // Carried, not controlled — and previously claimed. Release
+                    // it rather than leaving a masking nobody performs.
+                    ambition_platformer2d_shared_tangle::temporary_control::drop_claim(
+                        &mut commands,
+                        rider_entity,
+                        ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount,
+                    );
+                }
                 if let Some(wanted) = wanted {
                     if held != Some(wanted) {
                         ambition_platformer2d_shared_tangle::temporary_control::file_claim(
@@ -1755,4 +1797,90 @@ pub fn install_mount_pose_systems(
         steer_mount_from_rider.in_set(MountsSteeredByRiders),
     );
     app.add_systems(schedule, sync_riders_to_mounts.in_set(RidersSyncedToMounts));
+}
+
+#[cfg(test)]
+mod dismount_claim_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::temporary_control::{
+        ControlClaimant, ControlClaims,
+    };
+    use bevy::prelude::*;
+
+    /// ⛔⛔ THE CLAIM MUST END WHERE THE RIDE ENDS, AND FOR A LONG WHILE IT DID NOT.
+    ///
+    /// `apply_dismount_requests` removes `RidingOn`, and the only other release
+    /// arm — the mount-death branch of `enforce_mount_rider_link` — queries bodies
+    /// that HAVE `RidingOn`. So after an ordinary dismount the rider could never
+    /// reconcile: a stale, rollback-canonical claim projecting
+    /// `TemporaryControl::Mounted` for the rest of the match.
+    ///
+    /// ⚠ AND THE OBVIOUS PLACE TO GUARD IT CANNOT. `smash_ride.rs` runs the whole
+    /// production road — summon, board, steer, jump off — but the Admiral is a
+    /// `board()` customer with NO `MountedBrainCache`, so he never files this
+    /// claim at all (see the `(true, true)` arm: the claim is a BRAIN SWAP, not a
+    /// ride). An assertion there passes with the release deleted. ⇒ The subject of
+    /// this defect is the CACHED rider, and a guard has to construct one.
+    #[test]
+    fn an_ordinary_dismount_releases_the_mount_claim() {
+        let mut app = App::new();
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        app.add_systems(Update, apply_dismount_requests);
+
+        let mount = app.world_mut().spawn(MountSlot::default()).id();
+        let mut claims = ControlClaims::default();
+        claims.claim(
+            ControlClaimant::Mount,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
+                "mount.test".to_string(),
+            ),
+        );
+        let rider = app
+            .world_mut()
+            .spawn((
+                RidingOn { mount },
+                Mounted,
+                claims,
+                SpawnBaseline {
+                    pos: Vec2::ZERO,
+                    size: Vec2::new(24.0, 40.0),
+                    gravity_scale: 1.0,
+                },
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ambition_platformer2d_core::ActorSurfaceState {
+                    surface_normal: Vec2::new(0.0, -1.0),
+                    gravity_scale: 0.0,
+                },
+                ambition_platformer2d_core::CenteredAabb::from_center_size(
+                    Vec2::ZERO,
+                    Vec2::new(24.0, 40.0),
+                ),
+            ))
+            .id();
+        app.world_mut()
+            .entity_mut(mount)
+            .insert(MountSlot { rider: Some(rider) });
+
+        app.world_mut().write_message(DismountRequested {
+            rider,
+            reason: DismountReason::LeaseExpired,
+        });
+        app.update();
+        app.update();
+
+        assert!(
+            app.world().get::<RidingOn>(rider).is_none(),
+            "setup: the dismount did not happen at all"
+        );
+        let claims = app
+            .world()
+            .get::<ControlClaims>(rider)
+            .expect("the rider still carries its claims record");
+        assert!(
+            !claims.holds(ControlClaimant::Mount),
+            "the rider is off the mount and still carries its control claim, so \
+             nothing will ever clear it: {claims:?}"
+        );
+    }
 }

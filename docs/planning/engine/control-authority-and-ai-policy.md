@@ -79,6 +79,60 @@ steady-state arm was literally `(true, true) => {}`. ⇒ **The claim is the RIDE
 not the moment the ride began.** Reconciled in the steady-state arm now. A
 constructed fixture would have boarded the rider and never shown this.
 
+⛔⛔ **TWO DEFECTS IN THE FIRST LANDING, BOTH FOUND BY REVIEW, BOTH REPAIRED
+2026-09-06.** They are worth stating because one of them was me widening a rule
+whose text was three lines above the function I was editing.
+
+**1 — the ordinary dismount never released the claim.** `apply_dismount_requests`
+removes `RidingOn`, and the only other release arm queries bodies that HAVE
+`RidingOn`, so after an ordinary dismount the rider could never reconcile: a
+stale, rollback-canonical claim projecting `Mounted` for the rest of the match.
+⇒ **A claim must be released where its FACT ends, not only where the dramatic
+version of its ending is handled.** The death arm was the ending somebody thought
+of; a lease expiring is the one that ships.
+
+**2 — the claim conflated custody with control, and that one was mine.** My
+steady-state reconciler filed a Mount claim for every live ride, on the reasoning
+that *"the claim is the RIDE, not the moment the ride began"*. `board()`'s own
+doc had already ruled otherwise, in as many words: `TemporaryControl` records
+*"which transient controller is MASKING the body's autonomous brain"*, and
+boarding masks a brain only when there is a `MountedBrainCache` to swap in — a
+seated fighter keeps driving itself. ⇒ **The claim is the BRAIN SWAP.** A carried
+body and a controlled body are different facts, and calling both `Mounted` made
+the architecture describe a masking that never happened.
+
+⚠ **AND THE OBVIOUS GUARD FOR #1 COULD NOT FAIL.** `smash_ride.rs` runs the whole
+production road, so an assertion there looked right — but the Admiral is a
+`board()` customer with NO cache, so he never files this claim, and the assertion
+passed with the release deleted. ⇒ The subject of that defect is the CACHED rider,
+and the guard had to construct one (`an_ordinary_dismount_releases_the_mount_claim`).
+What `smash_ride` guards instead is #2, asserted WHILE HE IS ABOARD, because after
+the dismount the claim is gone either way and the assertion cannot discriminate.
+
+⛔⛔ **AND NARROWING THE CLAIM EXPOSED SOMETHING LARGER: `MountedBrainCache` HAS
+NO PRODUCTION CONSTRUCTOR.** Measured 2026-09-06 across the whole tree — the type
+is DEFINED (`ambition_mount/src/lib.rs:204`), READ as an `Option` by
+`enforce_mount_rider_link`, ROLLBACK-REGISTERED as `mount.brain_cache`, and
+CONSTRUCTED only inside `features/ecs/mount_pair_tests.rs`.
+
+⇒ **So no shipped body is ever mount-CONTROLLED.** The brain-swap arm
+(`(true, false)`, gated on `if let Some(cache)`) never fires, which means
+`TemporaryControl::Mounted` was unreachable in shipped play before any of this
+work, and `ControlClaimant::Mount` is a claimant with no production writer today.
+
+⚠ **THIS DOES NOT UNDO THE REPAIR, AND THE DISTINCTION IS THE POINT.** The
+PROJECTION was unreachable; the ERASURE never was. The mount's death arm writes
+over the control mode for any `Mounted` rider whose mount dies — no cache
+required — so a possession being erased by a dying shark was always reachable,
+and that is what the poison still demonstrates (`left: Autonomous`,
+`right: Player { slot:0 }`).
+
+⚠ **AND IT IS THE THIRD BUILT-BUT-UNUSED CAPABILITY THIS WEEK**, after the
+`EncounterScript` music owner with no `SetMusic` customer and the Limit meter with
+no roster spender. ⇒ **Grepping for USAGE cannot find these; only the DEFINITION
+side can.** A capability that is defined, read, registered and never constructed
+looks exactly like a working one from every call site.
+
 ⇒ **STILL OWED:** a production test that rewinds ACROSS each transition and
 asserts the effective authority comes back the same. The codec round-trip is
 covered by a unit test and the schema is registered, but "restores the same

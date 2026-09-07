@@ -2392,6 +2392,58 @@ shedding identity work, the reflector arriving free, and A4's premise proving
 false: **the engine already had it; what was missing was a way to say it** — and
 here, someone to say it to.
 
+### ✔ Shadow-Flare delayed mark (2026-09-06) — the sixth free rung
+
+⭐⭐ **THE INVENTORY ROW SAID "persistent gameplay occurrence attached to victim +
+timer/remote trigger" AND EVERY PIECE SHIPPED ALREADY.** Measured before anything
+was written:
+
+| the mark needs | what already answers it |
+|---|---|
+| to learn WHO was struck | `OnHitEffectMessage` carries `owner`, `victim`, `volume`, `contact` |
+| an authored keyed payload on a hit | `HitVolume::on_hit: Option<EffectRef>` |
+| a blast at a place | `vfx::Effect::DamageBox`, the mine's own detonation |
+| per-body state that rewinds | a ruleset component, `rollback_component_clone_probed` — `PlacedMine`'s precedent |
+
+⇒ The whole capability is **a key, four numbers, and one ruleset that spends
+them**: `smash_mark.rs` (authored half, ~90 lines) and `demo_smash::mark`
+(ruleset half, two systems). No new engine authority, and the goal's rule holds —
+the move COORDINATES existing authorities and becomes the authority for none of
+their state.
+
+⛔ **THE MARK RIDES THE BODY, WHICH IS THE ONLY REASON IT IS NOT A MINE.** A mine
+asks the opponent to avoid a SPOT; a mark travels with them, so running does not
+help and the pressure is on the clock. The guard asserts exactly that: the victim
+is moved 300px between the hit and the detonation, and the blast must land where
+they went.
+
+⭐ **AUTHORED ON THE AUTHOR'S WEAKEST POKE, DELIBERATELY.** `author_tilt_down`
+does 4. Stamping the mark on his forward smash would make a move that already
+wins exchanges win them harder; here it turns a **neutral-game tool into a
+threat** — the question stops being "did you press attack" and becomes "what do
+you do for the next 1.4 seconds".
+
+⛔⛔ **AND THE AUTHORING ASSERT EARNED ITS KEEP ON THE FIRST TRY.** The move was
+first authored onto `the_second_draft`, his counter — which carries NO damaging
+volume of its own, because a counter's answer is a separate mechanism. The mark
+could never have applied, and without the assert the fighter would have shipped a
+technique that never happens with every test still green.
+
+⚠ **TWO TEST DEFECTS, BOTH MINE, BOTH THE SAME SHAPE AS EARLIER TODAY:**
+
+* reading `Messages` after stepping a clock reported ZERO blasts from marks that
+  plainly detonated — Bevy's buffers are double-buffered, so *"no blast"* and *"a
+  blast I can no longer see"* are the same number. Second time in one day;
+* the key-filter poison **passed**. The test sent an EMPTY payload, which fails
+  to hydrate whatever the key says, so deleting the key check changed nothing —
+  hydration was doing the refusing. ⇒ The realistic collision is another effect
+  whose params happen to have this shape, and that is what the test sends now.
+  **A poison must differ from the control in exactly the thing under test.**
+
+Poisons run: blast at the contact point → the follow test reddens; the spent mark
+never removed → four tests redden; the key filter deleted → the fall-through test
+reddens (only after the payload was sharpened).
+
 ### Then
 
 Proof moves 4–12 in inventory order, each re-costed when reached. ⛔ Do not

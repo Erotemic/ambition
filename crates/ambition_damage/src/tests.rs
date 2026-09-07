@@ -1,6 +1,6 @@
+use super::*;
 use ambition_combat::util::scaled_knockback;
 use ambition_platformer2d_core::hit_response::di_adjust;
-use super::*;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.
 use bevy::prelude::{App, Update};
@@ -436,8 +436,8 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
             follow: None,
         }))
     };
-    use ambition_combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
     use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
+    use ambition_combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
 
     // A reference-strength launch is the standard reaction, so the shipped feel
     // numbers still mean what they said.
@@ -1045,7 +1045,6 @@ fn outgoing_projectile_damage_scales_with_the_slider() {
 // drives `publish_kernel_reset_death` directly; nothing in it is this module's,
 // so it travels rather than reaching back.
 
-
 /// Explicit victim identity outranks the legacy source-direction partition.
 /// This is the downstream half of body-generic melee: a Player-effective fighter
 /// may directly resolve another human-controlled body as its victim, while a
@@ -1112,7 +1111,10 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         1,
         "only the hit resolved onto a body THIS resolver owns belongs in its FIFO"
     );
-    assert_eq!(pending[0].event.target, ambition_combat::HitTarget::Body(victim));
+    assert_eq!(
+        pending[0].event.target,
+        ambition_combat::HitTarget::Body(victim)
+    );
 }
 
 /// A staged victim hit must not survive a room-lifecycle boundary: the void
@@ -1183,9 +1185,11 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
 
     // Room (re)staging boundary — transitions, session resets, restores.
     let mut loaded = app_with_staged_hit();
-    loaded.world_mut().write_message(ambition_platformer2d_world::rooms::RoomLoaded {
-        room_id: "test_room".to_string(),
-    });
+    loaded
+        .world_mut()
+        .write_message(ambition_platformer2d_world::rooms::RoomLoaded {
+            room_id: "test_room".to_string(),
+        });
     loaded.update();
     assert!(
         loaded
@@ -2235,5 +2239,38 @@ fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
         offered(None),
         "a damage-only tick with no knockback at all was refused a guard — a \
          hazard tick still meets a raised shield"
+    );
+}
+
+/// The lifecycle-guard installer actually registers the guard.
+///
+/// ⛔⛔ THE SYSTEM IS COVERED AND ITS INSTALLATION WAS NOT, which is a distinction the
+/// suite could not draw. `a_room_boundary_voids_staged_hits` (above) adds
+/// `void_pending_player_hits_at_lifecycle_boundaries` to its OWN `App` — so it proves
+/// the system works and is blind to whether any composition wires it. Removing the call
+/// from `combat_schedule.rs` leaves `app_it` at 578/578.
+///
+/// ⇒ A test that CONSTRUCTS its subject cannot witness its absence. This one asserts the
+/// installer put it in the schedule, which is the half that was unguarded.
+#[test]
+fn the_lifecycle_guard_installer_registers_the_guard() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    super::install_staged_hit_lifecycle_guard(&mut app, Update);
+
+    let mut update = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>()
+        .remove(Update)
+        .expect("the installer added a system to Update");
+    update
+        .initialize(app.world_mut())
+        .expect("the Update schedule initializes");
+    assert_eq!(
+        update.systems_len(),
+        1,
+        "the staged-hit lifecycle guard was not registered by its own installer"
     );
 }

@@ -468,13 +468,12 @@ impl Plugin for CombatSchedulePlugin {
         // the outgoing population (see the system's docs for the exact leak
         // window). Deliberately NOT gated on `gameplay_allowed` — boundaries
         // happen precisely while gameplay is suspended.
-        app.add_systems(
-            sim,
-            ambition_damage::void_pending_player_hits_at_lifecycle_boundaries
-                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
-                .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
-        );
+        // ⭐ The guard installs itself, with the gating rule that makes it correct:
+        // NOT gated on `gameplay_allowed`, because boundaries happen precisely while
+        // gameplay is suspended. ⚠ The STAGING system above stays here and must — it
+        // orders against `ambition_mount`, which `ambition_damage` does not depend on,
+        // so only a composition that depends on both can write that edge.
+        ambition_damage::install_staged_hit_lifecycle_guard(app, sim);
 
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the

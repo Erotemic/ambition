@@ -43,14 +43,16 @@ use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
 use ambition_characters::actor::BodyAnimFacts;
-use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
-use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
-use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use ambition_combat::death_rules::ActorDiedMessage;
-use ambition_platformer2d_shared_tangle::safe_position::{remember_safe_player_position, RoomTransitionCooldown, SafePositionContext};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
+use ambition_combat::death_rules::ActorDiedMessage;
+use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
+use ambition_platformer2d_shared_tangle::safe_position::{
+    remember_safe_player_position, RoomTransitionCooldown, SafePositionContext,
+};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 
@@ -299,7 +301,8 @@ pub fn resolve_body_hit(
         .map(|health| health.health.invulnerable)
         .unwrap_or_default();
     let guard = shield.as_ref().map(|g| *g.state).unwrap_or_default();
-    if !unstoppable && !ambition_combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
+    if !unstoppable
+        && !ambition_combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
     {
         return BodyHitResolution::Ignored;
     }
@@ -907,12 +910,12 @@ fn knockback_reaction_scale(knockback: Option<&ambition_combat::HitKnockback>) -
 // `ambition_combat::hit_reaction`; this re-export was the only thing narrowing
 // it, and narrowing a type that a public field hands out is a leak rather than
 // an encapsulation. Found by the exhaustive plan 2026-09-03.
-#[cfg(feature = "causal")]
-pub use ambition_combat::hit_reaction::BodyReaction;
-pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
 #[cfg(test)]
 pub(crate) use ambition_combat::hit_reaction::hit_response_tuning;
+#[cfg(feature = "causal")]
+pub use ambition_combat::hit_reaction::BodyReaction;
 pub(crate) use ambition_combat::hit_reaction::VictimStance;
+pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
 
 /// Announce a player-side launch, if anybody is listening.
 ///
@@ -1100,7 +1103,6 @@ pub fn incoming_player_damage_multiplier(
 // It read `PlayerBodyFrameOutput` — the avatar's own per-frame output — and
 // reported "the local player's attempt ended", which is that module's concern.
 // It was the last monolith-owned type this module named.
-
 
 /// Stage this frame's hits that belong to the controlled-body victim resolver
 /// into its rollback-registered FIFO.
@@ -1475,3 +1477,35 @@ pub fn apply_player_hit_events(
 
 #[cfg(test)]
 mod tests;
+
+/// Install the staged-hit FIFO's LIFECYCLE GUARD.
+///
+/// ⭐ ONE SYSTEM, and its gating rule is the reason it belongs here rather than in a
+/// composition: a room boundary voids staged hits from the OUTGOING population, and this
+/// is deliberately NOT gated on `gameplay_allowed` — boundaries happen precisely WHILE
+/// gameplay is suspended, so a gate that looks like every other gate would disable the
+/// guard exactly when it is needed.
+///
+/// ⚠ SEPARATE FROM THE STAGING SYSTEM ITSELF, which the composition still installs and
+/// must: `stage_player_victim_hit_events` orders `.before(ambition_mount::MountRiderLinkEnforced)`
+/// and this crate does not depend on `ambition_mount`, so only a composition that
+/// depends on both can write that edge. ⇒ Half of this domain's registration is
+/// carveable and half is genuinely the composition's; splitting on that line is the
+/// point rather than an accident of what was easy.
+pub fn install_staged_hit_lifecycle_guard(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+) {
+    use ambition_platformer2d_shared_tangle::schedule::{
+        GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+    };
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    app.add_systems(
+        schedule,
+        void_pending_player_hits_at_lifecycle_boundaries
+            .in_set(GameplaySimulationRoot)
+            .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
+            .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+    );
+}

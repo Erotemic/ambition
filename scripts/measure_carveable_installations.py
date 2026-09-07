@@ -237,7 +237,18 @@ def main() -> int:
             anchors -= SHARED | {own_crate} | named
             if len(named) == 1:
                 owner_crate = next(iter(named))
-                unreachable = sorted(a for a in anchors if not depends_on(owner_crate, a))
+                # ⛔ SHARED IS EXCLUDED FROM `named`, NOT FROM REACHABILITY. A block may
+                # name shared sets freely — but the capability that would TAKE it still
+                # has to depend on the shared crate to write them down. Measured:
+                # `ambition_characters` names `GameplaySimulationRoot` and the monolith
+                # phases and does NOT depend on `shared_tangle`, so its block read as
+                # carveable while the owner could not compile the carve.
+                shared_used = {s for s in SHARED if f"{s}::" in body}
+                unreachable = sorted(
+                    a
+                    for a in (anchors | shared_used)
+                    if not depends_on(owner_crate, a)
+                )
                 if unreachable:
                     irr.append((line, [owner_crate, *unreachable]))
                     continue

@@ -33,6 +33,23 @@ false positives:
   · `LdtkWorldAssets`    read as `Option<&LdtkWorldAssets>`, a plain reference param;
   · `CharacterSpriteAssets` passed as `&mut CharacterSpriteAssets` to a helper.
 
+⭐⭐ THE RULE, from three censuses in one session — TWO of which had to be thrown away:
+
+    A grep census finds unconsumed things only where the thing has ONE canonical
+    access shape. Where it has several, the census reports the shapes you thought of.
+
+  · MESSAGES — one shape, `MessageReader<T>`. WORKS; found two real seams.
+  · RESOURCES — many shapes (`Res`/`ResMut` qualified or not, `Option<..>`, plain
+    `&T` params, `SystemParam` fields, `world.resource::<T>()`, `Single<&T>`). 43 hits,
+    first THREE spot-checks all false. ABANDONED.
+  · SAVE FAMILIES — the fields are plural (`bosses`, `quests`) and the accessors are
+    SINGULAR and keyed (`.boss(id)`, `.quest(id)`). A plural pattern reported four
+    dormant families; all four have 2-7 readers. ABANDONED, and the negative result is
+    the finding: every one of the 14 durable families is consumed.
+
+⇒ Before writing the next one, name the ONE shape first. If you cannot, the census will
+measure your imagination.
+
 ⇒ A MESSAGE has essentially one read shape (`MessageReader<T>`), which is why this census
 works. A RESOURCE has many — `Res`/`ResMut`, path-qualified or not, `Option<..>`, plain
 `&T`/`&mut T` params, `SystemParam` struct fields, `world.resource::<T>()`, `Single<&T>` —

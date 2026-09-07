@@ -441,8 +441,6 @@ pub struct HostVfxPresentationPlugin;
 
 impl Plugin for HostVfxPresentationPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
-        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 
         // spelled out on purpose — a short path is INVISIBLE to
         // `scripts/check_engine_systems_are_engine_installed.py`. That checker only recognises a

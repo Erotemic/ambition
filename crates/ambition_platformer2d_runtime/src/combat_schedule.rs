@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet, Platformer2dSimulationPhaseMonolith,
+    CombatSet,
 };
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.

@@ -985,6 +985,41 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   because they compose no launcher.
   ⚠ **NOT SEEN ON SCREEN.** Layout numbers are asserted by tests, not by eyes.
 
+- ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
+  box whose ambient interpreter is outside the tool-venv store, and the printed cause
+  misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned
+  6 jobs and ran none, exiting 2 with:
+
+  > run_tests: this interpreter cannot run the Python lane.
+  > interpreter : /home/agent/.local/uv/envs/uvpy3.13.2/bin/python3
+  > missing : tree_sitter_rust
+  > (an in-repo .venv predating the per-machine venv store is the usual cause; the
+  > store wins once it exists.)
+
+  ⚠ **THAT STATED CAUSE IS NOT THIS CASE.** `scripts/setup/python_tools.sh` installs
+  scripts/ dependencies into the per-machine STORE venv
+  (`~/.cache/ambition-tool-venvs/ambition/bin/python`, Python 3.12) and verifies THAT
+  interpreter, printing *"Python authoring environments are ready"*. The runner was
+  invoked with a different one (uvpy3.13.2), so setup can succeed and the lane still
+  refuse. Two interpreters, one satisfied, and the diagnostic names a third situation.
+
+  ✔ **WHAT WORKED**, using the setup script's own pins so the versions do not drift:
+  `uv pip install --python <ambient python> "tree-sitter>=0.25,<0.26"
+  "tree-sitter-rust>=0.24,<0.25"`. The lane then ran: 882 passed, 9 failed.
+
+  ⛔⛔ **AND THE COST OF THE GAP IS MEASURED, NOT HYPOTHETICAL: all 9 failures were
+  invisible until it ran.** Four were planning guards broken by my OWN edits the same
+  day (severed sentence, two ambiguous `foo.rs` citations, one submodule sha cited as a
+  superproject commit) — repaired at `7a506d97a`. The other five are the rollback
+  wire-format gates from another session's landing. ⇒ Any agent reporting green from
+  `cargo test -p …` alone on this machine has run NO Python guard at all, and the
+  planning-file guards are exactly the ones an agent editing planning files trips.
+
+  ▢ NEXT: either the runner should re-exec itself under the store interpreter it
+  already knows how to find, or its diagnostic should name THIS case (ambient
+  interpreter outside the store) alongside the stale-.venv one. ⚠ The refusal itself is
+  CORRECT behaviour — exit 2, nothing run — and must not be "fixed" into a skip.
+
 - ▢ **D-APPIT-FLAKE — `ambition_app --test app_it` fails intermittently at ~2 in 6,
   and the failing test is UNIDENTIFIED because I filtered it away twice.** Observed
   2026-09-06 at `7ebf6320d` and neighbours: two runs reported

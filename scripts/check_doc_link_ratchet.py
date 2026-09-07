@@ -52,14 +52,61 @@ CRATES = [
 ]
 
 # rustdoc's two shapes for this class.
-WARNING = re.compile(
-    r"^warning: (unresolved link to|public documentation for)",
-    re.MULTILINE,
+UNRESOLVED = re.compile(r"^warning: unresolved link to `(?P<name>.+)`$")
+PRIVATE = re.compile(
+    r"^warning: public documentation for `(?P<item>.+)` links to private item "
+    r"`(?P<target>.+)`$"
 )
+LOCATION = re.compile(r"^\s*--> (?P<path>[^:]+):\d+:\d+$")
 
 
-def measure(crate: str) -> tuple[int, str]:
-    """`(broken link count, raw output)` for one crate."""
+def identities(output: str) -> list[str]:
+    """Every broken link in one crate's rustdoc output, NAMED.
+
+    ⛔⛔ THE BASELINE USED TO BE A COUNT, AND A COUNT CANNOT SEE A SWAP. Repair
+    one link and break another in the same crate and the number is unchanged, so
+    the new break is banked silently and forever. That is not hypothetical: on
+    2026-09-07 this ratchet went red at +7 across three crates, and because the
+    baseline held only totals it could not say WHICH seven. The repair that
+    turned it green fixed seven OTHER broken links — the number came back, the
+    regression did not have to. Storing the set makes paying a regression off
+    with unrelated repairs impossible rather than merely discouraged.
+
+    ⚠ Identity deliberately OMITS the line and column: a link that has not
+    changed must not churn the baseline because something above it grew. The file
+    and the link's own text are what identify it.
+
+    ⚠ rustdoc emits some of these with no `-->` at all (8 of 88 measured
+    2026-09-07, the `[text](path)` form among them). Those keep their name and
+    lose their file; they are still attributed to their crate, which is the unit
+    this ratchet ratchets.
+    """
+    found: list[str] = []
+    lines = output.splitlines()
+    for index, line in enumerate(lines):
+        match = UNRESOLVED.match(line)
+        if match:
+            kind, name = "unresolved", match.group("name")
+        else:
+            match = PRIVATE.match(line)
+            if not match:
+                continue
+            kind = "private"
+            name = f"{match.group('item')} -> {match.group('target')}"
+        path = ""
+        for ahead in lines[index + 1 : index + 4]:
+            if ahead.startswith("warning:"):
+                break
+            located = LOCATION.match(ahead)
+            if located:
+                path = located.group("path")
+                break
+        found.append(f"{path or '<no location>'}: {kind} `{name}`")
+    return sorted(found)
+
+
+def measure(crate: str) -> tuple[list[str], str]:
+    """`(broken links, raw output)` for one crate."""
     result = subprocess.run(
         [cargo_binary(), "doc", "-p", crate, "--no-deps"],
         cwd=REPO,
@@ -67,7 +114,19 @@ def measure(crate: str) -> tuple[int, str]:
         text=True,
     )
     output = result.stdout + result.stderr
-    return len(WARNING.findall(output)), output
+    return identities(output), output
+
+
+def _difference(left: list[str], right: list[str]) -> list[str]:
+    """Members of `left` not covered by `right`, counting repeats."""
+    remaining = list(right)
+    out = []
+    for item in left:
+        if item in remaining:
+            remaining.remove(item)
+        else:
+            out.append(item)
+    return out
 
 
 def main() -> int:
@@ -86,9 +145,30 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    baseline = {}
+    baseline: dict[str, list[str]] = {}
     if os.path.exists(BASELINE):
         baseline = json.load(open(BASELINE, encoding="utf-8")).get("crates", {})
+
+    # ⛔ A BASELINE IN THE OLD COUNT SHAPE IS NOT A BASELINE THIS CHECK CAN READ,
+    # and reading an int as "no links recorded" would make every existing break
+    # look new. Refuse and name the migration instead of guessing.
+    # ⚠ `--update` IS EXEMPT, because it is the migration this refuses toward.
+    # A guard that forbids its own remedy leaves no road out of the state it
+    # detects; the first version of this block did exactly that and could not
+    # migrate the baseline it was written to migrate. `--adopt` is NOT exempt: it
+    # merges into the existing values and would write a half-migrated file.
+    stale = sorted(c for c, v in baseline.items() if not isinstance(v, list))
+    if stale and args.update:
+        # Migrating: a COUNT is not a comparable previous, so those crates read
+        # as `(new)` for this one run rather than being diffed against an int.
+        baseline = {c: v for c, v in baseline.items() if c not in set(stale)}
+    if stale and not args.update:
+        print()
+        print(f"⛔ {', '.join(stale)} carry a COUNT, not a link list — this")
+        print("   baseline predates the identity ratchet. A count cannot say which")
+        print("   link broke, and cannot see a repair and a new break cancel.")
+        print("   Migrate with: scripts/check_doc_link_ratchet.py --update")
+        return 1
 
     # ⛔⛔ THE COVERAGE GUARD, and it exists because this file's own CRATES
     # comment predicted the failure and then only ASKED a human to avoid it:
@@ -122,31 +202,41 @@ def main() -> int:
         print("   Add the crate and `--update` in the SAME commit.")
         return 1
 
-    counts: dict[str, int] = {}
+    counts: dict[str, list[str]] = {}
     risen: list[str] = []
     fell: list[str] = []
     silent: list[str] = []
+    appeared: dict[str, list[str]] = {}
+    repaired: dict[str, list[str]] = {}
 
     for crate in CRATES:
-        count, output = measure(crate)
+        links, output = measure(crate)
         # the "observed nothing" guard: a doc build that failed, or a crate
         # that no longer exists, emits no warnings and would read as zero.
         if "Documenting" not in output and "Finished" not in output:
             silent.append(crate)
-        counts[crate] = count
+        counts[crate] = links
         previous = baseline.get(crate)
         mark = ""
         if previous is None:
             mark = "  (new)"
-        elif count > previous:
-            mark = f"  ⛔ ROSE from {previous}"
-            risen.append(crate)
-        elif count < previous:
-            mark = f"  ⭐ fell from {previous}"
-            fell.append(crate)
-        print(f"{crate:40s} {count:4d}{mark}")
+        else:
+            # ⭐ MULTISET, NOT SET. The same link text can legitimately appear
+            # twice in one file; collapsing them would hide the second one's
+            # arrival and its repair alike.
+            gained = _difference(links, previous)
+            lost = _difference(previous, links)
+            if gained:
+                appeared[crate] = gained
+                risen.append(crate)
+                mark = f"  ⛔ {len(gained)} NEW (was {len(previous)}, now {len(links)})"
+            elif lost:
+                repaired[crate] = lost
+                fell.append(crate)
+                mark = f"  ⭐ {len(lost)} repaired (was {len(previous)})"
+        print(f"{crate:40s} {len(links):4d}{mark}")
 
-    total = sum(counts.values())
+    total = sum(len(v) for v in counts.values())
     print(f"{'TOTAL':40s} {total:4d}")
 
     if silent:
@@ -172,9 +262,12 @@ def main() -> int:
             json.dump(
                 {
                     "_comment": (
-                        "Broken intra-doc links per crate (ledger D103). A RATCHET: "
-                        "these may fall and must not rise. Lower them in the same "
-                        "commit that earns it — scripts/check_doc_link_ratchet.py --update."
+                        "Broken intra-doc links per crate (ledger D103), NAMED. A "
+                        "RATCHET: a link here may be repaired and must not be joined "
+                        "by a new one. The list is the fact and the count is only its "
+                        "length -- a baseline of totals could not tell a repair plus a "
+                        "new break from no change at all. Bank a repair in the same "
+                        "commit that earns it: scripts/check_doc_link_ratchet.py --update."
                     ),
                     "crates": merged,
                 },
@@ -194,9 +287,12 @@ def main() -> int:
             json.dump(
                 {
                     "_comment": (
-                        "Broken intra-doc links per crate (ledger D103). A RATCHET: "
-                        "these may fall and must not rise. Lower them in the same "
-                        "commit that earns it — scripts/check_doc_link_ratchet.py --update."
+                        "Broken intra-doc links per crate (ledger D103), NAMED. A "
+                        "RATCHET: a link here may be repaired and must not be joined "
+                        "by a new one. The list is the fact and the count is only its "
+                        "length -- a baseline of totals could not tell a repair plus a "
+                        "new break from no change at all. Bank a repair in the same "
+                        "commit that earns it: scripts/check_doc_link_ratchet.py --update."
                     ),
                     "crates": counts,
                 },
@@ -210,7 +306,10 @@ def main() -> int:
 
     if fell and not risen:
         print()
-        print(f"⭐ {', '.join(fell)} improved — run --update to bank it, in this commit.")
+        for crate in fell:
+            for link in repaired[crate]:
+                print(f"⭐ {crate}: repaired  - {link}")
+        print("   run --update to bank it, in this commit.")
     elif fell and risen:
         # ⛔⛔ THE ADVICE AND THE FINDING WERE ASYMMETRIC, and the asymmetry
         # pointed one way: "run --update to bank it" printed ALWAYS, while the
@@ -227,12 +326,18 @@ def main() -> int:
     # table and then says nothing about it is why the rises above went unread.
     if risen:
         print()
-        print(f"⛔ {len(risen)} crate(s) gained broken doc links: {', '.join(risen)}")
-        print("   Run `cargo doc -p <crate> --no-deps` and read the warnings: each is")
-        print("   a `[`Item`]` naming something renamed, moved or deleted. A deletion")
-        print("   that leaves its references behind turns a doc comment into a")
-        print("   description of a world that no longer exists — which in this")
-        print("   repository is where the reasoning lives.")
+        print(f"⛔ {len(risen)} crate(s) gained broken doc links:")
+        for crate in risen:
+            print(f"   {crate}:")
+            for link in appeared[crate]:
+                print(f"     + {link}")
+        print("   Each is a `[`Item`]` naming something renamed, moved or deleted.")
+        print("   A deletion that leaves its references behind turns a doc comment")
+        print("   into a description of a world that no longer exists — which in")
+        print("   this repository is where the reasoning lives.")
+        print("   ⛔ FIX THESE, not some other broken link in the same crate. The")
+        print("   baseline records WHICH links are broken, so paying a regression")
+        print("   off with an unrelated repair no longer restores the number.")
         return 1
     return 0
 

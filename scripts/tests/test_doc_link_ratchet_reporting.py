@@ -52,13 +52,27 @@ def rig(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "BASELINE", str(baseline))
     monkeypatch.setattr(module, "CRATES", ["alpha", "beta"])
 
+    def links(crate: str, n: int, offset: int = 0) -> list[str]:
+        """`n` distinct broken-link identities for `crate`, in the real shape."""
+        return sorted(
+            f"crates/{crate}/src/lib.rs: unresolved `Item{i + offset}`"
+            for i in range(n)
+        )
+
     def configure(counts: dict[str, int], recorded: dict[str, int]):
-        baseline.write_text(json.dumps({"crates": recorded}))
+        """Counts in, identity lists out — the baseline and the measurement agree
+        on WHICH links are broken, so a plain count change is the same story it
+        always was."""
+        baseline.write_text(
+            json.dumps({"crates": {c: links(c, n) for c, n in recorded.items()}})
+        )
         monkeypatch.setattr(
             module,
             "measure",
-            lambda crate: (counts[crate], "Documenting x\nFinished"),
+            lambda crate: (links(crate, counts[crate]), "Documenting x\nFinished"),
         )
+
+    configure.links = links
     return module, configure, baseline
 
 
@@ -77,7 +91,7 @@ def test_a_rise_is_reported_without_check(rig, capsys):
     configure({"alpha": 5, "beta": 1}, {"alpha": 3, "beta": 1})
     run(module, [])
     out = capsys.readouterr().out
-    assert "ROSE from 3" in out
+    assert "NEW (was 3, now 5)" in out
     assert "gained broken doc links" in out, (
         "a run that shows ROSE in its table and then says nothing about it is "
         "why two regressions went unread"
@@ -124,9 +138,117 @@ def test_a_crate_that_produced_no_rustdoc_output_is_not_scored_zero(rig, capsys)
     module, configure, _ = rig
     configure({"alpha": 0, "beta": 0}, {"alpha": 3, "beta": 1})
     # no "Documenting"/"Finished" in the output: the build did not happen
-    object.__setattr__(module, "measure", lambda crate: (0, ""))
+    object.__setattr__(module, "measure", lambda crate: ([], ""))
     assert run(module, []) == 1
     assert "produced no rustdoc output at all" in capsys.readouterr().out
+
+
+def test_a_repair_and_a_new_break_in_one_crate_is_a_RISE(rig, capsys):
+    """⛔⛔ THE DEFECT A COUNT BASELINE CANNOT SEE, and the reason this ratchet
+    stores names.
+
+    Repair one broken link and break another in the same crate and the TOTAL is
+    unchanged. Under a count baseline that reads as "no change", the new break is
+    banked silently, and a regression can be paid off with an unrelated repair.
+    That is not hypothetical: on 2026-09-07 this ratchet went red at +7 across
+    three crates, could not say WHICH seven, and the repair that turned it green
+    fixed seven OTHER links. The number came back; nothing forced the actual
+    regression to.
+    """
+    module, configure, baseline = rig
+    links = configure.links
+    baseline.write_text(json.dumps({"crates": {
+        "alpha": links("alpha", 3),          # Item0, Item1, Item2
+        "beta": links("beta", 1),
+    }}))
+    swapped = links("alpha", 2) + links("alpha", 1, offset=9)  # Item2 -> Item9
+    object.__setattr__(
+        module, "measure",
+        lambda crate: ((swapped if crate == "alpha" else links("beta", 1)),
+                       "Documenting x\nFinished"),
+    )
+    assert len(swapped) == 3, "the swap must not change the count, or it proves nothing"
+
+    assert run(module, ["--check"]) == 1
+    out = capsys.readouterr().out
+    assert "Item9" in out, "the report must NAME the link that appeared"
+    assert "gained broken doc links" in out
+
+
+def test_the_report_names_the_link_not_only_the_crate(rig, capsys):
+    """A red that says "three crates rose" sends the reader to `cargo doc` to
+    re-derive what the guard already measured. It cost 20 minutes on 2026-09-07."""
+    module, configure, _ = rig
+    configure({"alpha": 5, "beta": 1}, {"alpha": 3, "beta": 1})
+    run(module, ["--check"])
+    out = capsys.readouterr().out
+    assert "Item3" in out and "Item4" in out, (
+        f"the two links that appeared must be named; got:\n{out}"
+    )
+
+
+def test_a_count_shaped_baseline_refuses_rather_than_reading_ints_as_empty(rig, capsys):
+    """⛔ INDETERMINATE IS NOT A PASS. An int where a list belongs is the OLD
+    baseline shape; treating it as "no links recorded" would report every
+    existing break as new. Refuse and name the migration."""
+    module, _, baseline = rig
+    baseline.write_text(json.dumps({"crates": {"alpha": 3, "beta": 1}}))
+    assert run(module, ["--check"]) == 1
+    out = capsys.readouterr().out
+    assert "carry a COUNT, not a link list" in out
+    assert "--update" in out
+
+
+def test_update_can_actually_perform_the_migration_it_recommends(rig, capsys):
+    """⛔ A GUARD THAT FORBIDS ITS OWN REMEDY has no road out of the state it
+    detects. The refusal above names `--update`; the first version of that block
+    refused `--update` too, so the baseline it existed to migrate could not be."""
+    module, configure, baseline = rig
+    links = configure.links
+    baseline.write_text(json.dumps({"crates": {"alpha": 3, "beta": 1}}))
+    object.__setattr__(
+        module, "measure",
+        lambda crate: (links(crate, 2), "Documenting x\nFinished"),
+    )
+    assert run(module, ["--update"]) == 0, capsys.readouterr().out
+    written = json.loads(baseline.read_text())["crates"]
+    assert all(isinstance(v, list) for v in written.values()), written
+    # and the migrated file passes the check it previously failed
+    assert run(module, ["--check"]) == 0
+
+
+def test_identities_are_parsed_out_of_real_rustdoc_output():
+    """⛔ THE PARSER IS THE WHOLE INSTRUMENT, so it is exercised on rustdoc's own
+    text rather than on the fixture's synthetic shape.
+
+    Both warning forms, the location line, and the form rustdoc emits with NO
+    `-->` at all (8 of 88 measured 2026-09-07) — that last one must still produce
+    an identity, or a link would silently leave the population when it changed
+    shape.
+    """
+    module = load()
+    output = (
+        "warning: unresolved link to `HitboxLifetime`\n"
+        "  --> crates/ambition_combat/src/clank.rs:88:46\n"
+        "   |\n"
+        "warning: public documentation for `body_mode` links to private item `mechanics`\n"
+        " --> crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs:3:7\n"
+        "   |\n"
+        "warning: unresolved link to `super::blink::blink_target`\n"
+        "  |\n"
+        "  = note: the link appears in this line:\n"
+    )
+    found = module.identities(output)
+    assert found == sorted([
+        "crates/ambition_combat/src/clank.rs: unresolved `HitboxLifetime`",
+        "crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs: "
+        "private `body_mode -> mechanics`",
+        "<no location>: unresolved `super::blink::blink_target`",
+    ]), found
+
+    # ⚠ ANTI-VACUITY: an unrelated rustdoc warning must NOT become an identity,
+    # or the parser is counting the wrong population.
+    assert module.identities("warning: unused variable: `x`\n") == []
 
 
 def test_the_tracked_crates_all_exist(rig):

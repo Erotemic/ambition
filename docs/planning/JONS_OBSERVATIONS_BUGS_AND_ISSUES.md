@@ -124,6 +124,32 @@
 * The pirates in the cover are horribly miss-sized. The heavies need to get a little smaller (this should probably be something done in data by the sprite renderer, not in code) and the other pirates need to probably scale up 2x, They are as tall as the player robot who is supposed to be chibi
   * ▢ Same root as the snake/AI-slop item above and unblocked by the same ruling (shared unit first): the drawn quad does not derive from the body, so per-character `collision_scale` tunes a BOX while you are looking at ART. These three reports are the shared unit's customers — if it does not settle them, the bbox route comes back with evidence.
   * ⚠ the numbers confirm they are not comparable: heavies 1.95, other pirates 1.60, `robot` 2.10 — the robot's is the LARGEST, yet he reads chibi, because each scale multiplies its OWN sheet's frame size rather than a shared unit.
+  * ⛔⛔ **BEFORE ANY OF THE SIX NUMBERS IS AUTHORED, ESTABLISH WHICH QUALITY TIER THE
+    REPORT WAS SEEN AT.** Measured 2026-09-06: at the `potato` tier the drawn HEIGHT
+    FRACTION drifts by wildly different amounts per sheet, because the variant
+    generator re-measures alpha on the downscaled image (D-POTATO-ASPECT, `queue.md`):
+
+    | sheet | base | `potato` | change |
+    |---|---|---|---|
+    | `player_robot_v3` | 0.395 | 0.500 | **+26.7%** |
+    | `pirate_cutlass_viper` | 0.693 | 0.889 | **+28.2%** |
+    | admiral / lookout / navigator / quartermaster / raider | 0.982 | 1.000 | +1.8% |
+    | the three heavies | — | — | +0.5% .. +4.9% |
+
+    ⇒ **At `potato` the robot gains 27% of height while the Standard pirates gain
+    2%** — which manufactures precisely the comparison this report makes, *"they are
+    as tall as the player robot who is supposed to be chibi"*. ⚠ And `potato` is
+    AUTO-SELECTED on software rendering (`DetectedGpuClass::Cpu =>
+    VisualQualityProfile::Potato`), so it can be in force without anyone choosing it.
+
+    ⚠ **THIS IS A CONFOUND, NOT A REFUTATION.** The relative-size problem may well be
+    real at full quality too — the 1.95 / 1.60 / 2.10 figures above are computed from
+    base sheets and stand on their own. The point is narrower and hard: authoring six
+    numbers against sizes observed at `potato` would bake a COMPENSATION FOR A
+    RENDERING BUG into the content, and it would then be wrong at every other tier.
+    ⇒ Cheapest resolution: re-look at the cover at FULL quality and say whether the
+    mis-sizing survives. If it does, the six numbers are still the input; if it
+    shrinks, the input changes.
   * ◐ Re-measured 2026-09-02: **23 of 149 rows author `standing_height` now**, including the three pirate HEAVIES (`broadside_bess` 58.7, `iron_mary` 56.2, `salt_annet` 60.4), so the mechanism is in use and only the Standard pirates still fall to the 48.0 default — which is exactly the input the ⊙ below asks you for.
   * ⭐ **MEASURED 2026-08-22, and the shared unit ALREADY EXISTS AND WORKS — the gap is that nobody authors it.** `catalog_join` resolves `standing_height` (world px, feet to top of visible body) into `scale = height / body_h`, so a character measures exactly that tall with its art's aspect kept. **Zero of 145 catalog rows author it**, so every `Standard` character falls to `body_kind`'s default — **48.0, which is the player robot's own height**. That is why an adult pirate is exactly as tall as your chibi robot: the engine is making them equal on purpose, and nothing has ever said they should differ.
   * ⭐ **and it explains the paradox in your numbers.** `robot`'s 2.10 is INERT — the robot lineage is one of only two things in the repo on `BodySource::SpriteAuthored`, so it publishes `ActorRenderSize` and `collision_scale` is never consulted for it. The pirates' 1.95/1.60 are live. You were comparing a number that does nothing with two that do.

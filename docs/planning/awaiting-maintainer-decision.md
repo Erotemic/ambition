@@ -146,7 +146,17 @@ frame, which its velocity filter had been silently dropping):
 |---|---|---|
 | floor top vs her feet | **gap 0.00** | 0 |
 | spawn frame (Fall) | 384.000 / -1586.00 | exact |
-| settled (Idle) | 383.619 / -1587.33 | ~1.3-2px off |
+| settled (Idle) | 383.619 / -1587.33 | see correction |
+
+✔ **AND THE ~1.3-2px WAS MY OWN ARITHMETIC, NOT A DEFECT.** There is exactly ONE player
+drawable (checked: `player_visual=true` matches one entity, so the "more than one
+player sprite" hazard my probe warns about is not in play here). Its TRANSLATION reads
+`x = -1585.24`, and the exact expected value is
+`body_x - world_w/2 + authored_offset.x = 78 - 1664 + 0.762 = -1585.238`. That matches
+to three decimals. The `-1587.33` I reported was `translation - anchor.x * quad_w`,
+which names the quad's anchor point rather than where the sprite is placed — a
+different question, and comparing it against a placement expectation manufactured a
+2px "error" that is not there.
 
 ⇒ At `ultra` there is no visible defect there. At `potato` there IS: she lands ~9.9px
 right of true with a quad of 42.67x30.48 instead of 24x32.76 (D-POTATO-ASPECT), and

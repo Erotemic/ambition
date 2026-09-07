@@ -148,6 +148,84 @@ pub enum SettingsOptionId {
     Close,
 }
 
+impl SettingsOptionId {
+    /// Every option id that exists.
+    ///
+    /// ⭐ WHY THIS EXISTS: `apply.rs` matches on this enum EXHAUSTIVELY, so a new
+    /// option cannot be added without deciding what changing it DOES. Nothing forces
+    /// the other half -- `build.rs` composes each screen by pushing rows explicitly,
+    /// so a new option can be fully wired and appear on NO SCREEN. That is the shape
+    /// of the report this menu exists to answer: *"video and audio settings seem not
+    /// there or not hooked up"*. `every_settings_option_id_reaches_a_screen` closes
+    /// it by walking this list.
+    ///
+    /// ⚠ THIS ARRAY IS ITSELF A HAND-KEPT LIST, which is why the test that consumes
+    /// it also carries an exhaustive `match` with no `_` arm: a new variant is an
+    /// E0004 there, and the message at that site says to add it here too. The array
+    /// alone would go stale silently.
+    pub const ALL: [Self; 59] = [
+        Self::AimFrameMode,
+        Self::Assist,
+        Self::BurstInputMode,
+        Self::CameraAspect,
+        Self::CameraFraming,
+        Self::CameraReferenceFrame,
+        Self::CameraZoom,
+        Self::Close,
+        Self::Colorblind,
+        Self::ControllerProfile,
+        Self::DebugHud,
+        Self::Difficulty,
+        Self::DisplayMode,
+        Self::DpadMenuNav,
+        Self::Flashes,
+        Self::FramePacing,
+        Self::InvertAimY,
+        Self::KeyboardPreset,
+        Self::LeftStickDeadzone,
+        Self::MasterVolume,
+        Self::MenuTapMode,
+        Self::MovementFrameMode,
+        Self::MusicVolume,
+        Self::Mute,
+        Self::PauseInputUnfocused,
+        Self::PlayerDamage,
+        Self::PortalReverseFacing,
+        Self::QuestHud,
+        Self::ResetControlFiltering,
+        Self::RightStickDeadzone,
+        Self::RightStickMode,
+        Self::SfxVolume,
+        Self::ShaderCrtBloom,
+        Self::ShaderCrtChroma,
+        Self::ShaderCrtCurvature,
+        Self::ShaderCrtMask,
+        Self::ShaderCrtScanlines,
+        Self::ShaderCrtStrength,
+        Self::ShaderDeepDreamStrength,
+        Self::ShaderFilmGrainFps,
+        Self::ShaderFilmGrainLumaBias,
+        Self::ShaderFilmGrainSize,
+        Self::ShaderFilmGrainStrength,
+        Self::ShaderRobotDeathStrength,
+        Self::ShaderRobotDesaturate,
+        Self::ShaderRobotScanlines,
+        Self::ShaderRobotStatic,
+        Self::ShaderRobotTear,
+        Self::ShaderStrength,
+        Self::ShaderUnderwaterDistortion,
+        Self::ShaderUnderwaterStrength,
+        Self::ShaderVignetteStrength,
+        Self::ShowFps,
+        Self::TouchControls,
+        Self::TraceAutoDump,
+        Self::TriggerPress,
+        Self::TriggerRelease,
+        Self::VisualQuality,
+        Self::Vsync,
+    ];
+}
+
 /// How a renderer should draw an option's control and what a directional step
 /// means for it.
 #[derive(Clone, Copy, Debug, PartialEq)]

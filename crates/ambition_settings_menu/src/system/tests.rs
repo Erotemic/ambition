@@ -359,3 +359,84 @@ fn language_stub_only_english_available() {
         "only English is selectable in the stub"
     );
 }
+
+/// Every option id either REACHES a system settings screen, or says why it does not.
+///
+/// ⛔⛔ THE HALF THAT WAS NOT FORCED. `settings/apply.rs` matches this enum
+/// exhaustively, so a new option cannot be added without deciding what changing it
+/// DOES. Nothing forced the other half: `settings/build.rs` composes each screen by
+/// pushing rows explicitly, so a fully wired option could appear on NO SCREEN and
+/// every test still passed — the existing coverage asserts that named screens
+/// CONTAIN named ids, and a new id is simply in none of those lists.
+///
+/// ⇒ That is the exact shape of the report this menu exists to answer, in Jon's
+/// words: *"the general game-agnostic settings [should] all be available in every
+/// setting menu … video and audio settings seem not there or not hooked up"*.
+///
+/// ⚠ ITS REACH, precisely: this walks `SettingsOptionId::ALL` and requires every id
+/// on it to be reachable unless an explicit arm says otherwise. `ALL` is itself
+/// hand-kept, so an option added to the enum and NOT to `ALL` is invisible here —
+/// what stops that going unnoticed is `apply.rs`'s exhaustive match, which does not
+/// compile until the new option is handled. The two together cover it; neither does
+/// alone, and this test does not claim to.
+#[test]
+fn every_settings_option_id_reaches_a_screen() {
+    let model = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    );
+    // A Vec rather than a set: `SettingsOptionId` is not `Ord`/`Hash`, and the
+    // membership test below is over 59 ids once — the linear scan is free and adding
+    // a derive to a production enum to satisfy a test would be the tail wagging.
+    let mut reachable: Vec<SettingsOptionId> = Vec::new();
+    for entry in &model.entries {
+        if let SystemMenuTarget::Settings(options) = &entry.target {
+            for option in options {
+                if !reachable.contains(&option.id) {
+                    reachable.push(option.id);
+                }
+            }
+        }
+    }
+    // ⚠ ANTI-VACUITY: a model that surfaced nothing would pass every assertion below
+    // by having no rows to disagree with. Measured 2026-09-06: 58 of the 59 ids are
+    // reachable from the default build.
+    assert!(
+        reachable.len() > 50,
+        "only {} settings ids are reachable — the model did not build, and the \
+         per-id assertions below are vacuous",
+        reachable.len()
+    );
+
+    for id in SettingsOptionId::ALL {
+        // ⛔ WHAT THIS DOES AND DOES NOT CATCH, stated exactly — the first draft of
+        // this comment claimed an E0004 it does not produce, because the arm below is
+        // a catch-all.
+        //
+        // ✔ A new option ADDED TO `ALL` defaults to `true` here, so the assertion
+        //   below FAILS unless a player can reach it. The author then either places
+        //   it on a screen or writes an explicit exception arm saying why not. That
+        //   is the case this guard is for, and it needs no compile error.
+        // ⛔ A new option NOT added to `ALL` is INVISIBLE to this loop. `ALL` is a
+        //   hand-kept list and nothing forces it; closing that would need an
+        //   exhaustive match naming all 59 variants, which is a maintenance cost this
+        //   does not pay. ⇒ `apply.rs`'s exhaustive match is what actually stops a
+        //   variant being added unnoticed; this guard then decides where it appears.
+        let must_reach = match id {
+            // A momentary Close / Back action, not a setting with a value, so it is
+            // not a row on any settings screen.
+            SettingsOptionId::Close => false,
+            _other => true,
+        };
+        assert_eq!(
+            reachable.contains(&id),
+            must_reach,
+            "{id:?}: reachable={} but this test expects {must_reach}. A setting the \
+             player cannot reach is wired but invisible, which is the defect this \
+             guard exists for; if it is deliberately not a screen row, say so in the \
+             match above.",
+            reachable.contains(&id)
+        );
+    }
+}

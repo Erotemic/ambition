@@ -178,3 +178,44 @@ fn the_installed_map_systems_are_session_gated() {
          nothing about the session gate"
     );
 }
+
+/// The simulation installer registers both map-truth systems.
+///
+/// ⛔⛔ A POISON COULD NOT WITNESS THIS CARVE, and the reason is COVERAGE rather than
+/// disuse. Removing `install_map_simulation_systems` from the composition leaves
+/// `app_it` at 578/578 — but `track_room_visits` writes `ResMut<AmbitionGameSave>`, so
+/// visited rooms persist and the consumers are real. The suite simply asserts nothing
+/// about map-visit persistence. ⇒ "The suite stayed green" is a statement about the
+/// SUITE, so the move needs a check that can see it.
+///
+/// ⚠ A count, not names: Bevy strips system names without its `debug` feature, so a
+/// name-based assertion would compare placeholders and pass vacuously.
+///
+/// ⚠ TWO, AND I EXPECTED THREE. Bevy inserts `apply_deferred` between chained members
+/// CONDITIONALLY — only where the earlier system leaves deferred work to flush — not
+/// automatically at every `.chain()` seam. Neither of these takes `Commands`, so there
+/// is no sync point. (`install_fx_pipeline`'s guard reads 11 for 8 systems because three
+/// of ITS members do.) ⇒ Do not derive an expected count from the chain shape; run it.
+#[test]
+fn the_map_simulation_installer_registers_both_systems() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(super::MapStatePlugin);
+    super::install_map_simulation_systems(&mut app, Update);
+
+    let mut update = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>()
+        .remove(Update)
+        .expect("the installer added systems to Update");
+    update
+        .initialize(app.world_mut())
+        .expect("the Update schedule initializes");
+    assert_eq!(
+        update.systems_len(),
+        2,
+        "the map simulation half lost a system: track_room_visits + sync_map_from_save"
+    );
+}

@@ -258,3 +258,35 @@ pub use ui::{spawn_map_menu_with_scope, sync_map_menu, MapMenuRoot};
 
 #[cfg(test)]
 use ui::short_room_label;
+
+/// Install the map's SIMULATION half: the two systems that keep it true.
+///
+/// ⭐ THE OTHER HALF OF THE MAP CARVE. `install_map_menu_systems` took the map's INPUT
+/// and VIEW systems out of the composition; these two are its simulation side —
+/// `track_room_visits` records where the player has been, `sync_map_from_save`
+/// reconciles that against the save — and the composition was still naming both.
+///
+/// ⚠ SEPARATE FROM THE MENU INSTALLER ON PURPOSE, and the split is not cosmetic. The
+/// input/view half needs a windowed host with `ButtonInput` and `MenuControlFrame`; this
+/// half needs neither. A headless simulation still wants its map facts recorded, and
+/// folding the two would force every such composition to supply an input stack it has no
+/// use for — which is the failure the input half's own contract warns about from the
+/// other direction.
+///
+/// ⛔ THE SCHEDULE IS AN ARGUMENT because the map does not get to choose it: the caller
+/// owns which schedule its simulation runs in. `ProgressionSet::Map` is
+/// `shared_tangle`'s, which this crate already depends on, so naming the phase inverts
+/// nothing.
+pub fn install_map_simulation_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    app.add_systems(
+        schedule,
+        (systems::track_room_visits, systems::sync_map_from_save)
+            .chain()
+            .in_set(ambition_platformer2d_shared_tangle::schedule::ProgressionSet::Map),
+    );
+}

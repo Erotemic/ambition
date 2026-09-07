@@ -95,15 +95,13 @@ impl Plugin for ProgressionSchedulePlugin {
                 .chain()
                 .in_set(ProgressionSet::WorldSync),
         );
-        app.add_systems(
-            sim,
-            (
-                ambition_menu::map::track_room_visits,
-                ambition_menu::map::sync_map_from_save,
-            )
-                .chain()
-                .in_set(ProgressionSet::Map),
-        );
+        // ⭐ THE MAP OWNS ITS SIMULATION HALF, completing the split its input/view half
+        // already had: this composition named both private systems and their phase.
+        // ⚠ Deliberately a SEPARATE installer from `install_map_menu_systems` — that one
+        // requires a windowed host's input stack and this one requires nothing, so a
+        // headless simulation can keep its map facts true without supplying input it has
+        // no use for.
+        ambition_menu::map::install_map_simulation_systems(app, sim);
 
         // The dev-tools inspector mirror (a DOMAIN set — its system lives in
         // `DevToolsSimPlugin`) keeps its former chain-tail slot.

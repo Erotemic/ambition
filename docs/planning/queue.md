@@ -1038,6 +1038,16 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   single character the row was opened on. ⇒ `0_5x` is effectively clean and `potato`
   is unusable for aspect-sensitive art; `0_25x` is the interesting middle.
 
+  ⛔⛔ **AND `potato` IS NOT A DEV FLAG -- IT IS AUTO-SELECTED.**
+  `settings/video/quality.rs:196` reads `DetectedGpuClass::Cpu =>
+  VisualQualityProfile::Potato`, so a SOFTWARE-RENDERING machine gets this tier
+  without anybody choosing it: llvmpipe boxes, CI, headless captures, and low-end
+  hardware. It is also a user-selectable preset (the settings menu offers a
+  `QualityApply(VisualQualityProfile::Potato)` row). ⇒ 79% of sprite rows drawn at
+  the wrong aspect is a shipped, player-reachable defect on an entire class of
+  machine, not a curiosity of a debug setting. That is the sentence that should
+  decide this row's priority.
+
   ⛔ THE SCRIPT IS A REPORT AND MUST STAY ONE: the variant directories are GITIGNORED
   generated art, so it measures THIS MACHINE's copy. A gate over them would answer a
   question about the machine, and would be silently green on any box that never ran

@@ -62,17 +62,11 @@ impl Plugin for ProgressionSchedulePlugin {
         // file still configures. The composition keeps the ORDERING; the
         // capability keeps its systems. See
         // `docs/planning/engine/decomposition.md`.
-        app.add_systems(
-            sim,
-            (
-                // One save-sync over the unified actor cluster (enemies +
-                // persisted-hostile NPCs flip in place).
-                ambition_platformer2d_actor_monolith::features::sync_ecs_actors_with_save,
-                ambition_platformer2d_actor_monolith::features::sync_ecs_bosses_with_save,
-            )
-                .chain()
-                .in_set(ProgressionSet::SaveMirror),
-        );
+        // The save mirror installs itself; this composition supplies only the
+        // schedule. Why the pair's ORDER and its `ProgressionSet::SaveMirror`
+        // membership are the monolith's facts rather than this file's is in
+        // `install_save_mirror`, beside the two functions.
+        ambition_platformer2d_actor_monolith::features::install_save_mirror(app, sim);
         app.add_systems(
             sim,
             (

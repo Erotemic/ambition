@@ -13,6 +13,35 @@ use ambition_combat::components::{
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+/// Install the save mirror: both halves, in order, in `ProgressionSet::SaveMirror`.
+///
+/// ⭐ ONE SAVE-SYNC OVER THE UNIFIED ACTOR CLUSTER (enemies + persisted-hostile
+/// NPCs flip in place), then the bosses. The order is a fact about these two
+/// functions and nothing else: they read the same `AmbitionGameSave` and write
+/// overlapping actor state, and both live in this file. A composition that wrote
+/// the `.chain()` itself would be re-deciding, every time, something only this
+/// module can be wrong about.
+///
+/// ⭐ THE SET IS NAMEABLE HERE. `ProgressionSet` is in
+/// `ambition_platformer2d_shared_tangle`, which this crate already depends on, so
+/// no dependency edge is added by taking the membership with the systems.
+///
+/// ⚠ The SCHEDULE stays the caller's: `app.sim_schedule()` is `Update` under one
+/// host and the fixed-tick schedule under another, and only a composition knows
+/// which.
+pub fn install_save_mirror(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+) {
+    use bevy::prelude::IntoScheduleConfigs;
+    app.add_systems(
+        schedule,
+        (sync_ecs_actors_with_save, sync_ecs_bosses_with_save)
+            .chain()
+            .in_set(ambition_platformer2d_shared_tangle::schedule::ProgressionSet::SaveMirror),
+    );
+}
+
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
 ///
 /// Provoked NPCs load as hostile actors, and persisted non-respawning enemy

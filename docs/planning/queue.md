@@ -1333,6 +1333,14 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
      "unspecified placements persist" is wrong in the shipped direction — a question
      for Jon only if the CONTENT is meant to have permanent casualties; the code is
      consistent, the doc is the part that reads two ways.
+
+     ⛔ **CORRECTION to `760324b5b`'s own commit TITLE, which says "14 of 16 shipped
+     worlds".** That conflates two counts. The measured numbers are: **14
+     PLACEMENTS** persist, and they sit in **6 of the 16 world FILES** (two rooms,
+     each mirrored three times) — so **10 of 16 files** author none. The commit BODY
+     states it correctly; the title does not. A number that changes denominator
+     between a title and its body is the kind a later reader quotes from whichever
+     they saw first.
   3. `progression_schedule.rs:98` `ambition_menu::map::install_map_simulation_systems`
   4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
   5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`

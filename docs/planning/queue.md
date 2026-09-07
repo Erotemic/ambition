@@ -908,6 +908,19 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   via `ambition_platformer2d` and enabled by `mobile_touch` in the DEFAULT feature
   set. Both mistakes were one shape: a coherent source reading standing in for a
   measurement.
+  ⭐⭐ **ONE OF THE 9 IS DELIBERATE AND DOCUMENTED — the actionable remainder is
+  8.** The `MenuFrameCutsceneSkip` x `MenuNavConsume` pair looks like a one-line
+  fix (`.chain()` the two nested sets in
+  `platformer2d_host/src/lib.rs:280`) and it is not. The host's own comment
+  states the decision: *"Nesting rather than folding: `MenuNavConsume` keeps its
+  own identity because the menu-backend switch pins `.after` it and must NOT start
+  waiting on cutscene skip too."* Chaining them makes everything after nav
+  transitively wait on the cutscene system, which is the thing that sentence
+  forbids. ✔ **Premise CHECKED rather than trusted**, because a comment states
+  intent and can go stale: `sync_menu_page_across_backend_switch` really does pin
+  `.after(MenuNavConsume)`, at `grid_backend.rs:1148` and `:1177`, and its reason
+  ("so an in-menu Menu Backend flip is seen on the SAME frame") is current.
+  ⇒ Read the comment before "fixing" a set relation; the friction is the feature.
   ⚠ **GATE IT ON REACHABILITY FIRST, which is NOT yet measured.** The pairs are
   unordered, but that only bites where both surfaces are live in one frame. Ask
   whether a dialogue can be active while the inventory is open, and — the more

@@ -79,37 +79,78 @@ impl EditableAbilitySet {
 }
 
 impl From<ae::AbilitySet> for EditableAbilitySet {
+    /// ⭐ THE DESTRUCTURE IS THE GUARD. This mirror exists so the live inspector can
+    /// edit `AbilitySet` through `Reflect`, and nothing else forces the two to agree:
+    /// reading `value.field` one field at a time still COMPILES when `AbilitySet` grows
+    /// a 30th ability, so the new ability would simply be missing from the inspector
+    /// and no test would notice -- the mirror is a hand-kept copy of somebody else's
+    /// struct.
+    ///
+    /// ⇒ Binding every field by name with no `..` makes that an E0027 here instead.
+    /// Measured 2026-09-06: both structs carry the same 29 fields today, so this is
+    /// prevention, not a repair.
     fn from(value: ae::AbilitySet) -> Self {
+        let ae::AbilitySet {
+            move_horizontal,
+            jump,
+            variable_jump,
+            double_jump,
+            fast_fall,
+            wall_jump,
+            wall_cling,
+            wall_climb,
+            dash,
+            double_dash,
+            fly,
+            fly_toggle,
+            blink,
+            precision_blink,
+            blink_through_soft_walls,
+            blink_through_hard_walls,
+            attack,
+            pogo,
+            directional_primary,
+            directional_special,
+            rebound,
+            reset,
+            ledge_grab,
+            swim,
+            glide,
+            dodge,
+            shield,
+            grab,
+            interact,
+        } = value;
         Self {
-            move_horizontal: value.move_horizontal,
-            jump: value.jump,
-            variable_jump: value.variable_jump,
-            double_jump: value.double_jump,
-            fast_fall: value.fast_fall,
-            wall_jump: value.wall_jump,
-            wall_cling: value.wall_cling,
-            wall_climb: value.wall_climb,
-            dash: value.dash,
-            double_dash: value.double_dash,
-            fly: value.fly,
-            fly_toggle: value.fly_toggle,
-            blink: value.blink,
-            precision_blink: value.precision_blink,
-            blink_through_soft_walls: value.blink_through_soft_walls,
-            blink_through_hard_walls: value.blink_through_hard_walls,
-            attack: value.attack,
-            pogo: value.pogo,
-            directional_primary: value.directional_primary,
-            directional_special: value.directional_special,
-            rebound: value.rebound,
-            reset: value.reset,
-            ledge_grab: value.ledge_grab,
-            swim: value.swim,
-            glide: value.glide,
-            dodge: value.dodge,
-            shield: value.shield,
-            grab: value.grab,
-            interact: value.interact,
+            move_horizontal,
+            jump,
+            variable_jump,
+            double_jump,
+            fast_fall,
+            wall_jump,
+            wall_cling,
+            wall_climb,
+            dash,
+            double_dash,
+            fly,
+            fly_toggle,
+            blink,
+            precision_blink,
+            blink_through_soft_walls,
+            blink_through_hard_walls,
+            attack,
+            pogo,
+            directional_primary,
+            directional_special,
+            rebound,
+            reset,
+            ledge_grab,
+            swim,
+            glide,
+            dodge,
+            shield,
+            grab,
+            interact,
         }
     }
 }

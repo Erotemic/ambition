@@ -1628,7 +1628,8 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   idle art spans sheet y 105..191 against a box bottom of 190, i.e. **-1px**.
 
   ⇒ What survives from the block below: the generator DOES take one frame's alpha
-  extent as the whole sheet's body box (`sheet.py:215`, `if body_metric_frame is
+  extent as the whole sheet's body box (`ambition_sprite2d_renderer/authoring/sheet.py:215`, <!-- cite-ok: inside the tools/ambition_sprite2d_renderer SUBMODULE, so the superproject tracks no such path -->
+  `if body_metric_frame is
   None: body_metric_frame = cropped`) -- that reading is correct and unchanged. What
   does NOT survive is the claim that it costs 25px on screen. A corpse's art not
   filling a standing body box is expected, not a defect, and I had no live-play
@@ -1690,11 +1691,12 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   claims to describe.
 
   ▢ **NEXT: the generator must measure the ART per pose**, not carry one stance box.
-  ⛔ THE FIX LIVES IN A SUBMODULE (`tools/ambition_sprite2d_renderer`) whose pointer
-  on this box is DIVERGENT from the superproject's record (the superproject's recorded pointer and the local
-  checkout disagree,
-  checked out at a DIFFERENT submodule commit), so it was deliberately not committed
-  into from here --
+  ⛔ THE FIX LIVES IN A SUBMODULE (`tools/ambition_sprite2d_renderer`) whose pointer on
+  this box is DIVERGENT from the superproject's record: recorded `0828faede`, checked
+  out `2b4d59f46`. <!-- cite-ok: submodule commits, not superproject ones -->
+  ⇒ Those two hashes ARE the actionable content — a row saying only "they disagree"
+  sends the reconciler hunting for the numbers again. So it was deliberately not
+  committed into from here --
   that reconciliation is Jon's. The diagnosis above is complete enough that the fix
   is a small, well-specified job for whoever holds the submodule.
   ⛔ Do NOT "fix" this by adjusting the offset or the collision box: both currently

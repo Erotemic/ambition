@@ -64,7 +64,13 @@ use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCata
 use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
 
-pub(crate) fn npc_flag_id(id: &str) -> String {
+/// The save flag that says this NPC was provoked and stays hostile.
+///
+/// ⭐ ONE SPELLING. The save mirror reads it every sim tick and the provoke path
+/// writes it; anything else that needs to name the fact — a test, a dev tool —
+/// asks here rather than re-deriving the format, because a second `format!` for
+/// the same flag is a rename waiting to go silently one-sided.
+pub fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")
 }
 

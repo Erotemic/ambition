@@ -1310,8 +1310,16 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
      ⚠ ALREADY KNOWN and the fix stopped one level short: `ambition_damage`'s
      `the_lifecycle_guard_installer_registers_the_guard` builds its OWN `App` and
      calls the installer, so it witnesses the installer and not the composition.
-  2. `progression_schedule.rs:69` `install_save_mirror` — persisted NPC
-     provocation and persisted non-respawning enemy death surviving a room reload.
+  2. ✔ **CLOSED 2026-09-07** — `progression_schedule.rs:69` `install_save_mirror`.
+     `game/ambition_app/tests/save_mirror_flips_a_persisted_npc.rs` sets the save's
+     `npc_<id>_hostile` flag on the start room's one talkable NPC and requires it
+     `Hostile` WITH a grudge one tick later. POISONED (call deleted, restored): fails
+     with *"the save carries `npc_NpcSpawn-0017_hostile` and NpcSpawn-0017 is still
+     RetaliatesWhenHit"*. ⚠ NO ROOM RELOAD — the mirror runs EVERY SIM TICK and says
+     so in its own source, so a test built around a reload would be testing the reload.
+     ⚠ Its OTHER half — a persisted non-respawning enemy death staying dead — is still
+     unwitnessed: the default start room authors no enemy, so that arm needs a room
+     that does. **5 of 6 remain.**
   3. `progression_schedule.rs:98` `ambition_menu::map::install_map_simulation_systems`
   4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
   5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`

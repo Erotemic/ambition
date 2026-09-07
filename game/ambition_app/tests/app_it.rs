@@ -130,6 +130,7 @@ mod rollback_seat_devices;
 mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
+mod save_mirror_flips_a_persisted_npc;
 mod scheduler_perturbation;
 mod scripted_gameplay;
 mod shell_host_headless_entrypoint;

@@ -1350,10 +1350,23 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   both the `hosted()` and `global()` roads of each demo; the census now says in its
   own output which half it certified.
 
-  ▢ **NEXT — `SpentMonitors` still has no behavioural test**, and it is the case that
-  caused the abstraction. A composition test says the re-arm is on the slot; only a
-  Sanic pit death says the slot runs there. ⇒ **The case that motivated a repair is
-  the case most likely to have it reverted by someone who cannot see what it bought.**
+  ✔ **`SpentMonitors` now has one** — `ambition_demo_sanic_app/tests/room_replay.rs`
+  `a_pit_death_rearms_a_broken_monitor`, 2026-09-07. POISONED both Sanic roads
+  (`init_resource` kept, `install_attempt_scoped` removed) and it failed with the
+  shipped symptom: *"HE DIED IN A PIT ON FRAME 18 AND monitor_speed IS STILL BROKEN"*.
+  ⚠ The poison log also shows a `room-loaded sanic_speedway` on that replay, so the
+  load leg alone does not save it — the retraction is the registration, not the signal.
+
+  ▢ **`BrokenBricks` still has no behavioural test, and the residual risk is now
+  SMALL — say so rather than pricing a fixture at the old size.** The composition
+  test proves its re-arm is on `ContentRoomReplayResetSet`, and
+  `a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block` proves that slot RUNS
+  on a Mary-O death. What is unwitnessed is only `BrokenBricks::rearm` itself
+  (`self.0.clear()`). ⚠ Its state is private (`BrokenBricks(BTreeSet<String>)`, no
+  `pub` field, `mark`/`is_broken` private), so a test must break a brick through a
+  real bonk — `course_playthrough.rs:429` and `level_1_acceptance.rs:503` have that
+  machinery. ⛔ Do NOT widen the type's API to make the test cheap; the privacy is
+  what keeps one authority over which bricks are broken.
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

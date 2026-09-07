@@ -43,6 +43,18 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
     query.iter(app.world()).next().map(|k| k.pos)
 }
 
+fn room(app: &mut App) -> ae::World {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("an active session publishes its room geometry")
+        .0
+        .clone()
+}
+
 fn room_spawn(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
@@ -216,5 +228,92 @@ fn one_replay_request_is_processed_exactly_once() {
         1,
         "exactly one consumer may drain a replay request — 0 means the host \
          carries none, 2 means the engine group and the host both registered one"
+    );
+}
+
+/// A pit death re-arms a broken monitor — the bug that named `AttemptScoped`,
+/// on the death route that has never had a test.
+///
+/// ⛔⛔ THIS IS THE CASE THAT CAUSED THE ABSTRACTION AND HAD NO TEST. Sanic
+/// declares `DeathRules::replay_level_after(0.0)`, so a pit death replays the act
+/// IN PLACE and emits no `RoomLoaded`. `SpentMonitors` re-armed on the load only,
+/// so a monitor broken before the death stayed broken for the rest of the run and
+/// its speed-shoes grant was unreachable. MEASURED 2026-09-07: no test under
+/// `game/ambition_demo_sanic*/tests` mentioned `SpentMonitors` at all, which is
+/// why the repair could be reverted by anyone who could not see what it bought.
+///
+/// ⚠ `game/ambition_app/tests/attempt_scoped_retraction.rs` says the re-arm is ON
+/// the slot. This says the slot RUNS on a pit death. Composition and behaviour are
+/// two claims and the first does not imply the second.
+#[test]
+fn a_pit_death_rearms_a_broken_monitor() {
+    use ambition_demo_sanic::monitors::{SpentMonitors, SPEED_MONITOR};
+
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    // ⚠ Act activation keeps emitting `RoomLoaded` for a few more frames, and a
+    // load re-arms too — so a monitor broken the frame he becomes queryable is
+    // wiped by the boot that was still finishing, and this test would pass for
+    // the wrong reason. Let it settle before breaking anything.
+    for _ in 0..60 {
+        app.update();
+    }
+    let world = room(&mut app);
+    let spawn = world.spawn;
+
+    app.world_mut()
+        .resource_mut::<SpentMonitors>()
+        .0
+        .push(SPEED_MONITOR.to_string());
+    app.update();
+    assert!(
+        app.world()
+            .resource::<SpentMonitors>()
+            .0
+            .iter()
+            .any(|name| name == SPEED_MONITOR),
+        "the fixture failed to leave {SPEED_MONITOR} broken — nothing below can \
+         say a replay re-armed a monitor that was never broken"
+    );
+
+    app.world_mut().resource_mut::<RoomResetsSeen>().0 = 0;
+
+    // The pit: below the act floor but inside the blast margin, so the FALL is
+    // what takes him out of the world. This hands the kernel a body in a pit,
+    // not a body already past the edge.
+    displace(
+        &mut app,
+        Vec2::new(spawn.x, world.size.y + world.edges.fall * 0.5),
+    );
+
+    let mut replayed_after = None;
+    for frame in 0..600 {
+        app.update();
+        if app.world().resource::<RoomResetsSeen>().0 > 0 {
+            replayed_after = Some(frame);
+            break;
+        }
+    }
+    let replayed_after = replayed_after.expect(
+        "he fell into the pit and no `RoomReplayAdmitted` was ever observed within \
+         600 frames — the fixture killed nothing, so everything it measures next \
+         is vacuous",
+    );
+
+    // The re-arm rides the same frame the request lands, but give the beat room.
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let still_broken = app.world().resource::<SpentMonitors>().0.clone();
+    let home = player_pos(&mut app).expect("he is still in the world");
+    assert!(
+        !still_broken.iter().any(|name| name == SPEED_MONITOR),
+        "HE DIED IN A PIT ON FRAME {replayed_after} AND {SPEED_MONITOR} IS STILL \
+         BROKEN: the act was put back {} time(s), he is at {home:?} and spawn is \
+         {spawn:?}. Still broken: {still_broken:?}. This is the shipped bug that \
+         named `AttemptScoped` — a monitor broken before a death that no longer \
+         gives its grant.",
+        app.world().resource::<RoomResetsSeen>().0
     );
 }

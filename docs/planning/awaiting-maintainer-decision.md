@@ -165,6 +165,19 @@ rules: an immediate retire, a recorded result, or a distinct outcome? ⛔ Not im
 here: the consumer belongs to the smash lane and the meaning of leaving is a rules
 decision, not a composition one.
 
+✔ **ANSWERED BY IMPLEMENTATION, 2026-09-07 — and the census that raised it was the
+thing that went stale.** Smash inserts `ShellAbandonOffer` while a match is live
+(`ambition_demo_smash/src/lib.rs`, `offer_exit_match`), reads
+`ShellAbandonRequested` and writes `MatchAbandonRequest`; the match settles
+`NoContest` and returns to Smash select, with assembled acceptance across two
+matches. The table above is what was TRUE on 2026-09-06 and is left as the record.
+⚠ `measure_unconsumed_messages.py`, the single-line grep that found this, went on
+reporting `ShellAbandonRequested` (and `SuddenDeathBegan`, `RoomLoaded`) as unread
+after readers existed, because it could not see a `MessageReader<` split over
+lines; its multiline successor `messages_nothing_reads.py` can, and the old script
+is deleted. A GPT review caught the contradiction. Scope beyond Smash remains open
+only if a second experience wants a mode to leave.
+
 ### 70. Which SCREEN and which QUALITY setting is the Mary-O sprite offset on? (2026-09-06)
 
 ⛔ **A BUG REPORT I CANNOT REPRODUCE, and the missing input is two facts only Jon has.**

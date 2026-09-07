@@ -316,6 +316,15 @@ fn report_body_against_sprite(
         &ambition_platformer2d::sim_view::BodyPoseView,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    // ⭐ THE WORLD'S SIZE, which is what turns `space_sum` from a RELATIVE metric into
+    // an ABSOLUTE one. `world_size_to_bevy(size, p) = (p.x - size.x/2, size.y/2 - p.y)`,
+    // so for a sprite whose feet sit exactly on the body's feet,
+    // `body_feet + sprite_feet == size.y / 2` EXACTLY. Calibrating against "where other
+    // sheets cluster" only proves Mary-O agrees with them -- a systematic offset shared
+    // by every sheet reads as perfect. Jon's screenshot is that case.
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::engine_core::RoomGeometry,
+    >,
     // Membership test for "is this body the player", so the marker pairing above can
     // ask it of a body it already has rather than running a second positional query.
     player_body: Query<(), ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>,
@@ -362,7 +371,14 @@ fn report_body_against_sprite(
         // body a frame away from where this reporter reads it, so anything with
         // velocity contributes its own travel to the sum. ⇒ A body at rest is the only
         // one whose sum is a statement about PLACEMENT rather than about timing.
-        .filter(|(_, _, _, _, vel)| vel.x.abs() < 0.01 && vel.y.abs() < 0.01)
+        // ⚠ THE PLAYER IS EXEMPT. The velocity filter exists so a MOVING body's
+        // one-frame sampling lag does not pollute the actor comparison -- but it also
+        // silently dropped the player on any frame she was falling, which is exactly
+        // the SPAWN frame Jon reported. A filter that removes the subject of the
+        // question answers a different one.
+        .filter(|(e, _, _, _, vel)| {
+            player_body.get(*e).is_ok() || (vel.x.abs() < 0.01 && vel.y.abs() < 0.01)
+        })
         .collect();
     rows.sort_by_key(|(e, _, _, _, _)| e.index());
     for (entity, pos, size, id, _) in &rows {
@@ -457,9 +473,46 @@ fn report_body_against_sprite(
             da.map(|a| a.0.y).unwrap_or(0.0),
         );
         let sprite_feet = dt.translation().y - (0.5 + ay) * qh;
+        // ⭐ THE X AXIS TOO. Jon reported a sprite offset that `space_sum` cannot see:
+        // that number compares sprite FEET to body FEET and is a statement about Y
+        // alone. A horizontal misplacement reads as perfectly correct to it.
+        let (qw, ax) = (
+            ds.custom_size.map(|q| q.x).unwrap_or(0.0),
+            da.map(|a| a.0.x).unwrap_or(0.0),
+        );
+        let sprite_cx = dt.translation().x - ax * qw;
+        // ⭐⭐ THE FLOOR UNDER HER, which is the check a PLAYER actually makes and the
+        // one every metric above skipped. Everything else here compares the sprite to
+        // the BODY BOX; if the box itself floats, all of it reads correct while the
+        // character visibly hovers. The topmost solid whose x-span contains her centre
+        // is the surface her feet should rest on.
+        let mut floor_top: Option<f32> = None;
+        for b in &world.0.blocks {
+            let (left, right) = (b.aabb.min.x, b.aabb.max.x);
+            let top = b.aabb.min.y;
+            if ppos.x >= left && ppos.x <= right && top >= body_feet - 1.0 {
+                floor_top = Some(floor_top.map_or(top, |f: f32| f.min(top)));
+            }
+        }
+        match floor_top {
+            Some(top) => eprintln!(
+                "[align] FLOOR under x={:.2}: top={top:.2}  body_feet={body_feet:.2}  gap={:.2} (0 = standing on it)",
+                ppos.x,
+                top - body_feet,
+            ),
+            None => eprintln!("[align] FLOOR under x={:.2}: none found at or below her feet", ppos.x),
+        }
+        // ⭐ THE EXACT expected value, not a cluster: `size.y / 2`.
+        let expected = world.0.size.y * 0.5;
         eprintln!(
-            "[align] JOIN id=<PLAYER> body={pe:?} draw={de:?} space_sum={:.3} body_feet={body_feet:.2} sprite_feet={sprite_feet:.2} quad={:?} anchor_y={ay:.4}",
+            "[align] EXPECTED space_sum = world.size.y/2 = {expected:.3}  (world {:?})",
+            world.0.size,
+        );
+        eprintln!(
+            "[align] JOIN id=<PLAYER> body={pe:?} draw={de:?} space_sum={:.3} body_feet={body_feet:.2} sprite_feet={sprite_feet:.2} body_cx={:.2} sprite_cx={sprite_cx:.2} dx={:.2} quad={:?} anchor=({ax:.4},{ay:.4})",
             body_feet + sprite_feet,
+            ppos.x,
+            sprite_cx - ppos.x,
             ds.custom_size,
         );
     }

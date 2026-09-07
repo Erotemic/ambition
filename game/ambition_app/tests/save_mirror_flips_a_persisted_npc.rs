@@ -19,6 +19,7 @@
 
 use crate::common::{base, fixed_60hz_sim};
 
+use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::combat::components::{
     ActorAggression, ActorIdentity, ActorInteraction, AggressionMode,
 };
@@ -96,5 +97,70 @@ fn a_save_flag_makes_a_talkable_npc_hostile_without_a_room_reload() {
         "{id} loaded hostile with NO grudge: a hostile mode with nothing to be \
          hostile AT is a body that stands there, which is the bug the mirror's \
          `stable_player_grudge` exists to avoid"
+    );
+}
+
+/// The mirror's OTHER half: a persisted death stays dead.
+///
+/// ⛔⛔ THE SUBJECT IS SCARCE AND THAT IS THE FINDING BEHIND THIS ROOM CHOICE.
+/// A placement that authors NO respawn policy takes `UNDESCRIBED_BODY_RESPAWN`,
+/// which is `OnRoomReenter` — a policy that writes no flag on death and reads
+/// none on load. So the persisted-death arm is unreachable from most of the
+/// world. MEASURED 2026-09-07 over every shipped `.ldtk`
+/// (`scripts/measure_persisting_enemy_placements.py`): exactly two rooms author a
+/// persisting policy, `pirate_sky_lookout` (4) and `pirate_sky_arena` (3), all of
+/// them `OnRest` — and NOTHING in the shipped world authors `DeadStaysDead`,
+/// despite it being the enum's `#[default]`.
+///
+/// ⚠ SO THE FLAG HERE IS THE `OnRest` SPELLING, `enemy_<id>_dead_until_rest`, and
+/// a test written against `enemy_<id>_dead` would fail in this room for a reason
+/// that has nothing to do with the mirror.
+#[test]
+fn a_persisted_on_rest_death_zeroes_the_body_on_the_next_tick() {
+    let mut sim = crate::common::fixed_60hz_room_sim("pirate_sky_lookout");
+    sim.step_n(base(), 120);
+
+    let alive: Vec<(Entity, String)> = {
+        let mut query = sim
+            .world_mut()
+            .query::<(Entity, &ActorIdentity, &BodyHealth)>();
+        let world = sim.world();
+        query
+            .iter(world)
+            .filter(|(_, identity, health)| {
+                identity.id.starts_with("EnemySpawn") && health.health.current > 0
+            })
+            .map(|(entity, identity, _)| (entity, identity.id.clone()))
+            .collect()
+    };
+    // ⚠ ANTI-VACUITY: this room is chosen for its `OnRest` placements. If it
+    // stops authoring live ones, everything below is about an empty set.
+    let (body, id) = alive
+        .first()
+        .cloned()
+        .expect("pirate_sky_lookout authors live EnemySpawn placements");
+
+    let flag = format!(
+        "enemy_{id}{}",
+        ambition_platformer2d::actors::features::ENEMY_DEAD_UNTIL_REST_SUFFIX
+    );
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(flag.clone(), true);
+
+    sim.step_n(base(), 1);
+
+    let health = sim
+        .world()
+        .get::<BodyHealth>(body)
+        .expect("the body is still in the world")
+        .health
+        .current;
+    assert_eq!(
+        health, 0,
+        "the save carries `{flag}` and {id} still has {health} health one tick \
+         later. `install_save_mirror` is what makes a persisted death survive; \
+         deleting its call leaves every other app test green."
     );
 }

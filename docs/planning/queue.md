@@ -1317,9 +1317,22 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
      with *"the save carries `npc_NpcSpawn-0017_hostile` and NpcSpawn-0017 is still
      RetaliatesWhenHit"*. ⚠ NO ROOM RELOAD — the mirror runs EVERY SIM TICK and says
      so in its own source, so a test built around a reload would be testing the reload.
-     ⚠ Its OTHER half — a persisted non-respawning enemy death staying dead — is still
-     unwitnessed: the default start room authors no enemy, so that arm needs a room
-     that does. **5 of 6 remain.**
+     ✔ Its OTHER half now has one too — `a_persisted_on_rest_death_zeroes_the_body_on_the_next_tick`
+     in `pirate_sky_lookout`, same poison, same file. **5 of 6 remain.**
+
+     ⛔⛔ **AND FINDING THAT SUBJECT TURNED UP A REAL ONE.**
+     `scripts/measure_persisting_enemy_placements.py` (committed): **234 shipped
+     placements author a `respawn` field; 14 of them persist a death, all `OnRest`,
+     in exactly TWO rooms** — `pirate_sky_lookout` (4) and `pirate_sky_arena` (3),
+     each mirrored across three world copies. **NOTHING in the shipped world authors
+     `DeadStaysDead`**, so the `enemy_<id>_dead` branch of both the write
+     (`actor_hit.rs:691`) and the read (`save_sync.rs`) is unexercised by content.
+     ⚠ AND THE ENUM'S `#[default]` MISLEADS: `RespawnPolicy::default()` is
+     `DeadStaysDead` and its doc says so, but a placement that authors nothing takes
+     `UNDESCRIBED_BODY_RESPAWN` = `OnRoomReenter`. ⇒ Reading the enum and concluding
+     "unspecified placements persist" is wrong in the shipped direction — a question
+     for Jon only if the CONTENT is meant to have permanent casualties; the code is
+     consistent, the doc is the part that reads two ways.
   3. `progression_schedule.rs:98` `ambition_menu::map::install_map_simulation_systems`
   4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
   5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`

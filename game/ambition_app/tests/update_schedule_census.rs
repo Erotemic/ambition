@@ -479,6 +479,14 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
         eprintln!("[menu-frame]   {count:>3}  {where_}");
     }
 
+    // ⚠ The per-bucket breakdown is a HINT, not an accounting. Ordering the two
+    // backends' nav dropped the total 11 -> 9 (the `MenuNavConsume x
+    // MenuNavConsume` row, poison-verified by removing the one `configure_sets`
+    // and watching 11 come back), but two of the REMAINING pairs also changed
+    // bucket, which adding an ordering edge cannot cause. Membership is resolved
+    // per schedule, so a system can label differently in two of them. The TOTAL is
+    // exact and reproducible; trust that and re-derive a bucket before acting on it.
+    //
     // A RATCHET, not a pin at zero: the eleven that exist are a real finding and
     // fixing them is per-surface judgement (which context each menu should
     // declare), but a TWELFTH must not be able to land silently. Lower this number
@@ -486,7 +494,7 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     //
     // Deliberately not `assert_eq!(.., 0)`: that would leave the suite red while
     // the audit is open, and a permanently-red guard stops being read.
-    const KNOWN_UNORDERED_MENU_PAIRS: usize = 11;
+    const KNOWN_UNORDERED_MENU_PAIRS: usize = 9;
     assert!(
         on_menu_frame <= KNOWN_UNORDERED_MENU_PAIRS,
         "{on_menu_frame} pairs of systems touch `MenuControlFrame` with no ordering \

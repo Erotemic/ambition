@@ -636,6 +636,14 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // grid); the cfg is whether there is a cube to select at all. Both are
     // needed, and conflating them is what made the web build fail to compile the
     // FLAT menu.
+    // The ONE statement of which backend's nav consumes a press first. It lives
+    // here because this is the only place that knows both backends exist; neither
+    // backend can name the other (different features). Configured unconditionally
+    // so the order holds in every build that compiles either one.
+    app.configure_sets(
+        Update,
+        (crate::menu::GridMenuNav, crate::menu::KaleidoscopeMenuNav).chain(),
+    );
     #[cfg(feature = "kaleidoscope_menu")]
     if ambition_platformer2d::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
         crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);

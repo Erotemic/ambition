@@ -302,13 +302,17 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                     // screen or inside a hosted Sanic/Mary-O session.
                     .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
                     .run_if(ambition_platformer2d::runtime::in_base_mode)
-                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
+                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                    // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
+                    .in_set(crate::menu::KaleidoscopeMenuNav),
                 // Nav first (mutates the cursor), then republish (reads the cursor +
                 // inventory) so the highlight + detail panel reflect this frame's move.
                 // Also in `MenuNavConsume` for the same fold-ordering reason above.
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
-                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
+                    .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume)
+                    // ORDERED against the grid backend's nav; see `menu::GridMenuNav`.
+                    .in_set(crate::menu::KaleidoscopeMenuNav),
                 // between nav and republish, deliberately. Nav and the
                 // pointer-release observer both PUBLISH the chosen action; this
                 // dispatches it. Running it after republish would draw the menu a
@@ -2154,8 +2158,7 @@ fn kaleidoscope_sync_focus_visuals(
         };
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
-        let focused =
-            on_active_face && focus_for_action(action, active_page, rows) == cursor.focus;
+        let focused = on_active_face && focus_for_action(action, active_page, rows) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {

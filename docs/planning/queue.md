@@ -5318,6 +5318,32 @@ OPTIONAL dep + feature, never used:
   | `ambition_platformer2d` → `ambition_sfx_bank` | **`all_capabilities`** (`crates/ambition_platformer2d/Cargo.toml:79`), which is the crate's `default` | everything, via `default` | ⚠ a ROSTER entry, not a wiring: `all_capabilities` lists 20-odd crates the facade can offer and this is one line of it. Removing it narrows what `default` means, so it is the same class of intent decision as the no-op feature |
   | `ambition_touch_input` → `ambition_cutscene` | **`mobile_touch`** (`crates/ambition_touch_input/Cargo.toml:30`) | `ambition_platformer2d/mobile_touch` (`:126`) | ⚠ sits among nine `dep:` lines that ARE used (`actor_monolith`, `sim_view`, `render`, `ui_nav`, `persistence`, `bevy`, `virtual_joystick`); only `ambition_cutscene` is unnamed in the source, so it reads as a wire that was planned and never run |
 
+  ✔✔ **TWO OF THE FIVE ARE CUT (2026-09-07), and "None is mechanical" was WRONG
+  for both — that sentence generalised over a table whose own cells disagree with
+  it.** It says the reason is intent, not the compiler; but two rows are marked as
+  ones whose feature does MORE than pull the dep, and for those, dropping the
+  `dep:` leaves the feature meaningful. That is mechanical safety, and "same shape
+  as above" inherits it.
+  - `game/ambition_app` → `ambition_causal` (`6892a9cbe`)
+  - `ambition_sim_view` → `ambition_portal2d` (`2f6c857c1`)
+  ⭐ **RE-DERIVED AT HEAD BEFORE EITHER CUT**, four days past the triage: all four
+  remaining edges still had **0** `.rs` files naming them, so the table's size claim
+  held. Each cut then verified rather than assumed — the crate checked with its OWN
+  feature on, `Cargo.lock` losing exactly one line and that line being the edge, and
+  38/38 absence contracts including the sentinel-lockfile guard.
+  ⭐ **The evidence that mattered for the app one is that the FEATURE STILL WORKS**:
+  both `causal_explains_the_real_app` tests pass with `--features causal` and the
+  direct dep gone, which is what proves the facade was the only road. For
+  `ambition_sim_view` the equivalent is `--all-features`, because NO manifest enables
+  `ambition_sim_view/portal` — the union is the only thing that reaches it, exactly
+  as this row recorded.
+  ⇒ **THREE REMAIN AND THEY REALLY ARE INTENT**: `ambition_characters` →
+  `ambition_causal` leaves an EMPTY feature; `ambition_platformer2d` →
+  `ambition_sfx_bank` narrows what `default` means; `ambition_touch_input` →
+  `ambition_cutscene` sits in `mobile_touch` among nine `dep:` lines that ARE used.
+  ⇒ Capability footprint did NOT move on either cut (51 linked / 23
+  never-asked-for), which is this row's own prediction holding.
+
   ⇒ **A no-op feature that exists to declare a future seam is not debt, and
   removing it would delete the intent.** That is a maintainer's ruling, not a
   cleanup, which is why this row stays ▢ rather than being finished the way the

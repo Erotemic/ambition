@@ -873,7 +873,10 @@ mod tests {
             }),
             (vec!["occurrences", "custody"], |d| {
                 d.set_durable_horizon(
-                    vec![PersistedOccurrence::new("occ", PersistedWhereabouts::InCustody)],
+                    vec![PersistedOccurrence::new(
+                        "occ",
+                        PersistedWhereabouts::InCustody,
+                    )],
                     vec![PersistedCustody::new("occ", "slot:0")],
                 )
             }),
@@ -896,7 +899,10 @@ mod tests {
             // ...and the comparison is symmetric.
             let mut back = changed.families_that_differ(&base);
             back.sort_unstable();
-            assert_eq!(back, want, "the difference must not depend on argument order");
+            assert_eq!(
+                back, want,
+                "the difference must not depend on argument order"
+            );
             seen.extend(expected);
         }
 
@@ -904,9 +910,19 @@ mod tests {
         // reports, or an unchecked arm hides here rather than in the caller.
         // `version` is excluded by name in the function itself.
         let all: BTreeSet<&str> = [
-            "encounters", "switches", "bosses", "quests", "flags", "dialog_visits",
-            "items", "wallet", "inventory_saved", "checkpoint", "occurrences",
-            "custody", "minted_items",
+            "encounters",
+            "switches",
+            "bosses",
+            "quests",
+            "flags",
+            "dialog_visits",
+            "items",
+            "wallet",
+            "inventory_saved",
+            "checkpoint",
+            "occurrences",
+            "custody",
+            "minted_items",
         ]
         .into_iter()
         .collect();
@@ -1205,6 +1221,69 @@ mod tests {
              the starter inventory"
         );
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
+    }
+
+    /// No custody or minted-item row names an occurrence the save does not hold.
+    ///
+    /// ⭐ THE INVARIANT IS ALREADY WRITTEN DOWN — on `set_durable_horizon`, which takes
+    /// occurrences and custody TOGETHER because *"a custody row without its occurrence
+    /// row names nothing"*. That reason applies word for word to `PersistedMintedItem`,
+    /// whose `occurrence` field is the same key.
+    ///
+    /// ⛔⛔ AND MINTED ITEMS DO NOT GET THE SAME PROTECTION. They have their own setter
+    /// (`set_minted_items`) and their own production writer
+    /// (`items/pickup/minted_horizon.rs`), separate from the one that writes occurrences
+    /// and custody (`session/durable_horizon.rs`). Each side has its own idempotence
+    /// check against its own field, so nothing compares them: an occurrence dropped by
+    /// one writer leaves the other's rows pointing at nothing.
+    ///
+    /// ⚠ THE STRUCTURE CANNOT SAY THIS TODAY — three `Vec`s in one struct cannot express
+    /// "these ids are a subset of those" — so a guard is the honest fallback rather than
+    /// the lazy one. Folding minted items into `set_durable_horizon` would make the
+    /// WRITE atomic, which is a bigger change than this test and is the real repair if
+    /// this ever goes red.
+    #[test]
+    fn no_durable_row_names_an_occurrence_the_save_does_not_hold() {
+        let mut save = AmbitionGameSaveData::new();
+        save.set_durable_horizon(
+            vec![PersistedOccurrence::new(
+                "placement:carried",
+                // `InCustody` deliberately does NOT say whose — that is
+                // `PersistedCustody`, which is exactly why the two families must agree.
+                PersistedWhereabouts::InCustody,
+            )],
+            vec![PersistedCustody::new("placement:carried", "player:0")],
+        );
+        save.set_minted_items(vec![PersistedMintedItem {
+            occurrence: "placement:carried".to_owned(),
+            parent: "placement:parent".to_owned(),
+            sequence: 1,
+            held_item: "torch".to_owned(),
+        }]);
+
+        let known: Vec<&str> = save.occurrences().iter().map(|o| o.id.as_str()).collect();
+        // ⚠ ANTI-VACUITY: an empty horizon satisfies "no orphans" trivially.
+        assert!(
+            !known.is_empty() && !save.custody().is_empty() && !save.minted_items().is_empty(),
+            "this fixture must hold all three families, or the assertions below are \
+             vacuous"
+        );
+        for row in save.custody() {
+            assert!(
+                known.contains(&row.occurrence.as_str()),
+                "custody row names occurrence {:?}, which the save does not hold",
+                row.occurrence
+            );
+        }
+        for row in save.minted_items() {
+            assert!(
+                known.contains(&row.occurrence.as_str()),
+                "minted-item row names occurrence {:?}, which the save does not hold — \
+                 `set_minted_items` is a separate authority from `set_durable_horizon` \
+                 and nothing reconciles them",
+                row.occurrence
+            );
+        }
     }
 
     /// Every durable family states whether an admitted ROOM REPLAY retracts it.

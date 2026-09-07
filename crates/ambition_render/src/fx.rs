@@ -1644,3 +1644,114 @@ mod tests {
         );
     }
 }
+
+/// Install the reusable FX cue pipeline: requests fan out, spawn, then age.
+///
+/// ⭐ THE CAPABILITY OWNS ITS OWN THREE-STAGE ORDER. The host registered these eight
+/// systems and carried every ordering argument for them; both move here, where the
+/// systems and the sets they name live.
+///
+/// ⚠ NO DEPENDENCY INVERTS. `Platformer2dSimulationPhaseMonolith` and
+/// `session_world_exists` are `ambition_platformer2d_shared_tangle`'s — which this
+/// crate already depends on, despite the monolith-shaped name — and
+/// `rendering::WorldLabelLayoutSet` is this crate's own.
+///
+/// ⛔ THE THREE STAGES ARE NOT COSMETIC AND THEIR REASONS MOVED WITH THEM:
+/// · Requests fan out into typed visual/audio messages, so they must land BEFORE the
+///   subscriber (`vfx_spawn_messages`) reads them.
+/// · A speech bubble is spawned by `vfx_spawn_messages` and PLACED by the shared
+///   world-label pass, so `.before(WorldLabelLayoutSet)` buys the sync point that lets a
+///   line born this frame be placed this frame rather than drawing once at its raw
+///   anchor.
+/// · Age / integrate / despawn last. Without them a spawned particle is a sprite that
+///   never moves and never leaves — so moving the spawner alone would have been the
+///   worse half of the fix.
+pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+    use bevy::prelude::{IntoScheduleConfigs as _, Update};
+
+    app.add_systems(
+        Update,
+        (
+            process_fireworks_requests,
+            tick_firework_sequences,
+            process_fx_requests,
+        )
+            .chain()
+            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+            .before(vfx_spawn_messages)
+            .run_if(session_world_exists),
+    );
+    app.add_systems(
+        Update,
+        vfx_spawn_messages
+            .after(process_fx_requests)
+            .before(crate::rendering::WorldLabelLayoutSet)
+            .run_if(session_world_exists),
+    );
+    app.add_systems(
+        Update,
+        (
+            update_particles,
+            update_effects,
+            update_impacts,
+            update_speech_bubbles,
+        )
+            .chain()
+            .before(crate::rendering::WorldLabelLayoutSet)
+            .run_if(session_world_exists),
+    );
+}
+
+#[cfg(test)]
+mod install_tests {
+    /// The installer registers all three stages of the FX pipeline.
+    ///
+    /// ⛔⛔ THIS EXISTS BECAUSE A POISON COULD NOT WITNESS THE CARVE. Deleting the
+    /// `install_fx_pipeline` call from the host leaves `app_it` at 578/578 — not because
+    /// the pipeline is unused (`ambition_combat::moveset` writes `FxRequest` in
+    /// production) but because the app suite is HEADLESS and asserts no visual outcome.
+    /// ⇒ "The suite stayed green" is evidence about the SUITE here, not about the move,
+    /// so the move needs a check that can see it.
+    ///
+    /// ⚠ BY COUNT, and the count is the whole point: carving systems out of a
+    /// composition and dropping one is silent, and dropping a `.chain()` edge is
+    /// silent too. This pins that all eight arrive. It does NOT pin the edges — Bevy
+    /// strips system names without its `debug` feature, so an edge-level assertion in
+    /// this build would compare placeholders and pass vacuously.
+    #[test]
+    fn the_fx_installer_registers_every_stage() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        super::install_fx_pipeline(&mut app);
+
+        let mut update = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::schedule::Schedules>()
+            .remove(Update)
+            .expect("the installer added systems to Update");
+        update
+            .initialize(app.world_mut())
+            .expect("the Update schedule initializes");
+        // ⚠ ELEVEN, NOT EIGHT, AND THE DIFFERENCE IS BEVY'S: the eight registered
+        // systems plus the three `apply_deferred` sync points it inserts between chained
+        // members. ⛔ They cannot be filtered out here — Bevy strips system names
+        // without its `debug` feature, so every row reads "<Enable the debug feature to
+        // see the name>" and an `ends_with("apply_deferred")` filter matches NOTHING.
+        // Tried, and it left the count unchanged at 11.
+        //
+        // ⇒ So the number includes them, deliberately and with the arithmetic written
+        // down. It still catches the failure this guard is for — a stage dropped in the
+        // carve — and it WILL move if Bevy changes its sync-point policy, which is a
+        // legible reason to re-read this line rather than a silent break.
+        assert_eq!(
+            update.systems_len(),
+            11,
+            "the FX pipeline lost a stage in the carve: 3 request systems + \
+             vfx_spawn_messages + 4 ageing systems, plus 3 Bevy sync points"
+        );
+    }
+}

@@ -491,51 +491,12 @@ impl Plugin for HostVfxPresentationPlugin {
         // these as `fx::update_particles` / bare `vfx_spawn_messages`. The blind spot is already
         // written down for `setup_capture_target` in that file's own waiver list; do not re-shorten
         // these paths.
-        app.add_systems(
-            Update,
-            // Reusable cue REQUESTS fan out into the typed visual/audio
-            // messages, so they must land before the subscriber reads them.
-            (
-                ambition_render::fx::process_fireworks_requests,
-                ambition_render::fx::tick_firework_sequences,
-                ambition_render::fx::process_fx_requests,
-            )
-                .chain()
-                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
-                .before(ambition_render::fx::vfx_spawn_messages)
-                .run_if(session_world_exists),
-        )
-        .add_systems(
-            Update,
-            ambition_render::fx::vfx_spawn_messages
-                .after(ambition_render::fx::process_fx_requests)
-                // A speech bubble is spawned here and PLACED by the shared world-label pass, so
-                // the edge buys the sync point that lets a line born this frame be placed this
-                // frame rather than drawing once at its raw anchor.
-                .before(ambition_render::rendering::WorldLabelLayoutSet)
-                .run_if(session_world_exists),
-        )
-        .add_systems(
-            Update,
-            // Age / integrate / despawn. Without these a spawned particle is a
-            // sprite that never moves and never leaves — so moving the spawner
-            // alone would have been the worse half of the fix.
-            //
-            //  the app chained these `.after(debug_overlay::draw_debug_overlay)`.
-            // That edge did not survive the move and could not: the overlay is
-            // `ambition_app`'s own dev system. Nothing here reads what it writes.
-            (
-                ambition_render::fx::update_particles,
-                ambition_render::fx::update_effects,
-                ambition_render::fx::update_impacts,
-                ambition_render::fx::update_speech_bubbles,
-            )
-                .chain()
-                // This is the same hard edge `ActorNameplateSet` already declares for the plate
-                // family.
-                .before(ambition_render::rendering::WorldLabelLayoutSet)
-                .run_if(session_world_exists),
-        );
+        // ⭐ THE FX CAPABILITY OWNS ITS OWN THREE-STAGE ORDER. This host registered
+        // eight `ambition_render::fx` systems and carried every ordering argument for
+        // them; both moved to `ambition_render::fx::install_fx_pipeline`, beside the
+        // systems and the sets they name. Nothing inverts: the phase enum and
+        // `session_world_exists` are shared_tangle's, which render already depends on.
+        ambition_render::fx::install_fx_pipeline(app);
     }
 }
 

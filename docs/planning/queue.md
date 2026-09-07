@@ -1293,6 +1293,38 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   `app.add_systems(...)` themselves, so a test that CONSTRUCTS its subject can never
   witness the shipped app failing to install it. ⇒ The carve pattern earns a
   composition-level witness and does not have one.
+
+  ⭐⭐ **THE WHOLE POPULATION MEASURED 2026-09-07, ~70 minutes, script and result
+  committed** (`scripts/measure_installer_call_coverage.py`,
+  `dev/installer_call_coverage.json`). For each of the 14 `install_*` calls in
+  `platformer2d_runtime` and `platformer2d_host`: delete the call, run
+  `cargo test -p ambition_app --test app_it`. **SEVEN of 14 leave the suite fully
+  green.** The other seven are caught by 121, 57, 42, 21, 17, 11 and 1 failing
+  tests — which is what makes this a finding rather than "the suite is weak".
+  Coverage is not thin across the board; it is ABSENT in six named places.
+
+  ▢ **NEXT — six shipped behaviours with no app-level test, each one a piece of
+  work needing its domain:**
+  1. `combat_schedule.rs:472` `ambition_damage::install_staged_hit_lifecycle_guard`
+     — a room boundary voids staged hits from the OUTGOING population.
+     ⚠ ALREADY KNOWN and the fix stopped one level short: `ambition_damage`'s
+     `the_lifecycle_guard_installer_registers_the_guard` builds its OWN `App` and
+     calls the installer, so it witnesses the installer and not the composition.
+  2. `progression_schedule.rs:69` `install_save_mirror` — persisted NPC
+     provocation and persisted non-respawning enemy death surviving a room reload.
+  3. `progression_schedule.rs:98` `ambition_menu::map::install_map_simulation_systems`
+  4. `sim_core_resources.rs:196` `install_sim_clock_reporting`
+  5. `host/src/lib.rs:65` `ambition_input::install_provider_action_road`
+  6. `host/src/lib.rs:66` `ambition_input::install_seat_device_tracking`
+
+  ⚠ **The seventh, `host/src/lib.rs:443` `install_fx_pipeline`, is EXPECTED** —
+  render FX against a headless suite. Quoting "7 of 14" without that caveat
+  overstates the hole by one.
+
+  ⛔ **DO NOT CLOSE THESE WITH A PRESENCE ASSERTION.** A marker resource each
+  installer registers, checked at composition level, turns all six green while the
+  behaviours stay untested and removes the pressure to write the real tests. Guard
+  the gap, not the fix.
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

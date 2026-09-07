@@ -11,10 +11,20 @@ not a theoretical worry:
 ⛔ WHY THE DEFAULT BUILD CANNOT CATCH IT. `desktop_check.sh` compiles
 `ambition_app` at default features, which does not need fontconfig. The lane that
 does is the FEATURE UNION (`cargo check --workspace --all-features`), because
-`bevy_rich_text3d -> cosmic-text -> yeslogic-fontconfig-sys` links it -- and the
-union job lives inside `--run-everything`, so nothing routine touches it. ⇒ The
+`bevy_text -> parley -> fontique -> yeslogic-fontconfig-sys` links it, arriving
+via `bevy_dev_tools -> bevy_internal -> bevy` -- and the union job lives inside
+`--run-everything`, so nothing routine touches it. ⇒ The
 absence surfaced only after a ~20-minute build, as a pkg-config panic inside a
 third-party build script. This turns that into a named list in under a second.
+
+⚠ THAT CHAIN WAS WRONG HERE UNTIL 2026-09-07 and said
+`bevy_rich_text3d -> cosmic-text -> yeslogic-fontconfig-sys`, read off lockfile
+proximity rather than asked of cargo. `cosmic-text` is in the tree (through
+`bevy_lunex`) and reaches fontconfig ZERO times. The error was not pedantic: the
+wrong chain implied the union could be approximated by excluding the 3D-cube UI
+crate, and MEASURED, a near-union with that crate excluded fails identically. I
+corrected it in `queue.md` the same day and left it standing HERE for six hours --
+a retraction that fixes one of two copies is why this file's own rule below exists.
 
 ⭐ ONE AUTHORITY: the package list is PARSED from `system_packages.sh`, never
 copied here. A second copy would be the defect this repo keeps removing, and it
@@ -98,12 +108,32 @@ def main(argv: list[str]) -> int:
     print(f"\nMISSING ({len(missing)}):")
     for pkg in missing:
         print(f"  {pkg}")
+    # ⛔ THE REASSURANCE COVERED PACKAGES IT WAS NEVER ABOUT. "A headless box
+    # legitimately lacks the X11/xcb/xkb set" is true and was printed under a list
+    # of NINE, one of which is `libfontconfig1-dev` -- not an X11 package, and
+    # measured on 2026-09-07 to block `cargo check -p <crate> --all-features`
+    # outright. One absence was answering two questions. The split is DERIVED from
+    # the package name, not from a list kept here.
+    windowing = sorted(m for m in missing if m.startswith(("libx", "libwayland")))
+    other = sorted(m for m in missing if m not in set(windowing))
+    if other:
+        print(
+            f"\n⛔ NOT covered by the headless exemption ({len(other)}): "
+            f"{', '.join(other)}"
+        )
+        print(
+            "   These are not windowing libraries, so 'this box never opens a "
+            "window'\n   does not explain them. `libfontconfig1-dev` blocks "
+            "`--all-features` on\n   ANY box: bevy's own text stack links it "
+            "through parley -> fontique."
+        )
     print(
         "\nThis host is partially provisioned. A default `cargo check` can still be "
         "green: the lanes that need these are the feature union and the render/audio "
         "paths. Fix with `scripts/setup/system_packages.sh` (needs sudo), or install "
-        "the names above.\nA headless box legitimately lacks the X11/xcb/xkb set; "
-        "pass --strict to make this an error."
+        f"the names above.\nA headless box legitimately lacks the "
+        f"{len(windowing)} windowing package(s) above; pass --strict to make "
+        f"this an error."
     )
     return 1 if strict else 0
 

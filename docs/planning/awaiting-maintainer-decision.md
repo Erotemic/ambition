@@ -4626,7 +4626,7 @@ different population.** I enumerated all 33 `pub fn install_*` in the capability
 crates while pricing the C2 carve pattern, and asked which have a caller.
 
 **MEASURED, `git grep -w` over `crates/` and `game/`, HEAD `fbdc83199`:**
-`ambition_platformer2d_rollback_ggrs::session::install_session` (`session.rs:299`)
+`ambition_platformer2d_rollback_ggrs::session::install_session` (`crates/ambition_platformer2d_rollback_ggrs/src/session.rs:299`)
 has **exactly one other mention in the whole workspace and it is a comment**
 (`local_session.rs:186`). Zero callers, inside its crate or out.
 

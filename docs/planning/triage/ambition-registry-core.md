@@ -442,7 +442,7 @@ review page has when it is read as status.
   none for the other."* ⚠ Sealing it also turned a `HashMap` into a `BTreeMap` —
   the iteration used to happen in `ambition_render` and `actor_monolith` through
   the public map, where the determinism policy did not look.
-* `CombatBanterRegistry` **STATES THE REPLACE**. `banter.rs:37` reads *"Bulk-register
+* `CombatBanterRegistry` **STATES THE REPLACE**. `crates/ambition_conversation/src/banter.rs:37` reads *"Bulk-register
   a set of hit-bark lines for one enemy name. **Overwrites any existing entry for
   that name.**"* — and the row above quotes the first sentence and concludes
   "nothing about a second registration" from it. ⚠ Either the sentence was added

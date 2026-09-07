@@ -21,8 +21,19 @@ only "who consumes this" does. Two seams were found this way on 2026-09-06:
 ⚠ THE FALSE-POSITIVE MODE IS REAL AND MEASURED: `RunAuthoredCommand` reads as unconsumed
 because it is drained MANUALLY —
 `world.get_resource_mut::<Messages<T>>()` then `.drain()` — rather than through a
-`MessageReader`. Any hit must be grepped by hand before it is believed. A test-only
-reader (`SuddenDeathBegan`) is a fourth answer again: covered, but not shipped.
+`MessageReader`. Any hit must be grepped by hand before it is believed.
+
+⛔⛔ AND ONE OF MY OWN CALLS WAS WRONG, which is the meanest pattern here. `SuddenDeathBegan`
+looked test-only: the reader I found sat in `ambition_demo_smash/src/tests.rs`. It is
+SHIPPED AND COVERED — `open_the_sudden_death_round` takes `MessageReader<SuddenDeathBegan>`
+(`ambition_demo_smash/src/lib.rs:3217`) and the shipping composition installs it at
+`lib.rs:1388`. The test ALSO registers its own copy, so a by-file reading finds a test
+registration beside a production one and can pick the wrong one.
+
+⇒ The exact mirror of `stage_player_victim_hit_events`: there a test that CONSTRUCTS its
+subject was blind to the composition; here it makes a live consumer look test-only.
+⭐ So the hand-check is not "find A reader" — it is "find a reader that a SHIPPING
+composition INSTALLS".
 ⛔⛔ AND THE TECHNIQUE DOES NOT TRANSFER TO RESOURCES — tried 2026-09-06, abandoned, and
 recorded here so nobody builds the noisy version. The same census over the 388 declared
 `Resource` types reported 43 "never read", and the first THREE spot-checks were all

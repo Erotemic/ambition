@@ -34,10 +34,12 @@ count wrong in the safe-looking direction:
      installs `ambition_render` systems `.after` an `ambition_platformer2d_runtime` set
      and render does NOT depend on runtime, so carving it would invert a dependency.
 
-⚠ KNOWN GAP, stated rather than papered over: `SHARED` is excluded wholesale, so a block
-that installs `shared_tangle`'s own SYSTEMS (not merely names its sets) reads as
-single-capability. Naming shared vocabulary and installing shared systems are different
-acts and this does not yet separate them.
+✔ NAMING shared vocabulary is free; INSTALLING a shared crate's SYSTEMS is not, and the
+two are now separated. A block may name `shared_tangle`'s sets and run-conditions freely
+— every capability depends on it — but one that REGISTERS its systems is installing
+another crate's code, which the owner cannot take with it. The camera block
+(`camera_ease::tick_camera_shake` + `tick_finish_zoom` beside render's `camera_follow`)
+read as single-capability until that distinction existed.
 
 ✔ **RE-EXPORTS ARE RESOLVED** (see [`reexport_map`]), and doing so moved the totals from
 24/20 to **18/26** — six blocks that looked carveable belong to a crate the host only
@@ -206,7 +208,18 @@ def main() -> int:
             for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", installed):
                 if bare in owners:
                     named.add(owners[bare])
+            # ⛔ NAMING shared vocabulary is free; INSTALLING a shared crate's SYSTEMS
+            # is not. `SHARED` is excluded because every capability may name its sets and
+            # run-conditions — but a block that registers `shared_tangle`'s own systems is
+            # installing another crate's code, and the owner cannot take that with it.
+            # Measured: the camera block installs `camera_ease::tick_camera_shake` and
+            # `tick_finish_zoom` beside render's `camera_follow`, and read as
+            # single-capability until this line existed.
+            installs_shared = any(f"{s}::" in resolved for s in SHARED)
             named -= SHARED | {own_crate}
+            if installs_shared and named:
+                irr.append((line, sorted(named | SHARED)))
+                continue
             if owns_a_system:
                 # The host installs one of its own systems here; the block stays.
                 irr.append((line, sorted(named) or ["<host-owned>"]))

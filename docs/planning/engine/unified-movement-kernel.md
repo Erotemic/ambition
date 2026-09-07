@@ -116,6 +116,25 @@
   is reachable in production rather than theoretical, which is what decides whether the
   exercise is worth writing.
 
+  ⭐ **AND THE SYMPTOM IS SPECIFIC, which is what makes it findable in play.**
+  `gravity_dir` feeds exactly one decision — `placement.rs:92`:
+
+  ```rust
+  fn wall_to_wall(n_in: Vec2, n_out: Vec2, gravity_dir: Vec2) -> bool {
+      let g = gravity_dir.normalize_or_zero();
+      let in_wall  = n_in.normalize_or_zero().dot(g).abs() < 0.5;
+      let out_wall = n_out.normalize_or_zero().dot(g).abs() < 0.5;
+      in_wall && out_wall
+  }
+  ```
+
+  It classifies each aperture as WALL or FLOOR/CEILING by its angle to "down", and that
+  classification gates the somersault/upright accommodation. ⇒ With the wrong down, a
+  wall reads as a floor. **The predicted symptom is a non-primary actor somersaulting
+  through a portal when it should stay upright (or the reverse), only while the PLAYER
+  stands in a differently-oriented gravity zone.** A bug whose trigger is where a
+  DIFFERENT body is standing is exactly the kind that survives play-testing.
+
   ▢ So the exercise has a shape now: put a non-primary body and the player in
   DIFFERENT zones, transit the non-primary one, and assert its post-transit orientation
   follows ITS OWN frame. ⛔ Nothing above is measured — it is a source reading, and

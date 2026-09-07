@@ -985,6 +985,47 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   because they compose no launcher.
   ⚠ **NOT SEEN ON SCREEN.** Layout numbers are asserted by tests, not by eyes.
 
+- ▢ **D-POTATO-ASPECT — Jon's SECOND symptom reproduced 2026-09-06: at the `potato`
+  quality profile sprite quads change ASPECT RATIO, and the mechanism is alpha-trim
+  measured on a 10px frame.** This is the *"the size of the snake has seemed to vary
+  depending on the global game state"* half of D-MARYO-SPRITE, which that row could
+  not close. It is a DIFFERENT defect from the placement one and wants its own fix.
+
+  MEASURED, one scene, `capture_mary_o --walk 0`, only `AMBITION_QUALITY_PROFILE`
+  changed:
+
+  | group | ultra | low | potato |
+  |---|---|---|---|
+  | player (`mary_o_v2`) | 24.00x32.76 | 24.38x32.76 | **42.67x30.48** aspect FLIPS |
+  | a 3-body group | 21.33x8.75 | 21.15x8.75 | **14.59x14.59** square |
+  | snakes (x10) | 73.87x48.00 | 73.31x48.29 | 73.31x47.63 |
+
+  ⭐ **THE MECHANISM, arithmetic exact both ways.** The drawn quad is
+  `authored_render * (trim_w/frame_w, trim_h/frame_h)`:
+
+      base sheet    idle trim 63x86 in a 160x192 frame -> 0.394 x 0.448 -> 24.00 x 32.76
+      potato sheet  idle trim  7x5  in a  10x12  frame -> 0.700 x 0.417 -> 42.67 x 30.48
+
+  Both reproduce the measured quads to the last digit. ⇒ The potato sheet's LOGICAL
+  FRAME is a correct 10x12 (same aspect as 160x192) and `authored_render` is in world
+  units, so neither is at fault. What breaks is the TRIM FRACTION: the art occupies
+  0.700 of the potato frame's width where it occupies 0.394 of the base's. Alpha-trim
+  is measured on the DOWNSCALED image, and an anti-aliasing fringe is ~10% of a 10px
+  frame against ~0.6% of a 160px one, so the trim over-measures the art badly and
+  anisotropically.
+
+  ⚠ **NOT a missing-asset problem, checked:** `sprites_potato/mary_o_v2_spritesheet.ron`
+  exists on this box and its frame aspect is right. ⚠ But `sprites_potato` IS
+  GITIGNORED (655 files against base's 1244), so the RON I measured is per-machine
+  generated art -- another box may hold different numbers. The mechanism is a
+  statement about how the tier is generated; the exact fractions are a statement about
+  this machine's copy.
+
+  ▢ NEXT: the downscale should carry the BASE sheet's trim fractions rather than
+  re-measuring alpha on the shrunken image, or trim with an alpha threshold that
+  scales with the frame. ⛔ Same submodule caveat as the row below -- the generator is
+  in `tools/ambition_sprite2d_renderer`, whose pointer here is divergent.
+
 - ✔ **D-MARYO-SPRITE — FIXED AND VERIFIED IN NORMAL PLAY, 2026-09-06
   (`a3039d644`).** Mary-O's sprite is mispositioned against her collision box.**
 

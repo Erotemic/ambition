@@ -183,6 +183,9 @@ pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
 // with the primitives that consume it; `npcs` keeps NPC BEHAVIOUR. Re-exported
 // here because `damage_apply`'s tests name the owner, and the owner changed.
 pub use crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
+// The programmatic actor-spawn seam installs itself; the composition names
+// only the schedule. See `actor_spawn::install_actor_spawn_requests`.
+pub use crate::actor_spawn::install_actor_spawn_requests;
 
 use ambition_combat::util::*;
 

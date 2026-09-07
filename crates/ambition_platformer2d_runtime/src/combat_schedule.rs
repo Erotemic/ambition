@@ -68,17 +68,13 @@ impl Plugin for CombatSchedulePlugin {
         // installed. A writer whose message is registered by a different plugin is a composition
         // that works until somebody composes differently.
         app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
-        // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
-        // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
-        // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.
-        // Registered (and run) here next to the in-gameplay spawners, but
-        // deliberately UNGATED so a scene-setup spawn applies in any `GameMode`.
-        app.add_message::<ambition_platformer2d_actor_monolith::features::SpawnActorRequest>();
-        app.add_systems(
-            sim,
-            ambition_platformer2d_actor_monolith::features::apply_spawn_actor_requests
-                .in_set(CombatSet::Materialize),
-        );
+        // The programmatic actor-spawn seam (scenario tests, RL/agent scene setup)
+        // installs itself; this composition supplies only the schedule. Why the
+        // message, the set and the missing gameplay gate are the monolith's facts
+        // rather than this file's is in `install_actor_spawn_requests`. It is
+        // called HERE so it lands beside the in-gameplay spawners, which is the
+        // part of the arrangement a composition does own.
+        ambition_platformer2d_actor_monolith::features::install_actor_spawn_requests(app, sim);
         app.add_systems(
             sim,
             (

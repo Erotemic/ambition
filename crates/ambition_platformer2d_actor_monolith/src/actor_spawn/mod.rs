@@ -146,6 +146,37 @@ pub enum SpawnActorKind {
     },
 }
 
+/// Install the programmatic actor-spawn seam: its message, and its drainer in
+/// `CombatSet::Materialize`.
+///
+/// ⭐ THE MESSAGE IS REGISTERED WHERE IT IS DEFINED, which the composition this
+/// moved out of already says in prose eight lines above the block it moved from:
+/// *"A writer whose message is registered by a different plugin is a composition
+/// that works until somebody composes differently."* The rule was written about
+/// `BodyKnockedOut` and then not applied to `SpawnActorRequest`, whose type and
+/// whose only drainer both live in this file.
+///
+/// ⭐ AND THE SET IS THIS CRATE'S FACT. `CombatSet` lives in
+/// `ambition_platformer2d_shared_tangle`, which this crate already depends on and
+/// already names in `character_runtime` — so nothing about "the drainer
+/// materializes, therefore it belongs in `Materialize`" needed a host to know it.
+///
+/// ⚠ The SCHEDULE stays a parameter, because it is genuinely the composition's:
+/// `app.sim_schedule()` is `Update` under one host and the fixed-tick schedule
+/// under another, and only a composition knows which.
+pub fn install_actor_spawn_requests(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+) {
+    use bevy::prelude::IntoScheduleConfigs;
+    app.add_message::<SpawnActorRequest>();
+    app.add_systems(
+        schedule,
+        apply_spawn_actor_requests
+            .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Materialize),
+    );
+}
+
 /// Drain [`SpawnActorRequest`]s and materialize each actor.
 ///
 /// Phase-4 scope ruling: this is the ONE sanctioned out-of-plan spawn path,

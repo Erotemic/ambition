@@ -131,6 +131,39 @@ under 2.0 needs no other change.
 
 ## Open decisions
 
+### 69. At `potato`, should character SPRITES fall back to `0_25x` instead? (2026-09-06)
+
+**The defect is measured and is not in dispute** (D-POTATO-ASPECT, `queue.md`): the
+variant generator re-measures alpha on the DOWNSCALED image, so trim fractions
+over-measure and the drawn quad changes ASPECT RATIO. It touches four of Jon's own
+reports. The real fix is generation-side and lives in the
+`tools/ambition_sprite2d_renderer` submodule.
+
+**This question is only about the interim, and it is a product tradeoff with numbers.**
+`potato`'s `SpriteTextureBudget` sets `prefer_scaled_variants: true`. Pointing SPRITES
+(not backgrounds, not parallax) at `0_25x` while `potato` keeps everything else:
+
+| tier | spritesheet PNGs on disk | character rows drifting >0.05 |
+|---|---|---|
+| base | 205 MB | — |
+| `0_25x` | **43 MB** | **4.2%** |
+| `potato` | 3.5 MB | **78.0%** |
+
+⇒ Roughly **+40 MB of sprite atlas** buys a drop from 78% of character rows drawn at
+the wrong aspect to 4.2%. Using BASE sprites instead is not on the table: 205 MB is a
+58x increase and defeats the tier.
+
+⚠ **Why this is yours and not an engineering call.** `potato` is what a
+SOFTWARE-RENDERING machine gets automatically (`DetectedGpuClass::Cpu =>
+VisualQualityProfile::Potato`), i.e. the weakest hardware in the fleet, and +40 MB is
+exactly the cost that tier exists to avoid. Whether "correct proportions" outranks
+"smallest possible footprint" ON THAT HARDWARE is a product judgement.
+
+⇒ **Three answers are all reasonable:** (a) yes, sprites at `0_25x`, accept +40 MB;
+(b) no, leave it and wait for the generator fix; (c) yes but only until the generator
+is fixed, then revert. ⛔ Nothing is blocked on this — the generator fix is the real
+repair either way, and it is blocked on the submodule pointer, not on this answer.
+
 ### ~~50. May a fighter leave the frame, or must the camera always contain the cast?~~ (WITHDRAWN 2026-09-04 — the premise was false; compressed 2026-09-05)
 
 ⛔⛔ **DO NOT ANSWER THIS.** No fighter was ever outside a frame, so neither

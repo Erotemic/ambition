@@ -2012,6 +2012,12 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
 
   ⛔⛔ **2026-09-06: I TRIED THE ONE-AUTHORITY REPAIR ON THIS FILE AND BACKED IT
   OUT. The result is a PRICE TAG for the carve owner's decision, not a fix.**
+  ⚠ **THE QUESTION ITSELF LIVES IN
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) AS DECISION 67**
+  ("derive it, or keep storing it"), which already lays out both options and what each
+  costs. The executed numbers below are recorded THERE too — cited from here rather
+  than re-derived, so the two cannot drift apart. ⇒ Read 67 for the decision; this row
+  holds only the engineering evidence behind it.
 
   The baseline holds one fact twice — `worst_edit_cost`/`watched_edit_cost` carry
   their own `lines`/`seconds`/`crates`, and the `crates` table of the same file

@@ -1,229 +1,371 @@
 # Actor-monolith decomposition — executable SCC frontier
 
-> **Measured at `625fa79af45e6eff40cbefabd8cdae33c5b5e9db` on 2026-09-07.**
->
-> This page is the executable D33 handoff. Git history is the execution diary.
-> Do not append old carve narratives here.
+**Baseline:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`.
 
-**State:** ACTIVE.
+This is an implementation queue, not an architecture essay. Execute P1-P4 in
+order. Do not start P5 implementation until P1-P4 have landed and the graph has
+been remeasured.
 
-Owners and scope:
+Durable rules:
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md).
+Post-P4 ledger:
+[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md).
 
-- [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) owns the
-  durable decomposition rules and the meaning of success.
-- [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md)
-  owns what the residual actor/body kernel is allowed to contain.
-- [`../queue.md`](../queue.md) decides when D33 runs.
-- **This page says exactly what to do next.**
+## Before every packet
 
-## Re-measure before every packet
-
-Run:
+From the new HEAD:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+rg -n 'crate::(abilities|actor_spawn|character_runtime|construction|control|features|items|projectile|session|shrine|world)' \
+  crates/ambition_platformer2d_actor_monolith/src -g '*.rs'
+git status --short
 ```
 
-At the receipt above, the nontrivial SCCs are:
+Record the largest SCC and the exact edge being cut. If the expected edge has
+already disappeared or a new edge changes the proposed ownership, stop and
+update this frontier before editing source.
+
+Use one commit per packet.
+
+---
+
+## P1 — move stocks-match settlement state to `ambition_match`
+
+**Cut:** `character_runtime -> features`.
+
+**Baseline production edge (1 ref):**
 
 ```text
-11: abilities, actor_spawn, character_runtime, construction, control,
-    features, items, projectile, session, shrine, world
-
- 2: assets, character_sprites
+crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs
+    uses crate::features::stocks_match::StocksMatchSettled
 ```
 
-The single edges whose removal shrinks the 11-module SCC are:
-
-```text
-->  9    1 ref   character_runtime -> features
--> 10    1 ref   features -> projectile
--> 10    2 refs  actor_spawn -> character_runtime
--> 10    2 refs  projectile -> features
--> 10    6 refs  shrine -> session
-```
-
-The raw reference count is a locator, not a priority. Prefer the direction that
-restores ownership. In particular, `features -> projectile` is one reference,
-but a feature observer reading projectile allegiance is a plausible downward
-consumer edge; the two `projectile -> features` calls are the more suspicious
-upward dependency.
-
-After every packet:
-
-1. re-run the graph;
-2. verify the predicted SCC change;
-3. inspect any surviving re-export or alias before declaring the cut ineffective;
-4. update this page from the new graph before starting another packet.
-
-If the SCC does not change as predicted, stop. Do not compensate by taking a
-second unrelated cut.
-
-## P1 — READY: sever `character_runtime -> features`
-
-**Why first:** one production reference splits two modules out of the large SCC.
-It is the highest-leverage current cut.
-
-Current edge:
-
-```text
-character_runtime/live_match_clock.rs
-    -> features::stocks_match::StocksMatchSettled
-```
-
-`LiveMatchTicks` needs the rollback-stable fact that the current match has
-settled. It does not need the `features` module or the systems that decide a
-stocks match.
+**Expected graph receipt:** largest SCC **11 -> 9**. `actor_spawn` and
+`character_runtime` should become a separate 2-module SCC.
 
 ### Ownership decision
 
-Move the **settlement value type** downward to the stock/match vocabulary owner;
-do not move `LiveMatchTicks` into `features` and do not add a callback/service
-locator.
+`StocksMatchSettled` and `SuddenDeathEntered` are match receipts/latches. They
+carry `MatchInstance` and `MatchVerdict`, not feature ECS behavior. Their owner is
+`ambition_match`.
 
-Preferred destination order:
-
-1. `ambition_combat::stocks` if the type remains stocks-ruleset vocabulary — it
-   already owns `MatchVerdict` and stock-count semantics;
-2. a lower match vocabulary module only if that avoids adding a reverse
-   dependency.
-
-Keep `decide_stocks_match` and the ruleset systems where their policy belongs.
-`SuddenDeathEntered` should move with the settlement vocabulary if the resulting
-owner is coherent, but P1 does not require bundling unrelated code just to make
-one commit larger.
-
-### Required migration
-
-- update the rollback registration to the new type path;
-- update Smash/read-model consumers to the semantic type path;
-- update snapshot codecs without changing the wire meaning;
-- do not leave a `features` re-export that remains the discovery path for the
-  moved type;
-- a facade-level compatibility export is acceptable only if it does not restore
-  the monolith dependency.
-
-### Acceptance
+Move exactly these values and their pure query helper:
 
 ```text
-character_runtime -> features == 0
+StocksMatchSettled
+SuddenDeathEntered
+the_live_match_is_settled
 ```
 
-Expected SCC result:
+Do **not** move `decide_stocks_match`, `SuddenDeathBegan`, winner-card systems or
+other Smash/stocks policy in this packet.
+
+### File operations
+
+1. Create `crates/ambition_match/src/stocks_state.rs` containing the three items <!-- cite-ok: proposed path created by P1 -->
+   above and their value-level tests.
+2. Export them from `crates/ambition_match/src/lib.rs`.
+3. Move the `SnapshotState` implementations for `StocksMatchSettled` and
+   `SuddenDeathEntered` from
+   `crates/ambition_platformer2d_actor_monolith/src/snapshot_impls.rs` into
+   `crates/ambition_match/src/snapshot_impls.rs`. The orphan rule requires this
+   once the types move.
+4. Change monolith rollback registration to register the new type paths while
+   preserving these exact wire IDs:
+
+   ```text
+   resource.stocks_match_settled
+   resource.sudden_death_entered
+   ```
+
+5. Update `features/stocks_match.rs` to import the values from `ambition_match`.
+6. Update `character_runtime/live_match_clock.rs` to import
+   `ambition_match::StocksMatchSettled` directly.
+7. Update direct external consumers, including Smash/app tests, to the
+   `ambition_match` path. Do not retain `features::stocks_match` as the discovery
+   path for the moved values.
+8. Delete the moved definitions from `features/stocks_match.rs`.
+
+### Forbidden end states
+
+P1 is **not complete** if any production source still contains:
 
 ```text
-9: abilities, construction, control, features, items, projectile,
-   session, shrine, world
-2: actor_spawn, character_runtime
-2: assets, character_sprites
+character_runtime -> features::stocks_match
+features::stocks_match::StocksMatchSettled
+features::stocks_match::SuddenDeathEntered
 ```
 
-Keep the existing live-match-clock rollback, pause/hitstop and settled-match
-acceptance green.
+Do not introduce `ambition_match -> actor_monolith`.
 
-## P2 — READY AFTER P1: peel projectile by removing `projectile -> features`
+### Required acceptance
 
-Current production calls:
+Run/retain the existing tests that prove:
+
+- a settled match stops the live match clock;
+- sudden death suppresses normal settlement/timeout behavior;
+- the sudden-death latch does not carry into the next match;
+- rollback restores the match receipt/latch with the same wire IDs;
+- the assembled Smash host still reaches settlement/sudden death correctly.
+
+Source receipt:
+
+```bash
+! rg -n 'crate::features::stocks_match' \
+  crates/ambition_platformer2d_actor_monolith/src/character_runtime -g '*.rs'
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+```
+
+Stop if `ambition_match` would need any dependency on the actor monolith to own
+these values. That would invalidate the ownership choice.
+
+---
+
+## P2 — make projectile simulation consume generic feature-target capability
+
+**Cut:** `projectile -> features`.
+
+**Baseline production calls (2 refs total):**
 
 ```text
 projectile/systems.rs
-    -> features::ecs_hit_event_hits_breakable(...)
-    -> features::ecs_hit_event_hits_boss(...)
+    -> features::ecs_hit_event_hits_breakable
+    -> features::ecs_hit_event_hits_boss
 ```
 
-The reverse edge is one read from feature perception to
-`projectile::ProjectileAllegiance`.
+Those calls decide **same-tick projectile termination** before the feature damage
+consumer later drains `HitEvent`. Replacing them with a message round-trip is not
+acceptable; it changes timing.
 
-### Direction
+**Expected graph receipt after P1:** largest SCC **9 -> 8**.
 
-Preserve the useful direction:
+### Ownership decision
+
+Projectile flight may ask one lower-level question:
+
+> Is there a live projectile-reactive feature target intersecting this shot, and
+> what stable ignore key names it?
+
+Projectile flight must not know boss catalogs, boss animation state, breakable
+trigger policy, or `pogo_refresh` policy.
+
+Use the already-canonical `DamageableVolumes` for geometry. Add only the missing
+**projectile eligibility/identity** vocabulary to `ambition_projectiles`.
+
+### Concrete API
+
+Add a small component in `ambition_projectiles`, named for example:
 
 ```text
-feature/observation code -> projectile state vocabulary
+ProjectileFeatureTarget
+    ignore_key: String
 ```
 
-Remove the upward direction:
+The exact public name may vary, but it must contain only projectile-facing
+identity/eligibility. It must not import `BossConfig`, `BreakableFeature`,
+`BossCatalog` or actor-monolith feature types.
+
+The component is present only on feature entities that should terminate an
+ordinary projectile hit. Geometry remains in `ambition_combat::DamageableVolumes`.
+
+### File operations
+
+1. Add the target component/API to `crates/ambition_projectiles` and export it.
+2. Register it with rollback if the feature entity's static capability marker is
+   part of rollback reconstruction. Do not rely on an unregistered component
+   surviving entity restoration.
+3. Stamp the component at the two existing construction sites, not from a
+   later repair system:
+   - `actor_spawn::spawn_boss_with_overrides_into` inserts
+     `ProjectileFeatureTarget::new(format!("boss:{}", authored.id))` beside the
+     boss's initial `DamageableVolumes`;
+   - `features/ecs/spawn_static.rs::spawn_breakable_into` inserts
+     `ProjectileFeatureTarget::new(format!("breakable:{}", authored.id))` only
+     when `breakable.trigger.allows_hit() && !breakable.pogo_refresh`.
+   This preserves the exact ignore-key grammar already consumed by
+   `target_is_ignored`. Do not add a deferred per-frame marker repair that makes
+   a fresh target intangible to projectiles for its first tick.
+4. Keep `features/ecs/target_volumes.rs` as the owner of current geometry:
+   - `refresh_boss_damageable_volumes` continues publishing active boss-part /
+     authored hurtbox geometry;
+   - `refresh_breakable_damageable_volumes` continues clearing geometry when
+     broken and publishing current breakable geometry.
+5. Rewrite `projectile::step_projectiles` to query only the generic target marker
+   plus `DamageableVolumes` for unresolved feature termination. Remove its
+   boss-specific and breakable-specific query parameters and remove the
+   `BossCatalog` dependency from this decision path.
+6. Preserve existing `HitEvent { target: UnresolvedFeatures, ... }`, splash,
+   trace and projectile despawn behavior. Feature damage application remains in
+   the feature owner.
+7. Delete `ecs_hit_event_hits_breakable` / `ecs_hit_event_hits_boss` if no other
+   production consumer remains. Do not move those feature-specific helpers into
+   `projectile` merely to make the graph green.
+
+### Forbidden end states
+
+P2 is not complete if `projectile/systems.rs` still mentions any of:
 
 ```text
-projectile simulation -> feature implementation
+crate::features
+BossCatalog
+BreakableFeature
+BossClusterRef
+BossAttackState
 ```
 
-The projectile step should emit/forward a generic hit fact or ask a lower combat
-receiver/disposition seam. Breakable/boss feature policy then consumes that fact.
-Do not teach the projectile domain a growing list of feature kinds.
+for unresolved feature collision/termination.
 
-Do **not** move `ProjectileAllegiance` merely because the one-reference cut is
-cheaper. Move that type only if an independent ownership analysis says its
-current module is wrong.
+It is also not complete if a pure pogo-refresh breakable now consumes ordinary
+projectiles, or if boss collision falls back to the coarse boss envelope instead
+of current `DamageableVolumes`.
 
-### Acceptance
+### Required acceptance
+
+Add/retain production poisons for all of these:
+
+1. projectile intersects an ordinary on-hit breakable -> emits unresolved
+   feature hit and terminates that tick;
+2. projectile intersects a pure `pogo_refresh` breakable -> does **not** consume
+   the projectile;
+3. projectile intersects an active boss part -> consumes at the precise
+   `DamageableVolumes`, not the coarse body envelope;
+4. dead/broken target with empty damageable geometry -> does not consume;
+5. ignored target key -> does not consume;
+6. absorbed/parried projectile still cannot fall through into unresolved feature
+   resolution (`an_absorbing_parry_consumes_the_shot_rather_than_returning_it`).
+
+Source receipt:
+
+```bash
+! rg -n 'crate::features::ecs_hit_event_hits_(breakable|boss)' \
+  crates/ambition_platformer2d_actor_monolith/src/projectile -g '*.rs'
+! rg -n 'BossCatalog|BreakableFeature|BossClusterRef|BossAttackState' \
+  crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+```
+
+Stop if the proposed generic target component needs feature-family policy to be
+interpreted by the projectile system. That policy belongs at construction or the
+feature publisher, not in flight simulation.
+
+---
+
+## P3 — move deterministic lifecycle-commit vocabulary to `shared_tangle`
+
+**Cut:** `shrine -> session` (**6 baseline refs**).
+
+The current file
+`crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs`
+is already a deterministic value/slot module. It does not need session execution
+policy to define its state.
+
+**Expected graph receipt after P2:** largest SCC **8 -> 7**.
+
+### Ownership decision
+
+Move the **entire deterministic file** to the shared lifecycle vocabulary owner:
 
 ```text
-projectile -> features == 0
+crates/ambition_platformer2d_shared_tangle/src/lifecycle/commit.rs
 ```
 
-Expected result after P1 + P2:
+Move these definitions together:
 
 ```text
-8: abilities, construction, control, features, items, session, shrine, world
-2: actor_spawn, character_runtime
-2: assets, character_sprites
+LifecycleIntent
+RoomReconstitutionIntent
+RoomTransitionIntent
+Admission
+PendingIntent
+PendingLifecycleCommit
 ```
 
-Preserve same-tick projectile hit settlement, consumed-projectile termination,
-breakable/boss hits and rollback determinism.
+Keep lifecycle executors/admission producers in their current owning runtime or
+content modules. P3 moves vocabulary and rollback state, not execution policy.
 
-## P3 — READY AFTER P2: move lifecycle-intent vocabulary below `shrine`
+### File operations
 
-The six `shrine -> session` references are one conceptual dependency:
-`shrine.rs` records a confirmed-frame lifecycle operation through
-`session::lifecycle_commit`.
+1. Move `session/lifecycle_commit.rs` to
+   `shared_tangle/src/lifecycle/commit.rs` <!-- cite-ok: proposed path created by P3 -->, including its pure slot tests.
+2. Export the vocabulary from `shared_tangle::lifecycle`.
+3. Move `SnapshotState for PendingLifecycleCommit` from the monolith snapshot
+   file into the lower owner (or another file in `shared_tangle` owned by that
+   crate). Preserve the existing wire representation.
+4. Update the rollback registrar type path without changing its wire ID.
+5. Update **every** producer/consumer to import the shared lifecycle path,
+   including:
+   - shrine checkpoint/transition producers;
+   - world room-transition/reconstitution producers;
+   - runtime sandbox-reset / room-transition loading;
+   - session reset/setup code;
+   - app-level replay/transition tests.
+6. Delete `session/lifecycle_commit.rs` and its `mod` declaration.
+7. Do not add a compatibility re-export under `session`.
 
-The deterministic vocabulary involved is:
-
-- `LifecycleIntent`;
-- `RoomTransitionIntent`;
-- `RoomReconstitutionIntent`;
-- `Admission`;
-- `PendingLifecycleCommit` and its record/query API.
-
-A shrine is a **producer** of a lifecycle intent. It should not import the
-session implementation that later commits it.
-
-### Direction
-
-Move the rollback-safe intent/slot vocabulary to the lower lifecycle owner —
-prefer the existing shared lifecycle layer unless a dedicated lifecycle crate is
-already justified by another customer.
-
-Keep host/session commit execution in the session domain. The lower type may say
-what is pending; it must not execute room/session policy.
-
-Do not invent a shrine-specific transition request as an escape hatch. All
-producers should continue to compete for the same earliest-sticky lifecycle
-slot.
-
-### Acceptance
+### Forbidden end states
 
 ```text
-shrine -> session == 0
+crate::session::lifecycle_commit
+ambition_platformer2d_actor_monolith::session::lifecycle_commit
 ```
 
-Expected result after P1–P3:
+must have zero production references after P3.
+
+`shared_tangle` must not acquire a dependency on the actor monolith or runtime.
+
+### Required acceptance
+
+Keep production acceptance for:
+
+- room transition admission and confirmed-frame execution;
+- same-room replay/reconstitution;
+- refusal when another lifecycle intent already occupies the slot;
+- rollback across a pending transition/reconstitution;
+- shrine-triggered transition/checkpoint path.
+
+At minimum retain the established app-level poisons in:
 
 ```text
-7: abilities, construction, control, features, items, session, world
-2: actor_spawn, character_runtime
-2: assets, character_sprites
+game/ambition_app/tests/rollback_room_transition.rs
+game/ambition_app/tests/canonical_reconstitution.rs
+game/ambition_app/tests/room_replay_seam.rs
 ```
 
-Preserve checkpoint save/resume, death reset, admission refusal and confirmed
-commit rollback tests.
+Source receipt:
 
-## P4 — READY AFTER P3: move actor placement-lowering specialization out of `world`
+```bash
+! rg -n 'session::lifecycle_commit' crates game -g '*.rs'
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+```
 
-The four `construction -> world` references all point to the same adapter family
-currently filed under `world/placements.rs`:
+Stop if any moved type requires a session executor, provider, content catalog or
+host object merely to exist. That would mean the file is not pure lifecycle
+vocabulary as currently measured.
+
+---
+
+## P4 — move actor placement lowering from `world` to `construction`
+
+**Cut:** `construction -> world` (**4 baseline refs**).
+
+The current
+`crates/ambition_platformer2d_actor_monolith/src/world/placements.rs` contains
+actor-specific specialization over the generic external
+`ambition_platformer2d_world::placements` API. It is construction policy, not a
+world fact.
+
+**Expected graph receipt after P3:** largest SCC **7 -> 6**.
+
+### Ownership decision
+
+Move the entire actor-specific specialization file to:
+
+```text
+crates/ambition_platformer2d_actor_monolith/src/construction/placements.rs
+```
+
+Move together:
 
 ```text
 ActorPlacementContext
@@ -232,174 +374,187 @@ LoweringFn
 PlacementLoweringRegistry
 ```
 
-`ambition_platformer2d_world` already owns the generic placement-lowering
-machinery. These aliases specialize it with actor construction/catalog state.
-That specialization is actor construction vocabulary, even though room staging
-also consumes it.
+Do **not** move generic `PlacementRecord`, generic lowering plans or LDtk
+placement vocabulary out of `ambition_platformer2d_world`.
 
-### Direction
+### File operations
 
-Move the actor-specific specialization to `construction` (or a lower dedicated
-actor-construction vocabulary module if one already exists by then).
+1. Move the contents of `world/placements.rs` to
+   `construction/placements.rs`. <!-- cite-ok: proposed path created by P4 -->
+2. Export the actor specialization from `construction`.
+3. Update monolith production callers, including:
+   - `construction/mod.rs`;
+   - `features/ecs/summon.rs`;
+   - `features/ecs/spawn/mod.rs`;
+   - `features/ecs/spawn_static.rs`;
+   - `session/setup.rs`;
+   - `session/reset/mod.rs`;
+   - `world/rooms/stage.rs`.
+4. Update external callers to the new semantic path, including:
+   - `ambition_platformer2d_provider/src/lifecycle.rs`;
+   - `ambition_platformer2d_runtime/src/room_transition/loading.rs`;
+   - `ambition_platformer2d_runtime/src/lib.rs` facade export;
+   - `game/ambition_app/src/app/dev_runtime.rs`;
+   - `game/ambition_app/src/app/world_flow/room_transition_assets.rs`;
+   - current demo/test callers such as Sanic.
+5. Update construction/spawn tests to import the new path.
+6. Delete `world/placements.rs` and remove its module declaration.
+7. Do not leave `world::placements::{ActorPlacementContext,...}` as a
+   compatibility re-export.
 
-Expected dependency direction afterward:
+### Forbidden end states
 
-```text
-world/session/features -> construction placement vocabulary
-```
-
-not:
-
-```text
-construction -> world implementation
-```
-
-Moving the adapter is allowed to create a one-way `world -> construction` edge.
-The objective is to remove construction from the strongly connected core, not to
-make every consumer independent of construction vocabulary.
-
-### Acceptance
-
-```text
-construction -> world == 0
-```
-
-Expected result after P1–P4:
+After P4, these must be zero in production source:
 
 ```text
-6: abilities, control, features, items, session, world
-2: actor_spawn, character_runtime
-2: assets, character_sprites
+crate::world::placements::ActorPlacementContext
+crate::world::placements::PlacementLoweringRegistry
+ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry
+ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry
 ```
 
-At this point **STOP THE MECHANICAL PEEL PHASE**.
+Generic references to `ambition_platformer2d_world::placements::PlacementRecord`
+are expected and should remain.
 
-## P5 — DESIGN CHECKPOINT: the six-module hard core
+### Required acceptance
 
-After P1–P4, no single edge shrinks the remaining six-module SCC. At the current
-head its internal edges are:
+Retain/execute tests covering:
+
+- caller-supplied placement lowering registry;
+- inert placement row skipped versus active row planned;
+- committed placement stamping pickup/feature identity;
+- placement reconstitution/respawn through the planner;
+- room transition loading with the externally supplied actor lowering registry.
+
+Source receipt:
+
+```bash
+! rg -n 'world::placements::(ActorPlacementContext|PlacementLoweringRegistry|LoweringCtx|LoweringFn)' \
+  crates game -g '*.rs'
+python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+```
+
+Stop if moving the actor specialization requires moving generic world placement
+records. That would widen P4 beyond its ownership claim.
+
+---
+
+## P5 — mandatory hard-core edge ledger; no code changes yet
+
+After P4, remeasure. The expected SCC is:
 
 ```text
-abilities -> control   2       control -> abilities 3
-abilities -> features  1       control -> features  1
-features  -> control   2
-features  -> world    12       world   -> features  6
-features  -> items     3
-items     -> session   2       session -> items     5
-items     -> abilities 1
-session   -> world     5       world   -> session   3
-session   -> features  4
-session   -> abilities 3
+abilities, control, features, items, session, world
 ```
 
-The direct two-way knots are therefore:
+Do not start a fifth carve from the old baseline counts.
+
+### Produce this exact artifact
+
+Update
+[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md)
+from the **post-P4 HEAD**.
+
+For every production reference where both source and destination are inside the
+measured SCC, add one ledger row with:
+
+```text
+edge
+source file + symbol
+destination symbol
+class
+semantic owner
+disposition
+new path/API if changing
+production acceptance
+```
+
+Do not restrict the ledger to two-way pairs. One-way links such as
+`abilities -> features` can be essential links in a longer cycle.
+
+Allowed dispositions are defined in the decomposition owner. No row may remain
+`TBD`.
+
+### Seed questions to resolve, not assumptions to preserve
+
+The current baseline already shows these families and they must be rechecked:
 
 ```text
 abilities <-> control
-features  <-> control
-features  <-> world
-items     <-> session
-world     <-> session
+    possession/control authority and climb/ascend/descend input seams
+
+control <-> features
+    ActingParticipant consumers versus animation-overlay mutation
+
+features <-> world
+    overlay/world-prep and feature construction verification
+
+items <-> session
+    persistence/save-restored versus durable-horizon installation
+
+world <-> session
+    active content/session setup and room lifecycle facts
+
+abilities -> features
+    runtime minion spawn
+
+features -> items
+    item/persistence adapters and installation
+
+items -> abilities
+    item-granted ability installation
+
+session -> abilities/features
+    teardown/reset/content staging
 ```
 
-Do not continue by deleting whichever reference count is smallest.
+### P5 exit
 
-### Required design pass
+P5 finishes only when:
 
-Before another code carve, classify every edge in those five two-way pairs as
-one of:
+1. every post-P4 internal SCC edge is in the ledger;
+2. every row has a non-TBD disposition;
+3. the proposed package map is written at the bottom of the ledger;
+4. one exact P6 implementation packet is written here, with files, symbols,
+   destination, forbidden end state, tests and expected graph effect;
+5. or the ledger concludes that the six modules form one coherent package and
+   records why each retained edge is legitimate.
 
-```text
-DATA/VOCABULARY    a lower type consumed upward
-POLICY             one domain deciding another domain's result
-SCHEDULING         concrete system ordering/installation
-CONSTRUCTION       authored lowering/materialization
-LIFETIME           session/reset/rollback ownership
-```
+No hard-core source edit should land before this receipt exists.
 
-For each pair, answer:
+---
 
-1. which side owns the fact or decision;
-2. whether the two modules should actually become one package;
-3. whether one direction is legitimate downward consumption;
-4. which exact opposite-direction references violate that ownership;
-5. what production poison proves the cut did not change semantics.
+## Satellite SCCs
 
-Write the result into this page as P5a/P5b/etc. **before implementation**.
-
-Likely coherent groups to test, not conclusions to assume:
-
-```text
-abilities + control      actor-local control/action kernel
-world + session          world/session lifecycle
-features                 residual orchestration that should dissolve by owner
-items                    residual adapters/policy after prior item carves
-```
-
-A good P5 result may choose to extract a two-module group together. SCC reduction
-is evidence about boundaries; it does not require every top-level module to
-become its own crate.
-
-## Satellite SCCs — do not confuse “left the big knot” with “already separable”
-
-P1 is expected to leave a new two-module SCC:
+Expected after P1:
 
 ```text
 actor_spawn <-> character_runtime
 ```
 
-That is a successful peel: the pair no longer participates in the central actor
-knot. It is not evidence that either module should immediately become its own
-crate. Treat the pair as a grouped actor-construction/runtime package candidate
-and decide its internal seam only when a package carve needs one. Do not delay
-P2–P5 to make this pair acyclic.
+Treat that pair as a grouped extraction candidate. Do not spend time deleting
+its internal cycle until an external consumer needs one half independently.
 
-The current tree already has another independent two-module SCC:
+Current independent SCC:
 
 ```text
 assets <-> character_sprites
 ```
 
-Current directions there are:
+Also treat this as a grouped asset-domain question. It is not on the P1-P5
+critical path.
 
-```text
-assets -> character_sprites   sprite enumeration/loading
-character_sprites -> assets   platformer asset catalog/ids
-```
+## Per-packet final receipt
 
-Treat it as a **grouped extraction question**, not a prerequisite to the actor
-kernel peel. Before changing it, decide whether the two modules are one asset
-preparation domain or whether the catalog/loader dependency should be inverted.
-The existing external `ambition_character_sprites` crate owns pose/geometry
-derivation, so do not dump asset loading into it merely because the names match.
-
-## Post-carve checks
-
-For every D33 packet:
+Before committing each P1-P4 packet:
 
 ```bash
+git diff --check
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 python3 scripts/modules_md.py
-python3 scripts/check_doc_links.py
 python3 scripts/check_planning_citations.py
 ```
 
-Also run the focused production tests named by the packet. Run broad Rust gates
-only when the environment supports the repository's target/disk preconditions.
-
-If a carve adds or changes a crate boundary, also run the capability/absence and
-compile-cost ratchets required by the owning planning pages. Do not re-freeze a
-red baseline merely because a carve changed topology.
-
-## Definition of progress
-
-D33 progress is one of:
-
-- a module/group leaves the large SCC for a coherent ownership reason;
-- a reverse authority edge becomes one-way downward consumption;
-- a residual catch-all (`features`, `items`, etc.) loses a responsibility to its
-  actual owner;
-- an explicit design checkpoint proves two modules belong together.
-
-Line count, number of crates, number of dependencies and raw edge-reference
-count are supporting measurements. None is the goal.
+Then run the packet's focused Rust tests under the repository's guarded target /
+disk-headroom workflow. Put the measured SCC transition and test receipt in the
+commit message or adjacent planning receipt.

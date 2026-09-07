@@ -1,178 +1,128 @@
 # Controlled-character actor kernel
 
-**State:** NARROW / OPEN — the first decision-authority convergence is complete.
-This is no longer the Engine 1.0 P0 gate.
+**State:** NARROW / OPEN. This page defines what is allowed to remain in the
+residual actor kernel; it is not a historical campaign log.
 
-## Goal
+Executable SCC work:
+[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md).
 
-⚠ **AND THE KERNEL OWES THE SEAMS, NOT THE DOMAINS.** The residual actor/body
-kernel should expose narrow extension seams that optional capabilities consume;
-it must not enumerate or require them. A reusable foundation that depends on an
-optional gameplay domain — or on an Ambition product module — has failed the
-composability criterion in [`decomposition.md`](decomposition.md) however clean
-its authority is.
+## Kernel contract
 
-A human-controlled body, AI-controlled body, possessed body and future remote
-participant should use the same actor-local simulation path. Distinctions such
-as home avatar, driving participant, input seat, camera/view subject and
-presentation focus remain legitimate when they have different semantics; they
-must not become alternate movement/combat authorities.
+A human-driven body, AI-driven body, possessed body and future remote-driven body
+must all run through the same body simulation path.
 
-## Landed convergence
-
-The major player-centric decision split that motivated this program has largely
-landed:
-
-- actor observation/decision phases are explicit enough to separate observation,
-  targeting and pre-decision maintenance from later mutation;
-- the old combat-slot arbitration anchored on `PrimaryPlayer` was deleted after
-  proving no production reader consumed it;
-- controlled and autonomous bodies consume increasingly shared actor/body
-  decision contracts;
-- several seat-zero/primary-player special roads have been removed or reduced to
-  legitimate presentation/home-avatar fallback semantics;
-- `CollisionWorld` is the shared collision observation authority instead of each
-  large system independently recomposing room/platform/overlay geometry.
-
-Do not reopen deleted player-vs-actor mirrors merely because old campaign history
-mentions them.
-
-## Residual kernel target
-
-The residual actor kernel should own only behavior that genuinely needs tight
-body-local integration, approximately:
+The kernel may own:
 
 ```text
 body state and actor-local lifecycle
-    + accepted intent / control projection
-    + movement/contact integration
-    + core reaction/action application seams
-    + narrow observation/decision interfaces
+accepted control/intent projection
+movement/contact integration
+core body reaction/action application
+narrow observation/decision interfaces
 ```
 
-It should not be the composition root for persistence, rooms/session lifecycle,
-boss/encounter orchestration, item/projectile domains, named content,
-presentation/UI/audio, developer tools or host/platform policy.
+The kernel must not own merely for convenience:
 
-## Current work
+```text
+room/session lifecycle
+save/persistence policy
+independent item/projectile domains
+boss/encounter/dialogue orchestration
+presentation/UI/audio
+host/dev facilities
+named game content
+```
 
-### K1 — finish the remaining body-integration fork only if it is still real
+## Identity rules
 
-The previous campaign narrowed the structural fork to the remaining home-body /
-generic-body integration difference. Re-measure HEAD before changing it. Merge
-paths only when they express the same body semantic; do not erase legitimate
-home-avatar presentation or shell policy for naming symmetry.
+Keep distinct concepts distinct:
 
-### K2 — per-driven-body item/projectile control — DONE (fold landed 2026-09-02)
+```text
+participant/network peer
+input seat/device
+currently driven body
+home/avatar body
+camera/view subject
+presentation focus
+```
 
-Both leaks this section named are closed:
+A bug is one concept being used as another concept's authority. Reducing the
+number of types is not a goal.
 
-- held ranged shots no longer attribute through slot-zero. A held bolt carries
-  `ProjectileOwner(firer)` — the rollback-registered, entity-remapped component
-  the ECS projectile road already uses — so the hit is credited to whoever
-  fired it instead of `Query<Entity, PrimaryPlayerOnly>`;
-- nine held-item abilities (`ranged/{volley, meteor, beam, vortex}`,
-  `thrown/puppy_slug_gun`, `traversal/{grapple, dive, blink, mark_recall}`) loop
-  `DrivenBodies` instead of resolving one `ControlledSubject`.
+## Control/custody rule
 
-⛔⛔ CONVERTING A SINGLE-SUBJECT SYSTEM INTO A LOOP IS NOT MECHANICAL. Two
-classes of defect come with it, and both were live here:
+The control/custody prerequisite is settled around explicit claims and effective
+projection. Optional capabilities may contribute control claims; they do not get
+parallel movement/combat loops.
 
-- **a per-body exit written as `return` ends the SYSTEM.** Seat zero is idle on
-  most ticks, so the first seat's early exit silences every seat after it —
-  which is what `fire_held_ranged_system` was already fixed for once.
-- **a per-tick BUDGET read from a query cannot see this tick's `Commands`
-  spawns.** The puppy-slug summon cap was counted that way, so N seats firing on
-  one tick each read the same pre-tick count and every one of them summoned. A
-  budget shared across the loop has to be tallied inside it.
+Do not reintroduce player-only or AI-only simulation branches while carving
+modules.
 
-✔ **The fold landed 2026-09-02.** A press on a held gun-sword or fireball is
-an `ActionRequest::Ranged` (`fire_held_ranged_system`, `items/pickup/mod.rs`)
-consumed by the same spawner every brain's ranged action uses; the parallel
-`HeldProjectile` simulation — its own world collision, range gate, splash and <!-- cite-ok: records the deleted parallel simulation -->
-rollback row (`item.held_projectile`) — is deleted, and the fireball's burst is
-`splash_half_extent` on `ProjectileGameplay` (schema v150). The two facts the
-old path decided by code, not authoring — no recoil for the hand, the side
-muzzle — are recorded as decisions 40–41 in `awaiting-maintainer-decision.md`;
-the fold preserves the shipped feel until they are ruled. Guards:
-`ambition_held_items::tests` (the request — ⚠ this said `items::pickup::tests`
-until the pickup carve of 2026-09-03 moved it out of the kernel) and
-`game/ambition_app/tests/hand_fired_held_shot.rs` (the projectile, in the
-shipped composition; recoil proven red at −380 px/s).
+## Package rule for the current SCC
 
-The press-gated WORLD verbs followed (D-CONTROL-INTERACT): `open_ecs_chests`,
-`interact_ecs_actors_and_switches`, `heal_save_shrine_system` and
-`regen_player_mana`. Two more lessons came out of that half:
-
-- **a `return` that is right at ONE scope is wrong at another.** The switch
-  loop's "once we flip one we stop" is correct per body and ends the SYSTEM as
-  written; dialogue's identical-looking `return` is CORRECT, because a
-  conversation is a global mode flip and two bodies cannot both open one. The
-  question is never "loop or not" — it is what the exit is the exit FROM.
-- **an N-body verb can still carry a 1-body fact.** A shrine heals every resting
-  body and writes ONE checkpoint. Which body owns that fact is a real question
-  (D-SHRINE-CHECKPOINT-OWNER: the comment and the code have long disagreed), and
-  a multi-seat conversion is not the place to decide it — so it picks the first
-  body in the rewind-stable order and says so.
-
-Still NOT converged, deliberately: the portal gun, whose `FirePortalGun` gesture
-carries no seat for a resolver to key off — that is a change to the GESTURE, not
-the resolver (D-PORTAL-GESTURE-SEAT). Presentation readers — the portal eye, the
-drawn gun, control prompts, the camera — stay singular because a view has one
-viewpoint (K3).
-
-### K3 — preserve separate identities where they mean different things
-
-Do not collapse these merely to reduce type count:
-
-- gameplay participant / network peer;
-- input seat/device assignment;
-- currently driven body;
-- home/avatar body;
-- camera/view subject;
-- presentation focus.
-
-A bug is one concept accidentally used as another concept's authority, not the
-existence of several concepts.
-
-### K4 — let actor-monolith carves follow ownership
-
-The residual-kernel definition should guide
-[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md). A carve is
-valuable when it removes an unrelated authority/dependency from the actor kernel,
-not when it merely makes this file's implementation smaller.
-
-The current SCC peel is explicit in
-[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md). The first
-four packets remove satellite dependencies before touching the hard core. After
-those cuts, the expected six-module SCC is:
+P1-P4 deliberately remove satellite responsibilities before deciding the hard
+core. After those packets, the expected SCC is:
 
 ```text
 abilities, control, features, items, session, world
 ```
 
-At that checkpoint, do not make `abilities` and `control` independent merely to
-reduce the SCC: they are plausible members of this kernel's actor-local
-control/action package. Conversely, `world`, `session`, residual `items` policy
-and the `features` catch-all need an ownership classification before they are
-allowed to remain. The SCC is a prompt to justify a package boundary, not a
-requirement that every top-level module become a crate.
+At that point:
 
-## Acceptance pressure
+- `abilities + control` are allowed to remain together **only** if the edge ledger
+  shows they are one actor-local control/action package;
+- `world + session` are allowed to remain together **only** if remaining edges
+  are lifecycle/world state that truly share one owner;
+- `features` is not accepted as a permanent catch-all. Every retained feature
+  responsibility must be named in the hard-core ledger;
+- residual `items` code must justify why it belongs in the kernel rather than the
+  already-carved item/persistence capability packages.
 
-- zero-human-controlled-body headless simulation;
-- two or more independently driven bodies with correct item/projectile ownership;
-- possession/body switching without a second movement/combat path;
-- local and future remote participants controlling ordinary bodies;
-- persistent NPCs using the same body/control/navigation seams;
-- home-avatar presentation remaining correct without becoming simulation
-  authority for every body.
+The decision artifact is
+[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md).
 
-## Open design questions — deliberately unresolved
+## Invariants that every carve must preserve
 
-- What is the smallest stable observation/decision input without a giant context
-  bag?
-- Which remaining home-body integration differences are genuine semantics versus
-  historical duplication?
-- Where should provider-specific body abilities attach so multiple driven bodies
-  can consume them without enlarging the generic actor action taxonomy?
+1. **One Body, One Path:** player/AI/possession differ in intent source, not body
+   physics/combat implementation.
+2. **One control answer:** transient control is derived from the canonical claim
+   authority rather than independently written by capabilities.
+3. **One geometry answer:** combat/projectile/contact systems consume published
+   body/target geometry instead of family-specific duplicate envelopes when a
+   canonical volume exists.
+4. **One lifetime owner:** session/match/attempt/stock/process retraction is part
+   of the moved authority's contract.
+5. **Rollback follows canonical state:** moving a type cannot drop or duplicate
+   its snapshot/registration semantics.
+6. **Presentation stays downstream:** camera, sprite, portal, HUD and shell facts
+   may observe the kernel; they do not become simulation authority.
+7. **Optional capabilities remain optional:** the kernel does not depend upward
+   on a gameplay capability solely because one game installs it.
+
+## Required acceptance pressure
+
+The residual package must continue to support:
+
+- zero-human headless simulation;
+- two or more independently driven bodies;
+- possession/body switching without another body simulator;
+- persistent NPCs through the same movement/combat seams;
+- item/projectile attribution to the actual driven/firing body;
+- home-avatar and camera presentation without making the home body global
+  gameplay authority;
+- rollback across control/lifetime transitions.
+
+## Open questions that belong to P5, not P1-P4
+
+Do not answer these during the four peel packets:
+
+- Is possession/control vocabulary one package with abilities, or should
+  abilities contribute through a lower claim/intent API?
+- Which `features <-> world` edges are world contribution data versus residual
+  orchestration?
+- Should item persistence consume a generic durable-horizon milestone, or live
+  in a session-owned persistence adapter?
+- Which active-content/session/world binding owns room setup after placement
+  specialization moves to construction?
+
+Those questions are resolved only by the post-P4 edge ledger and package map.

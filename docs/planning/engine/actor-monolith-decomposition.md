@@ -1,58 +1,54 @@
 # Actor residual-kernel decomposition
 
-> **Current topology measured at `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`
-> on 2026-09-07.**
->
-> Historical carve-by-carve investigation lives in Git history. This document
-> keeps the durable rules, current topology and exit criteria only.
+> **Baseline:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`, measured 2026-09-07.
+> Historical carve notes live in Git history. This file contains only the rules
+> needed to make the next decomposition decisions.
 
-**State:** ACTIVE, no longer a prerequisite to begin C2 capability composition.
-The remaining actor-kernel decomposition continues in parallel because it still
-controls package isolation, compile fanout and ownership clarity.
+**State:** ACTIVE. The authority prerequisites for C2 are already crossed; this
+work now runs in parallel with capability/plugin composition.
 
-Executable next steps live in
-[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md).
+Executable work is in
+[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md). The
+post-P4 design ledger is
+[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md).
 
 ## Goal
 
-Reduce `ambition_platformer2d_actor_monolith` to the tightly integrated actor/body
-simulation kernel described by
-[`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md).
+Reduce `ambition_platformer2d_actor_monolith` to a coherent actor/body kernel.
+A carve succeeds only when an authority moves to its semantic owner and the old
+dependency disappears from production source.
 
-A successful carve moves an authority to its real owner and leaves a narrow,
-explicit dependency behind. Source shrinkage is useful only when that happens.
-
-The residual kernel may own approximately:
+The residual kernel may own:
 
 ```text
 body state and actor-local lifecycle
-accepted intent / control projection
+accepted control/intent projection
 movement/contact integration
-core reaction/action seams
-narrow observation/decision interfaces
+core body reaction/action application
+narrow observation/decision seams
 ```
 
-It should not remain the composition root for:
+It must not remain the owner merely because code historically landed there for:
 
 ```text
 session/world lifecycle
 persistence/save mirrors
-items/projectiles as independent domains
+independent item/projectile domains
 boss/encounter/dialogue orchestration
 presentation/UI/audio
 host/dev policy
 named product content
 ```
 
-## Current measured graph
+## Current graph
 
-Run:
+Measure with:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-Current nontrivial SCCs:
+Baseline nontrivial SCCs:
 
 ```text
 11: abilities, actor_spawn, character_runtime, construction, control,
@@ -61,248 +57,156 @@ Current nontrivial SCCs:
  2: assets, character_sprites
 ```
 
-The current largest SCC has five single-edge cuts that make it smaller:
+The next four packets are already designed. They are not invitations to choose a
+different low-count edge:
 
 ```text
-->  9    1 ref   character_runtime -> features
--> 10    1 ref   features -> projectile
--> 10    2 refs  actor_spawn -> character_runtime
--> 10    2 refs  projectile -> features
--> 10    6 refs  shrine -> session
+P1  character_runtime -> features    expected 11 -> 9
+P2  projectile -> features           expected  9 -> 8
+P3  shrine -> session                expected  8 -> 7
+P4  construction -> world            expected  7 -> 6
 ```
 
-The executable frontier deliberately does **not** choose the cheapest edge in
-all cases. Edge direction and ownership outrank reference count.
-
-## What the SCC means
-
-A strongly connected component says the current source graph contains paths in
-both directions among every member. It is a warning against extracting one
-module in isolation while preserving all current dependencies.
-
-It does **not** say:
-
-- every member belongs in one final crate;
-- every member must become its own crate;
-- the smallest reference count is the correct cut;
-- two modules in a small SCC must first be made acyclic before they can move
-  together.
-
-The useful questions are:
-
-1. which subsets are coherent ownership groups;
-2. which directions are legitimate consumption of lower vocabulary;
-3. which reverse edges are policy/registration/lifetime authority leaking
-   upward or sideways.
-
-## Durable carve rules
-
-### 1. Crates follow ownership, not file size
-
-A 2,000-line module with one wrong authority edge can be a better carve than a
-20,000-line module with correct dependencies. Do not choose by LOC.
-
-### 2. A type filed beside its first consumer can manufacture a false cycle
-
-Several prior cuts were unlocked by moving a dependency-free marker/config/value
-type to the lower domain that actually owned its meaning.
-
-Before inventing an interface, inspect whether the dependency is only a data type
-whose current file location is historical.
-
-### 3. Re-exports preserve dependency paths
-
-Moving a definition and leaving all consumers on the old re-export can leave the
-module graph unchanged and keep the old module as the discovery authority.
-
-After moving a type:
-
-```text
-consumer -> new semantic owner
-```
-
-should be visible in source. Keep compatibility exports only at a stable public
-facade where they do not rebuild the internal dependency.
-
-### 4. Scheduling belongs to the capability that owns the systems
-
-A carved domain installs/configures its own private systems against published
-semantic sets. Composition may order public phases; one domain should not order
-another crate's concrete private function.
-
-### 5. Registrars and codecs are ledgers, not semantic owners
-
-A rollback-registration module naming many domain types is a dependency ledger.
-Do not carve a domain merely to reduce that list. Move registration ownership
-only when the destination can own the full rollback contract coherently.
-
-### 6. Lifetime is part of authority
-
-Session, match, attempt, stock and process lifetimes are different. A resource or
-component that crosses one of those boundaries needs an explicit owner and
-retraction/reconstruction rule before moving crates.
-
-### 7. Production acceptance moves with the authority
-
-A helper test proving a moved function still computes the same number is not
-sufficient. Keep or add the production poison that exercises the real install,
-schedule, rollback/lifetime and host path affected by the cut.
-
-### 8. Prefer one-way downward vocabulary over callbacks/service locators
-
-When a high-level module needs a lower fact, move/publish the fact at the lower
-owner. Do not replace a Rust dependency with a process-global registry or dynamic
-callback unless substitution is a real product requirement.
-
-## Current decomposition sequence
-
-The current graph supports a bounded peel before another design pass:
-
-```text
-P1  character_runtime -> features
-    move stocks-match settlement value vocabulary downward
-    expected largest SCC: 11 -> 9
-
-P2  projectile -> features
-    stop projectile simulation calling feature-specific breakable/boss helpers
-    expected largest SCC: 9 -> 8
-
-P3  shrine -> session
-    move rollback-safe lifecycle intent/slot vocabulary below session executor
-    expected largest SCC: 8 -> 7
-
-P4  construction -> world
-    move actor-specific placement-lowering specialization to construction
-    expected largest SCC: 7 -> 6
-```
-
-Exact instructions and acceptance are in the executable frontier.
-
-After P4, the expected hard core is:
+After P4, stop mechanical carving. Remeasure and finish the hard-core ledger
+before modifying the expected six-module SCC:
 
 ```text
 abilities, control, features, items, session, world
 ```
 
-No single edge currently splits that six-module SCC. That is the point at which
-mechanical peeling stops and authority design resumes.
+## Rules that every packet must obey
 
-## The six-module design problem
+### One packet, one ownership claim
 
-At the current head, after applying the four planned cuts conceptually, the
-remaining direct two-way pairs are:
+Do not combine unrelated cleanup with an SCC packet. A packet may update the
+callers, tests, rollback registration and facade paths needed by the moved
+authority; it should not opportunistically redesign neighboring systems.
+
+### The old internal path must disappear
+
+A definition moved to a new owner but still reached through the old monolith
+module is not a completed carve. Internal consumers must name the semantic owner.
+Do not add compatibility re-exports under the old internal module solely to keep
+imports unchanged.
+
+Stable public facades may re-export only when they are already the intended API
+surface and do not restore the internal graph edge.
+
+### Move wire implementations with their types
+
+If a moved canonical type implements `SnapshotState`, the implementation moves
+to the crate that owns the type. Keep existing rollback wire IDs byte-for-byte
+unless the packet explicitly changes the wire format. A type move alone is not a
+reason to renumber or rename rollback state.
+
+### Scheduling uses semantic sets
+
+A moved system installs itself against a public semantic set. Do not replace a
+module dependency with `.after(other_crate::private_function)` or
+`.before(other_crate::private_function)`.
+
+### Lifetime travels with authority
+
+For every moved resource/component record:
 
 ```text
-abilities <-> control
-features  <-> control
-features  <-> world
-items     <-> session
-world     <-> session
+creation
+mutation owner
+retirement/retraction
+rollback status
+session/match/attempt/stock/process lifetime
 ```
 
-Do not decide those boundaries from this summary. The next design pass must
-classify the concrete edges by ownership:
+If any row is unknown, stop the packet before moving the state.
+
+### Tests must witness the production consequence
+
+A unit test of a moved helper is support, not acceptance. Each packet in the
+frontier names production behavior that must still be covered. A poison should
+fail if the old dependency or behavior is restored.
+
+## Packet completion receipt
+
+Every P1-P4 commit must include, in its commit message or adjacent planning
+receipt:
 
 ```text
-DATA/VOCABULARY
-POLICY
-SCHEDULING
-CONSTRUCTION
-LIFETIME
+baseline head
+new head
+old edge reference count
+new edge reference count
+largest SCC before -> after
+focused Rust tests run
+source/architecture guards run
+rollback wire changes: none | explicit list
 ```
 
-The likely hypotheses worth testing are:
-
-- `abilities + control` may be one coherent actor-local kernel;
-- `world + session` may be one lifecycle package until a real seam appears;
-- `features` is a residual orchestration bucket and should shrink by returning
-  responsibilities to owners rather than becoming a permanent public crate;
-- `items` should be audited as residual adapters/policy because the physical and
-  held-item domains have already been carved out.
-
-Those are hypotheses, not a package map. Record exact evidence before carving the
-six-module core.
-
-## Satellite SCCs
-
-After P1, `actor_spawn <-> character_runtime` should become a two-module SCC
-outside the central knot. That is a successful boundary discovery, not a demand
-to split the pair immediately. It may be a coherent grouped construction/runtime
-package. Revisit its internal cycle only when a package boundary requires it.
-
-`assets <-> character_sprites` is already outside the central actor SCC. Treat it
-the same way: it may be a coherent grouped extraction or it may need a
-catalog/loader inversion. The existing external `ambition_character_sprites`
-crate owns pose/geometry semantics and is not automatically the destination for
-loading/catalog code.
-
-## What has already converged
-
-The historical D33 campaign has already moved substantial independent authority
-out of the actor monolith, including domains such as:
-
-- developer tools;
-- world-item physics;
-- held-item mechanics;
-- body seed/construction vocabulary;
-- match vocabulary;
-- encounter features;
-- reusable abilities;
-- mount installation/lifecycle ownership;
-- several presentation/FX responsibilities.
-
-The exact commit-by-commit story is intentionally absent here. Git history keeps
-it. Re-open a prior carve only when current production evidence shows the
-ownership decision was wrong.
-
-## Measurement rules
-
-The module graph intentionally excludes file-level tests and inline
-`#[cfg(test)]` blocks. A test reaching across modules is a fixture dependency,
-not a production boundary.
-
-The graph counts textual `crate::<module>` paths. Therefore:
-
-- it undercounts dependencies imported through globs/unqualified aliases;
-- it can preserve a stale edge through a re-export;
-- it cannot distinguish a legitimate vocabulary dependency from an authority
-  inversion;
-- it cannot tell whether two modules should move together.
-
-Always read the concrete references before acting on a graph edge.
-
-## Post-carve acceptance
-
-Every carve owes:
+Run after each packet:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 python3 scripts/modules_md.py
-python3 scripts/check_doc_links.py
 python3 scripts/check_planning_citations.py
+python3 scripts/check_doc_links.py
 ```
 
-Plus:
+Also run `git diff --check` and the focused Rust tests named by the packet. Do not
+freeze a new metric baseline until the source movement is understood and
+intentional.
 
-- focused production tests for the moved authority;
-- rollback/lifetime tests when canonical state moves;
-- source/manifest absence guards when a new crate boundary is created;
-- capability/compile-cost ratchets required by their owner pages.
+## The post-P4 hard-core gate
 
-Do not re-freeze a failing baseline merely because topology changed. Attribute
-and accept only the metric whose movement is an intentional price of the carve.
+P5 is complete only when
+[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md)
+contains **every production dependency edge whose source and destination are
+inside the measured six-module SCC** and every row has all of:
+
+```text
+source module + file + symbol
+destination module + symbol/dependency
+edge class
+semantic owner
+disposition
+new target/API if CUT or MOVE
+production poison/acceptance
+```
+
+Allowed dispositions:
+
+```text
+KEEP_DOWNWARD       legitimate dependency inside one proposed package/layer
+MOVE_TYPE           vocabulary is filed beside the wrong consumer
+MOVE_SYSTEM         mutation/install authority belongs elsewhere
+PUBLISH_SET         dependency exists only for concrete system ordering
+SPLIT_RESOURCE      one state object contains facts with different owners/lifetimes
+GROUP_PACKAGE       modules should move together; internal cycle is accepted
+DELETE_DEAD         production edge has no current customer
+```
+
+There must be **no `TBD` disposition** before the first hard-core implementation
+packet begins.
+
+P5 must end by writing one exact P6 packet with the same standard as P1-P4:
+files, symbols, destination, forbidden end state, tests and expected SCC effect.
+If the ledger does not support such a packet, the correct outcome is a package
+map that keeps the remaining SCC together.
+
+## Satellite SCCs
+
+After P1, `actor_spawn <-> character_runtime` is expected to become a separate
+2-module SCC. Do not split it merely because it is cyclic. It is a candidate
+**grouped extraction unit** unless a package consumer needs one half independently.
+
+`assets <-> character_sprites` is already a separate 2-module SCC and is also a
+grouped-extraction question. Keep it off the P1-P5 critical path.
 
 ## Exit
 
-D33 is complete when:
+D33 exits when either:
 
-1. the residual actor package matches the controlled-character kernel target;
-2. optional domains install and own their own implementation;
-3. world/session/persistence/product policy no longer lives in the actor kernel;
-4. remaining internal SCCs correspond to deliberate package units rather than
-   accidental reverse dependencies;
-5. external consumers use semantic facade APIs rather than following internal
-   crate moves.
+1. the residual monolith matches the controlled-character kernel and no unrelated
+   authority remains inside it; or
+2. the remaining SCC is explicitly accepted as one coherent package by a filled
+   edge ledger and package map.
 
-The goal is a coherent kernel with clear package boundaries. A DAG of tiny files
-is not required.
+Acyclicity is useful evidence. It is not the product requirement.

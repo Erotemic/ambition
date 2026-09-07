@@ -152,22 +152,30 @@ because of actual capabilities/items/world mechanisms.
 
 ### E4 — actor kernel and domain ownership
 
-The target is a small coherent actor/body simulation kernel, not a small file.
-Move boss, encounter, item, portal, persistence, presentation, developer and
-other domain authority when a real ownership boundary exists. Carves should
-reduce dependency/change fanout or improve capability/test/package isolation.
+The target is a coherent actor/body kernel, not a low line count.
 
-**Current state (2026-09-07):** the residual monolith has one 11-module central
-SCC plus a separate `assets <-> character_sprites` SCC. Four bounded peel packets
-are specified and expected to reduce the central component `11 -> 9 -> 8 -> 7
--> 6`; after that, the six-module core requires an ownership design pass rather
-than another mechanical cut. This work no longer blocks beginning E5/C2, but it
-remains the package-boundary owner for actor/runtime decomposition.
+**Current baseline (`625fa79af45e`, 2026-09-07):** one 11-module central SCC
+plus the independent `assets <-> character_sprites` SCC.
+
+Four implementation packets are READY and must run in order:
+
+```text
+P1  move stocks-match settlement state to ambition_match      11 -> 9
+P2  give projectile a generic feature-target capability       9 -> 8
+P3  move lifecycle-commit vocabulary to shared_tangle         8 -> 7
+P4  move actor placement lowering from world to construction  7 -> 6
+```
+
+P5 is a hard stop on source edits: remeasure the resulting six-module SCC and
+fill the complete edge ledger/package map before another carve. The owner docs
+name exact files, symbols, forbidden end states and tests; this program page does
+not duplicate them.
 
 Owners:
 
 - [`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md)
 - [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md)
+- [`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md)
 - [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md)
 
 ### E5 — capability and runtime composition

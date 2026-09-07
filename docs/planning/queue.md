@@ -6233,14 +6233,12 @@ OPTIONAL dep + feature, never used:
   measured defect; the next family should get one when it earns it the same way,
   not on the strength of this paragraph.
 
-- ▢ **D33 — peel the residual actor-monolith SCC by ownership.** The old
-  carve-by-carve diary was removed from this live queue; Git history retains it.
-  The executable owner is
-  [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md),
-  with durable rules in
+- ▢ **D33 — peel the residual actor-monolith SCC by ownership.** Owner:
+  [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
+  Durable rules:
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-  **Current measured topology (`625fa79af45e`, 2026-09-07):**
+  Baseline `625fa79af45e`:
 
   ```text
   11: abilities, actor_spawn, character_runtime, construction, control,
@@ -6248,31 +6246,38 @@ OPTIONAL dep + feature, never used:
    2: assets, character_sprites
   ```
 
-  **Next executable sequence:**
+  Execute exactly one packet per commit:
 
-  1. `character_runtime -> features` — move stocks-match settlement value
-     vocabulary downward; expected largest SCC **11 -> 9**.
-  2. `projectile -> features` — remove feature-specific breakable/boss calls
-     from projectile simulation; expected **9 -> 8**.
-  3. `shrine -> session` — move deterministic lifecycle-intent/slot vocabulary
-     below the session executor; expected **8 -> 7**.
-  4. `construction -> world` — move actor placement-lowering specialization to
-     construction ownership; expected **7 -> 6**.
-  5. **STOP and design the six-module hard core** (`abilities`, `control`,
-     `features`, `items`, `session`, `world`). No single edge splits that core;
-     classify the five direct two-way pairs by DATA/POLICY/SCHEDULING/
-     CONSTRUCTION/LIFETIME before another carve.
+  - [ ] **P1 `11 -> 9`:** move `StocksMatchSettled`, `SuddenDeathEntered` and
+        `the_live_match_is_settled` to `ambition_match`; move their snapshot
+        impls; preserve rollback wire IDs; zero `character_runtime -> features`.
+  - [ ] **P2 `9 -> 8`:** add generic projectile-feature target identity/
+        eligibility in `ambition_projectiles`; `step_projectiles` consumes it
+        with canonical `DamageableVolumes`; remove boss/breakable policy queries
+        and both `features::ecs_hit_event_hits_*` calls from projectile.
+  - [ ] **P3 `8 -> 7`:** move all deterministic
+        `session/lifecycle_commit.rs` vocabulary and its snapshot impl to
+        `shared_tangle::lifecycle`; zero old session lifecycle-commit paths.
+  - [ ] **P4 `7 -> 6`:** move the whole actor-specific
+        `world/placements.rs` specialization to `construction/placements.rs`; <!-- cite-ok: proposed P4 path -->
+        update all callers; delete the old internal path; generic external
+        `ambition_platformer2d_world::placements` stays put.
+  - [ ] **P5 DESIGN RECEIPT:** remeasure post-P4 HEAD, replace every `TBD` in
+        [`engine/actor-monolith-hard-core-edge-ledger.md`](engine/actor-monolith-hard-core-edge-ledger.md),
+        write the package map, and produce one exact P6 packet. **No hard-core
+        source edit before this receipt exists.**
 
-  Re-measure before and after every packet:
+  Every P1-P4 commit records old/new edge count, largest SCC before/after,
+  focused Rust tests and unchanged/changed rollback wire IDs. Re-run:
 
   ```bash
   python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
+  git diff --check
   ```
 
-  A lower reference count is not a reason to choose an edge. The frontier
-  records the intended ownership direction and acceptance for each packet.
-  Keep the separate `assets <-> character_sprites` SCC out of the critical path;
-  treat it as a grouped asset-domain question.
+  Do not spend D33 time on the separate `assets <-> character_sprites` SCC or
+  on splitting the expected `actor_spawn <-> character_runtime` satellite pair
+  unless a real external package boundary requires it.
 
 - ▢ **D166 — make the character-authoring boundary load-bearing where a real
   character still bypasses it.** Prepared character definitions are already

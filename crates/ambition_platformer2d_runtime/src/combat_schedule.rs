@@ -193,8 +193,7 @@ impl Plugin for CombatSchedulePlugin {
                     .in_set(GameplayGated),
                 ambition_combat::moveset::dispatch_move_events.in_set(GameplayGated),
                 // Writes no gameplay — the real strike is the move's own hitbox.
-                ambition_combat::moveset::project_moveset_melee_to_body_melee
-                    .in_set(GameplayGated),
+                ambition_combat::moveset::project_moveset_melee_to_body_melee.in_set(GameplayGated),
                 // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
                 // is inside its Active window, `BossAttackState`'s active_* fields are
                 // DERIVED from the live `MovePlayback` (the move is the authority),
@@ -341,8 +340,7 @@ impl Plugin for CombatSchedulePlugin {
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
                 // into this world-surface representation.
-                ambition_combat::attack_support::pogo_moveset_off_world_orbs
-                    .in_set(GameplayGated),
+                ambition_combat::attack_support::pogo_moveset_off_world_orbs.in_set(GameplayGated),
                 ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the
                 // victim-side `apply_player_hit_events` is already gated this way, so
@@ -438,75 +436,18 @@ impl Plugin for CombatSchedulePlugin {
         // ⇒ `board_reserved_mounts` likewise. Its "before the lease tick" reason
         // travelled with it: a ride that boards this tick gets its full lease.
 
-        // it is the one system in this schedule that writes non-rollback
-        // PRESENTATION state, so it carries its own authoritative-pass guard
-        // as a parameter rather than a `run_if` here — a replayed frame kicking
-        // the live camera is a ghost shake, and the guard must survive anyone
-        // else registering it. Do not "fix" that by adding a run condition
-        // here; read the module's second block first.
-        app.add_systems(
-            sim,
-            ambition_combat::hit_camera_shake::shake_camera_on_landed_hits
-                .in_set(GameplayGated)
-                .in_set(CombatSet::Settle),
-        );
-
-        // The finishing zoom, from the MATCH VERDICT rather than from a hit.
-        // Same set and same reasoning: it publishes an intent that the
-        // confirmed-frame quarantine releases, so a decision an abandoned
-        // rollback branch produced never reaches the live camera.
+        // ⭐ THE CAPABILITY INSTALLS ITS OWN SETTLE PRESENTATION. This named three
+        // private `ambition_combat` paths and carried their ordering argument here;
+        // both moved into `ambition_combat::install_settle_presentation_systems`, which
+        // is where the systems live and where the argument can be checked against them.
         //
-        // ⛔⛔ AND IT MUST RUN AFTER THE DECISION, WHICH `CombatSet::Settle`
-        // ALONE DOES NOT GIVE IT. `decide_stocks_match` writes
-        // `StocksMatchDecided` from `MatchOutcomeDecided`, and that system is
-        // ALSO in `Settle` — inside the ruleset's own `.chain()`, which this
-        // reader is not part of. Two systems in one set are unordered, so this
-        // could read before the write.
-        //
-        // ⚠ THE COST IS NOT "ONE FRAME LATE", it is a frame MISATTRIBUTION. A
-        // `MessageReader` that runs first sees nothing this tick and picks the
-        // decision up on the next one, so the intent is journalled under a frame
-        // that did not produce it — and the confirmed-frame quarantine's whole
-        // job is to discard intents whose producing frame was abandoned. A
-        // rewind past the real frame would leave this one standing.
-        //
-        // ⇒ Ordered on the SET rather than on `decide_stocks_match` itself: the
-        // set is `ambition_combat`'s published seam and the function lives in
-        // the actor monolith, which this crate should not need to name.
-        //
-        // ⭐ THE OTHER TWO `Settle` MEMBERS ARE FINE AND DO NOT WANT THIS —
-        // checked, so nobody adds a needless `.after` to them later.
-        // `shake_camera_on_landed_hits` reads a QUERY, not a message, and is
-        // idempotent by design: its own docs say it re-kicks every frame the
-        // freeze is live precisely so it needs no edge detection.
-        // `request_impact_hitstop_on_resolved_hits` reads `ResolvedBodyHit`,
-        // which is written in `CombatSet::Resolve` — an EARLIER phase — so the
-        // set chain already orders it.
-        // ⇒ The distinction is not "reads a message" but "reads a message
-        // written in ITS OWN set", which is the one case set ordering cannot
-        // express and the one this system was in.
-        app.add_systems(
-            sim,
-            ambition_combat::finish_zoom::zoom_camera_on_decided_match
-                .in_set(GameplayGated)
-                .in_set(CombatSet::Settle)
-                .after(ambition_combat::stocks::MatchOutcomeDecided),
-        );
-
-        // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute
-        // expiry tick, so there is nothing to decay and nothing to hand back.
-        //
-        // ⛔ IT READS `ResolvedBodyHit`, NOT the landed hits the shake above
-        // reads. The shake is presentation and geometry is enough for it; the
-        // freeze needs the hit's RESULT, and the two roads that produce one
-        // resolve on different frames. See the system's own note.
-        app.init_resource::<ambition_combat::impact_hitstop::ImpactHitstop>();
-        app.add_systems(
-            sim,
-            ambition_combat::impact_hitstop::request_impact_hitstop_on_resolved_hits
-                .in_set(GameplayGated)
-                .in_set(CombatSet::Settle),
-        );
+        // ⚠ CARVEABLE BECAUSE THEY NAME NOTHING OUTSIDE COMBAT AND SHARED_TANGLE:
+        // `CombatSet` / `GameplayGated` are shared_tangle's, and the one non-shared
+        // anchor (`stocks::MatchOutcomeDecided`) is combat's own. The neighbouring
+        // blocks in this file are NOT carveable for exactly that reason — they chain
+        // combat systems with `actor_monolith` ones — so this is the boundary, not a
+        // first step down the file.
+        ambition_combat::install_settle_presentation_systems(app, sim);
 
         // Hand the frame's victim-side hits from the message channel to the
         // rollback-registered FIFO the player resolver (which runs in NEXT
@@ -667,9 +608,7 @@ mod tests {
             // nothing here runs a frame. `initialize` builds it without running
             // a single system, so no resource needs to exist for this to be
             // answerable.
-            schedule
-                .initialize(world)
-                .expect("the sim schedule builds");
+            schedule.initialize(world).expect("the sim schedule builds");
             let graph = schedule.graph();
             let racing = graph
                 .conflicting_systems()
@@ -727,4 +666,3 @@ fn refresh_authored_volume_resolver(
 ) {
     *resolver = authored_volume_resolver_for(&sheets);
 }
-

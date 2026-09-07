@@ -38,12 +38,12 @@ pub mod death_rules;
 pub mod events;
 pub mod falling_chest;
 pub mod feel;
+pub mod finish_zoom;
 pub mod footstool;
 pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
 pub mod hit_camera_shake;
-pub mod finish_zoom;
 pub mod hit_reaction;
 pub mod hitbox;
 pub mod hurtbox_resolution;
@@ -704,3 +704,71 @@ mod tests {
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;
+
+/// Install combat's SETTLE-phase presentation systems into `schedule`.
+///
+/// ⭐ THE CAPABILITY INSTALLS ITSELF, same shape as
+/// [`ambition_mount::install_mount_simulation_systems`]: the composition names ONE
+/// function instead of three private paths (`hit_camera_shake::*`, `finish_zoom::*`,
+/// `impact_hitstop::*`) and the ordering argument travels with the code it orders.
+///
+/// ⚠ NO DEPENDENCY IS INVERTED BY THIS. `CombatSet` and `GameplayGated` both live in
+/// `ambition_platformer2d_shared_tangle`, which this crate already depends on, and the
+/// one anchor that is not a shared set — `stocks::MatchOutcomeDecided` — is this
+/// crate's own. That is what made these three registrations carveable when the
+/// neighbouring blocks were not: they name nothing outside combat and shared_tangle.
+///
+/// ⛔ THE `.after(MatchOutcomeDecided)` IS LOAD-BEARING AND ITS REASON MOVED WITH IT.
+/// `decide_stocks_match` writes `StocksMatchDecided` and is ALSO in `Settle`; two
+/// systems in one set are unordered, so the zoom could read before the write. The cost
+/// is not "one frame late" but a frame MISATTRIBUTION: a `MessageReader` that runs
+/// first sees nothing this tick and picks the decision up on the next one, journalling
+/// the intent under a frame that did not produce it — and the confirmed-frame
+/// quarantine's whole job is to discard intents whose producing frame was abandoned.
+/// ⇒ Ordered on the SET rather than on `decide_stocks_match` itself, because that
+/// function lives in the actor monolith and this crate should not name it.
+///
+/// ⭐ THE OTHER TWO MEMBERS DO NOT WANT THAT ORDER, checked so nobody adds a needless
+/// `.after` later. `shake_camera_on_landed_hits` reads a QUERY, not a message, and is
+/// idempotent by design. `request_impact_hitstop_on_resolved_hits` reads
+/// `ResolvedBodyHit`, written in the EARLIER `CombatSet::Resolve`, so the set chain
+/// already orders it. ⇒ The distinction is not "reads a message" but "reads a message
+/// written in ITS OWN set" — the one case set ordering cannot express.
+pub fn install_settle_presentation_systems(
+    app: &mut bevy::prelude::App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel + Clone,
+) {
+    use ambition_platformer2d_shared_tangle::schedule::{CombatSet, GameplayGated};
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    // ⛔ The shake is the one system in this schedule that writes non-rollback
+    // PRESENTATION state, so it carries its own authoritative-pass guard as a
+    // PARAMETER rather than a `run_if` here — a replayed frame kicking the live camera
+    // is a ghost shake, and the guard must survive anyone else registering it. Do not
+    // "fix" that by adding a run condition; read the module's second block first.
+    app.add_systems(
+        schedule.clone(),
+        hit_camera_shake::shake_camera_on_landed_hits
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle),
+    );
+    app.add_systems(
+        schedule.clone(),
+        finish_zoom::zoom_camera_on_decided_match
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle)
+            .after(stocks::MatchOutcomeDecided),
+    );
+    // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute expiry tick,
+    // so there is nothing to decay and nothing to hand back. ⛔ It reads
+    // `ResolvedBodyHit`, NOT the landed hits the shake reads: the shake is presentation
+    // and geometry is enough for it, the freeze needs the hit's RESULT, and the two
+    // roads that produce one resolve on different frames.
+    app.init_resource::<impact_hitstop::ImpactHitstop>();
+    app.add_systems(
+        schedule,
+        impact_hitstop::request_impact_hitstop_on_resolved_hits
+            .in_set(GameplayGated)
+            .in_set(CombatSet::Settle),
+    );
+}

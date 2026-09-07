@@ -4619,6 +4619,37 @@ never-asked-for, unchanged across both cuts). This is not a cost win and should 
 be sold as one. The value is that the dependency graph stops claiming edges nobody
 uses, which is why it is worth a minute of your intent and not more.
 
+---
+
+⭐ **ADDENDUM 2026-09-07 — A FOURTH SEAM OF THE SAME KIND, found by sweeping a
+different population.** I enumerated all 33 `pub fn install_*` in the capability
+crates while pricing the C2 carve pattern, and asked which have a caller.
+
+**MEASURED, `git grep -w` over `crates/` and `game/`, HEAD `fbdc83199`:**
+`ambition_platformer2d_rollback_ggrs::session::install_session` (`session.rs:299`)
+has **exactly one other mention in the whole workspace and it is a comment**
+(`local_session.rs:186`). Zero callers, inside its crate or out.
+
+⇒ Its own docstring says what it is: *"Install any already-constructed GGRS session
+behind Ambition's exact content/schema contract. **Matchbox will eventually
+construct a P2P session and hand it to this same seam**; the harness uses
+`start_sync_test_session`."* That is the Q74 shape stated outright — a seam
+declared ahead of its content, by an author who knew it.
+
+⇒ **SO IT JOINS THE QUESTION RATHER THAN STARTING A NEW ONE:** is P2P still coming?
+A YES makes this KEPT-ON-PURPOSE and the row closes; a NO makes it one deletion plus
+`install_session_with_ownership` becoming the only entry point.
+
+⚠ **AND THE OTHER 32 ARE ALL CALLED**, which is what makes this one signal rather
+than noise. ⚠ My first sweep said SEVEN installers had no caller; that was a bad
+grep — it required `name(` and so missed turbofish (`install_bevy_ui_menu_actions::<T>(app)`,
+called 12 times) and calls through a `use` import. Re-run on the bare identifier,
+six of the seven resolve to real calls inside their own crate and one --
+`install_condition_binding` -- is called via a function-pointer list
+(`.push(authored_commands::install_command_binding)`), which no call-shaped grep
+would ever have found. **A negative claim from a grep that assumed a call SHAPE is
+a claim about the shape.**
+
 ## Q76 — were composite mount-riders ever authored? `MountedBrainCache` has no production constructor (2026-09-07)
 
 **Filed so a peer session's finding does not leave with it.** Measured by

@@ -1012,6 +1012,37 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   should convert the destructure and the initializer together, in one edit, with the
   exclusions bound as `field: _` and commented.
 
+- ▢ **C2 SIZING — the cheap carves are DONE; the remaining 205 foreign installations
+  are NOT more of the same, measured 2026-09-06.** `scripts/measure_foreign_system_ordering.py`
+  reports ordering 75 (capability 0, composition 75) and installing 205. The review of
+  `e962507` reads those as a campaign still reducing host knowledge, which is true — but
+  the residue is concentrated and neither cluster is a map-shaped carve:
+
+  | host file | foreign systems named |
+  |---|---|
+  | `platformer2d_runtime/src/combat_schedule.rs` | **39** |
+  | `platformer2d_runtime/src/player_schedule.rs` | **25** |
+  | everything else | 7 across 4 files |
+
+  ⇒ **64 of ~71 sit in two files**, and by owning crate the biggest are
+  `ambition_combat` (29) and `ambition_platformer2d_actor_monolith` (26).
+
+  ⛔⛔ **AND TWO REASONS NOT TO CARVE THEM THE WAY MAP AND MOUNT WERE CARVED.**
+  · **`ambition_time`'s five (player_schedule)** are CHAINED with monolith systems inside
+    composition-owned sets — `Platformer2dSimulationPhaseMonolith::PlayerInput`,
+    `GameplayGated`, `.after(ResetProcessing).before(FeatureViewSync)`. Moving them into
+    `ambition_time` would require that crate to name the monolith's phase enum: an
+    INVERTED dependency, strictly worse than the naming it removes. The script's own
+    vocabulary already separates this — ORDERING is "the sharp defect" and is 0 for
+    capabilities; INSTALLING is "the broader question".
+  · **`ambition_combat`'s 29** are the natural next carve by size, and they sit in the
+    area the other session is actively reworking (control claims / custody, prerequisite
+    B). ⇒ Wants coordination BEFORE starting, per the lane rule, not a unilateral start.
+
+  ▢ NEXT: whoever takes combat should say so first. ⚠ And the honest framing for the
+  metric: a falling `installing` count is only progress where the move does not invert a
+  dependency — the time cluster would lower the number and worsen the architecture.
+
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

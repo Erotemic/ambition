@@ -67,6 +67,28 @@ a promise: a block can be single-capability and still be entangled by a `.chain(
 crosses a lane boundary (measured: `CombatSet::Playback` chains eleven
 `ambition_combat` systems with one `actor_monolith` system). Those show as REDUCIBLE
 here and are not.
+
+⛔ A FIFTH IRREDUCIBILITY REASON THE SCRIPT CANNOT SEE, found 2026-09-07 by
+carving one of its own REDUCIBLE rows: THE GUARD AROUND THE BLOCK.
+`host/src/lib.rs:144` reads as one capability plus shared vocabulary and is
+irreducible anyway, because it sits inside
+
+    if app.sim_is_fixed_tick() { let sim = app.sim_schedule(); ... }
+
+Whether the host is fixed-tick, and which schedule its simulation runs in, is
+knowledge only a composition has. The classifier reads the block's SYMBOLS; the
+irreducibility is in the enclosing statement, which it never looks at.
+
+⚠ AND A REDUCIBLE BLOCK CAN STILL BE WORTHLESS TO CARVE. `:214` is a bare
+`add_systems(Startup, one_system)` -- genuinely reducible, and moving it buys
+nothing, because there is no ordering knowledge to relocate. The number to carve by
+is how much SCHEDULING AUTHORITY the composition is holding, not how many blocks
+are reducible.
+
+⚠ I then wrote a guard-detector to find the enclosing `if` automatically and it
+reported "none found" for all three rows, including the one I had just read. A
+resolver that finds nothing looks exactly like a tree with nothing to resolve, so
+the reasons above are recorded from READING and not from that heuristic.
 """
 import argparse
 import pathlib

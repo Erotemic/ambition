@@ -1317,14 +1317,6 @@ impl Plugin for SanicRulesPlugin {
         // speed-shoes grant. Broken monitors contribute to the overlay's
         // `removed_block_names` AFTER the engine's per-frame rebuild clears it
         // (the same slot Mary-O's bricks and encounter lock walls take).
-        app.init_resource::<monitors::SpentMonitors>();
-        // ⛔ The re-arm is NOT in this chain. Per-attempt content state answers
-        // the ADMITTED replay, and the host anchors `ContentRoomReplayResetSet`
-        // before its generic replay consumer -- a pit death replays the room in
-        // place and never emits `RoomLoaded`, so a re-arm sitting in
-        // `GameplayEffects` reading only that message never ran on a death.
-        let monitor_rearm = ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<monitors::SpentMonitors>
-            .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
         let monitor_rules = (
             monitors::break_monitor_boxes,
             monitors::tick_speed_shoes,
@@ -1334,6 +1326,9 @@ impl Plugin for SanicRulesPlugin {
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::platformer::schedule::FeatureWorldOverlaySet);
+        // Aliased: the fully-qualified path wraps three ways at every call and
+        // rustfmt then hides which type is being installed.
+        use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
         if self.hosted {
             app.add_systems(
                 sim,
@@ -1359,9 +1354,17 @@ impl Plugin for SanicRulesPlugin {
                 sim,
                 monitor_rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
-            app.add_systems(
+            // ⛔ The re-arm is NOT in the monitor rules chain. Per-attempt content
+            // state answers the ADMITTED replay, and the host anchors
+            // `ContentRoomReplayResetSet` before its generic replay consumer -- a pit
+            // death replays the room in place and never emits `RoomLoaded`, so a
+            // re-arm sitting in `GameplayEffects` reading only that message never ran
+            // on a death. `install_attempt_scoped` puts the resource and that slot in
+            // one statement so the state cannot exist without the retraction.
+            install_attempt_scoped::<monitors::SpentMonitors, _>(
+                app,
                 sim,
-                monitor_rearm.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
+                ambition_platformer2d::runtime::in_mode(SANIC_MODE),
             );
             app.add_systems(
                 sim,
@@ -1374,7 +1377,7 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, ring_loss);
             app.add_systems(sim, scatter_arc);
             app.add_systems(sim, monitor_rules);
-            app.add_systems(sim, monitor_rearm);
+            install_attempt_scoped::<monitors::SpentMonitors, _>(app, sim, || true);
             app.add_systems(sim, monitor_overlay);
         }
     }

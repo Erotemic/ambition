@@ -1325,6 +1325,35 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   installer registers, checked at composition level, turns all six green while the
   behaviours stay untested and removes the pressure to write the real tests. Guard
   the gap, not the fix.
+- ✔ **D-ATTEMPT-RETRACT — the per-attempt census certified the DECLARATION while the
+  RETRACTION lived in a registration it could not see.** Landed 2026-09-07.
+
+  **MEASURED (poison, restored, tree verified clean):** renaming
+  `rearm_attempt_scoped` to `POISONED_rearm_attempt_scoped` at all three production
+  registrations (`demo_mary_o/src/lib.rs`, `demo_sanic/src/lib.rs`) left
+  `scripts/per_attempt_resource_census.py` printing *"ok: all 3 known per-attempt
+  resources retract through `AttemptScoped`"* and exiting **0**. The sweep reads
+  `impl AttemptScoped for T`; what re-arms a resource is an `add_systems` in
+  `ContentRoomReplayResetSet`. ⇒ **A trait impl is a claim about intent; only a
+  registration is evidence of behaviour.**
+
+  **MEASURED, behavioural coverage underneath, 1 of 3:**
+  `ambition_demo_mary_o_app/tests/room_replay.rs:333` covers `SpentPowerBlocks` via a
+  pit death. `BrokenBricks` has no behavioural test. `SpentMonitors` — the resource
+  whose shipped player-visible bug named this whole class — is mentioned by **zero**
+  tests under `game/ambition_demo_sanic*/tests`.
+
+  **What landed:** `install_attempt_scoped::<T>(app, schedule, when)` creates the
+  resource AND registers the re-arm on the slot in one statement, so the state cannot
+  exist without its retraction; the three sites now use it;
+  `game/ambition_app/tests/attempt_scoped_retraction.rs` reads the BUILT SCHEDULE for
+  both the `hosted()` and `global()` roads of each demo; the census now says in its
+  own output which half it certified.
+
+  ▢ **NEXT — `SpentMonitors` still has no behavioural test**, and it is the case that
+  caused the abstraction. A composition test says the re-arm is on the slot; only a
+  Sanic pit death says the slot runs there. ⇒ **The case that motivated a repair is
+  the case most likely to have it reverted by someone who cannot see what it bought.**
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

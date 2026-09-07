@@ -82,11 +82,16 @@ pub trait AttemptScoped: Resource<Mutability = bevy::ecs::component::Mutable> {
 
 /// Re-arm one [`AttemptScoped`] resource when a fresh attempt begins.
 ///
-/// ⚠ REGISTER IT IN [`ContentRoomReplayResetSet`]: the host anchors that set
-/// BEFORE its generic replay consumer, so the re-arm lands the same frame the
-/// request does. The set is the slot; this function is what goes in it. Content
-/// still chooses the SCHEDULE and any mode gate, because those genuinely differ
-/// per demo — what must not differ is which signal counts as a fresh attempt.
+/// ⚠ PREFER [`install_attempt_scoped`], which registers this in
+/// [`ContentRoomReplayResetSet`] and creates the resource in one statement. Reach
+/// for this function directly only when the resource is already in the world for
+/// another reason — and then the set membership is yours to get right.
+///
+/// The host anchors that set BEFORE its generic replay consumer, so the re-arm
+/// lands the same frame the request does. The set is the slot; this function is
+/// what goes in it. Content still chooses the SCHEDULE and any mode gate, because
+/// those genuinely differ per demo — what must not differ is which signal counts
+/// as a fresh attempt.
 pub fn rearm_attempt_scoped<T: AttemptScoped>(
     mut attempt: ambition_combat::events::FreshAttempt,
     mut state: ResMut<T>,
@@ -98,6 +103,37 @@ pub fn rearm_attempt_scoped<T: AttemptScoped>(
     if began {
         state.rearm();
     }
+}
+
+/// Put an [`AttemptScoped`] resource in the world AND on the retraction slot, in
+/// one statement.
+///
+/// ⭐⭐ THE AUTHORITY THIS REMOVES: before it, a demo said "this state is
+/// per-attempt" TWICE — once by `init_resource::<T>()` and once by an
+/// `add_systems(rearm_attempt_scoped::<T>.in_set(ContentRoomReplayResetSet))`
+/// two hundred lines away — and only the second one was load-bearing. A resource
+/// with the impl and without the registration is exactly the shipped Sanic bug
+/// ([`AttemptScoped`]'s own header): the state exists, nothing takes it back,
+/// and the grant behind it is unreachable for the rest of the run. Through this
+/// function that state is not expressible — you cannot get the resource without
+/// the re-arm.
+///
+/// ⚠ THE CONDITION IS THE CALLER'S because it genuinely differs: a hosted demo
+/// gates its systems on its mode, a rules-only harness runs unconditionally.
+/// Pass `|| true` for the ungated case. What must NOT differ, and is therefore
+/// not a parameter, is the SET and the SIGNAL.
+pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
+    app: &mut App,
+    schedule: impl bevy::ecs::schedule::ScheduleLabel,
+    when: impl bevy::ecs::schedule::SystemCondition<M>,
+) {
+    app.init_resource::<T>();
+    app.add_systems(
+        schedule,
+        rearm_attempt_scoped::<T>
+            .in_set(ContentRoomReplayResetSet)
+            .run_if(when),
+    );
 }
 
 /// ASK for the ACTIVE room to be replayed: the controlled body back at the room

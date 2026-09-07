@@ -32,7 +32,13 @@ def test_it_is_green_against_the_tree(capsys) -> None:
     module = _module()
     assert module.main() == 0
     out = capsys.readouterr().out
-    assert "retracted through `AttemptScoped`: 3" in out
+    assert "DECLARING `AttemptScoped`: 3" in out
+    # ⚠ THE BUCKET SAYS "DECLARING", NOT "RETRACTED", and the wording is the
+    # finding of 2026-09-07: this sweep reads impls, and all three production
+    # registrations can be renamed away with it still printing ok. The output has
+    # to say which half it certified, or the next reader banks the other one.
+    assert "CERTIFIES THE DECLARATION, NOT THE RETRACTION" in out
+    assert "attempt_scoped_retraction.rs" in out
 
 
 def test_an_empty_population_fails_rather_than_reporting_zero(monkeypatch) -> None:

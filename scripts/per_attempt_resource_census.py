@@ -21,6 +21,18 @@ and this file is that sweep, committed.
 `ambition_platformer2d_actor_monolith::session::reset::AttemptScoped`. This census
 reports which collection-holding content resources implement it and which do not.
 
+⛔⛔ WHAT THIS FILE CANNOT SEE, and once claimed it could. It reads SOURCE for
+`impl AttemptScoped for T` — the DECLARATION. A resource only re-arms because
+something registered `rearm_attempt_scoped::<T>` in `ContentRoomReplayResetSet` —
+the MECHANISM. MEASURED 2026-09-07: renaming that function at all three production
+registrations left this script printing "ok: all 3 known per-attempt resources
+retract through `AttemptScoped`" and exiting 0, on exactly the defect it is named
+for. ⇒ The mechanism is now guarded where it is observable, by building the demo
+plugins and reading the schedule:
+`game/ambition_app/tests/attempt_scoped_retraction.rs`. This sweep keeps the
+DISCOVERY half — finding a collection-holding resource nobody classified — and says
+so in its own output.
+
 ⛔⛔ IT DOES NOT FAIL ON "DOES NOT IMPLEMENT IT", AND THAT IS DELIBERATE — but
 since 2026-09-06 it DOES fail on "nobody has said which it is". Most of
 this population is NOT per-attempt: catalogs, caches, dev-tool probes, prefetch
@@ -148,7 +160,7 @@ def main() -> int:
     plain = [row for row in population if row[2] not in impls]
 
     print(f"collection-holding `Resource` types in game/: {len(population)}")
-    print(f"  retracted through `{TRAIT}`: {len(scoped)}")
+    print(f"  DECLARING `{TRAIT}`: {len(scoped)}")
     for path, line, name in scoped:
         print(f"    {path}:{line}  {name}")
     print(f"  everything else: {len(plain)}  (catalogs, caches, probes, rosters —")
@@ -177,9 +189,9 @@ def main() -> int:
     missing = KNOWN_PER_ATTEMPT - {row[2] for row in scoped}
     if missing:
         print(
-            f"\nFAIL: {sorted(missing)} should be retracted through `{TRAIT}` and "
-            "is not.\n  Either the impl was dropped, or the type was renamed and "
-            "this census now\n  certifies a population that no longer contains it.",
+            f"\nFAIL: {sorted(missing)} should DECLARE `{TRAIT}` and does not.\n"
+            "  Either the impl was dropped, or the type was renamed and this census "
+            "now\n  certifies a population that no longer contains it.",
             file=sys.stderr,
         )
         return 1
@@ -202,11 +214,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"\nok: all {len(KNOWN_PER_ATTEMPT)} known per-attempt resources retract "
-          f"through `{TRAIT}`, and all {len(plain)} others carry a triage reason.")
+    print(f"\nok: all {len(KNOWN_PER_ATTEMPT)} known per-attempt resources DECLARE "
+          f"`{TRAIT}`, and all {len(plain)} others carry a triage reason.")
     print(
         "⇒ 'not AttemptScoped' is still not a FINDING — but it is now a DECISION:\n"
         "  a resource in neither list fails until somebody classifies it."
+    )
+    print(
+        "⚠ AND THIS SWEEP CERTIFIES THE DECLARATION, NOT THE RETRACTION. `impl "
+        f"{TRAIT}` is a\n  claim about intent; what actually re-arms a resource is a "
+        "registration in\n  `ContentRoomReplayResetSet`, which a source sweep of impls "
+        "cannot see.\n  ⇒ The mechanism is guarded by "
+        "`game/ambition_app/tests/attempt_scoped_retraction.rs`,\n  which reads the "
+        "built schedule. Do not read this line as 'the demos retract'."
     )
     return 0
 

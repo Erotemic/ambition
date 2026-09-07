@@ -1704,8 +1704,6 @@ impl Plugin for MaryORulesPlugin {
         // a level's goal belong to that level rather than to whichever one the
         // session happened to open in.
 
-        app.init_resource::<powerups::SpentPowerBlocks>();
-        app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app
         // inserts it (features/render plugins), but a thin rules-only harness may
         // not, and `init_resource` is idempotent — a no-op when already present.
@@ -1949,16 +1947,6 @@ impl Plugin for MaryORulesPlugin {
         // takes — so the removals survive the per-frame clean slate.
         let bricks = bricks::break_bricks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
-        // Mary-O's per-attempt block state, on the engine's declared slot. Which bricks are
-        // smashed and which ?-blocks are spent is exactly the "content-named per-attempt state"
-        // `ContentRoomReplayResetSet` exists for — the host anchors it before its generic replay
-        // consumer, so a death clears them the same frame the request lands. The cut-rope boss
-        // reaches this slot the same way.
-        let fresh_attempt = (
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<bricks::BrokenBricks>,
-            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<powerups::SpentPowerBlocks>,
-        )
-            .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
         let brick_overlay = (
             bricks::contribute_broken_bricks_to_overlay,
             // A struck hidden block stops being pass-through in the SAME slot a
@@ -1967,6 +1955,9 @@ impl Plugin for MaryORulesPlugin {
         )
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::platformer::schedule::FeatureWorldOverlaySet);
+        // Aliased: the fully-qualified path wraps three ways at every call and
+        // rustfmt then hides which type is being installed.
+        use ambition_platformer2d::actors::session::reset::install_attempt_scoped;
         if self.hosted {
             app.add_systems(
                 sim,
@@ -2004,9 +1995,20 @@ impl Plugin for MaryORulesPlugin {
                 sim,
                 brick_overlay.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
-            app.add_systems(
+            // Mary-O's per-attempt block state. Which bricks are smashed and which
+            // ?-blocks are spent is exactly the "content-named per-attempt state"
+            // `ContentRoomReplayResetSet` exists for; `install_attempt_scoped` puts the
+            // resource in the world and on that slot together, so neither can arrive
+            // without the other. The cut-rope boss reaches the slot the same way.
+            install_attempt_scoped::<bricks::BrokenBricks, _>(
+                app,
                 sim,
-                fresh_attempt.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+                ambition_platformer2d::runtime::in_mode(MARY_O_MODE),
+            );
+            install_attempt_scoped::<powerups::SpentPowerBlocks, _>(
+                app,
+                sim,
+                ambition_platformer2d::runtime::in_mode(MARY_O_MODE),
             );
         } else {
             app.add_systems(sim, rules);
@@ -2018,7 +2020,8 @@ impl Plugin for MaryORulesPlugin {
             app.add_systems(sim, bricks);
             app.add_systems(sim, gait);
             app.add_systems(sim, brick_overlay);
-            app.add_systems(sim, fresh_attempt);
+            install_attempt_scoped::<bricks::BrokenBricks, _>(app, sim, || true);
+            install_attempt_scoped::<powerups::SpentPowerBlocks, _>(app, sim, || true);
         }
     }
 }

@@ -25,6 +25,7 @@ mod a_teleported_subject_does_not_get_chased;
 mod actor_phase_split;
 mod admiral_gun_sword;
 mod app_local_catalog_composition;
+mod attempt_scoped_retraction;
 mod asset_id_platform_parity;
 mod author_teleport_blink;
 mod authored_fighter_ladder;

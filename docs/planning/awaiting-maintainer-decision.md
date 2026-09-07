@@ -131,6 +131,43 @@ under 2.0 needs no other change.
 
 ## Open decisions
 
+### 70. Which SCREEN and which QUALITY setting is the Mary-O sprite offset on? (2026-09-06)
+
+⛔ **A BUG REPORT I CANNOT REPRODUCE, and the missing input is two facts only Jon has.**
+He reports *"Mary-o still spawns with her sprite incorrectly located"* and, of the
+screenshot, *"her feet are also not on the ground"*.
+
+⭐ **WHAT WAS MEASURED, so the question is narrow.** In the Mary-O platformer demo's
+default room at `ultra`, with the probe corrected to check the things his report
+exposed it could not see (the FLOOR rather than the body box; the X axis; and the spawn
+frame, which its velocity filter had been silently dropping):
+
+| | measured | expected |
+|---|---|---|
+| floor top vs her feet | **gap 0.00** | 0 |
+| spawn frame (Fall) | 384.000 / -1586.00 | exact |
+| settled (Idle) | 383.619 / -1587.33 | ~1.3-2px off |
+
+⇒ At `ultra` there is no visible defect there. At `potato` there IS: she lands ~9.9px
+right of true with a quad of 42.67x30.48 instead of 24x32.76 (D-POTATO-ASPECT), and
+`potato` is AUTO-SELECTED on software rendering.
+
+⇒ **THE TWO QUESTIONS.**
+1. **Which screen is the screenshot?** It shows health bars, a `player` label, a green
+   aim arrow and "Solid Snake / fight" — that is not the room the probe captures. Smash
+   demo, or a fight room of the Mary-O demo?
+2. **What is the video quality set to** (or is the machine on software rendering)? If
+   the lowest tier, the potato measurement above is very likely the whole answer.
+
+⚠ **A signal AGAINST potato, recorded so the answer is not assumed:** at potato the
+quad's aspect is badly wrong (wide and short), and the Mary-O in his screenshot looks
+normally proportioned. So the tier may not be it, and question 1 matters more.
+
+⛔ Nothing is blocked on this in the sense of other work; it is blocked in the sense
+that I cannot verify a fix for a scene I cannot identify. ⚠ And I overstated once
+already on this row — "verified in normal play" rested on a metric that compared the
+sprite to the BODY BOX and could not see either thing he pointed at.
+
 ### 69. At `potato`, should character SPRITES fall back to `0_25x` instead? (2026-09-06)
 
 **The defect is measured and is not in dispute** (D-POTATO-ASPECT, `queue.md`): the

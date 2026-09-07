@@ -116,6 +116,21 @@
   is reachable in production rather than theoretical, which is what decides whether the
   exercise is worth writing.
 
+  ⭐⭐⭐⭐ **AND THE PROJECT ALREADY WROTE THE CONTRACT THIS BREAKS.**
+  `shared_tangle/src/gravity.rs:150`, the `GravityZone` doc, verbatim:
+
+  > …center is inside the zone's `aabb` feels gravity along `dir` (and reorients via
+  > the shared `ActorRoll`); outside every zone it falls under [`BaseGravity`]. **So an
+  > NPC standing in a gravity column feels the column even when the player is
+  > elsewhere.**
+
+  ⇒ That last sentence is the invariant, stated as the reason the zones resource exists
+  at all. Portal transit derives its "down" from the player-mirrored global field, so a
+  transiting NPC does NOT feel its own column when the player is elsewhere — which is
+  the promise, negated. ⭐ This is no longer an inconsistency I inferred between two
+  call sites: it is a written contract with one consumer that honours it and one that
+  does not.
+
   ⭐⭐⭐ **AND THE CORRECT API ALREADY EXISTS AND A SIBLING USES IT — this is the
   strongest form of the finding.** `shared_tangle::gravity::gravity_dir_for(aabb, zones,
   base_dir)` resolves gravity for a body AT ITS OWN POSITION. `character_sprites`'

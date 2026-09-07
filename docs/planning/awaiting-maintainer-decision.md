@@ -4499,7 +4499,7 @@ every GAME inherits. The guard proves each declared option reaches SOME screen i
 system menu; it says nothing about which options a given game's menu SHOULD offer, and
 nothing about a game that ships its own menu lacking rows this one has.
 
-## D72 — can the inventory, a dialogue, and the map be live in the SAME frame? (2026-09-07)
+## Q73 — can the inventory, a dialogue, and the map be live in the SAME frame? (2026-09-07)
 
 **One minute at a screen closes four measured defects.** Not a design question and
 not a feel ruling — a factual question about what the game permits, which decides

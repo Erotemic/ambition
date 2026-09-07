@@ -384,7 +384,7 @@ generator's INPUT is at the commit the repository asked for.
 submodule status` on calculex 2026-09-03 showed **two more** off-pointer —
 `tools/ambition_music_renderer` (checkout `a113b786`, recorded `b2c005b5`, on a
 branch named `agent/…`) and `tools/ambition_sprite2d_renderer` (`125adf81` vs
-`aba1c1eb`). Neither breaks the default lane, because detached developer-tool
+`aba1c1eb`). Neither breaks the default lane, because detached developer-tool  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
 tests are omitted from it. ⇒ **But `./run_tests.sh --tool-tests` on this machine
 is not testing what the repository records**, and a green or red result from it
 here would describe somebody's work-in-progress branch. Left alone deliberately:

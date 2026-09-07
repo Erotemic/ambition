@@ -189,10 +189,11 @@ impl Plugin for SimCoreResourcesPlugin {
         // repro must produce the same log, and only the engine group is common
         // to both.
         ambition_platformer2d_shared_tangle::world_log::install(app);
-        app.add_systems(
-            PostUpdate,
-            ambition_platformer2d_actor_monolith::time::time_control::report_sim_clock_changes,
-        );
+        // ⇒ THE CRATE INSTALLS ITS OWN SYSTEM NOW. The reason above — engine
+        // group, not windowed host, so an Android freeze and a headless repro
+        // produce the same log — is a COMPOSITION decision and stays here; the
+        // system's name and its schedule are the crate's and went with it.
+        ambition_platformer2d_actor_monolith::time::time_control::install_sim_clock_reporting(app);
 
         // The presentation half of the camera shake (P0.1). The simulation
         // publishes a `CameraShakeRequest`; this is the only thing that turns one

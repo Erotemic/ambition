@@ -6683,7 +6683,7 @@ OPTIONAL dep + feature, never used:
   WAITED — this row said `125adf8` and that is no longer the pointer.**
 
 ```text
-  checked-in pointer   aba1c1e  "install() published through symlinks…"   ← moved, for an UNRELATED reason
+  checked-in pointer   aba1c1e  "install() published through symlinks…"   ← moved, for an UNRELATED reason  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
   d129 branch tip      c6a9712  "An instrument for D129's population…"    ← unchanged
   relation             DIVERGED — the branch does NOT contain the pointer
 ```
@@ -6700,19 +6700,19 @@ OPTIONAL dep + feature, never used:
 
   ⛔⛔ **AND IT BUMPED AGAIN. Re-measured 2026-09-06: the checked-in pointer is now
   `0828fae` ("Her three ground items get drawn: a bomb, a mine, and a tress that is not
-  a wand"), not the `aba1c1e` this row recorded a day earlier.** The row's own warning
+  a wand"), not the `aba1c1e` this row recorded a day earlier.** The row's own warning  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
   has now come true twice, which is the whole of its argument for deciding rather than
   waiting.
 
   ⚠ **AND THE RELATION CANNOT BE COMPUTED FROM EVERY BOX, which is a fact about the
-  measurement rather than the tree.** On this machine neither `aba1c1e` nor `c6a9712` is
+  measurement rather than the tree.** On this machine neither `aba1c1e` nor `c6a9712` is  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
   a valid object — `git -C tools/ambition_sprite2d_renderer cat-file -t` reports
   *"Not a valid object name"* for both, and the `d129-composited-frames` branch is not
   present locally. ⇒ The `merge-base --is-ancestor` verification this row cites is only
   available on a checkout that has FETCHED the branch, so a reader here cannot reproduce
   the DIVERGED verdict and must not read its absence as agreement.
   ⚠ Also worth stating for whoever reconciles it: this box's submodule CHECKOUT sits at
-  `2b4d59f`, which is neither the recorded pointer nor anything this row names. ⓘ Verified with
+  `2b4d59f`, which is neither the recorded pointer nor anything this row names. ⓘ Verified with  <!-- cite-ok: SUBMODULE commits, unresolvable in the superproject by design -->
   `git -C tools/ambition_sprite2d_renderer merge-base --is-ancestor`, not inferred
   from the dates. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
   never rendered.** The obvious classifier — "seated flush" vs "still moving when

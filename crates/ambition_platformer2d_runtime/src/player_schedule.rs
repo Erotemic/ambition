@@ -137,21 +137,20 @@ impl Plugin for PlayerSchedulePlugin {
                 .after(ambition_dev_tools::DevEditApplySet),
         );
 
-        app.add_systems(
-            sim,
-            // Derive the canonical persona before brain/effect consumers. Identity changes
-            // refresh the full persona; live HostCode ability edits preserve authored movement state.
-            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
-                .in_set(PlayerInputSet::Persona),
-        );
-        app.add_systems(
-            sim,
-            // Universal-brain seam: translate this frame's slot input into
-            // each controlled body's ActorControl frame.
-            ambition_platformer2d_actor_monolith::avatar::tick_controlled_brains
-                .in_set(ambition_platformer2d_actor_monolith::avatar::ControlledBrainTick)
-                .in_set(PlayerInputSet::Brain),
-        );
+        // ⭐ THE AVATAR INSTALLS ITS OWN PLAYER-INPUT STAGE. Three blocks that
+        // named five of that crate's private systems became one call. Every set
+        // involved is `shared_tangle`'s published `PlayerInputSet`, which the
+        // avatar crate already depends on — which is the whole test for whether a
+        // block can be carved: an owner that cannot NAME its anchors cannot
+        // install itself.
+        //
+        // ⛔ `close_death_interlude` IS DELIBERATELY NOT AMONG THEM, though a
+        // census listed it as reducible beside these. It orders
+        // `.before(crate::sandbox_reset::RoomReplayAdmission)`, a set this crate
+        // owns, and `actor_monolith` does not depend on the runtime — measured, not
+        // assumed. ⇒ That block is IRREDUCIBLE: only the composition can name both
+        // sides, which is a composition doing its job rather than a leak.
+        ambition_platformer2d_actor_monolith::avatar::install_avatar_player_input(app, sim);
         // Causal recording runs in the simulation schedule after the frame stamp so
         // replay state and publisher timing refer to the same simulation frame.
         #[cfg(feature = "causal")]
@@ -212,21 +211,6 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(PlayerInputSet::ControlGate),
-        );
-        app.add_systems(
-            sim,
-            (
-                // Body-mode policy (crouch / morph / climb) consumes FINISHED
-                // control + its slot gestures, so it runs after both publication
-                // phases and the gate above, and before `WorldPrepSet::Integrate`
-                // consumes the resize/mode change. ⭐ an autonomous body's mode
-                // now follows THIS tick's decision rather than the last one — the
-                // AI frame did not exist yet when this sat in `PlayerInput`.
-                ambition_platformer2d_actor_monolith::body_mode::update_body_mode,
-                ambition_platformer2d_actor_monolith::avatar::sync_player_actor_poses,
-            )
-                .chain()
-                .in_set(PlayerInputSet::BodyMode),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST

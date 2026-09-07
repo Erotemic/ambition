@@ -252,3 +252,64 @@ fn frozen_label(scale: f32) -> &'static str {
 
 #[cfg(test)]
 mod tests;
+
+/// Install this module's diagnostic reporting into `app`.
+///
+/// ⭐ THE CRATE INSTALLS ITS OWN SYSTEM, and the composition keeps the decision
+/// that is actually the composition's: `sim_core_resources.rs` records WHY this
+/// belongs to the engine group rather than the windowed host — *"an Android
+/// freeze and a headless repro must produce the same log, and only the engine
+/// group is common to both"* — and that reason is unchanged. What moves is the
+/// NAME of a private system out of a file that has no business knowing it.
+///
+/// ⚠ `PostUpdate` IS THIS CRATE'S OWN STATEMENT, not a phase the host chose. The
+/// report is edge-triggered off a clock the simulation has already settled, so it
+/// reads state after the frame's writers rather than competing with them. A host
+/// that wanted it elsewhere would be asking for a different fact.
+pub fn install_sim_clock_reporting(app: &mut App) {
+    app.add_systems(PostUpdate, report_sim_clock_changes);
+}
+
+#[cfg(test)]
+mod install_tests {
+    use super::*;
+
+    /// ⛔⛔ THE POISON FOR THIS CARVE COULD NOT FAIL, AND THIS IS WHY THE GUARD
+    /// EXISTS. Removing the installer from the composition left `app_it` at
+    /// 578/578 — not because nothing depends on the system, but because what it
+    /// produces is a `world_log::sim_clock` LINE, and no test asserts on the log.
+    ///
+    /// ⇒ Third outcome of the carve rule: not "load-bearing and covered", not
+    /// "dormant or dead", but **a real consumer the suite cannot see**. A
+    /// diagnostic is exactly the kind of output that vanishes without a single
+    /// test noticing, and an Android freeze is where somebody finds out.
+    ///
+    /// ⚠ A COUNT, NOT A NAME. Bevy strips system names without its `debug`
+    /// feature, so every row reads `<Enable the debug feature to see the name>`
+    /// and a name-based assertion passes against anything. Raise this number
+    /// deliberately and say what joined.
+    #[test]
+    fn the_installer_registers_the_clock_reporter() {
+        let mut app = App::new();
+        let before = post_update_systems(&mut app);
+        install_sim_clock_reporting(&mut app);
+        let after = post_update_systems(&mut app);
+        assert_eq!(
+            after - before,
+            1,
+            "the sim-clock installer registered {} systems, not 1",
+            after - before
+        );
+    }
+
+    fn post_update_systems(app: &mut App) -> usize {
+        app.world_mut()
+            .resource_scope(|world, mut schedules: Mut<bevy::ecs::schedule::Schedules>| {
+                let Some(schedule) = schedules.get_mut(PostUpdate) else {
+                    return 0;
+                };
+                let _ = schedule.initialize(world);
+                schedule.systems().map(|s| s.count()).unwrap_or(0)
+            })
+    }
+}

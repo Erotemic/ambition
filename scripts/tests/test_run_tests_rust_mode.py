@@ -413,3 +413,66 @@ def test_the_rust_BANNER_names_every_checker_too_not_just_the_footer():
     assert "slow_python_checker_jobs()" in block, (
         "the --rust banner must derive its skip-list from the plan"
     )
+
+
+def test_the_rust_alone_notice_names_every_job_that_lane_drops():
+    """⛔⛔ THE LANE THAT DROPS THE MOST NAMED THE FEWEST.
+
+    `--rust` drops four slow checkers and its notice DERIVES all four.
+    `--rust-alone` drops those four AND the repo-coupled pytest job — 1038 tests
+    measured 2026-09-07 — and its notice named none of them: four hand-written
+    themes and no job name at all. A reader comparing the two footers would
+    conclude the stricter lane skipped less.
+
+    ⭐ Asserts the RELATION between the plan and the prose, like its `--rust`
+    sibling. Spelling the five names here would make this test a sixth writer of
+    the same fact.
+    """
+    notice = run_tests.coverage_notice(
+        exhaustive=False, filtered=False, rust_alone=True
+    )
+    dropped = run_tests.unchecked_by_rust_alone()
+    assert dropped, "the lane must drop something, or this test witnesses nothing"
+
+    missing = [job.name for job in dropped if job.name not in notice]
+    assert not missing, (
+        f"--rust-alone drops {len(dropped)} job(s) and its notice does not "
+        f"name: {missing}"
+    )
+
+    # And what it names must really be absent from the plan, or it names phantoms.
+    planned = {job.name for job in _rust_alone_jobs()}
+    still_planned = [job.name for job in dropped if job.name in planned]
+    assert not still_planned, (
+        f"named as dropped but still in the --rust-alone plan: {still_planned}"
+    )
+
+
+def test_a_stricter_lane_cannot_report_fewer_omissions_than_a_looser_one():
+    """⭐ THE STRUCTURAL RELATION, which is what actually broke.
+
+    `--rust-alone` runs a strict subset of `--rust`'s plan, so everything
+    `--rust` omits it omits too. That makes its unchecked list a strict SUPERSET,
+    and a footer derived from the plan cannot violate it. This is the guard that
+    would have caught the defect without anyone noticing the wording: the bug was
+    not a missing name, it was a smaller list on a stricter lane.
+    """
+    alone_plan = {job.name for job in _rust_alone_jobs()}
+    rust_plan = {job.name for job in _rust_jobs()}
+    assert alone_plan < rust_plan, (
+        "--rust-alone must plan strictly fewer jobs than --rust, or this "
+        "relation is not the one being tested"
+    )
+
+    rust_unchecked = {job.name for job in run_tests.slow_python_checker_jobs()}
+    alone_unchecked = {job.name for job in run_tests.unchecked_by_rust_alone()}
+    assert rust_unchecked < alone_unchecked, (
+        f"--rust-alone runs fewer jobs than --rust but claims to omit "
+        f"{len(alone_unchecked)} against {len(rust_unchecked)}; missing: "
+        f"{sorted(rust_unchecked - alone_unchecked)}"
+    )
+
+    # The difference is exactly the jobs the stricter lane additionally drops.
+    assert alone_unchecked - rust_unchecked == rust_plan - alone_plan, (
+        "the extra omissions named must be exactly the extra jobs dropped"
+    )

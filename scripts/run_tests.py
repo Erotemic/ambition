@@ -412,6 +412,36 @@ def wasm_target_installed() -> bool:
     return result.returncode == 0 and "wasm32-unknown-unknown" in result.stdout
 
 
+def repo_coupled_python_job() -> Job:
+    """The FIRST class of repo-coupled job: ~44s of pytest, dropped only by `--rust-alone`.
+
+    ⛔⛔ A FUNCTION FOR THE SAME REASON ITS SIBLING IS ONE. `--rust-alone` is the
+    lane that drops the MOST — this job AND every slow checker — and its notice
+    named the FEWEST: four hand-written themes, no job name, and not one mention
+    of the four checkers that `--rust`'s own notice derives and prints. The lane
+    that omits the most said the least, which is the exact reading the notice
+    exists to prevent. Deriving both lists from the plan is the only fix that
+    cannot drift again; measured 2026-09-07, this one job carries 1038 tests.
+    """
+    return Job(
+        "repo tooling (scripts/tests; repo-coupled)",
+        [
+            sys.executable, "-m", "pytest", "scripts/tests", "-q",
+            "-m", f"not {DETACHED_TOOL_MARKER}", *PYTEST_TIMING_ARGS,
+        ],
+    )
+
+
+def unchecked_by_rust_alone() -> list[Job]:
+    """Everything `--rust-alone` drops, derived from the plan it builds.
+
+    ⭐ THE RELATION THAT MUST HOLD: `--rust-alone` runs a strict subset of
+    `--rust`, so its unchecked list must be a strict SUPERSET of `--rust`'s. A
+    hand-written list cannot promise that; a derivation cannot break it.
+    """
+    return [repo_coupled_python_job(), *slow_python_checker_jobs()]
+
+
 def slow_python_checker_jobs() -> list[Job]:
     """The second class of repo-coupled job: slower, and dropped by `--rust`.
 
@@ -497,13 +527,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # documentation/warning/compile-cost checks. Detached tools and maintenance audits are opt-in.
     post_rust_repo_jobs: list[Job] = []
     if not only and include_python_tooling:
-        jobs.append(Job(
-            "repo tooling (scripts/tests; repo-coupled)",
-            [
-                sys.executable, "-m", "pytest", "scripts/tests", "-q",
-                "-m", f"not {DETACHED_TOOL_MARKER}", *PYTEST_TIMING_ARGS,
-            ],
-        ))
+        jobs.append(repo_coupled_python_job())
     # ⭐ TWO CLASSES, NOT ONE. The pytest guard set above is ~44s MEASURED and is
     # what catches a rollback ratchet, a codec-shape baseline or a stale
     # MODULES.md drifting. The ones below are slower (no-warnings is a whole
@@ -1145,13 +1169,22 @@ def coverage_notice(
         # said "Python repo checkers were NOT run", which is true and was read
         # past for a whole day while a rollback ratchet, a codec-shape baseline
         # and a stale MODULES.md sat red behind a gate reporting 4/4 green.
+        # ⛔ NAMED FROM THE PLAN, like `--rust`'s above — and this branch was
+        # the THIRD writer that fix missed. It restated the omission as four
+        # THEMES and no job names, so the lane that drops the most named the
+        # fewest, and never mentioned the four slow checkers `--rust`'s own
+        # notice derives. The themes stay as EXAMPLES of what has gone red
+        # behind this lane; the population is derived.
+        dropped = "".join(
+            f"\n      · {job.name}" for job in unchecked_by_rust_alone()
+        )
         notices.append(
-            "\n  ⛔⛔ --rust-alone: NO repo-coupled guard ran. Unchecked this run:\n"
-            "      · the rollback stable-name ratchet\n"
-            "      · the rollback codec-shape baseline\n"
-            "      · per-crate MODULES.md currency\n"
-            "      · capability-ships and absence contracts\n"
-            "      Each of those has gone red unnoticed before. ~44s buys them:\n"
+            "\n  ⛔⛔ --rust-alone: NO repo-coupled guard ran. Unchecked this "
+            f"run:{dropped}"
+            "\n      The first of those carries the rollback stable-name ratchet, "
+            "the\n      codec-shape baseline, per-crate MODULES.md currency and the\n"
+            "      capability-ships and absence contracts — each has gone red "
+            "unnoticed\n      before. ~44s buys that job back:\n"
             "      ./run_tests.sh --rust"
         )
     if not exhaustive:
@@ -1671,9 +1704,14 @@ def main() -> int:
               f"(~44s). Omitted here: {dropped}. "
               "Run `./run_tests.sh` for those.")
     if args.rust_alone:
-        print("run_tests: ⛔ --rust-alone: NOTHING but Rust/Cargo. The repo-coupled "
-              "guard set is NOT running -- rollback ratchets, codec shape and "
-              "schema baselines can go red without this run noticing. "
+        # ⛔⛔ THE SECOND WRITER FOR THIS LANE, and the `--rust` fix on
+        # 2026-09-04 repaired only the `--rust` pair. Derived here for the same
+        # reason: a banner that names a subset of what the run skipped is read
+        # as the whole of it.
+        dropped = ", ".join(job.name for job in unchecked_by_rust_alone())
+        print("run_tests: ⛔ --rust-alone: NOTHING but Rust/Cargo. Omitted here: "
+              f"{dropped}. Rollback ratchets, codec shape and schema baselines "
+              "can go red without this run noticing. "
               "Run `./run_tests.sh --rust` (adds ~44s) unless you have a reason.")
     if args.run_everything or args.heavy:
         print("run_tests: EXHAUSTIVE plan requested. "

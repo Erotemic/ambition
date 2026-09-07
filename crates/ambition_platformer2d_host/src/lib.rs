@@ -47,12 +47,11 @@ impl Plugin for HostInputBindingsPlugin {
         use ambition_platformer2d_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
             declare_gameplay_input_context, declare_in_session_input_contexts,
-            dialog_pointer_input, freeze_local_seating_for_the_decided_match,
-            populate_menu_control_frame_from_actions, populate_seat_control_frames,
-            populate_seat_menu_frames, publish_latched_slot_controls,
-            seat_input_participants_for_roster, spawn_primary_input_participant,
-            sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
-            MenuFrameConsume, MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume,
+            dialog_pointer_input, populate_menu_control_frame_from_actions,
+            populate_seat_control_frames, populate_seat_menu_frames, publish_latched_slot_controls,
+            spawn_primary_input_participant, sync_primary_recipe_from_settings,
+            toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
+            MenuFramePopulate, MenuNavConsume,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -215,22 +214,6 @@ impl Plugin for HostInputBindingsPlugin {
             // The menu crate cannot know an asset path and the render crate must
             // not own the menu IR, so the host is where the font handle crosses.
             .add_systems(Update, publish_menu_font)
-            // Extra local seats come and go with the match roster, so unlike
-            // the primary they are a per-frame reconciliation rather than a
-            // boot-time spawn. `Collect` because a seat is a device source: it
-            // has to exist before bindings resolve anything for it.
-            .add_systems(
-                Update,
-                // The seating is frozen from the ROSTER before the seats it
-                // describes materialize, so nothing downstream sees a frame where
-                // participants exist and the topology does not.
-                (
-                    freeze_local_seating_for_the_decided_match,
-                    seat_input_participants_for_roster,
-                )
-                    .chain()
-                    .in_set(ambition_input::InputSet::Collect),
-            )
             // A participant's map is BUILT from its declared recipe: the
             // persisted preset reaches the primary's recipe, and any recipe
             // change rebuilds that seat's map — every seat, in every
@@ -329,6 +312,11 @@ impl Plugin for HostInputBindingsPlugin {
                     // other two are ordered.
                     .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
+
+        // The roster-driven seating pair installs ITSELF: both systems live in the
+        // monolith and its ordering against `InputSet::Collect` is that crate's
+        // fact, not this composition's.
+        ambition_platformer2d_runtime::host_input::install_roster_seating(app);
     }
 }
 
@@ -441,7 +429,6 @@ pub struct HostVfxPresentationPlugin;
 
 impl Plugin for HostVfxPresentationPlugin {
     fn build(&self, app: &mut App) {
-
         // spelled out on purpose — a short path is INVISIBLE to
         // `scripts/check_engine_systems_are_engine_installed.py`. That checker only recognises a
         // registration whose FIRST path segment is an engine crate name, and the app registered

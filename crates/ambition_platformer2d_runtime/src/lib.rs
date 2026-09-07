@@ -12,14 +12,13 @@ use bevy::time::{Fixed, Time};
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
-/// The reset horizon's composition: where checkpoint capture and restore sit in
-/// the tick, and the ordering edges that make them one transaction.
-pub mod encounter_spawn_service;
-pub mod world_gating;
 pub mod checkpoint_horizon;
 mod combat_schedule;
 pub mod content_identity;
 pub mod durable_save_horizon;
+/// The reset horizon's composition: where checkpoint capture and restore sit in
+/// the tick, and the ordering edges that make them one transaction.
+pub mod encounter_spawn_service;
 /// Holding external effects (audio, VFX) at the host's confirmed-frame boundary
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;
@@ -49,6 +48,7 @@ mod sim_core_resources;
 pub mod sim_identity;
 #[cfg(test)]
 mod sim_identity_tests;
+pub mod world_gating;
 
 // Re-export the shared finalization seam without moving its ownership up the dependency graph.
 pub use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
@@ -92,9 +92,9 @@ pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::schedule::{
         apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
         declare_gameplay_input_context, declare_in_session_input_contexts,
-        freeze_local_seating_for_the_decided_match, mirror_primary_slot_to_control_frame,
-        populate_menu_control_frame_from_actions, populate_seat_control_frames,
-        populate_seat_menu_frames, publish_latched_slot_controls,
+        freeze_local_seating_for_the_decided_match, install_roster_seating,
+        mirror_primary_slot_to_control_frame, populate_menu_control_frame_from_actions,
+        populate_seat_control_frames, populate_seat_menu_frames, publish_latched_slot_controls,
         publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
         spawn_primary_input_participant, sync_primary_recipe_from_settings,
         toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
@@ -262,7 +262,8 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             // that composes no engine domains, and a silent desync for one that
             // composes this group, because every plugin still builds.
             assert!(
-                app.world().contains_resource::<EngineRollbackStateDeclared>(),
+                app.world()
+                    .contains_resource::<EngineRollbackStateDeclared>(),
                 "the engine group is composing with a rollback backend that declared no engine \
                  rollback state. Use `AmbitionRollbackPlugin` (backend + engine declarations); \
                  `GgrsBackendPlugin` is the backend ALONE and is for a host that composes no \

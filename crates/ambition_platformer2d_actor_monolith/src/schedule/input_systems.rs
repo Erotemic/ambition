@@ -738,6 +738,36 @@ pub fn mirror_primary_slot_to_control_frame(
     *frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
 }
 
+/// Install the roster-driven seating pair, ordered.
+///
+/// Extra local seats come and go with the match roster, so unlike the primary they
+/// are a per-frame reconciliation rather than a boot-time spawn. `Collect` because
+/// a seat is a device source: it has to exist before bindings resolve anything for
+/// it.
+///
+/// The seating is frozen from the ROSTER before the seats it describes
+/// materialize, so nothing downstream sees a frame where participants exist and the
+/// topology does not — which is why the two are CHAINED and not merely co-located.
+///
+/// ⭐ THE ORDER IS THIS CRATE'S FACT, NOT THE COMPOSITION'S. Both systems live
+/// here and `ambition_input` is a dependency of this crate, so nothing about this
+/// arrangement needs a host to know it. A composition that called
+/// `add_systems` itself would be re-deciding, every time, something only this
+/// module can be wrong about.
+#[cfg(feature = "input")]
+pub fn install_roster_seating(app: &mut bevy::prelude::App) {
+    use bevy::prelude::IntoScheduleConfigs;
+    app.add_systems(
+        bevy::prelude::Update,
+        (
+            freeze_local_seating_for_the_decided_match,
+            seat_input_participants_for_roster,
+        )
+            .chain()
+            .in_set(ambition_input::InputSet::Collect),
+    );
+}
+
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
 ///
 /// Menu systems should read this resource instead of reading raw

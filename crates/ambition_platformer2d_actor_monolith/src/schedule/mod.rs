@@ -12,6 +12,8 @@ pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]
 pub use input_systems::declare_in_session_input_contexts;
 #[cfg(feature = "input")]
+pub use input_systems::install_roster_seating;
+#[cfg(feature = "input")]
 pub use input_systems::{
     apply_menu_frame_to_cutscene_request, commit_seat_raw_frames, decode_menu_frame,
     freeze_local_seating_for_the_decided_match, mirror_primary_slot_to_control_frame,

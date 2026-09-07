@@ -1235,6 +1235,32 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   metric: a falling `installing` count is only progress where the move does not invert a
   dependency — the time cluster would lower the number and worsen the architecture.
 
+
+  ✔ **ONE MORE CARVED 2026-09-07 (`8f558c713`), and the row's own framing is what
+  the carve corrected.** `install_roster_seating` moves the roster-seating pair's
+  `.chain().in_set(InputSet::Collect)` out of `platformer2d_host` into the crate
+  that owns both systems. AUTHORITY REMOVED: *which order the pair runs in* was the
+  composition's statement and is now the owner's. Reducible count 7 → 6, measured by
+  `scripts/measure_carveable_installations.py` before and after.
+  ⛔ **NO DEPENDENCY EDGE ADDED, and that took a correction mid-carve.** My first
+  version had the host name `ambition_platformer2d_actor_monolith` directly — and
+  the host does NOT depend on it; it reaches those systems through
+  `ambition_platformer2d_runtime::host_input`, a re-export seam. Naming the crate
+  would have ADDED an edge while the commit claimed to remove one. ⇒ **Check the
+  caller's manifest before writing the call**, because the compiler only catches it
+  when the crate is genuinely absent — if the host HAD happened to depend on the
+  monolith, the edge would have grown silently and the carve would have read as a win.
+  ⛔ **AND TWO OF THE THREE `host/src/lib.rs` ROWS SHOULD NOT BE CARVED AT ALL**,
+  which halves what this row implies is left in that file. `:144` is a FALSE POSITIVE
+  — it sits inside `if app.sim_is_fixed_tick() { let sim = app.sim_schedule(); … }`,
+  and fixed-tick-ness plus the sim's schedule handle are knowledge only a composition
+  has. That is a FIFTH irreducibility reason, now recorded in the script's docstring:
+  the classifier reads a block's SYMBOLS and never the guard around it. `:214` is
+  genuinely reducible and worth nothing — a bare `add_systems(Startup, one_system)`
+  relocates no ordering knowledge.
+  ⇒ **Carve by how much SCHEDULING AUTHORITY the composition is holding, not by how
+  many blocks are reducible.** On that measure the three rows in this file were one
+  carve, one no-op and one mistake.
 - ▢ **D-LANE-UNRUNNABLE — `run_tests.py --rust` exits 2 without running ANY job on a
   box whose ambient interpreter is outside the tool-venv store, and the printed cause
   misdiagnoses it.** Measured 2026-09-06. `python3 scripts/run_tests.py --rust` planned

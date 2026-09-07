@@ -106,7 +106,10 @@ rl_sim = ["dep:ambition_sim_harness"]
 #
 # opt-in, not default. Recording costs work per tick and the shipped game has
 # no use for it; what it needed was a DOOR, not a default.
-causal = ["ambition_platformer2d/causal", "dep:ambition_causal"]
+# The facade is the ONLY road: nothing in this crate names `ambition_causal`,
+# and the causal test reaches it as `ambition_platformer2d::causal`. The direct
+# `dep:` was a second edge to the same crate that no source file used.
+causal = ["ambition_platformer2d/causal"]
 headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition_platformer2d/dev_hot_reload"]
@@ -161,7 +164,6 @@ ambition_content = { path = "../ambition_content" }
 ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
 # The causal log, for the  feature above. Optional for the same reason
 # the feature is opt-in: a shipped build records nothing and should not link it.
-ambition_causal = { path = "../../crates/ambition_causal", optional = true }
 # Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
 # + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }

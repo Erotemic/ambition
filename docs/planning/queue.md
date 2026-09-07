@@ -1274,8 +1274,23 @@ and run that one. `cargo check -p <crate>` with no features is seconds.
   ⛔⛔ **A SECOND LANE IS UNRUNNABLE ON THIS BOX, measured 2026-09-07, and the cause
   is a SYSTEM LIBRARY rather than an interpreter.** `cargo check --workspace
   --all-features --all-targets` — the FEATURE UNION — cannot build here:
-  `bevy_rich_text3d` -> `cosmic-text` -> `yeslogic-fontconfig-sys`, whose build
-  script panics because the system `fontconfig` is not installed. ⇒ **A manifest or
+  `yeslogic-fontconfig-sys`'s build script panics because the system `fontconfig`
+  is not installed.
+  ⛔ **I FIRST NAMED THE WRONG CHAIN and it changes what can be done about it.** I
+  wrote `bevy_rich_text3d -> cosmic-text -> yeslogic-fontconfig-sys`, derived from
+  seeing those names near each other in `Cargo.lock`. ASKED CARGO instead
+  (`cargo tree -i yeslogic-fontconfig-sys --all-features`): the real path is
+  **`bevy_text` -> `parley` -> `fontique` -> `yeslogic-fontconfig-sys`**, arriving
+  through `bevy_dev_tools` -> `bevy_internal` -> `bevy`. `cosmic-text` IS in the
+  tree, via `bevy_lunex` -> `ambition_menu_kaleidoscope`, and reaches fontconfig
+  **zero** times. ⇒ Two unrelated paths, joined because their names sat close
+  together in a lockfile.
+  ⚠ **The correction matters practically:** it is bevy's OWN text stack, reachable
+  from nearly every crate, so no crate exclusion can dodge it. Measured — a near-union
+  with `--exclude ambition_menu_kaleidoscope --exclude ambition_app --exclude
+  ambition_app_tools` still failed identically (`REAL_EXIT=101`). There is no
+  workspace subset that verifies a feature change here; only installing the library
+  does. ⇒ **A manifest or
   feature change cannot be union-verified on this machine**, which matters because
   the union is precisely the lane that catches a feature change, and the default
   workspace run is silent about it (the union job lives inside

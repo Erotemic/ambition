@@ -375,6 +375,35 @@ sprites_potato       1     0.53M     123    898   0.0046x area
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
+  * ⭐⭐ **AN ELEVENTH CAUSE, 2026-09-06, AND ALL TEN ELIMINATIONS ARE STRUCTURALLY
+    BLIND TO IT: THE SPRITE'S SHAPE CHANGES WITHOUT ITS IDENTITY CHANGING.** Every
+    elimination above asks *which character resolves* -- catalog id, file root, md5,
+    portrait vs spritesheet, tier movement. All correct, and none of them looks at the
+    drawn QUAD. Measured (`scripts/measure_sprite_tier_trim_drift.py`), the drawn
+    aspect ratio of the sheet you named:
+
+    | sheet | base | `0_25x` | `potato` |
+    |---|---|---|---|
+    | `player_robot_v3` | 0.703 | 0.720 | **1.000 — SQUARE, +42.3%** |
+    | `player_robot_v2` | 0.709 | 0.739 | 0.800 (+12.8%) |
+
+    ⇒ At the lowest tier your v3 robot is drawn SQUARE. The cause is
+    D-POTATO-ASPECT in `queue.md`: the quad is
+    `authored_render * (trim_w/frame_w, trim_h/frame_h)` and the variant generator
+    RE-MEASURES alpha on the downscaled image, where an anti-aliasing fringe is a
+    large fraction of a 16x16 frame. Nothing about identity changes, which is exactly
+    why the headless tests are green and why this never reproduced.
+
+    ⚠ **STATED AS A CANDIDATE, NOT AS THE ANSWER.** Your words were *"went from the
+    robot v3 character to the robot v2 character"*, which describes an IDENTITY swap;
+    this mechanism produces a SHAPE change on one character. It is offered because a
+    42% aspect change is large enough to be read as a different model, the two robots
+    are visually similar, and no other surviving hypothesis predicts a visible
+    difference at all. ⇒ **The falsifier is seconds and is yours:** set video quality
+    to the lowest setting and look at whether the robot becomes SQUARE rather than
+    becoming a different robot. If square, this is it; if it is genuinely a different
+    model, this is eliminated too and the WHEN question stands.
+
   * ⭐ **HALF THE FALSIFIER HAS SINCE BEEN RUN, HEADLESS, AND IT SWAPS BACK
     CLEANLY.** `a_quality_round_trip_converges_back_with_every_page_loaded_and_nothing_orphaned`
     (2026-09-02) sits in the same file as the test above: Full → Potato → Full in

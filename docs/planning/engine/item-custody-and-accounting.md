@@ -646,3 +646,38 @@ reader to infer them from unrelated components.
   ruling decides which of the two storages is the AUTHORITY when they can
   disagree, and today they cannot, because dropping never revokes the grant.
 - What is authoritative/predicted for item custody in online multiplayer?
+
+
+## Two writers of the durable horizon apply DIFFERENT filters (2026-09-06, REASONED)
+
+⭐ **The invariant is already written down, on `set_durable_horizon`:** it takes
+occurrences and custody TOGETHER because *"a custody row without its occurrence row
+names nothing"*. `PersistedMintedItem` carries the same `occurrence` key and gets NO
+equivalent protection — its own setter (`set_minted_items`), its own production writer
+(`items/pickup/minted_horizon.rs`), separate from the writer that owns occurrences and
+custody (`session/durable_horizon.rs`). Each compares only its OWN field before writing,
+so nothing reconciles them, and no reader of `occurrences()` cross-checks either.
+
+⚠ **AND THE TWO FILTERS DIFFER, which is the mechanism a divergence would use:**
+
+| writer | keeps a row when |
+|---|---|
+| `durable_horizon.rs:255` | not `InCustody`, **or** its `SimId` is in `durably_held` — `Query<&SimId, With<ItemCustody>>`. Its comment: *"the file may only make that claim about a hand it can reconstruct"* |
+| `minted_horizon.rs:319` | `SpawnOrigin::Dynamic` — **no custody check at all** |
+
+⇒ A minted item whose occurrence is `InCustody` in a hand the file cannot reconstruct
+would have its OCCURRENCE row dropped and its MINTED row kept: an orphan pointing at
+nothing.
+
+⛔ **NOT DEMONSTRATED REACHABLE, and that is the open question.** It requires an
+occurrence marked `InCustody` whose entity lacks `ItemCustody` (or its `SimId`). If those
+two are always written together, the divergence is structural and unreachable — the same
+shape as the portal `Reflection` finding, where a real asymmetry sat behind a branch
+shipped play never enters. ⇒ **The question for whoever owns custody: can an occurrence
+be `InCustody` while its holder carries no `ItemCustody`?**
+
+✔ **A guard exists meanwhile** —
+`no_durable_row_names_an_occurrence_the_save_does_not_hold` (`save_data.rs`,
+poison-verified) — but it is a unit test over a fixture, not a production check. If the
+answer above is "yes, reachable", the real repair is folding minted items into
+`set_durable_horizon` so the WRITE is atomic rather than guarded.

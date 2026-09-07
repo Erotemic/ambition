@@ -235,6 +235,15 @@ pub fn persist_occurrence_horizon_to_save(
     custodians: Query<&SimId>,
     // The occurrences whose custody survives a process boundary, because the item
     // domain saves `ItemCustody` and applies it again on load.
+    //
+    // ⚠ THIS MATCHES THE COMPONENT, NOT THE `Held` VARIANT, and the two readings differ:
+    // `ItemCustody` is an enum with `InWorld` as well as `Held { holder }`, so this set
+    // also contains items lying on the ground. That is WIDER than the filter comment
+    // below claims ("a hand it can reconstruct"), and wider is the safe direction — it
+    // drops FEWER occurrence rows, so it cannot strand a `custody` or `minted_items` row
+    // whose occurrence went missing. ⇒ Recorded rather than tightened: narrowing this to
+    // `Held` would change what the save omits, which is a durability decision and not a
+    // tidy-up. See `docs/planning/engine/item-custody-and-accounting.md`.
     durably_held: Query<&SimId, With<ambition_held_items::ItemCustody>>,
     mut save: ResMut<AmbitionGameSave>,
 ) {

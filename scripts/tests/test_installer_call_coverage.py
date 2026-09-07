@@ -36,6 +36,15 @@ def _no_cargo(argv, *args, **kwargs):
     return _Done()
 
 
+def _no_mutation(*args, **kwargs):
+    """⛔⛔ THE TRIP-WIRE, and it was added after the first poison of these tests
+    MUTATED THE REAL TREE: with the preflight removed and cargo stubbed, the
+    runner poisoned two installer lines in `combat_schedule.rs` and the stub's
+    `pytest.fail` fired before the restore. A test that lets the subject reach
+    the working tree is one that can leave it dirty when it fails."""
+    pytest.fail("a source line was mutated before the build policy answered")
+
+
 def _runner():
     spec = importlib.util.spec_from_file_location(
         "measure_installer_call_coverage",
@@ -63,6 +72,7 @@ def test_run_refuses_on_an_unbound_target_before_mutating_anything(monkeypatch, 
     sidecar = tmp_path / "sidecar.json"
     monkeypatch.setattr(runner, "SIDECAR", sidecar)
     monkeypatch.setattr(runner.subprocess, "run", _no_cargo)
+    monkeypatch.setattr(runner, "_write_line", _no_mutation)
     monkeypatch.setattr(sys, "argv", ["measure_installer_call_coverage.py", "--run"])
     with pytest.raises(SystemExit) as exit_info:
         runner.main()
@@ -78,6 +88,7 @@ def test_run_refuses_below_the_disk_floor_before_mutating_anything(monkeypatch, 
     sidecar = tmp_path / "sidecar.json"
     monkeypatch.setattr(runner, "SIDECAR", sidecar)
     monkeypatch.setattr(runner.subprocess, "run", _no_cargo)
+    monkeypatch.setattr(runner, "_write_line", _no_mutation)
     monkeypatch.setattr(sys, "argv", ["measure_installer_call_coverage.py", "--run"])
     with pytest.raises(SystemExit) as exit_info:
         runner.main()

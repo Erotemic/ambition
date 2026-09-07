@@ -33,7 +33,7 @@ pub fn apply_actor_stimuli(
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            crate::actor_spawn::actor_clusters::ActorClusterQueryData,
+            ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData,
             // WHICH CHARACTER THIS BODY IS — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
@@ -97,7 +97,7 @@ pub fn apply_actor_stimuli(
         aggression.grudge = source.or(aggression.grudge);
 
         let mut em = cq.as_actor_mut();
-        super::actors::provoke_actor_in_place(
+        ambition_platformer2d_actor_spawn::conversion::provoke_actor_in_place(
             &mut commands,
             entity,
             &mut em,

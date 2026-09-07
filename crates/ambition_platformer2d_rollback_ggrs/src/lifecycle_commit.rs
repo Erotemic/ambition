@@ -405,7 +405,7 @@ fn commit_transition(
     // `SpawnActorRequest`s that its rollback never un-enqueued, and this path DRAINS the queue
     // below rather than leaving it to a scheduled system.
     if let Some(mut pending) = world.get_resource_mut::<bevy::ecs::message::Messages<
-        ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
+        ambition_platformer2d_actor_spawn::SpawnActorRequest,
     >>() {
         pending.clear();
     }
@@ -469,7 +469,7 @@ fn commit_transition(
     world.flush();
     let _ = bevy::ecs::system::RunSystemOnce::run_system_once(
         &mut *world,
-        ambition_platformer2d_actor_monolith::features::apply_spawn_actor_requests,
+        ambition_platformer2d_actor_spawn::apply_spawn_actor_requests,
     );
     world.flush();
 

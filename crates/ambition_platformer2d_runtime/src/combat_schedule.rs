@@ -74,7 +74,7 @@ impl Plugin for CombatSchedulePlugin {
         // rather than this file's is in `install_actor_spawn_requests`. It is
         // called HERE so it lands beside the in-gameplay spawners, which is the
         // part of the arrangement a composition does own.
-        ambition_platformer2d_actor_monolith::features::install_actor_spawn_requests(app, sim);
+        ambition_platformer2d_actor_spawn::install_actor_spawn_requests(app, sim);
         app.add_systems(
             sim,
             (
@@ -394,7 +394,7 @@ impl Plugin for CombatSchedulePlugin {
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the
         // monolith's to name, are in `install_dismounted_rider_rebuild`.
-        ambition_platformer2d_actor_monolith::features::install_dismounted_rider_rebuild(app, sim);
+        ambition_platformer2d_actor_spawn::brain_builders::install_dismounted_rider_rebuild(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

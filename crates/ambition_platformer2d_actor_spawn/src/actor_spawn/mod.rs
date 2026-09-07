@@ -14,8 +14,8 @@
 // It is "does it name anything above this layer": a helper that needs a
 // construction plan or a feature system belongs where it is and the primitives
 // should stop calling it instead.
-pub(crate) mod actor_clusters;
-pub(crate) mod npc_policy;
+pub mod actor_clusters;
+pub mod npc_policy;
 // ⭐ THE CHARACTER SPAWN PLAN CAME DOWN TOO. Measured before moving: it makes
 // no `super::` reference and its only `crate::` dependency is
 // `character_runtime`, which this module already needs — so it added no edge
@@ -23,8 +23,8 @@ pub(crate) mod npc_policy;
 // primitive uses to place a body, not a feature system: nothing in it reads a
 // message, owns a schedule slot or consumes a construction plan.
 pub(crate) mod character_spawn_plan;
-pub(crate) mod brain_builders;
-pub(crate) mod conversion;
+pub mod brain_builders;
+pub mod conversion;
 
 // ⭐⭐ EVERY DEPENDENCY NAMED, BECAUSE `use super::*` IS WHAT HID THE LAYER.
 // While this file lived under `features::ecs` it inherited that module's whole
@@ -306,7 +306,7 @@ pub(crate) fn spawn_staged_actor(
 
 /// Populate a staged actor onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn spawn_staged_actor_into(
+pub fn spawn_staged_actor_into(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1027,7 +1027,7 @@ fn boss_actor_cluster(
 }
 
 /// Populate a boss onto a root the construction executor allocated.
-pub(crate) fn spawn_boss_with_overrides_into(
+pub fn spawn_boss_with_overrides_into(
     commands: &mut Commands,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
@@ -1266,7 +1266,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
 /// room reset / boss despawn cleans it up alongside the boss.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn spawn_runtime_minion(
+pub fn spawn_runtime_minion(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1310,7 +1310,7 @@ pub(crate) fn spawn_runtime_minion(
 
 /// Populate a summoned minion onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn spawn_runtime_minion_into(
+pub fn spawn_runtime_minion_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1469,10 +1469,10 @@ pub(crate) fn spawn_runtime_minion_into(
 #[allow(clippy::too_many_arguments)]
 /// Default for placements that do not author a respawn policy. Named actors use
 /// their explicit policy; ordinary unspecified room bodies respawn on reentry.
-pub(crate) const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
+pub const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
     ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
 
-pub(crate) fn spawn_enemy_with_faction_into(
+pub fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -1625,12 +1625,12 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // `grant_prepared_character_body`), so the re-template pass reads this
         // body as current and never touches it. That pass is now what it was
         // always for: a cast hot reload, or a deliberate runtime re-wear.
-        crate::character_runtime::grant_prepared_character_body(
+        crate::character_body::grant_prepared_character_body(
             commands,
             root,
             definition,
             prepared.generation(),
-            crate::character_runtime::KitOwnership::Grant,
+            crate::character_body::KitOwnership::Grant,
             // A room placement answers to no match: the character's own feel is
             // the whole answer here (see `MatchRules::body_over`).
             definition.movement_tuning,
@@ -1714,7 +1714,7 @@ pub struct GiantHandPlan {
 ///
 ///  still scoped to the `"giant"` string. A data-driven "which mounts have
 /// limbs" flag waits for a SECOND limbed mount.
-pub(crate) fn is_limbed_host(
+pub fn is_limbed_host(
     character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
 ) -> bool {
     character
@@ -1759,7 +1759,7 @@ pub(crate) fn reject_runtime_giant(
     false
 }
 
-pub(crate) fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<GiantHandPlan> {
+pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<GiantHandPlan> {
     //  the giant's own placement decides the hand geometry. This took an
     // `Option<&ArchetypeSpec>` and preferred that row's `default_size`; callers
     // handed it the reserved `combatant` fallback purely to satisfy the
@@ -1887,7 +1887,7 @@ pub(super) fn spawn_solo_enemy_into(
 /// spawn's `character_id`, falling back to the authored world-IR name.
 ///
 /// The character an NPC placement names, if it names one.
-pub(crate) fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Option<&str> {
+pub fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Option<&str> {
     match &interactable.kind {
         ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
         _ => None,
@@ -1919,7 +1919,7 @@ fn npc_display_label(
     }
 }
 
-pub(crate) fn spawn_interactable_into(
+pub fn spawn_interactable_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -2010,7 +2010,7 @@ pub(crate) fn spawn_interactable_into(
 ///
 /// The encounter system still owns wave timing, but the mob itself is a normal
 /// feature entity queried by actor, projectile, rendering, and health systems.
-pub(super) fn spawn_encounter_mob(
+pub fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -2253,7 +2253,7 @@ mod runtime_giant_refusal_tests {
             class: Some("giant".to_string()),
             ..Default::default()
         });
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),
         );

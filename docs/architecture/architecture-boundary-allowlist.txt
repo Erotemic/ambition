@@ -23,9 +23,10 @@
 # directory the code walked out of. The floor is what caught this one, which is
 # the argument for keeping floors on gates whose corpus is discovered.
 #
-# `src/actor_spawn/` is a second scan root now, unfiltered — the whole module is
-# spawn code by name. Its six rows are at 0 and were at 0 before the move: this
-# is restored coverage, not new permission.
+# `actor_spawn/` is still a second scan root after its extraction into
+# `ambition_platformer2d_actor_spawn`; rows stay source-relative to the owning
+# crate so the reviewed six-file inventory does not churn on a crate move. The
+# six rows are at 0: this is coverage, not permission.
 actor_spawn/actor_clusters.rs=0
 actor_spawn/brain_builders.rs=0
 actor_spawn/character_spawn_plan.rs=0

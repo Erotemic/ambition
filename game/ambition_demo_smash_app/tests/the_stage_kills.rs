@@ -647,7 +647,7 @@ fn the_camera_closes_no_faster_than_it_opened() {
 #[test]
 fn a_match_whose_last_loser_is_removed_still_decides() {
     use ambition_platformer2d::actor::MatchSeat;
-    use ambition_platformer2d::actors::features::stocks_match::the_live_match_is_settled;
+    use ambition_platformer2d::versus_match::the_live_match_is_settled;
     use ambition_platformer2d::combat::components::FighterStocks;
 
     let mut app = build_demo_app();

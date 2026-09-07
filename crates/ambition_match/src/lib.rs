@@ -16,6 +16,7 @@ pub mod prepared;
 #[cfg(test)]
 mod prepared_policy_tests;
 pub mod seating;
+pub mod settlement;
 mod snapshot_impls;
 pub mod staging;
 
@@ -23,11 +24,17 @@ pub use prepared::{
     effective_abilities, prepare_match, seat_placement, ControlAuthority, MatchPreparationProblems,
     MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
-pub use seating::{
-    match_participants, ActiveMatch, MatchInstance, MatchScoped, MatchSeat, SeatCredit,
-};
+pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchScoped, MatchSeat};
+
+/// Stable match-seat identity carried as historical combat credit.
+///
+/// This is deliberately an alias of `MatchSeat`: the semantic role differs, but
+/// the underlying roster-seat identity must not acquire a second numbering authority.
+pub use seating::MatchSeat as SeatCredit;
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchItemSpawns, MatchParticipant,
     MatchParticipantRoster, NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating,
     StagesCharacters,
 };
+
+pub use settlement::{the_live_match_is_settled, StocksMatchSettled, SuddenDeathEntered};

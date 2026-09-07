@@ -27,7 +27,7 @@ pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 
 pub const NPC_TALK_RADIUS: f32 = 80.0;
 
-pub(crate) fn resolve_npc_brain(
+pub fn resolve_npc_brain(
     catalog: &CharacterCatalog,
     // An EMPTY registry is a legal, meaningful value: no character states a default, which is
     // what this path assumed before definitions could state one.

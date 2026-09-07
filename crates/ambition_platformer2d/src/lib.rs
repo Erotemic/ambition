@@ -320,7 +320,7 @@ pub mod actor {
     /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
     /// embarrassing of the two and the harder one to notice.
-    pub use ambition_match::{MatchSeat, SeatCredit};
+    pub use ambition_match::MatchSeat;
 
     /// Declaring a MATCH: who is in it, who drives them, and what it costs to
     /// lose.
@@ -333,7 +333,7 @@ pub mod actor {
     /// the entire argument for keeping one.
     pub use ambition_match::{
         ControlAuthority, ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
+        MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating, SeatCredit,
     };
 
     /// What a human seat is playing ON, and the map from those sources to
@@ -424,7 +424,7 @@ pub mod actor {
     /// What a game spawns and configures.
     pub use ambition_combat::actor_tuning::ActorConfig;
     pub use ambition_combat::components::ActorFaction;
-    pub use ambition_platformer2d_actor_monolith::features::{SpawnActorKind, SpawnActorRequest};
+    pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice
     /// (`features` → `features::ecs::actors::motion` → `_core`), so 125 call

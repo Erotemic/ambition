@@ -4,7 +4,7 @@
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
 use super::*;
-use crate::features::{ChestBundle, PickupBundle};
+use ambition_platformer2d_actor_spawn::actor_bundles::{ChestBundle, PickupBundle};
 use ambition_combat::components::StandTimer;
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_combat::components::{
@@ -375,7 +375,7 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    crate::actor_spawn::spawn_interactable_into(
+    ambition_platformer2d_actor_spawn::spawn_interactable_into(
         ctx.commands,
         &ctx.context.characters,
         &ctx.context.sheets,

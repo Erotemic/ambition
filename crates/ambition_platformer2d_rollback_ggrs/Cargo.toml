@@ -13,6 +13,7 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 # The MOUNT PAIR's `Mounted` marker — reconciliation asks whether a body is
 # being carried. `ambition_mount` owns the pair now (D33).
 ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["headless", "input"] }
 # The room vocabulary this crate queries (`RoomSet`) is the world crate's, not
 # the monolith's; it reached it through a re-export until 2026-08-26.

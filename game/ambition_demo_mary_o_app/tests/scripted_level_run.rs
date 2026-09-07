@@ -408,14 +408,14 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
 
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
-        .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
+        .write_message(ambition_platformer2d::actor::SpawnActorRequest {
             id: "scripted_snake".to_string(),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
             half_size: Vec2::new(14.0, 16.0),
             faction: ambition_platformer2d::combat::components::ActorFaction::Enemy,
             grudge_against: None,
-            kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy {
+            kind: ambition_platformer2d::actor::SpawnActorKind::Enemy {
                 brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),

@@ -374,6 +374,7 @@ ambition_audio = { path = "../ambition_audio" }
 # not-yet-extracted local modules collision/orientation/transit). See
 # docs/planning/status.md Stage 13 / Task K.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 # The physical life of a touched collectible -- where it is, whether it is
 # moving, and that touching it collects it (D33, 2026-09-02). `items::pickup`
 # still owns the PRESSED pickup and the two are siblings, so this crate is named

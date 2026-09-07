@@ -229,7 +229,7 @@ fn dead_mount_dissolves_link_keeping_records() {
         Update,
         (
             enforce_mount_rider_link,
-            crate::features::rebuild_dismounted_rider_brains,
+            ambition_platformer2d_actor_spawn::brain_builders::rebuild_dismounted_rider_brains,
         )
             .chain(),
     );
@@ -377,7 +377,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
         Update,
         (
             enforce_mount_rider_link,
-            crate::features::rebuild_dismounted_rider_brains,
+            ambition_platformer2d_actor_spawn::brain_builders::rebuild_dismounted_rider_brains,
             log_mount_died,
         )
             .chain(),

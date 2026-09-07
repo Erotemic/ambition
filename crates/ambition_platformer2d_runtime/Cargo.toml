@@ -14,6 +14,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # The MOUNT PAIR's schedule, carved out of the monolith (D33). This crate
 # already wired those two systems; it names their owner now.
 ambition_mount = { path = "../ambition_mount" }
+ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
     "input",

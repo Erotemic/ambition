@@ -1,7 +1,7 @@
 //! Rollback wire format for the match receipt and the per-body seat. The
 //! orphan rule puts these beside their types: `SnapshotState` is core's.
 
-use ambition_platformer2d_core::snapshot::{put_bool, put_u64, Reader, SnapshotState};
+use ambition_platformer2d_core::snapshot::{put_bool, put_str, put_u64, put_u8, Reader, SnapshotState};
 
 // ── A live MATCH's per-body state (AA2 / AC2) ────────────────────────────────
 //
@@ -67,5 +67,133 @@ impl SnapshotState for crate::ActiveMatch {
             session,
             activated_on,
         ))
+    }
+}
+
+/// WHICH MATCH is in sudden death — the same shape as the verdict below, and
+/// registered for the same reason: a rewind that restored one and not the other
+/// would restore a continuation belonging to a match that is not running.
+impl SnapshotState for crate::SuddenDeathEntered {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match self.entered_match() {
+            None => put_bool(out, false),
+            Some(instance) => {
+                put_bool(out, true);
+                let (session, activated_on) = instance.parts();
+                match session {
+                    None => put_bool(out, false),
+                    Some(session) => {
+                        put_bool(out, true);
+                        put_u64(out, session.0);
+                    }
+                }
+                match activated_on {
+                    None => put_bool(out, false),
+                    Some(tick) => {
+                        put_bool(out, true);
+                        put_u64(out, tick);
+                    }
+                }
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let entered = if r.bool()? {
+            let session = if r.bool()? {
+                Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+            } else {
+                None
+            };
+            let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            Some(crate::MatchInstance::from_snapshot(
+                session,
+                activated_on,
+            ))
+        } else {
+            None
+        };
+        Some(crate::SuddenDeathEntered::from_snapshot(entered))
+    }
+}
+
+
+/// The stocks ruleset's verdict, and WHICH MATCH it is about.
+/// One byte of tag plus the winning side's label when there is one.
+fn encode_match_verdict(out: &mut Vec<u8>, verdict: &ambition_combat::stocks::MatchVerdict) {
+    use ambition_combat::stocks::MatchVerdict;
+    match verdict {
+        MatchVerdict::Winner(side) => {
+            put_u8(out, 0);
+            put_str(out, side);
+        }
+        MatchVerdict::Draw => put_u8(out, 1),
+        MatchVerdict::NoContest => put_u8(out, 2),
+    }
+}
+
+fn decode_match_verdict(r: &mut Reader<'_>) -> Option<ambition_combat::stocks::MatchVerdict> {
+    use ambition_combat::stocks::MatchVerdict;
+    match r.u8()? {
+        0 => Some(MatchVerdict::Winner(r.str()?.to_string())),
+        1 => Some(MatchVerdict::Draw),
+        2 => Some(MatchVerdict::NoContest),
+        _ => None,
+    }
+}
+
+impl SnapshotState for crate::StocksMatchSettled {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match self.decided_match() {
+            None => put_bool(out, false),
+            Some(instance) => {
+                put_bool(out, true);
+                let (session, activated_on) = instance.parts();
+                match session {
+                    None => put_bool(out, false),
+                    Some(session) => {
+                        put_bool(out, true);
+                        put_u64(out, session.0);
+                    }
+                }
+                match activated_on {
+                    None => put_bool(out, false),
+                    Some(tick) => {
+                        put_bool(out, true);
+                        put_u64(out, tick);
+                    }
+                }
+                // The VERDICT rides beside the match it is about, so a restore
+                // hands presentation the same outcome it was showing.
+                encode_match_verdict(
+                    out,
+                    self.decided_verdict()
+                        .expect("a stamped match carries its verdict"),
+                );
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let decided = if r.bool()? {
+            let session = if r.bool()? {
+                Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+            } else {
+                None
+            };
+            let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            Some(crate::MatchInstance::from_snapshot(
+                session,
+                activated_on,
+            ))
+        } else {
+            None
+        };
+        // The VERDICT rides beside the match it is about — presentation reads
+        // it as state rather than as a message, so a speculative outcome cannot
+        // reach the winner card. See `StocksMatchSettled::settle`.
+        let decided = match decided {
+            None => None,
+            Some(instance) => Some((instance, decode_match_verdict(r)?)),
+        };
+        Some(crate::StocksMatchSettled::from_snapshot(decided))
     }
 }

@@ -30,7 +30,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
         &[],
     );
     let (identity, disposition, combat) =
-        crate::features::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
+        ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     app.world_mut()
         .spawn((
             FeatureSimEntity,

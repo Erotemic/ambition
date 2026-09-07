@@ -1,7 +1,7 @@
 //! Peaceful-actor (NPC) glue for the unified actor simulation: the catalog
 //! brain resolver ([`resolve_npc_brain`]) and the hit/hostile/dialogue/
 //! idle-bark line resolvers. Peaceful actors are the SAME ECS cluster as hostile
-//! enemies now (see [`crate::actor_spawn::actor_clusters`]); this module no
+//! enemies now (see [`ambition_platformer2d_actor_spawn::actor_clusters`]); this module no
 //! longer owns a separate NPC runtime view — only the dialogue/bark selection and
 //! the peaceful brain selection. Talk/hostility tuning consts
 //! ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here.
@@ -648,7 +648,7 @@ mod default_profile_tests {
     #[test]
     fn an_npc_takes_its_characters_own_policy_over_the_catalog_rows() {
         let catalog = assembled_catalog();
-        let (brain, binding) = crate::actor_spawn::npc_policy::resolve_npc_brain(
+        let (brain, binding) = ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
             &catalog,
             &registry_naming(Some(
                 ambition_characters::brain::CharacterBrainTemplate::StandStill,
@@ -687,7 +687,7 @@ mod default_profile_tests {
             registry_naming(None),
             ambition_characters::prepared::PreparedCharacterRegistry::default(),
         ] {
-            let (brain, _) = crate::actor_spawn::npc_policy::resolve_npc_brain(
+            let (brain, _) = ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
                 &catalog,
                 &registry,
                 &npc(None),
@@ -706,7 +706,7 @@ mod default_profile_tests {
     #[test]
     fn a_placement_override_outranks_the_characters_own_policy() {
         let catalog = assembled_catalog();
-        let (brain, _) = crate::actor_spawn::npc_policy::resolve_npc_brain(
+        let (brain, _) = ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
             &catalog,
             &registry_naming(Some(
                 ambition_characters::brain::CharacterBrainTemplate::Wanderer,
@@ -742,7 +742,7 @@ mod default_profile_tests {
             ambition_characters::brain::CharacterBrainTemplate::Wanderer,
         ));
         let resolve = |forced: &ambition_characters::brain::AuthoredBrainOverride| {
-            crate::actor_spawn::npc_policy::resolve_npc_brain(
+            ambition_platformer2d_actor_spawn::npc_policy::resolve_npc_brain(
                 &catalog,
                 &registry,
                 &npc(None),

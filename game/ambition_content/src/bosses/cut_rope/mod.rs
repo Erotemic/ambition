@@ -30,7 +30,7 @@ use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};
 use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
-use ambition_platformer2d_actor_monolith::features::{EnemyActorBundle, FeatureBaseBundle};
+use ambition_platformer2d_actor_spawn::actor_bundles::{EnemyActorBundle, FeatureBaseBundle};
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;

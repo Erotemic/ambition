@@ -24,8 +24,10 @@ use crate::workspace::{self, Workspace};
 const SPAWN_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/features/ecs";
 /// ⛔⛔ THE SECOND ROOT, AND IT EXISTS BECAUSE THE FIRST ONE LOST ITS SUBJECT.
 /// `spawn_actors.rs` was the largest thing this gate watched. The F1 construction
-/// inversion moved it to `src/actor_spawn/` — out of `features/ecs` entirely — and
-/// the gate did not report a hole, it reported a smaller CORPUS: nine scanned
+/// inversion first moved it to `src/actor_spawn/` and the later P1 carve moved
+/// that module into the dedicated `ambition_platformer2d_actor_spawn` crate. In
+/// both cases the original scan root lost its subject and could only report a
+/// smaller CORPUS: nine scanned
 /// files became seven, and only the anti-vacuity floor said anything at all.
 ///
 /// ⇒ A SCAN ROOT IS A CITATION AND A MOVE BREAKS IT SILENTLY. The floor caught
@@ -37,8 +39,9 @@ const SPAWN_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/feature
 /// ⚠ NO `spawn` PREFIX FILTER HERE. Under `features/ecs` the filter picks the
 /// spawn files out of a general directory; `actor_spawn/` IS the spawn module, so
 /// every file in it is in scope.
-const SPAWN_MODULE_DIR: &str = "crates/ambition_platformer2d_actor_monolith/src/actor_spawn";
-const CRATE_SRC: &str = "crates/ambition_platformer2d_actor_monolith/src";
+const SPAWN_MODULE_DIR: &str = "crates/ambition_platformer2d_actor_spawn/src/actor_spawn";
+const MONOLITH_SRC: &str = "crates/ambition_platformer2d_actor_monolith/src";
+const SPAWN_CRATE_SRC: &str = "crates/ambition_platformer2d_actor_spawn/src";
 const ALLOWLIST: &str = "docs/architecture/architecture-boundary-allowlist.txt";
 const POLICY_ID: &str = "engine.room-feature-spawns";
 
@@ -76,7 +79,10 @@ pub fn metas() -> Vec<CustomMeta> {
     vec![CustomMeta {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
-        owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+        owners: vec![
+            "ambition_platformer2d_actor_monolith".to_string(),
+            "ambition_platformer2d_actor_spawn".to_string(),
+        ],
         watch_paths: vec![
             SPAWN_DIR.to_string(),
             SPAWN_MODULE_DIR.to_string(),
@@ -95,7 +101,8 @@ pub fn run(ws: &Workspace, report: &mut Report) {
         spawn_dir.display()
     );
     let allowlist = read_allowlist(ws);
-    let src_root = ws.abs(CRATE_SRC);
+    let monolith_src = ws.abs(MONOLITH_SRC);
+    let spawn_crate_src = ws.abs(SPAWN_CRATE_SRC);
     let mut scanned = 0usize;
     let mut seen = BTreeSet::new();
 
@@ -106,57 +113,74 @@ pub fn run(ws: &Workspace, report: &mut Report) {
         spawn_module_dir.display()
     );
 
-    for (root, require_spawn_prefix) in [(&spawn_dir, true), (&spawn_module_dir, false)] {
-    for file in workspace::rust_sources_under(root) {
-        // Relative to the SCAN ROOT (`features/ecs`), so `spawn_actors.rs` and
-        // `spawn/portal_construction.rs` both begin with `spawn` and a future
-        // `spawn/foo/bar.rs` still would. Matching the file name instead is what
-        // let the `spawn/` directory escape this gate for three months.
-        let under = file
-            .strip_prefix(root)
-            .expect("scanned file under the spawn scan root")
-            .to_string_lossy()
-            .replace('\\', "/");
-        if require_spawn_prefix && !under.starts_with("spawn") {
-            continue;
+    for (root, source_root, require_spawn_prefix) in [
+        (&spawn_dir, &monolith_src, true),
+        (&spawn_module_dir, &spawn_crate_src, false),
+    ] {
+        for file in workspace::rust_sources_under(root) {
+            // Relative to the SCAN ROOT (`features/ecs`), so `spawn_actors.rs` and
+            // `spawn/portal_construction.rs` both begin with `spawn` and a future
+            // `spawn/foo/bar.rs` still would. Matching the file name instead is what
+            // let the `spawn/` directory escape this gate for three months.
+            let under = file
+                .strip_prefix(root)
+                .expect("scanned file under the spawn scan root")
+                .to_string_lossy()
+                .replace('\\', "/");
+            if require_spawn_prefix && !under.starts_with("spawn") {
+                continue;
+            }
+            scanned += 1;
+            let text = std::fs::read_to_string(&file).expect("read spawn source");
+            let rel = file
+                .strip_prefix(source_root)
+                .expect("spawn file under its owning crate src")
+                .to_string_lossy()
+                .replace('\\', "/");
+            let repo_rel = file
+                .strip_prefix(ws.root())
+                .expect("spawn file under workspace root")
+                .to_string_lossy()
+                .replace('\\', "/");
+            seen.insert(rel.clone());
+            let actual = raw_spawn_count(&text);
+            match allowlist.get(&rel) {
+                None => report.push(Diagnostic {
+                    policy_id: POLICY_ID.to_string(),
+                    owners: vec![
+                        "ambition_platformer2d_actor_monolith".to_string(),
+                        "ambition_platformer2d_actor_spawn".to_string(),
+                    ],
+                    source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+                    rationale: "the room-feature raw-spawn allowlist is an exact inventory; every scanned spawn module must be reviewed explicitly".to_string(),
+                    location: repo_rel.clone(),
+                    detail: format!("missing exact inventory row in {ALLOWLIST}; current raw commands.spawn count is {actual}"),
+                }),
+                Some(allowed) if actual != *allowed => report.push(Diagnostic {
+                    policy_id: POLICY_ID.to_string(),
+                    owners: vec![
+                        "ambition_platformer2d_actor_monolith".to_string(),
+                        "ambition_platformer2d_actor_spawn".to_string(),
+                    ],
+                    source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+                    rationale: "room-authored spawn modules must use scoped construction helpers, and the reviewed raw-spawn inventory must not retain excess allowance".to_string(),
+                    location: repo_rel.clone(),
+                    detail: format!(
+                        "{actual} raw commands.spawn calls; exact reviewed count is {allowed} (update code or {ALLOWLIST} with justification)"
+                    ),
+                }),
+                Some(_) => {}
+            }
         }
-        scanned += 1;
-        let text = std::fs::read_to_string(&file).expect("read spawn source");
-        let rel = file
-            .strip_prefix(&src_root)
-            .expect("spawn file under crate src")
-            .to_string_lossy()
-            .replace('\\', "/");
-        seen.insert(rel.clone());
-        let actual = raw_spawn_count(&text);
-        match allowlist.get(&rel) {
-            None => report.push(Diagnostic {
-                policy_id: POLICY_ID.to_string(),
-                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
-                source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
-                rationale: "the room-feature raw-spawn allowlist is an exact inventory; every scanned spawn module must be reviewed explicitly".to_string(),
-                location: format!("{CRATE_SRC}/{rel}"),
-                detail: format!("missing exact inventory row in {ALLOWLIST}; current raw commands.spawn count is {actual}"),
-            }),
-            Some(allowed) if actual != *allowed => report.push(Diagnostic {
-                policy_id: POLICY_ID.to_string(),
-                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
-                source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
-                rationale: "room-authored spawn modules must use scoped construction helpers, and the reviewed raw-spawn inventory must not retain excess allowance".to_string(),
-                location: format!("{CRATE_SRC}/{rel}"),
-                detail: format!(
-                    "{actual} raw commands.spawn calls; exact reviewed count is {allowed} (update code or {ALLOWLIST} with justification)"
-                ),
-            }),
-            Some(_) => {}
-        }
-    }
     }
 
     for stale in allowlist.keys().filter(|rel| !seen.contains(*rel)) {
         report.push(Diagnostic {
             policy_id: POLICY_ID.to_string(),
-            owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+            owners: vec![
+                "ambition_platformer2d_actor_monolith".to_string(),
+                "ambition_platformer2d_actor_spawn".to_string(),
+            ],
             source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
             rationale: "the room-feature raw-spawn allowlist is an exact inventory and may not retain rows for removed or renamed files".to_string(),
             location: ALLOWLIST.to_string(),

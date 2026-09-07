@@ -798,14 +798,14 @@ mod tests {
         let mut staging = features::RoomContentStagingRegistry::default();
         staging
             .register("published", "test_provider", "occ", "occ.v1", |_room| {
-                vec![features::SpawnActorRequest {
+                vec![ambition_platformer2d_actor_spawn::SpawnActorRequest {
                     id: "occupant".into(),
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
                     faction: ambition_combat::components::ActorFaction::Npc,
                     grudge_against: None,
-                    kind: features::SpawnActorKind::Enemy {
+                    kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                             "combatant".into(),
                         ),
@@ -831,7 +831,7 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        app.add_message::<features::SpawnActorRequest>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
 
         let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
         let sink = observed.clone();
@@ -895,7 +895,7 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        app.add_message::<features::SpawnActorRequest>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);

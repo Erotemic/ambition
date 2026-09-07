@@ -41,11 +41,9 @@ pub mod anim_helpers;
 mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;
-pub(crate) use crate::actor_spawn::brain_builders::enemy_default_brain;
+pub(crate) use ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
-pub use crate::actor_spawn::brain_builders::project_authored_fighter_ladder;
 /// The dismount reaction: mount announces, this rebuilds. See its own note.
-pub use crate::actor_spawn::brain_builders::rebuild_dismounted_rider_brains;
 pub(crate) mod autonomous_reconcile;
 mod brain_effects;
 pub(crate) mod character_policy;
@@ -71,9 +69,7 @@ mod summon;
 pub mod spawn_static;
 mod target_volumes;
 
-pub use actors::{
-    actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
-};
+pub use actors::sync_actor_components_from_cluster;
 pub use actors::{
     apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
     snapshot_body_contact, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
@@ -157,13 +153,6 @@ pub use spawn::{
     RoomFeatureConstructionReceipt,
 };
 pub(crate) use spawn::spawn_runtime_minion;
-// ⛔ THESE LIVE IN `crate::actor_spawn` NOW, ONE LAYER BELOW `construction`.
-// Re-exported here and NOT left as a compatibility alias: the feature layer is a
-// real consumer of the spawn primitives, so this states a dependency rather than
-// preserving an old path. See `actor_spawn`'s own doc for why it moved.
-pub use crate::actor_spawn::{
-    apply_spawn_actor_requests, GiantHandPlan, SpawnActorKind, SpawnActorRequest,
-};
 // ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
 // is unchanged (`features::apply_summon_effects`) — the schedule in
 // `ambition_platformer2d_runtime` and an ordering in `ambition_demo_smash` both
@@ -172,7 +161,7 @@ pub use summon::apply_summon_effects;
 // ⛔ THE SPAWN-PRIMITIVE RE-EXPORTS THAT USED TO LIVE HERE ARE GONE, AND THEIR
 // DEATH IS THE EVIDENCE THE INVERSION IS REAL. They existed so `construction`
 // could reach these names through `crate::features`; now that it names
-// `crate::actor_spawn` directly, nothing in this module needs them and the
+// the extracted `ambition_platformer2d_actor_spawn` crate directly, nothing in this module needs them and the
 // compiler said so. A carve that leaves its shims behind has only moved files.
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,

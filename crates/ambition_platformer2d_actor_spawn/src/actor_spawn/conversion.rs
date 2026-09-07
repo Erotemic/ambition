@@ -120,7 +120,7 @@ fn rebuild_provoked_brain(
 /// The generic branch asked it for `combatant`'s policy and HP pool, and that was the last
 /// thing on this path that knew the archetype ontology existed. Both come from the engine's own
 /// defaults now — see `brain_builders::default_provoked_policy`.
-pub(crate) fn provoke_actor_in_place(
+pub fn provoke_actor_in_place(
     commands: &mut Commands,
     entity: Entity,
     em: &mut super::actor_clusters::ActorMut<'_>,
@@ -311,7 +311,7 @@ pub(crate) fn provoke_actor_in_place(
 /// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
 /// reconstruction apply this exact projection, so a provoked actor is identical
 /// whether it was just challenged or rebuilt after a GGRS load.
-pub(crate) struct ProvokedArchetype {
+pub struct ProvokedArchetype {
     pub brain_profile: BrainProfile,
     /// The `ActorConfig.brain` read-model marker for a provoked actor.
     pub config_brain: CharacterBrain,
@@ -334,7 +334,7 @@ pub(crate) struct ProvokedArchetype {
 /// The `ActorConfig.brain` read-model derived from a live autonomous brain, shared
 /// by the spawn plan, the runtime switch, and the post-restore reconcile so the
 /// classification can never disagree with the actual brain.
-pub(crate) fn config_brain_for(
+pub fn config_brain_for(
     brain: &Brain,
 ) -> ambition_entity_catalog::placements::CharacterBrain {
     use ambition_characters::brain::StateMachineCfg;
@@ -352,7 +352,7 @@ pub(crate) fn config_brain_for(
 /// the policy is pinned equal to the `combatant` row while that row survives
 /// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
 /// goes, this signature is already the one that stays.
-pub(crate) fn provoked_projection(
+pub fn provoked_projection(
     brain_profile: BrainProfile,
     current_config: &ActorConfig,
     combat_kit: &CombatKit,

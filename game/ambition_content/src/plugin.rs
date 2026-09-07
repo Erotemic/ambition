@@ -109,7 +109,7 @@ impl Plugin for AmbitionContentPlugin {
         // unconditionally: the ledger and its release are `ui`-free, and only
         // the command that fills it is behind the runner.
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
-            ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
+            ambition_platformer2d_actor_spawn::SpawnActorRequest,
         >::default());
 
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);

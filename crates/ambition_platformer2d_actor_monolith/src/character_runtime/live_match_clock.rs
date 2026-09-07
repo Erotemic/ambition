@@ -19,7 +19,7 @@
 
 use bevy::prelude::{Res, ResMut, Resource};
 
-use crate::features::stocks_match::StocksMatchSettled;
+use ambition_match::StocksMatchSettled;
 use ambition_match::PreparedMatch;
 use ambition_match::{ActiveMatch, MatchInstance};
 

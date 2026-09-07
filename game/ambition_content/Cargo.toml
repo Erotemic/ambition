@@ -50,6 +50,7 @@ ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk",
 # The MOUNT PAIR's `Mountable`, carved out of the monolith (D33): dormancy asks
 # whether a body is somebody's mount before it retires it.
 ambition_mount = { path = "../../crates/ambition_mount" }
+ambition_platformer2d_actor_spawn = { path = "../../crates/ambition_platformer2d_actor_spawn" }
 ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
     "ldtk_runtime",
     "input",

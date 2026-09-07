@@ -23,7 +23,7 @@ pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
 
-pub(crate) use crate::actor_spawn::{spawn_runtime_minion};
+pub(crate) use ambition_platformer2d_actor_spawn::{spawn_runtime_minion};
 
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.
@@ -84,7 +84,7 @@ impl std::error::Error for RoomFeatureConstructionError {}
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
     room: ambition_platformer2d_world::rooms::RoomSpec,
-    content_requests: Vec<crate::actor_spawn::SpawnActorRequest>,
+    content_requests: Vec<ambition_platformer2d_actor_spawn::SpawnActorRequest>,
     /// The primary actor-domain construction lane. Every actor-owned
     /// authoritative family is planned here; optional capabilities compose
     /// separate typed lanes beside it instead of entering this domain enum.
@@ -874,7 +874,7 @@ impl RoomFeatureConstructionPlan {
             {
                 names.push(request.name.clone());
                 // The kind may carry the catalog id the display name is not.
-                if let crate::actor_spawn::SpawnActorKind::Enemy { character, .. } =
+                if let ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy { character, .. } =
                     &request.kind
                 {
                     names.push(character.to_string());
@@ -1030,7 +1030,7 @@ pub fn spawn_encounter_mob(
     encounter_id: impl Into<String>,
     mob: EncounterMobSeed<'_>,
 ) {
-    crate::actor_spawn::spawn_encounter_mob(
+    ambition_platformer2d_actor_spawn::spawn_encounter_mob(
         commands,
         catalog,
         authored_sheets,

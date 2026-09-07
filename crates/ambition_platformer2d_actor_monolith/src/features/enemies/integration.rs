@@ -1,14 +1,14 @@
 //! Actor physics/AI integration: the per-frame tick that drives actor
 //! movement + attack geometry through the [`ActorMut`] ECS view. EVERY actor —
 //! grounded, aerial, and the adhesive crawler — runs the one shared movement
-//! kernel ([`ActorMut::integrate_body`] → `ae::step_motion`, borrowing the
+//! kernel ([`ActorMutIntegrationExt::integrate_body`] → `ae::step_motion`, borrowing the
 //! actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut` view). The
 //! kernel picks the physics by the body's explicit `MotionModel`; the flight
 //! limb vs grounded spine split rides `flight.fly_enabled` inside the
 //! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
 //! from the [`super::CharacterRoster`].
 
-use crate::actor_spawn::actor_clusters::ActorMut;
+use ambition_platformer2d_actor_spawn::actor_clusters::ActorMut;
 use super::*;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::events::{
@@ -123,9 +123,70 @@ fn evaluate_enemy_ai_output(
     )
 }
 
-impl<'a> ActorMut<'a> {
+/// Simulation behavior layered over the spawn crate's mutable actor view.
+///
+/// `ActorMut` is owned by `ambition_platformer2d_actor_spawn` because that crate
+/// owns the ECS cluster/query seam. The per-tick enemy/NPC integration remains
+/// feature-simulation policy, so it is expressed as this local extension trait
+/// rather than an inherent impl on a foreign type or a dependency back from the
+/// spawn capability into the monolith.
+pub(crate) trait ActorMutIntegrationExt {
     #[allow(clippy::too_many_arguments)]
-    pub fn update(
+    fn update(
+        &mut self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        tuning: FeatureCombatTuning,
+        dt: f32,
+        pose_owned_externally: bool,
+        frame: ambition_characters::actor::control::ActorControlFrame,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
+        motion_frame: ae::MotionFrame,
+        playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
+        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        authored_tuning: Option<ae::MovementTuning>,
+        combat: &mut ambition_characters::actor::BodyCombat,
+        tumbling: bool,
+        out_of_play: bool,
+        contact_field: ae::BodyContactField<'_>,
+    ) -> (
+        ambition_characters::actor::control::ActorControlFrame,
+        ae::FrameEvents,
+    );
+
+    #[allow(clippy::too_many_arguments)]
+    fn integrate_body(
+        &mut self,
+        world: &ae::World,
+        frame: &ambition_characters::actor::control::ActorControlFrame,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
+        dt: f32,
+        motion_frame: ae::MotionFrame,
+        playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
+        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        authored_tuning: Option<ae::MovementTuning>,
+        combat: &mut ambition_characters::actor::BodyCombat,
+        tumbling: bool,
+        out_of_play: bool,
+        pose_owned_externally: bool,
+        contact_field: ae::BodyContactField<'_>,
+    ) -> ae::FrameEvents;
+
+    fn aabb(&self) -> ae::Aabb;
+    fn bark_anchor(&self) -> ae::Vec2;
+    fn attack_aabb(&self) -> ae::Aabb;
+    fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb;
+    fn body_damage_aabb(&self) -> Option<ae::Aabb>;
+    fn contact_attack(&self) -> Option<ContactAttack>;
+    fn reset_to_spawn(
+        &mut self,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
+    );
+}
+
+impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
+    #[allow(clippy::too_many_arguments)]
+    fn update(
         &mut self,
         world: &ae::World,
         target_pos: ae::Vec2,
@@ -445,7 +506,7 @@ impl<'a> ActorMut<'a> {
     // ---- Consumer-facing geometry / combat helpers (ports of the
     // matching the cluster component accessors.
 
-    pub fn aabb(&self) -> ae::Aabb {
+    fn aabb(&self) -> ae::Aabb {
         // Orientation follows the published support normal — a crawler clung to
         // a wall and a body under sideways gravity both lie ALONG the surface,
         // so the footprint swaps its extents (frame-derived, policy-free).
@@ -464,11 +525,11 @@ impl<'a> ActorMut<'a> {
     // reader — the shape `reference_a_comment_describes_intent` warns about,
     // where two derivations of one fact drift apart because only one is used.
 
-    pub fn bark_anchor(&self) -> ae::Vec2 {
+    fn bark_anchor(&self) -> ae::Vec2 {
         self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
     }
 
-    pub fn attack_aabb(&self) -> ae::Aabb {
+    fn attack_aabb(&self) -> ae::Aabb {
         self.attack_aabb_dir(ae::Vec2::new(self.kin.facing, 0.0))
     }
 
@@ -479,7 +540,7 @@ impl<'a> ActorMut<'a> {
     // hitbox; this would have handed them the hitbox and looked right. No caller
     // ever did, which is the only reason it never mattered.
 
-    pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
+    fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
         let gravity_dir = -self
             .surface
             .surface_normal
@@ -499,7 +560,7 @@ impl<'a> ActorMut<'a> {
     // the active-window strike — one melee lifecycle for every body, paced by the
     // move's own duration rather than a separate recovery cooldown.
 
-    pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
+    fn body_damage_aabb(&self) -> Option<ae::Aabb> {
         if !self.config.tuning.body_contact_damage {
             return None;
         }
@@ -511,7 +572,7 @@ impl<'a> ActorMut<'a> {
     /// clusters are borrowed. The victim resolution runs AFTER the borrow ends
     /// (fable review §A4: contact damage targets any body, so the
     /// victim query aliases the attacker query and the two passes must split).
-    pub fn contact_attack(&self) -> Option<ContactAttack> {
+    fn contact_attack(&self) -> Option<ContactAttack> {
         let body_damage = self.body_damage_aabb()?;
         // The attacker's live reference frame (§B2 keeps `surface_normal`
         // current for every body): knockback separates along ITS side axis,
@@ -551,7 +612,7 @@ impl<'a> ActorMut<'a> {
     /// `sync_ecs_actors_with_save` (Progression) re-zeroed the HP a moment later, so the
     /// end-of-frame state looked right — but the actor was ALIVE for the remainder of that
     /// frame: drawable, targetable, and able to act.
-    pub fn reset_to_spawn(
+    fn reset_to_spawn(
         &mut self,
         motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     ) {
@@ -619,7 +680,7 @@ impl<'a> ActorMut<'a> {
     }
 }
 
-/// An actor's live body-contact attack, snapshotted by [`ActorMut::contact_attack`]
+/// An actor's live body-contact attack, snapshotted by [`ActorMutIntegrationExt::contact_attack`]
 /// so the victim pass can resolve player AND actor victims after the attacker
 /// borrow ends. One event builder for every victim kind — the `HitTarget` stamp
 /// is the only difference.
@@ -668,6 +729,55 @@ impl ContactAttack {
         })
     }
 }
+
+#[cfg(test)]
+pub(crate) trait SeedActorIntegrationTestExt:
+    ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut
+{
+    /// One integration tick over a pre-spawn seed, with optional runtime inputs
+    /// defaulted exactly as the historical actor-movement scratch harness did.
+    #[allow(clippy::too_many_arguments)]
+    fn update_for_test(
+        &mut self,
+        world: &ae::World,
+        target_pos: ae::Vec2,
+        tuning: FeatureCombatTuning,
+        dt: f32,
+        pose_owned_externally: bool,
+        frame: ambition_characters::actor::control::ActorControlFrame,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
+        motion_frame: ae::MotionFrame,
+    ) -> ambition_characters::actor::control::ActorControlFrame {
+        use ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut as _;
+
+        self.as_actor_mut()
+            .update(
+                world,
+                target_pos,
+                tuning,
+                dt,
+                pose_owned_externally,
+                frame,
+                motion_model,
+                motion_frame,
+                // No move playing on a scratch rig, so it is never helpless.
+                None,
+                ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+                None,
+                &mut ambition_characters::actor::BodyCombat::default(),
+                // Not tumbling — a scratch harness body is not in a floor game.
+                false,
+                // In play — a scratch rig has no death window open.
+                false,
+                // A single-body rig: nobody to be solid to.
+                ae::BodyContactField::NONE,
+            )
+            .0
+    }
+}
+
+#[cfg(test)]
+impl SeedActorIntegrationTestExt for ambition_body_seed::ActorClusterSeed {}
 
 #[cfg(test)]
 mod dash_tests;

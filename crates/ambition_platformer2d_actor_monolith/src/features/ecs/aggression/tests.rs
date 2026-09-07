@@ -1,5 +1,5 @@
 use super::*;
-use crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
+use ambition_platformer2d_actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD;
 use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -41,7 +41,7 @@ fn spawn_actor_from_seed(
     strikes: i32,
 ) -> bevy::prelude::Entity {
     let (identity, disposition, combat) =
-        super::super::actors::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
+        ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     // Provoke accumulator lives on `ActorAggression` now.
     let aggression = ActorAggression {
         mode: AggressionMode::RetaliatesWhenHit {
@@ -61,7 +61,7 @@ fn spawn_actor_from_seed(
             seed.into_components(),
             ActorInteraction {
                 interactable,
-                talk_radius: crate::actor_spawn::npc_policy::NPC_TALK_RADIUS,
+                talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             identity,
             disposition,

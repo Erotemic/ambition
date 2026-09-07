@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn a_plan_resolves_the_character_it_names() {
         let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_busy_beaver",
                 "Busy Beaver",
@@ -160,7 +160,7 @@ mod tests {
     /// composition carve-out does not apply.
     fn a_cast_of_one() -> ambition_characters::prepared::PreparedCharacterRegistry {
         let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
             ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_somebody",
                 "Somebody",

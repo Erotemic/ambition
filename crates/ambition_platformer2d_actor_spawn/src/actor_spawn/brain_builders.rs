@@ -58,7 +58,7 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
 /// deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
 /// and using it here turned every provoked NPC — the kernel guide, a merchant —
 /// into a rock-thrower instead of a melee attacker like the pirates.
-pub(crate) fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile {
+pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile {
     ambition_combat::actor_tuning::BrainProfile {
         template: ambition_characters::brain::CharacterBrainTemplate::Smash,
         aggro_radius: 460.0,
@@ -114,7 +114,7 @@ fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
 }
 
 /// Build the enemy's default `Brain` from its resolved controller profile.
-pub(crate) fn enemy_default_brain(
+pub fn enemy_default_brain(
     enemy: &ActorConfig,
     // **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
     // [`smash_cfg_from_spec`]: a driver may only consider what this body can

@@ -190,32 +190,17 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
     }
 }
 
-/// The kernel's side of the seed: drive a not-yet-spawned
-/// [`ActorClusterSeed`] through the same integration a live entity gets.
+/// Borrow a not-yet-spawned [`ActorClusterSeed`] through the same mutable
+/// cluster view used by a live ECS actor.
 ///
-/// A trait rather than inherent methods because the seed is a foreign type now
-/// — it names no simulation, and the simulation is what these two bind it to.
+/// This trait owns only the seed-to-view adaptation. Per-tick integration policy
+/// belongs to the simulation crate that consumes [`ActorMut`].
 pub trait SeedActorMut {
     /// Borrow the seed's fields (and the scratch's 18 ancillary clusters) as an
     /// [`ActorMut`] view, for the test / pre-spawn paths that drive the
     /// integration without a live ECS entity. The runtime path borrows the SAME
     /// view from real components via [`ActorClusterQueryDataItem::as_actor_mut`].
     fn as_actor_mut(&mut self) -> ActorMut<'_>;
-
-    /// One integration tick over the seed, with every optional input defaulted.
-    #[cfg(test)]
-    #[allow(clippy::too_many_arguments)]
-    fn update_for_test(
-        &mut self,
-        world: &ae::World,
-        target_pos: ae::Vec2,
-        tuning: ambition_combat::FeatureCombatTuning,
-        dt: f32,
-        is_mounted: bool,
-        frame: ambition_characters::actor::control::ActorControlFrame,
-        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-        motion_frame: ae::MotionFrame,
-    ) -> ambition_characters::actor::control::ActorControlFrame;
 }
 
 impl SeedActorMut for ActorClusterSeed {
@@ -256,43 +241,5 @@ impl SeedActorMut for ActorClusterSeed {
             lifetime: &mut body.lifetime,
             combo_trace: &mut body.combo_trace,
         }
-    }
-
-    #[cfg(test)]
-    #[allow(clippy::too_many_arguments)]
-    fn update_for_test(
-        &mut self,
-        world: &ae::World,
-        target_pos: ae::Vec2,
-        tuning: ambition_combat::FeatureCombatTuning,
-        dt: f32,
-        is_mounted: bool,
-        frame: ambition_characters::actor::control::ActorControlFrame,
-        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-        motion_frame: ae::MotionFrame,
-    ) -> ambition_characters::actor::control::ActorControlFrame {
-        self.as_actor_mut()
-            .update(
-                world,
-                target_pos,
-                tuning,
-                dt,
-                is_mounted,
-                frame,
-                motion_model,
-                motion_frame,
-                // No move playing on a scratch rig, so it is never helpless.
-                None,
-                ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
-                None,
-                &mut ambition_characters::actor::BodyCombat::default(),
-                // A single-body rig: nobody to be solid to.
-                // Not tumbling — a scratch harness body is not in a floor game.
-                false,
-                // In play — a scratch rig has no death window open.
-                false,
-                ae::BodyContactField::NONE,
-            )
-            .0
     }
 }

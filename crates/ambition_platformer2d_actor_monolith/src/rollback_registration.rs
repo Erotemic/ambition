@@ -111,14 +111,14 @@ where
     // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the
     // other would restore a verdict about a match that is not running. Registered together,
     // they rewind together.
-    registrar.rollback_resource_canonical::<crate::features::stocks_match::StocksMatchSettled>(
+    registrar.rollback_resource_canonical::<ambition_match::StocksMatchSettled>(
         OWNER,
         "resource.stocks_match_settled",
     );
     // …and whether it refused to be settled. Sudden death is entered by NOT
     // deciding, so this latch is the only thing standing between a level timeout
     // and re-entering the tie on every tick that follows.
-    registrar.rollback_resource_canonical::<crate::features::stocks_match::SuddenDeathEntered>(
+    registrar.rollback_resource_canonical::<ambition_match::SuddenDeathEntered>(
         OWNER,
         "resource.sudden_death_entered",
     );
@@ -269,7 +269,7 @@ where
             hasher.finish() ^ baseline.generation.get().rotate_left(32)
         },
     );
-    registrar.rollback_component_clone_probed::<crate::character_runtime::ProjectedCharacterKit>(
+    registrar.rollback_component_clone_probed::<ambition_platformer2d_actor_spawn::ProjectedCharacterKit>(
         OWNER,
         "actor.projected_character_kit",
         |projected| {
@@ -555,7 +555,7 @@ where
         OWNER,
         "message.release_provocation",
     );
-    registrar.clear_message_on_rollback::<crate::features::SpawnActorRequest>(
+    registrar.clear_message_on_rollback::<ambition_platformer2d_actor_spawn::SpawnActorRequest>(
         OWNER,
         "message.spawn_actor_request",
     );

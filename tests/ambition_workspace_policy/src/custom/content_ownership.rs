@@ -26,7 +26,7 @@ const STRUCTS: &[(&str, &str)] = &[
     ),
     (
         "pub struct ActorMut<'a> {",
-        "crates/ambition_platformer2d_actor_monolith/src/actor_spawn/actor_clusters.rs",
+        "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/actor_clusters.rs",
     ),
 ];
 
@@ -52,7 +52,7 @@ pub fn metas() -> Vec<CustomMeta> {
     vec![CustomMeta {
         id: POLICY_ID.to_string(),
         scope: Scope::Engine,
-        owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+        owners: vec!["ambition_platformer2d_actor_spawn".to_string()],
         watch_paths: STRUCTS
             .iter()
             .map(|(_, file)| (*file).to_string())
@@ -71,7 +71,7 @@ pub fn run(ws: &Workspace, report: &mut Report) {
         for field in fields {
             report.push(Diagnostic {
                 policy_id: POLICY_ID.to_string(),
-                owners: vec!["ambition_platformer2d_actor_monolith".to_string()],
+                owners: vec!["ambition_platformer2d_actor_spawn".to_string()],
                 source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
                 rationale: "durable enemy structs must stay archetype-free — project generic kit data (tuning/brain_spec/caps) at spawn instead of storing the roster enum".to_string(),
                 location: format!("{file} :: {struct_name}"),

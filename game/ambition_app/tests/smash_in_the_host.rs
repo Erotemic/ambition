@@ -2196,7 +2196,7 @@ fn wait_for_the_round_to_go_live(app: &mut App) {
 /// `spend_fighter_stocks` refuses a body that is still `PendingRespawn`, so two
 /// knockouts back to back are ONE spent stock without it.
 fn settle_the_match_by_knockout(app: &mut App) {
-    use ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled;
+    use ambition_platformer2d::versus_match::StocksMatchSettled;
 
     // ⛔ HOLD THE CALLER'S BOUNDARY ACROSS OUR OWN TICKS. Nothing in this host
     // maintains `ConfirmedFrameBoundary`, and an ABSENT one confirms everything
@@ -2717,7 +2717,7 @@ fn a_settled_match_withdraws_the_exit_row_while_the_winner_card_is_still_up() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .get_resource::<ambition_platformer2d::versus_match::StocksMatchSettled>()
             .is_some_and(|settled| settled
                 .settled(active.as_ref().expect("checked just above"))),
         "the match did not settle, so the condition under test never became true"
@@ -3445,7 +3445,7 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
     // A stocks verdict names the match it is about, so the honest question is whether the one
     // that is running has been decided.
     assert!(
-        ambition_platformer2d::actors::features::stocks_match::the_live_match_is_settled(
+        ambition_platformer2d::versus_match::the_live_match_is_settled(
             app.world()
         ),
         "the ruleset does not consider this match settled"
@@ -6146,7 +6146,7 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
     }
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .get_resource::<ambition_platformer2d::versus_match::StocksMatchSettled>()
             .is_some_and(|settled| settled.settled(&running)),
         "the match never settled at all, so the refusal below is about nothing"
     );
@@ -6205,7 +6205,7 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
 #[test]
 fn the_sudden_death_card_outlives_the_tick_that_raised_it() {
     use ambition_platformer2d::actors::character_runtime::live_match_clock::LiveMatchTicks;
-    use ambition_platformer2d::actors::features::stocks_match::SuddenDeathEntered;
+    use ambition_platformer2d::versus_match::SuddenDeathEntered;
 
     let mut app = open_the_lobby();
     pick_and_start(&mut app, PREPARED_FIGHTER);
@@ -6338,7 +6338,7 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
     }
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .get_resource::<ambition_platformer2d::versus_match::StocksMatchSettled>()
             .is_some_and(|settled| settled.settled(&running)),
         "the match never settled, so the refusal below is about nothing"
     );

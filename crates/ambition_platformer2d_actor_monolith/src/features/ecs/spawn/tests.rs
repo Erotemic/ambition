@@ -1,8 +1,8 @@
 //! Tests for the ECS feature spawn paths: authored actors/bosses, dynamic
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
-use crate::actor_spawn::brain_builders::enemy_default_brain;
-use crate::actor_spawn::spawn_boss_with_overrides_into;
+use ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain;
+use ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into;
 use super::*;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
@@ -552,7 +552,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
         ambition_characters::actor::character_catalog::CharacterCatalog,
     >| {
         let root = commands.spawn_empty().id();
-        crate::actor_spawn::spawn_interactable_into(
+        ambition_platformer2d_actor_spawn::spawn_interactable_into(
             &mut commands,
             &catalog,
             &Default::default(),
@@ -623,7 +623,7 @@ mod authored_enemy_reads_its_character {
         };
         let named = npc(Some("npc_pirate_quartermaster"));
         assert_eq!(
-            crate::actor_spawn::npc_character_id(&named),
+            ambition_platformer2d_actor_spawn::npc_character_id(&named),
             Some("npc_pirate_quartermaster"),
             "a placement that names a character produced no gameplay identity, so \
              provocation cannot ask that creature what it becomes when struck"
@@ -631,7 +631,7 @@ mod authored_enemy_reads_its_character {
 
         let anonymous = npc(None);
         assert_eq!(
-            crate::actor_spawn::npc_character_id(&anonymous),
+            ambition_platformer2d_actor_spawn::npc_character_id(&anonymous),
             None,
             "a placement that names nobody was given an identity anyway"
         );
@@ -680,7 +680,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -756,7 +756,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -881,7 +881,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1027,7 +1027,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1128,7 +1128,7 @@ mod authored_enemy_reads_its_character {
         let unauthored = spawn_respawn(None);
         assert_eq!(
             unauthored,
-            crate::actor_spawn::UNDESCRIBED_BODY_RESPAWN,
+            ambition_platformer2d_actor_spawn::UNDESCRIBED_BODY_RESPAWN,
             "a placement that says nothing must take the engine's stated answer \
              for an undescribed body — it used to inherit whatever archetype row \
              its brain key happened to name (AC6)"
@@ -1168,7 +1168,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1231,7 +1231,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),
@@ -1286,7 +1286,7 @@ mod authored_enemy_reads_its_character {
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
                 let root = commands.spawn_empty().id();
-                crate::actor_spawn::spawn_enemy_with_faction_into(
+                ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
                     &mut commands,
                     &catalog,
                     &Default::default(),

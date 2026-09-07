@@ -6,7 +6,7 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use crate::features::ecs::enemy_component_snapshot;
+use ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
 use ambition_combat::events::{HitMode, HitTarget};
@@ -490,7 +490,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
     spawn_talkable_npc_with_threshold(
         app,
         hp,
-        crate::actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
+        ambition_platformer2d_actor_spawn::npc_policy::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
     )
 }
 
@@ -525,7 +525,7 @@ fn spawn_talkable_npc_with_threshold(
         &interactable,
         &[],
     );
-    let (identity, disposition, combat) = crate::features::ecs::actors::actor_component_snapshot(
+    let (identity, disposition, combat) = ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(
         &seed,
         ambition_combat::components::ActorDisposition::Peaceful,
     );
@@ -549,7 +549,7 @@ fn spawn_talkable_npc_with_threshold(
             ambition_platformer2d_core::movement::MotionModel::default(),
             ambition_combat::components::ActorInteraction {
                 interactable,
-                talk_radius: crate::actor_spawn::npc_policy::NPC_TALK_RADIUS,
+                talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             identity,
             disposition,

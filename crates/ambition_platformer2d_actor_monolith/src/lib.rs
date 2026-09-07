@@ -49,8 +49,6 @@ mod character_roster;
 /// ⚠ ITS ONLY INTRA-CRATE DEPENDENCY IS `presentation`, which is outside the
 /// kernel's cyclic component — measured, not assumed, because a leaf that
 /// reaches back into the knot would carry the knot with it.
-pub mod actor_bundles;
-pub mod actor_spawn;
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.

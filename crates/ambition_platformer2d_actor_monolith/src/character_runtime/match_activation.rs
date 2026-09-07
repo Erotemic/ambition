@@ -44,7 +44,7 @@ fn realize_seat(
     // the destination solver's private state.
     let motion_model = seed.config.tuning.motion_model();
     let (identity, _seed_disposition, combat) =
-        crate::actor_spawn::conversion::enemy_component_snapshot(&seed);
+        ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives
     // follows the authored brain, and a local-input seat authors `Passive` — `apply_actor_hit`
     // reads the disposition first, and a peaceful body takes NO health damage.
@@ -74,7 +74,7 @@ fn realize_seat(
             // the AI's capability read asks the SAME effective set the kit was
             // derived against: a driver that believes it may shield in a match
             // that forbids shielding reaches for a verb the body does not have.
-            crate::actor_spawn::brain_builders::enemy_default_brain(
+            ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain(
                 &seed.config,
                 seat.effective_abilities
                     .unwrap_or(seed.body.0.abilities.abilities),
@@ -90,8 +90,8 @@ fn realize_seat(
         .spawn_session_scoped(
             session_scope,
             (
-                crate::actor_bundles::EnemyActorBundle::new(
-                    crate::actor_bundles::FeatureBaseBundle::new(
+                ambition_platformer2d_actor_spawn::actor_bundles::EnemyActorBundle::new(
+                    ambition_platformer2d_actor_spawn::actor_bundles::FeatureBaseBundle::new(
                         // THE SEAT, not the character. This passed
                         // `character_id`, so two fighters wearing one character
                         // WERE ONE FEATURE: `spawn_dynamic_feature_visuals`
@@ -186,12 +186,12 @@ fn realize_seat(
     // else: this caller already resolved its own kit — a match repertoire is the
     // character's overlaid with the match's override — so the grant must not
     // write the kit, but must do everything else and stamp BOTH records.
-    crate::character_runtime::presentation::grant_prepared_character_body(
+    ambition_platformer2d_actor_spawn::grant_prepared_character_body(
         commands,
         body,
         &seat.definition,
         cast_generation,
-        crate::character_runtime::presentation::KitOwnership::CallerResolved,
+        ambition_platformer2d_actor_spawn::KitOwnership::CallerResolved,
         // AND THE BODY THE MATCH RESOLVED, for the same reason the kit is `CallerResolved`:
         // preparation already weighed the character's own feel against the stage's
         // (`MatchRules:body_over`), and a materializer that re-read the definition would

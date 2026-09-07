@@ -86,10 +86,9 @@ pub use movement_fx::{
 pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
-pub use ecs::{actor_component_snapshot, boss_component_snapshot};
+pub use ecs::boss_component_snapshot;
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-pub use ecs::GiantHandPlan;
 pub(crate) use ecs::spawn_runtime_minion;
 // the CAST half of the conversation port: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
@@ -109,19 +108,13 @@ pub use brain_command::{
     apply_brain_commands, apply_release_provocations, BrainCommand, BrainCommandKind,
     BrainCommandPlugin, ReleaseProvocation,
 };
-pub use crate::actor_bundles::{
-    ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
-    FeatureRenderedBundle, PickupBundle,
-};
-pub use crate::actor_spawn::actor_clusters::ActorMut;
-pub use crate::actor_spawn::brain_builders::install_dismounted_rider_rebuild;
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.
 pub use ecs::anim_helpers::{advance_actor_anim_overlays, ecs_breakable_state, ecs_chest_opened};
 pub use ecs::{
     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
-    apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests,
+    apply_gameplay_banner_requests, apply_hitbox_damage,
     apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
     can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
     derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
@@ -129,7 +122,7 @@ pub use ecs::{
     ecs_boss_animation_frame_sample, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, install_save_mirror, integrate_boss_bodies, integrate_sim_bodies,
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    project_boss_attack_state_from_move, rebuild_dismounted_rider_brains,
+    project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
@@ -146,7 +139,7 @@ pub use ecs::{
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    RoomFeatureConstructionReceipt, CHALLENGE_GRACE_S,
 };
 
 /// The actor read model has been rebuilt for this tick.
@@ -178,19 +171,20 @@ pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 pub use enemies::{
     enemy_dead_flag, enemy_dead_until_rest_flag, enemy_death_flag, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
+pub(crate) use enemies::ActorMutIntegrationExt;
+#[cfg(test)]
+pub(crate) use enemies::SeedActorIntegrationTestExt;
 // ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
 // `ambition_combat::events`', re-exported up to `features` beside a whole-module
 // `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
 // crate for types it does not own, and `damage_apply`'s own tests reached the
 // monolith for exactly two names, both of them these. Callers name the owner.
 pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
-// ⛔ MOVED DOWN TO `crate::actor_spawn::npc_policy` — spawn-time NPC policy went
+// ⛔ MOVED DOWN TO `ambition_platformer2d_actor_spawn::npc_policy` — spawn-time NPC policy went
 // with the primitives that consume it; `npcs` keeps NPC BEHAVIOUR. Re-exported
 // here because `damage_apply`'s tests name the owner, and the owner changed.
-pub use crate::actor_spawn::npc_policy::NPC_TALK_RADIUS;
 // The programmatic actor-spawn seam installs itself; the composition names
 // only the schedule. See `actor_spawn::install_actor_spawn_requests`.
-pub use crate::actor_spawn::install_actor_spawn_requests;
 
 use ambition_combat::util::*;
 
@@ -773,8 +767,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // S4: spend a stock per KO. `CombatSet:Settle` is the phase for "everything that reads
         // this tick's damage outcome rather than producing it", which is exactly what this is —
         // the KO was decided in Resolve, and spending is bookkeeping over it.
-        app.init_resource::<crate::features::stocks_match::StocksMatchSettled>();
-        app.init_resource::<crate::features::stocks_match::SuddenDeathEntered>();
+        app.init_resource::<ambition_match::StocksMatchSettled>();
+        app.init_resource::<ambition_match::SuddenDeathEntered>();
         app.add_message::<crate::features::stocks_match::SuddenDeathBegan>();
         // the same rule as `BodyHitResolved` below, applied to the clock.
         // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
@@ -997,7 +991,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `assess_dormancy` commands before later phases filter on `Dormant`.
                 crate::features::ecs::perception::ensure_perception,
                 crate::features::ecs::dormancy::assess_dormancy,
-                crate::features::ecs::project_authored_fighter_ladder,
+                ambition_platformer2d_actor_spawn::brain_builders::project_authored_fighter_ladder,
             )
                 .chain()
                 .in_set(ActorDecisionSet::Prepare),

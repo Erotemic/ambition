@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use bevy::ecs::resource::Resource;
 
-use crate::actor_spawn::SpawnActorRequest;
+use ambition_platformer2d_actor_spawn::SpawnActorRequest;
 use ambition_platformer2d_world::rooms::RoomSpec;
 
 /// A registered content stager: a pure function from the authored room to the
@@ -288,7 +288,7 @@ mod tests {
             half_size: ae::Vec2::ONE,
             faction: ActorFaction::Npc,
             grudge_against: None,
-            kind: crate::features::SpawnActorKind::Enemy {
+            kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                 brain: CharacterBrain::Custom("fixture".to_string()),
                 // a fixture states a creature like every other producer; the
                 // `Option` that let this say nothing is gone.

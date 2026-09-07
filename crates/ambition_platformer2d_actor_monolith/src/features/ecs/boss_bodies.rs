@@ -52,7 +52,7 @@ pub fn integrate_boss_bodies(
     mut bosses: Query<
         (
             Entity,
-            crate::actor_spawn::actor_clusters::ActorClusterQueryData,
+            ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData,
             &BossConfig,
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,

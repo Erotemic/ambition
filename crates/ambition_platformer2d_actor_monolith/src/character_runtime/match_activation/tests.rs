@@ -2023,7 +2023,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
         let world = app.world_mut();
         let mut q = world.query_filtered::<(
             Option<&ambition_body_seed::PersonaBaseline>,
-            Option<&crate::character_runtime::presentation::ProjectedCharacterKit>,
+            Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
             Option<&ambition_platformer2d_core::movement::MotionModel>,
         ), With<MatchSeat>>();
         let rows: Vec<_> = q

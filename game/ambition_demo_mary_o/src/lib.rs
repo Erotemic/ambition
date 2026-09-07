@@ -1756,7 +1756,7 @@ impl Plugin for MaryORulesPlugin {
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
         app.add_message::<ambition_platformer2d::world::rooms::RoomLoaded>();
-        app.add_message::<ambition_platformer2d::actors::features::SpawnActorRequest>();
+        app.add_message::<ambition_platformer2d::actor::SpawnActorRequest>();
         // The snake reset listens to the engine's ONE "put this room back"
         // signal, which a full host emits and a rules-only harness does not.
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();

@@ -6,6 +6,9 @@ use super::*;
 
 mod integration;
 pub use integration::ContactAttack;
+pub(crate) use integration::ActorMutIntegrationExt;
+#[cfg(test)]
+pub(crate) use integration::SeedActorIntegrationTestExt;
 
 
 

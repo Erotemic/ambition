@@ -350,8 +350,10 @@ pub fn drive_wave_encounters(
         // Quest hook: every switch interaction sets a generic flag that quests
         // can listen for, whatever the action was.
         save.data_mut().set_flag("test_switch_toggled", true);
-        save.data_mut()
-            .set_flag(format!("switch_{}_used", activation.id), true);
+        save.data_mut().set_flag(
+            ambition_encounter::switches::switch_used_flag(&activation.id),
+            true,
+        );
         quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));

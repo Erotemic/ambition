@@ -129,12 +129,14 @@ pub fn sync_ecs_actors_with_save(
             ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead
                 | ambition_entity_catalog::placements::RespawnPolicy::OnRest
         );
+        // ⚠ THE READ IS WIDER THAN THE WRITE, ON PURPOSE. A death writes exactly
+        // one flag (`crate::features::enemy_death_flag`), but a placement
+        // re-authored from `OnRest` to `DeadStaysDead` after the save was written
+        // would then be read with the wrong one and come back to life. Both flags
+        // are consulted, and both are spelled by the module that owns them.
         let dead_on_load = persists_its_death
-            && (data.flag(&format!("enemy_{id}_dead"))
-                || data.flag(&format!(
-                    "enemy_{id}{}",
-                    crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-                )));
+            && (data.flag(&crate::features::enemy_dead_flag(&id))
+                || data.flag(&crate::features::enemy_dead_until_rest_flag(&id)));
 
         if interaction.is_some() && data.flag(&super::super::npcs::npc_flag_id(&id)) {
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster

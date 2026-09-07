@@ -556,7 +556,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                 if let Some(id) = field_string(entity, "id") {
                     let id = id.trim();
                     if !id.is_empty() {
-                        flags.insert(format!("switch_{id}_used"));
+                        flags.insert(ambition_encounter::switches::switch_used_flag(id));
                     }
                 }
             }

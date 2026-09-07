@@ -175,7 +175,9 @@ pub(crate) use ecs::{
 // Callers name `_core`; the SDK keeps its own one-hop alias.
 pub use ambition_entity_catalog::placements::RespawnPolicy;
 pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
-pub use enemies::ENEMY_DEAD_UNTIL_REST_SUFFIX;
+pub use enemies::{
+    enemy_dead_flag, enemy_dead_until_rest_flag, enemy_death_flag, ENEMY_DEAD_UNTIL_REST_SUFFIX,
+};
 // ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
 // `ambition_combat::events`', re-exported up to `features` beside a whole-module
 // `pub use ambition_combat::events` — so 74 sites read as coupling to the actor

@@ -245,6 +245,25 @@ mod switch_index_tests {
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Message};
 
+/// The save flag that records this switch was used.
+///
+/// ⭐ IT WAS SPELLED IN TWO CRATES. `ambition_encounter_features` writes it when a
+/// switch resolves; `ambition_content`'s `content_validation` rebuilt the same id
+/// from the authored `id` field to enumerate which flags the content can set. The
+/// validator's model of the runtime is only as good as those two literals
+/// agreeing, and a rename on either side leaves it describing a flag nobody writes
+/// while both crates' tests stay green.
+///
+/// ⚠ A THIRD SPELLING IS AUTHORED CONTENT AND STAYS THAT WAY:
+/// `ambition_content/src/intro/route_state.rs` names
+/// `switch_gate_official_report_used` in a const table of (trigger, target) flag
+/// pairs. That is a deliberate restatement — the table IS the authored chain, and
+/// a `const` cannot call a function — so the risk is stated rather than removed:
+/// rename this convention and that chain stops firing silently.
+pub fn switch_used_flag(switch_id: &str) -> String {
+    format!("switch_{switch_id}_used")
+}
+
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct SwitchFeature {
     pub activation: SwitchActivation,

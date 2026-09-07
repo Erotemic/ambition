@@ -680,16 +680,11 @@ pub(crate) fn apply_actor_hit(
                 if !em.config.id.starts_with("encounter:") {
                     // ⭐ NAMED WHERE IT LIVES: `RespawnPolicy` is
                     // `ambition_entity_catalog`'s; `crate::features` only republished it.
-                    use ambition_entity_catalog::placements::RespawnPolicy as P;
-                    let flag_id = match em.config.tuning.respawn {
-                        P::OnRoomReenter | P::InPlace(_) => None,
-                        P::OnRest => Some(format!(
-                            "enemy_{}{}",
-                            em.config.id,
-                            crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-                        )),
-                        P::DeadStaysDead => Some(format!("enemy_{}_dead", em.config.id)),
-                    };
+                    // ⭐ THE POLICY PICKS THE FLAG IN ONE PLACE. This match used to
+                    // live here and the load path spelled the same two flags again
+                    // — four literals for two facts, in two files.
+                    let flag_id =
+                        crate::features::enemy_death_flag(em.config.tuning.respawn, &em.config.id);
                     if let Some(id) = flag_id {
                         writers.set_flag.write(SetFlagRequested { id, on: true });
                     }

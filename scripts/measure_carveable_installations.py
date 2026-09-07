@@ -39,17 +39,16 @@ that installs `shared_tangle`'s own SYSTEMS (not merely names its sets) reads as
 single-capability. Naming shared vocabulary and installing shared systems are different
 acts and this does not yet separate them.
 
-⛔⛔ **AND IT ATTRIBUTES BY THE PATH WRITTEN, NOT BY WHERE THE SYSTEM IS DEFINED — which
-RE-EXPORT MODULES defeat.** `ambition_platformer2d_runtime::host_input` is a `pub use`
-of `ambition_platformer2d_actor_monolith::schedule::*`, so five blocks in the host read
-as `ambition_platformer2d_runtime` here while every system in them belongs to the actor
-monolith. That is not a cosmetic mislabel: it points a carve at the wrong crate, and in
-this repo the monolith is another session's lane.
+✔ **RE-EXPORTS ARE RESOLVED** (see [`reexport_map`]), and doing so moved the totals from
+24/20 to **18/26** — six blocks that looked carveable belong to a crate the host only
+mentions through a facade. `ambition_platformer2d_runtime::host_input` is the case that
+forced it: a re-export of systems defined in `ambition_platformer2d_actor_monolith`,
+which is another session's lane, so the mislabel was a lane violation waiting to happen
+rather than a cosmetic one.
 
-⇒ **`scripts/measure_foreign_system_ordering.py` resolves the DEFINING crate and this
-does not.** Cross-check any target against it before carving; a peer reports its
-`defining_crate()` dropped 31 false rows when added, from the runtime naming its own
-systems through the `ambition_platformer2d` umbrella.
+⚠ Cross-check a target against `scripts/measure_foreign_system_ordering.py` anyway; its
+`defining_crate()` is the more thorough resolver and its author reports it dropped 31
+false rows when added.
 
 ⚠ IT IS A REPORT, NOT A GATE. The reducible count is an upper bound on easy carves, not
 a promise: a block can be single-capability and still be entangled by a `.chain()` that
@@ -72,11 +71,54 @@ def use_map(text: str) -> dict[str, str]:
     owner: dict[str, str] = {}
     for m in re.finditer(r"use\s+(ambition_[a-z_0-9]+)::([^;]+);", text, re.S):
         crate, tail = m.group(1), m.group(2)
+        # ⛔ RESOLVE A RE-EXPORT MODULE IN THE `use` ITSELF. The host writes
+        # `use ambition_platformer2d_runtime::host_input::{commit_seat_raw_frames, …}`
+        # and then names those systems BARE, so attributing them to the crate in the
+        # `use` line credits the umbrella rather than the crate that defines them.
+        # (the per-name resolution happens below, when each name is attributed)
+        reexports = reexport_map()
         for name in re.findall(r"\b([a-z_][a-z_0-9]*)\b", tail):
-            owner.setdefault(name, crate)
+            owner.setdefault(name, reexports.get(name, crate))
         for name in re.findall(r"\b([A-Z][A-Za-z0-9]*)\b", tail):
-            owner.setdefault(name, crate)
+            owner.setdefault(name, reexports.get(name, crate))
     return owner
+
+
+_REEXPORT: dict[str, str] | None = None
+
+
+def reexport_map() -> dict[str, str]:
+    """Re-exported SYSTEM NAME -> the crate that actually defines it.
+
+    ⛔⛔ WITHOUT THIS THE SCRIPT POINTS CARVES AT THE WRONG CRATE.
+    `ambition_platformer2d_runtime::host_input` is a re-export facade, so blocks using
+    it read as `ambition_platformer2d_runtime` while the systems belong elsewhere — and
+    "elsewhere" is another session's lane, so the mislabel is a lane violation waiting to
+    happen rather than a cosmetic one.
+
+    ⚠ PER NAME, NOT PER MODULE, and that was the third try. `host_input` re-exports from
+    FOUR crates (`ambition_characters`, `ambition_dialog`,
+    `ambition_platformer2d_actor_monolith`, `ambition_platformer2d_shared_tangle`), so
+    mapping the module to a single crate silently skipped it — which is exactly the
+    module this function exists for.
+    """
+    global _REEXPORT
+    if _REEXPORT is not None:
+        return _REEXPORT
+    out: dict[str, str] = {}
+    for manifest in (ROOT / "crates").glob("*/Cargo.toml"):
+        lib = manifest.parent / "src" / "lib.rs"
+        if not lib.exists():
+            continue
+        # Every `pub use ambition_x::path::{a, b, c};` anywhere in the crate root.
+        for m in re.finditer(r"pub use (ambition_[a-z_0-9]+)::([^;]+);", lib.read_text()):
+            crate, tail = m.group(1), m.group(2)
+            for name in re.findall(r"\b([a-z_][a-z_0-9]*)\b", tail):
+                out.setdefault(name, crate)
+            for name in re.findall(r"\b([A-Z][A-Za-z0-9]*)\b", tail):
+                out.setdefault(name, crate)
+    _REEXPORT = out
+    return out
 
 
 _DEPS: dict[str, set[str]] = {}
@@ -155,7 +197,12 @@ def main() -> int:
                 bare in owners and owners[bare] == own_crate
                 for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", installed)
             )
-            named = set(re.findall(r"\b(ambition_[a-z_0-9]+)::", installed))
+            # ⭐ RESOLVE RE-EXPORTS FIRST, so `runtime::host_input::foo` is attributed
+            # to the crate that DEFINES `foo`, not the umbrella it is spelled through.
+            resolved = installed
+            for prefix, real in reexport_map().items():
+                resolved = resolved.replace(f"{prefix}::", f"{real}::")
+            named = set(re.findall(r"\b(ambition_[a-z_0-9]+)::", resolved))
             for bare in re.findall(r"\b([a-z_][a-z_0-9]*)\b", installed):
                 if bare in owners:
                     named.add(owners[bare])

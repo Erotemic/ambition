@@ -20,8 +20,36 @@ The governing rule is:
 Examples: door open, machine powered, item custody, actor alive/location,
 encounter outcome, persistent world mutation.
 
+⭐⭐⭐ **AND THAT OPEN QUESTION IS ANSWERED, MEASURED 2026-09-06: A RULE READS THE SAVE
+FOR FOUR FAMILIES AND LIVE STATE FOR EVERYTHING ELSE.** Every registered
+`ConditionId` in the tree, by what its evaluator actually reads:
+
+| condition | reads |
+|---|---|
+| `boss.cleared` | **the save** — `data().boss(id)` |
+| `encounter.cleared` | **the save** — `data().encounter(id)` |
+| `world.flag_set` | **the save** — `data().flag(id)` |
+| `world.switch_on` | **the save** — `data().switch(id)` |
+| `body.can`, `body.fits` | live ECS |
+| `inventory.holds`, `item.is_held` | live ECS — `try_query::<(&SimId, &ItemCustody)>()` |
+| `wallet.can_afford` | live ECS |
+
+⇒ **The save is NOT the rule-readable surface; it is the durable MIRROR of one.** Four of
+the thirteen fact families are read by an authored rule directly
+(`boss_encounter/conditions.rs`, `encounter_features/conditions.rs`,
+`actor_monolith/world_facts.rs`); the other nine are reachable to a rule only through the
+live state they mirror. ⚠ That is a coherent design rather than a gap — a rule asking
+"does the player hold X" wants the LIVE hand, not what the last autosave believed — and
+the four that read the save are exactly the facts with no live representation between
+sessions (a cleared boss, a set flag).
+
+▢ **SO THE REMAINING QUESTION IS NARROWER than the page has been asking:** when a fact
+has BOTH a live form and a durable row, which does a rule read, and is that choice
+recorded anywhere? Today it is implicit in each evaluator. `boss.cleared`'s docstring is
+the only one that argues its choice out loud.
+
 ⭐⭐ **MEASURED 2026-09-04: THIS LAYER IS NOT MISSING — IT IS `AmbitionGameSaveData`,
-and the open question is which of its rows a rule can READ.** The page's
+and the open question was which of its rows a rule can READ.** The page's
 "Candidate crate" section says *"do not begin with a universal key-value fact
 database; prefer typed domain facts"*, and that is already what shipped: the save
 holds **thirteen** typed fact families, not a string map. ⚠ `AmbitionGameSaveData`

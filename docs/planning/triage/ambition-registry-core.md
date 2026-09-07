@@ -680,7 +680,7 @@ The work is successful when registry implementations become smaller **and** it
 becomes harder for them to disagree about canonical identity, conflict handling,
 and fingerprinting. Line-count reduction alone is not sufficient.
 
-## Census 2026-09-07: 5 adopted, 3 justified, 23 SILENT — and the third bucket is the finding
+## Census 2026-09-07: 5 adopted, 3 justified, 23 UNREFERENCED — and the third bucket's NAME was a claim
 
 `scripts/measure_registry_core_adoption.py` (committed with this) classifies every
 `*Registry` type outside tests into three states, because two states hide the one
@@ -690,7 +690,7 @@ that matters:
 |---|---|---|
 | ADOPTED | 5 | manifest dependency AND a non-comment reference |
 | JUSTIFIED | 3 | names `registry_core` only in prose — the documented opt-out |
-| SILENT | 23 | no reference at all: nobody has decided either way |
+| UNREFERENCED | 23 | no reference at all |
 
 ⭐ **The opt-out is WORKING, which is worth saying because it is the part that
 usually rots.** The crate doc prescribes that a registry with a genuinely
@@ -700,7 +700,19 @@ place." All three JUSTIFIED entries do exactly that, at the declaration site:
 (`prefab_registry.rs:59`), and `ParamSchemaRegistry`
 (`ambition_entity_catalog/src/lib.rs:167`, which states
 outright that `classify` CANNOT be adopted and why). ⇒ 8 of 31 registries have
-ANSWERED the question; the other 23 were never asked it.
+answered the question **by naming this crate**.
+
+⛔⛔ **AND THE SENTENCE THAT USED TO FOLLOW — "the other 23 were never asked it" —
+IS FALSE, corrected 2026-09-07.** The bucket was called SILENT and its definition
+read "nobody has decided either way", which is a claim about a doc comment the
+script never reads. MEASURED, two counter-examples inside that bucket:
+`FrontendAudioRegistry` (`ambition_audio/src/selection.rs:199`) states *"Later
+declarations of the same route replace earlier ones"*, and `CombatBanterRegistry`
+(`ambition_conversation/src/banter.rs:37`) states *"Overwrites any existing entry
+for that name"*. Both answered in place; neither names this crate. ⇒ The bucket is
+renamed to what the instrument can actually see, and it is an UPPER BOUND on work
+rather than a list of it. Read the `register` function before treating a row as a
+task — the seven-row table earlier on this page had TWO stale rows when re-read.
 
 ⛔ **A SOURCE GREP ALONE REPORTS 8 ADOPTERS AND THREE OF THEM ARE THE OPT-OUTS.**
 `git grep registry_core` cannot tell a call from a comment explaining why there is
@@ -713,12 +725,14 @@ reporting them as READERS.
 five: `RoomContentStagingRegistry` joined. Cite the script rather than copying the
 number — the previous one went stale in two days.
 
-⇒ **The next-pilot question is therefore "which of the 23 SILENT ones is a
+⇒ **The next-pilot question is therefore "which of the 23 UNREFERENCED ones is a
 canonical registry at all", not "convert 26".** Several will be internal lookup
 tables where the four questions do not arise, and saying so in place is itself an
-answer that moves them to JUSTIFIED.
+answer that moves them to JUSTIFIED. ⚠ And at least two have already stated a
+policy without naming the crate, so the honest first step per row is to READ its
+`register`, not to convert it.
 
-### A ratchet on SILENT was considered and NOT built — the sizing input does not exist
+### A ratchet on the third bucket was considered and NOT built — the sizing input does not exist
 
 The obvious next move is a guard: a new `*Registry` must either adopt `classify`
 or say in place why it does not, riding at the current 23 so the next one cannot

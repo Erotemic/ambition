@@ -344,13 +344,28 @@ fn report_body_against_sprite(
     if std::mem::replace(&mut *reported, true) {
         return;
     }
-    let mut rows: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2, Option<String>)> = bodies
+    let mut rows: Vec<(
+        bevy::prelude::Entity,
+        ae::Vec2,
+        ae::Vec2,
+        Option<String>,
+        ae::Vec2,
+    )> = bodies
         .iter()
-        .map(|(e, kin, id)| (e, kin.pos, kin.size, id.map(|i| i.0.clone())))
-        .filter(|(_, _, size, _)| size.x > 1.0 && size.y > 1.0)
+        .map(|(e, kin, id)| (e, kin.pos, kin.size, id.map(|i| i.0.clone()), kin.vel))
+        .filter(|(_, _, size, _, _)| size.x > 1.0 && size.y > 1.0)
+        // ⛔⛔ A MOVING BODY BREAKS THE INVARIANT THIS TABLE IS BUILT ON, and mixing
+        // moving bodies in is what made the first version of this table irreproducible.
+        // MEASURED: two snakes with the IDENTICAL quad (73.87x48.0) read space_sums
+        // 6.8 apart, and re-running the same binary twice gave different actor rows
+        // while the player's row stayed put to three decimals. The sprite samples the
+        // body a frame away from where this reporter reads it, so anything with
+        // velocity contributes its own travel to the sum. ⇒ A body at rest is the only
+        // one whose sum is a statement about PLACEMENT rather than about timing.
+        .filter(|(_, _, _, _, vel)| vel.x.abs() < 0.01 && vel.y.abs() < 0.01)
         .collect();
-    rows.sort_by_key(|(e, _, _, _)| e.index());
-    for (entity, pos, size, id) in &rows {
+    rows.sort_by_key(|(e, _, _, _, _)| e.index());
+    for (entity, pos, size, id, _) in &rows {
         eprintln!(
             "[align] body {entity:?} id={} pos=({:.2},{:.2}) size=({:.2},{:.2}) feet_y={:.2}",
             id.as_deref().unwrap_or("-"),
@@ -365,7 +380,7 @@ fn report_body_against_sprite(
     // body that has a drawable bound to its feature id, the body's box and the quad
     // drawn for it, side by side, in ONE frame. A per-sheet misalignment row is
     // `sprite_feet - body_feet`; a sheet whose placement is correct reads ~0.
-    for (entity, pos, size, id) in &rows {
+    for (entity, pos, size, id, _) in &rows {
         let Some(id) = id.as_deref() else { continue };
         let Some((de, dt, ds, da)) = drawn
             .iter()
@@ -415,9 +430,9 @@ fn report_body_against_sprite(
     // than from a feature id, so it carries no `FeatureVisual` and the id join cannot
     // see it. ⇒ Pair it by its MARKERS instead, which is a real link too: exactly one
     // body is `PrimaryPlayerOnly` and exactly one drawable is `PlayerVisual`.
-    if let (Some((pe, ppos, psize, _)), Some((de, dt, ds, da))) = (
+    if let (Some((pe, ppos, psize, _, _)), Some((de, dt, ds, da))) = (
         rows.iter()
-            .find(|(e, _, _, _)| player_body.get(*e).is_ok())
+            .find(|(e, _, _, _, _)| player_body.get(*e).is_ok())
             .cloned(),
         drawn
             .iter()

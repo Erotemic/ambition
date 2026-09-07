@@ -162,7 +162,7 @@ pub fn spawn_requested_player_clone(
         // ⚠ The COLLISION is this site's own (a clone has no pose to read, so it
         // takes the default body); the DERIVATION from it is not.
         let (sprite, clone_anchor, animator, baseline) =
-            player_presentation_for_collision(asset, collision);
+            player_presentation_for_collision(asset, collision, None, None);
         clone.insert((sprite, clone_anchor, animator, baseline, PlayerVisual));
     } else {
         clone.insert(Sprite {

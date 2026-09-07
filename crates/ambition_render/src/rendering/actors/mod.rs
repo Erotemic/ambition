@@ -6,17 +6,17 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::primitives::{
-    FeatureVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, feature_color, feature_z,
-    switch_on_color,
+    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
+    PropVisual,
 };
 use ambition_persistence::settings::TextureResolutionScale;
-use ambition_platformer2d_core::config::{WORLD_Z_PLAYER, world_to_bevy};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    CharacterAnimator, build_character_presentation_with_render_size,
-    feet_anchor_for_render_size, sprite_render_size,
+    build_character_presentation_with_render_size, feet_anchor_for_render_size, sprite_render_size,
+    CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -34,12 +34,60 @@ use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 /// impossible to disagree. A caller can no longer pass a different box to the
 /// render size than it records as the reference, because it only names the box
 /// once.
+/// THE one answer to "what quad does this sheet draw with, and where is it anchored".
+///
+/// ⭐ ONE AUTHORITY, because this fact had two derivations and they disagreed. The
+/// actor road carried the rule below; the player road unconditionally sized from the
+/// COLLISION box with a FEET anchor. Both then feed `CharacterAnimator`, whose basis
+/// `apply_character_frame` writes back over `custom_size` AND `Anchor` every frame --
+/// so the disagreement was not cosmetic, it was which of two bases won the last write.
+///
+/// MEASURED before this was shared, one frame of the Mary-O demo course, per-sheet
+/// alignment as `body_feet + sprite_feet` (a y-flip leaves the SUM invariant, so its
+/// spread across sheets is the misalignment):
+///
+///   three actor-road sheets   383.818 / 384.000 / 384.287   (spread 0.47px)
+///   Mary-O, the player road   413.333                       (+29.33px)
+///
+/// ⇒ The rule was RIGHT and only one road had it.
+///
+/// The three cases, in the order they must be tested:
+/// - an authored quad WITH an authored offset: the sheet publishes where its art goes
+///   per pose, so the quad is CENTRED and the offset does the shifting. Stacking the
+///   sheet's one static feet anchor on top would double-count it, and that anchor comes
+///   from the idle frame -- precisely the wrong answer for a body that changes silhouette.
+/// - an authored quad with NO offset: render at the stored quad, so the sprite does not
+///   balloon once collision already equals the body, but keep the feet anchor.
+/// - no authored quad: derive both from the collision box.
+pub fn character_render_basis(
+    spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
+    collision: BVec2,
+    authored_render: Option<BVec2>,
+    authored_offset: Option<BVec2>,
+) -> (BVec2, Anchor) {
+    match authored_render {
+        Some(render) if authored_offset.is_some() => (render, Anchor::CENTER),
+        Some(render) => (render, feet_anchor_for_render_size(spec, collision, render)),
+        None => {
+            let render = sprite_render_size(spec, collision);
+            (render, feet_anchor_for_render_size(spec, collision, render))
+        }
+    }
+}
+
 pub fn player_presentation_for_collision(
     asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
     collision: BVec2,
+    // ⭐ AN ARGUMENT, NOT A LOOKUP, so every caller must NAME whether this body has a
+    // sheet-authored quad. A clone spawning before it has a pose honestly passes
+    // `None`; a rebind that holds a `BodyPoseView` passes what the pose publishes.
+    // The two are gated on one flag sim-side and so arrive Some together or None
+    // together -- see `pose_view`'s `sheet_authored_body`.
+    authored_render: Option<BVec2>,
+    authored_offset: Option<BVec2>,
 ) -> (Sprite, Anchor, CharacterAnimator, PlayerSpriteBaseline) {
-    let render = sprite_render_size(&asset.spec, collision);
-    let anchor = feet_anchor_for_render_size(&asset.spec, collision, render);
+    let (render, anchor) =
+        character_render_basis(&asset.spec, collision, authored_render, authored_offset);
     let (sprite, anchor, animator) =
         build_character_presentation_with_render_size(asset, render, anchor);
     (
@@ -197,8 +245,12 @@ pub fn bind_worn_character_presentation(
             continue;
         }
         if let Some(asset) = asset {
-            let (sprite, anchor, animator, baseline) =
-                player_presentation_for_collision(asset, player_collision);
+            let (sprite, anchor, animator, baseline) = player_presentation_for_collision(
+                asset,
+                player_collision,
+                base_size.and_then(|pose| pose.authored_render),
+                base_size.and_then(|pose| pose.authored_offset),
+            );
             let player_render = baseline.standing_render;
             // A visible sprite RESIZE mid-launch has no other trace: nothing
             // else records that the quad changed size, or which of the bind
@@ -906,24 +958,24 @@ pub fn upgrade_actor_sprites(
                         .unwrap_or(false)
                 });
                 if on {
-                let path = asset_server
-                    .get_path(character_asset.texture.id())
-                    .map(|p| p.to_string())
-                    .unwrap_or_else(|| "<no path: handle is not from a path>".to_owned());
-                let fresh = SEEN
-                    .get_or_init(|| Mutex::new(BTreeSet::new()))
-                    .lock()
-                    .map(|mut seen| seen.insert(path.clone()))
-                    .unwrap_or(false);
-                if fresh {
-                    bevy::log::warn!(
-                        target: "ambition_platformer2d::render",
-                        "[texture-not-ready] {path} load_state={:?} — a body is \
-                         unbound because THIS texture is not loaded with its \
-                         dependencies, after the room barrier reported ready",
-                        asset_server.get_load_state(character_asset.texture.id()),
-                    );
-                }
+                    let path = asset_server
+                        .get_path(character_asset.texture.id())
+                        .map(|p| p.to_string())
+                        .unwrap_or_else(|| "<no path: handle is not from a path>".to_owned());
+                    let fresh = SEEN
+                        .get_or_init(|| Mutex::new(BTreeSet::new()))
+                        .lock()
+                        .map(|mut seen| seen.insert(path.clone()))
+                        .unwrap_or(false);
+                    if fresh {
+                        bevy::log::warn!(
+                            target: "ambition_platformer2d::render",
+                            "[texture-not-ready] {path} load_state={:?} — a body is \
+                             unbound because THIS texture is not loaded with its \
+                             dependencies, after the room barrier reported ready",
+                            asset_server.get_load_state(character_asset.texture.id()),
+                        );
+                    }
                 }
             }
             continue;
@@ -931,33 +983,14 @@ pub fn upgrade_actor_sprites(
         // Honor a shared sprite-metadata render size (e.g. a hostile-flipped
         // body-metrics NPC): render at the stored quad, NOT collision*scale,
         // so the sprite doesn't balloon once collision already equals the body.
-        let render_size = actor.render_size.map(|r| BVec2::new(r.x, r.y));
-        let (render_size, anchor) = match render_size {
-            // This body publishes where its quad goes, per pose (the sheet's
-            // per-animation body rectangle). That placement already puts the
-            // art's feet on the box's gravity face for the pose being shown, so
-            // the quad is CENTRED and `sync_visuals` does the shifting. Stacking
-            // the sheet's one static feet anchor on top would double-count it —
-            // and that anchor is derived from the idle frame, which is precisely
-            // the wrong answer for a body that changes silhouette.
-            Some(render_size) if view.sprite_offset.is_some() => (render_size, Anchor::CENTER),
-            Some(render_size) => (
-                render_size,
-                feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
-            ),
-            None => {
-                let render_size = sprite_render_size(&character_asset.spec, collision);
-                (
-                    render_size,
-                    feet_anchor_for_render_size(&character_asset.spec, collision, render_size),
-                )
-            }
-        };
-        let (sprite, anchor, animator) = build_character_presentation_with_render_size(
-            character_asset,
-            render_size,
-            anchor,
+        let (render_size, anchor) = character_render_basis(
+            &character_asset.spec,
+            collision,
+            actor.render_size.map(|r| BVec2::new(r.x, r.y)),
+            view.sprite_offset.map(|o| BVec2::new(o.x, o.y)),
         );
+        let (sprite, anchor, animator) =
+            build_character_presentation_with_render_size(character_asset, render_size, anchor);
         // The feet anchor plants the sprite's authored feet (`feet_anchor_y` from
         // sprite metadata) on the gravity-side edge of the collision box. It is a
         // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
@@ -1032,8 +1065,12 @@ pub fn refresh_player_sprites_for_resident_quality(
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
-        let (sprite, anchor, animator, baseline) =
-            player_presentation_for_collision(asset, collision);
+        let (sprite, anchor, animator, baseline) = player_presentation_for_collision(
+            asset,
+            collision,
+            pose.authored_render,
+            pose.authored_offset,
+        );
         let render = baseline.standing_render;
         // The counterpart line to the one in `bind_worn_character_presentation`.
         // This one fires when the RESIDENT realization moved — a deferred sheet
@@ -1162,6 +1199,85 @@ mod compact_pose_tests {
         assert_vec2_close(
             native_compact_render_pos(ae::Vec2::new(3.0, 9.0), ae::Vec2::ZERO, 2.0),
             ae::Vec2::new(3.0, 7.0),
+        );
+    }
+}
+
+#[cfg(test)]
+mod render_basis_tests {
+    use super::{character_render_basis, feet_anchor_for_render_size, sprite_render_size};
+    use bevy::math::Vec2 as BVec2;
+    use bevy::sprite::Anchor;
+
+    fn spec() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
+        ambition_sprite_sheet::character::sheets::try_load_spec_for_target(
+            "robot",
+            &Default::default(),
+        )
+        .expect("the robot sheet record resolves a spec")
+    }
+
+    /// ⭐ THE ARM THE PLAYER ROAD DID NOT HAVE. A sheet that publishes BOTH an authored
+    /// quad and an authored offset is drawn at that quad, anchored at CENTER, because
+    /// the offset is what carries the art onto the body. This is the whole content of
+    /// the defect: the player road sized from the collision box with a feet anchor
+    /// instead, and `apply_character_frame` wrote that basis back over the placement
+    /// every frame.
+    #[test]
+    fn an_authored_quad_with_an_offset_is_centred() {
+        let spec = spec();
+        let collision = BVec2::new(28.0, 40.0);
+        let authored = BVec2::new(60.95238, 73.14286);
+        let (render, anchor) = character_render_basis(
+            &spec,
+            collision,
+            Some(authored),
+            Some(BVec2::new(0.76, -19.81)),
+        );
+        assert_eq!(
+            render, authored,
+            "an authored quad is drawn at its authored size"
+        );
+        assert_eq!(
+            anchor,
+            Anchor::CENTER,
+            "the offset carries the body, so the quad centres"
+        );
+    }
+
+    /// The same authored quad WITHOUT an offset keeps the feet anchor -- so the arms are
+    /// distinguished by the OFFSET, not by the presence of a quad. Pinning both together
+    /// is the point: a change that collapsed them would still pass either one alone.
+    #[test]
+    fn an_authored_quad_without_an_offset_keeps_its_feet_anchor() {
+        let spec = spec();
+        let collision = BVec2::new(28.0, 40.0);
+        let authored = BVec2::new(60.95238, 73.14286);
+        let (render, anchor) = character_render_basis(&spec, collision, Some(authored), None);
+        assert_eq!(render, authored);
+        assert_eq!(
+            anchor,
+            feet_anchor_for_render_size(&spec, collision, authored)
+        );
+        assert_ne!(
+            anchor,
+            Anchor::CENTER,
+            "this arm must NOT be the centred one"
+        );
+    }
+
+    /// No authored quad: both numbers come from the collision box, which is what every
+    /// sheet that authors no body has always done.
+    #[test]
+    fn no_authored_quad_derives_both_from_the_collision_box() {
+        let spec = spec();
+        let collision = BVec2::new(28.0, 40.0);
+        let (render, anchor) = character_render_basis(&spec, collision, None, None);
+        let expected = sprite_render_size(&spec, collision);
+        assert_eq!(render, expected);
+        assert_eq!(
+            anchor,
+            feet_anchor_for_render_size(&spec, collision, expected)
         );
     }
 }

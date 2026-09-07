@@ -39,6 +39,18 @@ that installs `shared_tangle`'s own SYSTEMS (not merely names its sets) reads as
 single-capability. Naming shared vocabulary and installing shared systems are different
 acts and this does not yet separate them.
 
+⛔⛔ **AND IT ATTRIBUTES BY THE PATH WRITTEN, NOT BY WHERE THE SYSTEM IS DEFINED — which
+RE-EXPORT MODULES defeat.** `ambition_platformer2d_runtime::host_input` is a `pub use`
+of `ambition_platformer2d_actor_monolith::schedule::*`, so five blocks in the host read
+as `ambition_platformer2d_runtime` here while every system in them belongs to the actor
+monolith. That is not a cosmetic mislabel: it points a carve at the wrong crate, and in
+this repo the monolith is another session's lane.
+
+⇒ **`scripts/measure_foreign_system_ordering.py` resolves the DEFINING crate and this
+does not.** Cross-check any target against it before carving; a peer reports its
+`defining_crate()` dropped 31 false rows when added, from the runtime naming its own
+systems through the `ambition_platformer2d` umbrella.
+
 ⚠ IT IS A REPORT, NOT A GATE. The reducible count is an upper bound on easy carves, not
 a promise: a block can be single-capability and still be entangled by a `.chain()` that
 crosses a lane boundary (measured: `CombatSet::Playback` chains eleven

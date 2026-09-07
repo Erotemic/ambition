@@ -219,3 +219,132 @@ fn the_map_simulation_installer_registers_both_systems() {
         "the map simulation half lost a system: track_room_visits + sync_map_from_save"
     );
 }
+
+/// A session world with one room, so `track_room_visits` has a room to record.
+#[cfg(test)]
+fn one_room_session(app: &mut bevy::prelude::App, room_id: &str) {
+    use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let world = ambition_platformer2d_world::prelude::AuthoredWorld::new(
+        room_id,
+        bevy::prelude::Vec2::new(640.0, 480.0),
+        bevy::prelude::Vec2::new(32.0, 400.0),
+        Vec::new(),
+    );
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            room_id,
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id, world,
+            )],
+            Vec::new(),
+        ),
+    );
+}
+
+fn visited(app: &bevy::prelude::App) -> Vec<String> {
+    app.world()
+        .resource::<super::MapMenuState>()
+        .visited
+        .iter()
+        .cloned()
+        .collect()
+}
+
+/// ⛔⛔ THE VISITED SET HAS THE SAVE'S LIFETIME, NOT THE PROCESS'S. It was
+/// hydrated once per process behind a `Local<bool>`: a new game kept the old
+/// game's rooms, and a second save activated later was never read. Three saves
+/// in one process: the set must follow each one exactly -- rooms the previous
+/// save visited must NOT carry over. A GPT review named both failures.
+#[test]
+fn the_visited_set_follows_whichever_save_is_live() {
+    use ambition_persistence::save::AmbitionGameSave;
+    use ambition_persistence::save_data::AmbitionGameSaveData;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(super::MapStatePlugin);
+    let mut first = AmbitionGameSaveData::default();
+    first.set_flag(super::room_visited_flag("hall"), true);
+    first.set_flag(super::room_visited_flag("lab"), true);
+    app.insert_resource(AmbitionGameSave(first));
+    app.add_systems(Update, super::sync_map_from_save);
+    app.update();
+    assert_eq!(
+        visited(&app),
+        vec!["hall", "lab"],
+        "the first save hydrates"
+    );
+
+    // A different save becomes live in the SAME process -- a load, in place.
+    let mut second = AmbitionGameSaveData::default();
+    second.set_flag(super::room_visited_flag("vault"), true);
+    *app.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut() = second;
+    app.update();
+    assert_eq!(
+        visited(&app),
+        vec!["vault"],
+        "the second save was not read, or the first save's rooms carried over"
+    );
+
+    // NEW GAME: the save is wiped the way `NewGameReset` wipes it.
+    *app.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut() = AmbitionGameSaveData::default();
+    app.update();
+    assert!(
+        visited(&app).is_empty(),
+        "a new game shows rooms the previous game visited: {:?}",
+        visited(&app)
+    );
+}
+
+/// ⛔⛔ AFTER A NEW GAME, THE ROOM YOU ARE STANDING IN IS VISITED AGAIN. The
+/// last-room edge lived in a `Local<Option<String>>`: the player starts a new
+/// game in the same room, the local still names it, and the fresh save never
+/// learns they are there -- the map opens empty in the room they are standing
+/// in. The edge is now the save's own flag, so it re-derives after the wipe.
+#[test]
+fn a_new_game_records_the_room_the_player_is_already_standing_in() {
+    use ambition_persistence::save::AmbitionGameSave;
+    use ambition_persistence::save_data::AmbitionGameSaveData;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(super::MapStatePlugin);
+    app.init_resource::<AmbitionGameSave>();
+    one_room_session(&mut app, "hall");
+    super::install_map_simulation_systems(&mut app, Update);
+    app.update();
+    assert_eq!(
+        visited(&app),
+        vec!["hall"],
+        "premise: the first visit is recorded"
+    );
+    assert!(
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .data()
+            .flag(&super::room_visited_flag("hall")),
+        "premise: and flagged on the save"
+    );
+
+    // NEW GAME, standing in the same room.
+    *app.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut() = AmbitionGameSaveData::default();
+    app.update();
+    assert!(
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .data()
+            .flag(&super::room_visited_flag("hall")),
+        "the fresh save never learned the player is in `hall`: the last-room \
+         edge outlived the save it was an edge of"
+    );
+    assert_eq!(visited(&app), vec!["hall"]);
+}

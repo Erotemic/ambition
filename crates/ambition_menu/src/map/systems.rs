@@ -31,36 +31,62 @@ pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
     flag_id.strip_prefix(ROOM_VISITED_FLAG_PREFIX)
 }
 
+/// Record the active room on the save, once per room per SAVE.
+///
+/// ⛔⛔ THE EDGE IS DERIVED FROM THE SAVE, NOT FROM A `Local`. This kept
+/// `Local<Option<String>>` of the last room and wrote nothing while it matched
+/// -- process-lived memory standing in for a fact the save already holds. After
+/// a new game the player stands in the same room they were in, the local still
+/// says so, and the fresh save never learns they are there. Asking the save
+/// "is this room flagged" is the same edge with the save's lifetime, and it
+/// re-derives correctly after a reset, a rewind or a second session. A GPT
+/// review found the lifetime 2026-09-07.
+///
+/// ⚠ WRITES ONLY ON THE EDGE, and reads through `Deref` otherwise: a `ResMut`
+/// deref-mut marks the save changed for every reader downstream, and the
+/// autosave is one of them.
 pub fn track_room_visits(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,
     >,
-    mut map: ResMut<MapMenuState>,
-    mut last: Local<Option<String>>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
-    let current = room_set.active_spec().id.clone();
-    if last.as_deref() == Some(current.as_str()) {
+    let flag = room_visited_flag(&room_set.active_spec().id);
+    if save.data().flag(&flag) {
         return;
     }
-    *last = Some(current.clone());
-    map.record_visit(&current);
-    save.data_mut().set_flag(room_visited_flag(&current), true);
+    save.data_mut().set_flag(flag, true);
 }
 
+/// Keep the map's visited set equal to what the save says.
+///
+/// ⛔⛔ THE VISITED SET IS A PROJECTION OF THE SAVE, with the save's lifetime,
+/// and it used to be hydrated ONCE PER PROCESS behind a `Local<bool>`. Two
+/// failures followed: a new game inherited the old game's map (the save was
+/// wiped, the set was not), and a second save activated in the same process was
+/// never read at all (the local already said "done"). `MapMenuState` is
+/// process-lived UI state; only this field mirrors the save, and it is rebuilt
+/// whenever the save CHANGES -- which is what a reset, a load and a fresh visit
+/// all are -- rather than keyed to a moment nothing else remembers.
+///
+/// ⚠ ASSIGNED ONLY WHEN DIFFERENT. The map view rebuilds on `map.is_changed()`,
+/// and a save that changes every tick for other reasons must not redraw a map
+/// that did not.
 pub fn sync_map_from_save(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut map: ResMut<MapMenuState>,
-    mut hydrated: Local<bool>,
 ) {
-    if *hydrated {
+    if !save.is_changed() {
         return;
     }
-    *hydrated = true;
-    for flag in save.data().flags() {
-        if let Some(room_id) = room_from_visited_flag(&flag.id) {
-            map.record_visit(room_id);
-        }
+    let visited: std::collections::BTreeSet<String> = save
+        .data()
+        .flags()
+        .iter()
+        .filter_map(|flag| room_from_visited_flag(&flag.id).map(str::to_string))
+        .collect();
+    if map.visited != visited {
+        map.visited = visited;
     }
 }
 

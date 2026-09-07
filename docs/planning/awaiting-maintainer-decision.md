@@ -4574,3 +4574,39 @@ as oversights to every future reader who counts them.
 never-asked-for, unchanged across both cuts). This is not a cost win and should not
 be sold as one. The value is that the dependency graph stops claiming edges nobody
 uses, which is why it is worth a minute of your intent and not more.
+
+## Q76 — were composite mount-riders ever authored? `MountedBrainCache` has no production constructor (2026-09-07)
+
+**Filed so a peer session's finding does not leave with it.** Measured by
+YardratAmbition 2026-09-06 and RE-DERIVED here 2026-09-07 before filing — the full
+reasoning is in
+[`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md),
+which is the authority; this row exists only to put the question where you read
+questions.
+
+`MountedBrainCache` is DEFINED (`ambition_mount/src/lib.rs:204`), READ as an
+`Option` by `enforce_mount_rider_link`, ROLLBACK-REGISTERED as
+`mount.brain_cache`, and CONSTRUCTED in exactly one place: `mount_pair_tests.rs`.
+A tree-wide search for a struct literal or an `insert` finds the definition and
+that test, and nothing else.
+
+⇒ **Two things follow, and they are the reason this is worth a minute.**
+`TemporaryControl::Mounted` is unreachable in shipped play, because boarding masks
+a brain ONLY when there is a cache to swap in — a seated fighter keeps driving
+itself. And `ControlClaimant::Mount` has no production writer.
+
+⇒ **THE QUESTION: was the composite mount-rider — an authored NPC whose brain is
+swapped out while it rides — ever built, or is it a seam declared ahead of its
+content?**
+* If it was **planned and never authored**, this is a dormant capability, and it
+  belongs on the same list as the other five found this week (the EncounterScript
+  music owner, the Limit meter, the provider action road, the abandon seam).
+* If it is **coming**, the constructor is the missing half and the tests are
+  standing in for content.
+
+⛔ **NEITHER OF US SHOULD DELETE IT ON MEASUREMENT ALONE**, which is why this is a
+question and not a carve: a type that is rollback-registered and read by a live
+enforcement system is wired for a customer, and "no constructor yet" is exactly
+what an unfinished authored feature looks like from the code side. Removing it
+would be indistinguishable, in the diff, from removing a feature you are midway
+through.

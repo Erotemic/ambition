@@ -133,3 +133,48 @@ fn installing_the_map_menu_adds_the_systems_it_owns() {
          shell, and this assertion is what made that a decision instead of a drift."
     );
 }
+
+/// The installed systems are SESSION-GATED, which is why "no input" does not crash a
+/// session-less host.
+///
+/// ⛔⛔ THIS TEST EXISTS BECAUSE THE ONE I TRIED FIRST WAS WRONG. The installer's
+/// docstring said calling it without input "should crash loudly at startup", so I wrote
+/// a `#[should_panic]` app with Bevy's `InputPlugin` (supplying `ButtonInput`) and no
+/// `MenuControlFrame`. It did not panic — `install_map_menu_systems` puts its Update
+/// systems behind `.run_if(session_world_exists)`, so a composition with no session
+/// world never runs them at all. The doc has been corrected; this pins the mechanism
+/// that made it wrong.
+///
+/// ⇒ The real contract: the parameter failure arrives on the first update where a
+/// SESSION WORLD EXISTS and the input resources do not. A quiet session-less host is
+/// not evidence the composition is correct.
+#[test]
+fn the_installed_map_systems_are_session_gated() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    // `InputPlugin` supplies `ButtonInput<KeyCode>` and NOT `MenuControlFrame`, so the
+    // hotkey system would fail its parameters if it ran. No session world exists, so it
+    // does not run — and this update completing is the assertion.
+    app.add_plugins((MinimalPlugins, bevy::input::InputPlugin));
+    app.add_plugins(super::MapStatePlugin);
+    super::install_map_menu_systems(&mut app);
+    app.update();
+
+    // ⚠ ANTI-VACUITY: the systems must actually BE there. Otherwise this passes on an
+    // empty schedule and says nothing about gating.
+    let mut update = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::schedule::Schedules>()
+        .remove(Update)
+        .expect("the installer added systems to Update");
+    update
+        .initialize(app.world_mut())
+        .expect("the Update schedule initializes");
+    assert_eq!(
+        update.systems_len(),
+        3,
+        "the installer's Update systems are missing, so 'they did not run' proves \
+         nothing about the session gate"
+    );
+}

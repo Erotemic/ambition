@@ -156,8 +156,15 @@ impl bevy::prelude::Plugin for MapStatePlugin {
 /// a composition with Bevy's `InputPlugin` and without the host would have passed
 /// the condition and still failed the parameter.
 ///
-/// ⇒ Calling this from a host with no input is a COMPOSITION ERROR and should
-/// crash loudly at startup rather than be silently skipped for the process's life.
+/// ⇒ Calling this from a host with no input is a COMPOSITION ERROR and crashes rather
+/// than being silently skipped for the process's life.
+///
+/// ⚠ **BUT NOT "AT STARTUP", AND NOT UNCONDITIONALLY — the earlier wording overstated
+/// it and a test written against that wording failed.** These systems also carry
+/// `.run_if(session_world_exists)`, so a composition with no session world never runs
+/// them and never crashes, however little input it has. The crash arrives on the first
+/// update where a SESSION WORLD EXISTS and the input resources do not. ⇒ A host that
+/// installs this and never opens a session is not proven correct by staying quiet.
 pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
     // ⭐ THE STARTUP HALF. `populate_map_rooms` reads `Res<ActiveLdtkProject>` and
     // writes the room list once; the app had it inline in a Startup chain ordered

@@ -561,8 +561,12 @@ looks like tooling breakage."* It even names the biggest consumer
 instructions.** ⚠ The lesson is not "read the docs" in the abstract: it is that a
 session's FIRST build is the moment the instruction exists for, and I invoked
 `cargo` directly before ever consulting the file that `CLAUDE.md` says to treat as
-`CLAUDE.md`. ⭐ `run_tests.sh` already calls `target_bindmount.sh --check`, so the
-lane I did not use would have refused and told me why.
+`CLAUDE.md`. ⭐ The suite already refuses on this, so the lane I did not use would have
+told me why. ⚠ CORRECTED 2026-09-07: the refusal used to live in `run_tests.sh`
+only, which meant `python3 scripts/run_tests.py` — the door agents actually use —
+was NOT guarded. It now lives inside `check_disk_headroom.free_gb_on_target()`,
+so both doors refuse and neither can read the free-space number off an
+unverified volume.
 
 ⓘ **What is genuinely additive below**, and the reason this entry survives rather
 than being deleted: the bind is PRESENT here (`findmnt` confirms it), so this is

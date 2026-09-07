@@ -10,6 +10,7 @@ that reads the wrong device is worse than none: it is a reason not to look.
 
 from __future__ import annotations
 
+import pytest
 import subprocess
 import sys
 from pathlib import Path
@@ -110,3 +111,59 @@ def test_the_refusal_does_not_recommend_deleting_anything():
 def test_a_floor_of_zero_passes():
     done = _run("--min-gb", "0", "--quiet")
     assert done.returncode == 0, done.stderr
+
+
+# ---------------------------------------------------------------------------
+# The precondition of the number: is `target/` the volume we should build on?
+#
+# ⛔ THESE RUN THE RED DIRECTION, WHICH IS THE ONLY ONE THAT MATTERS HERE. A
+# precondition that has only ever executed on a correctly-configured box has
+# never been observed doing its job, and this one guards the state a reboot
+# leaves behind on every virtiofs checkout.
+
+
+def _probe(code):
+    """Replace the bind probe with a fixed verdict. `None` means 'could not ask'."""
+    return lambda: code
+
+
+def test_an_unbound_target_refuses_the_measurement(monkeypatch):
+    """Exit 2 from the bind check must stop the read, not colour it."""
+    monkeypatch.setattr(guard, "_bindmount_check_exit_code", _probe(2))
+    with pytest.raises(SystemExit) as exit_info:
+        guard.free_gb_on_target()
+    assert exit_info.value.code == 2
+
+
+def test_an_unaskable_probe_refuses_too(monkeypatch):
+    """⛔ INDETERMINATE IS NOT A PASS.
+
+    The script missing, not executable, or dying on something other than its own
+    verdict all arrive as `None`. Reading that as "fine" is how a guard reports a
+    clean tree it never looked at.
+    """
+    monkeypatch.setattr(guard, "_bindmount_check_exit_code", _probe(None))
+    with pytest.raises(SystemExit) as exit_info:
+        guard.free_gb_on_target()
+    assert exit_info.value.code == 2
+
+
+def test_a_verified_volume_still_answers(monkeypatch):
+    """The green direction, so the refusal above is not trivially always-on."""
+    monkeypatch.setattr(guard, "_bindmount_check_exit_code", _probe(0))
+    assert guard.free_gb_on_target() >= 0.0
+
+
+def test_the_probe_delegates_rather_than_re_deriving_the_mount():
+    """One authority for the mount fact: the shell script, not a second reading.
+
+    `_bindmount_check_exit_code` must return what that script says. This asserts
+    the wiring end to end on the real script, so a rename or a moved path fails
+    here rather than silently becoming an indeterminate answer that refuses every
+    build.
+    """
+    assert Path(guard.BINDMOUNT).is_file(), guard.BINDMOUNT
+    real = subprocess.run(
+        ["bash", guard.BINDMOUNT, "--check"], capture_output=True, text=True
+    )
+    assert guard._bindmount_check_exit_code() == real.returncode

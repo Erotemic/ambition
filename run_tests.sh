@@ -14,17 +14,13 @@
 set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# ⛔⛔ THE TARGET DIRECTORY MUST BE SHADOWED ONTO LOCAL DISK BEFORE ANY OF THIS
-# BUILDS. On a virtiofs checkout an unbound `target/` costs minutes per job and
-# grows a second copy of every artifact under the mount point, and NOTHING else
-# in the run says so — the suite just gets slower and the disk quietly fills.
-# Checked here rather than in a doc because a doc is what got skipped: an agent
-# built all day unbound on 2026-08-27, was asked to reclaim the space, and
-# deleted 205GB of the live target instead of restoring the mount.
-#
-# ⛔ Refuse rather than warn. A warning at the top of a job that prints for
-# several minutes is a warning nobody reads, and the fix is one command.
-"$repo_root/scripts/setup/target_bindmount.sh" --check
+# ⛔ THE BIND CHECK IS NOT HERE ANY MORE, AND THAT IS THE POINT. It used to run
+# `target_bindmount.sh --check` on this line, which guarded THIS door only —
+# `python3 scripts/run_tests.py` is the door agents use, and it was unguarded.
+# The precondition now lives inside `check_disk_headroom.free_gb_on_target()`,
+# which every entry point already calls before it decides whether to build, so
+# the volume cannot be measured without first being verified. Restoring a copy
+# here would put the fact back in two places.
 
 # ⛔ THE SUITE'S PYTHON JOBS NEED THE REPO'S ENVIRONMENT, NOT THE SYSTEM ONE.
 # `run_tests.py` launches the goal guard, the absence contracts and the rest as

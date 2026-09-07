@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -52,12 +53,82 @@ def target_dir() -> Path:
     return REPO / "target"
 
 
+BINDMOUNT = os.path.join(REPO, "scripts", "setup", "target_bindmount.sh")
+
+
+def _bindmount_check_exit_code() -> int | None:
+    """Ask the bind-mount script whether `target/` is the volume to build on.
+
+    That script is the one authority for the mount fact; this does not re-derive
+    it. Returns its exit code, or `None` when the question could not be ASKED —
+    the script missing, not executable, or dying on something other than its own
+    verdict.
+    """
+    if not os.path.isfile(BINDMOUNT):
+        return None
+    try:
+        done = subprocess.run(["bash", BINDMOUNT, "--check"], check=False)
+    except OSError:
+        return None
+    return done.returncode
+
+
+def require_verified_target_volume() -> None:
+    """Refuse unless `target/` is the volume cargo SHOULD be writing to.
+
+    ⭐ THIS IS THE PRECONDITION OF THE NUMBER BELOW, WHICH IS WHY IT LIVES INSIDE
+    IT. `free_gb_on_target()` measures whatever `target/` currently resolves to.
+    On a virtiofs checkout whose bind mount is absent — the state every reboot
+    leaves behind, since the bind does not survive one — that is the SHARED
+    volume, so the floor answers about the wrong filesystem and passing it
+    licenses the build onto the mount AGENTS.md spends sixty lines forbidding.
+    Measured 2026-09-07 on this box after a reboot: unbound, `df` on `target/`
+    read 33 GB free on the 1.8 TB shared volume while the intended store had 13.
+
+    ⛔ IT IS NOT A CHECK THE CALLER MUST REMEMBER TO RUN FIRST. It used to be:
+    `run_tests.sh` ran `target_bindmount.sh --check` and refused, and
+    `scripts/run_tests.py` — the door agents actually use — did not, so whether
+    the precondition held depended on which entry point you came through. Making
+    it part of the read removes the ordering question rather than testing it: no
+    caller can obtain the number from an unverified volume, in any order.
+
+    ⛔ REFUSE RATHER THAN WARN, and refuse here rather than in a doc, because a
+    doc is what got skipped: an agent built all day unbound on 2026-08-27, was
+    asked to reclaim the space, and deleted 205 GB of the LIVE target instead of
+    restoring the mount. A warning at the top of a job that prints for several
+    minutes is a warning nobody reads, and the fix is one command.
+
+    ⛔ AN INDETERMINATE ANSWER REFUSES. A probe that could not run is not a
+    passing probe; treating "I could not tell" as "fine" is how a guard reports a
+    clean tree it never looked at.
+    """
+    code = _bindmount_check_exit_code()
+    if code == 0:
+        return
+    if code is None:
+        print(
+            f"REFUSING: could not ask {BINDMOUNT} whether target/ is bound.\n"
+            "  A probe that cannot run is not a probe that passed. Fix the "
+            "script or the shell before building.",
+            file=sys.stderr,
+        )
+    else:
+        # The script has already printed its own diagnosis and remedy to stderr.
+        print(
+            f"REFUSING: {BINDMOUNT} --check exited {code}. Not building until "
+            "target/ is the volume it should be.",
+            file=sys.stderr,
+        )
+    sys.exit(2)
+
+
 def free_gb_on_target() -> float:
-    """Free space on the volume cargo writes to.
+    """Free space on the volume cargo writes to, once that volume is verified.
 
     Falls back to the repo's own volume only when the target directory's parent
     does not exist yet.
     """
+    require_verified_target_volume()
     path = target_dir()
     while not path.exists() and path != path.parent:
         path = path.parent

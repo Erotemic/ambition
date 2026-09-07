@@ -707,9 +707,9 @@ refuses to run and when a job fails, and told the next reader to distrust it.
 **That is false and the section is withdrawn.**
 
 ```bash
-run_tests.sh:   "$repo_root/scripts/setup/target_bindmount.sh" --check   # returns 2
-                exec python3 "$repo_root/scripts/run_tests.py" "$@"
-run_tests.py:   return 1 if failed else 0
+run_tests.sh:   exec python3 "$repo_root/scripts/run_tests.py" "$@"
+run_tests.py:   free_gb_on_target()   # exits 2 on an unverified target volume
+                return 1 if failed else 0
 ```
 
 The gate is correct in both states. **I invoked it as

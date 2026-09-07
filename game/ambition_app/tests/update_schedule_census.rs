@@ -494,6 +494,24 @@ fn menu_frame_readers_are_ordered_against_each_other_in_the_shipped_app() {
     //
     // Deliberately not `assert_eq!(.., 0)`: that would leave the suite red while
     // the audit is open, and a permanently-red guard stops being read.
+    // ⭐ THE NINE ARE FULLY ACCOUNTED FOR, 2026-09-07, and the arithmetic closes:
+    // eight are `MenuNavConsume x NO MENU SET` and the ninth is
+    // `MenuFrameCutsceneSkip x MenuNavConsume`, which the host declares
+    // deliberate. FOUR readers of `MenuControlFrame` declare no menu set at all
+    // -- `ambition_dialog::dialog_input`, `ambition_menu::map::handle_map_menu_hotkeys`,
+    // and `ambition_game_shell`'s `basic_shell_menu_intent` and
+    // `drive_shell_pause_menu` -- against two of the nav consumers. 4 x 2 = 8.
+    //
+    // ⚠ THE DIAGNOSTIC BELOW CAN ONLY NAME TWO OF THE FOUR. The `game_shell` pair
+    // are private `fn` in a crate with no `pub fn` in either file, so they have no
+    // nameable `SystemTypeSet` path and print as `<other> x <other>`. They were
+    // found by grepping every `MenuControlFrame` parameter in the tree instead --
+    // including the `Option<Res<..>>` shape a `Res<MenuControlFrame>` grep misses.
+    // ⇒ Do NOT read four unnamed pairs as four unknown systems: the population is
+    // enumerable from source even where it is not nameable from a test.
+    //
+    // Whether these matter is `awaiting-maintainer-decision.md` Q75 -- it turns on
+    // whether two of those surfaces can be live in one frame, which is Jon's to say.
     const KNOWN_UNORDERED_MENU_PAIRS: usize = 9;
     assert!(
         on_menu_frame <= KNOWN_UNORDERED_MENU_PAIRS,

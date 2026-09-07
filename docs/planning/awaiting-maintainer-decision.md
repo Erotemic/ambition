@@ -4546,6 +4546,50 @@ sharpest — the inventory backends racing each other, which is the mechanism be
 your *"it also seems non deterministic which menu is chosen"* — are fixed and
 poison-verified. A tenth cannot land silently. This is the residue.
 
+---
+
+⭐ **ADDENDUM 2026-09-07, and it WIDENS THE QUESTION: there are FIVE surfaces, not
+three, and one of them is the PAUSE MENU.** I enumerated every reader of
+`MenuControlFrame` in the tree rather than only the ones the census could name,
+and the arithmetic then closes exactly.
+
+**MEASURED, `git grep` over `crates/` and `game/`, HEAD `09795fa87`:**
+
+| system | crate | menu set |
+|---|---|---|
+| `populate_menu_control_frame_from_actions` (writes) | monolith | `MenuFramePopulate` |
+| `fold_touch_gestures` (writes) | `ambition_touch_input` | `.before(MenuFrameConsume)` |
+| `grid_menu_open_routing` (writes) | app | `GridMenuNav` |
+| `grid_menu_nav` (writes) | app | `MenuNavConsume` + `GridMenuNav` |
+| `kaleidoscope_menu_open_routing` (writes) | app | `MenuNavConsume` + `KaleidoscopeMenuNav` |
+| `kaleidoscope_focus_nav` (writes) | app | `MenuNavConsume` + `KaleidoscopeMenuNav` |
+| `apply_menu_frame_to_cutscene_request` (reads) | monolith | `MenuFrameCutsceneSkip` |
+| `dialog_input` (reads) | `ambition_dialog` | ⛔ **none** |
+| `handle_map_menu_hotkeys` (reads) | `ambition_menu::map` | ⛔ **none** |
+| `basic_shell_menu_intent` (reads) | `ambition_game_shell` | ⛔ **none** |
+| `drive_shell_pause_menu` (reads) | `ambition_game_shell` | ⛔ **none** |
+
+⇒ **FOUR readers declare no menu set, and the census reports exactly 8 pairs in the
+`MenuNavConsume × NO MENU SET` bucket.** Four readers against two of the nav
+consumers is eight. The ninth pair is `MenuFrameCutsceneSkip × MenuNavConsume`, the
+one the host's own comment declares deliberate.
+
+⚠ **LABELLED HONESTLY: the two `game_shell` systems are REASONED into those four
+slots, not measured into them.** The census names systems through their
+`SystemTypeSet`, which needs a nameable path; `basic_shell_menu_intent` and
+`drive_shell_pause_menu` are private `fn` in a crate with ZERO `pub fn` in either
+file, so the diagnostic prints `<other> x <other>` for their four pairs and I did
+not make them `pub` to satisfy a test. What is measured: four unnamed-both pairs
+exist, and exactly two unnamed no-set readers exist. What is inferred: that these
+are those.
+
+⇒ **WHAT THIS CHANGES ABOUT THE QUESTION.** (a) and (b) were about inventory,
+dialogue and map. Add: **(d) can the PAUSE MENU be up at the same time as the
+inventory or a dialogue?** That one is likelier to be YES than the others, because
+a pause menu is normally reachable from anywhere — and if it is, `drive_shell_pause_menu`
+reading a frame that `grid_menu_nav` may already have cleared is the same defect on
+the surface players reach most.
+
 ## Q74 — three declared dependency seams have no user. Keep the seam, or cut it? (2026-09-07)
 
 **Two of the five optional edges are already cut and needed no ruling** — their

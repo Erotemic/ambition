@@ -667,3 +667,63 @@ def test_the_footprint_baseline_is_not_silently_empty():
     baseline = json.loads((root / CAPABILITY_FOOTPRINT_BASELINE).read_text())
     assert baseline["closure_size"] > 20, baseline["closure_size"]
     assert baseline["never_asked_for_count"] > 0, baseline["never_asked_for_count"]
+
+
+# ⛔⛔ THE TWO BASELINE-BACKED CONTRACTS HAD NO TEST IN THIS FILE, and that gap
+# shipped a red main on 2026-09-06. `check_absence_contracts.py` reports 38
+# contracts; the three families this file parametrises cover 36 of them, and the
+# two that keep a JSON BASELINE instead of a pattern were covered by nothing here.
+#
+# ⇒ THE CONSEQUENCE, exactly as it happened: registering `ControlClaims` for
+# rollback put a new type on the wire. `cargo test --workspace` was green, the
+# `rollback_schema_baseline.txt` row was added, the schema version was bumped —
+# and `rollback-wire-format-changes-are-declared` was RED for its own separate
+# baseline, which only a lane nobody in that session ran would have said. A peer
+# found it.
+#
+# ⚠ THE LESSON IS ABOUT LANES, NOT ABOUT ROLLBACK. A checker reachable only from
+# a lane I assemble by hand is a checker with no skip-list to read past: nothing
+# announces that it did not run. These two run wherever `pytest scripts/tests/`
+# runs, which is the lane everything else here already lives in.
+def test_the_rollback_wire_format_baseline_is_declared_and_current():
+    """Every type on the rollback wire is in the baseline, and every baseline row
+    still describes a live type."""
+    from check_absence_contracts import rollback_schema_violations
+
+    new, stale = rollback_schema_violations(REPO)
+    assert not new, (
+        "these entered the rollback wire format without being declared — add the "
+        "baseline row AND bump the schema version, or keep the type off the "
+        "wire:\n  " + "\n  ".join(new)
+    )
+    assert not stale, (
+        "these are declared in the wire-format baseline and no longer on the "
+        "wire; prune them in the same commit that removed them, or the baseline "
+        "stops describing the format:\n  " + "\n  ".join(stale)
+    )
+
+
+def test_the_wire_format_baseline_is_not_silently_empty():
+    """⭐ THE VACUITY CONTROL. Both assertions above are `not <difference>`, and a
+    baseline that failed to load — or a collector that stopped finding encoded
+    types — makes both differences empty and both assertions pass."""
+    from check_absence_contracts import ROLLBACK_SCHEMA_BASELINE
+
+    baseline = json.loads((REPO / ROLLBACK_SCHEMA_BASELINE).read_text())
+    assert len(baseline["stable_schema_names"]) >= 400, (
+        f"only {len(baseline['stable_schema_names'])} stable schema names in the "
+        "baseline; there were 414 when this was written, so the file has been "
+        "truncated rather than the format having shrunk"
+    )
+    assert len(baseline["encoded_types"]) >= 120, (
+        f"only {len(baseline['encoded_types'])} encoded types; there were 124 "
+        "when this was written"
+    )
+
+
+def test_the_capability_footprint_contract_holds_against_the_live_tree():
+    """The other baseline-backed contract, covered here for the same reason."""
+    from check_absence_contracts import capability_footprint_violations
+
+    found = capability_footprint_violations(REPO)
+    assert not found, "capability footprint grew:\n  " + "\n  ".join(found)

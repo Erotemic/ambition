@@ -2346,6 +2346,52 @@ somebody tuning `on_block` up and nothing noticing.
   2026-09-06, every one was authoring against a capability that had shipped and
   had no verb, and exactly one new verb (`wake`) was written.
 
+### ✔ The Limit meter gained a spender on the roster (2026-09-06)
+
+⛔⛔ **MEASURED: EVERY NON-ZERO `meter_cost` IN PRODUCTION BELONGED TO THE GOBLIN.**
+The Limit meter got its fourth fill source (`on_block`) that morning, and the
+1v1 roster had no move that could spend any of it — `goblin_moveset.rs`'s charged
+dive was the only priced move in the tree, and a goblin is not a fighter. ⇒ **A
+capability with a filler and no spender fails exactly as quietly as one with a
+spender and no filler**, and neither end announces the other is missing.
+
+⭐ **George's neutral special is now the payoff, and NOTHING NEW WAS BUILT.**
+`meter_cost`, `when_refused` and `afford_meter` all shipped already; the goblin's
+dive already proved the shape. The whole row is authoring:
+
+| what | where |
+|---|---|
+| the payoff | `bivalence`, priced at the cap (60), windows ×1.5 damage / ×1.35 knockback |
+| the fallback | `bivalence_unmetered`, cloned BEFORE the buff, pushed into `moves`, bound to no verb |
+| the routing | `when_refused` — one press, two answers, `accepted_or_variant` picks |
+
+⛔ **TWO TRAPS, BOTH AUTHORED, BOTH NOW GUARDED**, and neither is visible to the
+compiler because the link is a `String` id:
+
+* **the dead button** — a fallback that is named and never pushed into `moves`
+  resolves to `None`, so pressing neutral-B on an empty meter does *nothing*;
+* **the free lunch** — cloning the fallback AFTER the buff makes the cheap
+  version the expensive one, so the meter buys nothing and every other test still
+  passes. The goblin's own comment warns about this in as many words.
+
+Poisons run: no push → the fallback test reddens; fallback buffed too → *"the
+metered neutral special (32) must hit harder than the one an empty meter gives
+(32)"*.
+
+⚠ **AND I HAD TO CORRECT MY OWN COMMENT BEFORE IT SHIPPED.** It said blocking
+fills the meter and a defensive player gets the payoff. The arithmetic does not
+support it: against `JONS_BASELINE` blocking ALONE is 60 blocks, damage taken
+alone 30 hits, the clock alone 120 seconds. A sixty-second exchange with ten hits
+taken, ten dealt and eight blocks scores 68 — blocking **contributes eight of
+sixty-eight**. ⇒ The honest claim is that the Limit meter has a roster spender and
+blocking is one of its four sources. A comment claiming the stronger thing is a
+design promise no number keeps.
+
+⭐ **FIFTH INSTANCE OF THIS PAGE'S MAIN FINDING.** After A2 dropping its rung, A3
+shedding identity work, the reflector arriving free, and A4's premise proving
+false: **the engine already had it; what was missing was a way to say it** — and
+here, someone to say it to.
+
 ### Then
 
 Proof moves 4–12 in inventory order, each re-costed when reached. ⛔ Do not

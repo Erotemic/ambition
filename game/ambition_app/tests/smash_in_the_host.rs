@@ -4783,18 +4783,40 @@ fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
 /// is, is his sheet's business; what this test is about is whether the PAD
 /// reaches it. A literal `"bivalence"` here would go quiet the day he is
 /// re-authored and would still pass.
+/// Every move a `special` press can legitimately produce.
+///
+/// ⛔⛔ THE VERB-BOUND MOVES ARE NOT THE WHOLE ANSWER, and this test found that
+/// out the honest way: it went red the day George's neutral special acquired a
+/// price. A move with a `meter_cost` names a `when_refused` variant, and when the
+/// body cannot pay, `accepted_or_variant` starts THAT — a move which deliberately
+/// has no verb of its own, so a set built from `verbs` alone never contains it.
+///
+/// ⇒ A refusal variant of an authored special IS an authored special; it is the
+/// answer the fighter gives to that same press on an empty meter. ⚠ ONE HOP, and
+/// deliberately: that is exactly how far the engine follows the chain
+/// (`accepted_or_variant` does not follow the variant's own `when_refused`), so
+/// following further here would accept moves the press can never produce.
 fn authored_specials_of(app: &mut App, body: Entity) -> std::collections::BTreeSet<String> {
     use ambition_platformer2d::combat::moveset::ActorMoveset;
     app.world()
         .get::<ActorMoveset>(body)
         .map(|moveset| {
-            moveset
-                .0
+            let contract = &moveset.0;
+            let mut ids: std::collections::BTreeSet<String> = contract
                 .verbs
                 .iter()
                 .filter(|(verb, _)| verb.starts_with("special"))
                 .map(|(_, id)| id.clone())
-                .collect()
+                .collect();
+            for id in ids.clone() {
+                if let Some(variant) = contract
+                    .move_by_id(&id)
+                    .and_then(|spec| spec.gates.when_refused.clone())
+                {
+                    ids.insert(variant);
+                }
+            }
+            ids
         })
         .unwrap_or_default()
 }

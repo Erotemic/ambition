@@ -134,3 +134,53 @@ pub use semantic::{
     install_provider_bindings_on_seats, publish_provider_action_edges, ProviderAction,
     ProviderBindings, SemanticActionPressed,
 };
+
+/// Install the input pipeline's own SET ORDER and device-ownership systems.
+///
+/// ⭐ THE CAPABILITY OWNS ITS OWN PIPELINE SHAPE. `HostInputBindingsPlugin` declared
+/// `InputSet`'s six-phase chain and registered `track_local_device_order` /
+/// `assign_local_seat_devices` itself — so a composition that wanted the input stack
+/// had to restate the ordering this crate defines. Both move here, where the sets and
+/// the systems live.
+///
+/// ⛔⛔ THE `configure_sets` TRAVELS WITH THE SYSTEMS, deliberately. Carving systems out
+/// of a plugin and leaving their set declaration behind is the half that gets forgotten,
+/// and it fails silently: the systems register, the sets exist unordered, and the
+/// pipeline's "an edge produced this frame is consumed this frame" guarantee quietly
+/// becomes "may arrive one frame later".
+///
+/// ⚠ THE ORDER IS THE CONTRACT: device adapters complete before routing, routed
+/// semantics before shell/menu consumers.
+///
+/// ⚠ AND `PreUpdate` + `.before(InputManagerSystem::Update)` IS NOT DECORATION. The
+/// seat/device association is an INPUT to leafwing's action resolution — made after it,
+/// a seat that joins reads its controller a frame late and the join press itself lands
+/// on nobody.
+#[cfg(feature = "input")]
+pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
+    use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate, Update};
+
+    app.configure_sets(
+        Update,
+        (
+            InputSet::Collect,
+            InputSet::ResolveActions,
+            InputSet::ResolveContext,
+            InputSet::Route,
+            InputSet::PublishCues,
+            InputSet::Consume,
+        )
+            .chain(),
+    );
+    app.init_resource::<LocalDeviceOrder>();
+    // Which pad each seat is HOLDING, remembered across disconnects. Without it
+    // `assign_local_seat_devices` panics on a missing resource; with it, a seat keeps
+    // its controller when somebody else unplugs theirs.
+    app.init_resource::<LocalSeatDeviceOwnership>();
+    app.add_systems(
+        PreUpdate,
+        (track_local_device_order, assign_local_seat_devices)
+            .chain()
+            .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+    );
+}

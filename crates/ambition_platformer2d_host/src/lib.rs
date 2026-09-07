@@ -56,44 +56,14 @@ impl Plugin for HostInputBindingsPlugin {
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
-        // ── The participant input pipeline (ordered, same-frame) ──────────
-        //
-        // Device adapters complete before routing; routed semantics complete
-        // before shell/menu consumers. An edge produced this frame is
-        // consumed this frame — the pipeline never tolerates "the edge may
-        // arrive one frame later".
-        app.configure_sets(
-            Update,
-            (
-                ambition_input::InputSet::Collect,
-                ambition_input::InputSet::ResolveActions,
-                ambition_input::InputSet::ResolveContext,
-                ambition_input::InputSet::Route,
-                ambition_input::InputSet::PublishCues,
-                ambition_input::InputSet::Consume,
-            )
-                .chain(),
-        );
-        // Device ownership, BEFORE leafwing resolves this frame's actions.
-        //
-        // In `PreUpdate` and pinned ahead of `InputManagerSystem::Update`
-        // because the association is an input to that resolution: made after
-        // it, a seat that joins reads its controller a frame late, and the
-        // join press itself lands on nobody.
-        app.init_resource::<ambition_input::LocalDeviceOrder>();
-        // Which pad each seat is HOLDING, remembered across disconnects. Without
-        // it `assign_local_seat_devices` panics on a missing resource; with it, a
-        // seat keeps its controller when somebody else unplugs theirs.
-        app.init_resource::<ambition_input::LocalSeatDeviceOwnership>();
-        app.add_systems(
-            PreUpdate,
-            (
-                ambition_input::track_local_device_order,
-                ambition_input::assign_local_seat_devices,
-            )
-                .chain()
-                .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
-        );
+        // ⭐ THE INPUT CAPABILITY DECLARES ITS OWN PIPELINE. This host restated
+        // `InputSet`'s six-phase chain and registered the two device-ownership systems
+        // itself; both moved to `ambition_input::install_input_pipeline`, which is
+        // where the sets and the systems live. The `configure_sets` went WITH them —
+        // leaving it behind is the half that gets forgotten, and it fails silently by
+        // turning "consumed this frame" into "may arrive one frame later".
+        ambition_input::install_input_pipeline(app);
+
         // See `ambition_input::seating`.
         app.init_resource::<ambition_input::SessionSeatingSource>();
         app.init_resource::<ambition_input::SeatInputContexts>();

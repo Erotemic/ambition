@@ -231,6 +231,24 @@ mod tests {
             TextureResolutionScale::Quarter,
             TextureResolutionScale::Potato,
         ] {
+            // ⭐ THE MATCH IS THE GUARD, NOT THE ARRAY ABOVE. The hand-listed
+            // variants are only how the loop iterates; a FIFTH tier added to
+            // `TextureResolutionScale` would simply be absent from that list, every
+            // assertion below would keep passing, and the new tier would never be
+            // round-tripped -- while `scale_for_pack_tier`'s `_ => None` silently
+            // swallowed it. This exhaustive match with no `_` arm makes that a
+            // COMPILE ERROR (E0004) here instead.
+            //
+            // ⚠ It deliberately does NOT restate the tier NAMES. That table has one
+            // authority in `pack_tier_for_scale`, and copying it into the test would
+            // be a second place to update -- the round trip below already pins the
+            // pair without naming either half.
+            match scale {
+                TextureResolutionScale::Full
+                | TextureResolutionScale::Half
+                | TextureResolutionScale::Quarter
+                | TextureResolutionScale::Potato => {}
+            }
             assert_eq!(
                 scale_for_pack_tier(pack_tier_for_scale(scale)),
                 Some(scale),

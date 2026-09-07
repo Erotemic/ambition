@@ -58,6 +58,17 @@ false positives:
     dormant families; all four have 2-7 readers. ABANDONED, and the negative result is
     the finding: every one of the 14 durable families is consumed.
 
+  · PLANNING SYMBOL CITATIONS — measured but NOT built, and the numbers say why. 2,484
+    backticked snake_case symbols are cited across `docs/planning`; 2,233 after dropping
+    crate names and shas; **106 (4.7%) resolve nowhere in the tree**. Low enough to look
+    actionable, and the causes are heterogeneous: external crates (`bevy_gltf`,
+    `bevy_reflect`), allocator internals (`_mi_page_free_collect`), deleted test names,
+    character names, and symbols that were only ever planned. ⇒ Most of that list wants
+    `cite-ok`, which is what `check_planning_citations.py` already provides for PATH
+    citations — so a general symbol gate would mostly generate annotations rather than
+    findings. ⚠ The 95.3% figure is worth keeping as a quality signal even though the
+    tool was not built.
+
 ⇒ Before writing the next one, name the ONE shape first. If you cannot, the census will
 measure your imagination.
 

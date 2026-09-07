@@ -101,6 +101,16 @@
     depending on the global game state"*: it does, and the state is the quality
     profile. Cause is D-POTATO-ASPECT in `queue.md`.
 
+    ✔ **BOTH ROWS RE-DERIVED INDEPENDENTLY FROM THE RONs** (not through the script
+    that produced them, because four of these annotations are now cited):
+    `solid_snake` base frame 128, body box h 49, idle rect h 49 -> ratio 1.000;
+    potato frame 8, body box h **3**, idle rect h **5** -> ratio 1.667.
+    `ai_slop` base 232 with body 167 and rect 167 -> 1.000; potato 14 with body 10 and
+    rect 10 -> 1.000. ⇒ The divergence is real and it is the snake that moves.
+    ⚠ At potato these are 3-vs-5 pixels out of 8, so the tier's numbers are heavily
+    quantized integers — which is the mechanism, and also a reason not to read the
+    1.667 as a precise figure rather than "large".
+
     ⚠ **NOT the same number as the 2.46x above and not a replacement for it.** That
     figure is the quad against the RUNTIME COLLISION box; this is the quad against the
     SHEET'S AUTHORED box, so they are different questions and 1.000 here does not

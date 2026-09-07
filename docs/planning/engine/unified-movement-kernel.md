@@ -116,6 +116,25 @@
   is reachable in production rather than theoretical, which is what decides whether the
   exercise is worth writing.
 
+  ⛔⛔⛔ **CORRECTION 2026-09-06, AND IT DE-PRIORITISES EVERYTHING BELOW: THE
+  `gravity_dir` PATH DOES NOT RUN IN SHIPPED PLAY.** `gravity_dir` reaches exactly two
+  decisions — `somersault_roll_for_convention` and `portal_facing_flips_for_convention`
+  (`placement.rs:112,131`) — and BOTH open with
+  `convention == MapConvention::Reflection`. `PortalTuning::default()` ships
+  `PortalConvention::Rotation` (`tuning.rs:91`), and Reflection is selectable ONLY from
+  the dev portal inspector (`dev/portal_inspector.rs:772`).
+
+  ⇒ **So the wiring asymmetry is real and the player cannot reach it.** Everything below
+  — the contract, the symptom, the population — is CORRECT ABOUT THE CODE and describes
+  a branch the shipped convention never enters. ⚠ I escalated four claims about this
+  before checking whether the path executes, which is the denominator question and
+  should have come first.
+
+  ✔ **The repair landed anyway** (transit now resolves per body via `gravity_dir_for`),
+  because it removes a genuine wrong authority and is behaviour-neutral: portal2d 71/71
+  and `app_it` 578/578 green before and after. ⚠ It is UNVERIFIED as a behaviour fix,
+  and deliberately so — see the deleted test below.
+
   ⭐⭐⭐⭐ **AND THE PROJECT ALREADY WROTE THE CONTRACT THIS BREAKS.**
   `shared_tangle/src/gravity.rs:150`, the `GravityZone` doc, verbatim:
 
@@ -193,6 +212,15 @@
   zone-aware, so it explains the entire delta with portal transit contributing nothing.
   A green assertion here would have been read as "transit honours per-body gravity"
   when it shows only that *something* does.
+
+  ⛔ **AND THE ISOLATED VERSION DID NOT CONVERGE EITHER.** A minimal `App` with ONLY
+  `portal_transit` registered (no orient system, so any delta must be transit's) still
+  read `(Vec2(400,0), 0.0)` with and without the zone — first because the default
+  tuning is Rotation, and then, with Reflection forced, because a pair of exactly
+  OPPOSED normals is degenerate: `wall_to_wall` flips as predicted but
+  `portal_transit_roll` returns 0 for that geometry, so both branches agree. ⇒ A real
+  test needs a pair whose `portal_transit_roll` is NON-ZERO, so the two branches differ.
+  That is the missing ingredient, and it is geometry, not wiring.
 
   ⚠ **THE OBSTACLE, for whoever writes the real one:** transit's `gravity_dir` and the
   orient-to-gravity system consume the same fact and write the same observable

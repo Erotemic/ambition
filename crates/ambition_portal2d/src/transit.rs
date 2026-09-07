@@ -236,6 +236,15 @@ pub fn portal_transit(
         With<PortalBody>,
     >,
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
+    // ⭐ THE ZONE SNAPSHOT, so "which way is down" can be answered FOR THIS BODY.
+    // `GravityField` alone cannot: `resolve_active_gravity` fills it from
+    // `Query<&ResolvedMotionFrame, With<PrimaryBody>>`, i.e. it is a MIRROR OF THE
+    // PRIMARY BODY's frame. `GravityZone`'s own doc states the contract this breaks --
+    // "an NPC standing in a gravity column feels the column even when the player is
+    // elsewhere" -- and `character_sprites::sync_sprite_posed_bodies` already resolves
+    // the same fact per-body through `gravity_dir_for`. Optional so a minimal test app
+    // without the zone-snapshot system still transits.
+    zones: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityZones>>,
     tuning: Res<PortalTuning>,
     host_depths: Option<Res<PortalHostDepths>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
@@ -256,10 +265,26 @@ pub fn portal_transit(
     if all.is_empty() {
         return;
     }
-    let gravity_dir =
+    // The room's ambient down, still the fallback for a body in no zone.
+    let ambient_dir =
         ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
 
     for (entity, mut kin, policy, mut transit, mut roll, cooldown, sweep) in &mut bodies {
+        // ⭐ RESOLVED PER BODY, INSIDE THE LOOP. `gravity_dir` feeds exactly one
+        // decision downstream -- `placement::wall_to_wall`, which classifies each
+        // aperture as WALL or FLOOR/CEILING by its angle to "down" and gates the
+        // somersault/upright accommodation. Answering it once above the loop meant
+        // every body was classified against the PRIMARY body's down, so an actor
+        // transiting inside a gravity column was oriented by where the PLAYER happened
+        // to be standing.
+        let gravity_dir = match zones.as_deref() {
+            Some(zones) => ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
+                ambition_platformer2d_core::Aabb::new(kin.pos, kin.size * 0.5),
+                zones,
+                ambient_dir,
+            ),
+            None => ambient_dir,
+        };
         // The transit cooldown is a BODY latch (`PortalTransitCooldown`),
         // ticked by `tick_portal_cooldowns` and scoped to the PAIR the body
         // just crossed; gun-independent so nothing can ping-pong back through

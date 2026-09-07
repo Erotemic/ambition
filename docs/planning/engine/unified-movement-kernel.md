@@ -233,9 +233,9 @@
 
   ▢ The exercise still wants: a non-primary body and the player in DIFFERENT zones,
   transit the non-primary one, and assert its post-transit orientation follows ITS OWN
-  frame — with the confound above defeated rather than ignored. ⛔ Nothing above is measured — it is a source reading, and
-  `a_coherent_source_reading_is_not_a_measurement` applies. The test is still the
-  deliverable.
+  frame — with the confound above defeated rather than ignored. ⛔ Nothing above is measured — it is a
+  source reading, and a coherent source reading is not a measurement: it can be entirely
+  right about the code and wrong about what runs. The test is still the deliverable.
 
 ## Re-measured 2026-09-03 — both gates still closed, and both counts reproduce
 

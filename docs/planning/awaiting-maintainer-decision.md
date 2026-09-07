@@ -131,6 +131,40 @@ under 2.0 needs no other change.
 
 ## Open decisions
 
+### 71. `Exit Match` was asked for, the seam was built, and NO experience plugged in (2026-09-06)
+
+⭐ **JON'S ASK, quoted in the module that answers it** (`ambition_game_shell/src/abandon.rs`):
+*"During an active Smash match, the system/pause menu needs an explicit `Exit Match`,
+which ends the match as No Contest."* (W8 playtest.)
+
+⭐ **THE DESIGN IS RIGHT AND IS BUILT.** The shell hosts a row it cannot describe: the
+experience states its own WORDS (`ShellAbandonOffer`) and its own MEANING (whatever it
+does on reading `ShellAbandonRequested`), and the shell only draws the row and reports
+the press. That keeps combat concepts out of a crate that must not depend on combat.
+
+⛔⛔ **BOTH HALVES OF THE EXPERIENCE SIDE ARE ABSENT. Measured 2026-09-06:**
+
+| | expected writer/reader | found |
+|---|---|---|
+| `ShellAbandonOffer` inserted by an experience | some game, while it has something to leave | **NOBODY** — every mention is `pause_menu.rs` READING it as `Option<Res<_>>` |
+| `ShellAbandonRequested` read by an experience | the offering game, to leave | **NOBODY** — written in 3 places in `pause_menu.rs`, read nowhere in the tree |
+
+⇒ **So the row never appears, and if it did, pressing it would do nothing.** The feature
+is unbuilt on the side that gives it meaning, and the shell half cannot reveal that on
+its own — a seam with no consumer looks identical to a working one from the shell.
+
+⚠ **HOW IT WAS FOUND, because the method generalises:** a census of all 103
+`add_message::<T>` registrations against their readers. Four types have no reader;
+`RunAuthoredCommand` is a false positive (drained manually via `Messages<T>`, not
+`MessageReader`), `SemanticActionPressed` is the provider-action seam already filed on
+`tracks.md`, `SuddenDeathBegan` is read only by a test.
+
+⇒ **THE QUESTION IS SCOPE, not design.** Which experience owns the offer — smash only, or
+every experience with a mode to leave? And what does "No Contest" mean to the match
+rules: an immediate retire, a recorded result, or a distinct outcome? ⛔ Not implemented
+here: the consumer belongs to the smash lane and the meaning of leaving is a rules
+decision, not a composition one.
+
 ### 70. Which SCREEN and which QUALITY setting is the Mary-O sprite offset on? (2026-09-06)
 
 ⛔ **A BUG REPORT I CANNOT REPRODUCE, and the missing input is two facts only Jon has.**

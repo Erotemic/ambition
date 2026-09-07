@@ -6564,7 +6564,23 @@ OPTIONAL dep + feature, never used:
   branch simply was not carried along. What is blocked is specifically MERGING
   `d129-composited-frames`, not touching the pointer at all.
   ⇒ That cost grows with every unrelated bump, which is the argument for deciding
-  it rather than leaving it. ⓘ Verified with
+  it rather than leaving it.
+
+  ⛔⛔ **AND IT BUMPED AGAIN. Re-measured 2026-09-06: the checked-in pointer is now
+  `0828fae` ("Her three ground items get drawn: a bomb, a mine, and a tress that is not
+  a wand"), not the `aba1c1e` this row recorded a day earlier.** The row's own warning
+  has now come true twice, which is the whole of its argument for deciding rather than
+  waiting.
+
+  ⚠ **AND THE RELATION CANNOT BE COMPUTED FROM EVERY BOX, which is a fact about the
+  measurement rather than the tree.** On this machine neither `aba1c1e` nor `c6a9712` is
+  a valid object — `git -C tools/ambition_sprite2d_renderer cat-file -t` reports
+  *"Not a valid object name"* for both, and the `d129-composited-frames` branch is not
+  present locally. ⇒ The `merge-base --is-ancestor` verification this row cites is only
+  available on a checkout that has FETCHED the branch, so a reader here cannot reproduce
+  the DIVERGED verdict and must not read its absence as agreement.
+  ⚠ Also worth stating for whoever reconciles it: this box's submodule CHECKOUT sits at
+  `2b4d59f`, which is neither the recorded pointer nor anything this row names. ⓘ Verified with
   `git -C tools/ambition_sprite2d_renderer merge-base --is-ancestor`, not inferred
   from the dates. ⛔⛔ **The drawing canvas IS the logical frame, so the ink beyond it was
   never rendered.** The obvious classifier — "seated flush" vs "still moving when

@@ -1147,3 +1147,185 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
          the checkpoint recorded custody, so custody is what is restored"
     );
 }
+
+/// ⛔⛔ **F9 WITNESS: A REFUSED RESET STILL SPENDS THE CHECKPOINT.**
+///
+/// `ResetToCheckpoint` is a raw request, and three domains read it directly —
+/// `restore_occurrence_baseline` (shared_tangle), `restore_custody_to_checkpoint`
+/// and `restore_owned_items_to_checkpoint` (item pickup). None of them can see
+/// whether the room intent that reset asked for was ADMITTED. The one road that
+/// does ask, `resume_at_checkpoint_on_reset`, gets `AlreadyPending` from the
+/// earliest-sticky slot, writes no `RoomReplayAdmitted`, and rebuilds no room —
+/// while the three domains have already put the checkpoint's ledgers back.
+///
+/// ⚠ **THIS TEST ASSERTS THE DEFECT, ON PURPOSE.** It is the executed
+/// reproduction the A1 packet owes (source reading is not a reproduction), and
+/// it records the live values that change on a denied reset so A1c can be
+/// measured against them rather than argued about. When A1c makes the accepted
+/// restore the common commit input, **these assertions invert**: the same
+/// fixture becomes the acceptance row *"busy slot plus different live and saved
+/// ledgers → no occurrence, custody or owned-count mutation from the refused
+/// reset"*. Failing here after A1c is the intended signal, not a regression.
+///
+/// ⭐ A1a DID NOT FIX THIS AND CANNOT. A1a repaired the startup routed latch,
+/// which is a different defect in the same file: that one spent a session's one
+/// resume on a crossing the slot refused. This one is three domains that never
+/// consult admission at all, and no ordering edge repairs it — the consumers
+/// need accepted operation data, not a differently ordered read of the same
+/// unaccepted request.
+#[test]
+fn f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request() {
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use ambition_platformer2d::item::{ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint;
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    let reward = SimId::placement(REWARD);
+
+    // ── BANKED: the bag as it stands, and the reward lying on its pedestal ──
+    //
+    // A STACKABLE entitlement, deliberately. `MINTED_ITEM` is unique-category
+    // and `grant` clamps it at one, so a second grant of it would leave the live
+    // bag identical to the banked one and the measurement below would be a
+    // no-op wearing a restore's clothes.
+    const STACKABLE: ambition_platformer2d::item::Item =
+        ambition_platformer2d::item::Item::HealthCell;
+    commit_a_checkpoint(&mut sim);
+    let banked = sim.world().resource::<OwnedItems>().count(STACKABLE);
+
+    // ── AFTER THE CHECKPOINT: one more of it, and the reward in hand ─────────
+    sim.world_mut().write_message(ItemGrantRequested {
+        item: STACKABLE,
+        count: 1,
+    });
+    sim.step_n(base(), 4);
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(STACKABLE),
+        banked + 1,
+        "the live bag must DIFFER from the banked one, or a restore and a no-op \
+         are indistinguishable"
+    );
+    assert_still_held(
+        &mut sim,
+        &reward,
+        "the reward was acquired after the checkpoint, so the live custody \
+         relation differs from the banked one",
+    );
+
+    // ── THE SLOT IS ALREADY SOMEBODY ELSE'S ──────────────────────────────────
+    //
+    // A crossing recorded on an earlier frame that has not yet reached its
+    // commit. `record` is earliest-sticky, so anything asking now is refused.
+    // The subject is a body that does not exist: this incumbent exists to
+    // OCCUPY the slot, and giving it a real avatar would let the eager host
+    // start staging a room and confuse what the measurement below is about.
+    let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: SimId::placement("an_operation_that_is_not_this_reset"),
+        target_room: NEIGHBOUR.to_string(),
+        arrival: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),
+        edge_exit: false,
+        zone_sfx: None,
+    });
+    assert!(sim
+        .world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .record(0, incumbent.clone())
+        .admitted());
+
+    // ── THE RAW RESET, WHICH THE SLOT WILL REFUSE ────────────────────────────
+    sim.world_mut().write_message(ResetToCheckpoint);
+    sim.step(base());
+
+    // ⭐ THE REFUSAL IS REAL: the incumbent still owns the slot, so the reset's
+    // room intent was never recorded and no room rebuild was authorized.
+    assert_eq!(
+        sim.world()
+            .resource::<PendingLifecycleCommit>()
+            .peek()
+            .map(|pending| &pending.kind),
+        Some(&incumbent),
+        "the incumbent lost the slot, so this fixture is not measuring a refused \
+         reset at all"
+    );
+    assert_eq!(
+        sim.observation().active_room,
+        ROOM,
+        "the refused reset changed the active room, which the slot should have \
+         made impossible"
+    );
+
+    // ⛔⛔ AND THE DOMAINS SPENT THE CHECKPOINT ANYWAY. Recorded here as the
+    // values A1c must stop changing.
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(STACKABLE),
+        banked,
+        "F9 has been repaired for the entitlement ledger: a refused reset no \
+         longer rolls the bag back. Invert this assertion and move it to the A1c \
+         acceptance row"
+    );
+    // ⛔⛔ AND THE HELD OBJECT IS GONE — not returned to its pedestal, GONE.
+    //
+    // This is the sharpest of the three values, and it is worse than "a ledger
+    // rolled back". `restore_custody_to_checkpoint` takes the reward out of the
+    // hand because the banked custody relation did not have it there; the thing
+    // that would put it back on its pedestal is the ROOM RECONSTRUCTION the
+    // reset asked for — and that is precisely what the slot refused. So the two
+    // halves of one restore ran on opposite sides of an admission nobody
+    // consulted, and the object exists in neither.
+    assert!(
+        occurrences(&mut sim, &reward).is_empty(),
+        "F9 has been repaired for custody: a refused reset no longer destroys \
+         the held object. Invert this assertion and move it to the A1c \
+         acceptance row"
+    );
+    // ⭐ AND IT STAYS GONE. Measured over the following frames: nothing
+    // rematerializes it, because the only road that would is the rebuild the
+    // refusal cancelled.
+    sim.step_n(base(), 8);
+    assert!(
+        occurrences(&mut sim, &reward).is_empty(),
+        "the object came back on a later frame, so the loss above is a transient \
+         and this fixture is measuring a settling window rather than a defect"
+    );
+
+    // ── THE CONTROL: THE SAME RESET WITH THE SLOT FREE ───────────────────────
+    //
+    // ⛔ WITHOUT THIS ARM THE FIXTURE PROVES NOTHING. "The object is gone after
+    // a reset" is also what a reset that WORKED would look like if the room
+    // rebuild simply never re-authored it. What makes the arm above a defect is
+    // that the SAME request, admitted, puts the object back on its pedestal —
+    // so the difference is the admission and nothing else.
+    let mut control = fixed_60hz_room_sim(ROOM);
+    control.step_n(base(), 8);
+    commit_a_checkpoint(&mut control);
+    let control_banked = control.world().resource::<OwnedItems>().count(STACKABLE);
+    control.world_mut().write_message(ItemGrantRequested {
+        item: STACKABLE,
+        count: 1,
+    });
+    control.step_n(base(), 4);
+    let control_pedestal = resting_place(&mut control, &reward);
+    pick_up(&mut control, control_pedestal, &reward);
+
+    control.world_mut().write_message(ResetToCheckpoint);
+    control.step_n(base(), 12);
+
+    assert_eq!(
+        control.world().resource::<OwnedItems>().count(STACKABLE),
+        control_banked,
+        "control: an ADMITTED reset must roll the bag back — otherwise the \
+         rollback measured above is not the restore acting at all"
+    );
+    assert_returned(
+        &mut control,
+        &reward,
+        "control: an ADMITTED reset returns the object to its authored place. \
+         That is the whole difference the refused arm above is about",
+    );
+}

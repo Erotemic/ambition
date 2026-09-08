@@ -314,14 +314,21 @@ pub fn restore_checkpoint_on_session_start(
             return;
         };
         let subject = subject.clone();
-        progress.routed_for = Some(generation);
         // The intent can: a resume is a body, a destination and an arrival, which is all a
         // crossing ever was. The synthetic zone is deleted with the message, and so is the
         // room-INDEX lookup that only existed to fill it.
+        //
+        // ⛔⛔ THE LATCH BELONGS TO THE ADMISSION, NOT TO THE ATTEMPT. This wrote
+        // `routed_for` BEFORE asking, and discarded the answer: a slot already
+        // owned by another lifecycle intent refused the crossing while the
+        // session recorded that it had spent its one resume. The player then
+        // stayed in the room the session happened to open in, forever, because
+        // the only road back is gated on a generation this line already burned.
+        //
         // ⚠ A REFUSAL IS ORDINARY HERE and costs nothing: nothing above this
-        // line has changed the world, and the checkpoint resume is re-asked on
-        // the next `ResetToCheckpoint`.
-        let _ = pending.record(
+        // line has changed the world, so the resume is simply re-asked on the
+        // next tick, and the incumbent operation keeps the slot it won.
+        let admission = pending.record(
             boundary.map_or(0, |boundary| boundary.current),
             crate::session::lifecycle_commit::LifecycleIntent::Transition(
                 crate::session::lifecycle_commit::RoomTransitionIntent {
@@ -335,6 +342,9 @@ pub fn restore_checkpoint_on_session_start(
                 },
             ),
         );
+        if admission.admitted() {
+            progress.routed_for = Some(generation);
+        }
         return;
     }
 

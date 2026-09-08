@@ -616,3 +616,231 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
     );
     assert_eq!(checkpoint.room_id, "shrine_room");
 }
+
+/// ⛔⛔ **F1: THE ROUTED LATCH BELONGED TO THE ATTEMPT, NOT TO THE ADMISSION.**
+///
+/// `restore_checkpoint_on_session_start` wrote `routed_for` and then *discarded*
+/// the `Admission` the slot returned. A slot already owned by another lifecycle
+/// intent refused the crossing while the session recorded that it had spent its
+/// one resume — so the player stayed in whichever room the session happened to
+/// open in, permanently, because the only road back is gated on a generation
+/// that line had already burned.
+///
+/// ⭐ THE WITNESS IS THE RETRY, NOT THE FLAG. Asserting `routed_for.is_none()`
+/// alone would pass on a system that never ran at all; this releases the slot
+/// and requires the crossing to actually arrive on a later tick.
+#[test]
+fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope,
+    };
+    use crate::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.init_resource::<PendingLifecycleCommit>();
+    app.init_resource::<CheckpointResumeProgress>();
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    // SOMEBODY ELSE ALREADY OWNS THE SLOT. A door crossing recorded on an
+    // earlier frame is the ordinary shape of this: the slot is earliest-sticky.
+    let incumbent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: ambition_platformer2d_shared_tangle::sim_id::SimId::placement("someone_else"),
+        target_room: "entry".into(),
+        arrival: Vec2::new(1.0, 2.0),
+        edge_exit: true,
+        zone_sfx: None,
+    });
+    assert!(app
+        .world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .record(3, incumbent.clone())
+        .admitted());
+
+    app.update();
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .as_ref()
+            .map(|pending| &pending.kind),
+        Some(&incumbent),
+        "the refused resume overwrote the incumbent lifecycle operation"
+    );
+    assert_eq!(
+        app.world().resource::<CheckpointResumeProgress>().routed_for,
+        None,
+        "the resume recorded that it had routed while the slot refused it, so \
+         the session can never ask again"
+    );
+
+    // THE INCUMBENT COMMITS AND FREES THE SLOT. The resume must now land.
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.update();
+
+    let pending = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .pending
+        .clone()
+        .expect(
+            "the slot was released and the checkpoint resume never re-asked — a \
+             refusal permanently stranded the player in the session's own room",
+        );
+    let LifecycleIntent::Transition(transition) = pending.kind else {
+        panic!("the resume recorded a bodyless reconstitution, not a crossing");
+    };
+    assert_eq!(transition.target_room, "rest_room");
+    assert_eq!(
+        (transition.arrival.x, transition.arrival.y),
+        (512.0, 300.0)
+    );
+
+    // ⭐ AND IT IS STILL ONCE-ONLY. The latch moved to the admission; it did not
+    // disappear. A second release must not produce a second crossing.
+    assert_eq!(
+        app.world().resource::<CheckpointResumeProgress>().routed_for,
+        Some(Some(
+            app.world()
+                .resource::<ActiveSessionScope>()
+                .current()
+                .expect("the session was begun")
+                .0
+        )),
+        "an admitted crossing must latch the generation it was spent on"
+    );
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.update();
+    app.update();
+    assert!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .is_none(),
+        "the admitted resume was recorded a second time, so a session that \
+         reaches the slot twice restarts its crossing forever"
+    );
+}
+
+/// A session whose avatar has not been constructed yet cannot name the body it
+/// is resuming — and must not spend the once-per-session route saying so.
+///
+/// This is the OTHER half of the same rule as the refusal above: `routed_for` is
+/// a receipt for an accepted crossing, and the two ways to fail to get one are a
+/// busy slot and an unresolvable subject.
+#[test]
+fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope,
+    };
+    use crate::session::lifecycle_commit::{LifecycleIntent, PendingLifecycleCommit};
+
+    let mut app = App::new();
+    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+    save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+        "rest_room",
+        512,
+        300,
+    ));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+
+    let room = |name: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            name,
+            ambition_platformer2d_core::World::new(
+                name,
+                Vec2::new(640.0, 480.0),
+                Vec2::new(32.0, 400.0),
+                vec![],
+            ),
+        )
+    };
+    insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "entry",
+            vec![room("entry"), room("rest_room")],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.init_resource::<CheckpointResumeProgress>();
+    app.add_systems(Update, restore_checkpoint_on_session_start);
+
+    // No body at all: construction has not finished.
+    app.update();
+    assert!(
+        app.world()
+            .resource::<PendingLifecycleCommit>()
+            .pending
+            .is_none(),
+        "a crossing was recorded for a body nobody can name"
+    );
+    assert_eq!(
+        app.world().resource::<CheckpointResumeProgress>().routed_for,
+        None,
+        "the session marked its resume routed before it had a subject"
+    );
+
+    // The avatar materializes.
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.update();
+
+    let pending = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .pending
+        .clone()
+        .expect("the body arrived and the resume never asked again");
+    let LifecycleIntent::Transition(transition) = pending.kind else {
+        panic!("the resume recorded a bodyless reconstitution, not a crossing");
+    };
+    assert_eq!(transition.target_room, "rest_room");
+}

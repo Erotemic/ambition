@@ -15,20 +15,22 @@ review made no Rust execution claim; see the coverage receipt.
 
 ## P0 - characterize and repair current correctness gaps
 
-### A1a - establish checkpoint admission before spending restoration state
+### A1a - DONE 2026-09-08
 
-**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),
-packet A1 in the frontier.
+`restore_checkpoint_on_session_start` latched `routed_for` before asking the
+lifecycle slot and threw the `Admission` away, so a refused crossing spent the
+session's one resume and stranded the player in the room the session opened in.
+Fixed by latching only on `Admission::admitted()`; guarded by
+`shrine::tests::a_refused_slot_leaves_the_checkpoint_resume_retryable` (poison
+verified) and the missing-subject arm beside it. F9's executed witness landed
+with it: on a refused reset the entitlement ledger rolls back **and the object
+acquired after the checkpoint is destroyed outright**, because custody
+restoration and the room reconstruction that would re-author it fall on opposite
+sides of an admission neither consults. Measurements and the A1c obligation are
+in the [protocol](engine/checkpoint-restoration-protocol.md#f9-measured-2026-09-08-executed-full-checkpoint-horizon-composition).
 
-Repair the startup routed latch only on successful slot admission (F1). At the
-same time establish F9's full-composition witness: occurrence, custody and owned
-items currently restore from a raw reset request even when its room intent can
-be refused. Source evidence is not an executed gameplay reproduction.
-
-**Acceptance:** denied startup admission remains retryable and accepted routing
-is once-only. Record the denied-reset values/side effects to be eliminated by
-A1c. Keep the startup fix, ownership move and cross-domain commit change distinct;
-do not report the entire reset-admission contract fixed after A1a.
+**Standing prohibition:** no consequence of a lifecycle request may be written
+before the slot has said yes.
 
 ### A2 - unify projectile contact geometry and obstruction semantics
 

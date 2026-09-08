@@ -16,7 +16,7 @@ scores. Proposed file/test/API names below are design targets, not existing code
 ```text
 fresh source/behavior preflight for every packet
     |
-    +-- A1a checkpoint admission characterization/repair
+    +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership
     |           -> A1c selected checkpoint through common commit
     |               -> A7 item horizon/custody separation (after writer inventory)
@@ -65,7 +65,7 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**Ready:** A1a startup repair and refusal characterization; A1b move after that;
+**Ready:** A1b is the next packet; A1a landed 2026-09-08.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;
@@ -77,9 +77,14 @@ operation. F1 covers the startup latch. F9 establishes that occurrence/custody/
 owned-item consumers currently restore from the raw reset message even when room
 admission can be refused. A move of shrine code alone cannot close F9.
 
-**A1a:** advance startup routed progress only on accepted admission and run the
-occupied-slot/missing-subject/dedup fixtures. Establish the denied-reset mutation
-witness against the full checkpoint-horizon composition.
+**A1a — DONE 2026-09-08.** Startup routed progress now advances only on accepted
+admission; occupied-slot, missing-subject and dedup fixtures are in
+`shrine/tests.rs`. The denied-reset witness ran against the full
+checkpoint-horizon composition and is stronger than the packet assumed: a refused
+reset **destroys** an object acquired after the checkpoint, because custody
+restoration and room reconstruction sit on opposite sides of the admission. A1c
+therefore owes a live-entity assertion, not only ledger equality — see the
+protocol's measured table.
 
 **A1b:** move restoration state, systems, installers, tests and rollback references
 from shrine/item installation to session. Keep healing/capture policy in shrine,

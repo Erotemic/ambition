@@ -288,14 +288,52 @@ not its premature trigger. Do not locate content-specific algorithms in runtime.
 
 ## Implementation sequence
 
-### A1a: repair the startup latch and establish the refusal witness
+### A1a: repair the startup latch and establish the refusal witness — LANDED
 
-In shrine's existing startup function, inspect `Admission` and advance routed
-progress only when accepted. Add busy-slot, missing-subject, successful-dedup and
-same-generation retry tests. Leave room commit semantics unchanged in this first
-commit. Reproduce F9 with the full checkpoint-horizon composition and record the
-live values that change on denied reset; this is evidence for A1c, not permission
-to describe A1a as fixing all checkpoint admission.
+**Was wrong:** `restore_checkpoint_on_session_start` wrote `routed_for` before
+asking the slot and discarded the returned `Admission`, so a refused crossing
+still spent the session's one resume and the player stayed in whichever room the
+session opened in. **Fixed by** latching the generation only when
+`Admission::admitted()`. **Guards:**
+`shrine::tests::a_refused_slot_leaves_the_checkpoint_resume_retryable` (poisoned
+2026-09-08: forcing the latch unconditionally reddens it) and
+`a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists`;
+once-only routing stays pinned by the existing
+`a_checkpoint_in_another_room_of_this_world_routes_the_session_there`.
+
+**Standing prohibition:** nothing may write checkpoint-resume progress, or any
+other consequence of a lifecycle request, before the slot has said yes. The
+`#[must_use]` on `record` is the reminder, not the enforcement.
+
+F9 is NOT closed by this and cannot be — see the measured witness below.
+
+#### F9, measured 2026-09-08 (executed, full checkpoint-horizon composition)
+
+`game/ambition_app/tests/death_restores_the_checkpoint.rs::`
+`f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request`.
+One session banks a checkpoint, then acquires a stackable entitlement and picks
+up an authored ground item; an unrelated intent holds the lifecycle slot; a raw
+`ResetToCheckpoint` is written. On the single tick that follows, with the
+incumbent intent still in the slot and the active room unchanged:
+
+| Value | On a refused reset | What A1c owes |
+| --- | --- | --- |
+| `OwnedItems` count of the stackable entitlement | rolled back to the banked count | unchanged |
+| The authored object acquired after the checkpoint | **zero live occurrences — destroyed, not returned** | still in the hand |
+| `PendingLifecycleCommit` | incumbent retained (correct today) | unchanged |
+| Active room | unchanged (correct today) | unchanged |
+
+⛔ **The entity loss is the sharpest finding and it is worse than a rolled-back
+ledger.** `restore_custody_to_checkpoint` takes the object out of the hand
+because the banked custody relation did not have it there; the road that would
+put it back on its pedestal is the room reconstruction the reset asked for — and
+that is exactly what the slot refused. The two halves of one restore ran on
+opposite sides of an admission neither consulted, and the object survives in
+neither. A control arm in the same fixture runs the identical request with the
+slot free and gets the object back, so the difference is the admission alone.
+
+⇒ This is why an ordering edge cannot repair F9: the consumers need accepted
+operation data, not a differently ordered read of the same unaccepted request.
 
 ### A1b: perform the ownership move without semantic changes
 
@@ -340,7 +378,7 @@ existing production harnesses and domain test modules to a new test framework.
 
 | Fixture | Required observable assertions |
 | --- | --- |
-| Busy slot plus different live and saved ledgers | Incumbent slot unchanged; no occurrence, custody, owned count, entity, subject-position, clock or portal mutation from the refused reset |
+| Busy slot plus different live and saved ledgers | Incumbent slot unchanged; no occurrence, custody, owned count, entity, subject-position, clock or portal mutation from the refused reset. ⛔ The measured failure is entity ANNIHILATION, not merely a rolled-back ledger: assert the acquired object is still live and still held, not only that a count matches. Invert the A1a-era witness in `death_restores_the_checkpoint.rs` rather than writing a second fixture |
 | Busy slot released in same session | Waiting startup/reset can be admitted once; no false routed/completed latch |
 | Two raw reset requests in one tick | One accepted operation, one reconstruction, one set of consequences |
 | Missing primary during construction | Request remains pending; no bodyless fallback; later materialization satisfies it |

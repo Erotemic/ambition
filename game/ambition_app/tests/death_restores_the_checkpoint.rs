@@ -1148,33 +1148,31 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
     );
 }
 
-/// ⛔⛔ **F9 WITNESS: A REFUSED RESET STILL SPENDS THE CHECKPOINT.**
+/// ⭐⭐ **A REFUSED RESET CHANGES NOTHING, AND IS NOT LOST.**
 ///
-/// `ResetToCheckpoint` is a raw request, and three domains read it directly —
-/// `restore_occurrence_baseline` (shared_tangle), `restore_custody_to_checkpoint`
-/// and `restore_owned_items_to_checkpoint` (item pickup). None of them can see
-/// whether the room intent that reset asked for was ADMITTED. The one road that
-/// does ask, `resume_at_checkpoint_on_reset`, gets `AlreadyPending` from the
-/// earliest-sticky slot, writes no `RoomReplayAdmitted`, and rebuilds no room —
-/// while the three domains have already put the checkpoint's ledgers back.
+/// ⛔⛔ THE DEFECT THIS REPLACES (F9), measured 2026-09-08 before A1c: three
+/// domains read the raw `ResetToCheckpoint` themselves —
+/// `restore_occurrence_baseline`, `restore_custody_to_checkpoint` and
+/// `restore_owned_items_to_checkpoint` — and none of them could see whether the
+/// room intent that reset asked for had been ADMITTED. With an unrelated
+/// lifecycle intent holding the earliest-sticky slot, the refused reset rolled
+/// the entitlement ledger back AND DESTROYED the object acquired after the
+/// checkpoint: custody restoration took it out of the hand, and the road that
+/// would put it back on its pedestal is the room reconstruction the refusal
+/// cancelled. The two halves of one restore ran on opposite sides of an
+/// admission neither consulted, and the object survived in neither.
 ///
-/// ⚠ **THIS TEST ASSERTS THE DEFECT, ON PURPOSE.** It is the executed
-/// reproduction the A1 packet owes (source reading is not a reproduction), and
-/// it records the live values that change on a denied reset so A1c can be
-/// measured against them rather than argued about. When A1c makes the accepted
-/// restore the common commit input, **these assertions invert**: the same
-/// fixture becomes the acceptance row *"busy slot plus different live and saved
-/// ledgers → no occurrence, custody or owned-count mutation from the refused
-/// reset"*. Failing here after A1c is the intended signal, not a regression.
+/// ⭐ NO ORDERING EDGE COULD HAVE FIXED THAT. The domains did not need a
+/// differently ordered read of the same unaccepted request; they needed an
+/// ANSWER. `AdmittedCheckpointRestore` is that answer, written only by the
+/// session coordinator and only with an `Admission` in hand.
 ///
-/// ⭐ A1a DID NOT FIX THIS AND CANNOT. A1a repaired the startup routed latch,
-/// which is a different defect in the same file: that one spent a session's one
-/// resume on a crossing the slot refused. This one is three domains that never
-/// consult admission at all, and no ordering edge repairs it — the consumers
-/// need accepted operation data, not a differently ordered read of the same
-/// unaccepted request.
+/// ⛔ AND THE SECOND HALF IS WHY THIS IS NOT JUST "REFUSE HARDER". A reset that
+/// merely evaporated on refusal would satisfy every assertion in the first half
+/// and lose the player's death. The request is remembered; when the incumbent
+/// releases the slot it is admitted, and the restore lands in full.
 #[test]
-fn f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request() {
+fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
     use ambition_platformer2d::actors::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
@@ -1238,12 +1236,10 @@ fn f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request() {
         .record(0, incumbent.clone())
         .admitted());
 
-    // ── THE RAW RESET, WHICH THE SLOT WILL REFUSE ────────────────────────────
+    // ── THE RAW RESET, WHICH THE SLOT REFUSES ────────────────────────────────
     sim.world_mut().write_message(ResetToCheckpoint);
     sim.step(base());
 
-    // ⭐ THE REFUSAL IS REAL: the incumbent still owns the slot, so the reset's
-    // room intent was never recorded and no room rebuild was authorized.
     assert_eq!(
         sim.world()
             .resource::<PendingLifecycleCommit>()
@@ -1259,73 +1255,35 @@ fn f9_a_refused_reset_still_restores_the_domains_that_read_the_raw_request() {
         "the refused reset changed the active room, which the slot should have \
          made impossible"
     );
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(STACKABLE),
+        banked + 1,
+        "the refused reset rolled the entitlement ledger back to the checkpoint \
+         — for a room reconstruction that never happened"
+    );
+    assert_still_held(
+        &mut sim,
+        &reward,
+        "the refused reset took the object out of the hand. Nothing put it back: \
+         the road that would is the room reconstruction the refusal cancelled",
+    );
 
-    // ⛔⛔ AND THE DOMAINS SPENT THE CHECKPOINT ANYWAY. Recorded here as the
-    // values A1c must stop changing.
+    // ── THE INCUMBENT COMMITS, AND THE REMEMBERED REQUEST LANDS ──────────────
+    sim.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    sim.step_n(base(), 90);
+
     assert_eq!(
         sim.world().resource::<OwnedItems>().count(STACKABLE),
         banked,
-        "F9 has been repaired for the entitlement ledger: a refused reset no \
-         longer rolls the bag back. Invert this assertion and move it to the A1c \
-         acceptance row"
-    );
-    // ⛔⛔ AND THE HELD OBJECT IS GONE — not returned to its pedestal, GONE.
-    //
-    // This is the sharpest of the three values, and it is worse than "a ledger
-    // rolled back". `restore_custody_to_checkpoint` takes the reward out of the
-    // hand because the banked custody relation did not have it there; the thing
-    // that would put it back on its pedestal is the ROOM RECONSTRUCTION the
-    // reset asked for — and that is precisely what the slot refused. So the two
-    // halves of one restore ran on opposite sides of an admission nobody
-    // consulted, and the object exists in neither.
-    assert!(
-        occurrences(&mut sim, &reward).is_empty(),
-        "F9 has been repaired for custody: a refused reset no longer destroys \
-         the held object. Invert this assertion and move it to the A1c \
-         acceptance row"
-    );
-    // ⭐ AND IT STAYS GONE. Measured over the following frames: nothing
-    // rematerializes it, because the only road that would is the rebuild the
-    // refusal cancelled.
-    sim.step_n(base(), 8);
-    assert!(
-        occurrences(&mut sim, &reward).is_empty(),
-        "the object came back on a later frame, so the loss above is a transient \
-         and this fixture is measuring a settling window rather than a defect"
-    );
-
-    // ── THE CONTROL: THE SAME RESET WITH THE SLOT FREE ───────────────────────
-    //
-    // ⛔ WITHOUT THIS ARM THE FIXTURE PROVES NOTHING. "The object is gone after
-    // a reset" is also what a reset that WORKED would look like if the room
-    // rebuild simply never re-authored it. What makes the arm above a defect is
-    // that the SAME request, admitted, puts the object back on its pedestal —
-    // so the difference is the admission and nothing else.
-    let mut control = fixed_60hz_room_sim(ROOM);
-    control.step_n(base(), 8);
-    commit_a_checkpoint(&mut control);
-    let control_banked = control.world().resource::<OwnedItems>().count(STACKABLE);
-    control.world_mut().write_message(ItemGrantRequested {
-        item: STACKABLE,
-        count: 1,
-    });
-    control.step_n(base(), 4);
-    let control_pedestal = resting_place(&mut control, &reward);
-    pick_up(&mut control, control_pedestal, &reward);
-
-    control.world_mut().write_message(ResetToCheckpoint);
-    control.step_n(base(), 12);
-
-    assert_eq!(
-        control.world().resource::<OwnedItems>().count(STACKABLE),
-        control_banked,
-        "control: an ADMITTED reset must roll the bag back — otherwise the \
-         rollback measured above is not the restore acting at all"
+        "the reset was refused once and then forgotten — the player's death \
+         restored nothing at all, which is worse than the defect this replaces"
     );
     assert_returned(
-        &mut control,
+        &mut sim,
         &reward,
-        "control: an ADMITTED reset returns the object to its authored place. \
-         That is the whole difference the refused arm above is about",
+        "the admitted reset returned the object acquired after the checkpoint to \
+         the world, this time WITH the room reconstruction that authors it",
     );
 }

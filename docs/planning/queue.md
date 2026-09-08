@@ -64,18 +64,29 @@ feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1b/A1c - session-owned restoration through one selected commit
+### A1c - finish the selected restore through one commit boundary
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
-After A1a, first move restoration state/installation out of shrine and item pickup
-without changing behavior. Then close F9 through immutable selected checkpoint
-inputs, domain-owned reducers and the shared eager/confirmed commit boundary.
+A1b (ownership move) and A1c subcommits 1-2 landed 2026-09-08: no domain reads
+the raw `ResetToCheckpoint` any more, a refused request changes no domain state,
+a refused request is remembered rather than lost, and a no-item checkpoint
+composition works.
 
-**Acceptance:** no-item checkpoint composition works; a refused request changes
-no domain state; preparation/prefetch read the pinned snapshot rather than a
-modified live ledger; final verification and rollback rebase include restored
-custody/occurrences. A failed destructive native apply remains fail-closed, not
-an invented undo guarantee. Retain the corrected actor-spawn boundary.
+**Remaining:** subcommits 3-5. Pass a selected continuity through room loading,
+fresh preparation and prefetch validation — with no live-resource swap to prepare
+a candidate — and move domain application from the simulation restore set to the
+shared eager/confirmed commit boundary, with explicit flush, reconciliation,
+verification and final baseline. Pin typed immutable domain snapshots at
+admission when deferred application makes them load-bearing, and register the
+lifetime change. Then delete the startup routed/completed flags the operation
+state makes redundant.
+
+**Acceptance:** preparation/prefetch read the pinned snapshot rather than a
+modified live ledger; a checkpoint change invalidates a prefetched plan that
+would produce a different population even at the same target room; final
+verification and rollback rebase include restored custody/occurrences. A failed
+destructive native apply remains fail-closed, not an invented undo guarantee.
+Retain the corrected actor-spawn boundary.
 
 ### A3 - relocate actor-specific world placement lowering
 

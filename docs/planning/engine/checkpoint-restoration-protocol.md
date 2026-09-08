@@ -378,14 +378,43 @@ of the channel.
 
 This is a coherent behavior change, implemented in buildable subcommits:
 
-1. Add the typed immutable selected-checkpoint value and matching operation
-   identity at the session slot. Resolve/capture it on acceptance only. Replace
-   coarse startup routed/completed flags with matching operation progress where
-   the new state makes the old flag redundant; do not retain two writers.
-2. Give occurrence/accounting/custody reducers explicit typed snapshot inputs.
-   Replace their raw `ResetToCheckpoint` readers. Domain-level fixtures call
-   these reducers with valid test snapshots; they do not need a fake actor or a
-   public bypass around production admission.
+1. **LANDED 2026-09-08 — the admitted operation exists and is the only trigger.**
+   `AdmittedCheckpointRestore` (shared_tangle lifecycle vocabulary, written only
+   by the session coordinator) carries the accepted operation's frame and its
+   resolved subject. `CheckpointRestore` gained an ordered
+   `CheckpointRestoreStep::{Admit, Apply, Retire}` chain, owned by the session
+   offer because the session is the admission authority. `ResetToCheckpoint` is
+   now remembered in a session-owned `OutstandingCheckpointRequest` instead of
+   being drained and lost: a reset asked for while another intent owns the slot
+   is re-asked until it is admitted. Both are rollback state
+   (`GGRS_ROLLBACK_SCHEMA_VERSION` 167 -> 168, baseline + absence contract
+   updated in the same commit).
+
+   ⚠ **The pinned snapshot aggregate is deliberately NOT here yet.** Admit and
+   Apply run in one frame, so the live baselines *are* the pinned ones and an
+   aggregate would be a value with no consumer — the shape that produced the
+   four dead `LifecycleIntent` variants. It arrives in subcommit 3/4 with the
+   deferred application that makes "capture changes while load waits" a
+   reachable case, and that is the subcommit that owes the pinning test.
+
+   Still open in this subcommit: the coarse startup routed/completed flags
+   (`CheckpointResumeProgress`) are untouched, and the same-room startup
+   placement is still its own road.
+2. **LANDED 2026-09-08 — no domain reads the raw request.**
+   `restore_occurrence_baseline`, `restore_custody_to_checkpoint` and
+   `restore_owned_items_to_checkpoint` read the admitted operation. The
+   occurrence and entitlement reducers are separated from their triggers
+   (`reduce_occurrences_to_baseline`, `reduce_owned_items_to_baseline`) so a
+   domain test can hand them a snapshot; the custody reducer stays a system
+   because it spawns and queries, and its domain test drives it through an
+   admitted operation rather than a fabricated message. There is no public
+   bypass around admission: the token has one writer.
+
+   The registration is guarded, not just the source:
+   `every_checkpoint_restore_system_is_inside_one_ordered_step` asks the SCHEDULE
+   which set each reducer joined and fails if anything sits in
+   `CheckpointRestore` outside the three steps — a fourth domain installing the
+   old way is caught there rather than by a player losing an item.
 3. Pass selected continuity through loading, fresh preparation and prefetch
    validation. No live-resource swaps during preparation. Integrate the same
    selected input into eager and confirmed common commit execution.

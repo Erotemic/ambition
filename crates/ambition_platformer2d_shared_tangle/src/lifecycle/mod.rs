@@ -23,8 +23,8 @@ pub use continuity::{
 };
 pub use custody_horizon::{capture_custody_baseline, live_custody_rows, CustodyBaseline};
 pub use horizon::{
-    CheckpointCapture, CheckpointCommitted, CheckpointRestore, LifecycleCheckpointHorizonPlugin,
-    ResetToCheckpoint,
+    AdmittedCheckpointRestore, AdmittedRestore, CheckpointCapture, CheckpointCommitted,
+    CheckpointRestore, CheckpointRestoreStep, LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
 };
 pub use markers::{
     BodyCustodySettled, FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity,

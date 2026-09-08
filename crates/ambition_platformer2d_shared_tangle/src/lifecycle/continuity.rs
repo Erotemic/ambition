@@ -490,18 +490,35 @@ pub fn capture_occurrence_baseline(
 /// `items::pickup::restore_custody_to_checkpoint`, and it belongs to the custody
 /// domain because a hand is not room state — including the arm that has to
 /// MATERIALIZE an occurrence the world no longer holds an entity for.
+/// ⛔⛔ IT READS THE ADMITTED OPERATION, NOT THE RAW REQUEST. This used to read
+/// `ResetToCheckpoint` itself, which meant a reset the lifecycle slot REFUSED
+/// still rolled the ledger back — for a room reconstruction that never happened.
+/// The reducer below is the domain's own; this system is only what decides that
+/// the domain has been asked.
 pub fn restore_occurrence_baseline(
-    mut resets: bevy::prelude::MessageReader<super::ResetToCheckpoint>,
+    restore: Option<bevy::prelude::Res<super::AdmittedCheckpointRestore>>,
     baseline: Option<bevy::prelude::Res<OccurrenceBaseline>>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
 ) {
-    let requested = resets.read().count() > 0;
+    if restore.is_none_or(|restore| restore.admitted().is_none()) {
+        return;
+    }
     let (Some(baseline), Some(mut occurrences)) = (baseline, occurrences) else {
         return;
     };
-    if !requested {
-        return;
-    }
+    reduce_occurrences_to_baseline(&baseline, &mut occurrences);
+}
+
+/// The occurrence domain's reducer: put the remembered ledger back.
+///
+/// ⭐ SEPARATED FROM ITS TRIGGER so a domain test can hand it a snapshot without
+/// standing up a session, a lifecycle slot or a fake reset — and, more
+/// importantly, so that doing so is NOT a way around production admission. The
+/// system above is the only thing that decides whether this runs for real.
+pub fn reduce_occurrences_to_baseline(
+    baseline: &OccurrenceBaseline,
+    occurrences: &mut AuthoredOccurrences,
+) {
     if *occurrences != baseline.0 {
         *occurrences = baseline.0.clone();
     }

@@ -118,6 +118,15 @@ impl Plugin for ItemPickupSimulationPlugin {
 /// runtime-minted instances use the minted-item baseline. `equip_held_spec`/
 /// `unequip_held` are used so action-set state stays coherent. Residency and occurrence
 /// ledgers are restored by their own projections/owners.
+///
+/// ⛔⛔ IT READS THE ADMITTED OPERATION, NOT THE RAW REQUEST, and of the three
+/// domains that used to read `ResetToCheckpoint` directly this is the one whose
+/// refused-reset behaviour was worst. It takes an object out of the hand because
+/// the banked custody relation did not have it there; what puts the object back
+/// on its pedestal is the ROOM RECONSTRUCTION the reset asked for — and a
+/// refusal is precisely the case where that never happens. The two halves of one
+/// restore ran on opposite sides of an admission neither consulted, and the
+/// object survived in neither. Measured 2026-09-08.
 #[allow(clippy::too_many_arguments)]
 pub fn restore_custody_to_checkpoint(
     // `SessionCommands`, because materialization SPAWNS. An occurrence
@@ -125,7 +134,9 @@ pub fn restore_custody_to_checkpoint(
     // as the room build's would be; a bare `Commands` could only produce a
     // process-resident stranger that outlives the session.
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
-    mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
+    restore: Option<
+        Res<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
+    >,
     baseline: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
     // The world's DEFINITIONS, so an identity with no live occurrence behind
     // it can still be turned back into one. Every room, not the neighbours: a
@@ -156,14 +167,12 @@ pub fn restore_custody_to_checkpoint(
     )>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    // Drained unconditionally, like every other reader of this channel.
-    let requested = resets.read().count() > 0;
+    if restore.is_none_or(|restore| restore.admitted().is_none()) {
+        return;
+    }
     let Some(baseline) = baseline else {
         return;
     };
-    if !requested {
-        return;
-    }
 
     // Bodies by identity, so a baseline row can name the hand it belongs to.
     // a `BTreeMap` rather than the query's order: this drives despawns, and

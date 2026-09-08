@@ -241,6 +241,7 @@ pub fn resume_at_checkpoint_on_reset(
     mut resets: bevy::prelude::MessageReader<
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
+    mut outstanding: ResMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -253,12 +254,21 @@ pub fn resume_at_checkpoint_on_reset(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    mut restore: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
-    // Drained unconditionally, so a reset seen while no body exists cannot be
-    // re-read several frames later against a different world.
-    let requested = resets.read().count() > 0;
-    if !requested {
+    // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
+    // are two different things and used to be one. Draining alone meant a reset
+    // arriving on a frame that could not describe the operation — no room set,
+    // no constructed body, a slot somebody else owned — was simply GONE, and
+    // with it every consequence the domains would have applied. Repeated
+    // requests coalesce into this one outstanding bit, which is what makes
+    // "there is at most one outstanding checkpoint request per session" true
+    // rather than aspirational.
+    if resets.read().count() > 0 {
+        outstanding.0 = true;
+    }
+    if !outstanding.0 {
         return;
     }
     let Some(room_set) = room_set.as_deref() else {
@@ -294,8 +304,9 @@ pub fn resume_at_checkpoint_on_reset(
     // so announcing it here is what lets the death's consequences run — and
     // stops the death asking for two lifecycle operations that then fight over
     // one slot.
+    let frame = boundary.map_or(0, |boundary| boundary.current);
     let admission = pending.record(
-        boundary.map_or(0, |boundary| boundary.current),
+        frame,
         crate::session::lifecycle_commit::LifecycleIntent::Transition(
             crate::session::lifecycle_commit::RoomTransitionIntent {
                 subject: subject.clone(),
@@ -308,17 +319,62 @@ pub fn resume_at_checkpoint_on_reset(
             },
         ),
     );
-    if admission.admitted() {
-        admitted.write(
-            ambition_combat::events::RoomReplayAdmitted::because(
-                // A checkpoint resume is the DEATH/RETRY horizon by contract, so
-                // its policy is a death's: the player's placed gun portals
-                // survive, where a deliberate retry clears them.
-                ambition_combat::RoomResetReason::PlayerDeath,
-            )
-            .for_subject(subject.clone()),
-        );
+    if !admission.admitted() {
+        // ⛔ THE REQUEST SURVIVES A REFUSAL. Another lifecycle operation owns the
+        // world right now; this one is asked again next tick, and until then NO
+        // domain has been told anything.
+        return;
     }
+    outstanding.0 = false;
+    restore.admit(
+        ambition_platformer2d_shared_tangle::lifecycle::AdmittedRestore {
+            frame,
+            subject: subject.clone(),
+        },
+    );
+    admitted.write(
+        ambition_combat::events::RoomReplayAdmitted::because(
+            // A checkpoint resume is the DEATH/RETRY horizon by contract, so
+            // its policy is a death's: the player's placed gun portals
+            // survive, where a deliberate retry clears them.
+            ambition_combat::RoomResetReason::PlayerDeath,
+        )
+        .for_subject(subject.clone()),
+    );
+}
+
+/// A checkpoint restore that has been ASKED FOR and not yet admitted.
+///
+/// ⭐ ONE BIT, AND IT IS ENOUGH. The plan's request value carries a reason and
+/// an optional subject; neither has a consumer yet, and a field nothing reads is
+/// how the four dead `LifecycleIntent` variants happened. What this must express
+/// today is exactly "the session is still owed a restore", and repeated requests
+/// coalescing into it is the coalescing rule.
+///
+/// ⛔⛔ IT IS ROLLBACK STATE. It outlives its frame by construction — that is its
+/// whole job — so a rewind past the frame the request arrived on must take the
+/// request with it, or one timeline restores a checkpoint the other never asked
+/// for.
+#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OutstandingCheckpointRequest(pub bool);
+
+impl OutstandingCheckpointRequest {
+    /// ⭐ THE VALUE, not its presence. This resource always exists, so a
+    /// presence probe would report a constant and see nothing of the one bit
+    /// that decides whether a rewound timeline is still owed a restore.
+    pub fn checksum(&self) -> u64 {
+        u64::from(self.0)
+    }
+}
+
+/// Retire the admitted operation once every domain has applied it.
+///
+/// ⛔ THE SESSION RETIRES IT, not a domain. A reducer that cleared the token it
+/// had just consumed would decide for its siblings whether they had run.
+pub fn retire_admitted_checkpoint_restore(
+    mut restore: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
+) {
+    let _ = restore.retire();
 }
 /// The session's leg of the reset/checkpoint horizon.
 ///
@@ -332,11 +388,33 @@ impl Plugin for SessionCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
 
+        // ⛔ THE PHASES AND THE TOKEN HAVE ONE OWNER, and it is the thing that
+        // admits. Splitting `configure_sets` for these steps across the domain
+        // offers would give the restore two authorities on its own order.
+        app.configure_sets(
+            sim,
+            (
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Admit,
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Apply,
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
+            )
+                .chain()
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
+        );
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>();
         app.init_resource::<CheckpointResumeProgress>();
+        app.init_resource::<OutstandingCheckpointRequest>();
         app.add_systems(
             sim,
-            resume_at_checkpoint_on_reset
-                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
+            resume_at_checkpoint_on_reset.in_set(
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Admit,
+            ),
+        );
+        app.add_systems(
+            sim,
+            retire_admitted_checkpoint_restore.in_set(
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
+            ),
         );
         // ⚠ THE EDGES ARE INHERITED VERBATIM from the item-pickup chain this
         // system was carved out of, and A1b is a move: preserving them is what

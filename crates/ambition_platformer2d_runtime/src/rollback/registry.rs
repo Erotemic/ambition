@@ -290,7 +290,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// joined -- the credit of a mark whose attacker was eliminated inside the fuse
 /// rides a stand-in entity for the blast's lifetime, and a rewind across the
 /// detonation has to restore it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 167;
+/// ⭐ 167 -> 168 (2026-09-08): `resource.outstanding_checkpoint_request` +
+/// `resource.admitted_checkpoint_restore` joined — A1c made checkpoint
+/// restoration go through one ADMITTED operation instead of three domains each
+/// reading the raw `ResetToCheckpoint`. The request now outlives the frame it
+/// arrived on (a reset asked for while another lifecycle intent owns the slot is
+/// remembered, not lost), so a rewind past that frame must take it back or one
+/// timeline restores a checkpoint the other never asked for. The admitted token
+/// is same-frame TODAY and registered anyway: when application moves to the
+/// confirmed commit boundary its lifetime changes, and the registration must not
+/// be the thing anyone remembers to add.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 168;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

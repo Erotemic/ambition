@@ -326,13 +326,27 @@ empty graph, dangling edge, cycles, and existing normal flows. Keep temporal
 signals scoped to their actual per-move occurrence semantics; a second Wait does
 not currently mean a second independent hit.
 
-## F9. Raw checkpoint reset readers can mutate domains without room admission
+## F9. Raw checkpoint reset readers can mutate domains without room admission — FIXED 2026-09-08
 
 **Owner:** session checkpoint coordination and domain restore reducers.
-**Priority:** A1c, after A1a's witness and A1b's move.
-**Confidence:** source-established independent raw-message readers; the complete
-busy-slot behavior and reachable production cases require the specified Rust
-fixture. No executed reset reproduction is claimed by this review.
+**Confidence at review time:** source-established independent raw-message
+readers; no executed reset reproduction was claimed. **Since executed:** the
+fixture the review asked for was built (A1a) and it found the defect to be
+sharper than described — a refused reset did not merely mutate domain state, it
+DESTROYED an object acquired after the checkpoint, because custody restoration
+removed it from the hand while the room reconstruction that re-authors it was
+exactly what the refusal cancelled.
+
+**Fixed by** A1c/1-2: one `AdmittedCheckpointRestore`, written only by the
+session coordinator and only with an `Admission` in hand, is what every domain
+reducer reads; an ordered `CheckpointRestoreStep::{Admit, Apply, Retire}` chain
+makes the answer available before any domain acts; and a refused request is
+remembered in `OutstandingCheckpointRequest` rather than dropped. **Guards:**
+`a_refused_reset_changes_no_domain_state_and_is_not_lost` (both halves
+poison-verified) and `every_checkpoint_restore_system_is_inside_one_ordered_step`
+(asks the schedule, and fails on anything installed into `CheckpointRestore`
+outside the three steps). Retained below as the review's evidence at the
+baseline; the pinned-snapshot half remains A1c/3-5.
 
 `restore_occurrence_baseline` in
 `crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs`,
@@ -343,7 +357,8 @@ and `restore_custody_to_checkpoint` in
 ResetToCheckpoint and mutate their domain state without receiving the admission
 result from session. The custody reader can also materialize restored objects.
 
-`resume_at_checkpoint_on_reset` in shrine separately records the room intent and
+`resume_at_checkpoint_on_reset` (in shrine at the reviewed baseline; now
+`session::checkpoint`) separately recorded the room intent and
 only emits RoomReplayAdmitted if accepted. The runtime checkpoint installer puts
 routing and domain restoration in the restore phase, but that phase membership
 does not communicate whether the slot accepted the request. Moving or ordering

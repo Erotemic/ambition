@@ -18,7 +18,7 @@ fresh source/behavior preflight for every packet
     |
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
-    |           -> A1c selected checkpoint through common commit
+    |           -> A1c selected checkpoint through common commit (1-2 DONE)
     |               -> A7 item horizon/custody separation (after writer inventory)
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
@@ -65,7 +65,7 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**Ready:** A1c is the next packet; A1a and A1b landed 2026-09-08.
+**Ready:** A1c subcommits 3-5; A1a, A1b and A1c/1-2 landed 2026-09-08.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;
@@ -95,13 +95,19 @@ resumes with neither held items nor a shrine entity. The carved system's schedul
 edges are preserved verbatim and guarded from the item-pickup side; they are
 inherited, not derived — see the protocol.
 
-**A1c:** pin typed immutable checkpoint data on admission; feed that selection to
-fresh and prefetched room preparation; replace raw domain restore readers with
-explicit domain reducers called through the common authorized commit path.
-Include checkpoint replay consequences, deferred flushes, verification and the
-final rollback baseline. No live-ledger swap to prepare a candidate and no generic
-snapshot/restore registry. A trusted failure after destructive application is
-fail-closed publication, not proof that arbitrary Commands were undone.
+**A1c/1-2 — DONE 2026-09-08.** The raw domain restore readers are gone: one
+admitted operation, published only with an `Admission` in hand, is what every
+domain reducer reads. A refused reset changes no occurrence, custody or
+owned-item state and is remembered rather than dropped. Wire format 167 -> 168.
+
+**A1c/3-5:** feed a selected continuity to fresh and prefetched room preparation
+and move domain application onto the common authorized commit path. Include
+checkpoint replay consequences, deferred flushes, verification and the final
+rollback baseline. Pin typed immutable checkpoint data on admission at the point
+deferred application makes it load-bearing. No live-ledger swap to prepare a
+candidate and no generic snapshot/restore registry. A trusted failure after
+destructive application is fail-closed publication, not proof that arbitrary
+Commands were undone.
 
 Do not ship mixed raw-request and selected-candidate restoration in one profile.
 A1 is complete only after busy-slot zero-mutation, candidate-prefetch coherence,

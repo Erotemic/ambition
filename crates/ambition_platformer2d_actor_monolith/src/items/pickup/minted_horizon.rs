@@ -18,7 +18,7 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    CheckpointCapture, CheckpointCommitted, CheckpointRestore, RoomScopedEntity,
+    CheckpointCapture, CheckpointCommitted, RoomScopedEntity,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -210,23 +210,36 @@ pub fn capture_owned_items_baseline(
 /// Put the entitlements back on a reset — so a death that retracts a
 /// minted-after-the-checkpoint instance restores the quantity it was minted
 /// from, instead of annihilating it.
+/// ⛔⛔ IT READS THE ADMITTED OPERATION, NOT THE RAW REQUEST. This used to read
+/// `ResetToCheckpoint`, so a reset the lifecycle slot refused still rolled the
+/// bag back — measured, and the entitlement was one of three values a refused
+/// reset spent.
 pub fn restore_owned_items_to_checkpoint(
-    mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
+    restore: Option<
+        Res<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
+    >,
     baseline: Option<Res<OwnedItemsBaseline>>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    // Drained unconditionally, like every other reader of this channel.
-    let requested = resets.read().count() > 0;
+    if restore.is_none_or(|restore| restore.admitted().is_none()) {
+        return;
+    }
     let (Some(baseline), Some(mut owned)) = (baseline, owned) else {
         return;
     };
-    if !requested {
-        return;
-    }
-    // The bag only. The hand is not in it (I1): custody is restored by
-    // `restore_custody_to_checkpoint`, which re-equips what the hand held, and
-    // the bag no longer carries a field that could fight it.
-    *owned = baseline.remembered().clone();
+    reduce_owned_items_to_baseline(baseline.remembered(), &mut owned);
+}
+
+/// The entitlement domain's reducer.
+///
+/// The bag only. The hand is not in it (I1): custody is restored by
+/// `restore_custody_to_checkpoint`, which re-equips what the hand held, and the
+/// bag no longer carries a field that could fight it.
+pub fn reduce_owned_items_to_baseline(
+    baseline: &ambition_items::OwnedItems,
+    owned: &mut ambition_items::OwnedItems,
+) {
+    *owned = baseline.clone();
 }
 
 /// The item domain's checkpoint contribution: its two private baseline values,
@@ -259,7 +272,9 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 super::restore_custody_to_checkpoint,
                 restore_owned_items_to_checkpoint,
             )
-                .in_set(CheckpointRestore),
+                .in_set(
+                    ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Apply,
+                ),
         );
     }
 }

@@ -594,6 +594,18 @@ where
     // ⭐ PROBED BY WHICH GENERATION, not by presence. A restore that brought
     // back the wrong generation makes one timeline re-ask for a crossing the
     // other already spent, and a presence probe sees none of that.
+    // ⛔⛔ A REQUEST THAT OUTLIVES ITS FRAME MUST REWIND WITH THE WORLD. The
+    // reset channel is cleared on rollback, so before this bit existed a
+    // rewound timeline simply lost the request. Now it is remembered until the
+    // slot admits it — which means a rewind past the frame it arrived on has to
+    // take it back, or one timeline restores a checkpoint the other never asked
+    // for.
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
+        OWNER,
+        "resource.outstanding_checkpoint_request",
+        "whether the session is still owed a checkpoint restore",
+        crate::session::checkpoint::OutstandingCheckpointRequest::checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::CheckpointResumeProgress>(
         OWNER,
         // ⭐ THE WIRE KEY IS UNCHANGED BY THE A1b MOVE. The type left `shrine`

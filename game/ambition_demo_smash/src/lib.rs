@@ -1172,8 +1172,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_systems(
             sim,
             crate::mark::publish_mark_clocks
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync)
-                .after(ambition_platformer2d::sim_view::rebuild_body_clocks_view),
+                .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute),
         );
         // …and the ANSWER, once the verdict is in.
         //
@@ -2906,6 +2905,19 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.body_mark",
                 crate::mark::body_mark_probe,
+            );
+            // Delayed combat attribution can outlive the fighter body that authored it.
+            // These are distinct rollback types: `SeatCredit` must not collapse onto
+            // live `MatchSeat`, and the stand-in must never count as a participant.
+            app.rollback_component_clone_probed::<ambition_platformer2d::actor::SeatCredit>(
+                "ambition_demo_smash",
+                "smash.seat_credit",
+                crate::mark::seat_credit_probe,
+            );
+            app.rollback_component_clone_probed::<crate::mark::SeatCreditStandIn>(
+                "ambition_demo_smash",
+                "smash.seat_credit_stand_in",
+                crate::mark::seat_credit_stand_in_probe,
             );
 
             // The bolt in flight: where it is, where it is going, how long it has

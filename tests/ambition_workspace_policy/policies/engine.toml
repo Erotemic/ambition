@@ -1749,7 +1749,7 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is the headless composition tier: these direct deps are intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["ambition_platformer2d_actor_monolith", "ambition_combat", "ambition_projectiles", "ambition_encounter", "ambition_dialog", "ambition_menu"]
+contains = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_combat", "ambition_projectiles", "ambition_encounter", "ambition_dialog", "ambition_menu"]
 file = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -1761,7 +1761,7 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
+allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
     # Causal vocabulary is a foundation dependency used by runtime-side recording.
     "ambition_causal",
     # Cutscene mechanics are lower-tier simulation state composed by the runtime.

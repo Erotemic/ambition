@@ -123,14 +123,24 @@ fn a_persisted_on_rest_death_zeroes_the_body_on_the_next_tick() {
     let alive: Vec<(Entity, String)> = {
         let mut query = sim
             .world_mut()
-            .query::<(Entity, &ActorIdentity, &BodyHealth)>();
+            .query::<(
+                Entity,
+                &ActorIdentity,
+                &BodyHealth,
+                &ambition_platformer2d::actor::ActorConfig,
+            )>();
         let world = sim.world();
         query
             .iter(world)
-            .filter(|(_, identity, health)| {
-                identity.id.starts_with("EnemySpawn") && health.health.current > 0
+            .filter(|(_, identity, health, config)| {
+                identity.id.starts_with("EnemySpawn")
+                    && health.health.current > 0
+                    && matches!(
+                        config.tuning.respawn,
+                        ambition_platformer2d::actors::features::RespawnPolicy::OnRest
+                    )
             })
-            .map(|(entity, identity, _)| (entity, identity.id.clone()))
+            .map(|(entity, identity, _, _)| (entity, identity.id.clone()))
             .collect()
     };
     // ⚠ ANTI-VACUITY: this room is chosen for its `OnRest` placements. If it

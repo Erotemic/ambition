@@ -98,7 +98,7 @@ inventory. Source paths and the named snapshot are the receipt; old counts and
 pilot history remain in Git.
 
 ⛔ **AND THE DERIVATION SCRIPT WENT WITH THE COLUMN, 2026-09-08.**
-`scripts/registry_register_returns.py` and its test existed because an earlier
+`scripts/registry_register_returns.py` and its test existed because an earlier <!-- cite-ok: names a DELETED file, which is this row's whole point -->
 version of the table above carried a hand-typed *verdict* column that had gone
 stale in three of three rows re-read; the script derived that column from
 `register`'s actual signature so the copy could not rot. Deleting the column is

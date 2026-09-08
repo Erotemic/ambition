@@ -62,4 +62,5 @@ def test_a_function_parameter_is_not_a_field() -> None:
     module = _module()
     found = module.components_naming_a_body()
     assert "spawn_one" not in found
-    assert len(found) == 6, sorted(found)
+    # 6 -> 7 on 2026-09-07: `BodyClockVisual` (the mark's fuse telegraph) joined.
+    assert len(found) == 7, sorted(found)

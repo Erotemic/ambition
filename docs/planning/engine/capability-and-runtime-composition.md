@@ -206,6 +206,13 @@ supported host composition—not the actor monolith's internal organization.
 Do not perform broad facade churn ahead of the crate/SCC work. Compatibility
 adapters can disappear only after their consumers have moved to durable owners.
 
+The facade is not where the footprint lives. Against the movement-only sentinel
+(`scripts/baselines/capability-footprint-baseline.json`, guarded by
+`scripts/tests/test_capability_footprint_baseline_is_coherent.py`):
+**All 24 that a movement-only game never asked for arrive through the
+monolith alone** — the two lists are equal — so no facade cut removes a single
+one. The number moves with every carve; the equality is the claim.
+
 ## Rollback composition contract
 
 The domain that owns authoritative rewind state also owns the declaration that it

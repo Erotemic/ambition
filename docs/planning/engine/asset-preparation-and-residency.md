@@ -46,6 +46,21 @@ resolve those identities to concrete representations.
 
 A room or character should not hand-write filesystem paths in every consumer.
 
+The demand ledger (`ambition_asset_manager::image_stages`) stamps a road name on
+every content-art demand. The vocabulary, every string literal reaching
+`note_demand` / `load_sheet_image` / `load_sprite_pages`:
+
+```text
+asset-manifest   boss-sheet   character-sheet   entity-sprite   fx-sheet
+held-item        parallax     portrait          projectile-art  shrine-sheet
+vanity-card
+```
+
+**ELEVEN live roads.** Derived from the call sites by
+`scripts/tests/test_demand_road_vocabulary_is_derived.py`; a road added in code
+without a row here is red there. Menu icons, shell images and prop pngs are
+deliberately not stamped.
+
 ### Quality has one authority
 
 Every quality-aware materialization road consumes the active shared quality

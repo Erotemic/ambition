@@ -27,7 +27,7 @@
     "2026-08-17 — baseline moved by the `ambition_conversation` carve (D33 step 2). ADDED ['ambition_conversation'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the conversation-continuity authority, ledger, hold and break rule that had been compiling inside `ambition_platformer2d_actor_monolith` since it was written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for` rather than the wanted half, and that is the honest entry: a movement-only game asked for neither dialogue nor conversation, and `ambition_dialog` and `ambition_ui_nav` were already counted unwanted for exactly this reason. ⛔ so the count reads 16 where it read 15, and the carve did NOT cause that — it NAMED it. The number that would mean something is a consumer linking code it did not already link, and this is not that. Shedding it needs the capability to become optional at the monolith's edge, which is the §4 obligation, not this move.",
     "2026-08-17 — baseline moved by the `ambition_boss_encounter` carve (D33). ADDED ['ambition_boss_encounter'] to the closure AND to `never_asked_for`; REMOVED []. The ratchet stopped it and was right to: a new crate name genuinely entered the sentinel's closure. ⚠ NOTHING NEW IS LINKED — this is the boss data model, catalog, phase tick, encounter entity and reward chests that had been compiling inside `ambition_platformer2d_actor_monolith` since they were written; the monolith depends on it unconditionally, so the same code arrives by the same route under its own name. ⭐ it joins `never_asked_for`, which is the honest half: a movement-only game asked for no bosses, and `ambition_encounter` was already counted unwanted for exactly that reason. ⛔ so the count reads 17 where it read 16, and the carve did NOT cause that — it NAMED it. What it bought is elsewhere: 7,635 lines left the largest compilation unit in the workspace, and the boss domain now answers upward, so a boss edit no longer rebuilds 114k lines of unrelated actor code. Shedding it from the closure needs the capability to become optional at the monolith's edge — the §4 obligation, not this move."
   ],
-  "measured_on": "2026-09-03",
+  "measured_on": "2026-09-08",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
   "ambition_closure": [
     "ambition_abilities",
@@ -62,6 +62,7 @@
     "ambition_persistence",
     "ambition_platformer2d",
     "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor_spawn",
     "ambition_platformer2d_core",
     "ambition_platformer2d_host",
     "ambition_platformer2d_provider",
@@ -82,7 +83,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "closure_size": 51,
+  "closure_size": 52,
   "never_asked_for": [
     "ambition_abilities",
     "ambition_audio",
@@ -100,6 +101,7 @@
     "ambition_menu",
     "ambition_mount",
     "ambition_persistence",
+    "ambition_platformer2d_actor_spawn",
     "ambition_projectiles",
     "ambition_registry_core",
     "ambition_sfx",
@@ -108,7 +110,7 @@
     "ambition_vfx",
     "ambition_world_items"
   ],
-  "never_asked_for_count": 23,
+  "never_asked_for_count": 24,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_abilities",
     "ambition_audio",
@@ -126,6 +128,7 @@
     "ambition_menu",
     "ambition_mount",
     "ambition_persistence",
+    "ambition_platformer2d_actor_spawn",
     "ambition_projectiles",
     "ambition_registry_core",
     "ambition_sfx",
@@ -190,5 +193,6 @@
   "match_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the body_seed row: `ambition_match` is the versus MATCH, prepared — the participant roster and its three staging shapes, the rules, `prepare_match` and the immutable plan, the rollback-safe receipt (`ActiveMatch`, `MatchSeat`, `MatchInstance`) — carved out of the actor kernel's `character_runtime` (D33, character preparation versus actor simulation, 2026-09-03). The kernel ACTIVATES the plan (its `character_runtime::match_activation` spawns the bodies and binds control) and registers the receipt for rollback, so every consumer of the monolith links it; the facade exports it as `versus_match`. ⛔ THE RATCHET COUNTS CRATES, NOT BYTES: closure 47 -> 48 while the monolith shed ~2,000 lines and the linked code did not grow. ⚠ The compile-cost ratchet's `critical_path_crates` DOES grow with each of these carves (a crate between combat and the kernel lengthens the serial chain); that is the honest price and its row records it.",
   "encounter_features_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the body_seed and held_items rows: `ambition_encounter_features` is the ROOM-FEATURE side of encounters carved out of the actor monolith's `encounter/` module (D33, encounter/conversation/world orchestration, 2026-09-03) — LDtk spec loading, the wave director, ECS mob spawning, banners, save/quest projection, switch indexing and lock-wall contribution, ~2,000 lines. It is a SIBLING of `ambition_encounter` rather than a module inside it because that crate's own purity rows forbid exactly this material: 'the LDtk loader, ECS spawning, banners, and save/quest adapters stay above it'. ⚠ THE RATCHET COUNTS CRATES, NOT BYTES — the actor monolith SHED those ~2,000 lines in the same commit, so the code a consumer links went slightly DOWN while this number went up. Reading `closure_size` as a size metric reads a carve as a regression, which is the one thing this row must never be allowed to say.",
   "abilities_entered_the_closure_2026_09_03": "⭐ DECLARED GROWTH, the same shape as the held_items and body_seed rows: `ambition_abilities` is the WIELDED kit carved out of the actor monolith's `abilities/` and `ability_cooldown.rs` (D33, 2026-09-03) — ranged, thrown gravity grenades, the traversal verbs a held item fires, and their shared cooldown, with `AbilitySimulationPlugin` owning `ItemPickupSet::{ThrownItemEffects, WieldedAbilities}` end to end. ⛔ THE FOOTPRINT NUMBER GROWS AND THE LINKED CODE DOES NOT: every one of these systems was already inside the monolith, which the sentinel already linked, so a movement-only game compiles exactly what it compiled before under a new crate name. That is what makes this declared growth rather than a leak — and it is also why the count alone cannot tell the two apart, which is the reason each entry here has to say WHICH it is. ⚠ It is in `never_asked_for` regardless: a movement-only game does not want a sentry turret, and the carve makes that finally EXPRESSIBLE — before it, the same code was unremovable because it had no crate of its own to leave out. The optional-edge work is a later slice; the honest statement today is that the boundary now exists. ⛔ NOT carved with it, deliberately: `possession`/`teleport`/`trapdoor`/`flyline` (runtime-registered control authority, 87 and 61 references outside the directory) and `thrown::puppy_slug_gun` (spawns a body through a kernel-private path). See docs/planning/engine/actor-monolith-decomposition.md.",
-  "sprite_fx_entered_the_closure_2026_09_04": "⭐ DECLARED GROWTH, and the FIRST one that is not a monolith carve — `ambition_sprite_fx` is a new capability (`cf3ee3953`), not a domain that moved. It names an idea the engine had four unrelated implementations of and no word for: one sprite, one simple visual manipulation. `ambition_render` composes `SpriteFxPlugin` unconditionally (`crates/ambition_render/src/rendering/mod.rs:284` — ⚠ it was :277 when this row was written and a same-day edit above it shifted the line; the SYMBOL is the citation, the number is a convenience that rots), so anything that draws links it. ⛔ AND IT IS DELIBERATELY NOT IN `never_asked_for`, which is the difference from every other row here. A movement-only game draws sprites, and altering a sprite's pixels is rendering rather than a gameplay domain — the same class as `ambition_sprite_sheet`. Adding it to the never-asked-for list would make that list mean 'crates the closure gained' instead of 'gameplay a movement-only game never wanted', which is the only thing that makes the 23 worth counting. ⚠ 50 → 51 with the never-asked-for count UNCHANGED at 23, and the two numbers moving apart is the point: this rise is not debt."
+  "sprite_fx_entered_the_closure_2026_09_04": "⭐ DECLARED GROWTH, and the FIRST one that is not a monolith carve — `ambition_sprite_fx` is a new capability (`cf3ee3953`), not a domain that moved. It names an idea the engine had four unrelated implementations of and no word for: one sprite, one simple visual manipulation. `ambition_render` composes `SpriteFxPlugin` unconditionally (`crates/ambition_render/src/rendering/mod.rs:284` — ⚠ it was :277 when this row was written and a same-day edit above it shifted the line; the SYMBOL is the citation, the number is a convenience that rots), so anything that draws links it. ⛔ AND IT IS DELIBERATELY NOT IN `never_asked_for`, which is the difference from every other row here. A movement-only game draws sprites, and altering a sprite's pixels is rendering rather than a gameplay domain — the same class as `ambition_sprite_sheet`. Adding it to the never-asked-for list would make that list mean 'crates the closure gained' instead of 'gameplay a movement-only game never wanted', which is the only thing that makes the 23 worth counting. ⚠ 50 → 51 with the never-asked-for count UNCHANGED at 23, and the two numbers moving apart is the point: this rise is not debt.",
+  "actor_spawn_entered_the_closure_2026_09_07": "⭐ DECLARED GROWTH, a monolith carve like abilities/body_seed/held_items: `ambition_platformer2d_actor_spawn` is the actor spawn/construction capability extracted from the monolith's `actor_spawn/` (2ce30d720), and the monolith links it unconditionally because room staging, encounter mobs and match activation spawn through it. ⛔ THE FOOTPRINT NUMBER GROWS AND THE LINKED CODE DOES NOT: every routine was already inside the monolith the sentinel linked, so a movement-only game compiles what it compiled before under a new crate name. ⚠ The first cut also took the LIVE actor view and several live systems with it; those went back to the kernel (b1f42c79b) and `scripts/tests/test_actor_spawn_boundary.py` holds the line, so this row is about a construction crate and nothing else. In `never_asked_for` regardless: the sentinel never asked for actor spawning by name — it asked for `ambition_platformer2d`."
 }

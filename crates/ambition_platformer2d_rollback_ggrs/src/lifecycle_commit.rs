@@ -550,6 +550,7 @@ mod tests {
 
     fn authorized_transaction(intent: LifecycleIntent) -> ActiveRoomTransitionLoad {
         ActiveRoomTransitionLoad {
+            checkpoint_operation: None,
             sequence: 1,
             content_epoch: 1,
             session_scope: None,

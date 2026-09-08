@@ -615,6 +615,16 @@ where
         "how many checkpoint restores this session has admitted",
         crate::session::checkpoint::SessionCheckpointOperations::checksum,
     );
+    // ⛔ THE TERMINAL ANSWER OUTLIVES THE OPERATION, and the startup road reads
+    // it several frames later to learn that its own crossing finished. A rewind
+    // that brought back a `Committed` the other timeline had not published would
+    // let one side believe a restore landed that the other never made.
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionCheckpointOutcomes>(
+        OWNER,
+        "resource.session_checkpoint_outcomes",
+        "the terminal outcome of the last answered checkpoint operation",
+        crate::session::checkpoint::SessionCheckpointOutcomes::checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
         OWNER,
         "resource.accepted_checkpoint_restore",
@@ -627,14 +637,17 @@ where
         "whether the session is still owed a checkpoint restore",
         crate::session::checkpoint::OutstandingCheckpointRequest::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::CheckpointResumeProgress>(
+    // ⛔ THE KEY MOVED WITH THE MEANING, and that is deliberate. A1b kept
+    // `resource.checkpoint_resume_progress` across a pure module move, because a
+    // renamed key would have made a relocation look like a format change. This
+    // is the opposite case: the VALUE changed from two per-generation latches to
+    // a state machine naming an admitted operation, so keeping the old name
+    // would let two peers agree on a key whose contents mean different things.
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionStartupResume>(
         OWNER,
-        // ⭐ THE WIRE KEY IS UNCHANGED BY THE A1b MOVE. The type left `shrine`
-        // for `session::checkpoint`; the snapshot it appears in did not, and a
-        // renamed key would make a pure move look like a format change.
-        "resource.checkpoint_resume_progress",
-        "which session generation the resume has routed and placed",
-        crate::session::checkpoint::CheckpointResumeProgress::checksum,
+        "resource.session_startup_resume",
+        "which session generation startup resolution reached, and which operation it routed",
+        crate::session::checkpoint::SessionStartupResume::checksum,
     );
 
     // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The

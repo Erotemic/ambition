@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v172
+ggrs-rollback-schema-v173
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -425,7 +425,6 @@ resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone s
 resource.active_match	resource-canonical	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.checkpoint_resume_progress	resource-clone-custom-checksum	CheckpointResumeProgress	bevy_ggrs clone snapshot + which session generation the resume has routed and placed
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
@@ -456,6 +455,8 @@ resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs 
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
+resource.session_checkpoint_outcomes	resource-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation
+resource.session_startup_resume	resource-clone-custom-checksum	SessionStartupResume	bevy_ggrs clone snapshot + which session generation startup resolution reached, and which operation it routed
 resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

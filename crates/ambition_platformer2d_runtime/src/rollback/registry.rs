@@ -331,7 +331,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// The counter rewinds so a resimulated admission mints the same key; it is
 /// deliberately not reset at a rebase, because recycling a live identifier is
 /// how a stale host-side load gets authorized on a matching integer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 172;
+/// ⭐ 172 -> 173 (2026-09-08): the checkpoint restore gained a terminal answer
+/// and startup stopped keeping its own. `resource.session_checkpoint_outcomes`
+/// and `resource.session_startup_resume` joined;
+/// `resource.checkpoint_resume_progress` left. ⛔ THE KEY MOVED WITH THE MEANING
+/// rather than being kept across a rename: A1b deliberately preserved that name
+/// through a pure module move, but this is the opposite case — the value changed
+/// from two per-generation latches to a state machine naming an admitted
+/// operation, so keeping the name would let two peers agree on a key whose
+/// contents mean different things.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 173;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

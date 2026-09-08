@@ -31,8 +31,7 @@ use ambition_platformer2d_core::{self as ae};
 /// post-construction placement is additive, is testable on its own, and cannot
 /// make the authored-spawn path behave differently for every existing test.
 ///
-/// How far the once-per-session checkpoint resume has got, per session
-/// generation.
+/// How far this session's startup checkpoint resume has got.
 ///
 /// ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM, AND A `Local` DOES NOT REWIND.
 /// `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, so a
@@ -40,40 +39,71 @@ use ambition_platformer2d_core::{self as ae};
 /// already past the crossing: one timeline asks for the resume, the other
 /// believes it already did.
 ///
-/// ⚠ UNREACHABLE TODAY, AND THAT IS NOT A REASON TO LEAVE IT. A confirmed room
-/// transition rebases GGRS onto a new frame zero, so no rewind crosses the
-/// commit — which makes this a correctness that holds because some OTHER layer
-/// rebases, and it moves when the rebase does. Same argument, same verdict, as
-/// the Mary-O room memory in `rollback_room_memory.rs`; see its `⚠ WHAT THIS
-/// FILE DOES NOT PIN` note for the honest statement of what a guard here can and
-/// cannot see.
+/// ⛔⛔ AND IT WAS THEN TWO BOOLEAN-ISH LATCHES — `routed_for` and `applied_for`
+/// — which is a SECOND completion mechanism beside the operation model the reset
+/// road uses. A startup crossing and a death crossing are the same operation
+/// asked twice; two ways of knowing one finished is how they drift. What
+/// replaces them is not another pair: [`StartupResume::Routed`] names the
+/// admitted operation by KEY, and it becomes `Satisfied` only when that
+/// operation publishes its terminal outcome.
 ///
 /// ⭐ THE GENERATION IS PART OF THE VALUE, so a memory left over from a retired
 /// session simply does not match the live one and self-corrects. That is why
 /// this is not also session-scoped state.
-#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq, Eq)]
-pub struct CheckpointResumeProgress {
-    /// The session generation this resume has finished placing the body for.
-    pub applied_for: Option<Option<u64>>,
-    /// The session generation this resume has already asked for a crossing on.
-    pub routed_for: Option<Option<u64>>,
+#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+pub struct SessionStartupResume {
+    /// The session generation this state describes, and how far it got.
+    state: Option<(Option<u64>, StartupResume)>,
 }
 
-impl CheckpointResumeProgress {
-    /// ⭐ WHICH GENERATION, not merely "a memory exists". A presence probe
-    /// satisfies the coverage oracle while seeing nothing of the value, and the
-    /// value here is the whole decision: a restore that brought back the wrong
-    /// generation makes one timeline re-ask for a crossing the other already
-    /// spent.
+/// How far one session's startup resume got.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StartupResume {
+    /// A cross-room resume was admitted as this operation and is in flight.
+    ///
+    /// ⚠ NAMED BY KEY, NOT BY A FLAG. "A crossing was asked for" cannot tell
+    /// whether the one that committed was THIS one; two crossings to the
+    /// checkpoint's room with the same subject compare equal.
+    Routed(CheckpointOperationKey),
+    /// Nothing further is owed: the body was placed, the operation committed, or
+    /// there was nothing to resume.
+    Satisfied,
+}
+
+impl SessionStartupResume {
+    /// This session's state, if the memory is about this session.
+    pub fn state_for(&self, generation: Option<u64>) -> Option<StartupResume> {
+        self.state
+            .as_ref()
+            .filter(|(remembered, _)| *remembered == generation)
+            .map(|(_, state)| *state)
+    }
+
+    fn set(&mut self, generation: Option<u64>, state: StartupResume) {
+        self.state = Some((generation, state));
+    }
+
+    /// ⭐ WHICH GENERATION AND HOW FAR, not merely "a memory exists". A presence
+    /// probe satisfies the coverage oracle while seeing nothing of the value, and
+    /// the value here is the whole decision: a restore that brought back the
+    /// wrong generation makes one timeline re-ask for a crossing the other
+    /// already spent.
     pub fn checksum(&self) -> u64 {
-        fn leg(slot: Option<Option<u64>>) -> u64 {
-            match slot {
-                None => 0,
-                Some(None) => 1,
-                Some(Some(generation)) => generation ^ 0x9e37_79b9_7f4a_7c15,
-            }
-        }
-        leg(self.applied_for).rotate_left(1) ^ leg(self.routed_for)
+        let Some((generation, state)) = &self.state else {
+            return 0;
+        };
+        let mut hash = match generation {
+            None => 1,
+            Some(generation) => generation ^ 0x9e37_79b9_7f4a_7c15,
+        };
+        hash = hash.rotate_left(1)
+            ^ match state {
+                StartupResume::Satisfied => 2,
+                StartupResume::Routed(key) => {
+                    (key.sequence ^ key.scope.map_or(0, |scope| scope.0 | 1 << 63)).rotate_left(5)
+                }
+            };
+        hash | 1
     }
 }
 
@@ -82,8 +112,8 @@ impl CheckpointResumeProgress {
 /// reconciled, not a raw position write that leaves the body believing it is
 /// still standing on the floor it left.
 ///
-/// Runs once per session: `applied_for` remembers which session generation it has
-/// already placed, so a later room transition does not yank the player back to the
+/// Runs once per session: [`SessionStartupResume`] remembers which generation it
+/// has resolved, so a later room transition does not yank the player back to the
 /// shrine they woke up at.
 pub fn restore_checkpoint_on_session_start(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
@@ -110,19 +140,47 @@ pub fn restore_checkpoint_on_session_start(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    // ⛔⛔ NOT `Local`s. See [`CheckpointResumeProgress`].
-    mut progress: ResMut<CheckpointResumeProgress>,
+    // ⛔⛔ NOT `Local`s. See [`SessionStartupResume`].
+    mut progress: ResMut<SessionStartupResume>,
+    // The SAME operation state the reset road uses. A startup crossing and a
+    // death crossing are one operation asked twice, so they are admitted,
+    // pinned, applied and answered by one mechanism.
+    mut accepted: ResMut<AcceptedCheckpointRestore>,
+    mut operations: ResMut<SessionCheckpointOperations>,
+    outcomes: Res<SessionCheckpointOutcomes>,
+    baselines: (
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+        Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    ),
 ) {
     let Some(room_set) = room_set.as_deref() else {
         return;
     };
-    let generation = scope.and_then(|scope| scope.current()).map(|id| id.0);
-    if progress.applied_for == Some(generation) {
-        return;
+    let scope_id = scope.and_then(|scope| scope.current());
+    let generation = scope_id.map(|id| id.0);
+    match progress.state_for(generation) {
+        Some(StartupResume::Satisfied) => return,
+        // ⭐ THE ROUTED CROSSING IS FINISHED BY ITS OPERATION'S OUTCOME, not by a
+        // flag this system sets when it asks. Waiting on the outcome is what
+        // makes the startup road and the reset road one mechanism.
+        Some(StartupResume::Routed(key)) => {
+            if outcomes.outcome_for(key).is_some() {
+                progress.set(generation, StartupResume::Satisfied);
+            } else if accepted.inputs_for_key(key).is_none() {
+                // ⛔ NEITHER OUTSTANDING NOR ANSWERED: the operation was retired
+                // without committing — a cancelled crossing. The resume is owed
+                // again rather than lost, which is the F1 rule one level up.
+                progress.state = None;
+            }
+            return;
+        }
+        None => {}
     }
     let Some(checkpoint) = save.data().checkpoint() else {
         // Nothing to resume. Mark the session handled so this stops looking.
-        progress.applied_for = Some(generation);
+        progress.set(generation, StartupResume::Satisfied);
         return;
     };
 
@@ -135,11 +193,6 @@ pub fn restore_checkpoint_on_session_start(
     // in it, and "the one place rooms are staged" is worth more than saving a
     // message.
     if checkpoint.room_id != room_set.active_spec().id {
-        // Once per session. A transition takes several frames to commit, and
-        // re-requesting every frame would restart it forever.
-        if progress.routed_for == Some(generation) {
-            return;
-        }
         if !room_set
             .rooms
             .iter()
@@ -152,7 +205,7 @@ pub fn restore_checkpoint_on_session_start(
                  starting at the session's own room instead",
                 checkpoint.room_id
             );
-            progress.applied_for = Some(generation);
+            progress.set(generation, StartupResume::Satisfied);
             return;
         }
         // resolved BEFORE the latch: a session whose avatar has not been built
@@ -177,33 +230,65 @@ pub fn restore_checkpoint_on_session_start(
         // ⚠ A REFUSAL IS ORDINARY HERE and costs nothing: nothing above this
         // line has changed the world, so the resume is simply re-asked on the
         // next tick, and the incumbent operation keeps the slot it won.
-        let admission = pending.record(
-            boundary.map_or(0, |boundary| boundary.current),
-            crate::session::lifecycle_commit::LifecycleIntent::Transition(
-                crate::session::lifecycle_commit::RoomTransitionIntent {
-                    subject,
-                    target_room: checkpoint.room_id.clone(),
-                    arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
-                    // A resume is not a walk off the side of a room.
-                    edge_exit: false,
-                    // silent on purpose: nobody opened a door.
-                    zone_sfx: None,
-                },
-            ),
+        let frame = boundary.map_or(0, |boundary| boundary.current);
+        let intent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
+            crate::session::lifecycle_commit::RoomTransitionIntent {
+                subject,
+                target_room: checkpoint.room_id.clone(),
+                arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                // A resume is not a walk off the side of a room.
+                edge_exit: false,
+                // silent on purpose: nobody opened a door.
+                zone_sfx: None,
+            },
         );
-        if admission.admitted() {
-            progress.routed_for = Some(generation);
+        let admission = pending.record(frame, intent.clone());
+        if !admission.admitted() {
+            return;
         }
+        let Some(key) = operations.admit(scope_id) else {
+            bevy::log::error!(
+                target: "ambition_platformer2d::session",
+                "the checkpoint operation sequence is exhausted; this session \
+                 cannot resume at its checkpoint",
+            );
+            return;
+        };
+        // ⭐ A STARTUP CROSSING IS A CHECKPOINT RECONSTRUCTION, so it pins the
+        // same inputs the reset road does. Before this it recorded a bare
+        // transition and the destination was prepared from whatever the LIVE
+        // ledger happened to hold — correct at session start only because the
+        // load had just written the file's ledger into it.
+        let (occurrences, custody, minted, owned) = baselines;
+        accepted.accept(AcceptedRestore {
+            key,
+            frame,
+            intent,
+            occurrences: occurrences.map(|b| b.clone()).unwrap_or_default(),
+            custody: custody.map(|b| b.clone()).unwrap_or_default(),
+            item: minted.zip(owned).map(|(minted, owned)| {
+                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                    minted: minted.clone(),
+                    owned: owned.clone(),
+                }
+            }),
+        });
+        progress.set(generation, StartupResume::Routed(key));
         return;
     }
 
     let Ok((clusters, mut model)) = bodies.single_mut() else {
-        // No body yet — construction has not finished. Leave `applied_for`
-        // untouched so the next tick tries again, rather than marking a session
-        // handled that was never placed.
+        // No body yet — construction has not finished. Leave the startup state
+        // unset so the next tick tries again, rather than marking a session
+        // resolved that was never placed.
         return;
     };
-    progress.applied_for = Some(generation);
+    // ⭐ A SAME-ROOM STARTUP PLACEMENT IS NOT A RECONSTRUCTION and deliberately
+    // does not become one: no room rebuild, no host rebase, no accepted
+    // operation. It is a small rollback-registered simulation operation that
+    // moves an already-constructed body, and manufacturing a room-reconstruction
+    // intent to do it would be the opposite of what the protocol asks.
+    progress.set(generation, StartupResume::Satisfied);
     let mut item = clusters;
     let mut clusters = item.as_clusters_mut();
     ae::movement::transit_body(
@@ -716,9 +801,222 @@ pub fn apply_committed_checkpoint_restore(
     // occurrences the checkpoint remembers in a hand; a caller that returned
     // before this flush would leave them as queued commands nobody applied, and
     // a test observing "the object came back" would be observing a command
-    // buffer.
+    // buffer. Verification below therefore reads APPLIED state, not a queue.
     world.flush();
+
+    let outcome = match verify_restored_domains(world, &accepted) {
+        Ok(()) => CheckpointRestoreOutcome::Committed { key: accepted.key },
+        Err(failure) => {
+            // ⛔⛔ FAIL-CLOSED, AND WHAT THAT DOES AND DOES NOT PROMISE. The
+            // destructive application has already run, so there is no old world
+            // to return to and this contract does not pretend otherwise. What it
+            // promises is that a world which did not come back correctly does
+            // not become a world the player is allowed to act in: gameplay is
+            // blocked and the failure names the operation and the domain.
+            bevy::log::error!(
+                target: "ambition_platformer2d::session",
+                "checkpoint restore {:?} failed verification in {}: {}. Gameplay is \
+                 blocked; the world was NOT returned to its previous state, which \
+                 this contract does not offer",
+                accepted.key,
+                failure.domain,
+                failure.detail,
+            );
+            if let Some(mut mode) = world.get_resource_mut::<bevy::prelude::NextState<
+                ambition_platformer2d_shared_tangle::schedule::GameMode,
+            >>() {
+                mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Paused);
+            }
+            CheckpointRestoreOutcome::Failed {
+                key: accepted.key,
+                domain: failure.domain,
+                detail: failure.detail,
+            }
+        }
+    };
+    // ⛔ EXACTLY ONE TERMINAL OUTCOME PER OPERATION, and the session is its sole
+    // writer. `publish` refuses a second one for a key it has already answered.
+    if let Some(mut outcomes) = world.get_resource_mut::<SessionCheckpointOutcomes>() {
+        outcomes.publish(outcome);
+    }
+    // The accepted operation is answered. Retiring it here rather than waiting
+    // for the slot means a later transaction cannot be opened against an
+    // operation that has already had its terminal outcome.
+    if let Some(mut accepted_state) = world.get_resource_mut::<AcceptedCheckpointRestore>() {
+        if accepted_state
+            .accepted()
+            .is_some_and(|outstanding| outstanding.key == accepted.key)
+        {
+            let _ = accepted_state.retire();
+        }
+    }
     true
+}
+
+/// What went wrong, and whose contract it was.
+struct RestoreVerificationFailure {
+    domain: &'static str,
+    detail: String,
+}
+
+/// Check the applied world against the snapshots the operation was accepted with.
+///
+/// ⛔⛔ IT READS THE PINNED VALUES, NOT THE LIVE BASELINES. Verifying against a
+/// live baseline would compare the world with whatever the world last said —
+/// `capture_*` writes those from live state — so a restore that applied nothing
+/// at all would verify clean. The question is whether the world matches the
+/// snapshot THIS OPERATION was accepted with.
+///
+/// ⚠ WHAT IT DOES NOT CHECK, said plainly: it does not verify room geometry,
+/// body position, clocks or portals, and it does not prove the population is
+/// complete — only that the values the restore claimed to put back are the ones
+/// the world now holds. Widening it is worthwhile; pretending it is already wide
+/// is how a verification step becomes a formality.
+fn verify_restored_domains(
+    world: &mut bevy::prelude::World,
+    accepted: &AcceptedRestore,
+) -> Result<(), RestoreVerificationFailure> {
+    use ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences;
+
+    if let Some(live) = world.get_resource::<AuthoredOccurrences>() {
+        if live != accepted.occurrences.remembered() {
+            return Err(RestoreVerificationFailure {
+                domain: "occurrence ledger",
+                detail: "the applied ledger does not match the population this \
+                         operation was accepted with"
+                    .to_string(),
+            });
+        }
+    }
+    if let Some(item) = accepted.item.as_ref() {
+        if let Some(live) = world.get_resource::<ambition_items::OwnedItems>() {
+            if live != item.owned.remembered() {
+                return Err(RestoreVerificationFailure {
+                    domain: "entitlements",
+                    detail: "the applied bag does not match the quantities this \
+                             operation was accepted with"
+                        .to_string(),
+                });
+            }
+        }
+    }
+    // ⭐ CUSTODY IS CHECKED AGAINST THE WORLD, not against a resource, because
+    // that is the only domain whose restore SPAWNS: a row the reducer could not
+    // materialize leaves no resource disagreeing with anything.
+    let unmet: Vec<String> = {
+        let mut held = world.query::<(
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
+        )>();
+        let live: std::collections::BTreeSet<
+            ambition_platformer2d_shared_tangle::sim_id::SimId,
+        > = held.iter(world).map(|(id, _)| id.clone()).collect();
+        accepted
+            .custody
+            .rows()
+            .filter(|(occurrence, _)| !live.contains(*occurrence))
+            .map(|(occurrence, custodian)| {
+                format!("{} <- {}", occurrence.as_str(), custodian.as_str())
+            })
+            .collect()
+    };
+    if !unmet.is_empty() {
+        return Err(RestoreVerificationFailure {
+            domain: "custody",
+            detail: format!(
+                "the checkpoint remembers {} carried occurrence(s) that are in \
+                 nobody's custody after the restore: {unmet:?}",
+                unmet.len()
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// The terminal answer for one restore operation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CheckpointRestoreOutcome {
+    /// Applied and verified.
+    Committed { key: CheckpointOperationKey },
+    /// Applied and did not verify. The world was NOT returned to its previous
+    /// state; gameplay is blocked instead.
+    Failed {
+        key: CheckpointOperationKey,
+        domain: &'static str,
+        detail: String,
+    },
+}
+
+impl CheckpointRestoreOutcome {
+    pub fn key(&self) -> CheckpointOperationKey {
+        match self {
+            Self::Committed { key } | Self::Failed { key, .. } => *key,
+        }
+    }
+
+    pub fn committed(&self) -> bool {
+        matches!(self, Self::Committed { .. })
+    }
+}
+
+/// The terminal outcome of the most recent answered operation.
+///
+/// ⛔⛔ ONE OUTCOME PER OPERATION. A second publication for a key already
+/// answered is refused rather than overwriting: "exactly one terminal outcome"
+/// is the contract every consumer reads this for, and a road that could publish
+/// twice would let a `Committed` follow a `Failed` for the same restore.
+///
+/// ⚠ IT KEEPS THE LATEST, not a history. There is at most one outstanding
+/// operation per session, so a consumer asking "did MY operation finish" names
+/// its key and gets `None` once a later one has been answered — which is the
+/// honest answer for a consumer that waited too long.
+#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+pub struct SessionCheckpointOutcomes(Option<CheckpointRestoreOutcome>);
+
+impl SessionCheckpointOutcomes {
+    /// The terminal outcome for `key`, if that is the operation last answered.
+    pub fn outcome_for(&self, key: CheckpointOperationKey) -> Option<&CheckpointRestoreOutcome> {
+        self.0.as_ref().filter(|outcome| outcome.key() == key)
+    }
+
+    /// The most recent terminal outcome, whichever operation it belongs to.
+    pub fn latest(&self) -> Option<&CheckpointRestoreOutcome> {
+        self.0.as_ref()
+    }
+
+    /// Record the terminal outcome, refusing a second answer for one operation.
+    pub fn publish(&mut self, outcome: CheckpointRestoreOutcome) {
+        if self
+            .0
+            .as_ref()
+            .is_some_and(|existing| existing.key() == outcome.key())
+        {
+            bevy::log::error!(
+                target: "ambition_platformer2d::session",
+                "a second terminal outcome was published for checkpoint operation \
+                 {:?}; keeping the first",
+                outcome.key(),
+            );
+            return;
+        }
+        self.0 = Some(outcome);
+    }
+
+    /// ⭐ WHICH OPERATION AND WHETHER IT SUCCEEDED. A presence probe would see
+    /// neither, and a rewind that brought back a `Committed` for an operation the
+    /// other timeline failed is a divergence in what the session believes about
+    /// its own world.
+    pub fn checksum(&self) -> u64 {
+        match &self.0 {
+            None => 0,
+            Some(outcome) => {
+                let key = outcome.key();
+                let mut hash = key.sequence ^ 0x2545_f491_4f6c_dd1d;
+                hash = hash.rotate_left(7) ^ key.scope.map_or(0, |scope| scope.0 | 1 << 63);
+                hash.rotate_left(3) ^ u64::from(outcome.committed())
+            }
+        }
+    }
 }
 /// The session's leg of the reset/checkpoint horizon.
 ///
@@ -734,7 +1032,8 @@ impl Plugin for SessionCheckpointHorizonPlugin {
 
         app.init_resource::<AcceptedCheckpointRestore>();
         app.init_resource::<SessionCheckpointOperations>();
-        app.init_resource::<CheckpointResumeProgress>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.init_resource::<SessionStartupResume>();
         app.init_resource::<OutstandingCheckpointRequest>();
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the

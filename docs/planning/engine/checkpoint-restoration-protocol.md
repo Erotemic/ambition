@@ -520,11 +520,43 @@ This is a coherent behavior change, implemented in buildable subcommits:
    state (a resimulated admission must mint the same key), is not reset at a
    rebase, and refuses overflow rather than recycling a live identifier.
 
-   Still open: explicit post-apply verification, one terminal outcome per
-   operation, and folding startup completion into that mechanism so
-   `CheckpointResumeProgress::{routed_for, applied_for}` can disappear rather
-   than being replaced by another pair of booleans. The flush is in the shared
-   entry point; the reconciliation and publication half is not.
+5. **LANDED 2026-09-08 — verification, one terminal outcome, and startup on the
+   same mechanism.** After the flush, the commit checks the applied world against
+   the snapshots the operation was ACCEPTED with (not the live baselines, which
+   are written from live state and would verify a restore that applied nothing).
+   Failure is fail-closed in the only sense available after destructive
+   application: gameplay is blocked and the outcome names the operation and the
+   failing domain — it does not claim the old world is intact.
+   `SessionCheckpointOutcomes` publishes exactly one terminal outcome per key and
+   refuses a second.
+
+   ⭐ **And startup stopped keeping its own completion.**
+   `CheckpointResumeProgress::{routed_for, applied_for}` is deleted, not renamed:
+   a startup crossing and a death crossing are one operation asked twice, and two
+   ways of knowing one finished is how they drift. `SessionStartupResume` is a
+   state machine — `Routed(CheckpointOperationKey)` becomes `Satisfied` only when
+   THAT operation publishes its outcome, and an operation retracted without one
+   is owed again. A cross-room startup resume is now an accepted operation with
+   pinned inputs like any other; before this it recorded a bare transition and
+   its destination was prepared from whatever the live ledger happened to hold,
+   correct at session start only because the load had just written the file's
+   ledger into it. ⚠ The wire key MOVED with the meaning
+   (`resource.checkpoint_resume_progress` → `resource.session_startup_resume`),
+   the opposite of A1b's deliberate name preservation across a pure move: keeping
+   it would let two peers agree on a key whose contents mean different things.
+
+   ⚠ A same-room startup PLACEMENT deliberately does not become an operation: no
+   room rebuild, no host rebase, no accepted restore. It is the small
+   rollback-registered simulation operation this document already describes, and
+   manufacturing a reconstruction intent to move an already-constructed body
+   would be the opposite of what that row asks.
+
+   Schema 172 -> 173. **Still open:** verification is narrow by design — it
+   checks the ledger, the bag and that every banked custody row is in somebody's
+   custody. It does not check room geometry, body position, clocks or portals,
+   and it does not prove the population is complete. Widening it is worthwhile;
+   pretending it is already wide is how a verification step becomes a formality.
+   Presentation notification of the outcome has no consumer yet.
 5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
    installer aliases and unused progress paths. Refresh the graph as a diagnostic.
 

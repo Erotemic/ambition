@@ -600,6 +600,16 @@ where
     // slot admits it — which means a rewind past the frame it arrived on has to
     // take it back, or one timeline restores a checkpoint the other never asked
     // for.
+    // ⛔⛔ THE ACCEPTED OPERATION SPANS FRAMES BY DESIGN — it is pinned when the
+    // slot says yes and read by room preparation several frames later — so a
+    // rewind that crossed the admission must take it back, or the load prepares
+    // a room from a population the resimulated timeline never selected.
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
+        OWNER,
+        "resource.accepted_checkpoint_restore",
+        "which operation was accepted and the occurrence population it reconstructs",
+        crate::session::checkpoint::AcceptedCheckpointRestore::checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
         OWNER,
         "resource.outstanding_checkpoint_request",

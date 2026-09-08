@@ -365,6 +365,7 @@
     "projectile.live_marker",
     "projectile.seq",
     "projectile.visual_id",
+    "resource.accepted_checkpoint_restore",
     "resource.active_conversation",
     "resource.active_match",
     "resource.active_round_scope",

@@ -255,6 +255,14 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut restore: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
+    mut accepted: ResMut<AcceptedCheckpointRestore>,
+    // The pinned reconstruction inputs, read ONCE on acceptance. `Option`
+    // because a composition can install the session offer without the lifecycle
+    // or item ones.
+    occurrence_baseline: Option<
+        Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
+    >,
+    minted_baseline: Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
@@ -305,20 +313,20 @@ pub fn resume_at_checkpoint_on_reset(
     // stops the death asking for two lifecycle operations that then fight over
     // one slot.
     let frame = boundary.map_or(0, |boundary| boundary.current);
-    let admission = pending.record(
-        frame,
-        crate::session::lifecycle_commit::LifecycleIntent::Transition(
-            crate::session::lifecycle_commit::RoomTransitionIntent {
-                subject: subject.clone(),
-                target_room,
-                arrival,
-                // A death is not a walk off the side of a room.
-                edge_exit: false,
-                // silent on purpose: nobody opened a door.
-                zone_sfx: None,
-            },
-        ),
+    // Built once and kept: the accepted operation NAMES the intent it owns, so
+    // a later preparation can tell this reconstruction from an ordinary door.
+    let intent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
+        crate::session::lifecycle_commit::RoomTransitionIntent {
+            subject: subject.clone(),
+            target_room,
+            arrival,
+            // A death is not a walk off the side of a room.
+            edge_exit: false,
+            // silent on purpose: nobody opened a door.
+            zone_sfx: None,
+        },
     );
+    let admission = pending.record(frame, intent.clone());
     if !admission.admitted() {
         // ⛔ THE REQUEST SURVIVES A REFUSAL. Another lifecycle operation owns the
         // world right now; this one is asked again next tick, and until then NO
@@ -332,6 +340,16 @@ pub fn resume_at_checkpoint_on_reset(
             subject: subject.clone(),
         },
     );
+    // ⭐ PINNED HERE AND NOWHERE ELSE. The inputs a reconstruction is prepared
+    // from are chosen at the moment the slot says yes, so a later capture, a
+    // later pickup or a later ledger write cannot retarget an operation already
+    // in flight.
+    accepted.accept(AcceptedRestore {
+        frame,
+        intent,
+        occurrences: occurrence_baseline.map(|baseline| baseline.clone()).unwrap_or_default(),
+        minted: minted_baseline.map(|baseline| baseline.clone()),
+    });
     admitted.write(
         ambition_combat::events::RoomReplayAdmitted::because(
             // A checkpoint resume is the DEATH/RETRY horizon by contract, so
@@ -341,6 +359,132 @@ pub fn resume_at_checkpoint_on_reset(
         )
         .for_subject(subject.clone()),
     );
+}
+
+/// The accepted restore, pinned at admission and OUTLIVING ITS FRAME.
+///
+/// ⛔⛔ **THIS IS THE HALF THE SHARED TOKEN MUST NOT BECOME.**
+/// `AdmittedCheckpointRestore` is a one-frame authorization every domain reads:
+/// which operation, and whose. This is the SESSION's own accepted-operation
+/// state — the pinned inputs that operation was accepted with — and it is here
+/// because the session coordinator owns their consistency boundary and may name
+/// item types `shared_tangle` must never depend on.
+///
+/// ⭐ WHY IT HAS TO OUTLIVE THE FRAME, measured 2026-09-08. Room preparation
+/// derives the destination's occurrence outlook from the LIVE ledger, and uses
+/// it both to validate a prefetched plan and to lower a fresh one. On a
+/// checkpoint reset that ledger is only the right answer because
+/// `restore_occurrence_baseline` overwrote it earlier in the SAME FRAME —
+/// `CheckpointRestore` sits in `PlayerInput`, room-transition readiness runs
+/// after `RoomTransitionSet::Detect` in `RoomTransition`, and the phase order
+/// puts one before the other. So the room was prepared from a live resource
+/// swapped to the checkpoint value in order to be read, which is exactly the
+/// preparation shape the protocol forbids, and its correctness rested on a
+/// phase-ordering accident nothing states as a checkpoint requirement.
+///
+/// ⇒ Preparation reads THIS instead. The pinned population is the operation's
+/// own, whatever the live ledger says by the time the load runs.
+///
+/// ⚠ IT PINS WHAT PREPARATION CONSUMES, and nothing else. Custody and
+/// entitlement snapshots are not here because their reducers still run in the
+/// restore set against live baselines in the same frame they are admitted —
+/// pinning a value no one reads differently is the shape that produced four
+/// dead `LifecycleIntent` variants. They join when application moves to the
+/// commit boundary and the difference becomes observable.
+#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+pub struct AcceptedCheckpointRestore(Option<AcceptedRestore>);
+
+/// One accepted restore and the reconstruction inputs it was accepted with.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AcceptedRestore {
+    /// The sim frame the admission happened on.
+    pub frame: i32,
+    /// The room intent this operation was admitted for.
+    ///
+    /// ⭐ THIS IS HOW A LATER PREPARATION KNOWS THE TRANSITION IT IS PREPARING
+    /// IS THIS RESTORE. A checkpoint reset records an ordinary `Transition` —
+    /// indistinguishable from a door by its shape — so the accepted operation
+    /// names the intent it owns rather than letting preparation guess from the
+    /// destination.
+    pub intent: crate::session::lifecycle_commit::LifecycleIntent,
+    /// The occurrence population this operation reconstructs, as it stood when
+    /// the slot accepted it.
+    pub occurrences: ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
+    /// How to rebuild the runtime mints in that population. Travels WITH the
+    /// ledger for the reason `OccurrenceContinuity` states: the memory without
+    /// the means to act on it deletes the object.
+    pub minted: Option<crate::items::pickup::minted_horizon::MintedItemBaseline>,
+}
+
+impl AcceptedCheckpointRestore {
+    /// The accepted operation, if one is outstanding.
+    pub fn accepted(&self) -> Option<&AcceptedRestore> {
+        self.0.as_ref()
+    }
+
+    /// The pinned reconstruction inputs, but only for `intent`.
+    ///
+    /// ⛔ MATCHED, NOT MERELY PRESENT. A door crossing recorded while a
+    /// checkpoint restore is outstanding must be prepared from LIVE state; a
+    /// preparation that took the pinned population for any transition would
+    /// rebuild the wrong room's population from a checkpoint that is not about
+    /// it.
+    pub fn inputs_for(
+        &self,
+        intent: &crate::session::lifecycle_commit::LifecycleIntent,
+    ) -> Option<&AcceptedRestore> {
+        self.0.as_ref().filter(|accepted| &accepted.intent == intent)
+    }
+
+    /// Accept an operation. Called only by the session coordinator, with an
+    /// `Admission` in hand.
+    pub fn accept(&mut self, accepted: AcceptedRestore) {
+        self.0 = Some(accepted);
+    }
+
+    /// Retire the operation once its lifecycle intent has left the slot.
+    pub fn retire(&mut self) -> Option<AcceptedRestore> {
+        self.0.take()
+    }
+
+    /// ⭐ WHICH OPERATION AND WHICH POPULATION, not merely "one is accepted".
+    /// The pinned ledger is the whole reason this value exists, so a presence
+    /// probe would satisfy the coverage oracle while seeing none of it — and a
+    /// rewind that brought back the accepted operation with a DIFFERENT pinned
+    /// population would rebuild the room the other timeline is not in.
+    pub fn checksum(&self) -> u64 {
+        match &self.0 {
+            None => 0,
+            Some(accepted) => {
+                let mut hash = (accepted.frame as i64 as u64) ^ 0x9e37_79b9_7f4a_7c15;
+                hash = hash.rotate_left(7) ^ accepted.occurrences.checksum();
+                for byte in accepted.intent.target_room().as_bytes() {
+                    hash = hash.rotate_left(5) ^ u64::from(*byte);
+                }
+                hash | 1
+            }
+        }
+    }
+}
+
+/// Retire an accepted restore once its intent has left the lifecycle slot.
+///
+/// ⛔ THE SLOT IS THE AUTHORITY ON WHETHER THE OPERATION IS STILL LIVE. The
+/// commit takes the intent; a retraction removes it. Either way the accepted
+/// inputs have no operation left to describe, and holding them would let a
+/// later unrelated transition match a stale intent by value.
+pub fn retire_accepted_checkpoint_restore(
+    mut accepted: ResMut<AcceptedCheckpointRestore>,
+    pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+) {
+    let still_pending = accepted.accepted().is_some_and(|accepted| {
+        pending
+            .peek()
+            .is_some_and(|pending| pending.kind == accepted.intent)
+    });
+    if accepted.accepted().is_some() && !still_pending {
+        let _ = accepted.retire();
+    }
 }
 
 /// A checkpoint restore that has been ASKED FOR and not yet admitted.
@@ -402,6 +546,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
         );
         app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>();
+        app.init_resource::<AcceptedCheckpointRestore>();
         app.init_resource::<CheckpointResumeProgress>();
         app.init_resource::<OutstandingCheckpointRequest>();
         app.add_systems(
@@ -412,9 +557,17 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         );
         app.add_systems(
             sim,
-            retire_admitted_checkpoint_restore.in_set(
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
-            ),
+            (
+                retire_admitted_checkpoint_restore,
+                // ⚠ THE TWO RETIREMENTS ARE NOT THE SAME QUESTION. The shared
+                // token is spent by the domains that read it this frame; the
+                // accepted inputs live until the lifecycle slot gives up the
+                // intent, which is several frames later at the commit.
+                retire_accepted_checkpoint_restore,
+            )
+                .in_set(
+                    ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
+                ),
         );
         // ⚠ THE EDGES ARE INHERITED VERBATIM from the item-pickup chain this
         // system was carved out of, and A1b is a move: preserving them is what

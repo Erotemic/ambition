@@ -699,10 +699,16 @@ fn every_checkpoint_restore_system_is_inside_one_ordered_step() {
         1,
         "the session coordinator is the SOLE admission writer"
     );
+    // TWO, and both are the session's: the shared one-frame token is spent by
+    // the domains that read it this frame, while the accepted inputs live until
+    // the lifecycle slot gives up the intent several frames later at the commit.
+    // ⛔ What this counts is that no DOMAIN retires either of them — a reducer
+    // that cleared the token it had just consumed would decide for its siblings
+    // whether they had run.
     assert_eq!(
         members(graph, CheckpointRestoreStep::Retire).len(),
-        1,
-        "the session coordinator is the SOLE retiring writer"
+        2,
+        "the session coordinator owns every retirement in this set"
     );
     assert_eq!(
         members(graph, CheckpointRestoreStep::Apply).len(),
@@ -797,5 +803,123 @@ fn the_admitted_restore_does_not_yet_outlive_its_own_frame() {
          A1c/3-5's intended change, not a bug — but it is a CHANGE: update this \
          test to describe the new lifetime, and check that every reader of the \
          token still expects a value that spans preparation and commit"
+    );
+}
+
+/// ⭐ **THE ACCEPTED OPERATION OUTLIVES ITS FRAME, MATCHES ONLY ITS OWN INTENT,
+/// AND IS RETIRED BY THE SLOT.**
+///
+/// This is the value room preparation reads several frames after admission, so
+/// all three properties are load-bearing and none of them is visible from the
+/// admitting frame alone:
+///
+/// * outliving the frame is what lets a load read it at all;
+/// * matching only its own intent is what stops a DOOR crossing recorded while a
+///   restore is outstanding from being prepared out of the checkpoint's
+///   population — a room rebuilt from a checkpoint that is not about it;
+/// * retiring when the slot gives up the intent is what stops a later,
+///   unrelated transition matching a stale intent BY VALUE. Two crossings to
+///   one room with one subject compare equal.
+#[test]
+fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_the_slot() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope, LifecycleCheckpointHorizonPlugin,
+        ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((
+        LifecycleCheckpointHorizonPlugin,
+        super::SessionCheckpointHorizonPlugin,
+    ));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let admitted_intent = app
+        .world()
+        .resource::<PendingLifecycleCommit>()
+        .peek()
+        .map(|pending| pending.kind.clone())
+        .expect("the reset took the slot, or nothing below is about an operation");
+
+    // ── IT SURVIVES FRAMES THE SHARED TOKEN DOES NOT ────────────────────────
+    for _ in 0..3 {
+        app.world_mut().run_schedule(sim);
+    }
+    let accepted = app.world().resource::<super::AcceptedCheckpointRestore>();
+    assert!(
+        accepted.accepted().is_some(),
+        "the accepted restore was retired while its intent still held the slot. \
+         Room preparation runs several frames after admission and reads this \
+         value; retiring it early sends the load back to the live ledger"
+    );
+    assert!(
+        accepted.inputs_for(&admitted_intent).is_some(),
+        "the accepted restore does not match the intent it was admitted for"
+    );
+
+    // ⛔ AND IT DOES NOT MATCH SOMEBODY ELSE'S CROSSING. A door recorded while a
+    // restore is outstanding is prepared from LIVE state.
+    let a_door = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        target_room: "here".into(),
+        arrival: Vec2::new(9.0, 9.0),
+        edge_exit: true,
+        zone_sfx: Some("world.portal.enter".into()),
+    });
+    assert!(
+        accepted.inputs_for(&a_door).is_none(),
+        "an unrelated crossing matched the checkpoint's pinned population, so it \
+         would rebuild its destination from a checkpoint that is not about it"
+    );
+
+    // ── THE SLOT GIVES UP THE INTENT: the commit took it ─────────────────────
+    app.world_mut()
+        .resource_mut::<PendingLifecycleCommit>()
+        .take();
+    app.world_mut().run_schedule(sim);
+    assert!(
+        app.world()
+            .resource::<super::AcceptedCheckpointRestore>()
+            .accepted()
+            .is_none(),
+        "the accepted restore outlived the operation that owned it. Two crossings \
+         to one room with one subject compare EQUAL, so a stale one can be \
+         matched by a later transition it has nothing to do with"
     );
 }

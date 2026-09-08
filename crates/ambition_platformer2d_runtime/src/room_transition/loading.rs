@@ -558,6 +558,18 @@ pub fn begin_room_transition_load_system(
                 ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
             >,
         >,
+        // ⛔⛔ THE PINNED CONTINUITY, AND WHY THE LIVE ONES ABOVE ARE NOT ENOUGH
+        // FOR A CHECKPOINT RESET. The two members above are the LIVE ledger and
+        // the LIVE minted baseline, which are the right inputs for a door. For a
+        // checkpoint reconstruction they were only ever right because
+        // `restore_occurrence_baseline` had overwritten the live ledger with the
+        // checkpoint's earlier in the SAME FRAME — `CheckpointRestore` sits in
+        // `PlayerInput` and this readiness runs after `RoomTransitionSet::Detect`
+        // in `RoomTransition`. The room was therefore prepared from a live
+        // resource swapped to the checkpoint value IN ORDER TO BE READ, and its
+        // correctness rested on a phase order nothing states as a checkpoint
+        // requirement. The accepted operation carries its own population.
+        Option<Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>>,
     ),
     // `Option`, and absence is a legal answer: a composition with no registered characters is
     // the ordinary case, and an empty registry means "no character states a default" — which is
@@ -1039,16 +1051,30 @@ pub fn begin_room_transition_load_system(
         // sub-frame on both — `Time<Real>` is NOT a substitute here, because it
         // advances once per frame and a within-frame span measures zero.
         let construction_preflight_started = bevy::platform::time::Instant::now();
-        // What the world remembers right now, read once: it decides both
-        // whether a cached plan still describes this world and what a fresh
-        // plan must leave out.
-        // the outlook is ROOM-SCOPED, so it is derived for the room being
-        // built and for no other: the same ledger answers differently for two
-        // rooms, because an occurrence lying in one of them is reinstated there
-        // and is simply not that other room's business.
-        let occurrence_outlook = construction_services
-            .6
+        // What this operation reconstructs FROM, read once: it decides both
+        // whether a cached plan still describes it and what a fresh plan must
+        // leave out.
+        // ⭐ ONE SELECTION, FEEDING BOTH THE CACHE KEY AND THE FRESH PLAN. The
+        // outlook validates a prefetched plan and the continuity lowers a fresh
+        // one; redirecting only the second would leave a plan prepared against
+        // the live population free to be promoted for a reconstruction that is
+        // about a different one.
+        let selected_restore = construction_services
+            .8
             .as_deref()
+            .and_then(|accepted| accepted.inputs_for(&active.intent));
+        let selected_ledger = selected_restore
+            .map(|accepted| accepted.occurrences.remembered())
+            .or(construction_services.6.as_deref());
+        let selected_minted = match selected_restore {
+            Some(accepted) => accepted.minted.as_ref(),
+            None => construction_services.7.as_deref(),
+        };
+        // the outlook is ROOM-SCOPED, so it is derived for the room being built
+        // and for no other: the same ledger answers differently for two rooms,
+        // because an occurrence lying in one of them is reinstated there and is
+        // simply not that other room's business.
+        let occurrence_outlook = selected_ledger
             .map(|ledger| ledger.outlook_for(&target_spec.id))
             .unwrap_or_default();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
@@ -1097,11 +1123,11 @@ pub fn begin_room_transition_load_system(
                     // handing over the memory without the definitions to act on
                     // it would delete the object from the world. They are one
                     // value for exactly that reason.
-                    construction_services.6.as_deref().map(|remembered| {
+                    selected_ledger.map(|remembered| {
                         ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
                             remembered,
                             world: &room_set.rooms,
-                            minted: construction_services.7.as_deref(),
+                            minted: selected_minted,
                         }
                     }),
                     forced_brains.as_deref(),

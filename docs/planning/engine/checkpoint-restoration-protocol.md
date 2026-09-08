@@ -432,9 +432,42 @@ This is a coherent behavior change, implemented in buildable subcommits:
    which set each reducer joined and fails if anything sits in
    `CheckpointRestore` outside the three steps — a fourth domain installing the
    old way is caught there rather than by a player losing an item.
-3. Pass selected continuity through loading, fresh preparation and prefetch
-   validation. No live-resource swaps during preparation. Integrate the same
-   selected input into eager and confirmed common commit execution.
+3. **LANDED 2026-09-08 (preparation half) — preparation reads the operation's
+   own population.** The session owns `AcceptedCheckpointRestore`: the accepted
+   operation, the room intent it was admitted for, and the occurrence/minted
+   inputs pinned when the slot said yes. It outlives its frame and is retired
+   when the slot gives up the intent. Room loading derives BOTH the prefetch
+   cache key and the fresh plan's `OccurrenceContinuity` from it, matched by
+   intent so a door recorded while a restore is outstanding is still prepared
+   from live state. Rollback-registered; wire format 168 -> 169.
+
+   ⛔⛔ **WHAT THIS REPLACED WAS A PHASE-ORDERING ACCIDENT, measured 2026-09-08.**
+   Preparation derived the destination outlook from the LIVE ledger. On a
+   checkpoint reset that was the right answer only because
+   `restore_occurrence_baseline` had overwritten the live ledger with the
+   checkpoint's earlier in the same frame: `CheckpointRestore` sits in
+   `PlayerInput`, room-transition readiness runs after `RoomTransitionSet::Detect`
+   in `RoomTransition`, and the phase order puts one before the other. The room
+   was prepared from a live resource swapped to the checkpoint value **in order
+   to be read** — the preparation shape this document forbids — and nothing
+   stated that ordering as a checkpoint requirement.
+
+   ⚠ **AND THE SWAP HAD BECOME THE ONLY WITNESS OF ITS OWN REDUCER.** With
+   `restore_occurrence_baseline`'s write disabled, **no test in the 595-test
+   `app_it` suite reddens.** Every observable consequence of that write ran
+   through room preparation, which no longer reads it. An attempt to add a
+   direct witness failed its own poison: `AuthoredOccurrences` is largely
+   RE-DERIVED from live state (`project_custody_onto_authored_occurrences`,
+   `record_placed_ground_items`), so after the rebuild it converges to the
+   banked value whether or not the reducer wrote it. ⇒ **The rows that need the
+   reducer are the ones the rebuilt world cannot republish** — `Consumed`, and
+   whereabouts in a room that is not the one being rebuilt. Subcommit 4 moves
+   this reducer to the commit boundary and owes a witness built on one of those
+   rows; a fixture whose poison passes is a finding about the fixture.
+
+   Still open in this subcommit: the same selected input is not yet integrated
+   into eager/confirmed commit execution, and custody/entitlement snapshots are
+   still applied from live baselines in the restore set.
 4. Move checkpoint replay consequences to that commit boundary, perform explicit
    flush/reconciliation/verification and publish the final baseline. Add failure
    cleanup for the temporary context and match outcomes to the original request.

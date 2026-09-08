@@ -300,7 +300,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// is same-frame TODAY and registered anyway: when application moves to the
 /// confirmed commit boundary its lifetime changes, and the registration must not
 /// be the thing anyone remembers to add.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 168;
+/// ⭐ 168 -> 169 (2026-09-08): `resource.accepted_checkpoint_restore` joined.
+/// A1c/3 gave the accepted checkpoint operation a lifetime longer than the frame
+/// that admitted it: room preparation reads the population it was accepted with,
+/// several frames later, instead of deriving one from the live ledger that the
+/// restore had overwritten in order to be read. A rewind that crossed the
+/// admission must take the selection back, or the load prepares a room from a
+/// population the resimulated timeline never chose.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 169;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

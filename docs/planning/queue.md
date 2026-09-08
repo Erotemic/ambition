@@ -72,14 +72,24 @@ the raw `ResetToCheckpoint` any more, a refused request changes no domain state,
 a refused request is remembered rather than lost, and a no-item checkpoint
 composition works.
 
-**Remaining:** subcommits 3-5. Pass a selected continuity through room loading,
-fresh preparation and prefetch validation — with no live-resource swap to prepare
-a candidate — and move domain application from the simulation restore set to the
-shared eager/confirmed commit boundary, with explicit flush, reconciliation,
-verification and final baseline. Pin typed immutable domain snapshots at
-admission when deferred application makes them load-bearing, and register the
-lifetime change. Then delete the startup routed/completed flags the operation
-state makes redundant.
+Subcommit 3's preparation half landed 2026-09-08: the accepted operation now
+outlives its frame, carries the occurrence/minted inputs pinned at admission, and
+room loading derives both the prefetch cache key and the fresh plan from it
+instead of from a live ledger the restore had swapped in order to be read.
+
+**Remaining:** integrate the same selected input into eager/confirmed commit
+execution, and move domain application from the simulation restore set to that
+boundary with explicit flush, reconciliation, verification and final baseline.
+Pin custody/entitlement snapshots when deferred application makes them
+load-bearing. Then delete the startup routed/completed flags the operation state
+makes redundant.
+
+⚠ **Subcommit 4 owes a witness the suite does not have.** Disabling
+`restore_occurrence_baseline`'s live write reddens nothing in `app_it` (595
+tests), because the ledger is re-derived from the world the rebuild produces. The
+rows that need the reducer are the ones a rebuilt room cannot republish —
+`Consumed`, and whereabouts in another room. Build the fixture on one of those;
+an earlier attempt passed its own poison.
 
 **Acceptance:** preparation/prefetch read the pinned snapshot rather than a
 modified live ledger; a checkpoint change invalidates a prefetched plan that

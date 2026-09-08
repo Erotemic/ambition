@@ -59,8 +59,6 @@ impl FeatureRenderedBundle {
     }
 }
 
-/// TODO(compat-remove): migrate callers to [`FeatureRenderedBundle`], then delete this alias.
-pub type FeatureBaseBundle = FeatureRenderedBundle;
 
 /// Bundle for enemy actor entities. `base` is the rendered feature bundle
 /// today; once headless feature spawning lands, swap it for
@@ -68,7 +66,7 @@ pub type FeatureBaseBundle = FeatureRenderedBundle;
 /// path. The behavior brain + cluster are still added separately.
 #[derive(Bundle)]
 pub struct EnemyActorBundle {
-    pub base: FeatureBaseBundle,
+    pub base: FeatureRenderedBundle,
     pub identity: ActorIdentity,
     pub disposition: ActorDisposition,
     /// Combat-side faction tag (`ActorFaction::Enemy` for encounter
@@ -111,7 +109,7 @@ impl EnemyActorBundle {
     /// (`spawn_actors.rs` ×4, `spawn_mounts.rs` ×2).
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        base: FeatureBaseBundle,
+        base: FeatureRenderedBundle,
         identity: ActorIdentity,
         disposition: ActorDisposition,
         faction: ActorFaction,

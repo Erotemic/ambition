@@ -91,7 +91,7 @@ fn realize_seat(
             session_scope,
             (
                 ambition_platformer2d_actor_spawn::actor_bundles::EnemyActorBundle::new(
-                    ambition_platformer2d_actor_spawn::actor_bundles::FeatureBaseBundle::new(
+                    ambition_platformer2d_actor_spawn::actor_bundles::FeatureRenderedBundle::new(
                         // THE SEAT, not the character. This passed
                         // `character_id`, so two fighters wearing one character
                         // WERE ONE FEATURE: `spawn_dynamic_feature_visuals`

@@ -140,7 +140,7 @@ fn spawn_victory_npc_entity(
             SmirkingBehemothVictoryNpc,
             PostBossNpc,
             EnemyActorBundle {
-                base: FeatureBaseBundle::new(
+                base: FeatureRenderedBundle::new(
                     CUT_ROPE_VICTORY_NPC_ID,
                     CUT_ROPE_VICTORY_NPC_NAME,
                     CenteredAabb::from_aabb(aabb),

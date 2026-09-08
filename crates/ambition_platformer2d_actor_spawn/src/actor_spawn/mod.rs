@@ -54,7 +54,7 @@ use ambition_combat::held_items::HeldItem;
 // ⛔ THE MODULE, NOT THE RE-EXPORT — third time today. `actor_bundles` is a
 // top-level module now; `features` still re-exports it, and importing through
 // that re-export would keep an edge to a module that no longer owns the types.
-use crate::actor_bundles::{EnemyActorBundle, FeatureBaseBundle};
+use crate::actor_bundles::{EnemyActorBundle, FeatureRenderedBundle};
 use ambition_platformer2d_core as ae;
 // The platformer-strict AABB semantics (edge-touching boxes do not overlap).
 use ae::AabbExt as _;
@@ -536,7 +536,7 @@ impl EnemyActorSpawnPlan {
                 (
                     Name::new(self.entity_name),
                     EnemyActorBundle::new(
-                        FeatureBaseBundle::new(
+                        FeatureRenderedBundle::new(
                             &self.feature_id,
                             &self.feature_name,
                             self.feature_aabb,
@@ -820,7 +820,7 @@ impl NpcActorSpawnPlan {
             (
                 Name::new(self.entity_name),
                 EnemyActorBundle::new(
-                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                    FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
                     identity,
                     disposition,
                     ambition_combat::components::ActorFaction::Npc,

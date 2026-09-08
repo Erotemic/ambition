@@ -64,28 +64,25 @@ impl Plugin for ItemPickupSimulationPlugin {
             )
                 .chain(),
         );
-        app.init_resource::<crate::shrine::CheckpointResumeProgress>();
         // ⭐ THE KERNEL'S OWN SYSTEMS ATTACH TO A STEP, they are not links of the
         // domain's chain. Each says where it runs in the domain's vocabulary,
         // which is what lets the domain leave this crate without these edges
         // leaving with it. The order they had in the old single chain is the
         // order these edges reproduce, and the guard pins it by shape.
+        // ⛔ THE OTHER HALF OF THE SHRINE IS NOT HERE ANY MORE, 2026-09-08 (A1b).
+        // `CheckpointResumeProgress` and `restore_checkpoint_on_session_start`
+        // were initialized and installed from this plugin, which made a
+        // composition's ability to resume its session depend on it having held
+        // items. They belong to `session::checkpoint`, and
+        // `SessionCheckpointHorizonPlugin` installs them — keeping this edge and
+        // this set, so the move changed no order.
         app.add_systems(
             sim,
-            (
-                // Held-items, the portal gun, the heal/save shrine, and localized
-                // gravity zones are LDtk-authored room entities. The shrine runs
-                // before any hand changes this tick.
-                crate::shrine::heal_save_shrine_system
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated),
-                // The other half of the shrine: resume at the checkpoint it
-                // recorded. Not gated on `gameplay_allowed` — it must land on the
-                // FIRST tick a constructed session has a body, and that tick can
-                // fall inside a room transition or a loading frame, which is
-                // exactly when gameplay is suspended.
-                crate::shrine::restore_checkpoint_on_session_start,
-            )
-                .chain()
+            // Held-items, the portal gun, the heal/save shrine, and localized
+            // gravity zones are LDtk-authored room entities. The shrine runs
+            // before any hand changes this tick.
+            crate::shrine::heal_save_shrine_system
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .in_set(ItemPickupSet::CoreHeldItems)
                 .before(HeldItemStep::Release),
         );
@@ -493,11 +490,23 @@ mod held_item_steps {
     }
 
     fn with_graph(f: impl FnOnce(&ScheduleGraph)) {
+        graph_of(false, f)
+    }
+
+    /// ⭐ THE ITEM DOMAIN ALONE, or the item domain PLUS the session's checkpoint
+    /// offer. The two fixtures exist because A1b moved the startup resume out of
+    /// this plugin: `false` is what an item-only composition installs, and `true`
+    /// is the full Ambition shape. Asserting only the second would hide the move;
+    /// asserting only the first would let the resume lose its edges unseen.
+    fn graph_of(with_session_checkpoint: bool, f: impl FnOnce(&ScheduleGraph)) {
         let mut app = App::new();
         app.add_plugins((
             ambition_held_items::HeldItemSimulationPlugin,
             super::ItemPickupSimulationPlugin,
         ));
+        if with_session_checkpoint {
+            app.add_plugins(crate::session::checkpoint::SessionCheckpointHorizonPlugin);
+        }
         let sim = app.sim_schedule();
         let schedules = app.world().resource::<Schedules>();
         f(schedules.get(sim).expect("the sim schedule exists").graph());
@@ -568,12 +577,17 @@ mod held_item_steps {
                 );
             }
             // The three attachments that were links of the old single chain:
-            // the shrine pair before Release, the gun between Use and Throw, the
+            // the shrine heal before Release, the gun between Use and Throw, the
             // match spawn between Throw and Settle.
+            //
+            // ⛔ ONE, NOT TWO, SINCE A1b. The second was the checkpoint resume,
+            // which this plugin installed and no longer does — see
+            // `the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from`
+            // for the half of that claim this fixture cannot see.
             assert_eq!(
                 attached_between(graph, None, Some(HeldItemStep::Release)),
-                2,
-                "the shrine pair runs before any hand changes"
+                1,
+                "the shrine heal runs before any hand changes"
             );
             assert_eq!(
                 attached_between(graph, Some(HeldItemStep::Use), Some(HeldItemStep::Throw)),
@@ -584,6 +598,29 @@ mod held_item_steps {
                 attached_between(graph, Some(HeldItemStep::Throw), Some(HeldItemStep::Settle)),
                 1,
                 "the match spawn drops before the physics that settles it"
+            );
+        });
+    }
+
+    /// ⛔⛔ **A CARVE DROPS THE SET MEMBERSHIP OF WHAT IT MOVES**, and nothing in
+    /// the moved file says which set it lost. A1b took the checkpoint resume out
+    /// of this plugin's chain; `SessionCheckpointHorizonPlugin` re-declares the
+    /// same membership and the same `before` edge, and this is what says so.
+    ///
+    /// ⚠ IT PINS THE INHERITED EDGES, NOT A DERIVED REQUIREMENT. Nothing has
+    /// established that a body placement belongs among held-item steps — see
+    /// A1c, which re-derives this ordering on the accepted-restore road. Until
+    /// then the contract is "the move changed no order", and that is exactly
+    /// what this measures.
+    #[test]
+    fn the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from() {
+        graph_of(true, |graph| {
+            assert_eq!(
+                attached_between(graph, None, Some(HeldItemStep::Release)),
+                2,
+                "the session's checkpoint resume no longer sits inside \
+                 CoreHeldItems before Release, where the item-pickup chain used \
+                 to put it — the carve moved the system and dropped its set"
             );
         });
     }

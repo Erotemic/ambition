@@ -5,22 +5,24 @@
 //! offer here means adding an item-domain baseline changes the item domain, not
 //! `ambition_platformer2d_runtime`.
 
-use bevy::prelude::{App, IntoScheduleConfigs, Plugin};
-
-use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore;
-use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use bevy::prelude::{App, Plugin};
 
 /// Typed actor-domain checkpoint contribution composed by the platformer host.
+///
+/// ⭐ TWO OFFERS, NAMED SEPARATELY. This used to install the session's reset
+/// resume inline beside the item plugin, which made "the actor domain
+/// contributes to the checkpoint horizon" one indivisible thing. It is two: a
+/// session lifecycle offer and an item-domain offer. A profile that wants
+/// checkpoints without held items adds
+/// [`SessionCheckpointHorizonPlugin`](crate::session::checkpoint::SessionCheckpointHorizonPlugin)
+/// alone; this wrapper is the full Ambition composition of both.
 pub struct ActorCheckpointHorizonPlugin;
 
 impl Plugin for ActorCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
-        let sim = app.sim_schedule();
-
-        app.add_plugins(crate::items::pickup::minted_horizon::ItemCheckpointHorizonPlugin)
-            .add_systems(
-                sim,
-                crate::shrine::resume_at_checkpoint_on_reset.in_set(CheckpointRestore),
-            );
+        app.add_plugins((
+            crate::session::checkpoint::SessionCheckpointHorizonPlugin,
+            crate::items::pickup::minted_horizon::ItemCheckpointHorizonPlugin,
+        ));
     }
 }

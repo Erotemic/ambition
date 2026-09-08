@@ -22,7 +22,7 @@
 //! records a lifecycle intent to re-enter the ACTIVE room, and the
 //! room-transition road prepares, authorizes, commits and rebases it — the same
 //! road a door takes, and the same road a checkpoint resume already takes
-//! (`crate::shrine::resume_at_checkpoint_on_reset`). So the retention rules are
+//! (`crate::session::checkpoint::resume_at_checkpoint_on_reset`). So the retention rules are
 //! not restated here either: a transition retires `RoomResident` (room scope,
 //! minus whatever is in somebody's hands) and prepares against what the world
 //! remembers, which is exactly what a replay wants.

@@ -17,7 +17,7 @@ scores. Proposed file/test/API names below are design targets, not existing code
 fresh source/behavior preflight for every packet
     |
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
-    |       -> A1b checkpoint restoration ownership
+    |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
     |           -> A1c selected checkpoint through common commit
     |               -> A7 item horizon/custody separation (after writer inventory)
     |
@@ -65,7 +65,7 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**Ready:** A1b is the next packet; A1a landed 2026-09-08.
+**Ready:** A1c is the next packet; A1a and A1b landed 2026-09-08.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;
@@ -86,11 +86,14 @@ restoration and room reconstruction sit on opposite sides of the admission. A1c
 therefore owes a live-entity assertion, not only ledger equality — see the
 protocol's measured table.
 
-**A1b:** move restoration state, systems, installers, tests and rollback references
-from shrine/item installation to session. Keep healing/capture policy in shrine,
-the pending slot in session and the current primary-avatar policy. Separate the
-item-domain offer so checkpoint-only composition needs neither held items nor a
-shrine. Keep wire keys stable for this move-only commit.
+**A1b — DONE 2026-09-08.** Restoration state, systems, installation, tests and
+the rollback registration moved from `shrine`/item-pickup to
+`session::checkpoint`; healing/capture stayed in `shrine`, the slot stayed in
+`session`, the wire key stayed the same. `ActorCheckpointHorizonPlugin` now
+composes a session offer and an item offer, and a checkpoint-only composition
+resumes with neither held items nor a shrine entity. The carved system's schedule
+edges are preserved verbatim and guarded from the item-pickup side; they are
+inherited, not derived — see the protocol.
 
 **A1c:** pin typed immutable checkpoint data on admission; feed that selection to
 fresh and prefetched room preparation; replace raw domain restore readers with

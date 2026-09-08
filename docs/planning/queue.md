@@ -21,8 +21,9 @@ review made no Rust execution claim; see the coverage receipt.
 lifecycle slot and threw the `Admission` away, so a refused crossing spent the
 session's one resume and stranded the player in the room the session opened in.
 Fixed by latching only on `Admission::admitted()`; guarded by
-`shrine::tests::a_refused_slot_leaves_the_checkpoint_resume_retryable` (poison
-verified) and the missing-subject arm beside it. F9's executed witness landed
+`a_refused_slot_leaves_the_checkpoint_resume_retryable` (poison verified) and the
+missing-subject arm beside it. A1b then moved the state, systems, installation
+and tests out of `shrine`/item-pickup into `session::checkpoint`. F9's executed witness landed
 with it: on a refused reset the entitlement ledger rolls back **and the object
 acquired after the checkpoint is destroyed outright**, because custody
 restoration and the room reconstruction that would re-author it fall on opposite

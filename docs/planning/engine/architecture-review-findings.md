@@ -19,18 +19,21 @@ was executed. The distinctions below are intentional:
 - **Contract limitation:** an existing guarantee is narrower than a plan suggests;
   this is not automatically a new runtime regression.
 
-## F1. Startup checkpoint routing spends its latch before admission
+## F1. Startup checkpoint routing spends its latch before admission — FIXED 2026-09-08
 
-**Owner:** session lifecycle, currently implemented in shrine and installed by
-item pickup. **Priority:** first focused correctness characterization in A1.
-**Confidence:** source-established latch/admission order; conditional lost-startup-
-resume behavior. No production reproduction has been run.
+**Owner:** session lifecycle, now implemented and installed by
+`crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs` (A1a
+repaired the latch, A1b moved the owner). The latch is written only when
+`Admission::admitted()`; guarded by
+`a_refused_slot_leaves_the_checkpoint_resume_retryable`, poison-verified.
+Retained here as the review's evidence at the baseline, not as open work.
 
-### Evidence
+### Evidence, at baseline `300004d601af1e633cfaee969f079cf9bb368ca8`
 
-`crates/ambition_platformer2d_actor_monolith/src/shrine.rs:317` assigns
+In `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`, line 317 assigned
 `progress.routed_for = Some(generation)` before the call at line 324 whose
-admission result is discarded. The preceding branch returns whenever that latch
+admission result was discarded. (Both line numbers describe the reviewed
+baseline; the code has since moved to `session::checkpoint`.) The preceding branch returns whenever that latch
 already matches the session. In
 `crates/ambition_platformer2d_actor_monolith/src/session/lifecycle_commit.rs`,
 `PendingLifecycleCommit::record` returns `AlreadyPending` without accepting the

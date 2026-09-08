@@ -242,7 +242,7 @@ BUILDS a world; there is no earlier occurrence of anything to have a disposition
 yet", which is true of a new game and false of a load. The save's facts are then
 adopted into that already-built world, and `complete_durable_restore` emits
 `ResetToCheckpoint`, which reaches the canonical plan indirectly:
-`shrine::resume_at_checkpoint_on_reset` records a room-transition intent, and
+`resume_at_checkpoint_on_reset` (now in `session::checkpoint`) records a room-transition intent, and
 THAT construction does state the continuity.
 
 **Measured 2026-08-30: the correction lands on the same FINAL population.** A

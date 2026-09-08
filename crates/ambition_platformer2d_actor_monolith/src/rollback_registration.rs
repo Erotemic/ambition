@@ -594,11 +594,14 @@ where
     // ⭐ PROBED BY WHICH GENERATION, not by presence. A restore that brought
     // back the wrong generation makes one timeline re-ask for a crossing the
     // other already spent, and a presence probe sees none of that.
-    registrar.rollback_resource_clone_checksum::<crate::shrine::CheckpointResumeProgress>(
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::CheckpointResumeProgress>(
         OWNER,
+        // ⭐ THE WIRE KEY IS UNCHANGED BY THE A1b MOVE. The type left `shrine`
+        // for `session::checkpoint`; the snapshot it appears in did not, and a
+        // renamed key would make a pure move look like a format change.
         "resource.checkpoint_resume_progress",
         "which session generation the resume has routed and placed",
-        crate::shrine::CheckpointResumeProgress::checksum,
+        crate::session::checkpoint::CheckpointResumeProgress::checksum,
     );
 
     // ⛔⛔ EVENT-CREATED AUTHORITATIVE STATE, AND THAT IS WHY IT WAS MISSING. The

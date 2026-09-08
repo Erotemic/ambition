@@ -295,7 +295,7 @@ asking the slot and discarded the returned `Admission`, so a refused crossing
 still spent the session's one resume and the player stayed in whichever room the
 session opened in. **Fixed by** latching the generation only when
 `Admission::admitted()`. **Guards:**
-`shrine::tests::a_refused_slot_leaves_the_checkpoint_resume_retryable` (poisoned
+`a_refused_slot_leaves_the_checkpoint_resume_retryable` (poisoned
 2026-09-08: forcing the latch unconditionally reddens it) and
 `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists`;
 once-only routing stays pinned by the existing
@@ -335,15 +335,44 @@ slot free and gets the object back, so the difference is the admission alone.
 ⇒ This is why an ordering edge cannot repair F9: the consumers need accepted
 operation data, not a differently ordered read of the same unaccepted request.
 
-### A1b: perform the ownership move without semantic changes
+### A1b: perform the ownership move without semantic changes — LANDED
 
-Move `CheckpointResumeProgress`, startup/reset restoration and their tests to
-proposed `src/session/checkpoint.rs` in the actor monolith. <!-- cite-ok: proposed module path -->
-Move initialization, installer exports, snapshot references and rollback
-registration with them. Remove startup installation from item pickup. Split the
-actor checkpoint wrapper into explicitly composed session and item offers; a
-checkpoint-only profile installs no held-item behavior. Keep existing wire keys
-for this move-only commit, without promising cross-build snapshot compatibility.
+`CheckpointResumeProgress`, `restore_checkpoint_on_session_start`,
+`resume_at_checkpoint_on_reset` and their tests now live in
+`crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs`, with the
+rollback registration following the type and its wire key
+(`resource.checkpoint_resume_progress`) unchanged.
+`ActorCheckpointHorizonPlugin` composes two named offers —
+`SessionCheckpointHorizonPlugin` and the existing item one — instead of
+installing the session's reset resume inline.
+
+**What was wrong:** `ItemPickupSimulationPlugin` initialized the resume state and
+installed the startup resume, so a composition's ability to return to its
+checkpoint depended on it having held items.
+`a_checkpoint_only_composition_resumes_without_the_item_domain` is the guard: it
+runs the real offer through the real sim schedule with no held-item plugin and no
+shrine entity.
+
+**Scheduling preserved verbatim, and the guard is explicit about it.** The resume
+kept `ItemPickupSet::CoreHeldItems`, `.after(heal_save_shrine_system)` and
+`.before(HeldItemStep::Release)`.
+`the_session_checkpoint_resume_keeps_the_edges_it_was_carved_from` composes both
+plugins and counts the attachments, because the item-only fixture beside it now
+correctly sees one. Poison-verified 2026-09-08: dropping the set membership
+reddens it.
+
+⚠ **THOSE EDGES ARE INHERITED, NOT DERIVED.** Nothing establishes that a body
+placement belongs among held-item steps; the resume's own doc says what it
+actually needs (the first tick a constructed session has a body, ungated by
+`gameplay_allowed`). `CoreHeldItems` is nested in `PlayerSimulation` by its
+owner, so dropping the membership would also move the phase. A1c re-derives the
+ordering as part of the accepted-restore road; until then the contract is "the
+move changed no order".
+
+**Channel ownership is unchanged and deliberate:** `ResetToCheckpoint` and
+`RoomReplayAdmitted` are registered by the host's `CheckpointHorizonPlugin`, not
+by a domain offer. A domain plugin that registered them would be a second owner
+of the channel.
 
 ### A1c: make the accepted restore the common commit input
 

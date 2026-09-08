@@ -93,3 +93,16 @@ def test_patch_rule_op_is_idempotent() -> None:
     assert first.messages
     assert not second.changed
     assert not second.messages
+
+
+def test_a_change_claim_cannot_rewrite_an_identical_project(tmp_path) -> None:
+    """Mutation bookkeeping cannot dirty a file when its JSON state did not move."""
+    path = tmp_path / "mini.ldtk"
+    write_json(path, mini_project())
+    before = path.read_bytes()
+
+    tx = LdtkTransaction(path, in_place=True)
+    tx.note_changed(["a conservative mutator claimed an update"])
+    assert tx.finish(noop_message="noop") is None
+    assert not tx.changed
+    assert path.read_bytes() == before

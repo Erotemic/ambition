@@ -232,3 +232,138 @@ def test_the_art_layer_arrives_with_its_tiles_already_in_it():
     assert baked[0]["px"] == [0, 16], "at the cell it came from"
     # cell (0,1) is the texture's BOTTOM-left quadrant, one atlas row down.
     assert baked[0]["src"] == [0, 16]
+
+
+def test_reapplying_auto_rules_reuses_every_generated_uid():
+    """Generated editor art is a projection, so a second projection is a no-op."""
+    import copy
+
+    art = editor_art.Placement("solid_tile", x=0, y=0, w=32, h=32)
+    collision = {
+        "identifier": "Collision",
+        "type": "IntGrid",
+        "uid": 10,
+        "gridSize": 16,
+        "intGridValues": [{"identifier": "Solid", "value": 1}],
+        "autoRuleGroups": [],
+        "tilesetDefUid": None,
+        "displayOpacity": 1.0,
+        "inactiveOpacity": 0.6,
+    }
+    level = {
+        "uid": 1,
+        "layerInstances": [
+            {
+                "layerDefUid": 10,
+                "__cWid": 2,
+                "__cHei": 2,
+                "intGridCsv": [1, 1, 1, 1],
+            }
+        ],
+    }
+    project = {
+        "nextUid": 100,
+        "defs": {
+            "layers": [collision],
+            "tilesets": [
+                {"uid": 7, "tileGridSize": 16, "__cWid": editor_art.ATLAS_COLS}
+            ],
+        },
+        "levels": [level],
+    }
+
+    editor_art.apply_auto_rules(
+        project, 7, {"Solid": "solid_tile"}, {"solid_tile": art}
+    )
+    after_first = copy.deepcopy(project)
+    next_uid = project["nextUid"]
+
+    editor_art.apply_auto_rules(
+        project, 7, {"Solid": "solid_tile"}, {"solid_tile": art}
+    )
+    assert project == after_first
+    assert project["nextUid"] == next_uid
+
+
+def test_editor_art_second_run_is_byte_identical_and_does_not_advance_next_uid(
+    tmp_path,
+):
+    """The Mary-O-style in-place command may write once, never once per regen."""
+    import json
+    from PIL import Image
+
+    sprites = tmp_path / "sprites"
+    entities = sprites / "entities"
+    entities.mkdir(parents=True)
+    for name in ["solid_tile", "solid_block"]:
+        Image.new("RGBA", (32, 32), (255, 255, 255, 255)).save(
+            entities / f"{name}.png"
+        )
+
+    world = tmp_path / "world.ldtk"
+    world.write_text(
+        json.dumps(
+            {
+                "nextUid": 100,
+                "defs": {
+                    "layers": [
+                        {
+                            "identifier": "Collision",
+                            "type": "IntGrid",
+                            "uid": 10,
+                            "gridSize": 16,
+                            "intGridValues": [{"identifier": "Solid", "value": 1}],
+                            "autoRuleGroups": [],
+                            "tilesetDefUid": None,
+                            "displayOpacity": 1.0,
+                            "inactiveOpacity": 0.6,
+                        }
+                    ],
+                    "entities": [],
+                    "tilesets": [],
+                    "enums": [],
+                },
+                "levels": [
+                    {
+                        "uid": 1,
+                        "layerInstances": [
+                            {
+                                "__identifier": "Collision",
+                                "__type": "IntGrid",
+                                "layerDefUid": 10,
+                                "__cWid": 2,
+                                "__cHei": 2,
+                                "__gridSize": 16,
+                                "intGridCsv": [1, 1, 1, 1],
+                                "gridTiles": [],
+                                "autoLayerTiles": [],
+                                "entityInstances": [],
+                            }
+                        ],
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+    assert editor_art.dress(
+        world,
+        sprites_dir=sprites,
+        atlas=sprites / "atlas.png",
+        in_place=True,
+        output=None,
+    ) == 0
+    first_bytes = world.read_bytes()
+    first_uid = json.loads(first_bytes)["nextUid"]
+
+    assert editor_art.dress(
+        world,
+        sprites_dir=sprites,
+        atlas=sprites / "atlas.png",
+        in_place=True,
+        output=None,
+    ) == 0
+    assert world.read_bytes() == first_bytes
+    assert json.loads(world.read_text())["nextUid"] == first_uid

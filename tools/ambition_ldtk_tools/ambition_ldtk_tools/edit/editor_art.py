@@ -420,6 +420,8 @@ def auto_rules_for_layer(
     intgrid_art: dict[str, str],
     by_key: dict[str, Placement],
     project: dict[str, Any],
+    *,
+    existing_rules: Iterable[dict[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     """One `Single` rule per cell of each value's texture.
 
@@ -428,6 +430,21 @@ def auto_rules_for_layer(
     the image in the right order. A 32×16 texture (one-way platforms, spikes)
     is two rules on X only; a 16×32 one (ladders) two on Y.
     """
+    def identity(rule: dict[str, Any]) -> tuple[Any, ...]:
+        pattern = rule.get("pattern") or []
+        return (
+            int(pattern[0]) if len(pattern) == 1 else None,
+            int(rule.get("xModulo", 1)),
+            int(rule.get("yModulo", 1)),
+            int(rule.get("xOffset", 0)),
+            int(rule.get("yOffset", 0)),
+        )
+
+    reusable_uids = {
+        identity(rule): int(rule["uid"])
+        for rule in existing_rules
+        if rule.get("uid") is not None
+    }
     rules: list[dict[str, Any]] = []
     for value in layer.get("intGridValues") or []:
         key = intgrid_art.get(str(value.get("identifier")))
@@ -436,40 +453,40 @@ def auto_rules_for_layer(
         placement = by_key[key]
         for row in range(placement.rows):
             for col in range(placement.cols):
-                rules.append(
-                    {
-                        "uid": alloc_uid(project),
-                        "active": True,
-                        "size": 1,
-                        "tileRectsIds": [[placement.tile_id(col, row)]],
-                        "alpha": 1.0,
-                        "chance": 1.0,
-                        "breakOnMatch": True,
-                        "pattern": [int(value.get("value"))],
-                        "flipX": False,
-                        "flipY": False,
-                        "xModulo": placement.cols,
-                        "yModulo": placement.rows,
-                        "xOffset": col,
-                        "yOffset": row,
-                        "tileXOffset": 0,
-                        "tileYOffset": 0,
-                        "tileRandomXMin": 0,
-                        "tileRandomXMax": 0,
-                        "tileRandomYMin": 0,
-                        "tileRandomYMax": 0,
-                        "checker": "None",
-                        "tileMode": "Single",
-                        "pivotX": 0.0,
-                        "pivotY": 0.0,
-                        "outOfBoundsValue": None,
-                        "perlinActive": False,
-                        "perlinSeed": 0,
-                        "perlinScale": 0.2,
-                        "perlinOctaves": 2,
-                        "invalidated": True,
-                    }
-                )
+                rule = {
+                    "active": True,
+                    "size": 1,
+                    "tileRectsIds": [[placement.tile_id(col, row)]],
+                    "alpha": 1.0,
+                    "chance": 1.0,
+                    "breakOnMatch": True,
+                    "pattern": [int(value.get("value"))],
+                    "flipX": False,
+                    "flipY": False,
+                    "xModulo": placement.cols,
+                    "yModulo": placement.rows,
+                    "xOffset": col,
+                    "yOffset": row,
+                    "tileXOffset": 0,
+                    "tileYOffset": 0,
+                    "tileRandomXMin": 0,
+                    "tileRandomXMax": 0,
+                    "tileRandomYMin": 0,
+                    "tileRandomYMax": 0,
+                    "checker": "None",
+                    "tileMode": "Single",
+                    "pivotX": 0.0,
+                    "pivotY": 0.0,
+                    "outOfBoundsValue": None,
+                    "perlinActive": False,
+                    "perlinSeed": 0,
+                    "perlinScale": 0.2,
+                    "perlinOctaves": 2,
+                    "invalidated": True,
+                }
+                reusable = reusable_uids.get(identity(rule))
+                rule["uid"] = alloc_uid(project) if reusable is None else reusable
+                rules.append(rule)
     return rules
 
 
@@ -716,7 +733,23 @@ def apply_auto_rules(
     for source in list(layers):
         if source.get("type") != "IntGrid":
             continue
-        rules = auto_rules_for_layer(source, intgrid_art, by_key, project)
+        identifier = art_layer_identifier(source)
+        existing = next((l for l in layers if l.get("identifier") == identifier), None)
+        existing_group = next(
+            (
+                group
+                for group in (existing or {}).get("autoRuleGroups") or []
+                if group.get("name") == RULE_GROUP_NAME
+            ),
+            None,
+        )
+        rules = auto_rules_for_layer(
+            source,
+            intgrid_art,
+            by_key,
+            project,
+            existing_rules=(existing_group or {}).get("rules") or [],
+        )
         # Undo the first shape of this tool wherever it still exists: rules and
         # a tileset on the IntGrid layer itself, which is what hid the cells.
         source["autoRuleGroups"] = [
@@ -726,8 +759,6 @@ def apply_auto_rules(
         ]
         if source.get("tilesetDefUid") == tileset_uid:
             source["tilesetDefUid"] = None
-        identifier = art_layer_identifier(source)
-        existing = next((l for l in layers if l.get("identifier") == identifier), None)
         if not rules:
             if existing is not None:
                 layers.remove(existing)
@@ -752,7 +783,11 @@ def apply_auto_rules(
             if group.get("name") != RULE_GROUP_NAME
         ] + [
             {
-                "uid": alloc_uid(project),
+                "uid": (
+                    int(existing_group["uid"])
+                    if existing_group is not None and existing_group.get("uid") is not None
+                    else alloc_uid(project)
+                ),
                 "name": RULE_GROUP_NAME,
                 "color": None,
                 "icon": None,
@@ -1034,7 +1069,10 @@ def dress(
     for message in messages:
         print(f"  {message}")
     transaction.note_changed()
-    transaction.finish(write_message="wrote {path}")
+    transaction.finish(
+        noop_message=f"{ldtk.name}: unchanged",
+        write_message="wrote {path}",
+    )
     return 0
 
 

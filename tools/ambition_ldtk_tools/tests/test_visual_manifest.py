@@ -155,3 +155,36 @@ def test_preview_manifest_html_lists_icons(tmp_path: Path) -> None:
     html = preview_manifest_html(ldtk, manifest)
     assert "CameraZone" in html
     assert "EditorIcons" in html
+
+
+def test_reapplying_a_manifest_does_not_spend_uids(tmp_path: Path) -> None:
+    """An existing tileset is an update, not a newly allocated LDtk object."""
+    sheet = tmp_path / "hero.png"
+    write_png(sheet, 64, 64, bytes(64 * 64 * 4))
+    project = mini_project()
+    ldtk = tmp_path / "world.ldtk"
+    ldtk.write_text(json.dumps(project))
+    manifest = {
+        "tilesets": [
+            {
+                "identifier": "sprite_hero",
+                "path": str(sheet),
+                "tile_width": 32,
+                "tile_height": 32,
+                "tags": ["sprite"],
+            }
+        ],
+        "entity_icons": {
+            "PlayerStart": {"tileset": "sprite_hero", "tile": [0, 0, 32, 32]}
+        },
+    }
+
+    first = apply_manifest(project, ldtk, manifest)
+    assert first
+    after_first = json.loads(json.dumps(project))
+    next_uid = project["nextUid"]
+
+    second = apply_manifest(project, ldtk, manifest)
+    assert second == []
+    assert project == after_first
+    assert project["nextUid"] == next_uid

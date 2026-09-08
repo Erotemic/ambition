@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,12 +28,14 @@ class LdtkTransaction:
     output: Path | None = None
     backup: bool = False
     project: dict[str, Any] = field(init=False)
+    _original_project: dict[str, Any] = field(init=False, repr=False)
     changed: bool = field(default=False, init=False)
     messages: list[str] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
         self.source = Path(self.source)
         self.project = load_project(self.source)
+        self._original_project = copy.deepcopy(self.project)
 
     @property
     def target(self) -> Path | None:
@@ -57,6 +60,10 @@ class LdtkTransaction:
 
     def write_if_changed(self) -> Path | None:
         self.require_write_target()
+        # A mutator may conservatively call `note_changed()` after assigning
+        # desired values that were already present. Trust the project diff, not
+        # the mutator's bookkeeping, before touching an authored `.ldtk` file.
+        self.changed = self.project != self._original_project
         if self.dry_run or not self.changed:
             return None
         target = self.target

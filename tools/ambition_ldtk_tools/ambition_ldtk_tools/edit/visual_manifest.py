@@ -186,7 +186,9 @@ def find_entity_def(project: dict, identifier: str) -> dict | None:
     return None
 
 
-def build_tileset(project: dict, ldtk: Path, spec: dict[str, Any]) -> dict:
+def build_tileset(
+    project: dict, ldtk: Path, spec: dict[str, Any], *, uid: int | None = None
+) -> dict:
     ident = str(spec.get("identifier") or spec.get("id") or Path(str(spec.get("path", "tileset"))).stem)
     path_raw = spec.get("path") or spec.get("image") or spec.get("png")
     if not path_raw:
@@ -223,7 +225,7 @@ def build_tileset(project: dict, ldtk: Path, spec: dict[str, Any]) -> dict:
         "tags": list(spec.get("tags") or []),
         "tagsSourceEnumUid": None,
         "tileGridSize": grid,
-        "uid": alloc_uid(project),
+        "uid": alloc_uid(project) if uid is None else int(uid),
     }
 
 
@@ -232,14 +234,26 @@ def upsert_tilesets(project: dict, ldtk: Path, manifest: dict[str, Any]) -> list
     for spec in normalize_manifest(manifest)["tilesets"]:
         if not spec:
             continue
-        built = build_tileset(project, ldtk, spec)
-        existing = find_tileset(project, str(built["identifier"]))
-        if existing:
-            uid = existing.get("uid")
-            existing.clear()
-            existing.update(built)
-            existing["uid"] = uid
-            messages.append(f"updated tileset {built['identifier']} uid={uid}")
+        ident = str(
+            spec.get("identifier")
+            or spec.get("id")
+            or Path(str(spec.get("path", "tileset"))).stem
+        )
+        existing = find_tileset(project, ident)
+        # Existing defs keep their UID. Allocating before this lookup leaked one
+        # `nextUid` on every sprite regeneration even when no LDtk object was
+        # created.
+        built = build_tileset(
+            project,
+            ldtk,
+            spec,
+            uid=int(existing["uid"]) if existing is not None else None,
+        )
+        if existing is not None:
+            if existing != built:
+                existing.clear()
+                existing.update(built)
+                messages.append(f"updated tileset {built['identifier']} uid={built['uid']}")
         else:
             tileset_defs(project).append(built)
             messages.append(f"added tileset {built['identifier']} uid={built['uid']}")
@@ -283,12 +297,16 @@ def apply_entity_icons(project: dict, manifest: dict[str, Any]) -> list[str]:
             raise SystemExit(f"entity {entity_id}: missing tile/rect/index")
         x, y, w, h = rect_from_value(tile_value)
         rect = {"tilesetUid": int(ts["uid"]), "x": x, "y": y, "w": w, "h": h}
-        ent["tilesetId"] = int(ts["uid"])
-        ent["renderMode"] = "Tile"
-        ent["tileRenderMode"] = str(spec.get("tile_render_mode") or "Cover")
-        ent["tileRect"] = dict(rect)
-        ent["uiTileRect"] = dict(rect)
-        messages.append(f"linked {entity_id} -> {tileset_id}[{x},{y},{w},{h}]")
+        desired = {
+            "tilesetId": int(ts["uid"]),
+            "renderMode": "Tile",
+            "tileRenderMode": str(spec.get("tile_render_mode") or "Cover"),
+            "tileRect": dict(rect),
+            "uiTileRect": dict(rect),
+        }
+        if any(ent.get(key) != value for key, value in desired.items()):
+            ent.update(desired)
+            messages.append(f"linked {entity_id} -> {tileset_id}[{x},{y},{w},{h}]")
     return messages
 
 
@@ -650,7 +668,7 @@ def main(argv=None) -> int:
         out = tx.write_if_changed()
         for msg in msgs:
             print(msg)
-        print(f"wrote {out}")
+        print(f"wrote {out}" if out is not None else f"{args.ldtk.name}: unchanged")
         return 0
 
     if args.action == "preview-manifest":

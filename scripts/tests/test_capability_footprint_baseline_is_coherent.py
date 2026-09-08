@@ -87,25 +87,44 @@ def test_the_closure_names_real_crates(baseline):
 
 
 def test_the_composition_doc_quotes_the_baselines_real_count(baseline):
-    """⛔ A NUMBER IN PROSE GOES STALE WITH EVERY CARVE, and this one did twice
-    in a day: `engine/capability-and-runtime-composition.md` said "All 19 that a
+    """⛔ A NUMBER IN PROSE GOES STALE WITH EVERY CARVE, and this one did three
+    times: `engine/capability-and-runtime-composition.md` said "All 19 that a
     movement-only game never asked for arrive through the monolith alone" while
-    the baseline read 21, then 23.
+    the baseline read 21, then 23 -- and then the 2026-09-08 replan DELETED that
+    sentence, which left this guard asserting the presence of prose the document
+    no longer owed anyone.
+
+    ⭐ SO IT FOLLOWS THE DOCUMENT'S CURRENT AUTHORITATIVE FIGURE instead of
+    resurrecting the old one. The fresh-measurements table now states the
+    closure as "N other workspace packages reachable" from the facade, and that
+    is the number a reader quotes. A guard that pins a sentence rather than a
+    CLAIM goes red for an edit and silent for a carve, which is backwards.
 
     ⚠ This test WILL go red on the carve that moves the number, and that is the
     point -- the same trade as the coverage footer's gated-test count. The
-    EQUALITY of the two lists is the doc's real claim and is guarded above; this
-    guards the figure a reader will quote.
+    EQUALITY of the sub-lists is the doc's other claim and is guarded above.
     """
     doc = (REPO / "docs/planning/engine/capability-and-runtime-composition.md").read_text()
-    stated = re.search(
-        r"\*\*All (\d+) that a movement-only game never asked for", doc
+    stated = re.search(r"(\d+) other workspace packages reachable", doc)
+    assert stated, (
+        "the composition doc no longer states the closure it measured. If the "
+        "figure moved to a different sentence, repoint this guard at it; if the "
+        "document stopped making the claim, delete this test rather than "
+        "leaving it asserting prose nobody owes."
     )
-    assert stated, "the composition doc no longer states that count"
-    assert int(stated.group(1)) == len(baseline["never_asked_for"]), (
-        f"the doc says All {stated.group(1)}; the baseline's never_asked_for has "
-        f"{len(baseline['never_asked_for'])}. Re-quote the doc in the carve's "
-        "own commit."
+    # "OTHER" is measured from the facade, so the sentinel's own package is not
+    # in it while `ambition_closure` does list it. Asserted rather than assumed:
+    # a baseline that stopped recording the facade would make the -1 silently
+    # wrong in the direction that PASSES.
+    assert "ambition_platformer2d" in baseline["ambition_closure"], (
+        "the closure no longer lists the facade itself, so 'other packages' and "
+        "`len(ambition_closure) - 1` are no longer the same question"
+    )
+    others = len(baseline["ambition_closure"]) - 1
+    assert int(stated.group(1)) == others, (
+        f"the doc says {stated.group(1)} other workspace packages reachable; the "
+        f"baseline's closure has {others} besides the facade. Re-quote the doc "
+        "in the carve's own commit."
     )
 
 

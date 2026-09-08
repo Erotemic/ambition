@@ -97,6 +97,18 @@ Find definitions/callers rather than copying return signatures into a permanent
 inventory. Source paths and the named snapshot are the receipt; old counts and
 pilot history remain in Git.
 
+⛔ **AND THE DERIVATION SCRIPT WENT WITH THE COLUMN, 2026-09-08.**
+`scripts/registry_register_returns.py` and its test existed because an earlier
+version of the table above carried a hand-typed *verdict* column that had gone
+stale in three of three rows re-read; the script derived that column from
+`register`'s actual signature so the copy could not rot. Deleting the column is
+the stronger form of the same fix — there is no copy left to police — so the
+script was retired rather than taught the new table shape, which would have
+rebuilt the inventory this section declines. Read it back with
+`git show 542481fae:scripts/registry_register_returns.py` if a future ruling
+wants the derivation; do not resurrect it as a standing check without a consumer
+for its output.
+
 ## Measurement and expansion rule
 
 ```bash

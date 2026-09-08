@@ -397,6 +397,23 @@ This is a coherent behavior change, implemented in buildable subcommits:
    deferred application that makes "capture changes while load waits" a
    reachable case, and that is the subcommit that owes the pinning test.
 
+   ⛔⛔ **AND IT DOES NOT GO IN THE SHARED TOKEN.**
+   `shared_tangle::AdmittedCheckpointRestore` is an authorization view: which
+   operation, and whose. The pinned snapshots belong to the session's own
+   accepted-operation state, because the session coordinator owns their
+   consistency boundary and may name item and occurrence types `shared_tangle`
+   must never depend on. Putting them in the shared token would make it the
+   checkpoint coordinator under a vocabulary type's name, and every domain would
+   then read the coordinator instead of its own owner's value. Guarded by
+   `the_admitted_restore_carries_only_which_operation_and_whose`, whose
+   exhaustive destructure stops compiling the moment a field is added.
+
+   The token IS registered rollback state (`resource.admitted_checkpoint_restore`,
+   schema v168) even though it is same-frame today: its lifetime changes in 3-5,
+   and the registration must not be what someone has to remember.
+   `the_admitted_restore_does_not_yet_outlive_its_own_frame` records the current
+   shape so that change is visible rather than assumed.
+
    Still open in this subcommit: the coarse startup routed/completed flags
    (`CheckpointResumeProgress`) are untouched, and the same-room startup
    placement is still its own road.

@@ -98,10 +98,19 @@ pub enum CheckpointRestoreStep {
 ///
 /// ⚠ IT DOES NOT OUTLIVE ITS FRAME, TODAY: [`CheckpointRestoreStep`] admits,
 /// applies and retires inside one run of the restore set, and
-/// `the_admitted_restore_never_survives_its_own_frame` says so. It is
-/// nonetheless rollback state, because the day application moves to the
-/// confirmed commit boundary that lifetime changes and the registration must
+/// `the_admitted_restore_does_not_yet_outlive_its_own_frame` says so. It is
+/// registered rollback state regardless, because that lifetime changes when
+/// application moves to the confirmed commit boundary and the registration must
 /// not be the thing anyone remembers to add.
+///
+/// ⛔⛔ IT IS AN AUTHORIZATION VIEW AND MUST STAY ONE. What belongs here is the
+/// smallest thing every domain needs in order to know it has been asked: WHICH
+/// operation, and WHOSE. The pinned checkpoint snapshots the deferred commit
+/// will need are the SESSION's — its coordinator owns their consistency
+/// boundary, and it can name item and occurrence types this crate must never
+/// depend on. A shared token that grew a snapshot aggregate would be the
+/// checkpoint coordinator wearing a vocabulary type's name, and every domain
+/// would then read the coordinator instead of its own owner's value.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct AdmittedCheckpointRestore(Option<AdmittedRestore>);
 
@@ -235,9 +244,31 @@ where
 mod participant_tests {
     use bevy::prelude::App;
 
-    use super::{
-        CustodyBaseline, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline,
-    };
+    use super::{CustodyBaseline, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline};
+
+    /// ⛔⛔ **THE SHARED TOKEN STAYS AN AUTHORIZATION VIEW.** The exhaustive
+    /// destructure is the guard: a field added to [`AdmittedRestore`] stops this
+    /// compiling, which is the moment to ask whether the new value belongs to
+    /// every domain that reads the token — or to the SESSION coordinator, which
+    /// owns the checkpoint's consistency boundary and may name item and
+    /// occurrence types this crate must never depend on.
+    ///
+    /// ⚠ The pressure is real and specific: A1c/3-5 needs pinned domain
+    /// snapshots for a longer-lived operation, and the obvious place to reach
+    /// for is "the value the domains already read". That is how a shared
+    /// vocabulary type becomes the coordinator under another name, and how every
+    /// domain ends up reading the coordinator instead of its own owner's value.
+    /// The snapshots go in the session's own accepted-operation state.
+    #[test]
+    fn the_admitted_restore_carries_only_which_operation_and_whose() {
+        let restore = super::AdmittedRestore {
+            frame: 7,
+            subject: crate::sim_id::SimId::player_slot(0),
+        };
+        let super::AdmittedRestore { frame, subject } = &restore;
+        assert_eq!(*frame, 7);
+        assert_eq!(subject, &crate::sim_id::SimId::player_slot(0));
+    }
 
     #[test]
     fn lifecycle_checkpoint_offer_installs_its_baselines() {

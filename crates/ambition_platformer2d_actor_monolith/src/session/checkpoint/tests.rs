@@ -720,12 +720,21 @@ fn every_checkpoint_restore_system_is_inside_one_ordered_step() {
     );
 }
 
-/// ⚠ **THE ADMITTED TOKEN NEVER SURVIVES ITS OWN FRAME**, which is the whole
-/// reason it is not rollback state. A rewind cannot catch a value that is empty
-/// at every frame boundary; the day application moves to the confirmed commit
-/// boundary this stops being true, and this test is what says so out loud.
+/// ⚠ **TODAY THE ADMITTED TOKEN DOES NOT SURVIVE ITS OWN FRAME**, and this test
+/// exists to make that a stated fact rather than an assumption.
+///
+/// ⛔ IT IS NOT AN ARGUMENT ABOUT ROLLBACK. The token IS registered rollback
+/// state (`resource.admitted_checkpoint_restore`, schema v168): its lifetime is
+/// about to change under it in A1c/3-5, when application moves to the confirmed
+/// commit boundary and one admitted operation spans preparation, commit and
+/// verification. Registering after that lifetime arrives would be relying on
+/// somebody remembering; registering before it costs one clone of an `Option`.
+///
+/// ⇒ WHAT THIS PINS is the CURRENT execution shape — `Admit -> Apply -> Retire`
+/// inside one run of the restore set — so the day it stops holding, the change
+/// is visible here instead of being discovered as a stale authorization.
 #[test]
-fn the_admitted_restore_never_survives_its_own_frame() {
+fn the_admitted_restore_does_not_yet_outlive_its_own_frame() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         insert_session_world_component, ActiveSessionScope, AdmittedCheckpointRestore,
         LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
@@ -784,8 +793,9 @@ fn the_admitted_restore_never_survives_its_own_frame() {
     assert_eq!(
         *app.world().resource::<AdmittedCheckpointRestore>(),
         AdmittedCheckpointRestore::default(),
-        "the admitted restore outlived the frame that admitted it. It is not \
-         rollback state, so a rewind across this boundary would leave one \
-         timeline holding an authorization the other never issued"
+        "the admitted restore outlived the frame that admitted it. That is \
+         A1c/3-5's intended change, not a bug — but it is a CHANGE: update this \
+         test to describe the new lifetime, and check that every reader of the \
+         token still expects a value that spans preparation and commit"
     );
 }

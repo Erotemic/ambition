@@ -508,9 +508,23 @@ This is a coherent behavior change, implemented in buildable subcommits:
      the witness, and the entitlement bag is the subject precisely because no
      room rebuild can put a stored quantity back. Poison-verified.
 
-   Still open: explicit post-apply verification and a terminal outcome matched to
-   the original request. The flush is in the shared entry point; the
-   reconciliation and publication half of this subcommit is not.
+   ⭐ **AND THE OPERATION HAS AN IDENTITY, 2026-09-08.** `CheckpointOperationKey`
+   is the session's ownership stamp plus a sequence that advances ONLY on
+   admission, minted by `SessionCheckpointOperations`. It replaces intent
+   equality everywhere after the transaction opens: two crossings to one room
+   with one subject and one arrival compare EQUAL, so a transaction opened for
+   one operation could be served another's pinned population, and a frame number
+   cannot separate them either because a room rebase restarts the rollback
+   timeline at zero. The room-transition transaction carries the key from the
+   moment it opens; both commit executors apply BY KEY. The counter is rollback
+   state (a resimulated admission must mint the same key), is not reset at a
+   rebase, and refuses overflow rather than recycling a live identifier.
+
+   Still open: explicit post-apply verification, one terminal outcome per
+   operation, and folding startup completion into that mechanism so
+   `CheckpointResumeProgress::{routed_for, applied_for}` can disappear rather
+   than being replaced by another pair of booleans. The flush is in the shared
+   entry point; the reconciliation and publication half is not.
 5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
    installer aliases and unused progress paths. Refresh the graph as a diagnostic.
 

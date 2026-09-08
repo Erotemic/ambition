@@ -604,6 +604,17 @@ where
     // slot says yes and read by room preparation several frames later — so a
     // rewind that crossed the admission must take it back, or the load prepares
     // a room from a population the resimulated timeline never selected.
+    // ⛔⛔ THE OPERATION COUNTER REWINDS WITH THE WORLD, and it must not be reset
+    // at a room rebase. A rewound timeline that re-admits gets the SAME key for
+    // the same admission, which is what makes a host-side load that names a key
+    // still correct after a resimulation; a counter that drifted between
+    // timelines would authorize a load for an operation the other never made.
+    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionCheckpointOperations>(
+        OWNER,
+        "resource.session_checkpoint_operations",
+        "how many checkpoint restores this session has admitted",
+        crate::session::checkpoint::SessionCheckpointOperations::checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
         OWNER,
         "resource.accepted_checkpoint_restore",

@@ -255,6 +255,10 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
+    mut operations: ResMut<SessionCheckpointOperations>,
+    // WHOSE operation. Absent only in an explicit standalone profile, which has
+    // one declared lifetime and cannot retain operations across destruction.
+    scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     // The pinned inputs, read ONCE on acceptance. `Option` because a composition
     // can install the session offer without the lifecycle or item ones.
     baselines: (
@@ -338,8 +342,20 @@ pub fn resume_at_checkpoint_on_reset(
     // from and applied from are chosen at the moment the slot says yes, so a
     // later capture, a later pickup or a later ledger write cannot retarget an
     // operation already in flight.
+    let Some(key) = operations.admit(scope.and_then(|scope| scope.current())) else {
+        // ⛔ REFUSED, NOT RECYCLED, and the request stays outstanding rather than
+        // being silently dropped: a session that cannot name its next operation
+        // cannot restore, and that is a stuck session somebody must see.
+        bevy::log::error!(
+            target: "ambition_platformer2d::session",
+            "the checkpoint operation sequence is exhausted; this session can \
+             admit no further restores",
+        );
+        return;
+    };
     let (occurrences, custody, minted, owned) = baselines;
     accepted.accept(AcceptedRestore {
+        key,
         frame,
         intent,
         occurrences: occurrences.map(|b| b.clone()).unwrap_or_default(),
@@ -362,42 +378,118 @@ pub fn resume_at_checkpoint_on_reset(
     );
 }
 
-/// The accepted restore, pinned at admission and OUTLIVING ITS FRAME.
+/// The accepted restore: one operation, and every input it was accepted with.
 ///
-/// ⛔⛔ **THIS IS THE HALF THE SHARED TOKEN MUST NOT BECOME.**
-/// `AdmittedCheckpointRestore` is a one-frame authorization every domain reads:
-/// which operation, and whose. This is the SESSION's own accepted-operation
-/// state — the pinned inputs that operation was accepted with — and it is here
-/// because the session coordinator owns their consistency boundary and may name
-/// item types `shared_tangle` must never depend on.
+/// ⭐ THE SESSION OWNS IT because the session coordinator owns these values'
+/// consistency boundary, and because it may name item types `shared_tangle` must
+/// never depend on. It is written only on admission, read by room preparation
+/// and by the commit executors, and retired when the lifecycle slot gives up the
+/// intent.
 ///
-/// ⭐ WHY IT HAS TO OUTLIVE THE FRAME, measured 2026-09-08. Room preparation
-/// derives the destination's occurrence outlook from the LIVE ledger, and uses
-/// it both to validate a prefetched plan and to lower a fresh one. On a
-/// checkpoint reset that ledger is only the right answer because
+/// ⭐ WHY IT OUTLIVES ITS FRAME, measured 2026-09-08. Room preparation derives
+/// the destination's occurrence outlook from a ledger, and uses it both to
+/// validate a prefetched plan and to lower a fresh one. Reading the LIVE ledger
+/// was only the right answer for a checkpoint reset because
 /// `restore_occurrence_baseline` overwrote it earlier in the SAME FRAME —
-/// `CheckpointRestore` sits in `PlayerInput`, room-transition readiness runs
+/// `CheckpointRestore` sat in `PlayerInput`, room-transition readiness runs
 /// after `RoomTransitionSet::Detect` in `RoomTransition`, and the phase order
-/// puts one before the other. So the room was prepared from a live resource
+/// put one before the other. So the room was prepared from a live resource
 /// swapped to the checkpoint value in order to be read, which is exactly the
 /// preparation shape the protocol forbids, and its correctness rested on a
-/// phase-ordering accident nothing states as a checkpoint requirement.
+/// phase-ordering accident nothing stated as a checkpoint requirement.
 ///
-/// ⇒ Preparation reads THIS instead. The pinned population is the operation's
-/// own, whatever the live ledger says by the time the load runs.
+/// ⇒ Preparation and application both read THIS. The pinned values are the
+/// operation's own, whatever the live baselines say by the time the load runs
+/// and the commit lands.
 ///
-/// ⚠ IT PINS WHAT PREPARATION CONSUMES, and nothing else. Custody and
-/// entitlement snapshots are not here because their reducers still run in the
-/// restore set against live baselines in the same frame they are admitted —
-/// pinning a value no one reads differently is the shape that produced four
-/// dead `LifecycleIntent` variants. They join when application moves to the
-/// commit boundary and the difference becomes observable.
+/// ⛔ IT IS NOT AN AUTHORIZATION TOKEN, and there is deliberately no longer one.
+/// A1c/1-2 published a one-frame `AdmittedCheckpointRestore` that every domain
+/// reducer had to remember to consult; A1c/3b deleted it, because the reducers
+/// now live in `CheckpointDomainApply` and only a commit executor runs that.
+/// Holding these values does not permit a restore — being invoked by the commit
+/// does. This is the operation's DATA.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
 pub struct AcceptedCheckpointRestore(Option<AcceptedRestore>);
+
+/// Which restore operation this is.
+///
+/// ⛔⛔ **A FRAME NUMBER IS NOT AN IDENTITY, AND NEITHER IS AN INTENT.** The
+/// accepted value was matched by `LifecycleIntent` equality, and two crossings
+/// to one room with one subject and one arrival compare EQUAL — so a later,
+/// unrelated transition could be served the earlier operation's pinned
+/// population. A frame does not fix it either: a room rebase restarts the
+/// rollback timeline at zero, so frame 12 happens repeatedly within one session.
+///
+/// ⭐ SO IT IS THE SESSION'S OWNERSHIP STAMP PLUS A SEQUENCE THAT ADVANCES ONLY
+/// ON ADMISSION. The scope makes it unique across teardown and re-entry — an old
+/// operation cannot act in a new session even if its integer matches — and the
+/// sequence makes repeated identical intents distinguishable within one session.
+///
+/// ⚠ NOT THE HOST'S LOAD SEQUENCE, which counts room-transition transactions and
+/// is a different identity with a different lifetime. Two crossings can share
+/// neither, one, or both, and conflating them would let a load authorize a
+/// restore it has nothing to do with.
+///
+/// ⛔ IT DOES NOT RESET AT A ROOM REBASE. Recycling a live identifier is how a
+/// stale load becomes authorized merely because its integer matches; overflow is
+/// refused instead — see [`SessionCheckpointOperations::admit`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CheckpointOperationKey {
+    /// The session that owns the operation. `None` only in an explicit
+    /// standalone profile with no `ActiveSessionScope`, which has one declared
+    /// lifetime and cannot retain operations across destruction.
+    ///
+    /// ⛔ AN ABSENT SCOPE IS NOT A WILDCARD. Two keys with `None` match only each
+    /// other, never a scoped one.
+    pub scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    /// Advances only when the lifecycle slot ADMITS a restore.
+    pub sequence: u64,
+}
+
+/// The session's admitted-operation counter.
+///
+/// ⭐ SEPARATE FROM THE ACCEPTED VALUE because it must survive the accepted
+/// value's retirement: the next operation's key has to differ from the last
+/// one's, and the last one is gone by then.
+#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SessionCheckpointOperations {
+    next_sequence: u64,
+}
+
+impl SessionCheckpointOperations {
+    /// Mint the key for an operation the slot has just admitted.
+    ///
+    /// ⛔ CALLED ONLY ON ADMISSION. Incrementing on a request would make the
+    /// counter a count of asks, and two peers that refused different numbers of
+    /// requests would disagree about the identity of the same operation.
+    ///
+    /// ⚠ OVERFLOW IS REFUSED, NOT RECYCLED. `None` means this session can admit
+    /// no further restores, which is a stuck session and visible; reusing a live
+    /// identifier is a stale load quietly authorized because its integer matched.
+    /// At one admission per frame at 60 Hz a `u64` lasts about ten billion years.
+    pub fn admit(
+        &mut self,
+        scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) -> Option<CheckpointOperationKey> {
+        let sequence = self.next_sequence;
+        self.next_sequence = self.next_sequence.checked_add(1)?;
+        Some(CheckpointOperationKey { scope, sequence })
+    }
+
+    /// ⭐ THE VALUE, not its presence. A rewind that brought back a different
+    /// count would mint a key another timeline had already spent.
+    pub fn checksum(&self) -> u64 {
+        self.next_sequence ^ 0x51ed_2701_a37f_9b13
+    }
+}
 
 /// One accepted restore and the reconstruction inputs it was accepted with.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AcceptedRestore {
+    /// WHICH operation this is. Every later stage names it: the commit that
+    /// applies it, the verification that checks it, and the one terminal outcome
+    /// published for it.
+    pub key: CheckpointOperationKey,
     /// The sim frame the admission happened on.
     pub frame: i32,
     /// The room intent this operation was admitted for.
@@ -428,18 +520,32 @@ impl AcceptedCheckpointRestore {
         self.0.as_ref()
     }
 
-    /// The pinned reconstruction inputs, but only for `intent`.
+    /// The pinned inputs, but only for `intent`.
     ///
     /// ⛔ MATCHED, NOT MERELY PRESENT. A door crossing recorded while a
     /// checkpoint restore is outstanding must be prepared from LIVE state; a
     /// preparation that took the pinned population for any transition would
     /// rebuild the wrong room's population from a checkpoint that is not about
     /// it.
+    ///
+    /// ⚠ **INTENT EQUALITY IS A WEAKER QUESTION THAN IDENTITY, so this is the
+    /// ONE place allowed to ask it** — when a transaction opens, against the
+    /// operation that is outstanding at that moment. Two crossings to one room
+    /// with one subject and one arrival compare EQUAL, so every later stage
+    /// names [`AcceptedRestore::key`] instead: see [`Self::inputs_for_key`].
     pub fn inputs_for(
         &self,
         intent: &crate::session::lifecycle_commit::LifecycleIntent,
     ) -> Option<&AcceptedRestore> {
         self.0.as_ref().filter(|accepted| &accepted.intent == intent)
+    }
+
+    /// The pinned inputs for exactly this operation.
+    ///
+    /// ⭐ WHAT EVERY STAGE AFTER THE TRANSACTION OPENS ASKS. A key names one
+    /// admission in one session; nothing can be produced that resembles it.
+    pub fn inputs_for_key(&self, key: CheckpointOperationKey) -> Option<&AcceptedRestore> {
+        self.0.as_ref().filter(|accepted| accepted.key == key)
     }
 
     /// Accept an operation. Called only by the session coordinator, with an
@@ -467,6 +573,7 @@ impl AcceptedCheckpointRestore {
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u64, put_u8};
         let Some(AcceptedRestore {
+            key,
             frame,
             intent,
             occurrences,
@@ -477,6 +584,16 @@ impl AcceptedCheckpointRestore {
             return 0;
         };
         let mut bytes = Vec::new();
+        // ⚠ AN ABSENT SCOPE IS NOT SCOPE ZERO. A standalone profile's operation
+        // must not hash the same as the first operation of a real session.
+        match key.scope {
+            None => put_u8(&mut bytes, 0),
+            Some(scope) => {
+                put_u8(&mut bytes, 1);
+                put_u64(&mut bytes, scope.0);
+            }
+        }
+        put_u64(&mut bytes, key.sequence);
         put_i32(&mut bytes, *frame);
         put_u64(&mut bytes, intent.checksum());
         put_u64(&mut bytes, occurrences.checksum());
@@ -555,7 +672,7 @@ impl OutstandingCheckpointRequest {
 /// no-op instead of a restore to an empty baseline. Returns whether it applied.
 pub fn apply_committed_checkpoint_restore(
     world: &mut bevy::prelude::World,
-    intent: &crate::session::lifecycle_commit::LifecycleIntent,
+    key: CheckpointOperationKey,
 ) -> bool {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         CheckpointDomainApply, CheckpointRestoreInputs,
@@ -563,10 +680,13 @@ pub fn apply_committed_checkpoint_restore(
 
     let Some(accepted) = world
         .get_resource::<AcceptedCheckpointRestore>()
-        .and_then(|accepted| accepted.inputs_for(intent))
+        .and_then(|accepted| accepted.inputs_for_key(key))
         .cloned()
     else {
-        // An ordinary door. Nothing about this commit is a checkpoint restore.
+        // The operation this transaction was opened for is no longer the
+        // outstanding one — retired, or replaced by a later admission. Applying
+        // the CURRENT accepted operation instead would restore a checkpoint this
+        // commit is not about.
         return false;
     };
 
@@ -613,6 +733,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
 
         app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOperations>();
         app.init_resource::<CheckpointResumeProgress>();
         app.init_resource::<OutstandingCheckpointRequest>();
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself

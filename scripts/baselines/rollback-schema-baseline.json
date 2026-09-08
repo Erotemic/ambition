@@ -400,6 +400,7 @@
     "resource.sandbox_save",
     "resource.sandbox_sim_state",
     "resource.save_restored",
+    "resource.session_checkpoint_operations",
     "resource.sim_dt",
     "resource.sim_tick",
     "resource.slot_interaction_state",

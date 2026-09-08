@@ -191,6 +191,22 @@ pub struct ActiveRoomTransitionLoad {
     /// stall, not one per frame.
     pub asset_stall_report: Option<String>,
     pub prefetch_hit: bool,
+    /// WHICH checkpoint restore this transaction is preparing, if it is one.
+    ///
+    /// ⛔⛔ RESOLVED ONCE, WHEN THE TRANSACTION OPENS, and carried from there.
+    /// Asking "does an accepted restore have an equal intent" at each later stage
+    /// is not the same question: two crossings to one room, with one subject and
+    /// one arrival, compare EQUAL, so a transaction opened for a door could be
+    /// served a later restore's snapshot — or the reverse — merely by looking
+    /// alike. The key is the session's own admitted-operation identity and
+    /// cannot be produced by resemblance.
+    ///
+    /// ⚠ `None` is an ordinary crossing, and it must stay possible: a door
+    /// recorded while a restore is outstanding prepares and commits from LIVE
+    /// state, which is exactly right.
+    pub checkpoint_operation: Option<
+        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
+    >,
     pub construction_preflight_duration: Option<Duration>,
     pub asset_manifest_duration: Option<Duration>,
     pub requested_at: Option<Duration>,
@@ -908,6 +924,7 @@ pub fn begin_room_transition_load_system(
             asset_progress_since: None,
             asset_stall_report: None,
             prefetch_hit: false,
+            checkpoint_operation: None,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
             requested_at: real_time.as_deref().map(|time| time.elapsed()),
@@ -1059,10 +1076,22 @@ pub fn begin_room_transition_load_system(
         // one; redirecting only the second would leave a plan prepared against
         // the live population free to be promoted for a reconstruction that is
         // about a different one.
-        let selected_restore = construction_services
-            .8
-            .as_deref()
-            .and_then(|accepted| accepted.inputs_for(&active.intent));
+        // ⭐ RESOLVED ONCE AND REMEMBERED. Every later stage names the KEY; only
+        // this one asks the accepted operation whether it owns this intent, and
+        // it asks while that operation is the outstanding one.
+        if active.checkpoint_operation.is_none() {
+            active.checkpoint_operation = construction_services
+                .8
+                .as_deref()
+                .and_then(|accepted| accepted.inputs_for(&active.intent))
+                .map(|accepted| accepted.key);
+        }
+        let selected_restore = active.checkpoint_operation.and_then(|key| {
+            construction_services
+                .8
+                .as_deref()
+                .and_then(|accepted| accepted.inputs_for_key(key))
+        });
         let selected_ledger = selected_restore
             .map(|accepted| accepted.occurrences.remembered())
             .or(construction_services.6.as_deref());
@@ -1384,6 +1413,7 @@ mod tests {
             asset_progress_since: None,
             asset_stall_report: None,
             prefetch_hit: false,
+            checkpoint_operation: None,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
             requested_at: None,
@@ -1517,6 +1547,7 @@ mod tests {
             asset_progress_since: None,
             asset_stall_report: None,
             prefetch_hit: false,
+            checkpoint_operation: None,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
             requested_at: None,

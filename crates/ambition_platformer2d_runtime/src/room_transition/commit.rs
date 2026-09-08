@@ -922,7 +922,7 @@ pub fn commit_ready_room_transition_system(
     // the confirmed host calls directly; the eager host records the debt here
     // and `apply_committed_checkpoint_restore_system` settles it a system later,
     // after this frame's structural work has flushed.
-    committed_restore.0 = Some(intent.clone());
+    committed_restore.0 = active.checkpoint_operation;
     if active.cover_required {
         if let Some(current) = transition_state
             .active
@@ -956,7 +956,7 @@ pub fn commit_ready_room_transition_system(
 #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
 pub struct CommittedRoomTransitionRestore(
     pub  Option<
-        ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
     >,
 );
 
@@ -976,14 +976,14 @@ pub fn apply_committed_room_transition_restore(world: &mut bevy::prelude::World)
     {
         return;
     }
-    let Some(intent) = world
+    let Some(key) = world
         .get_resource_mut::<CommittedRoomTransitionRestore>()
         .and_then(|mut committed| committed.0.take())
     else {
         return;
     };
     ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
-        world, &intent,
+        world, key,
     );
 }
 

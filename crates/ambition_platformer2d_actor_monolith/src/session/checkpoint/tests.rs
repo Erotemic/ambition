@@ -683,18 +683,22 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
 }
 
 /// ⛔⛔ **THE INSTALLED INPUTS ARE REMOVED ON EVERY PATH, INCLUDING THE ONE THAT
-/// APPLIES NOTHING.**
+/// APPLIES NOTHING — and the commit applies the operation it was OPENED for, not
+/// whichever one happens to be outstanding.**
 ///
 /// Their absence is what makes "a domain reducer cannot act outside an
 /// authorized commit" true by construction. Leave a context installed and every
 /// later run of that schedule — or any future caller of those systems — becomes
 /// an effective restore nobody authorized.
 ///
-/// ⭐ AND AN ORDINARY DOOR MUST INSTALL NOTHING AT ALL. The commit executor calls
-/// this for EVERY committed transition; what makes a restore a restore is that
-/// the accepted operation names that exact intent.
+/// ⛔ THE KEY IS WHY THE SECOND HALF IS TESTABLE AT ALL. Matching by intent
+/// equality, two crossings to one room with one subject and one arrival compare
+/// EQUAL, so a transaction opened for the FIRST operation would be served the
+/// SECOND's pinned population — a room rebuilt from a checkpoint it is not
+/// about. A key names one admission in one session and cannot be produced by
+/// resemblance.
 #[test]
-fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_removes_them() {
+fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs() {
     use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs;
 
     use crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
@@ -709,6 +713,14 @@ fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_remo
             zone_sfx: None,
         })
     };
+    let mut operations = super::SessionCheckpointOperations::default();
+    let first = operations.admit(None).expect("a fresh counter mints a key");
+    let second = operations.admit(None).expect("and another");
+    assert_ne!(
+        first, second,
+        "two admissions in one session must be distinguishable, or the key adds \
+         nothing over the intent equality it replaces"
+    );
 
     let mut app = App::new();
     app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin);
@@ -716,15 +728,17 @@ fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_remo
 
     // ── AN ORDINARY DOOR: no accepted operation, nothing applied ─────────────
     assert!(
-        !super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("east")),
+        !super::apply_committed_checkpoint_restore(app.world_mut(), first),
         "a commit with no accepted checkpoint operation applied one anyway"
     );
     assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
 
-    // ── AN ACCEPTED OPERATION, AND A DIFFERENT CROSSING ──────────────────────
+    // ── THE SECOND OPERATION IS OUTSTANDING; A TRANSACTION OPENED FOR THE
+    //    FIRST MUST NOT BE SERVED IT — and the two intents are IDENTICAL ──────
     app.world_mut()
         .resource_mut::<super::AcceptedCheckpointRestore>()
         .accept(super::AcceptedRestore {
+            key: second,
             frame: 3,
             intent: crossing("east"),
             occurrences: Default::default(),
@@ -735,16 +749,17 @@ fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_remo
             }),
         });
     assert!(
-        !super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("west")),
-        "a crossing that is not the accepted operation was applied as one, so an \
-         unrelated door rebuilt its destination out of a checkpoint"
+        !super::apply_committed_checkpoint_restore(app.world_mut(), first),
+        "a commit opened for an earlier operation was served the outstanding \
+         one's pinned population. The two intents are equal by construction here, \
+         which is exactly the case intent matching cannot tell apart"
     );
     assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
     assert!(!app.world().contains_resource::<ItemCheckpointRestoreInputs>());
 
-    // ── ITS OWN CROSSING: applied, and the inputs are gone afterwards ────────
+    // ── ITS OWN OPERATION: applied, and the inputs are gone afterwards ───────
     assert!(
-        super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("east")),
+        super::apply_committed_checkpoint_restore(app.world_mut(), second),
         "the accepted operation's own commit did not apply it"
     );
     assert!(
@@ -755,6 +770,61 @@ fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_remo
     assert!(
         !app.world().contains_resource::<ItemCheckpointRestoreInputs>(),
         "the item restore inputs outlived the commit that installed them"
+    );
+}
+
+/// ⛔⛔ **AN OPERATION FROM A RETIRED SESSION CANNOT ACT IN A NEW ONE.**
+///
+/// The sequence alone is a per-session counter, so a teardown and re-entry mints
+/// key 0 again. What separates them is the session ownership stamp the key
+/// carries: a load, a commit or a verification holding the old session's key
+/// finds no accepted operation, rather than finding the NEW session's first one
+/// because two integers matched.
+#[test]
+fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+    let mut operations = super::SessionCheckpointOperations::default();
+    let old = operations
+        .admit(Some(SessionScopeId(1)))
+        .expect("the retired session admits one");
+
+    // Teardown and re-entry: a NEW scope, and the counter is deliberately not
+    // reset — recycling a live identifier is how a stale load gets authorized.
+    let new = operations
+        .admit(Some(SessionScopeId(2)))
+        .expect("the new session admits one");
+    assert_ne!(old, new);
+
+    let mut held = super::AcceptedCheckpointRestore::default();
+    held.accept(super::AcceptedRestore {
+        key: new,
+        frame: 0,
+        intent: crate::session::lifecycle_commit::LifecycleIntent::ReconstituteRoom(
+            crate::session::lifecycle_commit::RoomReconstitutionIntent {
+                target_room: "here".into(),
+            },
+        ),
+        occurrences: Default::default(),
+        custody: Default::default(),
+        item: None,
+    });
+    assert!(
+        held.inputs_for_key(old).is_none(),
+        "an operation admitted by a session that has been torn down matched the \
+         new session's accepted restore"
+    );
+    assert!(held.inputs_for_key(new).is_some());
+
+    // ⛔ AND AN ABSENT SCOPE IS NOT A WILDCARD. A standalone profile's key must
+    // not match a real session's, in either direction.
+    let standalone = super::SessionCheckpointOperations::default()
+        .admit(None)
+        .expect("a standalone profile admits one");
+    assert!(
+        held.inputs_for_key(standalone).is_none(),
+        "a scopeless key matched a scoped operation, so production session code \
+         treating a missing scope as 'any scope' would be authorized"
     );
 }
 
@@ -915,6 +985,10 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
     }
     fn base() -> AcceptedRestore {
         AcceptedRestore {
+            key: super::CheckpointOperationKey {
+                scope: None,
+                sequence: 0,
+            },
             frame: 7,
             intent: LifecycleIntent::Transition(crossing()),
             occurrences: Default::default(),
@@ -935,6 +1009,27 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
 
     let perturbations: Vec<(&str, AcceptedRestore)> = vec![
         ("the originating frame", AcceptedRestore { frame: 8, ..base() }),
+        (
+            "the operation SEQUENCE — two admissions with identical intents and \
+             identical snapshots are still different operations",
+            AcceptedRestore {
+                key: super::CheckpointOperationKey {
+                    sequence: 1,
+                    ..base().key
+                },
+                ..base()
+            },
+        ),
+        (
+            "the owning SESSION — a scopeless standalone key is not session zero",
+            AcceptedRestore {
+                key: super::CheckpointOperationKey {
+                    scope: Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0)),
+                    ..base().key
+                },
+                ..base()
+            },
+        ),
         (
             "the restore SUBJECT — the body the operation is about",
             AcceptedRestore {

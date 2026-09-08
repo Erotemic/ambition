@@ -322,7 +322,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// executor's own schedule, which only an authorized commit runs, so the
 /// guarantee is now made out of WHEN they run and no reducer can forget it. A
 /// token with no consumer is state two peers must agree about for nothing.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 171;
+/// ⭐ 171 -> 172 (2026-09-08): `resource.session_checkpoint_operations` joined,
+/// and `resource.accepted_checkpoint_restore`'s projection grew the operation
+/// key. A restore operation now has an IDENTITY — the session's ownership stamp
+/// plus a sequence that advances only on admission — because intent equality
+/// could not tell two crossings to one room with one subject apart, and a frame
+/// number cannot either: a room rebase restarts the rollback timeline at zero.
+/// The counter rewinds so a resimulated admission mints the same key; it is
+/// deliberately not reset at a rebase, because recycling a live identifier is
+/// how a stale host-side load gets authorized on a matching integer.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 172;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

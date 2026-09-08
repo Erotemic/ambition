@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v171
+ggrs-rollback-schema-v172
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -455,6 +455,7 @@ resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_g
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
 resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

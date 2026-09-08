@@ -84,9 +84,18 @@ on every path. Both executors are witnessed and poison-verified. The transitiona
 `AdmittedCheckpointRestore` token was deleted rather than given a longer
 lifetime: authorization is structural now.
 
-**Remaining:** explicit post-apply verification and a terminal outcome matched to
-the original request; then delete the startup routed/completed flags the accepted
-operation makes redundant.
+The accepted operation now has an identity — `CheckpointOperationKey`, the
+session's ownership stamp plus an admission-only sequence — and every stage after
+the transaction opens matches on it rather than on intent equality.
+
+**Remaining:** explicit post-apply verification against the pinned snapshots; ONE
+terminal outcome per operation key; and startup checkpoint routing consuming that
+same completion mechanism, so `CheckpointResumeProgress::{routed_for,
+applied_for}` disappears instead of becoming another pair of booleans. ⚠ A
+cross-room STARTUP transition does not currently create an
+`AcceptedCheckpointRestore` at all — the reset road does — so unifying them is
+the work, not deleting two fields. Run teardown/re-entry and repeated-identical-
+restore before removing the old progress state.
 
 **Acceptance:** preparation/prefetch read the pinned snapshot rather than a
 modified live ledger; a checkpoint change invalidates a prefetched plan that

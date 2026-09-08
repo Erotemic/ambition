@@ -69,7 +69,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // build against a different content epoch than the transaction checked. A
     // rebuild with nobody in it is not a cheaper operation, only a bodyless one.
     let authorized = match authorized_plan(world, &kind) {
-        AuthorizedPlan::Ready(plan) => Some(plan),
+        AuthorizedPlan::Ready(plan, checkpoint_operation) => Some((plan, checkpoint_operation)),
         // Not yet, or no longer valid. Returning is not DROPPING: the intent
         // stays pending and this runs again next frame while the transaction
         // progresses (or is superseded) in `Update`.
@@ -151,7 +151,15 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
 
 /// The authorized plan, or a reason to wait.
 enum AuthorizedPlan {
-    Ready(std::sync::Arc<RoomConstructionPlan>),
+    /// The plan, and WHICH checkpoint restore the transaction was opened for.
+    ///
+    /// ⭐ THE KEY TRAVELS WITH THE PLAN because they come from the same
+    /// transaction, and reading either without the other invites re-deriving the
+    /// second by resemblance later.
+    Ready(
+        std::sync::Arc<RoomConstructionPlan>,
+        Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+    ),
     Wait,
 }
 
@@ -200,6 +208,9 @@ fn authorized_plan(
         );
         return AuthorizedPlan::Wait;
     }
+    // Taken WITH the plan, from the same transaction, so no later stage has to
+    // re-derive which operation this is by comparing intents.
+    let checkpoint_operation = active.checkpoint_operation;
     let Some(plan) = active.construction_plan.clone() else {
         // Authorized with no prepared plan is not a state the transaction should
         // reach; say so rather than silently preparing one here.
@@ -231,7 +242,7 @@ fn authorized_plan(
         );
         return AuthorizedPlan::Wait;
     }
-    AuthorizedPlan::Ready(plan)
+    AuthorizedPlan::Ready(plan, checkpoint_operation)
 }
 
 /// Complete a confirmed room-transition readiness transaction. If presentation owns the
@@ -351,13 +362,16 @@ fn execute_lifecycle_commit(
     // The plan the readiness transaction AUTHORIZED. `Some` for every transition
     // that reaches here (`authorized_plan` returned it a moment ago); `None` for
     // the variants that open no transaction.
-    authorized: Option<std::sync::Arc<RoomConstructionPlan>>,
+    authorized: Option<(
+        std::sync::Arc<RoomConstructionPlan>,
+        Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
+    )>,
 ) -> CommitOutcome {
     match (kind, authorized) {
-        (kind, Some(plan)) => commit_transition(
+        (kind, Some((plan, checkpoint_operation))) => commit_transition(
             world,
             &plan,
-            kind,
+            checkpoint_operation,
             kind.subject(),
             kind.target_room(),
             kind.arrival(),
@@ -381,11 +395,14 @@ fn commit_transition(
     world: &mut World,
     // Use the exact plan whose readiness and assets were authorized.
     plan: &RoomConstructionPlan,
-    // The whole intent, kept alongside the parts below because the domain
-    // restore is addressed BY INTENT: the accepted checkpoint operation names
-    // the crossing it owns, and a door recorded for the same room and subject is
-    // not it.
-    intent: &LifecycleIntent,
+    // WHICH checkpoint restore this transaction was opened for, resolved when
+    // the readiness transaction opened and carried from there. `None` is an
+    // ordinary crossing. ⛔ Not re-derived here by intent equality: two crossings
+    // to one room with one subject compare equal, and a commit that re-asked
+    // could apply a later operation's snapshot to this one's room.
+    checkpoint_operation: Option<
+        ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey,
+    >,
     // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
     // — see the resolution below, which keeps those two apart.
     subject: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -488,9 +505,11 @@ fn commit_transition(
     //
     // ⭐ THE SAME FUNCTION THE EAGER HOST CALLS. The two hosts differ in what
     // authorizes the commit, never in what the commit does.
-    ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
-        world, intent,
-    );
+    if let Some(key) = checkpoint_operation {
+        ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
+            world, key,
+        );
+    }
 
     CommitOutcome::Committed
 }

@@ -3,8 +3,9 @@
 The *system* is engine ([`../engine/boss-system.md`](../engine/boss-system.md)); this
 is the **design language** and the specific bosses. The engine machinery (Smash brain
 verbs, the glider projectile primitive, `CharacterAnim::Special`, the dialogue→provoke
-command) lives in core; a boss's stats, tuning, placement, and dialogue live in
-content.
+command) belongs to the corresponding reusable actor, projectile, animation and
+interaction authorities; `core` is not a common destination for all of it. A
+boss's stats, tuning, placement and dialogue remain game content.
 
 ---
 

@@ -288,3 +288,21 @@ The current architecture slice is complete when:
 
 Use git history for the removed placeholder, Potato-tier, Mary-O, and hall
 measurement chronology.
+
+## Prepared simulation content versus presentation residency
+
+[A6/A8/A9](actor-monolith-work-frontier.md) rely on a hard separation: validated
+mechanical content, immutable prepared definitions and device-ready presentation
+resources have different readiness and lifetime rules. A visual tier swap must
+not change body size, hurtboxes, authored occurrence identity or the active
+technique program. Geometry validation must work in a render-absent profile.
+
+Publish a complete accepted prepared revision to simulation. Do not let one actor
+combine a new flow/geometry definition with a prior revision's references merely
+because one asset completed loading first. Stronger hot-reload guarantees need
+revision-pinning and failure fixtures, not a broad mutable content service.
+
+Residency budgets remain a product/hardware decision under Q94. Preparation may
+produce an accurate byte estimate and eviction policy without inventing the
+budget. Distinguish source bytes, decoded CPU data, device residency and active
+simulation definitions in measurements; dependency count is none of these.

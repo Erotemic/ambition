@@ -137,3 +137,16 @@ buttons that nothing listens to"* while the shipped chain was fine.
 test, ask who else writes it every frame.** `Interaction`, `Visibility`,
 `Transform` and their kin are engine outputs, not test inputs. Writing one tests
 your own assignment.
+
+## Profile and participant scope in the architecture review
+
+A9 in the [frontier](actor-monolith-work-frontier.md) requires a render/UI-absent
+simulation profile. UI can consume participant/view facts without owning control
+or requiring HUD state in simulation construction. Two participants, two views
+and two live worlds are distinct configurations; A8's repeated-room witness is
+needed before claiming the last one.
+
+Structure semantic labels, diagnostics and action descriptions so machine-facing
+authoring and human-facing localized presentation can consume the same supported
+contracts. Do not turn a localized/display string into a stable entity, technique
+or provider key. Product accessibility choices retain their existing owner.

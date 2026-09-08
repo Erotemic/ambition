@@ -440,3 +440,16 @@ tree. The answered ones now say so where they are read.
 - ⚠ *(tactical-belief slice ANSWERED above — the remembered-actor set is
   rollback state; open for the general program)* What parts, if any, participate
   in deterministic rollback?
+
+## Knowledge reduction at the observation boundary
+
+The [reassessment](architecture-reassessment.md) requires a consumer of a published
+fact to need less knowledge of its producer. An observation view may expose a
+stable, scoped consequence without handing its reader the producer's mutable
+resources, broad context or callback. Keep fact identity, observer memory and
+live simulation authority distinct.
+
+An agent response based on an observation needs subject/session and revision or
+expiry checks before normal action admission. Replaying accepted intentions must
+not rerun external observation/model queries. Multi-instance scope is introduced
+through A8's concrete repeated-room witness, not by a universal world-facts bus.

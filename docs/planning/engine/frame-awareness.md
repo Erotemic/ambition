@@ -106,3 +106,16 @@ and cameras know how they relate to each other.
 Not because the game must be physically realistic.
 
 Because the game should be architecturally honest.
+
+## Scheduling facts for architectural moves
+
+Every [migration packet](actor-monolith-work-frontier.md) names the producer,
+consumer, clock, public phase ancestry and deferred-visibility boundary of its
+per-frame facts. A public set name alone does not prove that a reader sees this
+tick's commands or that an early-return population is unchanged.
+
+A1 preserves checkpoint startup versus gameplay/reset gating; A2 preserves the
+actual projectile movement leg and deterministic contact order. Avoid reconstructing
+a path or event occurrence from endpoint state when an authoritative per-frame
+record already exists. A move to a different installer must preserve these facts,
+not just system membership.

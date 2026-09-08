@@ -43,7 +43,7 @@ build the same authoritative state.
 
 ## Current architecture
 
-### Prepared construction is transactional and federated
+### Prepared construction is federated and verified before publication
 
 Room construction is already split into typed domain-owned lanes. The room
 adapter translates authored world data into each domain's vocabulary; domains do
@@ -607,3 +607,28 @@ error the suite is written against.
   item occurrence/custody semantics.
 - [`netcode.md`](netcode.md) — confirmed external effects and eventual P2P
   lifecycle coordination.
+
+## Authority and failure boundary after the architecture review
+
+[Packets A1/A3/A10](actor-monolith-work-frontier.md) refine this owner contract.
+The common construction plan remains valid for rebuilding the same authoritative
+population. It does not imply that checkpoint routing, resource-only reset,
+entity materialization and device hydration are the same operation.
+
+Session owns checkpoint resume admission and progress. Rest-point content owns
+interaction, healing and capture requests. Actor/catalog-specific placement
+lowering belongs with construction integration; generic world provider inputs
+stay below it. Move state, behavior and installation together.
+
+The current recipe context exposes raw Bevy `Commands`. Preflight can reject a
+plan before mutation and post-commit verification can reject publication, but
+verification cannot undo arbitrary queued despawns, resource writes or effects.
+The precise [construction guarantee matrix](immutable-content-and-transactional-construction.md)
+supersedes any stronger interpretation of "transactional" here. Do not declare
+the old room retained after failure unless a staged-candidate test proves it.
+
+A10 is gated on a real stronger-failure requirement. Before changing the recipe
+interface, test the current failure policy: a failed verification cannot become a
+normal active baseline, a stale attempt cannot publish after a newer one, and
+cleanup owns only its admitted attempt. Closed C1-C4 population convergence is
+not reopened by documenting this limit; transport C5 remains customer-triggered.

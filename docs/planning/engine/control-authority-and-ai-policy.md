@@ -484,3 +484,22 @@ gravity priced the construction federation and produced
 
 ⚠ **`Brain::Player` is named 194 times in 14 crates.** That is the real size of
 the first slice and it is why it is its own slice.
+
+## Authority-first decomposition constraint
+
+The [controlled-body plan](controlled-character-actor-kernel.md) and packet A4
+separate proposing control from accepting a driving relation and from executing
+body behavior. The accepted relation is the fact downstream interaction/combat
+may consume; it is not a new owner of every ability's eligibility or cost.
+Possession's current cycle with control can remain inside one coherent package.
+
+Before extracting either side, enumerate all relation writers and release/reset
+paths, then cover competing claims, two seats, mounted input, possession release,
+actor removal and rollback. A broad context object carrying both authorities
+would retain their coupling under a different name. Co-locating control-mode
+transitions can be simpler than a claim registry with one actual mode customer.
+
+Brain planners and remote agents propose bounded semantic intentions. Only the
+same accepted-control/action road used by human input can apply them. Never give
+a planner construction privileges or direct live-actor mutation to avoid normal
+acceptance or scheduling.

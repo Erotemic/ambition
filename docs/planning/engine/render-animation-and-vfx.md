@@ -234,3 +234,17 @@ This program is healthy for Engine 1.0 when:
 
 Use git history for the removed portal/Mary-O/provider investigations and the
 measurements that led to the current contract.
+
+## Consequences of the ownership reassessment
+
+Simulation/contact authorities publish facts; presentation interprets them.
+Moving banners, camera effects or feel presentation out of combat must preserve
+body ownership, clock semantics and the established portal publication order.
+The presence of a presentation module inside `ambition_combat` does not make its
+state combat-authoritative.
+
+A9's render-absent profile still validates mechanical geometry and can step
+simulation. It must not require device sprites merely to resolve hurtboxes or
+construction. Asset quality, resident visual revision and authored physical size
+remain separate. A new contact handoff under A2 must not duplicate damage policy
+in VFX or reconstruct target identity from display strings.

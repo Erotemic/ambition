@@ -136,3 +136,17 @@ Bevy game can consume them through ordinary plugin/system composition.
 self-replenishing. [`tracks.md`](tracks.md) is the standing reservoir. Focused
 plans own design and explicitly record ambiguities rather than making future
 agents guess which details were settled.
+
+## Architectural acceptance of the programmatic engine target
+
+The [reassessment](engine/architecture-reassessment.md) makes this target concrete:
+independent headless/interactive/combat profiles plus an out-of-workspace game,
+explicit state and lifecycle ownership, and a discover/validate/plan/apply/verify
+authoring loop over supported semantic APIs. Each profile needs actual behavior
+and dependency-closure evidence; an SCC count or a facade import is insufficient.
+
+The current 2D focus remains deliberate. Do not trade it for speculative universal
+worlds, scripting, service discovery or editor parity. LLM authoring increases the
+value of precise rejection, bounded programs, revision-aware plans and small
+readable authorities; it does not justify runtime reflection over the entire
+engine or unreviewed mutation through a global context.

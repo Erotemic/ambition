@@ -794,3 +794,16 @@ it.
 ⛔ Do not make dormancy the answer. Distant actors sleeping is a legitimate game
 policy later; it does not solve the representation problem, and applied to the
 hall it deletes the benchmark that finds these defects.
+
+## Perception reads threat facts rather than owning their producers
+
+The current feature perception road legitimately reads `ProjectileAllegiance`.
+The [semantic edge ledger](actor-monolith-hard-core-edge-ledger.md) keeps that
+ordinary downward knowledge; a generic threat-provider registry is not required
+just to remove a projectile import.
+
+Perception/attention can publish bounded evidence to decision policy without
+owning projectile stepping, hit admission or control arbitration. A2's accepted
+contact facts and A4's accepted driving relation remain distinct from perceived
+possibility. When A8 establishes concurrent instances, include perception scope in
+the fixture so a target in one copy cannot influence another copy accidentally.

@@ -308,3 +308,16 @@ A navigation slice should:
 - no path identity based on raw ECS entity order/ids;
 - no claim that the current fighter rollout failure is a navigation-kernel
   failure until the decision trace demonstrates that.
+
+## Spatial reuse without a universal world context
+
+Navigation consumes spatial/body-motion facts and proposes movement; accepted
+body control and the existing motion kernel execute it. The
+[responsibility map](architecture-responsibility-map.md) does not move actor live
+mutation into a path service merely because AI and player motion share geometry.
+
+A8's instance-isolation witness must include navigation/obstacle queries when that
+capability participates. A9's minimal profiles should not require navigation to
+step an otherwise self-contained body. Preserve deterministic motion-policy and
+shape assumptions in reachability tests; a new spatial index requires measured
+cost rather than a decomposition target.

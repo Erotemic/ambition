@@ -338,3 +338,17 @@ may use explicit local wrappers until that design is resolved.
 
 No general `ambition_utils` crate is proposed. Shared code should enter a
 foundation crate only when it has one coherent owner and a testable invariant.
+
+## Test-support constraint from the architecture reassessment
+
+A9's external profiles must not depend on an omnibus test-support package that
+installs hidden flagship defaults. Test infrastructure should name its required
+capabilities and provide small owner-local builders plus explicit composition.
+A short fixture is not an independent fixture if a helper imports the whole game.
+
+The [frontier](../engine/actor-monolith-work-frontier.md) gives concrete customers:
+checkpoint restore without pickup, absent render with real body stepping, contact
+ordering, invalid technique admission and repeated-room isolation. Prefer these
+witnesses over a workspace-wide fixture reorganization or a new support crate
+without a demonstrated shared invariant. Production source guards supplement,
+but do not replace, behavioral execution.

@@ -377,3 +377,16 @@ The first milestone is complete when:
 
 This milestone does not require online multiplayer, complete rebinding UI, every device backend, or cross-build protocol compatibility.
 
+
+## Naming is subordinate to ownership
+
+The [current responsibility map](engine/architecture-responsibility-map.md)
+supersedes cosmetic interpretations of this campaign. `actor_monolith` and
+`shared_tangle` are useful warning labels while their work remains. `combat`,
+`core`, `characters` and `runtime` are existing names, not proof that their mixed
+contents already form coherent capabilities.
+
+Do not mass-rename these to `actors`, `platformer` or other finished-sounding names.
+First move the state, behavior, lifetime and installation that share an authority,
+then name the resulting API. Preserve serialized/schema/wire identity during a
+source-only rename unless a separately reviewed migration changes it.

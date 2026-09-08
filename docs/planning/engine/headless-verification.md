@@ -246,3 +246,22 @@ because its three hid across different systems.
 - `game/ambition_app_tools/src/bin/` for the driver binaries.
 - `game/ambition_app/tests/app_it.rs` for the build → step → assert pattern.
 - `ambition_gameplay_trace/` (trace buffer + dump), the `actor_trace` OOB recorder.
+
+## Architecture acceptance must exercise the advertised profile
+
+[Packet A9](actor-monolith-work-frontier.md) adds independent profile evidence.
+A headless fixture that inherits the entire flagship dependency closure does not
+prove render-optional composition. A manifest that excludes a crate does not prove
+the remaining capabilities construct and step a real subject. Record both Cargo
+closure and a behavior witness for each supported profile.
+
+Use a small external consumer plus the existing full Ambition/Smash fixtures.
+Required negative fixtures include absent render/audio, absent items with
+checkpoint restoration, invalid technique key/parameters, out-of-range flow,
+failed publication, and duplicate registration. Feature absence should remove the
+corresponding requirement, not supply a dummy resource that makes the test pass.
+
+Targeted runtime tests, source boundary guards and public API compile tests answer
+different questions. A zero-test filter is not a behavioral pass. Missing Cargo,
+targets, assets or GPU prerequisites produce an incomplete receipt with the exact
+command and reason; they do not become a successful lane.

@@ -88,3 +88,17 @@ recorded RULE and not a new checker.
 tier outright — silences whoever legitimately holds it, and that crate's comment
 records having shipped exactly that once: *"a demo with no bosses at all could not
 hold priority music for a single frame."*
+
+## Qualify identity by the authority that interprets it
+
+Do not merge authored content IDs, live entity IDs, item occurrence IDs,
+construction-attempt IDs, session IDs and rollback wire IDs into one universal
+identity type. They have different equivalence and lifetime rules. The
+[responsibility map](architecture-responsibility-map.md) requires every state move
+to name its scope, accepted writers, restoration and retirement boundary.
+
+A1 keeps checkpoint restoration progress with session; item baselines remain
+item-owned under A7. A8 needs two copies of one authored room as a namespace
+witness before adding instance qualification. A10 cannot infer reversible global
+mutation from a construction-attempt marker. Stale async preparation/agent
+responses must be rejected by the appropriate generation/revision owner.

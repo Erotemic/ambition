@@ -86,3 +86,15 @@ registries/validation or lookup semantics. Their use of strings is not by itself
 defect. Promote one to this plan only when HEAD shows a concrete unresolved typo,
 ambiguous authority, repeated lookup cost that matters, or silent fallback that a
 binding boundary would actually eliminate.
+
+## Prepared resolution and runtime authority
+
+The [architecture review](architecture-reassessment.md) retains explicit binding
+resolution but separates known support from installed support. A11 couples the
+technique support declaration to its actual handler installer; a validator lookup
+alone cannot establish either existence or availability.
+
+Bindings prepared against one immutable content revision must not resolve through
+an unrelated later mutable catalog during simulation. Stale prepared work needs
+revision/scope rejection at activation. Do not generalize this into an executable
+service locator or make display names stand in for semantic identity.

@@ -535,3 +535,20 @@ ledge assist, "behind nearest foe" targeting, intangibility and authored
 departure/arrival effects. If Author still does not read like Mewtwo, diagnose
 missing teleport POLICY parameters or presentation sequencing before writing a
 second teleport.
+
+## Admission prerequisites for new authored mechanics
+
+New move content uses [A11/A12](actor-monolith-work-frontier.md) before relying on
+parameter validation or flow bounds. The current validator surface does not
+establish that a referenced technique is installed, and the existing flow
+interpreter's representable node space must constrain accepted graphs.
+
+Keep content decisions in the Smash inventory and maintainer rulings. A general
+form, limit meter, controllable projectile, counter or multi-beat command capture
+needs a real customer and one transition owner; it does not justify a universal
+ability service. A flow Wait consumes the current occurrence's latched signals
+unless a new scoped per-beat fact is implemented and tested.
+
+A2 contact work distinguishes geometric contact from damage and projectile
+consumption. New counters/reflectors must state their precedence against the same
+accepted contact rather than add another independent overlap test.

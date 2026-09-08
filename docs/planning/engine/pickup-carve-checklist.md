@@ -427,3 +427,21 @@ its callers behind somewhere, and the names tell you where.
 ⇒ Cheap enough to be worth doing every time — it runs in seconds, needs no
 build, and is disk-exempt, which on a volume below the 40 GB floor is the
 difference between a check you can run and one you cannot.
+
+## Revised carve boundary
+
+Apply [A1 before A7](actor-monolith-work-frontier.md). Startup checkpoint restore
+is currently installed in `ItemPickupSimulationPlugin`, but that is a session
+lifecycle dependency accidentally attached to pickup. Move the restoration
+systems, progress state and installer to session; do not extract them with items
+or move the room/session slot into shared_tangle.
+
+The A1 packet deliberately leaves the current healing/capture integration narrow
+and preserves full-game ordering. A later item carve must identify pickup verbs,
+held-item custody, equipment capability and minted accounting separately. A
+single generic item service receiving all world/control/session context would
+make the crate smaller without reducing the knowledge needed to change it.
+
+Prove item-absent checkpoint restore, two-body interaction, duplicate pickup
+suppression, failed construction/consumption, durable occurrence restore and
+rollback. A source guard that forbids an import is supplemental to these tests.

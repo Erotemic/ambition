@@ -155,22 +155,25 @@ Owners:
 - [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
 
-### P4 — residual actor kernel, capability composition and SDK boundaries
+### P4 - ownership-based engine composition and supported public profiles
 
-Continue actor-monolith decomposition where a carve removes real authority or
-dependency coupling. The target is a coherent residual actor/body simulation
-kernel, not an arbitrary line count.
+Use the [architecture reassessment](engine/architecture-reassessment.md) and
+[bounded packets](engine/actor-monolith-work-frontier.md). The old mandatory
+projectile/shrine/placement SCC chain is retired. A1 establishes checkpoint
+restoration ownership; A2 first repairs contact semantics; A3 retains the valid
+placement bridge relocation. A4-A8/A10 have explicit evidence/customer holds.
 
-Capability composition remains important for dependency closure, test isolation,
-platform composition, reusable packages and the public SDK. Current measurement
-does not justify it as a frame-time/startup optimization.
+A11/A12 make authored technique admission and flow bounds reliable. A9 proves
+compile/runtime optionality through real external profiles. These are independently
+staged work streams, not twelve sequential prerequisites for game development.
+The [queue](queue.md) selects current priority.
 
-Owners:
+The outcome is a set of recognizable state/behavior/lifetime authorities and a
+public programmatic engine that can be used without accidental flagship
+requirements. Preserve the corrected spawn boundary, coherent internal cycles,
+explicit composition and normal downward dependencies. Do not optimize for crate
+count, zero foreign installs, zero SCCs or a cosmetically renamed runtime.
 
-- [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-- [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
-- [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)
-- [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md)
 
 ### P5 — multiplayer and multiview
 

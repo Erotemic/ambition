@@ -250,3 +250,17 @@ The program can leave active architecture planning when local and remote
 participants, body assignment, room residency, and view layout can vary
 independently through supported engine seams, with Ambition's required shared /
 split / different-room cases covered by representative hosts.
+
+## Separate participant multiplicity from world multiplicity
+
+The [architecture map](architecture-responsibility-map.md) treats seat/control
+arbitration, multiple views, multiple live world instances and network transport
+as independent axes. Two players in one room do not prove two rooms can coexist;
+two cameras do not require two authoritative simulations.
+
+A4 preserves one accepted driving relation with all current mount/possession
+constraints. A8 requires an actual two-instance fixture before namespace or
+lifecycle generalization. Test repeated authored IDs across instances rather than
+only different room IDs; test one instance tearing down while the other remains
+live. Checkpoint restore currently follows its established primary-avatar policy;
+A1's ownership move does not decide co-op save ownership or Q54 gate policy.

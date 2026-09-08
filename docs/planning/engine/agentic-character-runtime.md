@@ -146,3 +146,19 @@ separate optional crate/tool boundary.
 - How should characters coordinate or negotiate shared plans?
 - What is the latency/cost budget for model-backed characters?
 - What safety/content constraints belong in the game rather than the engine?
+
+## Runtime agent boundary versus authoring agent boundary
+
+The [authoring control plane](authoring-and-tools.md) edits, validates and publishes
+content outside the simulation tick. A runtime agent instead receives bounded
+observations and proposes semantic intentions under the normal actor-control
+acceptance rules. These are different trust, latency and lifetime contracts.
+
+A delayed model response needs subject/session identity, observation revision,
+expiry and cancellation policy before acceptance. It cannot mutate a Bevy World,
+install a provider, alter a moveset graph in place or bypass action eligibility.
+Playback/rollback must consume the accepted intent, not re-query a remote model.
+
+Trusted Rust extensions remain trusted code, not a sandbox. Data-authored flows
+need A11/A12 validation and execution bounds. Do not create a universal runtime
+service bus to make an agent capable of everything the engine can express.

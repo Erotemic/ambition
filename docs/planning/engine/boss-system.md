@@ -150,3 +150,16 @@ beats) has landed and is headless-green (the canary
 What remains is **content** (authoring specific encounters, the cut-rope victory NPC)
 and **in-game feel** (boss pacing, music / lock-wall timing) — verified against the
 real sim and Jon's eye.
+
+## Boss boundary in the architecture reassessment
+
+Boss pattern/content selection, shared actor materialization, accepted combat
+reaction and encounter/reward lifecycle are distinct authorities. The existing
+boss crates are evidence of some separation, not permission to move every boss
+caller into one new capability. Preserve the current body construction road.
+
+A2 in the [frontier](actor-monolith-work-frontier.md) first aligns projectile boss
+admission and damage with published authored hurt geometry, including an explicit
+empty set. That fix precedes removal of feature-family dispatch. Boss health,
+invulnerability and reward policy remain with their existing semantic owners;
+Q48 and boss replay/reward choices are not answered by the geometry repair.

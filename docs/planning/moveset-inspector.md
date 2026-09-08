@@ -1,38 +1,19 @@
 # Combat Inspection and Moveset Observatory
 
-> ⛔ **NOTHING IN THE REPOSITORY LINKS TO THIS PAGE (measured 2026-09-03), and
-> that makes it unreachable by the documented route.**
-> [`README.md`](README.md) says a reader arrives at a focused plan through *"the
-> focused engine, demo, game, or campaign document linked by the selected queue
-> row"* — so a plan with no queue or tracks row has no entrance. A sweep of all
-> 278 non-archive documents found exactly three with zero inbound references, and
-> the other two are CLOSED receipts that do not need one. This page is **OPEN**,
-> with M3 still outstanding.
->
-> ⇒ The tooling it describes is not lost — `scripts/render_take_diagnostic.py`
-> and two other scripts name the inspector in prose — but a person following the
-> planning docs never meets the plan, only the code.
-> ✔ **PARTLY FIXED THE SAME DAY:** `docs/tools/index.md`'s "Combat inspection" row now links here beside the tool's
-> usage guide, so a reader arriving through the TOOLING route reaches the design and the open work. They are
-> different readers: one wants to know how to run the inspector, the other what to build next.
->
-> ✔✔ **AND THE PLANNING ROUTE IS OPEN TOO — this banner said it was "still
-> blank", and that is now STALE (re-measured 2026-09-04).**
-> [`tracks.md`](tracks.md) carries *"Moveset observatory M3 — art/geometry
-> agreement"*, naming this page as the owner and recording that the remainder is
-> a COMPOSITION rather than a publication. ⇒ Both routes reach this page now: a
-> sweep for `moveset-inspector` across `docs/` returns three referrers
-> ([`README.md`](README.md), [`tracks.md`](tracks.md), and
-> [`../tools/index.md`](../tools/index.md)) where it once returned none.
->
-> ⚠ **The lesson this banner exists for is unchanged, and it just repeated itself
-> one level up**: the fix arrived, and the page that reported the problem never
-> learned about it. ⇒ A note describing a gap outlives the gap unless closing it
-> includes re-reading whatever announced it.
+**Owner:** deterministic combat inspection. The existing plan records M1, M2,
+M4, M5, M6 and M7 as closed and retains M3 art/geometry agreement work. Recheck
+those implementation receipts before changing their status; this source-only
+architecture pass did not run rendered takes.
 
-Status: **OPEN** — M1, M2, M4, M5, M6 and M7 closed. What remains is M3's
-art/geometry AGREEMENT measurements, which need the render to expose its camera
-transform. Ten of ten exit criteria hold; see the table.
+The plan is reachable through [tracks](tracks.md),
+[engine inspection](engine/inspection-diagnostics-and-workbench.md) and
+[the tools index](../tools/index.md). Do not retain the old no-inbound-links claim.
+
+The [architecture reassessment](engine/architecture-reassessment.md) adds two
+constraints: discovery uses the actual installed/prepared technique catalog, and
+contact inspection consumes A2's accepted target/geometry fact rather than
+reconstructing an independent hit decision. Cached takes remain evidence, not
+content authority. A11/A12 reject invalid keys/flows before a take is scheduled.
 
 ## Purpose
 

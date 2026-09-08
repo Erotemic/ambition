@@ -231,3 +231,19 @@ The performance/iteration program is healthy when:
 - no “optimization” without a control and attribution;
 - no repeated Cargo loop that bypasses target/headroom checks;
 - no dated benchmark diary appended to this live page.
+
+## Architecture measurements need separate hypotheses
+
+A9 separates Cargo closure, compilation fanout, linked bytes, runtime installation
+and runtime cost. A smaller SCC is none of those measurements. Report the target,
+features, cold/warm state, scenario identity and hardware with each claim.
+
+Source inspection found that the flow interpreter clones the authored flow during
+playback. A12 validates/bounds the graph first; an immutable prepared reference or
+narrower borrowing may remove the clone afterward. This is an allocation/copy
+opportunity, not a measured frame-time bottleneck. Benchmark a live flow customer
+before claiming benefit or adding an arena, cache or custom interpreter runtime.
+
+A residency budget, broadphase index and parallel schedule change each need their
+own measured customer. A new shared abstraction that increases rebuild reach or
+per-tick indirection has a cost even when source lines decrease.

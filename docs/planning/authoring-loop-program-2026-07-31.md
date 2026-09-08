@@ -121,3 +121,18 @@ Archive this residual plan when:
    binding/cue path; and
 3. one external capability demonstrates schema + action + causal composition
    through public engine APIs.
+
+## Updated acceptance dependency
+
+The [architecture review](engine/architecture-reassessment.md) keeps the external
+provider/authoring loop as a real engine customer. Its next acceptance surface is
+not a missing flow interpreter: that interpreter and a `read_and_seize` customer
+already exist. A11/A12 in the [frontier](engine/actor-monolith-work-frontier.md)
+close installed-technique validation and flow bounds before new content relies on
+them.
+
+The external witness must discover support, author valid and invalid content,
+receive source-local diagnostics, prepare a revision, drive semantic actions
+through the same physical-input acceptance road, and step its resulting behavior
+without flagship-only imports. A manifest-only fixture and a screenshot do not
+prove that loop. Keep field-authority cleanup bounded to actual duplicate values.

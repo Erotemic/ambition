@@ -25,23 +25,33 @@ decision ledger instead of a second queue.
 
 ## Authority order
 
-For a changing technical fact, trust in this order:
+Separate observations from decisions.
 
-1. current source and executable behavior;
-2. the focused owner document for the subsystem;
-3. an explicit maintainer decision;
-4. the current queue row;
-5. older planning prose only as historical context.
+**What the software currently does:** source plus executed behavior take
+precedence over a plan. A source inspection is not an executed acceptance test.
+Record contradictions instead of editing the observation to fit the design.
 
-A filename, author name, old campaign, large amount of prose, or repeated agent
-commentary does **not** increase authority.
+**What the software should do:** explicit maintainer rulings constrain design.
+The focused owner document records the current engineering decision and its
+reasoning; the queue selects work under that decision. An implementation can
+violate a ruling without overruling it. An architectural recommendation is not a
+new maintainer ruling.
+
+The [architecture reassessment](engine/architecture-reassessment.md) supersedes
+the old mandatory P2-P5 SCC sequence and identifies the changed owner contracts.
+Use its [responsibility map](engine/architecture-responsibility-map.md),
+[bounded work packets](engine/actor-monolith-work-frontier.md) and
+[review coverage](engine/architecture-review-coverage.md) together. Its source
+findings are tied to the named snapshot and must be rechecked on a newer head.
+Unchanged product decisions remain in their existing owner documents.
+
+A polished crate name, older campaign, author identity or repeated commentary
+provides no additional evidence of responsibility or correctness.
 
 ## Direct maintainer observations
 
 There is deliberately **no permanent maintainer-observation dump**.
-the retired maintainer observation dump was retired in September 2026 because it
-had become an agent dumping ground and its filename caused readers to over-weight
-stale commentary.
+Direct reports belong with the responsible subsystem, not a personal-name log.
 
 When Jon reports something directly, triage it immediately:
 
@@ -112,7 +122,7 @@ result.
 Current high-value owner documents include:
 
 - [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md)
-  — executable residual SCC decomposition;
+  — bounded ownership migrations;
 - [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
   — durable decomposition rules;
 - [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md)

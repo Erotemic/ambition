@@ -329,3 +329,18 @@ re-open it when content arrives.
   moving-platform state;
 - invalid path/motion authoring fails during preparation with useful provenance;
 - the capability remains usable by another game without Ambition-specific code.
+
+## World-object authority instead of a feature bucket
+
+The [responsibility map](architecture-responsibility-map.md) treats `features` as
+a historical container. Kinematic motion, destructible transition, interaction
+verb, loot policy and presentation should not all become one new `world_objects`
+catch-all. Co-locate each object's transition state with its accepted writers;
+share the existing spatial/body-motion substrate where the semantics match.
+
+A falling chest may use path motion, receive an accepted hit and expose an
+interaction. None makes its entire lifecycle combat-owned. A5 waits for A2's
+contact handoff before moving breakable state/behavior/respawn. Preserve stable
+geometry identity, moving-host portal behavior and phase visibility when moving
+any object out of combat/features. An animation effect must not become a second
+motion authority.

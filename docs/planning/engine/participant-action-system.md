@@ -139,3 +139,16 @@ The architecture is complete enough to leave active planning when:
 4. controller/touch presentation has a deliberate finite-slot policy;
 5. multi-view prompt ownership is explicit when a product actually uses several
    independent local views.
+
+## Accepted actions and installed authored programs
+
+A11/A12 in the [frontier](actor-monolith-work-frontier.md) validate technique keys,
+parameters and bounded flow graphs before content activation. The participant
+surface proposes actions; body/control owns acceptance; move execution owns the
+resulting occurrence. Neither the authoring API nor an agent response bypasses
+that chain.
+
+Keep action identity distinct from effect/technique identity and from a live move
+occurrence. Per-occurrence contact latches cannot establish that a later authored
+beat made a fresh contact. Add scoped beat facts only when a real multi-beat
+customer requires them, with replay and cancellation tests.

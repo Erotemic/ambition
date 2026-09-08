@@ -331,3 +331,24 @@ This plan remains open because the representation for reusable authored rules is
 intentionally unresolved. It can close when real customers have either proven a
 small shared rule form or demonstrated that prepared semantic calls plus
 independent domain control-flow backends are sufficient.
+
+## O4 admission refinement and existing interpreter bounds
+
+[A11/A12](actor-monolith-work-frontier.md) are the bounded implementation packets
+for the current O4 gap. `read_and_seize` already authors a flow and combat already
+interprets it; this is no longer a missing-interpreter task. The unconnected
+`ParamSchemaRegistry` cannot validate actual installed support or reject unknown
+keys on the current production preparation path.
+
+Expose a typed installed-technique declaration from the same installer that adds
+the handler. Preparation distinguishes unknown, known-but-not-installed and
+explicitly parameterless support, and applies semantic validators to all event,
+window, flow and nested payload effect references. A new executable global
+registry or general-purpose VM is not needed.
+
+Flow validation must agree with the runtime's `u16` node representation and reject
+nonfinite timeouts. Preparation owns graph validation and an explicit work bound;
+per-tick interpretation owns the current occurrence state. Existing connected/
+blocked/overlapped signals latch for an occurrence, not independently for each
+later Wait node. A future multi-beat customer requires scoped beat evidence;
+do not claim those semantics from the present latch.

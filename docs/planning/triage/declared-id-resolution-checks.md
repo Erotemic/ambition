@@ -114,3 +114,16 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
 A newly declared asset/reference that is absent by mistake fails authoring or is
 reported with actionable provenance, while intentionally absent optional content
 remains valid. No always-on boot census is added.
+
+## Technique support is another declared-reference boundary
+
+A11/A12 in the [frontier](../engine/actor-monolith-work-frontier.md) add admission
+for the existing effect/flow vocabulary. A known parameter schema alone cannot
+prove that a technique exists and is installed. Validate all semantic reference
+locations against the actual installed declarations before publishing content;
+unknown, not installed and known parameterless require distinct outcomes.
+
+Keep source path/field and provider provenance on diagnostics. Do not add a second
+independent checker that the game load path never calls, or use runtime hydration
+failure as proof of startup validation. Existing declared-art/music validation
+remains its own resource-resolution owner.

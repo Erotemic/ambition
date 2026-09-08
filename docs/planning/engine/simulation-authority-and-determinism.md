@@ -1143,3 +1143,27 @@ observed behaviour rather than raised as a question.
 - scheduler parallelism as an architecture objective;
 - source-text policy where a type/API/runtime test can make the invariant
   structural.
+
+## Ownership proof required for decomposition
+
+The [architecture reassessment](architecture-reassessment.md) adds an authority
+record to each move: accepted writers, state identity, scope/lifetime, input
+admission, phase order, deferred visibility, rollback registration and published
+outputs. Component definition ownership alone is insufficient. A backend-neutral
+registrar preserves a real backend boundary, but cannot choose semantic lifetime
+for a domain it does not understand.
+
+The A1 checkpoint fixture covers denied admission as well as eventual commit.
+A2 covers contact selection and obstruction before reaction. A12 covers numeric
+representation and per-tick work bounds for authored graphs. All three can be
+wrong while a dependency graph and rollback schema count remain unchanged.
+
+An effect journal can suppress replay duplicates within its stated process/frame
+scope. Durable exactly-once I/O requires a sink protocol and persisted idempotency
+identity, not just a confirmed frame. Keep that stronger promise out of gameplay
+until an actual save/network/economic customer requires and tests it.
+
+Prepared metadata equality does not establish executable build equality. Pure
+relocations preserve same-build wire IDs; a schema/build change requires the
+separate compatibility policy. Do not automatically assign new wire identities
+because a Rust source path moved.

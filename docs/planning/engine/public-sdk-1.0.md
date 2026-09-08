@@ -1,216 +1,131 @@
 # Public SDK 1.0
 
-**State:** OPEN successor program.
+**State:** open; baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
+The supported product is an ergonomic programmatic engine API, with validated
+agent-native authoring and an explicit build/package path. Internal crate names
+are not the public capability model.
 
-> **⭐ THIS PROGRAM IS RATCHETED, AND THE PAGE DID NOT SAY SO** (measured
-> `0a29e23fe`, 2026-09-02). `scripts/check_absence_contracts.py` runs FOUR
-> independent module-allowlist contracts, one per consumer, each measuring what
-> that consumer names through the `ambition_platformer2d` facade:
->
-> | contract | consumer |
-> |---|---|
-> | `outlander-names-only-the-public-sdk` | `fixtures/external_consumer/` |
-> | `minimal-game-names-only-the-public-sdk` | `fixtures/minimal_game/` |
-> | `sim-harness-names-only-the-public-sdk` | `crates/ambition_sim_harness/` |
-> | `capability-demo-names-only-the-public-sdk` | `examples/capability_demo/tests/` |
->
-> ⭐ **All four report `0 of 0 baseline modules still named`** — four independent
-> consumers, tests included, naming NOTHING outside the reviewed public surface.
-> The mechanism is a frozen baseline that may only shrink, and the script says
-> why in place: *"an allowlist entry is a compatibility commitment, not a ratchet
-> escape hatch"*, so *"an empty allowlist converges monotonically toward the
-> public SDK."*
->
-> ⇒ **So this program's acceptance is already installed and already green, and a
-> reader of this page could not tell.** That changes what "OPEN" means here: the
-> question is no longer whether consumers can avoid internal crates — four
-> demonstrably do — but whether the surface they are held to is the RIGHT one.
-> ⛔ And the ratchet cannot answer that: it measures what is named, not whether
-> what is named is worth naming. `outlander-does-not-hand-order-its-own-composition`
-> is a fifth contract in the same file, and green, which is a different question
-> again.
+[The queue](../queue.md) chooses execution. The concrete profile packet is A9 in
+[the frontier](actor-monolith-work-frontier.md); current owners are in the
+[responsibility map](architecture-responsibility-map.md).
 
-> **MEASURED 2026-09-03 — ADR 0031's OWN NUMBERS, RE-TAKEN, and they answer the
-> question the block above leaves open.** That ADR's Context is the case for this
-> program, and it is quantitative: *"`crates/ambition_platformer2d/src/lib.rs` is
-> 114 lines. Fifty of them are `pub use`, and roughly forty are
-> `pub use ambition_x as x`"*, under the heading **"the public API of this engine
-> is currently the list of crates it happens to be built from … a namespace
-> mirror"**.
->
-> | ADR 0031 (Context) | at HEAD |
-> |---|---|
-> | lib.rs 114 lines | **998** |
-> | 50 `pub use` | **159** |
-> | ~40 `pub use ambition_x as x` | **51** |
->
-> ⭐ **The remedy landed and the symptom grew, and both halves are true.** Of
-> those 998 lines, **456 are doc comments** and 39 are `#[cfg]` gates; the module
-> doc opens *"the supported API is organized by game concepts (`actor`,
-> `character`, `participant`, `session`, `sim`, `world`…)"*. That is a curated,
-> documented, feature-gated facade — not the namespace mirror 0031 described.
-> ⛔ But the one number 0031 named as the DEFECT — crates re-exported under their
-> own names — went from about forty to **fifty-one**. The concept organisation was
-> added ALONGSIDE the mirror rather than in place of it.
->
-> ⇒ **So the surface is now two surfaces**, and the ratchet above cannot see the
-> difference: a consumer naming `ambition_platformer2d::actor` and one naming
-> `ambition_platformer2d::encounter` (the crate, aliased) both pass, while only
-> the first is the API this program is trying to build. ⇒ *"Whether the surface
-> they are held to is the RIGHT one"* has a concrete first answer: it is the
-> right one plus fifty-one crate aliases.
->
-> ✔ **AND 0031'S SECOND COST WAS PAID IN FULL, which is the happier half.** That
-> ADR also measured composition: *"`build_windowed_app` is ~65 lines a consumer
-> must write in a specific order"* — asset source before `DefaultPlugins`, then
-> `init_engine_states`, then `PlatformerEnginePlugins::fixed_tick()`, then
-> `PlatformerHostPlugins`, then the shell, then `PlatformerAssetsPlugin`, each
-> for a reason the consumer had to know. At HEAD that function is **9 lines**
-> (`fixtures/external_consumer/src/lib.rs:523`) and holds no order at all:
-> `PlatformerApp::windowed(…)`, optionally `.without_gpu()`, `.mount(…)`,
-> `.build()`. The sequence moved inside the builder, where it belongs.
->
-> ⇒ **So this ADR has one complaint decisively closed and one quietly worse.**
-> Worth holding both: a reader who only sees the 9-line builder concludes the
-> facade problem is solved, and a reader who only counts crate aliases concludes
-> nothing was done. The composition leak is gone; the namespace mirror is not.
->
-> ⚠ **This is the COMPATIBILITY question, not the linking one, and they have
-> different answers.** A facade alias makes the crate graph part of the public
-> API — 0031's actual concern. It does NOT decide what a consumer LINKS: the
-> actor monolith reaches every `never_asked_for` crate on its own, so cutting a
-> facade edge changes no footprint number. See
-> [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md),
-> where I got that backwards and retracted it. Same edges, two unrelated
-> consequences.
+## Current implementation and remaining gap
 
-## Goal
+The external consumer can use `PlatformerApp::windowed`, mounting and build
+operations rather than hand-ordering the internal plugin sequence. Preserve that
+improvement. The facade has curated semantic namespaces but also retains
+crate-shaped mirrors, including access to unfinished implementation boundaries.
+Removing mirrors is an API task, not proof of dependency-footprint reduction.
 
-Design the engine surface a game developer should actually want to use.
+Current SDK source contracts cover the external consumer, minimal game, sim
+harness and capability-demo consumers. Their allowlists protect against known
+internal imports; they do not prove that every allowed namespace is coherent,
+that every selected profile works, or that an omitted capability is absent from
+Cargo's transitive closure. Do not add a blind-agent ritual to every API change.
 
-The public SDK should express game concepts and supported extension points, not
-require consumers to understand Ambition's internal crate history. Internal
-architecture remains free to change aggressively until the semantic surface has
-proved itself across real consumers.
+The baseline facade has 51 other workspace packages in its normal nonoptional
+internal dependency closure. In particular facade -> platformer2d_host -> render
+is mandatory even when the facade's direct render feature is off. This is a
+manifest lower bound, not a resolved feature graph or binary measurement.
+`fixtures/minimal_game/Cargo.toml` contains a comment overstating render exclusion;
+A9 must correct it with the implementation. A windowed minimal-game fixture is
+not a no-render compile-closure fixture.
 
-For the Godot-class 2D target, the SDK is the proof that engine capability is
-actually reusable. A feature that only Ambition can reach through private crates
-is not yet a competitive engine capability, even if the implementation exists.
-The SDK does not need to wrap every Bevy API; it needs to make the supported
-composition story obvious and stable.
+## Public surface families
 
-See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+Expose composition/profile selection, provider/prepared content, body/character
+definitions, participant/actions, spatial worlds, lifecycle/transition,
+simulation stepping/queries, views/presentation, asset readiness, diagnostics and
+build/package integration. Expose Bevy-native extension where appropriate;
+wrapping every Bevy API adds little value.
 
-## Primary customers
+These are discoverable concept families, not a mandate to add a public module
+for every current crate. Keep one facade for common use. Advanced consumers may
+use explicitly documented lower APIs; accidental reachability through a broad
+re-export does not make those APIs supported.
 
-1. **Ambition** — deepest integration and primary product driver.
-2. the external consumer fixture — adversarial proof that supported composition
-   works outside the workspace;
-3. acceptance/secondary games such as Mary-O, Sanic, TwinTrack and Smash;
-4. future first-class games that may grow out of those customers.
+## Supported-profile ladder
 
-## Desired surface families
+The table defines target acceptance, not current passing status. Record each
+profile's actual fixture/result and limitations when implemented.
 
-A consumer should be able to discover coherent APIs for:
+| Profile | Required useful behavior | Negative requirement |
+| --- | --- | --- |
+| Headless body/world | Construct a prepared body, accept intent, collide with world geometry and expose state after ticks | No renderer/audio, named game content, inventory or encounter prerequisites |
+| Windowed body/world | Same simulation plus a view, input and prepared visual assets | Rendering observes simulation; changing quality/view does not change replay |
+| Combat | Authored action, target geometry, accepted reaction and deterministic result | No boss content, inventory, dialogue or shrine needed for ordinary combat |
+| World collection | Spawn and acquire a physical collectible with correct occurrence accounting | No hold/use/throw capability required |
+| Generic encounter | An external provider orchestrates reusable encounter semantics | No Ambition boss catalog or cutscene authority as a hidden prerequisite |
+| Full/default game | Current flagship and acceptance games with supported services | Convenience profile does not define the minimal foundation |
 
-- experience/game composition;
-- capability selection;
-- authored content/provider registration;
-- characters and reusable body definitions;
-- actions/input participants;
-- worlds/rooms/spatial authoring backends;
-- sessions, construction and transitions;
-- simulation queries/events and headless stepping;
-- multiplayer participant/control declarations;
-- local views/presentation policies;
-- semantic animation/VFX/audio/UI hooks where Ambition adds policy beyond Bevy;
-- asset identity, readiness/preparation and provider registration;
-- persistence/audio/network host services where installed;
-- diagnostics, preparation errors and content provenance;
-- supported project/target composition needed to build and package an external
-  game.
+Do not promise the full Cartesian product. Document known unsupported combinations
+and their diagnostics. Distinguish installation, compile closure, asset/package
+requirements and platform support for each profile.
 
-That list is a product map, not a request to create one giant SDK crate.
+## Migration method
 
-## Method
+Attempt a useful task through the facade from an independent consumer. Record
+exactly which private fact or internal path it needs. Decide whether the missing
+surface is engine capability, provider policy or game-specific code. Add the
+smallest semantic API, migrate the consumer and delete the old internal path.
 
-Grow the API from real consumer friction:
+For character authoring, use the existing definition/preparation/placement path;
+do not teach the removed archetype model through a compatibility alias. For
+world authoring, keep spatial definitions separate from the LDtk adapter and
+actor-aware construction lowering. For participants, keep driver/home-body/view
+identity distinct. For inspection, expose read-only prepared/simulation facts
+without requiring an internal debug crate.
 
-1. attempt the feature through the supported facade from a real game/customer;
-2. record the engine fact the consumer was forced to rediscover or the internal
-   crate it had to reach into;
-3. decide whether the gap is public semantic capability, provider policy or a
-   customer-specific concern;
-4. add the narrow supported seam;
-5. migrate the consumer and remove the internal dependency/duplicate path that
-   made the seam necessary.
+Internal decomposition and SDK cleanup may proceed in bounded parallel slices.
+Do not wait for an SCC score before fixing one proven API leak; do not stabilize
+a mixed implementation container as the public API merely to hide the leak.
 
-Current receipt: `ambition_sim_harness` now reaches body, participant, session,
-settings and engine concepts only through semantic facade modules, and the
-capability-demo host tests do the same. Both have zero implementation-module
-baseline in the existing consumer-module ratchet. The migration also deleted
-three facade mirrors with no consumers (`interaction`, `sfx_bank`, and the raw
-`renderer` module) and renamed the facade's `session_world` module to `session`.
-The remaining crate-shaped mirrors are still open migration surface; this slice
-does not claim they are public SDK.
+## Agent-facing discovery
 
-No blind-agent ritual or source-text allowlist is required for every slice.
-Consumer code, dependency closure, API docs and behavioral tests are the main
-evidence.
+Domain owners provide machine-readable list/describe/schema/reference/diagnostic
+projections of their actual installed/prepared vocabulary. The projection must
+carry profile, revision and provenance. It is read-only discovery, not a global
+service locator or reflection engine that mutates arbitrary components.
 
-## Phases
+A11 makes technique existence/parameter validation part of the same offer that
+installs its handler. A key known to the repository but absent from a selected
+profile must be distinguishable from both unknown and installed. Schema-only
+support cannot be advertised as working runtime behavior.
 
-### A1 — publish the post-D73 character authoring path
+Examples should be complete enough to compile, prepare content, advance behavior
+and explain a deliberate failure. A one-line API sample with hidden global
+initialization is insufficient for an external author.
 
-Make the public story for `CharacterDefinition` / preparation / placement clear
-and remove remaining recipes or facade names that teach the deleted archetype
-model.
+## Failure and compatibility contracts
 
-### A2 — world/LDtk authoring API
+Preparation errors report provider, definition, field/reference, expected kind
+and source location where available. Unsupported nondefault authored semantics
+cannot be accepted as if active. Runtime defensive errors still exist for trusted
+Rust callers that bypass preparation; they are not a substitute for admission.
 
-Expose backend-neutral world concepts while making the LDtk adapter/tooling an
-excellent supported backend.
+Current pre-release internal paths may change without compatibility aliases.
+Before SDK 1.0, decide which public type/schema contracts are stable and how
+versioned authored data is migrated. Keep save format, authored schema, prepared
+content identity, public Rust API and rollback wire policy separate. Same-build
+rollback does not imply persistent-save compatibility, nor vice versa.
 
-### A3 — participants and views
+## Verification procedure
 
-Publish semantic participant/control/view APIs as the multiplayer/multiview
-program matures instead of exposing singleton player-camera internals.
+Use a consumer outside inherited workspace feature unification. Inspect its
+resolved Cargo metadata and feature tree, not just the facade's manifest.
+Exercise headless/windowed behavior and teardown/re-entry independently. Package
+one declared desktop target from a clean build with explicit asset inputs;
+missing generated packs/toolchains are incomplete prerequisites, not a pass.
 
-### A4 — capability composition
+A profile receipt states the exact manifest/features, engine revision, target,
+selected capabilities, installed behavior, dependency closure, prepared content
+identity, commands/results and unsupported services. Measure build time and
+binary/asset bytes separately; neither is inferred from crate count.
 
-Make optional capability selection and service requirements understandable from
-the facade.
+## Exit
 
-### A5 — diagnostics and inspection
-
-A consumer should be able to inspect prepared content/capabilities, validation
-failures and simulation facts without importing internal debug crates.
-
-### A6 — documentation examples
-
-Maintain small complete examples for the common paths. Examples must build
-against the same public surface external games use.
-
-### A7 — machine-readable discovery
-
-The same public concepts exposed to Rust consumers should be discoverable by
-agent-native tooling: capabilities, provider vocabulary, schemas, diagnostics and
-example entry points should not exist only as prose or implementation knowledge.
-This does not require a universal reflection framework; domain-owned descriptors
-may compose into read-only discovery.
-
-### A8 — external project build/package proof
-
-Keep at least one clean external/minimal consumer that can configure capabilities,
-prepare content, build, run representative tests and produce a target artifact
-through supported tooling. This is the engine-product counterpart to facade
-compile tests.
-
-## Acceptance
-
-A competent Rust/Bevy developer **or capable LLM agent** should be able to create
-a small 2D game with a world, character, movement/combat capability, participant
-input, presentation, assets and room transition by using public docs/discovery
-rather than Ambition migration plans or internal implementation crates. The same
-project should run headlessly for tests and have a supported noninteractive path
-to a release artifact on at least one declared desktop target.
+A Rust/Bevy developer or LLM author can build a small game with a world, body,
+input, an authored action/object, optional presentation and a lifecycle transition
+through public docs/discovery, without reading migration plans. The same project
+has headless tests and a noninteractive release-artifact route. Each advertised
+optional capability has a tested positive case and a supported absence case.

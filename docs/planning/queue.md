@@ -8,66 +8,115 @@ A row stays here only when an engineer can act on it without first reconstructin
 weeks of context. Durable design belongs in the linked owner document. Product
 questions belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 
-**Reference source:** `54d99e7fb` (reviewed as `a38e1bf0f` on 2026-09-07,
-plus the actor-spawn boundary correction). Revalidate source facts before
-editing a newer head.
+**Architecture review source:** `300004d601af1e633cfaee969f079cf9bb368ca8`
+(2026-09-08 committed archive). Revalidate before changing a newer head. The
+review made no Rust execution claim; see the coverage receipt.
 
-## P0 — current correctness and architecture regressions
+## P0 - characterize and repair current correctness gaps
 
-None open. The four rows from the 2026-09-07 review (mark attribution lifetime,
-body-drawable portal scheduling, hit-flash portal release, C1 body-clock set)
-closed at `a38e1bf0f`; receipts are in Git history and the closed list in
-[`status.md`](status.md).
+### A1a - checkpoint routing must record admission, not merely an attempt
 
-## P1 — actor-monolith decomposition
+**Owner:** session lifecycle; packet A1 in
+[`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
 
-### D33 — execute the measured residual-SCC peel
+The startup checkpoint road stamps its routed-progress latch before checking
+whether the lifecycle slot accepted its intent. Add the busy-slot fixture first,
+prove the reachable retry policy, and update the latch only on the established
+success condition. Finding F1 is conditional source evidence, not a gameplay
+reproduction. Preserve the already-landed 2026-09-07 regression repairs.
 
-**Owner:** [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-and [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
+**Acceptance:** denied admission does not lose an otherwise required resume;
+admission and completed placement remain once-only; loading, reset and rollback
+fixtures retain their phase behavior. Commit this separately from A1b.
 
-P1 landed (settlement state to `ambition_match`; measured largest SCC **9**).
-Do **P2 through P4 in order**, remeasuring after every packet:
+### A2 - unify projectile contact geometry and obstruction semantics
 
-```text
-measured  largest SCC 9
-P2        projectile -> features              expected 8
-P3        shrine -> session                    expected 7
-P4        construction -> world                expected 6
-```
+**Owner:** contact selection plus target reaction; packet A2 and findings F2/F3.
 
-⛔ The SCC number certifies module placement inside the monolith, not crate
-ownership: `ambition_platformer2d_actor_spawn` is outside the graph. Keep
-`scripts/tests/test_actor_spawn_boundary.py` green through every packet — a
-packet that moves live-entity vocabulary into a builder crate is not a cut.
+First characterize published boss hurt geometry versus projectile admission and
+damage. Then establish world-versus-target ordering using the same movement leg,
+shape and collision policy. Only then replace feature-family fallback dispatch.
+This is not permission to implement a generic registry or change projectile
+consumption policy without a fixture.
 
-Then stop source movement and complete
-[`engine/actor-monolith-hard-core-edge-ledger.md`](engine/actor-monolith-hard-core-edge-ledger.md).
-No six-module-core carve begins with a `TBD` disposition.
+**Acceptance:** present-empty hurtboxes, a target behind a wall, a high-speed
+body target, equal-time contacts and rollback all have explicit outcomes through
+the production road. No second feature-family query re-decides the selected hit.
 
-The owner docs contain the exact symbols, files, rollback requirements, forbidden
-end states and tests. Do not recreate that material in this queue.
+### A11/A12 - make authored technique admission truthful and bounded
 
-### C2 — continue capability-owned installation only where ownership is real
+**Owner:** authored-program preparation; packets A11/A12 and findings F7/F8.
+
+Characterize the disconnected parameter validator, duplicate-key policy,
+unknown/uninstalled/parameterless keys, flow-node representability and nonfinite
+wait times. Wire validation to the actual installed technique set and every
+supported effect-reference location. Keep validation and interpreter changes
+separate from broad moveset authoring or a new scripting VM.
+
+**Acceptance:** rejected content cannot become an active prepared revision;
+valid shipped flows retain behavior; no accepted node target truncates at runtime;
+all current effect-reference forms receive semantic validation.
+
+## P1 - ownership and independently testable composition
+
+### A1b - move checkpoint restoration out of shrine and item installation
+
+**Owner:** session lifecycle; packet A1. This is the recommended next ownership
+move, after A1a's characterization/fix.
+
+Move restoration systems, progress state and their installer to the existing
+session region. Leave shrine interaction/healing/capture policy with the rest
+point. Keep the lifecycle slot with session. Do not create a shared lifecycle
+framework or change save ownership in this packet.
+
+**Acceptance:** checkpoint restore works without the item-pickup installer,
+full-game phase edges remain equivalent, rollback wire identities are unchanged,
+and the actor-spawn authority guard remains green.
+
+### A3 - relocate actor-specific world placement lowering
+
+**Owner:** prepared construction integration; packet A3.
+
+Move `ActorPlacementContext` and its actor/catalog-facing lowering adapter toward
+construction. Keep generic world provider vocabulary and spatial facts with
+world. This can proceed independently after its packet preflight; there is no
+required numeric SCC predecessor.
+
+**Acceptance:** world no longer imports actor preparation solely to lower a
+placement; provider validation, body construction and failure behavior remain
+covered. No executable type-erased recipe registry replaces the direct adapter.
+
+### A9 - establish truthful minimal engine profiles
+
+**Owner:** public SDK and composition; packet A9.
+
+Record the Cargo feature closure of real external fixtures. The source-only
+no-default-feature lower bound still contains 51 other workspace packages,
+including render through host. Separate compiler reachability, runtime
+installation and public-import ergonomics; repair one dependency path at a time.
+
+**Acceptance:** a supported profile constructs and steps a real subject, its
+promised absent capability is absent from both installation and resolved closure,
+and the full Ambition composition continues to work.
+
+### C2 - capability-owned installation, only where ownership is established
 
 **Owner:** [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 
-Current measured shape at the reference head:
+Fresh source instruments report 0 capability/ruleset private orderings,
+73 composition private orderings, 174 foreign installations, and 3 mechanically
+reducible versus 38 irreducible installation blocks. These are locator metrics.
 
-```text
-capability/ruleset foreign private ordering     0
-composition foreign private ordering           73
-foreign system installations                  175
-mechanically reducible install blocks           3
-irreducible composition blocks                 38
-```
+Move a reducible block only after establishing one implementation owner. Keep
+cross-capability policy in explicit composition. Resolve Q73 before adopting a
+plugin form that conflicts with the recorded combat convention; an owner helper
+can be sufficient. Zero foreign installations is not the target.
 
-**Do:** move only the reducible blocks whose implementation owner is unambiguous.
-Composition code is allowed to compose independent capabilities; zero foreign
-installs is not the target.
+**Acceptance:** public set ancestry and deferred visibility are covered, optional
+capabilities remain optional, and no broad runtime policy object replaces imports.
 
-**Acceptance:** owner installer exists, old host/runtime private-system names are
-gone, ordering uses public sets, optional-capability/rollback gates still pass.
+The remaining A4-A8/A10 packets have evidence-based holds in the frontier. They
+are not executable queue commitments. SCC counts do not release those holds.
 
 ## P2 — current engine/game work
 

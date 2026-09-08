@@ -1,163 +1,120 @@
-# Collision & CCD — remaining work
+# Collision and continuous contact - remaining work
 
-> **State:** residual work only, verified against `cecd01ca` on 2026-08-13.
->
-> The original CC1–CC8 design/campaign record is archived at
-> `../../archive/planning-superseded/2026-08-13/engine/collision-and-ccd.md` (docs/archive/planning-superseded/2026-08-13/engine/collision-and-ccd.md — removed from the checkout 2026-09-05; still in git history).
-> Settled runtime doctrine lives in
-> [`../../concepts/movement-collision.md`](../../concepts/movement-collision.md).
+The implemented movement contract remains in
+[movement and collision](../../concepts/movement-collision.md). This page tracks
+current contact/geometry work, not the completed CC1-CC8 campaign. The architecture
+review adds packet A2 in the [frontier](actor-monolith-work-frontier.md) and
+findings F2/F3 in [the source findings](architecture-review-findings.md).
 
-The core collision migration has landed. Do not replay the old campaign. This
-page names only collision/CCD work that current source still leaves open or
-explicitly trigger-gates for a future capability.
+## Established foundation to preserve
 
-## Verified current foundation
+`ambition_platformer2d_core::cast::aabb_path_contacts` provides swept trigger
+queries. Movement publishes the tick's canonical `SweepSample`; room and loading
+zone entry consume the path. Water and climb regions intentionally retain
+discrete enter/exit reads with `thin_region_warnings` for tunnelable authoring.
+Ledge probing follows resolved wall contact. Manual pickup remains button-gated
+overlap; a future automatic collector needs an explicit swept-trigger policy.
 
-Current source already provides the contracts the old campaign was trying to
-establish:
+`GeoId`/`GeoFaceRef`, portal frame/aperture vocabulary and moving-host mapping are
+existing infrastructure. The collision-invariant oracle remains an on-demand
+room/seed/tick diagnostic. Do not replace these mechanisms merely to unify names.
 
-- `ambition_platformer2d_core::cast::aabb_path_contacts` is the shared swept
-  trigger primitive;
-- the movement kernel publishes the canonical per-tick `SweepSample`;
-- room/loading-zone entry consumes the swept path rather than endpoint overlap;
-- water and climb regions intentionally remain discrete ENTER/EXIT state reads,
-  with `thin_region_warnings` covering tunnelable authoring mistakes;
-- ledge probing is downstream of resolved swept wall contact and is deliberately
-  discrete;
-- manual ground-item pickup is button-gated while overlapping; a future
-  auto-collect item must use the swept trigger primitive;
-- `GeoId` / `GeoFaceRef` provide durable geometry identity;
-- `PortalFrame`, `PortalAperture`, explicit mapping convention, and moving-host
-  portal velocity/frame handling are implemented;
-- the collision-invariant oracle exists as an on-demand diagnostic with stable
-  room/seed/tick evidence.
+Hazard contact already reads the current path, and the wrapper writes its sample
+before invoking the gate. `SimPhaseReach::Completed` preserves the original gate
+population; sample writing still occurs on zero-dt and early-return paths so a
+stale path is not reused. Missing samples retain the existing endpoint-only
+compatibility arm. Moving the gate without preserving those populations would
+reopen a resolved defect. Source and regression home:
+`crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`.
 
-Those are implementation facts now, not planning tasks.
+## A2: one contact decision through selection and reaction
 
-## 1. Make hazard contact consume the canonical swept path
+There are three distinct questions: what geometry the target publishes, which
+contact a moving projectile reaches first, and what the victim does with an
+accepted contact. Keep them explicit rather than creating a universal collision
+service or feature registry.
 
-✔ **CLOSED.** The shared gate reads the tick's `SweepSample` (`prev -> curr`)
-through `hazard_contact_on_path`, so a body fast enough to step over a thin
-hazard is hit. A body with no sample keeps the endpoint test and nothing else —
-the one compatibility arm, chosen so no second motion model reconstructs a
-segment from `vel * dt` and disagrees with the kernel; `SweepSample`'s
-`TODO(compat-remove)` is the plan to delete it. Teleports needed no exclusion:
-the sample spans simulation-phase entry to exit, so a blink or room transfer is
-not inside the segment by construction. Guarded by
-`movement::tests::hazard_sweep`, poison-verified in both halves.
-⚠ **This said "5 cases" and the module now holds SEVEN — re-counted 2026-09-03.**
-The original five are still there and still describe this paragraph exactly
-(steps over a thin hazard, stops short, standing in it, teleport is not
-traversal, no sample means endpoint only). Two edge cases were added since:
-`walking_a_floor_flush_with_a_hazards_top_face_is_not_a_hit` and
-`a_hanging_body_is_not_judged_by_the_hazard_gate`. ⇒ Counted as `#[test]`
-functions in
-`crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`; the
-method is stated because "cases" could as easily have meant motion policies, and
-a reader who counts differently cannot otherwise tell growth from a mismatch.
+The current projectile road can use feature-family boss/breakable predicates
+before its world sweep, and boss damage can fall back to geometry that differs
+from published authored hurtboxes. See the exact evidence and confidence limits
+in F2/F3; these are source findings, not executed gameplay results from this
+review.
 
-⛔ **The axis-swept arm ran the gate one tick stale, and that was the harder
-half.** `apply_world_hazard_gate` sat at the end of `update_body_simulation_
-inner` while that policy writes its `SweepSample` in the wrapper *after* the
-inner step returns — so the gate would have read the PREVIOUS tick's segment,
-and a zero-length default on the first tick. The other two policies already
-wrote their sample immediately before calling the gate. The gate now runs in the
-wrapper, after the write, and all three arms share the shape *write sample ->
-gate*. A reader that consumes a per-tick record must be ordered against the
-writer of that record, not merely placed in the same function.
+### Stage 1 - target geometry
 
-⛔⛔ **AND MOVING IT CHANGED WHO IT JUDGES, WHICH IS A SECOND DECISION.** The
-inner step has three early returns — a `raw_dt <= 0.0` tick, a drowning, and a
-frame an active ledge grab consumed — and none reached the gate while it sat in
-the tail. Lifting it to the caller silently added all three: a frozen frame would
-judge a body nothing had stepped, and a body HANGING on a ledge whose box
-overlaps a hazard would start dying, which matters because spikes under a lip is
-an authored shape. `SimPhaseReach` now reports whether the phase reached its
-tail and the gate runs only on `Completed`, so the population is exactly what it
-was. ⚠ The SAMPLE WRITE is deliberately not gated the same way — it must run on
-every path, because a zero-dt tick has to record a zero-length segment rather
-than keep a stale one. Guarded by `a_hanging_body_is_not_judged_by_the_hazard_
-gate`, which proves the same body in the same spikes DOES die when nothing
-consumes its frame.
+Make projectile boss admission and downstream reaction honor the existing
+published simulation target geometry. Distinguish absent authored geometry from
+present-empty authored geometry. Empty must not accidentally become coarse-body
+fallback. Do not use sprite pixels or device quality as mechanical authority.
+Keep damageability separate from collision: invulnerable, blocking and deflecting
+contacts may have different consumption/reaction policies.
 
-⇒ **Relocating a call relocates its population.** The ordering was the bug; the
-population was not, and one edit changed both.
+### Stage 2 - travel and obstruction
 
-## 2. Turn stable collision-oracle findings into behavioral regressions
+Capture or consume the actual canonical movement leg(s). A reconstruction from
+end position minus a changed velocity is not automatically that leg. Compare
+world and target candidates in the same coordinate frame using the relevant
+projectile shape and collision policy. A center ray can disagree with a finite
+projectile sweep, one-way policy or a portal-transformed segment.
 
-The full `collision_invariant_oracle` remains intentionally diagnostic and
-ignored because authored open edges and known deferred cases make a single
-"all rooms must be clean" assertion too coarse.
+Specify nearest-hit order, equal-time tie policy and stable identity order. A
+world blocker before a target must not be bypassed by evaluating a feature family
+first. Continuous body-target tests must cover high-speed passage with no endpoint
+overlap. Preserve owner/team exclusions, intentional pierce/bounce/deflect rules,
+lifetime, target deduplication and authored muzzle placement.
 
-When the diagnostic finds a reproducible engine defect:
+### Stage 3 - accepted contact handoff
 
-- capture the smallest room/seed/mechanic reproduction;
-- encode the actual illegal behavior as a focused behavioral regression;
-- fix the owning collision/movement path;
-- leave legitimate authored exits and open gaps legal.
+Send the selected victim and contact fact through the existing deterministic hit
+road; do not ask a later `UnresolvedFeatures` arm to reclassify the target by
+family string. The victim owner applies damage/destruction/knockback policy;
+rules own score/stocks; presentation consumes a published consequence.
 
-Do **not** make a permanent global hard gate merely to satisfy the old CC3
-campaign. Promote individual invariants only when their legal/illegal boundary
-is stable enough to express behaviorally without false positives.
+Prefer a small typed handoff or direct dependency with one real producer and
+consumer. Do not create a global query bus, executable target registry or
+`BreakableLike`/`BossLike` marker vocabulary simply to delete an import.
 
-## 3. Broadphase only after measurement shows it matters
+### Acceptance
 
-The old CC4 broadphase idea remains a performance trigger, not active work.
-Measure cast/collision cost first. Introduce a spatial index only when a real
-profile demonstrates that linear block/chain traversal is material at a target
-content scale. Preserve deterministic ordering and exact contact semantics.
+Use production-path fixtures for displaced authored boss hurtboxes,
+present-empty hurtboxes, absent fallback, target before wall, target behind wall,
+finite-shape corner collision, high-speed body crossing, one-way behavior,
+equal-time contacts, same-tick multiple projectiles and rollback replay. Include
+portal/moving-world cases only through the supported travel contract; explicitly
+classify unsupported cases rather than inventing an alternate transform road.
 
-## 4. Non-axis-aligned geometry and dynamic straddling are demand-driven
+A2's commits first characterize geometry, then repair ordering, then remove the
+obsolete dispatch. Each keeps behavior changes separate from code movement.
 
-Angled portal/surface geometry, generalized straddle pieces, and dynamic
-straddle support remain legitimate future capabilities, but no current customer
-requires the full old CC7 program. Start that work only when a concrete room or
-game feature needs it, then make the geometry vocabulary reusable rather than
-portal-specific.
+## Contact versus strict overlap is a caller policy
 
-## 5. Slopes are a customer-triggered capability
+The swept primitive can add touching contacts to a strict-overlap endpoint test.
+That is not exact overlap parity: a body sliding along a shared face can touch
+without entering the volume. Hazard handling already insets to the interior via
+`HAZARD_SURFACE_EPSILON`; its floor-flush regression remains closed.
 
-AABB slope vocabulary from the old CC8 plan remains deferred until a real game
-or demo demands slopes. Do not build it merely to finish the historical
-campaign.
+Room/loading-zone over-trigger behavior is **unmeasured** in this review. Do not
+change those callers speculatively. First write their intended touch/entry contract
+and a reproducible fixture. Then choose an explicit strict-interior query or
+contact query if both are needed. Correct misleading parity documentation in the
+same scoped source packet, not through a global collision rewrite.
 
-## 6. The swept primitive's parity claim is false for touch contacts
+## Diagnostic and deferred work
 
-**Open, source-confirmed and measured once.** `cast::aabb_path_contacts`
-documents itself as *"PARITY by construction: it returns `true` for the
-already-overlapping (standing-in-it) case exactly as the old discrete
-`strict_intersects` did, then ADDS the swept path on top"*. The first half is
-true. The second is not: the discrete test reports boxes that **overlap**, while
-`sweep_hit` reports boxes that **contact**, so the sweep adds every TOUCH along
-the path — including a body sliding along a face it never enters.
-`reject_grazing_contact` does not cover it, because the approach is head-on on
-one axis while the other axis merely shares a plane.
+Promote a collision-oracle observation to a hard regression only after identifying
+a stable illegal behavior and its smallest room/seed/mechanic witness. Legitimate
+open room edges remain legal. The whole oracle is not a universal all-rooms gate.
 
-⭐ **MEASURED 2026-09-02 in `blink_run`.** A body walking the start floor with
-feet at `y = 128.0`, against a hazard whose top face is also `y = 128.0`, was
-reported as hitting the hazard the instant its leading edge passed `x = 288.0`
-(endpoint AABB `max = (288.87, 128.0)` vs hazard `min = (288.0, 128.0)`). It
-walked along a surface and was killed for it. This is not an exotic shape: an
-authored death gap ALWAYS shares its top face with the floor it interrupts.
+Broadphase changes require a measured collision-cost bottleneck at an intended
+content scale and must preserve deterministic tie order and contact semantics.
+Slopes, non-axis-aligned geometry and generalized dynamic straddling require a
+concrete game customer. No historical campaign checklist independently authorizes
+them. Spatial query acceleration and geometry authoring are separate from actor
+placement lowering and session lifecycle.
 
-The hazard gate fixed this **on the consumer side**, insetting the hazard to its
-interior before the swept query (`movement::collision::HAZARD_SURFACE_EPSILON`),
-and deliberately did not change the primitive on the strength of one case.
-Guarded by `movement::tests::hazard_sweep::walking_a_floor_flush_with_a_hazards_
-top_face_is_not_a_hit`, across every motion policy, poison-verified.
+## Exit condition
 
-⚠ **THE OTHER CONSUMERS ARE OVER-TRIGGER LATENT, UNMEASURED.** Room and
-loading-zone entry both read the same primitive (see "Verified current
-foundation"). Neither has been shown to misfire, and neither has been checked —
-the reason they may not is that a loading zone is rarely coplanar with a
-walkable surface, which is a property of current authoring rather than a rule.
-⛔ Do not "fix" them speculatively. The open question is whether the parity claim
-should be corrected at the primitive — a strict-overlap variant beside the
-contact one — or whether contact is right for triggers and only hazards want
-overlap. Answer that with a second measured case, not by reasoning.
-
-## Exit
-
-This residual plan is complete when the source-confirmed swept-hazard gap is
-closed and any additional collision work has either acquired a real customer or
-is represented as an explicit trigger rather than an evergreen migration task.
+A2 closes when admitted contacts, obstruction and victim reaction agree in the
+supported profiles, the old feature-family reclassification is gone, and the
+behavioral matrix passes. Other entries remain only while they have a concrete
+failing fixture or an explicit customer/measurement trigger.

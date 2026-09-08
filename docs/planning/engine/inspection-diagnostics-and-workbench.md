@@ -143,3 +143,24 @@ modules first. At minimum it should be possible to obtain structured answers for
 
 A GUI workbench may visualize these queries. It is not required for the queries to
 exist.
+
+## Expose accepted contracts, not a mutable service locator
+
+The [agent authoring protocol](authoring-and-tools.md) needs read-only discovery
+of installed capabilities, technique/schema support, source provenance, prepared
+revision, active profile and admission diagnostics. Derive this surface from the
+same declarations and validation used by preparation. It must not become a second
+catalog that can claim support for a handler that was never installed.
+
+For a failed operation report the authority, subject/scope, source field, rejected
+precondition and lifecycle stage. A plan should identify the base revision and
+its required capabilities; a workbench must not conceal stale-plan conflicts.
+Do not expose arbitrary Bevy World mutation or an unbounded query/callback bus as
+the machine-authoring API. Existing rich visual inspectors can consume these same
+facts without owning simulation or construction policy.
+
+The [moveset observatory](../moveset-inspector.md) remains the focused owner for
+combat scenario/take comparison and M3 art/geometry agreement. Its diagnostic
+frontends must consume real runtime contacts and prepared content, not a second
+combat model. A2/F2/F3 regression scenarios are useful customers of that surface,
+not a reason to require a graphical inspector for every headless contact test.

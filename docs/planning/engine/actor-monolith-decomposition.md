@@ -1,217 +1,138 @@
 # Actor residual-kernel decomposition
 
-> **Baseline:** `54d99e7fb`, measured 2026-09-07 (P1 landed).
-> Historical carve notes live in Git history. This file contains only the rules
-> needed to make the next decomposition decisions.
-
-**State:** ACTIVE. The authority prerequisites for C2 are already crossed; this
-work now runs in parallel with capability/plugin composition.
-
-Executable work is in
-[`actor-monolith-work-frontier.md`](actor-monolith-work-frontier.md). The
-post-P4 design ledger is
-[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md).
+**Baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`, 2026-09-08.
+**State:** active, authority-first migration. The old P2/P3/P4 sequence is
+superseded by the [reassessment](architecture-reassessment.md).
+Execution order is in [the queue](../queue.md); concrete conditional packets are
+in the [work frontier](actor-monolith-work-frontier.md).
 
 ## Goal
 
-Reduce `ambition_platformer2d_actor_monolith` to a coherent actor/body kernel.
-A carve succeeds only when an authority moves to its semantic owner and the old
-dependency disappears from production source.
+Retain a coherent body/control/action execution authority and remove unrelated
+session restoration, preparation, world-object behavior and content integration.
+Do not treat the residual crate as the only monolith: combat, characters, core
+and runtime also contain mixed responsibilities.
 
-The residual kernel may own:
+The [responsibility map](architecture-responsibility-map.md) defines the target
+logical owners. It does not mandate a crate per owner. The
+[edge ledger](actor-monolith-hard-core-edge-ledger.md) records current evidence,
+accepted dependencies and holds instead of postponing ownership analysis until
+an expected SCC size is reached.
+
+## Current graph and limits
+
+The measured nontrivial SCCs are:
 
 ```text
-body state and actor-local lifecycle
-accepted control/intent projection
-movement/contact integration
-core body reaction/action application
-narrow observation/decision seams
+9: abilities, construction, control, features, items, projectile,
+   session, shrine, world
+2: assets, character_sprites
 ```
 
-It must not remain the owner merely because code historically landed there for:
-
-```text
-session/world lifecycle
-persistence/save mirrors
-independent item/projectile domains
-boss/encounter/dialogue orchestration
-presentation/UI/audio
-host/dev policy
-named product content
-```
-
-## Current graph
-
-Measure with:
+Reproduce with:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 ```
 
-Baseline nontrivial SCCs:
+This is a textual intra-crate module graph. It does not see Cargo-crossing query
+ownership, shared writers, message timing, plugin prerequisites or all Rust
+import forms. The spawn extraction demonstrated that the same SCC result can
+accompany both a wrong and a corrected ownership boundary.
 
-```text
- 9: abilities, construction, control, features, items, projectile,
-    session, shrine, world
+The settlement move and corrected spawn extraction stay landed. Do not reopen
+live actor views, provocation, fighter-ladder projection or dismounted-rider
+rebuild as spawn responsibilities. Keep
+`scripts/tests/test_actor_spawn_boundary.py` as the existing focused boundary
+check, without treating it as proof of all runtime actor semantics.
 
- 2: assets, character_sprites
-```
+## Current design choices
 
-P1 (`character_runtime -> features`, 11 -> 9) is done. The next three packets are
-already designed. They are not invitations to choose a different low-count edge:
+- A1 moves checkpoint restoration to session; the pending lifecycle slot stays
+  with its coordinator, not in shared_tangle.
+- A2 resolves geometry/contact disagreement before removing projectile knowledge
+  of target families. A marker plus unresolved broad damage query is insufficient.
+- A3 moves actor-aware placement lowering to construction; immutable spatial world
+  vocabulary stays at the world owner.
+- A4 may retain an internal possession/control cycle when it enforces one accepted
+  driver relation. `features` is not a coherent retained domain.
+- A5/A6/A7 split destructibles, prepared character/materialization responsibilities
+  and item/custody integration only after their writer and lifetime maps are known.
 
-```text
-P2  projectile -> features           expected  9 -> 8
-P3  shrine -> session                expected  8 -> 7
-P4  construction -> world            expected  7 -> 6
-```
-
-After P4, stop mechanical carving. Remeasure and finish the hard-core ledger
-before modifying the expected six-module SCC:
-
-```text
-abilities, control, features, items, session, world
-```
+These decisions are justified in the reassessment and implemented through bounded
+packets. Do not reproduce a second ordered queue here.
 
 ## Rules that every packet must obey
 
 ### One packet, one ownership claim
 
-Do not combine unrelated cleanup with an SCC packet. A packet may update the
-callers, tests, rollback registration and facade paths needed by the moved
-authority; it should not opportunistically redesign neighboring systems.
+Separate a correctness change from its following mechanical move. Include only
+callers, tests, registration, scheduling and facade changes needed for that
+responsibility. Explicitly list non-goals and behavior that remains unchanged.
 
 ### The old internal path must disappear
 
-A definition moved to a new owner but still reached through the old monolith
-module is not a completed carve. Internal consumers must name the semantic owner.
-Do not add compatibility re-exports under the old internal module solely to keep
-imports unchanged.
+Move consumers to the actual owner. Do not keep internal compatibility re-exports
+solely to avoid editing imports. A curated public facade may re-export a supported
+semantic API; that is different from making a temporary internal path permanent.
 
-Stable public facades may re-export only when they are already the intended API
-surface and do not restore the internal graph edge.
+### State and lifetime travel together
 
-### Move wire implementations with their types
+For each moved state value, account for construction, writers, scope, retraction,
+rollback/checksum, reconstruction and observation. A state definition without
+those operations is not a complete authority transfer. Unknown writers or
+lifetime are a hold on that part of the packet.
 
-If a moved canonical type implements `SnapshotState`, the implementation moves
-to the crate that owns the type. Keep existing rollback wire IDs byte-for-byte
-unless the packet explicitly changes the wire format. A type move alone is not a
-reason to renumber or rename rollback state.
+### Preserve behavior and wire identity in pure moves
 
-### Scheduling uses semantic sets
+Move snapshot implementations with their owning type where Rust coherence permits;
+update domain declarations and backend adapters. Preserve existing wire IDs and
+encoded meaning in a behavior-preserving move so that churn is attributable.
+The repository's same-build policy does not promise cross-version compatibility;
+a separately reviewed format change may change the format explicitly.
 
-A moved system installs itself against a public semantic set. Do not replace a
-module dependency with `.after(other_crate::private_function)` or
-`.before(other_crate::private_function)`.
+### Preserve scheduling semantics, not just function order
 
-### Lifetime travels with authority
+Record public phase membership, ancestor gates, ordering, deferred flushes and the
+population that runs. A missing optional sibling may otherwise remove a phase or
+skip initialization. Startup checkpoint restore is the immediate example: moving
+it under a gameplay gate would prevent loading-time restoration.
 
-For every moved resource/component record:
+### Tests witness consequences
 
-```text
-creation
-mutation owner
-retirement/retraction
-rollback status
-session/match/attempt/stock/process lifetime
-```
+Use a focused production-path behavior fixture plus an appropriate absence or
+external-consumer fixture. Existing source guards are useful for known boundary
+regressions, not a substitute for behavior. Do not require an unrelated poison
+campaign for every move or use a zero-test filtered run as acceptance.
 
-If any row is unknown, stop the packet before moving the state.
+## Packet receipt
 
-### Tests must witness the production consequence
+Record current base/new head, owner and moved operations, source paths removed,
+new dependency direction, state/registration/lifetime changes, preserved phase
+visibility, tests actually run and remaining limitations. Record SCC/reference
+changes as diagnostics without a target score. Refresh citations and policy
+arguments for moved source in the same commit.
 
-A unit test of a moved helper is support, not acceptance. Each packet in the
-frontier names production behavior that must still be covered. A poison should
-fail if the old dependency or behavior is restored.
+## Satellite and coherent-package decisions
 
-## Packet completion receipt
+`assets` and `character_sprites` remain a separate coupled preparation question.
+A grouped module/package can be right there; it is not on the immediate critical
+path. `character_runtime` being out of the SCC does not certify its mixed
+preparation, device residency and match-activation responsibilities.
 
-Every P1-P4 commit must include, in its commit message or adjacent planning
-receipt:
-
-```text
-baseline head
-new head
-old edge reference count
-new edge reference count
-largest SCC before -> after
-focused Rust tests run
-source/architecture guards run
-rollback wire changes: none | explicit list
-```
-
-Run after each packet:
-
-```bash
-python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
-python3 scripts/modules_md.py
-python3 scripts/check_planning_citations.py
-python3 scripts/check_doc_links.py
-```
-
-Also run `git diff --check` and the focused Rust tests named by the packet. Do not
-freeze a new metric baseline until the source movement is understood and
-intentional.
-
-## The post-P4 hard-core gate
-
-P5 is complete only when
-[`actor-monolith-hard-core-edge-ledger.md`](actor-monolith-hard-core-edge-ledger.md)
-contains **every production dependency edge whose source and destination are
-inside the measured six-module SCC** and every row has all of:
-
-```text
-source module + file + symbol
-destination module + symbol/dependency
-edge class
-semantic owner
-disposition
-new target/API if CUT or MOVE
-production poison/acceptance
-```
-
-Allowed dispositions:
-
-```text
-KEEP_DOWNWARD       legitimate dependency inside one proposed package/layer
-MOVE_TYPE           vocabulary is filed beside the wrong consumer
-MOVE_SYSTEM         mutation/install authority belongs elsewhere
-PUBLISH_SET         dependency exists only for concrete system ordering
-SPLIT_RESOURCE      one state object contains facts with different owners/lifetimes
-GROUP_PACKAGE       modules should move together; internal cycle is accepted
-DELETE_DEAD         production edge has no current customer
-```
-
-There must be **no `TBD` disposition** before the first hard-core implementation
-packet begins.
-
-P5 must end by writing one exact P6 packet with the same standard as P1-P4:
-files, symbols, destination, forbidden end state, tests and expected SCC effect.
-If the ledger does not support such a packet, the correct outcome is a package
-map that keeps the remaining SCC together.
-
-## Satellite SCCs
-
-`actor_spawn` is no longer a monolith module: it is the crate
-`ambition_platformer2d_actor_spawn`, whose contract is construction only (spawn
-requests, spawn routines, body/brain builders, spawn-time NPC policy). The live
-actor view and every system that mutates a spawned body stay in the kernel;
-`scripts/tests/test_actor_spawn_boundary.py` holds that line, because this
-module graph cannot see a crate boundary. `character_runtime` sits in no cycle.
-
-`assets <-> character_sprites` is already a separate 2-module SCC and is also a
-grouped-extraction question. Keep it off the P1-P5 critical path.
+An accepted residual cycle needs an explicit common invariant and a bounded state
+owner. The fact that world and session call each other is insufficient to merge
+spatial query algorithms and lifecycle coordination into one permanent runtime
+package. Conversely, splitting every control mode into services can make one
+control relation harder to enforce.
 
 ## Exit
 
-D33 exits when either:
-
-1. the residual monolith matches the controlled-character kernel and no unrelated
-   authority remains inside it; or
-2. the remaining SCC is explicitly accepted as one coherent package by a filled
-   edge ledger and package map.
-
-Acyclicity is useful evidence. It is not the product requirement.
+D33 exits when the residual package owns only the documented body/control/action
+kernel, other responsibilities have explicit owners and consumers no longer need
+its historical internal topology. Any retained cycle has a concrete shared
+invariant. Independent capability/profile acceptance is a separate C2/SDK exit;
+D33 cannot declare it complete from source placement alone.
 
 ## Post-carve safety map
 

@@ -272,3 +272,17 @@ This plan can leave active architecture status when:
 
 Use git history for the removed 2026-08-31 through 2026-09-04 matrices,
 statistical arms, rejected hypotheses and investigation chronology.
+
+## Brain policy stays outside combat ownership
+
+The [responsibility map](architecture-responsibility-map.md) treats combat-adjacent
+brain code as decision policy over an authored capability menu. A scoring function
+can consume combat/action facts without owning damage, capture or live actor
+mutation. Do not absorb the fighter brain into a generic combat context to reduce
+imports.
+
+A4 preserves the normal accepted-control/action road for both human and CPU input.
+A11/A12 ensure the authored techniques and flows that the menu advertises are
+actually installed and valid. Selection tests must distinguish a legal but poorly
+scored move from content that cannot execute; difficulty should not conceal either
+with character-specific scripts.

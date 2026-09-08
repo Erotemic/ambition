@@ -443,3 +443,23 @@ or deployment requirement:
 - general 3D parity.
 
 The goal is a stronger **engine**, not a look-alike editor product.
+
+## Programmatic engine acceptance after the reassessment
+
+The [reassessment](architecture-reassessment.md) retains the serious-2D wedge and
+LLM-first authoring target. Godot/Unity are capability and shipping comparators,
+not a request to clone a scene tree, editor, server stack or all 3D facilities.
+
+Accept the engine through independent executable profiles: headless body/control,
+interactive world without combat/items, combat without Ambition content, the full
+flagship and an out-of-workspace provider-defined game. These are target profiles,
+not a claim that they pass today. Each needs a real behavior witness, public API
+use, resolved Cargo closure, capability-absence checks and its declared platform
+budgets. The source-only facade closure currently disproves a simple render-opt-out
+claim; A9 owns the repair.
+
+Agent-first acceptance includes discoverable installed support, deterministic
+validation errors, reproducible plans tied to source revision, recoverable
+application, immutable content admission, and headless behavioral evidence. A11/A12
+make this concrete for techniques/flows. Do not count documentation volume,
+registrations, crates or SCC reduction as evidence of competitive capability.

@@ -157,3 +157,21 @@ Owner: [`netcode.md`](netcode.md).
 - cross-game shell lifecycle leaves the new session able to transition rooms;
 - future external/P2P acceptance proves a peer-coordinated lifecycle rebase rather
   than a local-only substitute.
+
+## Admission and publication are separate failure boundaries
+
+[A1](actor-monolith-work-frontier.md) requires a checkpoint route attempt to
+observe lifecycle admission before it latches progress. A request can be refused;
+it is not evidence that a transition will happen. Preserve the startup road's
+current non-gameplay-gated installation and reset's public phase ancestry.
+
+[Finding F6](architecture-review-findings.md) bounds the word transaction here:
+raw Bevy construction commands can have effects that post-commit verification
+cannot undo. Verification must prevent normal publication of a failed candidate,
+but retaining the prior room needs a separately staged and constrained operation.
+Do not promise that stronger guarantee from the existing recipe API.
+
+Record failures by stage: preparation, authorization, command application,
+verification, baseline installation and presentation reveal. A timeout/retry must
+not publish a stale attempt after a later room selection. A10 only broadens
+rollback/cleanup guarantees when a concrete customer and fixture require it.

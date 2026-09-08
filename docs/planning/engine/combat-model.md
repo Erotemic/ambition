@@ -137,3 +137,24 @@ A combat addition is complete when:
 - presentation consumes explicit results instead of duplicating rules; and
 - a real fighter or game feature demonstrates the semantic without a
   character-ID or Smash-mode engine branch.
+
+## Package contents are not the combat boundary
+
+The [responsibility map](architecture-responsibility-map.md) supersedes any
+inference that everything in `ambition_combat` belongs to combat. Combat owns
+accepted hit/block/capture/reaction and move execution state. Stocks and win/loss
+are rules; camera impulses/banners are presentation consequences; brain scoring
+is decision policy; falling-chest/path motion is a world mechanism; held-item
+custody is the item authority. Cross-cutting feel tuning needs field-by-field
+owners, not another shared tuning bag.
+
+A destructible's intact/broken state, accepted damage, loot/spawn transition,
+collision presence and replay policy should close over one destructible-object
+authority. Combat supplies an accepted hit; it need not own every interactive
+object that can receive damage. Packet A5 waits for A2's contact contract.
+
+[A2](actor-monolith-work-frontier.md) first aligns boss/projectile contact with
+published authored geometry and world obstruction. It then removes historical
+family reclassification. A contact can be real even when it causes no damage;
+invulnerability, blocking, projectile consumption and damage must remain distinct
+policies. Do not replace a direct legitimate dependency with a target registry.

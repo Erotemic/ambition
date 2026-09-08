@@ -1,101 +1,92 @@
-# Engine extension model — Engine 1.0 horizon decision
+# Engine extension model
 
-**State:** OPEN / STRATEGIC — do not add runtime scripting merely to complete a feature matrix.
+**State:** bounded extension model; runtime scripting/ABI stability remain
+requirement-triggered. Baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
 
-## Goal
-
-Define the supported ladder for extending the engine so SDK 1.0 does not freeze
-an accidental boundary.
-
-Current preferred ladder:
+## Supported direction
 
 ```text
-data/content source
- -> semantic authoring operations
- -> provider-owned prepared content
- -> prepared deterministic rules / orchestration programs
- -> semantic domain commands and observations
- -> Rust Bevy plugin/provider crate
- -> game crate / host composition
- -> engine modification
+authored source / semantic operations
+  -> domain preparation and diagnostics
+  -> immutable prepared definitions or bounded domain programs
+  -> typed domain requests and observations
+
+trusted Rust Bevy provider / capability
+  -> declares support, validation, installation and prerequisites
+  -> extends the engine's vocabulary
+
+host / game composition
+  -> selects the installed offers and platform services
 ```
 
-This is already powerful and particularly well suited to LLM agents.
+Authored content composes available vocabulary; Rust extends that vocabulary.
+The preparation boundary validates the **installed** vocabulary for the selected
+profile, not every technique whose name exists somewhere in the repository.
 
-For the Godot-class capability target, this ladder is judged by **what behavior a
-game can express and ship**, not by whether Ambition has a GDScript-shaped entry
-point. Godot's scripting/extension stack is useful evidence that games need both
-low-friction authored behavior and deep native extension. Ambition may satisfy
-those needs through prepared authored rules plus Rust/Bevy plugins instead.
+This model supports LLM authoring without requiring a new language or visual
+editor. It does not make arbitrary Rust plugins safe to load from untrusted
+sources. Sandboxing, dynamic ABI and user modding are separate requirements.
 
-Runtime scripting becomes necessary only if a real requirement remains unsolved:
-for example user modding without recompilation, downloadable behavior, or a
-deployment boundary where Rust provider crates are impractical.
+## Current evidence
 
-See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+Provider-owned catalogs, typed content preparation, semantic actions and the
+public app builder have real customers. `TechniqueFlow` has both a live authored
+customer in `game/ambition_demo_smash/src/moveset.rs` and an interpreter in
+`crates/ambition_combat/src/moveset/mod.rs`. It is a move-scoped sequencer with
+Emit/Wait/Branch/Finish and existing move-contact signals, not a general engine VM.
 
-> **⭐ THE LADDER IS NOT ASPIRATIONAL — every rung but one has a named
-> implementation, measured `544d716fe` (2026-09-02):**
->
-> | rung | what implements it |
-> |---|---|
-> | provider-owned prepared content | `PlatformerAuthoredCatalogRegistry`, `SchemaRegistry`, `ContentPackDraft` |
-> | prepared deterministic rules / orchestration | ◐ **partial** — `PreparedCondition` / `PreparedCommand` are validated immutable values (`crates/ambition_platformer2d_shared_tangle/src/authored_logic/prepared.rs:63`, `:80`; consumed by `world/authored_switch_commands` and rollback-registered as `derived.authored_switch_commands`); no general rule/sequencing representation |
-> | semantic domain commands and observations | `SemanticActionId`, `ActionRegistry`, `InstalledActions` (`ambition_input/src/semantic.rs`) |
-> | Rust Bevy plugin/provider crate | `game/ambition_demo_pocket` — a FOURTH-provider acceptance fixture whose manifest says it exists to prove the provider surface admits another author |
-> | game crate / host composition | `ShellComposition` (`platformer2d_provider/src/composition.rs`) |
->
-> ⇒ **So the page's own self-assessment checks out**, which is worth recording
-> rather than assuming: the gap it names is the gap the code has. The
-> orchestration rung is the only one without a general representation, and it is
-> partial rather than empty — the prepared-call substrate is real and
-> rollback-registered.
->
-> ⛔ A rung having an implementation is not the same as that rung being GOOD. This
-> table says the ladder exists, not that its steps are the right height.
->
-> ✔✔ **AND THE MISSING RUNG NOW HAS A CUSTOMER, 2026-09-05.** O3's gate fired on
-> PK-Thunder-style behaviour, which needs *what happens next, based on what
-> happened before* and cannot get it from a `MoveSpec` timeline. The answer is a
-> MOVE-SCOPED `TechniqueFlow` (`emit` / `wait` / `branch` / `finish` plus symbolic
-> slots), not a general representation — so this row goes from "partial, no
-> general representation" to "partial, and deliberately staying that way".
-> ⛔ Deliberately not upgraded to ✔: a move-scoped flow is not the general
-> orchestration representation this row measures, and marking it complete would
-> lose exactly the distinction the rung exists to track. See
-> [`expressive-move-capabilities.md`](expressive-move-capabilities.md).
+Preparation remains incomplete: the parameter-schema registry has no production
+callers, unknown keys pass its standalone method, and flow validation does not
+fully bound the runtime representation. A11/A12 in
+[the frontier](actor-monolith-work-frontier.md) address those concrete gaps.
+Do not reopen the already implemented interpreter as future work.
 
-⭐ **the orchestration rung is new and is the one identified gap** — authoring is
-strong for nouns and weak for verbs and relationships over time. It is owned by
-[`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).
-⛔ it is **not** runtime scripting: the doctrine is *Rust extends the engine's
-vocabulary; authored content composes vocabulary that already exists.* That is a
-strictly narrower thing than the Lua/Wasm question below, and adding the rung does
-not answer it.
+## Extension declaration and admission
 
-## Direction
+A capability offer declares identity/owner/schema revision, actual handler
+installation, parameter and reference validation, prerequisites, scope/lifecycle,
+public phases and supported profiles. Keep validation metadata coupled to that
+offer rather than a second catalog claiming handlers that were never installed.
 
-- Rust/Bevy plugins are the primary behavior-extension mechanism today.
-- Declarative/provider content should cover large amounts of game authoring
-  without recompiling engine internals.
-- Runtime Lua/Wasm/dynamic scripting is **not** a requirement until a concrete
-  product/modding/deployment need demonstrates value.
-- Public extension points should be semantic and narrow rather than exposing the
-  whole internal crate graph.
+A metadata catalog is useful for preparation and discovery; it is not permission
+to invoke arbitrary behavior through a universal registry. Runtime translation
+can remain ordinary typed systems/messages. Closed construction domains keep
+typed dispatch and metadata-only registration. True independent provider seams
+remain explicit and App-local, with deterministic ordering and conflict handling.
 
-## Relationship to Bevy ecosystem
+Reject duplicate keys by default. Function-valued entries can still reject a key
+that already exists; no function comparison is required. Idempotence or deliberate
+replacement needs its own owner/revision/invalidation rule. Metadata equality
+must not be advertised as proof of executable equivalence.
 
-A reusable Ambition capability should look like an ordinary Bevy plugin whenever
-that model fits. See
-[`../../architecture/package-and-capability-boundaries.md`](../../architecture/package-and-capability-boundaries.md).
+## Time, scope and trust contracts
 
-## Open design questions — deliberately unresolved
+Declared programs use domain time and bounded execution/cancellation semantics.
+A flow does not own the projectile, capture relation or health state it requests
+operations on. A second Wait on an occurrence-latched signal is not a new event.
+Adding per-beat signals requires explicit move/beat occurrence identity.
 
-- Is user modding a flagship Ambition requirement or an ecosystem-only future?
-- Would runtime scripting solve a real deployment problem that Rust providers
-  cannot?
-- Do we ever need dynamically loaded plugins/ABI stability?
-- How do external plugins declare capability dependencies and prepared content?
-- What compatibility commitment does SDK 1.0 make across engine releases?
-- How does agent-native authoring expose plugin-defined vocabulary without
-  repository-specific instructions?
+Runtime model calls remain outside deterministic stepping, arriving as admitted
+remote-participant intents. Generated Rust is trusted source subject to ordinary
+review/build/tests. An App-local registry or typed command does not impose a
+security boundary on code with World/Commands access.
+
+## Deferred choices
+
+Runtime Lua/Wasm, downloadable behavior, hot-loaded native plugins and ABI
+stability require a concrete modding/deployment customer. Decide save/schema
+migration separately from Rust API and same-build rollback compatibility. A future
+non-platformer or 3D customer can justify another simulation implementation;
+it does not justify abstracting every current body operation over a backend now.
+
+## Acceptance
+
+An external provider declares and installs one action/object, discovers its
+support metadata, prepares references and drives real behavior through the public
+profile. Unknown, disabled and invalid-parameter uses fail before activation.
+The same profile can omit unrelated capability offers. No engine key switch or
+private module import is needed for that provider's legitimate extension.
+
+Owners: [authoring](authoring-and-tools.md),
+[authored orchestration](authored-gameplay-logic-and-orchestration.md),
+[SDK](public-sdk-1.0.md), [composition](capability-and-runtime-composition.md).

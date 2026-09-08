@@ -180,7 +180,10 @@ ledgers should be removed from the required surface.
 
 ## Q61 — where should ordering live when two systems write the same durable switch?
 
-Choose one mutation owner/public phase rather than depending on Bevy order.
+Choose the intended winner/merge policy where product meaning is ambiguous.
+Engineering already requires one accepted mutation authority and explicit phase
+visibility; a public set by itself cannot decide between competing writes. See
+[composition](engine/capability-and-runtime-composition.md).
 
 ## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?
 
@@ -190,7 +193,12 @@ files until the ruling is made.
 ## Q63 — five authored fields still have no runtime consumer: wire them or delete them?
 
 For each field, choose intended capability versus obsolete authoring. Do not keep
-permanent knobs that decide nothing.
+permanent knobs that decide nothing. The review traced three examples end-to-end:
+`requires_facing`, pickup `collected`, and chest `persistent`; see finding F4 in
+[the source findings](engine/architecture-review-findings.md). The five-field
+label is the earlier inventory, not a new claim that all five were revalidated.
+Until policy is chosen, unsupported nondefault values should receive diagnostics,
+not an invented runtime meaning.
 
 ## Q66 — should the citation checker become a ratcheted gate now that its baseline is zero?
 
@@ -210,12 +218,17 @@ claimant. If no authored use is planned, remove/defer the unused capability.
 ## Q73 — may a capability plugin install private systems into a published set under the `ambition_combat` no-plugin stance?
 
 Clarify whether the stance forbids all plugins or only host-owned opaque
-installation. C2 needs one durable interpretation.
+installation. C2 needs one durable interpretation. Owner-local installation
+helpers and explicit host ordering remain available without prejudging this
+plugin-style decision; no registry or broad context is required.
 
 ## Q74 — keep or cut the three declared dependency seams that still have no customer?
 
 A seam with a plausible near-term composition use may stay; otherwise remove the
-dependency rather than preserving hypothetical architecture.
+dependency rather than preserving hypothetical architecture. Recheck actual
+production call sites and supported profile closure separately. The A9 render
+dependency finding concerns a mandatory reachable path, not this older unused-seam
+inventory; one is not evidence for the other.
 
 ## Q75 — can inventory, dialogue and map coexist in the same frame?
 
@@ -248,7 +261,9 @@ excessive zoom-in.
 ## Q94 — what residency-memory limit should the runtime target?
 
 Needs a maintainer/hardware/product value. The residency mechanism can enforce a
-budget once the budget exists.
+budget once the budget exists. Report source, decoded CPU, prepared simulation
+content and device residency separately. A8 instance isolation and A9 dependency
+closure do not supply a hardware budget.
 
 ## Assets, presentation and content policy
 

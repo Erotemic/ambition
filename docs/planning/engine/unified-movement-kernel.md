@@ -70,9 +70,9 @@
   the exercise is to find out whether one exists.
 
   ⭐⭐ **SCOPED 2026-09-06 — REASONED FROM SOURCE, NOT MEASURED. There is a specific
-  thing to assert, and a specific population it would bite.** `portal2d/transit.rs:238`
+  thing to assert, and a specific population it would bite.** `crates/ambition_portal2d/src/transit.rs:238`
   takes `Option<Res<GravityField>>` and derives `gravity_dir` from it (:260), which
-  `portal2d/placement.rs:110` uses for the wall↔wall upright accommodation. And
+  `crates/ambition_portal2d/src/placement.rs:110` uses for the wall↔wall upright accommodation. And
   `GravityField` is not a per-body fact:
 
   ```rust

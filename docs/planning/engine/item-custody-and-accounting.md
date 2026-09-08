@@ -722,3 +722,23 @@ be `InCustody` while its holder carries no `ItemCustody`?**
 poison-verified) — but it is a unit test over a fixture, not a production check. If the
 answer above is "yes, reachable", the real repair is folding minted items into
 `set_durable_horizon` so the WRITE is atomic rather than guarded.
+
+## Checkpoint and construction integration boundary
+
+Packet A1 in the [frontier](actor-monolith-work-frontier.md) removes checkpoint
+startup/reset restoration from shrine/item installation. Items still own item
+occurrence, custody, entitlement and minted-history semantics. Session owns the
+save/replay boundary at which those domains restore or persist; it must not
+implement the item transition by copying fields itself.
+
+Before A7, write the lifetime matrix for authored room baseline, runtime minted
+occurrences, inventory, equipment, stock loss, same-room replay, room exit and
+new-session/durable restore. A generic persistence event does not answer which
+of these survives. An owner installer can register known lifetime work against
+published phases without a universal callback service.
+
+Item custody's atomic transfer means the domain's accepted transition is
+indivisible to its consumers. It does not extend the raw-Commands construction
+interface into an undoable transaction. Failed construction and consumption must
+have an explicit order and regression; do not grant or spend an occurrence just
+because a construction request was made.

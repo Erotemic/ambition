@@ -1,40 +1,25 @@
-# Bevy system-parameter architecture — distilled
+# Bevy system parameters and mutation boundaries
 
-**Status:** DISTILLED 2026-08-30.
+The durable contract is
+[Bevy system boundaries](../../architecture/bevy-system-boundaries.md).
+A stable entity role can use `QueryData`; a cohesive domain can use a small
+owner-defined `SystemParam`; a pure kernel can use an ordinary struct. Split a
+system at a real phase or mutation-authority boundary, not at an arbitrary
+parameter or line-count threshold.
 
-The investigation established a durable rule rather than a standing migration
-campaign. It now lives at
-[`../../architecture/bevy-system-boundaries.md`](../../architecture/bevy-system-boundaries.md).
+The [architecture reassessment](../engine/architecture-reassessment.md) adds a
+knowledge test: can the consumer be understood while knowing less about the
+producer? A context containing every query, catalog, session resource and callback
+fails that test even if a function now takes one parameter. Rust's borrow checks
+establish access safety, not semantic authority or lifetime correctness.
 
-Key conclusion:
+Distinguish grouping borrows for one operation from transferring ownership.
+`ActorPlacementContext` is an actor/catalog preparation bridge and A3 moves it
+with that operation; it should not become the generic world service interface.
+`ActorMut` and live actor queries stay outside spawn builders. A parameter wrapper
+must not reintroduce the corrected spawn boundary error indirectly.
 
-> Do not pack the Bevy parameter ceiling. Name stable entity roles with
-> `QueryData`, cohesive world capabilities with small domain-owned `SystemParam`
-> values, pure kernel contracts with ordinary structs, and split systems only at
-> real phase or mutation-authority boundaries.
-
-The old counts of systems at the ceiling, `SystemParam`/`QueryData` totals and
-candidate-by-candidate migration phases were investigation snapshots. They are
-not active architecture targets.
-
-> **MEASURED 2026-09-03. ⭐ THIS RECEIPT HAS NO LIVE REFERRER, WHICH IS THE
-> OPPOSITE OF ITS SIBLING.** Nothing outside `docs/archive` links here — the only
-> three citations are archived documents, and `scripts/check_doc_links.py`
-> excludes `docs/archive` on purpose (*"archives preserve stale paths on
-> purpose"*). ⇒ So those archive links do NOT hold this file in place; deleting
-> it would break nothing any gate checks.
->
-> ⚠ **Which does not make deletion obviously right, and the difference is worth
-> naming.** [`../engine/architecture.md`](../engine/architecture.md) is a receipt
-> kept alive by 16 live policy citations — it has a *link* job, and a measurable
-> exit condition. This one has no link job left. What it still carries is a
-> WARNING: *"do not run a mechanical workspace-wide wrapping campaign from this
-> receipt"*, and the reason that sentence exists is that the investigation's
-> counts read like a migration backlog. ⇒ **A receipt whose remaining value is a
-> prohibition is not the same object as one whose value is a redirect**, and it
-> should be retired by someone deciding the warning is no longer needed — not by
-> a sweep that notices nothing links here.
-
-Promote a focused queue slice only when a concrete system exposes mixed
-authority or a recurring unnamed entity/world seam. Do not run a mechanical
-workspace-wide wrapping campaign from this receipt.
+Promote a focused change only when it names the stable role, accepted writes,
+phase visibility and behavior fixture. Old parameter-count censuses are not a
+workspace migration backlog. Public scheduling sets still require real ancestry,
+run conditions and deferred-buffer visibility tests.

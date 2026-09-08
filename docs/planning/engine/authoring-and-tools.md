@@ -1,427 +1,243 @@
-# Agent-native authoring and tools — Engine 1.0 program
+# Agent-native authoring and tools
 
-**State:** OPEN. Ambition is the primary customer.
-
-> **Guard pointer, added 0ac499bb1 (2026-09-02).**
-> `scripts/check_zone_name_ratchet.py` ratchets player-visible loading-zone names
-> that still look like authoring ids — a zone `name` is presentation text, so an
-> underscore-shaped identifier wants authored prose rather than mechanical
-> prettifying or hiding. Counts are tracked per world file, and symlinked worlds
-> are deduplicated by real path so one world's improvement cannot mask another's
-> regression. Green at `0ac499bb1`: **151 zones carry a name, 0% still look like
-> authoring ids.**
+**State:** open; baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
+**Doctrine:** [agent-native authoring](../../concepts/agent-native-authoring.md).
+**Execution:** [the queue](../queue.md); technique admission/bounds packets A11/A12
+are in [the frontier](actor-monolith-work-frontier.md).
 
 ## Goal
 
-Make Ambition unusually easy for LLM agents to author correctly.
+An author, including an LLM agent, can discover the engine's supported vocabulary,
+inspect current content, change intent-level source, prepare/validate the result,
+run a useful test, obtain a focused review artifact and explicitly publish/package
+it. No visual editor operation or knowledge of monolith migration history is a
+prerequisite. Optional visual tools consume the same authored semantics.
 
-The near-term competitive target is **not** to reproduce the Godot/Unity visual
-editor before the flagship game can be built. The engine should expose enough
-semantic structure that an agent can discover available content vocabulary,
-inspect what already exists, make intent-level changes, validate them before
-runtime, explain what preparation produced, and generate concise artifacts for a
-human to review.
+The authoring system is a control plane. Preparation and publication feed the
+simulation; the author's model calls, filesystem operations and nondeterministic
+planning are not part of a deterministic simulation tick.
 
-Human visual editors remain useful optional frontends, especially when manual
-editing becomes important. They should consume the same authored semantics rather
-than becoming a second authority.
+## Current implementation: preserve these surfaces
 
-Durable doctrine:
-[`../../concepts/agent-native-authoring.md`](../../concepts/agent-native-authoring.md).
+The repository already has LDtk semantic inspection/editing/validation, world
+queries and review bundles; procedural sprite authoring and published metadata;
+MusicIR/SFXIR source and render diagnostics; provider-defined preparation and
+public app builders. Use those surfaces rather than build another uniform CLI or
+serialization format. See the root README and `docs/tools/index.md` for tool and
+submodule ownership.
 
-## Competitive criterion
+`TechniqueFlow` is also implemented and used by a shipped authored moveset:
+`game/ambition_demo_smash/src/moveset.rs` assigns a flow to `read_and_seize`, and
+`crates/ambition_combat/src/moveset/mod.rs` interprets it. The old assertions that
+all flows are None and no interpreter exists are retired. Its contact signals
+are per-move-occurrence latches, not arbitrary per-beat event subscriptions.
 
-Godot/Unity demonstrate the value of discoverability and short feedback loops.
-Ambition should achieve those outcomes through a different primary interface. The
-comparison is not whether an operation has a visual editor panel; it is whether a
-capable agent can perform the same meaningful engine task reliably and faster
-through supported semantic tools.
+Two preparation gaps are source-established: the parameter-schema registry has
+no production callers, and flow validation does not establish finite timeout or
+u16 runtime-index bounds. F7/F8 in
+[review findings](architecture-review-findings.md) define the exact limits; no
+malformed shipped content or runtime hang is claimed without a reproduction.
 
-For Engine 1.0, an authoring capability is competitive when an agent can:
+## A1 - capability discovery
 
-- discover what can be expressed without implementation grep;
-- inspect current semantic state before changing it;
-- make the change through stable authored data or an intent-level operation;
-- receive source-qualified validation/provenance failures;
-- run the smallest representative simulation/render/test needed to check it;
-- produce a concise human-review artifact when subjective visual/audio judgment
-  remains;
-- continue through build/package without manual editor operation.
+Domain owners expose list/describe/schema/support/diagnostic projections of their
+actual installed or prepared vocabulary. Required categories include character
+and action definitions, technique support, world entities/fields, sprite products,
+music/SFX constructs and provider extensions.
 
-A GUI is useful when the task is intrinsically visual or manual. It is not the
-definition of engine capability.
+A discovery record distinguishes known, installed, supported for this profile,
+prepared and ready. It includes owner, schema/version, source/provenance and
+relevant prerequisites. Do not advertise a schema as executable behavior. Do not
+build a generic runtime service locator to implement a read-only catalog.
 
-See the cross-program bar:
-[`godot-class-2d-capability.md`](godot-class-2d-capability.md).
+## A2 - semantic inspection before mutation
 
-## Existing advantage
+Inspection answers what exists, which source owns it, what it resolves to, which
+capability executes it and which other definitions reference it. Runtime inspection
+names the session/content revision/frame and separates authoritative values,
+derived views and presentation projections. A value with no selected owner is
+reported as unresolved, not a default from some other profile.
 
-This is an extension program, not a greenfield tooling project. The repository
-already has substantial agent-operable authoring surfaces:
+Reuse domain preparation/reference enumeration for both forward and reverse
+queries. A parallel hand-maintained dependency graph would become another source
+of truth. Stale generated indexes must identify their source revision, tool
+version and generation status; regeneration failure is visible to the consumer.
 
-- `ambition_ldtk_tools` provides semantic world inspection, validation,
-  transactional edits, spatial queries, semantic diffs, room renders and debug
-  bundles;
-- the sprite-renderer submodule discovers procedural Python/YAML targets and
-  publishes deterministic sheets, metadata, portraits and review products;
-- the music-renderer submodule treats MusicIR YAML as source of truth and emits
-  reproducible audio plus structured diagnostics;
-- the SFX-renderer submodule treats SFXIR YAML as source of truth and emits
-  deterministic render manifests and audio;
-- provider/content preparation already gives the runtime a validated semantic
-  boundary instead of making authoring formats authoritative at runtime.
+## A3 - intent-level mutation and reviewable plans
 
-The root README and `docs/tools/index.md` contain canonical GitHub links for
-submodules so an agent working from a source export does not mistake an absent
-checkout for an absent capability.
+Direct edits are appropriate for simple source formats. Fragile formats such as
+LDtk use semantic operations for relationships, IDs and placements. A plan states
+base revision/content identity, affected definitions, proposed operations, expected
+references and validation/acceptance before applying changes.
 
-## One preparation model, many authoring frontends
+Reject an apply against a changed base rather than overwriting concurrent edits.
+Repeat application should be explicitly idempotent or return an already-applied
+result. Multi-file edits need a staged/recoverable application protocol; do not
+promise filesystem-wide atomicity because each individual file can be renamed
+atomically. Publication of an accepted content revision is a separate operation
+from editing source files.
 
-```text
-Python / YAML / RON / Rust values / LDtk / Yarn / SVG / generators
-                              |
-                        inspect + discover
-                              |
-                     plan / semantic mutation
-                              |
-                    validate + resolve + prepare
-                              |
-                  immutable prepared game content
-                              |
-                  +-----------+-----------+
-                  |                       |
-             headless sim             visible host
-```
+The review artifact contains the semantic diff and validation result, not a
+second manually curated copy of all source. Include source edits in the normal
+version-control workflow; generated products carry provenance to those sources.
 
-The frontend may vary by content family. Runtime authority should not.
+## A4 - preparation diagnostics and admission
 
-"Declarative" means authoring produces inert/composable values that are
-validated before installation. Pure Rust `CharacterDefinition` construction can
-be declarative; a plugin that mutates runtime state while pretending to be a
-content document is not.
-
-## ⛔⛔ The param-schema validator has NO production users at all
-
-**Measured 2026-09-05, and it supersedes the section below rather than adding to
-it.** `ParamSchemaRegistry` is a complete, well-documented mechanism with **zero**
-production callers:
+Preparation rejects unknown/uninstalled references, conflicting definitions,
+invalid parameter domains, impossible structural relations and known unsupported
+nondefault fields. A diagnostic should identify:
 
 ```text
-  ParamSchemaRegistry::register     called only in crates/ambition_entity_catalog/src/tests.rs
-  ParamSchemaRegistry::validate_all called only in crates/ambition_entity_catalog/src/tests.rs
-  the type itself                   3 mentions in the whole tree, all in its own crate
+code and severity
+provider / definition / field or node
+source location or structured source path
+selected profile and content revision
+expected semantic kind / available support
+actual value and repair guidance
 ```
 
-⇒ Nothing registers a `ParamCheck`, nothing runs a validation pass, and the
-registry is never populated. **So it does not "let unknown keys through" — it
-validates nothing whatsoever**, and the doc caveat that framed the design
-question below describes a registry that is empty in every shipped build.
+This is an output contract, not a mandate to replace every domain's internal error
+type. Compose existing diagnostics at the preparation boundary. Source spans are
+used where available; compiled Rust-authored content may need owner/definition/
+field provenance rather than an invented file offset.
 
-⛔⛔ **AND A COMMENT IN THE SMASH CAPTURE ROAD CLAIMS THE PROTECTION IT PROVIDES.**
-`game/ambition_demo_smash/src/capture.rs:54`:
+F4's requires_facing, collected and persistent fields require a real support
+contract. Q63 and the maintainer's Interact constraint still govern behavioral
+changes. A validator can diagnose unsupported nondefault use without choosing the
+gameplay policy or deleting authored data.
 
-> a params typo is a STARTUP error, not a silent default: the key registers
-> `check_hydrates` with the param-schema registry, so a fighter's bad grab data
-> fails the content pass. Reaching here with unhydratable params means the
-> registration is missing, which is worth the log rather than a silent skip.
+### Installed technique support is one declaration
 
-⇒ **The registration IS missing — for every key, always.** The `match` fallback
-that comment calls a last resort is the ONLY thing standing between a params typo
-and a silently skipped grab. ⚠ Fighter lane's file; relayed rather than edited.
+A11 couples technique existence and parameter validation to the same capability
+offer that installs its runtime handler. Register known paramless techniques
+explicitly; absence of a validator must not mean both paramless and unknown.
+A technique known to the source tree but not installed for this profile also
+fails admission, with a different diagnostic from a misspelled key.
 
-⭐⭐ **AND THE TIMING QUESTION IS ANSWERED BY WHO IS BUILDING WHAT — measured
-2026-09-05.** The tree declares **38** distinct namespaced technique/relation
-keys as `pub const … &str` (`smash.capture_attempt`, `smash.teleport`,
-`ambition.mount`, …). Jon's example `smash.teleprot` is a typo of a REAL one.
-⚠ **But an author cannot make that typo today**: every Rust use goes through the
-constant, so a misspelling is a compile error. The keys appear as string literals
-only where they are DEFINED.
-⇒ **The risk arrives with a DATA authoring surface** — a move naming a technique
-by key in authored content rather than in Rust. That is precisely `TechniqueFlow`,
-which the fighter lane landed as an authored type with no interpreter yet.
-✔ **CHECKED, and it is sharper than that: the surface ALREADY EXISTS and is
-armed.** `FlowNode::Emit` carries *"an ordinary `EffectRef` — the same value a
-window's `sustain_effect` or an event's `Effect` carries"*, and an `EffectRef` is
-`{ key: String, params }`. ⇒ **A flow names its technique by a STRING**, so the
-moment one is authored, `smash.teleprot` is typeable and nothing checks it.
-⭐ `TechniqueFlow` and `ParamSchemaRegistry` are in the SAME crate
-(`ambition_entity_catalog`), so the consumer and the empty validator are already
-neighbours.
-⇒ The exact state: **the surface exists, the authored population is zero
-(`MoveSpec::flow` is `None` everywhere), and the validator is empty.** That is
-the one moment when adding the check costs nothing and prevents everything —
-before the first `Some(flow)`.
+One domain-owned effect-reference traversal covers flow emits, timeline events,
+sustained windows and applicable nested technique payloads. That traversal feeds
+validation, discovery and dependency inspection. Handler systems remain ordinary
+typed Bevy systems on their established schedule; the catalog must not become a
+dynamic gameplay dispatcher.
 
-⇒ ⭐ **So this is not speculative generality: the consumer is being built
-concurrently.** The discovery substrate wants to land ALONGSIDE the first
-authored key, not after — because the day a `.ron` names `smash.teleprot`, the
-compiler stops helping and nothing replaces it.
+Parameter checks include semantic limits/unknown fields where the schema requires
+them, not only successful serde hydration. Freeze installed support before
+publishing prepared content. Defensive runtime diagnostics remain for trusted
+callers that bypass preparation.
 
-⇒ ⭐ **THIS IS THE REAL O4 SUBSTRATE, and it is smaller and more concrete than
-the design question below.** Jon wants `smash.teleprot` to answer *"does not
-exist"*. The blocker is not that the registry conflates two absences — it is that
-nothing ever tells the registry anything. **First a technique must register; only
-then does distinguishing "no params" from "no such technique" become the next
-question.**
+Duplicate-key rejection does not require comparing function behavior. A key
+already present can be rejected even when its validator is a function pointer.
+Stable metadata supports provenance, not proof of executable equivalence. Use
+explicit same-owner/revision or replacement rules only when their lifecycle and
+invalidation semantics are defined. Last-write-wins is not forced by Rust's
+function-pointer comparison limitations.
 
-ⓘ The design question below stands and is now second in line, kept because it is
-what the first population will immediately hit.
+### Bound authored execution at preparation
 
-## ⓘ An unknown technique key PASSES validation, because absence means two things
+A12 aligns flow graph indices with the runtime cursor, requires finite positive
+waits, and specifies graph/work bounds. Existential reachability of Finish is not
+a proof that every execution terminates; bound cycles and keep enclosing move
+teardown explicit. Preserve proper-time semantics and existing per-occurrence
+contact latches. Per-beat confirmations need scoped contact-event identity before
+they can be advertised.
 
-**Measured 2026-09-05, and it is the same defect shape as `boss.cleared` one
-surface over.** `ParamSchemaRegistry::validate`
-(`crates/ambition_entity_catalog/src/lib.rs:151`) says so in its own doc:
+Do not add arithmetic, arbitrary queries, variables or a universal blackboard to
+move-scoped flow as part of this work. Prepared programs should express existing
+domain operations with explicit execution/cancellation limits. A new scripting
+runtime needs a separate deployment/modding requirement.
 
-> The engine matches no key, so an unregistered key always passes (a paramless
-> content-const technique needs no schema).
+## A5 - cross-domain content preflight
 
-⇒ **The reason is legitimate and the consequence is not.** A technique with no
-params genuinely needs no check, so the registry cannot distinguish *"this key
-has nothing to validate"* from *"this key does not exist"*. Both are an absence,
-and absence passes. An authored `smash.teleprot` — a typo for a real technique —
-validates clean at startup and does nothing in play.
+A meaningful content unit spans definitions and assets. Prepare a character's
+body/actions/equipment, its sprite/portrait, writing, sounds and referenced
+techniques together; prepare room geometry, paths, placements, encounters and
+bindings together. Report all relevant missing inputs with the selected profile.
 
-⭐ **That is exactly the `boss.cleared` failure, and it cost weeks there:** a
-missing save key read `Untouched`, so a wrong id was a silently shut door rather
-than an error. Here a missing schema reads "fine", so a wrong key is a silently
-inert effect.
+Validation does not require every asset to be resident on a GPU. Distinguish
+semantic resolution, generated-product availability, device materialization and
+activation readiness. Runtime simulation binds one accepted content revision;
+late visual materialization cannot change its mechanical values.
 
-⚠ **AND THE CLASS IS NARROWER THAN "AN ABSENCE THAT PASSES" — I swept for that
-and it would have been the wrong hunt.** `MoveGates::permits` returns `true` for
-an unconstrained move, `sim_selection`'s fold takes the first candidate, and
-`ExperienceStaging::is_writable_by` returns `true` for an unclaimed slot; all
-three are correct, and the last one states the rule this page needs:
+Prepared metadata fingerprints are not executable-function fingerprints. An
+acceptance receipt identifies the engine/build and provider implementation as
+well as authored content. Same content metadata on different binaries does not
+establish the same simulation behavior.
 
-> *"Nobody claimed this" and "somebody else claimed this" are different answers
-> and only the second is a refusal.* — `ambition_match/src/staging.rs:517`
+## A6 - concise review artifacts
 
-⇒ ⭐ **The defect is not that absence passes. It is that ONE ABSENCE CARRIES TWO
-MEANINGS.** In those three, absence means exactly one thing. In
-`ParamSchemaRegistry` it means *"nothing to validate"* AND *"no such technique"*,
-and only the first should pass. **That is the shape to hunt: not a permissive
-default, but a single `None` that answers two questions.**
+Produce the smallest artifact needed for the decision: semantic room summary and
+render; character sheet/hitbox strip; music/SFX preview with diagnostic report;
+prepared-content/provenance diff; or a deterministic input/replay fixture. Human
+judgment remains explicit for visual/audio quality. A passing automated check
+does not certify subjective polish.
 
-⇒ ⭐ **THE FIX IS TO SEPARATE THE TWO FACTS, not to make unknown keys fail.**
-A technique should register its EXISTENCE always, and a param check optionally.
-Then all three answers become distinct and correct:
+Artifacts identify source revision, provider, tool version, selected content,
+settings and relevant runtime/frame context. Missing generated data is reported
+as unavailable, not substituted under the requested artifact's name.
 
-| authored key | today | with the split |
-|---|---|---|
-| unknown (`smash.teleprot`) | ✔ passes | ⛔ *"no technique is installed under this key"* |
-| known, paramless | ✔ passes | ✔ passes |
-| known, with a schema | validated | validated |
+## A7 - one complete agent-authored acceptance slice
 
-⚠ **The cost is one registration per technique, and the design question that
-comes with it is who owns the installed set** — the same crate that owns the
-checks, or the content install that already calls `register`. That is the
-question to answer before writing any of it, because an installed-set registry
-maintained separately from the code that installs techniques is a second
-authority over "does this exist", which is the thing this repo keeps removing.
+Use the existing moving-platform/LDtk slice to exercise world placement, path
+references, preparation, dynamic geometry, rollback and review output. Add one
+external-provider action/object slice to prove the same support/validation and
+physical-input route outside named game content. These are customers of the
+current engine, not invitations to build a second authoring framework.
 
-ⓘ This is the substrate under the discovery surface Jon asked for —
-`smash_tool techniques` / `technique <key>` / `mechanics <domain>` — and it is
-the half worth building first: a catalog cannot list what the engine cannot be
-asked about. `ConditionCatalog::describe` is the working precedent for the shape.
+For each slice, an agent must inspect, plan, edit, prepare, test, review and
+publish through supported operations. Include a deliberately invalid reference
+and unavailable capability that fail before play, then repair and rerun. Measure
+successful completion and corrective loops; do not infer quality from command
+count or the amount of generated prose.
 
-## Program requirements
+## A8 - optional human visual frontends
 
-### A1 — capability discovery
+A visual frontend is justified by a concrete editing need. It reads/writes the
+same semantic source and invokes the same validation/publication pipeline. It
+must not own a hidden scene/state authority that agents cannot inspect or test.
+Do not make a GUI a gate for a headless content change.
 
-An agent should be able to discover supported vocabulary without grepping the
-implementation. Existing registries/schemas should increasingly expose
-machine-readable `list`, `describe`, schema, or equivalent surfaces for:
+## A9 - semantic dependency and reference graph
 
-- characters, actions and authored capabilities;
-- LDtk/world entity vocabulary and fields;
-- sprite targets/families and published products;
-- MusicIR constructs/cues;
-- SFXIR layer/recipe capabilities;
-- provider-owned authored extensions.
+Support forward/reverse reference queries, structured unresolved references,
+rename/delete planning and later rule-dependency inspection. Indexes derive from
+prepared/domain references and carry a revision. A rename plan must report all
+known affected sites and any opaque/unindexed domains; it must not claim complete
+safety while ignoring a nested technique payload or external authored backend.
 
-Do not require every tool to use one executable or one serialization format. The
-contract is semantic predictability, not CLI uniformity for its own sake.
+Across backends, apply with explicit expected revisions and a recoverable staged
+protocol. Validate the complete new content revision before publication. An
+incremental cache is an optimization of canonical preparation, not an alternate
+acceptance authority; invalidation follows dependency identity and tool versions.
 
-### A2 — semantic inspection before mutation
+## Trust, publication and runtime limits
 
-Reading the game is part of authoring. Prefer structured commands that answer
-questions such as:
+Validated authored data/programs have a bounded vocabulary and declared budgets.
+Trusted Rust plugins/providers have application privileges; registration does
+not sandbox them. Generated source receives ordinary review/build/tests, and
+external tool execution is subject to the host's real trust boundary.
 
-- what is in this room and how is it connected;
-- what body/capabilities does this character prepare;
-- what source owns this sprite/audio/content binding;
-- what references will this authored object resolve;
-- what review products can this target produce.
+The construction executor's raw Commands cannot undo arbitrary mutation after a
+failed verifier. Keep preparation rejection, fail-closed publication and future
+isolated candidate activation distinct (F6/A10). Runtime model-backed characters
+are remote intent participants with admission/deadline policy, not nondeterministic
+callbacks inside simulation.
 
-LDtk's `room describe`, spatial queries and semantic render/bundle commands are
-the model to generalize where useful.
+## Tool health and reproducibility
 
-### A3 — intent-level mutation for fragile formats
-
-Simple LLM-friendly sources may be edited directly. Complex external formats
-should receive semantic operations instead of raw-format surgery.
-
-For LDtk, commands should express intent such as "link this platform to this
-path", "add reciprocal loading zones", or "place this encounter" and preserve
-editor-compatible formatting/identity.
-
-### A4 — unified preparation diagnostics and provenance
-
-World, character, action, asset and narrative preparation should converge on
-structured diagnostics that tools/external games can consume. A rejected object
-should explain authored location, provider/schema, field/reference, expected
-semantic target, and failure reason.
-
-Prepared/runtime facts should increasingly be traceable back to authored source.
-
-### A5 — cross-domain content preflight
-
-Meaningful content units span tools. Add preflights that can report the missing
-pieces of a whole authored unit rather than forcing an agent to discover them one
-runtime failure at a time.
-
-Examples:
-
-- character body/kit + sprite/portrait + writing + referenced SFX/actions;
-- room geometry + referenced characters/encounters/portals/paths/audio/dialogue;
-- encounter composition + spawnable prepared characters + world gates/rewards.
-
-### A6 — concise review artifacts
-
-Each authoring surface should produce the smallest artifact that lets the
-maintainer make the next subjective decision:
-
-- canonical character sheet/portrait/hitbox strip;
-- mastered soundtrack preview plus useful reports;
-- SFX render + manifest/audit;
-- semantic LDtk room summary/render/debug bundle;
-- compact preparation/diff/provenance report.
-
-Do not default to maximal diagnostic or preview bundles.
-
-### A7 — agent-authored Ambition acceptance slice
-
-Use a real Ambition task as the integration test: an agent should be able to
-inspect an existing region, add or revise a room feature (moving platform is the
-first world vertical slice), connect relevant content, validate it, generate a
-review artifact, and explain the change without asking the maintainer for raw
-coordinates, JSON structure, registry trivia, or migration history.
-
-Secondary games then test that the same authoring seams are provider-extensible.
-
-### A8 — optional human visual frontends
-
-Invest in graphical/manual editing when it solves a real maintainer/content-team
-need. LDtk, sprite rig editors, or future visual tools should sit over the same
-semantic sources, preparation rules and provenance used by agents.
-
-Do not create a GUI merely to imitate another engine's product surface.
-
-### A9 — project-wide semantic dependency and reference graph
-
-⚠ **required, despite following the optional item** — the letters are labels, not
-a priority order.
-
-An agent should be able to ask, without source archaeology:
-
-```text
-what references character:fia?
-what uses world_fact:bridge_powered?
-which rooms instantiate composition X?
-which rules invoke command Y?
-which authored objects reference this portal?
-what will break if I rename this mechanism?
-what will break if I delete this definition?
-```
-
-⭐ **this builds on what already exists** — prepared references, the LDtk
-relationship tooling, content schemas, provenance, and eventually authored rule
-references. ⛔ do not create a separate disconnected graph beside them; a second
-index that can disagree with the first is worse than no index.
-
-Measurable milestones:
-
-1. **cross-domain reference enumeration** — every authored reference a domain can
-   express is enumerable through one query surface;
-2. **reverse-reference queries** — "what points at this?" answered for each
-   supported reference kind;
-3. **structured unresolved-reference diagnostics** — an unresolved reference
-   reports what was named, where, and why resolution failed;
-4. **semantic rename planning / dry-run** — a rename reports every affected site
-   before mutating anything, and applies transactionally across relevant
-   authoring backends;
-5. **rule dependency inspection**, once authored rules exist — see M6 of
-   [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).
-
-⛔ this is an extension of existing authoring/inspection work, **not** another
-independent major campaign.
-
-## Immediate world-authoring slice
-
-When this program is selected by the live queue, moving-platform/LDtk authoring
-is the first spatial vertical slice because it exercises typed references,
-paths, preparation diagnostics, dynamic world semantics, rollback and review
-visualization together.
-
-Focused plans:
-
-- [`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md)
-- [`kinematic-world-objects.md`](kinematic-world-objects.md)
+The ECS-inventory generator already has a focused executable health test:
+`scripts/tests/test_ecs_inventory_can_actually_run.py`. Preserve its declared
+parser-version compatibility and proof that output was actually produced.
+Untracked `.agent` inventories are navigation aids, not authoritative current
+counts. Check revision/freshness before using them in plans. The loading-zone
+name ratchet remains a focused authored-presentation check, not a reason for
+another repository-wide content scanner.
 
 ## Acceptance
 
-A strong Engine 1.0 authoring surface lets an agent take a natural-language
-Ambition content request and, without repository archaeology:
-
-1. discover the relevant authored vocabulary;
-2. inspect existing semantic context;
-3. choose a supported source/operation;
-4. plan or dry-run the change when mutation is fragile;
-5. apply it transactionally;
-6. validate/prepare all affected references;
-7. explain provenance and semantic diff;
-8. produce a concise human-review artifact;
-9. explicitly publish/install generated products where required;
-10. run the relevant public build/test/package path without switching to a
-    separate human-editor workflow.
-
-Manual editor operation is not a prerequisite for this acceptance test. The
-authoring loop should be benchmarked by successful intent-to-validated-change
-work, not by editor-feature parity.
-
-## ⛔⛔ The agent NAVIGATION packets were five weeks stale because their generator SEGFAULTED — 2026-09-06
-
-`.agent/ecs_inventory/` holds 156 per-crate packets plus a `project.json` that
-`.agent/README.md` quotes as the repo's headline ECS numbers. **Every packet was
-dated Aug 1.** `scripts/ecs_inventory.py --crate <anything>` dumped core — small
-crates included, so not size or memory.
-
-⭐ **CAUSE: a version constraint stated in the SCRIPT and installed BARE.** The
-script's PEP-723 header declares `tree-sitter>=0.25,<0.26`;
-`scripts/setup/python_tools.sh` installed `tree_sitter` with no constraint, and the
-environment had picked up **0.26.0 against tree-sitter-rust 0.24.2** — an ABI pair
-that crashes. Downgrading to 0.25.2 makes it run on the first try. Setup now
-installs the range the script declares, for `tree-sitter-rust` too.
-
-⚠ **NOTHING SAID SO, and that is the reusable half.** A segfault prints no
-finding; no lane read that tool's exit code; and the data it feeds is UNTRACKED,
-so it did not rot loudly — it just aged while every agent kept navigating by it.
-`scripts/tests/test_ecs_inventory_can_actually_run.py` now fails if the version
-drifts out of the declared range OR the tool stops producing an inventory
-(a positive control — "did not error" is not "produced the thing").
-
-⭐ **The regenerated numbers, and the drift is large enough to matter to anyone
-planning from them:**
-
-```text
-                         Aug 1    2026-09-06
-registered systems         795          1108
-ECS resources              395           493
-message channels           261           393
-spawn sites                186           312
-```
-
-⚠ **These are MACHINE state, not repo state.** `.agent/` is untracked: a fresh
-checkout has no packets at all, and one that ran the regeneration long ago has old
-packets with nothing marking them old. ⇒ read the mtimes before trusting a number
-from them, and prefer a committed census when one exists.
+One external and one flagship slice complete discovery, inspection, change,
+preparation, behavioral verification, human-review artifact and explicit
+publication/package without manual editor work or internal-module knowledge.
+Invalid semantics fail at admission; diagnostics point to the real source;
+repeating a request cannot accidentally duplicate content; stale plans refuse;
+missing prerequisites remain visible. Current tool tests and Rust/GPU/platform
+receipts are reported separately rather than combined into an unsupported pass.

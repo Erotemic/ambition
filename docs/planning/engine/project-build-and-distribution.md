@@ -567,3 +567,23 @@ agents: plan/check/build/test/package with clear artifact/cache ownership.
 - third-party capability/plugin version locking;
 - required asset hot-reload guarantees for agent iteration;
 - final split between Cargo features and runtime/provider configuration.
+
+## Distinguish dependency closure from executable footprint
+
+[Packet A9](actor-monolith-work-frontier.md) measures the public facade's supported
+profiles. The mandatory internal dependency traversal at the review baseline
+reaches 51 other workspace packages, including render through host. This is a
+lower bound, not Cargo's final feature resolution. `default-features = false`
+on one edge is not proof that another dependency path cannot enable the same
+feature.
+
+For each shipping profile retain its exact target, features, Cargo-resolved graph,
+compile timings/cache state, linked artifact size and runtime startup behavior.
+These are separate metrics. Removing a manifest edge can improve rebuild fanout
+without changing linked bytes; dead-code elimination can reduce bytes without
+making the SDK's conceptual dependency optional.
+
+The minimal external fixture must exercise supported APIs and real simulation.
+Correct its render-opt-out documentation when the implementation packet lands;
+this docs-only review does not edit that fixture. Do not use in-workspace defaults
+or test-support backdoors to make an external profile appear independent.

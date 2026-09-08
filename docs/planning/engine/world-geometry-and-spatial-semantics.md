@@ -44,3 +44,18 @@ type.
 - collision/CCD correctness: [`collision-and-ccd.md`](collision-and-ccd.md)
 - tooling/inspection: [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md)
 - standing trigger: [`../tracks.md`](../tracks.md)
+
+## Relationship to the ownership reassessment
+
+The deferred status applies to broad geometry unification, not to the concrete
+A2 projectile contact defects or A3 actor-placement adapter relocation. Both are
+specified in the [frontier](actor-monolith-work-frontier.md).
+
+Spatial queries publish simulation geometry and contact facts. Authored-world
+lowering translates content into construction parameters. Session selects an
+active room/provider binding. These responsibilities can collaborate through
+ordinary typed dependencies without a common world-service registry.
+
+A8's future two-instance fixture must scope geometry and overlays before claiming
+concurrent worlds. It does not justify combining every zone into one runtime type
+or reopening `BlockKind` merely because the enum has multiple semantics.

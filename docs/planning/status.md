@@ -1,173 +1,84 @@
 # Planning status
 
-This page is a **short orientation snapshot**, not a test-history ledger. Live
-work is in [`queue.md`](queue.md); unresolved maintainer calls are in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md); durable
-architecture belongs in focused owner documents.
+Live execution is in [queue.md](queue.md). Product rulings remain in
+[maintainer-decisions.md](maintainer-decisions.md); unanswered choices remain in
+[awaiting-maintainer-decision.md](awaiting-maintainer-decision.md).
 
-**Reference source:** `54d99e7fb` (the head reviewed as `a38e1bf0f` on
-2026-09-07 plus the actor-spawn boundary correction committed right after it).
-Re-measure before quoting these numbers on a newer head.
+**Architecture review baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`,
+2026-09-08 committed source archive. Source inspection and Python architecture
+checks were available; Rust compilation, gameplay, GPU and network execution
+were not. The [coverage receipt](engine/architecture-review-coverage.md) separates
+those evidence classes.
 
-## Current architecture posture
+## Architecture posture
 
-The prerequisite authority work required before serious capability/crate
-composition has substantially converged:
+The [reassessment](engine/architecture-reassessment.md) replaces the mandatory
+P2-P5 SCC sequence with ownership-based packets. Construction inversion,
+backend-neutral rollback registration, published phase sets and the corrected
+actor-spawn boundary remain supported. None establishes that all state, lifetime
+or capability boundaries have converged.
 
-```text
-F1  construction inversion             crossed
-B   control/custody authority           crossed
-C1  public scheduling vocabulary       crossed
-D   rollback composition               crossed
-E   scoped ruleset policy               crossed
+The reusable substrate coexists with a distributed integration kernel across
+actor-monolith, combat, characters, core and runtime. The
+[responsibility map](engine/architecture-responsibility-map.md) distinguishes
+logical authorities from present crate locations. A new crate is not an exit
+criterion by itself.
 
-C2  capability/crate composition       active
-```
+## Next architectural action
 
-C1 closed when the body-clock view published `BodyClockViewSet::{Reset, Contribute}`
-and Smash registered against it; the ratchet reads zero capability/ruleset
-private orderings.
+**A1: checkpoint restoration ownership.** First characterize/fix startup's
+admission latch; then move restoration, progress and installation into session.
+Leave healing and checkpoint capture at the rest-point interaction. Do not move
+room/session lifecycle vocabulary into `shared_tangle` to remove an import.
 
-## Actor monolith
+A2 addresses projectile geometry/contact correctness before removing feature
+knowledge. A3 retains the valid world-to-construction lowering move. A11/A12
+address disconnected authored parameter validation and flow representation
+bounds. The frontier records exact prerequisites and holds; the queue selects
+priority rather than a predicted SCC trajectory.
 
-Current nontrivial module SCCs (`scripts/measure_kernel_module_graph.py --scc`):
+## Measured shape, not architectural acceptance
 
-```text
- 9  abilities, construction, control, features, items, projectile,
-    session, shrine, world
+The module-path instrument reports a nine-module SCC (abilities, construction,
+control, features, items, projectile, session, shrine, world) and the two-module
+assets/character_sprites SCC. It excludes several test forms but is a textual
+heuristic, not a Rust semantic dependency graph.
 
- 2  assets, character_sprites
-```
+The workspace inventory has 79 packages and 679,785 physical Rust lines under
+package `src` directories, including comments and tests. Of those, 98,464 are in
+the actor monolith. Foreign-ordering/installation instruments report 0 capability
+private orderings, 73 composition private orderings and 174 foreign system
+installations; installation classification reports 3 reducible and 38 irreducible
+blocks. Reproduce counts before quoting them for another revision.
 
-P1 landed (settlement state moved to `ambition_match`, wire IDs preserved) and
-actor spawning was extracted to the crate `ambition_platformer2d_actor_spawn`, so
-`actor_spawn` is no longer a module in this graph and `character_runtime` is no
-longer in a cycle. The remaining designed cuts, in
-[`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md):
+The facade's nonoptional internal dependency traversal reaches 51 other workspace
+packages even without selecting optional dependencies. Render is reachable through
+host. That is a source-only lower bound, not Cargo's resolved feature closure,
+link size, memory consumption or a runtime measurement. The SDK needs independently
+verified minimal profiles rather than an opt-out claim based only on plugin flags.
 
-```text
-P2  projectile -> features              expected  9 -> 8
-P3  shrine -> session                   expected  8 -> 7
-P4  construction -> world               expected  7 -> 6
-```
+## Correctness and validation front
 
-**The module graph cannot see a crate boundary.** The first spawn carve took the
-live actor view (`ActorMut`, `ActorClusterQueryData`), the damage i-frame constant,
-in-place provocation, the fighter-ladder projection and the dismounted-rider
-rebuild out with it, and 11 -> 9 stayed green while the kernel imported its own
-tick-time vocabulary from a crate whose contract said "spawn". Those went back to
-the kernel (`crate::actor_clusters`, `features/ecs/actors/provoke.rs`,
-`features/ecs/{fighter_ladder,dismounted_rider}.rs`); pickup/chest bundles went to
-`features/feature_bundles.rs`. `scripts/tests/test_actor_spawn_boundary.py`
-states the boundary from the spawn side: no query view, no timing constant, one
-system, no pickup/chest, and live kernel roads consume only builders.
+[Findings F1-F8](engine/architecture-review-findings.md) distinguish conditional
+startup retry loss, divergent boss/projectile geometry, obstruction ordering,
+inert authored fields, nonoptional render reachability, construction publication
+limits, unwired technique validation and flow admission bounds. Each has a
+counterexample or verification task and a responsible packet. Do not represent
+them as reproduced Rust failures from this review.
 
-After P4, implementation stops until the six-module hard-core edge ledger is
-complete. Do not choose another cut merely because it has a low reference count.
+The already-landed mark-attribution, mark-stock lifetime, fuse timing, mark-clock,
+body-owned portal publication, hit-flash release, body-clock public set,
+map-visited lifetime, installer preflight, mount/possession arbitration and Mary-O
+render-basis repairs remain closed absent new contrary evidence. This review does
+not reopen them from stale reports.
 
-## Composition measurements
+## Standing constraints
 
-At the reference head:
+Body-owned presentation follows simulation/read model, finalized drawable,
+portal publication and pane composition in that order. Performance claims require
+the intended scenario, cache state and hardware. Quality tier, device residency,
+authored world dimensions and trim placement remain distinct contracts.
 
-```text
-capability/ruleset foreign private ordering      0
-composition foreign private ordering            73
-foreign system installations                   175
-mechanically reducible installation blocks       3
-irreducible composition blocks                  38
-```
-
-The target is **correct ownership**, not zero host/composition code. A block that
-truly decides how independent capabilities compose belongs in composition.
-
-Owner: [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
-
-## Current correctness front
-
-No correctness regression from the 2026-09-07 reviews is open. The next
-engineering action is architecture (P2 in the queue), not a fix.
-
-Closed at the reference head and not to be reopened without new evidence:
-
-- delayed mark attribution after the marking body is gone (`SeatCredit` stand-in,
-  never the victim; the stand-in carries no `MatchSeat`);
-- body-owned drawable geometry finalized before portal publication
-  (`BodyOwnedDrawableSync`);
-- hit-flash same-frame near-side visibility (the owner asserts `Visible` each frame);
-- C1 body-clock contribution (`BodyClockViewSet::Contribute`);
-- mark stock lifetime;
-- exact mark fuse duration;
-- player-readable mark clock;
-- general non-Sprite portal clipping through `DeclaredFrame`;
-- map visited-state save/session lifetime;
-- installer mutation-runner target/headroom preflight;
-- mount/possession multi-claim authority;
-- Mary-O's competing logical/trimmed render-basis placement.
-
-## Presentation posture
-
-Body-owned presentation should follow one pipeline:
-
-```text
-simulation/read-model fact
-    -> body-owned drawable + PresentationOf(body)
-    -> drawable geometry finalized
-    -> portal candidate publication
-    -> per-pane compositing
-    -> final draw
-```
-
-The remaining mark-clock and hit-flash queue rows are synchronization defects at
-this boundary, not arguments for another overlay-specific portal mechanism.
-
-Owner: [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md).
-
-## Performance and asset posture
-
-Performance claims require an executable measurement with the intended scenario,
-hardware and cache state. Source-only or unsupported scenario substitutions must
-report **unmeasured**, not pass.
-
-Asset quality and residency are separate concerns:
-
-- selected quality tier owns source-pixel expectations;
-- runtime residency owns when prepared/device assets remain live;
-- authored character size owns world dimensions;
-- trim/packing must not change semantic frame placement.
-
-Owners:
-[`engine/performance-and-iteration.md`](engine/performance-and-iteration.md) and
-[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md).
-
-## Fighter-brain posture
-
-The fighter brain owns generic scoring/selection over the authored capability
-menu. It must not grow per-character move scripts to compensate for menu/scoring
-shape. Difficulty should change decision quality/behavior intentionally rather
-than create accidental self-destruction.
-
-Owner: [`engine/fighter-brain.md`](engine/fighter-brain.md).
-
-## Planning hygiene
-
-The planning tree is a control plane, not an archive:
-
-- delete completed queue rows;
-- remove answered questions after recording the ruling;
-- retire completed campaign diaries to short receipts;
-- keep measurements with the tool/owner that can reproduce them;
-- do not create maintainer-named scratchpads or agent review dumps;
-- use Git history when old reasoning is needed.
-
-The retired maintainer-named observation dump must not be recreated under a
-new name. Direct maintainer reports are triaged immediately into an owner doc,
-queue row, decision, or durable ruling.
-
-## Where to look next
-
-- **Next engineering action:** [`queue.md`](queue.md)
-- **Maintainer questions:** [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
-- **Durable rulings:** [`maintainer-decisions.md`](maintainer-decisions.md)
-- **Architecture tracks:** [`tracks.md`](tracks.md)
-- **Actor decomposition:** [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-- **Smash parity:** [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+Fighter-brain policy stays generic over an authored move menu. Game product choices
+are not resolved by a package move. No recommendation in this review is a new
+maintainer ruling. Completed work leaves the live queue; Git retains its history.

@@ -130,3 +130,16 @@ Almost all details are intentionally unresolved. Specifically:
   plus prepared provider data.
 
 Do not harden any of these until real content hurts.
+
+## Preparation bridge and repeated-instance proof
+
+A3 in the [frontier](actor-monolith-work-frontier.md) keeps provider-neutral world
+input separate from actor/catalog-specific construction lowering. A reusable room
+composition should not import prepared character sheets merely to expose spatial
+placements. Typed domain lowering remains explicit at the integration boundary.
+
+A8 uses two copies of the same authored room as the future instance-isolation
+witness. Content identity can be shared while live entities, mutable overlays and
+occurrence histories remain scoped. Do not claim that different authored room IDs
+prove repeated-instance safety or require all identity types to share one new
+namespace. Single-active-room customers should retain the current simple path.

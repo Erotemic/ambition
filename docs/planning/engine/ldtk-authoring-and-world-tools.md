@@ -184,3 +184,22 @@ to:
 Opening LDtk manually should remain a good optional review/edit path, not a
 prerequisite for supported authoring. That quality bar should become the standard
 for every spatial capability we consider supported.
+
+## Import validation and placement lowering boundary
+
+A3 in the [frontier](actor-monolith-work-frontier.md) moves actor/catalog-specific
+placement lowering toward construction integration. LDtk and other providers
+continue producing typed world input; generic world geometry must not depend on
+character sheets and prepared actors merely because they share a placement file.
+
+[Finding F4](architecture-review-findings.md) confirms three carried-but-unconsumed
+fields: `requires_facing`, pickup `collected` and chest `persistent`. Product
+meaning remains Q63. Before a choice is made, validation should identify a
+nondefault unsupported value rather than promise that serialization alone makes
+it effective. Do not delete authored data or change manual-interaction semantics
+under an architecture-only cleanup.
+
+Importer diagnostics should retain provider, source entity/field and normalized
+semantic path so an authoring agent can fix the actual source. One shared
+validation path must serve CLI preparation and game loading; a separate editor
+validator is not authoritative.

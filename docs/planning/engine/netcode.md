@@ -177,3 +177,21 @@ Before online transport is considered healthy:
 - Matchbox/deployment work before a product customer exists;
 - treating a two-seat local sync-test session as proof of a two-peer network
   protocol.
+
+## Decomposition and effect-delivery limits
+
+The current same-build rollback contract is retained by the
+[reassessment](architecture-reassessment.md). Moving a checkpoint progress type or
+installer must preserve its wire identity, baseline/reset lifetime and confirmed
+admission phase. A crate/module path is not an instruction to change the wire ID.
+A new serialization schema or executable build is a separate compatibility change.
+
+Confirmed in-process effect release is not a durable exactly-once protocol.
+Packet A10 does not retrofit one through the construction interface. When a real
+external transport or persistent side effect is added, name the idempotency scope,
+restart recovery, duplicate delivery and acknowledgement owner explicitly.
+
+Room publication remains outside speculative execution with a new frame-zero
+baseline. Concurrent world residency, cross-room snapshots and two independent
+live matches are separate capabilities; A8 requires a real two-instance witness
+before generalizing every identity or rollback resource.

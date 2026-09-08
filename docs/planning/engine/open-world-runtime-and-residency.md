@@ -799,3 +799,23 @@ the cut-rope case two retractors made each other untestable and the test proved 
 here six writers feed a flag no decision depends on. Same grep, opposite verdicts —
 which is the fighter lane's own discriminator (two branches of one function vs two
 systems) arriving from the reader's side instead of the writer's.
+
+## Instance-isolation prerequisite before generalization
+
+[Packet A8](actor-monolith-work-frontier.md) is a hold on speculative namespace and
+runtime abstraction work, not a cancellation of the open-world target. Current
+session/spatial services largely select one active room. Before claiming concurrent
+live instances, run two copies of the same authored room with identical local IDs
+and prove construction, geometry queries, contacts, item occurrence history,
+checkpoint binding, teardown and presentation remain isolated.
+
+An authored content identity, a live instance identity and a replay-stable entity
+identity answer different questions. Add instance qualification only where that
+witness demonstrates collision; do not append a universal WorldId to every key.
+Session composition can select a room while the spatial owner interprets its
+geometry. A global mutable context resource is not instance isolation.
+
+A10 distinguishes verified publication from retaining an old world after failure.
+Concurrent staged-room activation and arbitrary undo of raw construction commands
+are separate designs. Memory limits remain Q94; measure stage-specific usage and
+preserve the current single-room path while bringing up a second instance.

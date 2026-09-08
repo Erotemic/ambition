@@ -361,3 +361,22 @@ This program can leave active planning when:
    irrelevant facets;
 6. remaining moves are opportunistic authoring/tooling improvements rather than
    an unresolved ownership boundary.
+
+## Definitions, preparation and live actors are different responsibilities
+
+[Packet A6](actor-monolith-work-frontier.md) retains this document's field census
+but rejects a rename-only `characters -> actors` migration. Authoring schemas and
+validated immutable definitions can be consumed without owning live actor query
+and mutation. Materialization combines prepared definitions with body builders;
+brain policy and moveset execution consume them during simulation.
+
+For each migrated field name its author, validated/prepared representation,
+activation boundary, runtime projection and persistent identity. Do not split
+one value across a registry and a second runtime default that can disagree.
+Mechanical geometry must not derive from resident device texture quality.
+
+The large moveset/technique vocabulary is not proof of a scripting runtime
+boundary. A11/A12 validate actual installed techniques and bounded flow graphs
+before a prepared revision activates. Preserve one structural body road across
+player, enemy, boss and summoned materialization; shape/profile differences are
+policy, not a reason to reintroduce a player-specific actor authority.

@@ -1,85 +1,27 @@
-# Stable identifier centralization — inventory first, abstraction pending
+# Stable identifier centralization - semantic scope before shared syntax
 
-> **State:** TRIAGE — DESIGN DECISIONS PENDING, 2026-07-22.
->
-> Ambition should have one place that keeps stable identifier conventions
-> straight, but no decision has been made to introduce a derive macro, a shared
-> newtype crate, or generated boilerplate. Explicit, locally readable Rust is a
-> valid outcome.
->
-> **RE-MEASURED against `925b355c1` (2026-09-02). The inventory this doc asks for
-> below is still not done, but the two facts that decide it are now measured —
-> and they INVERT the framing above.**
->
-> - **42** distinct `pub struct *Id` newtypes at HEAD, against **23** at
->   `159daa235` (2026-07-23). The population nearly doubled in six weeks. Ten
->   wrap `String` directly, two wrap an integer, none wrap `&'static str`.
-> - ✔ **`macro_rules! string_id` IS NOW DEFINED ONCE — landed by ambition-da
->   (`02a796d2c`) after this was measured; verified 2026-09-02.** The sole
->   definition is `ambition_load/src/id.rs`, `#[macro_export]`ed, and the other
->   two consume it. ⇒ **This half of the inventory is spent, and it decided
->   itself**: the dependency graph picked the owner (`ambition_load` depends on
->   `bevy` and nothing else in the workspace), so no derive macro, no newtype
->   crate and no new edge were needed for it. The measurement below is kept as
->   the record of what motivated the move.
-> - **`macro_rules! string_id` WAS defined THREE TIMES**, in
->   `ambition_load_presentation/src/model.rs`, `ambition_game_shell/src/id.rs`
->   and `ambition_load/src/id.rs` — covering `LoadExperienceId`/`LoadActivityId`/
->   `LoadPresentationOwnerId`; `ShellRouteId`/`ShellExperienceId`/
->   `ShellSegmentId`/`ShellSegmentKindId`/`ShellHoldId`; and `LoadId`/
->   `LoadBarrierId`/`LoadWorkId`. Two further id-macro families exist beside
->   them (`sfx_ids!`, `fx_ids!`).
-> - ⭐ **THE THREE ARE IDENTICAL.** Normalised for whitespace they diff clean,
->   pairwise: same derives (`Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd`),
->   the same `new` that **panics** via `assert!` on a trim-empty value, the same
->   `as_str`, `From<&str>`, `From<String>` and `Display`. No serde, no `Borrow`,
->   no `AsRef`.
->
-> ⛔ **SO THE RISK THIS DOC GUARDS AGAINST IS NOT THE RISK PRESENT.** It argues a
-> macro "can hide policy from both human maintainers and coding agents", and that
-> saving twenty lines is not worth a hunt for an expansion rule in another crate.
-> Fair — but nothing is hidden today, because the same expansion rule is written
-> out three times and has not drifted. What IS unstated is the policy those three
-> copies silently agree on: **an identifier is a non-empty `String` that PANICS on
-> violation and is not serialisable.** That decision was made three times without
-> being written down anywhere, and eleven types now depend on it.
->
-> ⇒ The open question is therefore narrower and more answerable than "derive macro
-> versus explicit Rust": which crate owns the ONE copy, and is panic-on-empty the
-> policy the other 31 identifier types should also follow? The classification axes
-> below remain the right way to answer the second half.
->
-> ### The first half is already decided, by the dependency graph
->
-> ⭐ **`ambition_load` OWNS IT, and nothing has to be invented to say so** (checked
-> at `9a170b142`):
->
-> ```text
-> ambition_load              deps: bevy only — NO ambition_* dependency at all
->   ← ambition_game_shell    already depends on ambition_load
->     ← ambition_load_presentation  already depends on both
-> ```
->
-> The three crates that define the macro form a chain, and the one that defines
-> it lowest is the one the other two already import. So consolidation needs **no
-> new crate, no new dependency edge, and no cycle**: give `ambition_load`'s copy
-> `#[macro_export]` (none of the three exports anything today — all three are
-> crate-local `macro_rules!`), delete the other two, and let the eleven types
-> keep their current names.
->
-> ⚠ **Two things to check while doing it, not before.** `ambition_load` depends
-> on `bevy` with `default-features = false`, while `ambition_load_presentation`'s
-> copy sits in a module that imports `Component`, `Message` and `Resource` — so
-> confirm no derive is being added by proximity rather than by the macro. And the
-> macro body names `fmt::Display`, so an exported version must spell
-> `::core::fmt` rather than rely on each call site's `use std::fmt`.
->
-> ⛔ **This is a slice, not a licence.** It removes a duplicate mechanism, which
-> [`../decision-principles.md`](../decision-principles.md) names outright —
-> *"prefer the solution that avoids parallel paths, compatibility shims, and
-> duplicate mechanisms"*. It does NOT answer the second half (whether
-> panic-on-empty is right for the other 31 identifier types), and it must not be
-> used to migrate any type that does not already use one of these three copies.
+The shared `string_id!` mechanism already lives in `ambition_load`; do not replay
+the completed consolidation or infer that its panic/serialization policy should
+apply to every identifier. Explicit, locally readable newtypes remain valid.
+The inventory below is for semantic classification, not a mandate for a derive
+macro or a universal ID crate.
+
+The [architecture reassessment](../engine/architecture-reassessment.md) distinguishes
+authored content identity, live entity identity, occurrence identity,
+construction-attempt identity, session/instance scope and rollback wire identity.
+Two identifiers with the same representation need not have the same equality,
+validation, persistence or retirement rule.
+
+For new untrusted authored data, validation should produce source-local errors
+rather than depend on a constructor panic. For an internal trusted invariant, a
+panic may be intentional. Record which boundary the constructor serves; do not
+mass-change behavior because a macro is available.
+
+A8 requires two copies of the same room as the namespace witness before adding
+instance qualification. A1 preserves existing rollback wire IDs during a pure
+move. Canonical content metadata cannot identify executable function behavior;
+see [registry protocol](ambition-registry-core.md). The dependency graph can locate
+a shared syntax helper, but cannot establish the semantic owner of all IDs.
 
 ## Why this is in triage
 

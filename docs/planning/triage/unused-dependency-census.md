@@ -145,3 +145,22 @@ said "six", and six was neither the number of unused declarations nor a number
 any single instrument had produced. See
 [`../../recipes/re-measuring-a-planning-claim.md`](../../recipes/re-measuring-a-planning-claim.md)
 — *"the error is not a bad tool, it is a claim wider than the tool's scope"*.
+
+## Relationship to the architecture review
+
+The counts and compiler runs above are historical receipts for their stated
+source, not a fresh all-workspace unused-dependency verdict. The current review
+inventoried 79 workspace packages but had no Rust toolchain. Re-run the detector
+and compiler confirmer for a concrete migration rather than subtracting old
+scanned counts from the new package total.
+
+A9 in the [frontier](../engine/actor-monolith-work-frontier.md) asks a different
+question: what does an advertised external profile actually require? A dependency
+can be genuinely used and still be wrong for a promised render-absent profile.
+Conversely, deleting a direct edge may leave the same package reachable through
+another crate. Keep usage, feature activation, closure and linked size separate.
+
+Retain the recorded doc-only dependency ruling unless the maintainer changes it;
+show its profile cost explicitly rather than treating it as unused code. The A9
+plan does not grant permission to delete documentation support or public feature
+names to get a smaller count.

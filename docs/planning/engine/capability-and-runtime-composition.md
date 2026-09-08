@@ -1,287 +1,173 @@
 # Capability and runtime composition
 
-**State:** ACTIVE — the prerequisite authority work is far enough along for
-capability/plugin/crate composition to be the primary architecture workstream.
-The remaining task is to move genuine capability installation to its owner while
-preserving irreducible composition where only the composition layer can name
-both sides.
+**Baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`, 2026-09-08.
+**State:** active, with readiness assessed per authority. Prior statements that
+all authority prerequisites were crossed were too broad. The spawn correction,
+checkpoint ownership and contact geometry show why those conclusions must remain
+local to the boundary that was actually tested.
 
-This page is a **current composition contract and execution guide**. Historical
-censuses, individual carve diaries, corrected counts and superseded candidate
-lists live in git history.
+[The queue](../queue.md) selects work. The
+[responsibility map](architecture-responsibility-map.md) defines the target and
+[A9](actor-monolith-work-frontier.md) defines profile/closure work. This page owns
+installation, scheduling, prerequisites and supported absence.
 
-## Scope
+## Fresh source measurements
 
-This page owns:
+Executed on the baseline with the existing Python tools:
 
-- who installs a capability's private systems;
-- how capabilities participate in runtime phases without naming foreign private
-  systems;
-- optional-capability compile/runtime contracts;
-- rollback declaration participation;
-- active-ruleset policy borrowing/restoration;
-- where cross-capability composition legitimately remains centralized;
-- the public facade boundary after composition is sound.
+| Instrument | Result | What it establishes |
+| --- | --- | --- |
+| `scripts/measure_foreign_system_ordering.py` | 0 capability/ruleset foreign private orderings; 73 composition orderings; 174 foreign installations | Syntactic installation/ordering inventory, not semantic correctness |
+| `scripts/measure_carveable_installations.py` | 3 mechanically reducible blocks; 38 mechanically irreducible blocks | Upper-bound candidates using present package edges; package names may conceal mixed authorities |
+| Normal nonoptional workspace-manifest traversal from facade | 51 other workspace packages reachable | Lower bound on dependency closure; not full Cargo resolution, binary size or installed-system population |
 
-The actor-monolith SCC/package split is owned by
-[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md) and the
-current execution frontier it links to.
-
-## Current architecture checkpoint
-
-At the current reviewed baseline, measured by the repository tools:
-
-```text
-foreign private-system ordering
-    capability/ruleset       1
-    composition             73
-    total                   74
-
-foreign system installations
-                           174
-
-carveability upper bound
-    reducible                2
-    irreducible             39
-```
-
-Re-measure instead of copying these numbers forward:
+The body-clock contribution is already expressed through published reset/
+contribute vocabulary. Do not reopen that repaired C1 row. Older counts of one
+capability ordering or 175 installations are not this receipt.
 
 ```bash
-python scripts/measure_foreign_system_ordering.py
-python scripts/measure_carveable_installations.py
-python scripts/check_declared_system_packages.py
+python3 scripts/measure_foreign_system_ordering.py
+python3 scripts/measure_carveable_installations.py
 ```
 
-The one capability-written ordering at this baseline is the body-clock
-contribution naming a concrete `sim_view` reset system. It is a local regression
-against the C1 invariant and should return to zero through published scheduling
-vocabulary.
-
-## Prerequisite status
-
-### A/F1 — construction/actor inversion: crossed
-
-Construction no longer depends upward on feature implementation. Continue the
-residual monolith split through the SCC plan; do not reopen the old F1 migration
-unless the direct dependency returns.
-
-### B — control/custody authority: crossed
-
-`ControlClaims` retains simultaneous claims and deterministically projects the
-effective `TemporaryControl`. Mount custody and actual control masking are
-separate facts, ordinary dismount retracts its claim, and rollback restores the
-claim state before projection.
-
-Do not return to multiple features overwriting `TemporaryControl` directly.
-
-### C1 — scheduling vocabulary: invariant is zero private foreign ordering
-
-A capability may place its systems in published semantic phases/sets. It may not
-order itself against another crate's concrete private function.
-
-Current action: repair the one body-clock edge and keep the ratchet at zero.
-
-### D — optional rollback composition: crossed for the current model
-
-Optional simulation capabilities are compile-time composition choices. Their
-rollback declarations participate only when the capability is compiled/installed.
-
-If Ambition later requires one binary to dynamically load/unload arbitrary
-rollback-owning capabilities, reopen this decision explicitly rather than
-stretching the current registrar model.
-
-### E — scoped ruleset policy: crossed
-
-A game/ruleset may temporarily override engine policy by:
-
-1. snapshotting the prior value;
-2. applying the active-ruleset policy;
-3. restoring the exact prior value on departure.
-
-Do not make a demo plugin permanently own process-global engine policy.
-
-## Composition model
-
-### Capability ownership
-
-A reusable capability should own:
-
-- its authoritative state and semantic messages;
-- its private systems;
-- its rollback declaration when applicable;
-- its installation function/plugin;
-- its public scheduling sets/milestones;
-- its absence behavior.
-
-The host/composition layer decides **which capabilities exist together**, not
-how each capability internally works.
-
-### Runtime ownership
-
-The runtime owns global simulation phases and cross-domain ordering vocabulary.
-It may compose published capability sets into a deterministic pipeline.
-
-The runtime should not accumulate a list of private functions merely because it
-is the central place where they historically happened to be registered.
-
-### Irreducible composition is legitimate
-
-A block is irreducible when its job is genuinely to coordinate two independent
-capabilities that cannot name each other without reversing dependency direction.
-
-Do not create an artificial “installer” whose only purpose is to make a foreign
-installation count decrease. Preserve explicit composition when composition is
-the owner.
-
-### Optional means absent-capable
-
-For a capability advertised as optional:
-
-- removing it from the compile/composition graph must not require its resource,
-  message or rollback state elsewhere;
-- a minimal host must not panic because an unrelated system assumes it exists;
-- tests should include a tiny app/absence contract rather than only a full game.
-
-### Content requirements are explicit
-
-A capability that requires authored data should declare the requirement through
-catalog/validation vocabulary. Missing content should be diagnosed before the
-runtime reaches a private implementation panic.
-
-## C2 execution procedure
-
-For every remaining foreign installation block:
-
-1. **Name the owner.** Is the block one capability, shared runtime vocabulary, or
-   genuine cross-capability composition?
-2. **Inspect chaining.** A syntactically single-capability block may still be
-   semantically entangled by `.chain()` or private ordering.
-3. **Move only owned internals.** If one capability owns the block, provide an
-   installer/plugin in that capability and let composition call it.
-4. **Publish milestones, not functions.** If another domain needs ordering,
-   expose a `SystemSet`/phase fact.
-5. **Prove population.** A source test that counts systems is insufficient when
-   the bug can be “installed in the wrong host.” Include the supported minimal
-   and assembled populations.
-6. **Prove absence.** Optional capabilities need a no-capability composition
-   test/contract.
-7. **Remeasure.** Record only the current command/result in the owning queue
-   item; do not append a carve diary here.
-
-## Current C2 work
-
-### C2.1 — restore the C1 zero-ordering invariant
-
-Replace the Smash body-clock contribution's direct ordering against
-`sim_view::rebuild_body_clocks_view` with a published body-clock/reset/contribute
-milestone owned by the read-model/presentation vocabulary.
-
-Acceptance:
-
-```bash
-python -m pytest -q scripts/tests/test_foreign_system_ordering.py
-```
-
-must return the capability/ruleset count to zero.
-
-### C2.2 — inspect the remaining reducible blocks
-
-The current carveability tool reports only a very small reducible tail. For each
-row, verify semantic ownership before moving it. If a row crosses a real lane
-boundary, reclassify it as composition rather than manufacturing a package to
-absorb it.
-
-### C2.3 — preserve the irreducible composition ledger
-
-For the remaining cross-capability blocks, maintain an explicit reason the
-composition layer must name both sides. A future carve requires a new authority
-fact, not another wrapper function.
-
-### C2.4 — narrow the public facade after ownership is stable
-
-The public facade should export stable semantic types, capability plugins and
-supported host composition—not the actor monolith's internal organization.
-
-Do not perform broad facade churn ahead of the crate/SCC work. Compatibility
-adapters can disappear only after their consumers have moved to durable owners.
-
-The facade is not where the footprint lives. Against the movement-only sentinel
-(`scripts/baselines/capability-footprint-baseline.json`, guarded by
-`scripts/tests/test_capability_footprint_baseline_is_coherent.py`):
-**All 24 that a movement-only game never asked for arrive through the
-monolith alone** — the two lists are equal — so no facade cut removes a single
-one. The number moves with every carve; the equality is the claim.
-
-## Rollback composition contract
-
-The domain that owns authoritative rewind state also owns the declaration that it
-must be registered. The backend implements a backend-neutral registration
-vocabulary.
-
-Do not centralize a growing list of optional domain components inside the GGRS
-backend merely because the backend performs the final registration call.
-
-Stable wire names/encoded shapes are compatibility state. Moving a type between
-crates does not authorize changing those IDs.
-
-## Ruleset/session/host separation
-
-Use this vocabulary consistently:
-
-- **capability** — reusable mechanism;
-- **ruleset/game** — policy values and feature selection;
-- **session** — active lifetime/instance;
-- **host** — platform/window/input/audio/network composition.
-
-A capability should not infer game policy from which demo plugin happened to be
-installed. A game should not permanently mutate host-global policy to activate a
-session rule.
-
-## Target shape
-
-```text
-game / experience
-    -> selects ruleset policy + capability composition
-
-runtime
-    -> owns global phases and deterministic cross-domain schedule
-
-capability plugin/installer
-    -> owns private systems + state + rollback declarations
-    -> installs into published phases/sets
-
-host
-    -> adds window/input/audio/network/presentation services
-
-public facade
-    -> exports supported semantic composition surfaces
-```
-
-## Acceptance
-
-C2 is complete enough for Engine 1.0 when:
-
-1. capability/ruleset code has zero foreign-private-system ordering;
-2. capability-owned private systems are installed by their capability;
-3. remaining centralized registrations are documented cross-capability
-   composition rather than historical leftovers;
-4. optional capabilities are absent-capable and rollback-gated;
-5. ruleset policy restores prior engine policy exactly;
-6. supported minimal/headless/windowed compositions install only the populations
-   they claim;
-7. the public facade exposes durable semantic boundaries rather than monolith
-   internals.
-
-## Standing prohibitions
-
-- do not chase a zero foreign-install count;
-- do not add public sets merely to make a metric smaller;
-- do not order a capability against a foreign concrete system;
-- do not move cross-capability policy into one participant to make composition
-  disappear;
-- do not call compile-time optionality runtime dynamism;
-- do not preserve dated carve transcripts in this live page.
-
-Use git history for the removed 2026-09-03 through 2026-09-07 measurement and
-carve narrative.
+A tool's irreducible label means two current packages occur in the block without
+a suitable dependency edge. It does not prove that their responsibilities are
+semantically independent. Reassess ownership before adding a composition wrapper.
+
+## Four independently testable contracts
+
+**Authority:** private state and its transition rules have a coherent owner.
+**Installation/lifetime:** an installed capability runs and retires with only
+its documented prerequisites. **Compile closure:** an absent optional capability
+is absent from the intended dependency/feature closure. **SDK:** an external
+consumer uses stable semantic entry points instead of internal topology.
+
+A passing optional-plugin suite does not prove compile closure. A green SDK
+allowlist does not prove the allowed API is well designed. A decreasing foreign-
+installation count does not prove the new installer owns the behavior.
+
+## Capability installation contract
+
+A capability declares required resources/services, optional integrations, private
+systems, public milestones, state scope, rollback participation and retirement.
+It owns internal ordering. An installer may be an ordinary Bevy-native function
+or plugin according to the owner's public API; a new trait hierarchy is not
+required.
+
+Missing required prerequisites fail with a concrete installation/preparation
+diagnostic. Supported absence is modeled intentionally. Do not require dummy
+resources or let required behavior vanish behind an Option parameter. Do not
+recognize render readiness by the presence of a proxy such as AssetPlugin when
+the actual system requires render-device resources.
+
+The combat no-plugin packaging question remains Q73. This plan recommends
+owner-controlled installation against public phases; it does not fabricate a
+maintainer ruling or require every crate to expose a Plugin type.
+
+## Composition owns integration, not every algorithm
+
+A full host may select capabilities and order their public milestones. The
+lifecycle coordinator legitimately owns admission/loading/commit state machines.
+Those are different roles even where they currently share the runtime crate.
+
+A composition block is justified when it states a real relation between
+independent owners, such as capture after custody settlement or presentation
+after body geometry publication. It is suspect when it enumerates the private
+steps of one owner, performs that owner's state transitions, or knows every
+special case inside a generic context.
+
+Do not move gameplay into runtime to escape Cargo direction. Do not delete
+cross-capability coordination merely to reach zero foreign installation counts.
+A wrapper that forwards the same 15 private calls has not reduced knowledge.
+
+## Scheduling contract
+
+For every public milestone, specify what is true on entry/exit, its enclosing
+simulation phase, run conditions, whether Commands have been applied, and the
+scope/population to which its guarantee applies. Use ordering only where a real
+read/write or semantic prerequisite exists; do not chain unrelated systems to
+avoid reasoning about them.
+
+The A1 checkpoint move must preserve two different requirements: reset admission
+runs before replay admission in PlayerInput; startup restoration can run before
+gameplay is enabled. Item capture observes settled item/custody state in the full
+composition. Those cannot be captured by copying one `.before` expression.
+
+A milestone named after every private function merely republishes implementation
+order. Prefer a guarantee such as body geometry published, accepted control
+settled, or checkpoint capture ready. Empty optional phases must not prevent
+required phases from running.
+
+## Separation mechanisms: when they reduce knowledge
+
+| Mechanism | Legitimate use in this repository | Failure to reject |
+| --- | --- | --- |
+| Direct Cargo dependency | Body execution using geometry; a domain adapter using prepared definitions | Assuming an acyclic graph proves that data and writers are at the right owner |
+| Bevy plugin/installer | Owner installs private systems and state against documented phases | Wrapper around foreign private algorithms solely to change a metric |
+| Published SystemSet | Stable ordering/visibility guarantee between independent owners | One public set per private function, with the same undocumented pairwise graph |
+| Typed intra-tick message | Explicit event observation with known delivery/consumption semantics | Replacing a required synchronous contact/admission result with next-tick delivery |
+| Rollback state/journal | Speculative state restored on rewind; confirmed external effects released once in the current session/process | Treating all Bevy message buffers as rollback history or using the effect journal for ordinary gameplay communication |
+| App-local provider registry | Explicit independent game/content providers registered and frozen before use | Dynamic gameplay service discovery or arbitrary implementation replacement during a deterministic tick |
+| Schema/metadata registry | Validate IDs, schemas, revisions and conflicts; fingerprint declared data | Treating metadata-only registration as an executable extension point |
+| Backend-neutral registrar | Domain declares its rewind state without importing the GGRS backend | A backend-owned global type list that must understand every optional domain |
+| Shared values / SystemParam | Small semantically owned values or borrow grouping of one operation | Dependency-neutral bags that carry every sibling's private resources and policy |
+
+`ambition_registry_core` is a small canonical-registration helper. It does not
+supply the authority, lifetime or meaning of a registry's entries. Retain explicit
+New/Idempotent/Conflict behavior and deterministic enumeration; do not promote it
+to a universal capability service locator.
+
+## Compile-time optionality
+
+At this baseline, the facade's direct render edge is optional, but facade ->
+platformer2d_host -> ambition_render is nonoptional. Removing the direct feature
+therefore does not remove renderer dependencies. Other capability paths must be
+traced individually. See F5 in [findings](architecture-review-findings.md).
+
+Measure a real independent consumer manifest under the intended feature set.
+Cargo features unify across dependency paths; a default-features opt-out on one
+edge does not erase another edge's request. Check normal, build, dev and target
+closures separately. The supported production profile is defined by normal
+runtime dependencies and its deployment assets, while tests may need additional
+tooling. Do not infer binary bytes from any of those graph counts.
+
+Start with a small supported profile set rather than promising every combination:
+headless body/world; windowed body/world; headless combat; collection without held
+use; generic encounters without named boss content. Rich default composition
+continues to be supported. Each profile must instantiate a real domain object and
+advance behavior, not merely build an empty App.
+
+## Rollback and external effects
+
+A domain owns declaration of its authoritative rewind state, with the backend
+implementing the registrar. Install/register an optional domain only when its
+profile includes it. Runtime loading/unloading of arbitrary rewind-owning plugins
+is outside the present compile-time composition contract.
+
+Preserve wire IDs/encoding during an ownership-only move. The engine's same-build
+policy remains authoritative; this is not a promise of cross-release wire
+compatibility. Definitions, derived projections and external effects have
+different restoration semantics and must not share one generic default policy.
+
+`crates/ambition_platformer2d_runtime/src/external_effects.rs` already provides a
+bounded confirmed-effects journal. Preserve replacement on resimulation, empty
+frame replacement, session reset and delivery after confirmation. Exactly-once
+in-process release is not a durable exactly-once guarantee at a disk/network sink;
+that sink needs its own identity/idempotence contract when required.
+
+## Ruleset and session scope
+
+Games choose policy and capabilities; sessions own active lifetime; hosts choose
+platform/backends. Restore the exact prior process policy when a scoped ruleset
+leaves. A demo plugin must not permanently become the global owner of a setting
+used by another experience. Re-entry, not only first startup, is a profile test.
+
+## Completion evidence
+
+Keep zero capability/ruleset foreign private ordering, but do not use that as the
+only criterion. Every claimed optional capability needs explicit prerequisites,
+a minimal positive case, a supported absence case, correct re-entry/retirement,
+rollback declaration and a resolved dependency-closure statement. Cross-owner
+composition has a reason and a phase guarantee. SDK consumers need no internal
+module map. Unsupported configurations report unsupported; they do not use a
+plausible sibling default and produce misleading benchmark results.

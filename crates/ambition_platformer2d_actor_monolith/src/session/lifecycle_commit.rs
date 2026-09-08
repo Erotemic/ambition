@@ -57,6 +57,44 @@ pub struct RoomReconstitutionIntent {
 }
 
 impl LifecycleIntent {
+    /// A value-complete desync projection of this intent.
+    ///
+    /// ⛔⛔ EXHAUSTIVE BY CONSTRUCTION, and that is the only reason it can be
+    /// trusted. Every field is destructured by name, so a new one — or a new
+    /// variant — stops this compiling instead of quietly falling outside the
+    /// hash. A projection that covers PART of a value is worse than none: it
+    /// reports agreement between two peers holding different operations.
+    ///
+    /// ⚠ It hashes the intent alone. A caller that stores an intent beside other
+    /// state (see `AcceptedCheckpointRestore`) owes that state its own legs.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{
+            checksum_bytes, put_bool, put_opt_str, put_str, put_u8, put_vec2,
+        };
+        let mut bytes = Vec::new();
+        match self {
+            Self::Transition(RoomTransitionIntent {
+                subject,
+                target_room,
+                arrival,
+                edge_exit,
+                zone_sfx,
+            }) => {
+                put_u8(&mut bytes, 0);
+                put_str(&mut bytes, subject.as_str());
+                put_str(&mut bytes, target_room);
+                put_vec2(&mut bytes, *arrival);
+                put_bool(&mut bytes, *edge_exit);
+                put_opt_str(&mut bytes, zone_sfx.as_deref());
+            }
+            Self::ReconstituteRoom(RoomReconstitutionIntent { target_room }) => {
+                put_u8(&mut bytes, 1);
+                put_str(&mut bytes, target_room);
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+
     /// The room this operation will leave standing, whichever shape it has.
     pub fn target_room(&self) -> &str {
         match self {

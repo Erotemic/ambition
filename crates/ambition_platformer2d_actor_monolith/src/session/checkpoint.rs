@@ -447,23 +447,44 @@ impl AcceptedCheckpointRestore {
         self.0.take()
     }
 
-    /// ⭐ WHICH OPERATION AND WHICH POPULATION, not merely "one is accepted".
-    /// The pinned ledger is the whole reason this value exists, so a presence
-    /// probe would satisfy the coverage oracle while seeing none of it — and a
-    /// rewind that brought back the accepted operation with a DIFFERENT pinned
-    /// population would rebuild the room the other timeline is not in.
+    /// ⭐ EVERY FIELD THAT CAN CHANGE WHAT THIS OPERATION BUILDS.
+    ///
+    /// ⛔⛔ ITS FIRST VERSION COVERED THREE OF FOUR AND WAS WRONG FOR IT. It
+    /// hashed the frame, the pinned ledger and the intent's TARGET ROOM — so two
+    /// accepted restores with different pinned MINT RECIPES agreed, and so did
+    /// two crossings that differ only in subject, arrival, edge or door cue.
+    /// Both halves are consumed: room preparation lowers the fresh plan from the
+    /// ledger AND the mints, and `inputs_for` matches on the whole intent by
+    /// equality. A projection that covers part of a value reports agreement
+    /// between peers holding different operations, which is worse than having
+    /// none. The intent's own leg is exhaustive by destructure.
     pub fn checksum(&self) -> u64 {
-        match &self.0 {
-            None => 0,
-            Some(accepted) => {
-                let mut hash = (accepted.frame as i64 as u64) ^ 0x9e37_79b9_7f4a_7c15;
-                hash = hash.rotate_left(7) ^ accepted.occurrences.checksum();
-                for byte in accepted.intent.target_room().as_bytes() {
-                    hash = hash.rotate_left(5) ^ u64::from(*byte);
-                }
-                hash | 1
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u64, put_u8};
+        let Some(AcceptedRestore {
+            frame,
+            intent,
+            occurrences,
+            minted,
+        }) = &self.0
+        else {
+            return 0;
+        };
+        let mut bytes = Vec::new();
+        put_i32(&mut bytes, *frame);
+        put_u64(&mut bytes, intent.checksum());
+        put_u64(&mut bytes, occurrences.checksum());
+        // ⚠ ABSENT AND EMPTY ARE DIFFERENT ANSWERS. "No mint baseline installed"
+        // is a composition without the item domain; "installed and empty" is a
+        // checkpoint that saw no runtime mints. Folding them together would let
+        // a peer with no item domain agree with one that has an empty baseline.
+        match minted {
+            None => put_u8(&mut bytes, 0),
+            Some(minted) => {
+                put_u8(&mut bytes, 1);
+                put_u64(&mut bytes, minted.checksum());
             }
         }
+        checksum_bytes(&bytes)
     }
 }
 

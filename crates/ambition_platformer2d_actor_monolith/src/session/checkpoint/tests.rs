@@ -923,3 +923,139 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
          matched by a later transition it has nothing to do with"
     );
 }
+
+/// ⛔⛔ **A PARTIAL CHECKSUM REPORTS AGREEMENT BETWEEN PEERS HOLDING DIFFERENT
+/// OPERATIONS**, which is worse than having none — the desync it exists to
+/// catch is exactly the case it would sleep through.
+///
+/// The first version of `AcceptedCheckpointRestore::checksum` covered three of
+/// four fields: the frame, the pinned ledger, and the intent's TARGET ROOM. So
+/// two accepted restores agreed while differing in their pinned MINT RECIPES —
+/// which decide what a reconstruction can rebuild a carried runtime mint from —
+/// and so did two crossings differing only in subject, arrival, edge or door
+/// cue. Both halves are consumed: preparation lowers the fresh plan from the
+/// ledger AND the mints, and `inputs_for` matches on the whole intent.
+///
+/// ⭐ EVERY FIELD IS PERTURBED SEPARATELY, because a hash that folds two fields
+/// through one operation can be insensitive to a change in either while looking
+/// complete. The intent's own leg is exhaustive by destructure, so a NEW field
+/// stops that compiling; this covers the ones that exist.
+#[test]
+fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_builds() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::items::pickup::minted_horizon::MintedItemBaseline;
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+
+    fn crossing() -> RoomTransitionIntent {
+        RoomTransitionIntent {
+            subject: SimId::player_slot(0),
+            target_room: "east".into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+        }
+    }
+    fn accepted(restore: AcceptedRestore) -> u64 {
+        let mut held = AcceptedCheckpointRestore::default();
+        held.accept(restore);
+        held.checksum()
+    }
+    fn base() -> AcceptedRestore {
+        AcceptedRestore {
+            frame: 7,
+            intent: LifecycleIntent::Transition(crossing()),
+            occurrences: Default::default(),
+            minted: Some(MintedItemBaseline::default()),
+        }
+    }
+
+    let reference = accepted(base());
+    assert_ne!(
+        reference,
+        AcceptedCheckpointRestore::default().checksum(),
+        "an accepted operation must not hash the same as no operation at all"
+    );
+
+    let perturbations: Vec<(&str, AcceptedRestore)> = vec![
+        ("the originating frame", AcceptedRestore { frame: 8, ..base() }),
+        (
+            "the restore SUBJECT — the body the operation is about",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    subject: SimId::player_slot(1),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the destination room",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    target_room: "west".into(),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the arrival position",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    arrival: Vec2::new(9.0, 9.0),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "whether it is an edge crossing, which selects the feel",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    edge_exit: true,
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the door cue",
+            AcceptedRestore {
+                intent: LifecycleIntent::Transition(RoomTransitionIntent {
+                    zone_sfx: Some("world.portal.enter".into()),
+                    ..crossing()
+                }),
+                ..base()
+            },
+        ),
+        (
+            "the intent's SHAPE — a bodyless rebuild is not a crossing",
+            AcceptedRestore {
+                intent: LifecycleIntent::ReconstituteRoom(
+                    crate::session::lifecycle_commit::RoomReconstitutionIntent {
+                        target_room: "east".into(),
+                    },
+                ),
+                ..base()
+            },
+        ),
+        (
+            "an ABSENT mint baseline versus an installed empty one — a \
+             composition without the item domain is not a checkpoint that saw \
+             no mints",
+            AcceptedRestore {
+                minted: None,
+                ..base()
+            },
+        ),
+    ];
+    for (what, perturbed) in perturbations {
+        assert_ne!(
+            accepted(perturbed),
+            reference,
+            "the accepted-restore checksum does not see {what}, so two peers \
+             holding different operations agree about their snapshot"
+        );
+    }
+}

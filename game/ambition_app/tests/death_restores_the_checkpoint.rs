@@ -1287,3 +1287,100 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
          the world, this time WITH the room reconstruction that authors it",
     );
 }
+
+/// ⛔⛔ **THE OCCURRENCE REDUCER'S OWN WITNESS, and it needs a row the rebuild
+/// CANNOT REGENERATE.**
+///
+/// Measured 2026-09-08 while landing A1c/3a: with
+/// `reduce_occurrences_to_baseline` disabled, not one test in the 595-test suite
+/// reddened. Every observable consequence of that write had been flowing through
+/// room preparation, which now reads the operation's own pinned population
+/// instead. The write is still required — the durable save records this ledger
+/// and the next door crossing prepares from it — so that was a coverage hole,
+/// not dead code.
+///
+/// ⛔ AND THE OBVIOUS FIXTURE PASSES ITS OWN POISON. Asserting the live ledger
+/// equals the banked one after a death is satisfied by CONVERGENCE:
+/// `project_custody_onto_authored_occurrences` and `record_placed_ground_items`
+/// republish rows from the world the rebuild produced, so any row the rebuilt
+/// room can regenerate comes back whether the reducer ran or not.
+///
+/// ⭐ SO THE SUBJECT IS A ROW ABOUT ANOTHER ROOM. An object carried out of the
+/// room being rebuilt and left next door is remembered as
+/// `Placed { room: <elsewhere> }`, and no amount of rebuilding THIS room can
+/// republish it — the object is not here to be seen. That is the row the
+/// baseline exists for, and restoring it is the reducer's alone.
+///
+/// ⚠ NOT `Consumed`, which is the other row a rebuild cannot reproduce:
+/// `continuity.rs` says in as many words that its producer does not exist yet,
+/// so a fixture built on it would be testing fabricated state.
+#[test]
+fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
+    use ambition_platformer2d::platformer::lifecycle::{
+        AuthoredOccurrences, OccurrenceWhereabouts,
+    };
+
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let reward = SimId::placement(REWARD);
+
+    // ── CARRY IT NEXT DOOR AND LEAVE IT THERE ────────────────────────────────
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+    walk_to(&mut sim, NEIGHBOUR);
+    // Shield+Attack is the only input that puts a held item back in the world.
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    walk_to(&mut sim, ROOM);
+
+    let elsewhere = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<AuthoredOccurrences>()
+            .whereabouts(&reward)
+            .cloned()
+    };
+    // ⛔ THE PREMISE. Without a row naming the OTHER room, everything below is
+    // about a row the rebuild could have republished by itself.
+    let banked_row = elsewhere(&sim);
+    assert!(
+        matches!(
+            &banked_row,
+            Some(OccurrenceWhereabouts::Placed { room, .. }) if room == NEIGHBOUR
+        ),
+        "the ledger must remember `{REWARD}` lying in '{NEIGHBOUR}' while the \
+         session stands in '{ROOM}', or this fixture is not about a row the \
+         rebuild cannot regenerate. It says {banked_row:?}"
+    );
+
+    commit_a_checkpoint(&mut sim);
+
+    // ── AFTER THE CHECKPOINT: fetch it back, so the row moves ────────────────
+    walk_to(&mut sim, NEIGHBOUR);
+    let dropped_at = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, dropped_at, &reward);
+    walk_to(&mut sim, ROOM);
+    assert_ne!(
+        elsewhere(&sim),
+        banked_row,
+        "carrying it home did not move the ledger row, so a restore and a no-op \
+         are indistinguishable below"
+    );
+
+    // ── THE DEATH, WHICH REBUILDS `ROOM` AND NOT `NEIGHBOUR` ─────────────────
+    die(&mut sim);
+    sim.step_n(base(), 90);
+
+    assert_eq!(
+        elsewhere(&sim),
+        banked_row,
+        "the reset rebuilt '{ROOM}' but left the ledger saying `{REWARD}` is \
+         somewhere the checkpoint does not put it. Rebuilding '{ROOM}' cannot \
+         republish a row about '{NEIGHBOUR}' — restoring it is the occurrence \
+         reducer's job and nothing else's. The durable save records this value \
+         and the next crossing into '{NEIGHBOUR}' prepares from it"
+    );
+}

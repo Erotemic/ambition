@@ -452,18 +452,26 @@ This is a coherent behavior change, implemented in buildable subcommits:
    to be read** — the preparation shape this document forbids — and nothing
    stated that ordering as a checkpoint requirement.
 
-   ⚠ **AND THE SWAP HAD BECOME THE ONLY WITNESS OF ITS OWN REDUCER.** With
-   `restore_occurrence_baseline`'s write disabled, **no test in the 595-test
-   `app_it` suite reddens.** Every observable consequence of that write ran
-   through room preparation, which no longer reads it. An attempt to add a
-   direct witness failed its own poison: `AuthoredOccurrences` is largely
-   RE-DERIVED from live state (`project_custody_onto_authored_occurrences`,
-   `record_placed_ground_items`), so after the rebuild it converges to the
-   banked value whether or not the reducer wrote it. ⇒ **The rows that need the
-   reducer are the ones the rebuilt world cannot republish** — `Consumed`, and
-   whereabouts in a room that is not the one being rebuilt. Subcommit 4 moves
-   this reducer to the commit boundary and owes a witness built on one of those
-   rows; a fixture whose poison passes is a finding about the fixture.
+   ⚠ **AND THE SWAP HAD BECOME THE ONLY WITNESS OF ITS OWN REDUCER — now
+   closed.** With `restore_occurrence_baseline`'s write disabled, no test in the
+   595-test `app_it` suite reddened: every observable consequence of that write
+   had run through room preparation, which no longer reads it. The first attempt
+   at a direct witness passed its own poison, because `AuthoredOccurrences` is
+   largely RE-DERIVED from live state
+   (`project_custody_onto_authored_occurrences`, `record_placed_ground_items`) —
+   any row the rebuilt room can regenerate comes back whether the reducer ran or
+   not.
+
+   ⭐ **The witness is a row about ANOTHER ROOM.**
+   `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` carries
+   an object next door, banks a checkpoint remembering it as
+   `Placed { room: <elsewhere> }`, fetches it home, then dies. Rebuilding the
+   checkpoint's room cannot republish a row about a room it is not rebuilding, so
+   restoring it is the reducer's alone. Poison-verified: disabling
+   `reduce_occurrences_to_baseline` reddens it. ⚠ Not `Consumed`, the other
+   unreproducible row — `continuity.rs` says its producer does not exist yet, so
+   a fixture on it would test fabricated state. Subcommit 4 moves this reducer to
+   the commit boundary and this is what will hold it.
 
    Still open in this subcommit: the same selected input is not yet integrated
    into eager/confirmed commit execution, and custody/entitlement snapshots are

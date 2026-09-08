@@ -307,7 +307,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// restore had overwritten in order to be read. A rewind that crossed the
 /// admission must take the selection back, or the load prepares a room from a
 /// population the resimulated timeline never chose.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 169;
+/// ⭐ 169 -> 170 (2026-09-08): no key moved and no encoding changed — the
+/// CHECKSUM PROJECTION behind `resource.accepted_checkpoint_restore` did. Its
+/// first version covered the frame, the pinned ledger and the intent's target
+/// room, so two accepted restores agreed while differing in their pinned mint
+/// recipes, and two crossings agreed while differing in subject, arrival, edge
+/// or door cue. A projection that covers part of a value reports agreement
+/// between peers holding different operations, which is the desync it exists to
+/// catch. Peers compare these numbers, so a corrected projection is a peer
+/// compatibility change even though the registered set is unmoved.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 170;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

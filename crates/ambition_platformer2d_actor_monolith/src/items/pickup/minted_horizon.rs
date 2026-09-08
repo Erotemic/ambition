@@ -210,24 +210,34 @@ pub fn capture_owned_items_baseline(
 /// Put the entitlements back on a reset — so a death that retracts a
 /// minted-after-the-checkpoint instance restores the quantity it was minted
 /// from, instead of annihilating it.
-/// ⛔⛔ IT READS THE ADMITTED OPERATION, NOT THE RAW REQUEST. This used to read
-/// `ResetToCheckpoint`, so a reset the lifecycle slot refused still rolled the
-/// bag back — measured, and the entitlement was one of three values a refused
-/// reset spent.
+/// The item domain's pinned inputs for one committed restore.
+///
+/// ⛔ INSTALLED FOR THE DURATION OF `CheckpointDomainApply` AND REMOVED AFTER,
+/// exactly as the lifecycle layer's are. It is a SIBLING of
+/// `CheckpointRestoreInputs`, not a member of it: mint recipes and entitlement
+/// quantities are this domain's, and putting them in the shared value would make
+/// `shared_tangle` the checkpoint coordinator.
+#[derive(Resource, Clone, Debug, PartialEq)]
+pub struct ItemCheckpointRestoreInputs {
+    /// How to remake the runtime mints the restored custody rows name.
+    pub minted: MintedItemBaseline,
+    /// The stored quantities. The hand is not in it — custody is
+    /// `restore_custody_to_checkpoint`'s.
+    pub owned: OwnedItemsBaseline,
+}
+
+/// ⛔⛔ IT RUNS ONLY FROM THE COMMIT, AND READS ONLY WHAT THE COMMIT INSTALLED.
+/// This once read `ResetToCheckpoint`, so a reset the lifecycle slot refused
+/// still rolled the bag back — measured, and the entitlement was one of three
+/// values a refused reset spent.
 pub fn restore_owned_items_to_checkpoint(
-    restore: Option<
-        Res<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
-    >,
-    baseline: Option<Res<OwnedItemsBaseline>>,
+    inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    if restore.is_none_or(|restore| restore.admitted().is_none()) {
-        return;
-    }
-    let (Some(baseline), Some(mut owned)) = (baseline, owned) else {
+    let (Some(inputs), Some(mut owned)) = (inputs, owned) else {
         return;
     };
-    reduce_owned_items_to_baseline(baseline.remembered(), &mut owned);
+    reduce_owned_items_to_baseline(inputs.owned.remembered(), &mut owned);
 }
 
 /// The entitlement domain's reducer.
@@ -266,15 +276,18 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             sim,
             (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
         )
+        // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
+        // materializes and despawns; doing that on a speculative frame for an
+        // unconfirmed request is what the confirmed-frame lifecycle exists to
+        // prevent. `.chain()` because the entitlement bag and the hand are one
+        // decision: the bag is restored first, then custody re-equips out of it.
         .add_systems(
-            sim,
+            ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
             (
-                super::restore_custody_to_checkpoint,
                 restore_owned_items_to_checkpoint,
+                super::restore_custody_to_checkpoint,
             )
-                .in_set(
-                    ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Apply,
-                ),
+                .chain(),
         );
     }
 }

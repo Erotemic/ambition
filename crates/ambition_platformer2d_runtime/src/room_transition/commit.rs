@@ -647,6 +647,9 @@ pub fn commit_ready_room_transition_system(
         ResMut<
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
         >,
+        // What this commit still owes the domains, read by the exclusive runner
+        // that follows. Not a message: a message would be readable by anything.
+        ResMut<CommittedRoomTransitionRestore>,
     ),
 ) {
     let (
@@ -659,6 +662,7 @@ pub fn commit_ready_room_transition_system(
         real_time,
         simulation_host,
         mut pending_lifecycle,
+        mut committed_restore,
     ) = load_resources;
     // the EAGER commit, and only the eager one. A rollback host reaches an
     // identical room change through `commit_confirmed_lifecycle`, which runs
@@ -913,6 +917,12 @@ pub fn commit_ready_room_transition_system(
         current.committed_at = real_time.as_deref().map(|time| time.elapsed());
     }
     pending_lifecycle.take();
+    // ⭐ THE DOMAIN RESTORE IS OWED, AND THIS SYSTEM CANNOT PAY IT. Custody
+    // materialization spawns and despawns, so it runs in an exclusive schedule
+    // the confirmed host calls directly; the eager host records the debt here
+    // and `apply_committed_checkpoint_restore_system` settles it a system later,
+    // after this frame's structural work has flushed.
+    committed_restore.0 = Some(intent.clone());
     if active.cover_required {
         if let Some(current) = transition_state
             .active
@@ -930,6 +940,51 @@ pub fn commit_ready_room_transition_system(
         );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
     }
+}
+
+/// The room transition this frame's eager commit landed, if it landed one.
+///
+/// ⛔ IT EXISTS BECAUSE THE EAGER COMMIT IS A SYSTEM AND THE RESTORE IS
+/// EXCLUSIVE. The confirmed host commits from `&mut World` and calls the domain
+/// application inline; the eager host cannot, so it names the intent it just
+/// committed and an exclusive system ordered immediately after settles it. One
+/// system writes this and one reads-and-clears it.
+///
+/// ⚠ NOT ROLLBACK STATE, and it must never become any: it is set and consumed
+/// inside one run of the sim schedule. A value that survived a frame here would
+/// be a restore waiting to be applied to a world that had moved on.
+#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+pub struct CommittedRoomTransitionRestore(
+    pub  Option<
+        ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent,
+    >,
+);
+
+/// Apply the committed restore the eager commit recorded.
+///
+/// ⛔⛔ EXCLUSIVE, AND THAT IS THE POINT rather than an inconvenience. The
+/// custody reducer materializes occurrences the checkpoint remembers in a hand,
+/// which is a spawn; the shared entry point flushes that structural work before
+/// returning, so a caller cannot observe a half-applied restore.
+pub fn apply_committed_room_transition_restore(world: &mut bevy::prelude::World) {
+    // ⛔ THE EAGER HOST ONLY. On a rollback host this same operation is
+    // performed by `commit_confirmed_lifecycle` outside the rewound schedule;
+    // running it here as well would apply one restore twice.
+    if world
+        .get_resource::<crate::SimulationHost>()
+        .is_some_and(|host| host.is_rollback())
+    {
+        return;
+    }
+    let Some(intent) = world
+        .get_resource_mut::<CommittedRoomTransitionRestore>()
+        .and_then(|mut committed| committed.0.take())
+    else {
+        return;
+    };
+    ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
+        world, &intent,
+    );
 }
 
 /// Emit one landing diagnostic for each committed room transition, including

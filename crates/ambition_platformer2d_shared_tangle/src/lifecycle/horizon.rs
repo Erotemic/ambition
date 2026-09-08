@@ -3,12 +3,12 @@
 //! Current world state, checkpoint state, durable save state, and authored source state are
 //! distinct reconstruction horizons.
 
-use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, SystemSet};
+use bevy::ecs::schedule::ScheduleLabel;
+use bevy::prelude::{App, IntoScheduleConfigs, Message, Plugin, Resource, Schedule, SystemSet};
 
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 use crate::schedule::SimScheduleExt;
-use crate::sim_id::SimId;
 
 use super::{
     capture_custody_baseline, capture_occurrence_baseline, restore_occurrence_baseline,
@@ -60,110 +60,58 @@ pub struct ResetToCheckpoint;
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointCapture;
 
-/// Where a domain writes its baseline back, reading
-/// [`AdmittedCheckpointRestore`].
+/// Where the checkpoint request is taken to the lifecycle slot.
+///
+/// ⚠ IT NO LONGER CONTAINS THE RESTORE. Domain application moved to
+/// [`CheckpointDomainApply`], which the commit executor runs; what remains in
+/// this simulation set is the session's admission — the only part of a
+/// reconstruction that belongs in ordinary speculative simulation. The set keeps
+/// its name and its host-level edge because that edge is about admission order
+/// (`before(RoomReplayAdmission)`), not about restoring anything.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointRestore;
 
-/// The three phases of one restore, in order.
+/// The one schedule in which a checkpoint's domain state is put back.
 ///
-/// ⛔⛔ THE SPLIT IS THE WHOLE POINT, AND IT IS NOT A TIDINESS EDGE. Every
-/// member of [`CheckpointRestore`] used to read [`ResetToCheckpoint`] on its
-/// own, so a request the lifecycle slot REFUSED still had its occurrence,
-/// custody and owned-item consequences applied — measured: it rolled the
-/// entitlement ledger back and DESTROYED an object acquired after the
-/// checkpoint, because the room reconstruction that would re-author the object
-/// is exactly what the refusal cancelled. Ordering the reads differently
-/// repairs none of that; what the domains need is an ANSWER, which is why
-/// [`Admit`](Self::Admit) runs first and publishes one.
-#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum CheckpointRestoreStep {
-    /// The session coordinator takes the request to the lifecycle slot and, if
-    /// it is accepted, publishes [`AdmittedCheckpointRestore`]. Sole writer.
-    Admit,
-    /// Domains reduce their own live state toward their own baseline — but only
-    /// for an operation that was admitted.
-    Apply,
-    /// The session retires the accepted operation.
-    Retire,
-}
-
-/// The checkpoint restore the lifecycle slot ADMITTED.
+/// ⛔⛔ **AUTHORIZATION IS STRUCTURAL HERE, NOT A FLAG.** This schedule is run
+/// by the common commit executor and by nothing else — the eager host's
+/// exclusive runner and the confirmed host's commit tail. A domain reducer that
+/// lives in it therefore cannot act on an unadmitted request, an unprepared
+/// room, or a crossing that was cancelled before its destructive application:
+/// there is no path from a raw `ResetToCheckpoint` to running this.
 ///
-/// ⭐ ONE WRITER, MANY READERS, and that is the shape the defect needed. The
-/// session coordinator is the only thing that may admit or retire; every domain
-/// reducer reads it and does nothing without it. A refused request produces no
-/// value here, so a refused request changes no domain state — which no amount of
-/// re-ordering the old raw-message reads could achieve.
+/// ⭐ AND IT REPLACED A TOKEN. A1c/1-2 published a one-frame
+/// `AdmittedCheckpointRestore` that every reducer had to remember to read; the
+/// reducers ran in ordinary speculative simulation and consulted a value to
+/// learn whether they were allowed to. Running them from the commit instead
+/// makes the same guarantee out of WHEN they run, which no reducer can forget.
 ///
-/// ⚠ IT DOES NOT OUTLIVE ITS FRAME, TODAY: [`CheckpointRestoreStep`] admits,
-/// applies and retires inside one run of the restore set, and
-/// `the_admitted_restore_does_not_yet_outlive_its_own_frame` says so. It is
-/// registered rollback state regardless, because that lifetime changes when
-/// application moves to the confirmed commit boundary and the registration must
-/// not be the thing anyone remembers to add.
+/// ⚠ ITS INPUTS ARE INSTALLED, NOT LOOKED UP. [`CheckpointRestoreInputs`] is
+/// present only while this schedule runs; the executor removes it on every
+/// success and every failure path. A reducer with no inputs does nothing, so an
+/// accidental invocation is a no-op rather than a restore to an empty baseline.
+#[derive(ScheduleLabel, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CheckpointDomainApply;
+
+/// The pinned lifecycle-layer inputs one committed restore applies.
 ///
-/// ⛔⛔ IT IS AN AUTHORIZATION VIEW AND MUST STAY ONE. What belongs here is the
-/// smallest thing every domain needs in order to know it has been asked: WHICH
-/// operation, and WHOSE. The pinned checkpoint snapshots the deferred commit
-/// will need are the SESSION's — its coordinator owns their consistency
-/// boundary, and it can name item and occurrence types this crate must never
-/// depend on. A shared token that grew a snapshot aggregate would be the
-/// checkpoint coordinator wearing a vocabulary type's name, and every domain
-/// would then read the coordinator instead of its own owner's value.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct AdmittedCheckpointRestore(Option<AdmittedRestore>);
-
-/// One admitted restore operation.
-#[derive(Clone, Debug, PartialEq)]
-pub struct AdmittedRestore {
-    /// The sim frame the admission happened on.
-    pub frame: i32,
-    /// The body the operation restores around, by rollback-stable identity.
-    ///
-    /// Resolved BEFORE admission and kept: possession can change while the
-    /// operation is in flight, and re-asking "who is controlled now" at apply
-    /// time is how a restore acquires the wrong subject.
-    pub subject: SimId,
-}
-
-impl AdmittedCheckpointRestore {
-    /// The admitted operation, if the slot accepted one. `None` means every
-    /// domain reducer must do nothing.
-    pub fn admitted(&self) -> Option<&AdmittedRestore> {
-        self.0.as_ref()
-    }
-
-    /// Publish an accepted operation.
-    ///
-    /// ⛔ CALLED ONLY BY THE SESSION COORDINATOR, and only with an `Admission`
-    /// in hand. There is no path from a raw request to this function.
-    pub fn admit(&mut self, restore: AdmittedRestore) {
-        self.0 = Some(restore);
-    }
-
-    /// Retire the operation once its domains have applied it.
-    pub fn retire(&mut self) -> Option<AdmittedRestore> {
-        self.0.take()
-    }
-
-    /// ⭐ WHICH OPERATION, not merely "one is admitted". A presence probe would
-    /// satisfy the coverage oracle while seeing neither the frame nor the
-    /// subject — and the subject is the whole reason this value is carried
-    /// rather than re-derived: a restore that came back naming a different body
-    /// restores the wrong one.
-    pub fn checksum(&self) -> u64 {
-        match &self.0 {
-            None => 0,
-            Some(restore) => {
-                let mut hash = (restore.frame as i64 as u64) ^ 0x9e37_79b9_7f4a_7c15;
-                for byte in restore.subject.as_str().as_bytes() {
-                    hash = hash.rotate_left(5) ^ u64::from(*byte);
-                }
-                hash | 1
-            }
-        }
-    }
+/// ⛔ INSTALLED FOR THE DURATION OF [`CheckpointDomainApply`] AND REMOVED AFTER.
+/// It is not a resource domains may read at any other time: its absence is what
+/// makes "this reducer cannot run outside an authorized commit" true by
+/// construction rather than by convention.
+///
+/// ⚠ WHY IT IS NOT SIMPLY THE LIVE BASELINES. The values here were pinned when
+/// the lifecycle slot ACCEPTED the operation. A capture that lands between
+/// acceptance and commit belongs to the next operation, not this one; reading
+/// the live baseline at commit would let a checkpoint taken during the load
+/// retarget a restore already in flight.
+#[derive(Resource, Clone, Debug, PartialEq)]
+pub struct CheckpointRestoreInputs {
+    /// The occurrence population this operation restores.
+    pub occurrences: OccurrenceBaseline,
+    /// The custody relation it restores. Applied by the item domain, which owns
+    /// the materialization; the relation vocabulary is lifecycle's.
+    pub custody: CustodyBaseline,
 }
 
 /// The lifecycle domain's checkpoint contribution.
@@ -180,12 +128,12 @@ pub struct LifecycleCheckpointHorizonPlugin;
 impl Plugin for LifecycleCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // ⭐ THE STEP CHAIN AND THE TOKEN BELONG TO THE ADMISSION AUTHORITY, not
-        // here. A domain offer names `CheckpointRestoreStep::Apply` as a label
-        // and gets its ordering from whoever owns the phases; installing this
-        // plugin alone leaves `Apply` unconfigured, which is the honest outcome
-        // — with no session coordinator nothing can be admitted, so nothing in
-        // it may run anyway.
+        // ⭐ THE RESTORE IS NOT IN THE SIM SCHEDULE AT ALL. This offer contributes
+        // its CAPTURE to the simulation and its reducer to the commit executor's
+        // schedule; a composition installing this plugin alone gets a schedule
+        // nothing runs, which is the honest outcome — with no commit executor
+        // there is no authorized moment to restore anything.
+        app.add_schedule(Schedule::new(CheckpointDomainApply));
         app.init_resource::<OccurrenceBaseline>()
             .init_resource::<CustodyBaseline>()
             .add_systems(
@@ -193,10 +141,7 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
                 (capture_occurrence_baseline, capture_custody_baseline)
                     .in_set(CheckpointCapture),
             )
-            .add_systems(
-                sim,
-                restore_occurrence_baseline.in_set(CheckpointRestoreStep::Apply),
-            );
+            .add_systems(CheckpointDomainApply, restore_occurrence_baseline);
     }
 }
 
@@ -212,12 +157,6 @@ where
 {
     const OWNER: &str = env!("CARGO_PKG_NAME");
 
-    registrar.rollback_resource_clone_checksum::<AdmittedCheckpointRestore>(
-        OWNER,
-        "resource.admitted_checkpoint_restore",
-        "which operation the lifecycle slot admitted, by frame and subject",
-        AdmittedCheckpointRestore::checksum,
-    );
     registrar.rollback_resource_clone_checksum::<OccurrenceBaseline>(
         OWNER,
         "resource.occurrence_baseline",
@@ -246,28 +185,26 @@ mod participant_tests {
 
     use super::{CustodyBaseline, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline};
 
-    /// ⛔⛔ **THE SHARED TOKEN STAYS AN AUTHORIZATION VIEW.** The exhaustive
-    /// destructure is the guard: a field added to [`AdmittedRestore`] stops this
-    /// compiling, which is the moment to ask whether the new value belongs to
-    /// every domain that reads the token — or to the SESSION coordinator, which
-    /// owns the checkpoint's consistency boundary and may name item and
-    /// occurrence types this crate must never depend on.
-    ///
-    /// ⚠ The pressure is real and specific: A1c/3-5 needs pinned domain
-    /// snapshots for a longer-lived operation, and the obvious place to reach
-    /// for is "the value the domains already read". That is how a shared
-    /// vocabulary type becomes the coordinator under another name, and how every
-    /// domain ends up reading the coordinator instead of its own owner's value.
-    /// The snapshots go in the session's own accepted-operation state.
+    /// ⛔⛔ **THE INSTALLED INPUTS STAY LIFECYCLE-LAYER VALUES.** The exhaustive
+    /// destructure is the guard: a field added to [`CheckpointRestoreInputs`]
+    /// stops this compiling, which is the moment to ask which layer the new
+    /// value belongs to. What may live here is what a `shared_tangle` reducer
+    /// applies — an occurrence population, a custody relation. Item recipes and
+    /// entitlement quantities are the ITEM domain's and travel in its own
+    /// installed inputs; putting them here would make this crate the checkpoint
+    /// coordinator and force every domain to read a value it does not own.
     #[test]
-    fn the_admitted_restore_carries_only_which_operation_and_whose() {
-        let restore = super::AdmittedRestore {
-            frame: 7,
-            subject: crate::sim_id::SimId::player_slot(0),
+    fn the_installed_restore_inputs_carry_only_lifecycle_layer_values() {
+        let inputs = super::CheckpointRestoreInputs {
+            occurrences: Default::default(),
+            custody: Default::default(),
         };
-        let super::AdmittedRestore { frame, subject } = &restore;
-        assert_eq!(*frame, 7);
-        assert_eq!(subject, &crate::sim_id::SimId::player_slot(0));
+        let super::CheckpointRestoreInputs {
+            occurrences,
+            custody,
+        } = &inputs;
+        assert_eq!(*occurrences, Default::default());
+        assert_eq!(*custody, Default::default());
     }
 
     #[test]

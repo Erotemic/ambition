@@ -611,22 +611,24 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
     );
 }
 
-/// ⛔⛔ **ASK THE SCHEDULE, NOT THE SOURCE.** Every claim below is about a
-/// REGISTRATION: which set a system actually joined, and which edges the graph
-/// actually holds. A reducer whose body reads `AdmittedCheckpointRestore` but
-/// which was installed straight into `CheckpointRestore` would be correct in
-/// source and unordered in fact — it could run before the admission that
-/// decides whether it may run at all, and would then read a token left over
-/// from... nothing, because retire had also not run. Silence, not a crash.
+/// ⛔⛔ **NOTHING IN THE SIMULATION'S RESTORE SET MUTATES A DOMAIN ANY MORE.**
 ///
-/// ⭐ THE POPULATION IS THE POINT, not the three names. The last assertion is
-/// that NOTHING sits in `CheckpointRestore` outside the three steps, so a fourth
-/// domain that installs its reducer the old way is caught by this test rather
-/// than by a player losing an item.
+/// This is the invariant A1c/3b exists for, and it is a claim about WHERE
+/// systems are REGISTERED, not about what their bodies say. Occurrence, custody
+/// and entitlement application used to run in `CheckpointRestore` — ordinary
+/// speculative simulation — so an unconfirmed reset on a rollback host
+/// destructively restored ledgers and despawned objects on a frame that could be
+/// rewound. They run from the commit executor's schedule now, which only a
+/// committed, authorized transition reaches.
+///
+/// ⭐ THE POPULATION IS THE POINT. Asserting the three names would pass while a
+/// fourth domain quietly re-added itself to the simulation set; this asserts
+/// that the restore set holds ONLY the session's own systems, and that the
+/// domain schedule holds the reducers.
 #[test]
-fn every_checkpoint_restore_system_is_inside_one_ordered_step() {
+fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
-        CheckpointRestore, CheckpointRestoreStep, LifecycleCheckpointHorizonPlugin,
+        CheckpointDomainApply, CheckpointRestore, LifecycleCheckpointHorizonPlugin,
     };
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
     use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
@@ -639,170 +641,120 @@ fn every_checkpoint_restore_system_is_inside_one_ordered_step() {
                 .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet")),
         )
     }
-    fn members<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> Vec<NodeId> {
-        let node = set_key(graph, set);
-        graph
-            .systems
-            .iter()
-            .map(|(key, _, _)| NodeId::System(key))
-            .filter(|system| graph.hierarchy().graph().contains_edge(node, *system))
-            .collect()
-    }
 
     let mut app = App::new();
-    // The whole actor-domain contribution plus the lifecycle one: the shape the
-    // host composes. `ActorCheckpointHorizonPlugin` brings the session offer
-    // (which owns the steps) and the item offer.
     app.add_plugins((
         LifecycleCheckpointHorizonPlugin,
         crate::ActorCheckpointHorizonPlugin,
     ));
     let sim = app.sim_schedule();
     let schedules = app.world().resource::<Schedules>();
-    let graph = schedules.get(sim).expect("the sim schedule exists").graph();
 
-    // The chain, and its nesting.
-    for pair in [
-        (CheckpointRestoreStep::Admit, CheckpointRestoreStep::Apply),
-        (CheckpointRestoreStep::Apply, CheckpointRestoreStep::Retire),
-    ] {
-        assert!(
-            graph
-                .dependency()
-                .graph()
-                .contains_edge(set_key(graph, pair.0), set_key(graph, pair.1)),
-            "{:?} -> {:?} must be an explicit edge: a domain reducer that can run \
-             before the admission is a domain reducer with no answer to read",
-            pair.0,
-            pair.1
-        );
-    }
-    let restore = set_key(graph, CheckpointRestore);
-    for step in [
-        CheckpointRestoreStep::Admit,
-        CheckpointRestoreStep::Apply,
-        CheckpointRestoreStep::Retire,
-    ] {
-        assert!(
-            graph
+    let sim_graph = schedules.get(sim).expect("the sim schedule exists").graph();
+    let restore = set_key(sim_graph, CheckpointRestore);
+    let in_simulation = sim_graph
+        .systems
+        .iter()
+        .filter(|(key, _, _)| {
+            sim_graph
                 .hierarchy()
                 .graph()
-                .contains_edge(restore, set_key(graph, step)),
-            "{step:?} must be inside CheckpointRestore, or the host's \
-             `CheckpointRestore.before(RoomReplayAdmission)` edge does not reach it"
-        );
-    }
+                .contains_edge(restore, NodeId::System(*key))
+        })
+        .count();
+    assert_eq!(
+        in_simulation, 2,
+        "`CheckpointRestore` must hold the session's admission and its retirement \
+         and NOTHING ELSE. A domain reducer registered here runs on speculative \
+         frames, which is how an unconfirmed reset destructively restored ledgers \
+         and despawned objects a rewind then had to invent again"
+    );
 
-    // One admit, one retire, and the three domain reducers between them.
+    let apply_graph = schedules
+        .get(CheckpointDomainApply)
+        .expect("the lifecycle offer installs the domain-apply schedule")
+        .graph();
     assert_eq!(
-        members(graph, CheckpointRestoreStep::Admit).len(),
-        1,
-        "the session coordinator is the SOLE admission writer"
-    );
-    // TWO, and both are the session's: the shared one-frame token is spent by
-    // the domains that read it this frame, while the accepted inputs live until
-    // the lifecycle slot gives up the intent several frames later at the commit.
-    // ⛔ What this counts is that no DOMAIN retires either of them — a reducer
-    // that cleared the token it had just consumed would decide for its siblings
-    // whether they had run.
-    assert_eq!(
-        members(graph, CheckpointRestoreStep::Retire).len(),
-        2,
-        "the session coordinator owns every retirement in this set"
-    );
-    assert_eq!(
-        members(graph, CheckpointRestoreStep::Apply).len(),
+        apply_graph.systems.iter().count(),
         3,
-        "the occurrence, custody and owned-item reducers are the installed \
-         domains of this composition"
-    );
-
-    // ⛔ AND NOTHING BYPASSES THE STEPS. A system installed directly into
-    // `CheckpointRestore` is a system with no ordering against the admission.
-    assert!(
-        members(graph, CheckpointRestore).is_empty(),
-        "a system joined CheckpointRestore directly instead of one of its three \
-         steps, so nothing orders it against the admission that authorizes it"
+        "the occurrence, entitlement and custody reducers are this composition's \
+         installed domains, and all three belong to the commit's schedule"
     );
 }
 
-/// ⚠ **TODAY THE ADMITTED TOKEN DOES NOT SURVIVE ITS OWN FRAME**, and this test
-/// exists to make that a stated fact rather than an assumption.
+/// ⛔⛔ **THE INSTALLED INPUTS ARE REMOVED ON EVERY PATH, INCLUDING THE ONE THAT
+/// APPLIES NOTHING.**
 ///
-/// ⛔ IT IS NOT AN ARGUMENT ABOUT ROLLBACK. The token IS registered rollback
-/// state (`resource.admitted_checkpoint_restore`, schema v168): its lifetime is
-/// about to change under it in A1c/3-5, when application moves to the confirmed
-/// commit boundary and one admitted operation spans preparation, commit and
-/// verification. Registering after that lifetime arrives would be relying on
-/// somebody remembering; registering before it costs one clone of an `Option`.
+/// Their absence is what makes "a domain reducer cannot act outside an
+/// authorized commit" true by construction. Leave a context installed and every
+/// later run of that schedule — or any future caller of those systems — becomes
+/// an effective restore nobody authorized.
 ///
-/// ⇒ WHAT THIS PINS is the CURRENT execution shape — `Admit -> Apply -> Retire`
-/// inside one run of the restore set — so the day it stops holding, the change
-/// is visible here instead of being discovered as a stale authorization.
+/// ⭐ AND AN ORDINARY DOOR MUST INSTALL NOTHING AT ALL. The commit executor calls
+/// this for EVERY committed transition; what makes a restore a restore is that
+/// the accepted operation names that exact intent.
 #[test]
-fn the_admitted_restore_does_not_yet_outlive_its_own_frame() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{
-        insert_session_world_component, ActiveSessionScope, AdmittedCheckpointRestore,
-        LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
+fn the_commit_installs_restore_inputs_only_for_its_own_operation_and_always_removes_them() {
+    use ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs;
+
+    use crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs;
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomTransitionIntent};
+
+    let crossing = |room: &str| {
+        LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+            target_room: room.into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+        })
     };
-    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
     let mut app = App::new();
-    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
-    app.init_resource::<ActiveSessionScope>();
-    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
-    insert_session_world_component(
-        app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts(
-            "here",
-            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
-                "here",
-                ambition_platformer2d_core::World::new(
-                    "Here",
-                    Vec2::new(640.0, 480.0),
-                    Vec2::new(32.0, 400.0),
-                    vec![],
-                ),
-            )],
-            Vec::new(),
-        ),
-    );
-    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    // The host's channels, as above: a domain offer that registered them would
-    // be a second owner.
-    app.add_message::<ResetToCheckpoint>();
-    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
-    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
-    let sim = app.sim_schedule();
-    app.add_plugins((
-        LifecycleCheckpointHorizonPlugin,
-        super::SessionCheckpointHorizonPlugin,
-    ));
-    app.world_mut().spawn((
-        PlayerEntity,
-        PrimaryPlayer,
-        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-    ));
+    app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin);
+    app.init_resource::<super::AcceptedCheckpointRestore>();
 
-    app.world_mut().write_message(ResetToCheckpoint);
-    app.world_mut().run_schedule(sim);
-
-    // ⛔ THE PREMISE: the reset must actually have been admitted, or an empty
-    // token proves only that nothing happened.
+    // ── AN ORDINARY DOOR: no accepted operation, nothing applied ─────────────
     assert!(
-        app.world()
-            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
-            .peek()
-            .is_some(),
-        "the reset was never admitted, so the emptiness below measures nothing"
+        !super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("east")),
+        "a commit with no accepted checkpoint operation applied one anyway"
     );
-    assert_eq!(
-        *app.world().resource::<AdmittedCheckpointRestore>(),
-        AdmittedCheckpointRestore::default(),
-        "the admitted restore outlived the frame that admitted it. That is \
-         A1c/3-5's intended change, not a bug — but it is a CHANGE: update this \
-         test to describe the new lifetime, and check that every reader of the \
-         token still expects a value that spans preparation and commit"
+    assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
+
+    // ── AN ACCEPTED OPERATION, AND A DIFFERENT CROSSING ──────────────────────
+    app.world_mut()
+        .resource_mut::<super::AcceptedCheckpointRestore>()
+        .accept(super::AcceptedRestore {
+            frame: 3,
+            intent: crossing("east"),
+            occurrences: Default::default(),
+            custody: Default::default(),
+            item: Some(ItemCheckpointRestoreInputs {
+                minted: Default::default(),
+                owned: Default::default(),
+            }),
+        });
+    assert!(
+        !super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("west")),
+        "a crossing that is not the accepted operation was applied as one, so an \
+         unrelated door rebuilt its destination out of a checkpoint"
+    );
+    assert!(!app.world().contains_resource::<CheckpointRestoreInputs>());
+    assert!(!app.world().contains_resource::<ItemCheckpointRestoreInputs>());
+
+    // ── ITS OWN CROSSING: applied, and the inputs are gone afterwards ────────
+    assert!(
+        super::apply_committed_checkpoint_restore(app.world_mut(), &crossing("east")),
+        "the accepted operation's own commit did not apply it"
+    );
+    assert!(
+        !app.world().contains_resource::<CheckpointRestoreInputs>(),
+        "the lifecycle restore inputs outlived the commit that installed them, so \
+         anything that runs that schedule again is an unauthorized restore"
+    );
+    assert!(
+        !app.world().contains_resource::<ItemCheckpointRestoreInputs>(),
+        "the item restore inputs outlived the commit that installed them"
     );
 }
 
@@ -966,7 +918,11 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             frame: 7,
             intent: LifecycleIntent::Transition(crossing()),
             occurrences: Default::default(),
-            minted: Some(MintedItemBaseline::default()),
+            custody: Default::default(),
+            item: Some(crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                minted: MintedItemBaseline::default(),
+                owned: Default::default(),
+            }),
         }
     }
 
@@ -1045,7 +1001,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
              composition without the item domain is not a checkpoint that saw \
              no mints",
             AcceptedRestore {
-                minted: None,
+                item: None,
                 ..base()
             },
         ),

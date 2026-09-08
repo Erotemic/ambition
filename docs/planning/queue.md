@@ -77,19 +77,16 @@ outlives its frame, carries the occurrence/minted inputs pinned at admission, an
 room loading derives both the prefetch cache key and the fresh plan from it
 instead of from a live ledger the restore had swapped in order to be read.
 
-**Remaining:** integrate the same selected input into eager/confirmed commit
-execution, and move domain application from the simulation restore set to that
-boundary with explicit flush, reconciliation, verification and final baseline.
-Pin custody/entitlement snapshots when deferred application makes them
-load-bearing. Then delete the startup routed/completed flags the operation state
-makes redundant.
+Subcommit 3b landed 2026-09-08: destructive domain application left ordinary
+speculative simulation for `CheckpointDomainApply`, a schedule only a commit
+executor runs, with its inputs installed for that schedule's duration and removed
+on every path. Both executors are witnessed and poison-verified. The transitional
+`AdmittedCheckpointRestore` token was deleted rather than given a longer
+lifetime: authorization is structural now.
 
-⚠ **Subcommit 4 owes a witness the suite does not have.** Disabling
-`restore_occurrence_baseline`'s live write reddens nothing in `app_it` (595
-tests), because the ledger is re-derived from the world the rebuild produces. The
-rows that need the reducer are the ones a rebuilt room cannot republish —
-`Consumed`, and whereabouts in another room. Build the fixture on one of those;
-an earlier attempt passed its own poison.
+**Remaining:** explicit post-apply verification and a terminal outcome matched to
+the original request; then delete the startup routed/completed flags the accepted
+operation makes redundant.
 
 **Acceptance:** preparation/prefetch read the pinned snapshot rather than a
 modified live ledger; a checkpoint change invalidates a prefetched plan that

@@ -316,7 +316,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// between peers holding different operations, which is the desync it exists to
 /// catch. Peers compare these numbers, so a corrected projection is a peer
 /// compatibility change even though the registered set is unmoved.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 170;
+/// ⭐ 170 -> 171 (2026-09-08): `resource.admitted_checkpoint_restore` LEFT the
+/// schema. A1c/1-2 introduced it as a one-frame token every checkpoint reducer
+/// had to remember to read; A1c/3b moved those reducers into the commit
+/// executor's own schedule, which only an authorized commit runs, so the
+/// guarantee is now made out of WHEN they run and no reducer can forget it. A
+/// token with no consumer is state two peers must agree about for nothing.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 171;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

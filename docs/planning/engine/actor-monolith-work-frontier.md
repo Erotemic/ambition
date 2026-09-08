@@ -18,7 +18,7 @@ fresh source/behavior preflight for every packet
     |
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
-    |           -> A1c selected checkpoint through common commit (1-3a DONE)
+    |           -> A1c selected checkpoint through common commit (1-3b DONE)
     |               -> A7 item horizon/custody separation (after writer inventory)
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
@@ -65,7 +65,7 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**Ready:** A1c subcommits 3b-5; A1a, A1b and A1c/1-3a landed 2026-09-08.
+**Ready:** A1c subcommits 4b-5; A1a, A1b and A1c/1-3b landed 2026-09-08.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;
@@ -104,7 +104,11 @@ owned-item state and is remembered rather than dropped. Wire format 167 -> 168.
 accepted operation's pinned population, matched by intent, instead of a live
 ledger the restore had swapped in order to be read. Wire format 168 -> 169.
 
-**A1c/3b-5:** move domain application onto the common authorized commit path. Include
+**A1c/3b — DONE 2026-09-08.** Domain application moved onto the common
+authorized commit path, run by both executors from installed inputs that are
+removed on every path. The transitional admission token was deleted.
+
+**A1c/4b-5:** verification, terminal outcomes and cleanup. Include
 checkpoint replay consequences, deferred flushes, verification and the final
 rollback baseline. Pin typed immutable checkpoint data on admission at the point
 deferred application makes it load-bearing. No live-ledger swap to prepare a

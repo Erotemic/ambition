@@ -134,10 +134,11 @@ pub fn restore_custody_to_checkpoint(
     // as the room build's would be; a bare `Commands` could only produce a
     // process-resident stranger that outlives the session.
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
-    restore: Option<
-        Res<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
-    >,
-    baseline: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+    // The lifecycle layer's installed inputs carry the custody relation; the
+    // item domain's carry the recipes for the mints those rows name. Both are
+    // present only while the commit executor runs this schedule.
+    inputs: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>>,
+    item_inputs: Option<Res<minted_horizon::ItemCheckpointRestoreInputs>>,
     // The world's DEFINITIONS, so an identity with no live occurrence behind
     // it can still be turned back into one. Every room, not the neighbours: a
     // body can carry an object any distance before putting it down, so the room
@@ -147,11 +148,6 @@ pub fn restore_custody_to_checkpoint(
             ambition_platformer2d_world::rooms::RoomSet,
         >,
     >,
-    // The checkpoint's own DESCRIPTIONS of what the simulation minted, for
-    // the occurrences no record in any room can describe. See
-    // [`minted_horizon`]; it is the item domain's third arm of the same
-    // baseline, and its population is disjoint from the authored one.
-    minted: Option<Res<minted_horizon::MintedItemBaseline>>,
     mut items: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -167,12 +163,15 @@ pub fn restore_custody_to_checkpoint(
     )>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    if restore.is_none_or(|restore| restore.admitted().is_none()) {
-        return;
-    }
-    let Some(baseline) = baseline else {
+    let Some(inputs) = inputs else {
         return;
     };
+    let baseline = &inputs.custody;
+    // The checkpoint's own DESCRIPTIONS of what the simulation minted, for the
+    // occurrences no record in any room can describe: the item domain's third
+    // arm of the same baseline, whose population is disjoint from the authored
+    // one.
+    let minted = item_inputs.as_deref().map(|inputs| &inputs.minted);
 
     // Bodies by identity, so a baseline row can name the hand it belongs to.
     // a `BTreeMap` rather than the query's order: this drives despawns, and
@@ -307,9 +306,7 @@ pub fn restore_custody_to_checkpoint(
         // Asking the checkpoint FIRST is not a preference between two answers — the two
         // populations are disjoint by construction, because the capture takes only
         // `SpawnOrigin::Dynamic` rows and an authored record can never spell one.
-        let described = minted
-            .as_deref()
-            .and_then(|minted| minted.description_of(&occurrence));
+        let described = minted.and_then(|minted| minted.description_of(&occurrence));
         let rebuilt = match described {
             // ── the simulation minted it: identity + provenance + spec id ─────
             Some(description) => match held_spec_by_id(&description.held_item) {

@@ -254,15 +254,15 @@ pub fn resume_at_checkpoint_on_reset(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    mut restore: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
-    // The pinned reconstruction inputs, read ONCE on acceptance. `Option`
-    // because a composition can install the session offer without the lifecycle
-    // or item ones.
-    occurrence_baseline: Option<
-        Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
-    >,
-    minted_baseline: Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+    // The pinned inputs, read ONCE on acceptance. `Option` because a composition
+    // can install the session offer without the lifecycle or item ones.
+    baselines: (
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+        Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
@@ -334,21 +334,22 @@ pub fn resume_at_checkpoint_on_reset(
         return;
     }
     outstanding.0 = false;
-    restore.admit(
-        ambition_platformer2d_shared_tangle::lifecycle::AdmittedRestore {
-            frame,
-            subject: subject.clone(),
-        },
-    );
     // ⭐ PINNED HERE AND NOWHERE ELSE. The inputs a reconstruction is prepared
-    // from are chosen at the moment the slot says yes, so a later capture, a
-    // later pickup or a later ledger write cannot retarget an operation already
-    // in flight.
+    // from and applied from are chosen at the moment the slot says yes, so a
+    // later capture, a later pickup or a later ledger write cannot retarget an
+    // operation already in flight.
+    let (occurrences, custody, minted, owned) = baselines;
     accepted.accept(AcceptedRestore {
         frame,
         intent,
-        occurrences: occurrence_baseline.map(|baseline| baseline.clone()).unwrap_or_default(),
-        minted: minted_baseline.map(|baseline| baseline.clone()),
+        occurrences: occurrences.map(|b| b.clone()).unwrap_or_default(),
+        custody: custody.map(|b| b.clone()).unwrap_or_default(),
+        item: minted.zip(owned).map(|(minted, owned)| {
+            crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                minted: minted.clone(),
+                owned: owned.clone(),
+            }
+        }),
     });
     admitted.write(
         ambition_combat::events::RoomReplayAdmitted::because(
@@ -410,10 +411,15 @@ pub struct AcceptedRestore {
     /// The occurrence population this operation reconstructs, as it stood when
     /// the slot accepted it.
     pub occurrences: ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
-    /// How to rebuild the runtime mints in that population. Travels WITH the
-    /// ledger for the reason `OccurrenceContinuity` states: the memory without
-    /// the means to act on it deletes the object.
-    pub minted: Option<crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    /// The custody relation it restores.
+    pub custody: ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline,
+    /// The item domain's half: how to rebuild the runtime mints those custody
+    /// rows name, and the entitlement quantities. `None` in a composition with
+    /// no item domain, which is "not participating" and not "erase the bag".
+    ///
+    /// ⚠ THE MINTS TRAVEL WITH THE LEDGER for the reason `OccurrenceContinuity`
+    /// states: the memory without the means to act on it deletes the object.
+    pub item: Option<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>,
 }
 
 impl AcceptedCheckpointRestore {
@@ -464,7 +470,8 @@ impl AcceptedCheckpointRestore {
             frame,
             intent,
             occurrences,
-            minted,
+            custody,
+            item,
         }) = &self.0
         else {
             return 0;
@@ -477,11 +484,13 @@ impl AcceptedCheckpointRestore {
         // is a composition without the item domain; "installed and empty" is a
         // checkpoint that saw no runtime mints. Folding them together would let
         // a peer with no item domain agree with one that has an empty baseline.
-        match minted {
+        put_u64(&mut bytes, custody.checksum());
+        match item {
             None => put_u8(&mut bytes, 0),
-            Some(minted) => {
+            Some(item) => {
                 put_u8(&mut bytes, 1);
-                put_u64(&mut bytes, minted.checksum());
+                put_u64(&mut bytes, item.minted.checksum());
+                put_u64(&mut bytes, item.owned.checksum());
             }
         }
         checksum_bytes(&bytes)
@@ -532,14 +541,64 @@ impl OutstandingCheckpointRequest {
     }
 }
 
-/// Retire the admitted operation once every domain has applied it.
+/// Run the committed restore's domain application, if this commit is one.
 ///
-/// ⛔ THE SESSION RETIRES IT, not a domain. A reducer that cleared the token it
-/// had just consumed would decide for its siblings whether they had run.
-pub fn retire_admitted_checkpoint_restore(
-    mut restore: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>,
-) {
-    let _ = restore.retire();
+/// ⛔⛔ **THIS IS THE ONE ENTRY POINT, AND BOTH HOSTS CALL IT.** The eager host
+/// reaches it from an exclusive runner ordered after its room commit; the
+/// confirmed host calls it from `commit_confirmed_lifecycle`'s exclusive tail,
+/// before the rebase — otherwise its first restore would undo the checkpoint it
+/// just restored. They differ in what authorizes the commit, never in what the
+/// commit does.
+///
+/// ⭐ THE INPUTS ARE INSTALLED AND REMOVED HERE, on every path. A reducer that
+/// ran with none does nothing, which is what makes an accidental invocation a
+/// no-op instead of a restore to an empty baseline. Returns whether it applied.
+pub fn apply_committed_checkpoint_restore(
+    world: &mut bevy::prelude::World,
+    intent: &crate::session::lifecycle_commit::LifecycleIntent,
+) -> bool {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CheckpointDomainApply, CheckpointRestoreInputs,
+    };
+
+    let Some(accepted) = world
+        .get_resource::<AcceptedCheckpointRestore>()
+        .and_then(|accepted| accepted.inputs_for(intent))
+        .cloned()
+    else {
+        // An ordinary door. Nothing about this commit is a checkpoint restore.
+        return false;
+    };
+
+    world.insert_resource(CheckpointRestoreInputs {
+        occurrences: accepted.occurrences.clone(),
+        custody: accepted.custody.clone(),
+    });
+    if let Some(item) = accepted.item.clone() {
+        world.insert_resource(item);
+    }
+    // The schedule exists only where the lifecycle offer is installed; a
+    // composition without it has nothing to apply, which is not an error.
+    if world.try_run_schedule(CheckpointDomainApply).is_err() {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::session",
+            "a checkpoint restore committed in a composition with no domain-apply \
+             schedule; no domain state was restored",
+        );
+    }
+    // ⛔ REMOVED ON EVERY PATH, including the missing-schedule one above. A
+    // context left installed is a reducer that can be invoked as an effective
+    // restore by anything that later runs that schedule.
+    world.remove_resource::<CheckpointRestoreInputs>();
+    world
+        .remove_resource::<crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs>();
+    // ⭐ THE STRUCTURAL WORK THE CUSTODY RESTORE QUEUED. It materializes
+    // occurrences the checkpoint remembers in a hand; a caller that returned
+    // before this flush would leave them as queued commands nobody applied, and
+    // a test observing "the object came back" would be observing a command
+    // buffer.
+    world.flush();
+    true
 }
 /// The session's leg of the reset/checkpoint horizon.
 ///
@@ -553,42 +612,18 @@ impl Plugin for SessionCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
 
-        // ⛔ THE PHASES AND THE TOKEN HAVE ONE OWNER, and it is the thing that
-        // admits. Splitting `configure_sets` for these steps across the domain
-        // offers would give the restore two authorities on its own order.
-        app.configure_sets(
-            sim,
-            (
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Admit,
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Apply,
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
-            )
-                .chain()
-                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
-        );
-        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AdmittedCheckpointRestore>();
         app.init_resource::<AcceptedCheckpointRestore>();
         app.init_resource::<CheckpointResumeProgress>();
         app.init_resource::<OutstandingCheckpointRequest>();
+        // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
+        // runs from the commit executor, so `CheckpointRestore` now contains the
+        // session's admission and the retirement that follows the slot — and
+        // nothing that mutates a domain.
         app.add_systems(
             sim,
-            resume_at_checkpoint_on_reset.in_set(
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Admit,
-            ),
-        );
-        app.add_systems(
-            sim,
-            (
-                retire_admitted_checkpoint_restore,
-                // ⚠ THE TWO RETIREMENTS ARE NOT THE SAME QUESTION. The shared
-                // token is spent by the domains that read it this frame; the
-                // accepted inputs live until the lifecycle slot gives up the
-                // intent, which is several frames later at the commit.
-                retire_accepted_checkpoint_restore,
-            )
-                .in_set(
-                    ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreStep::Retire,
-                ),
+            (resume_at_checkpoint_on_reset, retire_accepted_checkpoint_restore)
+                .chain()
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore),
         );
         // ⚠ THE EDGES ARE INHERITED VERBATIM from the item-pickup chain this
         // system was carved out of, and A1b is a move: preserving them is what

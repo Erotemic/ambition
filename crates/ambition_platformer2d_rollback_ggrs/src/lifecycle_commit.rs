@@ -357,6 +357,7 @@ fn execute_lifecycle_commit(
         (kind, Some(plan)) => commit_transition(
             world,
             &plan,
+            kind,
             kind.subject(),
             kind.target_room(),
             kind.arrival(),
@@ -375,10 +376,16 @@ fn execute_lifecycle_commit(
 /// Shared room-transition application stays in the common application path. This
 /// wrapper bridges `&mut World` through `SystemState`, applies deferred commands
 /// synchronously, and drains spawn requests before returning.
+#[allow(clippy::too_many_arguments)]
 fn commit_transition(
     world: &mut World,
     // Use the exact plan whose readiness and assets were authorized.
     plan: &RoomConstructionPlan,
+    // The whole intent, kept alongside the parts below because the domain
+    // restore is addressed BY INTENT: the accepted checkpoint operation names
+    // the crossing it owns, and a door recorded for the same room and subject is
+    // not it.
+    intent: &LifecycleIntent,
     // `None` is a rebuild with NOBODY IN IT, not a body that could not be found
     // — see the resolution below, which keeps those two apart.
     subject: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -472,6 +479,18 @@ fn commit_transition(
         ambition_platformer2d_actor_spawn::apply_spawn_actor_requests,
     );
     world.flush();
+
+    // ⛔⛔ THE DOMAIN RESTORE, AND IT MUST BE HERE — after the room is built and
+    // its structural work is applied, and BEFORE the caller rebases. Custody
+    // materializes against the identities the build just produced, so running it
+    // earlier would restore a hand that does not exist yet; rebasing first would
+    // make the session's first restore undo the checkpoint this just put back.
+    //
+    // ⭐ THE SAME FUNCTION THE EAGER HOST CALLS. The two hosts differ in what
+    // authorizes the commit, never in what the commit does.
+    ambition_platformer2d_actor_monolith::session::checkpoint::apply_committed_checkpoint_restore(
+        world, intent,
+    );
 
     CommitOutcome::Committed
 }

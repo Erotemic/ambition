@@ -880,6 +880,21 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // ⛔⛔ THE EAGER COMMIT'S DEBT TO THE DOMAINS, AND IT MUST NEVER SURVIVE A
+    // FRAME. `commit_ready_room_transition_system` is an ordinary system and the
+    // checkpoint domain restore is exclusive, so the commit names the intent it
+    // just landed and an exclusive system CHAINED immediately after it takes the
+    // value and applies it. One writer, one reader-and-clearer, one run of the
+    // sim schedule between them.
+    //
+    // ⭐ REGISTERING IT WOULD BE THE BUG. A rewind restoring a set value would
+    // re-apply a restore to a world that had moved on, and a rewind CLEARING one
+    // could only do so between two chained systems, which cannot happen. What
+    // makes this safe is the chain, not a snapshot — see the type's own doc.
+    (
+        "ambition_platformer2d_runtime::room_transition::commit::CommittedRoomTransitionRestore",
+        "set and consumed inside one run of the sim schedule by two chained systems; a value that survived a frame here would be a restore waiting to be applied to a world that had moved on",
+    ),
     // The tier floor of the room the HOST is loading behind a cover.
     //
     // The authored respawn beat, in SECONDS.

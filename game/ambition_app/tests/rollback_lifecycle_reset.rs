@@ -499,3 +499,90 @@ fn a_cross_room_checkpoint_resume_stays_checksum_clean() {
          crossing under rollback"
     );
 }
+
+/// ⛔⛔ **THE CONFIRMED HOST RESTORES THE SAME DOMAINS THE EAGER ONE DOES.**
+///
+/// A1c/3b moved occurrence, custody and entitlement restoration out of ordinary
+/// speculative simulation and into one schedule the COMMIT EXECUTOR runs. There
+/// are two executors — the eager host's exclusive runner and
+/// `commit_confirmed_lifecycle`'s tail — and they must reach the same
+/// application from the same accepted snapshot, differing only in what
+/// authorizes them.
+///
+/// ⛔ WITHOUT THIS THE CONFIRMED HALF HAD NO WITNESS AT ALL. Measured
+/// 2026-09-08: disabling the confirmed host's call left every test in this file
+/// green, because none of them asserted a domain value across a reset — they
+/// assert enemy health, brick state and session health, all of which the room
+/// REBUILD restores by itself. A restore road with no witness is a road that can
+/// be deleted by accident.
+///
+/// ⭐ THE ENTITLEMENT BAG IS THE SUBJECT because no room rebuild can put it
+/// back: a stored quantity is not a thing in a room. That makes it the item
+/// domain's own reducer, reached only through the commit.
+#[test]
+fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
+    use ambition_platformer2d::item::{Item, OwnedItems};
+
+    const STACKABLE: Item = Item::HealthCell;
+
+    let mut sim = repro_sim();
+    stage_on_floor(&mut sim, 3);
+
+    // Bank a checkpoint through the real shrine road.
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    let banked = sim.world().resource::<OwnedItems>().count(STACKABLE);
+
+    // ── AFTER THE CHECKPOINT: one more of it ────────────────────────────────
+    //
+    // ⚠ A DIRECT WRITE FOLDED INTO THE BASELINE, exactly as `stage_on_floor` and
+    // `wound_one_enemy` do above, and for the same reason: `OwnedItems` is
+    // rollback state and `ItemGrantRequested` is CLEARED on rollback, so a grant
+    // written from outside the simulation is wiped by the next rewind before its
+    // reader runs. The subject here is the RESTORE, not the acquisition road —
+    // which `death_restores_the_checkpoint` drives through the real grant on the
+    // eager host.
+    sim.world_mut()
+        .resource_mut::<OwnedItems>()
+        .grant(STACKABLE, 1);
+    sim.rebase_rollback_history()
+        .expect("the post-checkpoint bag becomes the rollback baseline");
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(STACKABLE),
+        banked + 1,
+        "the staging did not land, so a restore and a no-op are indistinguishable"
+    );
+
+    // ── DIE, ON THE ROLLBACK HOST ───────────────────────────────────────────
+    let mut restored = false;
+    for frame in 0..2400 {
+        let px = {
+            let world = sim.world_mut();
+            let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+            q.single(world).map(|k| k.pos.x).unwrap_or(0.0)
+        };
+        let action = match living_enemies(&mut sim)
+            .into_iter()
+            .map(|(x, _)| (x, (x - px).abs()))
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+        {
+            Some((x, d)) if d > 12.0 => AgentAction::move_x((x - px).signum()),
+            Some(_) | None => AgentAction::default(),
+        };
+        sim.step(action);
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("frame {frame}: {error}"));
+        if sim.world().resource::<OwnedItems>().count(STACKABLE) == banked {
+            restored = true;
+            break;
+        }
+    }
+
+    assert!(
+        restored,
+        "the confirmed host committed a checkpoint restore and the entitlement \
+         bag never came back to its banked quantity. No room rebuild can restore \
+         a stored quantity, so this is the item domain's reducer — and on this \
+         host the only thing that reaches it is \
+         `commit_confirmed_lifecycle`'s call into the shared domain application"
+    );
+}

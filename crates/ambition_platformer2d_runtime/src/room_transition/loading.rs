@@ -1067,7 +1067,7 @@ pub fn begin_room_transition_load_system(
             .map(|accepted| accepted.occurrences.remembered())
             .or(construction_services.6.as_deref());
         let selected_minted = match selected_restore {
-            Some(accepted) => accepted.minted.as_ref(),
+            Some(accepted) => accepted.item.as_ref().map(|item| &item.minted),
             None => construction_services.7.as_deref(),
         };
         // the outlook is ROOM-SCOPED, so it is derived for the room being built

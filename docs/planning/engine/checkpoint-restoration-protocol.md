@@ -473,12 +473,44 @@ This is a coherent behavior change, implemented in buildable subcommits:
    a fixture on it would test fabricated state. Subcommit 4 moves this reducer to
    the commit boundary and this is what will hold it.
 
-   Still open in this subcommit: the same selected input is not yet integrated
-   into eager/confirmed commit execution, and custody/entitlement snapshots are
-   still applied from live baselines in the restore set.
-4. Move checkpoint replay consequences to that commit boundary, perform explicit
-   flush/reconciliation/verification and publish the final baseline. Add failure
-   cleanup for the temporary context and match outcomes to the original request.
+   Still open after 3a, closed in 3b below: the same selected input was not yet
+   integrated into eager/confirmed commit execution, and custody/entitlement
+   snapshots were still applied from live baselines in the restore set.
+4. **LANDED 2026-09-08 (3b) — destructive application runs from the commit, and
+   authorization is structural.** All three reducers moved out of the simulation
+   into `CheckpointDomainApply`, a schedule only a commit executor runs. Their
+   inputs are INSTALLED for its duration and removed on every path
+   (`CheckpointRestoreInputs` for the lifecycle layer, a sibling
+   `ItemCheckpointRestoreInputs` for the item domain), so a reducer that ran
+   without them does nothing — an accidental invocation is a no-op, not a restore
+   to an empty baseline. `AcceptedCheckpointRestore` now pins all four snapshots
+   at acceptance and both executors read the same one.
+
+   ⭐ **The transitional token is DELETED.** `AdmittedCheckpointRestore` existed
+   so three domains would stop reading the raw request; making application happen
+   only at the commit says the same thing out of WHEN they run, which no reducer
+   can forget to check. It left the wire format (schema 170 -> 171) rather than
+   growing a longer lifetime the earlier plan had predicted for it.
+
+   **Both executors, both witnessed** — this is the packet's eager/confirmed gate,
+   and neither half was covered before:
+   - eager: `commit_ready_room_transition_system` records the intent it landed
+     and a CHAINED exclusive runner applies it a system later, after the frame's
+     structural work. Poison-verified: disabling it reddens 7 tests across all
+     three domains.
+   - confirmed: `commit_confirmed_lifecycle` calls the same function in its
+     exclusive tail, after the spawn drain and BEFORE the rebase — otherwise its
+     first restore would undo the checkpoint it just restored. ⛔ Disabling it
+     left every rollback test green, because none asserted a domain value across
+     a reset: they assert enemy health, brick state and session health, all of
+     which the room rebuild restores by itself.
+     `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` is
+     the witness, and the entitlement bag is the subject precisely because no
+     room rebuild can put a stored quantity back. Poison-verified.
+
+   Still open: explicit post-apply verification and a terminal outcome matched to
+   the original request. The flush is in the shared entry point; the
+   reconciliation and publication half of this subcommit is not.
 5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
    installer aliases and unused progress paths. Refresh the graph as a diagnostic.
 

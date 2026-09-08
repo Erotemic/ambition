@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v170
+ggrs-rollback-schema-v171
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -424,7 +424,6 @@ resource.accepted_checkpoint_restore	resource-clone-custom-checksum	AcceptedChec
 resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.active_match	resource-canonical	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-resource.admitted_checkpoint_restore	resource-clone-custom-checksum	AdmittedCheckpointRestore	bevy_ggrs clone snapshot + which operation the lifecycle slot admitted, by frame and subject
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.checkpoint_resume_progress	resource-clone-custom-checksum	CheckpointResumeProgress	bevy_ggrs clone snapshot + which session generation the resume has routed and placed
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

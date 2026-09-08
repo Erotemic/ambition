@@ -490,23 +490,25 @@ pub fn capture_occurrence_baseline(
 /// `items::pickup::restore_custody_to_checkpoint`, and it belongs to the custody
 /// domain because a hand is not room state — including the arm that has to
 /// MATERIALIZE an occurrence the world no longer holds an entity for.
-/// ⛔⛔ IT READS THE ADMITTED OPERATION, NOT THE RAW REQUEST. This used to read
-/// `ResetToCheckpoint` itself, which meant a reset the lifecycle slot REFUSED
-/// still rolled the ledger back — for a room reconstruction that never happened.
-/// The reducer below is the domain's own; this system is only what decides that
-/// the domain has been asked.
+/// ⛔⛔ IT RUNS ONLY FROM THE COMMIT, AND READS ONLY WHAT THE COMMIT INSTALLED.
+///
+/// This once read `ResetToCheckpoint` directly, so a reset the lifecycle slot
+/// REFUSED still rolled the ledger back — for a room reconstruction that never
+/// happened. A1c/1-2 gave it an admission token to consult; A1c/3b removed the
+/// need to consult anything, by moving it into
+/// [`CheckpointDomainApply`](super::CheckpointDomainApply), which only the
+/// commit executor runs. Nothing it could forget to check remains.
+///
+/// ⚠ AND IT REDUCES TOWARD THE PINNED POPULATION, not the live baseline. A
+/// capture landing between acceptance and commit belongs to the next operation.
 pub fn restore_occurrence_baseline(
-    restore: Option<bevy::prelude::Res<super::AdmittedCheckpointRestore>>,
-    baseline: Option<bevy::prelude::Res<OccurrenceBaseline>>,
+    inputs: Option<bevy::prelude::Res<super::CheckpointRestoreInputs>>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
 ) {
-    if restore.is_none_or(|restore| restore.admitted().is_none()) {
-        return;
-    }
-    let (Some(baseline), Some(mut occurrences)) = (baseline, occurrences) else {
+    let (Some(inputs), Some(mut occurrences)) = (inputs, occurrences) else {
         return;
     };
-    reduce_occurrences_to_baseline(&baseline, &mut occurrences);
+    reduce_occurrences_to_baseline(&inputs.occurrences, &mut occurrences);
 }
 
 /// The occurrence domain's reducer: put the remembered ledger back.

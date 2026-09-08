@@ -75,11 +75,16 @@ impl Plugin for RoomTransitionComposerPlugin {
                 .chain()
                 .in_set(RoomTransitionReadinessSet),
         );
+        app.init_resource::<commit::CommittedRoomTransitionRestore>();
         app.add_systems(
             sim,
             (
                 advance_room_transition_content_epoch_system,
                 commit_ready_room_transition_system,
+                // ⭐ IMMEDIATELY AFTER, and exclusive: the eager commit is a
+                // system and cannot run the domain-apply schedule itself. The
+                // chain is what makes "a system later" true rather than hoped.
+                commit::apply_committed_room_transition_restore,
             )
                 .chain()
                 // THE transaction phase — detection has run, the reset has not.

@@ -369,7 +369,6 @@
     "resource.active_conversation",
     "resource.active_match",
     "resource.active_round_scope",
-    "resource.admitted_checkpoint_restore",
     "resource.base_gravity",
     "resource.checkpoint_resume_progress",
     "resource.clock_regime_policy",

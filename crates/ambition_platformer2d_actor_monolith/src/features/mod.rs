@@ -87,6 +87,9 @@ pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
 pub use ecs::boss_component_snapshot;
+pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
+mod feature_bundles;
+pub use feature_bundles::{ChestBundle, PickupBundle};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_runtime_minion;
@@ -991,7 +994,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `assess_dormancy` commands before later phases filter on `Dormant`.
                 crate::features::ecs::perception::ensure_perception,
                 crate::features::ecs::dormancy::assess_dormancy,
-                ambition_platformer2d_actor_spawn::brain_builders::project_authored_fighter_ladder,
+                crate::features::ecs::fighter_ladder::project_authored_fighter_ladder,
             )
                 .chain()
                 .in_set(ActorDecisionSet::Prepare),

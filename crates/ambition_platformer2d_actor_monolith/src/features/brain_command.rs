@@ -393,7 +393,7 @@ fn apply_catalog_mode(
     if let Some(profile) = character_profile {
         if let Some(mut config) = config {
             config.brain_profile = profile;
-            config.brain = ambition_platformer2d_actor_spawn::conversion::config_brain_for(brain);
+            config.brain = crate::features::ecs::actors::config_brain_for(brain);
             config.sprite_override_npc_name = None;
         }
         return;
@@ -401,7 +401,7 @@ fn apply_catalog_mode(
     let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
     let Some(kit) = kit else {
         if let Some(mut config) = config {
-            config.brain = ambition_platformer2d_actor_spawn::conversion::config_brain_for(brain);
+            config.brain = crate::features::ecs::actors::config_brain_for(brain);
         }
         return;
     };

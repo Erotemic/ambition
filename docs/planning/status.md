@@ -5,8 +5,9 @@ work is in [`queue.md`](queue.md); unresolved maintainer calls are in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md); durable
 architecture belongs in focused owner documents.
 
-**Reference source:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`,
-reviewed 2026-09-07. Re-measure before quoting these numbers on a newer head.
+**Reference source:** `54d99e7fb` (the head reviewed as `a38e1bf0f` on
+2026-09-07 plus the actor-spawn boundary correction committed right after it).
+Re-measure before quoting these numbers on a newer head.
 
 ## Current architecture posture
 
@@ -16,37 +17,50 @@ composition has substantially converged:
 ```text
 F1  construction inversion             crossed
 B   control/custody authority           crossed
+C1  public scheduling vocabulary       crossed
 D   rollback composition               crossed
 E   scoped ruleset policy               crossed
 
-C1  public scheduling vocabulary       one known regression
 C2  capability/crate composition       active
 ```
 
-The C1 regression is narrow: Smash's mark-clock contributor directly orders
-itself after `sim_view::rebuild_body_clocks_view`. The queue requires replacing
-that concrete foreign-function edge with public body-clock scheduling vocabulary.
+C1 closed when the body-clock view published `BodyClockViewSet::{Reset, Contribute}`
+and Smash registered against it; the ratchet reads zero capability/ruleset
+private orderings.
 
 ## Actor monolith
 
-Current nontrivial module SCCs:
+Current nontrivial module SCCs (`scripts/measure_kernel_module_graph.py --scc`):
 
 ```text
-11  abilities, actor_spawn, character_runtime, construction, control,
-    features, items, projectile, session, shrine, world
+ 9  abilities, construction, control, features, items, projectile,
+    session, shrine, world
 
  2  assets, character_sprites
 ```
 
-The next four cuts are already designed in
+P1 landed (settlement state moved to `ambition_match`, wire IDs preserved) and
+actor spawning was extracted to the crate `ambition_platformer2d_actor_spawn`, so
+`actor_spawn` is no longer a module in this graph and `character_runtime` is no
+longer in a cycle. The remaining designed cuts, in
 [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md):
 
 ```text
-P1  character_runtime -> features       expected 11 -> 9
 P2  projectile -> features              expected  9 -> 8
 P3  shrine -> session                   expected  8 -> 7
 P4  construction -> world               expected  7 -> 6
 ```
+
+**The module graph cannot see a crate boundary.** The first spawn carve took the
+live actor view (`ActorMut`, `ActorClusterQueryData`), the damage i-frame constant,
+in-place provocation, the fighter-ladder projection and the dismounted-rider
+rebuild out with it, and 11 -> 9 stayed green while the kernel imported its own
+tick-time vocabulary from a crate whose contract said "spawn". Those went back to
+the kernel (`crate::actor_clusters`, `features/ecs/actors/provoke.rs`,
+`features/ecs/{fighter_ladder,dismounted_rider}.rs`); pickup/chest bundles went to
+`features/feature_bundles.rs`. `scripts/tests/test_actor_spawn_boundary.py`
+states the boundary from the spawn side: no query view, no timing constant, one
+system, no pickup/chest, and live kernel roads consume only builders.
 
 After P4, implementation stops until the six-module hard-core edge ledger is
 complete. Do not choose another cut merely because it has a low reference count.
@@ -56,11 +70,11 @@ complete. Do not choose another cut merely because it has a low reference count.
 At the reference head:
 
 ```text
-capability/ruleset foreign private ordering      1
+capability/ruleset foreign private ordering      0
 composition foreign private ordering            73
-foreign system installations                   174
-mechanically reducible installation blocks       2
-irreducible composition blocks                  39
+foreign system installations                   175
+mechanically reducible installation blocks       3
+irreducible composition blocks                  38
 ```
 
 The target is **correct ownership**, not zero host/composition code. A block that
@@ -70,17 +84,17 @@ Owner: [`engine/capability-and-runtime-composition.md`](engine/capability-and-ru
 
 ## Current correctness front
 
-The highest-priority current issues are deliberately few:
+No correctness regression from the 2026-09-07 reviews is open. The next
+engineering action is architecture (P2 in the queue), not a fix.
 
-1. delayed mark attribution must survive elimination/despawn of the marking body;
-2. body-owned drawable geometry needs a semantic finalized phase before portal
-   candidate publication;
-3. hit-flash needs same-frame visibility restoration on far-side -> near-side;
-4. the body-clock contribution must stop naming a foreign private reset system.
+Closed at the reference head and not to be reopened without new evidence:
 
-The broad problems those fixes grew out of are already closed and should not be
-reopened without new evidence:
-
+- delayed mark attribution after the marking body is gone (`SeatCredit` stand-in,
+  never the victim; the stand-in carries no `MatchSeat`);
+- body-owned drawable geometry finalized before portal publication
+  (`BodyOwnedDrawableSync`);
+- hit-flash same-frame near-side visibility (the owner asserts `Visible` each frame);
+- C1 body-clock contribution (`BodyClockViewSet::Contribute`);
 - mark stock lifetime;
 - exact mark fuse duration;
 - player-readable mark clock;

@@ -2,7 +2,7 @@
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
 use crate::features::ActorMutIntegrationExt;
-use ambition_platformer2d_actor_spawn::actor_clusters::ActorMut;
+use crate::actor_clusters::ActorMut;
 use super::*;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
@@ -98,7 +98,7 @@ pub(crate) fn observe_actor_decision_inputs(
             Entity,
             &ActorDisposition,
             &ambition_combat::components::ActorTarget,
-            Option<ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryDataReadOnly>,
+            Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
             Option<&ambition_combat::components::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
         ),
@@ -283,7 +283,7 @@ pub fn tick_actor_brains(
                 // The generated read-only view of the COMPLETE actor cluster.
                 // Using the existing cluster shape preserves the old eligibility
                 // contract exactly while removing decision's mutable body authority.
-                Option<ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryDataReadOnly>,
+                Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
                 // The brain interprets controller input and perceives "down" through it — never
                 // through a private gravity lookup.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -1191,7 +1191,7 @@ pub fn integrate_sim_bodies(
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
-            Option<ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData>,
+            Option<crate::actor_clusters::ActorClusterQueryData>,
             // The body's live move, if any — its authored per-window motion
             // lock scales the steering intent inside `integrate_actor_body`.
             Option<&ambition_combat::moveset::MovePlayback>,
@@ -1442,7 +1442,7 @@ pub fn sync_actor_read_model(
     mut actors: Query<
         (
             &mut ActorIdentity,
-            Option<ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData>,
+            Option<crate::actor_clusters::ActorClusterQueryData>,
         ),
         (
             With<FeatureSimEntity>,
@@ -1516,7 +1516,7 @@ pub fn apply_actor_contact_damage(
                 // Sanic's ball dash, a super form, a spiked shell — and none of
                 // those flows through this permanent trait.
                 Has<ambition_match::MatchSeat>,
-                Option<ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData>,
+                Option<crate::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
             // AD2): their `body_contact_damage` tuning is driven from
@@ -1891,7 +1891,7 @@ fn capture_candidate(
 /// state-machine variants.
 #[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
-    body: &ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
+    body: &crate::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     target_pos: ae::Vec2,
     target_alive: bool,
     crowding: Option<ambition_characters::brain::smash::CrowdingSignal>,
@@ -2034,7 +2034,7 @@ fn build_enemy_brain_snapshot(
 /// frame, and an unconditional rebuild is a string clone plus a spurious
 /// change-detection tick for every actor in the room.
 pub fn sync_actor_components_from_cluster(
-    em: &ambition_platformer2d_actor_spawn::actor_clusters::ActorMut<'_>,
+    em: &crate::actor_clusters::ActorMut<'_>,
     identity: &mut ActorIdentity,
 ) {
     if identity.id != em.config.id

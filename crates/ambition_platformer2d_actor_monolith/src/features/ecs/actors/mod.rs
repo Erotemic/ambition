@@ -8,7 +8,7 @@
 use super::*;
 
 fn shark_charge_crashed(
-    em: &ambition_platformer2d_actor_spawn::actor_clusters::ActorMut<'_>,
+    em: &crate::actor_clusters::ActorMut<'_>,
     is_being_ridden: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
@@ -64,8 +64,10 @@ fn shark_charge_crashed_geometry(
 mod crowd_observation;
 mod limbs;
 mod motion;
+mod provoke;
 mod update;
 pub use limbs::*;
+pub use provoke::*;
 pub use motion::*;
 pub use update::*;
 

@@ -143,4 +143,3 @@ impl SuddenDeathEntered {
         Self(entered)
     }
 }
-

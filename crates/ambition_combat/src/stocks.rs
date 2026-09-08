@@ -593,7 +593,7 @@ pub struct StocksMatchDecided {
 // not in this crate, deliberately: this module owns the COUNT, and the QUESTION needs a seat and a
 // live match, which are the ruleset's. The latch is that question's private state and now lives
 // beside it, keyed to the match it is about rather than to the process. See
-// `ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled`.
+// `ambition_match::StocksMatchSettled`.
 
 /// WHICH SIDE A SEATED FIGHTER FIGHTS FOR — its declared team, or its own
 /// seat when the match declared none and every fighter is a side of one.

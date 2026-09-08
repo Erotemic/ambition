@@ -5,7 +5,6 @@
 
 use super::*;
 use crate::features::SeedActorIntegrationTestExt;
-use ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut;
 use ambition_combat::events::{FeatureCombatTuning};
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a

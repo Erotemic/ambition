@@ -394,7 +394,7 @@ impl Plugin for CombatSchedulePlugin {
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the
         // monolith's to name, are in `install_dismounted_rider_rebuild`.
-        ambition_platformer2d_actor_spawn::brain_builders::install_dismounted_rider_rebuild(app, sim);
+        ambition_platformer2d_actor_monolith::features::install_dismounted_rider_rebuild(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

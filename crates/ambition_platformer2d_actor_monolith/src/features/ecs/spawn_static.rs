@@ -4,7 +4,7 @@
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
 use super::*;
-use ambition_platformer2d_actor_spawn::actor_bundles::{ChestBundle, PickupBundle};
+use crate::features::{ChestBundle, PickupBundle};
 use ambition_combat::components::StandTimer;
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_combat::components::{

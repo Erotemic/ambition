@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Actor construction and spawn realization for Ambition platformer bodies. Extracted from the actor monolith; owns spawn requests, actor construction helpers, and complete prepared-character body grants."
+description = "Actor construction and spawn realization for Ambition platformer bodies. Owns spawn requests, spawn/materialization routines, body and brain builders, spawn-time NPC policy, and complete prepared-character body grants. Never reads or mutates a live entity; the actor kernel composes it from above."
 
 [lib]
 crate-type = ["rlib"]

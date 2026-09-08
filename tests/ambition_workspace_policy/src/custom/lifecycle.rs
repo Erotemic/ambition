@@ -197,9 +197,12 @@ pub fn run(ws: &Workspace, report: &mut Report) {
     // module the F1 inversion created. A floor of 9 would be satisfied by the
     // first root alone, so it would stop protecting the second one the moment it
     // was added — a floor only guards the corpus it can distinguish.
+    // ⭐ 13 -> 12 ON 2026-09-07: `actor_clusters.rs` (the live view, never a spawn
+    // site) went back to the monolith root, which is outside both roots. Five
+    // remain in the spawn module; the allowlist lost the same row.
     assert!(
-        scanned >= 13,
-        "raw-spawn gate scanned {scanned} files under {SPAWN_DIR} and {SPAWN_MODULE_DIR}, expected at least 13 — a filter that stops matching is how this gate went blind before"
+        scanned >= 12,
+        "raw-spawn gate scanned {scanned} files under {SPAWN_DIR} and {SPAWN_MODULE_DIR}, expected at least 12 — a filter that stops matching is how this gate went blind before"
     );
 }
 

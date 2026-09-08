@@ -10,11 +10,16 @@
 // was holding the feature layer up — they were simply filed next to their first
 // caller. `conversion` uses `brain_builders`, so they travel as a pair.
 //
+// ⛔ AND TWO THINGS WENT BACK UP (2026-09-07 review of the carve): the live
+// cluster view (`actor_clusters`) and everything that mutates an already-spawned
+// body — `provoke_actor_in_place`, the fighter-ladder projection, the
+// dismounted-rider rebuild — are the actor KERNEL's. This crate keeps the
+// builders those roads call. See the crate root doc.
+//
 // ⛔ THE TEST OF WHETHER SOMETHING BELONGS HERE IS NOT "the primitives call it".
 // It is "does it name anything above this layer": a helper that needs a
 // construction plan or a feature system belongs where it is and the primitives
 // should stop calling it instead.
-pub mod actor_clusters;
 pub mod npc_policy;
 // ⭐ THE CHARACTER SPAWN PLAN CAME DOWN TOO. Measured before moving: it makes
 // no `super::` reference and its only `crate::` dependency is

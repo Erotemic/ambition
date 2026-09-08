@@ -2286,25 +2286,25 @@ file = "crates/ambition_portal2d/src/plugin.rs"
 id = "engine.actor-clusters-require-sweep"
 scope = "engine"
 kind = "file-contains"
-owners = ["ambition_platformer2d_actor_spawn"]
-watch_paths = ["crates/ambition_platformer2d_actor_spawn/src/actor_spawn/actor_clusters.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs"]
 rationale = "ECS ActorClusterQueryData requires the shared SweepSample"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["pub sweep: &'static mut ae::SweepSample"]
-file = "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/actor_clusters.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs"
 
 [[policy]]
 id = "engine.actor-clusters-no-optional-sweep"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer2d_actor_spawn"]
-watch_paths = ["crates/ambition_platformer2d_actor_spawn/src/actor_spawn/actor_clusters.rs"]
+owners = ["ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs"]
 rationale = "runtime actor/boss queries do not make SweepSample optional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 forbid = ["pub sweep: Option<&'static mut ae::SweepSample>"]
-file = "crates/ambition_platformer2d_actor_spawn/src/actor_spawn/actor_clusters.rs"
+file = "crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs"
 
 [[policy]]
 id = "engine.portal-transit-uses-sweep"

@@ -62,48 +62,6 @@ impl FeatureRenderedBundle {
 /// TODO(compat-remove): migrate callers to [`FeatureRenderedBundle`], then delete this alias.
 pub type FeatureBaseBundle = FeatureRenderedBundle;
 
-/// Bundle for pickup feature entities.
-#[derive(Bundle)]
-pub struct PickupBundle {
-    pub base: FeatureBaseBundle,
-    pub pickup: PickupFeature,
-}
-
-impl PickupBundle {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        aabb: CenteredAabb,
-        pickup: ambition_interaction::Pickup,
-    ) -> Self {
-        Self {
-            base: FeatureBaseBundle::new(id, name, aabb),
-            pickup: PickupFeature::new(pickup),
-        }
-    }
-}
-
-/// Bundle for chest feature entities.
-#[derive(Bundle)]
-pub struct ChestBundle {
-    pub base: FeatureBaseBundle,
-    pub chest: ChestFeature,
-}
-
-impl ChestBundle {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        aabb: CenteredAabb,
-        chest: ambition_interaction::Chest,
-    ) -> Self {
-        Self {
-            base: FeatureBaseBundle::new(id, name, aabb),
-            chest: ChestFeature::new(chest),
-        }
-    }
-}
-
 /// Bundle for enemy actor entities. `base` is the rendered feature bundle
 /// today; once headless feature spawning lands, swap it for
 /// [`FeatureLifecycleBundle`] and add `RoomVisual` only on the rendered

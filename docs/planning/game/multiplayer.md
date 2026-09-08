@@ -84,9 +84,9 @@ Ambition gameplay with one shared camera and body-owned HUD state.
 > two player entities keep separate attacks, safety anchors, slot-owned input,
 > singleton queries and heal routing, joined by
 > `two_participants_of_one_character_do_not_share_a_stream`
-> (`crates/ambition_platformer2d_actor_monolith/src/actor_spawn/brain_builders.rs:670`)
+> (`crates/ambition_platformer2d_actor_spawn/src/actor_spawn/brain_builders.rs:479`)
 > and `a_second_participant_does_not_silence_the_global_menu_frame`
-> (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:1873`).
+> (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs:1918`).
 >
 > ⚠ **What A1 still has to audit has a name and a count.**
 > `PrimaryPlayerOnly` — `(With<PlayerEntity>, With<PrimaryPlayer>)`,

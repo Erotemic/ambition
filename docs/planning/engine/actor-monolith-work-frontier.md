@@ -1,8 +1,8 @@
 # Actor-monolith decomposition — executable SCC frontier
 
-**Baseline:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`.
+**Baseline:** `54d99e7fb` (P1 landed; largest SCC measured 9).
 
-This is an implementation queue, not an architecture essay. Execute P1-P4 in
+This is an implementation queue, not an architecture essay. Execute P2-P4 in
 order. Do not start P5 implementation until P1-P4 have landed and the graph has
 been remeasured.
 
@@ -17,7 +17,7 @@ From the new HEAD:
 
 ```bash
 python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
-rg -n 'crate::(abilities|actor_spawn|character_runtime|construction|control|features|items|projectile|session|shrine|world)' \
+rg -n 'crate::(abilities|construction|control|features|items|projectile|session|shrine|world)' \
   crates/ambition_platformer2d_actor_monolith/src -g '*.rs'
 git status --short
 ```
@@ -30,95 +30,24 @@ Use one commit per packet.
 
 ---
 
-## P1 — move stocks-match settlement state to `ambition_match`
+## P1 — DONE: stocks-match settlement state lives in `ambition_match`
 
-**Cut:** `character_runtime -> features`.
+**Cut:** `character_runtime -> features`. **Measured receipt:** largest SCC
+11 -> **9**.
 
-**Baseline production edge (1 ref):**
+`StocksMatchSettled`, `SuddenDeathEntered` and `the_live_match_is_settled` moved
+to `crates/ambition_match/src/settlement.rs` with their `SnapshotState` impls;
+the wire IDs `resource.stocks_match_settled` / `resource.sudden_death_entered`
+are unchanged (`rollback_registration.rs`), and the forbidden end states hold:
+no production source names `features::stocks_match::{StocksMatchSettled,
+SuddenDeathEntered}`. `SuddenDeathBegan` and the stocks policy stayed put, as
+specified. Landed in `2ce30d720`.
 
-```text
-crates/ambition_platformer2d_actor_monolith/src/character_runtime/live_match_clock.rs
-    uses crate::features::stocks_match::StocksMatchSettled
-```
-
-**Expected graph receipt:** largest SCC **11 -> 9**. `actor_spawn` and
-`character_runtime` should become a separate 2-module SCC.
-
-### Ownership decision
-
-`StocksMatchSettled` and `SuddenDeathEntered` are match receipts/latches. They
-carry `MatchInstance` and `MatchVerdict`, not feature ECS behavior. Their owner is
-`ambition_match`.
-
-Move exactly these values and their pure query helper:
-
-```text
-StocksMatchSettled
-SuddenDeathEntered
-the_live_match_is_settled
-```
-
-Do **not** move `decide_stocks_match`, `SuddenDeathBegan`, winner-card systems or
-other Smash/stocks policy in this packet.
-
-### File operations
-
-1. Create `crates/ambition_match/src/stocks_state.rs` containing the three items <!-- cite-ok: proposed path created by P1 -->
-   above and their value-level tests.
-2. Export them from `crates/ambition_match/src/lib.rs`.
-3. Move the `SnapshotState` implementations for `StocksMatchSettled` and
-   `SuddenDeathEntered` from
-   `crates/ambition_platformer2d_actor_monolith/src/snapshot_impls.rs` into
-   `crates/ambition_match/src/snapshot_impls.rs`. The orphan rule requires this
-   once the types move.
-4. Change monolith rollback registration to register the new type paths while
-   preserving these exact wire IDs:
-
-   ```text
-   resource.stocks_match_settled
-   resource.sudden_death_entered
-   ```
-
-5. Update `features/stocks_match.rs` to import the values from `ambition_match`.
-6. Update `character_runtime/live_match_clock.rs` to import
-   `ambition_match::StocksMatchSettled` directly.
-7. Update direct external consumers, including Smash/app tests, to the
-   `ambition_match` path. Do not retain `features::stocks_match` as the discovery
-   path for the moved values.
-8. Delete the moved definitions from `features/stocks_match.rs`.
-
-### Forbidden end states
-
-P1 is **not complete** if any production source still contains:
-
-```text
-character_runtime -> features::stocks_match
-features::stocks_match::StocksMatchSettled
-features::stocks_match::SuddenDeathEntered
-```
-
-Do not introduce `ambition_match -> actor_monolith`.
-
-### Required acceptance
-
-Run/retain the existing tests that prove:
-
-- a settled match stops the live match clock;
-- sudden death suppresses normal settlement/timeout behavior;
-- the sudden-death latch does not carry into the next match;
-- rollback restores the match receipt/latch with the same wire IDs;
-- the assembled Smash host still reaches settlement/sudden death correctly.
-
-Source receipt:
-
-```bash
-! rg -n 'crate::features::stocks_match' \
-  crates/ambition_platformer2d_actor_monolith/src/character_runtime -g '*.rs'
-python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
-```
-
-Stop if `ambition_match` would need any dependency on the actor monolith to own
-these values. That would invalidate the ownership choice.
+In the same carve, `actor_spawn` left the monolith as the crate
+`ambition_platformer2d_actor_spawn`; the boundary was corrected afterwards (live
+actor view, provocation, ladder projection, rider rebuild and pickup/chest
+bundles back in the kernel) and is guarded by
+`scripts/tests/test_actor_spawn_boundary.py`.
 
 ---
 
@@ -138,7 +67,7 @@ Those calls decide **same-tick projectile termination** before the feature damag
 consumer later drains `HitEvent`. Replacing them with a message round-trip is not
 acceptable; it changes timing.
 
-**Expected graph receipt after P1:** largest SCC **9 -> 8**.
+**Expected graph receipt:** largest SCC **9 -> 8**.
 
 ### Ownership decision
 
@@ -177,7 +106,7 @@ ordinary projectile hit. Geometry remains in `ambition_combat::DamageableVolumes
    surviving entity restoration.
 3. Stamp the component at the two existing construction sites, not from a
    later repair system:
-   - `actor_spawn::spawn_boss_with_overrides_into` inserts
+   - `ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into` inserts
      `ProjectileFeatureTarget::new(format!("boss:{}", authored.id))` beside the
      boss's initial `DamageableVolumes`;
    - `features/ecs/spawn_static.rs::spawn_breakable_into` inserts
@@ -526,16 +455,11 @@ No hard-core source edit should land before this receipt exists.
 
 ## Satellite SCCs
 
-Expected after P1:
+Measured after P1: `actor_spawn` is no longer a monolith module (it is the crate
+`ambition_platformer2d_actor_spawn`) and `character_runtime` sits in no cycle, so
+the pair predicted here never formed.
 
-```text
-actor_spawn <-> character_runtime
-```
-
-Treat that pair as a grouped extraction candidate. Do not spend time deleting
-its internal cycle until an external consumer needs one half independently.
-
-Current independent SCC:
+The one independent SCC:
 
 ```text
 assets <-> character_sprites
@@ -546,7 +470,7 @@ critical path.
 
 ## Per-packet final receipt
 
-Before committing each P1-P4 packet:
+Before committing each P2-P4 packet:
 
 ```bash
 git diff --check

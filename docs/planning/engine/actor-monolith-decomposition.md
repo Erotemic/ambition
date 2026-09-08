@@ -1,6 +1,6 @@
 # Actor residual-kernel decomposition
 
-> **Baseline:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`, measured 2026-09-07.
+> **Baseline:** `54d99e7fb`, measured 2026-09-07 (P1 landed).
 > Historical carve notes live in Git history. This file contains only the rules
 > needed to make the next decomposition decisions.
 
@@ -51,17 +51,16 @@ python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80
 Baseline nontrivial SCCs:
 
 ```text
-11: abilities, actor_spawn, character_runtime, construction, control,
-    features, items, projectile, session, shrine, world
+ 9: abilities, construction, control, features, items, projectile,
+    session, shrine, world
 
  2: assets, character_sprites
 ```
 
-The next four packets are already designed. They are not invitations to choose a
-different low-count edge:
+P1 (`character_runtime -> features`, 11 -> 9) is done. The next three packets are
+already designed. They are not invitations to choose a different low-count edge:
 
 ```text
-P1  character_runtime -> features    expected 11 -> 9
 P2  projectile -> features           expected  9 -> 8
 P3  shrine -> session                expected  8 -> 7
 P4  construction -> world            expected  7 -> 6
@@ -193,9 +192,12 @@ map that keeps the remaining SCC together.
 
 ## Satellite SCCs
 
-After P1, `actor_spawn <-> character_runtime` is expected to become a separate
-2-module SCC. Do not split it merely because it is cyclic. It is a candidate
-**grouped extraction unit** unless a package consumer needs one half independently.
+`actor_spawn` is no longer a monolith module: it is the crate
+`ambition_platformer2d_actor_spawn`, whose contract is construction only (spawn
+requests, spawn routines, body/brain builders, spawn-time NPC policy). The live
+actor view and every system that mutates a spawned body stay in the kernel;
+`scripts/tests/test_actor_spawn_boundary.py` holds that line, because this
+module graph cannot see a crate boundary. `character_runtime` sits in no cycle.
 
 `assets <-> character_sprites` is already a separate 2-module SCC and is also a
 grouped-extraction question. Keep it off the P1-P5 critical path.

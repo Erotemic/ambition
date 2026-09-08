@@ -8,7 +8,7 @@
 //! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
 //! from the [`super::CharacterRoster`].
 
-use ambition_platformer2d_actor_spawn::actor_clusters::ActorMut;
+use crate::actor_clusters::ActorMut;
 use super::*;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::events::{
@@ -21,45 +21,6 @@ use ambition_combat::events::{
 /// overlaps an enemy is pushed back OUT of its box rather than sitting inside it
 /// taking a hit every i-frame window. Feel-tunable.
 const BODY_CONTACT_MIN_KNOCKBACK: f32 = 0.6;
-
-/// Enemy physics/AI integration, operating directly on the authoritative
-/// ECS components through the [`ActorMut`] view.
-pub(crate) fn enemy_attack_aabb_dir(
-    pos: ae::Vec2,
-    size: ae::Vec2,
-    facing: f32,
-    axis_local: ae::Vec2,
-    gravity_dir: ae::Vec2,
-) -> ae::Aabb {
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    let axis = if axis_local.length_squared() > 0.01 {
-        axis_local.normalize_or_zero()
-    } else {
-        ae::Vec2::new(facing, 0.0)
-    };
-    let horizontal = axis.x.abs() >= axis.y.abs();
-    let (center_local, half_local) = if horizontal {
-        let side = if axis.x.abs() > 0.1 {
-            axis.x.signum()
-        } else {
-            facing
-        };
-        (
-            ae::Vec2::new(side * (size.x * 0.55 + 24.0), -4.0),
-            ae::Vec2::new(34.0, 28.0),
-        )
-    } else if axis.y < 0.0 {
-        let half = ae::Vec2::new(16.0, 36.0);
-        (ae::Vec2::new(0.0, -(size.y * 0.5 + half.y + 4.0)), half)
-    } else {
-        let half = ae::Vec2::new(36.0, 20.0);
-        (ae::Vec2::new(0.0, size.y * 0.5 + half.y - 2.0), half)
-    };
-    ae::Aabb::new(
-        pos + frame.to_world(center_local),
-        frame.to_world_half(half_local),
-    )
-}
 
 fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
@@ -174,8 +135,6 @@ pub(crate) trait ActorMutIntegrationExt {
 
     fn aabb(&self) -> ae::Aabb;
     fn bark_anchor(&self) -> ae::Vec2;
-    fn attack_aabb(&self) -> ae::Aabb;
-    fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb;
     fn body_damage_aabb(&self) -> Option<ae::Aabb>;
     fn contact_attack(&self) -> Option<ContactAttack>;
     fn reset_to_spawn(
@@ -529,31 +488,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
     }
 
-    fn attack_aabb(&self) -> ae::Aabb {
-        self.attack_aabb_dir(ae::Vec2::new(self.kin.facing, 0.0))
-    }
-
-    // `attack_telegraph_aabb()` WAS HERE, AND IT WAS WORSE THAN DEAD. It
-    // returned `self.attack_aabb()` verbatim — a differently-NAMED accessor for
-    // the identical box. A reader reaching for a "telegraph" box is looking for
-    // the windup's warning volume, which is normally LARGER and earlier than the
-    // hitbox; this would have handed them the hitbox and looked right. No caller
-    // ever did, which is the only reason it never mattered.
-
-    fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
-        let gravity_dir = -self
-            .surface
-            .surface_normal
-            .normalize_or(ae::Vec2::new(0.0, -1.0));
-        enemy_attack_aabb_dir(
-            self.kin.pos,
-            self.kin.size,
-            self.kin.facing,
-            axis,
-            gravity_dir,
-        )
-    }
-
     // `begin_melee_attack` is deleted. A body's melee swing is a moveset
     // `"attack"` move: the brain's `melee_pressed` edge starts it via
     // `combat::moveset::trigger_moveset_moves` and `advance_move_playback` spawns
@@ -732,7 +666,7 @@ impl ContactAttack {
 
 #[cfg(test)]
 pub(crate) trait SeedActorIntegrationTestExt:
-    ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut
+    crate::actor_clusters::SeedActorMut
 {
     /// One integration tick over a pre-spawn seed, with optional runtime inputs
     /// defaulted exactly as the historical actor-movement scratch harness did.
@@ -748,8 +682,6 @@ pub(crate) trait SeedActorIntegrationTestExt:
         motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         motion_frame: ae::MotionFrame,
     ) -> ambition_characters::actor::control::ActorControlFrame {
-        use ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut as _;
-
         self.as_actor_mut()
             .update(
                 world,

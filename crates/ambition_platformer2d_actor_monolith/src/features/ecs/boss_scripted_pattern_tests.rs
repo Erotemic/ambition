@@ -1,6 +1,5 @@
 use super::*;
 use crate::features::SeedActorIntegrationTestExt;
-use ambition_platformer2d_actor_spawn::actor_clusters::SeedActorMut;
 use ambition_characters::brain::boss_pattern::BossAttackProfile;
 // ⛔ NAMED, because this fixture used to live INSIDE `ambition_boss_encounter`
 // and reached these through `use super::*`. It came back to sit beside the

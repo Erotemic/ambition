@@ -154,13 +154,14 @@ because of actual capabilities/items/world mechanisms.
 
 The target is a coherent actor/body kernel, not a low line count.
 
-**Current baseline (`625fa79af45e`, 2026-09-07):** one 11-module central SCC
-plus the independent `assets <-> character_sprites` SCC.
+**Current baseline (`54d99e7fb`, 2026-09-07):** one 9-module central SCC
+plus the independent `assets <-> character_sprites` SCC. P1 (settlement state to
+`ambition_match`, 11 -> 9) is done; actor spawning is the crate
+`ambition_platformer2d_actor_spawn`, construction-only by contract.
 
-Four implementation packets are READY and must run in order:
+Three implementation packets are READY and must run in order:
 
 ```text
-P1  move stocks-match settlement state to ambition_match      11 -> 9
 P2  give projectile a generic feature-target capability       9 -> 8
 P3  move lifecycle-commit vocabulary to shared_tangle         8 -> 7
 P4  move actor placement lowering from world to construction  7 -> 6

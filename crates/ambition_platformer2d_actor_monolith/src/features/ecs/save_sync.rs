@@ -71,7 +71,7 @@ pub fn sync_ecs_actors_with_save(
             // Talkable actors (NPCs) carry the interaction payload + a persisted
             // `npc_<id>_hostile` provoke flag.
             Option<&ActorInteraction>,
-            ambition_platformer2d_actor_spawn::actor_clusters::ActorClusterQueryData,
+            crate::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
             // WHICH CHARACTER THIS BODY IS — gameplay identity, not the
@@ -144,7 +144,7 @@ pub fn sync_ecs_actors_with_save(
             aggression.mode = AggressionMode::Hostile;
             aggression.grudge = stable_player_grudge;
             let mut em = cq.as_actor_mut();
-            ambition_platformer2d_actor_spawn::conversion::provoke_actor_in_place(
+            crate::features::ecs::actors::provoke_actor_in_place(
                 &mut commands,
                 entity,
                 &mut em,

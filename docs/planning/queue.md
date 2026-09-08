@@ -8,77 +8,16 @@ A row stays here only when an engineer can act on it without first reconstructin
 weeks of context. Durable design belongs in the linked owner document. Product
 questions belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 
-**Reference source:** `625fa79af45e6eff40cbefabd8cdae33c5b5e9db`,
-reviewed 2026-09-07. Revalidate source facts before editing a newer head.
+**Reference source:** `54d99e7fb` (reviewed as `a38e1bf0f` on 2026-09-07,
+plus the actor-spawn boundary correction). Revalidate source facts before
+editing a newer head.
 
 ## P0 — current correctness and architecture regressions
 
-### D-MARK-ATTRIBUTION-LIFETIME — delayed attacks keep semantic credit after the source body disappears
-
-**Owner:** Smash mark implementation and generic combat attribution.
-
-**Current failure:** `BodyMark` stores the attacker's stable match seat, but
-`detonate_body_marks` resolves that seat to a live body and falls back to the
-**marked victim** if the attacker's body has already been eliminated/despawned.
-In a three-side match, Author can mark Alice, be eliminated, and later have
-Alice credited for the blast that hits Bob.
-
-**Do:** preserve semantic attack credit independently from the optional current
-source entity. Geometry continues to follow the marked body; `Environment`
-continues to define damage eligibility. Do not substitute the victim when the
-source body is gone.
-
-**Acceptance:** assembled three-side poison: mark victim, eliminate marker,
-let fuse expire beside third fighter, and verify attribution remains the marking
-seat. Keep the existing two-attacker refresh rule: the last refresher owns the
-mark.
-
-### D-BODY-DRAWABLE-PORTAL-SCHEDULE — finalize body-owned drawable geometry before portal publication
-
-**Owner:** render/presentation scheduling.
-
-**Current failure:** `BodyClockVisual` is a valid `PresentationOf(body)` Sprite,
-but `sync_body_clock_visuals` is not ordered/flush-separated before
-`publish_portal_compositing_candidates`. A newly spawned clock can render for one
-frame without a portal candidate; an existing moving/shrinking clock can be
-classified using the previous geometry.
-
-**Do:** publish a semantic presentation phase/set meaning **body-owned drawable
-geometry finalized**. Put body clocks, hit-flash frame updates and comparable
-drawable producers before it; portal candidate publication consumes it. Do not
-accumulate per-overlay `.after(private_function)` edges.
-
-**Acceptance:** partial portal overlap on the clock's first frame and on later
-moving/shrinking frames; candidate geometry must match the actually drawn frame.
-
-### D-HIT-FLASH-PORTAL-RELEASE — remove the one-frame far-side to near-side disappearance
-
-**Owner:** hit-flash presentation + portal visibility arbitration.
-
-**Current failure:** the hit-flash owner declines to assert `Visible` while the
-previous frame's `PortalSourceHidden` marker still exists. Portal resolution then
-removes that marker later in the frame without asserting visibility, leaving the
-overlay hidden until the following frame.
-
-**Do:** the normal presentation owner asserts its ordinary desired visibility
-each frame before portal resolution; portal reasons may then hide it again.
-
-**Acceptance:** active flash is clipped while far-side and visible immediately on
-the first near-side frame. Preserve the new `DeclaredFrame` non-Sprite compositor.
-
-### D-C1-BODY-CLOCK-SET — restore zero private cross-crate capability ordering
-
-**Owner:** body-clock read-model scheduling.
-
-**Current failure:** Smash orders `publish_mark_clocks` after concrete
-`sim_view::rebuild_body_clocks_view`. The architecture ratchet is red on this one
-foreign private-system edge.
-
-**Do:** publish semantic reset/contribution scheduling vocabulary from the
-body-clock/read-model owner and register Smash against that vocabulary.
-
-**Acceptance:** `scripts/tests/test_foreign_system_ordering.py` returns to green
-without raising its zero capability/ruleset ceiling.
+None open. The four rows from the 2026-09-07 review (mark attribution lifetime,
+body-drawable portal scheduling, hit-flash portal release, C1 body-clock set)
+closed at `a38e1bf0f`; receipts are in Git history and the closed list in
+[`status.md`](status.md).
 
 ## P1 — actor-monolith decomposition
 
@@ -87,15 +26,20 @@ without raising its zero capability/ruleset ceiling.
 **Owner:** [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
 and [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
 
-Do **P1 through P4 in order**, remeasuring after every packet:
+P1 landed (settlement state to `ambition_match`; measured largest SCC **9**).
+Do **P2 through P4 in order**, remeasuring after every packet:
 
 ```text
-baseline  largest SCC 11
-P1        character_runtime -> features       expected 9
+measured  largest SCC 9
 P2        projectile -> features              expected 8
 P3        shrine -> session                    expected 7
 P4        construction -> world                expected 6
 ```
+
+⛔ The SCC number certifies module placement inside the monolith, not crate
+ownership: `ambition_platformer2d_actor_spawn` is outside the graph. Keep
+`scripts/tests/test_actor_spawn_boundary.py` green through every packet — a
+packet that moves live-entity vocabulary into a builder crate is not a cut.
 
 Then stop source movement and complete
 [`engine/actor-monolith-hard-core-edge-ledger.md`](engine/actor-monolith-hard-core-edge-ledger.md).
@@ -111,14 +55,14 @@ end states and tests. Do not recreate that material in this queue.
 Current measured shape at the reference head:
 
 ```text
-capability/ruleset foreign private ordering     1   # D-C1-BODY-CLOCK-SET
+capability/ruleset foreign private ordering     0
 composition foreign private ordering           73
-foreign system installations                  174
-mechanically reducible install blocks           2
-irreducible composition blocks                 39
+foreign system installations                  175
+mechanically reducible install blocks           3
+irreducible composition blocks                 38
 ```
 
-**Do:** move only the two blocks whose implementation owner is unambiguous.
+**Do:** move only the reducible blocks whose implementation owner is unambiguous.
 Composition code is allowed to compose independent capabilities; zero foreign
 installs is not the target.
 

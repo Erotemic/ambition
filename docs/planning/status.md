@@ -26,16 +26,22 @@ criterion by itself.
 
 ## Next architectural action
 
-**A1: checkpoint restoration ownership.** First characterize/fix startup's
-admission latch; then move restoration, progress and installation into session.
-Leave healing and checkpoint capture at the rest-point interaction. Do not move
-room/session lifecycle vocabulary into `shared_tangle` to remove an import.
+**A1: checkpoint restoration ownership.** A1a characterizes/fixes startup's
+admission latch and tests denied-reset mutation. A1b moves restoration, progress
+and installation into session. A1c binds room, occurrence and item restoration
+to one selected immutable checkpoint and authorized common commit. The
+[checkpoint protocol](engine/checkpoint-restoration-protocol.md) is the normative
+recipe. Leave healing and checkpoint capture at the rest-point interaction;
+do not move the session lifecycle slot into `shared_tangle` to remove an import.
 
-A2 addresses projectile geometry/contact correctness before removing feature
-knowledge. A3 retains the valid world-to-construction lowering move. A11/A12
-address disconnected authored parameter validation and flow representation
-bounds. The frontier records exact prerequisites and holds; the queue selects
-priority rather than a predicted SCC trajectory.
+The [projectile protocol](engine/projectile-contact-protocol.md) makes A2's
+geometry sample, finite-shape obstruction, compound contacts and targeted delivery
+explicit. A3 retains the valid world-to-construction lowering move. The
+[authored-technique protocol](engine/authored-technique-admission.md) specifies
+A11/A12's installed support, exhaustive reference validation, checked acyclic
+flows, move-clock semantics and explicit prepared-revision activation. These are
+implementation targets, not landed fixes. The frontier records prerequisites
+and holds; the queue selects priority rather than a predicted SCC trajectory.
 
 ## Measured shape, not architectural acceptance
 
@@ -59,12 +65,18 @@ verified minimal profiles rather than an opt-out claim based only on plugin flag
 
 ## Correctness and validation front
 
-[Findings F1-F8](engine/architecture-review-findings.md) distinguish conditional
+[Findings F1-F9](engine/architecture-review-findings.md) distinguish conditional
 startup retry loss, divergent boss/projectile geometry, obstruction ordering,
 inert authored fields, nonoptional render reachability, construction publication
-limits, unwired technique validation and flow admission bounds. Each has a
-counterexample or verification task and a responsible packet. Do not represent
-them as reproduced Rust failures from this review.
+limits, unwired technique validation, flow admission bounds and raw checkpoint
+reset mutation outside room admission. Each has a counterexample or verification
+task and a responsible packet. Do not represent them as reproduced Rust failures
+from this review.
+
+[Repository history](repository-history.md) explains the intentional, repeatable
+Git epochs and recovery from cold storage. A locally unresolved old commit is
+an evidence-availability result, not proof that its history was lost. Remote
+archive metadata was inspected; full reconstruction was not executed here.
 
 The already-landed mark-attribution, mark-stock lifetime, fuse timing, mark-clock,
 body-owned portal publication, hit-flash release, body-clock public set,

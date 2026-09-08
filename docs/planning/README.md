@@ -1,7 +1,9 @@
 # `docs/planning` — live planning control plane
 
 This directory contains **current work**, not repository history. Git history is
-the archive.
+the archive, including intentionally retired epochs in the cold store. Read
+[repository history and reconstruction](repository-history.md) before treating a
+locally absent commit as lost evidence. The policy applies to future rollovers too.
 
 A planning document earns its place here by answering one of four questions:
 
@@ -44,6 +46,15 @@ Use its [responsibility map](engine/architecture-responsibility-map.md),
 [review coverage](engine/architecture-review-coverage.md) together. Its source
 findings are tied to the named snapshot and must be rechecked on a newer head.
 Unchanged product decisions remain in their existing owner documents.
+
+Three protocol documents now make the highest-risk seams executable:
+[checkpoint restoration](engine/checkpoint-restoration-protocol.md),
+[projectile contacts](engine/projectile-contact-protocol.md) and
+[authored technique admission](engine/authored-technique-admission.md).
+They own the detailed state, timing, failure and acceptance rules for A1, A2 and
+A11/A12 respectively. Where the earlier broad review offered an unresolved choice,
+these focused engineering decisions supersede it. They describe target behavior,
+not completed implementation or a new maintainer ruling.
 
 A polished crate name, older campaign, author identity or repeated commentary
 provides no additional evidence of responsibility or correctness.

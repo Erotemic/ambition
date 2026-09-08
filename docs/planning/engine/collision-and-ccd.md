@@ -29,62 +29,28 @@ reopen a resolved defect. Source and regression home:
 
 ## A2: one contact decision through selection and reaction
 
-There are three distinct questions: what geometry the target publishes, which
-contact a moving projectile reaches first, and what the victim does with an
-accepted contact. Keep them explicit rather than creating a universal collision
-service or feature registry.
+The [projectile contact protocol](projectile-contact-protocol.md) is the detailed
+A2 owner. It specifies the source edits, response matrix and acceptance cases;
+this page owns reusable geometry primitives and the broader CCD program.
 
-The current projectile road can use feature-family boss/breakable predicates
-before its world sweep, and boss damage can fall back to geometry that differs
-from published authored hurtboxes. See the exact evidence and confidence limits
-in F2/F3; these are source findings, not executed gameplay results from this
-review.
+A2a establishes one authored/fallback/empty target geometry. A2b sweeps the actual
+finite projectile through its actual travel legs and orders world/target contact
+under one collision policy. A solid destructible's own collider and hurt target
+can produce one compound contact, so world contributors need stable identity.
+A2c preserves immediate interception while delivering later damage to exactly the
+selected identity, without repeating broad feature queries.
 
-### Stage 1 - target geometry
+The first implementation uses targets stationary at the declared simulation
+sample. Swept projectile versus sampled target solves endpoint tunneling for that
+model; it does not solve target-relative motion, rotation or arbitrary deforming
+silhouettes. Those require separate measured/behavioral cases in this program.
+Broad-phase bounds cannot replace a supported exact combat shape in narrow phase.
 
-Make projectile boss admission and downstream reaction honor the existing
-published simulation target geometry. Distinguish absent authored geometry from
-present-empty authored geometry. Empty must not accidentally become coarse-body
-fallback. Do not use sprite pixels or device quality as mechanical authority.
-Keep damageability separate from collision: invulnerable, blocking and deflecting
-contacts may have different consumption/reaction policies.
-
-### Stage 2 - travel and obstruction
-
-Capture or consume the actual canonical movement leg(s). A reconstruction from
-end position minus a changed velocity is not automatically that leg. Compare
-world and target candidates in the same coordinate frame using the relevant
-projectile shape and collision policy. A center ray can disagree with a finite
-projectile sweep, one-way policy or a portal-transformed segment.
-
-Specify nearest-hit order, equal-time tie policy and stable identity order. A
-world blocker before a target must not be bypassed by evaluating a feature family
-first. Continuous body-target tests must cover high-speed passage with no endpoint
-overlap. Preserve owner/team exclusions, intentional pierce/bounce/deflect rules,
-lifetime, target deduplication and authored muzzle placement.
-
-### Stage 3 - accepted contact handoff
-
-Send the selected victim and contact fact through the existing deterministic hit
-road; do not ask a later `UnresolvedFeatures` arm to reclassify the target by
-family string. The victim owner applies damage/destruction/knockback policy;
-rules own score/stocks; presentation consumes a published consequence.
-
-Prefer a small typed handoff or direct dependency with one real producer and
-consumer. Do not create a global query bus, executable target registry or
-`BreakableLike`/`BossLike` marker vocabulary simply to delete an import.
-
-### Acceptance
-
-Use production-path fixtures for displaced authored boss hurtboxes,
-present-empty hurtboxes, absent fallback, target before wall, target behind wall,
-finite-shape corner collision, high-speed body crossing, one-way behavior,
-equal-time contacts, same-tick multiple projectiles and rollback replay. Include
-portal/moving-world cases only through the supported travel contract; explicitly
-classify unsupported cases rather than inventing an alternate transform road.
-
-A2's commits first characterize geometry, then repair ordering, then remove the
-obsolete dispatch. Each keeps behavior changes separate from code movement.
+Retain the existing projectile processing order, returning-shot hit memory and
+explicit splash multiplicity. Reflection/absorption ends the current step even
+before deferred despawn is applied. Keep portal/teleport discontinuities out of
+the swept path. See the protocol's fixtures for equal-time ties, one-ways,
+compound solids, first-frame geometry, stale recipients and resimulation.
 
 ## Contact versus strict overlap is a caller policy
 

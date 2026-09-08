@@ -7,6 +7,10 @@ of their common vocabulary.
 
 ## Prepared content
 
+The following is the target admission contract; installed-technique checks are
+not fully wired at this baseline. [Authored technique admission](authored-technique-admission.md)
+owns the checked representation, selected profile and explicit activation rule.
+
 An active simulation uses a validated immutable content revision. Source decoding,
 semantic validation, handler availability, mechanical geometry, referenced content
 and construction preflight precede activation. Device residency can complete on
@@ -50,5 +54,17 @@ recipe enum, string/TypeId callback registry or custom snapshot engine.
 Entity construction, resource-only reset, checkpoint routing and device asset
 hydration can share a lifecycle coordinator without becoming one operation.
 Checkpoint restoration belongs with session; rest-point healing/capture remains
-content. A rollback room transition waits for admitted confirmation and creates a
+content. [The checkpoint protocol](checkpoint-restoration-protocol.md) requires a
+pinned snapshot used by both preparation and commit; a raw reset broadcast is not
+sufficient authority for domain mutation. A rollback room transition waits for admitted confirmation and creates a
 new frame-zero baseline. Existing snapshots do not cross room boundaries.
+
+
+## Required definition-level retention versus optional world isolation
+
+Rejected authored edits must leave active prepared definitions, generation and
+existing playback references unchanged. This is a required A11 contract and does
+not wait for A10. Initially activate changed mechanical content at a supported
+session/reconstruction boundary. An inactive **prepared value** can be validated
+without building an inactive ECS world. Preserving the old world after arbitrary
+destructive native construction failure is the separate, stronger A10 guarantee.

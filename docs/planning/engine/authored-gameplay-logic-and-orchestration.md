@@ -120,168 +120,45 @@ Dialogue-authored commands still have their own text-to-`AuthoredArg` conversion
 path. Reuse the shared preparation semantics if doing so removes a real duplicate
 without forcing dialogue control flow into the shared substrate.
 
-### O3 — wait for a real rule-form customer
+### O3 - keep sequencing with the domain that owns its occurrence
 
-Do **not** build `when ... then ...`, an ordered generic rule list, a behavior
--tree AST, or a universal state-machine format merely because prepared conditions
-and commands now exist.
+The concrete move-local sequencer already exists: TechniqueFlow in entity-catalog
+and its interpreter in combat's MovePlayback. Three game-source flows use 3, 3
+and 4 nodes. Their limited use does not imply the interpreter is absent, nor does
+it justify extending it into a universal world/dialogue state machine.
 
-Promote a rule representation only when a real authored feature needs both:
+The [authored technique protocol](authored-technique-admission.md) now chooses
+version-1 admission: acyclic, reachable, 1-256-node programs with checked indices,
+finite waits and existing per-occurrence contact latches. Finish completes the
+flow but leaves recovery intact. The normal move clock/teardown ends playback;
+unresolved Wait is not authority to extend it. Current charge/repeat mechanics
+retain their own timing rules.
 
-- a condition/trigger representation that its current domain-specific format
-  handles poorly; and
-- a semantic command/effect that already has an owning domain.
+A controllable projectile with steering leases, expiry/self-hit outcomes and
+release policy remains a distinct future customer. It needs typed domain lifetime
+and occurrence signals before it can be represented honestly. Do not represent
+those outcomes by clearing global contact latches or adding arbitrary string
+signals to this validation packet. Domain-specific sequencing remains the default
+where a move-local occurrence is not the owner.
 
-The first implementation must state who owns per-occurrence runtime memory and
-how that memory participates in rollback/lifetime semantics.
+### O4 - bind discovery and validation to actual installed support
 
-> **⚠ THE CANDIDATE LIST, measured `255e1ec0a` (2026-09-03) — a list, NOT a verdict.**
-> O3's gate turns on whether a real feature's current format handles triggers
-> POORLY, which is a judgement about authoring experience and not something a
-> grep can settle. What a grep can supply is who the candidates are, so whoever
-> makes that call starts from the actual consumers:
->
-> - `authored_switch_commands` (`ambition_platformer2d_actor_monolith::world`) —
->   4 references, and rollback-registered as `derived.authored_switch_commands`;
-> - `gated_lock_walls` — 4 references;
-> - the substrate itself,
->   `crates/ambition_platformer2d_shared_tangle/src/authored_logic/prepared.rs:63`
->   and `:80`.
->
-> **Two consumers, both in the same crate, neither yet reported as struggling.**
-> ⛔ On this page's own rule that is NOT a promotion trigger — it is the evidence
-> that the trigger has not fired, recorded so the next reader does not have to
-> re-derive it before deciding to keep waiting.
->
-> ⭐ Worth knowing from the other side: `extension-model.md`'s ladder measures
-> this rung as the ONLY one without a general representation, and calls it
-> partial rather than empty for exactly the substrate above. The two pages agree,
-> which is itself worth recording — most of the cross-plan joins checked this
-> week did not.
+Follow A11/A12 in [the frontier](actor-monolith-work-frontier.md), with their
+normative [protocol](authored-technique-admission.md). Each typed capability offer
+installs its handler and declares support in one place; profile finalization
+freezes a read-only validation/discovery view. Duplicate keys are errors without
+function-pointer comparison. Paramless, unknown, disabled and unsupported-site
+cases are distinct.
 
-✔✔ **THE GATE FIRED 2026-09-05 — Jon, after reading the tree and the moves
-already built.** The row above recorded two consumers "neither yet reported as
-struggling" and correctly concluded the trigger had not fired. A third customer
-has now been named, and it satisfies this row's own three clauses rather than
-two of them:
+One exhaustive typed visitor over expanded moves covers timeline, sustain,
+on-hit, flow and schema-declared nested references. The same traversal supplies
+forward/reverse inspection. Do not maintain a separate catalog that can claim a
+handler is installed while preparation/runtime use another authority.
 
-- **a trigger representation its current format handles poorly** —
-  PK-Thunder-style behaviour: spawn a projectile, lease steering input to it,
-  restrict fighter control, wait on *self-hit / other-hit / expiry*, and branch
-  to a directed launch. A `MoveSpec` timeline can state WHEN something happens;
-  it cannot state *what happens next, based on what happened before*, which is
-  the whole of this move.
-- **semantic effects that already have owning domains** — every operation in it
-  is owned elsewhere already: projectile spawning and trajectory by projectile
-  authority, input routing by control authority, fighter motion by movement
-  authority, contact by the relevant contact authority. ⭐ Not one of them
-  belongs to the sequencer, which is why this customer tests the rung rather
-  than smuggling in a general one.
-- **who owns per-occurrence runtime memory, and its rollback semantics** —
-  `MovePlayback`, extended with current flow node, trigger/input latches,
-  issued-event bookkeeping, timeouts and local symbolic slots. ✔ Verified
-  2026-09-05 against `crates/ambition_combat/src/moveset/mod.rs`: it already
-  carries `t`, `landed_hit` / `connected_hit` / `blocked_hit` / `hit_targets`,
-  `aim` / `aimed_stick`, `charge`, `looped_s` and `instance` — per-use
-  deterministic state that is rollback-carried today. The flow adds a cursor to
-  an occurrence record that already exists rather than a second lifetime.
-
-⛔⛔ **AND IT IS SCOPED SO IT CANNOT BECOME THE UNIVERSAL SEQUENCER THIS PAGE
-REFUSES.** Named `TechniqueFlow` / `MoveFlow`, explicitly NOT `ActionGraph` —
-Jon's reason is that the latter "sounds like a universal gameplay execution
-model, which is precisely what the planning docs are trying not to introduce".
-The node vocabulary is `emit` / `wait` / `branch` / `finish` plus symbolic slots,
-with **no** variables, arithmetic, arbitrary expressions, arbitrary ECS queries,
-general scripting, behaviour trees or global blackboard. ⇒ It is MOVE-SCOPED:
-"a domain decides *when* to ask/effect" still holds, and the domain here is the
-move. A slot exists so a move references a semantic occurrence (`"thunder"`)
-instead of holding an `Entity`, which is what keeps rewind, inspection and
-remote detonation clean.
-
-⛔⛔ **THE FOUR NODES AND THREE SIGNALS SHIPPED; THE SLOTS DID NOT, AND THAT IS
-NOW A MEASUREMENT RATHER THAN A GAP — 2026-09-06.** This page's own rule is that a
-general rule representation *"deliberately waits for a customer"*, so the same
-standard was applied to slots instead of building them because the vocabulary
-named them:
-
-* **Every flow authored in the game has exactly ONE `Emit`.** All three of them —
-  the Shadow Oni's `iaijutsu`, the goblin's `headlong_charge`, the smash demo's
-  `read_and_seize`. Each waits for a verdict and fires one effect. ⇒ **No node
-  ever names something an earlier node made**, which is the only thing a slot is
-  for.
-* **`FlowNode::Emit` is caster-anchored**: it writes `world_offset: Vec2::ZERO`,
-  and technique handlers compute position from the body's own `kin.pos` plus
-  authored params rather than reading the event's offset. A slot would have
-  nothing to point AT without changing every handler.
-* **The candidate customers each already carry a domain-owned name.** The remote
-  mine answers to `PlacedMine::owner_seat` and is one-per-seat by construction (a
-  press with one out detonates it or is ignored); the portal pair links by
-  `Indexed(n)` / `Indexed(n ^ 1)`; the goblin's grab-on-connect reads
-  `MovePlayback::hit_targets`.
-* ⚠ **The mine is the sharpest refusal, and it is this page's own example.**
-  "Remote detonation" is cited above as the motivating case, and the mine
-  deliberately OUTLIVES its move — placed by one press, set off by a later one.
-  `MovePlayback` is per-occurrence memory, so a move-scoped slot **cannot hold
-  it**. The example that motivates slots is the example that rules them out at
-  this scope.
-
-⇒ **Sequencing IS being authored, just not through flows: 3 flows against 8 cancel
-windows.** When nine specials were authored on 2026-09-06 and one wanted "land
-this, then that" (the oni's `shadow_answer` into `iaijutsu`), what it reached for
-was `cancelable` — the timeline's answer, already shipped.
-
-⭐ **The reopening condition, stated so it can be checked rather than re-argued: a
-move that creates TWO live things of the same kind within one occurrence**, where
-every seat-scan and link-group index becomes ambiguous and only a symbol can
-disambiguate. Nothing on the roster does.
-
-⛔ **And the cost is recorded because it is small and that is the trap.**
-`MovePlayback` is registered `rollback_component_resolved`
-(`crates/ambition_combat/src/rollback_registration.rs:153`), so an
-`Option<Vec2>` slot would be carried by clone with no codec and no schema bump.
-**A rung being cheap is not a reason to build it** — that is the speculative
-generalisation the top of this page refuses.
-
-⇒ Design and capability map:
-[`expressive-move-capabilities.md`](expressive-move-capabilities.md).
-Execution order:
-[`../demos/campaigns/expressive-moves-2026-09-05.md`](../demos/campaigns/expressive-moves-2026-09-05.md).
-
-### O4 — keep discovery/inspection first-class
-
-Authoring and agent tooling should be able to enumerate:
-
-- available conditions and commands;
-- parameter kinds and documentation;
-- prepared source location/provenance;
-- preparation failures;
-- the owning domain/capability.
-
-Do not require a developer to search Rust registration topology to discover the
-authored vocabulary.
-
-⭐ **A CONCRETE ASK LANDED HERE 2026-09-05, from the same direction that fired
-O3, and it names the exact hole.** `ParamSchemaRegistry` intentionally accepts an
-unknown effect key, so it can report *the parameters for `smash.teleport` are
-malformed* but not *`smash.teleprot` does not exist*. ⇒ Add an **installed
-technique descriptor catalog** — preparation, inspection and tooling only, ⛔
-never the runtime reducer — carrying per technique: key, owning
-capability/domain, documentation, parameter schema, where it may be used
-(event / sustained window / on-hit), the signals it may produce, and examples.
-Then make the Smash provider's content-finalization pass strict (**every
-authored `EffectRef` must resolve to an installed technique**) and expose
-`smash_tool techniques`, `smash_tool technique <key>` and
-`smash_tool mechanics <domain>`.
-
-ⓘ **The motivation is agent behaviour, not typo-catching.** Jon: authoring
-agents do not reach for capabilities unless told they exist, and a catalog makes
-it materially harder to decide *"I guess I need to write a new system"* before
-discovering that capture, teleport, stored charge and mount already do it.
-
-✔ M5, the why-not half, landed 2026-09-02: `ConditionOutcome::NotSatisfied`
-carries `WhyNot { term, subject, observed }` and every production evaluator
-states one; `GatedLockWallVerdicts` is the first read model built on it. See the
-inspection plan's why-not item for what is still open.
+Invalid authored input must not enter the active prepared registry. Existing
+moves retain their selected definition, and mechanical revisions activate at an
+explicit session/reconstruction boundary first. A metadata hash is not proof of
+native-code compatibility, and a typed Rust provider is not sandboxed.
 
 ## Determinism and lifetime
 
@@ -331,24 +208,3 @@ This plan remains open because the representation for reusable authored rules is
 intentionally unresolved. It can close when real customers have either proven a
 small shared rule form or demonstrated that prepared semantic calls plus
 independent domain control-flow backends are sufficient.
-
-## O4 admission refinement and existing interpreter bounds
-
-[A11/A12](actor-monolith-work-frontier.md) are the bounded implementation packets
-for the current O4 gap. `read_and_seize` already authors a flow and combat already
-interprets it; this is no longer a missing-interpreter task. The unconnected
-`ParamSchemaRegistry` cannot validate actual installed support or reject unknown
-keys on the current production preparation path.
-
-Expose a typed installed-technique declaration from the same installer that adds
-the handler. Preparation distinguishes unknown, known-but-not-installed and
-explicitly parameterless support, and applies semantic validators to all event,
-window, flow and nested payload effect references. A new executable global
-registry or general-purpose VM is not needed.
-
-Flow validation must agree with the runtime's `u16` node representation and reject
-nonfinite timeouts. Preparation owns graph validation and an explicit work bound;
-per-tick interpretation owns the current occurrence state. Existing connected/
-blocked/overlapped signals latch for an occurrence, not independently for each
-later Wait node. A future multi-beat customer requires scoped beat evidence;
-do not claim those semantics from the present latch.

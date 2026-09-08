@@ -3,7 +3,9 @@
 **State:** open; baseline `300004d601af1e633cfaee969f079cf9bb368ca8`.
 **Doctrine:** [agent-native authoring](../../concepts/agent-native-authoring.md).
 **Execution:** [the queue](../queue.md); technique admission/bounds packets A11/A12
-are in [the frontier](actor-monolith-work-frontier.md).
+are in [the frontier](actor-monolith-work-frontier.md). The
+[authored technique protocol](authored-technique-admission.md) owns their exact
+support declaration, visitor, graph limits, clock semantics and activation gate.
 
 ## Goal
 
@@ -31,6 +33,11 @@ submodule ownership.
 `crates/ambition_combat/src/moveset/mod.rs` interprets it. The old assertions that
 all flows are None and no interpreter exists are retired. Its contact signals
 are per-move-occurrence latches, not arbitrary per-beat event subscriptions.
+
+Finish does not terminate the move's recovery, and an unfinished flow does not
+extend playback; the enclosing move clock and normal teardown remain in control.
+The focused protocol preserves those semantics while introducing checked acyclic
+flows and installed-profile admission.
 
 Two preparation gaps are source-established: the parameter-schema registry has
 no production callers, and flow validation does not establish finite timeout or
@@ -241,3 +248,14 @@ Invalid semantics fail at admission; diagnostics point to the real source;
 repeating a request cannot accidentally duplicate content; stale plans refuse;
 missing prerequisites remain visible. Current tool tests and Rust/GPU/platform
 receipts are reported separately rather than combined into an unsupported pass.
+
+
+## Revision admission is an author-facing guarantee
+
+Invalid edits cannot partly overwrite active prepared definitions or increment
+the active generation. Validate a candidate against frozen installed support,
+including expanded/nested reference sites, and keep active playback pinned to
+its original revision. Initially publish mechanical changes only at an explicit
+session/reconstruction boundary. The detailed protocol includes a real provider
+fixture and stable source-path diagnostics; it does not require a universal
+execution registry, new scripting language or arbitrary ECS transaction system.

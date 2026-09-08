@@ -1,8 +1,11 @@
 # Room-transition loading
 
-**State:** NARROW / OPEN — the canonical readiness/authorization transaction is
-implemented. Remaining work is latency/residency quality and the future external
-peer lifecycle barrier.
+**State:** OPEN — the canonical readiness/authorization transaction is
+implemented for room transitions. Checkpoint restoration still needs A1's
+cross-domain accepted-snapshot/commit contract; remaining work also includes
+latency/residency quality and the future external peer lifecycle barrier.
+The [checkpoint protocol](checkpoint-restoration-protocol.md) is normative for
+restore inputs, cancellation, prefetch coherence and domain mutation timing.
 
 ## Current contract
 
@@ -161,8 +164,11 @@ Owner: [`netcode.md`](netcode.md).
 ## Admission and publication are separate failure boundaries
 
 [A1](actor-monolith-work-frontier.md) requires a checkpoint route attempt to
-observe lifecycle admission before it latches progress. A request can be refused;
-it is not evidence that a transition will happen. Preserve the startup road's
+observe lifecycle admission before it latches progress. F9 also requires domain
+restorers to stop interpreting a raw reset as admitted authority. A request can be
+refused; it is not evidence that either a room transition or domain restore should
+happen. Prepare a checkpoint transition from its pinned continuity input; do not
+modify live ledgers just to make the ordinary builder see checkpoint state. Preserve the startup road's
 current non-gameplay-gated installation and reset's public phase ancestry.
 
 [Finding F6](architecture-review-findings.md) bounds the word transaction here:

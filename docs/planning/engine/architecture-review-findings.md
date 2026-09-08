@@ -5,7 +5,9 @@ This is a bounded source-review finding set, not a replacement issue tracker.
 The [queue](../queue.md) chooses work and the
 [frontier](actor-monolith-work-frontier.md) supplies packets. Remove a resolved
 finding from the live work surface after recording its test and resulting owner.
-Git preserves the previous diagnosis.
+Git preserves the previous diagnosis, including
+[archived epochs](../repository-history.md). Locally absent history is not proof
+of a fabricated source reference.
 
 **Verification limit:** Rust/Cargo were unavailable in this review environment.
 No Rust reproduction, gameplay session, rollback run, GPU run or release build
@@ -309,14 +311,55 @@ controlled work budget when graph size is unbounded. It also clones the flow
 before each interpretation pass; that is a visible allocation/copy opportunity,
 not a measured frame-time bottleneck.
 
-A12 validates representability and finite positive timeouts, establishes a
-documented maximum graph/work size, and aligns prepared index types with the
-executor. Reject invalid data before publication rather than widening rollback
+The [authored-technique protocol](authored-technique-admission.md) now fixes
+A12's choice: 1-256 reachable nodes, acyclic control flow, checked indices and
+finite positive waits, with the existing move-clock lifetime. The game Rust
+constructors contain three concrete flows of 3, 3 and 4 nodes, all acyclic.
+This is an engineering admission policy, not a measured performance bound or
+proof that every external serialized input already fits it. Reject invalid data before publication rather than widening rollback
 state as an incidental fix. Inspect direct MovePlayback construction paths as
 well as provider preparation. Tests include the boundary indices, infinity/NaN,
 empty graph, dangling edge, cycles, and existing normal flows. Keep temporal
 signals scoped to their actual per-move occurrence semantics; a second Wait does
 not currently mean a second independent hit.
+
+## F9. Raw checkpoint reset readers can mutate domains without room admission
+
+**Owner:** session checkpoint coordination and domain restore reducers.
+**Priority:** A1c, after A1a's witness and A1b's move.
+**Confidence:** source-established independent raw-message readers; the complete
+busy-slot behavior and reachable production cases require the specified Rust
+fixture. No executed reset reproduction is claimed by this review.
+
+`restore_occurrence_baseline` in
+`crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs`,
+`restore_owned_items_to_checkpoint` in
+`crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs`,
+and `restore_custody_to_checkpoint` in
+`crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs` read
+ResetToCheckpoint and mutate their domain state without receiving the admission
+result from session. The custody reader can also materialize restored objects.
+
+`resume_at_checkpoint_on_reset` in shrine separately records the room intent and
+only emits RoomReplayAdmitted if accepted. The runtime checkpoint installer puts
+routing and domain restoration in the restore phase, but that phase membership
+does not communicate whether the slot accepted the request. Moving or ordering
+the router alone therefore cannot enforce the slot's documented refusal contract.
+
+Construct a full checkpoint-horizon fixture with differing live/baseline
+occurrence, custody and owned-item state, plus an incumbent lifecycle intent.
+Emit a reset, advance the actual schedule, flush commands, and assert the desired
+contract: incumbent unchanged and zero restore-caused domain/entity/subject
+mutation. Check each domain independently so one absent capability cannot make
+the test vacuous. Follow with release-of-incumbent, missing-primary and confirmed-
+rollback variants.
+
+The target [checkpoint protocol](checkpoint-restoration-protocol.md) pins a typed
+snapshot on admission, feeds it to both cached and fresh room preparation, and
+applies domain reducers at the common authorized commit. Pre-admission and
+preparation failure leave live data intact; post-destructive failure blocks
+publication without claiming arbitrary rollback. A single accepted-marker event
+is insufficient to prove that preparation and commit used the same snapshot.
 
 ## Investigation boundaries, not established bugs
 

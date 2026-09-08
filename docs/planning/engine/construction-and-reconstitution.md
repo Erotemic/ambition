@@ -610,6 +610,15 @@ error the suite is written against.
 
 ## Authority and failure boundary after the architecture review
 
+The [checkpoint restoration protocol](checkpoint-restoration-protocol.md) now
+specifies A1's complete selected-snapshot path. Current canonical constructors do
+not prove checkpoint restoration coherent while occurrence/custody readers still
+mutate on raw ResetToCheckpoint. F9 is open. Both prefetch admission and fresh
+construction must use the pinned checkpoint continuity view, and restored domain
+state must precede final verification/rebase. Historical completion receipts
+above describe their original narrower slices; they do not close this defect.
+
+
 [Packets A1/A3/A10](actor-monolith-work-frontier.md) refine this owner contract.
 The common construction plan remains valid for rebuilding the same authoritative
 population. It does not imply that checkpoint routing, resource-only reset,

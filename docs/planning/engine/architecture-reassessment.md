@@ -31,9 +31,10 @@ Three examples establish the distinction.
 * Checkpoint startup restoration and reset routing are implemented in
   `crates/ambition_platformer2d_actor_monolith/src/shrine.rs`. Item pickup installs
   startup restoration; checkpoint-horizon composition installs reset restoration.
-  Both transact against session lifecycle state. The apparent shrine/session
-  cycle is primarily a misplaced lifecycle operation, not a need for a more
-  generic shared slot.
+  The router transacts against session lifecycle state, while occurrence and
+   item consumers can still restore directly from an unadmitted raw reset. The
+   shrine/session cycle is misplaced lifecycle ownership, and fixing it requires
+   a shared accepted operation, not a more generic shared slot.
 * Projectile contact admission, boss damage application and published boss hurt
   geometry use different paths. A marker-only extraction can hide that mismatch
   without giving one authority responsibility for the contact decision. Evidence:
@@ -145,8 +146,13 @@ removing the lifecycle responsibilities from it.
 The source also records a route attempt before checking slot admission. Under a
 denied-admission path the startup system can latch itself off for the session.
 This is a source-supported conditional defect, not an executed Rust reproduction.
-A1 first adds the denied-admission fixture and fixes that behavior; its second
-commit performs the ownership move. See finding F1.
+A1a fixes that latch; A1b performs the ownership move. The deeper trace also
+finds raw reset readers that restore occurrence/custody/accounting regardless of
+room admission (F9). A1c pins the accepted checkpoint, prepares against its
+read-only continuity view and applies all participating reducers through the
+common authorized commit. It does not promise arbitrary ECS undo. The
+[checkpoint protocol](checkpoint-restoration-protocol.md) now owns the complete
+state machine, phase/identity rules and migration.
 
 ### Decision C: separate contact selection, accepted damage and presentation
 
@@ -169,7 +175,10 @@ Projectile world sweep currently occurs after a feature-hit branch that may
 consume the projectile. Moving that branch behind a generic query would preserve
 the ordering defect. Characterize obstruction and fast-body traversal before
 claiming the new seam is complete. Do not combine the entire CCD redesign with a
-mechanical type move. See F2/F3 and A2's staged subpackets.
+mechanical type move. The [contact protocol](projectile-contact-protocol.md)
+now fixes actual-segment ordering, compound destructible surface/target contact,
+immediate interception versus later damage, sampled-target sweep scope and
+identity-preserving delivery. See F2/F3 and A2's staged subpackets.
 
 ### Decision D: retain coherent control cycles; split provenance from behavior
 
@@ -266,7 +275,11 @@ contrary to stale authoring prose. Its parameter-validation registry has no
 production caller, and flow validation does not bound usize transitions to the
 u16 runtime cursor. A11/A12 close those concrete admission gaps. Duplicate keys
 can be rejected without comparing function pointers; the current rationale for
-mandatory last-write-wins is incorrect. See F7/F8.
+mandatory last-write-wins is incorrect. The
+[authored-technique protocol](authored-technique-admission.md) selects acyclic
+1-256-node flows, exhaustive installed-profile validation, private checked runtime
+values and session-boundary activation. Finish stops the flow, not move recovery;
+the normal move clock/teardown remains authoritative. See F7/F8.
 
 ### Decision J: defer multi-instance generalization until its acceptance case
 
@@ -310,11 +323,14 @@ simpler specialization.
 
 ## RECOMMENDED NEXT MOVE
 
-**A1: make checkpoint restoration a session-owned operation.** First reproduce
-the denied-admission latch in a focused test and repair it. Then move restoration
-state, systems, rollback ownership and installers together without changing
-healing, checkpoint capture, reset or confirmation semantics. Do not create a new
-crate, generic lifecycle bus or shared slot.
+**A1: make checkpoint restoration a session-owned operation.** A1a reproduces
+and repairs the startup admission latch and characterizes denied-reset mutation.
+A1b moves restoration state, systems, rollback ownership and installers together
+without changing behavior. A1c then changes reset admission/commit sequencing so
+room and domain restoration use one selected checkpoint and authorized commit.
+It preserves the product's checkpoint, healing and primary-avatar policies, not
+the defective raw-message mutation timing. Do not create a new crate, generic
+lifecycle bus or shared slot.
 
 This has a narrow responsibility boundary, a concrete correctness witness and a
 clear absence test: checkpoint resume must not require installing held-item
@@ -322,6 +338,8 @@ behavior or a shrine entity. It also makes the later custody, session and world
 cuts easier to judge. A3 can proceed independently once it has a fresh caller
 inventory. A2 needs geometry/contact characterization before extraction. The
 remaining kernel splits are conditional packets, not authorized directory moves.
+A1c is now required before declaring checkpoint restoration coherent: raw reset
+consumers must use the same selected checkpoint and commit boundary as the room.
 
 ## External design references
 

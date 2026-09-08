@@ -79,6 +79,15 @@ table as a map to the code has three crates to visit, not one.
 
 ## Preferred reusable seams
 
+For direct projectile contact, the [contact protocol](projectile-contact-protocol.md)
+is the detailed owner: actual travel segments, published geometry, compound
+object surfaces, same-step interception and later identity-targeted reception.
+Do not replace this with a generic damageability marker or broadcast re-query.
+Its sampled-target sweep does not claim full dynamic CCD. Move-confirmation
+latency and checked flow execution are owned by
+[authored technique admission](authored-technique-admission.md).
+
+
 The Smash inventory's `P01`–`P14` index is the current product-driven list of
 missing reusable semantics. In combat, the important families are:
 

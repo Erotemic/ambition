@@ -2,7 +2,8 @@
 
 This file is the **current executable engineering queue**. It is not a work log,
 review transcript, campaign archive or place to preserve completed investigations.
-Git history owns those records.
+Git history owns those records, including intentionally retired epochs in
+[the cold history store](repository-history.md).
 
 A row stays here only when an engineer can act on it without first reconstructing
 weeks of context. Durable design belongs in the linked owner document. Product
@@ -14,64 +15,64 @@ review made no Rust execution claim; see the coverage receipt.
 
 ## P0 - characterize and repair current correctness gaps
 
-### A1a - checkpoint routing must record admission, not merely an attempt
+### A1a - establish checkpoint admission before spending restoration state
 
-**Owner:** session lifecycle; packet A1 in
-[`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
+**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md),
+packet A1 in the frontier.
 
-The startup checkpoint road stamps its routed-progress latch before checking
-whether the lifecycle slot accepted its intent. Add the busy-slot fixture first,
-prove the reachable retry policy, and update the latch only on the established
-success condition. Finding F1 is conditional source evidence, not a gameplay
-reproduction. Preserve the already-landed 2026-09-07 regression repairs.
+Repair the startup routed latch only on successful slot admission (F1). At the
+same time establish F9's full-composition witness: occurrence, custody and owned
+items currently restore from a raw reset request even when its room intent can
+be refused. Source evidence is not an executed gameplay reproduction.
 
-**Acceptance:** denied admission does not lose an otherwise required resume;
-admission and completed placement remain once-only; loading, reset and rollback
-fixtures retain their phase behavior. Commit this separately from A1b.
+**Acceptance:** denied startup admission remains retryable and accepted routing
+is once-only. Record the denied-reset values/side effects to be eliminated by
+A1c. Keep the startup fix, ownership move and cross-domain commit change distinct;
+do not report the entire reset-admission contract fixed after A1a.
 
 ### A2 - unify projectile contact geometry and obstruction semantics
 
-**Owner:** contact selection plus target reaction; packet A2 and findings F2/F3.
+**Owner:** [projectile contact protocol](engine/projectile-contact-protocol.md),
+packet A2 and findings F2/F3.
 
-First characterize published boss hurt geometry versus projectile admission and
-damage. Then establish world-versus-target ordering using the same movement leg,
-shape and collision policy. Only then replace feature-family fallback dispatch.
-This is not permission to implement a generic registry or change projectile
-consumption policy without a fixture.
+Establish shared geometry, actual travel legs and finite-shape obstruction order
+before replacing family dispatch. Preserve synchronous interception and later
+hit reception. Carry collider contributor identity: a destructible's own wall
+and its hurt shape can be one compound contact, not competing unrelated targets.
 
-**Acceptance:** present-empty hurtboxes, a target behind a wall, a high-speed
-body target, equal-time contacts and rollback all have explicit outcomes through
-the production road. No second feature-family query re-decides the selected hit.
+**Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
+compound solid object, reflection/absorption, returning shots and rollback have
+explicit production-road outcomes. The initial sampled-target sweep is not a
+claim of full moving-target CCD. No second family query chooses the victim.
 
 ### A11/A12 - make authored technique admission truthful and bounded
 
-**Owner:** authored-program preparation; packets A11/A12 and findings F7/F8.
+**Owner:** [authored technique admission](engine/authored-technique-admission.md).
 
-Characterize the disconnected parameter validator, duplicate-key policy,
-unknown/uninstalled/parameterless keys, flow-node representability and nonfinite
-wait times. Wire validation to the actual installed technique set and every
-supported effect-reference location. Keep validation and interpreter changes
-separate from broad moveset authoring or a new scripting VM.
+Start with A12a's raw validation and A11a's installed-profile declaration. Then
+validate every expanded effect site, install the private prepared representation
+and prove explicit activation. Version-1 flows are acyclic, 1-256 nodes and use
+checked indices/finite waits. Keep current move lifetime and delivery phases.
 
-**Acceptance:** rejected content cannot become an active prepared revision;
-valid shipped flows retain behavior; no accepted node target truncates at runtime;
-all current effect-reference forms receive semantic validation.
+**Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
+leaves active generation unchanged; existing 3-/4-node flows retain their traces.
+Finish does not remove recovery, Wait does not extend the move, and late contact
+feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1b - move checkpoint restoration out of shrine and item installation
+### A1b/A1c - session-owned restoration through one selected commit
 
-**Owner:** session lifecycle; packet A1. This is the recommended next ownership
-move, after A1a's characterization/fix.
+**Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
+After A1a, first move restoration state/installation out of shrine and item pickup
+without changing behavior. Then close F9 through immutable selected checkpoint
+inputs, domain-owned reducers and the shared eager/confirmed commit boundary.
 
-Move restoration systems, progress state and their installer to the existing
-session region. Leave shrine interaction/healing/capture policy with the rest
-point. Keep the lifecycle slot with session. Do not create a shared lifecycle
-framework or change save ownership in this packet.
-
-**Acceptance:** checkpoint restore works without the item-pickup installer,
-full-game phase edges remain equivalent, rollback wire identities are unchanged,
-and the actor-spawn authority guard remains green.
+**Acceptance:** no-item checkpoint composition works; a refused request changes
+no domain state; preparation/prefetch read the pinned snapshot rather than a
+modified live ledger; final verification and rollback rebase include restored
+custody/occurrences. A failed destructive native apply remains fail-closed, not
+an invented undo guarantee. Retain the corrected actor-spawn boundary.
 
 ### A3 - relocate actor-specific world placement lowering
 

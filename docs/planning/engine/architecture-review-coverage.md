@@ -12,8 +12,8 @@ do not maintain a parallel running architecture diary.
 The review inventoried all **79 workspace packages**, their manifests and Rust
 source regions, and considered the disposition of all **102 original planning
 Markdown files**. It traced selected state, caller, scheduling and lifetime paths
-across the platformer spine and the concrete defects below. The resulting overlay
-changes **67 existing planning files** and adds **4 planning files**;
+across the platformer spine and the concrete defects below. The first broad overlay
+changed **67 existing planning files** and added **4 planning files**;
 the other 35 original files retain their focused product/owner contracts.
 No source, manifest, test, asset or submodule change is part of the overlay.
 
@@ -26,8 +26,11 @@ separately. Recommendations and conditional counterexamples are not passing test
 The archive contains the committed superproject and five populated submodules:
 music, SFX and sprite renderers, developer measurements, and map assets. Uncommitted
 workstation/submodule state is not included. Those submodules were context inputs,
-not separately certified implementations. Epoch/shallow history limits older
-commit-citation resolution; the review does not guess missing commit contents.
+not separately certified implementations. The active source intentionally uses Git epochs. Older original commits live in
+[the cold history store](../repository-history.md), whose manifest and custom refs
+are the recovery authority. A shallow export can additionally omit active-epoch
+objects. The first review did not hydrate that archive and did not inspect missing
+commit contents; its local lookup failures do not establish lost history.
 
 ## Source inventory
 
@@ -303,6 +306,8 @@ benchmark. A9 requires real Cargo metadata/tree and external behavior fixtures.
 
 ## Executed and unavailable verification
 
+### First broad overlay receipt
+
 The exact delivery receipt is also supplied beside the overlay. The docs-only
 validation set includes local links, Markdown structure, live planning pointers,
 SDK module names, foreign-ordering instrumentation and the actor-spawn boundary.
@@ -315,8 +320,8 @@ Baseline local links passed: 283 documents / 949 links. The original strict
 citation audit found 210 unresolved citations: 208 missing historical commits
 and two abbreviated source paths. The two source paths were repaired. Redundant
 rewritten historical prose was removed for clarity, not to fabricate green
-history. The final remaining unresolved citations are unavailable historical
-commits: **192 unresolved historical references**, **zero newly unresolved
+history. The final remaining unresolved citations were locally unavailable historical
+commits (not a preservation-failure finding): **192 unresolved historical references**, **zero newly unresolved
 references**, and **zero current source-path or qualified-symbol failures**
 reported by this checker. Bare identifiers and every semantic use of a citation
 are outside that instrument's coverage.
@@ -345,3 +350,25 @@ no changed nonplanning source bytes, valid current source-path citations, no new
 citation-audit failures, valid local links and clean patch application to the
 exact base. These establish delivery integrity, not semantic correctness of the
 future source implementation. Each packet still needs its behavioral evidence.
+
+
+## Focused protocol follow-up
+
+The follow-up is a deeper source trace of three seams, not another all-codebase
+certification: checkpoint request/admission/domain restore/loading/commit, direct
+projectile contact/publication/receiver timing, and installed technique support/
+prepared flows/activation. It adds their normative protocol documents and updates
+the queue/frontier and affected owners. F9 records the newly identified independent
+raw reset mutation readers; F8 now has a fixed bounded-DAG design instead of an
+unresolved cyclic-execution policy. No Rust behavior was executed.
+
+History metadata was inspected through the GitHub connector on 2026-09-08,
+including the README and committed manifest at the metadata ref. The repository
+history page records that external evidence and the safe fetch procedure. Direct
+Git network access from this container failed DNS resolution; no full remote
+archive fetch, recursive checkout or multi-epoch reconstruction was executed.
+The archive's own verification receipts are not recast as this review's results.
+
+The separate follow-up handoff/validation receipt records its exact changed paths,
+local checks and artifact roundtrips against the previous overlay. Do not carry
+the first overlay's file/link/test counts forward as if they measured this one.

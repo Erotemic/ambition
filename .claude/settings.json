@@ -27,17 +27,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.llm_resource_tally/tool\" hook  # llm_resource_tally"
-          }
-        ]
-      }
-    ],
     "SessionEnd": [
       {
         "hooks": [

@@ -473,6 +473,16 @@ The diagnostic rendering may remain coarse.
 
 ## Default target
 
+**CLOSED 2026-09-09.** The default is `sandbag_infinite`, the immortal training
+dummy — one value named in three places that must agree:
+`ambition_demo_smash::INSPECTION_TARGET` (what `moveset_takes` and
+`moveset_render` default `--target` to), `DEFAULT_SCENARIO_TARGET` in the
+inspector server, and the same constant in `web/app.js`. It was a mirror match
+before, which varied the target along with the subject: the same move measured
+on two fighters was measured against two different bodies. `never_dies` also
+means a long grid run cannot end a take by killing the target. A mirror stays
+selectable and is still a distinct, cacheable scenario.
+
 Provide a passive deterministic target suitable for isolated move inspection.
 
 Use a real combat/damageable body through the normal runtime systems.

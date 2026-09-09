@@ -58,6 +58,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
 
 
+def unreferenced_in(
+    declared: set[str], source: str, manifest_text: str
+) -> list[str]:
+    """The declared names this crate's source never mentions and its manifest
+    never forwards.
+
+    ⭐ SPLIT OUT SO THE THREE ANSWERS ARE SEPARATELY TESTABLE, which is
+    D-BUILD-GRAPH-BLINDNESS's whole point: DECLARED-BUT-UNUSED, FEATURE-GATED and
+    ACTUALLY LINKED are different facts, and a measurement that conflates them is
+    worse than none. This function answers only the first, from text; the closure
+    question belongs to `cargo tree` and lives in
+    `check_absence_contracts.py`'s featureless-facade contract.
+    """
+    return [
+        name
+        for name in sorted(declared)
+        if not re.search(rf"\b{re.escape(name)}\b", source)
+        # Forwarding a feature IS naming the dependency, in the one file where
+        # naming it is the whole point.
+        and not re.search(rf'"{re.escape(name)}[?]?/', manifest_text)
+    ]
+
+
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
     meta = json.loads(
@@ -85,14 +108,7 @@ def main() -> int:
             # different claim and are not this script's subject.
             if dependency["name"] in members and dependency["kind"] is None
         }
-        unreferenced = [
-            name
-            for name in sorted(declared)
-            if not re.search(rf"\b{re.escape(name)}\b", source)
-            # Forwarding a feature IS naming the dependency, in the one file
-            # where naming it is the whole point.
-            and not re.search(rf'"{re.escape(name)}[?]?/', manifest_text)
-        ]
+        unreferenced = unreferenced_in(declared, source, manifest_text)
         if unreferenced:
             rows.append((package["name"], unreferenced))
 

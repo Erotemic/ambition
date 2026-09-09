@@ -650,14 +650,39 @@ producer/consumer tests use it.
 ⇒ Nothing is left in this row for the engine lane. It stays open for the Smash
 one, and for the next producer/consumer pair a re-measurement finds.
 
-### D-BUILD-GRAPH-BLINDNESS — keep optional/dependency measurements non-vacuous
+### D-BUILD-GRAPH-BLINDNESS — DONE 2026-09-09
 
 **Owner:** build/architecture tooling.
 
 Do not interpret declaration count as capability reachability. Measurements must
 resolve definitions, feature conditions and actual closure.
 
-**Acceptance:** fixtures distinguish declared-but-unused, feature-gated and
+**The row's own failure happened while it was open, twice in one day, and both
+are now instrumented.** A `cargo metadata` walk of the facade's closure reported
+61 ambition crates where `cargo tree -e normal --no-default-features` reports 49;
+the 12-crate gap is entirely OPTIONAL edges no feature enables, and the planning
+row's existing figure was right while the "correction" would have been the error.
+A guard built on the resolve graph would demand the deletion of a dependency that
+already costs nothing — which is this row's sentence, met from the wrong side.
+
+The three answers now have three instruments and fixtures that tell them apart:
+
+- **declared-but-unused** — `measure_unreferenced_workspace_dependencies.py`'s
+  `unreferenced_in`, split out to be testable, with
+  `scripts/tests/test_unreferenced_workspace_dependencies.py`: a source use, a
+  strong `dep/feature` forward, a WEAK `dep?/feature` forward, a dependency
+  nothing names, a prefix-sibling false negative that would otherwise make the
+  count permanently zero, and a live-tree floor so a classifier that reported
+  nothing for every input could not pass;
+- **feature-gated** — the same forwarding cases, which are a real use of the
+  dependency and must not be reported;
+- **actually linked** — `the-featureless-facade-links-none-of-these`, which walks
+  the FEATURE-RESOLVED tree, with red probes in
+  `scripts/tests/test_absence_contracts.py` for a forbidden crate that is
+  present, for an instrument that measured nothing (the failure mode an ABSENCE
+  contract has by construction), and for a truncated census.
+
+**Acceptance:** met — fixtures distinguish declared-but-unused, feature-gated and
 actually linked dependencies.
 
 ### D-LANE-UNRUNNABLE / D-APPIT-FLAKE — preserve executable test lanes

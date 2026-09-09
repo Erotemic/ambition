@@ -751,15 +751,6 @@ def _set_num_field(node: Struct, key: str, value: int) -> None:
     node.fields.append((key, Num(str(value))))
 
 
-def _set_tuple_field(node: Struct, key: str, values: tuple[int, int]) -> None:
-    new_value = Tuple_([Num(str(values[0])), Num(str(values[1]))])
-    for idx, (field, old) in enumerate(node.fields):
-        if field == key:
-            node.fields[idx] = (field, new_value)
-            return
-    node.fields.append((key, new_value))
-
-
 def _set_str_field(node: Struct, key: str, value: str) -> None:
     for idx, (field, old) in enumerate(node.fields):
         if field == key:
@@ -835,13 +826,31 @@ def _page_image_names(first_image: str, page_count: int) -> list[str]:
     return [src.name] + [f"{stem}.{page}.{suffix}" for page in range(1, page_count)]
 
 
-def _copy_non_atlas_metadata(scaled_rect: Struct, placement) -> None:
+def _copy_atlas_placement(scaled_rect: Struct, placement) -> None:
+    """Write WHERE the frame landed, and nothing about its SHAPE.
+
+    ⛔⛔ THIS USED TO OVERWRITE `w`, `h` AND `off` TOO, and that is the whole of
+    D-POTATO-ASPECT. A frame's drawn quad is
+    `authored_render * (trim_w / frame_w, trim_h / frame_h)` — the authored
+    render size is in world units and tier-independent, so the TRIM FRACTION is
+    what decides the quad's shape. Re-measuring an alpha bounding box on the
+    DOWNSCALED image gives a different fraction per tier: an anti-aliasing fringe
+    of roughly fixed pixel width is a far larger share of a 10px frame than of a
+    160px one. Measured 2026-09-06 on `mary_o_v2` idle — base 63x86 in 160x192
+    (0.394 x 0.448), potato 7x5 in 10x12 (0.700 x 0.417) — the aspect flipped
+    from portrait to landscape. That is the measurable half of Jon's report that
+    *"the size of the snake has seemed to vary depending on the global game
+    state"*: the state was the quality profile.
+
+    ⇒ `scaled_rect` already carries the base sheet's trim geometry SCALED
+    (`_scale_rect_struct` scales `w`, `h` and the `off` tuple), so the frame's
+    shape stays one authored fact with one source. The packer is told
+    `trim=False` and handed an image already cropped to exactly that box, so what
+    it stores and what the RON claims cannot drift apart.
+    """
     _set_num_field(scaled_rect, "x", placement.x)
     _set_num_field(scaled_rect, "y", placement.y)
-    _set_num_field(scaled_rect, "w", placement.w)
-    _set_num_field(scaled_rect, "h", placement.h)
     _set_num_field(scaled_rect, "page", placement.page)
-    _set_tuple_field(scaled_rect, "off", (placement.off_x, placement.off_y))
 
 
 def _frame_crop_from_rect(
@@ -859,9 +868,68 @@ def _frame_crop_from_rect(
 def _scaled_frame_crop(
     crop: Image.Image, scale: float, variant: Variant
 ) -> Image.Image:
-    width = _resized_dim(crop.width, scale, variant.min_frame_px)
-    height = _resized_dim(crop.height, scale, variant.min_frame_px)
-    return crop.resize((width, height), resampling_for_variant(variant))
+    """The authored frame's TRIMMED pixels at this tier's scale.
+
+    ⛔⛔ **`min_frame_px` IS NOT THE FLOOR HERE, AND APPLYING IT WAS THE LARGER
+    HALF OF D-POTATO-ASPECT.** That floor is a per-SHEET decision about the
+    LOGICAL frame, and `effective_scale` has already raised the whole sheet's
+    scale so no logical frame falls below it. Applying it a SECOND time to each
+    TRIMMED CROP inflates every small trim box up to the floor: a box that scales
+    to 2x3 came out `min_frame_px` square, which in a 10x12 potato frame is most
+    of the frame. `mary_o_v2` idle is the recorded case — base trim 63x86 in
+    160x192 (0.394 x 0.448), potato 7x5 in 10x12 (0.700 x 0.417), the aspect
+    flipped from portrait to landscape.
+
+    ⇒ A crop's only real floor is 1px, because an image cannot be zero wide. It
+    is smaller than its frame by definition, so a floor that can exceed the
+    frame's own scaled size is a category error rather than a safety margin.
+    """
+    width = _resized_dim(crop.width, scale, 1)
+    height = _resized_dim(crop.height, scale, 1)
+    scaled = crop.resize((width, height), resampling_for_variant(variant))
+    # ⛔⛔ NEAREST CAN DELETE A FRAME ENTIRELY at 1/16, and the tier's contract
+    # says "fewer pixels", not "no pixels". Measured 2026-09-09 over 60 sheets:
+    # the authored sheets carry 90 genuinely blank frames out of 7,313 and
+    # `0_5x` reproduces exactly 90, while `potato` produced 172 — 82 frames
+    # whose thin content fell between the sample points. The old code hid this
+    # by shrinking the trim box onto whatever survived, which is the aspect
+    # defect; keeping the box and keeping nothing in it would be a different
+    # regression, so a frame that HAD content and lost it is resampled with an
+    # area filter that cannot miss it.
+    #
+    # ⚠ Only for a frame that went empty. The crunchy nearest look the tier is
+    # named for is untouched everywhere it still has something to show.
+    if (
+        scaled.getchannel("A").getbbox() is None
+        and crop.getchannel("A").getbbox() is not None
+    ):
+        scaled = crop.resize((width, height), Image.Resampling.BOX)
+    return scaled
+
+
+def _crop_to_scaled_base_box(
+    logical_frame: Image.Image,
+    scaled_rect: Struct,
+    logical_size: tuple[int, int],
+) -> Image.Image:
+    """The sub-image the RON's own `off`/`w`/`h` describe, clamped to the frame.
+
+    Returned at exactly `(w, h)` even when the box runs off the logical frame —
+    the RON says that is the frame's shape, and a stored image of a different
+    size would put the manifest and the pixels back into disagreement, which is
+    the failure this whole path exists to remove. The out-of-frame part is
+    transparent, which is what it draws as.
+    """
+    lw, lh = logical_size
+    ox, oy = _off_for_rect(scaled_rect)
+    bw = max(1, _rect_value(scaled_rect, "w", 1))
+    bh = max(1, _rect_value(scaled_rect, "h", 1))
+    box = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
+    sx, sy = max(0, ox), max(0, oy)
+    ex, ey = min(lw, ox + bw), min(lh, oy + bh)
+    if ex > sx and ey > sy:
+        box.alpha_composite(logical_frame.crop((sx, sy, ex, ey)), (sx - ox, sy - oy))
+    return box
 
 
 def _logical_frame_from_crop(
@@ -983,16 +1051,23 @@ def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) ->
                 (frame_width, frame_height),
                 _off_for_rect(scaled_rect),
             )
+            # ⭐ CROPPED TO THE SCALED BASE BOX, so the packer has nothing left to
+            # decide about this frame's shape — see `_copy_atlas_placement`.
+            stored = _crop_to_scaled_base_box(
+                logical_frame, scaled_rect, (frame_width, frame_height)
+            )
             key = (record_index, row_index, frame_index)
             frames.append(
                 FrameInput(
                     key=key,
-                    image=logical_frame,
-                    logical_size=(frame_width, frame_height),
+                    image=stored,
+                    logical_size=stored.size,
                 )
             )
 
-    result = pack_frames(frames, max_dim=16384, page_size=4096, padding=1, trim=True)
+    # ⛔ `trim=False`: the images above are already exactly the box the RON
+    # claims. Letting the packer re-derive an alpha bbox here is the defect.
+    result = pack_frames(frames, max_dim=16384, page_size=4096, padding=1, trim=False)
     for key, placement in result.placements.items():
         record_index, row_index, frame_index = key
         scaled_record = scaled.items[record_index]
@@ -1008,7 +1083,7 @@ def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) ->
                 candidate_row_index == row_index
                 and candidate_frame_index == frame_index
             ):
-                _copy_non_atlas_metadata(scaled_rect, placement)
+                _copy_atlas_placement(scaled_rect, placement)
                 break
 
     first_image = (

@@ -507,9 +507,52 @@ fallback policy.
 manifests into a pass. Fix generation/trim semantics so a selected tier preserves
 the promised frame geometry.
 
-**Acceptance:** same authored frame at full/half/quarter/potato has bounded
-anchor/aspect drift; potato does not receive fewer drawable pixels than its
-selected quality contract promises.
+**Two generation defects repaired 2026-09-09, measured before and after.** A
+frame's drawn quad is `authored_render * (trim_w / frame_w, trim_h / frame_h)`,
+so the TRIM FRACTION decides the quad's shape and must be tier-independent. Two
+things in the fallback generation path made it a function of the tier:
+
+- **the packer re-measured an alpha bounding box on the DOWNSCALED image.**
+  `build_sheet_variant` packed with `trim=True` and then overwrote the scaled
+  record's `w`/`h`/`off` with the placement's, throwing away geometry
+  `_scale_rect_struct` had already computed correctly. It now crops each frame to
+  the scaled base box, packs with `trim=False`, and writes only WHERE the frame
+  landed — so the manifest and the pixels cannot disagree;
+- **and `min_frame_px` was applied twice**, which was the larger half.
+  `effective_scale` already raises a whole sheet's scale so no LOGICAL frame
+  falls below the floor; `_scaled_frame_crop` then applied the same floor to each
+  TRIMMED CROP, inflating every small trim box up to it. `mary_o_v2` idle is the
+  recorded case: base 63x86 in 160x192 (0.394 x 0.448) against potato 7x5 in
+  10x12 (0.700 x 0.417) — the aspect flipped from portrait to landscape, which is
+  the measurable half of Jon's report that *"the size of the snake has seemed to
+  vary depending on the global game state"*. The state was the quality profile. A
+  crop's only real floor is 1px.
+
+MEASURED with `scripts/measure_sprite_tier_trim_drift.py`, whole tree
+regenerated: potato rows drifting past 0.05 went **2966/3708 (80.0%) → 621/3708
+(16.7%)**, worst drift **0.823 → 0.132**, and `mary_o_v2` idle is 0.400 x 0.417
+against a base of 0.394 x 0.448. `sprites_0_5x` (1 row) and `sprites_0_25x` (146)
+are unchanged, and their residue is a different cause — integer rounding of small
+rects, bounded at 0.078 — not the alpha-retrim gradient.
+
+⚠ **THE SECOND CLAUSE NEEDED ITS OWN REPAIR, and it caught a regression the first
+change introduced.** Keeping the base box means a frame no longer shrinks onto
+whatever survived downscaling — and NEAREST at 1/16 deletes thin content
+outright. Measured over 60 sheets: the authored sheets carry 90 genuinely blank
+frames of 7,313 and `0_5x` reproduces exactly 90, while the first version of the
+fix produced 172 at potato. A frame that HAD content and lost it is now resampled
+with an area filter; the count is 91. The tier's crunchy nearest look is untouched
+wherever it still has something to show.
+
+Residual, stated rather than implied: 16.7% of potato rows still drift past 0.05,
+all of it small-integer rounding in frames of 9-12px. `check_quality_variants_are_fresh`
+and `measure_tier_variant_scaling` are green, and 7,349 regenerated potato rects
+were checked to lie inside their page — 0 out of bounds.
+
+**Acceptance:** met for the systematic half — same authored frame at
+full/half/quarter/potato has bounded anchor/aspect drift, and potato no longer
+loses drawable pixels the base sheet has. Rounding drift at extreme downscale is
+bounded and is not the tier-dependent aspect flip this row was opened for.
 
 ### D129 — finish authored-geometry sprite clipping repair
 

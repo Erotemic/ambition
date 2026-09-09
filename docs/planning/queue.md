@@ -292,6 +292,37 @@ bodies must be served once each despite deferred despawn.
 portal presence does not change which semantic interaction intent exists, and no
 query-order `.next()` arbitration returns.
 
+### D-RESET-ROAD-RESIDUE — retire the pre-reconstruction actor room reset
+
+**Owner:** actor integration / room reconstruction.
+
+`ActorMutIntegrationExt::reset_to_spawn` restores an enemy's spatial baseline,
+health and respawn policy in place on a surviving entity. **Measured 2026-09-08:
+it has no production caller** — `git grep` finds only its own definition and the
+four `#[cfg(test)] respawn_policy_tests`, and `check_no_warnings` is RED on it
+(`dead_code`, unused since `b1f42c79b`).
+
+It is superseded rather than merely unwired: a room transition retires every
+`RoomResident` and rebuilds the destination from its construction plan
+(`room_transition/commit.rs`), and a same-room replay reconstructs the population
+at the confirmed lifecycle boundary. The entity a reset-in-place would have
+restored does not survive either road.
+
+⛔ **THE FOUR TESTS ARE A FALSE WITNESS AND THAT IS THE POINT OF THE ROW.** They
+assert respawn-policy semantics — a `DeadStaysDead` corpse stays dead through a
+room reset, an `OnRoomReenter` mob comes back — against a function the game never
+executes. Deleting the function without replacing them leaves the same coverage
+in fact and less on paper; the row is only done when the shipped reconstruction
+answers those questions.
+
+**Do:** delete the method and its tests, and add the equivalent assertions
+against the real room re-enter in the visible-app or sim harness. Do not silence
+the warning: it is pointing at this.
+
+**Acceptance:** re-entering a room revives an `OnRoomReenter` enemy and leaves a
+`DeadStaysDead` corpse dead, asserted through the shipped reconstruction; a poison
+on the reconstruction's liveness gate reddens it; `check_no_warnings` is green.
+
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
 **Owner:** registry/identity owners.

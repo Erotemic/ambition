@@ -696,6 +696,27 @@ instead of increasing retries.
 **Acceptance:** missing Cargo/target/GPU prerequisites are explicit receipt states;
 known deterministic fixtures do not depend on wall-clock or entity order.
 
+**The first half landed 2026-09-09, from a run that produced the defect.** A
+`--rust` lane reported `5/6 jobs passed` with `workspace doctests` FAILED, and
+the whole content of that failure was `error: extern location for bevy does not
+exist: …libbevy-<hash>.rlib` — a stale artifact left by the same commit's own
+manifest feature changes. `cargo test --workspace --doc` immediately afterwards
+was clean. The job never compiled a doctest, so "FAILED" was a claim about the
+repository that nothing had measured, and a reader could not tell it from a real
+red. `run_tests.py` now scans a bounded tail for a narrow table of PRECONDITION
+signatures and reports those jobs as INCOMPLETE — named in the summary with their
+remedy, listed under `unrunnable` in the status file and on the per-job row, and
+still non-zero, because incomplete is not pass. Four tests, each the others'
+control (a stale artifact is incomplete; an ordinary red is still a red; a clean
+run says nothing about either; the signature table is not empty), poison-verified
+in both directions: widening the pattern to `FAILED|error` reddens the real-red
+arm, and classifying nothing reddens the incomplete arm and the floor.
+
+⚠ Still open: the GPU and missing-Cargo prerequisites have no signature yet — the
+table is deliberately narrow, one entry per signature actually observed, because
+a pattern broad enough to swallow a genuine compile error converts real reds into
+shrugs. And the D-APPIT-FLAKE half below is untouched.
+
 **Sighting 2026-09-09, measured rather than guessed.**
 `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
 failed in 2 of ~8 full `app_it` runs and **0 of 25 consecutive runs of its own
@@ -706,6 +727,13 @@ prints it only for the failing test and every attempt to capture reproduced a
 green run — that is the row's own lesson restated: **a flake with no message is a
 sighting, not a diagnosis.** Whoever sees it next should run the full suite with
 output redirected to a file so the message survives the run that produced it.
+
+**Second sighting 2026-09-09**, and it followed that advice too late: a `--rust`
+run reported the `workspace (default features)` job failed, an identical
+`cargo nextest run --workspace` immediately afterwards was 7619/7619 passed with
+34 skipped, and the failing test's NAME was lost because that run had been piped
+to `tail`. Same shape as the first sighting — full-suite load only — and the same
+lesson, now paid for twice: redirect the whole run to a file, not to `tail`.
 
 ⚠ The obvious suspect was ruled out: the test's own doc says "the only thing that
 would make it fail is a boss system that some other capability turns out to

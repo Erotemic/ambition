@@ -651,7 +651,7 @@ counted as a pass.
 | Missing primary during construction | `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists` (startup road); the reset road retains its request through the same absence |
 | Control changes after admission | `an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits`, poison-verified, premise asserted |
 | Capture changes while load waits | the same test's second assertion |
-| Same room, different checkpoint occurrence outlook | ⚠ **PARTIAL, AND BLOCKED ON CONTENT — measured 2026-09-08.** `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` covers a cross-room population the rebuild cannot republish, and preparation is structurally fed the pinned view. The row's actual hazard — a PREFETCHED plan built against a different outlook losing to the candidate — needs an object authored in a NEIGHBOUR of the session's room, because prefetch prepares neighbours and nothing else. All 38 neighbours of `central_hub_complex` were scouted (90 settled frames each, querying `(&SimId, &ItemCustody)`): **none authors an occurrence-bearing ground item.** ⇒ Unblocking this is an authoring change, not a test-writing one; do not spend another session rediscovering it |
+| Same room, different checkpoint occurrence outlook | Population side: `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding`, and preparation is structurally fed the pinned view. Cache side: `RoomConstructionPlanPrefetch::promote` already compares `plan.occurrence_outlook()` against the outlook it is handed, and A1c/3a changed WHICH outlook that is. ⚠ **The END-TO-END arm is unreachable from the checkpoint fixtures — measured 2026-09-08 and NOT a content problem.** `prefetch_neighbor_room_preparation_system` is installed by `room_transition_presentation`, a PRESENTATION plugin, so the headless sim harness every checkpoint fixture uses holds zero prefetched plans (probed: the cache is empty after 180 settled frames). ⛔ An earlier note here blamed authoring — that was wrong, and the correction matters: an object CARRIED into a room gives it a ledger row exactly as an authored one does, so no content is missing. See the misplacement note below |
 | No checkpoint / invalid saved destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
 | Save adoption plus startup in one lifetime | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
 | Prepare failure / cancellation | Cancellation: `a_startup_resume_whose_operation_is_retracted_asks_again`. ⭐ **Preparation failure is STRUCTURAL since A1c/3b and needs no fixture:** nothing destructive runs before the commit — preparation builds a plan and mutates no world, and every domain reducer lives in `CheckpointDomainApply`, which only a commit executor reaches. "Current live data unchanged" is therefore not a behaviour to test but a consequence of where the reducers are registered, and `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation` is what keeps it true. ⚠ Before 3b this row DID need a fixture, because the reducers ran in the simulation and a preparation that later failed had already spent the checkpoint |
@@ -663,9 +663,27 @@ counted as a pass.
 | Domain-only reducer tests | the reducers are separated from their triggers; `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs` shows the inputs are the only entry |
 | Teardown and re-entry | `a_key_from_a_retired_session_matches_nothing_in_the_next_one` |
 
-⇒ **One row is not honestly closed:** the prefetched-plan arm of the outlook
-row, and it is blocked on AUTHORING rather than on test-writing — see its entry.
-Every other row has a witness that fails for that row's property.
+⇒ **One row is not honestly closed:** the end-to-end prefetched-plan arm. It is
+blocked by a COMPOSITION MISPLACEMENT, not by content and not by test-writing —
+see the note below. Every other row has a witness that fails for that row's
+property.
+
+### ⛔⛔ A CONSTRUCTION-PLAN CACHE PREFETCHED BY A PRESENTATION PLUGIN
+
+Measured 2026-09-08 while trying to stage the row above.
+`prefetch_neighbor_room_preparation_system` — which prepares and caches ROOM
+CONSTRUCTION PLANS, a simulation concern — is installed by
+`game/ambition_app/src/app/world_flow/room_transition_presentation.rs`. So:
+
+* the headless sim harness every checkpoint fixture uses holds **zero** prefetched
+  plans (probed: the cache is empty after 180 settled frames);
+* the promotion path A1c/3a redirected is reachable only in the visible app;
+* an RL/headless composition silently re-prepares every room from scratch, and
+  the neighbour-prefetch tests pass because they use `build_visible_app`.
+
+⇒ This is not a checkpoint defect and A1 does not own it, but it is why the row
+cannot be closed from here, and it is worth its own packet: a plan cache belongs
+with the construction it caches, not with the cover that hides the wait.
 
 Existing integration witnesses include
 `game/ambition_app/tests/canonical_reconstitution.rs`,

@@ -107,13 +107,15 @@ the protocol. Fifteen of seventeen rows have a witness that fails for that row's
 property.
 
 **Remaining before A1 closes:**
-- ONE matrix row is not honestly closed, and it is blocked on AUTHORING rather
-  than on test-writing: the prefetched-plan arm needs a ground item in a
-  neighbour of the session's room, and all 38 neighbours of
-  `central_hub_complex` were measured to author none. (The preparation-FAILURE
-  row closed differently: since A1c/3b nothing destructive runs before the
-  commit, so "live data unchanged" is a consequence of where the reducers are
-  registered rather than a behaviour to test.);
+- ONE matrix row is not honestly closed: the end-to-end prefetched-plan arm,
+  blocked by a COMPOSITION MISPLACEMENT rather than by content or test-writing.
+  `prefetch_neighbor_room_preparation_system` caches room CONSTRUCTION plans and
+  is installed by a PRESENTATION plugin, so the headless harness every checkpoint
+  fixture uses prefetches nothing at all. See the protocol's note; moving the
+  cache to the construction side is its own packet, and A1 does not own it. (The
+  preparation-FAILURE row closed differently: since A1c/3b nothing destructive
+  runs before the commit, so "live data unchanged" is a consequence of where the
+  reducers are registered rather than a behaviour to test.);
 - ⛔ verification's remaining omissions are DELIBERATE, not pending: body
   placement has no comparand but the arrival, which transit legitimately
   reconciles off, and clocks/portals have no accepted snapshot at all. Checking

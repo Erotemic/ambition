@@ -187,11 +187,44 @@ authored graph is deleted. `TechniqueFlow::successors` is now the one edge
 enumeration its own doc claimed it was — `reaches_finish` and the dangling report
 each had a second and third copy.
 
-Next in this lane: A11b's rejection half — poison a reference site and verify the
-active registry and generation are unchanged — plus domain nested-reference
-policies and the public production insertion paths. Then A12b's remainder: the
-prepared constructors are still public and infallible, and no prepared REVISION is
-pinned on the playback.
+**A11b's rejection half was RE-DERIVED 2026-09-09, and most of it is already
+true or not yet reachable.** The three parts, separated because they have
+different answers:
+
+1. **At the registration door it holds, and is witnessed.**
+   `stage_authored_character` assembles a CLONE of `StagedCharacterOverrides` and
+   publishes it only on success, so a `DuplicateId` whose `candidate.insert`
+   already mutated that clone drops it. `two_providers_cannot_author_the_same_stable_id`
+   and `two_characters_cannot_present_under_the_same_display_name` both assert
+   the previous authority survives, and the first would redden if the candidate
+   became an in-place `ResMut`. Nothing to add.
+2. **"Generation unchanged" is not writable as a non-vacuous test yet.**
+   `PreparedCharacterRegistry` has exactly ONE production writer —
+   `finalize_cast`, at the barrier, guarded to run once — SEALED by grep for
+   `insert_resource`/`ResMut` of that type across the workspace. `insert_prepared`
+   is `#[cfg(any(test, feature = "test-support"))]` and every non-test caller of
+   it turned out to be inside a `#[test]`. So the generation cannot move during a
+   session at all, and a rejected registration happens BEFORE the barrier where no
+   registry exists to be unchanged. The assertion would be true of a harness, not
+   of the architecture.
+3. ⇒ **The acceptance row "edit rejected during active play" needs A11c FIRST,
+   not after.** There is no production republication road: `stage_authored_character`
+   PANICS after `finalized`, and nothing else writes the registry. The candidate/
+   activation mechanism A11c describes is the prerequisite that fixture has been
+   waiting on, which is why three attempts at it stopped on different obstacles.
+   ⚠ `project_prepared_character_definitions` DOES compare generations in
+   production — a reader for a transition only a test can cause.
+
+Still open in this lane: domain nested-reference policies (measured: three
+technique params name another authored definition — `SummonRideParams::character_id`,
+`DropBombParams::item_id`, `PlaceMineParams::item_id` — and preparation checks
+none of them; a summon naming an unknown character is refused at FIRE TIME by
+`preflight_planned_bodies` with an error log, which is the runtime failure this
+packet exists to move to preparation), the public production insertion paths, and
+A12b's remainder — of which "constructors private" is already effectively true
+(`PreparedCharacterDefinition` has five private fields, so no external struct
+literal exists, and its one construction site is inside `prepared.rs`), while
+"fallible" and the pinned REVISION both wait on the same A11c mechanism.
 
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.
@@ -852,7 +885,7 @@ it stayed green all day, because each commit's deletions were already at HEAD by
 the time it ran. The RANGE form over the same session
 (`--vanished <first>..HEAD`, 21 names left between them) found one immediately:
 `projectile-contact-protocol.md` still cited A2a's witness as
-`the_boss_hit_test_answers_only_from_the_published_volumes`, renamed to
+`the_boss_hit_test_answers_only_from_the_published_volumes`, <!-- cite-ok: the row RECORDS the vanished name --> renamed to
 `a_boss_is_reached_only_through_its_published_volumes` by the A2c predicate
 deletion two commits later. Repointed. ⇒ A carve author who runs only the
 working-tree form has not run this row's check at all.

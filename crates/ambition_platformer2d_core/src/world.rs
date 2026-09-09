@@ -1252,7 +1252,30 @@ impl World {
             let Some(sweep_hit) = body.sweep_hit(delta, block.aabb) else {
                 continue;
             };
-            if best.is_none_or(|hit| sweep_hit.time_of_impact < hit.time_of_impact) {
+            // ⛔⛔ **A STRICT `<` HANDS AN EXACT TIE TO `self.blocks` ORDER.** Two
+            // colliders a body reaches at the same instant — a tile seam, two
+            // authored solids flush against each other — compared equal, so the
+            // winner was whichever the vector happened to list first. That is
+            // broad-phase iteration order deciding a contact, which the
+            // projectile contact protocol forbids by name and which a rollback
+            // resimulation is not obliged to reproduce.
+            //
+            // ⇒ A TOTAL DETERMINISTIC ORDER: time of impact, then the collider's
+            // position, then its durable `GeoId`. `GeoId` is `Ord` precisely so
+            // that a holder needing determinism does not have to re-argue it.
+            // Nothing about a non-tie changes; only the tie stops being an
+            // accident.
+            let better = match best {
+                None => true,
+                Some(hit) => sweep_hit
+                    .time_of_impact
+                    .total_cmp(&hit.time_of_impact)
+                    .then_with(|| block.aabb.center().x.total_cmp(&hit.block.aabb.center().x))
+                    .then_with(|| block.aabb.center().y.total_cmp(&hit.block.aabb.center().y))
+                    .then_with(|| block.id.cmp(&hit.block.id))
+                    .is_lt(),
+            };
+            if better {
                 best = Some(SweepHit {
                     block,
                     time_of_impact: sweep_hit.time_of_impact,

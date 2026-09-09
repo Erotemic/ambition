@@ -1184,6 +1184,122 @@ fn a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick() {
 /// ⭐ BOTH ARMS, and the second is the anti-vacuity floor: a `Bouncing` shot
 /// crosses a one-way BY DESIGN, so it must still land. Without it, an
 /// obstruction test that refuses everything passes the first arm.
+/// ⛔⛔ **A ONE-WAY IS DIRECTIONAL, AND OBSTRUCTION HAD TO LEARN THAT FROM THE
+/// RESPONSE.**
+///
+/// The test above fires HORIZONTALLY at a VERTICAL one-way, so its `Bouncing`
+/// arm never touches the blocking side at all — a shot travelling sideways is
+/// not descending onto anything, and the arm passes whatever the obstruction
+/// filter says about approach direction. That left the real split unguarded:
+/// `blocks_this_shot` excluded EVERY `OneWay` for a `Bouncing` shot, while
+/// `resolve_world_collision` bounces off one the shot is descending onto — as
+/// `fireball_bounces_off_one_way_platform_in_system` above has always proved.
+/// So a fireball falling onto a platform was ORDERED as though nothing were
+/// there, free to damage a body below it, and then physically bounced off it.
+///
+/// ⭐ BOTH DIRECTIONS, and the arms differ ONLY in the sign of the velocity.
+/// The second is the anti-vacuity floor: a fireball crosses a one-way FROM
+/// BELOW by design, so it must still land on a body above. Without it, an
+/// obstruction filter that simply blocked every one-way passes the first arm
+/// and silently breaks the behaviour the platform exists for.
+#[test]
+fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through() {
+    /// Positive `y` is DOWN in this world, as `fireball_bounces_off_one_way_platform_in_system`
+    /// establishes: it starts a shot above a ledge with `vel.y > 0` and asserts
+    /// the post-bounce `vel.y` is negative.
+    fn victim_hp_with_shot_travelling(vy: f32, shot_y: f32, victim_y: f32) -> (i32, i32) {
+        let world = ae::World::new(
+            "one_way_horizontal",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            // A WIDE, FLAT ledge spanning the shot's column: y 300..308.
+            vec![ae::Block::one_way(
+                "ledge",
+                ae::Vec2::new(200.0, 300.0),
+                ae::Vec2::new(400.0, 8.0),
+            )],
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.add_systems(
+            Startup,
+            move |mut commands: Commands,
+                  catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+                crate::features::spawn_encounter_mob(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    "projectile_test",
+                    ambition_encounter::mob_seed::EncounterMobSeed {
+                        id: "shielded_enemy".into(),
+                        character: Some("fixture_striker"),
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "fixture_striker".into(),
+                        ),
+                        // ACROSS the ledge from the shot, in both arms.
+                        pos: ae::Vec2::new(400.0, victim_y),
+                        size: ae::Vec2::new(28.0, 46.0),
+                    },
+                );
+            },
+        );
+        app.update();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(400.0, shot_y),
+                ae::Vec2::new(0.0, vy.signum()),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(400.0, shot_y);
+            // The one thing that differs between the arms.
+            body.kin.vel = ae::Vec2::new(0.0, vy);
+            body.game.world_hit = ambition_projectiles::WorldHitPolicy::Bouncing;
+            assert!(
+                body.game.bounces_remaining > 0,
+                "the directional rule is `descending AND has a bounce left`; a \
+                 spent fireball would pass through and prove nothing"
+            );
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let (_, health) = query
+            .iter(world)
+            .find(|(identity, _)| identity.id() == "shielded_enemy")
+            .expect("the shielded enemy should be spawned as an ECS actor");
+        (health.health.current, health.health.max)
+    }
+
+    // DESCENDING onto the ledge, victim below it.
+    let (descending, max) = victim_hp_with_shot_travelling(8000.0, 250.0, 350.0);
+    assert_eq!(
+        descending, max,
+        "a `Bouncing` shot DESCENDING onto a one-way damaged a body below it. \
+         The response bounces off that platform -- `fireball_bounces_off_one_way_platform_in_system` \
+         -- so ordering the shot as if nothing were in the way is the two roads \
+         disagreeing about what stopped it (was {max}, now {descending})"
+    );
+
+    // RISING through the ledge, victim above it: the design case, unchanged.
+    let (rising, max) = victim_hp_with_shot_travelling(-8000.0, 350.0, 250.0);
+    assert!(
+        rising < max,
+        "a `Bouncing` shot RISING through a one-way must still reach a body \
+         above it -- a fireball crosses one from below by design. An obstruction \
+         filter that blocks every one-way passes the descending arm and breaks \
+         the behaviour the platform exists for"
+    );
+}
+
 #[test]
 fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
     fn victim_hp_after_a_shot_through_a_one_way(
@@ -1916,4 +2032,211 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
             "({order}) an absorbed shot went on to feature/world resolution"
         );
     }
+}
+
+/// ⛔⛔ **THE TIE WENT TO THE TARGET, AND THE COMMENT CLAIMED THAT WAS THE
+/// PROTOCOL.**
+///
+/// `projectile-contact-protocol.md` says an independent blocking surface at
+/// exactly the same impact time WINS over an unrelated hurt target, precisely
+/// so a tie cannot grant damage through a wall. The road implemented
+/// `wall < contact - f32::EPSILON` — the opposite policy, expressed with the
+/// epsilon comparator the same document forbids by name.
+///
+/// ⭐ ASSERTED ON THE COMPARISON ITSELF, not through a fixture. Two swept code
+/// paths (`body_sweep` for the wall, `reached_along` for the victim) producing
+/// bit-identical `f32` times is not something a behavioural test can promise,
+/// and a tie test that never actually ties proves nothing at all.
+#[test]
+fn an_independent_wall_wins_an_exact_tie_against_a_hurt_target() {
+    use crate::projectile::systems::wall_reaches_first;
+
+    // THE CASE THAT FLIPPED. Equal times: the wall takes it.
+    assert!(
+        wall_reaches_first(Some(0.5), 0.5),
+        "a wall at exactly the target's contact time must win — a tie may not \
+         grant damage through it"
+    );
+
+    // ⭐ AND THE EPSILON SWALLOWED REAL WALLS TOO. `f32::EPSILON` is ~1.19e-7
+    // while the gap between adjacent floats at 0.5 is ~5.96e-8, so a wall a
+    // FULL REPRESENTABLE STEP earlier still failed `wall < contact - EPSILON`:
+    // the old form called a genuinely earlier wall second.
+    //
+    // ⚠ `next_down`/`next_up`, NOT `0.5 +/- 1e-9`. Written that way first, and
+    // both arms were vacuous: 1e-9 is far below the ulp here, so both constants
+    // round to exactly 0.5 and the "strictly later" control was silently
+    // asserting the tie case with the answer inverted.
+    assert!(
+        wall_reaches_first(Some(0.5f32.next_down()), 0.5),
+        "a wall that genuinely reaches the leg first was ordered behind the \
+         target by the epsilon slack"
+    );
+    assert!(wall_reaches_first(Some(0.1), 0.5), "a plainly earlier wall is first");
+
+    // ⭐ CONTROLS. A rule that answered `true` always would satisfy every
+    // assertion above while making every shot stop at nothing.
+    assert!(
+        !wall_reaches_first(Some(0.5f32.next_up()), 0.5),
+        "a wall reached AFTER the target must not block it"
+    );
+    assert!(!wall_reaches_first(Some(0.9), 0.5), "a plainly later wall is second");
+    assert!(
+        !wall_reaches_first(None, 0.5),
+        "no wall on the leg cannot block anything"
+    );
+}
+
+/// ⛔⛔ **THE LANDING SPLASH DETONATED WHERE THE TICK ENDED, NOT WHERE THE SHOT
+/// HIT.**
+///
+/// Both damage roads built their direct `HitEvent` from the swept contact and
+/// then called `emit_landing_splash(kin.pos, ..)` — the INTEGRATED ENDPOINT.
+/// For a fast shot against a thin target that is far past it. The protocol
+/// defines the splash as an area attack at the SELECTED IMPACT LOCATION, and
+/// this is gameplay rather than presentation: the area `HitEvent` is centred
+/// there, so a wrong centre hits a different set of recipients — possibly on
+/// the far side of geometry that lies after the contact — and takes the SFX and
+/// VFX with it.
+///
+/// ⭐ THE WITNESS IS THE VOLUME'S CENTRE, WHICH NOTHING CHECKED. The existing
+/// direct-before-splash fixture asserts event ORDER and CARDINALITY, and both
+/// are satisfied by a splash centred anywhere in the room.
+#[test]
+fn the_landing_splash_detonates_at_the_contact_not_at_the_tick_endpoint() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::events::{HitEvent, HitTarget};
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct SplashCentres(Vec<ae::Vec2>);
+
+    fn record(
+        mut reader: bevy::prelude::MessageReader<HitEvent>,
+        mut seen: bevy::prelude::ResMut<SplashCentres>,
+    ) {
+        seen.0.extend(
+            reader
+                .read()
+                .filter(|event| matches!(event.target, HitTarget::Volume))
+                .map(|event| event.volume.center()),
+        );
+    }
+
+    const TARGET: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
+    let world = ae::World::new(
+        "open_lane",
+        ae::Vec2::new(4000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.init_resource::<SplashCentres>();
+    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+        ambition_combat::components::FeatureId::new("crate"),
+        FeatureName::new("crate"),
+        ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+        // THIN along the shot's axis, so "contacted early" and "ended far past"
+        // are far apart.
+        ambition_combat::components::CenteredAabb::from_center_size(
+            TARGET,
+            ae::Vec2::new(8.0, 46.0),
+        ),
+        BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+    ));
+    let endpoint_x;
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(360.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        // FAST: one tick carries it far beyond the crate it strikes.
+        body.kin.vel = ae::Vec2::new(10000.0, 0.0);
+        body.game.splash_half_extent = 40.0;
+        endpoint_x = 360.0 + 10000.0 * 0.016;
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let centres = &app.world().resource::<SplashCentres>().0;
+    assert_eq!(
+        centres.len(),
+        1,
+        "expected exactly one landing splash; got {centres:?}"
+    );
+    let centre = centres[0];
+    // ⭐ THE GAMEPLAY PROPERTY, not a coordinate: the area attack a contact
+    // caused must cover the thing it was caused BY. Centred on the endpoint
+    // (~{endpoint_x}) with a 40 px half-extent it does not come near.
+    assert!(
+        (centre.x - TARGET.x).abs() <= 40.0,
+        "the landing splash was centred at {centre:?}, which does not even reach \
+         the crate at {TARGET:?} that caused it. The tick endpoint is x={endpoint_x}; \
+         a splash centred there is a DIFFERENT area attack, hitting a different \
+         set of recipients"
+    );
+    assert!(
+        centre.x < endpoint_x - 40.0,
+        "the landing splash is still riding the integrated endpoint (x={endpoint_x}), \
+         not the selected contact: got {centre:?}"
+    );
+}
+
+/// ⛔⛔ **THE SELECTED TOI WITNESS WAS NOT THE ONE THE PHYSICS USED.**
+///
+/// The pull-back onto the swept contact was skipped whenever the ENDPOINT
+/// overlapped any blocking object, and `resolve_world_collision` then ran its
+/// own endpoint-overlap search. So a shot could sweep through wall A, finish
+/// inside a later wall B, use A's time of impact to refuse every target, and
+/// then physically bounce off B — a different surface and, for a bouncing shot,
+/// a different collision NORMAL. Ordering and physics disagreed about what
+/// stopped the shot.
+#[test]
+fn a_shot_that_ends_inside_a_later_wall_still_resolves_against_the_one_it_reached_first() {
+    // ⚠ LEDGES AND A FALLING SHOT, not walls and a flat one: a fireball only
+    // BOUNCES off a support-face landing (`resolve_solid_hit_in_frame`), and a
+    // side hit expires. An expiring shot leaves nothing to read a position off,
+    // so the surviving-bounce path is the one that can witness WHICH surface
+    // resolved it. Near ledge y 400..408, far ledge y 500..508.
+    let world = ae::World::new(
+        "two_ledges",
+        ae::Vec2::new(4000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![
+            ae::Block::solid("near", ae::Vec2::new(0.0, 400.0), ae::Vec2::new(2000.0, 8.0)),
+            ae::Block::solid("far", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(2000.0, 8.0)),
+        ],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(500.0, 380.0),
+            ae::Vec2::new(0.0, 1.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(500.0, 380.0);
+        // 0.016 * 7750 = 124 px: from y=380 to y=504, which is INSIDE `far`.
+        body.kin.vel = ae::Vec2::new(0.0, 7750.0);
+        assert!(body.game.bounces_remaining > 0, "the shot must be able to bounce");
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(bodies.len(), 1, "a bouncing fireball survives its first ledge");
+    let pos = bodies[0].kin.pos;
+    assert!(
+        pos.y < 450.0,
+        "the shot resolved against the FAR ledge at y=500 after sweeping through \
+         the near one at y=400: it ended at {pos:?}. The near ledge is the contact \
+         the ordering road used to refuse targets, so the physics must resolve \
+         there too — otherwise the selected witness is not authoritative"
+    );
 }

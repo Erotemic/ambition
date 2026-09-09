@@ -373,6 +373,28 @@ pub struct ProjectileStepSet;
 /// same damage road a melee volume takes; one cue and one flash. This is the
 /// fireball's explosion, absorbed from the former held-shot simulation so a
 /// fireball is a projectile with a splash and not a second projectile system.
+/// The protocol's world-vs-target rule, as one testable comparison.
+///
+/// `true` when an independent blocking surface reaches this leg no later than a
+/// candidate hurt target — strictly earlier, OR at an exact tie, which the
+/// contact protocol awards to the wall so that a tie cannot grant damage
+/// through it.
+///
+/// ⛔⛔ **THIS WAS `wall < contact - f32::EPSILON`, WHICH IS BOTH POLICIES
+/// WRONG.** It handed the tie to the TARGET, the opposite of what the protocol
+/// says, and it did so with an epsilon comparator the same document forbids by
+/// name for having nontransitive pairwise ties. `f32::EPSILON` is ~1.19e-7, so
+/// it also swallowed genuinely earlier walls: a wall at `contact - 1e-9` really
+/// is first, and the old form called it second.
+///
+/// ⭐ Extracted from the closure it used to live in SO THAT IT CAN BE TESTED
+/// EXACTLY. Building a bit-exact float tie through the world sweep and the
+/// victim sweep — two different code paths — is not something a behavioural
+/// fixture can promise, and a tie test that never ties is a test of nothing.
+pub(crate) fn wall_reaches_first(wall: Option<f32>, contact_time: f32) -> bool {
+    wall.is_some_and(|wall| wall.total_cmp(&contact_time).is_le())
+}
+
 pub(crate) fn emit_landing_splash(
     pos: ae::Vec2,
     damage: i32,
@@ -591,16 +613,6 @@ pub fn step_projectiles(
         // one-way stops it — damaged straight through one. Two answers to "is
         // something in the way", disagreeing on shape and on policy.
         let shot_world_hit = game.world_hit;
-        let blocks_this_shot = move |block: &ae::Block| match shot_world_hit {
-            ambition_projectiles::WorldHitPolicy::Bouncing => matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ),
-            ambition_projectiles::WorldHitPolicy::ExpireOnContact => matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-            ),
-        };
         if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(boom) = expiry_burst.map(|b| b.to_message(kin.pos)) {
                 vfx.write(boom);
@@ -627,6 +639,44 @@ pub fn step_projectiles(
             continue;
         }
 
+        // ⛔⛔ **ONE OBSTRUCTION MODEL, AND IT IS THE RESPONSE'S OWN.** The
+        // world branch swept this shot's BOX against the blocks its own
+        // `WorldHitPolicy` says stop it; the victim branch cast a CENTRE RAY at
+        // the victim's centre with `include_one_way = false` hard-coded. So a
+        // wall that covers a victim's body but not its centre point did not
+        // block the shot, a wall the shot's box clips at the corner did not
+        // either, and an `ExpireOnContact` shot — whose contract is that a
+        // one-way stops it — damaged straight through one.
+        //
+        // ⛔⛔ **AND EXCLUDING EVERY ONE-WAY FOR A `Bouncing` SHOT WAS THE THIRD
+        // ANSWER.** `resolve_world_collision` checks one-ways and bounces when
+        // the approach qualifies, so a fireball descending onto a platform was
+        // ORDERED as though nothing were there — free to damage a target
+        // standing behind it — and then physically bounced off it. Obstruction
+        // and response now read ONE function, `block_obstructs_shot`, which is
+        // where the directional one-way rule lives.
+        //
+        // ⚠ IT IS ASKED AFTER THE TICK BECAUSE IT IS DIRECTIONAL. "Is this shot
+        // descending onto that support face?" is a fact about the leg the shot
+        // just travelled, so the filter cannot be built before the leg exists.
+        // Nothing between the old site and this one used it.
+        let shot_bounces = game.bounces_remaining;
+        let shot_velocity = kin.vel;
+        // The shot's box where the leg BEGAN — the directional one-way rule asks
+        // which side of the support face the shot started on, and the endpoint
+        // is on the far side by construction whenever it crossed.
+        let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size * 0.5);
+        let blocks_this_shot = move |block: &ae::Block| {
+            ambition_projectiles::block_obstructs_shot(
+                shot_world_hit,
+                shot_bounces,
+                shot_velocity,
+                shot_box_at_leg_start,
+                gravity_dir,
+                block,
+            )
+        };
+
         // ⛔⛔ **THE WALL'S TIME OF IMPACT, ASKED ONCE, FOR EVERY BRANCH BELOW.**
         //
         // This is A2's finite-time ordering rule and the road had three answers
@@ -648,16 +698,39 @@ pub fn step_projectiles(
         // target is reached only if nothing blocking stands STRICTLY earlier
         // along the same leg.
         //
-        // ⚠ TIES GO TO THE TARGET, and that is the protocol's declared policy
-        // restated rather than a new one: a blocker at exactly the target's
-        // contact time is the compound case — a destructible's own wall and its
-        // hurt shape can be one contact — and nothing here can yet tell a
-        // destructible's own surface from an unrelated one, so the strict
-        // comparison the body branch already used is kept for all three.
+        // ⛔⛔ **TIES GO TO THE WALL, AND THE COMMENT HERE USED TO CLAIM THE
+        // OPPOSITE WAS "the protocol's declared policy restated".** It was not.
+        // The protocol says an independent blocking surface at exactly the same
+        // impact time WINS over an unrelated hurt target, precisely so that a
+        // tie cannot grant damage through a wall
+        // (`projectile-contact-protocol.md`, "Blocking surfaces and compound
+        // contacts"). This road implemented `wall < contact - EPSILON`, which is
+        // the opposite policy AND an epsilon comparator the same document
+        // forbids by name for having nontransitive pairwise ties.
+        //
+        // ⭐ THE COMPOUND CASE THAT JUSTIFIED THE OLD RULE CANNOT ARISE HERE.
+        // The stated reason was that nothing can tell a destructible's own
+        // surface from an unrelated one. True — and moot: the world a shot
+        // sweeps is `ProjectileCollisionWorld::solids()`, which is the authored
+        // room plus gate solids minus portal carves. `overlay.blocks` — every
+        // ECS breakable surface — is NOT in it, by that module's own contract
+        // ("a projectile ... passes through breakable/ECS overlay solids"). So
+        // every block this sweep can return is by construction an INDEPENDENT
+        // blocker, the compound row of the protocol's matrix is unreachable
+        // (which is exactly what Q96 records), and no contributor identity is
+        // needed to apply the protocol's rule exactly. If Q96 later admits
+        // destructible surfaces into this world, THAT is when compound contact
+        // and contributor identity become required.
+        //
+        // ⇒ `is_le`, not `< - EPSILON`: a total deterministic comparison, with
+        // the tie going where the protocol puts it.
         //
         // ⚠ It is the shot's OWN policy that decides which blocks count
         // (`blocks_this_shot`), so a `Bouncing` fireball is not stopped by a
-        // one-way it is entitled to cross while an `ExpireOnContact` shot is.
+        // one-way it is entitled to cross while an `ExpireOnContact` shot is —
+        // and, since that filter is now `block_obstructs_shot`, a `Bouncing`
+        // fireball IS stopped by a one-way it is descending onto, which is what
+        // the response has always done with it.
         //
         // The block's CENTRE rides along with the time because the world
         // pull-back below needs it to nudge the shot a hair inside, and deriving
@@ -674,10 +747,11 @@ pub fn step_projectiles(
             )
             .map(|hit| (hit.time_of_impact, hit.block.aabb.center()))
         };
-        // `true` when a blocker stands strictly before this contact time.
-        let wall_comes_first = move |contact_time: f32| {
-            blocked_at.is_some_and(|(wall, _)| wall < contact_time - f32::EPSILON)
-        };
+        // `true` when an independent blocker reaches this leg no later than the
+        // candidate contact — strictly earlier, or at an exact tie, which the
+        // protocol awards to the wall.
+        let wall_reaches_first =
+            move |contact_time: f32| wall_reaches_first(blocked_at.map(|(w, _)| w), contact_time);
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
         // the shot: a shot lands on a faction-foe, on a same-faction body its
@@ -721,7 +795,15 @@ pub fn step_projectiles(
                 already_hit.hit.clear();
                 game.hits_cleared_on_leg = leg;
             }
-            let mut struck = false;
+            // ⛔⛔ **WHERE IT WAS STRUCK, NOT WHERE THE TICK ENDED.** This was a
+            // bare `bool`, and the splash below then used `kin.pos` — the
+            // INTEGRATED ENDPOINT, which for a fast shot is far past a thin
+            // target contacted at TOI 0.2. The protocol defines the landing
+            // splash as an area attack at the SELECTED IMPACT LOCATION, and
+            // this is gameplay, not presentation: the area `HitEvent` is
+            // centred there, so a wrong centre hits different recipients —
+            // possibly on the far side of geometry that lies after the contact.
+            let mut struck_at: Option<ae::Vec2> = None;
             let mut reflected = false;
             // Absorbed: the shot is spent and every later road must be skipped.
             let mut consumed = false;
@@ -789,7 +871,7 @@ pub fn step_projectiles(
             // solid was broken through it, and a boss behind one was damaged
             // through it. Same rule as the bodies below, same single sweep, same
             // strict comparison.
-            .filter(|contact| !wall_comes_first(contact.time))
+            .filter(|contact| !wall_reaches_first(contact.time))
             .min_by(crate::features::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
@@ -814,15 +896,39 @@ pub fn step_projectiles(
                 // this victim is reached strictly before every remaining one:
                 // stop, and let the feature branch below own the contact.
                 //
-                // ⚠ A TIE GOES TO THE BODY. Equal times are the compound case
-                // the protocol reserves for a destructible's own surface, and
-                // nothing here can yet tell that from a coincidence — so the
-                // strict comparison used against a wall is used here too rather
-                // than a second, looser rule.
-                if feature_contact
-                    .as_ref()
-                    .is_some_and(|feature| feature.time < *contact_time - f32::EPSILON)
-                {
+                // ⛔⛔ **AND A TIE USED TO GO TO THE BODY FOR NO REASON BUT
+                // THIS LOOP OWNING THE EQUALITY CASE.** `feature.time <
+                // contact - EPSILON` is family knowledge wearing a comparison:
+                // at an exact tie the body won because the body branch runs
+                // first, which is the same "a family name is not a time" defect
+                // this block was written to remove, one level down. It is also
+                // the epsilon comparator the protocol forbids.
+                //
+                // ⇒ ONE ORDER ACROSS BOTH FAMILIES, and it is the order each
+                // family already sorts itself by: finite time of impact, then
+                // the target's position, then its stable authored identity.
+                // Neither family is privileged; a coincident body and feature
+                // are separated by identity, never by which loop got there
+                // first. (The WORLD is privileged, deliberately and only at an
+                // exact tie — see `wall_reaches_first` — because the protocol
+                // says an independent blocker beats an unrelated hurt target.)
+                //
+                // ⚠ `Option<&str>` for the body because a body may carry no
+                // `SimId`; that is the same key the body-vs-body sort above
+                // already uses, so the two agree by construction.
+                if feature_contact.as_ref().is_some_and(|feature| {
+                    let victim_center = victim.aabb.aabb().center();
+                    feature
+                        .time
+                        .total_cmp(contact_time)
+                        .then(feature.target_center.x.total_cmp(&victim_center.x))
+                        .then(feature.target_center.y.total_cmp(&victim_center.y))
+                        .then_with(|| {
+                            Some(feature.target_id.as_str())
+                                .cmp(&victim.sim_id.map(|id| id.as_str()))
+                        })
+                        .is_lt()
+                }) {
                     break;
                 }
                 if Some(victim.entity) == owner_entity {
@@ -871,9 +977,9 @@ pub fn step_projectiles(
                 // wall standing between that face and the centre is behind the
                 // contact that actually happened, and the old test refused the
                 // hit anyway. `contact_time` is when the shot's box first touches
-                // this victim, and `wall_comes_first` compares against the ONE
+                // this victim, and `wall_reaches_first` compares against the ONE
                 // world sweep taken over the shot's real travel leg.
-                if wall_comes_first(*contact_time) {
+                if wall_reaches_first(*contact_time) {
                     continue;
                 }
                 // ⭐ CONTACT WAS ALREADY DECIDED, swept, when this list was built:
@@ -1033,7 +1139,7 @@ pub fn step_projectiles(
                 // `apply_player_hit_events`, an actor through `apply_actor_hit`.
                 // Emitting here too would double the cue.
                 already_hit.hit.insert(victim.entity);
-                struck = true;
+                struck_at = Some(leg_start + travel_leg * *contact_time);
                 break;
             }
             // ⚠ TWO DIFFERENT REASONS TO STOP, kept apart on purpose. A parried
@@ -1043,7 +1149,7 @@ pub fn step_projectiles(
             if consumed || reflected {
                 continue;
             }
-            if struck {
+            if let Some(impact) = struck_at {
                 trace.push_event(
                     ProjectileTraceEvent::Hit {
                         kind,
@@ -1058,7 +1164,7 @@ pub fn step_projectiles(
                 if !game.returns() {
                     if game.splash_half_extent > 0.0 {
                         emit_landing_splash(
-                            kin.pos,
+                            impact,
                             game.damage.max(1),
                             game.splash_half_extent,
                             owner_entity,
@@ -1132,7 +1238,12 @@ pub fn step_projectiles(
                 feature_damage.write(unresolved);
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
-                        kin.pos,
+                        // ⛔ THE SELECTED CONTACT, NOT THE TICK ENDPOINT — same
+                        // defect as the body road above, same reason it is
+                        // gameplay rather than presentation. This branch has the
+                        // contact's own time in hand, so there is nothing to
+                        // reconstruct.
+                        leg_start + travel_leg * contact.time,
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
@@ -1209,33 +1320,37 @@ pub fn step_projectiles(
         // fast straight shot flew through a platform its own policy says should
         // have killed it.
         //
-        // ⚠ Only when the endpoint is NOT already touching something — otherwise
-        // this would move a shot the endpoint test can already resolve.
+        // ⛔⛔ **THE SELECTED WITNESS WAS NOT AUTHORITATIVE, AND `already_touching`
+        // IS WHY.** The pull-back used to be skipped whenever the ENDPOINT
+        // overlapped any blocking object, and `resolve_world_collision` then ran
+        // its OWN endpoint-overlap search. So a shot could sweep through wall A,
+        // finish inside a later wall B, use A's time of impact to refuse every
+        // target — and then physically bounce or expire at B. For a bouncing
+        // shot that is a different collision NORMAL as well as a different
+        // surface: the ordering road and the physics road disagreed about what
+        // stopped the shot, which is the exact fork this packet exists to close.
+        //
+        // ⇒ WHEN THE SWEEP SELECTED A CONTACT, THE SHOT GOES TO IT. Then the
+        // resolver's endpoint search necessarily finds that same block, because
+        // the shot is standing a hair inside it. `blocked_at.is_some()` is
+        // itself the guard the old condition was reaching for: a shot that
+        // BEGINS the leg overlapping something is the case where `sweep_hit`
+        // declines a grazing start and returns `None`, and that shot is left at
+        // its endpoint for the resolver to handle exactly as before.
         //
         // ⭐ AND IT IS THE SAME SWEEP THE ORDERING ABOVE USED. `blocked_at` was
         // taken once, over this leg, with this shot's policy; re-asking here
-        // would be a second answer to "what stopped this shot", which is the
-        // fork this packet exists to close. Only the PULL-BACK is conditional on
-        // the endpoint being clear — the ordering question is not.
-        {
-            let endpoint_box = kin.aabb();
-            let already_touching = collision_world
-                .blocks
-                .iter()
-                .any(|block| blocks_this_shot(block) && block.aabb.strict_intersects(endpoint_box));
-            if !already_touching {
-                if let Some((toi, block_center)) = blocked_at {
-                    // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact`
-                    // puts the box touching the block, and `strict_intersects`
-                    // — which every policy below reads — is false for a touch.
-                    // Nudging toward the hit block's centre works for a corner
-                    // clip too, where the leg direction is tangential and
-                    // nudging ALONG it would not overlap anything.
-                    let contact = leg_start + travel_leg * toi;
-                    let inward = (block_center - contact).normalize_or_zero();
-                    kin.pos = contact + inward * 0.5;
-                }
-            }
+        // would be a second answer to "what stopped this shot".
+        if let Some((toi, block_center)) = blocked_at {
+            // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact` puts the
+            // box touching the block, and `strict_intersects` — which every
+            // policy below reads — is false for a touch. Nudging toward the hit
+            // block's centre works for a corner clip too, where the leg
+            // direction is tangential and nudging ALONG it would not overlap
+            // anything.
+            let contact = leg_start + travel_leg * toi;
+            let inward = (block_center - contact).normalize_or_zero();
+            kin.pos = contact + inward * 0.5;
         }
         match resolve_world_collision(
             &mut kin,

@@ -9,7 +9,9 @@ pub mod spec;
 pub use body::{
     InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileHits, ProjectileSolidHit,
 };
-pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
+pub use collision::{
+    block_obstructs_shot, resolve_world_collision, shot_policy_admits, WorldHitOutcome, WorldHitPolicy,
+};
 // Authored spawn intent is owned by `ambition_projectile_spec`, below this physics layer.
 pub use ambition_projectile_spec::ProjectileSpawn;
 pub use spec::ProjectileSpec;

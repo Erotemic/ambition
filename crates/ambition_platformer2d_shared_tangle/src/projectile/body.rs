@@ -100,7 +100,16 @@ impl bevy::ecs::entity::MapEntities for ProjectileHits {
     }
 }
 
-fn projectile_down(gravity_dir: Vec2) -> Vec2 {
+/// `pub(crate)` so the shared obstruction/response policy in
+/// [`super::collision`] reads the SAME down axis this module's landing test
+/// does; two spellings of "which way is down" is how the two sides drift.
+/// How far a contact may miss a support face and still count as touching it.
+/// Shared with the obstruction predicate in [`super::collision`] so the sweep
+/// that ORDERS a one-way contact and the response that resolves it cannot
+/// disagree about the width of a touch.
+pub(crate) const CONTACT_SLOP: f32 = 1.0;
+
+pub(crate) fn projectile_down(gravity_dir: Vec2) -> Vec2 {
     if gravity_dir.x.abs() > gravity_dir.y.abs() {
         Vec2::new(gravity_dir.x.signum(), 0.0)
     } else if gravity_dir.y.abs() > 0.0 {
@@ -211,7 +220,6 @@ impl ProjectileGameplay {
         block_aabb: Aabb,
         gravity_dir: Vec2,
     ) -> bool {
-        const CONTACT_SLOP: f32 = 1.0;
         let down = projectile_down(gravity_dir);
         let body_aabb = body.aabb();
         let moving_toward_feet = body.vel.dot(down) > 0.0;

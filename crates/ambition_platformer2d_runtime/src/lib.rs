@@ -92,7 +92,8 @@ pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::schedule::{
         apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
         declare_gameplay_input_context, declare_in_session_input_contexts,
-        freeze_local_seating_for_the_decided_match, install_roster_seating,
+        freeze_local_seating_for_the_decided_match, install_latched_slot_publication,
+        install_roster_seating,
         mirror_primary_slot_to_control_frame, populate_menu_control_frame_from_actions,
         populate_seat_control_frames, populate_seat_menu_frames, publish_latched_slot_controls,
         publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,

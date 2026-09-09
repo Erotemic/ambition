@@ -768,6 +768,41 @@ pub fn install_roster_seating(app: &mut bevy::prelude::App) {
     );
 }
 
+/// Install the frame-to-tick latch drain, in the sim phase and order it belongs to.
+///
+/// ⭐ THE SAME ARGUMENT [`install_roster_seating`] MAKES, one seam over. The
+/// system, the phase (`Platformer2dSimulationPhaseMonolith::PlayerInput`) and the
+/// `ambition_input::InputSet::Route` edge it must precede are all THIS crate's
+/// facts: the latch and its destination are `ambition_characters::control`'s, the
+/// phase enum is ours, and `ambition_input` is a dependency. A composition that
+/// spelled the three out was re-deciding, every time, something only this module
+/// can be wrong about — and `ambition_platformer2d_host` spelled all three,
+/// including reaching for `app.sim_schedule()` to do it.
+///
+/// ⛔ THE FIXED-TICK CONDITION RIDES ALONG, and it is not the composition's
+/// either: a variable-timestep host has no tick edge for a latch to publish ON,
+/// and `capture_latched_local_input` drains the same latches at `ReadInputs`
+/// where a rollback host asks. Leaving the condition at the call site made the
+/// installer look optional when what is conditional is the SCHEDULE, not the
+/// choice.
+#[cfg(feature = "input")]
+pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+    use bevy::prelude::IntoScheduleConfigs;
+    if !app.sim_is_fixed_tick() {
+        return;
+    }
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        publish_latched_slot_controls
+            .in_set(
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
+            )
+            .before(ambition_input::InputSet::Route),
+    );
+}
+
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
 ///
 /// Menu systems should read this resource instead of reading raw

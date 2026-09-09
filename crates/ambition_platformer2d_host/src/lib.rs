@@ -55,7 +55,7 @@ impl Plugin for HostInputBindingsPlugin {
             apply_menu_frame_to_cutscene_request, commit_seat_raw_frames,
             declare_gameplay_input_context, declare_in_session_input_contexts,
             dialog_pointer_input, populate_menu_control_frame_from_actions,
-            populate_seat_control_frames, populate_seat_menu_frames, publish_latched_slot_controls,
+            populate_seat_control_frames, populate_seat_menu_frames,
             spawn_primary_input_participant, sync_primary_recipe_from_settings,
             toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
             MenuFramePopulate, MenuNavConsume,
@@ -137,23 +137,21 @@ impl Plugin for HostInputBindingsPlugin {
                 .after(ambition_input::InputSet::Route)
                 .in_set(ambition_platformer2d_runtime::host_input::PrimarySlotInputCommit),
         );
-        // `capture_latched_local_input` drains the same latches on the `ReadInputs` edge
-        // instead, which is where a rollback host asks.
-        if app.sim_is_fixed_tick() {
-            let sim = app.sim_schedule();
-            //  ONE drain for every seat. This was two systems because
-            // their destinations differed — seat zero's latched frame went to the
-            // global `ControlFrame`, which the shapers only it had still read.
-            // `SlotControls` is every seat's destination now, and the
-            // `ControlFrame` mirror is registered once in `player_schedule`,
-            // where a composition without this host still gets it.
-            app.add_systems(
-                sim,
-                publish_latched_slot_controls
-                    .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
-                    .before(ambition_input::InputSet::Route),
-            );
-        }
+        //  ONE drain for every seat. This was two systems because their
+        // destinations differed — seat zero's latched frame went to the global
+        // `ControlFrame`, which the shapers only it had still read.
+        // `SlotControls` is every seat's destination now, and the `ControlFrame`
+        // mirror is registered once in `player_schedule`, where a composition
+        // without this host still gets it.
+        //
+        // ⭐ THE DRAIN INSTALLS ITSELF, like the seating pair below and for the
+        // same reason: the sim phase it sits in, the `InputSet::Route` edge it
+        // must precede, and the fixed-tick condition (a variable-timestep host
+        // has no tick edge to publish ON; `capture_latched_local_input` drains
+        // the same latches at `ReadInputs`, where a rollback host asks) are all
+        // facts about that module, not about this composition. This host spelled
+        // all four and reached for `app.sim_schedule()` to do it.
+        ambition_platformer2d_runtime::host_input::install_latched_slot_publication(app);
 
         // leafwing's `InputManagerPlugin` runs systems (e.g. `filter_captured_input`)
         // over Bevy's `ButtonInput<..>` resources, which `bevy::input::InputPlugin`

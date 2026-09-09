@@ -12,6 +12,8 @@ pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]
 pub use input_systems::declare_in_session_input_contexts;
 #[cfg(feature = "input")]
+pub use input_systems::install_latched_slot_publication;
+#[cfg(feature = "input")]
 pub use input_systems::install_roster_seating;
 #[cfg(feature = "input")]
 pub use input_systems::{

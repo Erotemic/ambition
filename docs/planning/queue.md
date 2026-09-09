@@ -368,6 +368,36 @@ cross-capability policy in explicit composition. Resolve Q73 before adopting a
 plugin form that conflicts with the recorded combat convention; an owner helper
 can be sufficient. Zero foreign installations is not the target.
 
+**Re-measured and one block moved, 2026-09-09.** The instrument reports 2
+reducible / 39 irreducible at HEAD (was 3/38 when this row was written; the
+counts drift with the composition, not with progress). Both reducible blocks were
+in `ambition_platformer2d_host`, both installing `actor_monolith` input systems.
+
+The frame-to-tick latch drain moved:
+`install_latched_slot_publication` sits beside `install_roster_seating`, whose own
+doc already made the argument — *"the order is this crate's fact, not the
+composition's"*. The host had spelled the system, its sim phase, the
+`InputSet::Route` edge it must precede, and the fixed-tick condition, and reached
+for `app.sim_schedule()` to do it; it names one function now. Reducible 2 → 1.
+
+⛔ **The last one is DECLINED, and the reason is the row's own rule.** It is
+`.add_systems(Startup, spawn_primary_input_participant)` — one system, no
+ordering anchors, which is exactly the shape the instrument cannot classify: it
+sees "one capability could install this" and cannot see that what the composition
+is deciding is *that this app has a person in front of a controller*. A headless
+or RL composition installs the monolith and wants no leafwing participant. No
+implementation owner is established, so it stays.
+
+⛔⛔ **AND A POISON THAT PASSED FOUND SOMETHING BIGGER.** Making
+`install_latched_slot_publication` a no-op leaves all 602 `app_it` tests green.
+`ambition_platformer2d_runtime::input_drive::drive_slot_frame` — the helper every
+scripted test drives input through — writes the latch *if the latch table
+exists*, and otherwise falls through to writing `SeatRawFrames` and `SlotControls`
+DIRECTLY. So a scripted press is delivered whether or not the drain ever runs:
+the fallback makes the drain unfalsifiable from the road every test takes. The
+gap predates this move (the move is registration-identical) and is recorded here
+rather than papered over with a test that constructs its own subject.
+
 **Acceptance:** public set ancestry and deferred visibility are covered, optional
 capabilities remain optional, and no broad runtime policy object replaces imports.
 

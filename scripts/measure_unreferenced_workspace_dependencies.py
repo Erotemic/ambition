@@ -19,11 +19,26 @@ dependency can legitimately have no source reference:
     mention is in the other crate;
   · a build script needs it.
 
-⇒ Remove the line and compile. Measured 2026-09-09: four candidates, all four
-genuinely removable, one of them (`ambition_characters`'s `causal`) a FEATURE
-whose doc promised to *"publish this capability's causal facts"* and whose crate
-contained no `cfg(feature = "causal")` at all — a capability a composition could
-turn on, pay a compile for, and receive nothing from.
+⛔⛔ **AND "REMOVE IT AND COMPILE" IS NOT THE RULE.** A green build does not
+prove that a link-time registration, an externally supplied trait impl, or a
+build script's behaviour was irrelevant — those are precisely the cases the list
+above names, and every one of them compiles fine after the line is gone. Stating
+the compiler as the judge would make this tool an oracle for graph tidiness,
+which is the incentive the `actor_spawn` carve already cost this repository once.
+
+⇒ **THE RULE IS: establish WHY the dependency is declared before removing it.**
+Read the manifest entry's own comment and the feature table for what it forwards;
+grep the crate for the DEPENDENCY'S vocabulary rather than its name (a re-export,
+a `use` alias, a macro path); ask whether the dependency's plugin or registration
+is what makes some behaviour exist. Only then remove, compile, and run the
+behavioural witness for anything that is not an ordinary source-level use.
+
+Measured 2026-09-09: four candidates, all four removable on that standard — and
+one of them (`ambition_characters`'s `causal`) was a FEATURE whose doc promised
+to *"publish this capability's causal facts"* while the crate contained no
+`cfg(feature = "causal")` at all, a capability a composition could turn on, pay a
+compile for, and receive nothing from. That one was decided by reading, not by
+the build.
 
 ⚠ It reads the crate's whole source tree including tests, so a dependency used
 only by a test still counts as referenced. That is deliberate: a test-only use is
@@ -87,7 +102,12 @@ def main() -> int:
         f"\n{len(rows)} crate(s) declare an unreferenced ambition dependency "
         f"(of {len(members)} workspace members)"
     )
-    print("⚠ candidates, not violations — remove the line and compile.")
+    print(
+        "⚠ candidates, not violations. Establish WHY each is declared "
+        "(feature forwarding, a registration, a trait impl, a build script) "
+        "before removing it; a green build is not the judge — see this "
+        "script's own docstring."
+    )
     return 0
 
 

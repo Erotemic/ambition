@@ -1102,11 +1102,26 @@ CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
 # the host named the renderer unconditionally. It is a feature now, and the
 # closure went 52 crates to 50 (`ambition_render` and `ambition_sprite_fx`).
 FEATURELESS_FACADE = "ambition_platformer2d"
-# ⚠ NOT A GENERAL "presentation is absent" CLAIM — the two crates measured out of
-# the closure, named. Widening this to every presentation crate would assert
+# ⚠ NOT A GENERAL "presentation is absent" CLAIM — the crates measured out of the
+# closure, named. Widening this to every presentation crate would assert
 # something no measurement supports; add a name here when a measurement removes
 # it, not before.
-FEATURELESS_FACADE_FORBIDS = ("ambition_render", "ambition_sprite_fx")
+#
+# ⛔⛔ AND EACH NAME IS SCOPED TO THIS PROFILE, NOT TO THE WORKSPACE.
+# `ambition_menu` joined 2026-09-09 when the runtime's map installer became its
+# `map` feature — and "the menu crate is never linked without the map" would be
+# FALSE: `ambition_platformer2d_host` legitimately takes it under `render`, for
+# the `MenuFont` handoff the composition root is the only place to make. What
+# this contract says is narrower and checkable: a consumer that selected NO
+# capability compiles none of them. Runtime INSTALLATION in a profile that does
+# render is a separate question with a separate witness
+# (`every_room_the_map_calls_visited_has_its_visit_on_the_save`, which reddens
+# when the facade stops forwarding `ambition_platformer2d_runtime/map`).
+FEATURELESS_FACADE_FORBIDS = (
+    "ambition_render",
+    "ambition_sprite_fx",
+    "ambition_menu",
+)
 # ⛔ THE ANTI-VACUITY FLOOR. A `cargo tree` that fails, or one whose output shape
 # changes, yields an empty set — and an empty set contains no forbidden crate, so
 # the contract would print `ok` having measured nothing. These two are in the
@@ -1765,7 +1780,7 @@ def main() -> int:
     present, missing = featureless_facade_report(root)
     if missing:
         broken += 1
-        print("  RED  a-featureless-consumer-links-no-renderer  (INSTRUMENT BROKEN)")
+        print("  RED  the-featureless-facade-links-none-of-these  (INSTRUMENT BROKEN)")
         print(
             "       The closure is missing crates the facade names "
             "unconditionally, so `cargo tree` measured nothing and this "
@@ -1775,7 +1790,7 @@ def main() -> int:
             print(f"       ABSENT {crate} — expected in every closure")
     elif present:
         broken += 1
-        print("  RED  a-featureless-consumer-links-no-renderer")
+        print("  RED  the-featureless-facade-links-none-of-these")
         print(
             "       A consumer that named the facade and selected NO capability "
             "still compiles these. A9: a promised-absent capability must be "
@@ -1787,7 +1802,7 @@ def main() -> int:
             print(f"       LINKED {crate}")
     else:
         print(
-            "  ok   a-featureless-consumer-links-no-renderer  "
+            "  ok   the-featureless-facade-links-none-of-these  "
             f"({len(featureless_facade_closure(root))} ambition crates linked "
             f"with every facade feature off)"
         )

@@ -70,15 +70,69 @@ order pick which part of a multi-part boss was credited.
 swept, and are gone. One of them had none beforehand either — reachable, tested,
 unreached — so its rule moved onto the function every consumer actually calls.
 
+⚠ That paragraph and the ones above it once read as though every A2 correction
+had landed. They had not: world-versus-target ordering was still split when they
+were written, which is the defect the review found. The claim is scoped to the
+deletions and the swept-contact corrections it actually names.
+
+**A2b was REOPENED and re-closed 2026-09-09 (GPT review #7).** The ordering the
+protocol asks for was still split three ways, and the review was right:
+
+- the BOSS/BREAKABLE branch compared nothing. It computed a swept contact and, if
+  it found one, emitted the targeted hit and the splash and `continue`d — so the
+  world sweep ran only when NO feature was reached. The ordering was *"feature
+  contact, else world"*, and a crate or a boss standing behind an unrelated solid
+  was struck through it;
+- the BODY branch asked the right question of the wrong geometry: it swept from
+  the muzzle to the victim's CENTRE, which answers *"is a wall before the
+  victim's middle?"*. On a wide body the shot reaches the near face first, and a
+  wall between that face and the centre refused a hit that physically happened;
+- and the world branch swept a third time for its own pull-back.
+
+⇒ ONE sweep over the shot's actual travel leg, its finite `time_of_impact` kept
+in the leg's own [0, 1] parameter and compared directly against every body's and
+every feature's contact time. A blocker strictly earlier wins; a tie goes to the
+target, which restates the strict comparison the body branch already used rather
+than inventing a policy (nothing can yet tell a destructible's own surface from
+an independent blocker — that is A5's contributor identity). The pull-back reuses
+the same result instead of re-sweeping. Three witnesses, each poison-verified
+against the exact code it replaced: a crate behind a wall is not broken, the same
+crate with the wall moved PAST it still is (the anti-vacuity floor moves the wall,
+not the crate, so an arm that broke nothing would fail it), and a wall standing
+inside a wide body past its near face no longer saves it.
+
 **A2's remaining item is deliberately not taken.** A cohesive
 `projectile/contacts.rs` <!-- cite-ok: proposed module path --> inside the same
 crate removes no authority and no dependency edge — the code would import what it
 imports now and be reachable by the same callers — and a same-crate move that
 names neither is churn by this repository's own test. It becomes worth doing when
 it enables a deletion: a `pub(crate)` boundary, or a split that lets flight state
-leave for `ambition_projectiles` without the victim queries following. Every
-semantic correction and deletion gate the owner document requires has landed.
-Contributor identity is A5 infrastructure with no live defect riding on it.
+leave for `ambition_projectiles` without the victim queries following. The semantic corrections and
+deletion gates the owner document requires have landed, INCLUDING the finite-time
+ordering rule reopened by review #7 above.
+
+⚠ WHAT IS DELIBERATELY NOT CLOSED, stated rather than implied: the acceptance
+matrix's COMPOUND SOLID OBJECT row. The tie rule this road runs is declared and
+uniform — a strictly earlier contact wins, and an equal time goes to the target
+(against a wall) and to the body (against a feature) — but a genuine compound
+contact, where a destructible's own collision surface and its damageable volume
+are ONE contact rather than two competitors, needs stable collider-contributor
+identity. That is A5 infrastructure.
+
+⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09.** A
+breakable authored `BreakableCollision::Solid` DOES publish a `BlinkWall` block —
+`world/overlay.rs` writes it into `FeatureEcsWorldOverlay::blocks` — but
+`ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`
+composites only `gate_solids`, `portal_carves` and `removed_block_names`.
+`overlay.blocks` (every ECS breakable surface and every pogo orb) is not in the
+world a projectile sweeps. So a solid crate's own surface is not a wall this road
+can hit, and the tie rule has no compound case to get wrong yet.
+⛔ A first attempt to witness the compound case here produced a test that passed
+under a deliberately broken comparison TWICE — once because the fixture never
+published the surface, and once because the shot's landing splash broke the crate
+whether or not the direct hit landed. It was deleted rather than kept as a green
+row that measures nothing. Whether a projectile SHOULD collide with an ECS
+breakable's published surface is a separate open question, not this packet's.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have
@@ -146,9 +200,16 @@ feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1c - DONE 2026-09-08; A1 closes
+### A1c - DONE 2026-09-08; A1 CLOSED by review #7, 2026-09-09
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
+
+**Signed off 2026-09-09.** Review #7 accepts A1 as closed: the rollback host
+checks `LocalSyncTest` ownership before terminalizing a host-local preparation
+failure, respects the confirmed-frame boundary, and the abandonment note carries
+enough to reject a stale note from a rewound branch rather than matching a reused
+operation key. The unconfirmed-abandonment and key-reuse tests are named as the
+right witnesses. Delete this row when the next queue pass compresses it.
 A1b (ownership move) and A1c subcommits 1-2 landed 2026-09-08: no domain reads
 the raw `ResetToCheckpoint` any more, a refused request changes no domain state,
 a refused request is remembered rather than lost, and a no-item checkpoint
@@ -294,7 +355,7 @@ Closure 52 → 50: `ambition_render` and `ambition_sprite_fx` left.
 ⚠ **The existing capability-footprint sentinel cannot see this**, and that is why
 a second contract exists rather than a wider baseline: `fixtures/minimal_game`
 ASKS for the renderer (its exit criterion draws a windowed face), so the renderer
-is legitimately in its closure. `a-featureless-consumer-links-no-renderer` in
+is legitimately in its closure. `the-featureless-facade-links-none-of-these` in
 `scripts/check_absence_contracts.py` walks the feature-resolved tree instead —
 the manifest walk the other dependency contracts use counts optional edges and
 would report a renderer no feature enables. Poison-verified twice: restoring the
@@ -336,20 +397,37 @@ crate in a movement-only game's closure. It is behind the runtime's `map` featur
 now, forwarded from the facade's `ambition_menu`, so naming the capability
 installs it rather than linking a crate nobody steps.
 `ProgressionSet::Map` is `shared_tangle`'s and stays configured either way.
-Closure 50 → 49. Poison-verified: dropping the facade's forwarding reddens
+Closure 50 → 49, and RATCHETED: `ambition_menu` joined
+`the-featureless-facade-links-none-of-these`'s forbidden set, so the promised
+absence is checked and not merely claimed — poison-verified by giving the runtime
+a `default = ["map"]`, which reddens it naming the crate. ⚠ Scoped to THIS
+PROFILE: `ambition_platformer2d_host` legitimately links the menu crate under its
+`render` feature for the `MenuFont` handoff, so "the menu is never linked without
+the map" would be false. The positive wire has its own witness — dropping the
+facade's forwarding reddens
 `every_room_the_map_calls_visited_has_its_visit_on_the_save`.
 
 ⚠ The trace's real finding is the shape, not the win:
 `ambition_platformer2d_runtime` and `ambition_platformer2d_actor_monolith` are
 parents of nearly everything, and `ambition_platformer2d_core` has 33 parents.
-Every remaining crate has two or more, so no further single-edge repair exists —
-the next reduction is the §4 monolith carve, not another feature gate.
+Every remaining crate has two or more parents, so no further SINGLE-EDGE closure
+decrement exists.
+
+⛔ That is a statement about the graph and nothing else, and it must not be read
+as "the monolith carve is next". A closure measurement cannot say which ownership
+change is semantically correct — the `actor_spawn` carve is this repository's own
+receipt for that, where a green SCC number sat beside a live view the extraction
+had taken with it. Any further reduction here has to establish STATE, BEHAVIOUR
+and INVARIANT ownership first and let the closure follow, not the other way
+round.
 
 **Next in this row:** the frontier asks for a SEPARATE headless consumer
 workspace — "a constructed body advancing against world geometry, without
 renderer, audio, inventory, encounters or game content". That fixture does not
-exist; `minimal_game` is the windowed sentinel and cannot stand in for it. The 50
-remaining crates have not been traced to their activating edges.
+exist; `minimal_game` is the windowed sentinel and cannot stand in for it. The 49
+crates that remain in the featureless closure have been traced to their
+activating parents (see above); what has NOT been established is which of them a
+minimum profile has a right to expect, which is that fixture's job.
 
 **Acceptance:** a supported profile constructs and steps a real subject, its
 promised absent capability is absent from both installation and resolved closure,

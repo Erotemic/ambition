@@ -116,8 +116,13 @@ pub struct ActorClusterQueryData {
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut BodyMelee,
     pub config: &'static mut ActorConfig,
-    /// The body a reset hands back. Read by `reset_to_spawn`; the mount
-    /// dismount reads the same component directly rather than through this view.
+    /// Where this body started, and what it started as.
+    ///
+    /// ⚠ The doc here named `reset_to_spawn` as its reader until 2026-09-09, and
+    /// that road is GONE: the pre-reconstruction actor room reset was deleted
+    /// with its four false witnesses. The component's live readers are
+    /// `ambition_mount`'s dismount and `ambition_body_seed`'s construction, both
+    /// of which take it directly rather than through this cluster view.
     pub spawn: &'static mut SpawnBaseline,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static ambition_combat::CombatCapabilities,

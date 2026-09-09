@@ -349,7 +349,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// rather than a free-form string, so two peers that agreed on "failed" while
 /// blocking gameplay for different reasons no longer agree. Peers compare these
 /// numbers, so a corrected projection is a compatibility change.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 174;
+/// ⭐ 174 -> 175 (2026-09-08): `RestoreFailure::Population` joined the terminal
+/// outcome's closed set, which is a new WIRE CODE — an old peer cannot produce
+/// discriminant 6, and the outcome is snapshot state two peers compare. The
+/// primitive COUNT is unchanged (one `put_u8` of a discriminant, as before),
+/// which is exactly the shape this file's history records as the least
+/// wire-looking wire there is.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 175;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

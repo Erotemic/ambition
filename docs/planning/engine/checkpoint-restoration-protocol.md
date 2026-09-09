@@ -585,10 +585,24 @@ This is a coherent behavior change, implemented in buildable subcommits:
      passing where "the reward is back in the hand that banked it" is the
      contract.
 
-   **Still open:** verification does not check body placement, clocks, portals,
-   or population completeness, and the terminal outcome has no presentation
-   consumer. Both are stated rather than implied; pretending verification is
-   already wide is how the step becomes a formality.
+   **Population completeness landed 2026-09-08** with a case that fails for it
+   alone: every occurrence the pinned ledger places IN THE ROOM BEING REBUILT
+   must be live. Ledger equality cannot see this — both ledgers agree while the
+   world is missing what they describe. Measured against the full suite before
+   keeping it, because this verification is fail-closed and a wrong check pauses
+   a working game.
+
+   ⛔ **BODY PLACEMENT, CLOCKS AND PORTALS ARE DELIBERATELY NOT CHECKED**, which
+   is a different answer from "not yet". Placement's only comparand is the
+   intent's arrival, and `transit_body` legitimately reconciles a body off it, so
+   a tight tolerance pauses a working game and a loose one measures nothing —
+   checking it needs a postcondition the transit authority states. Clocks and
+   portals have no accepted snapshot to compare against, so a check would first
+   have to invent one, which is a decision about what a checkpoint MEANS.
+
+   **Still open:** the terminal outcome has no presentation consumer. When one is
+   wanted it should be a message published at completion, not a poll of the
+   session's single-latest-outcome resource.
 5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
    installer aliases and unused progress paths. Refresh the graph as a diagnostic.
 

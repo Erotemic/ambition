@@ -943,11 +943,24 @@ struct RestoreVerificationFailure {
 /// at all would verify clean. The question is whether the world matches the
 /// snapshot THIS OPERATION was accepted with.
 ///
-/// ⚠ WHAT IT DOES NOT CHECK, said plainly: it does not verify room geometry,
-/// body position, clocks or portals, and it does not prove the population is
-/// complete — only that the values the restore claimed to put back are the ones
-/// the world now holds. Widening it is worthwhile; pretending it is already wide
-/// is how a verification step becomes a formality.
+/// ⚠ WHAT IT DOES NOT CHECK, AND WHY — because "not yet" and "deliberately not"
+/// are different answers and a reader deserves to know which this is.
+///
+/// ⛔ **BODY PLACEMENT: DELIBERATELY NOT.** The only thing the operation could be
+/// checked against is the intent's arrival, and `transit_body` legitimately
+/// reconciles a body off it — contacts, attachment, the floor it landed on. A
+/// tight tolerance would PAUSE A WORKING GAME (this verification is fail-closed);
+/// a loose one measures nothing. Checking placement needs a postcondition the
+/// transit authority states, not a coordinate comparison invented here.
+///
+/// ⛔ **CLOCKS AND PORTALS: DELIBERATELY NOT.** Nothing in the accepted snapshot
+/// describes them, so a check would have to invent a snapshot to compare
+/// against — which is a decision about what a checkpoint MEANS, not a
+/// verification detail. It belongs to whoever adds that snapshot.
+///
+/// ⭐ Everything it does check is compared against a value the operation was
+/// ACCEPTED with. That is the line: verification asks whether the world matches
+/// what this operation promised, never whether the world looks reasonable.
 fn verify_restored_domains(
     world: &mut bevy::prelude::World,
     accepted: &AcceptedRestore,
@@ -1081,6 +1094,51 @@ fn verify_restored_domains(
             }
         }
     }
+    // ── EVERY OCCURRENCE THE PINNED LEDGER PUTS IN THIS ROOM IS HERE ─────────
+    //
+    // ⭐ COMPLETENESS, which the ledger-equality check above cannot see. That one
+    // compares two ledgers; this asks whether the WORLD produced what the ledger
+    // describes. A room rebuilt from the right plan that failed to spawn half of
+    // it leaves both ledgers agreeing and the player standing in an empty room.
+    //
+    // ⚠ ONLY THE ROWS THAT NAME THIS ROOM. An occurrence the checkpoint places
+    // somewhere else is not this reconstruction's to produce, and one in custody
+    // is the custody arm's below.
+    {
+        use ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts;
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+        let live: std::collections::BTreeSet<SimId> = {
+            let mut ids = world.query::<&SimId>();
+            ids.iter(world).cloned().collect()
+        };
+        let missing: Vec<&str> = accepted
+            .occurrences
+            .remembered()
+            .rows()
+            .filter(|(_, whereabouts)| {
+                matches!(
+                    whereabouts,
+                    OccurrenceWhereabouts::Placed { room, .. }
+                        if room == accepted.intent.target_room()
+                )
+            })
+            .filter(|(occurrence, _)| !live.contains(*occurrence))
+            .map(|(occurrence, _)| occurrence.as_str())
+            .collect();
+        if !missing.is_empty() {
+            return Err(RestoreVerificationFailure {
+                failure: RestoreFailure::Population,
+                detail: format!(
+                    "the checkpoint places {} occurrence(s) in '{}' that the \
+                     rebuilt room does not contain: {missing:?}",
+                    missing.len(),
+                    accepted.intent.target_room()
+                ),
+            });
+        }
+    }
+
     if !unmet.is_empty() {
         return Err(RestoreVerificationFailure {
             failure: RestoreFailure::Custody,
@@ -1112,6 +1170,9 @@ pub enum RestoreFailure {
     Subject,
     /// A banked custody row is missing, duplicated, or in the wrong hands.
     Custody,
+    /// The rebuilt room does not contain an occurrence the checkpoint places in
+    /// it.
+    Population,
 }
 
 impl RestoreFailure {
@@ -1123,6 +1184,7 @@ impl RestoreFailure {
             Self::Room => "room",
             Self::Subject => "subject",
             Self::Custody => "custody",
+            Self::Population => "population",
         }
     }
 
@@ -1133,6 +1195,7 @@ impl RestoreFailure {
             Self::Room => 3,
             Self::Subject => 4,
             Self::Custody => 5,
+            Self::Population => 6,
         }
     }
 }

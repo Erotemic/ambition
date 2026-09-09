@@ -113,8 +113,12 @@ property.
   `central_hub_complex` were measured to author none. The preparation-FAILURE row
   (as distinct from a retraction) needs a room whose construction can be made to
   fail;
-- verification does not check body placement, clocks, portals or population
-  completeness — add each with a case that fails for it alone;
+- ⛔ verification's remaining omissions are DELIBERATE, not pending: body
+  placement has no comparand but the arrival, which transit legitimately
+  reconciles off, and clocks/portals have no accepted snapshot at all. Checking
+  either needs a new decision (a transit postcondition; a snapshot of what a
+  checkpoint means for a clock), not another assertion. Population completeness
+  landed with its own failing case;
 - the terminal outcome has no presentation consumer. When one is wanted, publish
   a message at completion rather than polling the session's single-latest-outcome
   resource.

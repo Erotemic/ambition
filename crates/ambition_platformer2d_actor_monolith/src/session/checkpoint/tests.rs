@@ -1675,6 +1675,98 @@ fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabe
     (app, sim)
 }
 
+/// ⛔⛔ **A ROOM REBUILT FROM THE RIGHT PLAN THAT PRODUCED HALF OF IT IS NOT A
+/// RESTORED ROOM.** (Verification: population completeness.)
+///
+/// Ledger equality cannot see this: it compares the applied ledger with the
+/// pinned one, and both agree while the WORLD is missing what they describe. The
+/// player then stands in a room the session believes it restored.
+///
+/// ⚠ ONLY THE ROWS THAT NAME THIS ROOM are the reconstruction's to produce. An
+/// occurrence the checkpoint places elsewhere is another room's business, and one
+/// in custody is the custody arm's — asserted here, because a completeness check
+/// that demanded every row would fail every ordinary restore.
+#[test]
+fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in_it() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, LifecycleCheckpointHorizonPlugin, OccurrenceBaseline,
+        OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let here = SimId::placement("authored_in_the_room_being_rebuilt");
+    let elsewhere = SimId::placement("authored_next_door");
+
+    let verify = |spawn: Vec<SimId>| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+        for id in spawn {
+            app.world_mut().spawn(id);
+        }
+
+        let placed = |room: &str| OccurrenceWhereabouts::Placed {
+            room: room.into(),
+            at: Vec2::new(1.0, 2.0),
+        };
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.adopt_rows(
+            [
+                (here.clone(), placed("here")),
+                (elsewhere.clone(), placed("next_door")),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let mut occurrences = OccurrenceBaseline::default();
+        occurrences.adopt(ledger);
+
+        let key = SessionCheckpointOperations::default().admit(None).unwrap();
+        app.world_mut()
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: "here".into(),
+                }),
+                occurrences,
+                custody: Default::default(),
+                item: None,
+            });
+        assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
+        app.world()
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .expect("an answered operation has an outcome")
+            .failure()
+    };
+
+    // ⛔ THE PREMISE: the room containing what the checkpoint puts in it verifies
+    // clean EVEN THOUGH the next-door occurrence is absent — a completeness check
+    // that demanded every row would redden every ordinary restore.
+    assert_eq!(
+        verify(vec![here.clone()]),
+        None,
+        "the reconstruction produced its own room's occurrence and verification \
+         still failed it, which would pause the game on every working restore"
+    );
+
+    assert_eq!(
+        verify(Vec::new()),
+        Some(super::RestoreFailure::Population),
+        "the rebuilt room does not contain the occurrence the checkpoint places \
+         IN IT and verification called the restore committed. Both ledgers agree \
+         while the world is missing what they describe"
+    );
+}
+
 /// ⭐ **TWO RAW RESETS IN ONE TICK ARE ONE OPERATION.** (Acceptance row: "two raw
 /// reset requests in one tick".)
 ///

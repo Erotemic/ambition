@@ -95,6 +95,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // requires a windowed host's input stack and this one requires nothing, so a
         // headless simulation can keep its map facts true without supplying input it has
         // no use for.
+        #[cfg(feature = "map")]
         ambition_menu::map::install_map_simulation_systems(app, sim);
 
         // The dev-tools inspector mirror (a DOMAIN set — its system lives in

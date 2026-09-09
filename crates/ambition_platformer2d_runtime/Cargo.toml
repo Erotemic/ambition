@@ -56,7 +56,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The engine sim messages/resource defaults (E5 step 6, SimCoreResourcesPlugin).
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
-ambition_menu = { path = "../ambition_menu" }
+ambition_menu = { path = "../ambition_menu", optional = true }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
@@ -101,6 +101,17 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
 portal = ["dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal"]
+# The WORLD MAP's simulation half. Default-OFF, and it was not optional at all
+# until 2026-09-09: this crate installed `MapStatePlugin` and
+# `install_map_simulation_systems` unconditionally, so `ambition_menu` was in
+# every consumer's compile closure through here even though the FACADE already
+# offers it as a named capability. An optional capability with one unconditional
+# installer is not optional — measured as the only single-parent capability edge
+# in the featureless closure.
+#
+# ⭐ `ProgressionSet::Map` is `shared_tangle`'s and stays configured either way,
+# so a composition without the map keeps the phase its neighbours order against.
+map = ["dep:ambition_menu"]
 # The LDtk runtime spine and its rollback row, offered to a game that has an
 # LDtk world. Default-OFF: see the dependency's own note.
 ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]

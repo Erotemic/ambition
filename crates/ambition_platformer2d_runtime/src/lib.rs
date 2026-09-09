@@ -383,8 +383,15 @@ impl PluginGroup for PlatformerEnginePlugins {
             // state; the assembly below only ORDERS their public sets).
             .add(ambition_dev_tools::DevToolsSimPlugin)
             .add(ambition_dialog::DialogSimStatePlugin)
-            .add(ambition_encounter::EncounterRegistryPlugin)
-            .add(ambition_menu::map::MapStatePlugin)
+            .add(ambition_encounter::EncounterRegistryPlugin);
+        // ⛔ THE MAP IS A CAPABILITY, so the chain breaks here rather than
+        // naming it unconditionally. `ProgressionSet::Map` is `shared_tangle`'s
+        // and stays configured either way, so a composition without the map
+        // keeps the phase its neighbours order against — see this crate's `map`
+        // feature.
+        #[cfg(feature = "map")]
+        let builder = builder.add(ambition_menu::map::MapStatePlugin);
+        let builder = builder
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
             // A sheet-authored body adopts the box for the pose it is showing, in

@@ -711,7 +711,6 @@ dependencies = [
  "ambition_input",
  "ambition_items",
  "ambition_load",
- "ambition_menu",
  "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",

@@ -88,6 +88,13 @@ rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
 # name `ambition_render` and get a host that installs none of the presentation
 # that renderer exists for.
 ambition_render = ["dep:ambition_render", "ambition_platformer2d_host/render"]
+# ⭐ SPELLED OUT for the same reason as the renderer above: the map's SIMULATION
+# half lives in `ambition_platformer2d_runtime` and is behind that crate's `map`
+# feature now (it used to be an unconditional installer, which is what kept this
+# "optional" capability in every consumer's closure). Naming the capability here
+# has to install it there, or a game selects the map and gets a menu crate with
+# nobody stepping it.
+ambition_menu = ["dep:ambition_menu", "ambition_platformer2d_runtime/map"]
 # Window/input/presentation forwarders for downstream game crates and for the
 # app-shell collapse. Games opt into the same engine/host/render/actor gates
 # through one facade instead of copying every lower crate into their manifests.

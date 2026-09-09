@@ -325,6 +325,26 @@ other three `causal` forwards (`combat`, `damage`, the monolith's own) are real.
 reached through `ambition_platformer2d_actor_monolith`, which is the packet's own
 thesis rather than a reason to leave a false edge standing.
 
+**And the map became a capability, 2026-09-09.** Tracing every crate in the
+featureless closure to its activating parents (the frontier's "trace every
+alternate path") found exactly ONE single-parent capability edge:
+`ambition_menu <= ambition_platformer2d_runtime`, which installed
+`MapStatePlugin` and `install_map_simulation_systems` unconditionally. The facade
+already OFFERED `ambition_menu` as a named capability — an optional capability
+with one unconditional installer is not optional, and that is what kept the menu
+crate in a movement-only game's closure. It is behind the runtime's `map` feature
+now, forwarded from the facade's `ambition_menu`, so naming the capability
+installs it rather than linking a crate nobody steps.
+`ProgressionSet::Map` is `shared_tangle`'s and stays configured either way.
+Closure 50 → 49. Poison-verified: dropping the facade's forwarding reddens
+`every_room_the_map_calls_visited_has_its_visit_on_the_save`.
+
+⚠ The trace's real finding is the shape, not the win:
+`ambition_platformer2d_runtime` and `ambition_platformer2d_actor_monolith` are
+parents of nearly everything, and `ambition_platformer2d_core` has 33 parents.
+Every remaining crate has two or more, so no further single-edge repair exists —
+the next reduction is the §4 monolith carve, not another feature gate.
+
 **Next in this row:** the frontier asks for a SEPARATE headless consumer
 workspace — "a constructed body advancing against world geometry, without
 renderer, audio, inventory, encounters or game content". That fixture does not

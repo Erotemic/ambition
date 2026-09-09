@@ -668,22 +668,29 @@ blocked by a COMPOSITION MISPLACEMENT, not by content and not by test-writing �
 see the note below. Every other row has a witness that fails for that row's
 property.
 
-### ⛔⛔ A CONSTRUCTION-PLAN CACHE PREFETCHED BY A PRESENTATION PLUGIN
+### ⛔⛔ ONE SYSTEM PREFETCHES NEIGHBOUR ASSETS *AND* CACHES A CONSTRUCTION PLAN
 
 Measured 2026-09-08 while trying to stage the row above.
-`prefetch_neighbor_room_preparation_system` — which prepares and caches ROOM
-CONSTRUCTION PLANS, a simulation concern — is installed by
-`game/ambition_app/src/app/world_flow/room_transition_presentation.rs`. So:
+`prefetch_neighbor_room_preparation_system` is installed by
+`game/ambition_app/src/app/world_flow/room_transition_presentation.rs`, and the
+consequence is that the headless sim harness every checkpoint fixture uses holds
+**zero** prefetched plans — probed: the cache is empty after 180 settled frames.
+The promotion path A1c/3a redirected is therefore reachable only in the visible
+app, and an RL or headless composition re-prepares every room from scratch.
 
-* the headless sim harness every checkpoint fixture uses holds **zero** prefetched
-  plans (probed: the cache is empty after 180 settled frames);
-* the promotion path A1c/3a redirected is reachable only in the visible app;
-* an RL/headless composition silently re-prepares every room from scratch, and
-  the neighbour-prefetch tests pass because they use `build_visible_app`.
+⚠ **IT IS A SPLIT, NOT A MOVE, and I checked before saying so.** The system's
+params are two jobs braided together: a construction plan (`PlacementLowering
+Registry`, `RoomContentStagingRegistry`, the catalogs, the recipes, the brain
+overrides, `RoomConstructionPlanPrefetch`) and the neighbour's ASSET residency
+(`GameAssets`, `AssetServer`, `Assets<Image>`, `RenderWorldPresent`,
+`AppGpuPreparedImages`, sprite layouts, character load states). The asset half
+belongs where it is. The plan half inherited that composition by being in the
+same function.
 
-⇒ This is not a checkpoint defect and A1 does not own it, but it is why the row
-cannot be closed from here, and it is worth its own packet: a plan cache belongs
-with the construction it caches, not with the cover that hides the wait.
+⇒ Not a checkpoint defect, and A1 does not own it. It is why the end-to-end arm
+of the outlook row cannot be staged from here, and it wants its own packet:
+separate the plan cache from the asset warm-up so a composition that does not
+draw still prepares the room it is about to enter.
 
 Existing integration witnesses include
 `game/ambition_app/tests/canonical_reconstitution.rs`,

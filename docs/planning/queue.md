@@ -588,8 +588,29 @@ scripted test drives input through — writes the latch *if the latch table
 exists*, and otherwise falls through to writing `SeatRawFrames` and `SlotControls`
 DIRECTLY. So a scripted press is delivered whether or not the drain ever runs:
 the fallback makes the drain unfalsifiable from the road every test takes. The
-gap predates this move (the move is registration-identical) and is recorded here
-rather than papered over with a test that constructs its own subject.
+gap predates this move (the move is registration-identical).
+
+⭐ **CLOSED 2026-09-09 (GPT review #8):** `game/ambition_app/tests/latched_input_reaches_the_tick.rs`.
+It accumulates into `SlotControlLatches` the way a device bridge does and never
+calls `drive_slot_frame`, so the fallback that made the drain unfalsifiable is
+not on its road. Making `install_latched_slot_publication` a no-op now reddens
+both of its tests — the same poison that leaves all 602 `app_it` tests green.
+Engine + `PlatformerHostPlugins` + `Fixed60Hz` + a live `SessionRoot`: NOT the
+shell frontend, because the shell boots to a launcher with no session and the
+claim under test belongs to the host input stack. `Fixed60Hz` and not `Rollback`
+deliberately — a rollback host drains the same latches at `ReadInputs` through
+`capture_latched_local_input` and would pass with the installer deleted.
+
+⚠ TWO THINGS THE FIRST DRAFT GOT WRONG, both recorded in the file because each
+would otherwise be rediscovered as a defect in the installer. (1) The gameplay
+phase needs `simulation_authorized` to find a live session scope; against the
+shell composition it never ran, and the test failed with the seat neutral while
+the installer was fine. There is now a PROBE system in the same set, so "the sim
+did not run" and "the drain is not installed" are separate answers. (2) Showing
+the seat still neutral after an extra FRAME is a confound, not a check:
+`populate_seat_control_frames` rebuilds every seat's latch from that
+participant's `ActionState` each frame, so a synthetic accumulation is
+overwritten before the tick sees it.
 
 **Acceptance:** public set ancestry and deferred visibility are covered, optional
 capabilities remain optional, and no broad runtime policy object replaces imports.

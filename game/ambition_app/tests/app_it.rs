@@ -18,6 +18,7 @@ mod app_it_sync;
 
 mod a_dropped_item_falls;
 mod installed_techniques_are_declared;
+mod latched_input_reaches_the_tick;
 mod a_game_governs_only_its_own_rooms;
 mod a_hit_on_the_player_freezes_the_match;
 mod a_ron_game_installs_no_ldtk_world;

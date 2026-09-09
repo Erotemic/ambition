@@ -594,7 +594,7 @@ fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
         Vec::new(),
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
-    let mut spawn_crate = |app: &mut bevy::prelude::App, id: &str, x: f32| {
+    let spawn_crate = |app: &mut bevy::prelude::App, id: &str, x: f32| {
         app.world_mut()
             .spawn((
                 ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,

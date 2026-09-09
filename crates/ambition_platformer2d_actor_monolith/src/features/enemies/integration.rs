@@ -10,7 +10,6 @@
 
 use crate::actor_clusters::ActorMut;
 use super::*;
-use ambition_combat::components::BodyMelee;
 use ambition_combat::events::{
     FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
     HitTarget,
@@ -137,10 +136,6 @@ pub(crate) trait ActorMutIntegrationExt {
     fn bark_anchor(&self) -> ae::Vec2;
     fn body_damage_aabb(&self) -> Option<ae::Aabb>;
     fn contact_attack(&self) -> Option<ContactAttack>;
-    fn reset_to_spawn(
-        &mut self,
-        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-    );
 }
 
 impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
@@ -533,85 +528,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             frame_side: ae::AccelerationFrame::new(down).side,
         })
     }
-
-    /// Restore this actor to its authored spawn state.
-    ///
-    /// Liveness is decided by the actor's own [`RespawnPolicy`], not by the
-    /// reset. A room reset is a room-scoped return, so it revives a dead actor
-    /// only when its policy says a room-scoped return is what it does
-    /// (`OnRoomReenter`, or `InPlace` which revives on its own timer anyway).
-    /// A `DeadStaysDead` / `OnRest` corpse stays dead and only has its spatial
-    /// baseline restored.
-    ///
-    /// `sync_ecs_actors_with_save` (Progression) re-zeroed the HP a moment later, so the
-    /// end-of-frame state looked right — but the actor was ALIVE for the remainder of that
-    /// frame: drawable, targetable, and able to act.
-    fn reset_to_spawn(
-        &mut self,
-        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
-    ) {
-        // Restore the authored spatial baseline. `tuning` / `brain_profile`
-        // are projected once at spawn and never mutate at runtime (no
-        // entity morphs its archetype in place), so they already hold the
-        // baseline — there is nothing to re-project here.
-        let was_dead = !self.health.alive();
-        let revives_on_room_reset = matches!(
-            self.config.tuning.respawn,
-            ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter
-                | ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
-        );
-        let stays_dead = was_dead && !revives_on_room_reset;
-        // A respawn is a RESTART, not a transit.
-        //
-        // this was `transit_body` under the comment "respawn is a discrete
-        // transit (ADR 0024 authority)". Right about the POSE — a body arriving
-        // somewhere must reconcile departure contacts and attachment — and
-        // silent about everything else: `transit_body` documents that maneuver
-        // state (coyote, buffers, dash timers) is deliberately KEPT, which is
-        // true of a blink and false of coming back from the dead. It also does
-        // not raise `restart_pending`, so `ae::BodyRestarted` never fired for an
-        // enemy respawn and no provider heard about it.
-        //
-        // `reset_body_clusters` transits internally, so the ADR 0024 property
-        // that comment was protecting is not lost by saying the stronger thing.
-        let spawn = self.spawn.pos;
-        ae::reset_body_clusters(
-            motion_model,
-            &mut self.clusters_mut(),
-            spawn,
-            ae::DEFAULT_TUNING.air_jumps,
-        );
-        // Fresh full-HP body → `alive()` is true; no separate liveness flag.
-        // Skipped entirely for a corpse whose policy forbids a room-scoped
-        // return, so it is never briefly alive (see the doc comment).
-        if !stays_dead {
-            // ITS OWN POOL, UNDER ITS OWN POLICY (AC6.2). This read
-            // `tuning.max_health` and dropped the result into a plain
-            // `BodyHealth::new`, which also resets the DEATH POLICY to the
-            // default — so a body playing under `Unbounded` came back under
-            // `HpDepleted`, the exact substitution `BodyHealth::restored`'s doc
-            // was written about. The pool and the policy are both this
-            // component's, and a respawn changes neither.
-            *self.health = ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(self.health.max()),
-            )
-            .with_policy(self.health.policy());
-        }
-        *self.attack = BodyMelee::default();
-        self.status.respawn_timer = 0.0;
-        self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Idle;
-        self.kin.facing = -1.0;
-        *self.surface = ActorSurfaceState {
-            surface_normal: ae::Vec2::new(0.0, -1.0),
-            // ⭐ THE AUTHORED SCALE, READ rather than re-derived. It used to
-            // spell `if tuning.is_aerial { 0.0 } else { 1.0 }` here, at spawn,
-            // and in the mount dismount — three copies of one authored fact.
-            gravity_scale: self.spawn.gravity_scale,
-        };
-        // Ground/jump authority is the shared cluster now — reset it too.
-        self.ground.on_ground = false;
-        self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
-    }
 }
 
 /// An actor's live body-contact attack, snapshotted by [`ActorMutIntegrationExt::contact_attack`]
@@ -715,8 +631,6 @@ impl SeedActorIntegrationTestExt for ambition_body_seed::ActorClusterSeed {}
 mod dash_tests;
 #[cfg(test)]
 mod hitlag_tests;
-#[cfg(test)]
-mod respawn_policy_tests;
 
 #[cfg(test)]
 mod aggro_authority_tests {

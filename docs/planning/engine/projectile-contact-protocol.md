@@ -513,9 +513,19 @@ both arms, poison-verified.
   swept sibling with a new arm proving it is swept rather than an endpoint test
   wearing a swept signature.
 
-- **Still open:** the file relocation (a cohesive `projectile/contacts.rs`
-  <!-- cite-ok: proposed module path -->). Every semantic correction and every
-  deletion gate that had to precede it has landed.
+- **The file relocation is deliberately NOT taken, and the reason is a standing
+  rule rather than a shortage of time.** A cohesive `projectile/contacts.rs`
+  <!-- cite-ok: proposed module path --> inside the same crate removes no
+  authority and no dependency edge: the contact code would import exactly what it
+  imports now and be reachable by exactly the same callers. The elegance test this
+  repository works to is *"name the authority or the dependency edge the change
+  removes; if neither, it is churn"*, and a same-crate move names neither.
+
+  ⇒ It becomes worth doing when it enables something — a `pub(crate)` boundary
+  that lets a helper stop being public, or a split that lets the flight state
+  leave for `ambition_projectiles` without the victim queries following it. Take
+  it then, with that deletion in the same commit. Every semantic correction and
+  every deletion gate that had to precede A2c has landed.
 Moving-target CCD remains out of scope by the protocol's own slice.
 
 ### A2c: direct delivery and smaller flight authority

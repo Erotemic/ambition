@@ -70,11 +70,15 @@ order pick which part of a multi-part boss was credited.
 swept, and are gone. One of them had none beforehand either — reachable, tested,
 unreached — so its rule moved onto the function every consumer actually calls.
 
-**Next in A2:** the file relocation (a cohesive `projectile/contacts.rs`
-<!-- cite-ok: proposed module path -->). Every semantic correction and deletion
-gate the owner document requires before it has landed. Contributor identity is A5
-infrastructure with no live defect riding on it; the owner document records the
-measurement.
+**A2's remaining item is deliberately not taken.** A cohesive
+`projectile/contacts.rs` <!-- cite-ok: proposed module path --> inside the same
+crate removes no authority and no dependency edge — the code would import what it
+imports now and be reachable by the same callers — and a same-crate move that
+names neither is churn by this repository's own test. It becomes worth doing when
+it enables a deletion: a `pub(crate)` boundary, or a split that lets flight state
+leave for `ambition_projectiles` without the victim queries following. Every
+semantic correction and deletion gate the owner document requires has landed.
+Contributor identity is A5 infrastructure with no live defect riding on it.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have
@@ -344,48 +348,25 @@ Flat data under a different scenario name.
 **Acceptance:** two scenario geometries with the same benchmark knobs do not
 share a cache/result identity; unsupported geometry exits as unsupported.
 
-### D-PORTAL-INTERACT-SEAT — finish interaction input layering after per-body arbitration
+### Closed by re-derivation, 2026-09-09
 
-**Owner:** control/input composition.
+⛔ **D-PORTAL-INTERACT-SEAT.** Re-derived against HEAD rather than inherited, and
+all three of its acceptance clauses already hold:
 
-Per-body arbitration is done. Remove any remaining gameplay-input dependency on a
-portal/ruleset-specific presentation decision. Interactions for multiple driven
-bodies must be served once each despite deferred despawn.
+- *two driven bodies can independently interact in the same tick* —
+  `two_driven_bodies_each_flip_their_own_switch`, beside
+  `a_second_seat_spends_its_own_buffered_interact` and
+  `a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press`;
+- *portal presence does not change which semantic interaction intent exists* —
+  vacuously, and measured: `grep -c 'portal\|Portal'` over the whole 275-line
+  interaction system is ZERO. There is no portal dependency to remove;
+- *no query-order `.next()` arbitration returns* — the one `.next()` left is the
+  documented startup fallback for the frame before any seat is attached, not an
+  arbitration among candidates.
 
-**Acceptance:** two driven bodies can independently interact in the same tick,
-portal presence does not change which semantic interaction intent exists, and no
-query-order `.next()` arbitration returns.
-
-### D-RESET-ROAD-RESIDUE — retire the pre-reconstruction actor room reset
-
-**Owner:** actor integration / room reconstruction.
-
-`ActorMutIntegrationExt::reset_to_spawn` restores an enemy's spatial baseline,
-health and respawn policy in place on a surviving entity. **Measured 2026-09-08:
-it has no production caller** — `git grep` finds only its own definition and the
-four `#[cfg(test)] respawn_policy_tests`, and `check_no_warnings` is RED on it
-(`dead_code`, unused since `b1f42c79b`).
-
-It is superseded rather than merely unwired: a room transition retires every
-`RoomResident` and rebuilds the destination from its construction plan
-(`room_transition/commit.rs`), and a same-room replay reconstructs the population
-at the confirmed lifecycle boundary. The entity a reset-in-place would have
-restored does not survive either road.
-
-⛔ **THE FOUR TESTS ARE A FALSE WITNESS AND THAT IS THE POINT OF THE ROW.** They
-assert respawn-policy semantics — a `DeadStaysDead` corpse stays dead through a
-room reset, an `OnRoomReenter` mob comes back — against a function the game never
-executes. Deleting the function without replacing them leaves the same coverage
-in fact and less on paper; the row is only done when the shipped reconstruction
-answers those questions.
-
-**Do:** delete the method and its tests, and add the equivalent assertions
-against the real room re-enter in the visible-app or sim harness. Do not silence
-the warning: it is pointing at this.
-
-**Acceptance:** re-entering a room revives an `OnRoomReenter` enemy and leaves a
-`DeadStaysDead` corpse dead, asserted through the shipped reconstruction; a poison
-on the reconstruction's liveness gate reddens it; `check_no_warnings` is green.
+⚠ RECORDED RATHER THAN SILENTLY DELETED, because a row that describes a defect
+nobody can reproduce costs the next reader the same re-derivation. The rule this
+follows is the file's own: a row stays only when an engineer can act on it.
 
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 

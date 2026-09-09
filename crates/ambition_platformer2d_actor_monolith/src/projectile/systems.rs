@@ -687,17 +687,35 @@ pub fn step_projectiles(
             // bodies CAN share a position (a spawn point, a stack) and a stable
             // sort over an equal key hands the decision back to query order
             // (S3, 2026-09-02).
-            let mut ordered: Vec<_> = victims.iter().collect();
-            let sort_key = |c: ae::Vec2| ((c - leg_start).length(), c.x, c.y);
-            ordered.sort_by(|a, b| {
-                let (ad, ax, ay) = sort_key(a.aabb.aabb().center());
-                let (bd, bx, by) = sort_key(b.aabb.aabb().center());
-                ad.total_cmp(&bd)
+            //
+            // ⭐⭐ AND IT IS TIME OF IMPACT NOW, NOT CENTRE DISTANCE. Contact
+            // itself is swept: the shot's box travels the captured leg, so a
+            // fast bolt reaches a thin body it flies clean through between
+            // samples — the endpoint overlap this used to ask says no, and the
+            // shot sailed on with the target untouched. Once contact has a
+            // finite time, ordering by "whose centre is nearer the muzzle" can
+            // disagree with "whom it reached first"; a big body slightly further
+            // out is touched before a small one dead ahead.
+            let shot_half = kin.size * 0.5;
+            let leg = kin.pos - leg_start;
+            let mut ordered: Vec<_> = victims
+                .iter()
+                .filter_map(|victim| {
+                    victim
+                        .reached_along(leg_start, shot_half, leg)
+                        .map(|toi| (toi, victim))
+                })
+                .collect();
+            ordered.sort_by(|(at, a), (bt, b)| {
+                let (ax, ay) = (a.aabb.aabb().center().x, a.aabb.aabb().center().y);
+                let (bx, by) = (b.aabb.aabb().center().x, b.aabb.aabb().center().y);
+                at.total_cmp(bt)
                     .then(ax.total_cmp(&bx))
                     .then(ay.total_cmp(&by))
                     .then_with(|| a.sim_id.cmp(&b.sim_id))
             });
-            for victim in &ordered {
+
+            for (contact_time, victim) in &ordered {
                 if Some(victim.entity) == owner_entity {
                     continue;
                 }
@@ -769,12 +787,10 @@ pub fn step_projectiles(
                         }
                     }
                 }
-                // Projectiles use the same published victim geometry as melee.
-                // An empty `DamageableVolumes` is intangible; absence falls back to
-                // the coarse body box inside `reached_by`.
-                if !victim.reached_by(&kin.aabb().into()) {
-                    continue;
-                }
+                // ⭐ CONTACT WAS ALREADY DECIDED, swept, when this list was built:
+                // a victim that is here was reached somewhere along the leg. The
+                // endpoint test that used to stand here asked a different and
+                // weaker question and is gone rather than duplicated.
                 // Parry: a timed shield RE-OWNS the shot to the parrier (its firer
                 // faction becomes the parrier's next tick → it routes as that
                 // body's own shot, back at its foes) and reverses + boosts its
@@ -865,20 +881,41 @@ pub fn step_projectiles(
                 // CM8: vulnerability is no longer read here to MUTE feedback — the ONE
                 // victim-side reaction fires only on a landed hit, so a dodged / parried /
                 // i-framed hit is muted for free at consume time (`resolve_body_hit`).
+                // ⛔⛔ **THE WITNESS IS WHERE THE SHOT TOUCHED, NOT WHERE IT
+                // ENDED.** This event is applied LATER, by a system that tests
+                // `volume` against the victim's geometry again — so sending the
+                // endpoint box meant a shot that crossed its target within the
+                // tick named that target and then failed its own re-test, and no
+                // damage landed. Contact is swept now; the box travels with it.
+                //
+                // ⚠ It also makes the two directional facts honest. Knockback
+                // direction and the impact point were measured from the endpoint,
+                // which for a fast shot is already past the body it hit — the
+                // spray came from the wrong side.
+                // ⭐ A HAIR INSIDE, for the same reason the world sweep below
+                // nudges: `time_of_impact` puts the box TOUCHING, and every
+                // downstream overlap test is `strict_intersects`, which is false
+                // for a touch. Toward the victim's centre rather than along the
+                // leg, so a corner clip — where the leg direction is tangential —
+                // resolves too.
+                let contact_center = leg_start + leg * *contact_time;
+                let inward = (victim_body.center() - contact_center).normalize_or_zero();
+                let contact_center = contact_center + inward * 0.5;
+                let contact_box = ae::Aabb::new(contact_center, shot_half);
                 let side = victim.knockback_side();
-                let knock_dir = (victim_body.center() - kin.pos).dot(side).signum();
+                let knock_dir = (victim_body.center() - contact_center).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
                     1.0
                 } else {
                     knock_dir
                 };
                 let impact_pos = ae::Vec2::new(
-                    (victim_body.center().x + kin.pos.x) * 0.5,
-                    (victim_body.center().y + kin.pos.y) * 0.5,
+                    (victim_body.center().x + contact_center.x) * 0.5,
+                    (victim_body.center().y + contact_center.y) * 0.5,
                 );
                 feature_damage.write(HitEvent {
                     strike_sfx: None,
-                    volume: kin.aabb().into(),
+                    volume: contact_box.into(),
                     damage: game.damage.max(1),
                     source: HitSource::Projectile,
                     // The firing actor (enemy / boss), when the shot was spawned

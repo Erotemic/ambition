@@ -249,6 +249,67 @@ pub fn strike_reaches_victim(
     }
 }
 
+/// The earliest normalized time in `[0, 1]` at which a projectile's box, swept
+/// from `start` by `delta`, reaches the geometry this body published.
+///
+/// ⛔⛔ **THE ENDPOINT TEST IS NOT A CONTACT TEST FOR A MOVING SHOT.**
+/// [`strike_reaches_victim`] asks whether a strike volume overlaps the victim
+/// NOW, which is the right question for a melee hitbox that exists for a window
+/// of frames and the wrong one for a projectile that crosses the whole victim
+/// between two samples. A fast shot's endpoint lands past a thin body, the
+/// overlap test says no, and the shot flies on: the target is never touched.
+///
+/// ⚠ **SWEPT FOR BOXES, ENDPOINT-ONLY FOR A SHAPED PART, AND THAT LIMIT IS
+/// DELIBERATE.** Every publisher in the tree emits `CombatVolume::Aabb` today,
+/// so the swept answer is exact for all of them. A rotated box, a circle or a
+/// convex hull has no swept primitive here, and answering from its BOUNDS would
+/// reintroduce exactly what `strike_reaches_victim` refuses — a blade landing in
+/// the dead corner of a rectangle nobody authored. Such a part falls back to the
+/// endpoint shape test, so it is never over-reported, only under-swept. That is
+/// the sampled-target model's stated edge, not full CCD.
+///
+/// ⚠ THE TARGET IS SAMPLED, NOT SWEPT. A victim moving across a stationary shot
+/// between samples is a separate acceptance case and is not covered here.
+pub fn swept_strike_reaches_victim(
+    start: ambition_platformer2d_core::Vec2,
+    half: ambition_platformer2d_core::Vec2,
+    delta: ambition_platformer2d_core::Vec2,
+    victim_damageable: Option<&super::components::DamageableVolumes>,
+    victim_aabb: &super::components::CenteredAabb,
+) -> Option<f32> {
+    use ambition_platformer2d_core::{AabbExt, CombatVolume};
+
+    let start_box = ae::Aabb::new(start, half);
+    let end_box = ae::Aabb::new(start + delta, half);
+    let swept_against = |target: ae::Aabb| -> Option<f32> {
+        // PARITY with the discrete test for the already-overlapping case, then
+        // the path on top: a victim the old test already found answers `0.0`,
+        // and the only new answers are genuine tunnels.
+        if start_box.strict_intersects(target) {
+            return Some(0.0);
+        }
+        start_box
+            .sweep_hit(delta, target)
+            .map(|hit| hit.time_of_impact)
+    };
+    match victim_damageable {
+        Some(published) if published.intangible() => None,
+        Some(published) if published.published() => published
+            .volumes
+            .iter()
+            .filter_map(|part| match part {
+                CombatVolume::Aabb(target) => swept_against(*target),
+                // Shaped: no swept primitive, so this is the endpoint answer the
+                // caller had before, expressed as "reached at the end of the leg".
+                shaped => shaped
+                    .intersects(&CombatVolume::aabb(end_box))
+                    .then_some(1.0),
+            })
+            .min_by(f32::total_cmp),
+        _ => swept_against(victim_aabb.aabb()),
+    }
+}
+
 /// Shared query contract for a body that may receive a strike.
 ///
 /// `aabb` and `faction` are required. Optional components each have a defined absence semantic;
@@ -331,6 +392,20 @@ impl StrikeVictimItem<'_, '_> {
     /// The single victim-geometry rule, applied to the victim that owns it.
     pub fn reached_by(&self, world_volume: &ambition_platformer2d_core::CombatVolume) -> bool {
         strike_reaches_victim(world_volume, self.volumes, self.aabb)
+    }
+
+    /// When along a projectile's travel this body is first reached, if at all.
+    ///
+    /// The swept sibling of [`Self::reached_by`], for a caller that owns a
+    /// segment rather than a single sample — see
+    /// [`swept_strike_reaches_victim`] for what it sweeps and what it does not.
+    pub fn reached_along(
+        &self,
+        start: ambition_platformer2d_core::Vec2,
+        half: ambition_platformer2d_core::Vec2,
+        delta: ambition_platformer2d_core::Vec2,
+    ) -> Option<f32> {
+        swept_strike_reaches_victim(start, half, delta, self.volumes, self.aabb)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).

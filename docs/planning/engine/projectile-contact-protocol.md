@@ -396,14 +396,43 @@ shot's box and the shot's policy now. Witness:
 (the `Bouncing` arm is the anti-vacuity floor — a fireball crosses a one-way by
 design and must still land), poison-verified against a solids-only predicate.
 
-⛔ **STILL OPEN IN A2b, and it is the row with the player-visible symptom.**
-Target contact is still ENDPOINT overlap (`victim.reached_by(&kin.aabb())`), so
-the "thin target crossed at speed" acceptance row fails: a fast shot passes
-through a thin victim without an endpoint that overlaps it. The obstruction test
-above is swept; the CONTACT test is not. Compound contacts and contributor
-identity are untouched — nothing yet distinguishes a destructible's own wall from
-an unrelated one, so the strict-nearer comparison was preserved rather than
-widened.
+*Swept target contact, and the witness it carries.* Contact was ENDPOINT overlap:
+the stepper moved the shot to its new position and asked whether the box THERE
+reached the victim. At 4000 px/s a tick covers 64 px, so a body thinner than that
+was behind the endpoint before anything looked — the bolt passed through and
+nobody was touched, while the obstruction test beside it was already swept. The
+shot's box now travels the captured leg
+(`ambition_combat::hitbox::swept_strike_reaches_victim`), and candidates are
+ordered by TIME OF IMPACT rather than by distance from the muzzle to a victim's
+centre: once contact has a finite time, "whose centre is nearer" and "whom it
+reached first" are different answers for two bodies of different size.
+
+⛔ **AND THE DELAYED APPLICATION HAD TO STOP RE-TESTING PRESENT GEOMETRY**, which
+the fixture found rather than the reading. The targeted `HitEvent` named its
+victim and carried `kin.aabb()` — the ENDPOINT box — and the applier tests that
+volume against the victim again, so a shot that genuinely crossed its target
+failed its own re-test and landed nothing. The event carries the box AT CONTACT
+now, nudged a hair inside for the same reason the world sweep nudges
+(`time_of_impact` leaves the box tangent and every downstream test is
+`strict_intersects`). Knockback direction and the impact point are measured from
+the contact rather than from the endpoint, which for a fast shot is past the body
+it hit. Witness: `a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick`, with
+the ordinary-speed arm as its anti-vacuity floor and parity check;
+poison-verified against an endpoint-only sweep.
+
+⚠ SWEPT FOR BOXES, ENDPOINT-ONLY FOR A SHAPED PART. Every publisher in the tree
+emits `CombatVolume::Aabb`, so the swept answer is exact for all of them; a
+rotated box, circle or hull has no swept primitive here and answering from its
+BOUNDS would reintroduce the dead-corner hit `strike_reaches_victim` refuses. A
+shaped part is under-swept, never over-reported, and the limit is stated at the
+function.
+
+⛔ **STILL OPEN IN A2b.** Compound contacts and contributor identity are
+untouched — nothing yet distinguishes a destructible's own wall from an unrelated
+one, so the strict-nearer obstruction comparison was preserved rather than
+widened. The boss and breakable branches still resolve through the unresolved-
+feature event with an endpoint volume; only the ordinary body branch is swept.
+Moving-target CCD remains out of scope by the protocol's own slice.
 
 ### A2c: direct delivery and smaller flight authority
 

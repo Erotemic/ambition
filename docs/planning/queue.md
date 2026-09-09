@@ -49,10 +49,15 @@ consumers with the derivation). **A2b's obstruction half landed**: the travel le
 is captured rather than reconstructed, and both branches ask one swept question
 with the shot's own box and world-hit policy. Receipts in the owner document.
 
-**Next in A2b:** swept TARGET contact. Contact is still endpoint overlap, so a
-fast shot passes through a thin victim — the one remaining row with a
-player-visible symptom. Then contributor identity and compound contacts, which
-nothing yet supplies.
+**Swept target contact landed 2026-09-09**, with candidate ordering by time of
+impact and the targeted hit event carrying the box AT CONTACT — the delayed
+applier re-tests that volume, so a shot that genuinely crossed its target used to
+fail its own re-test and land nothing.
+
+**Next in A2b:** contributor identity and compound contacts, which nothing yet
+supplies, and the boss/breakable branches — they still resolve through the
+unresolved-feature event with an endpoint volume, so only the ordinary body
+branch is swept.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have

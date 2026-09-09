@@ -465,6 +465,105 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     );
 }
 
+/// ⛔⛔ **A2b: A FAST SHOT MUST HIT A THIN BODY IT CROSSES BETWEEN SAMPLES.**
+///
+/// Target contact was ENDPOINT overlap: the stepper moved the shot to its new
+/// position and asked whether the box there reached the victim's published
+/// geometry. At 4000 px/s a tick carries the shot 64 px, so a body thinner than
+/// that is behind the endpoint before anything looks — the bolt flies through it
+/// and nobody is touched. The obstruction test beside it was already swept,
+/// which is what made the pair inconsistent: the shot could be stopped by a wall
+/// it crossed and not by a body it crossed.
+///
+/// ⭐ THE SLOW ARM IS THE ANTI-VACUITY FLOOR AND ALSO THE PARITY CHECK. The same
+/// victim at a speed whose endpoint lands on it must still be hit — a swept test
+/// that reports contact for everything, or one that broke the ordinary case,
+/// would pass the fast arm alone.
+#[test]
+fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
+    fn victim_hp_after_a_shot_at(speed: f32) -> (i32, i32) {
+        // No geometry at all: this row is about the TARGET test, and a wall
+        // would let an obstruction answer stand in for a contact answer.
+        let world = ae::World::new(
+            "open_lane",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.add_systems(
+            Startup,
+            |mut commands: Commands,
+             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+                crate::features::spawn_encounter_mob(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    "projectile_test",
+                    ambition_encounter::mob_seed::EncounterMobSeed {
+                        id: "thin_enemy".into(),
+                        character: Some("fixture_striker"),
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "fixture_striker".into(),
+                        ),
+                        pos: ae::Vec2::new(400.0, 300.0),
+                        // THIN along the shot's axis: 6 px wide, well inside the
+                        // 64 px a fast tick covers.
+                        size: ae::Vec2::new(6.0, 46.0),
+                    },
+                );
+            },
+        );
+        app.update();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(speed, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let (_, health) = query
+            .iter(world)
+            .find(|(identity, _)| identity.id() == "thin_enemy")
+            .expect("the thin enemy should be spawned as an ECS actor");
+        (health.health.current, health.health.max)
+    }
+
+    // ⛔ THE PREMISE. A speed whose endpoint lands ON the body: the ordinary
+    // case, and it must be unchanged.
+    let (slow, max) = victim_hp_after_a_shot_at(2500.0);
+    assert!(
+        slow < max,
+        "the ordinary endpoint-overlap case stopped landing, so the fast arm \
+         below is measuring a contact test that refuses everything rather than \
+         one that sweeps"
+    );
+
+    let (fast, max) = victim_hp_after_a_shot_at(4000.0);
+    assert!(
+        fast < max,
+        "a shot crossing a 6 px body at 4000 px/s passed through it untouched \
+         (was {max}, still {fast}). One tick carries the box 64 px, so the \
+         endpoint is already past the body and an overlap test at the endpoint \
+         sees nothing — the contact has to be asked of the whole leg"
+    );
+}
+
 /// ⛔⛔ **A2b: THE VICTIM'S OBSTRUCTION TEST READS THE SHOT'S OWN WORLD-HIT
 /// POLICY, and it used to be hard-coded to "solids only".**
 ///

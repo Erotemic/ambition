@@ -80,10 +80,19 @@ claim of full moving-target CCD. No second family query chooses the victim.
 
 **Owner:** [authored technique admission](engine/authored-technique-admission.md).
 
-Start with A12a's raw validation and A11a's installed-profile declaration. Then
-validate every expanded effect site, install the private prepared representation
-and prove explicit activation. Version-1 flows are acyclic, 1-256 nodes and use
-checked indices/finite waits. Keep current move lifetime and delivery phases.
+**A12a landed 2026-09-09.** The flow validator now rejects an infinite timeout
+(`f32::INFINITY > 0.0` is true, so the mandatory-timeout check admitted the exact
+value it forbids), a graph past 256 nodes (a cursor bound: `flow_node` is a `u16`
+written with a narrowing cast, so node 65,536 silently becomes node 0), any cycle
+reachable from node 0 (`reaches_finish` is existential, so a branch that
+terminates on one road and loops on the other passed), and a node nothing arrives
+at. The flow-owned-lifetime prose is corrected against the runtime: the timeline
+ends the move, so none of these traps a fighter — they lose authored steps, and a
+cycle fires a technique N times where the author wrote one.
+
+Next: A11a's installed-profile declaration. Then validate every expanded effect
+site, install the private prepared representation and prove explicit activation.
+Keep current move lifetime and delivery phases.
 
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.

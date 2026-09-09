@@ -377,12 +377,52 @@ agent iteration without first solving general transactional ECS replacement.
 
 ## Implementation order
 
-### A12a: close the raw validation hole
+### A12a — DONE 2026-09-09
 
 Add finite-time, checked-index, graph-size, reachability and DAG checks in the
 entity-catalog flow validator. Add the three production flows as fixtures. Correct
 comments about flow-owned move lifetime and document the deliberate rejection of
 cycles. Keep the interpreter's valid-flow behavior unchanged in this commit.
+
+**Landed.** `TechniqueFlow::problems` now rejects, each with its own
+poison-verified case in `entity_catalog`'s `technique_flow` module:
+
+- **A wait that never expires spelled as a number.** `f32::INFINITY > 0.0` is
+  TRUE, so the mandatory-timeout check admitted exactly the unbounded wait it
+  exists to forbid. (`NaN` was already refused by the same comparison; both are
+  asserted so the pair cannot drift.)
+- **A graph wider than `MAX_TECHNIQUE_FLOW_NODES` (256).** The bound is a CURSOR
+  bound before it is a budget: `MovePlayback::flow_node` is a `u16` and the
+  interpreter writes every transition with `*then as u16`, so node 65,536
+  silently becomes node 0 — a terminating flow turned into a loop by a narrowing
+  cast, with every edge still in range and nothing to report. Both sides of the
+  boundary are tested; a limit checked only from above is a limit nobody has
+  shown is reachable.
+- **Any cycle reachable from node 0**, with the loop printed as the path that
+  closes it. `reaches_finish` is EXISTENTIAL, so a branch that terminates on
+  `then` and loops on `otherwise` passed it — and which road the fighter takes is
+  decided at runtime by whether the strike connected.
+- **A node nothing arrives at**, named by index.
+
+**The three production flows needed no new fixture, and that is the better
+answer.** `ambition_content`'s `every_authored_flow_in_the_shipped_rosters_validates`
+already walks every authored flow in every shipped roster with an anti-vacuity
+floor, and `ambition_demo_smash` validates its own; all still pass under the
+stricter rules. A hand-listed trio would have been a third copy that goes stale
+the day a fourth flow is authored. ⛔ That population guard's DOC BLOCK was
+detached — sitting twelve tests above its own function, where it read as a second
+paragraph of an unrelated test's rationale — and is re-homed.
+
+**The lifetime prose is corrected, measured at the runtime rather than taken from
+this page.** `MovePlayback::finished()` is `t >= spec.duration_s`: the TIMELINE
+ends the move and teardown runs on that condition whatever the flow is doing. So
+none of these failures traps a fighter, and three comments plus two diagnostics
+said they did. What a broken flow actually costs is authored intent that never
+runs — and, for a cycle, an `Emit` reached again and again inside the move's
+window, a technique fired N times where the author wrote one. That is a smaller
+and truer claim, and it is the one the error messages make now.
+
+The interpreter is untouched: valid flows behave exactly as before.
 
 ### A11a: make profile support authoritative
 

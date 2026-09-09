@@ -1296,11 +1296,23 @@ pub enum FlowNode {
     /// Hold here until a signal arrives, or until the patience runs out.
     ///
     /// ⭐ THE TIMEOUT IS MANDATORY, and that is a decision rather than an
-    /// oversight. A wait with no bound is a move that can hang forever on a
-    /// signal that never comes — a fighter frozen mid-special because the thing
-    /// it was waiting for died — and there is no authored value of "wait
-    /// forever" that is not a bug. The move's own duration is not a bound,
-    /// because a flow is what decides when the move is done.
+    /// oversight: there is no authored value of "wait forever" that is not a bug.
+    ///
+    /// ⛔⛔ **AND THE REASON IS NOT THAT THE FIGHTER WOULD BE STUCK.** This doc
+    /// used to say an unbounded wait leaves "a fighter frozen mid-special ...
+    /// for the rest of the match", and that the move's own duration is not a
+    /// bound "because a flow is what decides when the move is done". Both are
+    /// false, measured at the runtime: `MovePlayback::finished()` is
+    /// `t >= spec.duration_s` — the TIMELINE ends the move, and teardown runs on
+    /// that condition whatever the flow is doing. `Finish` stops flow activity;
+    /// it does not remove the move's recovery, and an unfinished `Wait` does not
+    /// extend the move.
+    ///
+    /// ⇒ What an unbounded wait actually costs is the flow's whole remaining
+    /// window spent parked on a signal that will never arrive: every `Emit`
+    /// after it never fires, so the authored sequence silently does half its
+    /// job. That is the failure worth a validation error, and it is a smaller
+    /// and truer claim than the one this comment made.
     Wait {
         on: FlowSignal,
         timeout_s: f32,
@@ -1356,14 +1368,45 @@ impl FlowSignal {
     }
 }
 
+/// The widest version-1 [`TechniqueFlow`] an author may publish.
+///
+/// ⛔⛔ **IT IS A CURSOR BOUND BEFORE IT IS A BUDGET.** `MovePlayback::flow_node`
+/// is a `u16` and the interpreter writes every transition with `as u16`, so the
+/// real cliff is 65,536 — past which a jump silently wraps to the top and a
+/// terminating flow becomes a loop. 256 is the version's stated contract and sits
+/// far under that cliff, so an author meets a sentence rather than a wrap.
+///
+/// ⚠ IT BOUNDS DISPATCH, NOT COST. A 256-node limit says nothing about what a
+/// native handler an `Emit` reaches does; see the owner document's trust
+/// boundary before quoting this as resource isolation.
+pub const MAX_TECHNIQUE_FLOW_NODES: usize = 256;
+
 impl TechniqueFlow {
     /// Everything wrong with this flow, as sentences an author can act on.
     ///
     /// ⭐ VALIDATED WHERE IT IS AUTHORED, because every one of these failures is
     /// SILENT at runtime. A transition past the end of the list, a flow with no
-    /// reachable `Finish`, a `Wait` that can never time out — each produces a
-    /// move that plays and does nothing, or a fighter stuck in a special, and
-    /// neither reads as a data error to whoever is holding the controller.
+    /// reachable `Finish`, a `Wait` that can never time out, a node nothing
+    /// arrives at — each produces a move that plays and does part of what it
+    /// says, which reads to whoever is holding the controller as a move that
+    /// "doesn't work sometimes" rather than as bad data.
+    ///
+    /// ⚠ NONE OF THEM TRAPS A FIGHTER, and this doc used to say they did. The
+    /// move ends on its own timeline (`MovePlayback::finished()` is
+    /// `t >= spec.duration_s`); a flow does not own move lifetime. The harm is
+    /// authored intent that never runs, and — for a CYCLE — an `Emit` reached
+    /// again and again inside the move's window, which is a technique fired N
+    /// times where the author wrote one.
+    ///
+    /// ⛔⛔ **CYCLES ARE REJECTED DELIBERATELY.** Version 1 is a bounded ACYCLIC
+    /// move-local program: a repeat belongs in the move's own timeline, where the
+    /// window structure states how often something happens and the runtime can
+    /// price it. The per-tick node budget is not a substitute — it limits how
+    /// fast a loop spins, not whether one exists — and `reaches_finish` is
+    /// existential, so it admits a graph that terminates on one branch and loops
+    /// on the other. Which road a fighter takes is decided at runtime by whether
+    /// the strike connected, so that graph is a move that terminates or does not
+    /// depending on the match.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if self.nodes.is_empty() {
@@ -1371,6 +1414,24 @@ impl TechniqueFlow {
             return problems;
         }
         let len = self.nodes.len();
+        // ⛔⛔ **THE GRAPH IS BOUNDED, AND THE BOUND IS WHAT MAKES THE CURSOR
+        // SAFE.** `MovePlayback::flow_node` is a `u16` and the interpreter writes
+        // transitions with `*then as u16` — a NARROWING cast, silent, which turns
+        // node 65,536 into node 0 and a terminating flow into a loop. The
+        // dangling-edge check below cannot see it: an index inside a 70,000-node
+        // list is not dangling. One bound closes both, and it is stated as the
+        // version's contract rather than as a cursor detail.
+        if len > MAX_TECHNIQUE_FLOW_NODES {
+            problems.push(format!(
+                "the flow has {len} nodes; version 1 admits at most \
+                 {MAX_TECHNIQUE_FLOW_NODES}. The runtime cursor is a `u16` and \
+                 transitions are written with a narrowing cast, so a graph past \
+                 that width silently wraps a jump back to the top"
+            ));
+            // Every later check indexes this list; reporting them all against an
+            // oversized graph buries the one problem the author has to fix.
+            return problems;
+        }
         // A closure borrowing `problems` would conflict with the pushes below,
         // so transitions are collected first and reported after.
         let mut dangling: Vec<(usize, &str, usize)> = Vec::new();
@@ -1385,11 +1446,18 @@ impl TechniqueFlow {
                 } => {
                     dangling.push((index, "then", *then));
                     dangling.push((index, "on_timeout", *on_timeout));
-                    if !(*timeout_s > 0.0) {
+                    // ⛔ FINITE, not merely positive. `f32::INFINITY > 0.0` is
+                    // TRUE, so the positive test admitted the one value that is
+                    // exactly the unbounded wait the mandatory timeout exists to
+                    // forbid — an authored "wait forever" wearing a number.
+                    // (`NaN` fails the positive test already; it is named here so
+                    // the diagnostic says which value was wrong.)
+                    if !timeout_s.is_finite() || !(*timeout_s > 0.0) {
                         problems.push(format!(
                             "node {index} waits with a {timeout_s}s timeout, which never \
-                             expires — a signal that never comes would hold the move open \
-                             for the rest of the match"
+                             expires — a signal that never comes parks the flow here for \
+                             the move's whole remaining window, so every step after this \
+                             one silently never runs"
                         ));
                     }
                 }
@@ -1415,12 +1483,144 @@ impl TechniqueFlow {
         // "the flow contains one" is the check that would have missed it.
         if !self.reaches_finish() {
             problems.push(
-                "no `Finish` is reachable from node 0, so the flow can never end and the \
-                 move stays under its control until something else interrupts it"
+                "no `Finish` is reachable from node 0, so the flow never stops stepping \
+                 and keeps acting for the move's whole remaining window — the move still \
+                 ends on its own timeline, but nothing an author wrote after the \
+                 unreachable `Finish` marks the end of it"
                     .to_string(),
             );
         }
+        // ⛔⛔ **ACYCLIC, AND `reaches_finish` IS EXISTENTIAL SO IT CANNOT SAY
+        // SO.** A branch whose `then` reaches `Finish` and whose `otherwise`
+        // loops back passes that check — one road ends, the other never does,
+        // and which one the fighter takes is decided at runtime by whether the
+        // strike connected. Version 1 is a bounded ACYCLIC program; a cycle is
+        // rejected at authoring rather than survived by the per-tick node budget,
+        // which only limits how fast a loop spins.
+        if let Some(cycle) = self.first_cycle() {
+            problems.push(format!(
+                "the flow loops: {} returns to node {}. Version 1 is acyclic — a \
+                 repeat belongs in the move's own timeline, not in a program that \
+                 can take the looping road on one branch and terminate on the other",
+                cycle
+                    .iter()
+                    .map(|index| format!("node {index}"))
+                    .collect::<Vec<_>>()
+                    .join(" -> "),
+                cycle[0],
+            ));
+        }
+        // ⛔ A NODE NOTHING ARRIVES AT is authored intent that never runs — the
+        // silent class this validator exists for. Reported per node so the
+        // diagnostic names the site rather than the graph.
+        let reachable = self.reachable_from_start();
+        for index in 0..len {
+            if !reachable[index] {
+                problems.push(format!(
+                    "node {index} is unreachable from node 0, so nothing it does can ever happen"
+                ));
+            }
+        }
         problems
+    }
+
+    /// The successors of one node, in the order the author wrote them.
+    ///
+    /// ⭐ ONE PLACE THE EDGES ARE ENUMERATED. Reachability, the cycle search and
+    /// the dangling-edge report all need the same list, and three copies of a
+    /// match over [`FlowNode`] is how a fourth variant comes to be checked by two
+    /// of them.
+    fn successors(node: &FlowNode) -> [Option<usize>; 2] {
+        match node {
+            FlowNode::Emit { then, .. } => [Some(*then), None],
+            FlowNode::Wait {
+                then, on_timeout, ..
+            } => [Some(*then), Some(*on_timeout)],
+            FlowNode::Branch {
+                then, otherwise, ..
+            } => [Some(*then), Some(*otherwise)],
+            FlowNode::Finish => [None, None],
+        }
+    }
+
+    /// Which nodes execution can arrive at, starting at node 0.
+    fn reachable_from_start(&self) -> Vec<bool> {
+        let mut seen = vec![false; self.nodes.len()];
+        let mut stack = vec![0usize];
+        while let Some(index) = stack.pop() {
+            let Some(node) = self.nodes.get(index) else {
+                continue;
+            };
+            if seen[index] {
+                continue;
+            }
+            seen[index] = true;
+            for target in Self::successors(node).into_iter().flatten() {
+                stack.push(target);
+            }
+        }
+        seen
+    }
+
+    /// One cycle reachable from node 0, as the path that closes it.
+    ///
+    /// Returns the nodes from the repeated one round to itself, so the
+    /// diagnostic can print the loop an author has to break rather than just
+    /// asserting that one exists.
+    fn first_cycle(&self) -> Option<Vec<usize>> {
+        #[derive(Clone, Copy, PartialEq)]
+        enum Mark {
+            New,
+            OnPath,
+            Done,
+        }
+        let mut mark = vec![Mark::New; self.nodes.len()];
+        let mut path: Vec<usize> = Vec::new();
+        // Explicit stack: `(node, which successor to try next)`. A recursive walk
+        // is the natural shape and the wrong one — the node bound is the author's
+        // and a deep chain must not decide this by overflowing.
+        let mut stack: Vec<(usize, usize)> = vec![(0, 0)];
+        mark[0] = Mark::OnPath;
+        path.push(0);
+        while let Some((index, edge)) = stack.pop() {
+            let Some(node) = self.nodes.get(index) else {
+                continue;
+            };
+            let next = Self::successors(node)
+                .into_iter()
+                .flatten()
+                .nth(edge)
+                .filter(|target| *target < self.nodes.len());
+            match next {
+                Some(target) => {
+                    stack.push((index, edge + 1));
+                    match mark[target] {
+                        Mark::OnPath => {
+                            let start = path
+                                .iter()
+                                .position(|node| *node == target)
+                                .expect("a node marked on-path is on the path");
+                            let mut cycle = path[start..].to_vec();
+                            cycle.push(target);
+                            return Some(cycle);
+                        }
+                        Mark::Done => {}
+                        Mark::New => {
+                            mark[target] = Mark::OnPath;
+                            path.push(target);
+                            stack.push((target, 0));
+                        }
+                    }
+                }
+                None => {
+                    mark[index] = Mark::Done;
+                    if path.last() == Some(&index) {
+                        path.pop();
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// Can execution starting at node 0 arrive at a [`FlowNode::Finish`]?

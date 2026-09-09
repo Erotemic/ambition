@@ -1936,6 +1936,137 @@ mod technique_flow {
         );
     }
 
+    /// ⛔⛔ **A CYCLE ON ONE BRANCH, A `Finish` ON THE OTHER — and reachability
+    /// alone says yes.**
+    ///
+    /// `reaches_finish` is EXISTENTIAL: it answers "can execution arrive at a
+    /// Finish", and here it can, down the `then` road. The `otherwise` road loops
+    /// forever, and which road the fighter takes is decided at runtime by whether
+    /// the strike connected. So the same authored move terminates or hangs
+    /// depending on what happened in the match, and the check that was supposed
+    /// to catch a non-terminating flow passes.
+    ///
+    /// ⚠ THE PER-TICK NODE BUDGET IS NOT THIS CHECK. It limits how FAST a loop
+    /// spins, not whether one exists; a flow that emits once per tick forever is
+    /// inside the budget and still never ends.
+    #[test]
+    fn a_cycle_on_one_branch_is_refused_though_the_other_finishes() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                FlowNode::Branch {
+                    on: FlowSignal::Connected,
+                    then: 1,
+                    otherwise: 2,
+                },
+                FlowNode::Finish,
+                // The looping road: emit, then back to the branch.
+                emit(0),
+            ],
+        };
+        // ⛔ THE PREMISE. Without this the test could be passing because the
+        // Finish is unreachable, which is a different defect with its own case.
+        assert!(
+            !flow
+                .problems()
+                .iter()
+                .any(|p| p.contains("no `Finish` is reachable")),
+            "this fixture is supposed to have a REACHABLE Finish; if it does not, \
+             it is exercising the older check rather than the cycle one"
+        );
+        let problems = flow.problems();
+        assert!(
+            problems.iter().any(|p| p.contains("the flow loops")),
+            "a flow that terminates on one branch and loops on the other was \
+             accepted: {problems:?}"
+        );
+    }
+
+    /// ⛔⛔ **`f32::INFINITY > 0.0` IS TRUE**, so the mandatory-timeout check
+    /// admitted the exact value it exists to forbid: an authored "wait forever"
+    /// wearing a number. NaN was already refused by the same comparison; it is
+    /// asserted here so the pair cannot drift apart.
+    #[test]
+    fn a_wait_forever_spelled_as_a_number_is_refused() {
+        let wait_for = |timeout_s: f32| {
+            TechniqueFlow {
+                nodes: vec![
+                    FlowNode::Wait {
+                        on: FlowSignal::Connected,
+                        timeout_s,
+                        then: 1,
+                        on_timeout: 1,
+                    },
+                    FlowNode::Finish,
+                ],
+            }
+            .problems()
+        };
+        for forever in [f32::INFINITY, f32::NAN] {
+            let problems = wait_for(forever);
+            assert!(
+                problems.iter().any(|p| p.contains("never expires")),
+                "a wait of {forever} was accepted, which is the unbounded wait the \
+                 mandatory timeout exists to forbid: {problems:?}"
+            );
+        }
+        // ⛔ THE FLOOR: an ordinary finite patience is still admitted, or the
+        // rows above are satisfied by a check that refuses every wait.
+        assert_eq!(
+            wait_for(0.25),
+            Vec::<String>::new(),
+            "an ordinary quarter-second wait was reported broken"
+        );
+    }
+
+    /// ⛔⛔ **THE BOUND IS A CURSOR BOUND.** `MovePlayback::flow_node` is a `u16`
+    /// and the interpreter writes transitions with `as u16`, so node 65,536
+    /// silently becomes node 0 — a terminating flow turned into a loop by a
+    /// narrowing cast, with every edge still in range and nothing to report. The
+    /// version's 256-node contract sits far under that cliff so an author meets a
+    /// sentence instead of a wrap.
+    ///
+    /// ⭐ BOTH SIDES OF THE BOUNDARY. A limit tested only from above is a limit
+    /// nobody has checked is reachable.
+    #[test]
+    fn the_node_bound_admits_its_own_limit_and_refuses_one_more() {
+        let chain = |count: usize| {
+            let mut nodes: Vec<FlowNode> = (1..count).map(emit).collect();
+            nodes.push(FlowNode::Finish);
+            TechniqueFlow { nodes }
+        };
+        assert_eq!(
+            chain(crate::MAX_TECHNIQUE_FLOW_NODES).problems(),
+            Vec::<String>::new(),
+            "a flow of exactly the admitted width was refused"
+        );
+        let problems = chain(crate::MAX_TECHNIQUE_FLOW_NODES + 1).problems();
+        assert!(
+            problems.iter().any(|p| p.contains("version 1 admits at most")),
+            "a flow one node past the bound was accepted: {problems:?}"
+        );
+    }
+
+    /// A node nothing arrives at is authored intent that never runs.
+    #[test]
+    fn a_node_nothing_arrives_at_is_refused() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                emit(1),
+                FlowNode::Finish,
+                // Stranded: no transition names index 2.
+                emit(1),
+            ],
+        };
+        let problems = flow.problems();
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("node 2 is unreachable")),
+            "a stranded node was accepted, so whatever it was authored to do \
+             silently never happens: {problems:?}"
+        );
+    }
+
     /// An empty flow is refused rather than treated as "no flow".
     #[test]
     fn an_empty_flow_is_refused() {

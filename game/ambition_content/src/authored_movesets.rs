@@ -239,19 +239,6 @@ mod reach_tests {
 mod flow_tests {
     use super::tables;
 
-    /// ⭐⭐ EVERY AUTHORED FLOW IN EVERY SHIPPED ROSTER VALIDATES — the POPULATION,
-    /// not the two moves that happen to have one today.
-    ///
-    /// ⛔ `TechniqueFlow::problems()` exists because each of its failures is
-    /// SILENT at runtime: a transition past the end of the list, a flow with no
-    /// reachable `Finish`, a `Wait` that can never time out. Each produces a move
-    /// that plays and does nothing, or a fighter stuck in a special — and neither
-    /// reads as a data error to whoever is holding the controller.
-    ///
-    /// ⚠ THE PER-FIGHTER TESTS ARE NOT THIS TEST. The oni's and the goblin's each
-    /// validate their own flow, so a flow authored on a THIRD fighter tomorrow is
-    /// covered by neither. ⇒ This asks the question of the whole crate, which is
-    /// the only shape that stays true as the roster grows.
     /// ⛔⛔ EVERY HELD ITEM A MOVE CREATES HAS ART, OR IT IS A PLACEHOLDER QUAD.
     ///
     /// Jon, 2026-09-05, asked for three icons — the mine, the bomb and the
@@ -570,6 +557,26 @@ mod flow_tests {
         );
     }
 
+    /// ⭐⭐ EVERY AUTHORED FLOW IN EVERY SHIPPED ROSTER VALIDATES — the POPULATION,
+    /// not the two moves that happen to have one today.
+    ///
+    /// ⛔ THIS DOC WAS SITTING ON `every_held_item_a_move_creates_has_art`,
+    /// twelve tests above its own function, where it read as a second paragraph
+    /// of that test's rationale. A doc block detached from what it describes is
+    /// the shape a deleted test leaves behind, and it is why the next reader
+    /// cannot tell which guard makes which claim.
+    ///
+    /// ⛔ `TechniqueFlow::problems()` exists because each of its failures is
+    /// SILENT at runtime: a transition past the end of the list, a flow with no
+    /// reachable `Finish`, a `Wait` that can never time out, a cycle, a stranded
+    /// node. Each produces a move that plays and does PART of what it says —
+    /// which reads to whoever is holding the controller as a move that "doesn't
+    /// work sometimes" rather than as bad data.
+    ///
+    /// ⚠ THE PER-FIGHTER TESTS ARE NOT THIS TEST. The oni's and the goblin's each
+    /// validate their own flow, so a flow authored on a THIRD fighter tomorrow is
+    /// covered by neither. ⇒ This asks the question of the whole crate, which is
+    /// the only shape that stays true as the roster grows.
     #[test]
     fn every_authored_flow_in_the_shipped_rosters_validates() {
         let mut broken: Vec<String> = Vec::new();

@@ -367,6 +367,41 @@ distinction lives on the picture.
 ⭐ **SVG RATHER THAN PNG**, because geometry is what a take records. Rasterizing
 would need the sheets decoded and a compositor, which is the work this avoids.
 
+## Framing: what is in the picture, and one tick at a time
+
+⭐⭐ **NEITHER PANEL SHOWED THE FIGHTERS AT A READABLE SIZE, and for two different
+reasons.** The diagnostic drew the take's recorded `view`, which is the STAGE
+(the platform union, padded) — so a pair of ~50px bodies sat inside a 480×96
+rectangle whose shape did not match the canvas, and the fighters came out 76px
+tall in a 430px panel. The engine render used the gameplay camera, which frames
+what a PLAYER sees: 568 to 1600 world px across by the zoom preset.
+
+- **The diagnostic fits the ACTION**, not the stage: bodies, their volumes, and
+  anything either fighter put on the stage, unioned over EVERY frame of the take
+  and expanded to the canvas's aspect. Measured on the cached corpus, that is
+  1.35× to 1.85× closer, and the picture is centred rather than pinned to a
+  corner. Over every frame, not the current one — a per-frame fit re-frames the
+  world under the scrubber and makes a fighter crossing the stage look
+  stationary while the stage slides past.
+- **`moveset_render --view-width PX`** (default 320) frames the pictures the same
+  way: centred between subject and target, widened up to 2× to hold both, and
+  `0` hands the frame back to the gameplay camera. Each shot records the world
+  rectangle it was taken in as `view: [x0, y0, x1, y1]` — the same vocabulary a
+  take's `view` uses — so the PNG and the diagnostic beside it can be compared as
+  pictures of the same patch of world rather than by eye.
+  ⛔ The framing is written EVERY frame, after `camera_follow` and before
+  `sync_parallax_layers`: `capture` services the GPU with zero-duration pumps and
+  each pump runs `Update`, so a camera set once before the shutter is overwritten
+  by the policy inside the capture.
+- **`+` / `−`** zoom both panels together, 1× (the fit) to 6×. Zoomed in the
+  frame follows the SUBJECT, because shrinking about the fit's centre walks a
+  travelling fighter out of the picture.
+- **`←` / `→`** (or `,` / `.`, or the ◀ ▶ buttons) step ONE tick. Whether a
+  strike is live on the tick the bodies touch, and whether the launch is on the
+  contact tick or the one after, are the questions this view exists for; Play at
+  60Hz and a drag-scrubber are both the wrong instrument for them. Stepping stops
+  playback, and it clamps rather than wraps.
+
 ## The two panels show ONE fight
 
 ⛔⛔ **THE SCENARIO TRAVELS WITH THE RENDER REQUEST.** The engine render sits
@@ -667,6 +702,10 @@ PNG carries the actual rendered character, the actual target, the actual VFX
 **and** the actual runtime volumes — from ONE execution, with no browser-side
 transform between two coordinate systems. Nothing in the tool draws a box; the
 production `draw_combat_geometry_view` does.
+
+It also frames what it photographs — `--view-width PX`, default 320, centred
+between the two fighters — because the gameplay camera frames a stage and this
+is a microscope. See **Framing** above.
 
 The layers are independent, because the questions are:
 

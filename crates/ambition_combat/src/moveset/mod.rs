@@ -206,7 +206,19 @@ pub struct MoveEventMessage {
 #[derive(bevy::prelude::Component, Debug, Clone)]
 #[component(map_entities)]
 pub struct MovePlayback {
-    pub spec: MoveSpec,
+    /// The authored move this use is playing — SHARED AND IMMUTABLE for the
+    /// whole use.
+    ///
+    /// ⛔⛔ `Arc` IS THE CONTRACT, not an allocation trick. The admission
+    /// contract's rule is that *"existing moves continue to reference the exact
+    /// prepared definition they started with until a supported activation
+    /// boundary"*, and while this was an owned `MoveSpec` nothing enforced it:
+    /// `advance_move_playback` holds `&mut MovePlayback` every tick, so the
+    /// definition a move was executing was editable by its own interpreter.
+    /// `Arc` has no `DerefMut`, so a mid-move edit is now a compile error rather
+    /// than a rule somebody has to keep — and the reads are unchanged, because
+    /// `Deref` carries every one of them.
+    pub spec: std::sync::Arc<MoveSpec>,
     /// `+1.0` faces right, `-1.0` left; mirrors every volume's x offset.
     pub facing: f32,
     /// Was this body grounded when this move last looked? Owned by the
@@ -717,7 +729,7 @@ impl MovePlayback {
         }
     }
 
-    pub fn new(spec: MoveSpec, facing: f32) -> Self {
+    pub fn new(spec: impl Into<std::sync::Arc<MoveSpec>>, facing: f32) -> Self {
         Self::new_at(spec, facing, 0.0)
     }
 
@@ -729,13 +741,19 @@ impl MovePlayback {
     /// standing, and the window's own `(inside, not-live)` arm re-spawns whatever the
     /// restored clock says should exist. The box's existence is DERIVED from
     /// `(t, window)`, so restoring `t` restores the box.
-    pub fn resumed(spec: MoveSpec, facing: f32, t: f32, landed_hit: bool) -> Self {
+    pub fn resumed(
+        spec: impl Into<std::sync::Arc<MoveSpec>>,
+        facing: f32,
+        t: f32,
+        landed_hit: bool,
+    ) -> Self {
         let mut pb = Self::new_at(spec, facing, t);
         pb.landed_hit = landed_hit;
         pb
     }
 
-    pub fn new_at(spec: MoveSpec, facing: f32, t0: f32) -> Self {
+    pub fn new_at(spec: impl Into<std::sync::Arc<MoveSpec>>, facing: f32, t0: f32) -> Self {
+        let spec = spec.into();
         let t0 = t0.clamp(0.0, spec.duration_s);
         // STRICTLY before `t0`, not `<=`. An event authored AT the start is the common case, not an
         // edge one: the player's swipe is `windup_s: 0.0` precisely so "the arc and the swing cue
@@ -1539,7 +1557,14 @@ pub fn advance_move_playback(
         // ⭐ ON PROPER TIME, like the rest of the move. A fighter under a
         // slowdown waits longer in world seconds, which is what makes the flow
         // part of the move rather than a clock running beside it.
-        if let Some(flow) = pb.spec.flow.clone() {
+        // ⛔⛔ THE SPEC IS SHARED, NOT COPIED, and this line was a DEEP CLONE of
+        // the whole authored graph — every node, every `EffectRef` key string —
+        // on every tick of every move that authors a flow, paid again for each
+        // resimulated frame under rollback. It cloned because the loop below
+        // writes `pb.flow_node` while reading the graph; bumping a refcount buys
+        // exactly the same borrow split for no allocation.
+        let spec = std::sync::Arc::clone(&pb.spec);
+        if let Some(flow) = spec.flow.as_ref() {
             pb.flow_wait_s += dt;
             // ⛔ A HARD STEP BUDGET, and it is the node count. `Emit` and
             // `Branch` resolve within the tick, so a cycle through them with no
@@ -1564,7 +1589,7 @@ pub fn advance_move_playback(
                             presentation_source: presentation_source.clone(),
                             kind: MoveEventKind::Effect(effect.clone()),
                         });
-                        pb.flow_node = *then as u16;
+                        pb.flow_node = *then;
                         pb.flow_wait_s = 0.0;
                     }
                     ambition_entity_catalog::FlowNode::Branch {
@@ -1573,8 +1598,11 @@ pub fn advance_move_playback(
                         otherwise,
                     } => {
                         let contact = pb.contact();
-                        pb.flow_node = if on.satisfied_by(contact) { *then } else { *otherwise }
-                            as u16;
+                        pb.flow_node = if on.satisfied_by(contact) {
+                            *then
+                        } else {
+                            *otherwise
+                        };
                         pb.flow_wait_s = 0.0;
                     }
                     ambition_entity_catalog::FlowNode::Wait {
@@ -1585,10 +1613,10 @@ pub fn advance_move_playback(
                     } => {
                         let contact = pb.contact();
                         if on.satisfied_by(contact) {
-                            pb.flow_node = *then as u16;
+                            pb.flow_node = *then;
                             pb.flow_wait_s = 0.0;
                         } else if pb.flow_wait_s >= *timeout_s {
-                            pb.flow_node = *on_timeout as u16;
+                            pb.flow_node = *on_timeout;
                             pb.flow_wait_s = 0.0;
                         } else {
                             break;

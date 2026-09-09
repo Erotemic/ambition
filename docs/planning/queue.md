@@ -120,10 +120,24 @@ which is the Smash lane. The four the engine composition installs are converted.
 Until those declare their keys the strict unknown-key pass cannot turn on, because
 it would reject every authored use of them.
 
+**A12b's structural half landed 2026-09-09.** `FlowNode`'s edges are the runtime
+cursor's own `u16`, so the interpreter's narrowing `as u16` — which turned an
+authored edge of 65,536 into node 0, a terminating flow into a per-tick loop, with
+nothing in the pipeline able to report it — is gone with the type that allowed it;
+the 256-node bound is a budget again rather than a stand-in for cursor safety. The
+witness sits at the deserialization boundary because that is the only road the
+defect was reachable on: every in-repo flow is Rust literals. `MovePlayback::spec`
+is an `Arc<MoveSpec>`, so a move can no longer edit the definition it is executing
+(the contract's rule, previously unenforced) and the per-tick deep clone of the
+authored graph is deleted. `TechniqueFlow::successors` is now the one edge
+enumeration its own doc claimed it was — `reaches_finish` and the dangling report
+each had a second and third copy.
+
 Next in this lane: A11b's rejection half — poison a reference site and verify the
 active registry and generation are unchanged — plus domain nested-reference
-policies and the public production insertion paths. Then A12b's private prepared
-representation.
+policies and the public production insertion paths. Then A12b's remainder: the
+prepared constructors are still public and infallible, and no prepared REVISION is
+pinned on the playback.
 
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.

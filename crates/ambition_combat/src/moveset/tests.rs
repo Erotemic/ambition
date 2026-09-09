@@ -8934,7 +8934,7 @@ mod technique_flow {
         }
     }
 
-    fn effect(key: &str, then: usize) -> FlowNode {
+    fn effect(key: &str, then: u16) -> FlowNode {
         FlowNode::Emit {
             effect: ambition_entity_catalog::EffectRef {
                 key: key.to_string(),

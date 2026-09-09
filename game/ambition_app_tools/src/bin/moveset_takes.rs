@@ -350,7 +350,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                         &sheet_keys,
                         worn.map(|w| w.id())
                             .or_else(|| config.and_then(|c| c.sprite_character_id.as_deref())),
-                        play.map(|p| &p.spec),
+                        play.map(|p| &*p.spec),
                         ground.map(|g| g.on_ground),
                     ),
                     pose.is_some(),

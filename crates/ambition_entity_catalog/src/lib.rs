@@ -1547,7 +1547,18 @@ pub enum FlowNode {
     /// `sustain_effect` or an event's `Effect` carries — so a flow can reach
     /// every technique the game publishes and gains access to a new one the day
     /// it is registered, with no change here.
-    Emit { effect: EffectRef, then: usize },
+    ///
+    /// ⛔⛔ THE EDGE IS A `u16` BECAUSE THE CURSOR IS, and this is the whole
+    /// reason the type is not `usize`. `MovePlayback::flow_node` is a `u16`, and
+    /// while these were `usize` the interpreter narrowed with `as u16` on every
+    /// transition — node 65,536 becoming node 0 SILENTLY, a terminating flow
+    /// turned into a loop by a cast, with every edge still in range and nothing
+    /// for the dangling-edge check to see. Authoring in the cursor's own width
+    /// CONVERTS THE EDGE ONCE, at the authoring or deserialization boundary,
+    /// where an index that does not fit is a hard error naming the field rather
+    /// than a wrap nobody observes. The 256-node bound no longer has to stand in
+    /// for this.
+    Emit { effect: EffectRef, then: u16 },
     /// Hold here until a signal arrives, or until the patience runs out.
     ///
     /// ⭐ THE TIMEOUT IS MANDATORY, and that is a decision rather than an
@@ -1571,8 +1582,9 @@ pub enum FlowNode {
     Wait {
         on: FlowSignal,
         timeout_s: f32,
-        then: usize,
-        on_timeout: usize,
+        /// See [`FlowNode::Emit::then`] for why the edge is the cursor's width.
+        then: u16,
+        on_timeout: u16,
     },
     /// Take one road or the other, deciding immediately on a fact that is
     /// already true.
@@ -1582,8 +1594,9 @@ pub enum FlowNode {
     /// answer can still change.
     Branch {
         on: FlowSignal,
-        then: usize,
-        otherwise: usize,
+        /// See [`FlowNode::Emit::then`] for why the edge is the cursor's width.
+        then: u16,
+        otherwise: u16,
     },
     /// The flow is over. The move plays out whatever timeline it has left.
     Finish,
@@ -1625,11 +1638,15 @@ impl FlowSignal {
 
 /// The widest version-1 [`TechniqueFlow`] an author may publish.
 ///
-/// ⛔⛔ **IT IS A CURSOR BOUND BEFORE IT IS A BUDGET.** `MovePlayback::flow_node`
-/// is a `u16` and the interpreter writes every transition with `as u16`, so the
-/// real cliff is 65,536 — past which a jump silently wraps to the top and a
-/// terminating flow becomes a loop. 256 is the version's stated contract and sits
-/// far under that cliff, so an author meets a sentence rather than a wrap.
+/// ⛔ **IT IS THE VERSION'S STATED CONTRACT, AND NOTHING ELSE DEPENDS ON IT ANY
+/// MORE.** It used to be a CURSOR bound: [`FlowNode`]'s edges were `usize`,
+/// `MovePlayback::flow_node` is a `u16`, and the interpreter narrowed with
+/// `as u16` on every transition — so the real cliff was 65,536, past which a
+/// jump silently wrapped to the top and a terminating flow became a loop, with
+/// every edge still in range and nothing for the dangling-edge check to see.
+/// The edges are authored in the cursor's own width now, so that wrap is not
+/// representable and this number no longer has to sit under a cliff to be safe.
+/// It is a budget, and a wider version-2 may raise it on its own merits.
 ///
 /// ⚠ IT BOUNDS DISPATCH, NOT COST. A 256-node limit says nothing about what a
 /// native handler an `Emit` reaches does; see the owner document's trust
@@ -1669,68 +1686,49 @@ impl TechniqueFlow {
             return problems;
         }
         let len = self.nodes.len();
-        // ⛔⛔ **THE GRAPH IS BOUNDED, AND THE BOUND IS WHAT MAKES THE CURSOR
-        // SAFE.** `MovePlayback::flow_node` is a `u16` and the interpreter writes
-        // transitions with `*then as u16` — a NARROWING cast, silent, which turns
-        // node 65,536 into node 0 and a terminating flow into a loop. The
-        // dangling-edge check below cannot see it: an index inside a 70,000-node
-        // list is not dangling. One bound closes both, and it is stated as the
-        // version's contract rather than as a cursor detail.
+        // ⛔ THE GRAPH IS BOUNDED BY THE VERSION'S CONTRACT. It no longer also
+        // has to keep the cursor safe: [`FlowNode`]'s edges are the cursor's own
+        // `u16`, so there is no narrowing cast left to wrap. See
+        // [`MAX_TECHNIQUE_FLOW_NODES`] for what that used to buy.
         if len > MAX_TECHNIQUE_FLOW_NODES {
             problems.push(format!(
                 "the flow has {len} nodes; version 1 admits at most \
-                 {MAX_TECHNIQUE_FLOW_NODES}. The runtime cursor is a `u16` and \
-                 transitions are written with a narrowing cast, so a graph past \
-                 that width silently wraps a jump back to the top"
+                 {MAX_TECHNIQUE_FLOW_NODES}. A move-local program is meant to be \
+                 readable in one screen; a graph this wide is a system that wants \
+                 to be authored somewhere else"
             ));
             // Every later check indexes this list; reporting them all against an
             // oversized graph buries the one problem the author has to fix.
             return problems;
         }
-        // A closure borrowing `problems` would conflict with the pushes below,
-        // so transitions are collected first and reported after.
-        let mut dangling: Vec<(usize, &str, usize)> = Vec::new();
+        // ⛔ THE EDGES COME FROM [`Self::successors`], not from a match written
+        // here. This arm used to be its own copy of that match, so a fifth
+        // `FlowNode` variant would have been reachable by the cycle search and
+        // invisible to the dangling report.
         for (index, node) in self.nodes.iter().enumerate() {
-            match node {
-                FlowNode::Emit { then, .. } => dangling.push((index, "then", *then)),
-                FlowNode::Wait {
-                    then,
-                    on_timeout,
-                    timeout_s,
-                    ..
-                } => {
-                    dangling.push((index, "then", *then));
-                    dangling.push((index, "on_timeout", *on_timeout));
-                    // ⛔ FINITE, not merely positive. `f32::INFINITY > 0.0` is
-                    // TRUE, so the positive test admitted the one value that is
-                    // exactly the unbounded wait the mandatory timeout exists to
-                    // forbid — an authored "wait forever" wearing a number.
-                    // (`NaN` fails the positive test already; it is named here so
-                    // the diagnostic says which value was wrong.)
-                    if !timeout_s.is_finite() || !(*timeout_s > 0.0) {
-                        problems.push(format!(
-                            "node {index} waits with a {timeout_s}s timeout, which never \
-                             expires — a signal that never comes parks the flow here for \
-                             the move's whole remaining window, so every step after this \
-                             one silently never runs"
-                        ));
-                    }
+            for (what, target) in Self::successors(node).into_iter().flatten() {
+                if usize::from(target) >= len {
+                    problems.push(format!(
+                        "node {index}'s `{what}` goes to {target}, past the last node ({})",
+                        len - 1
+                    ));
                 }
-                FlowNode::Branch {
-                    then, otherwise, ..
-                } => {
-                    dangling.push((index, "then", *then));
-                    dangling.push((index, "otherwise", *otherwise));
-                }
-                FlowNode::Finish => {}
             }
-        }
-        for (index, what, target) in dangling {
-            if target >= len {
-                problems.push(format!(
-                    "node {index}'s `{what}` goes to {target}, past the last node ({})",
-                    len - 1
-                ));
+            // ⛔ FINITE, not merely positive. `f32::INFINITY > 0.0` is TRUE, so
+            // the positive test admitted the one value that is exactly the
+            // unbounded wait the mandatory timeout exists to forbid — an authored
+            // "wait forever" wearing a number. (`NaN` fails the positive test
+            // already; it is named here so the diagnostic says which value was
+            // wrong.)
+            if let FlowNode::Wait { timeout_s, .. } = node {
+                if !timeout_s.is_finite() || !(*timeout_s > 0.0) {
+                    problems.push(format!(
+                        "node {index} waits with a {timeout_s}s timeout, which never \
+                     expires — a signal that never comes parks the flow here for \
+                     the move's whole remaining window, so every step after this \
+                     one silently never runs"
+                    ));
+                }
             }
         }
         // ⛔ REACHABILITY, not merely presence. A `Finish` sitting in the list
@@ -1779,21 +1777,29 @@ impl TechniqueFlow {
         problems
     }
 
-    /// The successors of one node, in the order the author wrote them.
+    /// The successors of one node, in the order the author wrote them, each
+    /// paired with the AUTHORED FIELD NAME it was written under.
     ///
-    /// ⭐ ONE PLACE THE EDGES ARE ENUMERATED. Reachability, the cycle search and
-    /// the dangling-edge report all need the same list, and three copies of a
-    /// match over [`FlowNode`] is how a fourth variant comes to be checked by two
-    /// of them.
-    fn successors(node: &FlowNode) -> [Option<usize>; 2] {
+    /// ⭐ ONE PLACE THE EDGES ARE ENUMERATED — and the doc here USED TO CLAIM
+    /// THAT while two other copies of the same match sat in this impl:
+    /// `reaches_finish` walked its own `Emit`/`Wait`/`Branch` arms, and
+    /// `problems`' dangling-edge report walked a third. That is exactly the
+    /// failure this comment warned about, in the file that warned about it: a
+    /// fifth variant would have been checked by whichever copies somebody
+    /// remembered. Both are gone; every edge walk in this type comes through
+    /// here.
+    ///
+    /// The field name rides along because the dangling report needs it and
+    /// deriving it anywhere else would be a fourth copy of the same knowledge.
+    fn successors(node: &FlowNode) -> [Option<(&'static str, u16)>; 2] {
         match node {
-            FlowNode::Emit { then, .. } => [Some(*then), None],
+            FlowNode::Emit { then, .. } => [Some(("then", *then)), None],
             FlowNode::Wait {
                 then, on_timeout, ..
-            } => [Some(*then), Some(*on_timeout)],
+            } => [Some(("then", *then)), Some(("on_timeout", *on_timeout))],
             FlowNode::Branch {
                 then, otherwise, ..
-            } => [Some(*then), Some(*otherwise)],
+            } => [Some(("then", *then)), Some(("otherwise", *otherwise))],
             FlowNode::Finish => [None, None],
         }
     }
@@ -1810,8 +1816,8 @@ impl TechniqueFlow {
                 continue;
             }
             seen[index] = true;
-            for target in Self::successors(node).into_iter().flatten() {
-                stack.push(target);
+            for (_, target) in Self::successors(node).into_iter().flatten() {
+                stack.push(usize::from(target));
             }
         }
         seen
@@ -1845,6 +1851,7 @@ impl TechniqueFlow {
                 .into_iter()
                 .flatten()
                 .nth(edge)
+                .map(|(_, target)| usize::from(target))
                 .filter(|target| *target < self.nodes.len());
             match next {
                 Some(target) => {
@@ -1890,21 +1897,11 @@ impl TechniqueFlow {
                 continue;
             }
             seen[index] = true;
-            match node {
-                FlowNode::Finish => return true,
-                FlowNode::Emit { then, .. } => stack.push(*then),
-                FlowNode::Wait {
-                    then, on_timeout, ..
-                } => {
-                    stack.push(*then);
-                    stack.push(*on_timeout);
-                }
-                FlowNode::Branch {
-                    then, otherwise, ..
-                } => {
-                    stack.push(*then);
-                    stack.push(*otherwise);
-                }
+            if matches!(node, FlowNode::Finish) {
+                return true;
+            }
+            for (_, target) in Self::successors(node).into_iter().flatten() {
+                stack.push(usize::from(target));
             }
         }
         false

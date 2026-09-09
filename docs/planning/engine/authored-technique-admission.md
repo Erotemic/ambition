@@ -542,6 +542,50 @@ the three current customers. Update rollback registration/checksum inputs for
 changed occurrence fields; immutable definition identity follows existing content
 binding, not pointer addresses.
 
+**Two of the four landed 2026-09-09: the edges convert once, and the playing
+definition is shared rather than owned.**
+
+- **`FlowNode`'s edges are the cursor's own `u16`.** They were `usize`, and the
+  interpreter wrote every transition with `*then as u16` — a NARROWING cast, so
+  an authored edge of 65,536 became node 0 at runtime: a terminating flow turned
+  into a loop, its `Emit` firing again every tick for the rest of the move, with
+  every edge still in range and nothing for the dangling-edge check to report.
+  A12a's 256-node bound closed this by sitting under the cliff, which made the
+  bound do two jobs; the width does the second one structurally now, so the node
+  limit is a budget again and a version 2 may raise it on its own merits.
+  ⚠ **The in-repo road could never have shown this.** Every shipped flow is built
+  from Rust literals, where the value is a compile error; the exposed road is the
+  one this contract exists for — a character LOADED FROM DATA, where 65,536
+  deserialized happily. The witness is at that boundary
+  (`an_authored_edge_wider_than_the_cursor_is_refused_at_the_boundary`),
+  poison-verified by putting `Emit`'s edge back to `usize`.
+- **`MovePlayback::spec` is an `Arc<MoveSpec>`.** The contract's rule is that
+  existing moves keep referencing the exact prepared definition they started
+  with; while the playback OWNED a `MoveSpec`, nothing enforced it —
+  `advance_move_playback` holds `&mut MovePlayback` every tick, so a move's own
+  interpreter could edit the definition it was executing. `Arc` has no
+  `DerefMut`, so that is a compile error now (verified: `E0594`, "cannot assign
+  to data in an `Arc`"), and every read site was carried unchanged by `Deref`.
+  It also deletes the per-tick graph clone: the flow loop deep-copied the whole
+  authored graph, every node and every `EffectRef` key string, on each tick of
+  each move that authors one — paid again for every resimulated rollback frame —
+  purely to split the borrow that writing `flow_node` needs. A refcount bump buys
+  the same split.
+
+⭐ **And the edge enumeration was three copies claiming to be one.**
+`TechniqueFlow::successors`' own doc said *"ONE PLACE THE EDGES ARE ENUMERATED …
+three copies of a match over `FlowNode` is how a fourth variant comes to be
+checked by two of them"* — while `reaches_finish` walked its own arms and
+`problems`' dangling report walked a third, in the same impl. Both now go through
+`successors`, which carries the authored field name along for the diagnostic.
+
+**Still open in A12b:** the prepared constructors are still public and infallible,
+and no prepared REVISION is pinned on the playback — `Arc` gives a stable
+reference, not an identity, and the contract is explicit that identity follows
+content binding rather than pointer address. The move-start deep clone also
+remains: `MovesetContract::moves` is `Vec<MoveSpec>` and `start_move` clones out
+of it, which is once per accepted move rather than once per tick.
+
 ### A11c: activation receipt through the public authoring route
 
 Exercise a real provider-defined technique through edit, profile validation,

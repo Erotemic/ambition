@@ -2125,7 +2125,7 @@ mod technique_support {
 mod technique_flow {
     use crate::{EffectRef, FlowNode, FlowSignal, MoveContact, ParamValue, TechniqueFlow};
 
-    fn emit(then: usize) -> FlowNode {
+    fn emit(then: u16) -> FlowNode {
         FlowNode::Emit {
             effect: EffectRef {
                 key: "smash.whatever".to_string(),
@@ -2301,30 +2301,31 @@ mod technique_flow {
         );
     }
 
-    /// ⛔⛔ **THE BOUND IS A CURSOR BOUND.** `MovePlayback::flow_node` is a `u16`
-    /// and the interpreter writes transitions with `as u16`, so node 65,536
-    /// silently becomes node 0 — a terminating flow turned into a loop by a
-    /// narrowing cast, with every edge still in range and nothing to report. The
-    /// version's 256-node contract sits far under that cliff so an author meets a
-    /// sentence instead of a wrap.
+    /// ⛔ **THE BOUND IS THE VERSION'S CONTRACT.** It used to also be a CURSOR
+    /// bound — the edges were `usize`, `MovePlayback::flow_node` is a `u16`, and
+    /// the interpreter narrowed on every transition, so node 65,536 silently
+    /// became node 0. The edges are `u16` now, so that wrap is not representable
+    /// and this test measures the stated width alone.
     ///
     /// ⭐ BOTH SIDES OF THE BOUNDARY. A limit tested only from above is a limit
     /// nobody has checked is reachable.
     #[test]
     fn the_node_bound_admits_its_own_limit_and_refuses_one_more() {
-        let chain = |count: usize| {
+        let chain = |count: u16| {
             let mut nodes: Vec<FlowNode> = (1..count).map(emit).collect();
             nodes.push(FlowNode::Finish);
             TechniqueFlow { nodes }
         };
         assert_eq!(
-            chain(crate::MAX_TECHNIQUE_FLOW_NODES).problems(),
+            chain(crate::MAX_TECHNIQUE_FLOW_NODES as u16).problems(),
             Vec::<String>::new(),
             "a flow of exactly the admitted width was refused"
         );
-        let problems = chain(crate::MAX_TECHNIQUE_FLOW_NODES + 1).problems();
+        let problems = chain(crate::MAX_TECHNIQUE_FLOW_NODES as u16 + 1).problems();
         assert!(
-            problems.iter().any(|p| p.contains("version 1 admits at most")),
+            problems
+                .iter()
+                .any(|p| p.contains("version 1 admits at most")),
             "a flow one node past the bound was accepted: {problems:?}"
         );
     }
@@ -2380,6 +2381,54 @@ mod technique_flow {
             !FlowSignal::Connected.satisfied_by(blocked),
             "a blocked strike satisfied `Connected`, so every hit-confirm flow \
              would continue on a shielded hit"
+        );
+    }
+
+    /// An authored edge that does not fit the runtime cursor is refused BY THE
+    /// TYPE, at the deserialization boundary, before any validator runs.
+    ///
+    /// ⛔⛔ THIS IS THE ROAD AUTHORED CONTENT ACTUALLY TAKES. Every in-repo
+    /// fixture builds its flow with Rust literals, where an over-width edge is a
+    /// compile error and nobody can write the bug. A CHARACTER LOADED FROM DATA
+    /// has no such gate: while the edges were `usize` the interpreter narrowed
+    /// with `as u16` on every transition, so `then: 65536` deserialized happily,
+    /// passed the dangling-edge check (65,536 is not past the end of a list that
+    /// long), and then jumped to node 0 at runtime — a terminating flow silently
+    /// turned into a loop, firing its `Emit` again every tick for the rest of the
+    /// move. Nothing in the pipeline could report it, because by the time the
+    /// value was wrong it was already a legal index.
+    ///
+    /// ⇒ The edge is the cursor's own `u16` now, so serde refuses the number
+    /// itself and names the field. Converted ONCE, at the boundary.
+    #[test]
+    fn an_authored_edge_wider_than_the_cursor_is_refused_at_the_boundary() {
+        // ⛔ ROUND-TRIPPED, NOT HAND-WRITTEN. A literal RON fixture that fails to
+        // parse for a spelling reason would satisfy the assertion below while
+        // measuring nothing; serializing the real value fixes the shape.
+        let authored = TechniqueFlow {
+            nodes: vec![emit(1), FlowNode::Finish],
+        };
+        let in_width = ron::ser::to_string(&authored).expect("a flow serializes");
+        assert!(
+            in_width.contains("then:1"),
+            "the fixture no longer spells the edge the way this test rewrites it: {in_width}"
+        );
+        let over_width = in_width.replace("then:1", "then:65536");
+        let refused = ron::from_str::<TechniqueFlow>(&over_width);
+        assert!(
+            refused.is_err(),
+            "an edge of 65536 was accepted; at runtime the cursor narrows it to \
+             node 0 and the flow loops forever: {refused:?}"
+        );
+        // ⛔ THE FLOOR. Without it the row above is satisfied by any document
+        // this parser rejects, which would prove only that the fixture is
+        // malformed rather than that the WIDTH is what refused it.
+        let admitted =
+            ron::from_str::<TechniqueFlow>(&in_width).expect("the in-width control must parse");
+        assert_eq!(
+            admitted.problems(),
+            Vec::<String>::new(),
+            "the in-width control flow was reported broken"
         );
     }
 }

@@ -178,7 +178,10 @@ fn ranged_fires(
 /// Press Attack while holding `spec`, and report BOTH claimants of that press:
 /// the number of item bolts fired, and the move the body ended up playing
 /// (`None` when nothing did).
-fn attack_while_holding(spec: HeldItemSpec, on_ground: bool) -> (usize, Option<MoveSpec>) {
+fn attack_while_holding(
+    spec: HeldItemSpec,
+    on_ground: bool,
+) -> (usize, Option<std::sync::Arc<MoveSpec>>) {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
@@ -226,7 +229,7 @@ fn attack_while_holding(spec: HeldItemSpec, on_ground: bool) -> (usize, Option<M
 }
 
 /// The move id a body ended up playing, for a legible failure message.
-fn played_id(played: &Option<MoveSpec>) -> Option<&str> {
+fn played_id(played: &Option<std::sync::Arc<MoveSpec>>) -> Option<&str> {
     played.as_ref().map(|m| m.id.as_str())
 }
 

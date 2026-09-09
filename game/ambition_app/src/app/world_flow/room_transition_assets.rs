@@ -1446,6 +1446,16 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         cache.source_room_id = None;
         return;
     };
+    // ⛔⛔ ONE IDENTITY, STATED ONCE, AND BOTH CACHES TAKE IT. The asset-side
+    // state and the engine's plan cache are keyed by the SAME triple, and while
+    // each kept its own copy only this one was ever set: the plan cache sat at
+    // its default for the life of a session and the first transition's `promote`
+    // cleared every plan in it. See `prefetch.rs`'s module note.
+    let identity = ambition_platformer2d::runtime::room_transition::PrefetchIdentity::new(
+        content_epoch.get(),
+        session_scope,
+        &source_room.id,
+    );
     let identity_changed = cache.reset_for(content_epoch.get(), session_scope, &source_room.id);
     let refresh_manifests = identity_changed
         || room_set.is_changed()
@@ -1607,7 +1617,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 entry.manifest != manifest || !entry.plan_published
             });
         if replace {
-            plan_prefetch.publish(&room.id, Arc::new(construction_plan));
+            plan_prefetch.publish(&identity, &room.id, Arc::new(construction_plan));
             cache.entries.insert(
                 room.id.clone(),
                 PrefetchedRoomPreparation {

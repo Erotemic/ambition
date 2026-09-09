@@ -10,6 +10,23 @@
 //! here; the transition promotes one only if every identity term still matches,
 //! so a hot reload, a provider swap, or a session change is a safe MISS rather
 //! than a stale promotion.
+//!
+//! ⛔⛔ **THE IDENTITY USED TO BE THE CONSUMER'S ALONE, AND THE CACHE WAS
+//! THEREFORE DEAD.** `publish` took a room id and a plan; only `promote` ever
+//! stated an identity, and it stated it by RESETTING the cache to it. The host's
+//! producer never set one — it kept its own copy of the same triple on its
+//! asset-side state and reset THAT — so this cache sat at its default `(0, None,
+//! None)` for the life of a session and the first promotion of every session
+//! cleared every plan in it before looking one up. Measured 2026-09-08 in
+//! `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`: four warm
+//! neighbour plans, every promotion term satisfied, `prefetch_hit=false`.
+//!
+//! ⭐ SO THE IDENTITY TRAVELS WITH THE PLAN. [`PrefetchIdentity`] is one value
+//! and [`RoomConstructionPlanPrefetch::publish`] requires it, which makes "a plan
+//! is in the cache without the cache knowing what world it was prepared for"
+//! unrepresentable rather than merely unlikely. There is no public reset: the
+//! identity is adopted by publishing and checked by promoting, and those are the
+//! only two ways it can change.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -17,49 +34,75 @@ use std::sync::Arc;
 use bevy::prelude::Resource;
 
 use ambition_platformer2d_actor_monolith::rooms::RoomConstructionPlan;
-use ambition_platformer2d_world::rooms::RoomSpec;
 use ambition_platformer2d_shared_tangle::lifecycle::{RoomOccurrenceOutlook, SessionScopeId};
+use ambition_platformer2d_world::rooms::RoomSpec;
+
+/// The world a prefetched plan was prepared for.
+///
+/// ⚠ ONE VALUE, NOT THREE PARAMETERS. Spelled as a triple it was spelled at each
+/// call site, and one of the two sites simply never spelled it — see the module
+/// note. A caller that has to construct this cannot forget a term, and the two
+/// sites that matter now build it the same way.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PrefetchIdentity {
+    content_epoch: u64,
+    session_scope: Option<SessionScopeId>,
+    source_room_id: String,
+}
+
+impl PrefetchIdentity {
+    /// The identity of the world a plan is being prepared in, or promoted into.
+    pub fn new(
+        content_epoch: u64,
+        session_scope: Option<SessionScopeId>,
+        source_room_id: &str,
+    ) -> Self {
+        Self {
+            content_epoch,
+            session_scope,
+            source_room_id: source_room_id.to_string(),
+        }
+    }
+
+    /// The session this identity belongs to, for the plan-level scope check.
+    pub fn session_scope(&self) -> Option<SessionScopeId> {
+        self.session_scope
+    }
+}
 
 /// Prepared construction plans for the rooms adjacent to the one in play.
 #[derive(Resource, Default, Debug)]
 pub struct RoomConstructionPlanPrefetch {
-    content_epoch: u64,
-    session_scope: Option<SessionScopeId>,
-    source_room_id: Option<String>,
+    identity: Option<PrefetchIdentity>,
     plans: BTreeMap<String, Arc<RoomConstructionPlan>>,
 }
 
 impl RoomConstructionPlanPrefetch {
-    /// Drop everything prepared under a different identity.
+    /// Adopt `identity`, dropping everything prepared under a different one.
     ///
-    /// Called by both the producer and the consumer, so a promotion can never
-    /// read across an epoch/scope/source boundary even if the producer has not
-    /// run since the change.
-    pub fn reset_for(
-        &mut self,
-        content_epoch: u64,
-        session_scope: Option<SessionScopeId>,
-        source_room_id: &str,
-    ) {
-        if self.content_epoch == content_epoch
-            && self.session_scope == session_scope
-            && self.source_room_id.as_deref() == Some(source_room_id)
-        {
+    /// Private, and both public entry points call it: a promotion can never read
+    /// across an epoch/scope/source boundary even if the producer has not run
+    /// since the change, and a publication can never leave the cache claiming an
+    /// identity its plans were not prepared under.
+    fn adopt(&mut self, identity: &PrefetchIdentity) {
+        if self.identity.as_ref() == Some(identity) {
             return;
         }
-        self.content_epoch = content_epoch;
-        self.session_scope = session_scope;
-        self.source_room_id = Some(source_room_id.to_string());
+        self.identity = Some(identity.clone());
         self.plans.clear();
     }
 
-    /// Publish a plan prepared for a neighbor of the current source room.
-    pub fn publish(&mut self, room_id: &str, plan: Arc<RoomConstructionPlan>) {
+    /// Publish a plan prepared for a neighbor of `identity`'s source room.
+    pub fn publish(
+        &mut self,
+        identity: &PrefetchIdentity,
+        room_id: &str,
+        plan: Arc<RoomConstructionPlan>,
+    ) {
+        self.adopt(identity);
         self.plans.insert(room_id.to_string(), plan);
     }
 
-    /// True when a plan for this room is already prepared under the current
-    /// identity — the host's "do I still need to build one" question.
     /// The cached plan, without promoting it.
     ///
     /// ⛔ FOR INSPECTION ONLY. Promotion is [`Self::promote`] and it exists to
@@ -69,6 +112,12 @@ impl RoomConstructionPlanPrefetch {
         self.plans.get(room_id)
     }
 
+    /// True when a plan for this room is already published — the producer's "do
+    /// I still need to build one" question.
+    ///
+    /// ⚠ IT DOES NOT ASK ABOUT IDENTITY, and its doc used to claim it did. It
+    /// cannot: the identity is whatever the last publication adopted, so a plan
+    /// present here is by construction one prepared under it.
     pub fn holds(&self, room_id: &str) -> bool {
         self.plans.contains_key(room_id)
     }
@@ -82,16 +131,14 @@ impl RoomConstructionPlanPrefetch {
     /// change is a miss and must re-prepare against the current outlook.
     pub fn promote(
         &mut self,
-        content_epoch: u64,
-        session_scope: Option<SessionScopeId>,
-        source_room_id: &str,
+        identity: &PrefetchIdentity,
         target: &RoomSpec,
         outlook: &RoomOccurrenceOutlook,
     ) -> Option<Arc<RoomConstructionPlan>> {
-        self.reset_for(content_epoch, session_scope, source_room_id);
+        self.adopt(identity);
         let plan = self.plans.get(&target.id)?;
         if !plan.matches_room_spec(target)
-            || plan.session_scope().id() != session_scope
+            || plan.session_scope().id() != identity.session_scope()
             || plan.occurrence_outlook() != outlook
         {
             return None;

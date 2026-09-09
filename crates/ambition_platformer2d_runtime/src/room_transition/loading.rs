@@ -1117,9 +1117,11 @@ pub fn begin_room_transition_load_system(
             .unwrap_or_default();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
             cache.promote(
-                content_epoch.get(),
-                current_session,
-                &active.source_room_id,
+                &super::prefetch::PrefetchIdentity::new(
+                    content_epoch.get(),
+                    current_session,
+                    &active.source_room_id,
+                ),
                 target_spec,
                 &occurrence_outlook,
             )

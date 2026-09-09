@@ -135,19 +135,19 @@ fn a_settled_neighbourhood_stops_preparing_itself() {
 /// about that room's population — which is exactly the reconstruction an
 /// empty-outlook plan is correct for.
 ///
-/// ⇒ **That is what closes the checkpoint protocol's "same room, different
-/// checkpoint occurrence outlook" acceptance row**, which asks that a plan
-/// prepared against the live population cannot serve a reconstruction about a
-/// different one. It cannot, structurally — and A1c/3a's redirect of the outlook
-/// to the operation's PINNED continuity is what makes the comparison ask the
-/// right question in the first place.
+/// ⇒ That is the STRUCTURAL argument for the checkpoint protocol's *"same room,
+/// different checkpoint occurrence outlook"* acceptance row, which asks that a
+/// plan prepared against the live population cannot serve a reconstruction about
+/// a different one. ⛔ **IT IS SUPPORTING EVIDENCE AND NOT THE CLOSE** —
+/// `a_checkpoint_outlook_refuses_a_plan_prepared_without_one` below is the
+/// witness. A structural close was accepted for the prepare-failure row of the
+/// same packet and covered half of it.
 ///
 /// ⚠ THIS TEST IS THE HALF THAT CAN ROT. `promote`'s refusal is one comparison
 /// in one place; "the prefetch supplies no continuity" is a `None` in an
 /// argument list that somebody could reasonably decide to fill in — to raise the
 /// cache's hit rate, which the source already notes an object left anywhere
-/// destroys. The day that happens, the structural argument dissolves and the
-/// acceptance row needs a real fixture. This fires first.
+/// destroys. This fires first, and names the argument that dissolves.
 #[test]
 fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
     let app = gameplay_after_startup();
@@ -185,3 +185,170 @@ fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
         );
     }
 }
+
+/// ⛔⛔ **THE ACCEPTANCE ROW ITSELF, END TO END, AGAINST THE SHIPPED HOST.**
+///
+/// The checkpoint protocol's *"same room, different checkpoint occurrence
+/// outlook"* row asks that a plan prepared against the LIVE population cannot be
+/// promoted for a reconstruction that is about a different one. Until now that
+/// was argued structurally — the prefetch supplies no continuity, so every cached
+/// plan carries the default outlook, so `promote` can only ever hand one to a
+/// reconstruction whose outlook is also empty. The argument is sound and it is
+/// still recorded above. It is not a witness.
+///
+/// ⛔ **AND A STRUCTURAL CLOSE HAS ALREADY BEEN WRONG ONCE IN THIS PACKET.** The
+/// prepare-failure row was closed on "nothing destructive runs before the
+/// commit", which is true and covers half the row; terminalization and
+/// no-permanent-retry were both broken behind it. That is the reason this one
+/// gets a fixture.
+///
+/// ⭐ WHAT MAKES IT A WITNESS RATHER THAN A RESTATEMENT: it never calls
+/// `promote`, never fabricates a cache identity, and asserts nothing about the
+/// outlook comparison. It walks the shipped `begin_room_transition_load_system`
+/// twice into the SAME room from the SAME cache, changing one thing — whether an
+/// accepted checkpoint operation pins a population — and reads the host's own
+/// `prefetch_hit`. The control arm is the anti-vacuity floor: without it, a cache
+/// that never promotes anything would pass.
+#[test]
+fn a_checkpoint_outlook_refuses_a_plan_prepared_without_one() {
+    let promoted_for_an_ordinary_crossing = cross_into_a_cached_neighbour(false);
+    assert!(
+        promoted_for_an_ordinary_crossing,
+        "⛔ THE PREMISE FAILED, so the checkpoint arm below would pass against a \
+         cache that promotes NOTHING. An ordinary crossing into a room the \
+         prefetch holds must take the cached plan; if it does not, this fixture \
+         cannot say whether the checkpoint arm's refusal is the outlook \
+         comparison or a cache miss for some unrelated reason"
+    );
+
+    let promoted_for_a_checkpoint_restore = cross_into_a_cached_neighbour(true);
+    assert!(
+        !promoted_for_a_checkpoint_restore,
+        "a room transition that IS a checkpoint restore promoted a plan the \
+         prefetch prepared against the live population, while the operation's \
+         pinned ledger says an occurrence is in custody. That plan authors the \
+         object the checkpoint remembers in a hand, so committing it puts a \
+         second copy in the room — or, with the ledger the other way round, \
+         leaves the room permanently short of a thing it authors. The plan a \
+         reconstruction uses must be prepared against the population that \
+         reconstruction is about"
+    );
+}
+
+/// Walk one crossing into a neighbour the prefetch already holds and report
+/// whether the host promoted the cached plan.
+///
+/// `as_checkpoint_restore` accepts a checkpoint operation for the very same
+/// crossing, whose pinned ledger remembers one occurrence in custody — the
+/// smallest population a checkpoint can disagree with the live world about, and
+/// enough to give every room a non-default outlook.
+fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
+    use ambition_platformer2d::actors::session::checkpoint::{
+        AcceptedCheckpointRestore, AcceptedRestore, SessionCheckpointOperations,
+    };
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use ambition_platformer2d::platformer::lifecycle::{
+        AuthoredOccurrences, OccurrenceBaseline, OccurrenceWhereabouts,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::runtime::room_transition::{
+        RoomConstructionPlanPrefetch, RoomTransitionLoadState,
+    };
+
+    let mut app = gameplay_after_startup();
+    // Let the neighbourhood finish its first pass so the cache is warm for the
+    // room this crossing targets.
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let neighbour = {
+        let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .expect("a direct-gameplay session installs one live room set");
+        let held = app.world().resource::<RoomConstructionPlanPrefetch>();
+        room_set
+            .neighboring_room_indices()
+            .iter()
+            .filter_map(|&index| room_set.rooms.get(index))
+            .map(|room| room.id.clone())
+            .find(|id| held.holds(id))
+            .expect(
+                "the prefetch holds no neighbour of the starting room, so there is \
+                 no cached plan for a crossing to promote or refuse",
+            )
+    };
+
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.single(world).expect("one primary player").clone()
+    };
+    let intent = RoomTransitionIntent {
+        subject,
+        target_room: neighbour.clone(),
+        arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+        edge_exit: false,
+        zone_sfx: None,
+    };
+
+    if as_checkpoint_restore {
+        let mut pinned = AuthoredOccurrences::default();
+        pinned.adopt_rows(
+            [(
+                SimId::placement("an_occurrence_the_checkpoint_remembers_in_a_hand"),
+                OccurrenceWhereabouts::InCustody,
+            )]
+            .into_iter()
+            .collect(),
+        );
+        let mut occurrences = OccurrenceBaseline::default();
+        occurrences.adopt(pinned);
+
+        let world = app.world_mut();
+        let scope = world
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+            .and_then(|scope| scope.current());
+        let key = world
+            .resource_mut::<SessionCheckpointOperations>()
+            .admit(scope)
+            .expect("a live session can still mint an operation key");
+        world
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::Transition(intent.clone()),
+                occurrences,
+                custody: Default::default(),
+                item: None,
+            });
+    }
+
+    assert!(
+        app.world_mut()
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, LifecycleIntent::Transition(intent))
+            .admitted(),
+        "the lifecycle slot refused the staged crossing, so no transaction opens"
+    );
+
+    // `prefetch_hit` is decided when the transaction opens and lives on the load
+    // record; read it while the load exists rather than after it retires.
+    let mut observed = None;
+    for _ in 0..120 {
+        app.update();
+        if let Some(active) = app.world().resource::<RoomTransitionLoadState>().active.as_ref() {
+            observed = Some(active.prefetch_hit);
+            break;
+        }
+    }
+    observed.expect(
+        "no room transition transaction opened for the staged crossing in 120 \
+         frames, so nothing consulted the prefetch cache at all",
+    )
+}
+

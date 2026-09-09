@@ -64,7 +64,7 @@ feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1c - implementation complete; A1 closure has one open row
+### A1c - DONE 2026-09-08; A1 closes
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
 A1b (ownership move) and A1c subcommits 1-2 landed 2026-09-08: no domain reads
@@ -102,21 +102,23 @@ counter's overflow path refuses the lifecycle slot rather than the identity
 (poison-verified), the key has one canonical projection, and the terminal outcome
 is a closed `RestoreFailure` rather than a free-form string.
 
-The acceptance matrix was audited row by row on 2026-09-08 and the result is in
-the protocol: **sixteen of seventeen rows have a witness that fails for that
-row's property.**
+The acceptance matrix was audited row by row on 2026-09-08 and every one of its
+**seventeen rows now has a witness that fails for that row's property**; the
+per-row receipts are in the protocol.
 
-⛔ **I CLOSED THE PREPARE-FAILURE ROW STRUCTURALLY AND WAS WRONG.** "Nothing
-destructive runs before the commit" proves *retain live state* and nothing else;
-terminalization and no-permanent-retry were both broken and are now fixed and
-witnessed. That is the reason the prefetched-plan row's structural argument is
-recorded as evidence and NOT as a close.
+⛔ **TWO ROWS WERE CLOSED ON A STRUCTURAL ARGUMENT AND BOTH ARGUMENTS COVERED
+HALF A ROW.** "Nothing destructive runs before the commit" proves *retain live
+state* and says nothing about terminalization or permanent retry — both were
+broken. "Every cached plan carries the default outlook and `promote` refuses a
+different one" was sound about the comparison and silent about whether the
+comparison was ever reached: it was not, because the prefetch cache's identity
+had two keepers and only the host's copy was ever set, so the first transition of
+every session cleared every warm plan before looking one up. **A structural
+argument is evidence; a row closes on a test that fails for it.**
 
-**Remaining before A1 closes:**
-- the end-to-end prefetched-plan witness. It IS reachable — `build_visible_app`
-  populates the cache — and three attempts have each stopped on a different
-  obstacle; the current one is `promote`'s cache-identity preconditions. See the
-  protocol row for what the next attempt needs.
+⭐ Repaired with the witness: `PrefetchIdentity` is one value that `publish`
+requires, so a plan cannot enter the cache without the cache knowing the world it
+was prepared for, and there is no public reset.
 
 **Recorded as deliberate non-goals, not open work** — each needs a NEW DECISION
 to become a task:

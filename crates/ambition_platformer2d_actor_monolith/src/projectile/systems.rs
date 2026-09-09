@@ -1038,6 +1038,19 @@ pub fn step_projectiles(
                 ignored_targets: Vec::new(),
             };
             if let Some(contact) = feature_contact {
+                // ⛔⛔ **DIRECT FIRST, THEN ITS LANDING AREA — and this branch had
+                // it backwards.** The ordinary body road writes the targeted
+                // request and then the splash; this one wrote the splash first,
+                // so for a boss or a breakable the AREA event was applied before
+                // the hit that caused it. It matters wherever the first
+                // application changes what the second finds: a hit that grants
+                // invulnerability, or one that breaks the target, was being
+                // credited to the splash and refused to the shot.
+                //
+                // ⚠ THIS IS A BEHAVIOUR CHANGE, not a tidy-up, and the protocol
+                // asks for it as its own patch for that reason. One splash per
+                // landing and the recipient's inclusion in it are unchanged.
+                feature_damage.write(unresolved);
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
                         kin.pos,
@@ -1049,7 +1062,6 @@ pub fn step_projectiles(
                         &mut vfx,
                     );
                 }
-                feature_damage.write(unresolved);
                 // CM8: no attacker-side hit sound here — the struck feature's own
                 // victim consumer (the boss reaction, or the breakable's Impact /
                 // shatter) owns the cue, so a projectile plink is consistent with

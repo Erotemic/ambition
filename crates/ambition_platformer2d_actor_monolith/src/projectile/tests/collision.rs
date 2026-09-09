@@ -564,6 +564,91 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
     );
 }
 
+/// ⛔⛔ **THE DIRECT REQUEST IS WRITTEN BEFORE ITS LANDING SPLASH, ON BOTH
+/// RECEIVER ROADS.**
+///
+/// The ordinary body branch wrote the targeted request and then the area one;
+/// the boss/breakable branch wrote the splash FIRST. So for a boss or a
+/// breakable the area event was applied before the hit that caused it, and
+/// wherever the first application changes what the second finds — a hit that
+/// grants invulnerability, or one that breaks the target — the splash was
+/// credited and the shot refused.
+///
+/// ⚠ IT ASSERTS THE EMITTED ORDER, deliberately. The consequence needs content
+/// that reacts differently to the two orders (an i-frame window, a one-hit
+/// break with a reward), and the ORDER is the thing this patch changes; a
+/// fixture that could only see the consequence would be green for either order
+/// against a target with none.
+#[test]
+fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+    use ambition_combat::events::{HitEvent, HitTarget};
+
+    #[derive(bevy::prelude::Resource, Default)]
+    struct EmittedTargets(Vec<HitTarget>);
+
+    fn record(
+        mut reader: bevy::prelude::MessageReader<HitEvent>,
+        mut seen: bevy::prelude::ResMut<EmittedTargets>,
+    ) {
+        seen.0.extend(reader.read().map(|event| event.target));
+    }
+
+    let world = ae::World::new(
+        "open_lane",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.init_resource::<EmittedTargets>();
+    app.add_systems(Update, record.after(crate::projectile::step_projectiles));
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+        ambition_combat::components::FeatureId::new("crate"),
+        FeatureName::new("crate"),
+        ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+        ambition_combat::components::CenteredAabb::from_center_size(
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::new(24.0, 46.0),
+        ),
+        BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+    ));
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(360.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        body.kin.vel = ae::Vec2::new(1500.0, 0.0);
+        // A landing splash is what makes the pair, and its ORDER, exist at all.
+        body.game.splash_half_extent = 40.0;
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let seen = &app.world().resource::<EmittedTargets>().0;
+    // ⛔ THE PREMISE. Both events must exist, or "direct came first" is satisfied
+    // by a road that emits one of them.
+    assert_eq!(
+        seen.len(),
+        2,
+        "expected exactly the direct request and its one landing splash, got {seen:?}"
+    );
+    assert_eq!(
+        seen[0],
+        HitTarget::UnresolvedFeatures,
+        "the landing splash was written before the direct request it belongs to, \
+         so a target that reacts to the first application — an i-frame window, a \
+         one-hit break — resolves the AREA event and refuses the shot that \
+         caused it. Order: {seen:?}"
+    );
+    assert_eq!(seen[1], HitTarget::Volume, "order: {seen:?}");
+}
+
 /// ⛔⛔ **A RETURNING SHOT SURVIVES A CRATE EXACTLY AS IT SURVIVES A BODY.**
 ///
 /// Lifetime is the shot's own policy — `game.returns()` — and the feature branch

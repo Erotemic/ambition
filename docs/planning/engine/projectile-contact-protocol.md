@@ -459,9 +459,17 @@ both arms, poison-verified.
   hurt shape are the SAME `CenteredAabb`, so "collider larger than hurt region"
   is not reachable with current content — so this is A5 infrastructure rather
   than a repair.
-- Direct-before-splash order: the feature branch still emits the landing splash
-  BEFORE the direct request, while the body road writes direct first. Its own
-  semantic patch, with both receiver-family fixtures.
+- ~~Direct-before-splash order~~ **LANDED 2026-09-09** as its own semantic patch.
+  The feature branch wrote the landing splash BEFORE the direct request, so for a
+  boss or a breakable the AREA event was applied before the hit that caused it —
+  and wherever the first application changes what the second finds (an
+  invulnerability window, a one-hit break) the splash was credited and the shot
+  refused. Witness:
+  `the_direct_request_precedes_its_landing_splash_for_a_feature_target`, which
+  asserts the EMITTED order and says why: the consequence needs content that
+  reacts differently to the two orders, and a fixture that could only see the
+  consequence would be green for either order against a target with none.
+  Poison-verified.
 - Targeted delivery (A2c). The feature branch still writes
   `HitTarget::UnresolvedFeatures`, so the applier re-scans families to find the
   victim the sweep already identified.

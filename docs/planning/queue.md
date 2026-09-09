@@ -377,11 +377,22 @@ instead of increasing retries.
 **Acceptance:** missing Cargo/target/GPU prerequisites are explicit receipt states;
 known deterministic fixtures do not depend on wall-clock or entity order.
 
-**Sighting 2026-09-09:** `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
-failed once in a full `app_it` run, then passed in isolation and passed the
-immediate full re-run (600/600). The panic text was not captured, which is the
-row's own lesson: a flake with no message is a sighting, not a diagnosis. The
-next person to see it should capture stderr before re-running.
+**Sighting 2026-09-09, measured rather than guessed.**
+`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+failed in 2 of ~8 full `app_it` runs and **0 of 25 consecutive runs of its own
+module**, plus 3 consecutive clean full runs. ⇒ it fails only under full-suite
+load, which points at parallel execution or process-global state rather than at
+the test's own logic. The panic text was never captured, because a run that fails
+prints it only for the failing test and every attempt to capture reproduced a
+green run — that is the row's own lesson restated: **a flake with no message is a
+sighting, not a diagnosis.** Whoever sees it next should run the full suite with
+output redirected to a file so the message survives the run that produced it.
+
+⚠ The obvious suspect was ruled out: the test's own doc says "the only thing that
+would make it fail is a boss system that some other capability turns out to
+require", and A2a had just made the damage-facing publication require
+`Res<BossCatalog>`. If that were it the failure would be deterministic in the
+disabled arm; 25 clean module runs say it is not.
 
 ### POST-CARVE-DOC-SWEEP — update moved-source references in the same carve
 

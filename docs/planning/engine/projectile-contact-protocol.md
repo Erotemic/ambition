@@ -368,7 +368,7 @@ system's type set is impossible, and `drive_boss_animators` states that it write
 one of its inputs. The catalog, the attack state and the animation sample left
 with the derivation: `apply_boss_hit` can no longer derive geometry at all, and
 the projectile stepper no longer depends on `BossCatalog`. Witness:
-`the_boss_hit_test_answers_only_from_the_published_volumes`, four states
+`a_boss_is_reached_only_through_its_published_volumes`, four states
 including the anti-vacuity row, poison-verified against a reintroduced coarse
 fallback. ⚠ Breakables were NOT added to the barrier: their geometry is
 `CenteredAabb` + broken state, both settled in `WorldPrep`, so a second

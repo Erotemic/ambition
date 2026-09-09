@@ -844,6 +844,19 @@ Run citation/link/source-reference guards on the **diff** after a move. Re-tense
 historical prose where useful; delete live directions to old paths. Do not retain a
 huge global post-carve diary.
 
+⛔⛔ **AND "ON THE DIFF" MEANS THE RANGE FORM, WHICH IS A DIFFERENT CHECK.**
+`check_planning_citations.py --vanished HEAD` compares HEAD against the WORKING
+TREE and says so in its own output — *"⚠ that is REF→WORKING TREE, not REF→a
+carve — pass `A..B` to attribute a range"*. Ran after every commit on 2026-09-09
+it stayed green all day, because each commit's deletions were already at HEAD by
+the time it ran. The RANGE form over the same session
+(`--vanished <first>..HEAD`, 21 names left between them) found one immediately:
+`projectile-contact-protocol.md` still cited A2a's witness as
+`the_boss_hit_test_answers_only_from_the_published_volumes`, renamed to
+`a_boss_is_reached_only_through_its_published_volumes` by the A2c predicate
+deletion two commits later. Repointed. ⇒ A carve author who runs only the
+working-tree form has not run this row's check at all.
+
 ## P3 — human-gated measurements and local-machine work
 
 These rows cannot be completed from an ordinary headless source review. Keep the

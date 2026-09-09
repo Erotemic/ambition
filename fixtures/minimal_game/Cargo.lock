@@ -121,10 +121,8 @@ dependencies = [
 name = "ambition_abilities"
 version = "0.1.0"
 dependencies = [
- "ambition_boss_encounter",
  "ambition_characters",
  "ambition_combat",
- "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_items",
  "ambition_platformer2d_core",

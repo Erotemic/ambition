@@ -302,6 +302,29 @@ facade's `default-features` on host reddens it naming both crates, and pointing
 its `cargo tree` at a package that does not exist trips the anti-vacuity floor
 rather than printing `ok` on an empty measurement.
 
+**Five dead dependency declarations removed the same day.**
+`scripts/measure_unreferenced_workspace_dependencies.py` (committed with the
+change, poison-verified by putting one back) found four crates declaring an
+`ambition_*` dependency their whole source tree never names. All five lines were
+genuinely removable — the compiler is the judge and it agreed:
+`ambition_abilities -> ambition_boss_encounter` (which said "an abilities crate
+needs a boss system" to every SCC measurement and dragged encounter, persistence
+and cutscene behind it in a manifest walk) and `-> ambition_gameplay_trace`;
+`ambition_touch_input`'s `mobile_touch -> ambition_cutscene`; the facade's
+`all_capabilities -> ambition_sfx_bank`, a capability name activating a crate the
+facade never re-exports.
+
+⛔ **And one of them was a FEATURE THAT PUBLISHED NOTHING.**
+`ambition_characters`' `causal` said *"publish this capability's causal facts
+(brain decisions, for now)"* and the crate contained no `cfg(feature = "causal")`
+and no reference to `ambition_causal` at all — a composition could turn it on,
+pay the compile, and receive no brain decisions, with the manifest comment
+asserting otherwise. Deleted along with the monolith's forwarding of it; the
+other three `causal` forwards (`combat`, `damage`, the monolith's own) are real.
+⚠ The feature-resolved closure did not move: every one of those crates is also
+reached through `ambition_platformer2d_actor_monolith`, which is the packet's own
+thesis rather than a reason to leave a false edge standing.
+
 **Next in this row:** the frontier asks for a SEPARATE headless consumer
 workspace — "a constructed body advancing against world geometry, without
 renderer, audio, inventory, encounters or game content". That fixture does not

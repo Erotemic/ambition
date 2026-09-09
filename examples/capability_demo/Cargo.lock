@@ -99,10 +99,8 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 name = "ambition_abilities"
 version = "0.1.0"
 dependencies = [
- "ambition_boss_encounter",
  "ambition_characters",
  "ambition_combat",
- "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_items",
  "ambition_platformer2d_core",
@@ -569,7 +567,6 @@ dependencies = [
  "ambition_render",
  "ambition_settings_menu",
  "ambition_sfx",
- "ambition_sfx_bank",
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",

@@ -27,7 +27,6 @@ mobile_touch = [
     "dep:ambition_sim_view",
     "dep:ambition_render",
     "ambition_render/input",
-    "dep:ambition_cutscene",
     "dep:ambition_ui_nav",
     "dep:ambition_persistence",
     "dep:bevy",
@@ -47,7 +46,6 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
 # reach for glyph/pressed stays until P5).
 ambition_sim_view = { path = "../ambition_sim_view", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
-ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
 ambition_persistence = { path = "../ambition_persistence", optional = true }
 # The overlay half's UI/state features; the pure fold uses no Bevy at all.

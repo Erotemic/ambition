@@ -24,8 +24,6 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_held_items = { path = "../ambition_held_items" }
 ambition_items = { path = "../ambition_items" }
 ambition_projectiles = { path = "../ambition_projectiles" }
-ambition_boss_encounter = { path = "../ambition_boss_encounter" }
-ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_time = { path = "../ambition_time" }

@@ -76,7 +76,6 @@ all_capabilities = [
     "ambition_render",
     "ambition_settings_menu",
     "ambition_sfx",
-    "ambition_sfx_bank",
     "ambition_touch_input",
     "ambition_ui_nav",
     "ambition_vfx",
@@ -215,7 +214,6 @@ ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_platformer2d_rollback_ggrs = { path = "../ambition_platformer2d_rollback_ggrs", optional = true }
 ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
 ambition_sfx = { path = "../ambition_sfx", optional = true }
-ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the animation

@@ -924,7 +924,22 @@ pub fn begin_room_transition_load_system(
             asset_progress_since: None,
             asset_stall_report: None,
             prefetch_hit: false,
-            checkpoint_operation: None,
+            // ⛔⛔ **ADOPTED AT OPEN, NOT AT PREFLIGHT, AND THAT IS A REPAIR.**
+            // It used to be resolved further down, inside the construction
+            // preflight — so a transaction that failed BEFORE reaching there
+            // (unknown destination, non-finite arrival, no session scope) carried
+            // no key, `abandon_failed_checkpoint_restore_system` found nothing to
+            // note, and the operation was never ended. Measured, not reasoned: a
+            // confirmed-host fixture aimed at a room no content pack authors
+            // opened 597 transactions for one intent in 600 frames. The earliest
+            // failures are exactly the ones a checkpoint restore's protocol calls
+            // terminal, so the key has to be on the record before any of them can
+            // return.
+            checkpoint_operation: construction_services
+                .8
+                .as_deref()
+                .and_then(|accepted| accepted.inputs_for(&intent))
+                .map(|accepted| accepted.key),
             construction_preflight_duration: None,
             asset_manifest_duration: None,
             requested_at: real_time.as_deref().map(|time| time.elapsed()),
@@ -1076,16 +1091,10 @@ pub fn begin_room_transition_load_system(
         // one; redirecting only the second would leave a plan prepared against
         // the live population free to be promoted for a reconstruction that is
         // about a different one.
-        // ⭐ RESOLVED ONCE AND REMEMBERED. Every later stage names the KEY; only
-        // this one asks the accepted operation whether it owns this intent, and
-        // it asks while that operation is the outstanding one.
-        if active.checkpoint_operation.is_none() {
-            active.checkpoint_operation = construction_services
-                .8
-                .as_deref()
-                .and_then(|accepted| accepted.inputs_for(&active.intent))
-                .map(|accepted| accepted.key);
-        }
+        // ⭐ RESOLVED ONCE AND REMEMBERED, at the top of this system where the
+        // transaction record is built. Every later stage — this one included —
+        // names the KEY rather than re-asking the accepted operation whether it
+        // owns this intent.
         let selected_restore = active.checkpoint_operation.and_then(|key| {
             construction_services
                 .8
@@ -1315,17 +1324,22 @@ pub fn authorize_ready_room_transition_system(
     }
 }
 
-/// Retire failed transitions in hosts that deliberately install no visible
-/// presentation adapter. A windowed host keeps the failed transaction resident
-/// so the loading foreground can offer retry/cancel while the source room stays
-/// intact.
-/// Give a failed checkpoint restore its terminal answer, on BOTH hosts.
+/// Hand a failed checkpoint restore to the commit executor to be ENDED, on both
+/// hosts.
 ///
 /// ⛔⛔ WITHOUT THIS A FAILED PREPARATION RETRIED FOREVER. The transaction was
 /// torn down while its lifecycle intent stayed PENDING, so readiness opened a
 /// new transaction for the same intent on the next frame, against the same
 /// invalid definition — and the accepted operation was never retired, so nothing
 /// said the session was stuck.
+///
+/// ⛔⛔ **IT DOES NOT DO THE RETRACTION ITSELF, AND MAY NOT.** An earlier version
+/// took `ResMut<AcceptedCheckpointRestore>` and `ResMut<PendingLifecycleCommit>`
+/// here — rollback-registered state, written from `Update`, which never rewinds.
+/// `check_rollback_mutators_run_in_sim` found it: a retraction that survives a
+/// rollback desyncs the run. What this may touch is the HOST-side transaction it
+/// already owns, so it takes the key off the failed load and leaves it in
+/// [`AbandonedCheckpointOperation`]; the commit executor spends it.
 ///
 /// ⚠ CHECKPOINT OPERATIONS ONLY. A door whose preparation failed transiently may
 /// legitimately be retried; a checkpoint restore's protocol says an invalid
@@ -1334,38 +1348,31 @@ pub fn authorize_ready_room_transition_system(
 ///
 /// ⭐ IT RUNS BEFORE THE HEADLESS FINALIZER AND ON THE VISIBLE HOST ALIKE,
 /// because the transaction reaches `Failed` in seven places and is torn down in
-/// two — terminalizing at the phase rather than at either teardown is what keeps
-/// the two hosts from needing separate answers. Idempotent: retiring the
-/// operation makes the second call find nothing.
-pub fn terminalize_failed_checkpoint_restore_system(
-    state: Res<RoomTransitionLoadState>,
-    mut accepted: ResMut<
-        ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore,
-    >,
-    mut outcomes: ResMut<
-        ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes,
-    >,
-    mut pending: ResMut<
-        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+/// two — noting at the phase rather than at either teardown is what keeps the two
+/// hosts from needing separate answers. `take()` makes it idempotent: a second
+/// pass over the same failed transaction finds no key.
+pub fn abandon_failed_checkpoint_restore_system(
+    mut state: ResMut<RoomTransitionLoadState>,
+    mut abandoned: ResMut<
+        ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation,
     >,
 ) {
-    let Some(key) = state
-        .active
-        .as_ref()
-        .filter(|active| active.phase == RoomTransitionLoadPhase::Failed)
-        .and_then(|active| active.checkpoint_operation)
-    else {
+    let Some(active) = state.active.as_mut() else {
         return;
     };
-    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::cancel_accepted_checkpoint_restore(
-        &mut accepted,
-        &mut outcomes,
-        &mut pending,
-        key,
-        ambition_platformer2d_actor_monolith::session::checkpoint::RestoreCancellation::PreparationFailed,
-    );
+    if active.phase != RoomTransitionLoadPhase::Failed {
+        return;
+    }
+    let Some(key) = active.checkpoint_operation.take() else {
+        return;
+    };
+    abandoned.note(key);
 }
 
+/// Retire failed transitions in hosts that deliberately install no visible
+/// presentation adapter. A windowed host keeps the failed transaction resident
+/// so the loading foreground can offer retry/cancel while the source room stays
+/// intact.
 pub fn finalize_unpresented_room_transition_failure_system(
     presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
     mut state: ResMut<RoomTransitionLoadState>,
@@ -1614,9 +1621,11 @@ mod tests {
 mod checkpoint_failure_tests {
     use super::*;
     use ambition_platformer2d_actor_monolith::session::checkpoint::{
-        AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation,
-        SessionCheckpointOperations, SessionCheckpointOutcomes,
+        AbandonedCheckpointOperation, AcceptedCheckpointRestore, AcceptedRestore,
+        RestoreCancellation, SessionCheckpointOperations, SessionCheckpointOutcomes,
     };
+    use crate::room_transition::commit::terminalize_abandoned_checkpoint_restore_system;
+    use bevy::prelude::IntoScheduleConfigs;
     use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
         LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
     };
@@ -1712,7 +1721,16 @@ mod checkpoint_failure_tests {
             .resource_mut::<RoomTransitionLoadState>()
             .active = Some(active);
 
-        app.add_systems(bevy::prelude::Update, terminalize_failed_checkpoint_restore_system);
+        app.init_resource::<AbandonedCheckpointOperation>();
+        // ⭐ BOTH HALVES, because either alone proves nothing. The `Update` noter
+        // may not touch rollback state and the commit executor never sees the
+        // transaction; the terminal road only exists when they are composed.
+        app.add_systems(bevy::prelude::Update, abandon_failed_checkpoint_restore_system);
+        app.add_systems(
+            bevy::prelude::Update,
+            terminalize_abandoned_checkpoint_restore_system
+                .after(abandon_failed_checkpoint_restore_system),
+        );
         app.update();
 
         // ── ONE TERMINAL ANSWER, AND IT SAYS WHY ────────────────────────────
@@ -1818,7 +1836,13 @@ mod checkpoint_failure_tests {
         app.world_mut()
             .resource_mut::<RoomTransitionLoadState>()
             .active = Some(active);
-        app.add_systems(bevy::prelude::Update, terminalize_failed_checkpoint_restore_system);
+        app.init_resource::<AbandonedCheckpointOperation>();
+        app.add_systems(bevy::prelude::Update, abandon_failed_checkpoint_restore_system);
+        app.add_systems(
+            bevy::prelude::Update,
+            terminalize_abandoned_checkpoint_restore_system
+                .after(abandon_failed_checkpoint_restore_system),
+        );
         app.update();
 
         assert!(
@@ -1853,7 +1877,7 @@ mod checkpoint_failure_installation_tests {
     /// ```text
     /// begin_room_transition_load_system
     /// authorize_ready_room_transition_system
-    /// terminalize_failed_checkpoint_restore_system   <- the one this defends
+    /// abandon_failed_checkpoint_restore_system      <- the one this defends
     /// finalize_unpresented_room_transition_failure_system
     /// ```
     ///
@@ -1895,6 +1919,58 @@ mod checkpoint_failure_installation_tests {
              the checkpoint terminalization is the one that left, a failed \
              preparation keeps its lifecycle intent and readiness reopens it \
              every frame, against the same invalid definition, forever"
+        );
+    }
+
+    /// ⛔⛔ **AND THE OTHER HALF, WHICH THE COUNT ABOVE CANNOT SEE.** The
+    /// readiness chain only NOTES the abandoned operation; if the commit-side
+    /// terminalizer is not installed, the note is never spent and the defect is
+    /// exactly the one the split was supposed to keep fixed — with the readiness
+    /// count still green at four. Two sets, two counts.
+    ///
+    /// ```text
+    /// advance_room_transition_content_epoch_system
+    /// commit_ready_room_transition_system
+    /// apply_committed_room_transition_restore
+    /// terminalize_abandoned_checkpoint_restore_system   <- the one this defends
+    /// ```
+    #[test]
+    fn the_commit_chain_still_carries_the_checkpoint_terminalization() {
+        use ambition_platformer2d_shared_tangle::schedule::{RoomTransitionSet, SimScheduleExt};
+        use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
+        use bevy::prelude::App;
+
+        let mut app = App::new();
+        app.add_plugins(super::super::RoomTransitionComposerPlugin);
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(sim)
+            .expect("the plugin installs sim systems")
+            .graph();
+        let set = NodeId::Set(
+            graph
+                .system_sets
+                .get_key(RoomTransitionSet::Apply.intern())
+                .expect("the apply set is registered"),
+        );
+        let members = graph
+            .systems
+            .iter()
+            .filter(|(key, _, _)| {
+                graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(set, NodeId::System(*key))
+            })
+            .count();
+        assert_eq!(
+            members, 4,
+            "the room-transition commit chain does not hold four systems. If the \
+             abandoned-operation terminalizer is the one that left, readiness \
+             still takes the key off the failed transaction and NOTHING ever \
+             answers it — the accepted restore and its lifecycle intent stay \
+             live forever, which is the wedge with one more indirection"
         );
     }
 }

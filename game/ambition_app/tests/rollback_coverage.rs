@@ -880,6 +880,24 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
+    // checkpoint terminal road is split in two. "This host could not prepare the
+    // destination" is decided by asset residency and construction preflight —
+    // work that runs in `Update`, is not simulated, does not rewind, and is not
+    // guaranteed to agree between two peers. Registering it would put a
+    // non-deterministic value into the checksum; RESTORING it would resurrect an
+    // operation the host has already given up on and re-publish its terminal
+    // outcome.
+    //
+    // ⭐ AND THE WRITE IT ENABLES IS STILL REGISTERED. Nothing here excuses
+    // spending `PendingLifecycleCommit` from `Update` — that was the defect
+    // `check_rollback_mutators_run_in_sim` caught. Readiness leaves the key here;
+    // the retraction happens at a commit boundary, which is where every other
+    // write to the lifecycle slot happens. See the type's own doc.
+    (
+        "ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation",
+        "a host-side note that a room preparation failed: asset residency and construction preflight are not simulated and two peers need not agree, so snapshotting it would checksum a non-deterministic value and restoring it would resurrect an abandoned operation",
+    ),
     // ⛔⛔ THE EAGER COMMIT'S DEBT TO THE DOMAINS, AND IT MUST NEVER SURVIVE A
     // FRAME. `commit_ready_room_transition_system` is an ordinary system and the
     // checkpoint domain restore is exclusive, so the commit names the intent it

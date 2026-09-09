@@ -151,8 +151,6 @@ fn a_settled_neighbourhood_stops_preparing_itself() {
 #[test]
 fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
     let app = gameplay_after_startup();
-
-    let mut app = app;
     let room_ids: Vec<String> = {
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
             ambition_platformer2d::world::rooms::RoomSet,

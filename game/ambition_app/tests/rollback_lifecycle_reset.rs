@@ -586,3 +586,129 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
          `commit_confirmed_lifecycle`'s call into the shared domain application"
     );
 }
+
+/// ⛔⛔ **THE CONFIRMED HOST'S OWN TERMINAL ROAD, WHICH NO SCHEDULE COUNT CAN
+/// SEE.** Ending a checkpoint restore whose preparation failed is split in two:
+/// readiness notices the failure in `Update` and may only touch host-side state
+/// there, because `PendingLifecycleCommit` and `AcceptedCheckpointRestore` are
+/// rollback-registered and `Update` never rewinds. The retraction happens at a
+/// commit boundary — and on THIS host that boundary is an inline call inside
+/// `commit_confirmed_lifecycle`, not a registered system. The runtime crate's
+/// two membership counts are blind to it: delete the call and both stay green
+/// while a rollback session wedges on the first unpreparable definition.
+///
+/// ⭐ END TO END, NOT STAGED HALFWAY. Nothing here writes
+/// `AbandonedCheckpointOperation`: the accepted operation names an intent whose
+/// destination cannot be built, readiness adopts its key, preflight fails, and
+/// the note is made by the shipped system. What the assertions read is the
+/// terminal answer at the far end.
+#[test]
+fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
+    use ambition_platformer2d::actors::session::checkpoint::{
+        AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation,
+        SessionCheckpointOperations, SessionCheckpointOutcomes,
+    };
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+
+    let mut sim = repro_sim();
+    stage_on_floor(&mut sim, 100);
+
+    let subject = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<&SimId, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.single(world).expect("one primary player").clone()
+    };
+    // A destination NO authored room provides, so preparation cannot succeed on
+    // any host. The wedge this guards is precisely "an invalid definition that is
+    // retried forever".
+    let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject,
+        target_room: "a_room_no_content_pack_authors".into(),
+        arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+        edge_exit: false,
+        zone_sfx: None,
+    });
+
+    let key = {
+        let world = sim.world_mut();
+        let scope = world
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+            .and_then(|scope| scope.current());
+        let key = world
+            .resource_mut::<SessionCheckpointOperations>()
+            .admit(scope)
+            .expect("a live session can still mint an operation key");
+        world
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(AcceptedRestore {
+                key,
+                frame: 0,
+                intent: intent.clone(),
+                occurrences: Default::default(),
+                custody: Default::default(),
+                item: None,
+            });
+        assert!(world
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, intent.clone())
+            .admitted());
+        key
+    };
+    // The staged lifecycle state must be part of the baseline, or the first
+    // rewind takes it away and the test measures nothing.
+    sim.rebase_rollback_history()
+        .expect("the staged checkpoint operation becomes the rollback baseline");
+
+    let mut ended = false;
+    for _ in 0..600 {
+        sim.step(AgentAction::default());
+        if sim
+            .world()
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .is_some()
+        {
+            ended = true;
+            break;
+        }
+    }
+
+    assert!(
+        ended,
+        "a checkpoint restore whose destination cannot be prepared never reached \
+         a terminal outcome on the confirmed host. Readiness notes the abandoned \
+         operation host-side and can go no further; if `commit_confirmed_lifecycle` \
+         does not spend that note, the accepted operation and its lifecycle intent \
+         stay live and readiness reopens the same invalid transaction every frame"
+    );
+    let outcome = *sim
+        .world()
+        .resource::<SessionCheckpointOutcomes>()
+        .outcome_for(key)
+        .expect("checked above");
+    assert_eq!(
+        outcome.cancellation(),
+        Some(RestoreCancellation::PreparationFailed),
+        "the operation ended, but not as a cancellation naming a failed \
+         preparation — a `Failed` outcome would claim destructive application ran \
+         and left the world unverified, and nothing was applied"
+    );
+    assert!(
+        sim.world()
+            .resource::<AcceptedCheckpointRestore>()
+            .accepted()
+            .is_none(),
+        "the accepted operation outlived its own terminal answer"
+    );
+    assert!(
+        sim.world()
+            .resource::<PendingLifecycleCommit>()
+            .peek()
+            .is_none(),
+        "the lifecycle intent stayed pending after its preparation failed, so \
+         readiness opens a new transaction for it against the same invalid \
+         definition, forever"
+    );
+}

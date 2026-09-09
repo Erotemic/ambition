@@ -72,9 +72,11 @@ impl Plugin for RoomTransitionComposerPlugin {
                 authorize_ready_room_transition_system,
                 // ⭐ BEFORE THE TEARDOWN, and before the next frame's
                 // `begin_...` can open a replacement transaction for an intent
-                // this answers. Both hosts run it; only the headless finalizer
-                // below is host-specific.
-                loading::terminalize_failed_checkpoint_restore_system,
+                // it answers. Both hosts run it; only the headless finalizer
+                // below is host-specific. It notes the abandoned operation
+                // host-side — the RETRACTION belongs to the commit executor,
+                // because `PendingLifecycleCommit` rewinds and `Update` does not.
+                loading::abandon_failed_checkpoint_restore_system,
                 finalize_unpresented_room_transition_failure_system,
             )
                 .chain()
@@ -90,6 +92,12 @@ impl Plugin for RoomTransitionComposerPlugin {
                 // system and cannot run the domain-apply schedule itself. The
                 // chain is what makes "a system later" true rather than hoped.
                 commit::apply_committed_room_transition_restore,
+                // ⭐ THE OTHER TERMINAL ROAD, in the same exclusive position and
+                // for the same reason: a checkpoint operation whose preparation
+                // failed is ENDED here, where writing the rollback-registered
+                // lifecycle slot is legal. The rollback host reaches the identical
+                // call from `commit_confirmed_lifecycle`.
+                commit::terminalize_abandoned_checkpoint_restore_system,
             )
                 .chain()
                 // THE transaction phase — detection has run, the reset has not.

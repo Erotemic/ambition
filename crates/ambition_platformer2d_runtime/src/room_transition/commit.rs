@@ -987,6 +987,33 @@ pub fn apply_committed_room_transition_restore(world: &mut bevy::prelude::World)
     );
 }
 
+/// End any checkpoint operation whose room preparation failed.
+///
+/// ⛔⛔ **THE EAGER HOST'S HALF OF A SPLIT THE ROLLBACK GUARD FORCED.**
+/// `abandon_failed_checkpoint_restore_system` sees the failure in `Update` and
+/// may only touch host-side state there; the retraction it implies spends
+/// `PendingLifecycleCommit`, which is rollback-registered. This is the eager
+/// host's legal moment for that write. The rollback host makes the identical
+/// call from `commit_confirmed_lifecycle`, on a confirmed frame.
+///
+/// ⚠ EXCLUSIVE ONLY TO SHARE ONE ENTRY POINT WITH THAT HOST. There is no
+/// structural work here — nothing is spawned and nothing is despawned, because a
+/// cancellation is precisely the case where no destructive application ran.
+pub fn terminalize_abandoned_checkpoint_restore_system(world: &mut bevy::prelude::World) {
+    // ⛔ THE EAGER HOST ONLY, exactly as the restore above: on a rollback host
+    // this schedule rewinds, and a retraction performed inside it would be
+    // undone by the next restore and re-performed on the next re-simulation.
+    if world
+        .get_resource::<crate::SimulationHost>()
+        .is_some_and(|host| host.is_rollback())
+    {
+        return;
+    }
+    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
+        world,
+    );
+}
+
 /// Emit one landing diagnostic for each committed room transition, including
 /// world/overlay collision coverage and the support gap below the arriving body.
 fn log_room_transition_landing(

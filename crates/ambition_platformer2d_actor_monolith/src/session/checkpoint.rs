@@ -971,6 +971,94 @@ pub fn cancel_accepted_checkpoint_restore(
     true
 }
 
+/// A checkpoint operation whose room preparation FAILED, waiting for a commit
+/// executor to end it.
+///
+/// ⛔⛔ **DELIBERATELY NOT ROLLBACK STATE, AND THAT ABSENCE IS THE DESIGN.** The
+/// fact it records — "this host could not prepare the destination" — is a HOST
+/// fact: asset residency and construction preflight are not simulated, do not
+/// rewind, and are not guaranteed to agree between two peers. Snapshotting it
+/// would put a non-deterministic value into the checksum; rewinding it would
+/// resurrect an operation the host has already given up on.
+///
+/// ⛔⛔ **AND IT IS WHY THE TERMINALIZATION IS SPLIT IN TWO.** The readiness
+/// phase runs in `Update`, which never rewinds, so it may not touch
+/// [`AcceptedCheckpointRestore`] or `PendingLifecycleCommit` — a retraction
+/// written there survives a rollback and desyncs the run. What readiness may do
+/// is take the failed operation's key OFF its own host-side transaction and
+/// leave it here; the retraction itself then happens where every other write to
+/// the lifecycle slot happens — the commit executor, on a frame that is never
+/// re-simulated.
+///
+/// ⚠ ONE SLOT, LAST WRITER WINS. At most one restore is accepted at a time, so a
+/// second abandoned key means the first was already answered (or never accepted)
+/// and [`terminalize_abandoned_checkpoint_restore`] would find nothing for it.
+#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AbandonedCheckpointOperation(Option<CheckpointOperationKey>);
+
+impl AbandonedCheckpointOperation {
+    /// Record that this operation's preparation failed and it owes a terminal
+    /// answer.
+    pub fn note(&mut self, key: CheckpointOperationKey) {
+        self.0 = Some(key);
+    }
+
+    /// The operation awaiting its terminal answer, if any.
+    pub fn pending(&self) -> Option<CheckpointOperationKey> {
+        self.0
+    }
+
+    /// Forget the note once a commit executor has answered it.
+    pub fn clear(&mut self) {
+        self.0 = None;
+    }
+}
+
+/// End an abandoned checkpoint operation, from a commit executor.
+///
+/// ⛔⛔ **CALLED ONLY FROM A COMMIT BOUNDARY.** The eager host calls it from the
+/// exclusive system chained after its commit; the rollback host calls it from
+/// `commit_confirmed_lifecycle`, on a CONFIRMED frame. That is the same rule the
+/// rest of the lifecycle slot obeys and the reason this is a free function
+/// rather than a system anybody could install: `PendingLifecycleCommit` is
+/// rollback-registered, and a schedule that rewinds is not allowed to spend it
+/// on a host-side fact.
+///
+/// Returns whether an operation was ended.
+pub fn terminalize_abandoned_checkpoint_restore(world: &mut World) -> bool {
+    let Some(key) = world
+        .get_resource::<AbandonedCheckpointOperation>()
+        .and_then(AbandonedCheckpointOperation::pending)
+    else {
+        return false;
+    };
+    // The note is spent whether or not it matched: a key with no accepted
+    // operation behind it is already answered, and keeping it would ask the same
+    // question every frame forever.
+    if let Some(mut abandoned) = world.get_resource_mut::<AbandonedCheckpointOperation>() {
+        abandoned.clear();
+    }
+    if !world.contains_resource::<AcceptedCheckpointRestore>()
+        || !world.contains_resource::<SessionCheckpointOutcomes>()
+        || !world.contains_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+    {
+        return false;
+    }
+    world.resource_scope(|world, mut accepted: Mut<AcceptedCheckpointRestore>| {
+        world.resource_scope(|world, mut outcomes: Mut<SessionCheckpointOutcomes>| {
+            let mut pending = world
+                .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+            cancel_accepted_checkpoint_restore(
+                &mut accepted,
+                &mut outcomes,
+                &mut pending,
+                key,
+                RestoreCancellation::PreparationFailed,
+            )
+        })
+    })
+}
+
 /// What went wrong, and the sentence that explains it.
 ///
 /// ⚠ THE SENTENCE IS DIAGNOSTIC AND GOES NO FURTHER THAN THE LOG. Which contract
@@ -1446,6 +1534,7 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         app.init_resource::<SessionCheckpointOutcomes>();
         app.init_resource::<SessionStartupResume>();
         app.init_resource::<OutstandingCheckpointRequest>();
+        app.init_resource::<AbandonedCheckpointOperation>();
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the
         // session's admission and the retirement that follows the slot — and

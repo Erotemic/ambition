@@ -36,6 +36,16 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     let Some(boundary) = world.get_resource::<ConfirmedFrameBoundary>().copied() else {
         return;
     };
+    // ⛔⛔ BEFORE THE PENDING-INTENT GATE, and unconditionally on a confirmed
+    // frame. A checkpoint operation whose room preparation FAILED still holds a
+    // pending intent — that is the wedge this ends — so a terminalization placed
+    // after the gate below would reach `authorized_plan`, get `Wait` against the
+    // failed transaction, and return without ever answering. The readiness phase
+    // noted it in `Update` and could go no further: `PendingLifecycleCommit`
+    // rewinds, and this exclusive confirmed-frame world is the one place a host
+    // fact is allowed to spend it.
+    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(world);
+
     let Some(RollbackSessionOwnership::LocalSyncTest { settings, owner }) =
         world.get_resource::<RollbackSessionOwnership>().copied()
     else {

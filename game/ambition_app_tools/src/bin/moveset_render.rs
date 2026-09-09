@@ -189,10 +189,33 @@ fn frame_for(
             (subject + target) / 2.0,
             (subject - target).abs() + Vec2::splat(2.0 * FRAME_MARGIN),
         ),
-        None => (subject, Vec2::splat(view_width)),
+        // ⛔ THE PLACEHOLDER IS THE DEFAULT VIEW'S SHAPE, NOT A SQUARE. This was
+        // `splat(view_width)`, which was harmless only while the y component was
+        // dead: once `span.y` became load-bearing, a square placeholder claimed
+        // `view_width` of HEIGHT and widened a lone subject to 426x320. Stating
+        // the real default view here keeps ONE code path below — for a lone
+        // subject `span.y * aspect` is exactly `view_width`, so it contributes
+        // nothing and the default stands.
+        None => (subject, Vec2::new(view_width, view_width / aspect)),
     };
-    let width = span
-        .x
+    // ⛔⛔ **`span.y` WAS COMPUTED AND THEN NEVER READ.** The line above
+    // deliberately builds the separation in BOTH axes — and the width came from
+    // `span.x` alone, so the camera was 320x240 at the default width no matter
+    // how far apart the fighters were vertically. Two bodies 200 px apart in y
+    // need 320 px of height with these margins and were handed 240, clipping the
+    // very pair this framing exists to hold. For an inspector whose subject is
+    // AERIAL MOVES that is the common case, not the corner.
+    //
+    // ⚠ THE VIEW IS `width / aspect` HIGH, so covering `span.y` is a claim about
+    // the WIDTH: height >= span.y iff width >= span.y * aspect. Converting here
+    // keeps one knob (`width`) and one cap, rather than a second independent
+    // height that could disagree with the capture's shape.
+    //
+    // ⚠ The widening cap still applies afterwards and is still deliberate: past
+    // it the pair is a stage, not a shot. A pair too far apart is now clipped
+    // symmetrically by the cap rather than silently clipped in one axis only.
+    let required = span.x.max(span.y * aspect);
+    let width = required
         .max(view_width)
         .min(view_width * MAX_FRAME_WIDENING);
     Some(InspectorFraming {
@@ -1132,4 +1155,111 @@ fn render_pair(
     .map_err(|error| format!("the manifest is not writable: {error}"))?;
     Ok(manifest)
 
+}
+
+// ⛔⛔ **THE FRAMING ARITHMETIC GETS A UNIT TEST BECAUSE RUNTIME CHECKS KEPT
+// MISSING IT.** Two framing bugs shipped before this one — the origin-framed
+// picture (`row["pos"]` reading `Null`) and this one (`span.y` computed and
+// never read) — and neither made anything fail: the run wrote a manifest with a
+// confident, wrong rectangle in it. Nothing downstream compares that rectangle
+// to the bodies it is supposed to hold, so the only thing that can catch a
+// third one is arithmetic asserted directly.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// 4:3, the capture shape these numbers are quoted at.
+    const ASPECT: f32 = 4.0 / 3.0;
+
+    fn observation(subject: [f32; 2], target: Option<[f32; 2]>) -> serde_json::Value {
+        let mut bodies = vec![json!({"role": "subject", "collision": {"pos": subject}})];
+        if let Some(target) = target {
+            bodies.push(json!({"role": "target", "collision": {"pos": target}}));
+        }
+        json!({ "bodies": bodies })
+    }
+
+    /// The view must actually CONTAIN the pair plus the authored margin on each
+    /// side — which is the property both shipped bugs violated while still
+    /// producing a plausible-looking rectangle.
+    fn holds_both(view: Vec2, subject: [f32; 2], target: [f32; 2]) -> bool {
+        let need_x = (subject[0] - target[0]).abs() + 2.0 * FRAME_MARGIN;
+        let need_y = (subject[1] - target[1]).abs() + 2.0 * FRAME_MARGIN;
+        view.x >= need_x - 0.01 && view.y >= need_y - 0.01
+    }
+
+    #[test]
+    fn vertical_separation_widens_the_frame_that_holds_both_fighters() {
+        // The reviewer's case: 200 px of vertical separation needs 320 px of
+        // height with these margins, and the old arithmetic handed it 240.
+        let subject = [0.0, 0.0];
+        let target = [0.0, 200.0];
+        let framing = frame_for(&observation(subject, Some(target)), DEFAULT_VIEW_WIDTH, ASPECT)
+            .expect("a placed subject frames");
+
+        assert!(
+            framing.view.y >= 320.0 - 0.01,
+            "200 px of vertical separation plus 2x{FRAME_MARGIN} px of margin needs \
+             320 px of height; got {} (view {:?}). `span.y` is not reaching the width.",
+            framing.view.y,
+            framing.view,
+        );
+        assert!(holds_both(framing.view, subject, target));
+    }
+
+    #[test]
+    fn horizontal_separation_still_frames_exactly_as_before() {
+        // ⭐ CONTROL. The default seat placement is 192 px apart in x, which is
+        // the case the widening was built for; taking the max must not disturb
+        // it. Without this, "always widen" would pass the test above.
+        let subject = [-96.0, 0.0];
+        let target = [96.0, 0.0];
+        let framing = frame_for(&observation(subject, Some(target)), DEFAULT_VIEW_WIDTH, ASPECT)
+            .expect("a placed subject frames");
+
+        // 192 + 120 = 312, under the 320 default, so the default width stands.
+        assert!(
+            (framing.view.x - DEFAULT_VIEW_WIDTH).abs() < 0.01,
+            "a 192 px horizontal pair fits the default width and must not widen; got {:?}",
+            framing.view,
+        );
+        assert!(holds_both(framing.view, subject, target));
+    }
+
+    #[test]
+    fn the_widening_cap_still_bounds_a_vertical_pair() {
+        // ⭐ CONTROL for the other direction: `span.y` must go through the SAME
+        // cap, not around it. A pair this far apart is a stage, not a shot.
+        let framing = frame_for(
+            &observation([0.0, 0.0], Some([0.0, 4000.0])),
+            DEFAULT_VIEW_WIDTH,
+            ASPECT,
+        )
+        .expect("a placed subject frames");
+
+        assert!(
+            (framing.view.x - DEFAULT_VIEW_WIDTH * MAX_FRAME_WIDENING).abs() < 0.01,
+            "the cap stopped bounding the frame once span.y could raise it; got {:?}",
+            framing.view,
+        );
+    }
+
+    #[test]
+    fn a_lone_subject_keeps_the_plain_default_frame() {
+        // ⭐ CONTROL. No target means no pair to hold; `span` is the default
+        // square and must not be widened by its own y.
+        let framing = frame_for(&observation([12.0, -34.0], None), DEFAULT_VIEW_WIDTH, ASPECT)
+            .expect("a placed subject frames");
+
+        assert!((framing.view.x - DEFAULT_VIEW_WIDTH).abs() < 0.01, "{:?}", framing.view);
+        assert_eq!(framing.center, Vec2::new(12.0, -34.0));
+    }
+
+    #[test]
+    fn an_unplaceable_subject_still_yields_no_framing() {
+        // ⭐ CONTROL for the FIRST framing bug: no subject must stay `None`
+        // rather than falling back to a picture of the origin.
+        assert!(frame_for(&json!({"bodies": []}), DEFAULT_VIEW_WIDTH, ASPECT).is_none());
+    }
 }

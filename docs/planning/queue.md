@@ -54,10 +54,16 @@ impact and the targeted hit event carrying the box AT CONTACT — the delayed
 applier re-tests that volume, so a shot that genuinely crossed its target used to
 fail its own re-test and land nothing.
 
-**Next in A2b:** contributor identity and compound contacts, which nothing yet
-supplies, and the boss/breakable branches — they still resolve through the
-unresolved-feature event with an endpoint volume, so only the ordinary body
-branch is swept.
+**The boss/breakable branch is swept too, 2026-09-09**, and the receiver-neutral
+returning-shot lifetime landed with it as its own semantic change: that branch
+despawned every shot that reached a boss or a breakable, so the same boomerang
+came back from a body and vanished into a crate.
+
+**Next in A2:** the direct-before-splash order (the feature branch still emits
+the splash first), then A2c's targeted delivery — the branch writes
+`UnresolvedFeatures`, so the applier re-scans families to find the victim the
+sweep already identified. Contributor identity is A5 infrastructure with no live
+defect riding on it; the owner document records the measurement.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have

@@ -449,7 +449,10 @@ pub fn step_projectiles(
     // access to the component.
     mut guards: Query<&mut ae::BodyShieldState, Without<LiveProjectile>>,
     mut feature_damage: MessageWriter<HitEvent>,
-    ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    ecs_breakables: Query<
+        (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
+        With<FeatureSimEntity>,
+    >,
     // ⛔ A2a: THE CATALOG, THE ATTACK STATE AND THE ANIMATION SAMPLE LEFT WITH
     // THE DERIVATION. The stepper asked "does this shot reach a boss" by
     // rebuilding the boss's hurt geometry from those three; it reads the
@@ -457,6 +460,7 @@ pub fn step_projectiles(
     // applier uses and the only one the publisher's authored override reaches.
     ecs_bosses: Query<
         (
+            Entity,
             &FeatureId,
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
@@ -1009,14 +1013,15 @@ pub fn step_projectiles(
                 &[],
                 &ecs_bosses,
             ))
-            .min_by(|(a, _), (b, _)| a.total_cmp(b));
+            .filter(|contact| !already_hit.hit.contains(&contact.target))
+            .min_by(|a, b| a.time.total_cmp(&b.time));
             // A hair inside, for the reason the body branch and the world sweep
             // both state: `time_of_impact` leaves the box tangent and every
             // downstream overlap test is `strict_intersects`.
             let feature_contact_box = match feature_contact {
-                Some((time, target_center)) => {
-                    let at = leg_start + feature_leg * time;
-                    let inward = (target_center - at).normalize_or_zero();
+                Some(contact) => {
+                    let at = leg_start + feature_leg * contact.time;
+                    let inward = (contact.target_center - at).normalize_or_zero();
                     ae::Aabb::new(at + inward * 0.5, feature_half)
                 }
                 None => kin.aabb(),
@@ -1032,7 +1037,7 @@ pub fn step_projectiles(
                 knockback: None,
                 ignored_targets: Vec::new(),
             };
-            if feature_contact.is_some() {
+            if let Some(contact) = feature_contact {
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
                         kin.pos,
@@ -1056,7 +1061,22 @@ pub fn step_projectiles(
                     }
                     .into_trace_event(tick),
                 );
-                commands.entity(proj_entity).despawn();
+                // ⛔⛔ **LIFETIME IS THE SHOT'S POLICY, NOT THE RECEIVER'S FAMILY,
+                // and this branch used to despawn UNCONDITIONALLY.** A boomerang
+                // that clipped a crate simply never came back; the same throw
+                // into a body survived, because the ordinary branch asks
+                // `game.returns()`. One projectile, two lifetimes, decided by
+                // what it happened to touch. The protocol calls this an
+                // intentional correction rather than a preserved behaviour.
+                //
+                // ⭐ IT NEEDED THE TARGET'S IDENTITY, which is why the swept
+                // contact carries one. A surviving shot overlaps what it hit for
+                // as many ticks as it takes to pass through, so it must remember
+                // WHOM on this leg — exactly the ledger the body branch keeps.
+                already_hit.hit.insert(contact.target);
+                if !game.returns() {
+                    commands.entity(proj_entity).despawn();
+                }
                 continue;
             }
         }

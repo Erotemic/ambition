@@ -427,11 +427,44 @@ BOUNDS would reintroduce the dead-corner hit `strike_reaches_victim` refuses. A
 shaped part is under-swept, never over-reported, and the limit is stated at the
 function.
 
-⛔ **STILL OPEN IN A2b.** Compound contacts and contributor identity are
-untouched — nothing yet distinguishes a destructible's own wall from an unrelated
-one, so the strict-nearer obstruction comparison was preserved rather than
-widened. The boss and breakable branches still resolve through the unresolved-
-feature event with an endpoint volume; only the ordinary body branch is swept.
+*The feature branch, swept and given a lifetime of its own.* The boss/breakable
+road is separate code with a separate geometry source, and making the body branch
+swept left it untouched — a shot crossing a thin crate between samples touched
+nothing, and the branch handed the applier the same endpoint box to re-test.
+`projectile_reaches_breakable` / `projectile_reaches_boss` answer with a
+`FeatureContact` (time, target centre, target entity); the boss sweep reuses
+`swept_strike_reaches_victim`, so a boss and an ordinary body answer the same way
+about published parts, coarse fallback (a boss has none) and intangibility. The
+breakable eligibility rule is one function instead of the same four conditions
+spelled in the discrete predicate and again in the swept one.
+
+**The receiver-neutral returning-shot lifetime landed with it**, as its own
+semantic change with its own fixture, which is what this document asked for. The
+branch despawned EVERY shot that reached a boss or a breakable, so the same
+boomerang came back from a body and vanished into a crate — one projectile, two
+lifetimes, decided by the family of what it happened to touch. It could not ask
+`game.returns()` before, because a surviving shot overlaps its target for as many
+ticks as it takes to pass through and this road had no per-leg ledger; the
+contact carries the target's identity now, so it keeps the same ledger the body
+branch keeps. Witness:
+`a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not`,
+both arms, poison-verified.
+
+⛔ **STILL OPEN IN A2b/A2c.**
+- Compound contacts and contributor identity. Measured 2026-09-09: a solid
+  breakable contributes its world block with `GeoId::anon()` and a formatted
+  `"ecs-breakable {name}"` display string, which is exactly the identity this
+  document forbids inferring from. No live defect rides on it today — the feature
+  branch resolves before the world sweep, and a breakable's blocking shape and
+  hurt shape are the SAME `CenteredAabb`, so "collider larger than hurt region"
+  is not reachable with current content — so this is A5 infrastructure rather
+  than a repair.
+- Direct-before-splash order: the feature branch still emits the landing splash
+  BEFORE the direct request, while the body road writes direct first. Its own
+  semantic patch, with both receiver-family fixtures.
+- Targeted delivery (A2c). The feature branch still writes
+  `HitTarget::UnresolvedFeatures`, so the applier re-scans families to find the
+  victim the sweep already identified.
 Moving-target CCD remains out of scope by the protocol's own slice.
 
 ### A2c: direct delivery and smaller flight authority

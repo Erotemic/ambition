@@ -564,6 +564,77 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
     );
 }
 
+/// ⛔⛔ **A RETURNING SHOT SURVIVES A CRATE EXACTLY AS IT SURVIVES A BODY.**
+///
+/// Lifetime is the shot's own policy — `game.returns()` — and the feature branch
+/// ignored it: every projectile that reached a boss or a breakable was
+/// despawned, unconditionally. So the SAME throw came back when it hit a person
+/// and vanished when it clipped a crate. The ordinary body branch has asked the
+/// policy the whole time; this branch could not, because it had no way to
+/// remember whom it had already hit on this leg and a surviving shot overlaps its
+/// target for as many ticks as it takes to pass through.
+///
+/// ⭐ BOTH ARMS, and the ordinary one is the floor: a non-returning shot must
+/// still be spent on contact. Without it, "the shot survived" passes for a road
+/// that never despawns anything.
+#[test]
+fn a_returning_shot_survives_the_crate_it_breaks_and_an_ordinary_one_does_not() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    fn shot_survived_hitting_a_crate(returning: bool) -> bool {
+        let world = ae::World::new(
+            "open_lane",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ambition_combat::components::FeatureId::new("crate"),
+            FeatureName::new("crate"),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+            ambition_combat::components::CenteredAabb::from_center_size(
+                ae::Vec2::new(400.0, 300.0),
+                ae::Vec2::new(24.0, 46.0),
+            ),
+            BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+        ));
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(1500.0, 0.0);
+            if returning {
+                // `returns()` IS a non-zero return acceleration — the boomerang's
+                // own definition, not a separate flag to keep in sync.
+                body.game.accel = ae::Vec2::new(-6000.0, 0.0);
+            }
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        !crate::projectile::tests::projectile_bodies(&mut app).is_empty()
+    }
+
+    assert!(
+        !shot_survived_hitting_a_crate(false),
+        "an ordinary shot outlived the crate it hit, so the returning arm below \
+         is measuring a branch that despawns nothing"
+    );
+    assert!(
+        shot_survived_hitting_a_crate(true),
+        "a RETURNING shot was despawned by a crate. The same throw survives a \
+         body, because that branch asks `game.returns()`; this one despawned \
+         whatever it touched, so a boomerang's lifetime depended on which family \
+         of thing happened to be in the way"
+    );
+}
+
 /// ⛔⛔ **A2b: THE BOSS/BREAKABLE BRANCH IS SWEPT TOO, and it is a SECOND road.**
 ///
 /// The ordinary body branch and the feature branch are different code with

@@ -15,7 +15,7 @@
 //! after `Playback` where those live values are settled.
 
 use ambition_platformer2d_core::AabbExt;
-use bevy::prelude::{Query, With, Without};
+use bevy::prelude::{Entity, Query, With, Without};
 
 use ambition_boss_encounter::BossConfig;
 
@@ -39,9 +39,12 @@ pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &s
 /// typed Bevy messages.
 pub fn ecs_hit_event_hits_breakable(
     event: &HitEvent,
-    breakables: &Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    breakables: &Query<
+        (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
+        With<FeatureSimEntity>,
+    >,
 ) -> bool {
-    breakables.iter().any(|(id, aabb, feature)| {
+    breakables.iter().any(|(_, id, aabb, feature)| {
         breakable_is_eligible(&event.ignored_targets, id, feature)
             && event.volume.intersects_aabb(aabb.aabb())
     })
@@ -77,16 +80,40 @@ pub fn projectile_reaches_breakable(
     half: ambition_platformer2d_core::Vec2,
     delta: ambition_platformer2d_core::Vec2,
     ignored_targets: &[String],
-    breakables: &Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
-) -> Option<(f32, ambition_platformer2d_core::Vec2)> {
+    breakables: &Query<
+        (Entity, &FeatureId, &CenteredAabb, &BreakableFeature),
+        With<FeatureSimEntity>,
+    >,
+) -> Option<FeatureContact> {
     breakables
         .iter()
-        .filter(|(id, _, feature)| breakable_is_eligible(ignored_targets, id, feature))
-        .filter_map(|(_, aabb, _)| {
-            swept_box_reaches(start, half, delta, aabb.aabb())
-                .map(|time| (time, aabb.aabb().center()))
+        .filter(|(_, id, _, feature)| breakable_is_eligible(ignored_targets, id, feature))
+        .filter_map(|(entity, _, aabb, _)| {
+            swept_box_reaches(start, half, delta, aabb.aabb()).map(|time| FeatureContact {
+                time,
+                target_center: aabb.aabb().center(),
+                target: entity,
+            })
         })
-        .min_by(|(a, _), (b, _)| a.total_cmp(b))
+        .min_by(|a, b| a.time.total_cmp(&b.time))
+}
+
+/// Where along a projectile's travel it first reaches a feature, and which one.
+///
+/// ⭐ THE TARGET TRAVELS WITH THE ANSWER, and that is what makes a returning shot
+/// possible on this road. The feature branch used to despawn every shot that
+/// touched a boss or a breakable — a boomerang that clipped a crate simply never
+/// came back, while one that hit a body did — because it had no way to remember
+/// WHOM it had already hit on this leg. The ordinary body branch has kept a
+/// per-leg ledger the whole time.
+#[derive(Clone, Copy, Debug)]
+pub struct FeatureContact {
+    /// Normalized time in `[0, 1]` along the travel leg.
+    pub time: f32,
+    /// The target's centre, for the caller's tangency nudge.
+    pub target_center: ambition_platformer2d_core::Vec2,
+    /// Which feature was reached.
+    pub target: Entity,
 }
 
 /// Earliest normalized time in `[0, 1]` at which a box swept from `start` by
@@ -149,6 +176,7 @@ pub fn ecs_hit_event_hits_boss(
     event: &HitEvent,
     bosses: &Query<
         (
+            Entity,
             &FeatureId,
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
@@ -175,7 +203,7 @@ pub fn ecs_hit_event_hits_boss(
     // envelope — so an unpublished boss is one whose geometry nobody has spoken
     // for, and inventing a hull for it is exactly the first-frame coarse hurtbox
     // the contract forbids.
-    bosses.iter().any(|(id, _aabb, health, damageable)| {
+    bosses.iter().any(|(_, id, _aabb, health, damageable)| {
         !target_is_ignored(&event.ignored_targets, "boss", id.as_str())
             && health.alive()
             && damageable.published()
@@ -199,6 +227,7 @@ pub fn projectile_reaches_boss(
     ignored_targets: &[String],
     bosses: &Query<
         (
+            Entity,
             &FeatureId,
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
@@ -206,15 +235,15 @@ pub fn projectile_reaches_boss(
         ),
         (With<FeatureSimEntity>, With<BossConfig>),
     >,
-) -> Option<(f32, ambition_platformer2d_core::Vec2)> {
+) -> Option<FeatureContact> {
     bosses
         .iter()
-        .filter(|(id, _, health, damageable)| {
+        .filter(|(_, id, _, health, damageable)| {
             !target_is_ignored(ignored_targets, "boss", id.as_str())
                 && health.alive()
                 && damageable.published()
         })
-        .filter_map(|(_, aabb, _, damageable)| {
+        .filter_map(|(entity, _, aabb, _, damageable)| {
             ambition_combat::hitbox::swept_strike_reaches_victim(
                 start,
                 half,
@@ -222,9 +251,13 @@ pub fn projectile_reaches_boss(
                 Some(damageable),
                 aabb,
             )
-            .map(|time| (time, aabb.aabb().center()))
+            .map(|time| FeatureContact {
+                time,
+                target_center: aabb.aabb().center(),
+                target: entity,
+            })
         })
-        .min_by(|(a, _), (b, _)| a.total_cmp(b))
+        .min_by(|a, b| a.time.total_cmp(&b.time))
 }
 
 #[cfg(test)]
@@ -360,6 +393,7 @@ mod tests {
             .run_system_once(
                 move |bosses: Query<
                     (
+                        Entity,
                         &FeatureId,
                         &CenteredAabb,
                         &ambition_characters::actor::BodyHealth,

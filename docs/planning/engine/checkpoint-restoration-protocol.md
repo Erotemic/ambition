@@ -1,7 +1,12 @@
 # Checkpoint restoration: admission, preparation and commit
 
-**Status:** target contract for A1; not implemented by this planning overlay.
-**Source baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`.
+**Status:** implemented through A1a-A1c/5 (2026-09-08); the receipts are inline
+below, packet by packet. What remains open is named in the queue and in
+subcommit 5's own note — verification is deliberately narrower than this
+document's ordering describes, and the terminal outcome has no presentation
+consumer.
+**Source baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8` — the SOURCE
+FACTS and edit-site tables below describe that baseline, not the current tree.
 **Scope:** restoration of one session's checkpoint into its single active room.
 This does not choose multiplayer save ownership, add concurrent resident rooms,
 or define arbitrary ECS transactions. The [queue](../queue.md) owns priority.
@@ -551,12 +556,39 @@ This is a coherent behavior change, implemented in buildable subcommits:
    manufacturing a reconstruction intent to move an already-constructed body
    would be the opposite of what that row asks.
 
-   Schema 172 -> 173. **Still open:** verification is narrow by design — it
-   checks the ledger, the bag and that every banked custody row is in somebody's
-   custody. It does not check room geometry, body position, clocks or portals,
-   and it does not prove the population is complete. Widening it is worthwhile;
-   pretending it is already wide is how a verification step becomes a formality.
-   Presentation notification of the outcome has no consumer yet.
+   Schema 172 -> 173, then 174 for the corrected projections below.
+
+6. **LANDED 2026-09-08 — edge contracts made as strong as the comments claim.**
+   - **Overflow was fail-OPEN.** Both admission roads recorded the room intent
+     and spent the request BEFORE minting the key, so an exhausted counter left a
+     lifecycle transition admitted with no accepted operation behind it — the
+     room would have been rebuilt as an ordinary crossing with no pinned
+     continuity and no domain restore. Capacity is asked before the slot is
+     taken; the request stays owed. Poison-verified against `u64::MAX`, which
+     nothing in play will ever reach — the reason the path needed a test.
+   - **One canonical key projection.** Two resources spelled an optional scope as
+     `scope.0 | 1 << 63`, colliding a scope with its top bit set against the
+     absent case, while a third wrote a proper tag. `CheckpointOperationKey`
+     owns the encoding now and everything reuses it.
+   - **The terminal outcome is a closed set, not a string.** A free-form
+     diagnostic is not authoritative rollback state; `RestoreFailure` names which
+     contract broke and the sentence goes to the log. Two peers that agreed on
+     "failed" while blocking gameplay for different reasons no longer agree.
+   - **Publication is `pub(crate)`,** and the doc now says what the storage
+     actually guarantees: single-latest, so the refusal is a trip-wire on the
+     sole-writer property rather than the guarantee itself. When a terminal
+     notification is wanted it should be a message published at completion, not
+     a poll of this resource.
+   - **Custody verification names the custodian**, refuses a duplicate identity,
+     and checks the room and subject the operation claimed to produce. The
+     custodian arm is the one that mattered: "the reward is in a hand" was
+     passing where "the reward is back in the hand that banked it" is the
+     contract.
+
+   **Still open:** verification does not check body placement, clocks, portals,
+   or population completeness, and the terminal outcome has no presentation
+   consumer. Both are stated rather than implied; pretending verification is
+   already wide is how the step becomes a formality.
 5. Remove obsolete raw restore readers, redundant checkpoint mirrors, old item
    installer aliases and unused progress paths. Refresh the graph as a diagnostic.
 

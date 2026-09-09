@@ -340,7 +340,16 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// from two per-generation latches to a state machine naming an admitted
 /// operation, so keeping the name would let two peers agree on a key whose
 /// contents mean different things.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 173;
+/// ⭐ 173 -> 174 (2026-09-08): no key moved; three PROJECTIONS changed together.
+/// `CheckpointOperationKey` gained one canonical tagged encoding and the two
+/// resources that had spelled it as `scope.0 | 1 << 63` now reuse it — a bit-or
+/// that silently collided a scope with its top bit set against the absent case.
+/// And `resource.session_checkpoint_outcomes` stopped hashing only
+/// committed-versus-failed: a failure now carries a closed `RestoreFailure`
+/// rather than a free-form string, so two peers that agreed on "failed" while
+/// blocking gameplay for different reasons no longer agree. Peers compare these
+/// numbers, so a corrected projection is a compatibility change.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 174;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

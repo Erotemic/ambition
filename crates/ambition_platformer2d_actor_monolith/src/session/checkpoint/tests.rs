@@ -1219,14 +1219,14 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
          formality, and a success published over an incomplete restore is worse \
          than none"
     );
-    match outcome {
-        super::CheckpointRestoreOutcome::Failed { domain, .. } => assert_eq!(
-            *domain, "custody",
-            "the outcome must name the domain that failed, or the report says \
-             only that something went wrong somewhere"
-        ),
-        other => panic!("expected a failure outcome, got {other:?}"),
-    }
+    assert_eq!(
+        outcome.failure(),
+        Some(super::RestoreFailure::Custody),
+        "the outcome must name the contract that broke, or the report says only \
+         that something went wrong somewhere — and two peers that agreed on \
+         'failed' while disagreeing about WHERE blocked gameplay for different \
+         reasons"
+    );
 
     assert!(
         matches!(
@@ -1440,5 +1440,189 @@ fn a_startup_resume_whose_operation_is_retracted_asks_again() {
          session believing it had resumed. That is the once-per-session latch \
          defect again, one level up: the player stays in the room the session \
          happened to open in, forever"
+    );
+}
+
+/// ⛔⛔ **AN OPERATION THIS SESSION CANNOT NAME MUST NOT TAKE THE LIFECYCLE
+/// SLOT.**
+///
+/// The counter refuses overflow rather than recycling a live identifier, and
+/// that refusal used to happen AFTER the room intent was recorded and the
+/// request spent. The result was fail-OPEN in the worst shape available: a
+/// lifecycle transition admitted, no accepted operation behind it, and therefore
+/// a room rebuilt as an ordinary crossing — no pinned continuity, no domain
+/// restore, and a reset the session believed it had handled.
+///
+/// ⚠ IT IS UNREACHABLE IN PLAY — at one admission per frame at 60 Hz a `u64`
+/// lasts about ten billion years — and that is precisely why it needs a test.
+/// Nothing else will ever execute this path, so "overflow is refused" was a
+/// sentence in a doc comment and nothing more.
+#[test]
+fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((
+        ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
+        super::SessionCheckpointHorizonPlugin,
+    ));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.insert_resource(SessionCheckpointOperations::exhausted_for_test());
+
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    assert!(
+        app.world().resource::<PendingLifecycleCommit>().peek().is_none(),
+        "a restore this session cannot name took the lifecycle slot anyway. The \
+         room would then be rebuilt as an ordinary crossing: no pinned \
+         continuity, no domain restore, and the reset spent"
+    );
+    assert!(
+        app.world()
+            .resource::<AcceptedCheckpointRestore>()
+            .accepted()
+            .is_none(),
+        "an operation was accepted without an identity"
+    );
+    assert!(
+        app.world().resource::<OutstandingCheckpointRequest>().0,
+        "the request was spent on an operation that never happened; it is still \
+         owed, and a session that later regains capacity must be able to serve it"
+    );
+}
+
+/// ⛔⛔ **THE REWARD GOES BACK TO THE HAND THAT BANKED IT, not to a hand.**
+///
+/// Custody verification first asked only whether each banked occurrence was in
+/// SOMEBODY's custody, which a restore that handed the object to the wrong body
+/// satisfies — and "the reward is in a hand" is not the contract. This is the
+/// stronger incremental check: the custodian named by the checkpoint.
+///
+/// ⚠ THE SECOND ARM IS THE DUPLICATE. The materialization arm rebuilds
+/// occurrences no live entity answers for, and two live things behind one
+/// identity is the other way it fails — a world every later lookup answers
+/// differently about depending on iteration order.
+#[test]
+fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CustodyBaseline, InCustodyOf, LifecycleCheckpointHorizonPlugin,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    let banked = SimId::placement("the_reward");
+    let rightful = SimId::player_slot(0);
+    let somebody_else = SimId::player_slot(1);
+
+    // `world` builds the state a restore is claimed to have produced, and the
+    // fixture then asks verification what it makes of it.
+    let verify = |holders: Vec<(SimId, SimId)>| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+
+        let custodian_entities: std::collections::BTreeMap<SimId, bevy::prelude::Entity> =
+            [rightful.clone(), somebody_else.clone()]
+                .into_iter()
+                .map(|id| {
+                    let entity = app.world_mut().spawn(id.clone()).id();
+                    (id, entity)
+                })
+                .collect();
+        for (occurrence, custodian) in holders {
+            let holder = custodian_entities[&custodian];
+            app.world_mut().spawn((occurrence, InCustodyOf(holder)));
+        }
+
+        let mut custody = CustodyBaseline::default();
+        custody.adopt([(banked.clone(), rightful.clone())].into_iter().collect());
+        let key = SessionCheckpointOperations::default().admit(None).unwrap();
+        app.world_mut()
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: "here".into(),
+                }),
+                occurrences: Default::default(),
+                custody,
+                item: None,
+            });
+        assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
+        app.world()
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .expect("an answered operation has an outcome")
+            .failure()
+    };
+
+    // ⛔ THE PREMISE: the shape the checkpoint describes verifies clean, or every
+    // failure below is about the fixture rather than about the check.
+    assert_eq!(
+        verify(vec![(banked.clone(), rightful.clone())]),
+        None,
+        "the reward in the hand the checkpoint names must verify clean"
+    );
+
+    assert_eq!(
+        verify(vec![(banked.clone(), somebody_else.clone())]),
+        Some(super::RestoreFailure::Custody),
+        "the restore put the banked reward in the WRONG hand and verification \
+         called it correct — 'in somebody's custody' is not the contract"
+    );
+    assert_eq!(
+        verify(vec![
+            (banked.clone(), rightful.clone()),
+            (banked.clone(), somebody_else.clone()),
+        ]),
+        Some(super::RestoreFailure::Custody),
+        "the restore left TWO live things behind one identity and verification \
+         accepted it, so every later lookup answers differently depending on \
+         iteration order"
+    );
+    assert_eq!(
+        verify(Vec::new()),
+        Some(super::RestoreFailure::Custody),
+        "the restore materialized nothing for a banked custody row"
     );
 }

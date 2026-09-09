@@ -70,12 +70,18 @@ impl Plugin for ItemPickupSimulationPlugin {
         // leaving with it. The order they had in the old single chain is the
         // order these edges reproduce, and the guard pins it by shape.
         // ⛔ THE OTHER HALF OF THE SHRINE IS NOT HERE ANY MORE, 2026-09-08 (A1b).
-        // `CheckpointResumeProgress` and `restore_checkpoint_on_session_start`
-        // were initialized and installed from this plugin, which made a
-        // composition's ability to resume its session depend on it having held
-        // items. They belong to `session::checkpoint`, and
-        // `SessionCheckpointHorizonPlugin` installs them — keeping this edge and
-        // this set, so the move changed no order.
+        // The startup resume and its progress state were initialized and
+        // installed from this plugin, which made a composition's ability to
+        // resume its session depend on it having held items.
+        // `SessionCheckpointHorizonPlugin` installs
+        // `restore_checkpoint_on_session_start` now — keeping this edge and this
+        // set, so the move changed no order.
+        //
+        // ⚠ The progress resource itself did not survive the move: A1c/5 deleted
+        // `CheckpointResumeProgress`'s two per-generation latches in favour of
+        // `SessionStartupResume`, which names the admitted operation it is
+        // waiting on instead of keeping a second completion mechanism beside the
+        // reset road's.
         app.add_systems(
             sim,
             // Held-items, the portal gun, the heal/save shrine, and localized

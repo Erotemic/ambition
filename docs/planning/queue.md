@@ -94,12 +94,19 @@ with, publishes exactly one outcome per key, blocks gameplay on failure, and
 startup routing is now the same operation mechanism —
 `CheckpointResumeProgress` is deleted rather than renamed.
 
-**Remaining before A1 closes:** verification is deliberately narrow (ledger, bag,
-and that every banked custody row is in somebody's custody). It does not check
-room geometry, body position, clocks or portals, and does not prove the
-population complete. Widen it with a case that fails for each added check, and
-give the terminal outcome a presentation consumer or leave it stated that it has
-none.
+Verification now covers the ledger, the bag, the room the operation claimed to
+reconstruct, the subject it restores around, and — per banked custody row — that
+the occurrence is carried, carried ONCE, and carried by the custodian the
+checkpoint names. Each has a case that fails for it alone. The operation
+counter's overflow path refuses the lifecycle slot rather than the identity
+(poison-verified), the key has one canonical projection, and the terminal outcome
+is a closed `RestoreFailure` rather than a free-form string.
+
+**Remaining before A1 closes:** verification does not check body placement,
+clocks, portals or population completeness — add each with a case that fails for
+it alone. The terminal outcome has no presentation consumer; when one is wanted,
+publish a message at completion rather than polling the session's
+single-latest-outcome resource.
 
 **Acceptance:** preparation/prefetch read the pinned snapshot rather than a
 modified live ledger; a checkpoint change invalidates a prefetched plan that

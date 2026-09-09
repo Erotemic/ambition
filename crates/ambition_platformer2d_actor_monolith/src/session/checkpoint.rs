@@ -99,8 +99,11 @@ impl SessionStartupResume {
         hash = hash.rotate_left(1)
             ^ match state {
                 StartupResume::Satisfied => 2,
+                // ⭐ THE KEY'S OWN PROJECTION, not a second spelling of it.
                 StartupResume::Routed(key) => {
-                    (key.sequence ^ key.scope.map_or(0, |scope| scope.0 | 1 << 63)).rotate_left(5)
+                    let mut bytes = Vec::new();
+                    key.write_into(&mut bytes);
+                    ambition_platformer2d_core::snapshot::checksum_bytes(&bytes).rotate_left(5)
                 }
             };
         hash | 1
@@ -230,6 +233,17 @@ pub fn restore_checkpoint_on_session_start(
         // ⚠ A REFUSAL IS ORDINARY HERE and costs nothing: nothing above this
         // line has changed the world, so the resume is simply re-asked on the
         // next tick, and the incumbent operation keeps the slot it won.
+        // ⛔ BEFORE THE SLOT IS TAKEN, for the reason the reset road states: a
+        // crossing this session cannot name would be admitted as an ordinary
+        // transition and the resume spent on it.
+        if !operations.can_admit() {
+            bevy::log::error!(
+                target: "ambition_platformer2d::session",
+                "the checkpoint operation sequence is exhausted; this session \
+                 cannot resume at its checkpoint",
+            );
+            return;
+        }
         let frame = boundary.map_or(0, |boundary| boundary.current);
         let intent = crate::session::lifecycle_commit::LifecycleIntent::Transition(
             crate::session::lifecycle_commit::RoomTransitionIntent {
@@ -249,8 +263,9 @@ pub fn restore_checkpoint_on_session_start(
         let Some(key) = operations.admit(scope_id) else {
             bevy::log::error!(
                 target: "ambition_platformer2d::session",
-                "the checkpoint operation sequence is exhausted; this session \
-                 cannot resume at its checkpoint",
+                "the checkpoint operation sequence was exhausted between the \
+                 capacity check and the admission; the slot is now held by a \
+                 resume with no identity",
             );
             return;
         };
@@ -401,6 +416,18 @@ pub fn resume_at_checkpoint_on_reset(
     // so announcing it here is what lets the death's consequences run — and
     // stops the death asking for two lifecycle operations that then fight over
     // one slot.
+    // ⛔ BEFORE THE SLOT IS TAKEN. An operation this session cannot NAME must not
+    // acquire the lifecycle slot: the room would be rebuilt as an ordinary
+    // crossing with no pinned continuity and no domain restore, and the request
+    // would be spent. Leaving `outstanding` set keeps it owed instead.
+    if !operations.can_admit() {
+        bevy::log::error!(
+            target: "ambition_platformer2d::session",
+            "the checkpoint operation sequence is exhausted; this session can \
+             admit no further restores and the request stays owed",
+        );
+        return;
+    }
     let frame = boundary.map_or(0, |boundary| boundary.current);
     // Built once and kept: the accepted operation NAMES the intent it owns, so
     // a later preparation can tell this reconstruction from an ordinary door.
@@ -427,14 +454,15 @@ pub fn resume_at_checkpoint_on_reset(
     // from and applied from are chosen at the moment the slot says yes, so a
     // later capture, a later pickup or a later ledger write cannot retarget an
     // operation already in flight.
+    // Capacity was established before the slot was taken, so this cannot be
+    // `None`; the arm exists because a silent `unwrap_or` would turn a future
+    // ordering mistake into a nameless operation instead of a loud one.
     let Some(key) = operations.admit(scope.and_then(|scope| scope.current())) else {
-        // ⛔ REFUSED, NOT RECYCLED, and the request stays outstanding rather than
-        // being silently dropped: a session that cannot name its next operation
-        // cannot restore, and that is a stuck session somebody must see.
         bevy::log::error!(
             target: "ambition_platformer2d::session",
-            "the checkpoint operation sequence is exhausted; this session can \
-             admit no further restores",
+            "the checkpoint operation sequence was exhausted between the capacity \
+             check and the admission; the slot is now held by a restore with no \
+             identity",
         );
         return;
     };
@@ -531,6 +559,28 @@ pub struct CheckpointOperationKey {
     pub sequence: u64,
 }
 
+impl CheckpointOperationKey {
+    /// The ONE projection of this key, reused by every value that stores it.
+    ///
+    /// ⛔⛔ IT EXISTS BECAUSE THERE WERE THREE. Two callers folded an optional
+    /// scope as `scope.0 | 1 << 63` while a third wrote an explicit presence tag
+    /// and the full `u64`, so the same key projected differently depending on
+    /// which resource held it — and the bit-or spelling silently collides a
+    /// scope whose top bit is set with the absent case. One routine, tagged, so
+    /// "absent" and "scope 0" are different answers everywhere.
+    pub fn write_into(&self, bytes: &mut Vec<u8>) {
+        use ambition_platformer2d_core::snapshot::{put_u64, put_u8};
+        match self.scope {
+            None => put_u8(bytes, 0),
+            Some(scope) => {
+                put_u8(bytes, 1);
+                put_u64(bytes, scope.0);
+            }
+        }
+        put_u64(bytes, self.sequence);
+    }
+}
+
 /// The session's admitted-operation counter.
 ///
 /// ⭐ SEPARATE FROM THE ACCEPTED VALUE because it must survive the accepted
@@ -542,16 +592,45 @@ pub struct SessionCheckpointOperations {
 }
 
 impl SessionCheckpointOperations {
+    /// Whether this session can still name another operation.
+    ///
+    /// ⛔⛔ **ASKED BEFORE THE LIFECYCLE SLOT IS TAKEN, AND THAT ORDERING IS THE
+    /// WHOLE POINT.** Both admission roads used to record the room intent first
+    /// and mint the key second, so an exhausted counter left a lifecycle
+    /// transition ADMITTED, the request SPENT, and no accepted operation behind
+    /// it — the room would then have been rebuilt as an ordinary crossing, with
+    /// no pinned continuity and no domain restore at all. "Overflow is refused"
+    /// has to mean the operation does not happen, not that it happens without
+    /// its identity.
+    ///
+    /// ⚠ It is remote — at one admission per frame at 60 Hz a `u64` lasts about
+    /// ten billion years — and that is exactly why the failure path needs to be
+    /// correct rather than plausible: nothing will ever exercise it in play.
+    pub fn can_admit(&self) -> bool {
+        self.next_sequence != u64::MAX
+    }
+
+    /// A counter with no capacity left, for the test that exercises refusal.
+    ///
+    /// ⚠ A CONSTRUCTOR RATHER THAN A PUBLIC FIELD: the sequence is minted in one
+    /// place and this must not become a second way to choose one.
+    #[cfg(test)]
+    pub(crate) fn exhausted_for_test() -> Self {
+        Self {
+            next_sequence: u64::MAX,
+        }
+    }
+
     /// Mint the key for an operation the slot has just admitted.
     ///
     /// ⛔ CALLED ONLY ON ADMISSION. Incrementing on a request would make the
     /// counter a count of asks, and two peers that refused different numbers of
     /// requests would disagree about the identity of the same operation.
     ///
-    /// ⚠ OVERFLOW IS REFUSED, NOT RECYCLED. `None` means this session can admit
-    /// no further restores, which is a stuck session and visible; reusing a live
-    /// identifier is a stale load quietly authorized because its integer matched.
-    /// At one admission per frame at 60 Hz a `u64` lasts about ten billion years.
+    /// ⚠ OVERFLOW IS REFUSED, NOT RECYCLED — reusing a live identifier is a
+    /// stale load quietly authorized because its integer matched. Callers ask
+    /// [`Self::can_admit`] BEFORE taking the slot; this `None` is the
+    /// belt-and-braces half of that contract.
     pub fn admit(
         &mut self,
         scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -669,16 +748,10 @@ impl AcceptedCheckpointRestore {
             return 0;
         };
         let mut bytes = Vec::new();
-        // ⚠ AN ABSENT SCOPE IS NOT SCOPE ZERO. A standalone profile's operation
-        // must not hash the same as the first operation of a real session.
-        match key.scope {
-            None => put_u8(&mut bytes, 0),
-            Some(scope) => {
-                put_u8(&mut bytes, 1);
-                put_u64(&mut bytes, scope.0);
-            }
-        }
-        put_u64(&mut bytes, key.sequence);
+        // ⚠ AN ABSENT SCOPE IS NOT SCOPE ZERO, and the key owns that rule: one
+        // projection, reused, so the same key cannot hash differently depending
+        // on which resource is holding it.
+        key.write_into(&mut bytes);
         put_i32(&mut bytes, *frame);
         put_u64(&mut bytes, intent.checksum());
         put_u64(&mut bytes, occurrences.checksum());
@@ -819,7 +892,7 @@ pub fn apply_committed_checkpoint_restore(
                  blocked; the world was NOT returned to its previous state, which \
                  this contract does not offer",
                 accepted.key,
-                failure.domain,
+                failure.failure.domain(),
                 failure.detail,
             );
             if let Some(mut mode) = world.get_resource_mut::<bevy::prelude::NextState<
@@ -829,8 +902,7 @@ pub fn apply_committed_checkpoint_restore(
             }
             CheckpointRestoreOutcome::Failed {
                 key: accepted.key,
-                domain: failure.domain,
-                detail: failure.detail,
+                failure: failure.failure,
             }
         }
     };
@@ -853,9 +925,13 @@ pub fn apply_committed_checkpoint_restore(
     true
 }
 
-/// What went wrong, and whose contract it was.
+/// What went wrong, and the sentence that explains it.
+///
+/// ⚠ THE SENTENCE IS DIAGNOSTIC AND GOES NO FURTHER THAN THE LOG. Which contract
+/// broke is [`RestoreFailure`], a closed set two peers can agree about; a
+/// free-form string is not authoritative state and must not reach a snapshot.
 struct RestoreVerificationFailure {
-    domain: &'static str,
+    failure: RestoreFailure,
     detail: String,
 }
 
@@ -881,7 +957,7 @@ fn verify_restored_domains(
     if let Some(live) = world.get_resource::<AuthoredOccurrences>() {
         if live != accepted.occurrences.remembered() {
             return Err(RestoreVerificationFailure {
-                domain: "occurrence ledger",
+                failure: RestoreFailure::OccurrenceLedger,
                 detail: "the applied ledger does not match the population this \
                          operation was accepted with"
                     .to_string(),
@@ -892,7 +968,7 @@ fn verify_restored_domains(
         if let Some(live) = world.get_resource::<ambition_items::OwnedItems>() {
             if live != item.owned.remembered() {
                 return Err(RestoreVerificationFailure {
-                    domain: "entitlements",
+                    failure: RestoreFailure::Entitlements,
                     detail: "the applied bag does not match the quantities this \
                              operation was accepted with"
                         .to_string(),
@@ -900,32 +976,117 @@ fn verify_restored_domains(
             }
         }
     }
+    // ── THE ROOM THE OPERATION SAID IT WOULD LEAVE STANDING ──────────────────
+    //
+    // ⭐ CHEAP, AND NOT REDUNDANT WITH THE TRANSACTION'S OWN CHECKS. Those run
+    // BEFORE the destructive application and ask whether the commit may proceed;
+    // this runs after and asks what it actually did. A restore that rebuilt some
+    // other room put every domain value back against the wrong world.
+    {
+        let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
+        if let Some(room_set) = rooms.iter(world).next() {
+            let standing = &room_set.active_spec().id;
+            if standing != accepted.intent.target_room() {
+                return Err(RestoreVerificationFailure {
+                    failure: RestoreFailure::Room,
+                    detail: format!(
+                        "the operation reconstructs '{}' and the session is standing \
+                         in '{standing}'",
+                        accepted.intent.target_room()
+                    ),
+                });
+            }
+        }
+    }
+
+    // ── THE BODY THE OPERATION IS ABOUT ──────────────────────────────────────
+    //
+    // ⚠ PRESENCE, NOT POSITION. Where the subject ends up is the transition's
+    // arrival contract and is checked by the transit authority; what this asks is
+    // whether the body the restore was accepted FOR still exists, because every
+    // custody row below names a custodian and a restore that lost its subject
+    // restored a hand that is not there.
+    if let Some(subject) = accepted.intent.subject() {
+        let mut bodies = world.query::<&ambition_platformer2d_shared_tangle::sim_id::SimId>();
+        if !bodies.iter(world).any(|live| live == subject) {
+            return Err(RestoreVerificationFailure {
+                failure: RestoreFailure::Subject,
+                detail: format!(
+                    "the body this operation restores around ({}) is not in the \
+                     world it produced",
+                    subject.as_str()
+                ),
+            });
+        }
+    }
+
     // ⭐ CUSTODY IS CHECKED AGAINST THE WORLD, not against a resource, because
     // that is the only domain whose restore SPAWNS: a row the reducer could not
     // materialize leaves no resource disagreeing with anything.
-    let unmet: Vec<String> = {
-        let mut held = world.query::<(
-            &ambition_platformer2d_shared_tangle::sim_id::SimId,
-            &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
-        )>();
-        let live: std::collections::BTreeSet<
-            ambition_platformer2d_shared_tangle::sim_id::SimId,
-        > = held.iter(world).map(|(id, _)| id.clone()).collect();
-        accepted
-            .custody
-            .rows()
-            .filter(|(occurrence, _)| !live.contains(*occurrence))
-            .map(|(occurrence, custodian)| {
-                format!("{} <- {}", occurrence.as_str(), custodian.as_str())
-            })
-            .collect()
-    };
+    //
+    // ⛔⛔ AND IT CHECKS THE CUSTODIAN, NOT MERELY THAT SOMEBODY HAS IT. The
+    // first version asked only whether the occurrence was in SOME custody, which
+    // a restore that handed the banked object to the wrong body would satisfy —
+    // and "the reward is back in the hand that banked it" is the contract, not
+    // "the reward is in a hand".
+    //
+    // ⛔ AND THAT ONE ENTITY CARRIES THE IDENTITY. The materialization arm
+    // rebuilds occurrences no live entity answers for; a duplicate is the other
+    // way it can fail, and two live things behind one identity is a world every
+    // later lookup answers differently about depending on iteration order.
+    let mut unmet: Vec<String> = Vec::new();
+    {
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        // WHO each entity is, by stable identity. The custody marker names a
+        // holder by `Entity`, and the baseline names one by `SimId`; comparing
+        // them needs this translation and nothing else.
+        let named: std::collections::BTreeMap<bevy::prelude::Entity, SimId> = {
+            let mut ids = world.query::<(bevy::prelude::Entity, &SimId)>();
+            ids.iter(world)
+                .map(|(entity, id)| (entity, id.clone()))
+                .collect()
+        };
+        let mut custodians: std::collections::BTreeMap<SimId, Vec<Option<SimId>>> =
+            std::collections::BTreeMap::new();
+        {
+            let mut held = world.query::<(
+                &SimId,
+                &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf,
+            )>();
+            for (occurrence, custody) in held.iter(world) {
+                custodians
+                    .entry(occurrence.clone())
+                    .or_default()
+                    .push(named.get(&custody.0).cloned());
+            }
+        }
+        for (occurrence, custodian) in accepted.custody.rows() {
+            match custodians.get(occurrence) {
+                None => unmet.push(format!(
+                    "{} is in nobody's custody",
+                    occurrence.as_str()
+                )),
+                Some(live) if live.len() > 1 => unmet.push(format!(
+                    "{} is carried by {} entities at once",
+                    occurrence.as_str(),
+                    live.len()
+                )),
+                Some(live) if live[0].as_ref() != Some(custodian) => unmet.push(format!(
+                    "{} is carried by {:?} and the checkpoint says {}",
+                    occurrence.as_str(),
+                    live[0].as_ref().map(|id| id.as_str()),
+                    custodian.as_str()
+                )),
+                Some(_) => {}
+            }
+        }
+    }
     if !unmet.is_empty() {
         return Err(RestoreVerificationFailure {
-            domain: "custody",
+            failure: RestoreFailure::Custody,
             detail: format!(
-                "the checkpoint remembers {} carried occurrence(s) that are in \
-                 nobody's custody after the restore: {unmet:?}",
+                "{} banked custody row(s) are not what the restore produced: \
+                 {unmet:?}",
                 unmet.len()
             ),
         });
@@ -933,8 +1094,51 @@ fn verify_restored_domains(
     Ok(())
 }
 
+/// Which contract a restore broke.
+///
+/// ⭐ A CLOSED SET, NOT A STRING, because this IS rollback state and a free-form
+/// diagnostic is not. Two peers must agree on WHAT failed; the sentence
+/// explaining it goes to the log, where a human reads it and no snapshot carries
+/// it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestoreFailure {
+    /// The applied ledger is not the population the operation was accepted with.
+    OccurrenceLedger,
+    /// The applied bag is not the quantities it was accepted with.
+    Entitlements,
+    /// The session is not standing in the room the operation reconstructs.
+    Room,
+    /// The body the operation restores around is not in the world it produced.
+    Subject,
+    /// A banked custody row is missing, duplicated, or in the wrong hands.
+    Custody,
+}
+
+impl RestoreFailure {
+    /// The domain's name, for the log line and for a test's assertion.
+    pub fn domain(self) -> &'static str {
+        match self {
+            Self::OccurrenceLedger => "occurrence ledger",
+            Self::Entitlements => "entitlements",
+            Self::Room => "room",
+            Self::Subject => "subject",
+            Self::Custody => "custody",
+        }
+    }
+
+    fn code(self) -> u8 {
+        match self {
+            Self::OccurrenceLedger => 1,
+            Self::Entitlements => 2,
+            Self::Room => 3,
+            Self::Subject => 4,
+            Self::Custody => 5,
+        }
+    }
+}
+
 /// The terminal answer for one restore operation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CheckpointRestoreOutcome {
     /// Applied and verified.
     Committed { key: CheckpointOperationKey },
@@ -942,8 +1146,7 @@ pub enum CheckpointRestoreOutcome {
     /// state; gameplay is blocked instead.
     Failed {
         key: CheckpointOperationKey,
-        domain: &'static str,
-        detail: String,
+        failure: RestoreFailure,
     },
 }
 
@@ -957,19 +1160,53 @@ impl CheckpointRestoreOutcome {
     pub fn committed(&self) -> bool {
         matches!(self, Self::Committed { .. })
     }
+
+    /// The failure, if this outcome is one.
+    pub fn failure(&self) -> Option<RestoreFailure> {
+        match self {
+            Self::Committed { .. } => None,
+            Self::Failed { failure, .. } => Some(*failure),
+        }
+    }
+
+    /// ⛔ EXHAUSTIVE BY DESTRUCTURE. A new field, or a new variant, stops this
+    /// compiling rather than falling outside the projection two peers compare.
+    fn write_into(&self, bytes: &mut Vec<u8>) {
+        use ambition_platformer2d_core::snapshot::put_u8;
+        match self {
+            Self::Committed { key } => {
+                put_u8(bytes, 0);
+                key.write_into(bytes);
+            }
+            Self::Failed { key, failure } => {
+                put_u8(bytes, 1);
+                key.write_into(bytes);
+                put_u8(bytes, failure.code());
+            }
+        }
+    }
 }
 
 /// The terminal outcome of the most recent answered operation.
 ///
-/// ⛔⛔ ONE OUTCOME PER OPERATION. A second publication for a key already
-/// answered is refused rather than overwriting: "exactly one terminal outcome"
-/// is the contract every consumer reads this for, and a road that could publish
-/// twice would let a `Committed` follow a `Failed` for the same restore.
+/// ⛔ ONE OUTCOME PER OPERATION, AND HERE IS EXACTLY HOW FAR THE STORAGE GOES.
+/// This keeps the LATEST outcome, not a history, so `publish` can refuse a
+/// second answer for the key it currently holds and nothing more: publishing
+/// key 1, then key 2, then key 1 again would be accepted. What actually makes
+/// "one outcome per operation" true is that the session is the sole writer and
+/// retires the accepted operation as it answers it, so a second answer for one
+/// key has no road to travel. The refusal below is a trip-wire on that, not the
+/// guarantee itself — and saying so is the difference between a contract and a
+/// comment.
 ///
-/// ⚠ IT KEEPS THE LATEST, not a history. There is at most one outstanding
-/// operation per session, so a consumer asking "did MY operation finish" names
-/// its key and gets `None` once a later one has been answered — which is the
-/// honest answer for a consumer that waited too long.
+/// ⚠ A consumer asking "did MY operation finish" names its key and gets `None`
+/// once a later one has been answered, which is the honest reply to a consumer
+/// that waited too long. There is at most one outstanding operation per session,
+/// so that window is a frame or two.
+///
+/// ⚠ AND PRESENTATION SHOULD NOT POLL THIS. When a terminal notification is
+/// wanted, publish a message at completion; a single-latest resource is the
+/// session's own bookkeeping, not a feed.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
 pub struct SessionCheckpointOutcomes(Option<CheckpointRestoreOutcome>);
 
@@ -984,8 +1221,14 @@ impl SessionCheckpointOutcomes {
         self.0.as_ref()
     }
 
-    /// Record the terminal outcome, refusing a second answer for one operation.
-    pub fn publish(&mut self, outcome: CheckpointRestoreOutcome) {
+    /// Record the terminal outcome, refusing a second answer for the operation
+    /// it currently holds.
+    ///
+    /// ⛔ `pub(crate)`: the session coordinator is the sole writer, and the sole
+    /// writer being sole is what makes one-outcome-per-operation true. A public
+    /// setter would invite a second author for whom this refusal is the only
+    /// defence, and it is not a sufficient one.
+    pub(crate) fn publish(&mut self, outcome: CheckpointRestoreOutcome) {
         if self
             .0
             .as_ref()
@@ -1002,20 +1245,23 @@ impl SessionCheckpointOutcomes {
         self.0 = Some(outcome);
     }
 
-    /// ⭐ WHICH OPERATION AND WHETHER IT SUCCEEDED. A presence probe would see
-    /// neither, and a rewind that brought back a `Committed` for an operation the
-    /// other timeline failed is a divergence in what the session believes about
-    /// its own world.
+    /// ⭐ WHICH OPERATION, AND WHICH CONTRACT IT BROKE. A rewind that brought
+    /// back a `Committed` for an operation the other timeline failed is a
+    /// divergence in what the session believes about its own world — and so, one
+    /// step finer, is a rewind that agreed on "failed" while disagreeing about
+    /// WHERE, because the two timelines then blocked gameplay for different
+    /// reasons.
     pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u8};
+        let mut bytes = Vec::new();
         match &self.0 {
-            None => 0,
+            None => put_u8(&mut bytes, 0),
             Some(outcome) => {
-                let key = outcome.key();
-                let mut hash = key.sequence ^ 0x2545_f491_4f6c_dd1d;
-                hash = hash.rotate_left(7) ^ key.scope.map_or(0, |scope| scope.0 | 1 << 63);
-                hash.rotate_left(3) ^ u64::from(outcome.committed())
+                put_u8(&mut bytes, 1);
+                outcome.write_into(&mut bytes);
             }
         }
+        checksum_bytes(&bytes)
     }
 }
 /// The session's leg of the reset/checkpoint horizon.

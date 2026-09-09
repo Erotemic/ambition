@@ -111,8 +111,31 @@ def main() -> int:
 
     stamp = f"{age_min:.1f} min old" if age_min is not None else "no start time"
     print(f"state={state}  jobs={len(jobs)}/{status.get('jobs', '?')}  ({stamp})")
+    # ⛔⛔ **A LANE THAT COULD NOT RUN IS NOT A LANE THAT FAILED, AND THIS READER
+    # CALLED IT `FAIL`.** `run_tests.py` learned the distinction (c8da2ae) and
+    # serializes it two ways — a per-row `unrunnable` remedy and a top-level
+    # list — but this file, which is the reader AGENTS ARE TOLD TO CONSUME,
+    # looked only at `ok` and printed `FAIL workspace doctests / 1 job(s)
+    # FAILED` for a tree with nothing wrong with it. The writer's console was
+    # fixed; the persisted interface was not, and the persisted interface is the
+    # one that travels.
+    # ⚠ Read from the ROWS, not only the top-level list: a status written by the
+    # previous writer carries `state: "done"` with `unrunnable` rows, and that
+    # file has to read correctly too.
+    blocked = {
+        job.get("job"): job.get("unrunnable")
+        for job in jobs
+        if job.get("unrunnable")
+    }
+    for entry in status.get("unrunnable", []) or []:
+        blocked.setdefault(entry.get("job"), entry.get("remedy"))
     for job in jobs:
-        mark = "ok  " if job.get("ok") else "FAIL"
+        if job.get("unrunnable"):
+            mark = "INCOMPLETE"
+        elif job.get("ok"):
+            mark = "ok  "
+        else:
+            mark = "FAIL"
         print(f"  {mark} {job.get('job')}  {job.get('seconds', 0):.1f}s")
 
     if state == "running":
@@ -166,6 +189,21 @@ def main() -> int:
     # ⚠ Found 2026-09-03 in review of the between-jobs disk abort: the abort
     # returned 1 to ITS shell but serialized `done`/`0`, and this reader
     # believed the file. Both ends are fixed; this is the end that agents read.
+    # A blocked lane refuses BEFORE the state check, so the new `incomplete`
+    # state and a previously-written `done` carrying `unrunnable` rows give the
+    # same answer. Neither is a verdict: the plan did not run.
+    if blocked:
+        listed = ", ".join(
+            f"{name} ({remedy})" if remedy else str(name) for name, remedy in blocked.items()
+        )
+        print(
+            f"\nREFUSED: {len(blocked)} lane(s) could not run: {listed}. "
+            "That is a precondition, not a result — the jobs listed above really "
+            "did pass, but the suite certified less than its plan, so this is "
+            "not a verdict on the tree."
+        )
+        return 2
+
     if state != "done":
         detail = status.get("aborted_on_disk")
         never = status.get("never_ran")
@@ -178,7 +216,9 @@ def main() -> int:
         )
         return 2
 
-    failed = [job.get("job") for job in jobs if not job.get("ok")]
+    failed = [
+        job.get("job") for job in jobs if not job.get("ok") and not job.get("unrunnable")
+    ]
     if failed:
         print(f"\n{len(failed)} job(s) FAILED: {', '.join(str(f) for f in failed)}")
         return 1

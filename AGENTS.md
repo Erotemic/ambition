@@ -452,7 +452,10 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 
   * `target/run_tests_status.json` — only `state: done` means the plan ran;
     `aborted` is a suite the disk floor stopped part-way, and its `failed` list
-    is empty because every job that started passed.
+    is empty because every job that started passed. `incomplete` is a suite in
+    which a LANE COULD NOT RUN — a missing toolchain, not a red — named with its
+    remedy in `unrunnable`; its `failed` list is empty too, and it is not a
+    verdict on the tree.
   * `dev/ambition_dev_measurements/run_tests_cost.jsonl`
 
 Do not poll with `pgrep -f <script>`; the polling command can match itself.

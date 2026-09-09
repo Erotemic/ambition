@@ -19,10 +19,12 @@ Useful forms::
     ./run_tests.sh --heavy
 
 Every run writes `target/run_tests_status.json` (or `--status-json PATH`) with a
-state of `running`, `done`, `aborted` (stopped early on the disk floor) or
-`crashed`, plus its pid and final tally. ⛔ ONLY `done` MEANS THE PLAN RAN: the
-other terminal states also carry `exit_code`, and `aborted` names the job it
-refused to start in `aborted_on_disk` with a `never_ran` count. External
+state of `running`, `done`, `aborted` (stopped early on the disk floor),
+`incomplete` (a lane could not run at all) or `crashed`, plus its pid and final
+tally. ⛔ ONLY `done` MEANS THE PLAN RAN: the other terminal states also carry
+`exit_code`, `aborted` names the job it refused to start in `aborted_on_disk`
+with a `never_ran` count, and `incomplete` names each blocked lane and its
+remedy in `unrunnable`. External
 waiters should read that status file rather than process-scan for `run_tests.py`.
 An empty job plan or unknown package is an error; the process exits nonzero when
 any selected job fails."""
@@ -1602,8 +1604,19 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # row's phrasing and both halves are load-bearing: the lane did not certify
     # what it was asked to, so nothing may quote it as green.
     exit_code = 1 if (failed or incomplete or blocked_jobs) else 0
+    # ⛔⛔ **`done` MEANS THE PLAN RAN, AND A BLOCKED LANE MEANS IT DID NOT.**
+    # This wrote `done` for a run carrying `unrunnable` jobs, contradicting this
+    # module's own header two ways: the plan did not run, and the readers told
+    # to trust `done` therefore trusted a partial certification. `aborted` was
+    # not available to say so -- it names the DISK floor specifically, in
+    # `aborted_on_disk` -- so a blocked lane gets its own terminal state.
+    # ⚠ The reader (`last_test_run.py`) also honors the `unrunnable` rows
+    # directly, so a status written before this change still reads as
+    # incomplete rather than failed.
     write_status(status, {**base,
-                          "state": "aborted" if incomplete else "done",
+                          "state": ("aborted" if incomplete
+                                    else "incomplete" if blocked_jobs
+                                    else "done"),
                           "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),

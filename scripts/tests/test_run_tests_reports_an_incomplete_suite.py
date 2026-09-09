@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -45,7 +46,7 @@ def _two_trivial_jobs() -> list:
     ]
 
 
-def _run_with_free_space(monkeypatch, tmp_path, free_gb_sequence):
+def _run_with_free_space(monkeypatch, tmp_path, free_gb_sequence, jobs=None):
     """Drive the runner with a scripted disk reading, one per call.
 
     ⚠ The readings are consumed in this order: the up-front headroom refusal,
@@ -62,7 +63,7 @@ def _run_with_free_space(monkeypatch, tmp_path, free_gb_sequence):
     monkeypatch.setattr(run_tests, "free_gb_on_target", fake_free)
     monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
     status = tmp_path / "status.json"
-    rc = run_tests.run(_two_trivial_jobs(), False, status_json=str(status))
+    rc = run_tests.run(jobs or _two_trivial_jobs(), False, status_json=str(status))
     return rc, json.loads(status.read_text())
 
 
@@ -243,3 +244,150 @@ def test_the_reader_agents_actually_use_refuses_an_aborted_run(
     assert "REFUSED" in proc.stdout
     assert "second job" in proc.stdout, "it must name where the run stopped"
     assert "passed" not in proc.stdout.split("REFUSED")[0].splitlines()[-1]
+
+
+# ---------------------------------------------------------------------------
+# ⛔⛔ A LANE THAT COULD NOT RUN IS NOT A LANE THAT FAILED — AND THE READER SAID
+# `FAIL`.
+#
+# `c8da2ae` taught `run_tests.py` the distinction and printed it correctly on
+# the console. It did NOT reach `last_test_run.py`, which is the persisted
+# interface autonomous agents are told to consume: that file looked only at each
+# row's `ok`, so a tree with nothing wrong with it read as `FAIL workspace
+# doctests` / `1 job(s) FAILED`. The writer also kept serializing `state: done`,
+# contradicting its own header — `done` is supposed to mean the plan RAN.
+#
+# ⭐ FOUR TESTS, AND TWO OF THEM ARE CONTROLS. A reader that simply stopped
+# calling anything `FAIL` would satisfy the two positive arms while silently
+# swallowing every genuine red, which is a far worse defect than the one being
+# fixed. The control arms are what tell those two implementations apart.
+# ---------------------------------------------------------------------------
+
+#: A job whose output carries a real `UNRUNNABLE_SIGNATURES` match. Taken from
+#: the signature table rather than invented, so this fixture stops compiling the
+#: moment that table stops recognising the case.
+_STALE_ARTIFACT_LINE = (
+    "error: extern location for bevy does not exist: "
+    "target/debug/deps/libbevy-f87968c7af3ad766.rlib"
+)
+
+
+def _emitting(line: str, code: int) -> list:
+    return [
+        run_tests.Job("first job", [sys.executable, "-c", "pass"]),
+        run_tests.Job(
+            "blocked job",
+            [sys.executable, "-c", f"import sys; print({line!r}); sys.exit({code})"],
+        ),
+    ]
+
+
+def test_a_lane_that_could_not_run_is_serialized_as_incomplete_not_done(
+    monkeypatch, tmp_path
+):
+    """The writer half: `done` may not describe a plan that did not run."""
+    assert run_tests.unrunnable_reason(_STALE_ARTIFACT_LINE), (
+        "the fixture no longer matches any UNRUNNABLE_SIGNATURES entry, so this "
+        "test would pass by testing an ordinary failure instead"
+    )
+    rc, status = _run_with_free_space(
+        monkeypatch, tmp_path, [500.0, 500.0, 480.0, 460.0],
+        jobs=_emitting(_STALE_ARTIFACT_LINE, 1),
+    )
+
+    assert rc == 1, "incomplete is still not a pass"
+    assert status["state"] == "incomplete", (
+        "a run carrying a blocked lane serialized `done`, which this module's "
+        "own header reserves for a plan that ran"
+    )
+    assert status["failed"] == [], (
+        "a lane that could not run is not evidence about the code, so it may "
+        "not appear in `failed`"
+    )
+    assert [row["job"] for row in status["unrunnable"]] == ["blocked job"]
+    assert status["unrunnable"][0]["remedy"], "a blocked lane must name its remedy"
+
+
+def test_an_ordinary_red_is_still_done_and_still_failed(monkeypatch, tmp_path):
+    """⭐ CONTROL. The signature table is narrow; an unrecognised failure is a red.
+
+    Without this, widening `unrunnable_reason` to match anything — or dropping
+    the `failed` bookkeeping — would sail through the test above.
+    """
+    rc, status = _run_with_free_space(
+        monkeypatch, tmp_path, [500.0, 500.0, 480.0, 460.0],
+        jobs=_emitting("error[E0308]: mismatched types", 1),
+    )
+
+    assert rc == 1
+    assert status["state"] == "done", "a real red is a finished plan with a failure in it"
+    assert status["failed"] == ["blocked job"]
+    assert status["unrunnable"] == []
+
+
+def _reader_status(tmp_path, name, rows, state, top_unrunnable=()):
+    path = tmp_path / name
+    path.write_text(json.dumps({
+        "state": state,
+        # In the future so the reader's source-drift and staleness guards, which
+        # are about a MOVING TREE, cannot decide these cases for us.
+        "started": time.time() + 5,
+        "jobs": len(rows), "finished_jobs": len(rows),
+        "passed": sum(1 for r in rows if r.get("ok")),
+        "failed": [r["job"] for r in rows
+                   if not r.get("ok") and not r.get("unrunnable")],
+        "seconds": 1.0, "completed": rows,
+        "unrunnable": list(top_unrunnable),
+        "aborted_on_disk": None, "never_ran": 0, "exit_code": 1,
+        "current_job": None,
+    }))
+    return path
+
+
+_OK_ROW = {"job": "workspace tests", "ok": True, "seconds": 1.0, "executed_seconds": 1.0}
+_BLOCKED_ROW = {"job": "workspace doctests", "ok": False, "seconds": 1.0,
+                "executed_seconds": None, "unrunnable": "re-run the job; cargo rebuilds it"}
+_RED_ROW = {"job": "workspace doctests", "ok": False, "seconds": 1.0, "executed_seconds": 1.0}
+
+
+def test_the_reader_agents_use_refuses_a_blocked_lane_instead_of_calling_it_failed(
+    tmp_path,
+):
+    """⭐⭐ THE END THAT GETS READ, and the shape the previous writer left behind.
+
+    `state: "done"` WITH `unrunnable` rows is exactly what `c8da2ae` serialized,
+    and it is what any status file written before this change still says. The
+    reader has to reach the right answer from the rows, not only from the state,
+    or every such file keeps reading as a red.
+    """
+    path = _reader_status(
+        tmp_path, "blocked.json", [_OK_ROW, _BLOCKED_ROW], "done",
+        top_unrunnable=[{"job": "workspace doctests",
+                         "remedy": "re-run the job; cargo rebuilds it"}],
+    )
+
+    proc = _last_test_run(path)
+
+    assert proc.returncode == 2, (
+        f"a blocked lane was answered as a verdict:\n{proc.stdout}"
+    )
+    assert "REFUSED" in proc.stdout
+    assert "FAIL" not in proc.stdout, (
+        "a lane that could not run was printed as a failure, which is a claim "
+        f"about the code that nothing measured:\n{proc.stdout}"
+    )
+    assert "FAILED" not in proc.stdout
+    assert "workspace doctests" in proc.stdout, "it must name the lane"
+
+
+def test_the_reader_still_reports_a_genuine_red_as_failed(tmp_path):
+    """⭐ CONTROL. The whole point of the reader is to say FAIL when it is one."""
+    path = _reader_status(tmp_path, "red.json", [_OK_ROW, _RED_ROW], "done")
+
+    proc = _last_test_run(path)
+
+    assert proc.returncode == 1, (
+        f"a genuine failure stopped being reported as one:\n{proc.stdout}"
+    )
+    assert "FAIL workspace doctests" in proc.stdout
+    assert "1 job(s) FAILED" in proc.stdout

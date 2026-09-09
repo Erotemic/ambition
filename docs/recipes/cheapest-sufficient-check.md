@@ -531,12 +531,14 @@ open it; when you follow a citation and it looks wrong, fix it and say so.
 ## Waiting on a long command
 
 - To wait on a long command, read state it WROTE — for the suite that is
-  `target/run_tests_status.json` (`state`: running/done/**aborted**/crashed,
+  `target/run_tests_status.json` (`state`: running/done/**aborted**/**incomplete**/crashed,
   plus `current_job` and `current_started` so a slow job is distinguishable from
   a wedged one, and `completed` with each finished job's seconds). ⛔ **CHECK
   THE STATE, NOT JUST `failed`** — a suite the disk floor stopped part-way has
   an empty `failed` list because every job that RAN passed; `aborted` plus
-  `never_ran` is the only thing that says the plan did not finish.
+  `never_ran` is the only thing that says the plan did not finish. A lane that
+  could not run AT ALL (no toolchain, say) is `incomplete` with the lane and its
+  remedy in `unrunnable` — also an empty `failed` list, also not a verdict.
   `scripts/last_test_run.py` applies that rule for you and refuses rather than
   answering. Every run also
   appends what it cost to `dev/ambition_dev_measurements/run_tests_cost.jsonl` — wall clock, and how much

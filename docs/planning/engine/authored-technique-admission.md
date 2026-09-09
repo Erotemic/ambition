@@ -466,19 +466,57 @@ for the call certifies a spelling; only the built world says the call ran and it
 declaration survived composition. Poison-verified: installing without declaring
 reddens both arms.
 
-**Still open in A11a:** the remaining ~16 technique keys (`ambition_characters`'s
-`smash_*` consts) are not declared, so the strict content pass cannot be turned
-on yet — an unknown-key refusal would reject every authored use of them. Convert
-their installers, then connect profile-bound validation to character preparation
-before insertion. `ParamSchemaRegistry` stays until then and is deleted with the
-last of them.
+**Still open in A11a, and it is a LANE fact, not a difficulty.** Measured
+2026-09-09 by locating every remaining technique's handler: all seventeen of them
+— bomb, mine, homing dash, steered bolt, counter, mark, portal pair, fill meter,
+the four capture keys, tether pull, summon ride, place spring, riposte strike,
+time dilation — are handled in `game/ambition_demo_smash/**`, which belongs to the
+Smash lane. The four converted here are the complete set the ENGINE composition
+installs. Until those installers declare their keys the strict unknown-key pass
+cannot turn on, because it would reject every authored use of them, and
+`ParamSchemaRegistry` stays until the last one is converted and is deleted with
+it. Then connect profile-bound validation to character preparation before
+insertion.
 
-### A11b: close every reference position
+### A11b — the visitor landed 2026-09-09; the rejection half is next
 
 Add the exhaustive expanded-move visitor and domain nested-reference policies.
 Use it for validation and discovery. Poison each reference site separately and
 verify unchanged active registry/generation on rejection. Inspect prefab overrides
 and all public production insertion paths; remove duplicate check lists.
+
+**Landed: the visitor, and two hand-kept lists it replaced.**
+`MoveSpec::effect_refs` returns every authored `EffectRef` with the
+[`EffectSite`] path it sits on — `windows[w].volumes[v].on_hit`,
+`windows[w].sustain_effect`, `events[e].kind`, `flow.nodes[n]`. Every level
+destructures WITHOUT `..`, so a new field on `MoveSpec`, `MoveWindow`,
+`HitVolume` or `MoveEventKind` is a compile error at the walk — the moment
+somebody has to say whether it can carry a technique. That is the `E0027` idiom
+rather than a census that must be re-run. Each of the four sites is
+poison-verified SEPARATELY.
+
+⛔ **BOTH CONSUMERS IT REPLACED WERE MISSING THE SAME TWO SITES**, and one of them
+had already been caught missing a site once:
+
+- `every_held_item_a_move_creates_has_art` walked `sustain_effect` and
+  `events[..].kind` only. A held item created from a volume's `on_hit` or a flow
+  `Emit` was invisible to it and would ship the placeholder quad — which is
+  exactly the failure that test exists to catch.
+- `techniques()` — the bare-specials census Jon asked for in as many words — has
+  its own doc recording that its FIRST version read events only and reported the
+  tether grab, a move whose whole point is its capture, as featureless. The fix
+  added `sustain_effect` by hand and left two more unread. A move whose only
+  technique sits in a volume or a flow was still counted bare.
+
+⇒ The pattern is the point: a hand-listed set of reference positions is a
+validator that silently stops covering the next one, and it fails the same way
+each time it is extended by hand.
+
+**Still open in A11b:** domain nested-reference policies (an effect's params can
+name another definition), prefab overrides and the public production insertion
+paths, and the rejection half — poisoning a site and verifying the active
+registry and generation are unchanged. The visitor is the prerequisite those need
+and did not have.
 
 ### A12b: install the checked immutable runtime representation
 

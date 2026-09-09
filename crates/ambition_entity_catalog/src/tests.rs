@@ -1838,6 +1838,143 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
     );
 }
 
+/// Every place a move can name a technique, and the walk that has to find all of
+/// them.
+mod effect_sites {
+    use super::bare_move;
+    use crate::{
+        EffectRef, EffectSite, FlowNode, FlowSignal, HitVolume, MoveEvent, MoveEventKind,
+        MoveSpec, MoveWindow, ParamValue, TechniqueFlow, VolumeShape, WindowTag,
+    };
+
+    fn effect(key: &str) -> EffectRef {
+        EffectRef {
+            key: key.to_string(),
+            params: ParamValue::default(),
+        }
+    }
+
+    fn volume(on_hit: Option<EffectRef>) -> HitVolume {
+        HitVolume {
+            shape: VolumeShape::Circle {
+                offset: (0.0, 0.0),
+                radius: 8.0,
+            },
+            damage: 1,
+            knockback: 1.0,
+            knockback_growth: None,
+            launch_dir: None,
+            reaction: None,
+            on_hit,
+            vfx: None,
+            hit_sfx: None,
+        }
+    }
+
+    /// A move that names a technique from ALL FOUR sites, each with its own key
+    /// so a walk that finds three cannot pass by finding one twice.
+    fn move_naming_every_site() -> MoveSpec {
+        let mut spec = bare_move("kitchen_sink", None);
+        spec.windows = vec![MoveWindow {
+            start_s: 0.0,
+            end_s: 0.2,
+            tag: WindowTag::Active,
+            volumes: vec![volume(None), volume(Some(effect("site.on_hit")))],
+            motion_scale: 1.0,
+            sustain_effect: Some(effect("site.sustain")),
+        }];
+        spec.events = vec![
+            MoveEvent {
+                at_s: 0.05,
+                kind: MoveEventKind::Ranged,
+            },
+            MoveEvent {
+                at_s: 0.1,
+                kind: MoveEventKind::Effect(effect("site.event")),
+            },
+        ];
+        spec.flow = Some(TechniqueFlow {
+            nodes: vec![
+                FlowNode::Wait {
+                    on: FlowSignal::Connected,
+                    timeout_s: 0.2,
+                    then: 1,
+                    on_timeout: 2,
+                },
+                FlowNode::Emit {
+                    effect: effect("site.flow"),
+                    then: 2,
+                },
+                FlowNode::Finish,
+            ],
+        });
+        spec
+    }
+
+    /// ⛔⛔ **A MOVE NAMES TECHNIQUES FROM FOUR UNRELATED PLACES, and every
+    /// consumer used to reach into whichever one it cared about.** A hand-kept
+    /// list of four is a validator that silently stops covering a fifth the day
+    /// one is added — and what it stops covering is a misspelled key that reaches
+    /// the runtime, matches no handler, and does nothing.
+    ///
+    /// ⭐ EACH SITE CARRIES ITS OWN KEY, so a walk that finds three of four
+    /// cannot pass by finding one of them twice. That is the shape of the poison
+    /// this packet asks for — each reference site poisoned SEPARATELY — expressed
+    /// as one fixture rather than four near-copies.
+    #[test]
+    fn the_walk_finds_a_technique_named_from_every_site() {
+        let spec = move_naming_every_site();
+        let found: Vec<(EffectSite, String)> = spec
+            .effect_refs()
+            .into_iter()
+            .map(|(site, effect)| (site, effect.key.clone()))
+            .collect();
+        assert_eq!(
+            found,
+            vec![
+                (
+                    EffectSite::VolumeOnHit {
+                        window: 0,
+                        volume: 1
+                    },
+                    "site.on_hit".to_string()
+                ),
+                (EffectSite::WindowSustain { window: 0 }, "site.sustain".to_string()),
+                (EffectSite::Event { event: 1 }, "site.event".to_string()),
+                (EffectSite::FlowEmit { node: 1 }, "site.flow".to_string()),
+            ],
+            "the walk missed a site, or reported one at the wrong path"
+        );
+    }
+
+    /// The path is what an author reads, so it names the index that identifies
+    /// the site among its siblings — not just the field.
+    #[test]
+    fn a_site_prints_the_path_an_author_can_find() {
+        let printed: Vec<String> = move_naming_every_site()
+            .effect_refs()
+            .into_iter()
+            .map(|(site, _)| site.to_string())
+            .collect();
+        assert_eq!(
+            printed,
+            vec![
+                "windows[0].volumes[1].on_hit",
+                "windows[0].sustain_effect",
+                "events[1].kind",
+                "flow.nodes[1]",
+            ]
+        );
+    }
+
+    /// ⛔ A MOVE THAT NAMES NOTHING REPORTS NOTHING. Without this, a walk that
+    /// invented a reference would still satisfy the rows above.
+    #[test]
+    fn a_move_with_no_technique_reports_none() {
+        assert!(bare_move("plain", None).effect_refs().is_empty());
+    }
+}
+
 /// What a composition actually installed, and what an authored reference is
 /// allowed to name.
 mod technique_support {

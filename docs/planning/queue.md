@@ -98,11 +98,23 @@ converted. It replaces `ParamSchemaRegistry`, which admitted unknown keys by
 design, overwrote duplicates silently, and had zero production callers — so a
 misspelled effect key reached the runtime and became a warning mid-fight.
 
-Next: convert the remaining ~16 `smash_*` technique installers, which is what
-lets the strict unknown-key pass turn on, then connect profile-bound validation
-to character preparation before insertion. Then validate every expanded effect
-site, install the private prepared representation and prove explicit activation.
-Keep current move lifetime and delivery phases.
+**A11b's exhaustive visitor landed 2026-09-09.** `MoveSpec::effect_refs` returns
+every authored effect with the path it sits on, destructuring without `..` at
+every level so a fifth reference site is a compile error rather than a silent gap.
+It replaced two hand-kept lists that each read two of the four sites — including
+the bare-specials census whose own doc records it having already missed a site
+once, and the held-item guard, where the miss means shipping a placeholder quad.
+
+⚠ **The remaining seventeen technique installers are all in
+`game/ambition_demo_smash/**`** (measured 2026-09-09 by locating every handler),
+which is the Smash lane. The four the engine composition installs are converted.
+Until those declare their keys the strict unknown-key pass cannot turn on, because
+it would reject every authored use of them.
+
+Next in this lane: A11b's rejection half — poison a reference site and verify the
+active registry and generation are unchanged — plus domain nested-reference
+policies and the public production insertion paths. Then A12b's private prepared
+representation.
 
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.

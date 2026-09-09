@@ -227,6 +227,36 @@ impl ParamSchemaRegistry {
     }
 }
 
+/// Where in a move an authored [`EffectRef`] was found.
+///
+/// ⭐ THE PATH, NOT JUST THE KEY. The admission contract asks for diagnostics
+/// carrying a "field/node path", because an author with three volumes and a flow
+/// needs to know WHICH one names the technique that was refused.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EffectSite {
+    /// `windows[w].volumes[v].on_hit`
+    VolumeOnHit { window: usize, volume: usize },
+    /// `windows[w].sustain_effect`
+    WindowSustain { window: usize },
+    /// `events[e].kind = Effect(..)`
+    Event { event: usize },
+    /// `flow.nodes[n] = Emit { effect, .. }`
+    FlowEmit { node: usize },
+}
+
+impl std::fmt::Display for EffectSite {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EffectSite::VolumeOnHit { window, volume } => {
+                write!(f, "windows[{window}].volumes[{volume}].on_hit")
+            }
+            EffectSite::WindowSustain { window } => write!(f, "windows[{window}].sustain_effect"),
+            EffectSite::Event { event } => write!(f, "events[{event}].kind"),
+            EffectSite::FlowEmit { node } => write!(f, "flow.nodes[{node}]"),
+        }
+    }
+}
+
 /// What one capability declares when it installs a technique handler.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TechniqueOffer {
@@ -2201,6 +2231,106 @@ fn default_motion_scale() -> f32 {
 }
 
 impl MoveSpec {
+    /// Every authored [`EffectRef`] this move carries, with the path it sits on.
+    ///
+    /// ⛔⛔ **EXHAUSTIVE BY DESTRUCTURE, AND THAT IS THE WHOLE MECHANISM.** A
+    /// move names techniques from FOUR unrelated places — a volume's `on_hit`, a
+    /// window's `sustain_effect`, a timeline event's `Effect`, a flow node's
+    /// `Emit` — and before this, every consumer that wanted "the techniques this
+    /// move uses" reached into whichever of the four it happened to care about.
+    /// A hand-kept list of four is a validator that silently stops covering a
+    /// fifth the day one is added, and the failure it stops covering is a
+    /// misspelled key that reaches the runtime and does nothing.
+    ///
+    /// ⇒ Every level here destructures WITHOUT `..`, so a new field on
+    /// [`MoveSpec`], [`MoveWindow`], [`HitVolume`] or [`MoveEventKind`] is a
+    /// compile error at this function — the moment somebody has to say whether it
+    /// can carry a technique. That is the repository's `E0027` idiom rather than
+    /// a census that has to be re-run.
+    ///
+    /// ⚠ IT IS THE EXPANDED MOVE. Prefab expansion and authoring overrides
+    /// produce a `MoveSpec`; this walks what came out, so an override that
+    /// introduces a reference is covered without prefab code knowing about it.
+    pub fn effect_refs(&self) -> Vec<(EffectSite, &EffectRef)> {
+        let MoveSpec {
+            id: _,
+            display_name: _,
+            clip: _,
+            duration_s: _,
+            windows,
+            events,
+            gates: _,
+            start_impulse: _,
+            smash_charge_mult: _,
+            smash_charge: _,
+            charge_gesture: _,
+            repeat: _,
+            landing_lag_s: _,
+            autocancel_after_s: _,
+            sprite_spin_hz: _,
+            equips: _,
+            flow,
+        } = self;
+        let mut found: Vec<(EffectSite, &EffectRef)> = Vec::new();
+        for (window, w) in windows.iter().enumerate() {
+            let MoveWindow {
+                start_s: _,
+                end_s: _,
+                tag: _,
+                volumes,
+                motion_scale: _,
+                sustain_effect,
+            } = w;
+            for (volume, v) in volumes.iter().enumerate() {
+                let HitVolume {
+                    shape: _,
+                    damage: _,
+                    knockback: _,
+                    knockback_growth: _,
+                    launch_dir: _,
+                    reaction: _,
+                    on_hit,
+                    vfx: _,
+                    hit_sfx: _,
+                } = v;
+                if let Some(effect) = on_hit {
+                    found.push((EffectSite::VolumeOnHit { window, volume }, effect));
+                }
+            }
+            if let Some(effect) = sustain_effect {
+                found.push((EffectSite::WindowSustain { window }, effect));
+            }
+        }
+        for (event, e) in events.iter().enumerate() {
+            let MoveEvent { at_s: _, kind } = e;
+            // ⛔ EXHAUSTIVE, and the wildcard arm this replaces is the reason: a
+            // `_ => {}` over a verb family ADMITS every future variant silently,
+            // which for this enum means a new way to name a technique that no
+            // validator ever sees.
+            match kind {
+                MoveEventKind::Effect(effect) => {
+                    found.push((EffectSite::Event { event }, effect));
+                }
+                MoveEventKind::Vfx { .. }
+                | MoveEventKind::Sfx { .. }
+                | MoveEventKind::Ranged
+                | MoveEventKind::Impulse { .. }
+                | MoveEventKind::GravityModifier { .. } => {}
+            }
+        }
+        if let Some(TechniqueFlow { nodes }) = flow {
+            for (node, n) in nodes.iter().enumerate() {
+                match n {
+                    FlowNode::Emit { effect, then: _ } => {
+                        found.push((EffectSite::FlowEmit { node }, effect));
+                    }
+                    FlowNode::Wait { .. } | FlowNode::Branch { .. } | FlowNode::Finish => {}
+                }
+            }
+        }
+        found
+    }
+
     /// The player-facing label for this move — used by the action scheme to
     /// name the slot this move occupies: the authored [`Self::display_name`],
     /// else a title-cased `id` (`"sandbag_swat"` → `"Sandbag Swat"`).

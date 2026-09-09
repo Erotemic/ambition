@@ -288,20 +288,19 @@ mod flow_tests {
                 .collect()
         }
 
+        // ⛔⛔ **IT WALKED TWO OF THE FOUR SITES A MOVE CAN NAME A TECHNIQUE
+        // FROM.** This reached into `windows[..].sustain_effect` and
+        // `events[..].kind` by hand and never looked at a volume's `on_hit` or a
+        // flow node's `Emit` — so a held item created from either was invisible
+        // here and shipped the placeholder quad, which is precisely the failure
+        // this test exists to catch. `MoveSpec::effect_refs` is exhaustive by
+        // destructure, so a fifth site is a compile error at the walk rather than
+        // a silent gap in every consumer that hand-listed four.
         let mut wanted: std::collections::BTreeSet<String> = Default::default();
         for (_, contract) in tables() {
             for mv in &contract.moves {
-                for window in &mv.windows {
-                    if let Some(effect) = window.sustain_effect.as_ref() {
-                        wanted.extend(item_ids_in(&effect.params));
-                    }
-                }
-                for event in &mv.events {
-                    if let ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect) =
-                        &event.kind
-                    {
-                        wanted.extend(item_ids_in(&effect.params));
-                    }
+                for (_site, effect) in mv.effect_refs() {
+                    wanted.extend(item_ids_in(&effect.params));
                 }
             }
         }
@@ -1006,26 +1005,23 @@ mod expressiveness_census {
 
     /// Does this move carry a TECHNIQUE, or is it a hitbox and nothing else?
     ///
-    /// Both roads count: a technique fired at an instant is an `Effect` event,
-    /// and one that is live for a window (a capture attempt, a charge) hangs off
-    /// the window as a `sustain_effect`. Counting only the first is how a census
-    /// reports a grab as featureless — see the tether row, where exactly that
-    /// scan came up empty against a move whose whole point is its capture.
+    /// ⛔⛔ **EVERY ROAD COUNTS, AND THIS CENSUS HAS ALREADY MISSED ONE ONCE.**
+    /// Its previous version read `events[..].kind` only, and reported the tether
+    /// grab — a move whose whole point is its capture — as featureless, because
+    /// a technique live for a WINDOW hangs off `sustain_effect`. The fix added
+    /// the second road by hand and left two more unread: a volume's `on_hit` and
+    /// a flow node's `Emit`. A move whose only technique sits in either would be
+    /// counted bare today, which is the identical failure one iteration later.
+    ///
+    /// ⇒ `MoveSpec::effect_refs` is exhaustive by destructure, so a fifth site is
+    /// a compile error at the walk instead of a silent gap in every hand-listed
+    /// copy of it.
     fn techniques(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> Vec<String> {
         let mut keys: Vec<String> = spec
-            .events
-            .iter()
-            .filter_map(|event| match &event.kind {
-                MoveEventKind::Effect(effect) => Some(effect.key.clone()),
-                _ => None,
-            })
+            .effect_refs()
+            .into_iter()
+            .map(|(_site, effect)| effect.key.clone())
             .collect();
-        keys.extend(
-            spec.windows
-                .iter()
-                .filter_map(|window| window.sustain_effect.as_ref())
-                .map(|effect| effect.key.clone()),
-        );
         keys.sort();
         keys.dedup();
         keys

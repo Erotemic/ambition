@@ -1934,3 +1934,185 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
          restore would apply a horizon taken AFTER the one it was accepted for"
     );
 }
+
+/// A world holding one accepted operation and its lifecycle intent, plus an
+/// abandonment note for whatever `noted` names.
+fn world_with_an_abandoned_operation(
+    accepted: AcceptedRestore,
+    noted: &AcceptedRestore,
+) -> bevy::prelude::World {
+    let mut world = bevy::prelude::World::new();
+    world.init_resource::<AcceptedCheckpointRestore>();
+    world.init_resource::<SessionCheckpointOutcomes>();
+    world.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    world.init_resource::<AbandonedCheckpointOperation>();
+    assert!(world
+        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(accepted.frame, accepted.intent.clone())
+        .admitted());
+    world
+        .resource_mut::<AcceptedCheckpointRestore>()
+        .accept(accepted);
+    world
+        .resource_mut::<AbandonedCheckpointOperation>()
+        .note(noted);
+    world
+}
+
+fn an_operation_at(
+    frame: i32,
+    sequence_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    target_room: &str,
+) -> AcceptedRestore {
+    let mut counter = SessionCheckpointOperations::default();
+    AcceptedRestore {
+        key: counter.admit(sequence_scope).expect("a fresh counter mints"),
+        frame,
+        intent: crate::session::lifecycle_commit::LifecycleIntent::Transition(
+            crate::session::lifecycle_commit::RoomTransitionIntent {
+                subject: ambition_platformer2d_shared_tangle::sim_id::SimId::placement("hero"),
+                target_room: target_room.into(),
+                arrival: Vec2::ZERO,
+                edge_exit: false,
+                zone_sfx: None,
+            },
+        ),
+        occurrences: Default::default(),
+        custody: Default::default(),
+        item: None,
+    }
+}
+
+/// ⛔⛔ **A HOST'S PREPARATION FAILURE MAY NOT SPEND A SPECULATIVE OPERATION.**
+///
+/// The retraction writes `AcceptedCheckpointRestore`, `PendingLifecycleCommit`
+/// and `SessionCheckpointOutcomes` — all rollback state. The failure that
+/// motivates it is a HOST fact: asset residency and construction preflight are
+/// not simulated, do not rewind, and two peers need not agree about them. Ending
+/// an operation admitted on a frame a rewind can still revisit therefore writes a
+/// non-deterministic decision into a re-simulable frame.
+///
+/// ⭐ AND THE NOTE IS KEPT, NOT DROPPED. The host's transaction does not rewind,
+/// so the failure is still true at the next boundary; discarding the note there
+/// would silently restore the wedge this whole road exists to close.
+#[test]
+fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
+    let operation = an_operation_at(10, None, "a_room_that_cannot_be_prepared");
+    let key = operation.key;
+    let mut world = world_with_an_abandoned_operation(operation.clone(), &operation);
+
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(9)),
+        AbandonmentVerdict::NotYetConfirmed,
+        "an operation admitted on frame 10 was ended while only frame 9 could \
+         never be simulated again"
+    );
+    assert!(
+        world
+            .resource::<AcceptedCheckpointRestore>()
+            .inputs_for_key(key)
+            .is_some(),
+        "the accepted operation was retired on a frame a rewind can revisit"
+    );
+    assert!(
+        world
+            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .peek()
+            .is_some(),
+        "the lifecycle intent was spent on a frame a rewind can revisit"
+    );
+    assert!(
+        world
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .is_none(),
+        "a terminal outcome was published for an operation that is still speculative"
+    );
+    assert_eq!(
+        world.resource::<AbandonedCheckpointOperation>().pending(),
+        Some(key),
+        "the note was dropped rather than kept, so the failed preparation is \
+         forgotten and readiness reopens the same invalid transaction forever"
+    );
+
+    // ── AND IT ENDS THE MOMENT ITS FRAME IS FINAL ────────────────────────────
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(10)),
+        AbandonmentVerdict::Ended,
+        "the operation's own admitted frame is confirmed and it still was not \
+         ended — the rows above are then satisfied by a road that never ends \
+         anything"
+    );
+    assert_eq!(
+        world
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .map(|outcome| outcome.cancellation()),
+        Some(Some(RestoreCancellation::PreparationFailed)),
+    );
+}
+
+/// ⛔⛔ **A NOTE FROM A DISCARDED BRANCH MAY NOT END THE OPERATION THAT REPLACED
+/// IT.**
+///
+/// `SessionCheckpointOperations` is rollback state, so its sequence rewinds. A
+/// speculative branch can mint sequence K, fail its preparation, leave a note
+/// here — the note does NOT rewind, that is the point of it — and then be thrown
+/// away. The next timeline can mint K again for a different operation. A note
+/// holding only the key would cancel that replacement: a healthy operation ended
+/// by a failure belonging to a timeline that no longer exists.
+///
+/// ⇒ the note names the operation by VALUE — key, admitted frame and the
+/// accepted operation's own checksum — and a note that does not match exactly is
+/// DISCARDED rather than spent.
+#[test]
+fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
+    let abandoned = an_operation_at(4, None, "the_branch_that_was_discarded");
+    let replacement = an_operation_at(4, None, "the_room_the_replay_actually_wants");
+    // ⛔ THE PREMISE. Both operations carry the SAME key, because a rewound
+    // counter mints the same sequence again — that is exactly what makes a
+    // key-only note dangerous. Without this the test is about two unrelated
+    // operations and proves nothing.
+    assert_eq!(
+        abandoned.key, replacement.key,
+        "the two operations do not share a key, so this fixture is not about \
+         sequence reuse across a rewind at all"
+    );
+    let key = replacement.key;
+    let mut world = world_with_an_abandoned_operation(replacement, &abandoned);
+
+    assert_eq!(
+        terminalize_abandoned_checkpoint_restore(&mut world, Some(9)),
+        AbandonmentVerdict::Stale,
+        "a note written on a discarded branch was treated as an answer about the \
+         operation that reused its key"
+    );
+    assert!(
+        world
+            .resource::<AcceptedCheckpointRestore>()
+            .inputs_for_key(key)
+            .is_some(),
+        "the replayed operation was retired by another timeline's failure"
+    );
+    assert!(
+        world
+            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .peek()
+            .is_some(),
+        "the replayed operation's lifecycle intent was spent by another \
+         timeline's failure, so its crossing simply never happens"
+    );
+    assert!(
+        world
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .is_none(),
+        "a terminal outcome was published against a key whose operation is live"
+    );
+    assert_eq!(
+        world.resource::<AbandonedCheckpointOperation>().pending(),
+        None,
+        "the stale note survived, so it gets to ask the same wrong question at \
+         every later boundary"
+    );
+}

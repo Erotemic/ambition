@@ -36,21 +36,33 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     let Some(boundary) = world.get_resource::<ConfirmedFrameBoundary>().copied() else {
         return;
     };
-    // ⛔⛔ BEFORE THE PENDING-INTENT GATE, and unconditionally on a confirmed
-    // frame. A checkpoint operation whose room preparation FAILED still holds a
-    // pending intent — that is the wedge this ends — so a terminalization placed
-    // after the gate below would reach `authorized_plan`, get `Wait` against the
-    // failed transaction, and return without ever answering. The readiness phase
-    // noted it in `Update` and could go no further: `PendingLifecycleCommit`
-    // rewinds, and this exclusive confirmed-frame world is the one place a host
-    // fact is allowed to spend it.
-    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(world);
-
     let Some(RollbackSessionOwnership::LocalSyncTest { settings, owner }) =
         world.get_resource::<RollbackSessionOwnership>().copied()
     else {
         return;
     };
+
+    // ⛔⛔ **AFTER THE OWNERSHIP GATE AND BEFORE THE PENDING-INTENT GATE, and
+    // both placements are load-bearing.**
+    //
+    // AFTER ownership, because a preparation failure is a HOST fact — this peer
+    // could not build the room; another peer may have built it fine — and
+    // spending the rollback-registered lifecycle slot on it is a lifecycle
+    // DECISION. Only a host that owns that decision may make it. Placed above
+    // this gate, as it first was, a P2P peer would unilaterally cancel
+    // deterministic checkpoint state on a local asset failure.
+    //
+    // BEFORE the pending-intent gate, because a checkpoint operation whose room
+    // preparation failed still holds a pending intent — that is the wedge this
+    // ends. Below the gate it would reach `authorized_plan`, get `Wait` against
+    // the failed transaction, and return without ever answering.
+    //
+    // `boundary.confirmed` is the whole authorization: an operation admitted on a
+    // frame a rewind can still revisit is not this call's to end.
+    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
+        world,
+        Some(boundary.confirmed),
+    );
 
     let Some(PendingIntent { kind, .. }) = world
         .get_resource::<PendingLifecycleCommit>()

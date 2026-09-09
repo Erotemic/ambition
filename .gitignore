@@ -237,3 +237,6 @@ git-of-theseus
 ambition.local.toml
 
 *.local.json
+
+# Scratch diff/measurement output. `out` was tracked once by accident (61d966493).
+out/

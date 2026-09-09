@@ -6,7 +6,7 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
-use ambition_boss_encounter::{BossClusterRef, BossConfig};
+use ambition_boss_encounter::BossConfig;
 use ambition_combat::components::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
 };
@@ -450,16 +450,19 @@ pub fn step_projectiles(
     mut guards: Query<&mut ae::BodyShieldState, Without<LiveProjectile>>,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    // ⛔ A2a: THE CATALOG, THE ATTACK STATE AND THE ANIMATION SAMPLE LEFT WITH
+    // THE DERIVATION. The stepper asked "does this shot reach a boss" by
+    // rebuilding the boss's hurt geometry from those three; it reads the
+    // published `DamageableVolumes` now, which is the same value the damage
+    // applier uses and the only one the publisher's authored override reaches.
     ecs_bosses: Query<
         (
             &FeatureId,
             &CenteredAabb,
-            BossClusterRef,
             &ambition_characters::actor::BodyHealth,
-            &ambition_characters::brain::BossAttackState,
-            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
+            &ambition_combat::components::DamageableVolumes,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, With<BossConfig>),
     >,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
@@ -469,13 +472,16 @@ pub fn step_projectiles(
     // faction for whether a shot may land; bosses use the authored catalog below.
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     // Bundled into one SystemParam slot to stay under Bevy's parameter ceiling.
-    (owner_combat, boss_catalog, visual_catalog): (
+    // ⭐ A2a DELETED THE BOSS CATALOG FROM THIS SYSTEM. It was here for exactly
+    // one reason — rebuilding a boss's hurt geometry to answer "does this shot
+    // reach it" — and the answer comes from the published volumes now. The
+    // projectile stepper no longer needs to know what a boss IS.
+    (owner_combat, visual_catalog): (
         Query<(
             &ActorFaction,
             Option<&ActorAggression>,
             Option<&ambition_combat::targeting::MatchTeam>,
         )>,
-        Res<ambition_boss_encounter::BossCatalog>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
     ),
 ) {
@@ -910,11 +916,7 @@ pub fn step_projectiles(
             };
             let reaches_feature =
                 crate::features::ecs_hit_event_hits_breakable(&unresolved, &ecs_breakables)
-                    || crate::features::ecs_hit_event_hits_boss(
-                        &boss_catalog,
-                        &unresolved,
-                        &ecs_bosses,
-                    );
+                    || crate::features::ecs_hit_event_hits_boss(&unresolved, &ecs_bosses);
             if reaches_feature {
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(

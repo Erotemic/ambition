@@ -257,9 +257,23 @@ pub fn advance_gameplay_elapsed(
 pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     let sim = app.sim_schedule();
+    // ⛔⛔ **BOSSES JOIN THE BARRIER, AND UNTIL A2a THEY DID NOT.** A boss
+    // published its volumes exactly once, in `WorldPrep`, chained BEFORE
+    // `tick_boss_brains_system` / `project_boss_attack_state_from_move` /
+    // `drive_boss_animators` — so the published value described the PREVIOUS
+    // frame's attack state and animation frame, and every damage-side consumer
+    // recomputed the geometry itself rather than read a stale publication.
+    // Three recomputations of one fact, and the publisher's authored-hurtbox
+    // override reached none of them.
+    //
+    // ⭐ THIS IS THE SAME WINDOW THOSE CONSUMERS WERE HAND-ROLLING: after
+    // `Playback`, where `BossAttackState`'s active fields and
+    // `BossAnimationFrameSample` are settled, and before `Resolve`, which reads
+    // them. Publishing here is what lets the consumers stop asking.
     app.add_systems(
         sim,
-        refresh_body_damageable_volumes
+        (refresh_body_damageable_volumes, refresh_boss_damageable_volumes)
+            .in_set(ambition_combat::components::DamageFacingVolumesPublished)
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
             // Victim geometry is published between the move clock and the damage pass: AFTER
             // `Playback`, because a move's first active frame must not publish the previous frame's
@@ -961,7 +975,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // the sim-driven frame into its draw-only animator.
         app.add_systems(
             sim,
-            drive_boss_animators.after(project_boss_attack_state_from_move),
+            drive_boss_animators
+                .after(project_boss_attack_state_from_move)
+                // ⛔ IT WRITES AN INPUT OF THE DAMAGE-FACING PUBLICATION. The
+                // frame sample decides which hurtbox row a boss exposes, and
+                // `refresh_boss_damageable_volumes` now reads it in `Combat`; an
+                // `.after` on the projection alone leaves this free to run after
+                // the publication and hand it last frame's row.
+                .before(ambition_combat::components::DamageFacingVolumesPublished),
         );
         // ── The SECOND publication of every body's damageable volumes ──
         //

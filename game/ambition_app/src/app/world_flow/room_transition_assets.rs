@@ -28,7 +28,7 @@ use ambition_platformer2d::load::{
     LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress,
 };
 use ambition_platformer2d::platformer::lifecycle::{
-    ActiveSessionScope, SessionScopeId, SessionWorldRef,
+    ActiveSessionScope, SessionWorldRef,
 };
 use ambition_platformer2d::render::quality::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::boss::BossSpriteAsset;
@@ -39,8 +39,8 @@ use ambition_platformer2d::sprite_sheet::game_assets::{
 use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 
 use ambition_platformer2d::runtime::room_transition::{
-    set_room_transition_work_state, RoomConstructionPlanPrefetch, RoomTransitionLoadPhase,
-    RoomTransitionLoadState,
+    set_room_transition_work_state, PrefetchIdentity, RoomConstructionPlanPrefetch,
+    RoomTransitionLoadPhase, RoomTransitionLoadState,
 };
 
 /// One concrete image handle whose successful load contributes to room visual
@@ -122,9 +122,15 @@ struct PrefetchedRoomPreparation {
 /// safe misses rather than stale promotion.
 #[derive(Resource, Default, Debug)]
 pub(crate) struct RoomPreparationPrefetchState {
-    content_epoch: u64,
-    session_scope: Option<SessionScopeId>,
-    source_room_id: Option<String>,
+    /// ⛔⛔ **THE SAME VALUE THE PLAN CACHE KEYS ON, NOT A SECOND SPELLING OF
+    /// IT.** This used to hold `content_epoch`, `session_scope` and
+    /// `source_room_id` as three fields of its own while
+    /// `RoomConstructionPlanPrefetch` held the same triple as three of ITS own —
+    /// and only this copy was ever set, which is how the plan cache spent the
+    /// project's life at its default and threw every warm plan away on the first
+    /// promotion. One type now, so a term added to the identity cannot reach one
+    /// cache and miss the other.
+    identity: Option<PrefetchIdentity>,
     entries: BTreeMap<String, PrefetchedRoomPreparation>,
     pub(crate) hits: u64,
     pub(crate) misses: u64,
@@ -862,33 +868,22 @@ pub(crate) fn inspect_room_asset_manifest(
 }
 
 impl RoomPreparationPrefetchState {
-    fn reset_for(
-        &mut self,
-        content_epoch: u64,
-        session_scope: Option<SessionScopeId>,
-        source_room_id: &str,
-    ) -> bool {
-        let changed = self.content_epoch != content_epoch
-            || self.session_scope != session_scope
-            || self.source_room_id.as_deref() != Some(source_room_id);
+    fn adopt(&mut self, identity: &PrefetchIdentity) -> bool {
+        let changed = self.identity.as_ref() != Some(identity);
         if changed {
             self.entries.clear();
-            self.content_epoch = content_epoch;
-            self.session_scope = session_scope;
-            self.source_room_id = Some(source_room_id.to_string());
+            self.identity = Some(identity.clone());
         }
         changed
     }
 
     pub(crate) fn classify_promotion(
         &mut self,
-        content_epoch: u64,
-        session_scope: Option<SessionScopeId>,
-        source_room_id: &str,
+        identity: &PrefetchIdentity,
         manifest: &RoomAssetManifest,
         now: Option<Duration>,
     ) -> bool {
-        self.reset_for(content_epoch, session_scope, source_room_id);
+        self.adopt(identity);
         match self.entries.get(&manifest.room_id) {
             Some(entry) if entry.manifest == *manifest => {
                 self.hits = self.hits.saturating_add(1);
@@ -1094,9 +1089,11 @@ pub(crate) fn contribute_room_transition_assets_system(
     let now = context.real_time.as_deref().map(|time| time.elapsed());
     if let Some(cache) = context.prefetch.as_deref_mut() {
         let assets_promoted = cache.classify_promotion(
-            active.content_epoch,
-            active.session_scope,
-            &active.source_room_id,
+            &PrefetchIdentity::new(
+                active.content_epoch,
+                active.session_scope,
+                &active.source_room_id,
+            ),
             &manifest,
             now,
         );
@@ -1433,7 +1430,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         ambition_platformer2d::characters::prepared::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
-        cache.source_room_id = None;
+        cache.identity = None;
         return;
     };
     let session_scope = active_session.as_deref().and_then(|scope| scope.current());
@@ -1443,7 +1440,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         )
     else {
         cache.entries.clear();
-        cache.source_room_id = None;
+        cache.identity = None;
         return;
     };
     // ⛔⛔ ONE IDENTITY, STATED ONCE, AND BOTH CACHES TAKE IT. The asset-side
@@ -1451,12 +1448,8 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // each kept its own copy only this one was ever set: the plan cache sat at
     // its default for the life of a session and the first transition's `promote`
     // cleared every plan in it. See `prefetch.rs`'s module note.
-    let identity = ambition_platformer2d::runtime::room_transition::PrefetchIdentity::new(
-        content_epoch.get(),
-        session_scope,
-        &source_room.id,
-    );
-    let identity_changed = cache.reset_for(content_epoch.get(), session_scope, &source_room.id);
+    let identity = PrefetchIdentity::new(content_epoch.get(), session_scope, &source_room.id);
+    let identity_changed = cache.adopt(&identity);
     let refresh_manifests = identity_changed
         || room_set.is_changed()
         || placement_lowering.is_changed()
@@ -2127,7 +2120,7 @@ mod tests {
             ..Default::default()
         };
         let mut cache = RoomPreparationPrefetchState::default();
-        cache.reset_for(1, None, "hub");
+        cache.adopt(&PrefetchIdentity::new(1, None, "hub"));
         cache.entries.insert(
             "hall".to_string(),
             PrefetchedRoomPreparation {
@@ -2137,9 +2130,14 @@ mod tests {
                 settled_at: Some(Duration::ZERO),
             },
         );
-        assert!(cache.classify_promotion(1, None, "hub", &empty, Some(Duration::ZERO)));
+        let hub_v1 = PrefetchIdentity::new(1, None, "hub");
+        assert!(cache.classify_promotion(&hub_v1, &empty, Some(Duration::ZERO)));
         assert!(
-            !cache.classify_promotion(2, None, "hub", &empty, Some(Duration::ZERO)),
+            !cache.classify_promotion(
+                &PrefetchIdentity::new(2, None, "hub"),
+                &empty,
+                Some(Duration::ZERO)
+            ),
             "a new content epoch must invalidate otherwise identical prefetched work",
         );
 
@@ -2147,7 +2145,7 @@ mod tests {
             room_id: "basement".to_string(),
             ..Default::default()
         };
-        assert!(!cache.classify_promotion(1, None, "hub", &different_room, Some(Duration::ZERO)));
+        assert!(!cache.classify_promotion(&hub_v1, &different_room, Some(Duration::ZERO)));
     }
 
     /// The stall report names the room and the outstanding assets, and caps the

@@ -479,8 +479,9 @@ pub fn apply_feature_hit_events(
                 &mut ambition_characters::actor::BodyWallet,
                 &ambition_characters::actor::BodyWalletShield,
             )>,
-            &ambition_characters::brain::BossAttackState,
-            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
+            // A2a: the published hurt geometry. The attack state and the
+            // animation sample it is derived from left with the derivation.
+            &ambition_combat::components::DamageableVolumes,
             // CM8: the boss's own hurt reaction (ENEMY default).
             Option<&ambition_combat::CombatTuning>,
             // The world's hands are off it — the same gate the actor road takes.
@@ -797,8 +798,7 @@ pub fn apply_feature_hit_events(
             mut health,
             mut combat,
             wallet_shield,
-            attack_state,
-            animation_frame,
+            boss_damageable,
             boss_tuning,
             boss_out_of_play,
         ) in bosses.iter_mut().filter(|_| actor_target.is_none())
@@ -817,7 +817,6 @@ pub fn apply_feature_hit_events(
             }
             let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
             if apply_boss_hit(
-                &catalogs.bosses,
                 &event,
                 boss_entity,
                 feature.as_boss_mut(),
@@ -826,8 +825,7 @@ pub fn apply_feature_hit_events(
                 wallet_shield.map(|(wallet, shield)| {
                     ambition_damage::WalletArmor::new(wallet.into_inner(), shield)
                 }),
-                attack_state,
-                animation_frame,
+                boss_damageable,
                 &mut banner,
                 combat_banter.as_deref(),
                 hurt,

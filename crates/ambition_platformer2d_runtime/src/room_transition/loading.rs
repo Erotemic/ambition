@@ -1355,6 +1355,11 @@ pub fn authorize_ready_room_transition_system(
 /// pass over the same failed transaction finds no key.
 pub fn abandon_failed_checkpoint_restore_system(
     mut state: ResMut<RoomTransitionLoadState>,
+    // ⚠ READ, NOT WRITTEN. Reading rollback state in `Update` is ordinary; what
+    // the guard forbids — and what this system used to do — is WRITING it. The
+    // note is value-complete because the live operation is right here, so a
+    // caller cannot record half of an identity.
+    accepted: Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
     mut abandoned: ResMut<
         ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation,
     >,
@@ -1368,7 +1373,12 @@ pub fn abandon_failed_checkpoint_restore_system(
     let Some(key) = active.checkpoint_operation.take() else {
         return;
     };
-    abandoned.note(key);
+    // The operation must still be the outstanding one. If it is not, it has
+    // already been answered and there is nothing for a commit boundary to end.
+    let Some(operation) = accepted.inputs_for_key(key) else {
+        return;
+    };
+    abandoned.note(operation);
 }
 
 /// Retire failed transitions in hosts that deliberately install no visible

@@ -694,10 +694,16 @@ overrides, `RoomConstructionPlanPrefetch`) and the neighbour's ASSET residency
 belongs where it is. The plan half inherited that composition by being in the
 same function.
 
-⇒ Not a checkpoint defect, and A1 does not own it. It is why the end-to-end arm
-of the outlook row cannot be staged from here, and it wants its own packet:
+⇒ Not a checkpoint defect, and A1 does not own it. It wants its own packet:
 separate the plan cache from the asset warm-up so a composition that does not
 draw still prepares the room it is about to enter.
+
+⛔ **AND IT IS NO LONGER A BLOCKER ON THE OUTLOOK ROW.** This section used to end
+"it is why the end-to-end arm of the outlook row cannot be staged from here",
+which was true of the HEADLESS harness and false of the packet: `build_visible_app`
+warms the cache, and `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`
+stages the arm there. The split remains worth doing for the RL and headless
+compositions; it was never the reason the row was open.
 
 Existing integration witnesses include
 `game/ambition_app/tests/canonical_reconstitution.rs`,

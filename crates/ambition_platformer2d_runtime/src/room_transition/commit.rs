@@ -1009,8 +1009,10 @@ pub fn terminalize_abandoned_checkpoint_restore_system(world: &mut bevy::prelude
     {
         return;
     }
+    // `None`: this host has no rollback, so every frame it simulates is already
+    // final and there is no speculative admission to wait out.
     let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
-        world,
+        world, None,
     );
 }
 

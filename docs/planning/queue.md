@@ -120,6 +120,17 @@ argument is evidence; a row closes on a test that fails for it.**
 requires, so a plan cannot enter the cache without the cache knowing the world it
 was prepared for, and there is no public reset.
 
+⛔ **THE TERMINAL ROAD'S ROLLBACK BOUNDARY WAS THE THIRD HALF-REPAIR IN THIS
+PACKET.** Ending a failed preparation moved off `Update` onto a commit boundary,
+which fixed the schedule but not the authorization: the host-side abandonment
+note could still spend rollback state before the session-ownership gate and
+before its operation's admitted frame was confirmed, and a note held only a KEY
+while the sequence counter that mints keys rewinds. Repaired and witnessed on
+both properties. The P2P road is deliberately inert — the terminalization sits
+below `commit_confirmed_lifecycle`'s `LocalSyncTest` gate, because ending an
+operation on a local asset failure is a lifecycle decision only an owning host
+may make. A coordinated peer-level rule is a new packet.
+
 **Recorded as deliberate non-goals, not open work** — each needs a NEW DECISION
 to become a task:
 - ⛔ verification's remaining omissions are DELIBERATE, not pending: body

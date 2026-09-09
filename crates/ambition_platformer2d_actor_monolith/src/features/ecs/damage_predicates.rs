@@ -1,10 +1,18 @@
 //! Read-only preflight hit predicates for projectile/attack feedback.
 //!
 //! A positive preflight may terminate a strike, so each predicate must match the
-//! tangibility gate used by the corresponding damage applier. Actors use
-//! `DamageableVolumes`, bosses test active authored part volumes, and breakables
-//! mirror their broken/trigger/pogo gates. Actor and breakable precision remains
-//! coarse-AABB by current gameplay policy; bosses require part-level precision.
+//! tangibility gate used by the corresponding damage applier. Actors and BOSSES
+//! both read `DamageableVolumes`; breakables mirror their broken/trigger/pogo
+//! gates. Actor and breakable precision remains coarse-AABB by current gameplay
+//! policy; a boss reads the published parts, which is part-level precision
+//! without a second derivation.
+//!
+//! ⛔⛔ **A2a: THE BOSS ARM USED TO DERIVE ITS OWN GEOMETRY.** It built a
+//! `BossVolumeContext` from the catalog and the live attack/animation state —
+//! the same derivation `apply_boss_hit` did twice more — so one fact had three
+//! authorities and the publisher's authored-hurtbox override reached none of
+//! them. It reads the publication now; the publication moved into the window
+//! after `Playback` where those live values are settled.
 
 use bevy::prelude::{Query, With, Without};
 
@@ -83,59 +91,50 @@ pub fn ecs_hit_event_hits_actor(
 }
 
 pub fn ecs_hit_event_hits_boss(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
     event: &HitEvent,
     bosses: &Query<
         (
             &FeatureId,
             &CenteredAabb,
-            ambition_boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
-            &ambition_characters::brain::BossAttackState,
-            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
+            &DamageableVolumes,
         ),
-        With<FeatureSimEntity>,
+        (With<FeatureSimEntity>, With<BossConfig>),
     >,
 ) -> bool {
-    // Check against `damageable_volumes` so the hit-check matches
-    // what `apply_feature_hit_events` will actually apply damage
-    // to. Multi-part bosses (e.g. GNU-ton) have a gross
-    // `CenteredAabb` covering the whole creature but only the head
-    // is actually damageable — checking against the gross AABB
-    // would over-trigger projectile termination on the body without
-    // ever applying damage. `damageable_volumes` reads the brain's
-    // `BossAttackState` to decide head-descent vs rest position, and
-    // the live `BossAnimationFrameSample` (same component
-    // `apply_boss_hit` consumes) so the projectile's hit/terminate
-    // check locks to the exact rendered frame instead of an
-    // elapsed-time estimate — otherwise the projectile could
-    // register a hit a few frames off from where the head is drawn
-    // and where damage actually lands.
-    bosses.iter().any(
-        |(id, _aabb, feature, health, attack_state, animation_frame)| {
-            if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
-                return false;
-            }
-            if !health.alive() {
-                return false;
-            }
-            ambition_combat::body_geometry::damageable_volumes(
-                &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
-                    boss_catalog,
-                    feature.as_boss_ref(),
-                    attack_state,
-                )
-                .with_animation_frame(animation_frame),
-            )
-            .iter()
-            .any(|part| event.volume.intersects(part))
-        },
-    )
+    // ⛔⛔ **IT READS THE PUBLICATION NOW, AND THE RECOMPUTATION IT REPLACED WAS
+    // THE DEFECT.** This used to build a `BossVolumeContext` from the catalog,
+    // the live `BossAttackState` and the live `BossAnimationFrameSample` and
+    // derive the parts itself — one of THREE places deriving one fact. None of
+    // the three consulted `refresh_boss_damageable_volumes`, so a boss with
+    // authored hurtboxes was struck on its generated hull, and an authored
+    // EMPTY override (an invulnerable window) offered a target anyway.
+    //
+    // ⭐ The reason it could not read the publication before is that the
+    // publication ran in `WorldPrep`, a phase ahead of the boss brain, and
+    // described the previous frame. It is republished after `Playback` now, in
+    // the window this recomputation was reaching for.
+    //
+    // ⚠ NOT-YET-PUBLISHED MEANS NO CONTACT, deliberately. A boss has no coarse
+    // fallback — `refresh_boss_damageable_volumes` never publishes the composite
+    // envelope — so an unpublished boss is one whose geometry nobody has spoken
+    // for, and inventing a hull for it is exactly the first-frame coarse hurtbox
+    // the contract forbids.
+    bosses.iter().any(|(id, _aabb, health, damageable)| {
+        !target_is_ignored(&event.ignored_targets, "boss", id.as_str())
+            && health.alive()
+            && damageable.published()
+            && damageable
+                .volumes
+                .iter()
+                .any(|part| event.volume.intersects(part))
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
     use ambition_platformer2d_core::{Aabb, Vec2};
     use bevy::ecs::system::RunSystemOnce;
     use bevy::prelude::World;
@@ -233,5 +232,98 @@ mod tests {
              that says `hit` here despawns the bolt and fires the hit trace for \
              damage that never lands"
         );
+    }
+
+    /// One live boss carrying `volumes`, asked the question the projectile
+    /// stepper asks before it despawns a bolt.
+    fn strike_hits_boss(volumes: DamageableVolumes) -> bool {
+        let mut world = World::new();
+        world.spawn((
+            FeatureSimEntity,
+            FeatureId::new("gnu_ton"),
+            CenteredAabb::new(BODY_CENTER, BODY_HALF),
+            // The predicate reads no field of this; `BossConfig` is here as the
+            // query FILTER that separates a boss from an ordinary body. The
+            // profile comes from an empty catalog's generic fallback so the
+            // fixture states no boss content of its own.
+            BossConfig {
+                id: "gnu_ton".into(),
+                name: "GNU-ton".into(),
+                spawn: Vec2::ZERO,
+                brain: ambition_entity_catalog::placements::BossBrain::Dormant,
+                behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
+                    ambition_boss_encounter::test_boss_catalog(),
+                    "gnu_ton",
+                ),
+            },
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(9)),
+            volumes,
+        ));
+        let event = strike_event();
+        world
+            .run_system_once(
+                move |bosses: Query<
+                    (
+                        &FeatureId,
+                        &CenteredAabb,
+                        &ambition_characters::actor::BodyHealth,
+                        &DamageableVolumes,
+                    ),
+                    (With<FeatureSimEntity>, With<BossConfig>),
+                >| { ecs_hit_event_hits_boss(&event, &bosses) },
+            )
+            .expect("the boss hit predicate ran")
+    }
+
+    /// ⛔⛔ **A BOSS IS HIT WHERE ITS PUBLISHER SAYS, AND NOWHERE ELSE.**
+    ///
+    /// Before A2a this predicate derived the geometry itself from the catalog and
+    /// the live attack/animation state — one of three derivations of one fact —
+    /// so `refresh_boss_damageable_volumes`'s authored-hurtbox override reached
+    /// none of them and a published-EMPTY boss still offered a target.
+    ///
+    /// ⚠ THE UNPUBLISHED ROW IS THE OPPOSITE OF THE BODY'S, deliberately. An
+    /// ordinary body falls back to its coarse envelope; a boss has no fallback at
+    /// all — `refresh_boss_damageable_volumes` never publishes the composite
+    /// envelope, because a multi-part boss's gross box covers metres of creature
+    /// that cannot be hurt. So "nobody has spoken for this boss yet" is NO
+    /// CONTACT, which is also what the contact protocol requires of a
+    /// not-yet-ready authored publisher: it may not be an excuse to expose an
+    /// unintended coarse hurtbox for one frame.
+    #[test]
+    fn the_boss_hit_test_answers_only_from_the_published_volumes() {
+        assert!(
+            !strike_hits_boss(DamageableVolumes::default()),
+            "unpublished: no publisher has spoken for this boss, and a boss has no \
+             coarse fallback. Answering `hit` here invents a hull nobody authored \
+             — and on the first eligible tick, which is exactly the frame the \
+             contact protocol forbids it on"
+        );
+        let mut intangible = DamageableVolumes::default();
+        intangible.clear();
+        assert!(
+            !strike_hits_boss(intangible),
+            "published EMPTY: an authored invulnerable window offers no target at \
+             all. This was the live defect — the derivation ignored the \
+             publication, so an intangible boss was still struck on its generated \
+             hull"
+        );
+        assert!(
+            !strike_hits_boss(DamageableVolumes::single(published_head())),
+            "published a silhouette DISJOINT from the strike: a boss answers from \
+             its published parts, not from its coarse envelope, so a strike inside \
+             the envelope and outside every part is a miss"
+        );
+        assert!(
+            strike_hits_boss(DamageableVolumes::single(ae_strike_box())),
+            "published a part the strike overlaps: the predicate must still say \
+             HIT, or the three rows above are satisfied by a predicate that \
+             refuses everything"
+        );
+    }
+
+    /// The strike's own volume as a published part, for the anti-vacuity row.
+    fn ae_strike_box() -> Aabb {
+        Aabb::new(Vec2::new(90.0, 84.0), Vec2::new(4.0, 4.0))
     }
 }

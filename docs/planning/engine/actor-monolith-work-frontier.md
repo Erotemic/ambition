@@ -18,7 +18,7 @@ fresh source/behavior preflight for every packet
     |
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
-    |           -> A1c selected checkpoint through common commit (DONE; A1 has one open row)
+    |           -> A1c selected checkpoint through common commit (DONE; matrix closed 2026-09-08)
     |               -> A7 item horizon/custody separation (after writer inventory)
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
@@ -65,11 +65,25 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**A1's implementation is complete; closure has one open row.** Sixteen of
-seventeen acceptance rows have a witness that fails for that row's property. The
-prefetched-plan arm does not — it is reachable in the visible-app composition and
-its structural argument is supporting evidence, not a close. A structural close
-was tried for the prepare-failure row and covered only half of it.
+**A1's acceptance matrix is complete: all seventeen rows have a witness that
+fails for that row's property** (per-row receipts in the protocol). The
+prefetched-plan arm closed on `a_checkpoint_outlook_refuses_a_plan_prepared_
+without_one`, whose control arm found that the construction-plan prefetch cache
+had never promoted anything — its identity had two keepers and only the host's
+copy was ever set.
+
+⛔ **CLOSURE STILL OWES THE ROLLBACK BOUNDARY OF THE TERMINAL ROAD.** A review on
+2026-09-08 found that the host-side abandonment bridge — the note a failed
+preparation leaves for a commit executor — crossed into rollback state before
+both the session-ownership gate and confirmation. That is repaired and witnessed
+(`an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed`,
+`a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key`, both
+poison-verified), and the note now names its operation by value because a rewound
+sequence counter can mint the same key twice. ⚠ **The P2P road stays inert**: the
+terminalization sits below `commit_confirmed_lifecycle`'s `LocalSyncTest` gate,
+because ending an operation on a local asset failure is a lifecycle decision only
+a host that owns that decision may make. A coordinated peer-level rule is a new
+packet, not an A1 row.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;

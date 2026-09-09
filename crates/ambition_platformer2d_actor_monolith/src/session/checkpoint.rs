@@ -724,6 +724,21 @@ impl AcceptedCheckpointRestore {
         self.0.take()
     }
 
+    /// This slot's rollback projection: the operation's own checksum, or the
+    /// empty slot's zero.
+    pub fn checksum(&self) -> u64 {
+        // ⛔ ONE PROJECTION, AND THE SLOT DOES NOT OWN IT. The value belongs to
+        // the operation, so `AcceptedRestore` computes it and this states only
+        // what an EMPTY slot hashes to. A second copy here is how the abandoned
+        // note and the rollback snapshot would come to disagree about whether two
+        // operations are the same one.
+        self.0
+            .as_ref()
+            .map_or(0, AcceptedRestore::checksum)
+    }
+}
+
+impl AcceptedRestore {
     /// ⭐ EVERY FIELD THAT CAN CHANGE WHAT THIS OPERATION BUILDS.
     ///
     /// ⛔⛔ ITS FIRST VERSION COVERED THREE OF FOUR AND WAS WRONG FOR IT. It
@@ -735,19 +750,21 @@ impl AcceptedCheckpointRestore {
     /// equality. A projection that covers part of a value reports agreement
     /// between peers holding different operations, which is worse than having
     /// none. The intent's own leg is exhaustive by destructure.
+    ///
+    /// ⚠ IT IS ALSO WHAT [`AbandonedCheckpointOperation`] REMEMBERS. A key alone
+    /// cannot say whether the operation in front of it is the one a host gave up
+    /// on: the sequence counter rewinds, so a discarded branch's key can be
+    /// minted again for something else.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_i32, put_u64, put_u8};
-        let Some(AcceptedRestore {
+        let AcceptedRestore {
             key,
             frame,
             intent,
             occurrences,
             custody,
             item,
-        }) = &self.0
-        else {
-            return 0;
-        };
+        } = self;
         let mut bytes = Vec::new();
         // ⚠ AN ABSENT SCOPE IS NOT SCOPE ZERO, and the key owns that rule: one
         // projection, reused, so the same key cannot hash differently depending
@@ -990,71 +1007,143 @@ pub fn cancel_accepted_checkpoint_restore(
 /// the lifecycle slot happens — the commit executor, on a frame that is never
 /// re-simulated.
 ///
+/// ⛔⛔ **IT NAMES THE OPERATION BY VALUE, NOT BY KEY, AND THE REASON IS A
+/// REWIND.** `SessionCheckpointOperations` is rollback state, so its sequence
+/// rewinds: a speculative branch can mint key K, leave a note for K here, be
+/// discarded, and a DIFFERENT operation can later be minted with sequence K. A
+/// note holding only the key would cancel that replacement — a healthy operation
+/// ended by a failure that belongs to a timeline that no longer exists. So the
+/// note carries the admitted frame and the accepted operation's value checksum,
+/// and a note that does not match the live accepted operation exactly is
+/// DISCARDED rather than spent.
+///
 /// ⚠ ONE SLOT, LAST WRITER WINS. At most one restore is accepted at a time, so a
-/// second abandoned key means the first was already answered (or never accepted)
-/// and [`terminalize_abandoned_checkpoint_restore`] would find nothing for it.
+/// second abandoned note means the first was already answered (or never
+/// accepted).
 #[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AbandonedCheckpointOperation(Option<CheckpointOperationKey>);
+pub struct AbandonedCheckpointOperation(Option<AbandonedOperation>);
+
+/// The identity of an abandoned operation, complete enough that a rewound
+/// timeline's note cannot be mistaken for this one's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AbandonedOperation {
+    key: CheckpointOperationKey,
+    /// The frame the operation was ADMITTED on. The retraction may not happen
+    /// until this frame can never be simulated again.
+    admitted_frame: i32,
+    /// [`AcceptedRestore::checksum`] as it stood when the note was written.
+    operation: u64,
+}
 
 impl AbandonedCheckpointOperation {
-    /// Record that this operation's preparation failed and it owes a terminal
-    /// answer.
-    pub fn note(&mut self, key: CheckpointOperationKey) {
-        self.0 = Some(key);
+    /// Record that this accepted operation's preparation failed.
+    ///
+    /// Takes the whole accepted operation rather than a key so the note is
+    /// value-complete by construction; a caller cannot supply half of it.
+    pub fn note(&mut self, accepted: &AcceptedRestore) {
+        self.0 = Some(AbandonedOperation {
+            key: accepted.key,
+            admitted_frame: accepted.frame,
+            operation: accepted.checksum(),
+        });
     }
 
     /// The operation awaiting its terminal answer, if any.
     pub fn pending(&self) -> Option<CheckpointOperationKey> {
-        self.0
+        self.0.map(|note| note.key)
     }
 
-    /// Forget the note once a commit executor has answered it.
+    /// Forget the note once a commit executor has answered or discarded it.
     pub fn clear(&mut self) {
         self.0 = None;
     }
 }
 
+/// Why a commit executor did not end an abandoned operation this time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AbandonmentVerdict {
+    /// Nothing was abandoned.
+    Nothing,
+    /// Ended: the operation was cancelled and the note spent.
+    Ended,
+    /// The note names an operation this world does not hold — a rewind discarded
+    /// the branch it was written on. The note is dropped, not applied.
+    Stale,
+    /// The operation's admitted frame is not yet confirmed. The note is KEPT and
+    /// asked again at a later boundary.
+    NotYetConfirmed,
+}
+
 /// End an abandoned checkpoint operation, from a commit executor.
 ///
-/// ⛔⛔ **CALLED ONLY FROM A COMMIT BOUNDARY.** The eager host calls it from the
-/// exclusive system chained after its commit; the rollback host calls it from
-/// `commit_confirmed_lifecycle`, on a CONFIRMED frame. That is the same rule the
-/// rest of the lifecycle slot obeys and the reason this is a free function
-/// rather than a system anybody could install: `PendingLifecycleCommit` is
-/// rollback-registered, and a schedule that rewinds is not allowed to spend it
-/// on a host-side fact.
+/// ⛔⛔ **CALLED ONLY FROM A COMMIT BOUNDARY, AND ONLY WHERE THAT BOUNDARY HAS
+/// AUTHORITY.** The eager host calls it from the exclusive system chained after
+/// its commit; the rollback host calls it from `commit_confirmed_lifecycle`
+/// AFTER that function's session-ownership gate. `PendingLifecycleCommit` is
+/// rollback-registered, and a schedule that rewinds — or a host that does not own
+/// the lifecycle decision — is not allowed to spend it on a host-side fact.
 ///
-/// Returns whether an operation was ended.
-pub fn terminalize_abandoned_checkpoint_restore(world: &mut World) -> bool {
-    let Some(key) = world
+/// `confirmed_through` is the newest frame that can never be simulated again, or
+/// `None` on a host with no rollback at all, where every frame is final. A
+/// restore admitted after that frame is still speculative: cancelling it would
+/// write a retraction into a frame a rewind can revisit, and the local
+/// preparation failure that motivates it is precisely the kind of fact two peers
+/// need not agree about.
+pub fn terminalize_abandoned_checkpoint_restore(
+    world: &mut World,
+    confirmed_through: Option<i32>,
+) -> AbandonmentVerdict {
+    let Some(note) = world
         .get_resource::<AbandonedCheckpointOperation>()
-        .and_then(AbandonedCheckpointOperation::pending)
+        .and_then(|abandoned| abandoned.0)
     else {
-        return false;
+        return AbandonmentVerdict::Nothing;
     };
-    // The note is spent whether or not it matched: a key with no accepted
-    // operation behind it is already answered, and keeping it would ask the same
-    // question every frame forever.
+    // ⛔ THE NOTE IS CHECKED AGAINST THE LIVE OPERATION BEFORE ANYTHING IS SPENT.
+    // A rewind can leave a note about an operation this timeline never admitted,
+    // or admitted differently; the key alone cannot tell those apart because the
+    // sequence counter rewinds with everything else.
+    let live = world
+        .get_resource::<AcceptedCheckpointRestore>()
+        .and_then(|accepted| accepted.accepted().cloned());
+    let Some(live) = live.filter(|live| {
+        live.key == note.key && live.frame == note.admitted_frame && live.checksum() == note.operation
+    }) else {
+        if let Some(mut abandoned) = world.get_resource_mut::<AbandonedCheckpointOperation>() {
+            abandoned.clear();
+        }
+        return AbandonmentVerdict::Stale;
+    };
+    if confirmed_through.is_some_and(|confirmed| live.frame > confirmed) {
+        // KEPT, not spent. The operation is still speculative; the host's
+        // preparation failure is durable (its transaction does not rewind) and
+        // this boundary will be asked again.
+        return AbandonmentVerdict::NotYetConfirmed;
+    }
     if let Some(mut abandoned) = world.get_resource_mut::<AbandonedCheckpointOperation>() {
         abandoned.clear();
     }
-    if !world.contains_resource::<AcceptedCheckpointRestore>()
-        || !world.contains_resource::<SessionCheckpointOutcomes>()
+    if !world.contains_resource::<SessionCheckpointOutcomes>()
         || !world.contains_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
     {
-        return false;
+        return AbandonmentVerdict::Stale;
     }
     world.resource_scope(|world, mut accepted: Mut<AcceptedCheckpointRestore>| {
         world.resource_scope(|world, mut outcomes: Mut<SessionCheckpointOutcomes>| {
             let mut pending = world
                 .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-            cancel_accepted_checkpoint_restore(
+            let ended = cancel_accepted_checkpoint_restore(
                 &mut accepted,
                 &mut outcomes,
                 &mut pending,
-                key,
+                note.key,
                 RestoreCancellation::PreparationFailed,
-            )
+            );
+            if ended {
+                AbandonmentVerdict::Ended
+            } else {
+                AbandonmentVerdict::Stale
+            }
         })
     })
 }

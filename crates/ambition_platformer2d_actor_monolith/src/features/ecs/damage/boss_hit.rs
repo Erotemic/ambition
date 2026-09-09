@@ -100,7 +100,6 @@ pub(crate) fn apply_entity_boss_damage(
 /// invulnerable-phase swallow.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
-    boss_catalog: &ambition_boss_encounter::BossCatalog,
     event: &HitEvent,
     boss_entity: bevy::prelude::Entity,
     boss: ambition_boss_encounter::BossMut<'_>,
@@ -109,8 +108,15 @@ pub(crate) fn apply_boss_hit(
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
     wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
-    attack_state: &ambition_characters::brain::BossAttackState,
-    animation_frame: Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
+    // ⛔⛔ **A2a: THE PUBLISHED GEOMETRY, NOT THREE INPUTS TO RE-DERIVE IT.**
+    // This took `boss_catalog`, `attack_state` and `animation_frame` for one
+    // purpose — building a `BossVolumeContext` and deriving the hurt parts,
+    // twice in this function — and the projectile preflight derived the same
+    // fact a third time. None of the three read what
+    // `refresh_boss_damageable_volumes` publishes, so a boss's authored
+    // hurtboxes governed nothing on the damage road and an authored EMPTY
+    // override still offered a target. One publication, read here.
+    damageable: &ambition_combat::components::DamageableVolumes,
     banner: &mut GameplayBanner,
     combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
     // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
@@ -134,15 +140,11 @@ pub(crate) fn apply_boss_hit(
         // so core never names a specific boss. Keep this before the
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
-        let damageable = ambition_combat::body_geometry::damageable_volumes(
-            &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
-                boss_catalog,
-                boss.as_ref(),
-                attack_state,
-            )
-            .with_animation_frame(animation_frame),
-        );
-        if let Some(hit_aabb) = damageable.iter().find(|part| event.volume.intersects(part)) {
+        if let Some(hit_aabb) = damageable
+            .volumes
+            .iter()
+            .find(|part| event.volume.intersects(part))
+        {
             combat.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             // CM8: an honest strike clang + spark even though this puzzle boss
@@ -166,20 +168,16 @@ pub(crate) fn apply_boss_hit(
         }
         return false;
     }
-    // Damageable volumes read from BossAttackState (the
-    // brain's source of truth for which strike profile is
-    // live) so GNU-ton's head-descent vulnerability window
-    // and the standard whole-body hurtbox agree on a single
-    // attack-state source.
-    let damageable = ambition_combat::body_geometry::damageable_volumes(
-        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
-            boss_catalog,
-            boss.as_ref(),
-            attack_state,
-        )
-        .with_animation_frame(animation_frame),
-    );
-    let Some(hit_aabb) = damageable.iter().find(|part| event.volume.intersects(part)) else {
+    // The published parts already read `BossAttackState` and the live animation
+    // sample — `refresh_boss_damageable_volumes` does that once, after
+    // `Playback`, so GNU-ton's head-descent window and the standard whole-body
+    // hurtbox agree because they are the SAME value rather than because two
+    // derivations were written to match.
+    let Some(hit_aabb) = damageable
+        .volumes
+        .iter()
+        .find(|part| event.volume.intersects(part))
+    else {
         return false;
     };
     // Speech bubble bark when player lands a hit, debounced by hit_flash.

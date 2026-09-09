@@ -406,6 +406,12 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
         ));
     app.add_plugins(crate::character_runtime::CharacterRuntimePlugin);
+    // A2a: the damage-facing publication covers BOSSES as well as ordinary
+    // bodies now, and the boss publisher reads the catalog. This fixture has no
+    // boss, so the empty catalog is all it owes — but it owes it explicitly
+    // rather than through an `Option` that would let a real composition forget
+    // the catalog and publish no boss geometry at all, silently.
+    app.insert_resource(ambition_boss_encounter::BossCatalog::default());
     // The PRODUCTION registration of the publication, ordering included.
     crate::features::register_damage_facing_volume_publication(&mut app);
     let sim = app.sim_schedule();

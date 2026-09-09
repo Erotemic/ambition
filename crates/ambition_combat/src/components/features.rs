@@ -201,6 +201,24 @@ impl DamageableVolumes {
     }
 }
 
+/// The barrier after which every damage consumer may read published hurt
+/// geometry, and before which no consumer may.
+///
+/// ⛔⛔ **IT EXISTS BECAUSE THE PUBLICATION HAPPENS TWICE AND ONLY ONE OF THEM
+/// IS THIS ONE.** `refresh_body_damageable_volumes` is registered in `WorldPrep`
+/// for the pogo derivation and the collision overlay, and again between
+/// `Playback` and `Resolve` for damage — same rule, two consumers with different
+/// timing needs. A producer that ordered itself `.before(the function)` named a
+/// `SystemTypeSet` with two instances and Bevy refused the schedule. This set
+/// names the SECOND registration, so an input's writer can say which sample it
+/// must precede.
+///
+/// ⚠ MEMBERSHIP IS THE CLAIM. A system in here promises the damage road that its
+/// geometry is current for this tick; a consumer outside it that derives hurt
+/// geometry for itself is the defect A2a removed three instances of.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DamageFacingVolumesPublished;
+
 /// Per-feature pogo derivation policy.
 ///
 /// The default game rule is that things a body can damage are also valid

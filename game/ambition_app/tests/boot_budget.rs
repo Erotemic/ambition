@@ -245,6 +245,20 @@ fn no_system_is_registered_twice_in_one_schedule() {
             "target_volumes::refresh_body_damageable_volumes",
             "two consumers with different timing needs",
         ),
+        // ⭐ A2a: BOSSES JOINED THE SECOND PUBLICATION, and the decision is the
+        // same one, made deliberately rather than discovered here. A boss
+        // published once, in `WorldPrep`, chained AHEAD of its own brain and
+        // animator — so the value described the previous frame and all three
+        // damage-side consumers re-derived the geometry instead. They read the
+        // publication now, and it is republished in the window they were
+        // hand-rolling: after `Playback`, before `Resolve`. The `WorldPrep` copy
+        // stays because the pogo derivation and the collision overlay are
+        // rebuilt in that set and need it there.
+        (
+            "GgrsSchedule",
+            "target_volumes::refresh_boss_damageable_volumes",
+            "two consumers with different timing needs; damage reads the second",
+        ),
         // `ambition_portal2d/src/rollback_registration.rs` — each of these is
         // registered under BOTH its old and its new name, deliberately, so the
         // compatibility registration keeps the rollback schema byte-for-byte. The

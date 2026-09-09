@@ -320,3 +320,96 @@ fn the_checkpoint_records_where_the_resting_body_stood() {
     );
     assert_eq!(checkpoint.room_id, "shrine_room");
 }
+
+/// ⛔⛔ **`OnRest` WAS A SYNONYM FOR `DeadStaysDead` IN THE SHIPPED GAME.**
+///
+/// An `OnRest` placement's death writes `enemy_<id>_dead_until_rest`, and
+/// `AmbitionGameSave::clear_dead_until_rest_flags` exists to drop those at a
+/// rest. Measured 2026-09-09 by `git grep`: that function's ONLY occurrence in
+/// the whole workspace was its own definition. Nothing called it. So the flag was
+/// written and never cleared, and every placement authored `OnRest` stayed dead
+/// forever — an authored policy that reads as a mechanic and was, in effect, a
+/// second spelling of the policy beside it.
+///
+/// ⭐ THE OTHER TWO FLAG FAMILIES ARE THE MEASUREMENT, not decoration. A rest
+/// that cleared everything would pass an `OnRest`-only assertion and quietly
+/// resurrect the bodies a `DeadStaysDead` death is supposed to keep down — which
+/// is the opposite defect and just as invisible.
+#[test]
+fn resting_revives_only_the_bodies_whose_policy_says_until_rest() {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ShrineActivationPulse>();
+    app.add_systems(Update, heal_save_shrine_system);
+
+    // Three deaths, three policies' worth of record.
+    {
+        let mut save = app
+            .world_mut()
+            .resource_mut::<ambition_persistence::save::AmbitionGameSave>();
+        let data = save.data_mut();
+        data.set_flag(
+            &crate::features::enemy_dead_until_rest_flag("rests_away"),
+            true,
+        );
+        data.set_flag(&crate::features::enemy_dead_flag("stays_dead"), true);
+        data.set_flag("a_door_the_player_opened", true);
+    }
+
+    let player = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            ActorControl::default(),
+            BodyKinematics {
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                size: Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+            BodyBaseSize {
+                base_size: Vec2::new(24.0, 40.0),
+            },
+            BodyHealth::new(ambition_characters::actor::Health {
+                current: 1,
+                max: 5,
+                invulnerable: Default::default(),
+            }),
+            BodyMana::default(),
+        ))
+        .id();
+    app.world_mut().spawn(HealShrine {
+        pos: Vec2::new(100.0, 100.0),
+        half_extent: Vec2::new(22.0, 40.0),
+    });
+    app.world_mut()
+        .get_mut::<ActorControl>(player)
+        .unwrap()
+        .0
+        .interact_pressed = true;
+    app.update();
+
+    let save = app
+        .world()
+        .resource::<ambition_persistence::save::AmbitionGameSave>();
+    let data = save.data();
+    assert!(
+        !data.flag(&crate::features::enemy_dead_until_rest_flag("rests_away")),
+        "resting left the `until rest` death record standing, so an `OnRest` \
+         placement never comes back and the policy is a synonym for \
+         `DeadStaysDead`"
+    );
+    assert!(
+        data.flag(&crate::features::enemy_dead_flag("stays_dead")),
+        "resting revived a `DeadStaysDead` body, which is the opposite defect: a \
+         rest that clears everything looks identical to a correct one until \
+         somebody kills the thing that is supposed to stay killed"
+    );
+    assert!(
+        data.flag("a_door_the_player_opened"),
+        "resting cleared an unrelated world flag — the rest mechanic reaches only \
+         the deaths that recorded themselves as waiting for one"
+    );
+}

@@ -368,6 +368,49 @@ all three of its acceptance clauses already hold:
 nobody can reproduce costs the next reader the same re-derivation. The rule this
 follows is the file's own: a row stays only when an engineer can act on it.
 
+### D-RESET-ROAD-RESIDUE — retire the pre-reconstruction actor room reset
+
+**Owner:** actor integration / room reconstruction.
+
+`ActorMutIntegrationExt::reset_to_spawn` restores an enemy's spatial baseline,
+health and respawn policy in place on a surviving entity. **Measured 2026-09-08:
+it has no production caller** — `git grep` finds only its own definition and the
+four `#[cfg(test)] respawn_policy_tests`, and `check_no_warnings` is RED on it
+(`dead_code`, unused since `b1f42c79b`).
+
+It is superseded rather than merely unwired: a room transition retires every
+`RoomResident` and rebuilds the destination from its construction plan
+(`room_transition/commit.rs`), and a same-room replay reconstructs the population
+at the confirmed lifecycle boundary. The entity a reset-in-place would have
+restored does not survive either road.
+
+⛔ **THE FOUR TESTS ARE A FALSE WITNESS AND THAT IS THE POINT OF THE ROW.** They
+assert respawn-policy semantics — a `DeadStaysDead` corpse stays dead through a
+room reset, an `OnRoomReenter` mob comes back — against a function the game never
+executes. Deleting the function without replacing them leaves the same coverage
+in fact and less on paper; the row is only done when the shipped reconstruction
+answers those questions.
+
+⭐ **THE `OnRest` HALF LANDED 2026-09-09, and it was a live gameplay defect
+rather than residue.** `AmbitionGameSave::clear_dead_until_rest_flags` had ZERO
+callers in the whole workspace — its only occurrence was its own definition — so
+an `OnRest` death wrote `enemy_<id>_dead_until_rest`, nothing ever cleared it,
+and `OnRest` behaved exactly like `DeadStaysDead` across the 14 shipped
+placements that author it (`scripts/measure_persisting_enemy_placements.py`: two
+rooms, `pirate_sky_arena` and `pirate_sky_lookout`). A rest clears them now, at
+the shrine seam rather than on `CheckpointCommitted` — that message is "whatever
+a game decides a checkpoint is", including an autosave, and reviving a corpse
+because the game autosaved is not the mechanic. The suffix has one owner instead
+of two spellings with a comment asking a reader to keep them in sync.
+
+**Do:** delete the method and its tests, and add the equivalent assertions
+against the real room re-enter in the visible-app or sim harness. Do not silence
+the warning: it is pointing at this.
+
+**Acceptance:** re-entering a room revives an `OnRoomReenter` enemy and leaves a
+`DeadStaysDead` corpse dead, asserted through the shipped reconstruction; a poison
+on the reconstruction's liveness gate reddens it; `check_no_warnings` is green.
+
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
 **Owner:** registry/identity owners.

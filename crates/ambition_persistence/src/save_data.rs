@@ -10,6 +10,15 @@
 
 use serde::{Deserialize, Serialize};
 
+
+/// The suffix every `OnRest` death flag ends with.
+///
+/// ⭐ ONE SPELLING, HERE, because the dependency already runs this way: the
+/// gameplay crate that builds these ids depends on persistence, not the other way
+/// round. It used to be a literal in this file and a `const` in that crate, with
+/// a comment asking a reader to keep them in sync.
+pub const DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
+
 /// One persisted encounter (e.g. goblin encounter) entry. Only the terminal /
 /// in-progress states matter for save reconstruction; `Inactive`
 /// reconstructs to "fresh attempt available" without needing an entry.
@@ -718,19 +727,26 @@ impl AmbitionGameSaveData {
         }
     }
 
-    /// Clear every flag whose id ends with `_dead_until_rest`. Used
-    /// by the sandbox rest mechanic to revive enemies whose
-    /// archetype policy is OnRest. Returns the number of flags
-    /// dropped — useful for HUD feedback and tests.
+    /// Clear every flag whose id ends with [`DEAD_UNTIL_REST_SUFFIX`] — the rest
+    /// mechanic reviving the bodies whose policy is `OnRest`. Returns how many
+    /// were dropped.
     ///
-    /// The suffix is duplicated as a literal here (rather than
-    /// imported from the sandbox crate) so the engine save module
-    /// stays free of sandbox dependencies; keep the two in sync —
-    /// the sandbox side declares it as
-    /// `crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX`.
+    /// ⛔⛔ **IT HAD NO CALLER AT ALL, which is the defect it exists to
+    /// prevent.** Measured 2026-09-09 by `git grep`: this function's only
+    /// occurrence in the workspace was its own definition. So an `OnRest` death
+    /// wrote its flag, nothing ever cleared it, and `OnRest` behaved exactly like
+    /// `DeadStaysDead` in the shipped game — an authored policy that reads as a
+    /// mechanic and was a synonym.
+    ///
+    /// ⚠ AND THE SUFFIX WAS SPELLED TWICE. This doc used to say "keep the two in
+    /// sync" and point at `ENEMY_DEAD_UNTIL_REST_SUFFIX` in the gameplay crate. A
+    /// comment is not synchronisation, and the dependency already runs the other
+    /// way: that crate depends on this one, so the spelling lives here and is
+    /// re-exported there.
     pub fn clear_dead_until_rest_flags(&mut self) -> usize {
         let before = self.flags.len();
-        self.flags.retain(|f| !f.id.ends_with("_dead_until_rest"));
+        self.flags
+            .retain(|f| !f.id.ends_with(DEAD_UNTIL_REST_SUFFIX));
         before - self.flags.len()
     }
 

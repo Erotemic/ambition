@@ -497,7 +497,7 @@ both arms, poison-verified.
   matching what the body branch already did.
 
 - ~~The family-predicate deletion gate~~ **CLOSED 2026-09-09.**
-  `ecs_hit_event_hits_actor`, `_boss` and `_breakable` answered "does this strike
+  `ecs_hit_event_hits_actor`, `_boss` and `_breakable` <!-- cite-ok: deleted by this row --> answered "does this strike
   volume overlap something right now" — the right question for a melee hitbox
   that exists for a window of frames, the wrong one for a projectile that crosses
   its target between two samples. Once contact became swept the stepper stopped
@@ -505,7 +505,7 @@ both arms, poison-verified.
   and this document's own rule — delete a predicate only after every caller has
   migrated — was satisfied. Deleted.
 
-  ⚠ `ecs_hit_event_hits_actor` had no production caller even BEFORE that. It was
+  ⚠ `ecs_hit_event_hits_actor` <!-- cite-ok: deleted by this row --> had no production caller even BEFORE that. It was
   reachable, tested, and unreached, so its four-state `DamageableVolumes` claim
   was pinned against a function nobody ran. The claim moved onto
   `strike_reaches_victim` — what every consumer of the rule actually calls —

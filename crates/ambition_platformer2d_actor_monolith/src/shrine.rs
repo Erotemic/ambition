@@ -133,6 +133,34 @@ pub fn heal_save_shrine_system(
         }
         checkpoint_written = true;
 
+        // ⛔⛔ **THE REST REVIVES WHAT RESTED-AWAY DEATH RECORDED, and until now
+        // nothing did.** An `OnRest` placement's death writes
+        // `enemy_<id>_dead_until_rest`, and `AmbitionGameSave::clear_dead_until_
+        // rest_flags` exists to drop those. Measured 2026-09-09 by `git grep`:
+        // that function's only occurrence in the whole workspace was its own
+        // definition. Nothing called it. So the flag was written and never
+        // cleared, and `OnRest` behaved exactly like `DeadStaysDead` — an
+        // authored policy that reads as a mechanic and was a synonym, across the
+        // shipped placements that use it.
+        //
+        // ⭐ HERE, AND NOT ON `CheckpointCommitted`. That message is "whatever a
+        // game decides a checkpoint is" — a shrine, a flag, a room entry, an
+        // AUTOSAVE — and reviving a corpse because the game autosaved is not the
+        // mechanic. Resting is a deliberate act, and this is the seam where the
+        // deliberate act happens.
+        //
+        // ⚠ INSIDE THE `checkpoint_written` GUARD, so it is one fact per tick
+        // like the checkpoint beside it: two seats resting on the same tick must
+        // not clear the flags twice, and the count below would be a lie about the
+        // second.
+        let revived = save.data_mut().clear_dead_until_rest_flags();
+        if revived > 0 {
+            bevy::log::info!(
+                target: "ambition_platformer2d::shrine",
+                "shrine: rest revived {revived} body/bodies whose policy is OnRest"
+            );
+        }
+
         // THE CHECKPOINT.
         //
         // Written for the PRIMARY player's session, not the possessed subject's body:

@@ -13,7 +13,12 @@ pub(crate) use integration::SeedActorIntegrationTestExt;
 
 
 /// Shared suffix for persistent `_dead_until_rest` flags.
-pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
+///
+/// ⭐ RE-EXPORTED, NOT DECLARED. The save module owns the spelling because it is
+/// the one that has to RECOGNISE these ids when a rest clears them, and this
+/// crate already depends on it. Two `const`s with a comment asking a reader to
+/// keep them in sync is not synchronisation.
+pub use ambition_persistence::save_data::DEAD_UNTIL_REST_SUFFIX as ENEMY_DEAD_UNTIL_REST_SUFFIX;
 
 /// The save flag a `DeadStaysDead` placement's death writes.
 pub fn enemy_dead_flag(id: &str) -> String {

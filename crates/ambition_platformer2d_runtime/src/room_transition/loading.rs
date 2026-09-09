@@ -1319,6 +1319,53 @@ pub fn authorize_ready_room_transition_system(
 /// presentation adapter. A windowed host keeps the failed transaction resident
 /// so the loading foreground can offer retry/cancel while the source room stays
 /// intact.
+/// Give a failed checkpoint restore its terminal answer, on BOTH hosts.
+///
+/// ⛔⛔ WITHOUT THIS A FAILED PREPARATION RETRIED FOREVER. The transaction was
+/// torn down while its lifecycle intent stayed PENDING, so readiness opened a
+/// new transaction for the same intent on the next frame, against the same
+/// invalid definition — and the accepted operation was never retired, so nothing
+/// said the session was stuck.
+///
+/// ⚠ CHECKPOINT OPERATIONS ONLY. A door whose preparation failed transiently may
+/// legitimately be retried; a checkpoint restore's protocol says an invalid
+/// definition is terminal, and only the checkpoint road recorded the intent this
+/// cancels. Widening it to every transition is a separate ruling.
+///
+/// ⭐ IT RUNS BEFORE THE HEADLESS FINALIZER AND ON THE VISIBLE HOST ALIKE,
+/// because the transaction reaches `Failed` in seven places and is torn down in
+/// two — terminalizing at the phase rather than at either teardown is what keeps
+/// the two hosts from needing separate answers. Idempotent: retiring the
+/// operation makes the second call find nothing.
+pub fn terminalize_failed_checkpoint_restore_system(
+    state: Res<RoomTransitionLoadState>,
+    mut accepted: ResMut<
+        ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore,
+    >,
+    mut outcomes: ResMut<
+        ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes,
+    >,
+    mut pending: ResMut<
+        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+    >,
+) {
+    let Some(key) = state
+        .active
+        .as_ref()
+        .filter(|active| active.phase == RoomTransitionLoadPhase::Failed)
+        .and_then(|active| active.checkpoint_operation)
+    else {
+        return;
+    };
+    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::cancel_accepted_checkpoint_restore(
+        &mut accepted,
+        &mut outcomes,
+        &mut pending,
+        key,
+        ambition_platformer2d_actor_monolith::session::checkpoint::RestoreCancellation::PreparationFailed,
+    );
+}
+
 pub fn finalize_unpresented_room_transition_failure_system(
     presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
     mut state: ResMut<RoomTransitionLoadState>,
@@ -1560,5 +1607,294 @@ mod tests {
         assert!(active.cover_required && !active.cover_presented);
         active.cover_presented = true;
         assert!(active.cover_presented);
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_failure_tests {
+    use super::*;
+    use ambition_platformer2d_actor_monolith::session::checkpoint::{
+        AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation,
+        SessionCheckpointOperations, SessionCheckpointOutcomes,
+    };
+    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::prelude::App;
+
+    fn crossing() -> LifecycleIntent {
+        LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: SimId::placement("hero"),
+            target_room: "a_room_that_cannot_be_prepared".into(),
+            arrival: ambition_platformer2d_core::Vec2::ZERO,
+            edge_exit: false,
+            zone_sfx: None,
+        })
+    }
+
+    /// ⛔⛔ **AN ADMITTED RESTORE WHOSE PREPARATION FAILS MUST END, AND END ONCE.**
+    ///
+    /// This is the protocol's *"admitted / invalid preparation"* row, and before
+    /// this system it was half-true. Preparation failure tore the transaction
+    /// down and left the lifecycle intent PENDING, so readiness opened a new
+    /// transaction for the same intent on the very next frame — against the same
+    /// invalid definition, forever. The accepted operation was never retired and
+    /// no outcome was ever published, so a session could spend every frame
+    /// failing one preparation with nothing saying so.
+    ///
+    /// ⚠ "NOTHING DESTRUCTIVE RAN" WAS NOT ENOUGH, and I recorded this row as
+    /// closed on exactly that argument. It is true — every domain reducer lives
+    /// in the commit's schedule — and it proves only the *retain live state* half.
+    /// TERMINALIZATION and *no permanent retry* are separate claims and needed
+    /// this.
+    #[test]
+    fn a_failed_preparation_ends_the_operation_once_and_does_not_retry_it() {
+        let mut app = App::new();
+        app.init_resource::<RoomTransitionLoadState>();
+        app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.init_resource::<PendingLifecycleCommit>();
+
+        let key = SessionCheckpointOperations::default()
+            .admit(None)
+            .expect("a fresh counter mints a key");
+        app.world_mut()
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(AcceptedRestore {
+                key,
+                frame: 0,
+                intent: crossing(),
+                occurrences: Default::default(),
+                custody: Default::default(),
+                item: None,
+            });
+        assert!(app
+            .world_mut()
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, crossing())
+            .admitted());
+
+        let mut active = ActiveRoomTransitionLoad {
+            sequence: 1,
+            content_epoch: 0,
+            session_scope: None,
+            source_room: 0,
+            source_room_id: "here".to_string(),
+            target_room: 1,
+            intent: crossing(),
+            construction_plan: None,
+            barrier: LoadBarrierRef::new("load", "ready"),
+            commit_not_before_tick: 0,
+            cover_required: false,
+            cover_presented: true,
+            phase: RoomTransitionLoadPhase::Failed,
+            failure: Some("the destination room could not be prepared".into()),
+            asset_work_id: LoadWorkId::new("room-transition.assets:x"),
+            staged_actor_names: Vec::new(),
+            asset_readiness_complete: false,
+            last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
+            prefetch_hit: false,
+            checkpoint_operation: Some(key),
+            construction_preflight_duration: None,
+            asset_manifest_duration: None,
+            requested_at: None,
+            asset_ready_at: None,
+            ready_at: None,
+            cover_presented_at: None,
+            commit_duration: None,
+            committed_at: None,
+        };
+        active.failure = Some("preparation failed".into());
+        app.world_mut()
+            .resource_mut::<RoomTransitionLoadState>()
+            .active = Some(active);
+
+        app.add_systems(bevy::prelude::Update, terminalize_failed_checkpoint_restore_system);
+        app.update();
+
+        // ── ONE TERMINAL ANSWER, AND IT SAYS WHY ────────────────────────────
+        let outcome = *app
+            .world()
+            .resource::<SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .expect("a failed preparation must terminate its operation");
+        assert_eq!(
+            outcome.cancellation(),
+            Some(RestoreCancellation::PreparationFailed),
+            "the operation ended without saying why, or ended as a FAILURE — \
+             which would claim destructive application had run and left the world \
+             unverified. Nothing was applied: this is a cancellation"
+        );
+        assert!(
+            outcome.failure().is_none(),
+            "a cancellation before destructive application must not report a \
+             verification failure"
+        );
+
+        // ── AND IT WILL NOT BE TRIED AGAIN ──────────────────────────────────
+        assert!(
+            app.world()
+                .resource::<AcceptedCheckpointRestore>()
+                .accepted()
+                .is_none(),
+            "the candidate outlived the operation it belonged to"
+        );
+        assert!(
+            app.world()
+                .resource::<PendingLifecycleCommit>()
+                .peek()
+                .is_none(),
+            "the lifecycle intent stayed pending after its preparation failed, so \
+             readiness opens a NEW transaction for it next frame — against the \
+             same invalid definition, forever"
+        );
+
+        // ⛔ IDEMPOTENT. The transaction is still `Failed` this frame; a second
+        // pass must not publish a second answer for one operation.
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<SessionCheckpointOutcomes>()
+                .outcome_for(key)
+                .map(|outcome| outcome.cancellation()),
+            Some(Some(RestoreCancellation::PreparationFailed)),
+            "a second terminal answer was published for one operation"
+        );
+    }
+
+    /// ⛔ A FAILED DOOR IS NOT THIS SYSTEM'S BUSINESS. A transient preparation
+    /// failure on an ordinary crossing may legitimately be retried; only the
+    /// checkpoint road's protocol calls an invalid definition terminal, and only
+    /// it recorded the intent this would spend.
+    #[test]
+    fn a_failed_ordinary_crossing_is_left_alone() {
+        let mut app = App::new();
+        app.init_resource::<RoomTransitionLoadState>();
+        app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.init_resource::<PendingLifecycleCommit>();
+        assert!(app
+            .world_mut()
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, crossing())
+            .admitted());
+
+        let active = ActiveRoomTransitionLoad {
+            sequence: 1,
+            content_epoch: 0,
+            session_scope: None,
+            source_room: 0,
+            source_room_id: "here".to_string(),
+            target_room: 1,
+            intent: crossing(),
+            construction_plan: None,
+            barrier: LoadBarrierRef::new("load", "ready"),
+            commit_not_before_tick: 0,
+            cover_required: false,
+            cover_presented: true,
+            phase: RoomTransitionLoadPhase::Failed,
+            failure: Some("preparation failed".into()),
+            asset_work_id: LoadWorkId::new("room-transition.assets:x"),
+            staged_actor_names: Vec::new(),
+            asset_readiness_complete: false,
+            last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
+            prefetch_hit: false,
+            // No checkpoint operation: an ordinary door.
+            checkpoint_operation: None,
+            construction_preflight_duration: None,
+            asset_manifest_duration: None,
+            requested_at: None,
+            asset_ready_at: None,
+            ready_at: None,
+            cover_presented_at: None,
+            commit_duration: None,
+            committed_at: None,
+        };
+        app.world_mut()
+            .resource_mut::<RoomTransitionLoadState>()
+            .active = Some(active);
+        app.add_systems(bevy::prelude::Update, terminalize_failed_checkpoint_restore_system);
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<PendingLifecycleCommit>()
+                .peek()
+                .is_some(),
+            "an ordinary crossing's intent was spent by the checkpoint road's \
+             terminalization, so a retryable door failure became permanent"
+        );
+        assert!(app
+            .world()
+            .resource::<SessionCheckpointOutcomes>()
+            .latest()
+            .is_none());
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_failure_installation_tests {
+    /// ⛔⛔ **THE LOGIC TEST ABOVE ADDS THE SYSTEM ITSELF, so it says nothing
+    /// about whether anything runs it.** A terminalization nobody installs is a
+    /// failed preparation that retries forever, and that test would be green
+    /// throughout. Ask the SCHEDULE.
+    ///
+    /// ⚠ IT COUNTS RATHER THAN NAMES, because a system's name is
+    /// `"<Enable the debug feature to see the name>"` in an ordinary build —
+    /// measured, after writing the naming version first. A count fires on
+    /// REMOVAL, which is the regression that matters here; it cannot say WHICH
+    /// four, so the four are named in this comment instead:
+    ///
+    /// ```text
+    /// begin_room_transition_load_system
+    /// authorize_ready_room_transition_system
+    /// terminalize_failed_checkpoint_restore_system   <- the one this defends
+    /// finalize_unpresented_room_transition_failure_system
+    /// ```
+    ///
+    /// ⭐ THEIR ORDER NEEDS NO ASSERTION: the host installs them as one
+    /// `.chain()`, so the terminalization runs before the teardown that takes
+    /// the transaction away by construction. What could silently go is
+    /// MEMBERSHIP.
+    #[test]
+    fn the_readiness_chain_still_carries_the_checkpoint_terminalization() {
+        use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
+        use bevy::prelude::{App, Update};
+
+        let mut app = App::new();
+        app.add_plugins(super::super::RoomTransitionComposerPlugin);
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(Update)
+            .expect("the plugin installs Update systems")
+            .graph();
+        let set = NodeId::Set(
+            graph
+                .system_sets
+                .get_key(super::super::RoomTransitionReadinessSet.intern())
+                .expect("the readiness set is registered"),
+        );
+        let members = graph
+            .systems
+            .iter()
+            .filter(|(key, _, _)| {
+                graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(set, NodeId::System(*key))
+            })
+            .count();
+        assert_eq!(
+            members, 4,
+            "the room-transition readiness chain does not hold four systems. If \
+             the checkpoint terminalization is the one that left, a failed \
+             preparation keeps its lifecycle intent and readiness reopens it \
+             every frame, against the same invalid definition, forever"
+        );
     }
 }

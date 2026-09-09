@@ -18,7 +18,7 @@ fresh source/behavior preflight for every packet
     |
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
-    |           -> A1c selected checkpoint through common commit (DONE; A1 complete)
+    |           -> A1c selected checkpoint through common commit (DONE; A1 has one open row)
     |               -> A7 item horizon/custody separation (after writer inventory)
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
@@ -65,10 +65,11 @@ lint, naming or policy work is nearby.
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 
-**A1 IS COMPLETE, 2026-09-08.** Every acceptance row is closed — fifteen by a
-witness, two structurally with the guard that keeps the structure true. The two
-remaining items in the queue are deliberate non-goals needing a new decision, not
-gaps in the packet.
+**A1's implementation is complete; closure has one open row.** Sixteen of
+seventeen acceptance rows have a witness that fails for that row's property. The
+prefetched-plan arm does not — it is reachable in the visible-app composition and
+its structural argument is supporting evidence, not a close. A structural close
+was tried for the prepare-failure row and covered only half of it.
 A1c closes the cross-domain reset-admission defect. **Normative owner:**
 [checkpoint restoration protocol](checkpoint-restoration-protocol.md). Follow its
 state machine, source/destination table, commit ordering and acceptance matrix;

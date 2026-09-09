@@ -11,8 +11,9 @@
 //! file"* — but the reader never had anything to do with the shrine entity.
 //!
 //! ⛔ INSTALLATION MOVED WITH THEM. `ItemPickupSimulationPlugin` initialized
-//! [`CheckpointResumeProgress`] and installed the startup resume, which made a
-//! composition's ability to resume a session depend on it having held items.
+//! the startup resume's progress state and installed the resume itself, which
+//! made a composition's ability to resume a session depend on it having held
+//! items.
 //! [`SessionCheckpointHorizonPlugin`] owns both now.
 
 use bevy::prelude::*;
@@ -925,6 +926,51 @@ pub fn apply_committed_checkpoint_restore(
     true
 }
 
+/// End an accepted restore that never reached destructive application.
+///
+/// ⛔⛔ **TERMINAL, AND THAT IS THE WHOLE POINT.** Before this existed, a room
+/// transaction whose preparation failed was torn down while its lifecycle intent
+/// stayed pending — so readiness opened a NEW transaction for the same intent on
+/// the next frame, against the same invalid definition, forever. The accepted
+/// operation was never retired and no outcome was ever published, so a session
+/// could sit failing one preparation with nothing saying so.
+///
+/// ⭐ ONE OPERATION, ONE TERMINAL ROAD. Retirement without an outcome was the
+/// second completion mechanism this packet exists to remove; a cancelled
+/// operation is ANSWERED, and its answer says why.
+///
+/// Returns whether it cancelled anything: `false` means this transaction was not
+/// a checkpoint restore, or the operation had already been answered.
+pub fn cancel_accepted_checkpoint_restore(
+    accepted: &mut AcceptedCheckpointRestore,
+    outcomes: &mut SessionCheckpointOutcomes,
+    pending: &mut crate::session::lifecycle_commit::PendingLifecycleCommit,
+    key: CheckpointOperationKey,
+    reason: RestoreCancellation,
+) -> bool {
+    let Some(operation) = accepted.inputs_for_key(key).cloned() else {
+        return false;
+    };
+    // ⛔ THE INTENT GOES WITH IT, or the retry this exists to stop simply opens
+    // another transaction. Only THIS operation's intent: a slot holding somebody
+    // else's crossing is not this cancellation's to spend.
+    if pending
+        .peek()
+        .is_some_and(|slot| slot.kind == operation.intent)
+    {
+        pending.take();
+    }
+    let _ = accepted.retire();
+    outcomes.publish(CheckpointRestoreOutcome::Cancelled { key, reason });
+    bevy::log::warn!(
+        target: "ambition_platformer2d::session",
+        "checkpoint restore {key:?} cancelled ({}); the live world is unchanged \
+         and the operation will not be retried",
+        reason.reason(),
+    );
+    true
+}
+
 /// What went wrong, and the sentence that explains it.
 ///
 /// ⚠ THE SENTENCE IS DIAGNOSTIC AND GOES NO FURTHER THAN THE LOG. Which contract
@@ -1200,11 +1246,52 @@ impl RestoreFailure {
     }
 }
 
+/// Why an accepted restore ended without applying.
+///
+/// ⛔⛔ CANCELLED IS NOT A KIND OF FAILURE, and keeping them apart is the point.
+/// A cancellation happens BEFORE destructive application: the world is whole,
+/// the candidate is discarded, and nothing needs containing. A `Failed` outcome
+/// is the other side of that line — the application ran and the result did not
+/// verify, so gameplay is blocked and no claim is made about the old world.
+/// Collapsing them would make "the restore did not happen" and "the restore
+/// happened and left the world unverified" the same report.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestoreCancellation {
+    /// The destination could not be prepared. ⚠ Terminal, not retryable: an
+    /// invalid room definition is invalid again next frame, and retrying it is
+    /// how a session spends every frame failing the same preparation.
+    PreparationFailed,
+    /// The operation's lifecycle intent was retracted before it committed.
+    Retracted,
+}
+
+impl RestoreCancellation {
+    /// The reason's name, for the log line and for a test's assertion.
+    pub fn reason(self) -> &'static str {
+        match self {
+            Self::PreparationFailed => "preparation failed",
+            Self::Retracted => "retracted",
+        }
+    }
+
+    fn code(self) -> u8 {
+        match self {
+            Self::PreparationFailed => 1,
+            Self::Retracted => 2,
+        }
+    }
+}
+
 /// The terminal answer for one restore operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CheckpointRestoreOutcome {
     /// Applied and verified.
     Committed { key: CheckpointOperationKey },
+    /// Ended before destructive application. The live world is unchanged.
+    Cancelled {
+        key: CheckpointOperationKey,
+        reason: RestoreCancellation,
+    },
     /// Applied and did not verify. The world was NOT returned to its previous
     /// state; gameplay is blocked instead.
     Failed {
@@ -1216,7 +1303,9 @@ pub enum CheckpointRestoreOutcome {
 impl CheckpointRestoreOutcome {
     pub fn key(&self) -> CheckpointOperationKey {
         match self {
-            Self::Committed { key } | Self::Failed { key, .. } => *key,
+            Self::Committed { key }
+            | Self::Cancelled { key, .. }
+            | Self::Failed { key, .. } => *key,
         }
     }
 
@@ -1227,8 +1316,16 @@ impl CheckpointRestoreOutcome {
     /// The failure, if this outcome is one.
     pub fn failure(&self) -> Option<RestoreFailure> {
         match self {
-            Self::Committed { .. } => None,
+            Self::Committed { .. } | Self::Cancelled { .. } => None,
             Self::Failed { failure, .. } => Some(*failure),
+        }
+    }
+
+    /// Why it was cancelled, if it was.
+    pub fn cancellation(&self) -> Option<RestoreCancellation> {
+        match self {
+            Self::Cancelled { reason, .. } => Some(*reason),
+            Self::Committed { .. } | Self::Failed { .. } => None,
         }
     }
 
@@ -1245,6 +1342,11 @@ impl CheckpointRestoreOutcome {
                 put_u8(bytes, 1);
                 key.write_into(bytes);
                 put_u8(bytes, failure.code());
+            }
+            Self::Cancelled { key, reason } => {
+                put_u8(bytes, 2);
+                key.write_into(bytes);
+                put_u8(bytes, reason.code());
             }
         }
     }

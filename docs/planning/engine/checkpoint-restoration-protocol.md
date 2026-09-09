@@ -651,10 +651,10 @@ counted as a pass.
 | Missing primary during construction | `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists` (startup road); the reset road retains its request through the same absence |
 | Control changes after admission | `an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits`, poison-verified, premise asserted |
 | Capture changes while load waits | the same test's second assertion |
-| Same room, different checkpoint occurrence outlook | ✔ **CLOSED STRUCTURALLY, 2026-09-08.** Population side: `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding`, and preparation is fed the pinned view. Cache side: the prefetch prepares every neighbour with NO continuity, so every cached plan carries the DEFAULT outlook, and `promote` refuses a plan whose outlook differs from the one it is handed — which since A1c/3a is the PINNED operation's. ⇒ A cached plan can only be promoted for a reconstruction whose outlook is ALSO empty, which is exactly what an empty-outlook plan is correct for; it cannot serve one about a different population. `every_prefetched_plan_carries_an_empty_occurrence_outlook` guards the half that can rot (the `None` is an argument somebody could reasonably fill in to raise the hit rate), and the call site carries the same warning |
+| Same room, different checkpoint occurrence outlook | ⚠ **PARTIAL.** Population side: `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding`, and preparation is fed the pinned view. Cache side: the prefetch prepares every neighbour with NO continuity, so every cached plan carries the DEFAULT outlook, and `promote` refuses a plan whose outlook differs from the one it is handed — which since A1c/3a is the PINNED operation's. ⇒ A cached plan can only be promoted for a reconstruction whose outlook is ALSO empty, which is exactly what an empty-outlook plan is correct for; it cannot serve one about a different population. `every_prefetched_plan_carries_an_empty_occurrence_outlook` guards the half that can rot (the `None` is an argument somebody could reasonably fill in to raise the hit rate), and the call site carries the same warning. ⛔ **THE END-TO-END WITNESS IS STILL MISSING and the structural argument does not replace it.** It IS reachable — `build_visible_app` populates the cache, as `neighbor_prefetch_prepares_rooms.rs` shows — but three attempts have each stopped on a different obstacle, most recently `promote`'s cache-identity preconditions: calling it with the content epoch, session scope and source room read straight from the world still makes `reset_for` clear the cache, so the premise (it promotes for the outlook it WAS prepared against) fails before the refusal can be asked. Whoever takes this needs the cache's own stored identity, not the world's |
 | No checkpoint / invalid saved destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
 | Save adoption plus startup in one lifetime | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
-| Prepare failure / cancellation | Cancellation: `a_startup_resume_whose_operation_is_retracted_asks_again`. ⭐ **Preparation failure is STRUCTURAL since A1c/3b and needs no fixture:** nothing destructive runs before the commit — preparation builds a plan and mutates no world, and every domain reducer lives in `CheckpointDomainApply`, which only a commit executor reaches. "Current live data unchanged" is therefore not a behaviour to test but a consequence of where the reducers are registered, and `domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simulation` is what keeps it true. ⚠ Before 3b this row DID need a fixture, because the reducers ran in the simulation and a preparation that later failed had already spent the checkpoint |
+| Prepare failure / cancellation | `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it` (poison-verified) plus `the_readiness_chain_still_carries_the_checkpoint_terminalization` and `a_failed_ordinary_crossing_is_left_alone`; retraction keeps `a_startup_resume_whose_operation_is_retracted_asks_again`. ⛔ **I RECORDED THIS ROW CLOSED ON HALF AN ARGUMENT, 2026-09-08, and it was not.** "Nothing destructive runs before the commit" is true and proves *retain live state* — it says nothing about TERMINALIZATION or about permanent retry, and both were broken: a failed preparation tore its transaction down while leaving the lifecycle intent PENDING, so readiness reopened it every frame against the same invalid definition, with the accepted operation never retired and no outcome ever published |
 | Trusted failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure`, poison-verified |
 | Held / thrown / minted carried item | the death suite, plus `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
 | Restore followed by frame-zero rollback | the `rollback_lifecycle_reset` suite |
@@ -663,16 +663,11 @@ counted as a pass.
 | Domain-only reducer tests | the reducers are separated from their triggers; `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs` shows the inputs are the only entry |
 | Teardown and re-entry | `a_key_from_a_retired_session_matches_nothing_in_the_next_one` |
 
-⇒ **Every row is closed.** Fifteen have a witness that fails for that row's
-property; two — prepare-failure and the prefetched-plan arm — are closed
-STRUCTURALLY, each with the guard that keeps the structure true. A structural
-close is only honest when the structure is named and guarded, which is why both
-entries cite the specific line their argument rests on.
-
-⚠ The end-to-end prefetch fixture could never have gone red, and chasing it is
-how the structural answer was found: the two outlooks would differ and promotion
-would correctly miss. Three fixture attempts and two wrong diagnoses (missing
-content; a misplaced system) preceded reading the `None` that settles it.
+⇒ **Sixteen of seventeen rows have a witness that fails for that row's property.**
+The prefetched-plan arm does not, and its structural argument is recorded as
+supporting evidence rather than as a close — a structural close was tried for the
+prepare-failure row too and turned out to cover only half of it, which is the
+cautionary case for accepting one here.
 
 ### ⚠ SEPARATE FINDING, NOT AN A1 BLOCKER: one system prefetches neighbour assets *and* caches a construction plan
 

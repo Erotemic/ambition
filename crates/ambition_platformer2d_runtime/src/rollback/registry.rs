@@ -355,7 +355,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// primitive COUNT is unchanged (one `put_u8` of a discriminant, as before),
 /// which is exactly the shape this file's history records as the least
 /// wire-looking wire there is.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 175;
+/// ⭐ 175 -> 176 (2026-09-08): `CheckpointRestoreOutcome::Cancelled` joined the
+/// terminal-outcome set — a new variant AND a new reason code, both wire codes an
+/// old peer cannot produce. It exists because retirement-without-an-outcome was
+/// a second completion mechanism beside the terminal outcome this packet
+/// established, and because a restore that ended BEFORE destructive application
+/// (world whole, candidate discarded) is a different report from one that ended
+/// after (gameplay blocked, no claim about the old world).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 176;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

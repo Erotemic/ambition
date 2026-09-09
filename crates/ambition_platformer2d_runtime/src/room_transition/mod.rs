@@ -70,6 +70,11 @@ impl Plugin for RoomTransitionComposerPlugin {
             (
                 begin_room_transition_load_system,
                 authorize_ready_room_transition_system,
+                // ⭐ BEFORE THE TEARDOWN, and before the next frame's
+                // `begin_...` can open a replacement transaction for an intent
+                // this answers. Both hosts run it; only the headless finalizer
+                // below is host-specific.
+                loading::terminalize_failed_checkpoint_restore_system,
                 finalize_unpresented_room_transition_failure_system,
             )
                 .chain()

@@ -107,10 +107,12 @@ the protocol. Fifteen of seventeen rows have a witness that fails for that row's
 property.
 
 **Remaining before A1 closes:**
-- the two matrix rows that are NOT honestly closed — a prefetched plan built
-  against a different occurrence outlook losing to the candidate, and a
-  preparation FAILURE (as opposed to a retraction) leaving live data unchanged.
-  Both need an integration fixture;
+- the two matrix rows that are NOT honestly closed. ⚠ The prefetched-plan row is
+  blocked on AUTHORING, not on test-writing: it needs a ground item in a
+  neighbour of the session's room, and all 38 neighbours of
+  `central_hub_complex` were measured to author none. The preparation-FAILURE row
+  (as distinct from a retraction) needs a room whose construction can be made to
+  fail;
 - verification does not check body placement, clocks, portals or population
   completeness — add each with a case that fails for it alone;
 - the terminal outcome has no presentation consumer. When one is wanted, publish

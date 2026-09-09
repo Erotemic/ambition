@@ -1626,3 +1626,219 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
         "the restore materialized nothing for a banked custody row"
     );
 }
+
+/// Build a session that can admit a checkpoint reset, with the room the
+/// checkpoint names as the one it is standing in.
+///
+/// Shared by the acceptance rows below, which are all about what happens to an
+/// operation BETWEEN admission and commit and differ only in what they disturb.
+fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, ActiveSessionScope, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new(
+                    "Here",
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((
+        ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
+        super::SessionCheckpointHorizonPlugin,
+    ));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    (app, sim)
+}
+
+/// ⭐ **TWO RAW RESETS IN ONE TICK ARE ONE OPERATION.** (Acceptance row: "two raw
+/// reset requests in one tick".)
+///
+/// ⛔ THE COUNTER IS THE WITNESS, not the slot. The slot is earliest-sticky, so
+/// it would hold one intent however many times the session admitted — asserting
+/// on it alone would pass on a session that minted two operation keys and
+/// accepted the second over the first, which is two reconstructions' worth of
+/// consequences behind one crossing.
+#[test]
+fn two_reset_requests_in_one_tick_become_one_operation() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
+
+    let (mut app, sim) = a_session_that_can_reset();
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let accepted = app
+        .world()
+        .resource::<AcceptedCheckpointRestore>()
+        .accepted()
+        .expect("the reset was admitted")
+        .clone();
+    assert_eq!(
+        accepted.key.sequence, 0,
+        "the session minted more than one operation for one tick's requests, so \
+         two reconstructions' worth of consequences ride behind one crossing"
+    );
+    assert!(
+        !app.world().resource::<OutstandingCheckpointRequest>().0,
+        "the coalesced request was not spent by the operation that serves it"
+    );
+
+    // ⛔ AND A SECOND TICK WITH NO NEW REQUEST ADMITS NOTHING FURTHER.
+    app.world_mut().run_schedule(sim);
+    assert_eq!(
+        app.world()
+            .resource::<AcceptedCheckpointRestore>()
+            .accepted()
+            .map(|accepted| accepted.key),
+        Some(accepted.key),
+        "a later tick replaced the accepted operation without a new request"
+    );
+}
+
+/// ⭐⭐ **AN ADMITTED OPERATION IS NOT RETARGETED BY ANYTHING THAT HAPPENS WHILE
+/// IT WAITS.** (Acceptance rows: "control changes after admission" and "capture
+/// changes while load waits".)
+///
+/// A restore takes several frames to reach its commit, and both of the things
+/// that can change underneath it in that window are ways to restore the wrong
+/// world:
+///
+/// * the CONTROLLED body changes — possession, a death, a seat handover — and a
+///   restore that re-asked "who is controlled now" at commit time would transit
+///   somebody who never triggered it;
+/// * a CAPTURE lands — another shrine rest — and a restore that read the live
+///   baseline at commit would apply a checkpoint taken AFTER the one it was
+///   accepted for.
+///
+/// ⛔ NEITHER IS DEFENDED BY THE ORDER OF ANYTHING. They are defended by the
+/// values being pinned at acceptance, which is why this asserts the pinned
+/// values rather than a schedule edge.
+#[test]
+fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, OccurrenceBaseline, OccurrenceWhereabouts, ResetToCheckpoint,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let (mut app, sim) = a_session_that_can_reset();
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+
+    let key = app
+        .world()
+        .resource::<AcceptedCheckpointRestore>()
+        .accepted()
+        .expect("the reset was admitted")
+        .key;
+    let pinned = app
+        .world()
+        .resource::<AcceptedCheckpointRestore>()
+        .inputs_for_key(key)
+        .expect("its own key finds it")
+        .clone();
+    assert_eq!(
+        pinned.intent.subject(),
+        Some(&SimId::player_slot(0)),
+        "the operation did not record the body it is about"
+    );
+
+    // ── THE WORLD MOVES UNDER THE WAITING OPERATION ─────────────────────────
+    //
+    // A different body takes the primary seat, and a later checkpoint is
+    // committed over a different population.
+    {
+        let world = app.world_mut();
+        let mut primaries = world.query_filtered::<
+            bevy::prelude::Entity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let old: Vec<_> = primaries.iter(world).collect();
+        for entity in old {
+            world.entity_mut(entity).despawn();
+        }
+        world.spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            SimId::player_slot(3),
+        ));
+        let mut later = AuthoredOccurrences::default();
+        later.adopt_rows(
+            [(
+                SimId::placement("minted_after_the_operation"),
+                OccurrenceWhereabouts::InCustody,
+            )]
+            .into_iter()
+            .collect(),
+        );
+        let mut baseline = OccurrenceBaseline::default();
+        baseline.adopt(later);
+        world.insert_resource(baseline);
+    }
+    app.world_mut().run_schedule(sim);
+
+    // ⛔ THE PREMISE, ASSERTED. Without this the two checks below are satisfied
+    // by a world where nothing moved, and "the operation kept its values" would
+    // be indistinguishable from "nothing had different values to offer".
+    {
+        let world = app.world_mut();
+        let mut primaries = world.query_filtered::<
+            &SimId,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let live: Vec<SimId> = primaries.iter(world).cloned().collect();
+        assert_eq!(
+            live,
+            vec![SimId::player_slot(3)],
+            "the seat did not actually change hands, so the subject check below \
+             is about a world that never moved"
+        );
+    }
+    assert_ne!(
+        app.world().resource::<OccurrenceBaseline>().remembered(),
+        pinned.occurrences.remembered(),
+        "the later capture did not actually change the live baseline, so the \
+         snapshot check below is about a horizon that never moved"
+    );
+
+    let still = app
+        .world()
+        .resource::<AcceptedCheckpointRestore>()
+        .inputs_for_key(key)
+        .expect("the operation is still outstanding");
+    assert_eq!(
+        still.intent.subject(),
+        Some(&SimId::player_slot(0)),
+        "the admitted operation adopted whoever is controlled NOW. A restore \
+         several frames later would then transit a body that never triggered it"
+    );
+    assert_eq!(
+        still.occurrences, pinned.occurrences,
+        "a checkpoint committed while the operation waited retargeted it. The \
+         restore would apply a horizon taken AFTER the one it was accepted for"
+    );
+}

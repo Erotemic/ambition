@@ -622,6 +622,37 @@ existing production harnesses and domain test modules to a new test framework.
 | Domain-only reducer tests | Snapshot reduction works without session routing; production admission cannot be bypassed through that test entry |
 | Teardown and re-entry | Old request/load/context cannot act in the new session |
 
+### Audit, 2026-09-08 — which rows have a witness
+
+Run row by row against the tree, not inferred from the packets. ⛔ A row is
+"covered" only when a test FAILS for that row's property; several here are
+covered by a test written for something else, and that is recorded rather than
+counted as a pass.
+
+| Row | Witness |
+| --- | --- |
+| Busy slot plus different live and saved ledgers | `a_refused_reset_changes_no_domain_state_and_is_not_lost`, both halves poison-verified |
+| Busy slot released in same session | the same test's second half, and `a_refused_slot_leaves_the_checkpoint_resume_retryable` |
+| Two raw reset requests in one tick | `two_reset_requests_in_one_tick_become_one_operation` — asserts the operation COUNTER, because the earliest-sticky slot would hold one intent however many operations were minted |
+| Missing primary during construction | `a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists` (startup road); the reset road retains its request through the same absence |
+| Control changes after admission | `an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits`, poison-verified, premise asserted |
+| Capture changes while load waits | the same test's second assertion |
+| Same room, different checkpoint occurrence outlook | ⚠ **PARTIAL.** `a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding` covers a cross-room population the rebuild cannot republish, and preparation is structurally fed the pinned view — but no fixture drives a PREFETCHED plan built against a different outlook and shows the candidate winning. That is the row's actual hazard |
+| No checkpoint / invalid saved destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
+| Save adoption plus startup in one lifetime | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
+| Prepare failure / cancellation | `a_startup_resume_whose_operation_is_retracted_asks_again`; ⚠ a preparation FAILURE (as opposed to a retraction) has no fixture |
+| Trusted failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure`, poison-verified |
+| Held / thrown / minted carried item | the death suite, plus `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
+| Restore followed by frame-zero rollback | the `rollback_lifecycle_reset` suite |
+| Eager versus confirmed host | both executors poison-verified — the eager runner reddens 7 tests, the confirmed call reddens `a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked` |
+| Checkpoint-only composition | `a_checkpoint_only_composition_resumes_without_the_item_domain` |
+| Domain-only reducer tests | the reducers are separated from their triggers; `the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inputs` shows the inputs are the only entry |
+| Teardown and re-entry | `a_key_from_a_retired_session_matches_nothing_in_the_next_one` |
+
+⇒ **Two rows are not honestly closed:** the prefetched-plan arm of the outlook
+row, and preparation failure. Both need an integration fixture rather than a unit
+test, and neither is claimed as covered above.
+
 Existing integration witnesses include
 `game/ambition_app/tests/canonical_reconstitution.rs`,
 `game/ambition_app/tests/death_restores_the_checkpoint.rs` and

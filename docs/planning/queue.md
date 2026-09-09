@@ -102,11 +102,20 @@ counter's overflow path refuses the lifecycle slot rather than the identity
 (poison-verified), the key has one canonical projection, and the terminal outcome
 is a closed `RestoreFailure` rather than a free-form string.
 
-**Remaining before A1 closes:** verification does not check body placement,
-clocks, portals or population completeness — add each with a case that fails for
-it alone. The terminal outcome has no presentation consumer; when one is wanted,
-publish a message at completion rather than polling the session's
-single-latest-outcome resource.
+The acceptance matrix was audited row by row on 2026-09-08 and the result is in
+the protocol. Fifteen of seventeen rows have a witness that fails for that row's
+property.
+
+**Remaining before A1 closes:**
+- the two matrix rows that are NOT honestly closed — a prefetched plan built
+  against a different occurrence outlook losing to the candidate, and a
+  preparation FAILURE (as opposed to a retraction) leaving live data unchanged.
+  Both need an integration fixture;
+- verification does not check body placement, clocks, portals or population
+  completeness — add each with a case that fails for it alone;
+- the terminal outcome has no presentation consumer. When one is wanted, publish
+  a message at completion rather than polling the session's single-latest-outcome
+  resource.
 
 **Acceptance:** preparation/prefetch read the pinned snapshot rather than a
 modified live ledger; a checkpoint change invalidates a prefetched plan that

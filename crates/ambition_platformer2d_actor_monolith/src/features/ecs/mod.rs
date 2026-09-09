@@ -117,7 +117,7 @@ pub use chests::open_ecs_chests;
 pub use damage::apply_feature_hit_events;
 pub use damage_predicates::{
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    projectile_reaches_boss, projectile_reaches_breakable,
+    projectile_reaches_boss, projectile_reaches_breakable, FeatureContact,
 };
 pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs, EncounterRewardSyncPlugin,

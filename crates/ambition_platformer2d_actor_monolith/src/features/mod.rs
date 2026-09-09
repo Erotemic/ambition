@@ -124,7 +124,7 @@ pub use ecs::{
     drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, install_save_mirror, integrate_boss_bodies, integrate_sim_bodies,
-    projectile_reaches_boss, projectile_reaches_breakable,
+    projectile_reaches_boss, projectile_reaches_breakable, FeatureContact,
     interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
     project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,

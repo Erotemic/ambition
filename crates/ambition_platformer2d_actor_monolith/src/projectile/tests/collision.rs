@@ -564,6 +564,85 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
     );
 }
 
+/// ⛔⛔ **ONE SHOT BREAKS ONE CRATE, and it used to break every crate its
+/// contact box overlapped.**
+///
+/// The feature branch wrote `HitTarget::UnresolvedFeatures`, which hands the
+/// applier a VOLUME rather than a victim — and the applier's breakable fold has
+/// no `break`: it damages every breakable that volume intersects. So a shot
+/// whose box covered two touching crates destroyed both, and for a multi-part
+/// boss which part took the hit was a query-order answer a rewind need not
+/// reproduce. The swept contact already chose exactly one recipient; the event
+/// names it now.
+///
+/// ⚠ **THE FIRST VERSION OF THIS FIXTURE COULD NOT SEE THE DEFECT, and its
+/// poison passing is what said so.** It put the crates AHEAD of the shot: the
+/// contact box sits where the shot first touches, with its leading edge on the
+/// near crate's near face, so it can never reach a crate FURTHER ON — the
+/// broadcast and the named recipient gave the same answer and the test was
+/// green either way. The overlap a single contact box can span is BEHIND the
+/// contact point, so the two crates have to be inside the shot's own box at the
+/// moment it starts. Measured, not reasoned: the poison was run and passed.
+#[test]
+fn a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    let world = ae::World::new(
+        "open_lane",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        Vec::new(),
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    let mut spawn_crate = |app: &mut bevy::prelude::App, id: &str, x: f32| {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::FeatureId::new(id),
+                FeatureName::new(id),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+                ambition_combat::components::CenteredAabb::from_center_size(
+                    ae::Vec2::new(x, 300.0),
+                    ae::Vec2::new(8.0, 46.0),
+                ),
+                BreakableFeature::new(ambition_interaction::Breakable::new(id, 1)),
+            ))
+            .id()
+    };
+    // The shot spawns at 360 with a 24 px-wide box (348..372), so BOTH of these
+    // are already inside it on the frame it steps: one contact box, two crates.
+    let a = spawn_crate(&mut app, "crate_a", 356.0);
+    let b = spawn_crate(&mut app, "crate_b", 366.0);
+    {
+        let spec =
+            ProjectileKind::Fireball.spec(ae::Vec2::new(360.0, 300.0), ae::Vec2::new(1.0, 0.0), 1.0);
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        body.kin.vel = ae::Vec2::new(600.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let broken = |app: &bevy::prelude::App, entity: bevy::prelude::Entity| {
+        app.world()
+            .get::<BreakableFeature>(entity)
+            .expect("the crate is still an entity")
+            .broken()
+    };
+    let count = [a, b].into_iter().filter(|e| broken(&app, *e)).count();
+    // ⛔ THE FLOOR AND THE MEASUREMENT IN ONE NUMBER. Zero means the road damages
+    // nothing and the "only one" claim is vacuous; two is the defect.
+    assert_eq!(
+        count, 1,
+        "one shot resolved {count} crate(s) inside a single contact box. Zero \
+         means nothing was damaged at all and this fixture proves nothing; two \
+         means the event named no recipient, so the applier took its volume and \
+         damaged every breakable that volume overlapped — the swept contact had \
+         already chosen exactly one"
+    );
+}
+
 /// ⛔⛔ **THE DIRECT REQUEST IS WRITTEN BEFORE ITS LANDING SPLASH, ON BOTH
 /// RECEIVER ROADS.**
 ///
@@ -638,9 +717,8 @@ fn the_direct_request_precedes_its_landing_splash_for_a_feature_target() {
         2,
         "expected exactly the direct request and its one landing splash, got {seen:?}"
     );
-    assert_eq!(
-        seen[0],
-        HitTarget::UnresolvedFeatures,
+    assert!(
+        matches!(seen[0], HitTarget::Feature(_)),
         "the landing splash was written before the direct request it belongs to, \
          so a target that reacts to the first application — an i-frame window, a \
          one-hit break — resolves the AREA event and refuses the shot that \

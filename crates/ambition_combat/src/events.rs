@@ -387,7 +387,26 @@ pub enum HitTarget {
     /// Remainder of a strike after body victims were resolved by identity.
     /// Consumers must scan only non-body targets here or bodies receive duplicate damage.
     /// TODO(compat-remove): remove once bosses and breakables are directly resolvable victims.
+    ///
+    /// ⚠ THE PROJECTILE ROAD NO LONGER WRITES THIS — see [`Self::Feature`].
+    /// Melee and area callers still do, and they have their own scope: a swing
+    /// legitimately hunts for everything it overlaps.
     UnresolvedFeatures,
+    /// One pre-resolved NON-BODY recipient: a boss or a breakable, named by the
+    /// contact that selected it.
+    ///
+    /// ⛔⛔ **IT EXISTS BECAUSE A BROADCAST CHOOSES A DIFFERENT VICTIM THAN THE
+    /// CONTACT DID.** A projectile's swept contact picks the earliest feature it
+    /// reaches; [`Self::UnresolvedFeatures`] then handed the applier a VOLUME and
+    /// the applier damaged every breakable that volume overlapped — so one shot
+    /// through two adjacent crates broke both, and which boss a multi-part
+    /// encounter credited was a query-order answer. A direct contact fixes its
+    /// recipient before damage; this is that recipient.
+    ///
+    /// ⚠ EXACTLY ONE RECEIVER OWNS IT. A boss and a breakable cannot be the same
+    /// entity, so the two folds are disjoint by construction; a consumer that
+    /// found both would be a diagnostic, not a broadcast fallback.
+    Feature(bevy::prelude::Entity),
 }
 
 /// One hit waiting in the cross-frame FIFO, with the STABLE IDENTITIES of the

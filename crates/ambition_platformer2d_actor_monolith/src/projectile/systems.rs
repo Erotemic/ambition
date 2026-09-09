@@ -1014,11 +1014,11 @@ pub fn step_projectiles(
                 &ecs_bosses,
             ))
             .filter(|contact| !already_hit.hit.contains(&contact.target))
-            .min_by(|a, b| a.time.total_cmp(&b.time));
+            .min_by(crate::features::FeatureContact::order_for_caller);
             // A hair inside, for the reason the body branch and the world sweep
             // both state: `time_of_impact` leaves the box tangent and every
             // downstream overlap test is `strict_intersects`.
-            let feature_contact_box = match feature_contact {
+            let feature_contact_box = match feature_contact.as_ref() {
                 Some(contact) => {
                     let at = leg_start + feature_leg * contact.time;
                     let inward = (contact.target_center - at).normalize_or_zero();
@@ -1032,12 +1032,22 @@ pub fn step_projectiles(
                 damage: game.damage.max(1),
                 source: HitSource::Projectile,
                 attacker: owner_entity,
-                target: HitTarget::UnresolvedFeatures,
+                // ⭐ NAMED, and the sweep above is what names it. Sent as
+                // `UnresolvedFeatures` the applier took the VOLUME and damaged
+                // every breakable it overlapped, so one shot whose contact box
+                // spanned two adjacent crates broke both — and which part of a
+                // multi-part boss took the hit was a query-order answer a rewind
+                // need not reproduce. A direct contact fixes its recipient
+                // before damage.
+                target: match feature_contact.as_ref() {
+                    Some(contact) => HitTarget::Feature(contact.target),
+                    None => HitTarget::UnresolvedFeatures,
+                },
                 mode: HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
             };
-            if let Some(contact) = feature_contact {
+            if let Some(contact) = feature_contact.as_ref() {
                 // ⛔⛔ **DIRECT FIRST, THEN ITS LANDING AREA — and this branch had
                 // it backwards.** The ordinary body road writes the targeted
                 // request and then the splash; this one wrote the splash first,

@@ -362,7 +362,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// established, and because a restore that ended BEFORE destructive application
 /// (world whole, candidate discarded) is a different report from one that ended
 /// after (gameplay blocked, no claim about the old world).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 176;
+/// ⭐ 176 -> 177 (2026-09-09): `HitTarget::Feature(_)` joined the hit-event
+/// target set with its own wire tag (5). A projectile's direct contact names the
+/// boss or breakable it selected instead of broadcasting an `UnresolvedFeatures`
+/// volume the applier re-scans — which damaged every breakable the volume
+/// overlapped and let query order decide which part of a multi-part boss was
+/// credited. A peer on the old schema cannot produce the new tag, and a targeted
+/// feature hit must not compare equal to a broadcast remainder.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 177;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

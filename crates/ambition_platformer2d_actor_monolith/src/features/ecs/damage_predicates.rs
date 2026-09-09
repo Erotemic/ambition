@@ -88,14 +88,15 @@ pub fn projectile_reaches_breakable(
     breakables
         .iter()
         .filter(|(_, id, _, feature)| breakable_is_eligible(ignored_targets, id, feature))
-        .filter_map(|(entity, _, aabb, _)| {
+        .filter_map(|(entity, id, aabb, _)| {
             swept_box_reaches(start, half, delta, aabb.aabb()).map(|time| FeatureContact {
                 time,
                 target_center: aabb.aabb().center(),
                 target: entity,
+                target_id: id.as_str().to_string(),
             })
         })
-        .min_by(|a, b| a.time.total_cmp(&b.time))
+        .min_by(FeatureContact::order_for_caller)
 }
 
 /// Where along a projectile's travel it first reaches a feature, and which one.
@@ -106,7 +107,7 @@ pub fn projectile_reaches_breakable(
 /// came back, while one that hit a body did — because it had no way to remember
 /// WHOM it had already hit on this leg. The ordinary body branch has kept a
 /// per-leg ledger the whole time.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct FeatureContact {
     /// Normalized time in `[0, 1]` along the travel leg.
     pub time: f32,
@@ -114,6 +115,28 @@ pub struct FeatureContact {
     pub target_center: ambition_platformer2d_core::Vec2,
     /// Which feature was reached.
     pub target: Entity,
+    /// The authored identity, for breaking an exact tie.
+    ///
+    /// ⛔⛔ **A TIE MAY NOT BE DECIDED BY QUERY ORDER.** Two features a shot
+    /// reaches at the same instant — overlapping crates, two parts of one
+    /// encounter — compare equal on time, and `min_by` over an equal key hands
+    /// the answer back to archetype order, which a rollback resimulation does
+    /// not reproduce. The body branch already tie-breaks on position and then on
+    /// `SimId` for exactly this reason; an entity index is not stable across a
+    /// rewind and an authored id is.
+    pub target_id: String,
+}
+
+impl FeatureContact {
+    /// The total deterministic order the protocol specifies: time of impact,
+    /// then the target's position, then its authored identity.
+    pub fn order_for_caller(&self, other: &Self) -> std::cmp::Ordering {
+        self.time
+            .total_cmp(&other.time)
+            .then(self.target_center.x.total_cmp(&other.target_center.x))
+            .then(self.target_center.y.total_cmp(&other.target_center.y))
+            .then_with(|| self.target_id.cmp(&other.target_id))
+    }
 }
 
 /// Earliest normalized time in `[0, 1]` at which a box swept from `start` by
@@ -243,7 +266,7 @@ pub fn projectile_reaches_boss(
                 && health.alive()
                 && damageable.published()
         })
-        .filter_map(|(entity, _, aabb, _, damageable)| {
+        .filter_map(|(entity, id, aabb, _, damageable)| {
             ambition_combat::hitbox::swept_strike_reaches_victim(
                 start,
                 half,
@@ -255,9 +278,10 @@ pub fn projectile_reaches_boss(
                 time,
                 target_center: aabb.aabb().center(),
                 target: entity,
+                target_id: id.as_str().to_string(),
             })
         })
-        .min_by(|a, b| a.time.total_cmp(&b.time))
+        .min_by(FeatureContact::order_for_caller)
 }
 
 #[cfg(test)]

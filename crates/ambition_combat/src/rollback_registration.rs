@@ -496,6 +496,13 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                 HitTarget::Body(_) => 1,
                 HitTarget::OrbMatch => 3,
                 HitTarget::UnresolvedFeatures => 4,
+                // ⚠ A NEW TAG, NOT A REUSED ONE. Two peers holding a targeted
+                // feature hit and an unresolved broadcast must not agree; the
+                // discriminant is what tells them apart, exactly as `Body` is
+                // distinguished from `Volume` above. The ENTITY is deliberately
+                // not hashed, for the same reason `Body`'s is not — an allocation
+                // index is not stable across a rewind.
+                HitTarget::Feature(_) => 5,
             },
         );
         put_u8(

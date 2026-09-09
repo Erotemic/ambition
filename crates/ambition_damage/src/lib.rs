@@ -1148,7 +1148,7 @@ pub fn stage_player_victim_hit_events(
             // broadcast, and the divergence lives in THIS resource rather than in
             // the boss encounter that looks like the cause —
             // `which_component_does_the_lifecycle_reset_divergence_live_in` names it.
-            HitTarget::UnresolvedFeatures => false,
+            HitTarget::UnresolvedFeatures | HitTarget::Feature(_) => false,
             _ => !event.source.seeks_victims(),
         };
         if mine {
@@ -1362,7 +1362,14 @@ pub fn apply_player_hit_events(
                 // reason: it is the half of a strike whose targets are NOT bodies.
                 // Falling back to the primary player the way `Volume` does would
                 // hand a player the hit its own swing failed to resolve.
-                HitTarget::OrbMatch | HitTarget::UnresolvedFeatures => None,
+                // A pogo orb, a broadcast remainder, and a named FEATURE are
+                // all "not a player victim". The last is spelled beside the
+                // others rather than folded into a catch-all: a boss or a
+                // breakable is a recipient this road does not serve, which is a
+                // different fact from having no recipient at all.
+                HitTarget::OrbMatch
+                | HitTarget::UnresolvedFeatures
+                | HitTarget::Feature(_) => None,
             };
             target.map(|t| (t, e))
         })

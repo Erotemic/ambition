@@ -470,9 +470,36 @@ both arms, poison-verified.
   reacts differently to the two orders, and a fixture that could only see the
   consequence would be green for either order against a target with none.
   Poison-verified.
-- Targeted delivery (A2c). The feature branch still writes
-  `HitTarget::UnresolvedFeatures`, so the applier re-scans families to find the
-  victim the sweep already identified.
+- ~~Targeted delivery for the projectile road~~ **LANDED 2026-09-09.**
+  `HitTarget::Feature(Entity)` names the boss or breakable the swept contact
+  chose, and both folds narrow to it. The defect it removes is real and was
+  measured: `UnresolvedFeatures` hands the applier a VOLUME, and the breakable
+  fold has no `break`, so one shot whose contact box covered two crates destroyed
+  both — and for a multi-part boss, which part was credited came from query
+  order, which a rewind need not reproduce. `UnresolvedFeatures` stays for melee
+  and area callers, whose scope legitimately hunts for everything they overlap.
+  Schema 176 → 177: a targeted feature hit must not compare equal to a broadcast
+  remainder. Witness:
+  `a_direct_shot_breaks_only_one_of_two_crates_inside_its_contact_box`,
+  poison-verified.
+
+  ⚠ **THE FIRST VERSION OF THAT FIXTURE COULD NOT SEE THE DEFECT AND ITS POISON
+  PASSED.** It put the crates AHEAD of the shot, where a contact box — whose
+  leading edge sits on the near target's near face — can never reach a second
+  one. The overlap a single contact box spans is BEHIND the contact point, so the
+  two targets must already be inside the shot's own box. The finding is about the
+  fixture, and it is recorded because the same mistake fits every "two targets at
+  once" row in the matrix below.
+
+  ⭐ It also closed an ordering gap the sweep introduced: `min_by` on time alone
+  hands an exact tie back to query order. `FeatureContact::order_for_caller` is
+  the protocol's total order — time, then position, then authored identity —
+  matching what the body branch already did.
+
+- **Still open:** the file relocation and the deletion gates (a cohesive
+  `projectile/contacts.rs` <!-- cite-ok: proposed module path -->, retiring the
+  family predicates once no projectile caller remains). The semantic corrections that had to precede them have all
+  landed.
 Moving-target CCD remains out of scope by the protocol's own slice.
 
 ### A2c: direct delivery and smaller flight authority

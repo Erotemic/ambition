@@ -619,12 +619,30 @@ pub fn apply_feature_hit_events(
             ambition_combat::events::HitTarget::Body(entity) => Some(entity),
             _ => None,
         };
+        // ⛔⛔ **A NAMED FEATURE RECIPIENT, AND WITHOUT IT A BROADCAST PICKED ITS
+        // OWN VICTIM.** `UnresolvedFeatures` hands this drain a VOLUME, and the
+        // breakable fold below damages EVERY breakable that volume overlaps — so
+        // one projectile whose contact box spanned two adjacent crates broke
+        // both, and which part of a multi-part boss took the hit was a
+        // query-order answer a rewind need not reproduce. The projectile's swept
+        // contact already chose exactly one recipient; this carries that choice
+        // through to application instead of re-deriving it.
+        //
+        // ⚠ IT NARROWS, IT DOES NOT ROUTE. Both folds still run and both skip
+        // everything that is not this entity, so "exactly one receiver owns a
+        // recipient" stays true by the entity being in one family, not by a
+        // dispatcher deciding which family to ask.
+        let feature_target = match event.target {
+            ambition_combat::events::HitTarget::Feature(entity) => Some(entity),
+            _ => None,
+        };
         // Body victims are already resolved by entity. `UnresolvedFeatures` is
         // only for targets such as breakables or boss encounters that the body
         // resolver cannot name, so do not rescan actors for it.
         let bodies_already_resolved = matches!(
             event.target,
             ambition_combat::events::HitTarget::UnresolvedFeatures
+                | ambition_combat::events::HitTarget::Feature(_)
         );
         // Is the attacker a HEAVY body? — asked of the attacker entity, which
         // the event already names, rather than pattern-matched out of the cause
@@ -803,6 +821,9 @@ pub fn apply_feature_hit_events(
             boss_out_of_play,
         ) in bosses.iter_mut().filter(|_| actor_target.is_none())
         {
+            if feature_target.is_some_and(|named| named != boss_entity) {
+                continue;
+            }
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 continue;
             }
@@ -927,6 +948,9 @@ pub fn apply_feature_hit_events(
         for (entity, id, name, aabb, mut feature) in
             breakables.iter_mut().filter(|_| actor_target.is_none())
         {
+            if feature_target.is_some_and(|named| named != entity) {
+                continue;
+            }
             if target_is_ignored(&event.ignored_targets, "breakable", id.as_str()) {
                 continue;
             }

@@ -44,7 +44,8 @@ OPTIONS:
     --verb VERB      repertoire verb to perform (see below)
     --spacing PX     walk the subject to within PX of the target before the press
                      [default: the match's own seat placement]
-    --target ID      who the move is performed against  [default: the fighter]
+    --target ID      who the move is performed against
+                     [default: sandbag_infinite, the immortal training dummy]
     --target-behavior WHICH
                      passive | cpu                      [default: passive]
     --overlay LAYERS on | off | a comma list of art,hurtboxes,strikes
@@ -347,10 +348,12 @@ fn main() {
     let mut failures = 0usize;
     for character in &characters {
         for verb in &verbs {
-            // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one
-            // the recorder makes: the two tools must stage the same scenario or
-            // their pictures describe different fights.
-            let target = asked_target.clone().unwrap_or_else(|| character.clone());
+            // ⛔ THE TRAINING DUMMY IS THE DEFAULT AND IT IS A CHOICE, the same
+            // one the recorder makes: the two tools must stage the same
+            // scenario or their pictures describe different fights.
+            let target = asked_target
+                .clone()
+                .unwrap_or_else(|| ambition_demo_smash::INSPECTION_TARGET.to_string());
             // One pair writes straight into `--out`; a batch gets the layout the
             // inspector server already caches by, so an overnight corpus IS the
             // browser's cache.

@@ -87,7 +87,9 @@ OPTIONS:
                          is open; the gap between the request and the acceptance
                          is the measurement.
     --target ID          who the subject performs the move AGAINST
-                         [default: the subject's own character, a mirror match]
+                         [default: sandbag_infinite, the immortal training
+                         dummy — ONE target for every subject, so a grid stays
+                         comparable fighter to fighter]
     --target-behavior WHICH
                          passive | cpu                        [default: passive]
                          `passive` seats the target on the stand-still brain: a
@@ -1068,9 +1070,13 @@ fn main() {
         // match. A solo stage is a different simulation from the one the
         // inspector claims to be showing.
         // ⛔ THE TARGET IS RESOLVED PER SUBJECT. `--target` names one fighter
-        // for the whole run; without it each subject faces itself, which keeps
-        // a grid recording comparable fighter to fighter.
-        let target = target.clone().unwrap_or_else(|| character.clone());
+        // for the whole run; without it every subject faces the SAME immortal
+        // training dummy, which is what keeps a grid recording comparable
+        // fighter to fighter — a mirror match varies the target along with the
+        // subject.
+        let target = target
+            .clone()
+            .unwrap_or_else(|| ambition_demo_smash::INSPECTION_TARGET.to_string());
         reseat(&mut app, character, &target, behavior);
         let stage = platforms(&mut app);
         // The fighter's whole repertoire, so a take can ask what the move it played

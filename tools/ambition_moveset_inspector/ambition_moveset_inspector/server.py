@@ -132,6 +132,17 @@ def _built_at(path: Path) -> str | None:
     return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
 
 
+# The target a scenario faces when a request names none.
+#
+# ⭐ ONE VALUE IN THREE PLACES, and it has to stay one: this equals
+# `ambition_demo_smash::INSPECTION_TARGET` (what `moveset_takes` and
+# `moveset_render` default `--target` to) and `DEFAULT_SCENARIO_TARGET` in
+# `web/app.js`. The immortal training dummy is the ONE target every subject
+# shares, so the same move on two fighters is measured against the same body;
+# `never_dies` also means a long grid run cannot end a take by killing it.
+DEFAULT_SCENARIO_TARGET = "sandbag_infinite"
+
+
 def _plain_id(value: object, field: str) -> str:
     text = str(value or "").strip()
     safe = "".join(ch for ch in text if ch.isalnum() or ch in "_-")
@@ -164,9 +175,12 @@ class CombatScenario:
     def from_mapping(cls, raw: dict) -> "CombatScenario":
         subject = _plain_id(raw.get("subject") or raw.get("character"), "subject")
         verb = _plain_id(raw.get("verb"), "verb")
-        # A missing target in the public API means the canonical mirror, and is
-        # normalized immediately. Nothing below this boundary sees the omission.
-        target = _plain_id(raw.get("target") or subject, "target")
+        # A missing target in the public API means the DEFAULT TRAINING DUMMY,
+        # and is normalized immediately. Nothing below this boundary sees the
+        # omission. (It used to mean the canonical mirror; the recorder and the
+        # renderer both default to the dummy now, and a viewer that filled the
+        # blank differently from the tools would compare two fights as one.)
+        target = _plain_id(raw.get("target") or DEFAULT_SCENARIO_TARGET, "target")
         behavior = str(raw.get("target_behavior") or raw.get("behavior") or "passive")
         if behavior not in {"passive", "cpu"}:
             raise ValueError("target_behavior must be 'passive' or 'cpu'")
@@ -259,6 +273,9 @@ def scenario_from_take(take: dict) -> CombatScenario:
     return CombatScenario.from_mapping(
         {
             "subject": take.get("subject") or take.get("character"),
+            # ⚠ AN OLD TAKE'S BLANK IS A MIRROR, not today's default: takes
+            # recorded before the dummy became the default staged the subject
+            # against itself, and this reads what WAS recorded.
             "target": take.get("target") or take.get("subject") or take.get("character"),
             "target_behavior": take.get("target_behavior") or "passive",
             "verb": take.get("verb"),
@@ -294,10 +311,9 @@ def scenario_key(
 
     ⛔⛔ AND A MIRROR IS STILL A SCENARIO. This read `target != character`, so
     George-vs-George contributed NOTHING — not even its behaviour — and a CPU
-    mirror and a passive mirror shared one directory. The recorder DEFAULTS to a
-    mirror match, so that is the ordinary case, not an exotic one. Omission is
-    never how a scenario says something; only a genuinely absent target is
-    absent.
+    mirror and a passive mirror shared one directory. A mirror is an ordinary
+    scenario a reader asks for on purpose, not an exotic one. Omission is never
+    how a scenario says something; only a genuinely absent target is absent.
     """
     scenario = ""
     if target:
@@ -615,7 +631,7 @@ def render_animation(
             scenario = CombatScenario.from_mapping(
                 {
                     "subject": character,
-                    "target": target or character,
+                    "target": target,
                     "target_behavior": target_behavior or "passive",
                     "verb": verb,
                     "spacing": spacing,

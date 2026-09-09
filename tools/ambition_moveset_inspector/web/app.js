@@ -70,6 +70,12 @@ function takesCarryArt() {
   return TAKES_HAVE_ART;
 }
 
+/* The target a scenario faces when nobody has chosen one. Kept equal to
+ * `ambition_demo_smash::INSPECTION_TARGET`, which is what the recorder and the
+ * renderer default to — a viewer that staged a different fight from the tools
+ * would compare two experiments as one. */
+const DEFAULT_SCENARIO_TARGET = "sandbag_infinite";
+
 const RENDERS = new Map();
 const TAKE_EVIDENCE = new Map();
 const TAKE_PENDING = new Map();
@@ -573,7 +579,13 @@ let state = {
    * left boxes where its art should have been. Nothing but a browser could find
    * this: every endpoint was correct and every file was served. */
   view: "roster",
-  scenarioTarget: "__mirror__",
+  /*  THE TRAINING DUMMY IS THE DEFAULT TARGET, matching `moveset_takes` and
+   * `moveset_render`, whose `--target` defaults to `sandbag_infinite` too. A
+   * mirror varies the target along with the subject, so the same move looked at
+   * on two fighters was measured against two different bodies; the immortal
+   * dummy is the ONE target every subject shares. `__mirror__` stays selectable
+   * — it is a legal scenario, just no longer the one you land on. */
+  scenarioTarget: DEFAULT_SCENARIO_TARGET,
   scenarioBehavior: "passive",
   scenarioSpacing: 40,
   fighterFrame: 0,
@@ -629,6 +641,11 @@ function populateScenarioTargetControls() {
       ...BUNDLE.characters.map((c) => el("option", { value: c.id }, c.display_name || c.id)),
     );
     select.value = state.scenarioTarget;
+    /*  A `value` NO OPTION CARRIES leaves the select showing its FIRST entry
+     * while `state` still claims the default — the panel would then say one
+     * fight and request another. If this bundle has no such character, adopt
+     * whatever the control actually shows. */
+    if (select.value !== state.scenarioTarget) state.scenarioTarget = select.value;
   }
 }
 
@@ -648,7 +665,7 @@ function scenarioInputsChanged(prefix) {
   const target = $(`#${prefix}-target`);
   const behavior = $(`#${prefix}-behavior`);
   const spacing = $(`#${prefix}-spacing`);
-  state.scenarioTarget = (target && target.value) || "__mirror__";
+  state.scenarioTarget = (target && target.value) || DEFAULT_SCENARIO_TARGET;
   state.scenarioBehavior = (behavior && behavior.value) || "passive";
   const parsed = spacing && spacing.value !== "" ? Number(spacing.value) : null;
   state.scenarioSpacing = Number.isFinite(parsed) ? parsed : null;

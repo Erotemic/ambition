@@ -56,8 +56,13 @@ asserts every field the UI reads is present; run it after changing either side.
 
 Both runtime views use one scenario object: subject, explicit target, target
 behavior, verb, spacing, optional chain schedule, and the shared hold policy.
-A mirror is represented as `target == subject`; omission is normalized at the
-server boundary. CPU and passive mirrors therefore have different scenario and
+A request that names no target gets `sandbag_infinite`, the immortal training
+dummy — the same default `moveset_takes` and `moveset_render` apply to
+`--target`, so the viewer and the tools stage one fight and not two. One target
+for every subject keeps a move comparable fighter to fighter, and `never_dies`
+means a long grid run cannot end a take by killing the dummy. A mirror is still
+an ordinary scenario, represented as `target == subject`; omission is normalized
+at the server boundary, so CPU and passive mirrors have different scenario and
 cache identities.
 
 Interactive takes live under `data/takes/by-scenario/<scenario+hash>/evidence.json`.

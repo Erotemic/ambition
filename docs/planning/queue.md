@@ -107,12 +107,13 @@ the protocol. Fifteen of seventeen rows have a witness that fails for that row's
 property.
 
 **Remaining before A1 closes:**
-- the two matrix rows that are NOT honestly closed. ⚠ The prefetched-plan row is
-  blocked on AUTHORING, not on test-writing: it needs a ground item in a
+- ONE matrix row is not honestly closed, and it is blocked on AUTHORING rather
+  than on test-writing: the prefetched-plan arm needs a ground item in a
   neighbour of the session's room, and all 38 neighbours of
-  `central_hub_complex` were measured to author none. The preparation-FAILURE row
-  (as distinct from a retraction) needs a room whose construction can be made to
-  fail;
+  `central_hub_complex` were measured to author none. (The preparation-FAILURE
+  row closed differently: since A1c/3b nothing destructive runs before the
+  commit, so "live data unchanged" is a consequence of where the reducers are
+  registered rather than a behaviour to test.);
 - ⛔ verification's remaining omissions are DELIBERATE, not pending: body
   placement has no comparand but the arrival, which transit legitimately
   reconciles off, and clocks/portals have no accepted snapshot at all. Checking

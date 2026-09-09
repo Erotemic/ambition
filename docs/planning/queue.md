@@ -799,6 +799,59 @@ by a comment.
 ⇒ `check_no_warnings` is GREEN, which it had not been all session: the dead
 method was its only finding until two more of my own appeared beside it.
 
+### D-FOREIGN-ORDER-SPELLING — the ratchet at 0 counts one spelling of two
+
+**Found 2026-09-09 while verifying the GPT review #8 fixes; NOT caused by them.**
+`scripts/tests/test_foreign_system_ordering.py::test_a_capability_does_not_order_another_crates_systems`
+is RED on `main` at `156b470b8`, reporting 2 capability-written foreign
+orderings against a ceiling of 0:
+
+```
+ambition_app_tools -> ambition_platformer2d::render::rendering::camera_follow
+ambition_app_tools -> ambition_platformer2d::render::rendering::sync_parallax_layers
+        (game/ambition_app_tools/src/bin/moveset_render.rs)
+```
+
+`24ccc544e` ("The inspector frames the fighters, and steps one tick at a time")
+introduced them, three days after `84e7a835c` drove the count to 0. Confirmed by
+`git log -S` and by running the guard against the pre-change file, which fails
+identically — so it is that commit, not the review fixes that followed it.
+
+⛔⛔ **AND THE `0` WAS NEVER AN ABSENCE — IT WAS A SPELLING.**
+`capture_scene.rs` has written the SAME two edges all along:
+
+```rust
+use ambition_platformer2d::render::rendering::{camera_follow, sync_parallax_layers, ..};
+    ...  .after(camera_follow).before(sync_parallax_layers),
+```
+
+`measure_foreign_system_ordering.py`'s `PATH` regex requires at least one `::`
+(line 57), so a name brought in by `use` and called bare is invisible to the
+census. `moveset_render` wrote the qualified form and made a pre-existing
+architectural violation VISIBLE; it did not create the architecture. A census
+keyed on the CONSUMER'S SPELLING measures how a caller writes an import, not
+what it depends on.
+
+⇒ Three roads, and they are not equivalent:
+
+1. **Do not "fix" it by importing the names.** That makes the ratchet green by
+   hiding the edge, which is the worst of the three and the tempting one.
+2. **Correct the census to resolve `use` aliases**, and expect the true count to
+   RISE (at least `capture_scene`'s two join it). Then the ceiling is a decision
+   about the real number rather than about a regex.
+3. **Publish a set** in `ambition_platformer2d::render::rendering` that a
+   capture tool can order against — the `DismountRequestsApplied` worked example
+   the guard's own comments describe. Both bins want the same "after the camera
+   policy, before the parallax" slot, which is exactly the shape a published set
+   exists for.
+
+⚠ Whichever is taken, (2) should come first: acting on (3) while the instrument
+can only see half the population risks fixing the visible half and calling the
+row closed.
+
+**Acceptance:** the guard is green for a stated reason, and its number is the
+count of the ARCHITECTURE rather than of one import style.
+
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
 **Owner:** registry/identity owners.

@@ -496,10 +496,26 @@ both arms, poison-verified.
   the protocol's total order — time, then position, then authored identity —
   matching what the body branch already did.
 
-- **Still open:** the file relocation and the deletion gates (a cohesive
-  `projectile/contacts.rs` <!-- cite-ok: proposed module path -->, retiring the
-  family predicates once no projectile caller remains). The semantic corrections that had to precede them have all
-  landed.
+- ~~The family-predicate deletion gate~~ **CLOSED 2026-09-09.**
+  `ecs_hit_event_hits_actor`, `_boss` and `_breakable` answered "does this strike
+  volume overlap something right now" — the right question for a melee hitbox
+  that exists for a window of frames, the wrong one for a projectile that crosses
+  its target between two samples. Once contact became swept the stepper stopped
+  calling them, `git grep` found no other production caller for any of the three,
+  and this document's own rule — delete a predicate only after every caller has
+  migrated — was satisfied. Deleted.
+
+  ⚠ `ecs_hit_event_hits_actor` had no production caller even BEFORE that. It was
+  reachable, tested, and unreached, so its four-state `DamageableVolumes` claim
+  was pinned against a function nobody ran. The claim moved onto
+  `strike_reaches_victim` — what every consumer of the rule actually calls —
+  rather than leaving with the dead predicate, and the boss claim moved onto the
+  swept sibling with a new arm proving it is swept rather than an endpoint test
+  wearing a swept signature.
+
+- **Still open:** the file relocation (a cohesive `projectile/contacts.rs`
+  <!-- cite-ok: proposed module path -->). Every semantic correction and every
+  deletion gate that had to precede it has landed.
 Moving-target CCD remains out of scope by the protocol's own slice.
 
 ### A2c: direct delivery and smaller flight authority

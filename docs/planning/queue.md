@@ -65,11 +65,16 @@ projectile's direct contact now names its boss or breakable recipient
 re-scans — which damaged every breakable that volume overlapped and let query
 order pick which part of a multi-part boss was credited.
 
-**Next in A2:** the file relocation and deletion gates (a cohesive
-`projectile/contacts.rs` <!-- cite-ok: proposed module path -->; retire the family
-predicates once no projectile caller remains). Every semantic correction the owner document requires before that has
-landed. Contributor identity is A5 infrastructure with no live defect riding on
-it; the owner document records the measurement.
+**The family-predicate deletion gate closed 2026-09-09**: all three discrete
+`ecs_hit_event_hits_*` predicates had no production caller once contact became
+swept, and are gone. One of them had none beforehand either — reachable, tested,
+unreached — so its rule moved onto the function every consumer actually calls.
+
+**Next in A2:** the file relocation (a cohesive `projectile/contacts.rs`
+<!-- cite-ok: proposed module path -->). Every semantic correction and deletion
+gate the owner document requires before it has landed. Contributor identity is A5
+infrastructure with no live defect riding on it; the owner document records the
+measurement.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have

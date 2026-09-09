@@ -412,6 +412,25 @@ customers in one change.
 **Acceptance:** grep finds one constructor for the migrated key family and both
 producer/consumer tests use it.
 
+**Re-measured 2026-09-09** with `scripts/measure_id_prefixes_spelled_twice.py`:
+38 prefixes appear as a literal, TWO in both a producer and a consumer.
+
+- `_dead_until_rest` — **migrated**, and it was a live defect rather than drift.
+  See the D-RESET-ROAD-RESIDUE receipt above.
+- `respawn_platform_` — `game/ambition_demo_smash/src/lib.rs`, the Smash lane.
+- ⚠ `npc_` — **A FALSE POSITIVE, and it must not be "fixed".** The sweep matches
+  a PREFIX, so three unrelated conventions that share four characters read as one
+  drifting id: `npc_{id}_hostile` and `npc_{dialogue_id}_talked` are save FLAGS
+  built in `features/npcs.rs`; `character_id.strip_prefix("npc_")` in
+  `ambition_sprite_sheet` is a PLACEMENT-ID convention for finding a sheet
+  record; and `npc_talked:{id}` in `ambition_persistence::quest` is a quest
+  objective key. Verified by grep: each flag has exactly one production
+  constructor, and the remaining literals are test spellings, which are
+  deliberate — an independent spelling in a test is what catches a rename.
+
+⇒ Nothing is left in this row for the engine lane. It stays open for the Smash
+one, and for the next producer/consumer pair a re-measurement finds.
+
 ### D-BUILD-GRAPH-BLINDNESS — keep optional/dependency measurements non-vacuous
 
 **Owner:** build/architecture tooling.

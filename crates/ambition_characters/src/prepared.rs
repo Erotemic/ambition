@@ -826,6 +826,45 @@ fn prepare_character(
     }
 
     let report = ledger.finish();
+    // ⛔⛔ **A BROKEN FLOW REACHED THE RUNTIME WITH NOTHING IN THE PIPELINE
+    // LOOKING AT IT.** `TechniqueFlow::problems` exists because every one of its
+    // failures is silent — a transition past the end of the list, a `Wait` that
+    // can never expire, a cycle, a node nothing arrives at — and until now its
+    // only production callers were per-crate roster tests over hand-built
+    // `tables()`. A character prepared from a SERIALIZED definition, which is
+    // exactly the road the admission contract is being built for, was validated
+    // by nobody.
+    //
+    // ⭐ REPORTED, NOT REFUSED, and that is this seam's established policy rather
+    // than a softening: preparation publishes with its failures carried onto the
+    // value ("a placeholder beats a session that refuses to boot"), and the
+    // shipped-composition guard reads `unresolved_references`. So a broken flow
+    // is a RED TEST in every composition that prepares the character, without
+    // making a data error a boot failure.
+    let mut unresolved: Vec<String> = report
+        .unresolved()
+        .iter()
+        .map(|reference| {
+            let mut line = format!(
+                "unknown {} `{}` declared by `{}`",
+                reference.namespace, reference.id, reference.declared_by
+            );
+            if let Some(suggestion) = &reference.did_you_mean {
+                line.push_str(&format!(" — did you mean `{suggestion}`?"));
+            }
+            line
+        })
+        .collect();
+    if let Some(moveset) = definition.moveset.as_ref() {
+        for spec in &moveset.moves {
+            let Some(flow) = spec.flow.as_ref() else {
+                continue;
+            };
+            for problem in flow.problems() {
+                unresolved.push(format!("move `{}` flow: {problem}", spec.id));
+            }
+        }
+    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -863,20 +902,7 @@ fn prepare_character(
         // which is right for a log and wrong for a value stored per character:
         // one unresolved sheet carries 400 ids, and a guard listing several of
         // them buries its own verdict. The log already printed the long form.
-        unresolved: report
-            .unresolved()
-            .iter()
-            .map(|reference| {
-                let mut line = format!(
-                    "unknown {} `{}` declared by `{}`",
-                    reference.namespace, reference.id, reference.declared_by
-                );
-                if let Some(suggestion) = &reference.did_you_mean {
-                    line.push_str(&format!(" — did you mean `{suggestion}`?"));
-                }
-                line
-            })
-            .collect(),
+        unresolved,
     };
     let checked = prepared.checked.clone();
     PreparedCharacter {

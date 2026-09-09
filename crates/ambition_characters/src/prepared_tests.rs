@@ -838,3 +838,70 @@ fn mirror_symmetry_survives_preparation_and_reaches_the_body_blueprint() {
         );
     }
 }
+
+/// ⛔⛔ **A BROKEN AUTHORED FLOW REACHED THE RUNTIME WITH NOTHING IN THE
+/// PREPARATION PIPELINE LOOKING AT IT.**
+///
+/// `TechniqueFlow::problems` exists because every one of its failures is silent:
+/// a transition past the end of the list, a `Wait` that can never expire, a
+/// cycle, a node nothing arrives at. Until this, its only production callers were
+/// per-crate roster tests walking hand-built `tables()` — so a character prepared
+/// from a SERIALIZED definition, which is exactly the road the admission contract
+/// is being built for, was validated by nobody.
+///
+/// ⭐ REPORTED, NOT REFUSED, which is this seam's established policy: preparation
+/// publishes with its failures carried onto the value, and the
+/// shipped-composition guard reads `unresolved_references`. A data error becomes
+/// a red test rather than a boot failure.
+#[test]
+fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
+    use ambition_entity_catalog::{FlowNode, TechniqueFlow};
+    use crate::brain::ActionSet;
+
+    let broken = |flow: Option<TechniqueFlow>| {
+        let mut spec = slash("special", "swing", "hit");
+        spec.flow = flow;
+        prepare_and_finalize_for_test(
+            CharacterDefinition::new("oni", "Oni", "demo")
+                .with_action_set(ActionSet::default())
+                .with_moveset(moveset_with(&[], vec![spec])),
+            &CharacterBindings::default(),
+        )
+        .prepared
+        .unresolved_references()
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+    };
+
+    // ⛔ THE FLOOR. A move with a sound flow — and one with none at all — must
+    // report nothing, or the row below is satisfied by preparation complaining
+    // about every character it sees.
+    assert_eq!(broken(None), Vec::<String>::new());
+    assert_eq!(
+        broken(Some(TechniqueFlow {
+            nodes: vec![FlowNode::Finish],
+        })),
+        Vec::<String>::new(),
+    );
+
+    let reported = broken(Some(TechniqueFlow {
+        nodes: vec![
+            FlowNode::Emit {
+                effect: ambition_entity_catalog::EffectRef {
+                    key: "demo.thing".to_string(),
+                    params: Default::default(),
+                },
+                // Past the end of a two-node list.
+                then: 9,
+            },
+            FlowNode::Finish,
+        ],
+    }));
+    assert!(
+        reported
+            .iter()
+            .any(|line| line.contains("move `special` flow") && line.contains("past the last node")),
+        "a flow whose transition leaves the list prepared cleanly, so the move \
+         plays and silently stops. Report was: {reported:?}"
+    );
+}

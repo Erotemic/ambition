@@ -512,6 +512,21 @@ had already been caught missing a site once:
 validator that silently stops covering the next one, and it fails the same way
 each time it is extended by hand.
 
+**Preparation validates flows now, and nothing in the pipeline did before.**
+`TechniqueFlow::problems`' only production callers were per-crate roster tests
+walking hand-built `tables()`; a character prepared from a SERIALIZED definition
+— the road this whole contract is being built for — was validated by nobody.
+`prepare_character` runs every move's flow and carries each failure onto
+`unresolved_references`, which is the channel the shipped-composition guard
+already reads.
+
+⭐ REPORTED, NOT REFUSED, and that is the seam's established policy rather than a
+softening. Preparation publishes with its failures on the value ("a placeholder
+beats a session that refuses to boot"), so a broken flow becomes a red test in
+every composition that prepares the character instead of a boot failure. The
+contract's "publication first guarantees last-good prepared definitions on
+rejection" applies when preparation starts REFUSING, which is A12b's step.
+
 **Still open in A11b:** domain nested-reference policies (an effect's params can
 name another definition), prefab overrides and the public production insertion
 paths, and the rejection half — poisoning a site and verifying the active

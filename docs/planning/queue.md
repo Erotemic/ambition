@@ -421,13 +421,36 @@ had taken with it. Any further reduction here has to establish STATE, BEHAVIOUR
 and INVARIANT ownership first and let the closure follow, not the other way
 round.
 
-**Next in this row:** the frontier asks for a SEPARATE headless consumer
-workspace — "a constructed body advancing against world geometry, without
-renderer, audio, inventory, encounters or game content". That fixture does not
-exist; `minimal_game` is the windowed sentinel and cannot stand in for it. The 49
-crates that remain in the featureless closure have been traced to their
-activating parents (see above); what has NOT been established is which of them a
-minimum profile has a right to expect, which is that fixture's job.
+**The headless consumer fixture landed 2026-09-09**, and it is the third fact
+neither the closure contract nor a compile check can state: that the profile
+RUNS. `fixtures/headless_profile/` names `ambition_platformer2d` with
+`default-features = false` and NO feature list, in its own workspace with its own
+lockfile, so everything it links is something the engine supplies implicitly. Its
+closure is exactly the 49 the featureless facade has — `ambition_render`,
+`ambition_menu` and `ambition_sprite_fx` absent — and its tests compose the app
+and step a body until the room's one authored block stops it. Wired into the lane
+twice: a seconds-long `cargo check` beside outlander's, and the full test run in
+the exhaustive plan.
+
+⛔ **THE RENDERER'S ABSENCE IS NOT ASSERTED IN THAT FIXTURE, AND THE REASON IS
+BETTER THAN AN ASSERTION.** A first version tried
+`app.get_sub_app(bevy::render::RenderApp)` and did not compile: the consumer has
+no `bevy` dependency of its own and the `bevy` the facade re-exports at this
+profile is built without its render feature, so `RenderApp` is not a nameable
+type from there. The absence is enforced by the type system.
+
+⛔⛔ **AND THE FIRST BODY TEST WAS VACUOUS, which the fixture's own poison
+caught.** Its room was copied from `minimal_game`, whose floor block sits at the
+bottom of a 640x360 room — where a body rests at y=296, also `room_height -
+body_height`. Asserting "it moved, then it stopped" survived moving that block
+100,000px away: the body fell THROUGH to y=583 and settled there, satisfying both
+arms while touching nothing the room authored. The floor is RAISED clear now, so
+the resting height names the surface, and the poisoned run reddens. ⚠ The same
+geometry is in `minimal_game`, which `docs/sdk/README.md` tells consumers to copy.
+
+**Next in this row:** which of the 49 a minimum profile has a RIGHT to expect is
+still unestablished — the fixture makes that question askable rather than
+answering it.
 
 **Acceptance:** a supported profile constructs and steps a real subject, its
 promised absent capability is absent from both installation and resolved closure,

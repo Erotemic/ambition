@@ -651,6 +651,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "check", "--all-targets"],
                     cwd=str(REPO / "fixtures" / "external_consumer")))
 
+    # ⛔ AND THE FEATURELESS ONE COMPILES TOO, for the same seconds-not-minutes
+    # reason. A capability edge that stops being optional breaks this consumer
+    # and nothing else: every other fixture asks for enough features to hide it.
+    jobs.append(Job("external consumer: the A9 minimum profile COMPILES",
+                    [CARGO, "check", "--all-targets"],
+                    cwd=str(REPO / "fixtures" / "headless_profile")))
+
     # These checks are repo-coupled and remain part of the default verdict, but
     # they do not gate STARTING the Rust tests. Running them after the workspace,
     # render-composition, and external-consumer Rust jobs minimizes time to the
@@ -669,6 +676,17 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("external consumer: minimal game",
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "minimal_game")))
+
+        # ⭐ THE A9 MINIMUM PROFILE, and it is a DIFFERENT question from the one
+        # above. `minimal_game` boots both faces from one module and therefore
+        # asks for `ambition_render`; this one names the umbrella with
+        # `default-features = false` and no feature list at all, so what it links
+        # is what the engine supplies implicitly. Its tests are the third fact
+        # neither the closure contract nor a compile check can state: that the
+        # profile RUNS — a body falls and the room's one authored block stops it.
+        jobs.append(Job("external consumer: headless profile (the A9 minimum)",
+                        [CARGO, "test"],
+                        cwd=str(REPO / "fixtures" / "headless_profile")))
 
         # Leaving the workspace drops a crate from `cargo test --workspace` silently, and its 19
         # tests are the only proof that a capability can contribute a schema, an action, rollback

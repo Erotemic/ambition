@@ -6,7 +6,14 @@
 //! input, and runtime infrastructure but must not depend on game content or the
 //! actor monolith.
 
-use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
+// ⚠ `App`, `Plugin` and the prelude are used only by the plugins behind
+// `render` and `input`. A host with neither is a legal composition — it is the
+// A9 minimum profile — and an unconditional import there is a warning in exactly
+// the configuration this crate's feature split exists to make buildable.
+use bevy::app::{PluginGroup, PluginGroupBuilder};
+#[cfg(any(feature = "render", feature = "input"))]
+use bevy::app::{App, Plugin};
+#[cfg(any(feature = "render", feature = "input"))]
 use bevy::prelude::*;
 
 pub mod gameplay_presentation;

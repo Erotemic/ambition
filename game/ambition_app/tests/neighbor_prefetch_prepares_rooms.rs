@@ -122,3 +122,68 @@ fn a_settled_neighbourhood_stops_preparing_itself() {
         after - baseline,
     );
 }
+
+/// ⛔⛔ **EVERY PREFETCHED PLAN REMEMBERS NOTHING, AND A CHECKPOINT RESTORE'S
+/// SAFETY RESTS ON IT.**
+///
+/// The prefetch prepares each neighbour with NO occurrence continuity
+/// (`ActorConstructionContext::for_room_construction(.., None, ..)`), so every
+/// cached plan carries the DEFAULT outlook. `RoomConstructionPlanPrefetch::
+/// promote` then refuses any plan whose outlook differs from the one it is
+/// handed. Together those two facts mean a cached plan can only ever be promoted
+/// for a reconstruction whose outlook is ALSO empty — one that has nothing to say
+/// about that room's population — which is exactly the reconstruction an
+/// empty-outlook plan is correct for.
+///
+/// ⇒ **That is what closes the checkpoint protocol's "same room, different
+/// checkpoint occurrence outlook" acceptance row**, which asks that a plan
+/// prepared against the live population cannot serve a reconstruction about a
+/// different one. It cannot, structurally — and A1c/3a's redirect of the outlook
+/// to the operation's PINNED continuity is what makes the comparison ask the
+/// right question in the first place.
+///
+/// ⚠ THIS TEST IS THE HALF THAT CAN ROT. `promote`'s refusal is one comparison
+/// in one place; "the prefetch supplies no continuity" is a `None` in an
+/// argument list that somebody could reasonably decide to fill in — to raise the
+/// cache's hit rate, which the source already notes an object left anywhere
+/// destroys. The day that happens, the structural argument dissolves and the
+/// acceptance row needs a real fixture. This fires first.
+#[test]
+fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
+    let app = gameplay_after_startup();
+
+    let mut app = app;
+    let room_ids: Vec<String> = {
+        let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .expect("a direct-gameplay session installs one live room set");
+        room_set.rooms.iter().map(|room| room.id.clone()).collect()
+    };
+    let cache = app
+        .world()
+        .resource::<ambition_platformer2d::runtime::room_transition::RoomConstructionPlanPrefetch>(
+        );
+    let held: Vec<&String> = room_ids.iter().filter(|id| cache.holds(id)).collect();
+
+    // ⛔ THE PREMISE: something was actually prefetched, or the loop below is a
+    // check that cannot fail.
+    assert!(
+        !held.is_empty(),
+        "no plan was prefetched at all, so this test asserts nothing about what a \
+         prefetched plan remembers"
+    );
+    for room in held {
+        let plan = cache
+            .peek(room)
+            .expect("the cache said it holds a plan for this room");
+        assert!(
+            plan.occurrence_outlook().is_empty(),
+            "the prefetched plan for '{room}' remembers a population. A cached \
+             plan that states dispositions can be promoted for a reconstruction \
+             that shares them by coincidence — and a checkpoint restore's \
+             destination would then be rebuilt from a plan prepared against the \
+             LIVE world rather than against the checkpoint it is about"
+        );
+    }
+}

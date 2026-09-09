@@ -1551,6 +1551,18 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // — so an object put down anywhere disables this cache for the whole world
                     // for the rest of the session, not just for the room holding it.
                     // Correctness is unaffected; what is lost is the preloading.
+                    // ⛔⛔ AND A CHECKPOINT RESTORE'S SAFETY RESTS ON THIS `None`.
+                    // Every cached plan therefore carries the DEFAULT outlook,
+                    // and `promote` refuses a plan whose outlook differs from
+                    // the one it is handed — which since A1c/3a is the outlook of
+                    // the operation's PINNED continuity, not the live ledger. So
+                    // a cached plan can only be promoted for a reconstruction
+                    // that is ALSO about nothing, which is what an empty-outlook
+                    // plan is correct for. Filling this in to raise the hit rate
+                    // dissolves that argument: see
+                    // `every_prefetched_plan_carries_an_empty_occurrence_outlook`,
+                    // and the acceptance row it closes in
+                    // `docs/planning/engine/checkpoint-restoration-protocol.md`.
                     None,
                     forced_brains.as_deref(),
                     population_cap.as_deref(),

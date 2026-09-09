@@ -64,7 +64,7 @@ feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1c - finish the selected restore through one commit boundary
+### A1c - DONE 2026-09-08 (A1 complete)
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
 A1b (ownership move) and A1c subcommits 1-2 landed 2026-09-08: no domain reads
@@ -103,21 +103,16 @@ counter's overflow path refuses the lifecycle slot rather than the identity
 is a closed `RestoreFailure` rather than a free-form string.
 
 The acceptance matrix was audited row by row on 2026-09-08 and the result is in
-the protocol. Fifteen of seventeen rows have a witness that fails for that row's
-property.
+the protocol. **Every row is closed** — fifteen by a witness that fails for that
+row's property, and two STRUCTURALLY, each with the guard that keeps the
+structure true: prepare-failure (nothing destructive runs before the commit, so
+"live data unchanged" follows from where the reducers are registered) and the
+prefetched-plan arm (cached plans carry NO continuity, so promotion can only
+serve a reconstruction that is also about nothing).
 
-**Remaining before A1 closes:**
-- ONE matrix row is not honestly closed: the end-to-end prefetched-plan arm,
-  blocked by a COMPOSITION MISPLACEMENT rather than by content or test-writing.
-  `prefetch_neighbor_room_preparation_system` braids a construction-plan cache
-  together with the neighbour's ASSET residency in one function, and is installed
-  by a PRESENTATION plugin — so the headless harness every checkpoint fixture
-  uses prefetches nothing at all. See the protocol's note: it is a SPLIT, not a
-  move (the asset half belongs where it is), it is its own packet, and A1 does
-  not own it. (The
-  preparation-FAILURE row closed differently: since A1c/3b nothing destructive
-  runs before the commit, so "live data unchanged" is a consequence of where the
-  reducers are registered rather than a behaviour to test.);
+**A1 IS CLOSED, 2026-09-08.** What is recorded below are two deliberate
+non-goals, not open work — each needs a NEW DECISION to become a task, and
+neither is a gap in the packet:
 - ⛔ verification's remaining omissions are DELIBERATE, not pending: body
   placement has no comparand but the arrival, which transit legitimately
   reconciles off, and clocks/portals have no accepted snapshot at all. Checking

@@ -60,6 +60,15 @@ impl RoomConstructionPlanPrefetch {
 
     /// True when a plan for this room is already prepared under the current
     /// identity — the host's "do I still need to build one" question.
+    /// The cached plan, without promoting it.
+    ///
+    /// ⛔ FOR INSPECTION ONLY. Promotion is [`Self::promote`] and it exists to
+    /// refuse a plan prepared against a different world; a caller that reached
+    /// past it would be taking exactly the plan those checks are about.
+    pub fn peek(&self, room_id: &str) -> Option<&Arc<RoomConstructionPlan>> {
+        self.plans.get(room_id)
+    }
+
     pub fn holds(&self, room_id: &str) -> bool {
         self.plans.contains_key(room_id)
     }

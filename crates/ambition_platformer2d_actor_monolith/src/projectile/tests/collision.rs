@@ -564,6 +564,83 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
     );
 }
 
+/// ⛔⛔ **A2b: THE BOSS/BREAKABLE BRANCH IS SWEPT TOO, and it is a SECOND road.**
+///
+/// The ordinary body branch and the feature branch are different code with
+/// different geometry sources, and only the first was made swept. A shot
+/// crossing a thin crate between two samples had no endpoint that overlapped it,
+/// so nothing was touched — and the branch then handed the applier that same
+/// endpoint box to re-test, the identical second half. A guard on the body road
+/// stays green through all of it.
+#[test]
+fn a_fast_shot_breaks_a_thin_crate_it_crosses_within_one_tick() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    fn crate_broken_after_a_shot_at(speed: f32) -> bool {
+        let world = ae::World::new(
+            "open_lane",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        let breakable = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::FeatureId::new("thin_crate"),
+                FeatureName::new("thin crate"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("thin_crate"),
+                // THIN along the shot's axis: 6 px, well inside the 64 px a fast
+                // tick covers.
+                ambition_combat::components::CenteredAabb::from_center_size(
+                    ae::Vec2::new(400.0, 300.0),
+                    ae::Vec2::new(6.0, 46.0),
+                ),
+                BreakableFeature::new(ambition_interaction::Breakable::new("thin_crate", 1)),
+            ))
+            .id();
+        assert!(!app
+            .world()
+            .get::<BreakableFeature>(breakable)
+            .expect("the crate is spawned")
+            .broken());
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(speed, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        app.world()
+            .get::<BreakableFeature>(breakable)
+            .expect("the crate is still an entity")
+            .broken()
+    }
+
+    // ⛔ THE PREMISE, and the parity check: the endpoint case must be unchanged.
+    assert!(
+        crate_broken_after_a_shot_at(2500.0),
+        "the ordinary endpoint-overlap case stopped breaking the crate, so the \
+         fast arm below would be measuring a contact test that refuses \
+         everything rather than one that sweeps"
+    );
+    assert!(
+        crate_broken_after_a_shot_at(4000.0),
+        "a shot crossing a 6 px crate at 4000 px/s left it intact. One tick \
+         carries the box 64 px, so the endpoint is already past it — the feature \
+         branch has to ask the whole leg, and the event it writes has to carry \
+         the box AT CONTACT or the applier's own re-test refuses what the sweep \
+         found"
+    );
+}
+
 /// ⛔⛔ **A2b: THE VICTIM'S OBSTRUCTION TEST READS THE SHOT'S OWN WORLD-HIT
 /// POLICY, and it used to be hard-coded to "solids only".**
 ///

@@ -371,6 +371,12 @@ instead of increasing retries.
 **Acceptance:** missing Cargo/target/GPU prerequisites are explicit receipt states;
 known deterministic fixtures do not depend on wall-clock or entity order.
 
+**Sighting 2026-09-09:** `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+failed once in a full `app_it` run, then passed in isolation and passed the
+immediate full re-run (600/600). The panic text was not captured, which is the
+row's own lesson: a flake with no message is a sighting, not a diagnosis. The
+next person to see it should capture stderr before re-running.
+
 ### POST-CARVE-DOC-SWEEP — update moved-source references in the same carve
 
 **Owner:** the carve author.

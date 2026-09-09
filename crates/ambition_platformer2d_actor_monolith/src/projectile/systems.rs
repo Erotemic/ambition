@@ -929,7 +929,10 @@ pub fn step_projectiles(
                         reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                         dir: knock_dir,
                         magnitude: HitKnockbackMagnitude::FeelScale(0.85),
-                        source_pos: kin.pos,
+                        // WHERE THE SHOT WAS, not where it ended: the endpoint of
+                        // a fast bolt is past the body it hit, and a knockback
+                        // sourced there pushes the victim back toward the muzzle.
+                        source_pos: contact_center,
                         impact_pos,
                         launch_dir: None,
                         follow: None,
@@ -982,9 +985,45 @@ pub fn step_projectiles(
 
             // Bodies were resolved directly above. `UnresolvedFeatures` sends only the remaining
             // boss/breakable portion through feature resolution, avoiding a second body hit.
+            // ⛔⛔ **SWEPT, LIKE THE BODY BRANCH, AND CARRYING THE SAME WITNESS.**
+            // This asked whether the shot's ENDPOINT box reached a boss or a
+            // breakable, so a bolt that crossed a crate between two samples
+            // touched nothing — and it then handed the applier that same endpoint
+            // box to re-test, which is the second half the body branch also had.
+            // One swept question, and the box the event carries is the box AT
+            // CONTACT.
+            let feature_half = kin.size * 0.5;
+            let feature_leg = kin.pos - leg_start;
+            let feature_contact = crate::features::projectile_reaches_breakable(
+                leg_start,
+                feature_half,
+                feature_leg,
+                &[],
+                &ecs_breakables,
+            )
+            .into_iter()
+            .chain(crate::features::projectile_reaches_boss(
+                leg_start,
+                feature_half,
+                feature_leg,
+                &[],
+                &ecs_bosses,
+            ))
+            .min_by(|(a, _), (b, _)| a.total_cmp(b));
+            // A hair inside, for the reason the body branch and the world sweep
+            // both state: `time_of_impact` leaves the box tangent and every
+            // downstream overlap test is `strict_intersects`.
+            let feature_contact_box = match feature_contact {
+                Some((time, target_center)) => {
+                    let at = leg_start + feature_leg * time;
+                    let inward = (target_center - at).normalize_or_zero();
+                    ae::Aabb::new(at + inward * 0.5, feature_half)
+                }
+                None => kin.aabb(),
+            };
             let unresolved = HitEvent {
                 strike_sfx: None,
-                volume: kin.aabb().into(),
+                volume: feature_contact_box.into(),
                 damage: game.damage.max(1),
                 source: HitSource::Projectile,
                 attacker: owner_entity,
@@ -993,10 +1032,7 @@ pub fn step_projectiles(
                 knockback: None,
                 ignored_targets: Vec::new(),
             };
-            let reaches_feature =
-                crate::features::ecs_hit_event_hits_breakable(&unresolved, &ecs_breakables)
-                    || crate::features::ecs_hit_event_hits_boss(&unresolved, &ecs_bosses);
-            if reaches_feature {
+            if feature_contact.is_some() {
                 if game.splash_half_extent > 0.0 {
                     emit_landing_splash(
                         kin.pos,

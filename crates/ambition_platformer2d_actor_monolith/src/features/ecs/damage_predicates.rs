@@ -14,6 +14,7 @@
 //! them. It reads the publication now; the publication moved into the window
 //! after `Playback` where those live values are settled.
 
+use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Query, With, Without};
 
 use ambition_boss_encounter::BossConfig;
@@ -41,12 +42,66 @@ pub fn ecs_hit_event_hits_breakable(
     breakables: &Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
 ) -> bool {
     breakables.iter().any(|(id, aabb, feature)| {
-        !target_is_ignored(&event.ignored_targets, "breakable", id.as_str())
-            && !feature.broken()
-            && feature.breakable.trigger.allows_hit()
-            && !feature.breakable.pogo_refresh
+        breakable_is_eligible(&event.ignored_targets, id, feature)
             && event.volume.intersects_aabb(aabb.aabb())
     })
+}
+
+/// Whether this breakable can receive a projectile/attack contact at all.
+///
+/// One eligibility rule, read by the discrete predicate above and the swept one
+/// below — the two used to spell the same four conditions separately, which is
+/// how a swept road comes to admit a target the discrete road refuses.
+fn breakable_is_eligible(
+    ignored_targets: &[String],
+    id: &FeatureId,
+    feature: &BreakableFeature,
+) -> bool {
+    !target_is_ignored(ignored_targets, "breakable", id.as_str())
+        && !feature.broken()
+        && feature.breakable.trigger.allows_hit()
+        && !feature.breakable.pogo_refresh
+}
+
+/// The earliest point along a projectile's travel at which it reaches an
+/// eligible breakable, with that breakable's centre.
+///
+/// ⛔⛔ **THE SWEPT SIBLING, AND THE DISCRETE ONE IS NOT A SUBSTITUTE.** A shot
+/// crossing a crate between two samples has no endpoint that overlaps it, so the
+/// discrete predicate says the crate was never touched — the same defect the
+/// ordinary body branch had. The centre travels with the answer because the
+/// caller needs it: `time_of_impact` leaves the shot's box TANGENT, and every
+/// downstream overlap test is `strict_intersects`.
+pub fn projectile_reaches_breakable(
+    start: ambition_platformer2d_core::Vec2,
+    half: ambition_platformer2d_core::Vec2,
+    delta: ambition_platformer2d_core::Vec2,
+    ignored_targets: &[String],
+    breakables: &Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+) -> Option<(f32, ambition_platformer2d_core::Vec2)> {
+    breakables
+        .iter()
+        .filter(|(id, _, feature)| breakable_is_eligible(ignored_targets, id, feature))
+        .filter_map(|(_, aabb, _)| {
+            swept_box_reaches(start, half, delta, aabb.aabb())
+                .map(|time| (time, aabb.aabb().center()))
+        })
+        .min_by(|(a, _), (b, _)| a.total_cmp(b))
+}
+
+/// Earliest normalized time in `[0, 1]` at which a box swept from `start` by
+/// `delta` reaches `target`, with parity for the already-overlapping case.
+fn swept_box_reaches(
+    start: ambition_platformer2d_core::Vec2,
+    half: ambition_platformer2d_core::Vec2,
+    delta: ambition_platformer2d_core::Vec2,
+    target: ambition_platformer2d_core::Aabb,
+) -> Option<f32> {
+    let start_box = ambition_platformer2d_core::Aabb::new(start, half);
+    if start_box.strict_intersects(target) {
+        return Some(0.0);
+    }
+    start_box.sweep_hit(delta, target).map(|hit| hit.time_of_impact)
 }
 
 /// Absent and empty mean OPPOSITE things here, which is the whole point of
@@ -129,6 +184,47 @@ pub fn ecs_hit_event_hits_boss(
                 .iter()
                 .any(|part| event.volume.intersects(part))
     })
+}
+
+/// The earliest point along a projectile's travel at which it reaches a live
+/// boss's published geometry, with the part's centre.
+///
+/// The swept sibling of [`ecs_hit_event_hits_boss`], reusing the ONE swept
+/// victim-geometry rule so a boss and an ordinary body answer the same way about
+/// published parts, coarse fallback (none, for a boss) and intangibility.
+pub fn projectile_reaches_boss(
+    start: ambition_platformer2d_core::Vec2,
+    half: ambition_platformer2d_core::Vec2,
+    delta: ambition_platformer2d_core::Vec2,
+    ignored_targets: &[String],
+    bosses: &Query<
+        (
+            &FeatureId,
+            &CenteredAabb,
+            &ambition_characters::actor::BodyHealth,
+            &DamageableVolumes,
+        ),
+        (With<FeatureSimEntity>, With<BossConfig>),
+    >,
+) -> Option<(f32, ambition_platformer2d_core::Vec2)> {
+    bosses
+        .iter()
+        .filter(|(id, _, health, damageable)| {
+            !target_is_ignored(ignored_targets, "boss", id.as_str())
+                && health.alive()
+                && damageable.published()
+        })
+        .filter_map(|(_, aabb, _, damageable)| {
+            ambition_combat::hitbox::swept_strike_reaches_victim(
+                start,
+                half,
+                delta,
+                Some(damageable),
+                aabb,
+            )
+            .map(|time| (time, aabb.aabb().center()))
+        })
+        .min_by(|(a, _), (b, _)| a.total_cmp(b))
 }
 
 #[cfg(test)]

@@ -1,0 +1,34 @@
+# The A9 MINIMUM PROFILE, as a real external consumer.
+#
+# ⭐ WHY THIS EXISTS AND `minimal_game` COULD NOT BE IT. That sibling is the
+# WINDOWED sentinel: its own exit criterion composes a drawing face
+# (`the_minimal_game_boots_windowed`), so it asks for `ambition_render` and the
+# renderer belongs in its closure. It therefore cannot answer the question A9
+# actually poses — *does a consumer that selected NO capability still compile
+# one?* — and the capability-footprint ratchet built on it never could.
+#
+# The frontier's stated minimum is "a constructed body advancing against world
+# geometry, without renderer, audio, inventory, encounters or game content". This
+# fixture asks for exactly that and NOTHING else: the dependency line below names
+# no feature at all.
+#
+# ⛔ ITS OWN `[workspace]` AND LOCKFILE, like both siblings: what compiles here is
+# what a third party gets, not what the engine's dev-dependency graph happens to
+# provide.
+[package]
+name = "headless_profile"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# ⛔⛔ `default-features = false` AND NO FEATURE LIST. Every capability this
+# consumer links is one the engine supplies implicitly — which is the whole
+# measurement. Adding a feature here silently changes what this fixture proves,
+# so add one only with the planning row that says why.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false }

@@ -1,5 +1,14 @@
 # Super Smash Siblings — platform-fighter product charter
 
+
+> **CURRENT SMASH PRIORITY (2026-09-09):** close the
+> [`S0.*` raw two-fighter combat-semantics gate](smash-parity-inventory.md#smash-local-p0-raw-two-fighter-combat-semantics)
+> before any other Smash work. This outranks roster breadth, stages, match-rule
+> breadth, items, training tooling, presentation polish, CPU adoption/polish,
+> and character-specific novelty inside the Smash lane. Only a blocker needed
+> to implement/measure the gate or an explicit maintainer decision may preempt
+> it. This does not reorder unrelated Ambition programs.
+
 **State:** ACTIVE product push; serious engine customer and possible future
 first-class game.
 **Project order:** Ambition remains the flagship and primary product driver.
@@ -151,7 +160,7 @@ named inline; a number here travels with the search that produced it.
 
 | # | checkpoint | verdict |
 |---|---|---|
-| 1 | Core fight | ✔ **met** — the mechanics it lists are the parity inventory's P01–P14, now 14 of 14 measured: ten shipped, three partial, **zero absent** |
+| 1 | Core fight | ◐ **baseline loop met; combat-semantics closure NOT met** — the older P01-P14 primitive checkpoint proved the basic fight loop, but it did not cover the current `S0.1`-`S0.9` interaction gate: clash/projectile priority, grab-contact arbitration, hit-volume target/policy semantics, airborne capture, threshold armor, localized hurtbox defense, character-specific movement traits, special victim reactions, and the remaining target/effect interaction primitives. Do not read the old 14-of-14 measurement as permission to work around those gaps. |
 | 2 | Roster depth | ✔ **met, and it is the strongest of the six** — **21** authored movesets (19 in `ambition_content`, 2 smash-local) and **zero** character-ID gameplay branches in any engine crate |
 | 3 | Local play | ✔ **met** — driven end-to-end through the real screen, not the model. ⭐ **The evidence has a name and it was not written down**: `smash_tool select-walkthrough` drives the actual screen headlessly — a real cursor over `select_screen::layout`'s own rectangles, real presses, and the text read back through the SAME functions the cards render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`), so it cannot show a screen a player would not see. ⚠ It is the ONE instrument for this surface and it appears in no planning page except the CLI-collapse campaign, so select-screen work does not find it. ⓘ Complements `capture_scene --route smash_select`, which photographs the screen; this prints what the screen BELIEVES. |
 | 4 | Stage breadth | ✔ **MET 2026-09-04 — THREE stages, and they differ on two independent axes.** `smash_stage()` flat; `smash_platform_stage()` the same floor with drop-through tiers; `smash_narrow_stage()` two thirds the ground with the blast envelope **unchanged**. ⭐ The third is the one that makes "several" mean something: holding the margins fixed while shrinking the platform moves every blast line from 1.000 / 1.125 / 0.875 platform-widths to **1.750 / 1.688 / 1.313**, so it is an edgeguard-and-recovery stage rather than the same stage smaller. ⛔ Not tuned and not balanced — authored to CHANGE the decisions the rig measures, which is what this row asks for |
@@ -428,9 +437,11 @@ the instrument was ever read.
 
 ## Exit
 
-Smash has graduated from acceptance demo to a strong game slice when adding a
-fighter, stage, or match rule normally means authoring content or extending one
-reusable semantic owner; CPU and human fighters obey the same body laws; the
-same characters remain ordinary Ambition characters outside the ruleset; and a
-short local match is fun without developer interpretation of what the systems
-are doing.
+Smash has graduated from acceptance demo to a strong game slice only after the
+parity inventory's `S0.*` raw-combat gate is closed. After that, adding a fighter,
+stage, or match rule normally means authoring content or extending one reusable
+semantic owner; CPU and human fighters obey the same body laws; the same
+characters remain ordinary Ambition characters outside the ruleset; and a short
+local match is fun without developer interpretation of what the systems are
+doing. Stage/roster/match completeness cannot substitute for an open `S0.*`
+interaction packet.

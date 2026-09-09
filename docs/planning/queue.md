@@ -274,10 +274,39 @@ adapter.
 
 **Owner:** public SDK and composition; packet A9.
 
-Record the Cargo feature closure of real external fixtures. The source-only
-no-default-feature lower bound still contains 51 other workspace packages,
-including render through host. Separate compiler reachability, runtime
-installation and public-import ergonomics; repair one dependency path at a time.
+Record the Cargo feature closure of real external fixtures. Separate compiler
+reachability, runtime installation and public-import ergonomics; repair one
+dependency path at a time.
+
+**The render path closed 2026-09-09, and it was one edge.** Re-measured at HEAD
+with `cargo tree -e normal --no-default-features -p ambition_platformer2d`: 51
+other workspace packages, matching the number this row already carried, and
+`-i ambition_render` named exactly ONE path — `ambition_platformer2d ->
+ambition_platformer2d_host -> ambition_render`, non-optional in the host's
+manifest. The host's camera, projectile-visual and fx-pipeline plugins are behind
+its own `render` feature now (which carries `ambition_menu` and
+`ambition_sprite_sheet` with it, since nothing outside that feature's code named
+them); the crate's own default stays `render` so building it alone still builds
+the windowed face its description promises, and the facade takes it
+`default-features = false` and forwards it from its `ambition_render` feature.
+Closure 52 → 50: `ambition_render` and `ambition_sprite_fx` left.
+
+⚠ **The existing capability-footprint sentinel cannot see this**, and that is why
+a second contract exists rather than a wider baseline: `fixtures/minimal_game`
+ASKS for the renderer (its exit criterion draws a windowed face), so the renderer
+is legitimately in its closure. `a-featureless-consumer-links-no-renderer` in
+`scripts/check_absence_contracts.py` walks the feature-resolved tree instead —
+the manifest walk the other dependency contracts use counts optional edges and
+would report a renderer no feature enables. Poison-verified twice: restoring the
+facade's `default-features` on host reddens it naming both crates, and pointing
+its `cargo tree` at a package that does not exist trips the anti-vacuity floor
+rather than printing `ok` on an empty measurement.
+
+**Next in this row:** the frontier asks for a SEPARATE headless consumer
+workspace — "a constructed body advancing against world geometry, without
+renderer, audio, inventory, encounters or game content". That fixture does not
+exist; `minimal_game` is the windowed sentinel and cannot stand in for it. The 50
+remaining crates have not been traced to their activating edges.
 
 **Acceptance:** a supported profile constructs and steps a real subject, its
 promised absent capability is absent from both installation and resolved closure,

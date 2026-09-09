@@ -354,6 +354,22 @@ Retain a small single-active-room host profile.
 
 ## A9. Prove public profiles and actual compile/runtime optionality
 
+**The facade -> host -> render path this packet says to start with closed
+2026-09-09.** It was one edge: the windowed host named `ambition_render`
+unconditionally, so every consumer of the facade compiled a renderer including
+one that selected no capability at all. The host's three presentation plugins sit
+behind its own `render` feature now and the facade takes the host
+`default-features = false`. Measured 52 -> 50 ambition crates in
+`cargo tree -e normal --no-default-features -p ambition_platformer2d`, and
+ratcheted by `a-featureless-consumer-links-no-renderer`, which walks the
+FEATURE-RESOLVED tree because the manifest walk the other dependency contracts
+use counts optional edges. See the queue row for the poison receipts.
+
+⚠ The separate headless consumer workspace this packet asks for still does not
+exist: `fixtures/minimal_game` is the WINDOWED sentinel and legitimately links
+the renderer, so it cannot answer the question. The remaining 50 crates have not
+been traced to their activating edges.
+
 **Ready now:** record the manifest lower bound and establish a real independent
 consumer fixture. **Implementation:** staged with the owners whose dependencies
 need splitting; do not wait for every monolith region to be extracted.

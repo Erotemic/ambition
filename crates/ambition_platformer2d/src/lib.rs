@@ -780,7 +780,12 @@ pub mod windowed_host {
     pub use ambition_persistence::host::windowing::DisplayModeState;
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;
-    pub use ambition_platformer2d_host::{HostCameraPlugin, PlatformerHostPlugins};
+    /// The camera follow/shake cluster. Gated with the renderer it wires: the
+    /// host installs it only under its own `render` feature, so a composition
+    /// that selected no presentation has nothing here to name.
+    #[cfg(feature = "ambition_render")]
+    pub use ambition_platformer2d_host::HostCameraPlugin;
+    pub use ambition_platformer2d_host::PlatformerHostPlugins;
 }
 
 /// The generic platformer PRESENTATION face: a camera, the room's static visuals,

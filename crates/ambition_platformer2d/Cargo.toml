@@ -82,6 +82,13 @@ all_capabilities = [
     "ambition_vfx",
 ]
 rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
+# ⭐ SPELLED OUT rather than left as the optional dependency's implicit feature,
+# because selecting the renderer means selecting it EVERYWHERE it is wired — and
+# the windowed host's camera/projectile/fx wiring is behind its own `render`
+# feature now (see that crate's manifest). Without this line a composition could
+# name `ambition_render` and get a host that installs none of the presentation
+# that renderer exists for.
+ambition_render = ["dep:ambition_render", "ambition_platformer2d_host/render"]
 # Window/input/presentation forwarders for downstream game crates and for the
 # app-shell collapse. Games opt into the same engine/host/render/actor gates
 # through one facade instead of copying every lower crate into their manifests.
@@ -177,7 +184,15 @@ ambition_encounter = { path = "../ambition_encounter", optional = true }
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_platformer2d_host = { path = "../ambition_platformer2d_host" }
+# ⛔⛔ `default-features = false`, AND IT IS LOAD-BEARING. The host crate's own
+# default is `render`, because building that crate alone should build the
+# WINDOWED face its description promises. Taking that default here would put
+# `ambition_render` in the compile closure of every consumer including one that
+# asked for no capabilities at all — measured 2026-09-09 as the ONE path
+# (`cargo tree -e normal --no-default-features -i ambition_render`) that did so.
+# The `ambition_render` feature below forwards it back for the compositions that
+# draw.
+ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false }
 ambition_input = { path = "../ambition_input" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
 ambition_items = { path = "../ambition_items", optional = true }

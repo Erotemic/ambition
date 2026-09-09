@@ -12,19 +12,19 @@ ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
-ambition_render = { path = "../ambition_render" }
+ambition_render = { path = "../ambition_render", optional = true }
 # Named directly so the host can hand the menu crate the font the render side
 # resolved. `ambition_render` must NOT depend on `ambition_menu` — presentation
 # does not own the menu IR — and the menu crate must not know an asset path, so
 # the composition root is the only place the two can meet.
-ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"] }
+ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"], optional = true }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_sim_view = { path = "../ambition_sim_view" }
 # Sprite metadata for the projectile visual passes this crate registers:
 # `SheetRegistryPlugin` provides the `SheetRegistry` they read. The edge already
 # existed transitively through `ambition_render`; naming it is what lets this
 # crate install the plugin rather than assume somebody else did.
-ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet", optional = true }
 bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",
     "bevy_image",
@@ -39,12 +39,31 @@ bevy = { version = "0.19.1", default-features = false, features = [
 leafwing-input-manager = { version = "0.21", optional = true }
 
 [features]
-default = []
+# ⭐ THE CRATE'S OWN DEFAULT IS ITS OWN DESCRIPTION: this is the WINDOWED host
+# face, so building it alone builds the thing the docs above describe, and
+# `cargo test -p ambition_platformer2d_host` composes a drawing host exactly as
+# it always did.
+#
+# ⛔⛔ AND THE FACADE TAKES IT WITH `default-features = false`, which is the whole
+# point of the split. `ambition_platformer2d -> ambition_platformer2d_host ->
+# ambition_render` was the ONE path (measured 2026-09-09 with
+# `cargo tree -e normal --no-default-features -i ambition_render`) that put the
+# renderer in a no-default-features consumer's compile closure, and it was there
+# because this edge was not optional. A composition that wants no renderer says
+# so by not naming this feature; one that draws forwards it, as the facade's
+# `visible` and `all_capabilities` do.
+default = ["render"]
+# The presentation wiring only a DRAWING host needs: the camera follow/shake
+# cluster, the projectile visual passes, and the fx pipeline. `ambition_menu` and
+# `ambition_sprite_sheet` ride here because nothing outside this feature's own
+# code names them — the menu only to hand across the font `ambition_render`
+# resolved, sprite metadata only for the projectile passes.
+render = ["dep:ambition_render", "dep:ambition_menu", "dep:ambition_sprite_sheet"]
 # The leafwing input bindings + the device→ControlFrame bridge
 # (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
 input = [
     "ambition_input/input",
-    "ambition_render/input",
+    "ambition_render?/input",
     "ambition_sim_view/input",
     "dep:leafwing-input-manager",
 ]
@@ -59,6 +78,10 @@ input = [
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_runtime/portal"]
 portal_render = [
     "portal",
+    # Portal PRESENTATION is presentation: it cannot mean anything in a host
+    # that installed no renderer, so it names `render` rather than reaching
+    # through an optional dependency that may not be there.
+    "render",
     "dep:ambition_portal2d_presentation",
     "ambition_render/portal_render",
 ]

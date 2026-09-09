@@ -25,7 +25,14 @@ pub struct PlatformerHostPlugins;
 impl PluginGroup for PlatformerHostPlugins {
     fn build(self) -> PluginGroupBuilder {
         let builder = PluginGroupBuilder::start::<Self>()
-            .add(ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyPlugin)
+            .add(ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyPlugin);
+        // ⛔ THE DRAWING HALF IS BEHIND `render`, and it is the whole reason
+        // this crate's `ambition_render` edge could become optional: all three
+        // of these plugins exist to wire presentation, so a host that installs
+        // no renderer has nothing for them to wire. See the manifest's `render`
+        // feature for the dependency path this closed.
+        #[cfg(feature = "render")]
+        let builder = builder
             .add(HostCameraPlugin)
             .add(HostProjectileVisualsPlugin)
             .add(HostVfxPresentationPlugin);
@@ -211,9 +218,6 @@ impl Plugin for HostInputBindingsPlugin {
             // participant a later gameplay session does; possession, session
             // relaunch, and actor death never touch its device state.
             .add_systems(Startup, spawn_primary_input_participant)
-            // The menu crate cannot know an asset path and the render crate must
-            // not own the menu IR, so the host is where the font handle crosses.
-            .add_systems(Update, publish_menu_font)
             // A participant's map is BUILT from its declared recipe: the
             // persisted preset reaches the primary's recipe, and any recipe
             // change rebuilds that seat's map — every seat, in every
@@ -317,6 +321,11 @@ impl Plugin for HostInputBindingsPlugin {
         // monolith and its ordering against `InputSet::Collect` is that crate's
         // fact, not this composition's.
         ambition_platformer2d_runtime::host_input::install_roster_seating(app);
+        // The menu crate cannot know an asset path and the render crate must
+        // not own the menu IR, so the host is where the font handle crosses —
+        // and only a host that HAS a renderer has a font to carry.
+        #[cfg(feature = "render")]
+        app.add_systems(Update, publish_menu_font);
     }
 }
 
@@ -372,8 +381,10 @@ fn tune_clash_strategy_to_bindings(
 /// neither runtime nor the schedule. This crate's own description says it MAY
 /// name render, runtime and sim_view — that is what the host layer is for, and
 /// `camera_follow` is already here for exactly the same reason.
+#[cfg(feature = "render")]
 pub struct HostProjectileVisualsPlugin;
 
+#[cfg(feature = "render")]
 impl Plugin for HostProjectileVisualsPlugin {
     fn build(&self, app: &mut App) {
         // The systems below draw from sheet metadata, and the registry that
@@ -425,8 +436,10 @@ impl Plugin for HostProjectileVisualsPlugin {
 ///  `update_blink_preview` is deliberately NOT here. It reads leafwing
 /// action state to know the blink button is held, so it stays behind the app's
 /// `input` persona with the rest of the input-driven presentation.
+#[cfg(feature = "render")]
 pub struct HostVfxPresentationPlugin;
 
+#[cfg(feature = "render")]
 impl Plugin for HostVfxPresentationPlugin {
     fn build(&self, app: &mut App) {
         // spelled out on purpose — a short path is INVISIBLE to
@@ -451,8 +464,10 @@ impl Plugin for HostVfxPresentationPlugin {
 ///
 /// A host that needs to draw AFTER the camera lands (debug overlays, HUD
 /// anchors) orders `.after(ambition_render::rendering::camera_follow)`.
+#[cfg(feature = "render")]
 pub struct HostCameraPlugin;
 
+#[cfg(feature = "render")]
 impl Plugin for HostCameraPlugin {
     fn build(&self, app: &mut App) {
         use ambition_render::rendering::camera_follow;
@@ -590,7 +605,12 @@ mod clash_strategy_tests {
 /// Gated with its only caller (`HostInputBindingsPlugin`, which is
 /// `feature = "input"`); without this a feature-stripped build warns
 /// `never used`, and CI compiles with `-D warnings` across configs.
-#[cfg(feature = "input")]
+///
+/// ⛔ AND WITH `render` TOO, because the font it hands across is
+/// `ambition_render`'s: an input-only host has no `UiFonts` to read and no menu
+/// crate to write to. The two halves it exists to introduce are both behind that
+/// feature.
+#[cfg(all(feature = "input", feature = "render"))]
 fn publish_menu_font(
     mut commands: bevy::prelude::Commands,
     fonts: Option<bevy::prelude::Res<ambition_render::ui_fonts::UiFonts>>,

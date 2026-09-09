@@ -1086,6 +1086,77 @@ CAPABILITY_FOOTPRINT_BASELINE = (
 CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
 
 
+# ⛔⛔ THE CAPABILITY A CONSUMER DID NOT ASK FOR MUST NOT BE IN ITS COMPILE
+# CLOSURE. The sentinel above measures a consumer that asks for the renderer (its
+# own exit criterion draws a windowed face), so it cannot answer the question A9
+# actually poses: does a consumer that selected NO capability still compile one?
+#
+# ⭐ AND THE ANSWER HAS TO COME FROM A FEATURE-RESOLVED WALK. The manifest graph
+# `dependency_violations` uses counts every OPTIONAL edge, so it reports a
+# renderer that no feature ever enables — the exact wrong subject the sentinel's
+# own docstring warns about one rung up. `cargo tree --edges normal` with the
+# facade's features off is the resolver's own answer.
+#
+# Measured 2026-09-09: this held on ONE edge and one only —
+# `ambition_platformer2d -> ambition_platformer2d_host -> ambition_render`, where
+# the host named the renderer unconditionally. It is a feature now, and the
+# closure went 52 crates to 50 (`ambition_render` and `ambition_sprite_fx`).
+FEATURELESS_FACADE = "ambition_platformer2d"
+# ⚠ NOT A GENERAL "presentation is absent" CLAIM — the two crates measured out of
+# the closure, named. Widening this to every presentation crate would assert
+# something no measurement supports; add a name here when a measurement removes
+# it, not before.
+FEATURELESS_FACADE_FORBIDS = ("ambition_render", "ambition_sprite_fx")
+# ⛔ THE ANTI-VACUITY FLOOR. A `cargo tree` that fails, or one whose output shape
+# changes, yields an empty set — and an empty set contains no forbidden crate, so
+# the contract would print `ok` having measured nothing. These two are in the
+# closure of a facade with every feature off by construction (the facade's own
+# manifest names them unconditionally), so their ABSENCE means the instrument
+# broke, not that the architecture improved.
+FEATURELESS_FACADE_FLOOR = ("ambition_platformer2d_core", "ambition_platformer2d_runtime")
+
+
+@functools.cache
+def featureless_facade_closure(root: Path) -> set[str]:
+    """The `ambition_*` crates a consumer links naming the facade and NO feature.
+
+    Process-local cache, for [`sentinel_linked_closure`]'s reason: one checker
+    invocation observes one tree.
+    """
+    result = subprocess.run(
+        [
+            cargo_binary(),
+            "tree",
+            "--prefix",
+            "none",
+            "--edges",
+            "normal",
+            "-p",
+            FEATURELESS_FACADE,
+            "--no-default-features",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return set()
+    return {
+        line.split(" ", 1)[0]
+        for line in result.stdout.splitlines()
+        if line.startswith("ambition_")
+    }
+
+
+def featureless_facade_report(root: Path) -> tuple[list[str], list[str]]:
+    """`(forbidden crates present, floor crates missing)`."""
+    closure = featureless_facade_closure(root)
+    present = [crate for crate in FEATURELESS_FACADE_FORBIDS if crate in closure]
+    missing = [crate for crate in FEATURELESS_FACADE_FLOOR if crate not in closure]
+    return present, missing
+
+
 @functools.cache
 def sentinel_linked_closure(root: Path) -> set[str]:
     """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
@@ -1691,6 +1762,36 @@ def main() -> int:
             summary = "  ".join(f"{module}:{count}" for count, module in ranked)
             print(f"       still named — {summary}")
 
+    present, missing = featureless_facade_report(root)
+    if missing:
+        broken += 1
+        print("  RED  a-featureless-consumer-links-no-renderer  (INSTRUMENT BROKEN)")
+        print(
+            "       The closure is missing crates the facade names "
+            "unconditionally, so `cargo tree` measured nothing and this "
+            "contract's `ok` would have meant nothing:"
+        )
+        for crate in missing:
+            print(f"       ABSENT {crate} — expected in every closure")
+    elif present:
+        broken += 1
+        print("  RED  a-featureless-consumer-links-no-renderer")
+        print(
+            "       A consumer that named the facade and selected NO capability "
+            "still compiles these. A9: a promised-absent capability must be "
+            "absent from the resolved closure, not merely unused at runtime. "
+            "Find the edge with `cargo tree -e normal --no-default-features "
+            f"-p {FEATURELESS_FACADE} -i <crate>` and make it a feature."
+        )
+        for crate in present:
+            print(f"       LINKED {crate}")
+    else:
+        print(
+            "  ok   a-featureless-consumer-links-no-renderer  "
+            f"({len(featureless_facade_closure(root))} ambition crates linked "
+            f"with every facade feature off)"
+        )
+
     # ⛔ The sentinel's own lockfile is a PREREQUISITE of these two contracts and
     # of nothing else, so its staleness is reported as one RED and the remaining
     # 37 contracts still get verdicts. See `SentinelLockfileStale`.
@@ -1802,7 +1903,9 @@ def main() -> int:
         len(ABSENCE_CONTRACTS)
         + len(DEPENDENCY_CONTRACTS)
         + len(MODULE_ALLOWLISTS)
-        + 2
+        # The three hand-emitted contracts above: the capability footprint, the
+        # rollback wire format, and the featureless consumer's closure.
+        + 3
     )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")

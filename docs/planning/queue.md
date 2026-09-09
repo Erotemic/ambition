@@ -91,11 +91,14 @@ protocol asks for was still split three ways, and the review was right:
 
 ⇒ ONE sweep over the shot's actual travel leg, its finite `time_of_impact` kept
 in the leg's own [0, 1] parameter and compared directly against every body's and
-every feature's contact time. A blocker strictly earlier wins; a tie goes to the
-target, which restates the strict comparison the body branch already used rather
-than inventing a policy (nothing can yet tell a destructible's own surface from
-an independent blocker — that is A5's contributor identity). The pull-back reuses
-the same result instead of re-sweeping. Three witnesses, each poison-verified
+every feature's contact time. The pull-back reuses the same result instead of
+re-sweeping.
+
+⛔ THE TIE RULE WRITTEN HERE WAS WRONG AND IS CORRECTED BELOW (review #8). It
+said a tie goes to the TARGET and called that "the strict comparison the body
+branch already used rather than inventing a policy". Inventing a policy is
+exactly what it was: the protocol awards an equal-time tie to an independent
+blocking surface. Three witnesses, each poison-verified
 against the exact code it replaced: a crate behind a wall is not broken, the same
 crate with the wall moved PAST it still is (the anti-vacuity floor moves the wall,
 not the crate, so an arm that broke nothing would fail it), and a wall standing
@@ -111,15 +114,42 @@ leave for `ambition_projectiles` without the victim queries following. The seman
 deletion gates the owner document requires have landed, INCLUDING the finite-time
 ordering rule reopened by review #7 above.
 
-⚠ WHAT IS DELIBERATELY NOT CLOSED, stated rather than implied: the acceptance
-matrix's COMPOUND SOLID OBJECT row. The tie rule this road runs is declared and
-uniform — a strictly earlier contact wins, and an equal time goes to the target
-(against a wall) and to the body (against a feature) — but a genuine compound
-contact, where a destructible's own collision surface and its damageable volume
-are ONE contact rather than two competitors, needs stable collider-contributor
-identity. That is A5 infrastructure.
+**A2 REOPENED AND RE-CLOSED AGAIN 2026-09-09 (GPT review #8), `dc2fe7ce7`.**
+Three defects, one cause: the road had a contact order that was not the
+protocol's, and then did not use its own answer.
 
-⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09.** A
+- **The tie went to the target, with an epsilon.** `wall < contact - f32::EPSILON`
+  is the opposite of the protocol's rule AND the epsilon comparator it forbids by
+  name; at ~1.19e-7, twice the float spacing at 0.5, it also swallowed walls that
+  genuinely were first. Now an exact `is_le`, extracted as `wall_reaches_first`
+  so the tie can be asserted directly — two swept code paths producing
+  bit-identical `f32` is not something a fixture can promise.
+- **Body-vs-feature was family knowledge wearing a comparison.** Same epsilon,
+  and at a tie the body won because its loop owns the equality case. Both
+  families now share ONE order: time, then position, then stable authored
+  identity. Neither is privileged; only the WORLD is, and only at an exact tie.
+- **Obstruction and response disagreed about one-ways.** The sweep excluded every
+  `OneWay` for a `Bouncing` shot while the response bounces off one the shot
+  descends onto. Both now read `shot_policy_admits`; poisoning it reddens the new
+  descending test and the OLD bounce fixture together.
+- **The selected witness was not authoritative.** The pull-back was skipped
+  whenever the endpoint overlapped anything, so a shot could order targets by
+  wall A and physically resolve at wall B.
+- **The splash detonated at the tick endpoint**, not the contact — a
+  gameplay-visible area attack centred in the wrong place.
+- `first_body_sweep` handed its own equal-TOI ties to `self.blocks` order; now
+  time, then position, then the durable `GeoId`.
+
+⚠ WHAT IS DELIBERATELY NOT CLOSED, stated rather than implied: the acceptance
+matrix's COMPOUND SOLID OBJECT row. A genuine compound contact — a destructible's
+own collision surface and its damageable volume as ONE contact rather than two
+competitors — needs stable collider-contributor identity. That is A5
+infrastructure, and Q96 has to be decided first.
+
+⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09 —
+which is WHY the protocol's tie rule could be implemented exactly, with no
+contributor identity: every block this sweep can return is by construction an
+INDEPENDENT blocker.** A
 breakable authored `BreakableCollision::Solid` DOES publish a `BlinkWall` block —
 `world/overlay.rs` writes it into `FeatureEcsWorldOverlay::blocks` — but
 `ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`

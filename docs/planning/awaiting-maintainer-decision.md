@@ -360,6 +360,30 @@ destructible has both a surface and a hurt volume:
 for projectiles or only for the player road. Owner document:
 [projectile contact protocol](engine/projectile-contact-protocol.md).
 
+⛔⛔ **THE SECOND BULLET CONTRADICTS THE OWNER DOCUMENT, AND THAT IS THE PART
+NEEDING A RULING.** Raised in the 2026-09-09 GPT review. "A shot sees the
+surface too" is framed above as *a `Bouncing` shot would bounce off a solid
+crate rather than damage it*. The protocol says the opposite for that exact
+case: a destructible's own surface and its hurt region COALESCE INTO ONE
+COMPOUND CONTACT that resolves the target once **and also** honors the surface's
+physical response — the whole point being that a generic "wall first" rule must
+not make every solid destructible immune to projectiles. So the two models on
+offer are not "today" versus "the protocol"; the second bullet is a THIRD model
+that no document specifies. Whichever way this is decided, the protocol section
+and this row have to end up saying the same thing.
+
+⭐ **MEASURED 2026-09-09: the compound row is not merely unreached, it is
+STRUCTURALLY UNREACHABLE, and that is why A2 did not have to wait.** A shot
+sweeps `ProjectileCollisionWorld::solids()` — the authored room, plus gate
+solids, minus portal carves and named removals. `overlay.blocks`, which is every
+ECS breakable surface, never enters it; the module's own contract says a
+projectile "passes through breakable/ECS overlay solids". So every block the
+projectile sweep can return is by construction an INDEPENDENT blocker, and the
+protocol's tie rule (an independent surface at equal time beats an unrelated
+hurt target) applies with no contributor identity at all. That is what
+`dc2fe7ce7` implemented. Contributor identity becomes REQUIRED for projectiles
+the moment this row is decided the second way — not before.
+
 ## Human measurements, not design answers
 
 These are recorded here only when the maintainer must supply the measurement; the

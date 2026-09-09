@@ -11,6 +11,7 @@
 
 use bevy::prelude::*;
 
+use ambition_combat::technique::{check_hydrates, InstalledTechniques, TechniqueOffer, TechniqueParams};
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -19,6 +20,43 @@ use ambition_platformer2d_shared_tangle::schedule::{
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
 pub struct CombatSchedulePlugin;
+
+/// Install a technique handler AND declare the key it answers, in one statement.
+///
+/// ⛔⛔ **THE TWO CANNOT BE SEPARATED, AND THAT IS THE WHOLE POINT.** Before
+/// this, "which techniques does this build install" existed only as a set of
+/// `add_systems` calls in this file and a matching set of `pub const` keys in
+/// `ambition_characters`, with nothing joining them. So a misspelled authored
+/// key — `smash.teleprot` — matched no handler's `key.as_str() != KEY` arm, fell
+/// out of every consumer, and surfaced as a `warn!` in the middle of a fight on
+/// a move that plays and does nothing. `ParamSchemaRegistry` was supposed to
+/// catch it and had ZERO production callers; `ambition_demo_smash`'s own source
+/// says so.
+///
+/// ⭐ A DECLARATION MADE HERE IS EVIDENCE. It is written by the composition that
+/// adds the system, so "declared" means "something installed answers this",
+/// which is the property a metadata registry can never have.
+///
+/// ⚠ IT PANICS ON A CONFLICT, deliberately, and at build time. Two capabilities
+/// claiming one key is a composition error an author cannot repair from content,
+/// and the alternative — the old registry's silent replacement — makes the FIRST
+/// capability's parameter contract quietly stop being checked.
+pub fn install_technique<M>(
+    app: &mut App,
+    key: &str,
+    offer: TechniqueOffer,
+    systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+) {
+    let sim = app.sim_schedule();
+    app.add_systems(sim, systems);
+    let mut support = app
+        .world_mut()
+        .get_resource_or_insert_with(InstalledTechniques::default);
+    if let Err(conflict) = support.0.declare(key, offer) {
+        panic!("{conflict}");
+    }
+}
+
 
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
@@ -213,36 +251,6 @@ impl Plugin for CombatSchedulePlugin {
                 // projectile requests.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
                     .in_set(GameplayGated),
-                // EFFECTS-stage consumer, beside the shot spawner and for the same
-                // reason: a move's timed technique is dispatched as an
-                // `ActorActionMessage` above, and a teleport that ran a phase
-                // later would move the body after the frame it was authored for.
-                ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
-                    .in_set(GameplayGated),
-                // EFFECTS-stage consumer, beside the teleport and for the same
-                // reason: a health change authored on a move's timeline must
-                // land on the frame the move named. It sits AHEAD of
-                // `apply_effects` so a fighter who paid for a move is already
-                // poorer when this frame's hits resolve — a price that settled
-                // afterwards would let her be launched at the percent she had
-                // before she bought the tempo.
-                ambition_combat::vitality::apply_authored_vitality.in_set(GameplayGated),
-                // EFFECTS-stage consumer, beside the teleport and for the same
-                // reason. ⛔ AND IT MUST NOT BE ORDERED AGAINST THE TELEPORT:
-                // the two never act on one body on one frame (a move authors
-                // one technique or the other), so a `.chain()` here would be a
-                // constraint stating a relationship that does not exist.
-                ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
-                    .in_set(GameplayGated),
-                // EFFECTS-stage consumer, beside the trapdoor and for the same
-                // reason. ⛔ AND IT IS NOT ORDERED AGAINST EITHER OF THEM: a
-                // move authors one technique, so a `.chain()` here would state a
-                // relationship that does not exist. ⭐ It writes no position at
-                // all — it hangs the body off a wire and the movement kernel
-                // integrates it — so unlike its two neighbours it has nothing to
-                // race the sweep for.
-                ambition_platformer2d_actor_monolith::abilities::traversal::flyline::apply_authored_flylines
-                    .in_set(GameplayGated),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)
@@ -302,6 +310,82 @@ impl Plugin for CombatSchedulePlugin {
             )
                 .chain()
                 .in_set(CombatSet::Materialize),
+        );
+        // ── AUTHORED TECHNIQUES: HANDLER AND DECLARATION IN ONE STATEMENT ──
+        //
+        // ⛔⛔ THESE FOUR USED TO BE FOUR MORE LINES IN THE TUPLE ABOVE, and
+        // that is precisely how "which techniques does this build install"
+        // stopped being answerable. The keys live as `pub const`s in
+        // `ambition_characters`; the handlers were added here; nothing joined
+        // them, so a misspelled authored key matched no handler's guard, fell
+        // out of every consumer, and surfaced as a `warn!` mid-fight on a move
+        // that plays and does nothing.
+        //
+        // ⭐ THEIR SCHEDULING IS UNCHANGED. Each keeps `CombatSet::Materialize`
+        // and `GameplayGated`, and none of them is ordered against the others —
+        // a move authors ONE technique, so a `.chain()` between them would state
+        // a relationship that does not exist. What changed is that the statement
+        // that installs the handler also says which key it answers.
+        install_technique(
+            app,
+            ambition_characters::smash_teleport::TELEPORT,
+            TechniqueOffer {
+                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::teleport",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_characters::smash_teleport::TeleportParams>,
+                ),
+            },
+            // A teleport that ran a phase later would move the body after the
+            // frame it was authored for.
+            ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
+                .in_set(CombatSet::Materialize)
+                .in_set(GameplayGated),
+        );
+        install_technique(
+            app,
+            ambition_characters::smash_vitality::VITALITY,
+            TechniqueOffer {
+                owner: "ambition_combat::vitality",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_characters::smash_vitality::VitalityParams>,
+                ),
+            },
+            // AHEAD of `apply_effects`, so a fighter who paid for a move is
+            // already poorer when this frame's hits resolve — a price that
+            // settled afterwards would let her be launched at the percent she
+            // had before she bought the tempo.
+            ambition_combat::vitality::apply_authored_vitality
+                .in_set(CombatSet::Materialize)
+                .in_set(GameplayGated),
+        );
+        install_technique(
+            app,
+            ambition_characters::smash_trapdoor::TRAPDOOR,
+            TechniqueOffer {
+                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_characters::smash_trapdoor::TrapdoorParams>,
+                ),
+            },
+            ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
+                .in_set(CombatSet::Materialize)
+                .in_set(GameplayGated),
+        );
+        install_technique(
+            app,
+            ambition_characters::smash_flyline::FLYLINE,
+            TechniqueOffer {
+                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::flyline",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_characters::smash_flyline::FlylineParams>,
+                ),
+            },
+            // ⭐ It writes no position at all — it hangs the body off a wire and
+            // the movement kernel integrates it — so unlike its neighbours it has
+            // nothing to race the sweep for.
+            ambition_platformer2d_actor_monolith::abilities::traversal::flyline::apply_authored_flylines
+                .in_set(CombatSet::Materialize)
+                .in_set(GameplayGated),
         );
         app.add_systems(
             sim,

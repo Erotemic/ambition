@@ -90,7 +90,17 @@ at. The flow-owned-lifetime prose is corrected against the runtime: the timeline
 ends the move, so none of these traps a fighter — they lose authored steps, and a
 cycle fires a technique N times where the author wrote one.
 
-Next: A11a's installed-profile declaration. Then validate every expanded effect
+**A11a's support authority landed 2026-09-09.** `TechniqueSupport` refuses a
+second claim on a technique key and refuses an authored key nothing installed
+declares; `install_technique` adds the handler system and declares its key in one
+statement, so a capability cannot install one without the other. Four handlers
+converted. It replaces `ParamSchemaRegistry`, which admitted unknown keys by
+design, overwrote duplicates silently, and had zero production callers — so a
+misspelled effect key reached the runtime and became a warning mid-fight.
+
+Next: convert the remaining ~16 `smash_*` technique installers, which is what
+lets the strict unknown-key pass turn on, then connect profile-bound validation
+to character preparation before insertion. Then validate every expanded effect
 site, install the private prepared representation and prove explicit activation.
 Keep current move lifetime and delivery phases.
 

@@ -880,6 +880,16 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // ⭐ INSTALL-TIME DECLARATION, AND STRUCTURALLY SO. It is written once, in
+    // `combat_schedule::install_technique`, by the statement that adds a
+    // technique's handler system, and NOTHING in the simulation writes it — a
+    // rewind restoring it would restore the same table it already holds. What it
+    // records is which capabilities this build installed, which cannot change
+    // while the build runs.
+    (
+        "ambition_combat::technique::InstalledTechniques",
+        "install-time declaration of which technique handlers this composition added; written once at plugin build and never by the simulation",
+    ),
     // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
     // checkpoint terminal road is split in two. "This host could not prepare the
     // destination" is decided by asset residency and construction preflight —

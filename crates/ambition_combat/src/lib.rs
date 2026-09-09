@@ -140,6 +140,8 @@ use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxM
 #[allow(unused_imports)]
 use bevy::prelude::*;
 
+pub mod technique;
+
 pub use ambition_entity_catalog::placements::DamageKind;
 use ambition_entity_catalog::placements::{DamageTeam, HazardRespawn};
 use ambition_platformer2d_core::{Aabb, AabbExt, KinematicPath, Vec2};

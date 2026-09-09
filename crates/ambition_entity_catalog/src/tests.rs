@@ -1838,6 +1838,152 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
     );
 }
 
+/// What a composition actually installed, and what an authored reference is
+/// allowed to name.
+mod technique_support {
+    use crate::{
+        check_hydrates, EffectRef, ParamValue, TechniqueOffer, TechniqueParams, TechniqueRefusal,
+        TechniqueSupport,
+    };
+
+    #[derive(serde::Deserialize)]
+    struct Offset {
+        #[allow(dead_code)]
+        offset: (f32, f32),
+    }
+
+    fn checked(owner: &'static str) -> TechniqueOffer {
+        TechniqueOffer {
+            owner,
+            params: TechniqueParams::Checked(check_hydrates::<Offset>),
+        }
+    }
+
+    fn paramless(owner: &'static str) -> TechniqueOffer {
+        TechniqueOffer {
+            owner,
+            params: TechniqueParams::None,
+        }
+    }
+
+    fn effect(key: &str, ron_text: &str) -> EffectRef {
+        EffectRef {
+            key: key.to_string(),
+            params: ParamValue::parse(ron_text).expect("the fixture's params parse"),
+        }
+    }
+
+    /// ⛔⛔ **AN UNKNOWN KEY IS REFUSED, and the registry it replaces let one
+    /// PASS BY DESIGN.** `ParamSchemaRegistry`'s own doc said "the engine matches
+    /// no key, so an unregistered key always passes" — so `smash.teleprot`
+    /// reached the runtime, matched no handler's guard, and became a `warn!` in
+    /// the middle of a fight on a move that plays and does nothing.
+    #[test]
+    fn a_key_nothing_installed_declares_is_refused() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.teleport", checked("traversal::teleport"))
+            .expect("a fresh support table accepts the first claim");
+        assert_eq!(
+            support.admit(&effect("smash.teleprot", "(offset: (1.0, 2.0))")),
+            Err(TechniqueRefusal::Unknown {
+                key: "smash.teleprot".to_string()
+            }),
+        );
+        // ⛔ THE FLOOR: the correctly-spelled key is still admitted, or the row
+        // above is satisfied by a table that refuses everything.
+        assert_eq!(
+            support.admit(&effect("smash.teleport", "(offset: (1.0, 2.0))")),
+            Ok(())
+        );
+    }
+
+    /// ⛔⛔ **A SECOND CLAIM ON ONE KEY IS A CONFLICT, NOT A REPLACEMENT.** The
+    /// old registry inserted over the first registration silently, which makes a
+    /// VALIDATOR go quiet rather than a behaviour change — the harder kind to
+    /// notice, and its own doc said so.
+    ///
+    /// ⭐ REPORTED BY KEY AND CLAIMED OWNER, never by comparing the two checks.
+    /// A `ParamCheck` is a function pointer, and this repository's registry rule
+    /// forbids anything process-local from entering a registration's identity,
+    /// so there is no honest "same check" case to detect.
+    #[test]
+    fn two_capabilities_cannot_claim_one_technique() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.teleport", checked("traversal::teleport"))
+            .expect("the first claim is accepted");
+        let conflict = support
+            .declare("smash.teleport", checked("some_other::teleport"))
+            .expect_err("a second claim on one key must be refused");
+        assert_eq!(conflict.held_by, "traversal::teleport");
+        assert_eq!(conflict.claimed_by, "some_other::teleport");
+        // The first capability's contract survives the refused claim.
+        assert_eq!(
+            support.offer("smash.teleport").map(|offer| offer.owner),
+            Some("traversal::teleport"),
+            "the refused second claim replaced the first anyway"
+        );
+    }
+
+    /// ⛔ PARAMLESS IS A CONTRACT. An author who wrote parameters for a technique
+    /// that takes none believed they did something; ignoring them is the silent
+    /// failure this table exists to end.
+    #[test]
+    fn a_paramless_technique_refuses_authored_parameters() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.counter", paramless("smash_counter"))
+            .expect("accepted");
+        assert_eq!(support.admit(&effect("smash.counter", "()")), Ok(()));
+        assert!(matches!(
+            support.admit(&effect("smash.counter", "(offset: (1.0, 2.0))")),
+            Err(TechniqueRefusal::UnexpectedParams { .. })
+        ));
+    }
+
+    /// A key that IS installed with params that do not hydrate is refused with
+    /// the technique's own message, not a generic one.
+    #[test]
+    fn parameters_that_do_not_hydrate_are_refused_by_the_techniques_own_check() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.teleport", checked("traversal::teleport"))
+            .expect("accepted");
+        match support.admit(&effect("smash.teleport", "(offset: \"not a pair\")")) {
+            Err(TechniqueRefusal::BadParams { key, owner, detail }) => {
+                assert_eq!(key, "smash.teleport");
+                assert_eq!(owner, "traversal::teleport");
+                assert!(
+                    !detail.is_empty(),
+                    "the refusal carried no sentence an author can act on"
+                );
+            }
+            other => panic!("expected a parameter refusal, got {other:?}"),
+        }
+    }
+
+    /// Every refusal at once, so an author fixes a move in one pass.
+    #[test]
+    fn a_batch_reports_every_refusal_rather_than_the_first() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.teleport", checked("traversal::teleport"))
+            .expect("accepted");
+        let refs = vec![
+            effect("smash.teleprot", "()"),
+            effect("smash.teleport", "(offset: 3)"),
+            effect("smash.teleport", "(offset: (1.0, 2.0))"),
+        ];
+        assert_eq!(
+            support.admit_all(&refs).len(),
+            2,
+            "a batch reported {:?}",
+            support.admit_all(&refs)
+        );
+    }
+}
+
 /// Flow validation, which exists because every one of these failures is SILENT.
 mod technique_flow {
     use crate::{EffectRef, FlowNode, FlowSignal, MoveContact, ParamValue, TechniqueFlow};

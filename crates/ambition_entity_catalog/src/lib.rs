@@ -109,6 +109,21 @@ impl ParamValue {
     pub fn hydrate<T: serde::de::DeserializeOwned>(&self) -> Result<T, ron::Error> {
         self.0.clone().into_rust()
     }
+    /// Did the author write no parameters at all?
+    ///
+    /// ⚠ AN EMPTY MAP AND A NON-MAP ARE BOTH "nothing useful", and they are
+    /// folded here on purpose: a paramless technique's contract is that the
+    /// author supplied no fields, and a `ron::Value` that is not a map supplies
+    /// none either. The refusal names the technique, so an author who wrote
+    /// something unusable is told which key dropped it.
+    pub fn is_empty(&self) -> bool {
+        match &self.0 {
+            ron::Value::Map(map) => map.is_empty(),
+            ron::Value::Unit => true,
+            _ => false,
+        }
+    }
+
 }
 
 /// Content-defined technique/effect reference with opaque parameters. Timed
@@ -208,6 +223,216 @@ impl ParamSchemaRegistry {
     {
         refs.into_iter()
             .filter_map(|effect| self.validate(effect).err())
+            .collect()
+    }
+}
+
+/// What one capability declares when it installs a technique handler.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TechniqueOffer {
+    /// Who claims this key — a module path, for the conflict diagnostic.
+    pub owner: &'static str,
+    /// Whether the key takes authored parameters at all.
+    ///
+    /// ⛔ `Paramless` IS A CONTRACT, NOT AN ABSENT SCHEMA. A technique that takes
+    /// nothing must REFUSE a non-empty map rather than ignore it: an author who
+    /// wrote params for it believed they did something, and silently dropping
+    /// them is the failure this whole packet is about.
+    pub params: TechniqueParams,
+}
+
+/// How a technique treats authored parameters.
+#[derive(Clone, Copy)]
+pub enum TechniqueParams {
+    /// Takes none. A non-empty authored map is an error.
+    None,
+    /// Takes parameters, checked by this function.
+    Checked(ParamCheck),
+}
+
+impl std::fmt::Debug for TechniqueParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TechniqueParams::None => f.write_str("None"),
+            TechniqueParams::Checked(_) => f.write_str("Checked(..)"),
+        }
+    }
+}
+
+impl PartialEq for TechniqueParams {
+    /// ⛔⛔ **TWO CHECKED DECLARATIONS ARE NEVER "THE SAME", and that is
+    /// deliberate rather than a limitation worked around.** A [`ParamCheck`] is a
+    /// function pointer, and this repository's registry rule forbids anything
+    /// process-local — an address, a `TypeId`, an allocation order — from
+    /// entering a registration's identity, because two builds of the same content
+    /// must fingerprint equal. So there is no honest Idempotent case for a
+    /// checked technique, which is exactly why [`TechniqueSupport::declare`]
+    /// reports a conflict by KEY AND CLAIMED OWNER and never by comparing checks.
+    fn eq(&self, other: &Self) -> bool {
+        matches!((self, other), (TechniqueParams::None, TechniqueParams::None))
+    }
+}
+
+impl Eq for TechniqueParams {}
+
+/// Why an authored [`EffectRef`] is not admissible.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TechniqueRefusal {
+    /// No installed capability declares this key.
+    ///
+    /// ⛔ THE DIAGNOSTIC THIS PACKET EXISTS FOR. `smash.teleprot` used to reach
+    /// the runtime, match no arm, and log a warning mid-fight — a move that plays
+    /// and does nothing. It is a data error and it is knowable at install time.
+    Unknown { key: String },
+    /// The key is declared, but by a capability this composition did not install.
+    ///
+    /// ⚠ A DIFFERENT SENTENCE FROM `Unknown`, and the difference is what an
+    /// author does next: a typo is fixed in the move, a disabled capability is
+    /// fixed in the composition.
+    Disabled { key: String, owner: &'static str },
+    /// The technique takes no parameters and the author wrote some.
+    UnexpectedParams { key: String, owner: &'static str },
+    /// The technique's own check refused these parameters.
+    BadParams {
+        key: String,
+        owner: &'static str,
+        detail: String,
+    },
+}
+
+impl std::fmt::Display for TechniqueRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TechniqueRefusal::Unknown { key } => write!(
+                f,
+                "effect '{key}' names a technique nothing installed declares — a \
+                 misspelled key reaches the runtime, matches no handler, and the \
+                 move plays and does nothing"
+            ),
+            TechniqueRefusal::Disabled { key, owner } => write!(
+                f,
+                "effect '{key}' is declared by '{owner}', which this composition \
+                 did not install — the key is spelled correctly and the capability \
+                 is missing"
+            ),
+            TechniqueRefusal::UnexpectedParams { key, owner } => write!(
+                f,
+                "effect '{key}' ('{owner}') takes no parameters, but parameters \
+                 were authored for it — they would be silently dropped"
+            ),
+            TechniqueRefusal::BadParams { key, owner, detail } => {
+                write!(f, "effect '{key}' ('{owner}'): {detail}")
+            }
+        }
+    }
+}
+
+/// Two capabilities claiming one technique key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TechniqueConflict {
+    pub key: String,
+    pub held_by: &'static str,
+    pub claimed_by: &'static str,
+}
+
+impl std::fmt::Display for TechniqueConflict {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "technique '{}' is declared by '{}' and again by '{}'; one key, one \
+             owner — the second declaration would silently replace the first's \
+             parameter contract",
+            self.key, self.held_by, self.claimed_by
+        )
+    }
+}
+
+/// Which techniques this composition actually installed, and what each one's
+/// parameters must look like.
+///
+/// ⛔⛔ **IT REPLACES A REGISTRY THAT ADMITTED EVERYTHING AND WAS NEVER
+/// POPULATED.** [`ParamSchemaRegistry`] let an unknown key PASS by design ("the
+/// engine matches no key, so an unregistered key always passes"), overwrote a
+/// duplicate registration silently, and — measured 2026-09-09, and said in as
+/// many words by `ambition_demo_smash`'s own source — had ZERO production
+/// callers. So a misspelled effect key was admitted by every check in the tree
+/// and surfaced as a `warn!` mid-fight, on a move that plays and does nothing.
+///
+/// ⭐ THE DECLARATION COMES FROM WHOEVER INSTALLS THE HANDLER, which is what
+/// makes it evidence rather than metadata. A key present here means a capability
+/// said "I install the thing that answers this"; a key absent means nothing does.
+/// A test that registers a check and then validates against it proves neither.
+#[derive(Default)]
+pub struct TechniqueSupport {
+    offers: BTreeMap<String, TechniqueOffer>,
+}
+
+impl TechniqueSupport {
+    /// Declare that this capability installs the handler for `key`.
+    ///
+    /// Refuses a second claim on one key instead of replacing it.
+    pub fn declare(
+        &mut self,
+        key: impl Into<String>,
+        offer: TechniqueOffer,
+    ) -> Result<(), TechniqueConflict> {
+        let key = key.into();
+        if let Some(held) = self.offers.get(&key) {
+            return Err(TechniqueConflict {
+                key,
+                held_by: held.owner,
+                claimed_by: offer.owner,
+            });
+        }
+        self.offers.insert(key, offer);
+        Ok(())
+    }
+
+    /// Every declared key, in a deterministic order.
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.offers.keys().map(String::as_str)
+    }
+
+    /// What declares this key, if anything does.
+    pub fn offer(&self, key: &str) -> Option<&TechniqueOffer> {
+        self.offers.get(key)
+    }
+
+    /// Is this authored reference admissible against what is installed?
+    pub fn admit(&self, effect: &EffectRef) -> Result<(), TechniqueRefusal> {
+        let Some(offer) = self.offers.get(&effect.key) else {
+            return Err(TechniqueRefusal::Unknown {
+                key: effect.key.clone(),
+            });
+        };
+        match offer.params {
+            TechniqueParams::None => {
+                if effect.params.is_empty() {
+                    Ok(())
+                } else {
+                    Err(TechniqueRefusal::UnexpectedParams {
+                        key: effect.key.clone(),
+                        owner: offer.owner,
+                    })
+                }
+            }
+            TechniqueParams::Checked(check) => {
+                check(&effect.params).map_err(|detail| TechniqueRefusal::BadParams {
+                    key: effect.key.clone(),
+                    owner: offer.owner,
+                    detail,
+                })
+            }
+        }
+    }
+
+    /// Every refusal across a batch, so an author sees all of them at once.
+    pub fn admit_all<'a, I>(&self, refs: I) -> Vec<TechniqueRefusal>
+    where
+        I: IntoIterator<Item = &'a EffectRef>,
+    {
+        refs.into_iter()
+            .filter_map(|effect| self.admit(effect).err())
             .collect()
     }
 }

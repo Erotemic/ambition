@@ -424,13 +424,54 @@ and truer claim, and it is the one the error messages make now.
 
 The interpreter is untouched: valid flows behave exactly as before.
 
-### A11a: make profile support authoritative
+### A11a — the support authority landed 2026-09-09; preparation-side wiring is next
 
 Introduce the pure support builder/frozen result. Wire the actual capability
 offers and handlers together. Add duplicate, unknown, disabled, paramless and
 semantic-parameter tests using the installed capture/teleport customers, then
 connect profile-bound validation to character preparation before insertion.
 A metadata-only test does not prove an installed handler exists.
+
+**Landed.** `ambition_entity_catalog::TechniqueSupport` is the pure authority:
+`declare` REFUSES a second claim on a key instead of replacing it, reporting the
+conflict by key and claimed owner — never by comparing checks, because a
+`ParamCheck` is a function pointer and this repository's registry rule forbids
+anything process-local from entering a registration's identity. `admit` returns a
+typed [`TechniqueRefusal`] with a separate arm for an unknown key, a paramless
+technique handed parameters, and a check that refused them.
+
+⭐ **The declaration comes from the statement that installs the handler.**
+`combat_schedule::install_technique` adds the system and declares the key in one
+call, so a capability cannot install a handler without saying which key it
+answers. That is what makes a declaration EVIDENCE rather than metadata, and it
+is the property the packet's last sentence is about. Four handlers are converted:
+teleport, vitality, trapdoor and flyline — each keeps its exact set membership
+and none is ordered against the others, because a move authors one technique.
+
+⛔ **What it replaces, measured.** `ParamSchemaRegistry` let an unknown key PASS
+by design ("the engine matches no key, so an unregistered key always passes"),
+overwrote a duplicate registration silently, and had ZERO production callers —
+`ambition_demo_smash/src/capture.rs` says so in its own source. So a misspelled
+effect key was admitted by every check in the tree and surfaced as a `warn!`
+mid-fight on a move that plays and does nothing.
+
+⚠ **The boundary moved the shell, not the authority.** The resource wrapper was
+first written in the runtime, and `ambition_workspace_policy` refused it: the
+runtime's manifest allowlist does not admit `ambition_entity_catalog`. It lives in
+`ambition_combat::technique` now, beside the crate that owns effect execution.
+The policy found this, not a reviewer.
+
+`installed_techniques_are_declared.rs` asks the BUILT APP — a census that greps
+for the call certifies a spelling; only the built world says the call ran and its
+declaration survived composition. Poison-verified: installing without declaring
+reddens both arms.
+
+**Still open in A11a:** the remaining ~16 technique keys (`ambition_characters`'s
+`smash_*` consts) are not declared, so the strict content pass cannot be turned
+on yet — an unknown-key refusal would reject every authored use of them. Convert
+their installers, then connect profile-bound validation to character preparation
+before insertion. `ParamSchemaRegistry` stays until then and is deleted with the
+last of them.
 
 ### A11b: close every reference position
 

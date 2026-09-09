@@ -70,7 +70,7 @@ CONFIG = {
     'submodule_depths': {
         # Keep this explicit so it is easy to tune as submodules grow.
         'tools/ambition_sfx_renderer': 50,
-        'dev/ambition_dev_measurements/': 0,
+        'dev/ambition_dev_measurements': 0,
         'game/ambition_map_assets': 0,
         '*': 25,
     },

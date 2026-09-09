@@ -70,15 +70,69 @@ order pick which part of a multi-part boss was credited.
 swept, and are gone. One of them had none beforehand either — reachable, tested,
 unreached — so its rule moved onto the function every consumer actually calls.
 
+⚠ That paragraph and the ones above it once read as though every A2 correction
+had landed. They had not: world-versus-target ordering was still split when they
+were written, which is the defect the review found. The claim is scoped to the
+deletions and the swept-contact corrections it actually names.
+
+**A2b was REOPENED and re-closed 2026-09-09 (GPT review #7).** The ordering the
+protocol asks for was still split three ways, and the review was right:
+
+- the BOSS/BREAKABLE branch compared nothing. It computed a swept contact and, if
+  it found one, emitted the targeted hit and the splash and `continue`d — so the
+  world sweep ran only when NO feature was reached. The ordering was *"feature
+  contact, else world"*, and a crate or a boss standing behind an unrelated solid
+  was struck through it;
+- the BODY branch asked the right question of the wrong geometry: it swept from
+  the muzzle to the victim's CENTRE, which answers *"is a wall before the
+  victim's middle?"*. On a wide body the shot reaches the near face first, and a
+  wall between that face and the centre refused a hit that physically happened;
+- and the world branch swept a third time for its own pull-back.
+
+⇒ ONE sweep over the shot's actual travel leg, its finite `time_of_impact` kept
+in the leg's own [0, 1] parameter and compared directly against every body's and
+every feature's contact time. A blocker strictly earlier wins; a tie goes to the
+target, which restates the strict comparison the body branch already used rather
+than inventing a policy (nothing can yet tell a destructible's own surface from
+an independent blocker — that is A5's contributor identity). The pull-back reuses
+the same result instead of re-sweeping. Three witnesses, each poison-verified
+against the exact code it replaced: a crate behind a wall is not broken, the same
+crate with the wall moved PAST it still is (the anti-vacuity floor moves the wall,
+not the crate, so an arm that broke nothing would fail it), and a wall standing
+inside a wide body past its near face no longer saves it.
+
 **A2's remaining item is deliberately not taken.** A cohesive
 `projectile/contacts.rs` <!-- cite-ok: proposed module path --> inside the same
 crate removes no authority and no dependency edge — the code would import what it
 imports now and be reachable by the same callers — and a same-crate move that
 names neither is churn by this repository's own test. It becomes worth doing when
 it enables a deletion: a `pub(crate)` boundary, or a split that lets flight state
-leave for `ambition_projectiles` without the victim queries following. Every
-semantic correction and deletion gate the owner document requires has landed.
-Contributor identity is A5 infrastructure with no live defect riding on it.
+leave for `ambition_projectiles` without the victim queries following. The semantic corrections and
+deletion gates the owner document requires have landed, INCLUDING the finite-time
+ordering rule reopened by review #7 above.
+
+⚠ WHAT IS DELIBERATELY NOT CLOSED, stated rather than implied: the acceptance
+matrix's COMPOUND SOLID OBJECT row. The tie rule this road runs is declared and
+uniform — a strictly earlier contact wins, and an equal time goes to the target
+(against a wall) and to the body (against a feature) — but a genuine compound
+contact, where a destructible's own collision surface and its damageable volume
+are ONE contact rather than two competitors, needs stable collider-contributor
+identity. That is A5 infrastructure.
+
+⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09.** A
+breakable authored `BreakableCollision::Solid` DOES publish a `BlinkWall` block —
+`world/overlay.rs` writes it into `FeatureEcsWorldOverlay::blocks` — but
+`ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`
+composites only `gate_solids`, `portal_carves` and `removed_block_names`.
+`overlay.blocks` (every ECS breakable surface and every pogo orb) is not in the
+world a projectile sweeps. So a solid crate's own surface is not a wall this road
+can hit, and the tie rule has no compound case to get wrong yet.
+⛔ A first attempt to witness the compound case here produced a test that passed
+under a deliberately broken comparison TWICE — once because the fixture never
+published the surface, and once because the shot's landing splash broke the crate
+whether or not the direct hit landed. It was deleted rather than kept as a green
+row that measures nothing. Whether a projectile SHOULD collide with an ECS
+breakable's published surface is a separate open question, not this packet's.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have
@@ -133,11 +187,44 @@ authored graph is deleted. `TechniqueFlow::successors` is now the one edge
 enumeration its own doc claimed it was — `reaches_finish` and the dangling report
 each had a second and third copy.
 
-Next in this lane: A11b's rejection half — poison a reference site and verify the
-active registry and generation are unchanged — plus domain nested-reference
-policies and the public production insertion paths. Then A12b's remainder: the
-prepared constructors are still public and infallible, and no prepared REVISION is
-pinned on the playback.
+**A11b's rejection half was RE-DERIVED 2026-09-09, and most of it is already
+true or not yet reachable.** The three parts, separated because they have
+different answers:
+
+1. **At the registration door it holds, and is witnessed.**
+   `stage_authored_character` assembles a CLONE of `StagedCharacterOverrides` and
+   publishes it only on success, so a `DuplicateId` whose `candidate.insert`
+   already mutated that clone drops it. `two_providers_cannot_author_the_same_stable_id`
+   and `two_characters_cannot_present_under_the_same_display_name` both assert
+   the previous authority survives, and the first would redden if the candidate
+   became an in-place `ResMut`. Nothing to add.
+2. **"Generation unchanged" is not writable as a non-vacuous test yet.**
+   `PreparedCharacterRegistry` has exactly ONE production writer —
+   `finalize_cast`, at the barrier, guarded to run once — SEALED by grep for
+   `insert_resource`/`ResMut` of that type across the workspace. `insert_prepared`
+   is `#[cfg(any(test, feature = "test-support"))]` and every non-test caller of
+   it turned out to be inside a `#[test]`. So the generation cannot move during a
+   session at all, and a rejected registration happens BEFORE the barrier where no
+   registry exists to be unchanged. The assertion would be true of a harness, not
+   of the architecture.
+3. ⇒ **The acceptance row "edit rejected during active play" needs A11c FIRST,
+   not after.** There is no production republication road: `stage_authored_character`
+   PANICS after `finalized`, and nothing else writes the registry. The candidate/
+   activation mechanism A11c describes is the prerequisite that fixture has been
+   waiting on, which is why three attempts at it stopped on different obstacles.
+   ⚠ `project_prepared_character_definitions` DOES compare generations in
+   production — a reader for a transition only a test can cause.
+
+Still open in this lane: domain nested-reference policies (measured: three
+technique params name another authored definition — `SummonRideParams::character_id`,
+`DropBombParams::item_id`, `PlaceMineParams::item_id` — and preparation checks
+none of them; a summon naming an unknown character is refused at FIRE TIME by
+`preflight_planned_bodies` with an error log, which is the runtime failure this
+packet exists to move to preparation), the public production insertion paths, and
+A12b's remainder — of which "constructors private" is already effectively true
+(`PreparedCharacterDefinition` has five private fields, so no external struct
+literal exists, and its one construction site is inside `prepared.rs`), while
+"fallible" and the pinned REVISION both wait on the same A11c mechanism.
 
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.
@@ -146,9 +233,16 @@ feedback cannot mutate another move occurrence. No generic execution registry.
 
 ## P1 - ownership and independently testable composition
 
-### A1c - DONE 2026-09-08; A1 closes
+### A1c - DONE 2026-09-08; A1 CLOSED by review #7, 2026-09-09
 
 **Owner:** [checkpoint restoration protocol](engine/checkpoint-restoration-protocol.md).
+
+**Signed off 2026-09-09.** Review #7 accepts A1 as closed: the rollback host
+checks `LocalSyncTest` ownership before terminalizing a host-local preparation
+failure, respects the confirmed-frame boundary, and the abandonment note carries
+enough to reject a stale note from a rewound branch rather than matching a reused
+operation key. The unconfirmed-abandonment and key-reuse tests are named as the
+right witnesses. Delete this row when the next queue pass compresses it.
 A1b (ownership move) and A1c subcommits 1-2 landed 2026-09-08: no domain reads
 the raw `ResetToCheckpoint` any more, a refused request changes no domain state,
 a refused request is remembered rather than lost, and a no-item checkpoint
@@ -294,7 +388,7 @@ Closure 52 → 50: `ambition_render` and `ambition_sprite_fx` left.
 ⚠ **The existing capability-footprint sentinel cannot see this**, and that is why
 a second contract exists rather than a wider baseline: `fixtures/minimal_game`
 ASKS for the renderer (its exit criterion draws a windowed face), so the renderer
-is legitimately in its closure. `a-featureless-consumer-links-no-renderer` in
+is legitimately in its closure. `the-featureless-facade-links-none-of-these` in
 `scripts/check_absence_contracts.py` walks the feature-resolved tree instead —
 the manifest walk the other dependency contracts use counts optional edges and
 would report a renderer no feature enables. Poison-verified twice: restoring the
@@ -336,20 +430,89 @@ crate in a movement-only game's closure. It is behind the runtime's `map` featur
 now, forwarded from the facade's `ambition_menu`, so naming the capability
 installs it rather than linking a crate nobody steps.
 `ProgressionSet::Map` is `shared_tangle`'s and stays configured either way.
-Closure 50 → 49. Poison-verified: dropping the facade's forwarding reddens
+Closure 50 → 49, and RATCHETED: `ambition_menu` joined
+`the-featureless-facade-links-none-of-these`'s forbidden set, so the promised
+absence is checked and not merely claimed — poison-verified by giving the runtime
+a `default = ["map"]`, which reddens it naming the crate. ⚠ Scoped to THIS
+PROFILE: `ambition_platformer2d_host` legitimately links the menu crate under its
+`render` feature for the `MenuFont` handoff, so "the menu is never linked without
+the map" would be false. The positive wire has its own witness — dropping the
+facade's forwarding reddens
 `every_room_the_map_calls_visited_has_its_visit_on_the_save`.
 
 ⚠ The trace's real finding is the shape, not the win:
 `ambition_platformer2d_runtime` and `ambition_platformer2d_actor_monolith` are
 parents of nearly everything, and `ambition_platformer2d_core` has 33 parents.
-Every remaining crate has two or more, so no further single-edge repair exists —
-the next reduction is the §4 monolith carve, not another feature gate.
+Every remaining crate has two or more parents, so no further SINGLE-EDGE closure
+decrement exists.
 
-**Next in this row:** the frontier asks for a SEPARATE headless consumer
-workspace — "a constructed body advancing against world geometry, without
-renderer, audio, inventory, encounters or game content". That fixture does not
-exist; `minimal_game` is the windowed sentinel and cannot stand in for it. The 50
-remaining crates have not been traced to their activating edges.
+⛔ That is a statement about the graph and nothing else, and it must not be read
+as "the monolith carve is next". A closure measurement cannot say which ownership
+change is semantically correct — the `actor_spawn` carve is this repository's own
+receipt for that, where a green SCC number sat beside a live view the extraction
+had taken with it. Any further reduction here has to establish STATE, BEHAVIOUR
+and INVARIANT ownership first and let the closure follow, not the other way
+round.
+
+**The headless consumer fixture landed 2026-09-09**, and it is the third fact
+neither the closure contract nor a compile check can state: that the profile
+RUNS. `fixtures/headless_profile/` names `ambition_platformer2d` with
+`default-features = false` and NO feature list, in its own workspace with its own
+lockfile, so everything it links is something the engine supplies implicitly. Its
+closure is exactly the 49 the featureless facade has — `ambition_render`,
+`ambition_menu` and `ambition_sprite_fx` absent — and its tests compose the app
+and step a body until the room's one authored block stops it. Wired into the lane
+twice: a seconds-long `cargo check` beside outlander's, and the full test run in
+the exhaustive plan.
+
+⛔ **THE RENDERER'S ABSENCE IS NOT ASSERTED IN THAT FIXTURE, AND THE REASON IS
+BETTER THAN AN ASSERTION.** A first version tried
+`app.get_sub_app(bevy::render::RenderApp)` and did not compile: the consumer has
+no `bevy` dependency of its own and the `bevy` the facade re-exports at this
+profile is built without its render feature, so `RenderApp` is not a nameable
+type from there. The absence is enforced by the type system.
+
+⛔⛔ **AND THE FIRST BODY TEST WAS VACUOUS, which the fixture's own poison
+caught.** Its room was copied from `minimal_game`, whose floor block sits at the
+bottom of a 640x360 room — where a body rests at y=296, also `room_height -
+body_height`. Asserting "it moved, then it stopped" survived moving that block
+100,000px away: the body fell THROUGH to y=583 and settled there, satisfying both
+arms while touching nothing the room authored. The floor is RAISED clear now, so
+the resting height names the surface, and the poisoned run reddens. ⚠ The same
+geometry is in `minimal_game`, which `docs/sdk/README.md` tells consumers to copy.
+
+**The four capabilities the frontier's minimum EXCLUDES were traced 2026-09-09,
+and there is no further accidental edge among them.** The packet names the
+intended minimum as a body against world geometry *"without renderer, audio,
+inventory, encounters or game content"*. Renderer: gone. Of the rest, measured
+with `cargo tree -e normal --no-default-features -i <crate>` against the
+featureless facade:
+
+- **`ambition_inventory_ui` is ALREADY ABSENT** — no parent in the closure at
+  all. The frontier's list is stale on that one; do not spend a gate on it.
+- **`ambition_encounter`, `ambition_boss_encounter`, `ambition_cutscene`,
+  `ambition_dialog`, `ambition_conversation`, `ambition_items`,
+  `ambition_persistence`** all arrive through
+  `ambition_platformer2d_actor_monolith` and/or `ambition_platformer2d_runtime`,
+  most through three or more parents. These are the hub, not a gate.
+- **`ambition_audio` has one path that does NOT cross the monolith**:
+  `ambition_platformer2d_provider -> ambition_load_presentation ->
+  ambition_game_shell -> ambition_audio`. Both edges on it are GENUINE USES, not
+  residue: the provider's authoring surface carries
+  `ambition_load_presentation::LoadExperienceSpec` (a loading screen is part of
+  an experience's declaration, 8 references), and `ambition_game_shell::session`
+  reads `AudioCatalogRegistry` / `FrontendAudioRegistry` to select the audio
+  context per route. Making either optional carves a PUBLIC authoring surface or
+  moves route audio selection — a design decision, not a dependency cleanup, and
+  it is not taken here.
+
+⇒ Every remaining reduction needs an ownership change first. That is a statement
+about these four edges, measured, and still not a licence to read a closure number
+as a mandate — see the note above the trace.
+
+**Next in this row:** which of the 49 a minimum profile has a RIGHT to expect is
+still unestablished for the crates the frontier does NOT name; the fixture makes
+that question askable rather than answering it.
 
 **Acceptance:** a supported profile constructs and steps a real subject, its
 promised absent capability is absent from both installation and resolved closure,
@@ -429,9 +592,52 @@ fallback policy.
 manifests into a pass. Fix generation/trim semantics so a selected tier preserves
 the promised frame geometry.
 
-**Acceptance:** same authored frame at full/half/quarter/potato has bounded
-anchor/aspect drift; potato does not receive fewer drawable pixels than its
-selected quality contract promises.
+**Two generation defects repaired 2026-09-09, measured before and after.** A
+frame's drawn quad is `authored_render * (trim_w / frame_w, trim_h / frame_h)`,
+so the TRIM FRACTION decides the quad's shape and must be tier-independent. Two
+things in the fallback generation path made it a function of the tier:
+
+- **the packer re-measured an alpha bounding box on the DOWNSCALED image.**
+  `build_sheet_variant` packed with `trim=True` and then overwrote the scaled
+  record's `w`/`h`/`off` with the placement's, throwing away geometry
+  `_scale_rect_struct` had already computed correctly. It now crops each frame to
+  the scaled base box, packs with `trim=False`, and writes only WHERE the frame
+  landed — so the manifest and the pixels cannot disagree;
+- **and `min_frame_px` was applied twice**, which was the larger half.
+  `effective_scale` already raises a whole sheet's scale so no LOGICAL frame
+  falls below the floor; `_scaled_frame_crop` then applied the same floor to each
+  TRIMMED CROP, inflating every small trim box up to it. `mary_o_v2` idle is the
+  recorded case: base 63x86 in 160x192 (0.394 x 0.448) against potato 7x5 in
+  10x12 (0.700 x 0.417) — the aspect flipped from portrait to landscape, which is
+  the measurable half of Jon's report that *"the size of the snake has seemed to
+  vary depending on the global game state"*. The state was the quality profile. A
+  crop's only real floor is 1px.
+
+MEASURED with `scripts/measure_sprite_tier_trim_drift.py`, whole tree
+regenerated: potato rows drifting past 0.05 went **2966/3708 (80.0%) → 621/3708
+(16.7%)**, worst drift **0.823 → 0.132**, and `mary_o_v2` idle is 0.400 x 0.417
+against a base of 0.394 x 0.448. `sprites_0_5x` (1 row) and `sprites_0_25x` (146)
+are unchanged, and their residue is a different cause — integer rounding of small
+rects, bounded at 0.078 — not the alpha-retrim gradient.
+
+⚠ **THE SECOND CLAUSE NEEDED ITS OWN REPAIR, and it caught a regression the first
+change introduced.** Keeping the base box means a frame no longer shrinks onto
+whatever survived downscaling — and NEAREST at 1/16 deletes thin content
+outright. Measured over 60 sheets: the authored sheets carry 90 genuinely blank
+frames of 7,313 and `0_5x` reproduces exactly 90, while the first version of the
+fix produced 172 at potato. A frame that HAD content and lost it is now resampled
+with an area filter; the count is 91. The tier's crunchy nearest look is untouched
+wherever it still has something to show.
+
+Residual, stated rather than implied: 16.7% of potato rows still drift past 0.05,
+all of it small-integer rounding in frames of 9-12px. `check_quality_variants_are_fresh`
+and `measure_tier_variant_scaling` are green, and 7,349 regenerated potato rects
+were checked to lie inside their page — 0 out of bounds.
+
+**Acceptance:** met for the systematic half — same authored frame at
+full/half/quarter/potato has bounded anchor/aspect drift, and potato no longer
+loses drawable pixels the base sheet has. Rounding drift at extreme downscale is
+bounded and is not the tier-dependent aspect flip this row was opened for.
 
 ### D129 — finish authored-geometry sprite clipping repair
 
@@ -572,14 +778,39 @@ producer/consumer tests use it.
 ⇒ Nothing is left in this row for the engine lane. It stays open for the Smash
 one, and for the next producer/consumer pair a re-measurement finds.
 
-### D-BUILD-GRAPH-BLINDNESS — keep optional/dependency measurements non-vacuous
+### D-BUILD-GRAPH-BLINDNESS — DONE 2026-09-09
 
 **Owner:** build/architecture tooling.
 
 Do not interpret declaration count as capability reachability. Measurements must
 resolve definitions, feature conditions and actual closure.
 
-**Acceptance:** fixtures distinguish declared-but-unused, feature-gated and
+**The row's own failure happened while it was open, twice in one day, and both
+are now instrumented.** A `cargo metadata` walk of the facade's closure reported
+61 ambition crates where `cargo tree -e normal --no-default-features` reports 49;
+the 12-crate gap is entirely OPTIONAL edges no feature enables, and the planning
+row's existing figure was right while the "correction" would have been the error.
+A guard built on the resolve graph would demand the deletion of a dependency that
+already costs nothing — which is this row's sentence, met from the wrong side.
+
+The three answers now have three instruments and fixtures that tell them apart:
+
+- **declared-but-unused** — `measure_unreferenced_workspace_dependencies.py`'s
+  `unreferenced_in`, split out to be testable, with
+  `scripts/tests/test_unreferenced_workspace_dependencies.py`: a source use, a
+  strong `dep/feature` forward, a WEAK `dep?/feature` forward, a dependency
+  nothing names, a prefix-sibling false negative that would otherwise make the
+  count permanently zero, and a live-tree floor so a classifier that reported
+  nothing for every input could not pass;
+- **feature-gated** — the same forwarding cases, which are a real use of the
+  dependency and must not be reported;
+- **actually linked** — `the-featureless-facade-links-none-of-these`, which walks
+  the FEATURE-RESOLVED tree, with red probes in
+  `scripts/tests/test_absence_contracts.py` for a forbidden crate that is
+  present, for an instrument that measured nothing (the failure mode an ABSENCE
+  contract has by construction), and for a truncated census.
+
+**Acceptance:** met — fixtures distinguish declared-but-unused, feature-gated and
 actually linked dependencies.
 
 ### D-LANE-UNRUNNABLE / D-APPIT-FLAKE — preserve executable test lanes
@@ -593,6 +824,27 @@ instead of increasing retries.
 **Acceptance:** missing Cargo/target/GPU prerequisites are explicit receipt states;
 known deterministic fixtures do not depend on wall-clock or entity order.
 
+**The first half landed 2026-09-09, from a run that produced the defect.** A
+`--rust` lane reported `5/6 jobs passed` with `workspace doctests` FAILED, and
+the whole content of that failure was `error: extern location for bevy does not
+exist: …libbevy-<hash>.rlib` — a stale artifact left by the same commit's own
+manifest feature changes. `cargo test --workspace --doc` immediately afterwards
+was clean. The job never compiled a doctest, so "FAILED" was a claim about the
+repository that nothing had measured, and a reader could not tell it from a real
+red. `run_tests.py` now scans a bounded tail for a narrow table of PRECONDITION
+signatures and reports those jobs as INCOMPLETE — named in the summary with their
+remedy, listed under `unrunnable` in the status file and on the per-job row, and
+still non-zero, because incomplete is not pass. Four tests, each the others'
+control (a stale artifact is incomplete; an ordinary red is still a red; a clean
+run says nothing about either; the signature table is not empty), poison-verified
+in both directions: widening the pattern to `FAILED|error` reddens the real-red
+arm, and classifying nothing reddens the incomplete arm and the floor.
+
+⚠ Still open: the GPU and missing-Cargo prerequisites have no signature yet — the
+table is deliberately narrow, one entry per signature actually observed, because
+a pattern broad enough to swallow a genuine compile error converts real reds into
+shrugs. And the D-APPIT-FLAKE half below is untouched.
+
 **Sighting 2026-09-09, measured rather than guessed.**
 `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
 failed in 2 of ~8 full `app_it` runs and **0 of 25 consecutive runs of its own
@@ -603,6 +855,13 @@ prints it only for the failing test and every attempt to capture reproduced a
 green run — that is the row's own lesson restated: **a flake with no message is a
 sighting, not a diagnosis.** Whoever sees it next should run the full suite with
 output redirected to a file so the message survives the run that produced it.
+
+**Second sighting 2026-09-09**, and it followed that advice too late: a `--rust`
+run reported the `workspace (default features)` job failed, an identical
+`cargo nextest run --workspace` immediately afterwards was 7619/7619 passed with
+34 skipped, and the failing test's NAME was lost because that run had been piped
+to `tail`. Same shape as the first sighting — full-suite load only — and the same
+lesson, now paid for twice: redirect the whole run to a file, not to `tail`.
 
 ⚠ The obvious suspect was ruled out: the test's own doc says "the only thing that
 would make it fail is a boss system that some other capability turns out to
@@ -617,6 +876,19 @@ disabled arm; 25 clean module runs say it is not.
 Run citation/link/source-reference guards on the **diff** after a move. Re-tense
 historical prose where useful; delete live directions to old paths. Do not retain a
 huge global post-carve diary.
+
+⛔⛔ **AND "ON THE DIFF" MEANS THE RANGE FORM, WHICH IS A DIFFERENT CHECK.**
+`check_planning_citations.py --vanished HEAD` compares HEAD against the WORKING
+TREE and says so in its own output — *"⚠ that is REF→WORKING TREE, not REF→a
+carve — pass `A..B` to attribute a range"*. Ran after every commit on 2026-09-09
+it stayed green all day, because each commit's deletions were already at HEAD by
+the time it ran. The RANGE form over the same session
+(`--vanished <first>..HEAD`, 21 names left between them) found one immediately:
+`projectile-contact-protocol.md` still cited A2a's witness as
+`the_boss_hit_test_answers_only_from_the_published_volumes`, <!-- cite-ok: the row RECORDS the vanished name --> renamed to
+`a_boss_is_reached_only_through_its_published_volumes` by the A2c predicate
+deletion two commits later. Repointed. ⇒ A carve author who runs only the
+working-tree form has not run this row's check at all.
 
 ## P3 — human-gated measurements and local-machine work
 

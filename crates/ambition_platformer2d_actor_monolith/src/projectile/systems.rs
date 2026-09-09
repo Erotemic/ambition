@@ -627,6 +627,58 @@ pub fn step_projectiles(
             continue;
         }
 
+        // ⛔⛔ **THE WALL'S TIME OF IMPACT, ASKED ONCE, FOR EVERY BRANCH BELOW.**
+        //
+        // This is A2's finite-time ordering rule and the road had three answers
+        // to it. The BODY branch swept from the muzzle to the victim's CENTRE and
+        // skipped the victim if anything blocked before it — which asks *"is a
+        // wall before the victim's centre?"* rather than *"is a wall before the
+        // shot first touches the victim?"*. For a large body those differ: the
+        // shot reaches the near face, a wall stands between that face and the
+        // centre, and the hit was refused although nothing was in the way of the
+        // contact that actually happened. The FEATURE branch asked nothing at
+        // all: it emitted the targeted hit and the splash and `continue`d, so
+        // the world sweep below only ever ran when NO boss or breakable was
+        // reached — a crate or a boss behind an unrelated wall was struck
+        // through it. And the world branch swept a third time for its own
+        // pull-back.
+        //
+        // ⇒ ONE SWEEP, one finite `time_of_impact` in the leg's own parameter
+        // [0, 1], compared directly against every candidate's contact time. A
+        // target is reached only if nothing blocking stands STRICTLY earlier
+        // along the same leg.
+        //
+        // ⚠ TIES GO TO THE TARGET, and that is the protocol's declared policy
+        // restated rather than a new one: a blocker at exactly the target's
+        // contact time is the compound case — a destructible's own wall and its
+        // hurt shape can be one contact — and nothing here can yet tell a
+        // destructible's own surface from an unrelated one, so the strict
+        // comparison the body branch already used is kept for all three.
+        //
+        // ⚠ It is the shot's OWN policy that decides which blocks count
+        // (`blocks_this_shot`), so a `Bouncing` fireball is not stopped by a
+        // one-way it is entitled to cross while an `ExpireOnContact` shot is.
+        //
+        // The block's CENTRE rides along with the time because the world
+        // pull-back below needs it to nudge the shot a hair inside, and deriving
+        // it there from the time would be this sweep asked a second way.
+        let travel_leg = kin.pos - leg_start;
+        let blocked_at: Option<(f32, ae::Vec2)> = if travel_leg == ae::Vec2::ZERO {
+            None
+        } else {
+            ae::cast::body_sweep(
+                &collision_world,
+                ae::Aabb::new(leg_start, kin.size * 0.5),
+                travel_leg,
+                blocks_this_shot,
+            )
+            .map(|hit| (hit.time_of_impact, hit.block.aabb.center()))
+        };
+        // `true` when a blocker stands strictly before this contact time.
+        let wall_comes_first = move |contact_time: f32| {
+            blocked_at.is_some_and(|(wall, _)| wall < contact_time - f32::EPSILON)
+        };
+
         // Damage routed by the FIRER's real faction (the owner's), not a label on
         // the shot: a shot lands on a faction-foe, on a same-faction body its
         // firer holds a grudge against, or — if it is OWNERLESS and therefore
@@ -702,6 +754,43 @@ pub fn step_projectiles(
             // out is touched before a small one dead ahead.
             let shot_half = kin.size * 0.5;
             let leg = kin.pos - leg_start;
+            // ⛔⛔ **THE FEATURE CANDIDATE IS RESOLVED HERE, BESIDE THE BODIES,
+            // BECAUSE THEY ARE COMPETING FOR THE SAME CONTACT.** It used to be
+            // computed after this whole block had `continue`d away on a body
+            // hit, which made "body" beat "boss or breakable" by being the
+            // earlier CODE branch: a crate at 0.2 of the leg lost to a body at
+            // 0.8. That is the family knowledge A2 exists to remove — the
+            // protocol orders contacts within a projectile by finite time of
+            // impact, and a family name is not a time.
+            let feature_half = shot_half;
+            let feature_leg = leg;
+            let feature_contact = crate::features::projectile_reaches_breakable(
+                leg_start,
+                feature_half,
+                feature_leg,
+                &[],
+                &ecs_breakables,
+            )
+            .into_iter()
+            .chain(crate::features::projectile_reaches_boss(
+                leg_start,
+                feature_half,
+                feature_leg,
+                &[],
+                &ecs_bosses,
+            ))
+            .filter(|contact| !already_hit.hit.contains(&contact.target))
+            // ⛔⛔ **A WALL EARLIER ON THE LEG STOPS THE SHOT BEFORE IT REACHES A
+            // CRATE OR A BOSS**, and this branch asked nothing at all. It emitted
+            // the targeted hit and the splash and `continue`d, so the world sweep
+            // below only ever ran when NO feature was reached — which made the
+            // ordering *"feature contact, else world collision"* rather than
+            // *"whichever came first"*. A breakable standing behind an unrelated
+            // solid was broken through it, and a boss behind one was damaged
+            // through it. Same rule as the bodies below, same single sweep, same
+            // strict comparison.
+            .filter(|contact| !wall_comes_first(contact.time))
+            .min_by(crate::features::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()
                 .filter_map(|victim| {
@@ -720,6 +809,22 @@ pub fn step_projectiles(
             });
 
             for (contact_time, victim) in &ordered {
+                // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.
+                // `ordered` ascends by time, so a feature reached strictly before
+                // this victim is reached strictly before every remaining one:
+                // stop, and let the feature branch below own the contact.
+                //
+                // ⚠ A TIE GOES TO THE BODY. Equal times are the compound case
+                // the protocol reserves for a destructible's own surface, and
+                // nothing here can yet tell that from a coincidence — so the
+                // strict comparison used against a wall is used here too rather
+                // than a second, looser rule.
+                if feature_contact
+                    .as_ref()
+                    .is_some_and(|feature| feature.time < *contact_time - f32::EPSILON)
+                {
+                    break;
+                }
                 if Some(victim.entity) == owner_entity {
                     continue;
                 }
@@ -756,40 +861,20 @@ pub fn step_projectiles(
                 //
                 // ⛔ NOT A SWAP OF THE TWO BLOCKS — the row's own warning is that
                 // resolving the world first trades this wrong answer for its
-                // opposite when the body genuinely came first. This asks the
-                // ordering question directly: cast from where the shot STARTED
-                // this leg toward the victim and skip it only if a solid stands
-                // strictly nearer than the body does.
+                // opposite when the body genuinely came first.
                 //
-                // ⚠ SOLIDS ONLY (`include_one_way = false`). A fireball crosses a
-                // one-way platform from below by design, and treating one-ways as
-                // blockers here would silently un-hit victims standing on ledges.
-                // ⭐ THE SHOT'S OWN BOX, AND THE SHOT'S OWN POLICY. `body_sweep`
-                // is the same swept entry point the world branch below uses, so
-                // "a wall stands between the shot and this body" and "a wall
-                // stops this shot" are now one question asked once. The leg is
-                // the shot's actual travel toward the victim: from where it
-                // started this tick, as far as the victim's centre.
-                let leg_to_victim = victim_body.center() - leg_start;
-                let victim_distance = leg_to_victim.length();
-                if victim_distance > f32::EPSILON {
-                    let half = kin.size * 0.5;
-                    if let Some(hit) = ae::cast::body_sweep(
-                        &collision_world,
-                        ae::Aabb::new(leg_start, half),
-                        leg_to_victim,
-                        blocks_this_shot,
-                    ) {
-                        // STRICTLY nearer. A wall at exactly the victim's
-                        // distance is a compound/tie case the protocol resolves
-                        // in favour of the surface only for an INDEPENDENT
-                        // blocker; nothing here can tell a destructible's own
-                        // wall from an unrelated one yet, so the existing
-                        // strict comparison is preserved rather than widened.
-                        if hit.time_of_impact < 1.0 - f32::EPSILON {
-                            continue;
-                        }
-                    }
+                // ⛔⛔ AND IT ASKS ABOUT THE CONTACT, NOT ABOUT THE CENTRE. This
+                // swept its own leg from the muzzle to the victim's CENTRE, which
+                // answers *"is a wall before the victim's middle?"* — a different
+                // question, and wrong in the direction that costs a legitimate
+                // hit. On a large body the shot reaches the near face first; a
+                // wall standing between that face and the centre is behind the
+                // contact that actually happened, and the old test refused the
+                // hit anyway. `contact_time` is when the shot's box first touches
+                // this victim, and `wall_comes_first` compares against the ONE
+                // world sweep taken over the shot's real travel leg.
+                if wall_comes_first(*contact_time) {
+                    continue;
                 }
                 // ⭐ CONTACT WAS ALREADY DECIDED, swept, when this list was built:
                 // a victim that is here was reached somewhere along the leg. The
@@ -996,25 +1081,9 @@ pub fn step_projectiles(
             // box to re-test, which is the second half the body branch also had.
             // One swept question, and the box the event carries is the box AT
             // CONTACT.
-            let feature_half = kin.size * 0.5;
-            let feature_leg = kin.pos - leg_start;
-            let feature_contact = crate::features::projectile_reaches_breakable(
-                leg_start,
-                feature_half,
-                feature_leg,
-                &[],
-                &ecs_breakables,
-            )
-            .into_iter()
-            .chain(crate::features::projectile_reaches_boss(
-                leg_start,
-                feature_half,
-                feature_leg,
-                &[],
-                &ecs_bosses,
-            ))
-            .filter(|contact| !already_hit.hit.contains(&contact.target))
-            .min_by(crate::features::FeatureContact::order_for_caller);
+            // Resolved above, beside the bodies it competes with — see the
+            // comment there for why the two families cannot be resolved in
+            // separate passes.
             // A hair inside, for the reason the body branch and the world sweep
             // both state: `time_of_impact` leaves the box tangent and every
             // downstream overlap test is `strict_intersects`.
@@ -1142,31 +1211,28 @@ pub fn step_projectiles(
         //
         // ⚠ Only when the endpoint is NOT already touching something — otherwise
         // this would move a shot the endpoint test can already resolve.
+        //
+        // ⭐ AND IT IS THE SAME SWEEP THE ORDERING ABOVE USED. `blocked_at` was
+        // taken once, over this leg, with this shot's policy; re-asking here
+        // would be a second answer to "what stopped this shot", which is the
+        // fork this packet exists to close. Only the PULL-BACK is conditional on
+        // the endpoint being clear — the ordering question is not.
         {
-            // The same captured leg the victim ordering above reasons about —
-            // one value, taken once before integration.
-            let leg = kin.pos - leg_start;
             let endpoint_box = kin.aabb();
             let already_touching = collision_world
                 .blocks
                 .iter()
                 .any(|block| blocks_this_shot(block) && block.aabb.strict_intersects(endpoint_box));
-            if !already_touching && leg != ae::Vec2::ZERO {
-                let half = kin.size * 0.5;
-                if let Some(hit) = ae::cast::body_sweep(
-                    &collision_world,
-                    ae::Aabb::new(leg_start, half),
-                    leg,
-                    blocks_this_shot,
-                ) {
+            if !already_touching {
+                if let Some((toi, block_center)) = blocked_at {
                     // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact`
                     // puts the box touching the block, and `strict_intersects`
                     // — which every policy below reads — is false for a touch.
                     // Nudging toward the hit block's centre works for a corner
                     // clip too, where the leg direction is tangential and
                     // nudging ALONG it would not overlap anything.
-                    let contact = leg_start + leg * hit.time_of_impact;
-                    let inward = (hit.block.aabb.center() - contact).normalize_or_zero();
+                    let contact = leg_start + travel_leg * toi;
+                    let inward = (block_center - contact).normalize_or_zero();
                     kin.pos = contact + inward * 0.5;
                 }
             }

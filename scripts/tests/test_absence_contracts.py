@@ -727,3 +727,78 @@ def test_the_capability_footprint_contract_holds_against_the_live_tree():
 
     found = capability_footprint_violations(REPO)
     assert not found, "capability footprint grew:\n  " + "\n  ".join(found)
+
+
+# ── The featureless-facade closure contract ─────────────────────────────────
+#
+# ⛔⛔ THE THIRD BASELINE-FREE CONTRACT, AND IT SHIPPED WITHOUT A RED PROBE. Every
+# other family in this file has one; `the-featureless-facade-links-none-of-these`
+# arrived on 2026-09-09 with only its own `cargo tree` behind it, which is the
+# exact gap the comment above records shipping a red main once already.
+#
+# ⭐ AND IT IS D-BUILD-GRAPH-BLINDNESS'S ACCEPTANCE, in the one place the
+# distinction is decidable: DECLARED-BUT-UNUSED, FEATURE-GATED and ACTUALLY
+# LINKED are three different answers, and a measurement that conflates them is
+# worse than none. `cargo metadata`'s resolve graph says 61 ambition crates for
+# this facade; `cargo tree -e normal --no-default-features` says 49, and the
+# 12-crate gap is entirely optional edges no feature enables. The contract must
+# ask the second question, and these tests are what say it still does.
+
+
+def test_the_featureless_closure_holds_against_the_live_tree():
+    from check_absence_contracts import featureless_facade_report
+
+    present, missing = featureless_facade_report(REPO)
+    assert not missing, (
+        "the featureless closure is missing crates the facade names "
+        f"unconditionally, so the measurement itself is broken: {missing}"
+    )
+    assert not present, f"a capability this profile promises is absent is linked: {present}"
+
+
+def test_the_featureless_closure_catches_a_forbidden_crate(monkeypatch):
+    """The red probe: a name in the forbidden set that IS in the closure reports.
+
+    Patched against the LIVE closure rather than a stub, so the test fails if the
+    tree stops containing the crate it names — a probe against a fabricated
+    closure would keep passing after the measurement stopped working.
+    """
+    import check_absence_contracts as contracts
+
+    live = contracts.featureless_facade_closure(REPO)
+    # A crate that IS linked with every feature off — the floor's own subject.
+    linked = contracts.FEATURELESS_FACADE_FLOOR[0]
+    assert linked in live, (
+        f"`{linked}` is not in the featureless closure, so this probe would "
+        "report nothing and prove nothing"
+    )
+    monkeypatch.setattr(contracts, "FEATURELESS_FACADE_FORBIDS", (linked,))
+    present, missing = contracts.featureless_facade_report(REPO)
+    assert not missing
+    assert present == [linked]
+
+
+def test_the_featureless_closure_reports_a_broken_instrument_rather_than_ok(monkeypatch):
+    """⭐ THE ANTI-VACUITY CONTROL, and it is the failure mode this contract has by
+    construction: it asserts an ABSENCE, so a `cargo tree` that fails — a renamed
+    package, an output-format change, a stale lockfile — yields an empty set,
+    which contains no forbidden crate and would print `ok` having measured
+    nothing."""
+    import check_absence_contracts as contracts
+
+    monkeypatch.setattr(contracts, "featureless_facade_closure", lambda _root: set())
+    present, missing = contracts.featureless_facade_report(REPO)
+    assert not present
+    assert missing == list(contracts.FEATURELESS_FACADE_FLOOR)
+
+
+def test_the_featureless_closure_is_not_silently_empty():
+    """The census must stay big enough to be the subject this contract names."""
+    import check_absence_contracts as contracts
+
+    live = contracts.featureless_facade_closure(REPO)
+    assert len(live) >= 40, (
+        f"only {len(live)} ambition crates in the featureless closure; there "
+        "were 49 when this was written, so the walk has been truncated rather "
+        "than the closure having shrunk that far"
+    )

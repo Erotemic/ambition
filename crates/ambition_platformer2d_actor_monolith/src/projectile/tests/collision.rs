@@ -465,6 +465,302 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     );
 }
 
+/// ⛔⛔ **A2b: A CRATE BEHIND A WALL IS BEHIND THE WALL.**
+///
+/// The boss/breakable branch computed a swept contact and, if it found one,
+/// emitted the targeted hit and the splash and `continue`d — so
+/// `resolve_world_collision` ran only when NO feature was reached. The ordering
+/// was therefore *"feature contact, else world"* rather than *"whichever came
+/// first"*, and a crate standing behind an unrelated solid was broken through
+/// it. The body branch had asked the ordering question since D199; this branch
+/// never had.
+///
+/// ⭐ THE INVERSE IS THE ANTI-VACUITY FLOOR, and it moves the WALL rather than
+/// the crate: same shot, same crate, same speed, so an arm that stopped breaking
+/// crates entirely would fail it. A guard that only ever asserts "nothing
+/// happened" is satisfied by a projectile road that does nothing.
+#[test]
+fn a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    // The shot: box half-extent 12 in x, so its leading edge starts at 372 and
+    // travels 64 px in one 0.016 s tick at 4000 px/s.
+    fn crate_broken_with_wall_at(wall_x: f32) -> bool {
+        let world = ae::World::new(
+            "wall_and_crate",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(wall_x, 300.0),
+                ae::Vec2::new(6.0, 120.0),
+            )],
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        let breakable = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::FeatureId::new("crate"),
+                FeatureName::new("crate"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+                ambition_combat::components::CenteredAabb::from_center_size(
+                    ae::Vec2::new(420.0, 300.0),
+                    ae::Vec2::new(12.0, 46.0),
+                ),
+                BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+            ))
+            .id();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        app.world()
+            .get::<BreakableFeature>(breakable)
+            .expect("the crate is still an entity")
+            .broken()
+    }
+
+    // ⛔ THE FLOOR FIRST: the wall stands PAST the crate (leading edge reaches
+    // the crate at 0.66 of the leg and the wall at 0.84), so the crate is
+    // reached first and breaks exactly as it always did.
+    assert!(
+        crate_broken_with_wall_at(432.0),
+        "a crate reached BEFORE the wall on the same leg was not broken, so the \
+         arm below would be measuring a branch that breaks nothing"
+    );
+    // ⛔ AND THE DEFECT: the wall now stands between the muzzle and the crate
+    // (wall at 0.22 of the leg, crate at 0.66). The shot cannot reach it.
+    assert!(
+        !crate_broken_with_wall_at(392.0),
+        "a crate standing BEHIND a solid wall was broken through it — the \
+         boss/breakable branch is emitting its hit without comparing the \
+         contact time against the wall's"
+    );
+}
+
+/// ⛔⛔ **A2b: A CRATE IN FRONT OF A BODY IS IN FRONT OF IT — AND VICE VERSA.**
+///
+/// Bodies and features were resolved in separate passes: the body loop ran
+/// first and, on a hit, `continue`d past the whole projectile step, so the
+/// boss/breakable candidate was not even COMPUTED. "Body" therefore beat "boss
+/// or breakable" by being the earlier code branch — a crate at 0.2 of the leg
+/// lost to a body at 0.8. That is exactly the family knowledge A2 exists to
+/// remove: the protocol orders contacts within a projectile by finite time of
+/// impact, and a family name is not a time.
+///
+/// ⭐ BOTH DIRECTIONS, and neither is the floor for the other — a road that
+/// always picked the crate would pass one arm and fail the other, and so would
+/// one that always picked the body.
+#[test]
+fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    /// Returns `(crate_broken, body_hurt)` for a crate at `crate_x`. The body
+    /// stands at 440 and the shot's leading edge starts at 372, covering 64 px.
+    fn contact_with_crate_at(crate_x: f32) -> (bool, bool) {
+        let world = ae::World::new(
+            "open_lane",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.add_systems(
+            Startup,
+            |mut commands: Commands,
+             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+                crate::features::spawn_encounter_mob(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    "projectile_test",
+                    ambition_encounter::mob_seed::EncounterMobSeed {
+                        id: "lane_enemy".into(),
+                        character: Some("fixture_striker"),
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "fixture_striker".into(),
+                        ),
+                        pos: ae::Vec2::new(440.0, 300.0),
+                        size: ae::Vec2::new(28.0, 46.0),
+                    },
+                );
+            },
+        );
+        app.update();
+        let breakable = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::FeatureId::new("crate"),
+                FeatureName::new("crate"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+                ambition_combat::components::CenteredAabb::from_center_size(
+                    ae::Vec2::new(crate_x, 300.0),
+                    ae::Vec2::new(12.0, 46.0),
+                ),
+                BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
+            ))
+            .id();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let broken = app
+            .world()
+            .get::<BreakableFeature>(breakable)
+            .expect("the crate is still an entity")
+            .broken();
+        let hurt = {
+            let world = app.world_mut();
+            let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+            let (_, health) = query
+                .iter(world)
+                .find(|(identity, _)| identity.id() == "lane_enemy")
+                .expect("the lane enemy should be spawned as an ECS actor");
+            health.health.current < health.health.max
+        };
+        (broken, hurt)
+    }
+
+    // The crate stands at 390 (384..396) and the body's near face at 426, so the
+    // crate is reached first and owns the contact.
+    let (crate_first_broken, crate_first_hurt) = contact_with_crate_at(390.0);
+    assert!(
+        crate_first_broken,
+        "a crate reached BEFORE the body lost the contact to it — the two \
+         families are still being resolved in separate passes"
+    );
+    assert!(
+        !crate_first_hurt,
+        "the body behind the crate took the hit as well as the crate"
+    );
+
+    // Now the crate stands PAST the body (crate 464..476, body near face 426),
+    // so the body is reached first and owns it.
+    let (body_first_broken, body_first_hurt) = contact_with_crate_at(470.0);
+    assert!(
+        body_first_hurt,
+        "a body reached BEFORE the crate did not take the hit, so the arm above \
+         would be satisfied by a road that always picks the crate"
+    );
+    assert!(
+        !body_first_broken,
+        "the crate behind the body was broken as well as the body"
+    );
+}
+
+/// ⛔⛔ **A2b: A WALL PAST A BIG BODY'S NEAR FACE DOES NOT SAVE IT.**
+///
+/// The body branch asked its obstruction question by sweeping from the muzzle to
+/// the victim's CENTRE — *"is a wall before the victim's middle?"* — which is a
+/// different question from the one the protocol asks and wrong in the direction
+/// that costs a legitimate hit. On a wide body the shot touches the near face
+/// well before the centre; a wall standing between that face and the centre is
+/// BEHIND the contact that actually happened, and the old test refused the hit
+/// anyway.
+///
+/// Geometry: the shot's leading edge starts at 372 and covers 128 px in one
+/// tick. The body spans 420..540, so contact is at 0.375 of the leg. The wall
+/// spans 448..456 — inside the body, past its near face — and is reached at
+/// 0.594. The body is first, so the body is hit. Under the centre-sweep the wall
+/// sat at 0.63 of a 120 px cast to the centre and refused it.
+#[test]
+fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
+    let world = ae::World::new(
+        "wall_inside_body",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::solid(
+            "pillar",
+            ae::Vec2::new(452.0, 300.0),
+            ae::Vec2::new(4.0, 120.0),
+        )],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.add_systems(
+        Startup,
+        |mut commands: Commands,
+         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            crate::features::spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &Default::default(),
+                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "projectile_test",
+                ambition_encounter::mob_seed::EncounterMobSeed {
+                    id: "wide_enemy".into(),
+                    character: Some("fixture_striker"),
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "fixture_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(480.0, 300.0),
+                    // WIDE on purpose: the near face and the centre are 60 px
+                    // apart, which is the whole distinction under test.
+                    size: ae::Vec2::new(120.0, 46.0),
+                },
+            );
+        },
+    );
+    app.update();
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(360.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(360.0, 300.0);
+        body.kin.vel = ae::Vec2::new(8000.0, 0.0);
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+
+    let (health, max) = {
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let (_, health) = query
+            .iter(world)
+            .find(|(identity, _)| identity.id() == "wide_enemy")
+            .expect("the wide enemy should be spawned as an ECS actor");
+        (health.health.current, health.health.max)
+    };
+    assert!(
+        health < max,
+        "the shot touched the body's near face at 0.375 of its leg and the wall \
+         only at 0.594, so the body must take the hit (still {health} of {max})"
+    );
+}
+
 /// ⛔⛔ **A2b: A FAST SHOT MUST HIT A THIN BODY IT CROSSES BETWEEN SAMPLES.**
 ///
 /// Target contact was ENDPOINT overlap: the stepper moved the shot to its new

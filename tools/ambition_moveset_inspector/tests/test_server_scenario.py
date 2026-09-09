@@ -53,11 +53,11 @@ def test_a_cached_manifest_from_another_scenario_is_not_a_hit() -> None:
 def test_a_mirror_match_is_still_a_scenario() -> None:
     """⛔⛔ A TARGET THAT EQUALS THE SUBJECT IS STILL A TARGET.
 
-    The recorder DEFAULTS to a mirror match, so `--target-behavior cpu` with no
-    explicit `--target` is an ordinary, supported scenario: George vs George,
-    CPU. The key skipped the whole scenario clause whenever `target ==
-    character`, so a CPU mirror and a passive mirror shared one cache directory
-    and the CPU take was shown beside a render of a target standing still.
+    A mirror is an ordinary, supported scenario a reader asks for on purpose:
+    George vs George, CPU. The key skipped the whole scenario clause whenever
+    `target == character`, so a CPU mirror and a passive mirror shared one cache
+    directory and the CPU take was shown beside a render of a target standing
+    still.
 
     ⭐ REPRODUCED FROM THE 2026-08-31 review before the fix: both keys were
     `george__jab__at40_000`.
@@ -76,15 +76,19 @@ def test_a_mirror_match_is_still_a_scenario() -> None:
     assert passive != server.scenario_key("george", "jab", None, 40.0, "passive")
 
 
-def test_canonical_scenario_makes_mirror_and_behavior_explicit() -> None:
+def test_an_omitted_target_becomes_the_training_dummy_and_behavior_is_explicit() -> None:
+    """⭐ THE DEFAULT IS A VALUE, NOT A BLANK. A request that names no target is
+    the same fight the recorder and the renderer stage without `--target`: the
+    immortal training dummy, written into the scenario here so nothing
+    downstream has to fill the hole a second (possibly different) way."""
     passive = server.CombatScenario.from_mapping(
         {"subject": "george", "verb": "attack", "target_behavior": "passive", "spacing": 40}
     )
     cpu = server.CombatScenario.from_mapping(
         {"subject": "george", "verb": "attack", "target_behavior": "cpu", "spacing": 40}
     )
-    assert passive.target == "george"
-    assert passive.document()["target"] == "george"
+    assert passive.target == server.DEFAULT_SCENARIO_TARGET == "sandbag_infinite"
+    assert passive.document()["target"] == "sandbag_infinite"
     assert passive.identity() != cpu.identity()
     assert passive.cache_name() != cpu.cache_name()
 

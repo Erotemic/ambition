@@ -368,11 +368,67 @@ system's type set is impossible, and `drive_boss_animators` states that it write
 one of its inputs. The catalog, the attack state and the animation sample left
 with the derivation: `apply_boss_hit` can no longer derive geometry at all, and
 the projectile stepper no longer depends on `BossCatalog`. Witness:
-`the_boss_hit_test_answers_only_from_the_published_volumes`, four states
+`a_boss_is_reached_only_through_its_published_volumes`, four states
 including the anti-vacuity row, poison-verified against a reintroduced coarse
 fallback. ⚠ Breakables were NOT added to the barrier: their geometry is
 `CenteredAabb` + broken state, both settled in `WorldPrep`, so a second
 publication would cost a pass and change nothing. Say so before adding one.
+
+**A2b — reopened by review #7 and re-closed the same day; the ordering rule is
+now one comparison, not three.**
+
+⛔⛔ THE THREE-WAY SPLIT REVIEW #7 FOUND, and it survived every correction below
+because each of them made ONE branch swept without making the branches agree:
+
+- the boss/breakable branch compared NOTHING. It computed a swept
+  `FeatureContact` and, on finding one, emitted the targeted hit and the splash
+  and `continue`d — so `resolve_world_collision` ran only when no feature was
+  reached. The effective rule was *"feature contact, else world collision"*, and
+  a crate or a boss behind an unrelated solid was struck through it;
+- the body branch asked the right question of the wrong geometry: it swept from
+  the muzzle to the victim's CENTRE. That answers *"is a wall before the victim's
+  middle?"*, and on a wide body the shot reaches the near face well before the
+  centre — so a wall between the face and the centre refused a hit that
+  physically happened. Wrong in the direction that COSTS a legitimate hit, which
+  is why no existing test saw it;
+- and the world branch swept a third time for its own pull-back.
+
+⇒ ONE `body_sweep` over the shot's actual travel leg, with the shot's own box and
+the shot's own `WorldHitPolicy`, its finite `time_of_impact` kept in the leg's own
+[0, 1] parameter and compared directly against every body's and every feature's
+contact time. A blocker strictly earlier wins. A TIE goes to the target, which
+restates the strict comparison the body branch already used rather than inventing
+a policy: nothing here can yet tell a destructible's own surface from an
+independent blocker, and that distinction is A5's contributor identity. The
+world pull-back reuses the same result (the block's centre rides along with the
+time, because deriving it there would be the sweep asked a second way).
+
+⛔⛔ AND A THIRD HOLE THE REVIEW NAMED: BODIES AND FEATURES WERE NOT COMPARED TO
+EACH OTHER EITHER. The body loop ran first and, on a hit, `continue`d past the
+whole step — so the boss/breakable candidate was not even COMPUTED. "Body" beat
+"boss or breakable" by being the earlier code branch: a crate at 0.2 of the leg
+lost to a body at 0.8. The feature candidate is resolved beside the bodies now
+and the body loop stops as soon as a feature is strictly earlier.
+
+Witnesses, each poison-verified against the exact code it replaced:
+`a_crate_behind_a_wall_is_not_broken_and_one_in_front_of_it_is` — its
+anti-vacuity floor moves the WALL rather than the crate, so an arm that broke
+nothing would fail it — `a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit`,
+and `the_earliest_contact_wins_whether_it_is_a_body_or_a_crate`, whose two arms
+are each other's floor. With the pre-existing
+`a_shot_does_not_damage_a_victim_standing_behind_a_wall` that is wall-before-body,
+body-before-wall, wall-before-feature, feature-before-wall, the large-body near
+face, and both directions of body-versus-feature.
+
+⚠ THE COMPOUND SOLID OBJECT ROW IS STILL OPEN, and it is not reachable on this
+road. A `BreakableCollision::Solid` feature publishes a `BlinkWall` into
+`FeatureEcsWorldOverlay::blocks`, but `ProjectileCollisionWorld::solids()`
+composites only `gate_solids`, `portal_carves` and `removed_block_names` — so a
+destructible's own surface is not in the world a projectile sweeps, and the tie
+rule has no compound case to get wrong yet. An attempt to witness it produced a
+test that passed under a deliberately broken comparison twice (the fixture never
+published the surface; and the landing splash broke the crate regardless of the
+direct hit), and was deleted rather than kept.
 
 **A2b — the obstruction half landed; the swept-target half has not.**
 

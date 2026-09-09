@@ -31,22 +31,45 @@ use bevy::prelude::*;
 use ambition_sim_harness::{AdapterPreference, DeterministicCaptureSession};
 use move_exercise::{verb_named, VERBS};
 
+/// How much world the pictures show by default, in world px across.
+///
+/// ⭐ MEASURED FROM THE BODIES, not chosen for looks: a fighter is roughly 50 px
+/// tall and the default seat spacing puts two of them within ~150 px, so 320
+/// holds the pair and the strike volumes that reach past them with room to
+/// spare. The gameplay camera's own presets start at 568 and go to 1600.
+const DEFAULT_VIEW_WIDTH: f32 = 320.0;
+
+/// World px of air kept beyond each fighter when the frame widens to hold both.
+const FRAME_MARGIN: f32 = 60.0;
+
+/// The most the frame will widen past `--view-width` to keep the target in it.
+/// Past this the picture is a stage again, which is the thing being fixed.
+const MAX_FRAME_WIDENING: f32 = 2.0;
+
 const USAGE: &str = "\
 moveset_render — render a fighter performing one move, one PNG per simulation tick.
 
 USAGE:
     moveset_render --character ID --verb VERB [--target ID] [--target-behavior WHICH]
-                   [--spacing PX] [--out DIR] [--frames N] [--stride K]
-                   [--combat-overlay on|off] [--adapter auto|hardware|software]
+                   [--spacing PX] [--view-width PX] [--out DIR] [--frames N]
+                   [--stride K] [--combat-overlay on|off]
+                   [--adapter auto|hardware|software]
 
 OPTIONS:
     --character ID   catalog id of the fighter
     --verb VERB      repertoire verb to perform (see below)
     --spacing PX     walk the subject to within PX of the target before the press
                      [default: the match's own seat placement]
-    --target ID      who the move is performed against  [default: the fighter]
+    --target ID      who the move is performed against
+                     [default: sandbag_infinite, the immortal training dummy]
     --target-behavior WHICH
                      passive | cpu                      [default: passive]
+    --view-width PX  how much WORLD is in the picture, centred on the subject
+                     [default: 320, about six body widths]
+                     ⭐ THE GAMEPLAY CAMERA FRAMES A STAGE (568-1600 px across by
+                     the zoom preset) and a fighter is ~50 px tall, so the body
+                     an inspector opened the view for was a thumbnail in the
+                     corner. `0` gives the frame back to the game's own camera.
     --overlay LAYERS on | off | a comma list of art,hurtboxes,strikes
                      [default: on = all three]
                      ⭐ INDEPENDENT, because the questions are. Whether a volume
@@ -88,6 +111,135 @@ NOTES:
 /// The layers this run asked for, so the forcing system does not re-parse them.
 #[derive(bevy::prelude::Resource, Clone, Copy)]
 struct RequestedOverlayLayers(CombatOverlayLayers);
+
+/// The world rectangle the pictures are FRAMED ON, written every frame after
+/// the game's own camera policy has run.
+///
+/// ⭐⭐ THE GAMEPLAY CAMERA IS THE WRONG LENS FOR AN INSPECTOR. It frames a smash
+/// STAGE — 568 to 1600 world units across, by the zoom preset — and a fighter is
+/// about fifty tall, so the body a reader opened this view to study was a few
+/// dozen pixels in the corner of a 960-pixel picture. Nothing was broken; the
+/// shot was of the wrong subject.
+///
+/// ⛔ AND IT IS WRITTEN EVERY FRAME, AFTER `camera_follow`. The policy runs in
+/// `Update` and re-derives the camera from the zoom preset, the camera zones and
+/// the ease state, so a one-shot write before the shutter is overwritten by the
+/// next zero-duration pump — which is exactly the pump the picture is taken on.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug)]
+struct InspectorFraming {
+    /// World point at the centre of the frame.
+    center: Vec2,
+    /// World size of the frame, already in the capture's aspect.
+    view: Vec2,
+}
+
+impl InspectorFraming {
+    /// The rectangle as `[x0, y0, x1, y1]`, which is the vocabulary a recorded
+    /// take's `view` already uses.
+    fn rect(&self) -> [f32; 4] {
+        [
+            self.center.x - self.view.x / 2.0,
+            self.center.y - self.view.y / 2.0,
+            self.center.x + self.view.x / 2.0,
+            self.center.y + self.view.y / 2.0,
+        ]
+    }
+}
+
+/// Where to point the camera for one shot, from the tick's own observation.
+///
+/// ⭐⭐ THE PAIR, NOT THE SUBJECT ALONE. The default seat placement puts the two
+/// fighters 192 px apart — measured, not assumed — so a frame centred on the
+/// subject at the default width has the target sitting on its edge, and half the
+/// question ("did it reach?") off-screen. This centres between them and WIDENS
+/// to hold both, up to a cap: past that the pair is not a shot, it is a stage.
+fn frame_for(
+    observation: &serde_json::Value,
+    view_width: f32,
+    aspect: f32,
+) -> Option<InspectorFraming> {
+    // ⛔⛔ THE POSITION LIVES UNDER `collision`, and reading `row["pos"]` here
+    // FOUND NOTHING AND SAID NOTHING: `serde_json` indexing yields `Null` for a
+    // missing key, so the fallback framed the ORIGIN — 224 px from the fighter it
+    // was supposed to be photographing — and every manifest recorded a confident
+    // `[-160, -120, 160, 120]`. Caught by reading the numbers the run wrote, not
+    // by the run failing. The recorder's per-frame `pos`/`half` is a RESHAPE of
+    // this; the observation itself nests it.
+    let body = |role: &str| -> Option<Vec2> {
+        let row = observation["bodies"]
+            .as_array()?
+            .iter()
+            .find(|row| row["role"].as_str() == Some(role))?;
+        Some(Vec2::new(
+            row["collision"]["pos"][0].as_f64()? as f32,
+            row["collision"]["pos"][1].as_f64()? as f32,
+        ))
+    };
+    // ⛔ NO `unwrap_or(ZERO)`. A subject the observation cannot place is exactly
+    // the case that produced a picture of the empty origin; without a subject
+    // there is no inspection framing to compute, so the gameplay camera keeps
+    // the frame and the manifest says `view: null`.
+    let subject = body("subject")?;
+    let target = body("target");
+    let (center, span) = match target {
+        // ⛔ THE MARGIN IS ON BOTH SIDES AND IT IS NOT DECORATION: a body is ~50
+        // px wide, and a strike volume reaches past it. A frame that ends at the
+        // body's centre cuts the very geometry this view exists to show.
+        Some(target) => (
+            (subject + target) / 2.0,
+            (subject - target).abs() + Vec2::splat(2.0 * FRAME_MARGIN),
+        ),
+        None => (subject, Vec2::splat(view_width)),
+    };
+    let width = span
+        .x
+        .max(view_width)
+        .min(view_width * MAX_FRAME_WIDENING);
+    Some(InspectorFraming {
+        center,
+        view: Vec2::new(width, width / aspect),
+    })
+}
+
+/// Point the photographed camera at [`InspectorFraming`].
+///
+/// ⛔ `scale` IS NOT THE KNOB — the scaling MODE is. `scale` multiplies an extent
+/// that depends on the mode and on the viewport aspect, so the arithmetic only
+/// holds when those agree; `capture_scene --fit-room` learned this by framing a
+/// hall at a fifth of the image. `AutoMin` states the world rectangle outright.
+fn frame_the_inspection(
+    framing: Option<Res<InspectorFraming>>,
+    // ⛔⛔ THE ROOM IS PART OF THE TRANSFORM, NOT SCENERY. `camera_follow` places
+    // the camera at `world.x - room.x/2`, `room.y/2 - world.y` — an offset AND a
+    // Y FLIP — and writing sim coordinates straight into the transform put the
+    // camera hundreds of px from the fighters and photographed empty sky. The
+    // manifest still said `[160..480]`, and it was RIGHT: the rectangle was the
+    // sim rectangle asked for. The picture was of somewhere else.
+    room: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::engine_core::RoomGeometry,
+    >,
+    mut cameras: Query<
+        (&mut Transform, &mut Projection),
+        With<ambition_platformer2d::platformer::camera_layers::MainCamera>,
+    >,
+) {
+    let Some(framing) = framing else {
+        return;
+    };
+    let size = room.0.size;
+    for (mut transform, mut projection) in &mut cameras {
+        if let Projection::Orthographic(orthographic) = &mut *projection {
+            orthographic.scale = 1.0;
+            orthographic.scaling_mode = bevy::camera::ScalingMode::AutoMin {
+                min_width: framing.view.x,
+                min_height: framing.view.y,
+            };
+        }
+        transform.translation.x = framing.center.x - size.x * 0.5;
+        transform.translation.y = size.y * 0.5 - framing.center.y;
+        transform.rotation = Quat::IDENTITY;
+    }
+}
 
 fn force_combat_overlay(
     requested: Res<RequestedOverlayLayers>,
@@ -133,6 +285,7 @@ fn main() {
                     | "--combat-overlay"
                     | "--overlay"
                     | "--spacing"
+                    | "--view-width"
             )
         })
     {
@@ -194,7 +347,7 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(1)
         .max(1);
-    // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one the
+    // ⛔ THE TRAINING DUMMY IS THE DEFAULT AND IT IS A CHOICE, the same one the
     // recorder makes: the two tools must stage the same scenario or their
     // pictures describe different fights.
     let asked_target = arg("--target");
@@ -218,6 +371,20 @@ fn main() {
             }
         },
     };
+    // ⭐ HOW MUCH WORLD IS IN THE PICTURE, and it is the inspector's business
+    // rather than the game's. `0` hands the frame back to the gameplay camera,
+    // which is the only way to photograph what a PLAYER sees.
+    let view_width: f32 = match arg("--view-width") {
+        None => DEFAULT_VIEW_WIDTH,
+        Some(word) => match word.parse::<f32>() {
+            Ok(px) if px >= 0.0 => px,
+            _ => {
+                eprintln!("moveset_render: --view-width wants a non-negative number of world px");
+                std::process::exit(2);
+            }
+        },
+    };
+
     // ⛔ ONE FLAG, TWO SPELLINGS. `--combat-overlay on|off` is what this binary
     // shipped with; `--overlay` is the same switch with layer names. A second
     // meaning for either would be a second answer to "what is drawn".
@@ -287,6 +454,19 @@ fn main() {
         // write is a race against whichever runs last.
         app.add_systems(Update, force_combat_overlay);
     }
+    // ⛔ AFTER THE POLICY, BEFORE THE PARALLAX. `camera_follow` re-derives the
+    // camera every `Update`, so a framing written earlier is gone by the shutter;
+    // the parallax layers read the camera it leaves behind, so a framing written
+    // later moves the fighter and not the background. `capture_scene` orders its
+    // own snapshot exactly here, for exactly these two reasons.
+    if view_width > 0.0 {
+        app.add_systems(
+            Update,
+            frame_the_inspection
+                .after(ambition_platformer2d::render::rendering::camera_follow)
+                .before(ambition_platformer2d::render::rendering::sync_parallax_layers),
+        );
+    }
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
             ambition_platformer2d::engine_core::Vec2::new(size.x as f32, size.y as f32),
@@ -347,10 +527,12 @@ fn main() {
     let mut failures = 0usize;
     for character in &characters {
         for verb in &verbs {
-            // ⛔ A MIRROR MATCH IS THE DEFAULT AND IT IS A CHOICE, the same one
-            // the recorder makes: the two tools must stage the same scenario or
-            // their pictures describe different fights.
-            let target = asked_target.clone().unwrap_or_else(|| character.clone());
+            // ⛔ THE TRAINING DUMMY IS THE DEFAULT AND IT IS A CHOICE, the same
+            // one the recorder makes: the two tools must stage the same
+            // scenario or their pictures describe different fights.
+            let target = asked_target
+                .clone()
+                .unwrap_or_else(|| ambition_demo_smash::INSPECTION_TARGET.to_string());
             // One pair writes straight into `--out`; a batch gets the layout the
             // inspector server already caches by, so an overnight corpus IS the
             // browser's cache.
@@ -375,6 +557,8 @@ fn main() {
                 target: &target,
                 passive_target,
                 spacing,
+                view_width,
+                aspect: size.x as f32 / size.y as f32,
                 frames,
                 stride,
                 combat_overlay,
@@ -463,6 +647,11 @@ struct PairRequest<'a> {
     target: &'a str,
     passive_target: bool,
     spacing: Option<f32>,
+    /// World px across the picture, or `0` to leave the gameplay camera alone.
+    view_width: f32,
+    /// The capture's width/height, so a framing states a rectangle the picture
+    /// actually has rather than one the aspect quietly widens.
+    aspect: f32,
     frames: usize,
     stride: u64,
     combat_overlay: bool,
@@ -557,6 +746,8 @@ fn render_pair(
     let target = req.target;
     let passive_target = req.passive_target;
     let spacing = req.spacing;
+    let view_width = req.view_width;
+    let aspect = req.aspect;
     let frames = req.frames;
     let stride = req.stride;
     let combat_overlay = req.combat_overlay;
@@ -740,6 +931,18 @@ fn render_pair(
             observed.insert(id);
         }
 
+        // ⛔⛔ WRITTEN BEFORE THE SHUTTER, READ DURING IT. `capture` services the
+        // GPU with zero-duration pumps, and every one of those pumps runs
+        // `Update` — so `camera_follow` re-derives the stage framing inside the
+        // capture and `frame_the_inspection` puts this back after it. Setting the
+        // camera directly here instead would be overwritten by the first pump.
+        let framing = (view_width > 0.0)
+            .then(|| frame_for(&observation, view_width, aspect))
+            .flatten();
+        if let Some(framing) = framing {
+            app.world_mut().insert_resource(framing);
+        }
+
         // ⭐⭐ ONE CALL, AND IT IS THE WHOLE SCHEME: arm the shot, service the GPU
         // with zero-duration pumps, refuse the frame if the fixed clock moved.
         // Extracted 2026-08-29 — it was the only reusable thing in this binary
@@ -753,6 +956,14 @@ fn render_pair(
         pumps_total += captured.pumps;
         shots.push(serde_json::json!({
             "file": format!("frame.{shot:04}.png"),
+            // ⭐⭐ THE WORLD RECTANGLE THIS PICTURE SHOWS, in the same
+            // `[x0, y0, x1, y1]` vocabulary a recorded take's `view` uses. Until
+            // now nothing published the camera transform, so a reader comparing
+            // the PNG with the diagnostic beside it could not say whether the two
+            // were drawn of the same patch of world — only that they looked
+            // similar. `null` means the gameplay camera framed it and this tool
+            // did not ask where.
+            "view": framing.map(|f| f.rect()),
             // The absolute tick this picture belongs to...
             "sim_tick": tick,
             // ...and the tick of the EXERCISE, which is what a recorded take's
@@ -863,6 +1074,10 @@ fn render_pair(
             "art": l.art, "hurtboxes": l.hurtboxes, "strikes": l.strikes,
         })),
         "requested_spacing": spacing,
+        // ⭐ THE LENS, RECORDED. A viewer that shows this picture beside a
+        // diagnostic drawn from the take needs to know the pictures are close-ups
+        // rather than stage shots, and `0` means the gameplay camera framed them.
+        "view_width": view_width,
         // ⛔ ASKED FOR AND REACHED ARE TWO NUMBERS. A move that could not close
         // the gap is a finding, not a footnote.
         "spacing_closed": closed,

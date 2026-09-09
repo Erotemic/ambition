@@ -361,14 +361,36 @@ one that selected no capability at all. The host's three presentation plugins si
 behind its own `render` feature now and the facade takes the host
 `default-features = false`. Measured 52 -> 50 ambition crates in
 `cargo tree -e normal --no-default-features -p ambition_platformer2d`, and
-ratcheted by `a-featureless-consumer-links-no-renderer`, which walks the
-FEATURE-RESOLVED tree because the manifest walk the other dependency contracts
-use counts optional edges. See the queue row for the poison receipts.
+50 -> 49 when the world MAP became the runtime's `map` feature the same day (the
+facade already offered `ambition_menu` as a named capability while the runtime
+installed `MapStatePlugin` unconditionally — an optional capability with one
+unconditional installer is not optional). Both are ratcheted by
+`the-featureless-facade-links-none-of-these`, which walks the FEATURE-RESOLVED
+tree because the manifest walk the other dependency contracts use counts optional
+edges. See the queue row for the poison receipts.
 
-⚠ The separate headless consumer workspace this packet asks for still does not
-exist: `fixtures/minimal_game` is the WINDOWED sentinel and legitimately links
-the renderer, so it cannot answer the question. The remaining 50 crates have not
-been traced to their activating edges.
+⚠ `ambition_menu` is in that contract's forbidden set FOR THIS PROFILE only:
+`ambition_platformer2d_host` legitimately links the menu crate under its `render`
+feature, for the `MenuFont` handoff only a composition root can make. Crate
+presence in a profile that renders and runtime INSTALLATION of the map are
+separate questions with separate witnesses.
+
+⚠ **THE STATED MINIMUM'S OWN LIST IS PARTLY STALE.** It excludes "renderer,
+audio, inventory, encounters or game content"; measured 2026-09-09, the renderer
+is gone and `ambition_inventory_ui` was ALREADY absent from the featureless
+closure. Of the remainder, encounters/cutscene/dialog/items/persistence arrive
+through the monolith-and-runtime hub, and audio's one non-monolith path
+(`provider -> load_presentation -> game_shell -> audio`) rests on two GENUINE
+uses — the provider's public authoring surface carries `LoadExperienceSpec`, and
+the shell selects route audio. Neither is residue; both are ownership questions.
+See the queue row.
+
+⚠ The separate headless consumer workspace this packet asks for now EXISTS
+(`fixtures/headless_profile`, landed 2026-09-09), so this next line is corrected
+rather than deleted — the sentence it makes is still true of `minimal_game`: `fixtures/minimal_game` is the WINDOWED sentinel and legitimately links
+the renderer, so it cannot answer the question. The 49 crates that remain have
+been traced to their activating parents; what has not been established is which
+of them a minimum profile has a right to expect.
 
 **Ready now:** record the manifest lower bound and establish a real independent
 consumer fixture. **Implementation:** staged with the owners whose dependencies

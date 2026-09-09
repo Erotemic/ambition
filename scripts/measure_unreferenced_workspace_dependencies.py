@@ -19,11 +19,26 @@ dependency can legitimately have no source reference:
     mention is in the other crate;
   · a build script needs it.
 
-⇒ Remove the line and compile. Measured 2026-09-09: four candidates, all four
-genuinely removable, one of them (`ambition_characters`'s `causal`) a FEATURE
-whose doc promised to *"publish this capability's causal facts"* and whose crate
-contained no `cfg(feature = "causal")` at all — a capability a composition could
-turn on, pay a compile for, and receive nothing from.
+⛔⛔ **AND "REMOVE IT AND COMPILE" IS NOT THE RULE.** A green build does not
+prove that a link-time registration, an externally supplied trait impl, or a
+build script's behaviour was irrelevant — those are precisely the cases the list
+above names, and every one of them compiles fine after the line is gone. Stating
+the compiler as the judge would make this tool an oracle for graph tidiness,
+which is the incentive the `actor_spawn` carve already cost this repository once.
+
+⇒ **THE RULE IS: establish WHY the dependency is declared before removing it.**
+Read the manifest entry's own comment and the feature table for what it forwards;
+grep the crate for the DEPENDENCY'S vocabulary rather than its name (a re-export,
+a `use` alias, a macro path); ask whether the dependency's plugin or registration
+is what makes some behaviour exist. Only then remove, compile, and run the
+behavioural witness for anything that is not an ordinary source-level use.
+
+Measured 2026-09-09: four candidates, all four removable on that standard — and
+one of them (`ambition_characters`'s `causal`) was a FEATURE whose doc promised
+to *"publish this capability's causal facts"* while the crate contained no
+`cfg(feature = "causal")` at all, a capability a composition could turn on, pay a
+compile for, and receive nothing from. That one was decided by reading, not by
+the build.
 
 ⚠ It reads the crate's whole source tree including tests, so a dependency used
 only by a test still counts as referenced. That is deliberate: a test-only use is
@@ -41,6 +56,29 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from cargo_bin import cargo_binary  # noqa: E402
+
+
+def unreferenced_in(
+    declared: set[str], source: str, manifest_text: str
+) -> list[str]:
+    """The declared names this crate's source never mentions and its manifest
+    never forwards.
+
+    ⭐ SPLIT OUT SO THE THREE ANSWERS ARE SEPARATELY TESTABLE, which is
+    D-BUILD-GRAPH-BLINDNESS's whole point: DECLARED-BUT-UNUSED, FEATURE-GATED and
+    ACTUALLY LINKED are different facts, and a measurement that conflates them is
+    worse than none. This function answers only the first, from text; the closure
+    question belongs to `cargo tree` and lives in
+    `check_absence_contracts.py`'s featureless-facade contract.
+    """
+    return [
+        name
+        for name in sorted(declared)
+        if not re.search(rf"\b{re.escape(name)}\b", source)
+        # Forwarding a feature IS naming the dependency, in the one file where
+        # naming it is the whole point.
+        and not re.search(rf'"{re.escape(name)}[?]?/', manifest_text)
+    ]
 
 
 def main() -> int:
@@ -70,14 +108,7 @@ def main() -> int:
             # different claim and are not this script's subject.
             if dependency["name"] in members and dependency["kind"] is None
         }
-        unreferenced = [
-            name
-            for name in sorted(declared)
-            if not re.search(rf"\b{re.escape(name)}\b", source)
-            # Forwarding a feature IS naming the dependency, in the one file
-            # where naming it is the whole point.
-            and not re.search(rf'"{re.escape(name)}[?]?/', manifest_text)
-        ]
+        unreferenced = unreferenced_in(declared, source, manifest_text)
         if unreferenced:
             rows.append((package["name"], unreferenced))
 
@@ -87,7 +118,12 @@ def main() -> int:
         f"\n{len(rows)} crate(s) declare an unreferenced ambition dependency "
         f"(of {len(members)} workspace members)"
     )
-    print("⚠ candidates, not violations — remove the line and compile.")
+    print(
+        "⚠ candidates, not violations. Establish WHY each is declared "
+        "(feature forwarding, a registration, a trait impl, a build script) "
+        "before removing it; a green build is not the judge — see this "
+        "script's own docstring."
+    )
     return 0
 
 

@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import tempfile
+import collections
 import re
 import subprocess
 import sys
@@ -283,6 +284,10 @@ class JobResult:
     # whole wall clock to the derived build column. `wall_time_split` is the only
     # thing entitled to aggregate this; do not sum it with `or 0.0`.
     executed_seconds: float | None = None
+    #: Set when this job could not RUN — a stale artifact, a missing toolchain —
+    #: rather than having run and failed. See [`UNRUNNABLE_SIGNATURES`]: it is
+    #: still not a pass, but it is not evidence about the code either.
+    unrunnable: str | None = None
 
 
 def wall_time_split(results: list[JobResult]) -> dict:
@@ -646,6 +651,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "check", "--all-targets"],
                     cwd=str(REPO / "fixtures" / "external_consumer")))
 
+    # ⛔ AND THE FEATURELESS ONE COMPILES TOO, for the same seconds-not-minutes
+    # reason. A capability edge that stops being optional breaks this consumer
+    # and nothing else: every other fixture asks for enough features to hide it.
+    jobs.append(Job("external consumer: the A9 minimum profile COMPILES",
+                    [CARGO, "check", "--all-targets"],
+                    cwd=str(REPO / "fixtures" / "headless_profile")))
+
     # These checks are repo-coupled and remain part of the default verdict, but
     # they do not gate STARTING the Rust tests. Running them after the workspace,
     # render-composition, and external-consumer Rust jobs minimizes time to the
@@ -664,6 +676,17 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("external consumer: minimal game",
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "minimal_game")))
+
+        # ⭐ THE A9 MINIMUM PROFILE, and it is a DIFFERENT question from the one
+        # above. `minimal_game` boots both faces from one module and therefore
+        # asks for `ambition_render`; this one names the umbrella with
+        # `default-features = false` and no feature list at all, so what it links
+        # is what the engine supplies implicitly. Its tests are the third fact
+        # neither the closure contract nor a compile check can state: that the
+        # profile RUNS — a body falls and the room's one authored block stops it.
+        jobs.append(Job("external consumer: headless profile (the A9 minimum)",
+                        [CARGO, "test"],
+                        cwd=str(REPO / "fixtures" / "headless_profile")))
 
         # Leaving the workspace drops a crate from `cargo test --workspace` silently, and its 19
         # tests are the only proof that a capability can contribute a schema, an action, rollback
@@ -924,8 +947,54 @@ LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
 NEXTEST_DURATION = re.compile(r"Summary \[\s*([0-9]+\.[0-9]+)s\]")
 
 
-def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
+#: Output signatures of a job that COULD NOT RUN, paired with the remedy.
+#:
+#: ⛔⛔ **AN UNRUNNABLE LANE IS NOT A FAILING LANE, AND REPORTING IT AS ONE IS
+#: D-LANE-UNRUNNABLE'S WHOLE SENTENCE.** Measured 2026-09-09: a `--rust` run
+#: reported `5/6 jobs passed` with `workspace doctests` FAILED, and the whole
+#: content of that failure was
+#:
+#:     error: extern location for bevy does not exist:
+#:            target/debug/deps/libbevy-f87968c7af3ad766.rlib
+#:
+#: — a stale build artifact left by the same commit's own manifest feature
+#: changes. `cargo test --workspace --doc` immediately afterwards was clean. The
+#: job never executed a single doctest, so "FAILED" is a claim about the
+#: repository that nothing measured, and a reader deciding whether to trust the
+#: run cannot tell it from a real red.
+#:
+#: ⚠ INCOMPLETE IS NOT PASS. These still make the run exit non-zero and still
+#: appear in the status file; what changes is that they are named as a
+#: PRECONDITION rather than counted as evidence about the code.
+#:
+#: ⭐ NARROW ON PURPOSE. Each entry is a signature that has actually been
+#: observed, with the command that clears it. A pattern broad enough to swallow a
+#: genuine compile error would convert real reds into shrugs, which is the
+#: failure this row is the opposite half of.
+UNRUNNABLE_SIGNATURES: tuple[tuple[re.Pattern, str], ...] = (
+    (
+        re.compile(r"^error: extern location for \S+ does not exist:", re.M),
+        "a stale build artifact: the rlib this job was linked against was "
+        "rebuilt under a different hash (a manifest feature change does this). "
+        "Re-run the job; cargo rebuilds it.",
+    ),
+)
+
+
+def unrunnable_reason(output: str) -> str | None:
+    """The remedy for a PRECONDITION failure in this output, if it is one."""
+    for pattern, remedy in UNRUNNABLE_SIGNATURES:
+        if pattern.search(output):
+            return remedy
+    return None
+
+
+def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | None]:
     """Run one job, echoing its output live, and total libtest's own runtime.
+
+    The third element is a PRECONDITION remedy when the job could not run at all
+    — see [`UNRUNNABLE_SIGNATURES`]. Only the tail is scanned: these signatures
+    are cargo/rustc diagnostics and a whole suite's output is large.
 
     ⚠ **live output is not negotiable**, which is why this streams rather than
     capturing: somebody watching a suite needs to see the failure as it happens.
@@ -938,6 +1007,9 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
     tests" under either.
     """
     executed: float | None = None
+    # A bounded ring of the most recent lines, so the signature scan costs a
+    # fixed amount however long the job talks for.
+    tail: collections.deque[str] = collections.deque(maxlen=200)
     # ⭐ EVERY CHILD LEARNS IT IS INSIDE A RUN. A `run_tests.py` started by a job
     # reads this and writes its status somewhere private instead of over ours.
     env = {**env, NESTED_ENV: str(os.getpid())}
@@ -952,11 +1024,13 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None]:
     assert proc.stdout is not None
     for line in proc.stdout:
         sys.stdout.write(line)
+        tail.append(line)
         match = LIBTEST_DURATION.search(line) or NEXTEST_DURATION.search(line)
         if match:
             executed = (executed or 0.0) + float(match.group(1))
     sys.stdout.flush()
-    return proc.wait(), executed
+    code = proc.wait()
+    return code, executed, (unrunnable_reason("".join(tail)) if code != 0 else None)
 
 
 def completed_rows(results: list[JobResult]) -> list[dict]:
@@ -965,7 +1039,10 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
         {"job": r.name, "ok": r.ok, "seconds": round(r.seconds, 1),
          "executed_seconds": (
              round(r.executed_seconds, 1) if r.executed_seconds is not None else None
-         )}
+         ),
+         # Present only when the job could not run; absent is the ordinary case
+         # and keeps the row the same shape every reader already parses.
+         **({"unrunnable": r.unrunnable} if r.unrunnable else {})}
         for r in results
     ]
 
@@ -1423,11 +1500,13 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                                   "current_job": j.name,
                                   "current_started": time.time(),
                                   "completed": completed_rows(results)})
-            rc, executed = run_job_streaming(j, env)
+            rc, executed, blocked = run_job_streaming(j, env)
             results.append(
                 JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,
-                          executed))
-            if rc != 0:
+                          executed, blocked))
+            if blocked:
+                print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
+            elif rc != 0:
                 print(f"\033[31m    FAILED ({j.name})\033[0m")
             write_status(status, {**base, "state": "running",
                                   "finished_jobs": len(results),
@@ -1441,7 +1520,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         raise
 
     passed = sum(1 for r in results if r.ok)
-    failed = [r.name for r in results if not r.ok]
+    # ⛔ SEPARATED, NOT MERGED. A job that could not run is not evidence about the
+    # repository; counting it beside a real red makes both unreadable.
+    blocked_jobs = [(r.name, r.unrunnable) for r in results if r.unrunnable]
+    failed = [r.name for r in results if not r.ok and not r.unrunnable]
     total = sum(r.seconds for r in results)
     print("\n" + "=" * 60)
     # ⛔⛔ THE COUNT CARRIES ITS LANE, because the count is what gets quoted.
@@ -1467,6 +1549,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         print("  FAILED jobs:")
         for n in failed:
             print(f"    - {n}")
+    if blocked_jobs:
+        print("  INCOMPLETE jobs (a precondition, not a result):")
+        for n, remedy in blocked_jobs:
+            print(f"    - {n} — {remedy}")
     print(timing_report(results))
     notice = coverage_notice(
         exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
@@ -1512,7 +1598,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # the disk check exists to prevent, moved one level out. Caught in review
     # 2026-09-03, after the between-jobs abort shipped with only the `return 1`.
     incomplete = aborted_on_disk is not None
-    exit_code = 1 if (failed or incomplete) else 0
+    # ⚠ A BLOCKED JOB STILL MAKES THE RUN NON-ZERO. "Incomplete, not pass" is the
+    # row's phrasing and both halves are load-bearing: the lane did not certify
+    # what it was asked to, so nothing may quote it as green.
+    exit_code = 1 if (failed or incomplete or blocked_jobs) else 0
     write_status(status, {**base,
                           "state": "aborted" if incomplete else "done",
                           "finished_jobs": len(results),
@@ -1525,6 +1614,13 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                           # to trust the run needs to know WHERE it stopped and
                           # how much of the plan never happened.
                           "aborted_on_disk": aborted_on_disk,
+                          # Named separately for the readers that poll this file:
+                          # a run with an unrunnable job certified less than its
+                          # plan, and that is a different fact from a red.
+                          "unrunnable": [
+                              {"job": name, "remedy": remedy}
+                              for name, remedy in blocked_jobs
+                          ],
                           "never_ran": len(jobs) - len(results) + len(dropped_for_disk),
                           "free_gb_at_end": round(free_after, 1),
                           "disk_gb_spent": round(spent, 1),

@@ -70,6 +70,12 @@ function takesCarryArt() {
   return TAKES_HAVE_ART;
 }
 
+/* The target a scenario faces when nobody has chosen one. Kept equal to
+ * `ambition_demo_smash::INSPECTION_TARGET`, which is what the recorder and the
+ * renderer default to — a viewer that staged a different fight from the tools
+ * would compare two experiments as one. */
+const DEFAULT_SCENARIO_TARGET = "sandbag_infinite";
+
 const RENDERS = new Map();
 const TAKE_EVIDENCE = new Map();
 const TAKE_PENDING = new Map();
@@ -292,6 +298,63 @@ function cancelPlayback({ repaint = false } = {}) {
     takePlay.textContent = "Play";
   }
   if (repaint && changed) repaintEvidenceUsers();
+}
+
+/* ONE TICK, EITHER WAY — the smallest unit the recording HAS.
+ *
+ *  A MOVE IS DECIDED IN ONE OR TWO TICKS. Whether a strike is live on the tick
+ * the bodies touch, which tick the hurtbox shrinks on, whether the launch is on
+ * the contact tick or the one after — those are the questions this view exists
+ * for, and Play at 60 Hz and a drag-scrubber are both the wrong instrument for
+ * them. Stepping stops playback: a reader who steps is done watching.
+ *
+ *  IT DOES NOT WRAP. Wrapping from tick 0 to the last tick reads as a jump to
+ * a different take; clamping says "this is the beginning" by not moving. */
+function stepTakeFrame(delta) {
+  cancelPlayback();
+  const scenario = canonicalScenario(state.takeFighter, state.takeVerb);
+  const record = evidenceRecord(scenario);
+  if (!record || record.state !== "ready") return;
+  const last = Math.max(0, (record.doc.take.frames || []).length - 1);
+  const next = Math.min(last, Math.max(0, state.takeFrame + delta));
+  if (next === state.takeFrame) return;
+  state.takeFrame = next;
+  drawTake();
+}
+
+/* The Fighter view's own stepper. It reaches for the take through the same
+ * scenario the panel drew, so a step can never advance a frame of one take
+ * against the picture of another. */
+function stepFighterFrame(delta) {
+  cancelPlayback();
+  const c = fighterById(state.fighter);
+  const m = c && (c.moves || []).find((row) => row.id === state.move);
+  if (!c || !m) return;
+  /* ⛔ THE SAME VERB `renderMoveDetail` DREW WITH — slot first, then the move's
+   * own list. A move bound by several verbs would otherwise be stepped in one
+   * scenario and shown in another. */
+  const verb = slotOf(m) || (m.verbs || [])[0];
+  if (!verb) return;
+  const scenario = canonicalScenario(c.id, verb);
+  const record = evidenceRecord(scenario);
+  if (!record || record.state !== "ready") return;
+  const take = record.doc.take;
+  const report = record.doc.report.measurements || record.doc.report;
+  const last = Math.max(0, (take.frames || []).length - 1);
+  const next = Math.min(last, Math.max(0, state.fighterFrame + delta));
+  if (next === state.fighterFrame) return;
+  state.fighterFrame = next;
+  updateFighterFrameView(c, m, scenario, take, runtimeExtent(report, take));
+}
+
+/* Zoom is multiplicative and clamped: 1x is the fit, 6x is close enough to
+ * count pixels on a hurtbox edge, and nothing below the fit — pulling back past
+ * the action only reintroduces the stage this framing exists to leave out. */
+function stepZoom(factor) {
+  const next = Math.min(6, Math.max(1, (state.viewZoom || 1) * factor));
+  if (next === state.viewZoom) return;
+  state.viewZoom = next;
+  repaintEvidenceUsers();
 }
 
 function runTakePlayback() {
@@ -573,7 +636,17 @@ let state = {
    * left boxes where its art should have been. Nothing but a browser could find
    * this: every endpoint was correct and every file was served. */
   view: "roster",
-  scenarioTarget: "__mirror__",
+  /*  THE TRAINING DUMMY IS THE DEFAULT TARGET, matching `moveset_takes` and
+   * `moveset_render`, whose `--target` defaults to `sandbag_infinite` too. A
+   * mirror varies the target along with the subject, so the same move looked at
+   * on two fighters was measured against two different bodies; the immortal
+   * dummy is the ONE target every subject shares. `__mirror__` stays selectable
+   * — it is a legal scenario, just no longer the one you land on. */
+  /* 1 = the fitted frame. Shared by both runtime panels on purpose: they draw
+   * the same geometry, and a reader who zoomed one and not the other would be
+   * comparing two different pictures of one tick. */
+  viewZoom: 1,
+  scenarioTarget: DEFAULT_SCENARIO_TARGET,
   scenarioBehavior: "passive",
   scenarioSpacing: 40,
   fighterFrame: 0,
@@ -629,6 +702,11 @@ function populateScenarioTargetControls() {
       ...BUNDLE.characters.map((c) => el("option", { value: c.id }, c.display_name || c.id)),
     );
     select.value = state.scenarioTarget;
+    /*  A `value` NO OPTION CARRIES leaves the select showing its FIRST entry
+     * while `state` still claims the default — the panel would then say one
+     * fight and request another. If this bundle has no such character, adopt
+     * whatever the control actually shows. */
+    if (select.value !== state.scenarioTarget) state.scenarioTarget = select.value;
   }
 }
 
@@ -648,7 +726,7 @@ function scenarioInputsChanged(prefix) {
   const target = $(`#${prefix}-target`);
   const behavior = $(`#${prefix}-behavior`);
   const spacing = $(`#${prefix}-spacing`);
-  state.scenarioTarget = (target && target.value) || "__mirror__";
+  state.scenarioTarget = (target && target.value) || DEFAULT_SCENARIO_TARGET;
   state.scenarioBehavior = (behavior && behavior.value) || "passive";
   const parsed = spacing && spacing.value !== "" ? Number(spacing.value) : null;
   state.scenarioSpacing = Number.isFinite(parsed) ? parsed : null;
@@ -1021,6 +1099,11 @@ function renderMoveDetail(c, m) {
       }
     },
   }, state.fighterPlaying ? "Pause" : "Play");
+  const stepBack = el("button", { class: "ghost", title: "previous tick (←)", onclick: () => stepFighterFrame(-1) }, "◀");
+  const stepFwd = el("button", { class: "ghost", title: "next tick (→)", onclick: () => stepFighterFrame(1) }, "▶");
+  const zoomOut = el("button", { class: "ghost", title: "zoom out (-)", onclick: () => stepZoom(1 / 1.4) }, "−");
+  const zoomIn = el("button", { class: "ghost", title: "zoom in (+)", onclick: () => stepZoom(1.4) }, "+");
+  const zoomLabel = el("span", { class: "note mono" }, `${(state.viewZoom || 1).toFixed(1)}x`);
   const currentFrame = (take.frames || [])[state.fighterFrame];
   const currentSubject = currentFrame && (currentFrame.bodies || []).find((body) => roleOf(body, take) === "subject");
   const currentMove = currentSubject && currentSubject.move_state;
@@ -1074,7 +1157,7 @@ function renderMoveDetail(c, m) {
     evidence.stale ? el("p", { class: "note err" }, `Runtime take is stale: ${evidence.stale}`) : null,
     timeline,
     kv,
-    el("div", { class: "controls compact fighter-playback" }, play, scrub, frameLabel),
+    el("div", { class: "controls compact fighter-playback" }, stepBack, play, stepFwd, zoomOut, zoomLabel, zoomIn, scrub, frameLabel),
     el("div", { class: "fighter-evidence-grid" }, geometryPanel, gpuPanel),
     authored
   );
@@ -1375,6 +1458,95 @@ function diagnosticErrorNode(record, retry) {
     retry ? el("button", { class: "ghost", onclick: retry }, "Retry") : null);
 }
 
+/* World px kept around the action when the diagnostic frames a take. A strike
+ * volume reaches past the body that threw it, and a frame that ends at the
+ * geometry cuts the very thing this view exists to show. */
+const VIEW_PAD = 32;
+
+/* The closest the diagnostic will ever get. Without a floor, a take whose bodies
+ * never move (a whiffed press, an unbound verb) frames two stationary boxes at
+ * enormous magnification and reads as a different kind of broken. */
+const MIN_VIEW_WIDTH = 260;
+
+const TAKE_VIEWS = new WeakMap();
+
+/* The world rectangle a take is DRAWN in, which is not the one it recorded.
+ *
+ *  THE RECORDED `view` IS THE STAGE. moveset_takes unions every platform of a
+ * smash stage into it, so the pair of fighters the reader came to look at was a
+ * couple of hundred world px inside a rectangle two thousand wide — correct
+ * data, unreadable picture. This fits the ACTION instead: bodies, their
+ * volumes, and anything either of them put on the stage.
+ *
+ *  OVER EVERY FRAME OF THE TAKE, NOT THE CURRENT ONE. A per-frame fit re-frames
+ * the world under the scrubber, which makes a fighter crossing the stage look
+ * stationary while the stage slides past — the same reason the recorder computes
+ * its own view per take.
+ */
+function actionViewRect(take, aspect) {
+  const cached = TAKE_VIEWS.get(take);
+  if (cached && Math.abs(cached.aspect - aspect) < 1e-3) return cached.rect;
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const box = (pos, half) => {
+    if (!pos) return;
+    const hx = (half && half[0]) || 0;
+    const hy = (half && half[1]) || 0;
+    x0 = Math.min(x0, pos[0] - hx); y0 = Math.min(y0, pos[1] - hy);
+    x1 = Math.max(x1, pos[0] + hx); y1 = Math.max(y1, pos[1] + hy);
+  };
+  /*  A VOLUME'S `pos`/`half` IS ITS BOUNDING BOX WHATEVER ITS SHAPE — verified
+   * against a recorded convex strike, whose six points sit exactly inside the
+   * `half` beside them — so the fit reads those two fields for circles, convex
+   * hulls and rotated boxes alike instead of re-deriving bounds per kind. */
+  const shape = (h) => { if (h) box(h.pos, h.half); };
+  for (const frame of take.frames || []) {
+    for (const body of frame.bodies || []) {
+      box(body.pos, body.half);
+      for (const hurt of body.hurtboxes || []) shape(hurt);
+    }
+    for (const hit of frame.hitboxes || []) shape(hit);
+    for (const shot of frame.projectiles || []) box(shot.pos, shot.half);
+  }
+  if (!Number.isFinite(x0)) {
+    const stage = take.view && take.view.length === 4 ? take.view : [-320, -240, 320, 240];
+    [x0, y0, x1, y1] = stage;
+  }
+
+  x0 -= VIEW_PAD; y0 -= VIEW_PAD; x1 += VIEW_PAD; y1 += VIEW_PAD;
+  let w = Math.max(x1 - x0, MIN_VIEW_WIDTH);
+  let h = Math.max(y1 - y0, MIN_VIEW_WIDTH / aspect);
+  /*  THE RECT TAKES THE CANVAS'S ASPECT, because the draw path scales both axes
+   * by ONE factor (`Math.min`) and anchors at the top left. A rect of a different
+   * shape does not letterbox, it strands the picture in a corner. */
+  if (w / h < aspect) w = h * aspect; else h = w / aspect;
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const rect = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+  TAKE_VIEWS.set(take, { aspect, rect });
+  return rect;
+}
+
+/* The reader's own zoom on top of the fit.
+ *
+ * ⭐ FIT IS A DEFAULT, NOT AN ANSWER. What is worth looking at changes with the
+ * question — a whole travelling special, or the four pixels where a hurtbox
+ * meets a strike — and no automatic framing serves both.
+ *
+ * ⭐⭐ ZOOMED IN, IT FOLLOWS THE SUBJECT. Shrinking about the fit's centre walks
+ * the fighter out of frame on any move that travels, which is the failure that
+ * makes a zoom control useless. At fit (1x) the stable rectangle is kept, so
+ * scrubbing does not slide the world. */
+function zoomedViewRect(rect, frame, zoom) {
+  if (!(zoom > 1)) return rect;
+  const w = (rect[2] - rect[0]) / zoom;
+  const h = (rect[3] - rect[1]) / zoom;
+  const subject = frame && frame.subject_pos;
+  const cx = subject ? subject[0] : (rect[0] + rect[2]) / 2;
+  const cy = subject ? subject[1] : (rect[1] + rect[3]) / 2;
+  return [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+}
+
 /* One geometry authority for both the Fighter and Engine Takes views. Every
  * shape comes from the runtime CombatObservation carried by a take. */
 function drawRuntimeDiagnostic(canvas, take, frameIndex, { showArt = true, showHurt = true } = {}) {
@@ -1390,7 +1562,7 @@ function drawRuntimeDiagnostic(canvas, take, frameIndex, { showArt = true, showH
   ctx.fillStyle = "#0f1116";
   ctx.fillRect(0, 0, cssW, cssH);
 
-  const view = take.view && take.view.length === 4 ? take.view : [-320, -240, 320, 240];
+  const view = zoomedViewRect(actionViewRect(take, cssW / cssH), frame, state.viewZoom || 1);
   const scale = Math.min(cssW / (view[2] - view[0]), cssH / (view[3] - view[1]));
   const X = (x) => (x - view[0]) * scale;
   const Y = (y) => (y - view[1]) * scale;
@@ -1531,6 +1703,8 @@ function drawTake() {
     showHurt: state.takeHurt !== false,
   });
   $("#take-frame").textContent = `${state.takeFrame} / ${last}`;
+  const zoomLabel = $("#take-zoom");
+  if (zoomLabel) zoomLabel.textContent = `${(state.viewZoom || 1).toFixed(1)}x`;
   if (frame) takeFacts(take, frame);
   syncEngineRender(take, state.takeFrame, scenario);
 }
@@ -1898,6 +2072,35 @@ async function boot() {
   $("#take-play").addEventListener("click", () => {
     if (state.playing) cancelPlayback();
     else runTakePlayback();
+  });
+  $("#take-step-back").addEventListener("click", () => stepTakeFrame(-1));
+  $("#take-step-fwd").addEventListener("click", () => stepTakeFrame(1));
+  $("#take-zoom-in").addEventListener("click", () => stepZoom(1.4));
+  $("#take-zoom-out").addEventListener("click", () => stepZoom(1 / 1.4));
+
+  /* ⭐ THE ARROW KEYS STEP THE VIEW THAT IS ON SCREEN. A reader comparing tick 7
+   * with tick 8 does it dozens of times in a row, and a mouse trip to a button
+   * between each one is the difference between reading a move and fighting the
+   * tool.
+   *
+   * ⛔ NOT WHILE TYPING. The scenario controls include a spacing NUMBER field and
+   * two selects, where an arrow key already means something; stealing it there
+   * would edit the fight instead of the frame. */
+  document.addEventListener("keydown", (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const tag = (event.target && event.target.tagName) || "";
+    if (["INPUT", "SELECT", "TEXTAREA"].includes(tag) || (event.target && event.target.isContentEditable)) return;
+    if (state.view !== "takes" && state.view !== "fighter") return;
+    if (event.key === "+" || event.key === "=") { stepZoom(1.4); event.preventDefault(); return; }
+    if (event.key === "-" || event.key === "_") { stepZoom(1 / 1.4); event.preventDefault(); return; }
+    const delta = event.key === "ArrowRight" || event.key === "."
+      ? 1
+      : event.key === "ArrowLeft" || event.key === "," ? -1 : 0;
+    if (!delta) return;
+    if (state.view === "takes") stepTakeFrame(delta);
+    else if (state.view === "fighter") stepFighterFrame(delta);
+    else return;
+    event.preventDefault();
   });
 
   state.fighter = (BUNDLE.characters.find((c) => c.on_smash_grid) || BUNDLE.characters[0])?.id || null;

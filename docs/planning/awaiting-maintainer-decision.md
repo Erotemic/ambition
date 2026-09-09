@@ -330,6 +330,36 @@ pointer bump; do **not** repoint the parent at a deletable agent-only commit. In
 the same change, flip `scripts/check_pinned_music_renderer_refuses_gm.py` from
 reporting to gating.
 
+## Q96 — should a projectile collide with an ECS breakable's published surface?
+
+**Measured 2026-09-09, while closing A2b.** A breakable authored
+`BreakableCollision::Solid` publishes a `BlockKind::BlinkWall { Hard }` into
+`FeatureEcsWorldOverlay::blocks` at its own AABB (`world/overlay.rs`), and the
+player collides with it. A PROJECTILE does not:
+`ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`
+composites only `gate_solids`, `portal_carves` and `removed_block_names`, so
+`overlay.blocks` — every ECS breakable surface and every pogo orb — is absent
+from the world a shot sweeps.
+
+Nothing is broken today: the shot reaches the crate through the FEATURE road
+instead, which is swept and now ordered against the world by time of impact. The
+question is which of two models is intended, because they differ once a
+destructible has both a surface and a hurt volume:
+
+- **A shot sees only the hurt volume** (today). A solid crate stops the player
+  and is destroyed by shots; the two facts never interact. Simple, and the
+  compound-contact row of the contact protocol's acceptance matrix stays
+  unreachable.
+- **A shot sees the surface too.** Then a destructible's own wall and its
+  damageable volume are ONE contact and need stable collider-contributor
+  identity to be told apart from an unrelated blocker — the A5 work the protocol
+  already describes. It also changes behaviour: a `Bouncing` shot would bounce
+  off a solid crate rather than damage it.
+
+⚠ Not a feel ruling — it decides whether A5's contributor identity is required
+for projectiles or only for the player road. Owner document:
+[projectile contact protocol](engine/projectile-contact-protocol.md).
+
 ## Human measurements, not design answers
 
 These are recorded here only when the maintainer must supply the measurement; the

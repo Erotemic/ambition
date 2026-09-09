@@ -459,6 +459,16 @@ where
 /// a way to freeze a fighter.
 pub const SMASH_IDLE_BRAIN: &str = "stand_still";
 
+/// The training dummy an inspection scenario faces by default.
+///
+/// ⭐ THE DUMMY, NOT A MIRROR. A subject staged against a copy of itself is a
+/// second authored fighter in the picture: its body size, its hurtbox
+/// publication and its stocks all belong to that character, so the same move
+/// measured on two subjects was measured against two different targets. The
+/// immortal dummy is the one target every subject shares, and `never_dies`
+/// means a long grid run cannot end a take by killing it.
+pub const INSPECTION_TARGET: &str = "sandbag_infinite";
+
 /// The same roster, with every seat after the first STANDING STILL.
 ///
 /// ⭐⭐ THE TRAINING-MODE TARGET, BUILT FROM MATCH POLICY. Inspecting a move

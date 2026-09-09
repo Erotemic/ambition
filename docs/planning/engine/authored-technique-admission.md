@@ -527,11 +527,35 @@ every composition that prepares the character instead of a boot failure. The
 contract's "publication first guarantees last-good prepared definitions on
 rejection" applies when preparation starts REFUSING, which is A12b's step.
 
-**Still open in A11b:** domain nested-reference policies (an effect's params can
-name another definition), prefab overrides and the public production insertion
-paths, and the rejection half — poisoning a site and verifying the active
-registry and generation are unchanged. The visitor is the prerequisite those need
+**Still open in A11b:** domain nested-reference policies, prefab overrides and
+the public production insertion paths. The visitor is the prerequisite those need
 and did not have.
+
+**The rejection half was re-derived 2026-09-09 and splits three ways.** At the
+REGISTRATION DOOR it already holds and is witnessed: `stage_authored_character`
+publishes a CLONE only on success, and the duplicate-id test asserts the previous
+authority survives. "Generation unchanged" is NOT writable as a non-vacuous test:
+`PreparedCharacterRegistry` has exactly one production writer (`finalize_cast`,
+at the barrier, guarded to run once — sealed by grep for `insert_resource`/
+`ResMut` of that type), `insert_prepared` is `#[cfg(any(test, feature =
+"test-support"))]`, and a rejected registration happens BEFORE the barrier where
+no registry exists to be unchanged.
+
+⛔⛔ ⇒ **A11c IS A PREREQUISITE OF THE ACCEPTANCE MATRIX'S "edit rejected during
+active play" ROW, NOT ITS SUCCESSOR.** There is no production republication road
+at all: `stage_authored_character` PANICS once `finalized` is set, and nothing
+else writes the registry. That is why three attempts at that fixture stopped on
+different obstacles. ⚠ `project_prepared_character_definitions` compares
+generations in production — a reader for a transition only a test can cause.
+
+**MEASURED for the nested-reference policies**, so the next agent starts from the
+population rather than the question: exactly three technique params name another
+authored definition — `SummonRideParams::character_id`, `DropBombParams::item_id`
+and `PlaceMineParams::item_id`. Preparation checks none of them. A summon naming
+an unknown character IS refused, by `preflight_planned_bodies` at FIRE TIME with
+an error log — the mid-fight runtime failure this packet exists to move into
+preparation. ⚠ Their installers are in `game/ambition_demo_smash/**`, so the
+declaration side is the Smash lane's.
 
 ### A12b: install the checked immutable runtime representation
 

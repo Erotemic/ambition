@@ -448,9 +448,38 @@ arms while touching nothing the room authored. The floor is RAISED clear now, so
 the resting height names the surface, and the poisoned run reddens. ⚠ The same
 geometry is in `minimal_game`, which `docs/sdk/README.md` tells consumers to copy.
 
+**The four capabilities the frontier's minimum EXCLUDES were traced 2026-09-09,
+and there is no further accidental edge among them.** The packet names the
+intended minimum as a body against world geometry *"without renderer, audio,
+inventory, encounters or game content"*. Renderer: gone. Of the rest, measured
+with `cargo tree -e normal --no-default-features -i <crate>` against the
+featureless facade:
+
+- **`ambition_inventory_ui` is ALREADY ABSENT** — no parent in the closure at
+  all. The frontier's list is stale on that one; do not spend a gate on it.
+- **`ambition_encounter`, `ambition_boss_encounter`, `ambition_cutscene`,
+  `ambition_dialog`, `ambition_conversation`, `ambition_items`,
+  `ambition_persistence`** all arrive through
+  `ambition_platformer2d_actor_monolith` and/or `ambition_platformer2d_runtime`,
+  most through three or more parents. These are the hub, not a gate.
+- **`ambition_audio` has one path that does NOT cross the monolith**:
+  `ambition_platformer2d_provider -> ambition_load_presentation ->
+  ambition_game_shell -> ambition_audio`. Both edges on it are GENUINE USES, not
+  residue: the provider's authoring surface carries
+  `ambition_load_presentation::LoadExperienceSpec` (a loading screen is part of
+  an experience's declaration, 8 references), and `ambition_game_shell::session`
+  reads `AudioCatalogRegistry` / `FrontendAudioRegistry` to select the audio
+  context per route. Making either optional carves a PUBLIC authoring surface or
+  moves route audio selection — a design decision, not a dependency cleanup, and
+  it is not taken here.
+
+⇒ Every remaining reduction needs an ownership change first. That is a statement
+about these four edges, measured, and still not a licence to read a closure number
+as a mandate — see the note above the trace.
+
 **Next in this row:** which of the 49 a minimum profile has a RIGHT to expect is
-still unestablished — the fixture makes that question askable rather than
-answering it.
+still unestablished for the crates the frontier does NOT name; the fixture makes
+that question askable rather than answering it.
 
 **Acceptance:** a supported profile constructs and steps a real subject, its
 promised absent capability is absent from both installation and resolved closure,

@@ -375,8 +375,19 @@ feature, for the `MenuFont` handoff only a composition root can make. Crate
 presence in a profile that renders and runtime INSTALLATION of the map are
 separate questions with separate witnesses.
 
-⚠ The separate headless consumer workspace this packet asks for still does not
-exist: `fixtures/minimal_game` is the WINDOWED sentinel and legitimately links
+⚠ **THE STATED MINIMUM'S OWN LIST IS PARTLY STALE.** It excludes "renderer,
+audio, inventory, encounters or game content"; measured 2026-09-09, the renderer
+is gone and `ambition_inventory_ui` was ALREADY absent from the featureless
+closure. Of the remainder, encounters/cutscene/dialog/items/persistence arrive
+through the monolith-and-runtime hub, and audio's one non-monolith path
+(`provider -> load_presentation -> game_shell -> audio`) rests on two GENUINE
+uses — the provider's public authoring surface carries `LoadExperienceSpec`, and
+the shell selects route audio. Neither is residue; both are ownership questions.
+See the queue row.
+
+⚠ The separate headless consumer workspace this packet asks for now EXISTS
+(`fixtures/headless_profile`, landed 2026-09-09), so this next line is corrected
+rather than deleted — the sentence it makes is still true of `minimal_game`: `fixtures/minimal_game` is the WINDOWED sentinel and legitimately links
 the renderer, so it cannot answer the question. The 49 crates that remain have
 been traced to their activating parents; what has not been established is which
 of them a minimum profile has a right to expect.

@@ -1134,8 +1134,6 @@ pub fn begin_room_transition_load_system(
                 resolved_target_index,
                 &construction_services.0,
                 &construction_services.1,
-                &construction_services.2,
-                &construction_services.5,
                 &construction_services.3,
                 session_scope,
                 // A transition rebuilds a room the ACTIVE content already
@@ -1146,6 +1144,8 @@ pub fn begin_room_transition_load_system(
                 // spawn authors `brain_profile` resolves it against those.
                 ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                     &construction_services.4,
+                    &construction_services.2,
+                    &construction_services.5,
                     ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),

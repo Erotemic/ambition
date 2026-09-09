@@ -53,8 +53,6 @@ pub struct SimulationSetup<'a> {
     /// actor nobody owns — the camera follows it and input drives it while the
     /// fighter the player chose stands somewhere else.
     pub initial_body: &'a crate::avatar::InitialBodyPolicy,
-    /// App-local assembled character definitions used by spawn and re-wear.
-    pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
     /// The prepared cast, when this composition registered one.
     ///
     /// `None` is the ordinary case for a composition that registers no
@@ -67,9 +65,6 @@ pub struct SimulationSetup<'a> {
     /// nowhere, while a seated fighter wearing the same character took all three
     /// from the definition.
     pub prepared_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
-    /// App-local sheets this session's providers authored (U1). Sized bodies
-    /// come from sheets, so setup needs it wherever it needs the catalog.
-    pub authored_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     /// App-local hostile archetype definitions used by authored room lowering.
     /// The installed App-local placement-lowering authority. Setup lowers the
     /// start room's authored placements through THIS registry — the same one
@@ -116,15 +111,20 @@ pub fn simulation_world(
         fallback_abilities,
         tuning,
         initial_body,
-        character_catalog,
         prepared_characters,
-        authored_sheets,
         placement_lowering,
         content_staging,
         construction,
         boss_catalog,
         default_character_id,
     } = params;
+    // ⛔ ONE CARRIER FOR THE CATALOG. Setup used to take it as its own
+    // `SimulationSetup` field AND hand it to room construction, which took it as
+    // two more positional arguments — three spellings of one authority, any two
+    // of which could be handed different snapshots without a compiler noticing.
+    // It rides on the construction context now, beside the prepared cast and the
+    // policies, and this is the one place setup names it.
+    let character_catalog = construction.characters;
 
     for warning in room_set.layout_warnings() {
         bevy::log::debug!(target: "ambition_platformer2d::room_layout", "{warning}");
@@ -157,8 +157,6 @@ pub fn simulation_world(
         room_set.active,
         placement_lowering,
         content_staging,
-        character_catalog,
-        authored_sheets,
         boss_catalog,
         session_scope,
         construction,

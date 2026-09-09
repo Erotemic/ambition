@@ -195,6 +195,22 @@ feature or breakable crate.
 
 ## A3. Move authored placement lowering to the construction boundary
 
+**PREFLIGHT DONE 2026-09-09, and it changed what this packet is.** Measured at
+HEAD: `ambition_platformer2d_world` names no actor crate in its manifest and its
+`LoweringCtx<C>` is already generic, so the CRATE-level edge this packet reads as
+its headline was gone before the work started. Inside the monolith's `src/world/`
+region the coupling is two files — `placements.rs` (119 lines: the context struct
+and three aliases) and `rooms/stage.rs` (two production signatures) — and the
+"lowering functions" below are already under `features/ecs/spawn/**`.
+
+**What the preflight found instead landed the same day:** the character catalog
+and the authored sheets were a SECOND CARRIER for authorities that already
+travelled on `ActorConstructionContext`, threaded as bare positional arguments
+through three signatures to be assembled into an `ActorPlacementContext` beside
+three fields that arrived on the context. They ride on the context now.
+`SimulationSetup` shed both fields with them. See the queue row for the
+measurement and the poison.
+
 **Ready:** focused preflight on the new HEAD. This preserves old P4's supported
 ownership diagnosis. **Problem:** the world region hosts actor-specific catalogs,
 prepared-character/materialization inputs and lowering functions.

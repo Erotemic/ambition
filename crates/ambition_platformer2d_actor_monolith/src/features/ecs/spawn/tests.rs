@@ -161,11 +161,11 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &room,
         &registry,
         &Default::default(),
-        &catalog,
-        &Default::default(),
         &boss_catalog,
         crate::features::ActorConstructionContext::new(
             &crate::construction::engine_construction_registry(),
+            &catalog,
+            &Default::default(),
             Default::default(),
         ),
     )
@@ -1397,11 +1397,11 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             &room,
             &registry,
             &Default::default(),
-            &catalog,
-            &Default::default(),
             &boss_catalog,
             crate::features::ActorConstructionContext::for_room_construction(
                 &recipes,
+                &catalog,
+                &Default::default(),
                 Default::default(),
                 None,
                 None,

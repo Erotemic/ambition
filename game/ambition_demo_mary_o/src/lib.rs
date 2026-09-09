@@ -1573,9 +1573,7 @@ fn mary_o_setup(
             fallback_abilities: editable_abilities.as_engine(),
             tuning: &tuning,
             initial_body: &initial_body,
-            character_catalog: &character_catalog,
             prepared_characters: prepared_characters.as_deref(),
-            authored_sheets: &authored_sheets,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,
@@ -1583,6 +1581,8 @@ fn mary_o_setup(
             construction:
                 ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
                     &construction_recipes,
+                    &character_catalog,
+                    &authored_sheets,
                     Default::default(),
                 ),
             boss_catalog: &boss_catalog,

@@ -153,10 +153,14 @@ fn prepare(
         room,
         &Default::default(),
         staging,
-        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        &Default::default(),
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(recipes, ae::ContentEpoch(4)).with_prepared(fixture_cast()),
+        ActorConstructionContext::new(
+            recipes,
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
+            ae::ContentEpoch(4),
+        )
+        .with_prepared(fixture_cast()),
     )
 }
 
@@ -3209,11 +3213,14 @@ fn prepare_with_placements(
         room,
         &placement_registry(),
         &crate::features::RoomContentStagingRegistry::default(),
-        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        &Default::default(),
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
-            .with_prepared(fixture_cast()),
+        ActorConstructionContext::new(
+            &engine_construction_registry(),
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
+            ae::ContentEpoch(4),
+        )
+        .with_prepared(fixture_cast()),
     )
 }
 
@@ -3593,11 +3600,14 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         &room_naming("npc_mute"),
         &Default::default(),
         &crate::features::RoomContentStagingRegistry::default(),
-        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        &Default::default(),
         &ambition_boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
-            .with_prepared(&cast),
+        ActorConstructionContext::new(
+            &engine_construction_registry(),
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
+            ae::ContentEpoch(4),
+        )
+        .with_prepared(&cast),
     );
     assert!(
         matches!(

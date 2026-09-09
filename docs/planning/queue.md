@@ -236,14 +236,39 @@ Retain the corrected actor-spawn boundary.
 
 **Owner:** prepared construction integration; packet A3.
 
-Move `ActorPlacementContext` and its actor/catalog-facing lowering adapter toward
-construction. Keep generic world provider vocabulary and spatial facts with
-world. This can proceed independently after its packet preflight; there is no
-required numeric SCC predecessor.
+**Re-measured 2026-09-09, and the row's edge was already gone; a different one
+was not.** `ambition_platformer2d_world`'s manifest names no actor crate at all
+and its `LoweringCtx<C>` is generic, so the queue's stated acceptance — *"world
+no longer imports actor preparation solely to lower a placement"* — held at HEAD
+before this row was touched. The frontier's "world region" means the MONOLITH's
+`src/world/`, where the coupling measured as two files: `placements.rs` (119
+lines: the context struct and three type aliases) and `rooms/stage.rs` (two
+production signatures). The actor-specific lowering implementations the frontier
+says to move alongside are already under `features/ecs/spawn/**`.
 
-**Acceptance:** world no longer imports actor preparation solely to lower a
-placement; provider validation, body construction and failure behavior remain
-covered. No executable type-erased recipe registry replaces the direct adapter.
+**The real defect the preflight found, and it landed 2026-09-09:** the five
+fields of one authored snapshot reached their single assembly point by TWO
+carriers. `prepared`, `brain_profiles` and `forced_brains` arrived on
+`ActorConstructionContext` — whose own doc says the authorities are parameters of
+one value precisely so a road cannot forget one — while the CHARACTER CATALOG and
+the AUTHORED SHEETS were bare positional arguments threaded through
+`RoomConstructionPlan::prepare_from_parts`, `prepare_spec` and
+`RoomFeatureConstructionPlan::prepare` for the sole purpose of being assembled
+beside them. They ride on the context now; three signatures each lost two
+parameters (9→7, 9→7, 7→5) and all three shed
+`#[allow(clippy::too_many_arguments)]`. `SimulationSetup` lost both fields too —
+setup reads `construction.characters`, so one value carries the catalog where
+three spellings did. Poison-verified: emptying the catalog at the assembly point
+reddens 17 `app_it` tests (0 in the monolith's own 1,108, which is a fact about
+where the coverage is).
+
+**What remains is a file move that removes no edge:** `ActorPlacementContext`
+sits in `src/world/placements.rs` rather than under `construction/`. Do it when
+something else opens that file; do not spend a commit on it.
+
+**Acceptance:** met — provider validation, body construction and failure behavior
+remain covered, and no executable type-erased recipe registry replaced the direct
+adapter.
 
 ### A9 - establish truthful minimal engine profiles
 

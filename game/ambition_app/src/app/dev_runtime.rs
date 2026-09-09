@@ -431,12 +431,12 @@ pub(super) fn reload_ldtk_world_from_disk(
         transaction.next_spec.clone(),
         placement_lowering,
         content_staging,
-        character_catalog,
-        authored_sheets,
         boss_catalog,
         session_scope,
         ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
             construction_recipes,
+            character_catalog,
+            authored_sheets,
             // The generation currently live. A materially changed definition
             // allocates a new one below, AFTER every preflight has succeeded —
             // so a plan prepared here always states the epoch it was validated

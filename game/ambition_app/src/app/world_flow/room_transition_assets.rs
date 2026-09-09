@@ -1518,8 +1518,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 index,
                 &placement_lowering,
                 &content_staging,
-                &character_catalog,
-                &authored_sheets,
                 &boss_catalog,
                 spawn_scope,
                 // Prefetched plans state the LIVE binding too: if a hot reload
@@ -1534,6 +1532,8 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 // meant the prefetch never covered exactly the rooms that cost the most to prepare.
                 ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
                     &construction_recipes,
+                    &character_catalog,
+                    &authored_sheets,
                     ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),

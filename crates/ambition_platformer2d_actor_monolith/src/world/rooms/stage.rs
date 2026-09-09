@@ -109,14 +109,11 @@ impl std::fmt::Debug for RoomConstructionPlan {
 impl RoomConstructionPlan {
     /// Prepare from already-borrowed services. This is the system-facing seam
     /// used by activation, reset, transition, and hot reload.
-    #[allow(clippy::too_many_arguments)]
     pub fn prepare_from_parts(
         rooms: &RoomSet,
         target_index: usize,
         placement_lowering: &PlacementLoweringRegistry,
         content_staging: &features::RoomContentStagingRegistry,
-        character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-        authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         boss_catalog: &ambition_boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
         construction: features::ActorConstructionContext<'_>,
@@ -131,8 +128,6 @@ impl RoomConstructionPlan {
             spec,
             placement_lowering,
             content_staging,
-            character_catalog,
-            authored_sheets,
             boss_catalog,
             session_scope,
             construction,
@@ -141,24 +136,24 @@ impl RoomConstructionPlan {
 
     /// Prepare a room whose containing `RoomSet` is itself a candidate artifact,
     /// as in transactional LDtk hot reload.
-    #[allow(clippy::too_many_arguments)]
     pub fn prepare_spec(
         target_index: usize,
         spec: RoomSpec,
         placement_lowering: &PlacementLoweringRegistry,
         content_staging: &features::RoomContentStagingRegistry,
-        character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-        authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         boss_catalog: &ambition_boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
+        // ⛔ WHO EXISTS AND WHAT THEY LOOK LIKE RIDE HERE. This signature used to
+        // take the character catalog and the authored sheets as two more
+        // positional arguments and pass them straight down, while three other
+        // authorities from the SAME snapshot arrived on this one value. See
+        // [`features::ActorConstructionContext::characters`].
         construction: features::ActorConstructionContext<'_>,
     ) -> Result<Self, RoomConstructionError> {
         let feature_plan = RoomFeatureConstructionPlan::prepare(
             &spec,
             placement_lowering,
             content_staging,
-            character_catalog,
-            authored_sheets,
             boss_catalog,
             construction,
         )
@@ -432,16 +427,16 @@ mod tests {
 
     fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
             0,
             spec,
             &PlacementLoweringRegistry::default(),
             &features::RoomContentStagingRegistry::default(),
-            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &Default::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
                 .with_prepared(fixture_cast()),
         )
     }
@@ -528,16 +523,16 @@ mod tests {
         epoch: ae::ContentEpoch,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         RoomConstructionPlan::prepare_spec(
             0,
             spec,
             &PlacementLoweringRegistry::default(),
             &features::RoomContentStagingRegistry::default(),
-            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &Default::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, epoch).with_prepared(cast),
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, epoch).with_prepared(cast),
         )
     }
 
@@ -815,16 +810,16 @@ mod tests {
             })
             .expect("stager registers");
         let recipes = crate::construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let plan = RoomConstructionPlan::prepare_spec(
             0,
             spec,
             &PlacementLoweringRegistry::default(),
             &staging,
-            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &Default::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
                 .with_prepared(fixture_cast()),
         )
         .expect("plan");
@@ -948,8 +943,10 @@ mod tests {
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let mut construction =
-            features::ActorConstructionContext::new(&recipes, Default::default())
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
                 .with_prepared(fixture_cast());
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,
@@ -964,8 +961,6 @@ mod tests {
             world[index].clone(),
             &PlacementLoweringRegistry::default(),
             &features::RoomContentStagingRegistry::default(),
-            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-            &Default::default(),
             &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
             construction,

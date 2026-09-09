@@ -1264,9 +1264,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 fallback_abilities: self.editable_abilities.as_engine(),
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
-                character_catalog: &self.character_catalog,
                 prepared_characters: self.prepared_characters.as_deref(),
-                authored_sheets: &self.authored_sheets,
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared
@@ -1285,6 +1283,8 @@ impl PlatformerSessionBuilder<'_, '_> {
                 construction:
                     ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                         &self.construction_recipes,
+                        &self.character_catalog,
+                        &self.authored_sheets,
                         prepared_identity.epoch,
                         None,
                         self.prepared_characters.as_deref(),

@@ -153,6 +153,33 @@ pub struct OccurrenceContinuity<'a> {
 #[derive(Clone, Copy)]
 pub struct ActorConstructionContext<'a> {
     pub recipes: &'a crate::construction::ActorConstructionRegistry,
+    /// WHO EXISTS — the authored character catalog this construction resolves
+    /// names against.
+    ///
+    /// ⛔⛔ IT TRAVELS HERE BECAUSE THE OTHER FOUR DO. This authority and its
+    /// neighbour [`Self::sheets`] used to be BARE POSITIONAL ARGUMENTS, threaded
+    /// through `RoomConstructionPlan::prepare_from_parts`,
+    /// `RoomConstructionPlan::prepare_spec` and
+    /// `RoomFeatureConstructionPlan::prepare` — three signatures, for the single
+    /// purpose of being assembled into an `ActorPlacementContext` beside
+    /// [`Self::prepared`], [`Self::brain_profiles`] and [`Self::forced_brains`],
+    /// which arrived on this type. Five fields of one snapshot, two carriers.
+    /// [`Self::for_room_construction`]'s own doc states the rule they were
+    /// outside of: the authorities are PARAMETERS of one value, so the next one
+    /// a room may consult is one signature change that breaks every road at
+    /// once.
+    ///
+    /// ⭐ NOT AN `Option`, unlike its neighbours, and the difference is real:
+    /// an absent cast or an absent policy registry is a legal answer meaning
+    /// "this composition publishes none". A construction with no catalog cannot
+    /// resolve any authored character at all, and every caller already had one
+    /// in hand to pass positionally. `CharacterCatalog::empty()` remains the way
+    /// to say a composition authors nobody.
+    pub characters: &'a CharacterCatalog,
+    /// WHAT THEY LOOK LIKE (U1) — the authored sheets, in the same snapshot as
+    /// the catalog because what a body looks like decides how big its collision
+    /// box is. See [`Self::characters`] for why both travel here.
+    pub sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     /// Which generation of prepared content this room plan is bound to. A room
     /// is always content-derived, so this is always
     /// [`ContentBinding::Content`] — the enum exists because the planner also
@@ -206,10 +233,14 @@ pub struct ActorConstructionContext<'a> {
 impl<'a> ActorConstructionContext<'a> {
     pub fn new(
         recipes: &'a crate::construction::ActorConstructionRegistry,
+        characters: &'a CharacterCatalog,
+        sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
         content_epoch: ambition_platformer2d_core::ContentEpoch,
     ) -> Self {
         Self {
             recipes,
+            characters,
+            sheets,
             binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
                 content_epoch,
             ),
@@ -237,6 +268,11 @@ impl<'a> ActorConstructionContext<'a> {
     /// was; what is no longer possible is failing to answer.
     pub fn for_room_construction(
         recipes: &'a crate::construction::ActorConstructionRegistry,
+        // WHO EXISTS and WHAT THEY LOOK LIKE. Stated here rather than beside the
+        // room, because they are two more of the authorities this constructor's
+        // doc is about — see [`Self::characters`].
+        characters: &'a CharacterCatalog,
+        sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
         content_epoch: ambition_platformer2d_core::ContentEpoch,
         // The generation the SESSION is actually running, when the caller knows
         // it. A room is rebuilt from content the active binding already
@@ -261,7 +297,7 @@ impl<'a> ActorConstructionContext<'a> {
         // process-global the kernel reaches up for mid-construction.
         population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
     ) -> Self {
-        let mut context = Self::new(recipes, content_epoch);
+        let mut context = Self::new(recipes, characters, sheets, content_epoch);
         if let Some(active) = active_binding {
             context.binding = active.0;
         }
@@ -376,14 +412,14 @@ fn placement_counts_against_the_actor_cap(
 }
 
 impl RoomFeatureConstructionPlan {
-    #[allow(clippy::too_many_arguments)]
     pub fn prepare(
         room: &ambition_platformer2d_world::rooms::RoomSpec,
         registry: &crate::world::placements::PlacementLoweringRegistry,
         content_staging: &RoomContentStagingRegistry,
-        catalog: &CharacterCatalog,
-        sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         boss_catalog: &BossCatalog,
+        // ⛔ THE CATALOG AND THE SHEETS ARRIVE ON THIS, not beside it — see
+        // [`ActorConstructionContext::characters`] for the two-carrier road this
+        // replaced.
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
         let paths = room_spec_paths(room);
@@ -699,7 +735,10 @@ impl RoomFeatureConstructionPlan {
         capability_lanes.claim_planned_ids(&room.id, &mut expected_authoritative_ids)?;
 
         let mut placement_context =
-            crate::world::placements::ActorPlacementContext::new(catalog, sheets);
+            crate::world::placements::ActorPlacementContext::new(
+                construction.characters,
+                construction.sheets,
+            );
         if let Some(prepared) = construction.prepared {
             placement_context = placement_context.with_prepared(prepared);
         }

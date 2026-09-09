@@ -566,6 +566,37 @@ pub fn step_projectiles(
         // A projectile is a FREE body (not a kernel body): resolve its gravity
         // inline by the body-overlap rule, not the center point (ADR 0024).
         let gravity_dir = gravity.dir_for(kin.aabb());
+        // ⛔⛔ **A2b: THE LEG IS CAPTURED, NOT RECONSTRUCTED.** Two places below
+        // used to derive this shot's travel segment as `kin.pos - kin.vel * dt`.
+        // That is EXACT for today's integrator — `tick` accelerates and then
+        // integrates with the NEW velocity — and it is exact only because of
+        // three unrelated facts nothing states together: that integration order,
+        // an interception short-circuit that stops a re-owned shot before either
+        // site, and a portal transit that `continue`s past both. Change any one
+        // and the segment silently describes space the shot never crossed, on the
+        // road that decides who it damages. The pre-integration position is right
+        // here; taking it costs a copy and removes the coincidence.
+        let leg_start = kin.pos;
+        // ⛔⛔ **ONE OBSTRUCTION MODEL, AND THERE USED TO BE TWO.** The world
+        // branch swept this shot's BOX against the blocks its own
+        // `WorldHitPolicy` says stop it; the victim branch cast a CENTRE RAY at
+        // the victim's centre with `include_one_way = false` hard-coded. So a
+        // wall that covers a victim's body but not its centre point did not
+        // block the shot, a wall the shot's box clips at the corner did not
+        // either, and an `ExpireOnContact` shot — whose contract is that a
+        // one-way stops it — damaged straight through one. Two answers to "is
+        // something in the way", disagreeing on shape and on policy.
+        let shot_world_hit = game.world_hit;
+        let blocks_this_shot = move |block: &ae::Block| match shot_world_hit {
+            ambition_projectiles::WorldHitPolicy::Bouncing => matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ),
+            ambition_projectiles::WorldHitPolicy::ExpireOnContact => matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+            ),
+        };
         if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(boom) = expiry_burst.map(|b| b.to_message(kin.pos)) {
                 vfx.write(boom);
@@ -656,7 +687,6 @@ pub fn step_projectiles(
             // bodies CAN share a position (a spawn point, a stack) and a stable
             // sort over an equal key hands the decision back to query order
             // (S3, 2026-09-02).
-            let leg_start = kin.pos - kin.vel * dt;
             let mut ordered: Vec<_> = victims.iter().collect();
             let sort_key = |c: ae::Vec2| ((c - leg_start).length(), c.x, c.y);
             ordered.sort_by(|a, b| {
@@ -712,17 +742,29 @@ pub fn step_projectiles(
                 // ⚠ SOLIDS ONLY (`include_one_way = false`). A fireball crosses a
                 // one-way platform from below by design, and treating one-ways as
                 // blockers here would silently un-hit victims standing on ledges.
+                // ⭐ THE SHOT'S OWN BOX, AND THE SHOT'S OWN POLICY. `body_sweep`
+                // is the same swept entry point the world branch below uses, so
+                // "a wall stands between the shot and this body" and "a wall
+                // stops this shot" are now one question asked once. The leg is
+                // the shot's actual travel toward the victim: from where it
+                // started this tick, as far as the victim's centre.
                 let leg_to_victim = victim_body.center() - leg_start;
                 let victim_distance = leg_to_victim.length();
                 if victim_distance > f32::EPSILON {
-                    if let Some((wall_hit, _)) = ae::cast::raycast_solids(
-                        &*collision_world,
-                        leg_start,
+                    let half = kin.size * 0.5;
+                    if let Some(hit) = ae::cast::body_sweep(
+                        &collision_world,
+                        ae::Aabb::new(leg_start, half),
                         leg_to_victim,
-                        victim_distance,
-                        false,
+                        blocks_this_shot,
                     ) {
-                        if (wall_hit - leg_start).length() < victim_distance {
+                        // STRICTLY nearer. A wall at exactly the victim's
+                        // distance is a compound/tie case the protocol resolves
+                        // in favour of the surface only for an INDEPENDENT
+                        // blocker; nothing here can tell a destructible's own
+                        // wall from an unrelated one yet, so the existing
+                        // strict comparison is preserved rather than widened.
+                        if hit.time_of_impact < 1.0 - f32::EPSILON {
                             continue;
                         }
                     }
@@ -950,7 +992,7 @@ pub fn step_projectiles(
         // spec/ability, firer-agnostic) — NOT a function of who fired it. A
         // bouncing fireball arcs whoever throws it; a lasersword detonates on
         // the wall. (B2: retires the faction→policy fork.)
-        let world_hit = game.world_hit;
+        let world_hit = shot_world_hit;
         // ⛔⛔ D199, SWEPT HALF: PULL A TUNNELLED SHOT BACK TO ITS IMPACT POINT.
         // `resolve_world_collision` is an ENDPOINT test — it asks whether the
         // shot's AABB overlaps a block RIGHT NOW — so a shot fast enough to end
@@ -986,20 +1028,9 @@ pub fn step_projectiles(
         // ⚠ Only when the endpoint is NOT already touching something — otherwise
         // this would move a shot the endpoint test can already resolve.
         {
-            // The same leg the victim ordering above reasons about, recomputed
-            // here because that one is scoped to the victim block.
-            let leg_start = kin.pos - kin.vel * dt;
+            // The same captured leg the victim ordering above reasons about —
+            // one value, taken once before integration.
             let leg = kin.pos - leg_start;
-            let blocks_this_shot = |block: &ae::Block| match world_hit {
-                ambition_projectiles::WorldHitPolicy::Bouncing => matches!(
-                    block.kind,
-                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-                ),
-                ambition_projectiles::WorldHitPolicy::ExpireOnContact => matches!(
-                    block.kind,
-                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-                ),
-            };
             let endpoint_box = kin.aabb();
             let already_touching = collision_world
                 .blocks

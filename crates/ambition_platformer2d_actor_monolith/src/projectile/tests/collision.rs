@@ -465,6 +465,110 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     );
 }
 
+/// ⛔⛔ **A2b: THE VICTIM'S OBSTRUCTION TEST READS THE SHOT'S OWN WORLD-HIT
+/// POLICY, and it used to be hard-coded to "solids only".**
+///
+/// The world branch swept the shot's box against the blocks its `WorldHitPolicy`
+/// says stop it; the victim branch cast `raycast_solids(.., include_one_way =
+/// false)` at the victim's CENTRE. Two answers to one question — is something in
+/// the way — disagreeing about shape AND about policy. An `ExpireOnContact`
+/// shot's contract is that any solid, blink-wall or one-way contact ends it, and
+/// it damaged a body straight through a one-way anyway.
+///
+/// ⭐ BOTH ARMS, and the second is the anti-vacuity floor: a `Bouncing` shot
+/// crosses a one-way BY DESIGN, so it must still land. Without it, an
+/// obstruction test that refuses everything passes the first arm.
+#[test]
+fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
+    fn victim_hp_after_a_shot_through_a_one_way(
+        world_hit: ambition_projectiles::WorldHitPolicy,
+    ) -> (i32, i32) {
+        let world = ae::World::new(
+            "one_way_between",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            vec![ae::Block::one_way(
+                "platform",
+                ae::Vec2::new(380.0, 260.0),
+                ae::Vec2::new(8.0, 120.0),
+            )],
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.add_systems(
+            Startup,
+            |mut commands: Commands,
+             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+                crate::features::spawn_encounter_mob(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                    ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                    "projectile_test",
+                    ambition_encounter::mob_seed::EncounterMobSeed {
+                        id: "shielded_enemy".into(),
+                        character: Some("fixture_striker"),
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "fixture_striker".into(),
+                        ),
+                        // BEHIND the one-way from the shot's point of view.
+                        pos: ae::Vec2::new(400.0, 300.0),
+                        size: ae::Vec2::new(28.0, 46.0),
+                    },
+                );
+            },
+        );
+        app.update();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+            // The one thing that differs between the arms.
+            body.game.world_hit = world_hit;
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let (_, health) = query
+            .iter(world)
+            .find(|(identity, _)| identity.id() == "shielded_enemy")
+            .expect("the shielded enemy should be spawned as an ECS actor");
+        (health.health.current, health.health.max)
+    }
+
+    let (expiring, max) =
+        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::ExpireOnContact);
+    assert_eq!(
+        expiring, max,
+        "an `ExpireOnContact` shot damaged a body through a one-way platform. Its \
+         own world-hit policy says a one-way ENDS it, and the world branch below \
+         agrees — the victim branch was asking a different question with \
+         `include_one_way` hard-coded to false (was {max}, now {expiring})"
+    );
+
+    let (bouncing, max) =
+        victim_hp_after_a_shot_through_a_one_way(ambition_projectiles::WorldHitPolicy::Bouncing);
+    assert!(
+        bouncing < max,
+        "a `Bouncing` shot must still reach a body behind a one-way — a fireball \
+         crosses one from below by design, and its policy does not list one-ways \
+         as blockers. Refusing it here would mean the obstruction test reads no \
+         policy at all, only a different constant, and the arm above proves nothing"
+    );
+}
+
 /// ⛔⛔ THE SHOT'S SOLID TEST IS ITS CENTRE LINE, AND A SHOT IS A BOX (D199).
 ///
 /// The anti-tunnelling step casts `raycast_solids` along the leg and snaps

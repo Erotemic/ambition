@@ -353,6 +353,58 @@ crossing a thin victim without endpoint overlap. Do not call that a complete
 moving-body CCD implementation. Record current policies for one-way, return,
 splash and bounce with tests before replacing their branches.
 
+### A2 receipts, 2026-09-09
+
+**A2a — LANDED.** Boss hurt geometry is computed once by its publisher. It was
+derived at three damage-side sites (the projectile preflight and `apply_boss_hit`
+twice) and none consulted `refresh_boss_damageable_volumes`, so a boss's authored
+hurtboxes governed nothing on the damage road and an authored EMPTY override
+still offered a target. The publication ran in `WorldPrep`, a phase ahead of the
+boss brain, its move projection and its animator, and therefore described the
+previous frame — which is why the consumers re-derived. Bosses now join the
+damage-facing barrier (`DamageFacingVolumesPublished`, after `Playback`, before
+`Resolve`), the barrier has a name because ordering against a twice-registered
+system's type set is impossible, and `drive_boss_animators` states that it writes
+one of its inputs. The catalog, the attack state and the animation sample left
+with the derivation: `apply_boss_hit` can no longer derive geometry at all, and
+the projectile stepper no longer depends on `BossCatalog`. Witness:
+`the_boss_hit_test_answers_only_from_the_published_volumes`, four states
+including the anti-vacuity row, poison-verified against a reintroduced coarse
+fallback. ⚠ Breakables were NOT added to the barrier: their geometry is
+`CenteredAabb` + broken state, both settled in `WorldPrep`, so a second
+publication would cost a pass and change nothing. Say so before adding one.
+
+**A2b — the obstruction half landed; the swept-target half has not.**
+
+*One travel leg, captured.* Two sites derived the segment as `kin.pos - kin.vel *
+dt`. That is EXACT for today's integrator — `tick` accelerates and then
+integrates with the new velocity — and exact only because of three unrelated
+facts nothing stated together: that integration order, the interception
+short-circuit that stops a re-owned shot before either site, and the portal
+transit that `continue`s past both. The pre-integration position is captured once
+now, so the segment cannot silently describe space the shot never crossed.
+
+*One obstruction model.* The world branch swept the shot's BOX against the blocks
+its own `WorldHitPolicy` names; the victim branch cast `raycast_solids` at the
+victim's CENTRE with `include_one_way = false` hard-coded. Two answers to "is
+something in the way", disagreeing on shape and on policy — so a wall covering a
+victim's body but not its centre did not block, a wall the shot's box clips at a
+corner did not block, and an `ExpireOnContact` shot damaged straight through a
+one-way its own contract says ends it. Both branches use `body_sweep` with the
+shot's box and the shot's policy now. Witness:
+`a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other`, two arms
+(the `Bouncing` arm is the anti-vacuity floor — a fireball crosses a one-way by
+design and must still land), poison-verified against a solids-only predicate.
+
+⛔ **STILL OPEN IN A2b, and it is the row with the player-visible symptom.**
+Target contact is still ENDPOINT overlap (`victim.reached_by(&kin.aabb())`), so
+the "thin target crossed at speed" acceptance row fails: a fast shot passes
+through a thin victim without an endpoint that overlaps it. The obstruction test
+above is swept; the CONTACT test is not. Compound contacts and contributor
+identity are untouched — nothing yet distinguishes a destructible's own wall from
+an unrelated one, so the strict-nearer comparison was preserved rather than
+widened.
+
 ### A2c: direct delivery and smaller flight authority
 
 Replace unresolved-feature projectile events with targeted delivery. Identity-

@@ -43,6 +43,17 @@ before replacing family dispatch. Preserve synchronous interception and later
 hit reception. Carry collider contributor identity: a destructible's own wall
 and its hurt shape can be one compound contact, not competing unrelated targets.
 
+**A2a landed 2026-09-09** (one boss hurt geometry, published once at the
+damage-facing sample; the catalog and the attack/animation inputs left the
+consumers with the derivation). **A2b's obstruction half landed**: the travel leg
+is captured rather than reconstructed, and both branches ask one swept question
+with the shot's own box and world-hit policy. Receipts in the owner document.
+
+**Next in A2b:** swept TARGET contact. Contact is still endpoint overlap, so a
+fast shot passes through a thin victim — the one remaining row with a
+player-visible symptom. Then contributor identity and compound contacts, which
+nothing yet supplies.
+
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 compound solid object, reflection/absorption, returning shots and rollback have
 explicit production-road outcomes. The initial sampled-target sweep is not a

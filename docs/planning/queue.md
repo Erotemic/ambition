@@ -655,7 +655,30 @@ correctly absent from a fresh-press kit) and `dive_stomp_uncharged` (a
 move than the one the press produces, so every scoring term downstream (startup,
 reach, damage, frame advantage) reads the wrong move.
 
-⛔ **THE FIX IS WRITTEN AND DELIBERATELY NOT LANDED.** Resolving with
+⛔ **THE FIX IS BEHIND `--features truthful_attack_kit` ON
+`ambition_platformer2d_actor_monolith`, DEFAULT OFF — runnable, not landed.**
+⭐ ONE code path, not a `#[cfg]` split: with the feature off `running_now` is a
+compile-time `false` and `move_for_attack(verb, dir, grounded, false)` falls
+through to `move_for_directional_verb`, so the shipped behaviour is today's BY
+CONSTRUCTION rather than by a second arm somebody has to keep in step. Verified
+both ways (6 passed + witness ignored / 7 passed), and `app_it` 612 with it off.
+
+⛔⛔ **AND A SECOND FIGHTER SAYS THE GATE IS CALIBRATED TO ONE.** `npc_emmy_noether`
+at rung 9 — **HEAD: 0.28 / 0.44, which already FAILS the 0.5 threshold**, 0
+knockouts, hitstun [38, 59]. Truthful kit: **0.28 / 0.44, byte-identical**, same
+damage-by-move. ⇒ Another shipped fighter fails this acceptance test TODAY with
+nothing changed, so "the fix fails the gate at rung 9" is much weaker evidence
+than it looked — the gate does not hold across fighters at HEAD. And the flag is
+a no-op wherever the stance never triggers, which is the control the one-code-path
+shape gives for free.
+
+⚠ **THE HARNESS IS THIS TEST, NOT `ladder-rig`.**
+`cargo test -p ambition_app --test app_it -- smash_cpus_damage_each_other::two_cpus --nocapture`,
+with `FIGHTER` / `RUNG` / `TICKS` at the top of
+`game/ambition_app/tests/smash_cpus_damage_each_other.rs` selecting the cell.
+`ladder-rig` CANNOT answer this: its default duelists bind no `attack_dash` (its
+own header says so) and `ambition_demo_smash_app` has no `ambition_content` edge,
+so Ambition's 19 authored movesets are not seatable there at all. Resolving with
 `move_for_attack` makes the kit truthful; it also re-prices how the CPUs fight.
 MEASURED: it reddens
 `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`

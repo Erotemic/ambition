@@ -308,7 +308,10 @@ fn jab_uptilt_and_dash() -> MovesetContract {
 /// different move than the one it produced. Every scoring term downstream
 /// (startup, reach, damage, frame advantage) was reading the wrong move.
 #[test]
-#[ignore = "known-open D-BRAIN-MENU defect: fixing it re-prices CPU matchups and needs the ladder rig; see the block in attack_kit_of"]
+#[cfg_attr(
+    not(feature = "truthful_attack_kit"),
+    ignore = "the fix is behind `--features truthful_attack_kit`; it re-prices CPU matchups and needs the ladder rig first (D-BRAIN-MENU)"
+)]
 fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() {
     let moveset = ActorMoveset(jab_uptilt_and_dash());
     let brain = fighter_brain();

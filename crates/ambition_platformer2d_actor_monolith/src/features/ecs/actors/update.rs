@@ -1705,7 +1705,7 @@ pub(super) fn attack_kit_of(
     // MISSING. Like `grounded`, never a choice: a brain that could claim it was
     // running would be picking a move its body cannot perform. ⚠ THREADED BUT
     // NOT YET CONSULTED — see the block below for why the behaviour is held.
-    _running: bool,
+    running: bool,
     // only a FIGHTER brain reads the kit, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
     // the game would have paid for a list nothing looks at, which is a cost
@@ -1781,29 +1781,45 @@ pub(super) fn attack_kit_of(
             AttackDir::Up,
             AttackDir::Down,
         ] {
-            // ⛔⛔ **AND THE FIX IS NOT LANDED, DELIBERATELY.** Resolving with
-            // `move_for_attack(.., running)` — which is what the press road does
-            // — makes the kit truthful and gives every CPU its dash attack. It
-            // also CHANGES HOW THE CPUs FIGHT, measured: it reddened
-            // `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
-            // ("the CPUs are not fighting") and
-            // `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`,
-            // both green at HEAD and both failing reproducibly in isolation.
+            // ⛔⛔ **THE FIX IS BEHIND A MEASUREMENT FEATURE, NOT LANDED.**
+            // Resolving with `move_for_attack(.., running)` — which is what the
+            // press road does — makes the kit truthful and gives every CPU the
+            // dash attack its own press already produces. It also RE-PRICES how
+            // the CPUs fight, and `engine/fighter-brain.md` rules that such a
+            // change "needs the ladder rig, not a coordinator's judgement".
             //
-            // ⇒ `engine/fighter-brain.md` rules on exactly this: a change that
-            // re-prices matchups "needs the ladder rig (`brain::fighter::evaluation`
-            // + `scenarios`), not a coordinator's judgement". Two acceptance tests
-            // saying the fight got worse IS that rig speaking. Landing the
-            // behaviour on a queue row's say-so would be the coordinator's
-            // judgement the doc forbids.
+            // ⭐ ONE CODE PATH, NOT A `#[cfg]` SPLIT, and that is the point: with
+            // the feature off `running_now` is a compile-time `false`, and
+            // `move_for_attack(verb, dir, grounded, false)` falls through to
+            // `move_for_directional_verb` — the shipped behaviour, byte for byte,
+            // by construction rather than by a second arm somebody has to keep in
+            // step. A feature nobody enables compiles to what was here before.
             //
-            // ⚠ So the kit stays WRONG here on purpose, with the defect named
-            // rather than hidden, and D-BRAIN-MENU carries the rig work. The
-            // witness is `a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce`,
-            // `#[ignore]`d for as long as this line stands.
+            // ⇒ It exists so the measurement can be run on more than one machine.
+            // MEASURED so far (duel rig, pirate admiral): rung 3 the truthful kit
+            // is BETTER on both seats, rung 6 costs ~3%/18%, rung 9 fails the
+            // gate. Four mechanisms proposed for the rung-9 drop, three measured
+            // false. ⚠ And a second fighter, emmy_noether at rung 9, is
+            // byte-IDENTICAL under both kits — the flag is a no-op wherever the
+            // stance never triggers, which is the control this shape gives free.
+            //
+            // ⚠ NOT A GAMEPLAY KNOB. See `SPECIAL` below: the press road resolves
+            // a special in an EARLIER branch that never reaches `move_for_attack`,
+            // so redirecting it here took a running fighter's specials away and
+            // reddened two acceptance tests. Copying a production rule means
+            // copying WHERE THE ROAD APPLIES IT.
+            let running_now = cfg!(feature = "truthful_attack_kit")
+                && running
+                && grounded
+                && matches!(verb, AttackVerb::Basic | AttackVerb::Smash);
+            let resolve_verb = if running_now {
+                ambition_combat::moveset::ATTACK_VERB
+            } else {
+                verb_name
+            };
             let Some(spec) = moveset
                 .0
-                .move_for_directional_verb(verb_name, direction, grounded)
+                .move_for_attack(resolve_verb, direction, grounded, running_now)
             else {
                 continue;
             };

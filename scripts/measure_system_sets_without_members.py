@@ -45,6 +45,30 @@ changed the answer by a factor of forty.
 re-run.** The tidy version and the scratch version disagreed, and only re-running
 showed it.
 
+## ⛔⛤ A THIRD WAY IT REPORTED THE OPPOSITE OF THE TRUTH — found by a reviewer
+
+**`git ls-files`'s return code was never checked.** In a checkout where git
+refused (a missing `safe.directory` entry) this script printed **"0 SystemSet
+types declared, 0 with ZERO members"** and **exited 0**. ⇒ A clean bill from an
+empty corpus, in a file whose own docstring already records two other ways it
+lied.
+
+⚠ **THE FINDING SURVIVED THE INSTRUMENT.** 127/1 reproduced once git worked, so
+`PlatformerRuntimeSet` stands. **The instrument was the problem, not the result**
+— which is the only reason a false clean here was recoverable.
+
+⭐ **Both refusals now exit 1 and say why**, poison-verified:
+
+    git fails                -> exit 1, names the git error
+    corpus has no SystemSet  -> exit 1, names the scanned file count
+    healthy                  -> exit 0
+
+⚠ And the scope was narrower than the label. The regex required `pub`, while the
+output said *"SystemSet types declared"*: **134 derives exist, 127 public.** A
+private set is still a set — a system can join it and `.after` it inside its own
+crate, which is precisely the no-op this script hunts. **Visibility is now
+printed, not filtered on.**
+
 ## What it does not answer
 
 ⚠ It counts `in_set(` in source. A set could also gain members through
@@ -65,21 +89,47 @@ import subprocess
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 #: A `SystemSet` declaration: the derive, any further attributes, then the item.
+#: ⛔⛔ ALL `SystemSet` DERIVES, NOT ONLY `pub` ONES. A first version required
+#: `pub` while the output said *"SystemSet types declared"* — 134 derives exist
+#: and 127 are public, so it under-reported the population by seven and named it
+#: as if it were complete. ⇒ A private set is still a set: a system can join it
+#: and `.after` it within its own crate, which is exactly the no-op this script
+#: hunts. **The visibility is captured and printed, not used as a filter.**
 DECL = re.compile(
     r"#\[derive\([^)]*\bSystemSet\b[^)]*\)\]\s*(?:#\[[^\]]*\]\s*)*"
-    r"pub\s+(?:enum|struct)\s+([A-Za-z0-9_]+)"
+    r"(pub(?:\([^)]*\))?\s+)?(?:enum|struct)\s+([A-Za-z0-9_]+)"
 )
 LINE_COMMENT = re.compile(r"//[^\n]*")
 
 
 def main() -> int:
-    tracked = [
-        p
-        for p in subprocess.run(
-            ["git", "ls-files", "*.rs"], cwd=REPO, capture_output=True, text=True
-        ).stdout.split("\n")
-        if p
-    ]
+    # ⛔⛔ A FAILED `git ls-files` USED TO PRODUCE A CONFIDENT ZERO. The return
+    # code was never checked, so in a checkout git refused (a missing
+    # `safe.directory` entry) this script printed **"0 SystemSet types declared,
+    # 0 with ZERO members"** and exited 0 — a clean bill from an empty corpus.
+    #
+    # ⚠ THAT IS THIS FILE'S OWN SIGNATURE, TWICE OVER. Its docstring already
+    # records counting prose and missing qualified paths; both were caught by a
+    # number disagreeing with a fact measured another way. **A total collapse to
+    # zero across every bucket is the empty-corpus tell, not a result** — and the
+    # one reader who cannot apply that judgement is the script itself.
+    listing = subprocess.run(
+        ["git", "ls-files", "*.rs"], cwd=REPO, capture_output=True, text=True
+    )
+    if listing.returncode != 0:
+        raise SystemExit(
+            "git ls-files failed (exit "
+            f"{listing.returncode}) in {REPO}: {listing.stderr.strip()}\n"
+            "⇒ REFUSING TO REPORT. Without a file list this script finds no "
+            "declarations and no members, and every count it prints is zero — "
+            "which reads as `every set is wired`, the opposite of a warning."
+        )
+    tracked = [p for p in listing.stdout.split("\n") if p]
+    if not tracked:
+        raise SystemExit(
+            f"git ls-files succeeded but listed no .rs files in {REPO}. "
+            "⇒ REFUSING TO REPORT: an empty corpus cannot find an unwired set."
+        )
 
     declared: dict[str, str] = {}
     sources: dict[str, str] = {}
@@ -90,7 +140,7 @@ def main() -> int:
             continue
         sources[rel] = text
         for m in DECL.finditer(text):
-            declared.setdefault(m.group(1), rel)
+            declared.setdefault(m.group(2), (rel, bool(m.group(1))))
 
     members: collections.Counter[str] = collections.Counter()
     for rel, text in sources.items():
@@ -107,11 +157,22 @@ def main() -> int:
                 re.findall(rf"in_set\(\s*(?:[A-Za-z0-9_]+::)*{re.escape(name)}\b", code)
             )
 
-    empty = sorted((n, f) for n, f in declared.items() if members[n] == 0)
-    print(f"{len(declared)} SystemSet types declared\n")
+    empty = sorted((n, v) for n, v in declared.items() if members[n] == 0)
+    public = sum(1 for _, is_pub in declared.values() if is_pub)
+    # ⛔ AND THE FLOOR IS NONZERO. "No unwired set" over zero declarations is a
+    # true statement about nothing; the population must exist before its
+    # emptiness means anything.
+    if not declared:
+        raise SystemExit(
+            f"{len(tracked)} .rs files scanned and NOT ONE declares a `SystemSet`. "
+            "⇒ REFUSING TO REPORT: the declaration regex found nothing, so the "
+            "membership counts below would all be zero for want of a subject."
+        )
+    print(f"{len(declared)} SystemSet types declared ({public} public, "
+          f"{len(declared) - public} private), across {len(tracked)} tracked .rs files\n")
     print(f"{len(empty)} with ZERO `in_set(` members — ordering against these is a NO-OP:")
-    for name, where in empty:
-        print(f"   {name:42} {where}")
+    for name, (where, is_pub) in empty:
+        print(f"   {name:42} {'pub ' if is_pub else 'priv'} {where}")
     if not empty:
         print("   (none — every declared set has at least one member)")
     print(f"\n{len(declared) - len(empty)} with members, largest first:")

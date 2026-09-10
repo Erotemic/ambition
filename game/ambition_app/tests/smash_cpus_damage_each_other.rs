@@ -135,6 +135,14 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // because the reading at the END of the duel is a reading AFTER any
     // knockout, and a respawned body is a body that was built a second time.
     let mut first_brain: [Option<String>; 2] = [None, None];
+    // ⛔⛔ AND THE STREAM POSITION AT BIRTH, WHICH IS THE ONLY TICK IT IS THE
+    // SEED. `FighterState::new(cfg, seed)` stores the seed IN `state.noise` and
+    // then ADVANCES it on every draw, so the value read at the end of a bout is
+    // a stream position, not a seed. Two seats that differ there may have
+    // started equal and simply drawn a different number of samples — so an
+    // end-of-bout reading can witness "these two share a stream" (equal) but
+    // never "these two have distinct seeds" (different). The birth reading can.
+    let mut first_noise: [Option<u64>; 2] = [None, None];
     let mut mirror_axis: Option<f32> = None;
     let mut mirror_worst = (0.0f32, 0.0f32);
     let mut mirror_broke_at: Option<(usize, f32, f32)> = None;
@@ -358,6 +366,15 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     for (seat, brain) in bq.iter(w) {
                         if seat.0 < 2 && first_brain[seat.0].is_none() {
                             first_brain[seat.0] = Some(brain.label().to_string());
+                            if let ambition_platformer2d::characters::brain::Brain::StateMachine(
+                                ambition_platformer2d::characters::brain::StateMachineCfg::Fighter {
+                                    state,
+                                    ..
+                                },
+                            ) = brain
+                            {
+                                first_noise[seat.0] = Some(state.noise);
+                            }
                         }
                     }
                 }
@@ -504,8 +521,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         rows.sort_by_key(|r| r.0);
         for (seat, seed, authored) in rows {
             let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
+            let seed_at_birth = first_noise[seat]
+                .map_or_else(|| "<no fighter brain at birth>".to_string(), |n| format!("{n:#018x}"));
             println!(
-                "[brain] seat {seat}: born={born} now={seed} authored_moves={authored}"
+                "[brain] seat {seat}: born={born} seed={seed_at_birth} now={seed} \
+                 authored_moves={authored}"
             );
         }
     }

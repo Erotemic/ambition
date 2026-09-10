@@ -1184,12 +1184,53 @@ ONE.** Their own messages:
    stops working.** Knockback ceasing to scale with damage is not a tuning
    regression, and no amount of re-calibrating a damage gate addresses it.
 
-⇒ **(2) IS THE REAL BLOCKER AND IT HAS BEEN BURIED UNDER (1).** "The CPUs deal
-less damage" is an argument about pricing that the ladder rig is meant to settle;
-"the percent meter is not reaching the launch" is a defect. **Next in this row:
-find out why a KIT-LABELLING change reaches percent-scaled knockback at all** —
-that is a coupling nobody has claimed exists, and it is a better question than
-another damage sample.
+⛔⛔⛔ **AND (2) IS NOT A BLOCKER EITHER — MEASURED 2026-09-10, THE SAME DAY I
+CALLED IT THE REAL ONE. THE FIXTURE'S OWN STRIKE NEVER LANDS.** Instrumenting the
+victim's damage meter across the strike, both arms:
+
+| up-tilt fixture | feature OFF | feature ON |
+|---|---|---|
+| percent = 0 | meter **0 → 10**, rose **3.4 px** | meter **0 → 0**, rose **26.6 px** |
+| percent = 1427 | meter **1427 → 1437**, rose **372.8 px** | meter **1427 → 1427**, rose **26.6 px** |
+
+⇒ **The feature-off arm scales 110×, so the percent meter is fine. In the
+treatment arm the meter does not move by a single point in either match.** The
+identical 26.6px is the victim doing something else entirely — which is exactly
+why it does not vary with percent. **There is no kit-to-knockback coupling to
+find; the hit was thrown where the victim was not.**
+
+⚠ **EVERY INPUT TO THAT FIXTURE'S KNOCKBACK IS A LITERAL IN ITS OWN FILE** —
+`UP_TILT_DAMAGE`, `UP_TILT_KNOCKBACK`, `UP_TILT_GROWTH`, `UP_TILT_LAUNCH_DIR`,
+the half-extent and the anchor — and the percent is written into the victim two
+statements before the strike. ⇒ **There is no way for the launch to stop scaling
+EXCEPT by the victim not taking the hit**, so *"the percent meter is not reaching
+the launch"* is a conclusion that fixture is never entitled to draw. **It has
+drawn it wrongly three times**: once with the second strike inside the first's
+hitstop, once with the victim walking clear of a 48px box, and now.
+
+✔ **Guarded 2026-09-10: the fixture asserts its own strike landed before
+interpreting the rise**, with a message pointing at what moved the victim out of
+the box rather than at the launch formula. Green on shipping code;
+poison-verified by aiming the hitbox 9000px away — `FAILED`, 0 compile errors,
+naming the miss.
+
+⛔⛔ **SO THE HOLD NOW RESTS ON (1) ALONE, AND (1) IS A THRESHOLD, NOT A DEFECT:**
+0.47 against 0.50 on a subject whose baseline moved 1.26 → 0.84 underneath it,
+which a second shipped fighter fails at **0.41 with nothing changed at all**.
+⇒ **Neither red test is evidence about the fighter brain.**
+
+⚠ **AND THE UP-TILT FIXTURE IS NOT A GATE ON THIS ROW'S CHANGE — IT IS A GATE ON
+"THE CPUs STILL WALK THE WAY THEY DID IN AUGUST".** It shares its app with LIVE
+CPU fighters whose walking it does not control, and its park-immediately-before-
+the-strike was calibrated against one particular way of walking. **This row's
+whole change is a change to how CPUs walk.** A fixture that cannot survive that
+cannot arbitrate it.
+
+⇒ **NEXT IN THIS ROW: the decision is now a calibration question for the
+maintainer, not a measurement question.** The remaining evidence is a 0.50 gate
+that no longer holds across fighters at HEAD. Either the gate is re-derived
+against the roster it is supposed to police, or the fix lands and the gate moves
+with it — and that is Jon's call, not a coordinator's.
 
 ⚠ **AND A TRAP FOR WHOEVER MEASURES THIS NEXT: `truthful_attack_kit` CANNOT BE
 ENABLED BY FLIPPING THE MONOLITH'S `default`.** All seven consumers take that

@@ -5583,6 +5583,18 @@ mod launched {
         // The old law was not correct here; it was lucky here.
         park(app, victim, VICTIM_X);
         let start = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+        // ⭐ DID THE FIXTURE'S OWN STRIKE LAND? Every input to the knockback
+        // formula below is a literal in this file, so a launch that does not
+        // scale with percent cannot be the meter unless the victim actually
+        // TOOK this hit. Reading the victim's meter across the window separates
+        // "the percent meter is not reaching the launch" from "the hit was
+        // thrown where the victim was not" — two failures this fixture has
+        // already confused for each other twice (2026-08-25, both directions).
+        let meter_before = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .map(|h| h.damage_taken())
+            .unwrap_or(-1);
         let strike = app
             .world_mut()
             .spawn((
@@ -5652,6 +5664,51 @@ mod launched {
                 left_the_ground = true;
             }
         }
+        let meter_after = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .map(|h| h.damage_taken())
+            .unwrap_or(-1);
+        // ⛔⛔⛔ THE FIXTURE'S OWN STRIKE HAS TO LAND BEFORE ITS RISE MEANS
+        // ANYTHING, AND FOR THREE YEARS OF THIS FIXTURE'S LIFE NOTHING CHECKED.
+        //
+        // Every input to the knockback formula above is a literal in this file
+        // -- `UP_TILT_DAMAGE`, `UP_TILT_KNOCKBACK`, `UP_TILT_GROWTH`,
+        // `UP_TILT_LAUNCH_DIR`, the half-extent, the anchor -- and the percent is
+        // written directly into the victim two statements earlier. ⇒ **There is
+        // no way for the launch to stop scaling with percent EXCEPT by the
+        // victim not taking this hit.** So "the percent meter is not reaching
+        // the launch" is a conclusion this fixture is not entitled to draw until
+        // the meter has been seen to move.
+        //
+        // ⚠ IT HAS DRAWN IT WRONGLY TWICE ALREADY, both recorded above: once
+        // when the second strike landed inside the first one's hitstop, and once
+        // when the victim walked clear of a 48px box and "took NO damage at
+        // all". Both times the message accused the percent meter; both times the
+        // meter was fine.
+        //
+        // ⛔ MEASURED 2026-09-10, THE THIRD INSTANCE. Under
+        // `truthful_attack_kit` -- a change to how the CPU BRAIN enumerates its
+        // options, which cannot touch a hand-spawned `Hitbox` -- this fixture
+        // reported 26.6px at 0% and 26.6px at 1427% and blamed the meter again.
+        // The meter read 0 -> 0 and 1427 -> 1427: THE STRIKE NEVER LANDED. The
+        // identical 26.6px is the victim doing something else entirely, which is
+        // why it does not vary with percent.
+        //
+        // ⇒ This fixture shares its app with LIVE CPU FIGHTERS whose walking it
+        // does not control, and the park-immediately-before-the-strike above was
+        // calibrated against one particular way of walking. A test whose subject
+        // is supplied by a fixture must assert the fixture supplied it.
+        assert!(
+            meter_after > meter_before,
+            "the fixture's own {UP_TILT_DAMAGE}-damage strike never landed at \
+             percent={percent}: the victim's meter read {meter_before} before and \
+             {meter_after} after. Every knockback input here is a literal, so a \
+             rise of {peak_rise:.1}px measured after a MISS says nothing about the \
+             percent meter -- it is the victim doing something else. Look at what \
+             moved the victim out of the strike's 48px world-anchored box, not at \
+             the launch formula."
+        );
         if app.world().get_entity(strike).is_ok() {
             app.world_mut().entity_mut(strike).despawn();
         }

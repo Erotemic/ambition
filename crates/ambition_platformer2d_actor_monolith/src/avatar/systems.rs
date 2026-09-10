@@ -47,10 +47,34 @@ pub struct ControlledBrainTick;
 /// `DrivingParticipant` selects the slot; body motion policy supplies movement
 /// scale. Vacated or autonomous bodies are skipped. Dormancy does not suppress
 /// human-driven bodies because it sleeps AI brain work, not body integration.
+///
+/// ⛔⛔ **"WHICH BODY DOES SEAT N DRIVE" WAS ANSWERED IN TWO PLACES, AND ONE OF
+/// THEM COULD NOT SEE AN AMBIGUITY THE OTHER REFUSED.**
+/// [`crate::control::body_driving_seat`] resolves the UNIQUE holder of
+/// `DrivingParticipant(slot)` and, when there are two, logs an `error!` and
+/// returns `None` — *"refusing ambiguous authority, so this seat drives nothing
+/// until one of them vacates."* This translation asked a different question: it
+/// iterated BODIES and read `slots.get(driver.0)` off each one, so it could not
+/// tell one holder from two. The refusal never reached the road that moves
+/// anything.
+///
+/// ⇒ MEASURED 2026-09-10 before the fix, driving the real headless sim with two
+/// bodies holding `DrivingParticipant(PRIMARY)` and one held right press: the
+/// player's body travelled 180.00px (175.17px unambiguously) **and the rival
+/// travelled 91.67px**. Not "the seat drives nothing" — *the seat drove BOTH*,
+/// each at its own locomotion capability. The behaviour was the exact inverse of
+/// the documented one, and `control/authority.rs` calls that state "the exact
+/// two-writer state this whole component exists to make impossible".
+///
+/// ⇒ ONE AUTHORITY. The seat is resolved through the same helper every other
+/// reader uses, and a body that is not the one it names is skipped. Nothing
+/// changes when a seat has exactly one holder, which is every unambiguous tick.
 pub fn tick_controlled_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
+    drivers: Query<(bevy::prelude::Entity, &DrivingParticipant)>,
     mut controlled: Query<(
+        bevy::prelude::Entity,
         &BodyKinematics,
         &BodyGroundState,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
@@ -65,11 +89,29 @@ pub fn tick_controlled_brains(
             s.gameplay.control_frame_modes()
         });
 
-    for (kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled {
+    for (entity, kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled
+    {
         // Input interpretation uses the same resolved frame as this tick's physics.
         let control_down = resolved_frame.down();
         // Input authority is the body's driving slot.
         let slot = driver.0;
+        // ⛔ AND THE SEAT'S OWN ANSWER TO WHO HOLDS IT. A body carrying
+        // `DrivingParticipant(slot)` is a CLAIM on that seat, not a licence: two
+        // claims are ambiguous authority, and the resolver refuses rather than
+        // picking by query order. Skipping here is what makes that refusal real
+        // instead of advisory.
+        if crate::control::body_driving_seat(&drivers, slot) != Some(entity) {
+            // ⛔⛔ **NEUTRALISED, NOT SKIPPED — AND SKIPPING WAS THE FIRST FIX,
+            // WHICH THE FIXTURE CAUGHT.** `ActorControl` is LATCHED state: it
+            // holds whatever was written into it last tick until something
+            // writes again. So declining to write it leaves the body running on
+            // the last frame it was given, and under a HELD press that is
+            // indistinguishable from driving — measured, the player kept
+            // travelling its full 180px with the seat refused. "Refuse" has to
+            // mean the stick reaches nothing, not "carry on with what you had".
+            *control = ActorControl::default();
+            continue;
+        }
         let input = slots.get(slot);
         // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {

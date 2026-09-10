@@ -176,3 +176,6 @@ mod walking_into_a_loading_zone;
 mod world_manifest_parameterization;
 
 mod enemy_body_scale;
+
+// A4 — the accepted-control invariant that had no fixture (`body_driving_seat`).
+mod competing_control_claims;

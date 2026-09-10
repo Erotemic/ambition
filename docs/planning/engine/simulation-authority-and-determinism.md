@@ -610,6 +610,55 @@ See [`../../architecture/bevy-system-boundaries.md`](../../architecture/bevy-sys
 A cohesive `SystemParam` or `QueryData` is good when it names one concept. It is
 not a fix when it only hides the parameter ceiling.
 
+### S7a — a rollback sim whose outcome depends on the HOST
+
+⛔⛔ **MEASURED 2026-09-10 at `8dbb5e91d`, and it lived only in a roster-analysis
+script until now.** `scripts/measure_duel_roster.py` says the finding *"is filed
+on S7"*. **It was not.** ⚠ That script's own warning is sharper than the defect:
+*"a figure that leaves this file without all three stamps will mislead somebody in
+a month."* ⇒ **The figure never left the file**, and *"filed on S7"* was written as
+a statement about another document by the author of this one. **Nobody checked the
+far end.**
+
+**Two machines, same sha, same command, `NoWindow` / `backends: None`,
+`npc_alice` at rung 9:**
+
+| | host A | host B |
+|---|---|---|
+| duel ran | 3173, decided at 3178 | 3613, undecided |
+| dmg/min | 1.38 / 1.55 | 1.58 / 1.59 |
+| hitstun | [236, 292] | [419, 340] |
+| seat 1 starts | 48 | 78 |
+| knockouts | 4 | 3 |
+| **birth seeds** | 0xd3b5b696… / 0xd2b5b509… | **identical** |
+| **`[sym]` split** | tick 522 (+79.49, −127.21) | **identical** |
+
+⇒ **Identical to 0.01px for 522 ticks, then divergent, and the divergence enters
+exactly when the mirror breaks.** Three consecutive runs on each host are
+individually bit-identical, so this is not run-to-run wobble.
+
+**Three mechanisms proposed and all three refuted:** asset-decode timing (the
+sheet landed at frame 5 and frame 8 on one host with bit-identical fights);
+executor/system order (`GgrsSchedule` sets `SingleThreadedExecutor` explicitly,
+`rollback_ggrs/src/lib.rs:142`); seeding (the seeds match exactly).
+
+⚠ **UNATTRIBUTED.** The surviving candidate — entity storage order following
+host-dependent spawn order — **is a candidate and not a conclusion.** ⭐ **Three
+dead mechanisms do not make a fourth likely.**
+
+⛔ **THE STAMP IS `8dbb5e91d`, NOT HEAD.** This does not prove current HEAD is
+host-dependent. It does mean **peer/host determinism cannot presently be assumed.**
+
+**Before drawing an architectural conclusion:** reproduce on current HEAD on BOTH
+hosts and capture the FIRST DIVERGENT AUTHORITATIVE STATE, around tick 522.
+⇒ Compare stable entity ids and canonical component projections **at that tick**.
+⛔ **Do not reason backward from final bout statistics** — every row in the table
+above is an end-of-bout figure, and an end-of-bout difference cannot distinguish
+one early divergence from a hundred late ones.
+
+⚠ **Keep this separate from A1.** Nothing here contradicts the closed checkpoint
+restoration protocol. This is an authoritative-simulation determinism question.
+
 ### S7 — 59 canonical rows say outright they are not in the session checksum
 
 **Open, scoped, not started.** Raised 2026-09-10 by the canonical-finiteness

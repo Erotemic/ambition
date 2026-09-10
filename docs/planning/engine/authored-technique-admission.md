@@ -1,6 +1,21 @@
 # Authored techniques: installed support, checked flow and activation
 
-**Status: A11 and A12 are CLOSED, 2026-09-10.** Every acceptance row this page
+⛔⛔ **Status: NEITHER A11 NOR A12 IS CLOSED, corrected 2026-09-10.** This line
+read *"A11 and A12 are CLOSED"* while line 610 of THIS FILE said *"still open in
+A12b"*. **Same document, 607 lines apart, contradicting each other before any
+review existed** — a closure banner and an open-items paragraph are never on
+screen together, so whoever adds the second does not see the first.
+
+**A11** — shipping lifecycle, empty-support checking and transitive withholding
+are REPAIRED. ⛔ **Raw public activation is still open**:
+`close_preparation_barrier_without_admission` is plain `pub`
+(`crates/ambition_characters/src/prepared.rs:2261`), which is the second public path to activating unvalidated
+authored data that this page's own trust boundary forbids.
+
+**A12** — occurrence PROPAGATION landed. ⛔ **Occurrence IDENTITY did not**:
+`MovePlayback::instance` restarts at `0` after an idle gap, reflection pairs a new
+owner with the old shooter's stamp, and `None` still credits the current move.
+A12b's prepared-revision items remain open, as line 610 already said. Every acceptance row this page
 owns is witnessed by a named guard; the list is at the bottom of this file under
 *Closure*. What remains open is not implementation — it is Q97's policy half,
 which is a maintainer ruling, and the definition-level part of A10, which is on

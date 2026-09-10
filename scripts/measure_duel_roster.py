@@ -98,7 +98,8 @@ executor/system order (`GgrsSchedule` sets `SingleThreadedExecutor` explicitly,
 `rollback_ggrs/src/lib.rs:142`), and seeding (the seeds match exactly).
 ⚠ **UNATTRIBUTED, and the surviving candidate — entity storage order following
 host-dependent spawn order — is a CANDIDATE and not a conclusion.** Three dead
-mechanisms do not make a fourth likely. It is filed on S7 as a determinism
+mechanisms do not make a fourth likely. It is filed as S7a in
+`docs/planning/engine/simulation-authority-and-determinism.md` as a determinism
 question, because a rollback sim whose outcome depends on the host is a bigger
 row than any fighter's.
 

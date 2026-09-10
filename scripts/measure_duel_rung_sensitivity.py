@@ -53,6 +53,15 @@ separates, the jitter reaches even a 3-start fighter, which is a finding about
 the instrument. The load-bearing subjects are `medic` and `special_patent_clerk`,
 both of which press ~50 moves per seat.
 
+⛔⛔ **AND THE SWEEP HAS A CONFOUND THAT LOOKS EXACTLY LIKE ITS ANSWER.** The
+jitter is drawn per seat from `fighter_cognition_seed`. If a mirror bout hands
+BOTH seats the same seed, a live jitter is applied symmetrically and lockstep
+survives at every rung — which reads as "still bit-identical at rung 3" and
+would be scored as killing the candidate, when what it measured is that the
+seeds are equal. ⇒ **Every row asserts the two seats' seeds DIFFER**, read from
+the harness's own `[brain]` probe, and a row that cannot show two distinct seeds
+is UNMEASURABLE rather than lockstep.
+
 ⚠ **THE RATIO IS NOT THE MEASUREMENT.** Several mechanisms died on this row
 behind a per-seat ratio, so every row here prints both seats' starts, damage and
 ABSOLUTE FIRST-SEEN TICK. A bout that fails to seat produces a perfect-looking
@@ -83,7 +92,7 @@ SUBJECTS = {
     "npc_carl_stargan": "NEGATIVE CONTROL (bare registration, 3 starts, 0.5%)",
 }
 RUNGS = (3, 5, 6, 8, 9)
-PROBE = re.compile(r"^\[(duel|gap|body|stance|moves|dealt)\]")
+PROBE = re.compile(r"^\[(duel|gap|body|stance|moves|dealt|brain)\]")
 
 
 def sweep() -> None:
@@ -135,6 +144,8 @@ def parse() -> dict[tuple[str, int], dict]:
             row.setdefault("distinct", []).append(int(m.group(3)))
         if m := re.match(r"^\[dealt\] seat (\d): ([\d.]+) damage", line):
             row.setdefault("dealt", []).append(float(m.group(2)))
+        if m := re.match(r"^\[brain\] seat (\d): noise=(\S+)", line):
+            row.setdefault("seeds", []).append(m.group(2))
         if "panicked at" in line:
             row["panics"].append(line)
     return rows
@@ -150,6 +161,18 @@ def verdict(row: dict) -> str:
         return "UNMEASURABLE"
     if row["window"] < 1000:
         return "UNMEASURABLE"
+    # ⛔⛔ TWO SEATS ON THE SAME SEED CANNOT ANSWER THIS QUESTION AT ANY RUNG.
+    # The jitter is drawn per seat from `fighter_cognition_seed`; if both seats
+    # were handed the SAME seed, a live jitter is applied SYMMETRICALLY and
+    # lockstep survives every rung. Such a run would read as "still bit-identical
+    # at rung 3" and be scored as killing the candidate, when what it actually
+    # measured is that the seeds are equal. A run whose seats' seeds are equal --
+    # or a run whose seeds we could not read -- is UNMEASURABLE for this row.
+    seeds = row.get("seeds", [])
+    if len(seeds) != 2:
+        return "UNMEASURABLE"
+    if seeds[0] == seeds[1]:
+        return "UNMEASURABLE"
     same = (
         row["starts"][0] == row["starts"][1]
         and row.get("dealt", [0, 1])[0] == row.get("dealt", [0, 1])[1]
@@ -164,7 +187,7 @@ def fold() -> int:
         return 1
     rows = parse()
     print(f"{'fighter':<22}{'rung':>5}{'starts':>12}{'dealt':>16}"
-          f"{'first seen':>14}{'window':>8}  verdict")
+          f"{'first seen':>14}{'window':>8}{'seeds':>8}  verdict")
     by_fighter: dict[str, list[str]] = collections.defaultdict(list)
     for (fighter, rung), row in rows.items():
         v = verdict(row)
@@ -172,8 +195,11 @@ def fold() -> int:
         starts = "/".join(str(s) for s in row.get("starts", [])) or "-"
         dealt = "/".join(f"{d:g}" for d in row.get("dealt", [])) or "-"
         first = "/".join(row.get("first", ())) or "-"
+        seeds = row.get("seeds", [])
+        seed_col = ("differ" if len(seeds) == 2 and seeds[0] != seeds[1]
+                    else "SAME" if len(seeds) == 2 else "-")
         print(f"{fighter:<22}{rung:>5}{starts:>12}{dealt:>16}"
-              f"{first:>14}{row.get('window', '-'):>8}  {v}")
+              f"{first:>14}{row.get('window', '-'):>8}{seed_col:>8}  {v}")
 
     print()
     for fighter, note in SUBJECTS.items():

@@ -1,6 +1,8 @@
 # A5: who writes destructible state
 
-**Delivered 2026-09-10.** A5's hold reads *"HOLD until A2's contact contract is
+**Delivered 2026-09-10; the writer table RE-DERIVED the same day at `352a08806`**
+after an outside review found a production transition missing from a table headed
+*"complete"*. A5's hold reads *"HOLD until A2's contact contract is
 established AND writer inventory is complete."* A2 is closed. This is the second
 half. It is the same shape as the [accepted-control writer
 map](accepted-control-writer-map.md), which lifted half of A4's hold.
@@ -27,47 +29,96 @@ below is an ORCHESTRATOR of that one method, not a second interpretation of it.
 
 ## Writers of destructible state — the complete production set
 
+⭐ **RE-DERIVED 2026-09-10, KEYED ON THE MUTATION RATHER THAN THE QUERY.** The
+first version of this table cited two systems by their `&mut BreakableFeature`
+QUERY line. A query is where a system asks for write access; it is not where the
+write happens, and a system can hold one query and mutate in several places. Both
+citations turned out to hide a transition.
+
 | site | writes | authority |
 |---|---|---|
 | `monolith features/ecs/spawn_static.rs:613` | constructs `BreakableFeature` | authored placement spawn |
-| ⛔ `ambition_combat/src/breakables.rs:128` | constructs `BreakableFeature` | ⛔ **THIS ROW IS WRONG AND NEEDS A DECISION — see below** |
-| `ambition_combat/src/breakables.rs:41` | `state = Intact` | respawn transition |
-| `monolith features/ecs/damage/mod.rs:397` | `&mut BreakableFeature` | damage transition |
+| `ambition_combat/src/breakables.rs:41-42` | `state = Intact`, `health.reset()` | respawn transition |
+| ⭐ `ambition_combat/src/breakables.rs:75` | `apply_damage(health.current.max(1))` | **stand-collapse transition** |
+| `monolith features/ecs/damage/mod.rs:599` | `apply_damage(event.damage.max(1))` | damage transition, pogo-refresh path |
+| `monolith features/ecs/damage/mod.rs:966` | `apply_damage(event.damage.max(1))` | damage transition, hit-volume path |
 | `ambition_interaction/src/lib.rs:258,260` | `state = Broken` / `Cracking` | the domain state machine |
 
-**Five writers, three crates.** `monolith damage/mod.rs` also calls
-`begin_ecs_breakable_respawn` at `:592` and `:989`; that function is
-`ambition_combat`'s, so the respawn authority is one place called from two.
+**Six mutation sites, three crates.** `begin_ecs_breakable_respawn` is
+`ambition_combat`'s and is called from **three** places — `damage/mod.rs:602`,
+`damage/mod.rs:989` and `breakables.rs:77` — so the respawn authority is one
+place called from three, the third being the collapse this table used to miss.
 
+### How the count moved, because the ladder is the point
 
-⛔⛤ **THE ROW ABOVE CITES A TEST, IN A TABLE HEADED "the complete production set".**
-Found by `check_planning_citations.py --roles` (`7a392427e`) and verified 2026-09-10:
+⛔⛔ **"FIVE" WOULD HAVE SURVIVED THE REPAIR WITH A DIFFERENT MEMBERSHIP.** The
+outside reviewer named this as a forward risk before it happened, and it is the
+count-versus-membership failure that appeared four times elsewhere on 2026-09-10:
 
-- `breakables.rs:128` is `BreakableFeature::new(b)` inside `fn stand_breakable`, a
-  helper under `#[cfg(test)]` at line 89. ⚠ Its sibling row `breakables.rs:41` IS
-  production — one test helper in a table asserting completeness.
-- ⭐⭐ **BOTH THINGS THIS ROW MIGHT HAVE MEANT ARE ALREADY ROWS IN THIS TABLE.**
-  Initial construction is row 1, `spawn_static.rs:613`, *"authored placement spawn"*.
-  The respawn transition is row 3, `breakables.rs:41`, `state = Intact` — verified
-  production, no `#[cfg(test)]` above it.
-- **And "re-insert" is the wrong verb regardless:** respawn is a MUTATION.
-  `breakables.rs:23` takes `&mut BreakableFeature` in the per-frame tick; nothing
-  re-inserts the component.
+```
+5   the original total, computed over a row set containing a test helper
+4   delete the test row
+5   add the stand-collapse transition        <- back to the original NUMBER
+6   re-key the damage row from its query to its two real mutation sites
+```
 
-⇒ ⛔ **THE ROW IS REDUNDANT AS WELL AS MIS-CITED, AND THE LIKELY FIX IS TO DELETE
-IT.** ⚠ **That changes the count in the sentence below the table** — *"Five writers,
-three crates"* is derived from a row set containing this one. **A total computed
-over a defective row is defective by exactly that row**, and deleting the row
-without re-deriving the count replaces one wrong number with another.
+⇒ **Anyone who deleted and added and stopped would have printed the original
+number over a membership that differs in two rows.** The total is re-derived from
+the greps below, not adjusted from the old one.
 
-⇒ **Left for whoever owns A5's destructible model**, because deleting a row from a
-table headed *"the complete production set"* is a claim about completeness, not a
-citation repair.
+### The test row is resolved: DELETED
 
-⭐ **I first classified this as a citation fix and was wrong.** I checked that the
-pointer was bad and did not check the note beside it — having drawn the
-citation/claim distinction myself one message earlier. **Reading the citation and
+`breakables.rs:128` was `BreakableFeature::new(b)` inside `fn stand_breakable`, a
+helper under `#[cfg(test)]` at `:89`, in a table headed *"the complete production
+set"*. Found by `check_planning_citations.py --roles` (`7a392427e`).
+
+It is deleted rather than re-pointed, because **both things it might have meant
+are already rows**: initial construction is `spawn_static.rs:613`, and the respawn
+transition is `breakables.rs:41`. "Re-insert" was the wrong verb regardless —
+respawn is a MUTATION through the per-frame tick's `&mut BreakableFeature`, and
+nothing re-inserts the component.
+
+⚠ **Deleting a row from a table claiming completeness is a claim about
+completeness, which is why it waited for the stand-collapse row.** With that row
+present the table can be re-derived instead of patched, and the deletion is part
+of a derivation rather than a subtraction.
+
+⭐ **The first pass classified this as a citation fix and that was wrong.** The
+pointer was bad AND the note beside it was wrong. **Reading the citation and
 reading the note beside it are different acts.**
+
+## What `update_ecs_breakables` actually owns
+
+⛔ **IT IS NOT DAMAGE PLUMBING, AND THE CRATE NAME SAYS OTHERWISE.** One system in
+`ambition_combat` (`breakables.rs:10`) holds both transitions above and everything
+around them:
+
+| responsibility | site |
+|---|---|
+| respawn countdown, and the respawn transition | `:38-52` |
+| **collapse policy**: `blocks_movement() && allows_stand()` | `:57-58` |
+| stand accumulation and decay against a threshold | `:72`, `:84` |
+| the collapse transition | `:73-75` |
+| banner text, on both transitions | `:44`, `:79` |
+| VFX burst on respawn; SFX/VFX/debris on collapse | `:45`, `:80` |
+
+⇒ **The runtime schedules it in `FeatureInteractionSet::WorldObjects`** — added at
+`monolith features/mod.rs:1381`, pinned by
+`features/feature_interaction_order_tests.rs:62`, re-exported at
+`features/ecs/mod.rs:116`.
+
+⚠ **AND THE COLLAPSE RULE IS SPLIT ACROSS TWO CRATES.** The predicates are the
+domain's: `BreakableTrigger::allows_stand` (`ambition_interaction/src/lib.rs:185`)
+and `BreakableCollision::blocks_movement` (`:209`). The threshold and the geometry
+are not: `BREAK_ON_STAND_SECONDS = 0.85` (`ambition_combat/src/lib.rs:118`) and
+`player_is_standing_on` (`ambition_combat/src/util.rs:5`). ⇒ The domain type says
+*whether* a breakable may collapse under weight; `ambition_combat` says *how long*
+and *what counts as standing*.
+
+⛔ **THIS IS NOT A RECOMMENDATION TO MOVE ANYTHING, AND EXPLICITLY NOT ON THE
+STRENGTH OF A CRATE NAME.** It is here so A5 can decide ownership from state and
+behaviour. `RespawnTimer` and `StandTimer` are this system's own orchestration
+components, not destructible state, and are counted nowhere above.
 
 ## Readers — measured, and NOT writers
 
@@ -88,9 +139,20 @@ spec-to-domain converters and exactly one construction.
 
 The packet's destination is *"one logical destructible-object owner"*. ⇒ The
 inventory does not find scattered authority to consolidate. It finds **a domain
-state machine with one method, and four ECS sites that call or construct around
+state machine with one method, and five ECS sites that call or construct around
 it, split across three crates.** The split is by crate, not by duplicated
 interpretation.
+
+⭐ **THE CORRECTED INVENTORY DOES NOT OVERTURN THAT, AND SAYING SO IS A FINDING.**
+Two rows changed and one was added; every ECS site still calls `apply_damage` or
+constructs the component. **Nothing interprets damage twice**, so the conclusion
+above survives its own repair.
+
+⚠ **What the correction DOES change is one clause.** *"Not duplicated
+interpretation"* is true of damage and not of the collapse trigger: the domain
+owns the predicates, `ambition_combat` owns the threshold and the standing test.
+⇒ A destructible owner would inherit **one damage interpretation and a collapse
+rule that is currently two-thirds in the domain and one-third beside it.**
 
 ⛔ That is a statement about writers and nothing else. It does not say the split is
 wrong, and it cannot: *"moving all destructible state first would preserve an
@@ -103,6 +165,13 @@ interpretation is correct is what Q96 decides.
 grep -rn "&mut .*BreakableFeature" --include=*.rs crates/ game/
 grep -rn "BreakableFeature::new" --include=*.rs crates/ game/
 grep -rn "\.state = BreakableState::" --include=*.rs crates/
+grep -rn "apply_damage" --include=*.rs crates/ game/ | grep -v "fn apply_damage"
 ```
-Read every hit before classifying one. Two of the three greps above produce a
+Read every hit before classifying one. Two of the first three greps produce a
 false positive that a count alone would keep.
+
+⛔⛔ **THE FOURTH GREP IS NEW AND IT IS THE ONE THAT FINDS THE TRANSITIONS.** The
+first three find the FILE and stop: `breakables.rs` appears through its query at
+`:23`, `damage/mod.rs` through its query at `:397`, and neither hit is a write.
+**A recipe that finds the right file is not a recipe that finds the right line** —
+that is how a system with two transitions got recorded with one, twice.

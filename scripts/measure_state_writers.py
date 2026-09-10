@@ -383,6 +383,27 @@ def main() -> int:
                 print(f"        {where}:{line_no}  [{mech}] {t}  {text}")
         print()
 
+    # ⛔⛔ **ANTI-VACUITY, AND THIS INSTRUMENT HAS ALREADY GONE BLIND ONCE.** On
+    # 2026-09-10 its `construct` pattern recognised a hand-kept list of blessed
+    # constructor names; sealing `GroundItem` behind `#[non_exhaustive]` plus two
+    # constructors dropped OCCURRENCE from 25 sites to 18 **with no code
+    # removed**, and the report printed the smaller number without complaint. A
+    # census that goes blind reports a SMALLER, TIDIER population — which is the
+    # reassuring direction and the one nobody double-checks.
+    #
+    # ⚠ THE FLOOR IS PER-DOMAIN, not a total, because a total hides a family
+    # collapsing to zero behind the others. Set well below the measurement so an
+    # ordinary carve does not trip it; it guards the SCAN, not the architecture.
+    for family in sorted(families):
+        family_rows = [r for r in rows if r[0] == family]
+        assert len(family_rows) >= 3, (
+            f"the `{family}` family has {len(family_rows)} write-capable sites. "
+            "Measured 2026-09-10: occurrence 26, custody 10, inventory 16, "
+            "checkpoint 9, driver_relation 8, input_projection 24, "
+            "body_execution 38, custody_reconciliation 4. A family this small is "
+            "a SCAN that stopped matching, not a domain that emptied — check the "
+            "type names in DOMAINS against the tree before believing the number."
+        )
     print(f"   TOTAL write-capable sites across the {len(families)} families:", len(rows))
     print()
     print("⛔ WHAT THIS METHOD CANNOT SEE — the number travels with these or not at all.")

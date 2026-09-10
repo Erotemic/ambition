@@ -164,7 +164,12 @@ def parse() -> dict[tuple[str, int], dict]:
         # to measure, and the confound would walk through the check built to
         # exclude it. A row with no `seed=` is UNMEASURABLE; there is no
         # fallback, because the fallback is the defect.
-        if m := re.match(r"^\[brain\] seat (\d): .*?\bseed=(0x[0-9a-fA-F]+)", line):
+        # ⚠ Capture whatever `seed=` holds, INCLUDING the harness's
+        # `<no fighter brain at birth>` sentinel. Matching only hex would drop
+        # that seat silently and the row would read as an unparseable log --
+        # "these two seats have distinct streams" and "one of these seats has
+        # no stream" are different facts and must not share a verdict.
+        if m := re.match(r"^\[brain\] seat (\d): .*?\bseed=(\S+|<[^>]*>)", line):
             row.setdefault("seeds", []).append(m.group(2))
         if "panicked at" in line:
             row["panics"].append(line)
@@ -191,6 +196,10 @@ def verdict(row: dict) -> str:
     seeds = row.get("seeds", [])
     if len(seeds) != 2:
         return "UNMEASURABLE"
+    if any(not sd.startswith("0x") for sd in seeds):
+        # A seat born on something other than a fighter brain has no stream at
+        # all, so "the seeds differ" is not a question about it.
+        return "NO_FIGHTER_BRAIN"
     if seeds[0] == seeds[1]:
         return "UNMEASURABLE"
     same = (
@@ -216,8 +225,12 @@ def fold() -> int:
         dealt = "/".join(f"{d:g}" for d in row.get("dealt", [])) or "-"
         first = "/".join(row.get("first", ())) or "-"
         seeds = row.get("seeds", [])
-        seed_col = ("differ" if len(seeds) == 2 and seeds[0] != seeds[1]
-                    else "SAME" if len(seeds) == 2 else "-")
+        if len(seeds) != 2:
+            seed_col = "-"
+        elif any(not sd.startswith("0x") for sd in seeds):
+            seed_col = "NOBRAIN"
+        else:
+            seed_col = "differ" if seeds[0] != seeds[1] else "SAME"
         print(f"{fighter:<22}{rung:>5}{starts:>12}{dealt:>16}"
               f"{first:>14}{row.get('window', '-'):>8}{seed_col:>8}  {v}")
 
@@ -235,8 +248,10 @@ def fold() -> int:
     # ⛔ UNMEASURABLE is not disagreement. A rung-3 row that never seated says
     # nothing about the candidate, and reading it as a SPLIT would report a
     # finding about the harness as a finding about the fighters.
-    if any(v is None or v == "UNMEASURABLE" for v in at_three.values()):
-        missing = [f for f, v in at_three.items() if v is None or v == "UNMEASURABLE"]
+    if any(v is None or v in {"UNMEASURABLE", "NO_FIGHTER_BRAIN"}
+           for v in at_three.values()):
+        missing = [f for f, v in at_three.items()
+                   if v is None or v in {"UNMEASURABLE", "NO_FIGHTER_BRAIN"}]
         print(f"⚠ INCOMPLETE: no usable rung-3 row for {', '.join(missing)};")
         print("   the rounding candidate is neither killed nor supported.")
         return 1

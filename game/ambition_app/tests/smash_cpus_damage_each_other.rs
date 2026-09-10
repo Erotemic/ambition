@@ -33,7 +33,28 @@ fn fighter() -> String {
 }
 
 /// The top authored rung. If any rung fights, this one does.
-const RUNG: u8 = 9;
+const RUNG_DEFAULT: u8 = 9;
+
+/// The rung this run fights at, overridable by `AMBITION_DUEL_RUNG`.
+///
+/// ⛔ The default is the one that matters and the override exists to leave it:
+/// rung 9 is the ONLY rung where `execution_noise * interval()` rounds to zero
+/// (`0.4999999701976776` in f32), so the per-seat cognition seed is drawn and
+/// discarded and a symmetric mirror bout is deterministically bit-identical.
+/// Sweeping the lower rungs is how that claim is checked against the composed
+/// app rather than against the arithmetic.
+///
+/// ⚠ An unparseable value is a PANIC, not a fallback to 9: silently fighting
+/// at the default while a caller believes it asked for rung 3 is a whole sweep
+/// of rows that all agree for the wrong reason.
+fn rung() -> u8 {
+    match std::env::var("AMBITION_DUEL_RUNG") {
+        Err(_) => RUNG_DEFAULT,
+        Ok(raw) => raw.trim().parse::<u8>().ok().filter(|r| (1..=9).contains(r)).unwrap_or_else(
+            || panic!("AMBITION_DUEL_RUNG={raw:?} is not an authored rung (1-9)"),
+        ),
+    }
+}
 
 /// One minute at 60Hz — the same budget `ladder_rig` uses, so the two are
 /// readable against each other.
@@ -87,7 +108,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
 
     let roster = ambition_demo_smash::smash_roster_at_levels(
         [fighter.as_str(), fighter.as_str()],
-        &[RUNG, RUNG],
+        &[rung(), rung()],
     );
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
@@ -462,8 +483,9 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // a countdown or a grab lock each change that without changing the tuning. A
     // guard that only speaks when it fails cannot say which of the two moved.
     let per_minute = |seat: usize| taken[seat] / both_seated_ticks as f32 * TICKS as f32;
+    let rung = rung();
     println!(
-        "[duel] {fighter} rung {RUNG}: duel ran {both_seated_ticks} ticks (decided \
+        "[duel] {fighter} rung {rung}: duel ran {both_seated_ticks} ticks (decided \
          {decided_on:?}), took {:.2} / {:.2} of pool = {:.2} / {:.2} per minute of \
          duel, hitstun {hitstun_ticks:?} ticks, {knockouts} knockouts",
         taken[0],
@@ -519,7 +541,24 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             })
             .collect();
         rows.sort_by_key(|r| r.0);
-        for (seat, seed, authored) in rows {
+        // ⛔⛔ ITERATE THE SEATS, NOT THE QUERY. The query above reads the world
+        // at the END of the bout, and a seat that was knocked out is not in it
+        // — measured at rung 3, where medic scores 5 knockouts and seat 0
+        // printed NO `[brain]` line at all. The birth facts (`first_brain`,
+        // `first_noise`) exist for both seats regardless, and they are the ones
+        // the seed question is asked of, so a missing END row must degrade the
+        // `now=` field alone rather than delete the row.
+        //
+        // ⚠ This mattered because a consumer that requires two `seed=` values
+        // reads a one-line block as an unparseable log, not as a dead seat, and
+        // reports UNMEASURABLE for every rung where anybody dies.
+        for seat in 0..2usize {
+            let (seed, authored) = rows
+                .iter()
+                .find(|r| r.0 == seat)
+                .map_or(("<not alive at the end>".to_string(), 0), |r| {
+                    (r.1.clone(), r.2)
+                });
             let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
             let seed_at_birth = first_noise[seat]
                 .map_or_else(|| "<no fighter brain at birth>".to_string(), |n| format!("{n:#018x}"));
@@ -683,7 +722,7 @@ fn mirror_bout(
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
-    let roster = ambition_demo_smash::smash_roster_at_levels([fighter, fighter], &[RUNG, RUNG]);
+    let roster = ambition_demo_smash::smash_roster_at_levels([fighter, fighter], &[rung(), rung()]);
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -1032,7 +1071,7 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
     app.update();
     let roster = ambition_demo_smash::smash_roster_at_levels(
         ["goblin", "perfect_cellular_automaton"],
-        &[RUNG, RUNG],
+        &[rung(), rung()],
     );
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
@@ -1203,7 +1242,7 @@ fn probe_where_the_goblin_pca_hit_events_come_from() {
     app.update();
     let roster = ambition_demo_smash::smash_roster_at_levels(
         ["goblin", "perfect_cellular_automaton"],
-        &[RUNG, RUNG],
+        &[rung(), rung()],
     );
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);

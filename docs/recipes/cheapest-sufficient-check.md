@@ -1,6 +1,22 @@
 # The cheapest command that settles a change
 
-This is the durable residue of the completed test-iteration campaign; the full campaign record is archived at `docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`.
+This is the durable residue of the completed test-iteration campaign.
+
+⛔⛔ **THE FULL CAMPAIGN RECORD IS NOT IN THIS REPOSITORY.** This line named
+`docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`. <!-- cite-ok: the record this page is the residue of; not reachable from HEAD -->
+`docs/archive/` does not exist at HEAD, and the commit that holds it is NOT an
+ancestor of HEAD: git epoch 1 (`b924f419c`, 2026-09-06) did not carry it.
+
+⚠ **AND IT IS READABLE ON SOME MACHINES, WHICH IS WORSE THAN GONE.** MEASURED
+2026-09-10: `git show c85687a6f:<that path>` prints the file on this checkout,
+because a local `refs/stash` is the only ref that still contains that commit. A
+stash is not pushed. ⇒ A fresh clone cannot read it, so a citation of it is
+dead for every reader who did not happen to make that stash.
+
+⇒ **28 citations across 18 files name a `docs/archive/` path.** `docs/adr/0031`
+annotates six of them as *"removed from the checkout 2026-09-05; still in git
+history"*. The first half is right. **The second half stopped being true when
+the epoch landed a day later**, and nothing re-read it.
 Jon, 2026-08-02: *"run_tests looks so alluring to an agent, it prevents it from
 running the focused test that actually matters, and instead it just runs all the
 junk."* A faster front door does not fix that. Knowing which narrow command is
@@ -410,7 +426,7 @@ grep -E 'checked|unresolved|all resolved' /tmp/cit.log    # the VERDICT, not the
 ⇒ **Decide BEFORE running a tool which line proves the outcome, and grep for that
 line.** An exit code proves nothing when the tool is deliberately non-gating; a
 tail proves nothing when the footer is constant in both outcomes.
-ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked
+ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked <!-- cite-ok: the ambiguous form is the lesson -->
 files, which the checker reports as unresolved rather than guessing.
 
 ⓘ **AND THE MIRROR SWEEP — a citation that NAMES something can be checked, so I
@@ -421,7 +437,7 @@ hits), field names (`attack_from_aim_stick`), module paths — all match a
 "long snake_case in backticks" heuristic. ⇒ automated narrowing 2,163 → 210,
 judgement 210 → **one** real finding.
 
-⭐ The one: `spawn_actors.rs:861` justifies a LIVE setting with a deleted
+⭐ The one: `spawn_actors.rs:861` justifies a LIVE setting with a deleted <!-- cite-ok: the dead citation is the finding being recorded -->
 function — *"STRIKE offense is the frame-driven Boss hitboxes
 (`sync_boss_strike_hitboxes`), so `is_hostile` stays off"* — where that function
 exists nowhere. Six OTHER citations of the same name are CORRECT, because they
@@ -483,8 +499,8 @@ being built, and it should not be built.** Across `docs/planning/**`:
 distinct line citations   383      (2026-09-05; every count here is a timestamp)
 resolved and in range     355
 PAST END OF FILE            0   <- the only thing this check can decide
-path not resolvable         3   <- all deliberate examples: `file.rs:123`,
-                                   `path.rs:123`, `semantic_NOPE.rs:9999`
+path not resolvable         3   <- all deliberate examples: `file.rs:123`, <!-- cite-ok -->
+                                   `path.rs:123`, `semantic_NOPE.rs:9999` <!-- cite-ok -->
 ambiguous basename         25   <- abbreviated paths matching several files
 ```
 

@@ -78,6 +78,13 @@ Prefer invariants and properties over tuned values:
 Replay hashes and snapshot bytes are canaries. Re-baseline them when an intended
 pre-release semantic change preserves the real invariants.
 
+⛔ **And ask of every green test whether it COULD have failed.**
+[`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md) is the
+doctrine: a check that never executed, a check that executed and could not fail,
+a guard whose source-text anchor a formatter or a language rule can silently
+change, and a guard that is perfectly sound about a subject nothing reads. The
+four print the same green and want four different fixes.
+
 ## Current integration layout
 
 App-level integration tests are aggregated under the `ambition_app` integration

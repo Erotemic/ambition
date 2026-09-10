@@ -1244,6 +1244,44 @@ fn flag_value(name: &str) -> Option<String> {
 /// stand-in run produced a 329% : 225% damage gap and still came back `(within
 /// spread)`, because unpaired seed variance is what `--paired` exists to remove.
 /// The question could be ASKED and could not be ANSWERED.
+/// Refuse a `--character`/`--opponent` this app cannot seat, naming what it can.
+///
+/// ⛔ AN ABSENT OR EMPTY REGISTRY IS A REFUSAL, NOT A PASS. Skipping the check
+/// when the vocabulary is missing would accept every id including the typos, and
+/// "no registry" is itself worth saying out loud — it means the warm-up updates
+/// did not prepare the cast this bout is about to seat.
+fn assert_seatable(app: &bevy::prelude::App, ids: [String; 2]) {
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let Some(registry) = registry else {
+        panic!(
+            "[ladder_rig] no `PreparedCharacterRegistry` after the warm-up updates, so \
+             `{}` and `{}` cannot be checked against anything. The cast this bout is \
+             about to seat was never prepared; a run from here would measure whatever \
+             the seating fell back to.",
+            ids[0], ids[1]
+        );
+    };
+    let mut known: Vec<&str> = registry.ids().collect();
+    known.sort_unstable();
+    assert!(
+        !known.is_empty(),
+        "[ladder_rig] the prepared character registry is EMPTY, so every id would be \
+         refused and none accepted. That is a broken composition, not a bad flag."
+    );
+    for id in &ids {
+        assert!(
+            known.contains(&id.as_str()),
+            "[ladder_rig] `{id}` is not a character this app can seat. \
+             `ambition_demo_smash_app` composes the demo's own cast and has no \
+             `ambition_content` edge, so Ambition's authored fighters are NOT \
+             available here — for those, use the app acceptance harness instead. \
+             Seatable here: {known:?}"
+        );
+    }
+}
+
 fn fighters_seated(swapped: bool) -> [String; 2] {
     let [a, b] = fighters();
     if swapped {
@@ -2074,6 +2112,23 @@ fn run_bout_at(
     for _ in 0..30 {
         app.update();
     }
+    // ⛔⛔ **THE IDS ARE CHECKED HERE, AGAINST THE APP THAT WILL SEAT THEM.**
+    // `--character`/`--opponent` were taken verbatim: `--character __nope__`
+    // printed *"`__nope__` (higher rung)"* in the header as though it were a
+    // fighter, ran, and died a thousand lines later inside the noise-seed
+    // anti-vacuity guard — *"no fighter brain ever took the noise seed"* — a
+    // sighted guard firing for the right reason and naming the wrong party. A
+    // reader debugging that goes looking at seeds.
+    //
+    // ⚠ AND IT IS NOT AN EDGE CASE IN THIS APP. `ambition_demo_smash_app` has no
+    // `ambition_content` edge, so Ambition's authored cast is NOT seatable here
+    // — the first person to pass a shipped fighter's name gets that message.
+    //
+    // ⭐ VALIDATED AGAINST THE APP'S OWN REGISTRY rather than a list kept in this
+    // tool: `PreparedCharacterRegistry` is what the composition actually
+    // prepared, so it cannot drift from what can be seated, and a fighter added
+    // to the demo needs no edit here.
+    assert_seatable(&app, fighters_seated(swap_fighters));
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster_at_levels(
             fighters_seated(swap_fighters),

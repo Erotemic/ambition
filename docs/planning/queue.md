@@ -613,13 +613,45 @@ at the same instant. `arbitrate_attack_clanks` then does exactly what it is for 
 both whenever the damage `difference` is inside the window. **Two identical moves
 have a difference of ZERO.** So every exchange clanks, forever.
 
-⇒ **The tell is seat symmetry, and it is in the table already:**
+⇒ **The tell is seat symmetry, measured across all 20** — exact equality on
+damage/min, starts, damage dealt AND hitstun:
 
-| fighter | starts | damage | verdict |
-|---|---|---|---|
-| `special_patent_clerk` | **51 / 51** | 0.09 / 0.09, hitstun [11, 11] | fails |
-| `medic` | **49 / 49** | 0.41 / 0.41 | fails |
-| every one of the 15 that clear | 70/54, 83/72, 54/27, 69/93, 41/33, 55/51 … | — | **not one is exactly equal** |
+| fighter | dmg/min | starts | dealt | hitstun | |
+|---|---|---|---|---|---|
+| `npc_carl_stargan` | 0.00 / 0.00 | 3 / 3 | 0 / 0 | 0 / 0 | **LOCKSTEP** |
+| `special_patent_clerk` | 0.09 / 0.09 | 51 / 51 | 9 / 9 | 11 / 11 | **LOCKSTEP** |
+| `medic` | 0.41 / 0.41 | 49 / 49 | 41 / 41 | 118 / 118 | **LOCKSTEP** |
+| `performer` | 0.49 / 0.49 | 18 / 17 | 9 / 9 | 86 / 86 | broke once, same outcome |
+| `npc_emmy_noether` | 0.28 / 0.44 | 13 / 12 | 18 / 15 | 38 / 59 | genuinely asymmetric |
+| the 15 that clear | — | 64/62, 182/184, 41/33, 70/54 … | — | — | **not one equal** |
+
+**Lockstep among gate failures: 3. Among the fifteen passers: 0.**
+
+⛔ **AND LOCKSTEP IS NOT "NO DAMAGE" — that framing is too strong and `medic`
+refutes it.** His mirrored seats dealt 41 EACH and took 118 hitstun each: they
+landed, symmetrically. ⇒ What lockstep proves is only that **the two seats never
+diverged, so the bout carries one seat's worth of information reported twice.**
+Whether it CAUSES the low damage is a further claim this instrument cannot
+separate — which is precisely why it cannot measure these fighters.
+
+⚠ For `special_patent_clerk` the stronger reading does hold, because two
+independent lines agree: 9 damage and 11 hitstun across 51 presses is a fight
+that barely connects, and his kit is authored to connect easily (below).
+
+⇒ **SO THE ROW'S ANSWER, THIRD REVISION AND MUCH SMALLER THAN EITHER BEFORE IT:
+of 21 grid ids, exactly ONE fighter genuinely fails the gate in a duel that
+actually happened** — `npc_emmy_noether`, diverged on every field and still short
+at 11% time-in-range against a roster median near 40%. Three are degenerate
+mirror bouts, one is at threshold AND diverged by a single press, one is a bare
+registration (Q98), one is unrunnable.
+
+⚠ **The instrument flags LOCKSTEP at the point of measurement now**
+(`scripts/measure_duel_roster.py`), with an arm pinning that the flag does NOT
+fire on Emmy — a flag that fired on everything would explain away the only real
+finding.
+
+⛔ **BLOCKED ON: a noise seed or asymmetric seating in the duel harness.** Until
+then it cannot measure a fighter whose mirror stays in lockstep.
 
 ⭐ Corroborated from the static side, which is what sent me looking: **the clerk's
 kit is authored STRONGER than the goblin's on every axis** — total authored damage
@@ -627,7 +659,9 @@ kit is authored STRONGER than the goblin's on every axis** — total authored da
 structurally identical (26 vs 27 moves, both exactly 6 with no Active window, both
 exactly 2 Active-but-empty, which are their grabs and correct). His `tilt_forward`
 reaches 58px against 42 and hits for 7 against 4. **A kit that good deals 0.09
-only if the fight is not happening.** His one damaging move all match is a single
+only if the fight is barely happening** — a prediction from OUTSIDE the harness
+agreeing with a symmetry seen inside it, which is what makes the artifact reading
+convincing rather than merely available. His one damaging move all match is a single
 `patent_clerk_dash_attack` — the one moment the mirror broke.
 
 ⇒ **So this is a defect in the INSTRUMENT, and the fix is the one `ladder_rig`

@@ -1424,9 +1424,48 @@ and is describing its own method rather than the tree. A runtime census over the
 
 **Deliverable is the census, not a refactor.**
 
-**Acceptance:** the population of damageable bodies without a stable identity is
-measured at runtime and named; if it is empty, the invariant is asserted where
-bodies are built so it stays empty.
+✔ **THE CENSUS LANDED 2026-09-10** —
+`every_damageable_body_is_identified` in `app_it`, a runtime query over
+`CenteredAabb + ActorFaction`: **the strike road's own required pair and nothing
+narrower**, because a filter of my choosing would census my opinion about who can
+be hit. First reading:
+
+```
+[identity] 4 damageable bodies, 0 without a `SimId`;
+           identified: ["placement:NpcSpawn-0017", "placement:census_boss",
+                        "placement:census_enemy", "slot:0"]
+```
+
+⛔⛔ **AND THE ANTI-VACUITY FLOOR FIRED ON THE FIRST RUN, WHICH IS WHY THE
+FIXTURE SPAWNS ANYTHING AT ALL.** The sandbox world alone, 120 frames in, holds
+**TWO** damageable bodies — so a census of it would have printed *"0 without a
+SimId"* over a population of two and read as a clean bill of health for the whole
+tree. **The floor refused the READING rather than the tree**, and the answer was
+to exercise more construction roads rather than to lower it.
+
+⚠ **THE FLOOR IS PER-ROAD, NOT A TOTAL, and that is not decoration**: if
+`spawn_boss_at` silently stopped producing a damageable body, a total would still
+clear on the sandbox cast plus the enemy and the census would report health for a
+road it no longer travels. Each named road must appear in the identities.
+
+✔ Poison-verified by stripping one body's `SimId` — the arm fires and NAMES it
+(*"1 of 4 … [\"488v0 (Feature actor npc: Kernel Guide NPC)\"]"*), 0 compile
+errors.
+
+⛔ **WHAT THIS DOES NOT SAY, and it must not be read as more: THREE ROADS ARE
+COVERED, NOT SEVEN.** The authored `NpcSpawn` placement, the enemy road, the boss
+road and the player slot. `construction/mod.rs` also mints identity for **giants,
+hands, shrines, riders and summons** — none of those is driven here, so none is
+measured. **A road nobody drives is not covered**, and adding one is how this
+census grows. The test says so in place.
+
+**Acceptance:** the census half is MET — the population is measured at runtime and
+named, and it is empty for the roads driven. ⛔ **The second half is NOT: the
+invariant is still asserted at READ time, not where bodies are BUILT.** The row's
+own argument is that a missing target identity is a construction failure and the
+resolver can only report it, so a census in a test is a REPORTER too — a better
+one than the resolver's coincident-pair `debug_assert`, and still not the
+construction-site assertion the protocol asks for.
 
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
@@ -1455,8 +1494,26 @@ producer/consumer tests use it.
   constructor, and the remaining literals are test spellings, which are
   deliberate — an independent spelling in a test is what catches a rename.
 
-⇒ Nothing is left in this row for the engine lane. It stays open for the Smash
-one, and for the next producer/consumer pair a re-measurement finds.
+✔ **RE-MEASURED 2026-09-10 AND THE SMASH ITEM IS DONE TOO: the census is
+CLEAN.** `scripts/measure_id_prefixes_spelled_twice.py` at HEAD — **39 prefixes
+appear as a literal, exactly ONE in both a producer and a consumer, and it is
+`npc_`**, the false positive this row already names and must not "fix".
+
+`respawn_platform_` is single-owned: `RESPAWN_PLATFORM_PREFIX` is the one
+spelling, `respawn_platform_id` builds from it and `is_respawn_platform_id`
+parses with it. ⭐ **And the comment that landed with it did the thing this file
+keeps asking for — it MEASURED its own claim and corrected it.** A first draft
+said *"no test would have said so"*; restoring the two-literal form with the
+builder renamed and the reader's copy left behind **fails one of the five
+respawn arms and passes four.** ⇒ The suite is not blind there, but four fifths
+of it is, and the arm that catches it does so as a side effect of the platform
+set it reads rather than because anything asserts the two spellings agree.
+
+⇒ **Nothing is left in this row for either lane.** It stays open only as a
+STANDING RE-MEASUREMENT: the next producer/consumer pair a sweep finds. ⚠ Read
+the two counts separately when it is re-run — the literal count is expected to
+grow with the tree and says nothing; **the both-sides count is the row**, and a
+rise in it names its own subject.
 
 ### D-LANE-UNRUNNABLE / D-APPIT-FLAKE — preserve executable test lanes
 

@@ -724,19 +724,49 @@ pub fn step_projectiles(
         // the opposite policy AND an epsilon comparator the same document
         // forbids by name for having nontransitive pairwise ties.
         //
-        // ⭐ THE COMPOUND CASE THAT JUSTIFIED THE OLD RULE CANNOT ARISE HERE.
-        // The stated reason was that nothing can tell a destructible's own
-        // surface from an unrelated one. True — and moot: the world a shot
-        // sweeps is `ProjectileCollisionWorld::solids()`, which is the authored
-        // room plus gate solids minus portal carves. `overlay.blocks` — every
-        // ECS breakable surface — is NOT in it, by that module's own contract
-        // ("a projectile ... passes through breakable/ECS overlay solids"). So
-        // every block this sweep can return is by construction an INDEPENDENT
-        // blocker, the compound row of the protocol's matrix is unreachable
-        // (which is exactly what Q96 records), and no contributor identity is
-        // needed to apply the protocol's rule exactly. If Q96 later admits
-        // destructible surfaces into this world, THAT is when compound contact
-        // and contributor identity become required.
+        // ⭐ THE COMPOUND CASE CANNOT ARISE HERE **TODAY**, AND Q96 HAS RULED
+        // THAT IT MUST. The world a shot sweeps is
+        // `ProjectileCollisionWorld::solids()` — the authored room plus gate
+        // solids minus portal carves — and `overlay.blocks`, every ECS breakable
+        // surface, is NOT in it, by that module's own contract ("a projectile
+        // ... passes through breakable/ECS overlay solids"). So every block this
+        // sweep can return is still by construction an INDEPENDENT blocker and
+        // the tie rule below is exactly right for what it can see.
+        //
+        // ⛔⛔ **THIS PARAGRAPH USED TO SAY THE ROW WAS UNREACHABLE "WHICH IS
+        // EXACTLY WHAT Q96 RECORDS". Q96 IS NOW RULED THE OTHER WAY**
+        // (2026-09-10, `docs/planning/maintainer-decisions.md`): a published
+        // surface PARTICIPATES in projectile collision, and a contributor
+        // supplying both a surface and a damageable volume at the same time of
+        // impact yields ONE contact that damages once AND applies the physical
+        // response. "Wall wins, therefore the crate is invulnerable" is
+        // rejected by name.
+        //
+        // ⇒ **This comment's own condition has been met, so what remains is
+        // engineering, in this order:**
+        //   1. contributor identity — DONE 2026-09-10. `world/overlay.rs`
+        //      publishes `GeoId::placement(PlacementId(FeatureId), ordinal)`
+        //      instead of `GeoId::anon()` plus a display-name string.
+        //   2. admit the surfaces into `solids()`.
+        //   3. coalesce: `wall_reaches_first` must stop calling a block an
+        //      INDEPENDENT blocker when `block.id.source` names the same
+        //      occurrence as the candidate hurt target, and that contact must
+        //      then damage once and apply the surface response.
+        // ⚠ Step 3 is why step 1 had to be real identity: the comparison is
+        // `Placement(PlacementId(target's FeatureId))`, not a name string —
+        // which is the identity the ruling forbids by name, and which would
+        // have worked well enough to look right.
+        //
+        // ⛔ AND STEP 2 NEEDS A PREDICATE, NOT A FIFTH `Solid | BlinkWall { .. }`
+        // ARM — but only at the FILTERS. Three sites in
+        // `shared_tangle::projectile::collision` ask one question ("is this an
+        // unconditional solid surface?") and should ask it through one predicate
+        // on `BlockKind`, named for the semantics rather than for today's
+        // members. ⚠ The fourth site, that module's response resolver, must stay
+        // an exhaustive match: its own comment says "a new kind that a shot may
+        // hit must decide its response HERE — a fall-through would silently make
+        // it a passthrough." ⇒ **Predicate at the filters; enumeration where the
+        // enumeration is a compile-time obligation on the next author.**
         //
         // ⇒ `is_le`, not `< - EPSILON`: a total deterministic comparison, with
         // the tie going where the protocol puts it.

@@ -477,3 +477,65 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
          spawns, save sync, sandbox reset)."
     );
 }
+
+
+#[test]
+fn a_contributed_block_carries_its_owning_occurrence_not_just_a_display_name() {
+    //! ⛔⛔ THE IDENTITY WAS ONE COMPONENT AWAY AND THE OVERLAY USED THE LABEL.
+    //!
+    //! Every block this system published carried `GeoId::anon()` — the source
+    //! `geo_id.rs` reserves for fixtures, *"the authoring pipeline NEVER emits
+    //! this"* — and the only thing telling two breakables apart was
+    //! `Block.name`, built from `FeatureName`, which documents itself as
+    //! *"human-facing authored name for debug overlays / inspectors"*.
+    //! `spawn_breakable_into` had inserted `FeatureId::new(authored.id)` on the
+    //! same entity all along.
+    //!
+    //! ⭐ Q96 (2026-09-10) rules that contributor identity must be REAL identity
+    //! — "not inferred from matching AABBs, and not from name strings such as
+    //! `"ecs-breakable foo"`" — and the projectile contact protocol asks a
+    //! contributed object collider to identify its OWNING OCCURRENCE. This is
+    //! that, and it lands BEFORE the compound-solid row so the row's first
+    //! consumer cannot reach for the name.
+    let aabb = ae::Aabb::new(ae::Vec2::new(120.0, 80.0), ae::Vec2::new(24.0, 24.0));
+    let mut breakable = ambition_interaction::Breakable::new("crate", 3);
+    breakable.collision = ambition_interaction::BreakableCollision::Solid;
+
+    let mut app = App::new();
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        FeatureId::new("placement-iid-7"),
+        FeatureName::new("Wooden Crate"),
+        CenteredAabb::from_aabb(aabb),
+        BreakableFeature::new(breakable),
+    ));
+    app.add_systems(Update, rebuild_feature_ecs_world_overlay);
+    app.update();
+
+    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let block = overlay
+        .blocks
+        .iter()
+        .find(|block| block.aabb == aabb)
+        .expect("a solid breakable publishes a collision block");
+
+    assert_eq!(
+        block.id,
+        ae::GeoId::placement(ae::PlacementId::new("placement-iid-7"), 0),
+        "the block must name the PLACEMENT that owns it. `GeoId::anon()` here \
+         means two breakables are distinguishable only by a debug label, which \
+         is the identity Q96 forbids"
+    );
+    assert_ne!(
+        block.id,
+        ae::GeoId::anon(),
+        "anon is the fixture source; the authoring pipeline never emits it"
+    );
+    assert!(
+        !block.name.contains("placement-iid-7"),
+        "the display name is still the DISPLAY name — it carries the human \
+         label, and identity lives in `id`. If these two ever agree by \
+         coincidence, a consumer will key on the wrong one"
+    );
+}

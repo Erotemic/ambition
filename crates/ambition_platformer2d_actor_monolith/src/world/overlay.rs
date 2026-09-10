@@ -24,7 +24,16 @@ pub use ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet;
 
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
-    breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    // ⛔⛔ `FeatureId` IS IN THIS QUERY BECAUSE A NAME IS NOT AN IDENTITY. The
+    // published block used to carry `GeoId::anon()` and put the breakable's
+    // DISPLAY name in `Block.name` — and `FeatureName` documents itself as
+    // "human-facing authored name for debug overlays / inspectors". The durable
+    // id was one component away on the same entity the whole time
+    // (`spawn_breakable_into` inserts `FeatureId::new(authored.id)`).
+    breakables: Query<
+        (&FeatureId, &FeatureName, &CenteredAabb, &BreakableFeature),
+        With<FeatureSimEntity>,
+    >,
     // Only entities that explicitly contribute WORLD pogo geometry are lowered
     // into collision blocks. Combat bodies also publish `PogoTargetVolumes`, but
     // those are entity-side affordance geometry and must retain their identity.
@@ -42,7 +51,7 @@ pub fn rebuild_feature_ecs_world_overlay(
     // destructures the overlay with no `..`, so a seventh field cannot be added
     // without its author saying which owner clears it.
     overlay.clear_engine_contributions();
-    for (name, aabb, feature) in &breakables {
+    for (id, name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;
         }
@@ -57,7 +66,14 @@ pub fn rebuild_feature_ecs_world_overlay(
             ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         overlay.blocks.push(ae::Block {
-            id: ae::GeoId::anon(),
+            // ⭐ The OWNING OCCURRENCE, which is what the projectile contact
+            // protocol asks a contributed object collider to carry: "tile terrain
+            // uses a stable collider/geometry identity; a contributed object
+            // collider additionally identifies its owning occurrence."
+            // ⛔ `GeoId::anon()` was wrong twice over — it is the source reserved
+            // for fixtures ("the authoring pipeline NEVER emits this"), and it
+            // left `Block.name` as the only thing telling two breakables apart.
+            id: ae::GeoId::placement(ae::PlacementId::new(id.as_str()), 0),
             name: format!("ecs-breakable {}", name.0.as_str()),
             aabb: aabb.aabb(),
             kind,
@@ -77,7 +93,12 @@ pub fn rebuild_feature_ecs_world_overlay(
         if let Some(pogo) = published {
             for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
                 overlay.blocks.push(ae::Block {
-                    id: ae::GeoId::anon(),
+                    // Same occurrence identity, with the volume ordinal as the
+                    // `GeoId` index — one placement legitimately emits several.
+                    id: ae::GeoId::placement(
+                        ae::PlacementId::new(id.as_str()),
+                        u16::try_from(idx).unwrap_or(u16::MAX),
+                    ),
                     name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
                     aabb,
                     kind: ae::BlockKind::PogoOrb,
@@ -87,7 +108,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             }
         } else {
             overlay.blocks.push(ae::Block {
-                id: ae::GeoId::anon(),
+                id: ae::GeoId::placement(ae::PlacementId::new(id.as_str()), 0),
                 name: format!("ecs-pogo-target-fallback {}", id.as_str()),
                 aabb: centered.aabb(),
                 kind: ae::BlockKind::PogoOrb,

@@ -13,7 +13,24 @@ use bevy::prelude::*;
 
 /// An ordinary fighter a player can pick — asserted to be on the assembled grid
 /// below, because a name this composition cannot seat proves nothing.
-const FIGHTER: &str = "npc_pirate_admiral";
+const FIGHTER_DEFAULT: &str = "npc_pirate_admiral";
+
+/// The fighter this run duels, overridable by `AMBITION_DUEL_FIGHTER`.
+///
+/// ⭐⭐ **BECAUSE SWEEPING THE ROSTER SHOULD NOT COST NINETEEN REBUILDS.** The
+/// const is the shipped subject and stays the default, so the gate is unchanged
+/// and nobody has to pass anything. But answering *"is the gate's population one
+/// fighter, or is the roster broadly inert?"* means running this cell once per
+/// fighter, and editing a `const` in a test file recompiles `app_it` every time
+/// — MEASURED at 3m55s wall for 27s of test. ⇒ The subject becomes an input, and
+/// the sweep costs one build.
+///
+/// ⚠ IT IS STILL VALIDATED. An id passed here goes through the same
+/// assembled-grid assertion below as the default, so a typo names itself instead
+/// of measuring whatever the seating fell back to.
+fn fighter() -> String {
+    std::env::var("AMBITION_DUEL_FIGHTER").unwrap_or_else(|_| FIGHTER_DEFAULT.to_string())
+}
 
 /// The top authored rung. If any rung fights, this one does.
 const RUNG: u8 = 9;
@@ -46,6 +63,7 @@ const A_MEASURABLE_DUEL: usize = 600;
 
 #[test]
 fn two_cpus_in_the_shipped_composition_damage_each_other() {
+    let fighter = fighter();
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // the frame is load-bearing: `PreparedCharacterRegistry` is filled by a
@@ -61,13 +79,16 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         let grid = SmashRoster::assemble(registry);
         let ids: Vec<&str> = grid.ids().collect();
         assert!(
-            ids.contains(&FIGHTER),
-            "`{FIGHTER}` is not on the assembled smash grid in this composition, so \
+            ids.contains(&fighter.as_str()),
+            "`{fighter}` is not on the assembled smash grid in this composition, so \
              seating it proves nothing about what a player can pick. Grid: {ids:?}"
         );
     }
 
-    let roster = ambition_demo_smash::smash_roster_at_levels([FIGHTER, FIGHTER], &[RUNG, RUNG]);
+    let roster = ambition_demo_smash::smash_roster_at_levels(
+        [fighter.as_str(), fighter.as_str()],
+        &[RUNG, RUNG],
+    );
     let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -343,7 +364,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // guard that only speaks when it fails cannot say which of the two moved.
     let per_minute = |seat: usize| taken[seat] / both_seated_ticks as f32 * TICKS as f32;
     println!(
-        "[duel] {FIGHTER} rung {RUNG}: duel ran {both_seated_ticks} ticks (decided \
+        "[duel] {fighter} rung {RUNG}: duel ran {both_seated_ticks} ticks (decided \
          {decided_on:?}), took {:.2} / {:.2} of pool = {:.2} / {:.2} per minute of \
          duel, hitstun {hitstun_ticks:?} ticks, {knockouts} knockouts",
         taken[0],

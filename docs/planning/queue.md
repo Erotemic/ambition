@@ -204,6 +204,160 @@ deferred to Q96/A5 and was previously named here while the same row said it was
 not closed. The initial sampled-target sweep is not a
 claim of full moving-target CCD. No second family query chooses the victim.
 
+⛔ **THE CONSTRUCTION-IDENTITY HOLE, NAMED EXACTLY (read 2026-09-10).**
+`ambition_platformer2d_runtime/src/sim_identity.rs :: ensure_sim_id` queries
+`With<BodyKinematics>, Without<SimId>` and mints from an authored fact:
+
+```rust
+(Some(feature_id), _) => SimId::placement(&id.0),
+(None, Some(_primary)) => SimId::player_slot(0),
+(None, None)           => continue,     // <-- THE HOLE
+```
+
+Its own comment states the invariant: *"Not identifiable from an authored fact.
+Its spawn site must mint it."* ⇒ **The invariant is written in a comment and
+enforced by nothing.** A spawn site that forgets leaves a damageable body that
+`ensure_sim_id` deliberately skips.
+
+⇒ **THE WORK IS NOT "FIND THE BAD SPAWN SITE". IT IS TO MAKE THAT ARM
+OBSERVABLE.** The runtime census
+(`game/ambition_app/tests/every_damageable_body_is_identified.rs`) is the right
+instrument and already exists. ⚠ Its `DAMAGEABLE_FLOOR = 4` against a measurement
+of 4 is **a ratchet at its ceiling**: it cannot see an addition, which is the
+direction a new unidentified body arrives from.
+
+⚠ **The cut-rope victory NPC was REFUTED as an example** — it carries `FeatureId`
++ `BodyKinematics`, exactly the query the first arm serves. **What is open is the
+general invariant, not that case.**
+
+⭐ **A DESIGN FACT THAT COST THREE AGENTS AN HOUR, RECORDED HERE BECAUSE NOTHING
+ELSE RECORDS IT: ONE UNRESOLVABLE PARTICIPANT GIVES ZERO SEATS.**
+`ambition_match/src/prepared.rs` records a per-seat problem and continues at line
+635, then aborts the WHOLE preparation at line 872 if any problem was recorded.
+**Four `seat_problem(` call sites ⇒ four fault kinds each abort an entire match.**
+A fixture that asserts a seat count therefore reports `left: 0` and names nothing.
+`e86fd5609` closed the diagnosability half — a withheld cast now names the
+character and the admission pass instead of printing a bare zero.
+
+### A12 - LANDED 2026-09-10; a shot now names the USE of the move that fired it
+
+**Landed `f9baa86e8`.** A verdict carrying `attacker_move_instance: None` used to
+be credited to whatever move the fighter is playing NOW, so a projectile launched
+by move A and landing during move B marked B connected — the late-feedback defect
+A12 exists to eliminate.
+
+**The road:** `MovePlayback::instance` → `MoveEventMessage::move_instance` (3 emit
+sites) → `RangedCommitment::CommittedMove { instance }` →
+`ProjectileSpawnRequest::move_instance` → `FiredByMoveInstance` on the shot → the
+damage result. **No consumer reads the value again**; a read of the owner's
+playback at spawn or at landing repeats the defect one link later.
+
+⚠ **The value is ABSENT, not zero**, for a shot no move fired — a gun, a bomb, an
+environmental volley. **A `0` would name a first use that never played.**
+
+`RangedCommitment` carries it rather than `ActorActionMessage` because the
+commitment has **2 construction sites against 43**, and only the commitment is on
+the firing path.
+
+**MEASURED 2026-09-10:** `officer` is the one fighter on the shipped grid that can
+reach the bug — a shot move plus a conditional cancel. The census test
+`a_shot_and_a_conditional_cancel_never_share_a_fighter` keeps that live.
+`GGRS_ROLLBACK_SCHEMA_VERSION` 178 → 179, both baselines updated.
+
+⛔ **THE TWO ROLLBACK BASELINES ARE NOT TWO COPIES OF ONE FINGERPRINT.**
+`rollback_schema_baseline.txt` holds the version and the rows;
+`rollback-schema-baseline.json` holds `stable_schema_names` and `encoded_types`
+and **no version at all**. ⚠ **The JSON wants the RE-EXPORTED name**
+(`ambition_projectiles::FiredByMoveInstance`), not the module path. A module path
+there leaves **the Rust baseline test GREEN while `check_absence_contracts.py` is
+RED** — two instruments with different populations, and the Rust one looks
+authoritative. Stopping at the Rust test ships a baseline the guard rejects.
+
+
+### A4 - NOT BLOCKED; the hold is delivered and the premise is the one that MEASURES TRUE
+
+⛔ **THIS PACKET WAS READ AS BLOCKED AND IT IS NOT.** A4's hold, verbatim, is
+*"first map writers and select production fixtures."* Both halves are delivered in
+[the writer map](engine/accepted-control-writer-map.md), which says so in its own
+opening: *"the frontier says the hold is released by the enumeration, so the
+enumeration is the deliverable."*
+
+⭐ **RE-DERIVED 2026-09-10 at `2bf960acf`, 156 commits after the map's
+`966351e25` stamp. Every row is IDENTICAL:**
+
+| responsibility | component | sites | outside its defining crate |
+|---|---|---|---|
+| accepted driver relation | `DrivingParticipant` | 8 | **8 — all of them** |
+| input projection | `ActorControl` | 24 | 22 |
+| live body execution | `BodyKinematics` | 38 | 28 |
+| custody reconciliation | `InCustodyOf`, `BodyCustodySettled` | 4 | 4 |
+
+⇒ **A4's PREMISE HOLDS, and it is the only one of three that does.** A5's premise
+measured FALSE — `Breakable::apply_damage` already owns the whole state machine.
+A6's measured FALSE — nine fields are read at both moments. **A4's authority is
+genuinely scattered.** ⛔ **Three packets, three different answers: a packet's
+premise is a claim to be measured, not a frame to work inside.**
+
+⚠ **THE UNCHANGED NUMBERS WERE POISONED BEFORE THEY WERE BELIEVED.** A number that
+does not move in 156 commits is a claim about the INSTRUMENT. One added
+`&mut BodyKinematics` query took body execution 38/28 → 39/29; the site was then
+removed. ⇒ The scan reads the live tree. **Without that, "unchanged" and "not
+measuring" are the same output.**
+
+⛔⛔ **AND THE MAP HAS TWO WRONG CITATIONS THAT ITS OWN TOTAL HID.** It names four
+production readers of `body_driving_seat`; the count is still four at HEAD, and
+**two members are wrong**:
+
+- `control/queries.rs:224` **is a TEST** — `#[cfg(test)]` sits at line 209, and at
+  209 in `966351e25` too. **An error at the stamp, not decay.**
+- `avatar/systems.rs:103` **is a production reader and is MISSING**, added by
+  `ab308504b` — *the same commit the surrounding paragraph reports as the fix.*
+  **The list is older than the prose around it.**
+
+⇒ ⭐⭐ **A COUNT IS NOT A CHECK ON A LIST.** A reader who verified "four" would have
+called the list correct. **Set equality and cardinality are different questions,
+and only one of them is cheap to write down.**
+
+⭐⭐ **AND IT HAPPENED TWICE ON 2026-09-10, ON TWO INSTRUMENTS, FOUND BY
+TWO AGENTS WHO DID NOT KNOW OF EACH OTHER.** The second: the field-reader seal
+returned **200 sites / 27 fields**, unchanged across ~200 commits — while
+`ced8b7f7c` **moved** a `display_name` read rather than removing one.
+`worn_kit.rs` left that field's list and `starting_character.rs:274` entered it.
+⚠ **A MOVE IS NOT A REMOVAL**, and the unchanged total would otherwise have
+read as *"that commit had no effect"*.
+
+⇒ Two independent cases, same direction: **the total held still and the
+membership moved underneath it.** In both, a reader who checked the number would
+have called the list correct. **Check the MEMBERS when the claim is about
+members**; a stable count is evidence of nothing but its own stability.
+
+⚠ **`check_planning_citations.py --strict` cannot catch this class.** It rejects an
+ambiguous suffix; it does **not** reject a citation that resolves to a real line in
+the wrong ROLE. **Do not read a green citation lane as a check on membership.**
+
+⛔ **THE MAP'S ONE "GENUINELY IN DOUBT" ROW WAS DECIDED THREE DAYS BEFORE THE
+MAP RE-OPENED IT.** `InCustodyOf` is **one fact — "room residency is suspended"
+— with two producers of different DURABILITY**, closed by
+[item custody and accounting](engine/item-custody-and-accounting.md) in
+`414019ec9` (2026-09-07); the one change it recommended landed the same day in
+`1659e5402`. The map was written 2026-09-10 and cites neither.
+
+`ambition_held_items` writes it for an ITEM's holder, which also carries
+`ItemCustody`. `project_body_custody` writes it for riders, limbs and possessed
+BODIES, querying `Without<GroundItem>` because the item domain owns its own
+projection. `persist_occurrence_horizon_to_save` keeps only the ITEM rows.
+⭐ **That drop is the design:** a grip on a mount and a possession are session
+state, and a durable row saying *"somebody holds this body"* is a claim the
+loader cannot answer, because it does not put a rider back on a mount.
+
+⚠ **THE REAL HAZARD IS NOT THE ONE THE MAP NAMED. DURABILITY IS EXPRESSED AS AN
+ABSENCE.** A row is non-durable because its subject LACKS `ItemCustody`, so the
+save filter never asks a new producer anything. ⇒ **A third producer becomes
+non-durable BY DEFAULT and SILENTLY** — a permissive default answering a question
+it was never asked. Anyone adding one must decide durability on purpose, because
+nothing will make them.
+
+
 ## P1 - ownership and independently testable composition
 
 ### A3 - DONE; acceptance met. One cosmetic residual, not worth a commit.
@@ -360,6 +514,18 @@ about these four edges, measured, and still not a licence to read a closure numb
 as a mandate — see the note above the trace.
 
 **Next in this row:** which of the 49 a minimum profile has a RIGHT to expect is
+still unestablished for the crates the frontier does NOT name; the fixture makes
+that question askable rather than answering it.
+
+⚠ **THE 49 IS THE COUNT *INCLUDING* THE FACADE, measured at `939d6aaa5`;
+excluding it the number is 48.** ⛔ **STATE WHICH ONE, ALWAYS.** The
+[status page](status.md) carried **51** as an *other-packages* count from the
+`300004d6` baseline, and a row's 49 read as DRIFT against a later 48 when they
+were one measurement under two definitions. **A number that cannot say which it
+is cannot be quoted.** Reproduce with
+`cargo tree -e normal --no-default-features -p ambition_platformer2d`.
+
+
 still unestablished for the crates the frontier does NOT name; the fixture makes
 that question askable rather than answering it.
 

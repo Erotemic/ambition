@@ -113,7 +113,7 @@ lives. **Two things decide it, and both were then measured at `17c1f3e40`:**
    a consumer would break."* Already at v2, so the rule has been exercised.
 2. **The only consumer is inside this repository.**
    `tools/ambition_moveset_inspector`, fed by
-   `tools/ambition_moveset_inspector/data/moveset_bundle.json` — which is
+   `tools/ambition_moveset_inspector/data/moveset_bundle.json` <!-- cite-ok: generated, never tracked --> — which is
    **generated and not tracked by git**, so no copy of it is held anywhere else.
 
 ⇒ **Both conditions hold, so the lighter ranking stands — on this evidence rather

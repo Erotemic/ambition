@@ -85,6 +85,65 @@ def test_an_unambiguous_citation_is_not_reported(mixed_doc_output):
     assert "check_planning_citations.py:1" not in mixed_doc_output, mixed_doc_output
 
 
+#: Four placements of `cite-ok` around a citation on line 3. Two suppress and
+#: two must not.
+#:
+#: ⛔⛔ THE "NOT HONOURED" ARMS ARE THE ONES THAT MATTER. "Honours the next line"
+#: and "honours anything anywhere" print the same green on the first two arms
+#: alone, so a change that simply stopped checking placement would pass every
+#: test one would naturally write.
+_MARKER_SCOPE_CASES = [
+    ("on the citation's own line", 3, True),
+    ("on the line directly below", 4, True),
+    ("two lines below", 5, False),
+    ("on the line above", 2, False),
+]
+
+
+@pytest.mark.parametrize("where, marker_line, suppressed", _MARKER_SCOPE_CASES)
+def test_the_marker_scope_is_the_citation_line_and_the_one_below(
+    where, marker_line, suppressed
+):
+    """⭐ ONE KEEPER, ASSERTED. The checker documents this scope, and the live-tree
+    guard above now asks the checker rather than re-spelling it.
+
+    MEASURED 2026-09-10: the guard used to accept the marker only on the SAME
+    line, so a marker placed where the documentation allows passed
+    `check_planning_citations.py --strict` and reddened the repo-tooling lane.
+    **An author who followed the documentation got a red.**
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("citations_scope", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    lines = ["intro", "context", "a citation: `some/file.rs:1`", "tail", "further"]
+    lines[marker_line - 1] += f"  <!-- {module.MARKER} -->"
+    assert module.marker_suppresses(lines, 3) is suppressed, (
+        f"a marker {where} should "
+        f"{'suppress' if suppressed else 'NOT suppress'} the citation on line 3"
+    )
+
+
+def test_the_marker_scope_holds_at_the_end_of_a_document():
+    """⚠ THE OFF-BY-ONE THE NEXT-LINE RULE INVITES. A citation on the LAST line
+    has no line below it, and the predicate must answer without reading past the
+    end."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("citations_scope_eof", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    assert module.marker_suppresses(["a citation: `x.rs:1`"], 1) is False
+    assert module.marker_suppresses(
+        [f"a citation: `x.rs:1`  <!-- {module.MARKER} -->"], 1
+    ) is True
+
+
 def test_the_live_planning_tree_has_no_ambiguous_citations():
     """The population, asserted rather than assumed. Four existed on
     2026-09-03; each was disambiguated by reading what the row SAYS and finding
@@ -110,8 +169,14 @@ def test_the_live_planning_tree_has_no_ambiguous_citations():
 
     ambiguous = []
     for doc in sorted((REPO / "docs/planning").rglob("*.md")):
-        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
-            if module.MARKER in line:
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            # ⛔⛔ THE CHECKER'S OWN PREDICATE, NOT A SECOND SPELLING OF IT.
+            # This read the marker only on the citation's OWN line while
+            # `check_planning_citations.py` documents the line below as legal
+            # too — so a marker placed where the documentation allows passed
+            # `--strict` and reddened THIS test (2026-09-10). One keeper now.
+            if module.marker_suppresses(doc_lines, lineno):
                 continue
             for m in module.FILE_LINE.finditer(line):
                 path = m.group(1)
@@ -121,6 +186,10 @@ def test_the_live_planning_tree_has_no_ambiguous_citations():
     assert not ambiguous, (
         "citations whose suffix matches more than one tracked file:\n"
         + "\n".join(f"  {d}:{n}  {p} -> {len(h)} candidates" for d, n, p, h in ambiguous)
+        + "\n\nName the full path. If the ambiguous form is deliberate -- a row"
+        + f"\nquoting it AS the example -- put `{module.MARKER}` on the citation's own"
+        + "\nline or on the line directly below it. Those two placements are the"
+        + "\nwhole scope: two lines below, or the line above, do not suppress."
     )
 
 

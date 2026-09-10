@@ -670,11 +670,21 @@ MORE moves and deals LESS damage.
 ⇒ **Jab is 159 of 279 damage (57%) at HEAD and deals ZERO under the truthful
 kit.** The whole drop is jab's contribution vanishing.
 
-⚠ **And the remaining question is sharper than the one it replaced:** the
+⛔⛔ **AND JAB IS STARTED ZERO TIMES, NOT MERELY LANDING LESS.** Full
+distribution rather than a top-eight: seat 0 starts 11 distinct moves, seat 1
+starts 13, and `jab` is in neither — against 10 and 4 starts at HEAD. The
 truthful kit removes jab from the RUNNING menu only, standing menus are
-identical, and these bodies stand 60–70% of grounded time — so jab should fall by
-about a third, not to zero. That gap is the open subject. Four mechanisms have
-been proposed on this row and three are measured false; bring an instrument.
+byte-identical, and these bodies stand 60–70% of grounded time, so the brain is
+declining jab on ticks where it is still offered.
+
+⇒ **Next instrument: the kit AT THE MOMENT OF DECISION** — what
+`generate_options` was handed and what it chose, on standing ticks. ⚠ Check one
+cheap thing first: `power` is normalised by `kit_max_damage`, recomputed per tick
+over the CURRENT kit, so changing the kit's membership re-prices every candidate
+in it, not only the ones that changed.
+
+⚠ Four mechanisms proposed on this row, three measured false. Bring an
+instrument, not a fifth story.
 
 ⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
 `fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move

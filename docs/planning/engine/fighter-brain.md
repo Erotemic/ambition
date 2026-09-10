@@ -328,11 +328,28 @@ the brain issues produces it anyway, because the press road resolves the stance
 itself. ⇒ The defect was never unreachability — it is purely the MISLABEL, the
 brain scoring one move's frame data while the body performs another.
 
-⚠ **THE REMAINING QUESTION IS SHARPER THAN THE ONE IT REPLACES, and it is open.**
-The truthful kit removes jab from the RUNNING menu only; standing menus are
-byte-identical, and these bodies stand 60–70% of their grounded time. So jab's
-contribution should fall by roughly a third, not to ZERO. Whatever takes it to
-zero is the actual subject, and nobody has measured it.
+⚠ **THE REMAINING QUESTION IS SHARPER THAN THE ONE IT REPLACES, and one more
+measurement has narrowed it to something genuinely odd.** The truthful kit
+removes jab from the RUNNING menu only; standing menus are byte-identical, and
+these bodies stand 60–70% of their grounded time. So jab's contribution should
+fall by roughly a third.
+
+⛔⛔ **INSTEAD JAB IS STARTED ZERO TIMES.** Printing the FULL distribution rather
+than a top-eight: seat 0 starts 11 distinct moves and seat 1 starts 13, and `jab`
+is in neither list. Against 10 and 4 starts at HEAD. So this is not "jab lands
+less" — the brain stops CHOOSING it, on ticks where it is still on the menu.
+
+⇒ **The next instrument is the kit AT THE MOMENT OF DECISION**: log what
+`generate_options` was handed and what it picked, on the ticks where the body is
+standing. Two candidate readings and no evidence between them yet — either jab is
+absent from the standing kit for a reason the stance probe cannot see, or it is
+present and out-scored. ⚠ One thing worth checking first because it is cheap and
+would explain a scoring shift on EVERY tick: `power` is normalised by
+`kit_max_damage`, computed per tick over the CURRENT kit, so changing the kit's
+membership re-prices every candidate in it — not only the ones that changed.
+
+⚠ Do not skip to a fifth story. Four have been proposed on this item and three
+are measured false.
 
 ⚠ Three mechanisms were proposed before this one and all three are measured
 false: "the CPU never stops running" (14–19%), the `lifts` coupling (inert), and

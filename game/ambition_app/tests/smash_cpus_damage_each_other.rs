@@ -342,12 +342,12 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             "[dealt] seat {seat}: {dealt} damage across {} moves (+{} unclaimed) -> {:?}",
             damage_by_move[seat].len(),
             unclaimed_damage[seat],
-            dmg.iter().take(8).collect::<Vec<_>>()
+            dmg.iter().take(30).collect::<Vec<_>>()
         );
         println!(
             "[moves] seat {seat}: {total} starts across {} distinct -> {:?}",
             move_counts[seat].len(),
-            rows.iter().take(8).collect::<Vec<_>>()
+            rows.iter().take(30).collect::<Vec<_>>()
         );
     }
     for seat in 0..2 {

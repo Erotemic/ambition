@@ -163,10 +163,26 @@ def source_text_at(ref: str, suffixes: tuple[str, ...] = (".rs", ".py")) -> str:
     thousands of sources; a process each takes minutes and this takes under a
     second.
     """
+    # ⛔⛔ A REF THAT DOES NOT RESOLVE USED TO END IN A PYTHON TRACEBACK. Ran as
+    # `--vanished $(git log --before=... -1 --format=%H)..HEAD` on a tree whose
+    # commits are all newer than the date, the command substitution produced an
+    # EMPTY string and `git ls-tree -r --name-only ''` exited 128 — surfacing as
+    # `CalledProcessError` with no hint that the BASE was the problem. A check
+    # whose failure mode is a stack trace reads as broken rather than as
+    # misinvoked, and this row exists because people already skip it.
     listing = subprocess.run(
         ["git", "ls-tree", "-r", "--name-only", ref],
-        cwd=REPO, capture_output=True, text=True, check=True,
-    ).stdout.split("\n")
+        cwd=REPO, capture_output=True, text=True,
+    )
+    if listing.returncode != 0:
+        raise SystemExit(
+            f"⛔ `{ref}` does not name a commit in this repository"
+            f"{' (it is EMPTY — a command substitution that produced nothing?)' if not ref.strip() else ''}."
+            f"\n   git said: {listing.stderr.strip()}"
+            "\n   ⇒ `--vanished` wants a REF or a RANGE: `--vanished HEAD` compares"
+            "\n     HEAD against the working tree, `--vanished A..B` attributes a carve."
+        )
+    listing = listing.stdout.split("\n")
     paths = [p for p in listing if p.endswith(suffixes)]
     if not paths:
         return ""

@@ -342,7 +342,7 @@ operation data, not a differently ordered read of the same unaccepted request.
 
 ### A1b: perform the ownership move without semantic changes — LANDED
 
-`CheckpointResumeProgress`, `restore_checkpoint_on_session_start`,
+`CheckpointResumeProgress` <!-- cite-ok: A1b's record; the type was later DELETED by `f473f0d72`, which folded startup completion into the operation model -->, `restore_checkpoint_on_session_start`,
 `resume_at_checkpoint_on_reset` and their tests now live in
 `crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs`, with the
 rollback registration following the type and its wire key
@@ -420,7 +420,7 @@ This is a coherent behavior change, implemented in buildable subcommits:
    shape so that change is visible rather than assumed.
 
    Still open in this subcommit: the coarse startup routed/completed flags
-   (`CheckpointResumeProgress`) are untouched, and the same-room startup
+   (`CheckpointResumeProgress`) <!-- cite-ok: what was STILL OPEN in that subcommit; deleted by `f473f0d72` --> are untouched, and the same-room startup
    placement is still its own road.
 2. **LANDED 2026-09-08 — no domain reads the raw request.**
    `restore_occurrence_baseline`, `restore_custody_to_checkpoint` and

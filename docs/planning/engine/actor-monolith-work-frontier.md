@@ -129,7 +129,7 @@ removed on every path. The transitional admission token was deleted.
 **A1c/4-5 — DONE 2026-09-08.** Post-apply verification against the accepted
 snapshots, one terminal outcome per operation key, fail-closed gameplay blocking,
 and startup completion folded into the same operation model
-(`CheckpointResumeProgress` deleted). What remains is widening verification
+(`CheckpointResumeProgress` deleted). <!-- cite-ok: the row RECORDS the deletion --> What remains is widening verification
 beyond the ledger, the bag and custody presence. Include
 checkpoint replay consequences, deferred flushes, verification and the final
 rollback baseline. Pin typed immutable checkpoint data on admission at the point

@@ -79,10 +79,19 @@ Stated per packet instead:
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
   unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11** — ⛔ **THREE BLOCKERS CLOSED, A FOURTH FOUND. THIS LINE SAID "FULLY
-  re-closed" AND A COMPLETENESS WORD IS A HOSTAGE TO THE NEXT REVIEW.** It was true
+- **A11** — **FOUR BLOCKERS CLOSED; NO LANE HAS SEEN THE FOURTH YET.** ⚠ This line
+  said *"FULLY re-closed"* after three, and **a completeness word is a hostage to
+  the next review** — the fourth arrived hours later. ✅ **Closed in `95f0c1484`
+  with a PROVEN boundary rather than an asserted one**: `cargo check -p ambition_app`
+  ships **without** the function, `--workspace --all-targets` reaches all ten test
+  callers, and a poisoned non-test call fails with `error[E0425]: cannot find
+  function`. ⭐ **Passing the two checks showed only that nothing broke; the poison
+  showed something is now impossible.** ⛔ **But that commit carries NO workspace
+  test-scope claim** — two `cargo check`s and one poison, no suite. **A `Cargo.toml`
+  change plus a `cfg` gate is exactly the shape that compiles everywhere and breaks
+  a runtime path**, so this is not closed until a lane says so. It was true
   of the three blockers then known and became false the moment a fourth was found —
-  `close_preparation_barrier_without_admission` is plain `pub`
+  `close_preparation_barrier_without_admission` WAS plain `pub`
   (`crates/ambition_characters/src/prepared.rs:2278`), whose path is
   `finalized = true` → mark unchecked → raw `finalize_cast` → publish with no
   refusal filtering, and once it runs the checked closer sees `finalized` and cannot

@@ -79,7 +79,7 @@ Stated per packet instead:
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
   unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11** — REOPENED and partly re-closed 2026-09-10 after a review of the 125
+- **A11** — REOPENED and **FULLY re-closed** 2026-09-10 after a review of the 125
   commits following `6a692b6`. ⛔⛤ **The shipped game had been closing its
   admission barrier UNCHECKED**: Bevy's runner does `finish()` before the first
   `update()`, `PreStartup` lives inside that update, and the unchecked backstop
@@ -87,7 +87,7 @@ Stated per packet instead:
   because they all drive `update()` by hand, which never runs `finish`. Fixed by
   ONE DECLARED AUTHORITY, and the witness that says so differs from its green
   sibling by three calls. **Transitive withholding is fixed too**: the one-pass
-  filter published a summoner whose beast it had just refused. 
+  filter published a summoner whose beast it had just refused.
   ✅ **CLOSED 2026-09-10 by `4fe4a1a27`, and this line said
   otherwise for half a day.** `admit_and_finalize_cast` now takes
   `support: &TechniqueSupport`, **not `Option<&_>`** — the comment on that

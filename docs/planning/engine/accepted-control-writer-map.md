@@ -78,22 +78,39 @@ production schedule; a test that drives `Platformer2dSimHarness` or
 | rollback over handoff | `rollback_provoked_actor::possession_survives_the_real_rollback_window` | `Platformer2dSimHarness` | **yes** |
 | two participants | `twintrack_it::each_seat_moves_its_own_body_and_leaves_the_others_alone` | demo app harness | **yes** |
 | custody across a room boundary | `carried_item_crosses_rooms` (18 tests, incl. `the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven`, `a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it`) | `Platformer2dSimHarness` | **yes** |
-| **competing claims** | — | — | **NO FIXTURE** |
+| competing claims | `competing_control_claims::a_seat_claimed_by_two_bodies_drives_neither_and_recovers_when_one_vacates` | `Platformer2dSimHarness` | **yes** — ⭐ written in response to this page, and it found a live defect |
 | **no double body tick** | `boot_budget::no_system_is_registered_twice_in_one_schedule` | `build_visible_app` | **partial** |
 
-⛔⛔ **COMPETING CLAIMS HAVE NO FIXTURE AT ALL, AND THE BEHAVIOUR IS NOT A PANIC —
-IT IS SILENCE.** `control::body_driving_seat` (`control/queries.rs:45`) resolves a
-seat's body and, when two entities hold `DrivingParticipant(slot)`, logs an
-`error!` and returns `None`: *"refusing ambiguous authority, so this seat drives
-nothing until one of them vacates."* Measured by `git grep`: **no test anywhere
-names `body_driving_seat`.** It has four production readers —
-`abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
-`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145` — so an
-ambiguous seat makes the player's input reach nothing, on every one of those
-roads, with a log line as the only symptom.
-⇒ This is the acceptance bullet A4 is least able to check, and any regrouping of
-`control/authority.rs` moves the code that maintains the invariant this refusal
-exists for. **Write that fixture before the move, not after.**
+⛔⛔ **COMPETING CLAIMS HAD NO FIXTURE, AND WHEN ONE WAS WRITTEN THE REFUSAL
+TURNED OUT NOT TO REFUSE — CLOSED 2026-09-10 by `ab308504b`.**
+
+`control::body_driving_seat` (`control/queries.rs:45`) resolves a seat's body
+and, when two entities hold `DrivingParticipant(slot)`, logs an `error!` and
+returns `None`: *"refusing ambiguous authority, so this seat drives nothing until
+one of them vacates."* Measured by `git grep` when this page was written: **no
+test anywhere named `body_driving_seat`**, while four production readers depended
+on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
+`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`.
+
+⇒ **WHAT THE FIXTURE FOUND WAS THE INVERSE OF THE DOCUMENTED BEHAVIOUR.**
+`tick_controlled_brains` never asked the resolver: it iterated BODIES and read
+`slots.get(driver.0)` off each one, so it could not tell one holder from two.
+Measured on the real headless sim with one held right press over 40 frames — the
+player's body travelled **180.00px** (175.17px unambiguously) **and the rival
+travelled 91.67px**. Not "the seat drives nothing". *The seat drove BOTH.* The
+translation now resolves through the same helper every other reader uses.
+
+⚠ **AND THE FIRST FIX WAS WRONG IN A WAY ONLY THAT FIXTURE COULD SHOW.**
+`continue`-ing on a body that is not the resolved holder left the rival at 0.00px
+and the player still at **180.00px**: `ActorControl` is LATCHED, so a body nobody
+writes keeps last tick's frame, and under a HELD press that is indistinguishable
+from driving. The refusal must write `ActorControlFrame::neutral()`. A fixture
+asserting only on the rival would have called that fix done.
+
+⭐ **THE PAGE'S OWN CONCLUSION WAS RIGHT FOR THE WRONG REASON.** It said the
+fixture had to be written before `control/authority.rs` was regrouped, because a
+move would carry away the code maintaining the invariant. It had to be written
+because there was no invariant — only a helper stating one that nothing enforced.
 
 ⛔⛔ **AND THE RETRACTION SWEEP IS NARROWER THAN THE REFUSAL IT EXISTS FOR — SO
 AN AMBIGUOUS SEAT CAN HAVE NO ROAD BACK.**

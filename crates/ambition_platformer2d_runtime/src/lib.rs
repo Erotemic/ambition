@@ -301,6 +301,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         // leading edge, `ResetProcessing` (a tail set) included.
         let sim = app.sim_schedule();
         app.init_resource::<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>();
+        app.init_resource::<sim_identity::UnmintedBodyCensus>();
         app.add_systems(
             sim,
             ambition_platformer2d_shared_tangle::class_b::clear_class_b_remap_log
@@ -334,6 +335,9 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
                 sim_identity::ensure_sim_id,
                 sim_identity::mint_spawned_sim_ids,
                 sim_identity::heal_projectile_owners,
+                // ⇒ AFTER the tail sweep, so a body it reports has been declined
+                // by BOTH passes and by every in-tick spawner.
+                sim_identity::observe_unminted_bodies,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)

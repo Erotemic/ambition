@@ -318,7 +318,6 @@ dependencies = [
  "ambition_platformer2d_world",
  "ambition_time",
  "bevy",
- "ron 0.11.0",
 ]
 
 [[package]]

@@ -187,3 +187,79 @@ pub fn heal_projectile_owners(
         }
     }
 }
+
+/// Bodies the identity sweeper's `(None, None)` arm SKIPPED, and the population
+/// it judged.
+///
+/// ⛔⛔ **A SKIPPED BODY WAS UNNAMEABLE, AND THAT IS THE WHOLE DEFECT.**
+/// [`ensure_sim_id`] mints from two authored facts and `continue`s on everything
+/// else, because the invariant is *"its spawn site must mint it"*. That
+/// invariant lives in one comment and is enforced by nothing: a body with
+/// `BodyKinematics`, no `SimId`, no `FeatureId` and no `PrimaryPlayer` is passed
+/// over in silence, on every tick, forever.
+///
+/// ⚠ **THIS COUNTS AND NAMES; IT DOES NOT MINT.** Minting here would answer the
+/// census and hide the spawn sites the invariant points at — the skip is the
+/// finding, not the problem to paper over.
+///
+/// ⭐ **`observed` IS THE ANTI-VACUITY FLOOR AND IT IS NOT THE SAME NUMBER AS
+/// `skipped`.** It counts every judged body, identified or not. A composition
+/// that never installs the observer, or a run in which no body is ever built,
+/// reports `skipped: 0` and reads exactly like a healthy one — so `observed` is
+/// what tells a clean result from an absent measurement. ⇒ Read it first.
+#[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct UnmintedBodyCensus {
+    /// Bodies STILL on the `(None, None)` arm a tick after they became bodies.
+    pub skipped: u64,
+    /// Body-observations actually JUDGED. The denominator; zero means the
+    /// observer saw nothing, not that the tree is clean.
+    pub observed: u64,
+    /// ⛔ WHO, not just how many. A census that says "one" and cannot say WHICH
+    /// sends the reader to re-derive the population by hand — and the sweeper's
+    /// own `continue` names nobody at all.
+    pub first_skipped: Option<String>,
+}
+
+/// Observe every body the sweeper has already had its turns on.
+///
+/// ⚠ **THE MOMENT IS THE WHOLE DESIGN, and `body_identity.rs` paid for this
+/// lesson already.** `ensure_sim_id` runs at the head of the frame AND at the
+/// tail, and a spawn site may mint within the same tick that built the body. A
+/// body judged on the tick it appeared is being asked a question the engine has
+/// not finished answering, and the primary player is guaranteed to be counted.
+/// ⇒ `Added<BodyKinematics>` EXCLUDES this tick's arrivals; the rest are bodies
+/// both sweeper passes and every in-tick spawner have already declined to name.
+/// That is ordering-independent and needs no edge against `ensure_sim_id`.
+pub fn observe_unminted_bodies(
+    mut census: bevy::prelude::ResMut<UnmintedBodyCensus>,
+    bodies: bevy::ecs::system::Query<
+        (
+            bevy::ecs::entity::Entity,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&ambition_combat::components::FeatureId>,
+            Option<&ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+            Option<&bevy::prelude::Name>,
+        ),
+        bevy::ecs::query::With<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+    >,
+    born_this_tick: bevy::ecs::system::Query<
+        bevy::ecs::entity::Entity,
+        bevy::ecs::query::Added<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+    >,
+) {
+    for (entity, sim_id, feature_id, primary, name) in &bodies {
+        if born_this_tick.contains(entity) {
+            continue;
+        }
+        census.observed += 1;
+        if sim_id.is_none() && feature_id.is_none() && primary.is_none() {
+            census.skipped += 1;
+            if census.first_skipped.is_none() {
+                census.first_skipped = Some(format!(
+                    "{entity} ({})",
+                    name.map_or("no Name either", |name| name.as_str())
+                ));
+            }
+        }
+    }
+}

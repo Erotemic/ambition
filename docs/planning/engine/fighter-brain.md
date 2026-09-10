@@ -406,6 +406,29 @@ attack; its nonzero case is a running body in range of a foe with a stronger
 committed option available. That is step 3's "one explicit policy term with clear
 zero/nonzero cases", and the table above is the step-4 measurement to repeat.
 
+⛔⛔ **A SECOND FIGHTER SAYS THE GATE IS CALIBRATED TO ONE.** `npc_emmy_noether`
+at rung 9 — **HEAD 0.28 / 0.44, which ALREADY FAILS the 0.5 threshold**, 0
+knockouts, hitstun [38, 59]; truthful kit **0.28 / 0.44, byte-identical**, same
+damage-by-move. ⇒ Another shipped fighter fails this acceptance test today with
+nothing changed, so "the fix fails the gate at rung 9" is much weaker evidence
+than it reads — the gate does not hold across fighters at HEAD, and the fighter
+it is calibrated on is the pirate admiral.
+
+⭐ The identical numbers are a CONTROL rather than a null: the change is a no-op
+wherever the running stance never triggers, which is what it should be.
+
+⚠ The fix is runnable behind `--features truthful_attack_kit` on
+`ambition_platformer2d_actor_monolith` (default off), one code path — with the
+feature off the stance flag is a compile-time `false` and the resolver falls
+through to today's, so "off" is the shipped behaviour by construction.
+
+⚠ **AND THE HARNESS IS THE APP ACCEPTANCE TEST, NOT `ladder-rig`** —
+`smash_cpus_damage_each_other::two_cpus…` with `FIGHTER`/`RUNG`/`TICKS` selecting
+the cell. `ladder-rig`'s default duelists bind no `attack_dash` (its own header
+says so) and `ambition_demo_smash_app` has no `ambition_content` edge, so the 19
+authored movesets are not seatable there at all. An instrument's NAME is not its
+population; this was inferred wrongly once already.
+
 ⚠ **THE RIG IN THIS DOCUMENT CANNOT REFEREE IT.** `brain::fighter::evaluation`
 builds a synthetic kit (`rig_uptilt`, `rig_smash`) with no dash stance and
 measures APM and distinct frames, not damage. The duel rig

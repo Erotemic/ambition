@@ -62,6 +62,16 @@ seeds are equal. ⇒ **Every row asserts the two seats' seeds DIFFER**, read fro
 the harness's own `[brain]` probe, and a row that cannot show two distinct seeds
 is UNMEASURABLE rather than lockstep.
 
+⛔⛔ **AND IT READS `seed=`, NOT `now=`.** `FighterState::new` stores the seed in
+`state.noise` and advances it on every draw, so the end-of-bout value is a
+STREAM POSITION. Two seats can share a seed and still end on different
+positions by drawing a different NUMBER of samples — which is what a divergent
+bout does. ⇒ Reading the end position would pass a shared-seed bout as "seeds
+differ" at rungs 3, 5, 6 and 8, the rungs this sweep exists to measure. The
+check is sound in one direction only (equal end positions DO imply a shared
+stream), and that is the direction it does not need. There is no fallback to
+`now=`, because the fallback is the defect.
+
 ⚠ **THE RATIO IS NOT THE MEASUREMENT.** Several mechanisms died on this row
 behind a per-seat ratio, so every row here prints both seats' starts, damage and
 ABSOLUTE FIRST-SEEN TICK. A bout that fails to seat produces a perfect-looking
@@ -144,7 +154,17 @@ def parse() -> dict[tuple[str, int], dict]:
             row.setdefault("distinct", []).append(int(m.group(3)))
         if m := re.match(r"^\[dealt\] seat (\d): ([\d.]+) damage", line):
             row.setdefault("dealt", []).append(float(m.group(2)))
-        if m := re.match(r"^\[brain\] seat (\d): noise=(\S+)", line):
+        # ⛔⛔ `seed=`, NEVER `now=`. `FighterState::new` stores the seed IN
+        # `state.noise` and advances it on every draw, so the end-of-bout value
+        # is a STREAM POSITION. Two seats can start from the SAME seed and end
+        # on different positions merely by drawing a different NUMBER of
+        # samples -- which is what happens at every rung where the bout
+        # diverges. ⇒ Reading `now=` would pass a shared-seed bout as "seeds
+        # differ" at exactly rungs 3, 5, 6 and 8, the rungs this sweep exists
+        # to measure, and the confound would walk through the check built to
+        # exclude it. A row with no `seed=` is UNMEASURABLE; there is no
+        # fallback, because the fallback is the defect.
+        if m := re.match(r"^\[brain\] seat (\d): .*?\bseed=(0x[0-9a-fA-F]+)", line):
             row.setdefault("seeds", []).append(m.group(2))
         if "panicked at" in line:
             row["panics"].append(line)

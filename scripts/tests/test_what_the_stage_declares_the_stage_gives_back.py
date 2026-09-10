@@ -64,9 +64,24 @@ def test_every_answer_the_stage_declares_is_given_back():
     split = code.index("} else if")
     arrival, departure = code[:split], code[split:]
 
-    # Arrival: everything inserted EXCEPT the prior record itself.
+    # ⛔⛔ THE `\s*` BEFORE `.insert_resource` IS LOAD-BEARING, AND ITS ABSENCE MADE
+    # THIS GUARD RED FOR THE WRONG REASON. `rustfmt` wrapped ONE of the four
+    # declarations as `commands\n    .insert_resource(PlayerManaRegen(0.0));`
+    # because the path was long, and a pattern anchored on the contiguous
+    # `commands.insert_resource(` counted 3 against 4 restores. The tree was
+    # correct; the instrument could not read it.
+    #
+    # ⇒ AND THE DANGEROUS DIRECTION IS THE OTHER ONE. MEASURED, not reasoned: on a
+    # tree where the four declarations are otherwise balanced, adding a FIFTH
+    # wrapped declaration with no give-back leaves the old pattern reading 4
+    # against 4 and GREEN, while this one reads 5 against 4. The leak this file
+    # exists to catch was invisible in exactly the shape rustfmt produces. A
+    # source-text guard's input includes the FORMATTER.
     inserts = [
-        m for m in re.findall(r"commands\.insert_resource\(\s*([A-Za-z_:][\w:]*)", arrival)
+        m
+        for m in re.findall(
+            r"commands\s*\.insert_resource\(\s*([A-Za-z_:][\w:]*)", arrival
+        )
         if "SmashPresentationPrior" not in m
     ]
     # Departure: one `match prior.<field>` per captured answer.
@@ -95,4 +110,39 @@ def test_every_answer_the_stage_declares_is_given_back():
         f"`SmashPresentationPrior` captures {missing} and the departure branch "
         "never restores them — a value saved and never handed back is the same "
         "leak with a record of what was lost."
+    )
+
+
+def test_a_declaration_wrapped_by_the_formatter_is_still_counted():
+    """⛔⛔ THE REGRESSION ARM FOR THE BLINDNESS ABOVE, because the fix is one
+    `\\s*` in a pattern and nothing else in this file would notice it going away.
+
+    ⚠ IT RUNS ON A SYNTHETIC BODY, NOT THE TREE. The tree is currently formatted
+    with exactly one wrapped declaration, so the live guard happens to exercise
+    this — but that is an accident of line length, and the next rename that
+    shortens a path would silently retire the coverage.
+    """
+    wrapped = (
+        "    if on_stage && !declared {\n"
+        "        commands.insert_resource(SmashPresentationPrior { mana: None });\n"
+        "        commands\n"
+        "            .insert_resource(some::very::long::path::PlayerManaRegen(0.0));\n"
+        "    } else if !on_stage && declared {\n"
+        "        match prior.mana { Some(value) => {} None => {} }\n"
+        "    }\n"
+    )
+    split = wrapped.index("} else if")
+    arrival = wrapped[:split]
+    found = [
+        m
+        for m in re.findall(
+            r"commands\s*\.insert_resource\(\s*([A-Za-z_:][\w:]*)", arrival
+        )
+        if "SmashPresentationPrior" not in m
+    ]
+    assert found == ["some::very::long::path::PlayerManaRegen"], (
+        f"a declaration `rustfmt` wrapped onto its own line was read as {found}. "
+        "The guard above compares COUNTS, so a declaration it cannot see makes a "
+        "missing give-back look balanced — measured: 4 against 4 and green, with "
+        "the leak present."
     )

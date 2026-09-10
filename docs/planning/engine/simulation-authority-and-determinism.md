@@ -639,17 +639,53 @@ automatically. It is exhaustively BLIND to these 59: they are cloned into the
 snapshot, restored from it, and never encoded, so no checksum compares them
 between peers and no observer can watch a codec that is never called.
 
-⚠ **The 59 are not a defect list.** "Value-probed for localization, not in the
-session checksum" is a deliberate registration choice, and for some of these it
-is the right one. The open question is whether it is right for all 59 — which is
-a question about each row, and the answer for a row that carries a float that
-two peers must agree about is different from the answer for a row that carries a
-presentation cursor.
+### The reading of the 59 — 2026-09-10
 
-⇒ Whoever takes this: the deliverable is a per-row reading of the 59, not a
-sweep that promotes them. Promoting a row to canonical changes what two peers
-agree about, which is the same class of decision as
-[`netcode.md`](netcode.md)'s N3.
+**Read, nothing promoted.** Promotion changes what two peers agree about and is
+[`netcode.md`](netcode.md)'s N3 class of decision; this is the classification
+that decision would need.
+
+**What the registration actually does.** `rollback_component_clone_probed`
+(`crates/ambition_platformer2d_rollback_ggrs/src/registration.rs`) installs
+`rollback_component_with_clone` — the value IS snapshotted and restored — plus a
+`ChecksumProbe`. The probe is a **desync-LOCALIZATION aid** that a test runs
+around a restore. It contributes nothing to the session checksum. So these rows
+rewind correctly and are invisible to peer comparison.
+
+**MEASURED over the 59** (`python3 scripts/measure_unchecksummed_rollback_rows.py`):
+
+| | rows |
+|---|---|
+| carry a float-bearing field type (`f32`, `Vec2`, `Timer`, …) | **45** |
+| describe themselves as authoritative simulation state | **58** |
+| describe themselves as presentation (`presentation.body_source`) | 1 |
+
+⛔⛔ **THE CONSEQUENCE IS ALREADY WRITTEN DOWN IN THIS REPO, one rung along.**
+`rollback/registry.rs`, arguing the v152 wire-format bump, says a divergence in
+uncompared state "appears a tick later as a checksum mismatch with no obvious
+cause." That is the same argument, and the probe arm exists **because** it is
+true: localization tooling is what you build when you have accepted that the
+detection will be late and mis-attributed.
+
+⇒ So the reading is not "59 undetected divergences". For state that drives
+gameplay soon — a fuse, a dash, a reel, a respawn timer — divergence propagates
+into `BodyKinematics` and the checksum catches it, at the wrong frame and with
+the wrong cause. **That is a detection-latency and attribution problem, and the
+localization probe is the mitigation already chosen for it.**
+
+⚠ **The class that is NOT that, and is the question worth putting to a
+maintainer: state whose next reader may be arbitrarily far away.** A divergent
+`ability.player_mark` (a dropped teleport point) is read when the player
+recalls, which may be minutes later or never; `portal.owned_gun_pair` is read on
+re-equip; `actor.persona_baseline` and `actor.projected_character_kit` on the
+next re-dress. For those, "the checksum catches it eventually" is not a bound —
+and it is exactly the population where a per-row reader check would settle it.
+
+⚠ **AND THIS PAGE STOPS AT WHAT IT MEASURED.** The float count and the
+self-description come from the type definitions and their doc comments. The
+latency classes above are read from those same doc comments and are NOT a reader
+census — a row moved between the two classes on the strength of its prose would
+be a guess. Whoever acts on this owes the reader check first.
 
 ### S6 — session-scoped process-resource residue
 

@@ -181,6 +181,16 @@ pub fn reconcile_moveset_routing_markers(
 pub struct MoveEventMessage {
     pub owner: Entity,
     pub move_id: String,
+    /// The use of the move that sent this event. It comes from
+    /// [`MovePlayback::instance`].
+    ///
+    /// ⛔⛔ THE EMITTER SETS THIS VALUE. A CONSUMER MUST NOT READ IT AGAIN.
+    /// One body plays moves in sequence on the same entity. A consumer that
+    /// reads `playbacks.get(ev.owner)` gets the move that plays at that time.
+    /// That move can be a different move. This field prevents that error.
+    ///
+    /// ⚠ `move_id` is not sufficient. Two uses of one move have the same id.
+    pub move_instance: u32,
     /// Stable authored package that owns this move's presentation cues.
     ///
     /// Real playback derives it from the body's catalog character owner. The
@@ -1533,6 +1543,7 @@ pub fn advance_move_playback(
                 events.write(MoveEventMessage {
                     owner,
                     move_id: pb.spec.id.clone(),
+                    move_instance: pb.instance,
                     presentation_source: presentation_source.clone(),
                     kind: ev.kind.clone(),
                     world_offset,
@@ -1557,6 +1568,8 @@ pub fn advance_move_playback(
                         world_pose: ambition_vfx::FxPose::UPRIGHT,
                         owner,
                         move_id: pb.spec.id.clone(),
+                        move_instance: pb.instance,
+                    
                         presentation_source: presentation_source.clone(),
                         kind: MoveEventKind::Effect(effect.clone()),
                     });
@@ -1609,6 +1622,8 @@ pub fn advance_move_playback(
                             world_pose: ambition_vfx::FxPose::UPRIGHT,
                             owner,
                             move_id: pb.spec.id.clone(),
+                        move_instance: pb.instance,
+                    
                             presentation_source: presentation_source.clone(),
                             kind: MoveEventKind::Effect(effect.clone()),
                         });
@@ -4054,11 +4069,36 @@ pub fn mark_move_playback_resolved_hits(
 /// verdict channel could not carry it.
 ///
 /// ⚠ **`None` IS ADMITTED, AND THAT IS NOT A LOOPHOLE.** This channel is broader
-/// than moveset strikes: contact attrition, a hazard, the blast zone and an
-/// ability's own volume all resolve through it and no move claims them. Refusing
-/// `None` would silently stop crediting every one of those, which is a bigger
-/// change than the defect. ⇒ `None` means *nobody claimed this*, and a claim
-/// that names an instance must match.
+/// than moveset strikes, so `None` means *nobody claimed this*, and a claim that
+/// names an instance must match.
+///
+/// ⛔⛔ **AN EARLIER VERSION OF THIS COMMENT DEFENDED `None` WITH FOUR CATEGORIES
+/// AND THREE OF THEM CANNOT REACH THIS FUNCTION.** It named *"contact attrition,
+/// a hazard, the blast zone and an ability's own volume"*. The predicate is only
+/// consulted after `playbacks.get_mut(attacker)` succeeds, so a verdict whose
+/// `attacker` is `None` never arrives here at all. Enumerated 2026-09-10 over
+/// every production site that writes `attacker_move_instance: None`:
+///
+/// | `attacker` | sites | reaches this function |
+/// |---|---|---|
+/// | `None` | `hazards.rs` x2, `rollback_registration.rs`, `abilities/ranged/bomb.rs`, `features/ecs/actors/update.rs:998` | no |
+/// | `Some(body)` | `features/empowerment.rs`, `features/ecs/actors/update.rs:964`, `features/enemies/integration.rs`, `abilities/traversal/{blink,dive,mark_recall}.rs` | yes |
+/// | `Some(shell)` | `demo_mary_o/src/snake.rs` x2 | only if a shell has a playback |
+///
+/// ⇒ **Only *an ability's own volume* held.** The hazard and blast-zone
+/// arguments were true of the channel and false of this predicate, and both of
+/// them were used to size a change as too large to make.
+///
+/// ⚠ **SO THE COST OF REQUIRING A CLAIM IS ABOUT SEVEN SITES, NOT SIXTEEN, AND
+/// NONE OF THEM IS A HAZARD.** That is not a reason to do it. For `blink`,
+/// `dive` and `mark_recall` the player triggered the ability, possibly as part
+/// of a move, so *"not attributable to this move"* may be FALSE for them.
+/// Refusing `None` there is a gameplay ruling, not a bug fix.
+///
+/// ✔ **THE PROJECTILE CASE NEEDED NEITHER.** A shot now carries the instance of
+/// the move that fired it, from the firing event, so its verdict names its
+/// author and never reaches the `None` branch. See
+/// `ambition_projectiles::FiredByMoveInstance`.
 fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
     instance.is_none_or(|earned| earned == pb.instance)
 }
@@ -4250,7 +4290,16 @@ pub fn dispatch_move_events(
                         // ⭐ THE MOVE WAS ACCEPTED, so this shot is owed. The
                         // weapon's recharge was spent at `start_move`; the
                         // consumer must not ask again.
-                        commitment: RangedCommitment::CommittedMove,
+                        //
+                        // ⛔ AND THE INSTANCE COMES FROM THE EVENT, NOT FROM A
+                        // FRESH LOOKUP. `ev.move_instance` was stamped where the
+                        // event was emitted, with the emitting playback in hand;
+                        // asking `playbacks.get(ev.owner)` here would read
+                        // whatever is playing when the event DRAINS, which is
+                        // the defect this carries the value to avoid.
+                        commitment: RangedCommitment::CommittedMove {
+                            instance: ev.move_instance,
+                        },
                         spec,
                         origin,
                         dir,

@@ -246,6 +246,8 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "smash".into(),
@@ -285,6 +287,8 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "smash".into(),
@@ -1913,6 +1917,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "sig".into(),
@@ -1925,6 +1931,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "sig".into(),
@@ -2034,6 +2042,8 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "fire".into(),
@@ -2064,6 +2074,88 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
                  body-local up under non-default gravity"
             );
         }
+        other => panic!("expected a Ranged action, got {other:?}"),
+    }
+}
+
+/// ⛔⛔ THE SHOT NAMES THE USE OF THE MOVE THAT FIRED IT. THE VALUE COMES FROM
+/// THE EVENT. IT DOES NOT COME FROM THE PLAYBACK OF THE OWNER.
+///
+/// A12: a damage result with no move instance goes to the move that the
+/// attacker plays at the time of the hit. A shot can land after its move stops.
+/// Move A fires and stops. Move B then gets the `connected_hit`.
+///
+/// ⭐ MEASURED 2026-09-10. The fighter `officer` has a shot move and a
+/// conditional cancel. The defect is possible in the shipped content.
+///
+/// ⚠ THIS FIXTURE MAKES THE TWO SOURCES DIFFERENT ON PURPOSE. The live playback
+/// of the owner is instance 7. The event gives instance 3. A correct dispatcher
+/// carries 3. A dispatcher that reads the playback again carries 7.
+///
+/// ⇒ This is the full defence. Other code in this tree reads a stamped fact
+/// from the owner at read time. That code is correct for its own subject. A
+/// copy of that code here causes the defect again. This test then fails.
+#[test]
+fn a_moves_shot_carries_the_instance_from_the_event_not_the_live_playback() {
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_message::<ambition_vfx::FxRequest>();
+    app.add_systems(Update, dispatch_move_events);
+
+    let mut playback = MovePlayback::new(swat(), 1.0);
+    // The instance of the next move. A second read finds this value.
+    playback.instance = 7;
+    let owner = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 50.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 24.0),
+                facing: 1.0,
+            },
+            ActionSet {
+                ranged: Some(RangedActionSpec::bolt(240.0, 3)),
+                ..Default::default()
+            },
+            ActorControl::default(),
+            playback,
+        ))
+        .id();
+    app.world_mut()
+        .resource_mut::<Messages<MoveEventMessage>>()
+        .write(MoveEventMessage {
+            // The use that fires the shot. It is not 7 on purpose.
+            move_instance: 3,
+            world_offset: ae::Vec2::ZERO,
+            owner,
+            move_id: "fire".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+            kind: MoveEventKind::Ranged,
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
+        });
+    app.update();
+
+    let acts: Vec<ActorActionMessage> = app
+        .world_mut()
+        .resource_mut::<Messages<ActorActionMessage>>()
+        .drain()
+        .collect();
+    assert_eq!(acts.len(), 1, "the Ranged event bridged to one action");
+    match &acts[0].request {
+        ActionRequest::Ranged { commitment, .. } => assert_eq!(
+            *commitment,
+            RangedCommitment::CommittedMove { instance: 3 },
+            "the shot must name the move use the EVENT carried (3). Instance 7 \
+             is the owner's live playback, so a 7 here means the dispatcher \
+             re-read the playback instead of carrying the value — which is the \
+             defect this field exists to close, moved one link later."
+        ),
         other => panic!("expected a Ranged action, got {other:?}"),
     }
 }
@@ -2114,6 +2206,8 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            // A fixture plays one authored use. Instance 0 is the first.
+            move_instance: 0,
             world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "fire".into(),
@@ -2193,6 +2287,8 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
             .write(MoveEventMessage {
+                // A fixture plays one authored use. Instance 0 is the first.
+                move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
                 owner,
                 move_id: "fire".into(),
@@ -7338,6 +7434,8 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
             .write(MoveEventMessage {
+                // A fixture plays one authored use. Instance 0 is the first.
+                move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
                 owner,
                 move_id: "charge_shot".into(),

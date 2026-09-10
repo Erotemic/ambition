@@ -94,6 +94,14 @@ fn materialize_matching(
         scope.apply_to(&mut entity);
         round_scope.apply_to(&mut entity);
 
+        // ⭐ THE CODE INSERTS THIS COMPONENT ONLY IF A MOVE FIRED THE SHOT.
+        // See `FiredByMoveInstance`. An absent component is the answer for each
+        // shot that no move made. A value of `0` would name a first use of a
+        // move that did not play.
+        if let Some(instance) = request.move_instance {
+            entity.insert(crate::FiredByMoveInstance(instance));
+        }
+
         if request.owner != Entity::PLACEHOLDER {
             entity.insert(ProjectileOwner(request.owner));
             if let Ok(source) = sources.get(request.owner) {

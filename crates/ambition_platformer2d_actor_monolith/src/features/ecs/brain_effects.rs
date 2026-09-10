@@ -335,11 +335,17 @@ pub fn spawn_projectiles_from_brain_actions(
                 pos: spawn.origin,
             });
         }
-        projectiles.write(ProjectileSpawnRequest::open(
-            msg.actor,
-            spawn,
-            ProjectileStart::StepThisTick,
-        ));
+        // ⭐ A SHOT THAT A MOVE FIRES NAMES THE USE THAT FIRED IT. The
+        // commitment carries the instance from the move event. A read of the
+        // playback of the owner here gets the move that plays now. That is the
+        // defect this value prevents. Every other road leaves the value empty.
+        // Empty is the correct answer for a gun or a bomb.
+        let request = ProjectileSpawnRequest::open(msg.actor, spawn, ProjectileStart::StepThisTick);
+        let request = match commitment {
+            RangedCommitment::CommittedMove { instance } => request.fired_by_move(instance),
+            RangedCommitment::Attempt => request,
+        };
+        projectiles.write(request);
         // Recoil: push the firing actor backward along the negative
         // fire direction.
         let kick = world_dir * -discharge.recoil;

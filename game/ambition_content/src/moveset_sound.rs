@@ -56,6 +56,8 @@ fn cues_at_one_instant(
                 world_offset: ae::Vec2::ZERO,
                 owner,
                 move_id: spec.id.clone(),
+                // A fixture plays one authored move. Instance 0 is the first use.
+                move_instance: 0,
                 presentation_source: PresentationSourceId::unscoped(),
                 kind: ev.kind.clone(),
                 world_pose: ambition_vfx::FxPose::UPRIGHT,

@@ -1329,7 +1329,18 @@ pub enum RangedCommitment {
     Attempt,
     /// A move the body ACCEPTED authored this shot. The weapon was spent at
     /// acceptance, so the shot is guaranteed here.
-    CommittedMove,
+    ///
+    /// ⭐⭐ IT ALSO NAMES THE USE OF THAT MOVE. "A move made this shot" is not
+    /// a full answer. You must know which use of the move.
+    ///
+    /// One body plays moves in sequence. A shot can land after its move stops.
+    /// Without this value, the next move gets the hit. That is the A12 defect.
+    /// [`MovePlayback::instance`] holds the fact. This field carries it.
+    ///
+    /// ⛔ THE REQUEST CARRIES THE VALUE. NO CONSUMER READS IT AGAIN. A consumer
+    /// that reads the owner's playback at spawn time gets the move that plays
+    /// at that time. That repeats the defect at the reader.
+    CommittedMove { instance: u32 },
 }
 
 /// Concrete effect a brain's abstract intent resolves to, after

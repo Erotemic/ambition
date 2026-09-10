@@ -287,7 +287,7 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
     }
 
     assert_eq!(
-        shots_fired(RangedCommitment::CommittedMove),
+        shots_fired(RangedCommitment::CommittedMove { instance: 0 }),
         1,
         "the move was accepted and its recharge already spent — refusing here \
          drops a shot the fighter committed to and the player was shown"

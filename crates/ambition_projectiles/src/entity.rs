@@ -68,3 +68,24 @@ impl ProjectileSeqCounter {
         ProjectileSeq(id)
     }
 }
+
+/// The use of the owner's move that fired this shot.
+///
+/// ⛔⛔ A SHOT CAN LAND AFTER ITS MOVE STOPS. A damage result with no move
+/// instance goes to the move that plays at that time. See
+/// `moveset::verdict_belongs_to`. Move A fires and stops. Move B starts. The
+/// shot from A lands. Move B then gets `connected_hit` and its OnHit escape.
+/// Move B did not earn them.
+///
+/// ⭐ MEASURED 2026-09-10. The fighter `officer` has a shot move
+/// (`officer_the_draw`) and a conditional cancel (`officer_jab`). The defect
+/// is possible in the shipped content.
+///
+/// ⭐ THE COMPONENT IS ABSENT WHEN NO MOVE FIRED THE SHOT. It is not zero. A
+/// gun, a thrown bomb and an environmental volley have no move. A value of `0`
+/// would name the first use of a move that did not play.
+///
+/// ⚠ THE SPAWN REQUEST CARRIES THIS VALUE. DO NOT CALCULATE IT AGAIN. A read
+/// of the owner's playback at spawn time gets the wrong move.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FiredByMoveInstance(pub u32);

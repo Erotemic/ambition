@@ -28,6 +28,12 @@ where
         )
         // The bolt itself.
         .rollback_component_canonical::<crate::ProjectileSeq>(OWNER, "projectile.seq")
+        // The value is empty for a shot that no move fired. Most shots have
+        // no move.
+        .rollback_component_canonical::<crate::FiredByMoveInstance>(
+            OWNER,
+            "projectile.fired_by_move_instance",
+        )
         .rollback_component_canonical::<crate::ProjectileVisualId>(
             OWNER,
             "projectile.visual_id",

@@ -23,7 +23,9 @@ pub mod visual;
 #[cfg(test)]
 mod engine_tests;
 
-pub use entity::{LiveProjectile, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter};
+pub use entity::{
+    FiredByMoveInstance, LiveProjectile, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter,
+};
 pub use kind::{FireballChargeTuning, ProjectileKind};
 pub use materialize::{
     materialize_projectiles_for_next_tick, materialize_projectiles_for_this_tick,

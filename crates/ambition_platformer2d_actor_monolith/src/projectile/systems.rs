@@ -400,6 +400,9 @@ pub(crate) fn emit_landing_splash(
     damage: i32,
     half: f32,
     attacker: Option<Entity>,
+    // The use of the move of the attacker that fired this shot, if a move
+    // fired it. The caller supplies the value. See `FiredByMoveInstance`.
+    move_instance: Option<u32>,
     feature_damage: &mut MessageWriter<HitEvent>,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -414,7 +417,7 @@ pub(crate) fn emit_landing_splash(
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
-            attacker_move_instance: None,
+        attacker_move_instance: move_instance,
     });
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -450,6 +453,13 @@ pub fn step_projectiles(
             // Read from the PROJECTILE rather than chased back through the owner,
             // because a shot outlives its firer and must still sound like it.
             Option<&ambition_sfx::BodyPresentationSource>,
+            // ⭐ THE USE OF THE MOVE THAT FIRED THIS SHOT. The reason is the
+            // same as the reason on the line above. A shot can land after its
+            // move stops, and also after its sound stops. The damage result
+            // must name the move that made the shot. It must not name the move
+            // that the owner plays at the time of the hit (A12). The value is
+            // empty for each shot that no move fired.
+            Option<&ambition_projectiles::FiredByMoveInstance>,
             // Whom this shot has already hit on the leg it is flying.
             &mut ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
         ),
@@ -527,7 +537,7 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
@@ -542,6 +552,7 @@ pub fn step_projectiles(
             kind,
             visual_id,
             bolt_source,
+            fired_by_move,
             mut already_hit,
         )) = projectiles.get_mut(proj_entity)
         else {
@@ -549,6 +560,10 @@ pub fn step_projectiles(
         };
         let stamped_allegiance = stamped_allegiance.cloned();
         let bolt_source = bolt_source.map(|source| source.id().clone());
+        // The code copies this value out of the borrow with the other stamped
+        // facts. The reason is the same: the code writes the damage results
+        // below after it releases `projectiles`.
+        let fired_by_move = fired_by_move.map(|stamp| stamp.0);
         // Named kind when the shot uses the named vocabulary; open-visual
         // volleys deliberately remain kind-less.
         let kind = kind.copied();
@@ -1194,7 +1209,7 @@ pub fn step_projectiles(
                         follow: None,
                     }),
                     ignored_targets: Vec::new(),
-                                    attacker_move_instance: None,
+                                    attacker_move_instance: fired_by_move,
                 });
                 // CM8: the struck body's feedback (sound + spray) is emitted by
                 // the ONE victim-side reaction now — a player victim through
@@ -1230,6 +1245,7 @@ pub fn step_projectiles(
                             game.damage.max(1),
                             game.splash_half_extent,
                             owner_entity,
+                            fired_by_move,
                             &mut feature_damage,
                             &mut sfx,
                             &mut vfx,
@@ -1283,7 +1299,7 @@ pub fn step_projectiles(
                 mode: HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
-                            attacker_move_instance: None,
+                            attacker_move_instance: fired_by_move,
             };
             if let Some(contact) = feature_contact.as_ref() {
                 // ⛔⛔ **DIRECT FIRST, THEN ITS LANDING AREA — and this branch had
@@ -1310,6 +1326,7 @@ pub fn step_projectiles(
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
+                        fired_by_move,
                         &mut feature_damage,
                         &mut sfx,
                         &mut vfx,
@@ -1443,6 +1460,7 @@ pub fn step_projectiles(
                         game.damage.max(1),
                         game.splash_half_extent,
                         owner_entity,
+                        fired_by_move,
                         &mut feature_damage,
                         &mut sfx,
                         &mut vfx,

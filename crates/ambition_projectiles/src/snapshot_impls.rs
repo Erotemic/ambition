@@ -30,6 +30,15 @@ impl SnapshotState for crate::ProjectileSeq {
     }
 }
 
+impl SnapshotState for crate::FiredByMoveInstance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.u32()?))
+    }
+}
+
 impl SnapshotState for crate::ProjectileVisualId {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, &self.0);

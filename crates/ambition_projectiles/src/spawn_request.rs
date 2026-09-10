@@ -59,6 +59,20 @@ pub struct ProjectileSpawnRequest {
     pub projectile: InFlightProjectile,
     pub presentation: ProjectilePresentation,
     pub start: ProjectileStart,
+    /// The use of the owner's move that made this shot, if a move made it.
+    ///
+    /// ⭐ `None` IS A CORRECT ANSWER. It is not a placeholder. A gun, a thrown
+    /// bomb and an environmental volley have no move. The constructors leave
+    /// this field empty. Only the moveset road sets it.
+    ///
+    /// ⛔⛔ A SHOT CAN LAND AFTER ITS MOVE STOPS. A damage result with no move
+    /// instance goes to the move that plays at that time. Move A fires and
+    /// stops. Move B then gets the hit. That is the A12 defect. This field
+    /// lets the damage result name the correct move.
+    ///
+    /// ⚠ THE REQUEST CARRIES THIS VALUE. DO NOT CALCULATE IT AGAIN. A read of
+    /// the owner's playback at spawn time gets the wrong move.
+    pub move_instance: Option<u32>,
 }
 
 impl ProjectileSpawnRequest {
@@ -74,6 +88,7 @@ impl ProjectileSpawnRequest {
             projectile: build_in_flight_projectile(spawn),
             presentation: ProjectilePresentation::OpenVisual(visual_id),
             start,
+            move_instance: None,
         }
     }
 
@@ -89,7 +104,18 @@ impl ProjectileSpawnRequest {
             projectile,
             presentation: ProjectilePresentation::NamedKind(kind),
             start,
+            move_instance: None,
         }
+    }
+
+    /// Set the use of the move that made this shot.
+    ///
+    /// ⚠ Only the moveset road calls this function. Give it the instance from
+    /// the firing event. Do not read the owner's playback for this value.
+    #[must_use]
+    pub fn fired_by_move(mut self, instance: u32) -> Self {
+        self.move_instance = Some(instance);
+        self
     }
 }
 

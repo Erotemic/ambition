@@ -907,6 +907,48 @@ times.** ⇒ **Before a sweep, run one row in the corner of the parameter space
 you have never visited.** A knob only ever used at its default has only ever
 been tested there.
 
+## ⛔⛔ A property measured only on the ACCUSED always looks like a clue
+
+One character out of twenty-one could not be measured; the harness died two
+seconds into her bout. Investigating her moveset turned up something striking:
+**all six of the VFX effect ids she names are defined nowhere in the tree** — no
+`.rs`, no `.ron`, nothing. A distinguishing feature, on the one subject that
+fails, pointing at an unresolved reference falling through to a spawn path.
+
+It is evidence of nothing. **Nobody's are defined.** `electric_arc`,
+`gear_scatter`, `evidence_ping` — every other fighter's ids come back with the
+same zero, and those fighters measure clean.
+
+⇒ **The property was real, the measurement was correct, and it distinguished
+nothing — because it was only ever measured on the accused.** That is a
+different failure from a wrong value or a stale conclusion, and it has the worst
+incentive structure of the three: you are investigating a subject, so you
+measure that subject, and any unusual thing you find arrives already looking
+like an explanation.
+
+⭐ **The test is one command and it kills candidates fast: measure one
+NON-accused subject before believing any distinguishing feature.** Four
+candidates for that failure died to it in an afternoon, including the one held
+with most confidence:
+
+| candidate | killed by |
+|---|---|
+| she uses a lot of VFX | another fighter uses **more**, and is clean |
+| her effect ids are undefined | **every** fighter's are undefined |
+| her sprite sheet is 7.8MP and decodes mid-gameplay | another loads **7.5MP** mid-gameplay, flagged by the same log line, and is clean |
+| she dies and a death despawns something | another scores **5 knockouts** in one bout without failing |
+
+⚠ **Note what each row of that table costs: one run of one other subject.** None
+of these needed a theory, a reading of the code, or an argument — they needed a
+control, and the control was always cheap and always available.
+
+⛔ **And the failure compounds when it reaches a report.** "Her effect ids are
+undefined" was about to be filed as a second finding beside the first, scoped to
+her. It IS a real finding — an authored id family with no admission check —
+**but it is a property of the whole corpus, and filing it as hers would have
+sent the next reader to fix a character.** ⇒ **Before writing a distinguishing
+feature into a row, ask what the denominator is.** Counting the denominator is the same discipline one step later.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

@@ -582,7 +582,7 @@ Verification, terminal outcomes and startup unification landed 2026-09-08: the
 commit checks the applied world against the snapshots the operation was accepted
 with, publishes exactly one outcome per key, blocks gameplay on failure, and
 startup routing is now the same operation mechanism —
-`CheckpointResumeProgress` is deleted rather than renamed.
+`CheckpointResumeProgress` is deleted rather than renamed. <!-- cite-ok: the name is here BECAUSE it is gone; this sentence records the deletion -->
 
 Verification now covers the ledger, the bag, the room the operation claimed to
 reconstruct, the subject it restores around, and — per banked custody row — that

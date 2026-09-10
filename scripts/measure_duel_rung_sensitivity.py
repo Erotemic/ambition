@@ -44,9 +44,16 @@ level >= 6, so a 5 -> 6 difference is not a noise difference. It is carried
 because it brackets that boundary, not because it isolates anything.
 
 ⛔⛔ **AND ONE OF THE THREE SUBJECTS CANNOT ANSWER THE QUESTION.**
-`npc_carl_stargan` is a bare registration — he authors no body, no policy and no
-moveset, presses 3 moves in a whole duel and spends 0.5% of it in reach. He is
-lockstep because he does almost nothing, not because noise failed to reach him.
+`npc_carl_stargan` presses 3 moves in a whole duel at rung 9 and spends 0.5% of
+it in reach. He is lockstep because he does almost nothing, not because noise
+failed to reach him.
+
+⚠ **THIS FILE USED TO CALL HIM A BARE REGISTRATION THAT AUTHORS NOTHING. THAT
+WAS WRONG AND THE EXEMPTION SAYING IT WAS STALE.** Measured 2026-09-10: he
+authors a locomotion, a 600-line moveset of his own and `max_health = Some(4)`,
+and `KNOWN_BARE_REGISTRATIONS` was emptied once that was checked. **His low
+activity is a fact about his brain's engagement, not about missing content** —
+and the two would have led to opposite fixes.
 ⇒ **His staying lockstep at rung 3 is NOT evidence about the jitter.** He is
 carried as a NEGATIVE CONTROL: he should stay lockstep at every rung, and if he
 separates, the jitter reaches even a 3-start fighter, which is a finding about
@@ -102,11 +109,12 @@ one-tick nudge to matter is a precondition here.** The reading that fits is that
 Carl measures the FLOOR of the effect rather than its absence; that is a reading
 chosen after seeing the data and is labelled as one.
 
-⛔ **An open content question this sweep raised and did not answer:** Carl deals
-55/62 damage at rung 3 and 44/66 at rung 6, and he is in
-`KNOWN_BARE_REGISTRATIONS` -- the exemption list for ids that author NOTHING.
-A character with no authored body, policy or moveset is fighting. Filed on
-D-CPU-INERT as an observation.
+✔ **A question this sweep raised and CLOSED, in the direction nobody expected.**
+Carl deals 55/62 damage at rung 3 and 44/66 at rung 6, which read as impossible
+while he was believed to author nothing. He authors a locomotion, a moveset and
+vitals; the `KNOWN_BARE_REGISTRATIONS` entry claiming otherwise was stale and
+the list is now empty. ⇒ **The rung-3 row is what made anyone look**, and the
+answer was that the catalog was wrong rather than the roster.
 
     python3 scripts/measure_duel_rung_sensitivity.py --run   # slow, 15 duels
     python3 scripts/measure_duel_rung_sensitivity.py         # fold the log
@@ -130,7 +138,7 @@ LOG = REPO / "target/duel_rung_sweep.log"
 SUBJECTS = {
     "medic": "load-bearing (49 starts/seat, 25% in reach)",
     "special_patent_clerk": "load-bearing (51 starts/seat, 19% in reach)",
-    "npc_carl_stargan": "NEGATIVE CONTROL (bare registration, 3 starts, 0.5%)",
+    "npc_carl_stargan": "NEGATIVE CONTROL (3 starts, 0.5% in reach at rung 9)",
 }
 RUNGS = (1, 3, 5, 6, 9)
 PROBE = re.compile(r"^\[(duel|gap|body|stance|moves|dealt|brain)\]")

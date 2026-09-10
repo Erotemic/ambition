@@ -220,11 +220,31 @@ enforced by nothing.** A spawn site that forgets leaves a damageable body that
 `ensure_sim_id` deliberately skips.
 
 ⇒ **THE WORK IS NOT "FIND THE BAD SPAWN SITE". IT IS TO MAKE THAT ARM
-OBSERVABLE.** The runtime census
-(`game/ambition_app/tests/every_damageable_body_is_identified.rs`) is the right
-instrument and already exists. ⚠ Its `DAMAGEABLE_FLOOR = 4` against a measurement
-of 4 is **a ratchet at its ceiling**: it cannot see an addition, which is the
-direction a new unidentified body arrives from.
+OBSERVABLE.**
+
+✅ **PART OF THIS LANDED IN `68b7e6de6`, AND IT IS NOT THIS PART.** A2 drove the
+undriven construction roads and observes identity **where bodies are BUILT**, which
+is the better place to enforce — the invariant's own comment says the SPAWN SITE
+must mint, and a build-site census can name WHICH road produced an unidentified
+body rather than only that one was skipped. ⭐ Two of the seven candidate roads
+turned out not to be roads: shrines are out of population, riders mint no body at
+all so the floor became the RELATION (`pirate_sky_lookout`: 11 bodies, 4 mounted
+pairs — **eleven bodies with zero pairs is what a body-count floor would pass**).
+
+⛔ **THE SWEEPER'S SILENT SKIP IS STILL UNCOVERED, and the author of `68b7e6de6`
+refused to let it be counted as covered.** A body with `BodyKinematics`, no
+`SimId`, no `FeatureId` and no `PrimaryPlayer` is still skipped by `ensure_sim_id`
+with nothing reporting it. **Build-site coverage and sweeper coverage are different
+subjects**: the first asks whether each ROAD produces identified bodies, the second
+asks whether a body the sweeper SKIPS is ever nameable.
+
+⚠ **`DAMAGEABLE_FLOOR` WAS 4 AGAINST A MEASUREMENT OF 4 AND THIS ROW SAID SO. IT IS
+1 NOW AND THE ROW WAS WRONG TO ASK FOR HEADROOM.** ⭐ A floor equal to its
+population *"fires on the first change in either direction and teaches the next
+reader to bump the number"* — which is how it reached 4. The repair was to make the
+total floor a bare anti-vacuity check, let the **per-road** floors do the
+discriminating, and PRINT the measured total in the failure message instead of
+asserting on it.
 
 ⚠ **The cut-rope victory NPC was REFUTED as an example** — it carries `FeatureId`
 + `BodyKinematics`, exactly the query the first arm serves. **What is open is the
@@ -283,6 +303,35 @@ nobody had run happened to carry it.
 CLAIMING ANY OF THEM AGREE.** I wrote the two-baseline instruction that shaped
 this row.
 
+⛔⛤ **B1 FIXED, AND THE FIX RESTS ON A PROPERTY NOTHING GUARDS.** `d665d15c1`
+replaced the chain ordinal with `MoveOccurrence(u32)` on the BODY, advanced at
+`start_move`, and deleted `succeeding()` / `StartingMove::replacing` <!-- cite-ok: named BECAUSE d665d15c1 deleted it; a resolvable citation here would mean the deletion did not happen --> in the
+same change so the old road cannot come back by accident.
+
+⭐ **The repair IS an asymmetry**: `MovePlayback` is removed when a move ends
+(`crates/ambition_combat/src/moveset/mod.rs:662`) and must be; **`MoveOccurrence`
+must never be removed**, because that is what makes an idle gap keep its count.
+`MoveOccurrence::next(None)` returns `0` only for a body that has never moved,
+where the old `succeeding(None)` returned `0` on every idle gap.
+
+⚠ **"Never removed" is a doc comment, and I made it a fact with one grep. Nothing
+re-runs that grep.** ⇒ **A body-teardown path that removes components in bulk
+would silently restore the aliasing defect**, and every existing witness would
+still pass — the idle-gap test starts a body from scratch and never tears one down.
+
+⇒ **THE GUARD IS ONE ARM, NOT A SYSTEM: a body that has started a move and then
+LOSES `MoveOccurrence` is the failure.** Cheap to write, and it guards the
+asymmetry rather than the value. **Not yet built.** Raised by ToothbrushAmbition
+while reviewing the review — *"the property most likely to rot"*.
+
+⭐⭐ **AND THE FIX DEFEATED A SECOND ROAD NOBODY WAS LOOKING AT.**
+`AttackerMoveInstance` stamps MELEE strike volumes from the same field
+(`moveset/mod.rs:1913`), so the projectile road and the melee road had **one defect
+between them**. Repairing the stamp on the projectile chain would have left melee
+broken and looked complete. ⚠ It was found while reading the rollback registration
+for somewhere to put the new component — **so finding a sibling is evidence you are
+at the right level, and NOT finding one is not evidence you are wrong.**
+
 ⛔ **THE TWO ROLLBACK BASELINES ARE NOT TWO COPIES OF ONE FINGERPRINT.**
 `rollback_schema_baseline.txt` holds the version and the rows;
 `rollback-schema-baseline.json` holds `stable_schema_names` and `encoded_types`
@@ -332,6 +381,75 @@ production readers of `body_driving_seat`; the count is still four at HEAD, and
 - `avatar/systems.rs:103` **is a production reader and is MISSING**, added by
   `ab308504b` — *the same commit the surrounding paragraph reports as the fix.*
   **The list is older than the prose around it.**
+
+⛔⛤ **AND A4's "NO DOUBLE BODY TICK" IS GUARDED AGAINST A FAILURE A4 WILL NOT
+CAUSE.** The [writer map](engine/accepted-control-writer-map.md) says it in its own
+words: `boot_budget::no_system_is_registered_twice_in_one_schedule` *"catches the
+same system registered twice; it cannot see one BODY ticked by two different
+systems, which is the failure a control/execution regrouping would actually
+produce."*
+
+⇒ **An extraction that splits control from body execution produces exactly "two
+systems now both advance this body", and nothing in the tree would notice.**
+
+⛔ **THE TIMING IS THE ARGUMENT, NOT THE DIFFICULTY.** Measure BEFORE the
+extraction and a double tick is a regression against a known baseline. Measure
+AFTER and **you cannot tell a double tick from the new design** — the second writer
+is now expected, so the question stops being answerable rather than merely
+unanswered. ⚠ **A clean baseline here is not a null result; it is the reference
+point that makes A4's extraction reviewable at all.**
+
+⚠ **THE SCHEDULE-LEVEL GUARD IS STRONG AND MUST NOT BE WEAKENED TO MAKE ROOM.** It
+initializes each schedule before reading — a 2026-09-06 poison found it silently
+skipping `GgrsSchedule`, `PhysicsSchedule`, `ReadInputs`, `Render` and four more
+while a deliberate double-install stayed GREEN — it floors on `!counts.is_empty()`,
+and its ten-entry deliberate-duplicate list is checked **in both directions**,
+because ⭐ *"a reason expires exactly like a measurement"*: a stale exemption
+silently re-opens the hole the day someone duplicates that system for real. **Three
+of its ten are `sim_identity::*` running head AND tail of the frame by design**, so
+"the same system twice" is legitimately normal here.
+
+⛔ **A PER-SYSTEM ANSWER IS UNAVAILABLE IN BEVY 0.19 — not expensive, unavailable.**
+`System::component_access()` is gone; access moved to `SystemWithAccess::access`,
+which is `pub(crate)` in the vendored `bevy_ecs` 0.19.1 schedule-node module — an
+external crate this repository does not contain, so no citation here can resolve — and
+`Schedule::systems()` hands out `&ScheduleSystem`, which cannot reach it. ⇒ **The
+answerable granularity is the PHASE SEAM**, and that is the right one rather than a
+consolation: `PlatformerRuntimeSet`'s `ControlInput` and `ActorSimulation` are
+precisely the seam A4 splits. ⚠ Such a probe cannot see two writes inside ONE
+phase, and that limit is not a choice.
+
+⛔⛤ **AND `.after(phase)` DOES NOT PLACE A PROBE AT THAT SEAM.** It forbids
+running BEFORE the phase and constrains nothing else, so the scheduler may run
+every probe at the very end of the tick in any order — whichever ran first then
+collected every change in the tick, and **no body could ever be credited to two
+phases.** ⇒ **A probe must be penned: `.after(phase).before(next_phase)`.**
+
+⚠ **THE FIRST RUN OF THAT BROKEN INSTRUMENT REPORTED `0 double ticks` OVER 240
+WRITES — a perfectly tidy result.** The per-phase distribution is what exposed it:
+`{"ControlInput": 240}`, **zero attributed to `ActorSimulation`, the phase whose
+entire job is advancing actors.** ⭐⭐ **A TIDY FIRST NUMBER IS AS SUSPECT AS A
+DRAMATIC ONE, and it is far more comfortable to publish.**
+
+⛔ **AND THE POISON PASSED THE WHOLE TIME.** A different-phase write was detected in
+both the broken and the fixed version. ⇒ ⭐⭐ **A POSITIVE CONTROL TESTS DETECTION,
+NOT ATTRIBUTION.** It proved the instrument can see *a* double tick, never that it
+credits writes to the right phase — a green poison sitting over a broken
+measurement.
+
+⚠ **Two further traps, both in the instrument's own file:** `SimSchedule` is a
+RESOURCE HOLDING a label, not a label — which schedule it names depends on the host,
+so a probe registered into a named schedule instead of the app's own runs where no
+body moves and reports a serene zero. And the tick boundary smears: anything writing
+`BodyKinematics` between the harvest and the next tick's first probe is credited to
+`WorldPrep`, a phase that did not make the write.
+
+⚠ **AND `is_changed()` IS THE WRONG PREDICATE IN A ONCE-PER-TICK PROBE** — it means
+*"changed since the previous TICK"*, true of every moving body, which would report
+the whole cast as doubled. `Ref::last_changed()` against the value stored a phase
+ago asks the intended question. ⭐ **An instrument whose first run reports a
+catastrophe is exactly as suspect as one that reports nothing, and far more
+tempting to publish.**
 
 ⇒ ⭐⭐ **A COUNT IS NOT A CHECK ON A LIST.** A reader who verified "four" would have
 called the list correct. **Set equality and cardinality are different questions,

@@ -79,7 +79,22 @@ Stated per packet instead:
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
   unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11** — REOPENED and **FULLY re-closed** 2026-09-10 after a review of the 125
+- **A11** — ⛔ **THREE BLOCKERS CLOSED, A FOURTH FOUND. THIS LINE SAID "FULLY
+  re-closed" AND A COMPLETENESS WORD IS A HOSTAGE TO THE NEXT REVIEW.** It was true
+  of the three blockers then known and became false the moment a fourth was found —
+  `close_preparation_barrier_without_admission` is plain `pub`
+  (`crates/ambition_characters/src/prepared.rs:2278`), whose path is
+  `finalized = true` → mark unchecked → raw `finalize_cast` → publish with no
+  refusal filtering, and once it runs the checked closer sees `finalized` and cannot
+  correct the publication. ⚠ All ten current callers are tests, so this is a
+  CONTRACT violation rather than a live defect — but the page's own trust boundary
+  forbids "a second public path to activating unvalidated authored data". ⚠ A
+  smaller item rides with it: an empty-support refusal sets
+  `closed_with_admission = false` while `barrier_closed_with_admission` documents
+  `false` as an UNCHECKED close, so the witness misreports the case that fix made
+  legitimate. **Nothing in production reads that flag** — its only consumers are two
+  lines of a test — so it misleads a reader, not the engine. Reopened 2026-09-10 by
+  a review of the 125
   commits following `6a692b6`. ⛔⛤ **The shipped game had been closing its
   admission barrier UNCHECKED**: Bevy's runner does `finish()` before the first
   `update()`, `PreStartup` lives inside that update, and the unchecked backstop

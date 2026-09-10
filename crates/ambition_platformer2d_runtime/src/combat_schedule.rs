@@ -124,6 +124,14 @@ impl Plugin for CombatSchedulePlugin {
         // guarantee. An implicit plugin-registration order deciding whether the
         // admission check runs at all is exactly the kind of silent bypass this
         // packet exists to remove, so the edge is written down.
+        // ⛔⛔ AND THE UNCHECKED BACKSTOP STANDS DOWN, declared HERE because
+        // this is the composition that owes the closer added two lines below.
+        // Without it the backstop wins in every app that reaches `App::run`:
+        // Bevy's runner does `finish()` before the first `update()`, and
+        // `PreStartup` lives inside that update. The order is not a race — the
+        // unchecked road always won it in production, and every guard agreed
+        // because they all drive `update()` by hand, which never runs `finish`.
+        ambition_characters::prepared::checks_authored_effects_at_the_barrier(app);
         app.add_systems(
             bevy::app::PreStartup,
             // ⭐ AGAINST THE PUBLISHED SET, not the other crate's private

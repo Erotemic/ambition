@@ -2097,8 +2097,66 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
     }
 
     fn finish(&self, app: &mut bevy::app::App) {
+        // ⛔⛔⛔ THE BACKSTOP STANDS DOWN WHEN A CHECKED CLOSER EXISTS, AND
+        // BEFORE THIS IT DID NOT — WHICH WAS A PRODUCTION BYPASS, NOT A RACE.
+        //
+        // The comment on `build` above said *"whichever trigger fires first wins
+        // and the other is a no-op"*, and treated that as a mitigation. It is the
+        // defect. Bevy's runner does `finish()` → `cleanup()` → the first
+        // `update()`, and `PreStartup` lives inside that first update — so in
+        // every app that reaches `App::run` (the windowed game and the browser
+        // composition both do, through `cli.rs`) **the same trigger always fires
+        // first, and it is the unchecked one.** Every authored effect in the
+        // shipped game was published without being checked against the
+        // techniques its composition installs.
+        //
+        // ⚠ AND EVERY GUARD AGREED, BECAUSE THEY ALL DRIVE `update()` BY HAND.
+        // `App::update` does not run `finish`, so a hand-driven fixture lets the
+        // checked `PreStartup` system win a race it loses in production. The
+        // witness that says so is
+        // `the_barrier_closes_through_the_checked_road_under_the_REAL_lifecycle`,
+        // which differs from its green sibling only by calling `finish()` and
+        // `cleanup()` first. **Same assertion, two orderings, opposite verdicts.**
+        // (GPT review, 2026-09-10.)
+        //
+        // ⇒ ONE AUTHORITY, DECLARED. A composition that installs technique
+        // handlers calls `checks_authored_effects_at_the_barrier`, and this
+        // backstop then does nothing at all rather than racing it. What is lost
+        // is that the registry no longer exists during a LATER PLUGIN'S `finish`
+        // — `PreStartup` still runs before `Startup`, so no SYSTEM can tell.
+        if app
+            .world()
+            .contains_resource::<ChecksAuthoredEffectsAtTheBarrier>()
+        {
+            return;
+        }
         finalize_prepared_cast(app.world_mut(), None);
     }
+}
+
+/// **This composition will close the preparation barrier through the CHECKED
+/// road, so the unchecked backstop must not.**
+///
+/// ⛔ Inserted during `build`, read during `finish`. Bevy runs every plugin's
+/// `build` before any plugin's `finish`, so a composition can declare this from
+/// any plugin in any registration order and
+/// [`CharacterPreparationPlugin::finish`] is guaranteed to see it. **That is the
+/// whole reason this is a resource rather than a construction parameter** — the
+/// declaring crate and the declared-about crate cannot see each other's plugin
+/// order.
+#[derive(bevy::prelude::Resource, Debug, Default, Clone, Copy)]
+pub struct ChecksAuthoredEffectsAtTheBarrier;
+
+/// Declare that this composition closes the preparation barrier with an
+/// admission check, so the unchecked backstop stands down.
+///
+/// ⚠ **A COMPOSITION THAT CALLS THIS OWES A CLOSER.** Nothing else folds the
+/// cast afterwards: if the caller does not actually install a system that closes
+/// the barrier before `Startup`, `PreparedCharacterRegistry` is absent and every
+/// consumer reads "no registered characters". Call it from the same `build` that
+/// adds the closing system, never on its own.
+pub fn checks_authored_effects_at_the_barrier(app: &mut bevy::app::App) {
+    app.insert_resource(ChecksAuthoredEffectsAtTheBarrier);
 }
 
 /// Did the preparation barrier close through the CHECKED road?

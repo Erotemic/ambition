@@ -119,3 +119,54 @@ fn every_authored_effect_in_the_shipped_composition_is_admitted() {
         refusals.join("\n    ")
     );
 }
+
+/// ⛔⛔⛔ **THE REAL RUNNER'S ORDERING, WHICH IS THE ONE THE SHIPPED GAME USES —
+/// AND IT IS THE OPPOSITE OF THE ONE EVERY OTHER TEST IN THIS FILE EXERCISES.**
+///
+/// GPT review, 2026-09-10: the guard above is green *because* it drives the app
+/// by hand. `Platformer2dSimHarness`' first tick is a direct `App::update()`,
+/// which **does not run plugin `finish()`** — so the checked `PreStartup` system
+/// wins a race it loses in production.
+///
+/// Bevy's runner does `finish()` → `cleanup()` → first `update()`, and
+/// `game/ambition_app/src/app/cli.rs` reaches `app.run()` for both the windowed
+/// and the browser composition. ⇒ In the shipped game the order is:
+///
+/// 1. the runtime builds its installed-technique support table;
+/// 2. `CharacterPreparationPlugin::finish()` calls
+///    `finalize_prepared_cast(world, None)` — the UNCHECKED road, and `None`
+///    selects "admit everything" rather than "this composition supports
+///    nothing";
+/// 3. that sets `finalized`, permanently;
+/// 4. the first update begins, `PreStartup` runs, and the checked system finds
+///    an already-closed barrier and does nothing.
+///
+/// ⚠ **THE PLUGIN'S OWN COMMENT SAYS "whichever trigger fires first wins and the
+/// other is a no-op", AND THAT IS THE DEFECT RATHER THAN A MITIGATION** — in
+/// production the same one always fires first, and it is the unchecked one.
+///
+/// ⇒ This drives the lifecycle Bevy drives. **A guard that exercises the
+/// convenient ordering is a guard for a program nobody runs.**
+#[test]
+fn the_barrier_closes_through_the_checked_road_under_the_REAL_lifecycle() {
+    let mut app = ambition_app::app::build_visible_app(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+    );
+    // ⭐ THE THREE CALLS `App::run` MAKES, IN ITS ORDER. Not `update()` alone,
+    // which is what every hand-driven fixture in this repository does and what
+    // hid this for the life of the packet.
+    app.finish();
+    app.cleanup();
+    app.update();
+
+    assert!(
+        ambition_platformer2d::characters::prepared::barrier_closed_with_admission(app.world()),
+        "under the REAL runner ordering — `finish()`, `cleanup()`, `update()` — \
+         the unchecked backstop folded the cast before the admitting barrier \
+         could, so every authored effect in the SHIPPED game is published \
+         without being checked against the techniques the composition installs. \
+         The sibling guard above passes only because a hand-driven `update()` \
+         never runs `finish()`."
+    );
+}

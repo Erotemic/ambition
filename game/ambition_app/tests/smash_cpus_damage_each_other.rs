@@ -5,6 +5,7 @@
 //! distinguishes opponent hits from environmental/self damage.
 
 use ambition_demo_smash::select::SmashRoster;
+use ambition_demo_smash::SMASH_DUELIST_BRAIN;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
@@ -47,13 +48,36 @@ const RUNG_DEFAULT: u8 = 9;
 /// ⚠ An unparseable value is a PANIC, not a fallback to 9: silently fighting
 /// at the default while a caller believes it asked for rung 3 is a whole sweep
 /// of rows that all agree for the wrong reason.
+///
+/// ⛔⛔ AND THE VALID SET IS THE PUBLISHED POLICIES, NOT THE LADDER'S RANGE —
+/// TWO VOCABULARIES, AND THE WIDER ONE IS THE WRONG ONE TO VALIDATE AGAINST.
+/// `FighterBrainProfile::for_level` clamps to 1..=9, so every rung in that
+/// range is a real ladder rung. But `smash_roster_at_levels` names a seat's
+/// brain `"{SMASH_DUELIST_BRAIN}_l{level}"`, and the smash experience publishes
+/// only FIVE of them. Measured 2026-09-10: a sweep asked for rung 8, every seat
+/// was refused, and all three fighters came back `0 of 3600 ticks (decided on
+/// None)` after a full 3600-tick run each — a silent, expensive nothing that
+/// read as "the instrument could not measure it" rather than "you named a
+/// policy that does not exist".
+const PUBLISHED_RUNGS: [u8; 5] = [1, 3, 5, 6, 9];
+
 fn rung() -> u8 {
-    match std::env::var("AMBITION_DUEL_RUNG") {
-        Err(_) => RUNG_DEFAULT,
-        Ok(raw) => raw.trim().parse::<u8>().ok().filter(|r| (1..=9).contains(r)).unwrap_or_else(
-            || panic!("AMBITION_DUEL_RUNG={raw:?} is not an authored rung (1-9)"),
-        ),
-    }
+    let Ok(raw) = std::env::var("AMBITION_DUEL_RUNG") else {
+        return RUNG_DEFAULT;
+    };
+    raw.trim()
+        .parse::<u8>()
+        .ok()
+        .filter(|r| PUBLISHED_RUNGS.contains(r))
+        .unwrap_or_else(|| {
+            panic!(
+                "AMBITION_DUEL_RUNG={raw:?} names no published duelist policy. \
+                 The smash experience publishes `{SMASH_DUELIST_BRAIN}_l<n>` for \
+                 n in {PUBLISHED_RUNGS:?} only — the ladder has nine rungs and \
+                 the roster can seat five of them. Asking for one of the other \
+                 four seats nobody and spends a full duel finding out."
+            )
+        })
 }
 
 /// One minute at 60Hz — the same budget `ladder_rig` uses, so the two are

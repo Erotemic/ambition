@@ -101,14 +101,16 @@ SUBJECTS = {
     "special_patent_clerk": "load-bearing (51 starts/seat, 19% in reach)",
     "npc_carl_stargan": "NEGATIVE CONTROL (bare registration, 3 starts, 0.5%)",
 }
-RUNGS = (3, 5, 6, 8, 9)
+RUNGS = (1, 3, 5, 6, 9)
 PROBE = re.compile(r"^\[(duel|gap|body|stance|moves|dealt|brain)\]")
 
 
-def sweep() -> None:
-    with LOG.open("w", encoding="utf-8") as out:
+def sweep(only: set[tuple[str, int]] | None = None, append: bool = False) -> None:
+    with LOG.open("a" if append else "w", encoding="utf-8") as out:
         for fighter in SUBJECTS:
             for rung in RUNGS:
+                if only is not None and (fighter, rung) not in only:
+                    continue
                 out.write(f"=== {fighter} rung{rung}\n")
                 out.flush()
                 proc = subprocess.run(
@@ -124,9 +126,21 @@ def sweep() -> None:
                         "AMBITION_DUEL_RUNG": str(rung),
                     },
                 )
-                for line in (proc.stdout + proc.stderr).split("\n"):
-                    if PROBE.match(line) or "panicked at" in line:
+                # ⛔ CAPTURE THE PANIC'S MESSAGE, NOT JUST ITS HEADER. The
+                # header says a duel failed; the line after it says WHY, and
+                # "the match was decided at tick 900" is a result while "the
+                # seating never happened" is a broken run. Dropping the message
+                # makes those two share the verdict UNMEASURABLE.
+                lines = (proc.stdout + proc.stderr).split("\n")
+                for i, line in enumerate(lines):
+                    if PROBE.match(line):
                         out.write(line + "\n")
+                    elif "panicked at" in line:
+                        out.write(line + "\n")
+                        for follow in lines[i + 1 : i + 5]:
+                            if follow.startswith("note:") or not follow.strip():
+                                break
+                            out.write(f"[why] {follow.strip()}\n")
                 out.flush()
         out.write("SWEEP DONE\n")
 
@@ -171,6 +185,8 @@ def parse() -> dict[tuple[str, int], dict]:
         # no stream" are different facts and must not share a verdict.
         if m := re.match(r"^\[brain\] seat (\d): .*?\bseed=(\S+|<[^>]*>)", line):
             row.setdefault("seeds", []).append(m.group(2))
+        if line.startswith("[why]"):
+            row.setdefault("why", []).append(line[len("[why] "):])
         if "panicked at" in line:
             row["panics"].append(line)
     return rows
@@ -215,15 +231,27 @@ def fold() -> int:
         print(f"no log at {LOG}; run with --run")
         return 1
     rows = parse()
-    print(f"{'fighter':<22}{'rung':>5}{'starts':>12}{'dealt':>16}"
-          f"{'first seen':>14}{'window':>8}{'seeds':>8}  verdict")
+    # ⛔ A LOG OUTLIVES THE SWEEP THAT WROTE IT. `RUNGS` changed once already --
+    # rung 8 was dropped when it turned out to name no published policy -- and
+    # its stale blocks are still in the log. Folding them would print rows from
+    # a configuration this script no longer sweeps, which is a table quietly
+    # describing a different experiment.
+    stale = {r for (_, r) in rows if r not in RUNGS}
+    if stale:
+        print(f"⚠ ignoring {sorted(stale)}: rung(s) in the log that this sweep "
+              f"no longer covers; re-run with --run for a clean log\n")
+        rows = {k: v for k, v in rows.items() if k[1] in RUNGS}
+    print(f"{'fighter':<22}{'rung':>5}{'starts':>12}{'dealt':>12}"
+          f"{'first seen':>14}{'window':>8}{'seeds':>9}  verdict")
     by_fighter: dict[str, list[str]] = collections.defaultdict(list)
     for (fighter, rung), row in rows.items():
         v = verdict(row)
         by_fighter[fighter].append(v)
         starts = "/".join(str(s) for s in row.get("starts", [])) or "-"
         dealt = "/".join(f"{d:g}" for d in row.get("dealt", [])) or "-"
-        first = "/".join(row.get("first", ())) or "-"
+        first = "/".join(
+            f.removeprefix("Some(").removesuffix(")") for f in row.get("first", ())
+        ) or "-"
         seeds = row.get("seeds", [])
         if len(seeds) != 2:
             seed_col = "-"
@@ -231,8 +259,11 @@ def fold() -> int:
             seed_col = "NOBRAIN"
         else:
             seed_col = "differ" if seeds[0] != seeds[1] else "SAME"
-        print(f"{fighter:<22}{rung:>5}{starts:>12}{dealt:>16}"
-              f"{first:>14}{row.get('window', '-'):>8}{seed_col:>8}  {v}")
+        print(f"{fighter:<22}{rung:>5}{starts:>12}{dealt:>12}"
+              f"{first:>14}{row.get('window', '-'):>8}{seed_col:>9}  {v}")
+        if v in {"UNMEASURABLE", "NO_FIGHTER_BRAIN"}:
+            why = row.get("why") or ["no reason captured"]
+            print(f"{'':>22}     ⤷ {why[0][:110]}")
 
     print()
     for fighter, note in SUBJECTS.items():
@@ -264,8 +295,11 @@ def fold() -> int:
         print("⭐ Both load-bearing fighters SEPARATE at rung 3 — a live jitter")
         print("   IS sufficient to break lockstep. ⛔ That does NOT make it the")
         print("   cause: jitter is dead at rung 9 for all 20 fighters and 17 of")
-        print("   them diverged anyway. Read the rung-8 row — it is the same")
-        print("   result with L3 rollouts held constant.")
+        print("   them diverged anyway.")
+        print("⚠ And rung 8 cannot corroborate it: a rung-8 CPU DECIDES the")
+        print("   match, so the seats stop sharing the stage before the window")
+        print("   closes. The cleanest comparison in the design is the one the")
+        print("   instrument cannot reach.")
     else:
         print("⚠ SPLIT at rung 3 — the fighters disagree, so the cause is not a")
         print("   property of the rung alone. Read the rows, not this line.")
@@ -274,10 +308,33 @@ def fold() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--run", action="store_true", help="run the 12 duels (slow)")
+    ap.add_argument("--run", action="store_true", help="run all 15 duels (slow)")
+    ap.add_argument(
+        "--fill", action="store_true",
+        help="re-run only rows that are missing or UNMEASURABLE, appending to the log",
+    )
     args = ap.parse_args()
     if args.run:
         sweep()
+    elif args.fill:
+        # ⚠ Re-running an UNMEASURABLE row is worth it only because the RUNNER
+        # changed: it now captures the panic's message and not just its header,
+        # so "the match was DECIDED" stops sharing a verdict with "the seating
+        # never happened". Filling with an unchanged runner would just reproduce
+        # the same empty row at the cost of a duel.
+        have = parse() if LOG.exists() else {}
+        todo = {
+            (f, r)
+            for f in SUBJECTS
+            for r in RUNGS
+            if (f, r) not in have
+            or verdict(have[(f, r)]) in {"UNMEASURABLE", "NO_FIGHTER_BRAIN"}
+        }
+        if not todo:
+            print("nothing to fill")
+        else:
+            print(f"filling {len(todo)} row(s): {sorted(todo)}")
+            sweep(only=todo, append=True)
     return fold()
 
 

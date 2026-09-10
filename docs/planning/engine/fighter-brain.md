@@ -260,17 +260,35 @@ At HEAD these bodies run 14–19% of grounded time. What the trace shows is a
 FEEDBACK LOOP: making the dash attack reachable doubles the running fraction and
 cuts grounded time by a third, with damage falling alongside.
 
-⭐⭐ **AND THIS SECTION'S PREMISE NEEDS AMENDING. The movement and attack scorers
-are NOT independent — they are coupled, through one boolean, in the direction
-nobody intended.** `generate_options` calls
-`movement_options(&view, situation, !lifts.is_empty())`, so the ATTACK KIT feeds
-movement scoring via `lifting_candidates`. Changing what the kit holds changes
-how the body moves, which changes its stance, which changes the kit. A
-move-distribution symptom can therefore originate in either scorer and arrive at
-the other, and "independent movement and attack scorers" understates the problem.
+⭐⭐ **THE COUPLING BETWEEN THE TWO SCORERS IS REAL, AND ON THIS ROSTER IT IS
+INERT — I PROPOSED IT AS THE EXPLANATION AND THE MEASUREMENT REFUSED IT.**
+`generate_options` calls `movement_options(&view, situation, !lifts.is_empty())`,
+so the ATTACK KIT reaches movement scoring through `lifting_candidates`. That is
+the only such wire, and it is the right first suspect. MEASURED across all 19
+shipped fighters: that boolean is the SAME standing and running for every one of
+them. ⇒ **The wire exists and never fires, so it cannot be what moved the
+bodies.** Pinned by `authored_movesets::stance_coupling::no_shipped_fighter_changes_its_lift_availability_with_stance`.
 
-⚠ Which end moves first is NOT measured. Instrument `lifts` per tick under both
-kits before touching any weight.
+⛔⛔ **BUT IT FIRES SPECTACULARLY FOR ONE WRONG VERSION OF THE FIX, AND THAT IS
+THE FULL EXPLANATION OF A FAILURE THIS PAGE SHOULD RECORD.** The first attempt
+also redirected SPECIAL to ATTACK while running, which the press road never does.
+Poisoning the guard with exactly that mistake reddens EVERY fighter: `bob` loses
+`steam_lift`, `carl_stargan` `starstuff`, `goblin` `scramble_leap`, the oni
+`smoke_fold`, and so on — **because a fighter's lifting move IS its up-special.**
+Collapsing specials strips every body's RECOVERY out of its own kit while
+running, `!lifts.is_empty()` goes false, and movement scoring changes for a body
+that no longer believes it can get home. That is why the buggy version reddened a
+driven body's top speed and a dismount's recovery.
+
+⇒ So the section's "independent scorers" premise stands for the shipped roster,
+with a named exception: the wire is one boolean, it is inert today, and a fighter
+whose only lifting move is a tilt or a smash would make it live.
+
+⚠ **AND THE DAMAGE DROP UNDER THE CORRECT FIX IS STILL UNEXPLAINED.** Three
+mechanisms have been proposed for it and two are now measured false ("the CPU
+never stops running", and this coupling). The remaining difference is emergent —
+the fight diverges and the bodies end up running more — and nobody has isolated
+the cause. Do not adopt a fourth story without an instrument behind it.
 
 ⇒ **The candidate term is an opportunity term on MOVEMENT: the value of standing
 still is the best standing attack it unlocks** — offered as a hypothesis, not a

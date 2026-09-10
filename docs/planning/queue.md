@@ -622,17 +622,24 @@ running" was false. What the trace actually shows is a FEEDBACK LOOP: making the
 dash attack reachable roughly DOUBLES the running fraction and cuts grounded time
 by a third, and the damage falls with it.
 
-⭐ **AND THE COUPLING THAT CAN CARRY IT IS REAL AND ONE LINE:**
-`generate_options` calls `movement_options(&view, situation, !lifts.is_empty())`
-— the ATTACK KIT feeds movement scoring through `lifting_candidates`. So changing
-what the kit contains changes how the body MOVES, which changes which stance it
-is in, which changes the kit. That is the independence F6 names, except the two
-scorers are not independent at all: they are coupled through one boolean, in the
-direction nobody intended.
+⭐ **I THEN PROPOSED THE COUPLING THAT COULD CARRY IT, AND MEASURED IT FALSE
+TOO.** `generate_options` calls `movement_options(&view, situation,
+!lifts.is_empty())` — the one wire from the attack kit to movement scoring.
+Across all 19 shipped fighters that boolean is the SAME standing and running, so
+the wire is INERT and cannot be what moved the bodies. Pinned by
+`stance_coupling::no_shipped_fighter_changes_its_lift_availability_with_stance`.
 
-⚠ Which of the two moves first is NOT yet measured, and the next person should
-not assume it: instrument `lifts` per tick under both kits before touching a
-weight.
+⛔⛔ **IT DOES FIRE FOR THE WRONG VERSION OF THE FIX, WHICH EXPLAINS THE OTHER
+FAILURE COMPLETELY.** Poisoning that guard with my specials-collapse mistake
+reddens every fighter — **a fighter's lifting move IS its up-special**
+(`steam_lift`, `starstuff`, `scramble_leap`, `smoke_fold`, …), so collapsing
+specials strips every body's RECOVERY from its kit while running and movement
+scoring changes for a body that no longer believes it can get home.
+
+⚠ **THREE MECHANISMS PROPOSED, TWO MEASURED FALSE, THE DAMAGE DROP STILL
+UNEXPLAINED.** The remaining difference is emergent. ⇒ The next person should
+bring an instrument, not a fourth story — mine were all plausible and two were
+wrong.
 
 ⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
 `fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move

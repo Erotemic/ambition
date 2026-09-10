@@ -1369,3 +1369,114 @@ mod expressiveness_census {
         );
     }
 }
+
+#[cfg(test)]
+mod stance_coupling {
+    use super::tables;
+    use ambition_platformer2d::entity_catalog::AttackDir;
+
+    /// ⛔⛔ **THE ONE WIRE BETWEEN THE ATTACK KIT AND MOVEMENT SCORING IS INERT,
+    /// AND THAT IS WHY IT CANNOT EXPLAIN A MOVEMENT CHANGE.**
+    ///
+    /// `generate_options` scores movement with
+    /// `movement_options(&view, situation, !lifts.is_empty())` — a single boolean
+    /// derived from the ATTACK KIT by `lifting_candidates`. It is the only path
+    /// by which what a body can hit with reaches how it decides to move, so it is
+    /// the first thing to suspect when a kit change moves a body differently.
+    ///
+    /// ⇒ MEASURED across the roster: for every shipped fighter, that boolean is
+    /// the SAME whether the kit is resolved standing or running. The wire exists
+    /// and never fires. ⭐ So a kit change cannot alter movement scoring through
+    /// it, and an investigation that stops at "the scorers are coupled" has
+    /// stopped at something true and inert.
+    ///
+    /// ⚠ THIS IS NOT AN ARGUMENT THAT THE COUPLING IS HARMLESS. It is an
+    /// argument that it is not firing TODAY, on THIS roster — which is exactly
+    /// the kind of fact that rots. A fighter whose only lifting move is a smash
+    /// or a tilt would make it fire the moment a run pre-empts that press, and
+    /// nothing else in the tree would notice. That is what this guard is for.
+    #[test]
+    fn no_shipped_fighter_changes_its_lift_availability_with_stance() {
+        use ambition_platformer2d::entity_catalog as cat;
+        let dirs = [
+            AttackDir::Neutral,
+            AttackDir::Forward,
+            AttackDir::Back,
+            AttackDir::Up,
+            AttackDir::Down,
+        ];
+
+        // The kit the brain would hold in one stance, resolved the way the PRESS
+        // ROAD resolves it: a run pre-empts the smash gesture and forces the base
+        // to ATTACK, and a special never takes that road at all.
+        let kit_lifts = |set: &ambition_platformer2d::entity_catalog::MovesetContract,
+                         running: bool|
+         -> Vec<String> {
+            let mut seen: Vec<String> = Vec::new();
+            let mut lifts: Vec<String> = Vec::new();
+            for (verb_name, basic_or_smash) in [
+                (cat::ATTACK_VERB, true),
+                (cat::SMASH_VERB, true),
+                (cat::SPECIAL_VERB, false),
+            ] {
+                for d in dirs {
+                    let running_now = running && basic_or_smash;
+                    let resolve = if running_now { cat::ATTACK_VERB } else { verb_name };
+                    let Some(spec) = set.move_for_attack(resolve, d, true, running_now) else {
+                        continue;
+                    };
+                    if seen.contains(&spec.id) {
+                        continue;
+                    }
+                    seen.push(spec.id.clone());
+                    if spec.frame_data().recovery_route.offers_a_way_home() {
+                        lifts.push(spec.id.clone());
+                    }
+                }
+            }
+            lifts.sort();
+            lifts
+        };
+
+        let mut fires: Vec<String> = Vec::new();
+        let mut walked = 0usize;
+        let mut with_lifts = 0usize;
+        for (owner, set) in tables() {
+            walked += 1;
+            let standing = kit_lifts(&set, false);
+            let running = kit_lifts(&set, true);
+            if !standing.is_empty() {
+                with_lifts += 1;
+            }
+            if standing.is_empty() != running.is_empty() {
+                fires.push(format!(
+                    "{owner}: standing lifts {standing:?}, running lifts {running:?}"
+                ));
+            }
+        }
+
+        assert!(
+            fires.is_empty(),
+            "a fighter's LIFT AVAILABILITY now depends on its stance, so the attack \
+             kit reaches movement scoring through `!lifts.is_empty()` and a kit \
+             change can move the body. Re-derive anything that concluded the \
+             coupling was inert:\n  {}",
+            fires.join("\n  ")
+        );
+
+        // ⛔ ANTI-VACUITY, both halves. A roster nobody walked, and a roster where
+        // NOBODY lifts, each satisfy the emptiness above forever — and the second
+        // is the one that would creep in, because "no lifts either way" is not the
+        // same finding as "the same lifts either way".
+        assert!(
+            walked >= 15,
+            "only {walked} fighters walked; this guard is reporting on almost nothing"
+        );
+        assert!(
+            with_lifts >= 5,
+            "only {with_lifts} of {walked} fighters have ANY lifting move standing, \
+             so `!lifts.is_empty()` is false almost everywhere and agreeing across \
+             stances says nothing"
+        );
+    }
+}

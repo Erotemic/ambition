@@ -1124,6 +1124,82 @@ be quoted without it. The fix still fails the gate — which is calibrated at ru
 9 — but the reason to hold it is "one rung regresses and we do not know why",
 not "the fix makes the CPUs worse".
 
+⛔⛔⛔ **RE-MEASURED 2026-09-10 AFTER `f77ba3a45`, AND EVERY NUMBER ABOVE IS
+VOID: THE SUBJECT OF THIS ENTIRE TABLE — `npc_pirate_admiral` — WAS A FIGHTER
+BEATING A BRUTE.** He is the only fighter of twenty that mounts anything; his
+shark died, `rebuild_dismounted_rider_brains` handed the rider a kit-derived
+brain, and seat 1 ran `melee_brute` for the rest of every bout above. **The row's
+headline — *jab is 159 of 279 damage (57%) at HEAD* — is a fact about a BRUTE's
+jab policy**, not about the fighter brain this row is about.
+
+⭐⭐ **THE CLEAN SUBJECT SAYS THE TRUTHFUL KIT IS AN IMPROVEMENT.** `medic` — no
+mount, therefore no dismount confound, same rung 9, same 3613 ticks, ONE
+variable:
+
+| medic, rung 9 | damage/min | hitstun |
+|---|---|---|
+| feature OFF | 0.41 / 0.41 | [118, 118] |
+| **truthful kit** | **0.45 / 0.45** | **[132, 132]** |
+
+**+10% damage, +12% hitstun.** And the admiral's own numbers, both arms
+re-measured with the dismount fix in:
+
+| admiral, rung 9 | old table | corrected |
+|---|---|---|
+| seat 0 | 1.26 → 0.47 = **−63%** | 0.84 → 0.47 = **−44%** |
+| seat 1 | 1.07 → 0.86 = −20% | 0.76 → 0.86 = **+13%, an IMPROVEMENT** |
+
+⇒ **Across three subjects at rung 9 the truthful kit is an IMPROVEMENT (`medic`),
+a NO-OP (`npc_emmy_noether`, byte-identical both arms) and MIXED on the one bout
+that was measuring a brute.** *"The truthful kit halves CPU damage"* was a
+statement about the contaminated subject and must not be quoted again.
+
+⚠ **ONE ANOMALY, FLAGGED RATHER THAN SMOOTHED: the admiral's TRUTHFUL arm is
+byte-identical before and after the dismount fix** (0.47 / 0.86, [81, 191], 2 KOs
+and every `[dealt]` figure), while its feature-off arm moved a great deal. Both
+arms start `call_the_shark` 5–6 times. ⇒ **Summoning is not dismounting**, and
+the event the fix is keyed on is a mount DYING; if the truthful arm has zero
+mount deaths this is exactly right and there is no mystery. **Unmeasured. Nothing
+here is built on that arm.**
+
+⛔⛔ **AND THE HOLD STILL STANDS, BUT FOR A DIFFERENT REASON THAN THE ROW GIVES.**
+Both acceptance tests still redden with the feature on, verified with a control
+at today's HEAD and a witness that the flag reached the build:
+
+| `cargo tree -e features -p ambition_app \| grep 'actor_monolith feature "truthful_attack_kit"'` | verdict |
+|---|---|
+| **1** (feature routed in) | `test result: FAILED. 0 passed; 2 failed` |
+| **0** (reverted) | `test result: ok. 2 passed; 0 failed` |
+
+⇒ **THE TWO FAILURES ARE DIFFERENT KINDS AND THE ROW HAS BEEN TREATING THEM AS
+ONE.** Their own messages:
+
+1. *"seat 0 took 47% of its pool per minute — the CPUs are not fighting"* — a
+   **0.47 against a 0.50 gate, on the contaminated subject**, and `medic` fails
+   that same gate at **0.41 with nothing changed at all**. This is a threshold
+   calibrated to one fighter, and that fighter's own HEAD number just moved from
+   1.26 to 0.84 underneath it.
+2. *"the SAME move on the SAME fighter lifted them 26.6px at 0% and 26.6px at
+   1427% — the percent meter is not reaching the launch"* — **a MECHANIC that
+   stops working.** Knockback ceasing to scale with damage is not a tuning
+   regression, and no amount of re-calibrating a damage gate addresses it.
+
+⇒ **(2) IS THE REAL BLOCKER AND IT HAS BEEN BURIED UNDER (1).** "The CPUs deal
+less damage" is an argument about pricing that the ladder rig is meant to settle;
+"the percent meter is not reaching the launch" is a defect. **Next in this row:
+find out why a KIT-LABELLING change reaches percent-scaled knockback at all** —
+that is a coupling nobody has claimed exists, and it is a better question than
+another damage sample.
+
+⚠ **AND A TRAP FOR WHOEVER MEASURES THIS NEXT: `truthful_attack_kit` CANNOT BE
+ENABLED BY FLIPPING THE MONOLITH'S `default`.** All seven consumers take that
+crate with `default-features = false` — the facade, runtime, provider, sim_view,
+rollback_ggrs, touch_input and `ambition_content` — so **a default nobody takes
+is not a default**, and flipping it produces a full table of plausible numbers
+from a binary in which nothing changed. Route it through a consumer's own
+dependency line and **prove it arrived with `cargo tree -e features`**, which is
+the only witness that a flag reached the thing under test.
+
 ⚠ n=2 and the two disagree. Next measurement is MORE SAMPLES (other rungs, other
 fighters) before any mechanism is fitted. What follows described the rung-9 fight
 and is kept only as that.

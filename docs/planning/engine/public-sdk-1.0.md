@@ -31,6 +31,16 @@ manifest lower bound, not a resolved feature graph or binary measurement.
 A9 must correct it with the implementation. A windowed minimal-game fixture is
 not a no-render compile-closure fixture.
 
+⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
+`300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed
+between the two, all on 2026-09-09: the render path through host, five dead
+dependency declarations, and the map capability. ⇒ Reproduce with
+`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
+unique `ambition_*` names (49) and subtract the facade itself (48).
+⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
+51 is an *other-packages* count. A number that cannot say which it is cannot be
+quoted. See `scripts/measure_minimum_profile_parentage.py`.
+
 ## Public surface families
 
 Expose composition/profile selection, provider/prepared content, body/character

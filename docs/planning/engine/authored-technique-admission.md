@@ -1,7 +1,11 @@
 # Authored techniques: installed support, checked flow and activation
 
-**Status:** target implementation contract for A11/A12 and the definition-level
-part of A10. Not implemented by this planning overlay.
+**Status: A11 and A12 are CLOSED, 2026-09-10.** Every acceptance row this page
+owns is witnessed by a named guard; the list is at the bottom of this file under
+*Closure*. What remains open is not implementation — it is Q97's policy half,
+which is a maintainer ruling, and the definition-level part of A10, which is on
+hold for a stated failure guarantee. This page stays the design contract and is
+no longer a plan awaiting execution.
 **Baseline:** `300004d601af1e633cfaee969f079cf9bb368ca8`.
 This page owns move-scoped technique admission and execution. It does not define
 a universal encounter/dialogue sequencer or replace each domain's authoring
@@ -651,3 +655,53 @@ by default behavior is not an admission result an author can repair.
 The bounds above constrain flow dispatch and reference preparation. They do not
 bound arbitrary native handler cost or sandbox native code. Do not advertise
 complete runtime resource isolation on the strength of a 256-node limit.
+
+
+## Closure — A11 and A12, 2026-09-10
+
+Every acceptance row, and the guard that would fail if it stopped being true.
+⛔ A row without a named failing guard is not closed, however finished it looks:
+five of these seven were TRUE BY CONSTRUCTION and witnessed by nothing, which is
+the state that lets a later edit remove them in silence.
+
+| acceptance row | witness |
+|---|---|
+| invalid or uninstalled calls cannot publish definitions | `prepared::admit_and_finalize_cast` withholds the refused definition; `withholding` tests |
+| a nested reference must resolve | `prepared_tests::{nested_references, held_item_references}`, plus `the_techniques_that_name_other_definitions_declare_that_they_do` asked of the BUILT APP |
+| rejection leaves the active generation unchanged | `a_refused_revision_leaves_the_active_generation_unchanged` (A11c) |
+| existing 3-/4-node flows retain their traces | `every_shipped_flow_still_runs_the_trace_it_was_authored_for` — the SHIPPED flows through the real interpreter, three contact roads each |
+| `Finish` does not remove recovery | `a_finished_flow_leaves_the_move_playing_out_its_recovery` |
+| `Wait` does not extend the move | `a_move_ends_on_its_timeline_with_its_flow_still_waiting` |
+| late contact feedback cannot mutate another move occurrence | `a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it`, with `a_verdict_no_move_claims_still_reaches_the_playback` holding the admission half |
+| no generic execution registry | structural: `InstalledTechniques` maps a key to a declaration, and the handler is a system the composition adds |
+
+### Three findings worth carrying past the packet
+
+⛔ **`NaN`, `inf` and `-inf` are valid RON and hydrate cleanly**, so
+`check_hydrates::<T>` — twenty of the twenty-three shipped declarations — admitted
+all three. A non-finite float does not misbehave once, it poisons permanently:
+`ResourceMeter::refill` is `(current + amount).clamp(0.0, max)` and `f32::clamp`
+returns NaN for a NaN input, and `body.mana` is rollback-canonical, so it is
+snapshotted and restored across every rewind. The refusal is therefore
+STRUCTURAL, in `admit_at` before any declaration's own predicate.
+⚠ It closes the AUTHORING road only. A NaN produced at runtime — a zero-length
+normalize, a `0.0/0.0` — is untouched, and nothing yet asserts the canonical
+state is finite after a tick.
+
+⛔ **A domain rule that only one of two authoring roads asks is not a rule.**
+`SteeredBoltParams` had three, living as `assert!`s inside `author_steered_bolt`
+— the helper Rust content calls — while a bolt arriving as an ordinary
+`EffectRef` was checked for hydration alone. Both roads now read one `problems()`
+and a test holds them to the same answer.
+
+⛔ **The mechanism first blamed for the occurrence defect could not produce it.**
+The obvious story is an OnHit cancel firing on the overlap frame and stranding
+the verdict on its successor. `CancelCondition::OnHit` is `contact.connected`, so
+an OnHit cancel WAITS FOR the very verdict it would strand. The reachable
+replacements are the ones that do not consult the verdict: a
+`CancelCondition::Always` window, or the move simply ending first. ⇒ A real defect
+with a fabricated mechanism bolted on is worse than no finding.
+
+⚠ **What was never proven**, and should not be quoted as if it were: that a
+shipped configuration reaches the occurrence defect in a running match. The
+fixture measured the MECHANISM.

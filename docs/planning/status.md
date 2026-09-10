@@ -39,9 +39,26 @@ geometry sample, finite-shape obstruction, compound contacts and targeted delive
 explicit. A3 retains the valid world-to-construction lowering move. The
 [authored-technique protocol](engine/authored-technique-admission.md) specifies
 A11/A12's installed support, exhaustive reference validation, checked acyclic
-flows, move-clock semantics and explicit prepared-revision activation. These are
-implementation targets, not landed fixes. The frontier records prerequisites
-and holds; the queue selects priority rather than a predicted SCC trajectory.
+flows, move-clock semantics and explicit prepared-revision activation.
+
+⚠ **THIS PARAGRAPH SAID "these are implementation targets, not landed fixes"
+UNTIL 2026-09-10, AND BY THEN IT WAS FALSE FOR THREE OF THE FOUR.** A protocol
+document describing a target reads identically to one describing shipped
+behaviour, so the distinction has to be maintained by hand here — and a blanket
+sentence covering four packets goes stale the moment any one of them lands.
+Stated per packet instead:
+
+- **A2** — acceptance met, except the COMPOUND SOLID row, which is deferred to
+  Q96/A5 and is a maintainer ruling rather than unfinished work.
+- **A3** — done; the only residual is a file move that removes no edge.
+- **A11/A12** — CLOSED 2026-09-10, every acceptance row witnessed by a named
+  guard; the list is under *Closure* in the protocol document. Q97's policy half
+  is still Jon's.
+- **A9** — open, and its next question is which of the 49 crates a minimum
+  profile has a RIGHT to expect for the crates the frontier does not name.
+
+The frontier records prerequisites and holds; the queue selects priority rather
+than a predicted SCC trajectory.
 
 ## Measured shape, not architectural acceptance
 

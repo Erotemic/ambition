@@ -2653,15 +2653,23 @@ fn the_three_contact_outcomes_permit_three_different_cancels() {
 
 /// ⛔⛔ **A12: A LATE VERDICT MUST NOT BE CREDITED TO THE MOVE THAT REPLACED THE
 /// ONE THAT EARNED IT.** The acceptance row is "late contact feedback cannot
-/// mutate another move occurrence", and the runtime cannot honour it as written:
-/// `mark_move_playback_resolved_hits` keys on the ATTACKER ENTITY alone, and
-/// neither `ResolvedBodyHit` nor `BlockedBodyHit` carries an occurrence. When a
-/// verdict arrives it lands on whichever use is wearing the playback.
+/// mutate another move occurrence", and for a day the runtime could not honour it
+/// as written: `mark_move_playback_resolved_hits` keyed on the ATTACKER ENTITY
+/// alone, and neither `ResolvedBodyHit` nor `BlockedBodyHit` carried an
+/// occurrence, so a verdict landed on whichever use was wearing the playback.
 ///
-/// ⚠ **`#[ignore]` BECAUSE IT IS A KNOWN-OPEN DEFECT, NOT A FLAKE.** It reports
-/// as ignored rather than green: the mechanism below is measured and real, and
-/// the fix is a field on the verdict channel that has to be threaded from the
-/// box that struck (see the queue row). Delete the attribute when it is.
+/// ✔ **CLOSED 2026-09-10.** The occurrence now travels with the strike —
+/// `AttackerMoveInstance` on the volume, `attacker_move_instance` on the hit
+/// event and on both verdict channels — and the credit is refused when it does
+/// not match. This test ran `#[ignore]`d for exactly as long as the defect stood.
+///
+/// ⚠ **`Option<u32>`, AND HALF OF THE OPTION IS THE ADMISSION.** `None` means "no
+/// move claimed this" — contact attrition, a hazard, the blast zone, an ability's
+/// own volume — and those verdicts must STILL reach the playback. Tightening the
+/// rule to a bare `instance == Some(pb.instance)` passes every arm below while
+/// silently stopping the credit for every unclaimed verdict in the game, with
+/// nothing going red. `a_verdict_no_move_claims_still_reaches_the_playback` is
+/// the arm that refuses to let that happen.
 ///
 /// Both ends of the window are the code's own statements, not inferences:
 ///

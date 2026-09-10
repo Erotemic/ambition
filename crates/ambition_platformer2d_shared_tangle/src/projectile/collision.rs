@@ -143,19 +143,97 @@ pub fn block_obstructs_shot(
         <= block.aabb.head_coord(down) + super::body::CONTACT_SLOP
 }
 
-/// Resolve a projectile against the world's blocks for this tick,
-/// dispatching on the per-faction collision policy.
+/// Physical response against the ONE collider the swept ordering selected.
+///
+/// No world scan and no re-admission: [`block_obstructs_shot`] already applied
+/// this shot's [`shot_policy_admits`] to this block over this leg, so asking
+/// again here could only produce a different answer to a settled question. What
+/// is left is the POSITIONAL half each side owns — `is_support_landing`, asked
+/// at the contact — which the two in-frame resolvers do themselves.
+fn resolve_against_witness(
+    kin: &mut BodyKinematics,
+    game: &mut ProjectileGameplay,
+    block: &ae::Block,
+    policy: WorldHitPolicy,
+    gravity_dir: ae::Vec2,
+) -> WorldHitOutcome {
+    match policy {
+        // This shot's contract is that it dies on what it touches, and the
+        // sweep says it touched this.
+        WorldHitPolicy::ExpireOnContact => WorldHitOutcome::Expired { pos: kin.pos },
+        WorldHitPolicy::Bouncing => {
+            let hit = match block.kind {
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } => {
+                    game.resolve_solid_hit_in_frame(kin, block.aabb, gravity_dir)
+                }
+                ae::BlockKind::OneWay => {
+                    game.resolve_one_way_hit_in_frame(kin, block.aabb, gravity_dir)
+                }
+                // ⚠ UNREACHABLE BY THE SWEEP'S OWN FILTER, and listed rather
+                // than swept into a `_` arm: `shot_policy_admits` answers
+                // `false` for every kind but the three above, so no such block
+                // can be a witness. A new kind that a shot may hit must decide
+                // its response HERE — a fall-through would silently make it a
+                // passthrough.
+                ae::BlockKind::BonkOnly
+                | ae::BlockKind::Hazard
+                | ae::BlockKind::PogoOrb
+                | ae::BlockKind::Rebound { .. } => return WorldHitOutcome::Continue,
+            };
+            match hit {
+                crate::projectile::ProjectileSolidHit::Bounced => {
+                    WorldHitOutcome::Bounced { pos: kin.pos }
+                }
+                crate::projectile::ProjectileSolidHit::Expired => {
+                    WorldHitOutcome::Expired { pos: kin.pos }
+                }
+                crate::projectile::ProjectileSolidHit::Passthrough => WorldHitOutcome::Continue,
+            }
+        }
+    }
+}
+
+/// Resolve a projectile against the world for this tick, dispatching on the
+/// shot's own world-hit policy.
 ///
 /// The halves are mutably borrowed because `Bouncing` may decrement
 /// `bounces_remaining` and reposition the body; `ExpireOnContact`
 /// only reads.
+///
+/// ⛔⛔ **`witness` IS THE COLLIDER THE SWEEP SELECTED, AND IT IS THE ANSWER.**
+/// The obstruction sweep already ordered every candidate over this leg with a
+/// total deterministic rule (time of impact, then collider centre, then
+/// `GeoId`) and the caller refused every target the winner precedes. Scanning
+/// the world again HERE is a second answer to the same question, and the two
+/// disagreed: this scan takes solids before one-ways whatever the sweep
+/// decided, so a shot that reached a one-way platform and a tall wall at the
+/// same instant was ORDERED against the platform and RESOLVED against the wall
+/// — a support-face landing that bounces, answered as a side hit that expires.
+/// `a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one`
+/// is that case.
+///
+/// ⭐ THE COLLIDER TRAVELS, NOT A RECONSTRUCTION OF IT. The caller used to
+/// reduce the winning `SweepHit` to `(time_of_impact, centre)` and rely on the
+/// pull-back leaving the shot standing inside the same block — true only when
+/// exactly one eligible collider overlaps, which is precisely the case that is
+/// not in question.
+///
+/// ⚠ `None` IS A DIFFERENT QUESTION, NOT A MISSING ANSWER. The sweep declines a
+/// shot that BEGINS its leg already overlapping, and a shot that did not move
+/// has no leg at all. Neither selected anything, so there is nothing to be
+/// authoritative about, and the endpoint scan below answers what such a shot is
+/// standing in. That is the semantics every unit call site in this module tests.
 pub fn resolve_world_collision(
     kin: &mut BodyKinematics,
     game: &mut ProjectileGameplay,
     world: &ae::World,
     policy: WorldHitPolicy,
     gravity_dir: ae::Vec2,
+    witness: Option<&ae::Block>,
 ) -> WorldHitOutcome {
+    if let Some(block) = witness {
+        return resolve_against_witness(kin, game, block, policy, gravity_dir);
+    }
     let aabb = kin.aabb();
     // ⭐ Snapshotted before anything below can move or spend them, so the
     // admission this function grants is the same one the obstruction sweep was

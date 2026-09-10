@@ -1,3 +1,11 @@
+//! ⚠ EVERY CALL HERE PASSES `None` FOR THE WITNESS, AND THAT IS THE POINT OF
+//! THIS MODULE. These are ENDPOINT tests: they place a body already overlapping
+//! a block and ask what the policy does with the overlap — the case a swept
+//! caller reaches when the sweep declined a grazing start, or when the shot did
+//! not move. The witness road is the caller's, and it is exercised where the
+//! sweep actually runs
+//! (`ambition_platformer2d_actor_monolith::projectile::tests::collision`).
+
 use super::*;
 
 fn world_with_block(kind: ae::BlockKind, center: ae::Vec2, half: ae::Vec2) -> ae::World {
@@ -47,6 +55,7 @@ fn enemy_policy_expires_on_solid_contact() {
         &world,
         WorldHitPolicy::ExpireOnContact,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
@@ -68,6 +77,7 @@ fn enemy_policy_expires_on_one_way_contact() {
         &world,
         WorldHitPolicy::ExpireOnContact,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
@@ -87,6 +97,7 @@ fn player_policy_expires_on_solid_when_out_of_bounces() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Expired { .. }));
 }
@@ -108,6 +119,7 @@ fn player_policy_passes_through_one_way_at_zero_bounces() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Continue));
 }
@@ -173,6 +185,7 @@ fn player_projectile_bounce_is_frame_equivalent_on_solid_supports() {
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
+            None,
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -205,6 +218,7 @@ fn player_projectile_bounce_is_frame_equivalent_on_one_way_supports() {
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
+            None,
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -243,6 +257,7 @@ fn player_projectile_one_way_passthrough_is_frame_equivalent_from_feet_side() {
             &world,
             WorldHitPolicy::Bouncing,
             gravity_dir,
+            None,
         );
         assert!(
             matches!(outcome, WorldHitOutcome::Continue),
@@ -268,6 +283,7 @@ fn player_projectile_bounces_off_one_way_top_landing_with_budget() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -302,6 +318,7 @@ fn player_projectile_passes_through_one_way_from_below() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Continue),
@@ -329,6 +346,7 @@ fn player_projectile_bounces_off_solid_top_landing_with_budget() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(
         matches!(outcome, WorldHitOutcome::Bounced { .. }),
@@ -351,6 +369,7 @@ fn no_contact_returns_continue() {
         &world,
         WorldHitPolicy::Bouncing,
         ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(matches!(outcome, WorldHitOutcome::Continue));
 }

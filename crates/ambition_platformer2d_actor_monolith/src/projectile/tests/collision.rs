@@ -2240,3 +2240,141 @@ fn a_shot_that_ends_inside_a_later_wall_still_resolves_against_the_one_it_reache
          there too — otherwise the selected witness is not authoritative"
     );
 }
+
+/// ⛔⛔ **THE RESOLVER'S OWN KIND PRIORITY OVERRULES THE SELECTED WITNESS.**
+///
+/// `World::first_body_sweep` orders equal-time contacts with a total,
+/// deterministic rule (time of impact, then collider centre, then `GeoId`), and
+/// `step_projectiles` refuses every target that the winning contact precedes.
+/// Then it throws the winner away — it keeps only `(time_of_impact,
+/// block.aabb.center())` — and `resolve_world_collision` answers *"what stopped
+/// this shot"* A SECOND TIME, by scanning `world.blocks` for an endpoint
+/// overlap with SOLIDS BEFORE ONE-WAYS. That priority is not the sweep's order,
+/// so the two roads can name different colliders, and `is_support_landing`
+/// reads the named collider's geometry: the shot bounces off one and expires on
+/// the other. Ordering and physics disagree about what the shot hit.
+///
+/// ⭐ THE PULL-BACK IS WHY THIS SURVIVED THE EARLIER FIX. Nudging the shot half
+/// a pixel toward the SELECTED block's centre separates it from a tied rival in
+/// the obvious corner fixture, so the naive test goes green proving the NUDGE
+/// works rather than the witness. Here the nudge cannot separate them: the
+/// platform's centre lies toward the wall, so the shot ends up strictly
+/// overlapping BOTH, and the disagreement is decided by kind priority rather
+/// than by vector order.
+///
+/// ⚠ THE TIE IS ASSERTED, NOT ASSUMED, AND THE GEOMETRY IS DERIVED FROM THE
+/// SHOT'S OWN BOX. A tie fixture that never actually ties proves nothing —
+/// written first with hand-placed faces, it missed by 3px because the fireball's
+/// half-extent is (12, 9) rather than square, and the wall won outright at
+/// t=0.42. The faces are now positioned off `kin.size`, so the two contact times
+/// are `50 / d` for the same `d` on both axes and tie by construction.
+#[test]
+fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() {
+    const DT: f32 = 0.016;
+    const LEG: f32 = 100.0; // Travel on each axis this tick.
+    const REACH: f32 = 50.0; // Distance to both faces => both are reached at t=0.5.
+    let start = ae::Vec2::new(600.0, 500.0);
+
+    let spec = ProjectileKind::Fireball.spec(start, ae::Vec2::new(-1.0, 1.0), 1.0);
+    let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+    body.kin.pos = start;
+    body.kin.vel = ae::Vec2::new(-LEG / DT, LEG / DT);
+    // ⭐ ZEROED SO THE TIE IS EXACT. Gravity accelerates only `y`, which would
+    // make the two contact times differ in the last bits and hand the tie to
+    // whichever axis rounded lower — a fixture whose subject was float noise.
+    body.game.gravity = 0.0;
+    body.game.accel = ae::Vec2::ZERO;
+    assert!(
+        body.game.bounces_remaining > 0,
+        "the shot must have a bounce budget: with none, `shot_policy_admits` \
+         refuses one-ways outright and there is no tie to decide"
+    );
+
+    let half = body.kin.size * 0.5;
+    // The wall's RIGHT face and the platform's TOP face, each `REACH` px from
+    // the shot's box along its own axis.
+    let wall_right = start.x - half.x - REACH;
+    let platform_top = start.y + half.y + REACH;
+
+    // ⚠ THE WALL IS TALL AND ITS TOP IS FAR ABOVE THE CONTACT, which is what
+    // makes the two colliders answer DIFFERENTLY: the platform's top face is a
+    // support landing (bounce), while the wall is met halfway down its side and
+    // `is_support_landing` refuses it (expire). A short wall would bounce too
+    // and the fixture would witness nothing.
+    let wall = ae::Block::solid(
+        "wall",
+        ae::Vec2::new(wall_right - 60.0, 400.0),
+        ae::Vec2::new(60.0, 160.0),
+    );
+    let platform = ae::Block::one_way(
+        "platform",
+        ae::Vec2::new(300.0, platform_top),
+        ae::Vec2::new(400.0, 8.0),
+    );
+    use ambition_platformer2d_core::AabbExt as _;
+    assert!(
+        platform.aabb.center().x < wall.aabb.center().x,
+        "the sweep breaks an exact tie on centre-x, so the platform must sit \
+         left of the wall for the SWEEP to select it"
+    );
+    let world = ae::World::new(
+        "tied_wall_and_platform",
+        ae::Vec2::new(4000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![wall, platform],
+    );
+
+    // ⭐ THE SWEEP'S ANSWER, ASKED DIRECTLY. This is the half the ordering road
+    // uses to refuse targets; the assertions below are about whether the
+    // PHYSICS agrees with it.
+    let box_at_leg_start = ae::Aabb::new(start, half);
+    let selected = ae::cast::body_sweep(
+        &world,
+        box_at_leg_start,
+        body.kin.vel * DT,
+        |block: &ae::Block| {
+            ambition_projectiles::block_obstructs_shot(
+                body.game.world_hit,
+                body.game.bounces_remaining,
+                body.kin.vel,
+                box_at_leg_start,
+                ae::Vec2::new(0.0, 1.0),
+                block,
+            )
+        },
+    )
+    .expect("the shot reaches both colliders within the tick");
+    assert_eq!(
+        selected.block.name, "platform",
+        "the fixture only witnesses the disagreement if the SWEEP picks the \
+         one-way: it ties with the wall and wins on centre-x. It picked {:?} at \
+         t={} instead, so the geometry drifted and this test is measuring \
+         something else",
+        selected.block.name, selected.time_of_impact
+    );
+
+    let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+    crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    advance_time(&mut app, DT);
+    app.update();
+
+    let bodies = crate::projectile::tests::projectile_bodies(&mut app);
+    assert_eq!(
+        bodies.len(),
+        1,
+        "the sweep selected the ONE-WAY PLATFORM, and a bouncing fireball with \
+         budget left survives a support-face landing on one. The shot is gone, \
+         so the physics resolved against the WALL instead — whose top face is \
+         far above the contact, making this a side hit that expires. The \
+         ordering road refused targets on the platform's time of impact and the \
+         physics answered with a different collider"
+    );
+    let after = bodies[0].kin;
+    assert!(
+        after.vel.y < 0.0,
+        "a support-face landing reverses local-down velocity; the surviving \
+         shot is still travelling downward at {:?}, so it did not bounce off \
+         the platform the sweep selected",
+        after.vel
+    );
+}

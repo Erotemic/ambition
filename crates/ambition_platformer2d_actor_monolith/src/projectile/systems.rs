@@ -732,11 +732,13 @@ pub fn step_projectiles(
         // fireball IS stopped by a one-way it is descending onto, which is what
         // the response has always done with it.
         //
-        // The block's CENTRE rides along with the time because the world
-        // pull-back below needs it to nudge the shot a hair inside, and deriving
-        // it there from the time would be this sweep asked a second way.
+        // ⭐ THE WHOLE HIT TRAVELS — collider, time and normal — because three
+        // consumers need three different parts of it and each one that
+        // re-derives its part is another answer to "what stopped this shot".
+        // The ordering below wants the TIME, the pull-back wants the collider's
+        // CENTRE, and the physical response wants the COLLIDER ITSELF.
         let travel_leg = kin.pos - leg_start;
-        let blocked_at: Option<(f32, ae::Vec2)> = if travel_leg == ae::Vec2::ZERO {
+        let blocked_at: Option<ae::cast::WorldSweepHit<'_>> = if travel_leg == ae::Vec2::ZERO {
             None
         } else {
             ae::cast::body_sweep(
@@ -745,13 +747,13 @@ pub fn step_projectiles(
                 travel_leg,
                 blocks_this_shot,
             )
-            .map(|hit| (hit.time_of_impact, hit.block.aabb.center()))
         };
         // `true` when an independent blocker reaches this leg no later than the
         // candidate contact — strictly earlier, or at an exact tie, which the
         // protocol awards to the wall.
-        let wall_reaches_first =
-            move |contact_time: f32| wall_reaches_first(blocked_at.map(|(w, _)| w), contact_time);
+        let wall_reaches_first = move |contact_time: f32| {
+            wall_reaches_first(blocked_at.map(|hit| hit.time_of_impact), contact_time)
+        };
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
         // the shot: a shot lands on a faction-foe, on a same-faction body its
@@ -1330,26 +1332,36 @@ pub fn step_projectiles(
         // surface: the ordering road and the physics road disagreed about what
         // stopped the shot, which is the exact fork this packet exists to close.
         //
-        // ⇒ WHEN THE SWEEP SELECTED A CONTACT, THE SHOT GOES TO IT. Then the
-        // resolver's endpoint search necessarily finds that same block, because
-        // the shot is standing a hair inside it. `blocked_at.is_some()` is
-        // itself the guard the old condition was reaching for: a shot that
-        // BEGINS the leg overlapping something is the case where `sweep_hit`
-        // declines a grazing start and returns `None`, and that shot is left at
-        // its endpoint for the resolver to handle exactly as before.
+        // ⇒ WHEN THE SWEEP SELECTED A CONTACT, THE SHOT GOES TO IT — AND SO
+        // DOES THE RESPONSE. `blocked_at.is_some()` is itself the guard the old
+        // condition was reaching for: a shot that BEGINS the leg overlapping
+        // something is the case where `sweep_hit` declines a grazing start and
+        // returns `None`, and that shot is left at its endpoint for the resolver
+        // to answer as an endpoint question.
+        //
+        // ⛔⛔ **AND THE COLLIDER GOES WITH IT, BECAUSE THE PULL-BACK WAS NOT
+        // ENOUGH.** This site used to keep only `(toi, centre)` and a comment
+        // here claimed the resolver's endpoint search "necessarily finds that
+        // same block, because the shot is standing a hair inside it". It does
+        // not: the shot may stand inside SEVERAL, and `resolve_world_collision`
+        // scanned solids before one-ways whatever this sweep decided. A shot
+        // that reached a one-way platform and a tall wall at the same instant
+        // was ordered against the platform — a support-face landing that bounces
+        // — and physically resolved against the wall, a side hit that expires.
+        // Half a pixel of pull-back cannot separate a pair the shot straddles.
         //
         // ⭐ AND IT IS THE SAME SWEEP THE ORDERING ABOVE USED. `blocked_at` was
-        // taken once, over this leg, with this shot's policy; re-asking here
-        // would be a second answer to "what stopped this shot".
-        if let Some((toi, block_center)) = blocked_at {
+        // taken once, over this leg, with this shot's policy; re-asking anywhere
+        // downstream would be a second answer to "what stopped this shot".
+        if let Some(hit) = blocked_at {
             // ⭐ A HAIR INSIDE, not exactly tangent. `time_of_impact` puts the
             // box touching the block, and `strict_intersects` — which every
             // policy below reads — is false for a touch. Nudging toward the hit
             // block's centre works for a corner clip too, where the leg
             // direction is tangential and nudging ALONG it would not overlap
             // anything.
-            let contact = leg_start + travel_leg * toi;
-            let inward = (block_center - contact).normalize_or_zero();
+            let contact = leg_start + travel_leg * hit.time_of_impact;
+            let inward = (hit.block.aabb.center() - contact).normalize_or_zero();
             kin.pos = contact + inward * 0.5;
         }
         match resolve_world_collision(
@@ -1358,6 +1370,7 @@ pub fn step_projectiles(
             &collision_world,
             world_hit,
             gravity_dir,
+            blocked_at.map(|hit| hit.block),
         ) {
             WorldHitOutcome::Bounced { pos } => {
                 sfx.write_for_body(bolt_source.as_ref(), SfxMessage::Hit { pos });

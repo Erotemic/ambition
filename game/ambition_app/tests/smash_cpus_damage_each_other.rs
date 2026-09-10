@@ -213,6 +213,12 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // end-of-bout reading can witness "these two share a stream" (equal) but
     // never "these two have distinct seeds" (different). The birth reading can.
     let mut first_noise: [Option<u64>; 2] = [None, None];
+    // ⭐ THE AUTHORED BREADTH AT BIRTH, for the same reason as the seed above.
+    // Read at the END it is unavailable whenever a seat dies, and a bout that
+    // ends in a wipe then cannot report the cast it was fighting with — which
+    // is exactly the question asked when two hosts produced different fights
+    // and nobody could rule out a changed roster.
+    let mut first_moves: [Option<usize>; 2] = [None, None];
     let mut mirror_axis: Option<f32> = None;
     let mut mirror_worst = (0.0f32, 0.0f32);
     let mut mirror_broke_at: Option<(usize, f32, f32)> = None;
@@ -448,10 +454,16 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     let mut bq = w.query::<(
                         &MatchSeat,
                         &ambition_platformer2d::characters::brain::Brain,
+                        Option<&ambition_platformer2d::combat::moveset::ActorMoveset>,
                     )>();
-                    for (seat, brain) in bq.iter(w) {
+                    for (seat, brain, moveset) in bq.iter(w) {
                         if seat.0 < 2 && first_brain[seat.0].is_none() {
                             first_brain[seat.0] = Some(brain.label().to_string());
+                            // ⚠ `Option`, and it stays `None` if the moveset has
+                            // not landed on the tick the brain did. A zero here
+                            // would claim an empty moveset, which is a real
+                            // defect this harness has surfaced before.
+                            first_moves[seat.0] = moveset.map(|m| m.0.moves.len());
                             if let ambition_platformer2d::characters::brain::Brain::StateMachine(
                                 ambition_platformer2d::characters::brain::StateMachineCfg::Fighter {
                                     state,
@@ -634,8 +646,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
             let seed_at_birth = first_noise[seat]
                 .map_or_else(|| "<no fighter brain at birth>".to_string(), |n| format!("{n:#018x}"));
+            let moves_at_birth = first_moves[seat]
+                .map_or_else(|| "<no moveset when the brain landed>".to_string(), |n| n.to_string());
             println!(
-                "[brain] seat {seat}: born={born} seed={seed_at_birth} now={seed} \
+                "[brain] seat {seat}: born={born} seed={seed_at_birth} \
+                 authored_moves_at_birth={moves_at_birth} now={seed} \
                  authored_moves={authored}"
             );
 

@@ -156,6 +156,26 @@ def is_test_file(path: pathlib.Path, text: str) -> bool:
     return bool(re.search(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", text, re.MULTILINE))
 
 
+def blank(span: str) -> str:
+    """The same span, emptied but the SAME HEIGHT.
+
+    ⛔⛔ **DELETING A BLOCK MOVES EVERY LINE NUMBER BELOW IT, AND THIS SCANNER
+    REPORTS LINE NUMBERS.** The first version spliced test modules and type
+    bodies OUT of the text and then counted `\n`s in what was left, so every
+    site under a stripped block was cited at the wrong line — `sentry.rs:411`
+    was reported as production when line 411 of the ORIGINAL file is inside
+    `mod tests`. A citation that points at the wrong line is worse than none:
+    it looks checkable and reads as checked.
+
+    ⛔ AND IT ALSO JOINED THE SEAM. `text[:start] + text[end:]` concatenates the
+    line before a stripped block with the line after it, which can spell a match
+    that exists in neither.
+
+    ⇒ Replace the span with its own newlines: same height, no content, no seam.
+    """
+    return "\n" * span.count("\n")
+
+
 def strip_test_mods(text: str) -> str:
     out, i = [], 0
     pattern = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{")
@@ -174,6 +194,7 @@ def strip_test_mods(text: str) -> str:
                 if depth == 0:
                     break
             j += 1
+        out.append(blank(text[match.start() : j + 1]))
         i = j + 1
     joined = "".join(out)
     return "\n".join(line.split("//")[0] for line in joined.split("\n"))
@@ -208,6 +229,7 @@ def strip_type_bodies(text: str) -> str:
                 if depth == 0:
                     break
             j += 1
+        out.append(blank(text[match.start() : j + 1]))
         i = j + 1
     return "".join(out)
 

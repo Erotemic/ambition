@@ -86,6 +86,68 @@ def definition(ty: str) -> tuple[str, str, str]:
     return (kind, ",".join(floats) or "-", doc)
 
 
+# ---------------------------------------------------------------------------
+# THE READER CHECK
+#
+# ⛔⛔ **THE LATENCY CLASS COMES FROM THE READERS, NOT FROM THE TYPE'S OWN DOC
+# COMMENT.** Read by hand on 2026-09-10, the 14 float-free rows were picked as
+# likely event-latched state on the reasoning that a row with nothing continuous
+# to drift is read on an event. **Ten of them are read every tick.** The prose
+# and the readers disagreed for ten of fourteen, so the prose is not evidence.
+#
+# ⚠ THIS IS A TRIAGE, NOT A VERDICT. A `Query<..&T..>` with no change-detection
+# filter runs every tick, so its divergence propagates on the next frame; a
+# `Changed<..>`/`Added<..>` filter or a point `get::<T>()` inside a branch may
+# not. The second class is what a human must read. This prints the split and
+# names which rows need reading rather than deciding for them.
+
+READ_IN_QUERY = re.compile(r"Query\s*<[^;{]{0,400}?&\s*(?:mut\s+)?[\w:]*\b{t}\b", re.S)
+GATED = re.compile(r"\b(?:Changed|Added|Or)\s*<")
+POINT_READ = re.compile(r"\.get(?:_mut)?::<\s*[\w:]*\b{t}\b")
+
+
+def reader_sites(ty: str) -> tuple[list[str], list[str]]:
+    """`(per-tick query sites, sites a human must read)`."""
+    per_tick, needs_reading = [], []
+    found = subprocess.run(
+        ["git", "grep", "-n", rf"\b{ty}\b", "--", "crates/", "game/"],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+    ).stdout.splitlines()
+    for row in found:
+        path = row.split(":")[0]
+        # ⚠ A TEST, A REGISTRATION AND A RE-EXPORT ARE NOT READERS, and counting
+        # them is how a row with no reader at all looks well used.
+        if "test" in path or "rollback_registration" in path:
+            continue
+        body = row.split(":", 2)[-1]
+        if re.search(POINT_READ.pattern.format(t=re.escape(ty)), body):
+            needs_reading.append(row[:150])
+            continue
+        # ⛔⛔ TWO DEFECTS THE FIRST RUN OF THIS TRIAGE HAD, both found by
+        # checking it against a hand reading rather than believing it:
+        #   * `&'static T` -- a lifetime between the `&` and the type. Bevy
+        #     `SystemParam` type aliases spell every borrow that way, so
+        #     `OwnedPortalGunPair` came back with NO READER when its reader is a
+        #     `Query<.. Option<&'static ..OwnedPortalGunPair>>` in a menu. A zero
+        #     is a claim about the scan.
+        #   * A CHECKSUM PROBE IS NOT A READER. `fn seat_credit_probe(credit:
+        #     &SeatCredit)` takes `&T` and reads it, and counting it made a
+        #     component that NOTHING in production consults look well used --
+        #     hiding the exact case this census exists to surface.
+        if "_probe(" in body or "probes.rs" in path:
+            continue
+        if re.search(rf"&\s*(?:'\w+\s+)?(?:mut\s+)?(?:[\w:]*::)?{re.escape(ty)}\b", body):
+            window = "\n".join(
+                (REPO / path).read_text(encoding="utf-8", errors="replace").split("\n")[
+                    max(0, int(row.split(":")[1]) - 12) : int(row.split(":")[1]) + 4
+                ]
+            )
+            (needs_reading if GATED.search(window) else per_tick).append(row[:150])
+    return per_tick, needs_reading
+
+
 def main() -> int:
     subjects = rows()
     # ⛔ ANTI-VACUITY. An empty read of the baseline prints "0 uncovered rows",

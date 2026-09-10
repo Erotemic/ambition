@@ -779,8 +779,44 @@ which per `rollback/registry.rs`'s v151 reasoning is what obliges a wire-format
 bump, so it is not free. The remedy is `ambition_demo_smash`'s owner's call and
 is deliberately not proposed here.
 
-The remaining 44 rows were not reader-checked and this page does not classify
-them.
+#### All 59 read — the final tally
+
+| class | rows |
+|---|---|
+| **bounded** — a divergence propagates within a tick or two | **53** |
+| **unbounded** — the next reader may be arbitrarily far away | **4** |
+| presentation, correctly out of the checksum (`presentation.body_source`) | 1 |
+| **no production reader at all** (`smash.seat_credit`) | 1 |
+
+The four unbounded rows are `ability.player_mark`, `portal.owned_gun_pair`,
+`actor.persona_baseline`, `actor.projected_character_kit` — tabulated above.
+Everything else is bounded: 42 have a `&mut T` reader in a system that ADVANCES
+the value every tick (a fuse, a reel, a dash charge — the divergence changes what
+that same system computes on the next frame), and 11 are read-only values or
+presence markers consulted by unfiltered per-tick systems (`assess_dormancy`
+deciding whether a brain sleeps, `tick_commanded_moves`, the pickup magnet,
+`With<SettledItem>` in item physics).
+
+⛔⛔ **AND THE MECHANICAL TRIAGE CANNOT DECIDE THIS — IT WAS WRONG ABOUT THREE OF
+THE FOUR ROWS THAT MATTER.** `scripts/measure_unchecksummed_rollback_rows.py`
+grew a `reader_sites` triage that splits sites into "per-tick query" and "gated
+or point lookup". Checked against the hand reading, it classified
+`portal.owned_gun_pair`, `actor.persona_baseline` and `ability.player_mark` as
+per-tick — because **a query that RUNS every tick may only ACT on an event**. The
+menu query reading the gun pair runs every frame and matters on a re-equip. A
+`&mut T` reader is a better proxy and `player_mark` falsifies that one too: its
+mutable reader writes only on a mark-drop press.
+
+⇒ The triage's real value was narrowing and one independent confirmation, not
+classification. **Use it as a screen; the class is a hand read.**
+
+⚠ **And it took two corrections before even that was true**, both found by
+checking it against the hand reading rather than believing it: it could not see
+`&'static T` (so a Bevy `SystemParam` type alias reads as no reader at all, which
+is how `owned_gun_pair` first came back with none), and it counted a **checksum
+probe** — `fn seat_credit_probe(credit: &SeatCredit)` — as a reader, which made
+the one component nothing consults look well used. A zero is a claim about the
+scan; so is a one.
 
 ### S6 — session-scoped process-resource residue
 

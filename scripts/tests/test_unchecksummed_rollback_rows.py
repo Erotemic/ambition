@@ -51,3 +51,27 @@ def test_it_refuses_an_empty_baseline(monkeypatch, tmp_path):
             "of refusing; 0 is the reassuring direction and it must not be "
             "reachable by the scan going blind"
         )
+
+
+def test_the_reader_triage_sees_a_static_borrow_and_ignores_a_probe():
+    """⛔⛔ THE TWO DEFECTS THE TRIAGE SHIPPED WITH, both in the reassuring direction.
+
+    A Bevy `SystemParam` type alias spells every borrow `&'static T`, so a
+    pattern without the lifetime reported `OwnedPortalGunPair` as having NO
+    READER when its reader is a menu query. And `fn seat_credit_probe(credit:
+    &SeatCredit)` is the CHECKSUM PROBE, not a reader — counting it made the one
+    component nothing in production consults look well used, hiding the exact
+    case this census exists to surface.
+    """
+    module = _module()
+    per_tick, _ = module.reader_sites("OwnedPortalGunPair")
+    assert any("menu/effects.rs" in site for site in per_tick), (
+        "the menu's `Option<&'static ..OwnedPortalGunPair>` is the only production "
+        "reader of that row and the triage must see it; missing it reports the row "
+        "as unread, which is a claim about the scan"
+    )
+    seat_tick, seat_gated = module.reader_sites("SeatCredit")
+    assert not seat_tick and not seat_gated, (
+        f"`SeatCredit` has no production reader; the triage found {seat_tick + seat_gated}. "
+        "A checksum probe taking `&T` is not a reader."
+    )

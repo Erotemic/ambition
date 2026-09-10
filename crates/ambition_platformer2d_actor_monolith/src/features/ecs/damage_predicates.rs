@@ -142,7 +142,10 @@ fn swept_box_reaches(
 /// The earliest point along a projectile's travel at which it reaches a live
 /// boss's published geometry, with the part's centre.
 ///
-/// The swept sibling of [`ecs_hit_event_hits_boss`], reusing the ONE swept
+/// The boss half of the ONE swept victim-geometry rule -- its breakable twin
+/// is [`projectile_reaches_breakable`]. It named `ecs_hit_event_hits_boss` as
+/// its sibling until that predicate was DELETED with the rest of the discrete
+/// family, which is the deletion this reference outlived. Reusing the one swept
 /// victim-geometry rule so a boss and an ordinary body answer the same way about
 /// published parts, coarse fallback (none, for a boss) and intangibility.
 pub fn projectile_reaches_boss(

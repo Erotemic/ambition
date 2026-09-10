@@ -62,7 +62,7 @@ pub struct PlaceMineParams {
 /// The held-item ids a `mine` effect names.
 ///
 /// ⛔ ITS OWN DOC ALREADY STATED THE STAKE: the id "must be a registered held
-/// item or nobody can pick [it] up — which is half the move". Nothing checked
+/// item or nobody can pick \[it\] up — which is half the move". Nothing checked
 /// it. `mine.rs` resolves it at FIRE TIME with `held_item_by_id` and logs on
 /// `None`, so an unregistered id produced an object nobody can take, mid-fight,
 /// with a log line as the only symptom.

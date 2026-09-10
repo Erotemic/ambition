@@ -1068,7 +1068,7 @@ pub struct StrikeVolume {
 /// entity — so a verdict that drains after its move has been replaced is
 /// credited to whatever playback is wearing the body when it arrives. The read
 /// model already learned this lesson: [`MovePlayback::instance`] exists because
-/// an observer comparing move IDS "credit[ed] the FIRST instance's contact to the
+/// an observer comparing move IDS "credit\[ed\] the FIRST instance's contact to the
 /// second" in the inspector. The runtime's own contact fields never did.
 ///
 /// ⇒ A SEPARATE COMPONENT beside [`Hitbox`](crate::hitbox::Hitbox), not a field

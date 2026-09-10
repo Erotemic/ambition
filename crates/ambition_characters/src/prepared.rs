@@ -478,7 +478,7 @@ pub fn stage_character_revision(
 /// ⛔⛔ **A REFUSED REVISION CHANGES NOTHING, and that is a different rule from
 /// initial activation.** At the barrier there IS no last-good, so a refused
 /// definition is withheld and the rest of the cast still publishes
-/// ([`admit_and_finalize_cast`]). A revision is a TRANSACTION over a cast that
+/// (`admit_and_finalize_cast`). A revision is a TRANSACTION over a cast that
 /// is already live: applying half of it would leave the session in a state no
 /// author asked for, so the whole edit is refused and the previous registry —
 /// generation included — remains the published one. That is the

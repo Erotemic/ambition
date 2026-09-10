@@ -1,7 +1,8 @@
 //! Actor construction planner for authored, provider-staged, and runtime-dynamic origins.
 //! Requests are preflighted before entities are spawned; relations and external references are
 //! validated against the plan and live world. Optional capabilities may contribute their own
-//! closed [`ConstructionDomain`] through construction federation.
+//! closed [`ConstructionDomain`](ambition_platformer2d_shared_tangle::construction::ConstructionDomain)
+//! through construction federation.
 
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};

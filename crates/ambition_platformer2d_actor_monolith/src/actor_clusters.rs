@@ -1,8 +1,10 @@
-//! The per-tick view of an actor: [`ActorMut`], the borrow the integration
+//! The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut),
+//! the borrow the integration
 //! mutates in place, and the query that assembles it from live components.
 //!
 //! The body a construction path spawns from is [`ambition_body_seed::ActorClusterSeed`];
-//! this module binds that seed to the simulation ([`SeedActorMut`]) and owns
+//! this module binds that seed to the simulation
+//! ([`SeedActorMut`](crate::actor_clusters::SeedActorMut)) and owns
 //! nothing about what a body IS.
 
 use ambition_body_seed::{ActorClusterSeed, ActorMotionPath};

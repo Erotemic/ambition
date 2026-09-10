@@ -14,7 +14,8 @@
 //! the startup resume's progress state and installed the resume itself, which
 //! made a composition's ability to resume a session depend on it having held
 //! items.
-//! [`SessionCheckpointHorizonPlugin`] owns both now.
+//! [`SessionCheckpointHorizonPlugin`](crate::session::checkpoint::SessionCheckpointHorizonPlugin)
+//! owns both now.
 
 use bevy::prelude::*;
 

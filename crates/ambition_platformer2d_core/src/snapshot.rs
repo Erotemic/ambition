@@ -216,7 +216,7 @@ fn canonical_f32_bits(value: f32) -> u32 {
 /// ⛔⛔ **A NON-FINITE VALUE IN CANONICAL STATE IS NORMALISED SO THE DESYNC CHECK
 /// CANNOT SEE IT EITHER — and that is not a bug, it is why nobody caught this.**
 ///
-/// [`canonical_f32_bits`] already asks `is_nan()`, and it asks in order to
+/// `canonical_f32_bits` already asks `is_nan()`, and it asks in order to
 /// collapse every NaN to ONE bit pattern **so that two peers' checksums agree**.
 /// The mechanism that exists to notice two peers diverging has been made blind to
 /// this specific poison, deliberately, for a good reason. ⇒ Two peers can hold a

@@ -1375,6 +1375,39 @@ the time it ran. The RANGE form over the same session
 deletion two commits later. Repointed. ⇒ A carve author who runs only the
 working-tree form has not run this row's check at all.
 
+⭐⭐ **AND THE CITATION CHECKER IS THE WRONG INSTRUMENT FOR HALF OF THIS ROW —
+THE INTRA-DOC LINK RATCHET IS THE OTHER HALF, AND IT WAS RED AT HEAD.**
+`check_planning_citations.py` reads planning markdown. **A carve leaves its
+references behind in RUST DOC COMMENTS too**, and nothing in this row pointed at
+the guard that sees those. `scripts/check_doc_link_ratchet.py` was **RED at HEAD
+on 2026-09-10** — 4 crates, 143 → 156 — and two of the eleven new breakages are
+exactly this row's species:
+
+- **A CARVE:** `ConstructionDomain` moved to
+  `ambition_platformer2d_shared_tangle::construction`, and
+  `ambition_platformer2d_actor_monolith`'s module doc still named it bare.
+- **A DELETION:** `projectile_reaches_boss` documented itself as *"the swept
+  sibling of `ecs_hit_event_hits_boss`"* — a predicate **A2 deleted** with the
+  rest of the discrete family. The prose outlived its subject by two rows.
+
+Cleared at `6b30dd644`, ratchet green, every crate exactly at baseline, 156 → 145.
+⚠ The other nine were escaped-bracket, private-target and module-scope defects,
+not carve residue — **fixed as the eleven the ratchet NAMED**, because its
+baseline records *which* links are broken and paying a regression off with an
+unrelated repair no longer restores the number. The 145 pre-existing are
+deliberately untouched.
+
+⛔ **INSTRUMENT NOTE, because it produced a wrong reading first: a default
+`cargo doc` reported the monolith CLEAN while the ratchet called it red.** It was
+a **cache hit** — an incremental doc build emits warnings only for crates it
+actually recompiles, and a crate it skips contributes silence indistinguishable
+from success. ⇒ **Confirm the crate appears under `Documenting` before believing
+a zero.**
+
+⇒ **Add the ratchet to this row's checklist beside the range-form citation
+check.** A carve author who runs only `--vanished A..B` has checked the planning
+prose and none of the doc comments.
+
 ### D-RUNG9-NOISE — the hardest CPU is the only one with execution noise disabled
 
 **Owner:** [fighter brain](engine/fighter-brain.md), the authored ladder. Found

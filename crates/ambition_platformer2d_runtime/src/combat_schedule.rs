@@ -47,13 +47,43 @@ pub fn install_technique<M>(
     offer: TechniqueOffer,
     systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
 ) {
+    install_techniques(app, &[(key, offer)], systems);
+}
+
+/// The same statement for a handler that answers SEVERAL keys.
+///
+/// ⛔⛔ **ONE SYSTEM, FOUR KEYS IS A REAL SHAPE, and the singular form could not
+/// express it.** `ambition_demo_smash`'s capture handler matches
+/// `CAPTURE_ATTEMPT | CAPTURE_CARRY | CAPTURE_PUMMEL | CAPTURE_THROW` in one
+/// `match` — they share a translation, so splitting them into four systems to
+/// satisfy the API would be the API deciding the mechanic's shape. Declaring
+/// three of them through a separate "declare only" call would break the
+/// invariant this whole seam exists for: a declaration is evidence precisely
+/// because the statement that writes it is the statement that adds the handler.
+///
+/// ⇒ So the PLURAL is the primitive and [`install_technique`] delegates to it.
+/// Every key here is answered by the systems in the same call, and a conflict on
+/// any one of them still panics at build time.
+pub fn install_techniques<M>(
+    app: &mut App,
+    offers: &[(&str, TechniqueOffer)],
+    systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+) {
+    assert!(
+        !offers.is_empty(),
+        "install_techniques with no keys adds a handler nothing can reach: the \
+         declaration IS the evidence that something answers a key, so a handler \
+         that declares none is exactly the silent-miss this seam removes"
+    );
     let sim = app.sim_schedule();
     app.add_systems(sim, systems);
     let mut support = app
         .world_mut()
         .get_resource_or_insert_with(InstalledTechniques::default);
-    if let Err(conflict) = support.0.declare(key, offer) {
-        panic!("{conflict}");
+    for (key, offer) in offers {
+        if let Err(conflict) = support.0.declare(*key, offer.clone()) {
+            panic!("{conflict}");
+        }
     }
 }
 

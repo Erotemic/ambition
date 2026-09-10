@@ -53,6 +53,13 @@ pub mod world_gating;
 // Re-export the shared finalization seam without moving its ownership up the dependency graph.
 pub use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 pub use combat_schedule::CombatSchedulePlugin;
+// ⭐ THE SUPPORTED WAY A GAME INSTALLS A TECHNIQUE. `ambition_demo_smash` owns
+// seventeen technique handlers and depends only on the `ambition_platformer2d`
+// facade, so with this module private the ONLY road open to a game was a bare
+// `add_systems` — which declares nothing, and is why a misspelled authored key
+// still reaches the runtime as a mid-fight warning. Exporting it is what lets
+// the strict unknown-key pass become reachable at all.
+pub use combat_schedule::{install_technique, install_techniques};
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
     ContentFingerprintSchemaVersion, ContentOwner, PreparedContent, PreparedContentBuildError,

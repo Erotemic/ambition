@@ -9,6 +9,14 @@
 // vocabulary, not the room-authoring one, and reaching for the prelude here
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
+// ⭐ THE SUPPORTED INSTALL SEAM. A technique handler and the declaration of the
+// key it answers are written in ONE statement, so "which techniques does this
+// build install" is a fact about the composition rather than a list somebody
+// keeps in step by hand. Before this, Smash's technique handlers were bare
+// `add_systems` calls declaring nothing — which is why a misspelled authored
+// key reached the runtime and surfaced as a `warn!` mid-fight.
+use ambition_platformer2d::combat::technique::{check_hydrates, TechniqueOffer, TechniqueParams};
+use ambition_platformer2d::runtime::{install_technique, install_techniques};
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
@@ -953,8 +961,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // not exist when it was made. `apply_authored_sleep` takes a `max`, so
         // the landing tick is unchanged either way; the order is the honest
         // reading rather than a fix.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_sleep::SLEEP,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::sing",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_sleep::SleepParams>,
+                ),
+            },
             (
                 crate::sing::mash_out_of_sleep,
                 crate::sing::apply_authored_sleep,
@@ -970,8 +985,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // lifetime is spent from the frame it appears. That costs the pair one
         // tick and is the honest reading: a portal that existed for less than a
         // frame was never a route.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_portal::PORTAL_PAIR,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::portal",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_portal::PortalPairParams>,
+                ),
+            },
             (
                 crate::portal::open_authored_portal_pairs,
                 crate::portal::close_expired_move_portals,
@@ -984,8 +1006,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // moving on the tick it appears rather than hanging at the caster's
         // shoulder for a frame — which is also the frame it is inside him, and
         // the one place the clearance latch must not be resolved wrongly.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_bolt::STEERED_BOLT,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::bolt",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_bolt::SteeredBoltParams>,
+                ),
+            },
             (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -993,8 +1022,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // THE HOMING DASH. ⭐ `ContentSpecials`, and the BEGIN is chained before
         // the CARRY so a dash steers on the tick it starts rather than standing
         // still for one frame — which on a 0.28s move is 6% of it.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_homing::HOMING_DASH,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::homing",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_homing::HomingDashParams>,
+                ),
+            },
             (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -1003,8 +1039,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⛔ It reads the SAME `ActorActionMessage` the counter writes, so it
         // needs no counter-specific wiring: a parry's response is an ordinary
         // special request, and any move that names the key gets a cut.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_riposte::RIPOSTE_STRIKE,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::riposte",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_riposte::RiposteStrikeParams>,
+                ),
+            },
             crate::riposte::cut_where_a_riposte_answers
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -1014,8 +1057,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⛔ The reel does NOT catch the ledge — the movement kernel's own ledge
         // authority does, one phase later, from her real position. See
         // `crate::tether` for why that separation is the point of the row.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_tether::TETHER_PULL,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::tether",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_tether::TetherPullParams>,
+                ),
+            },
             (
                 crate::tether::begin_authored_tether_pulls,
                 crate::tether::reel_tethered_fighters,
@@ -1028,8 +1078,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // its arming clock on the tick it lands rather than a frame later —
         // which matters because the frame it lands is the frame its dropper is
         // standing inside it.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_spring::PLACE_SPRING,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::spring",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_spring::PlaceSpringParams>,
+                ),
+            },
             (crate::spring::drop_authored_springs, crate::spring::fire_and_expire_springs)
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -1107,8 +1164,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         // The authored half stays where a dispatched special belongs: a move that
         // charges its own owner reaches its technique on the frame it is pressed.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_limit::FILL_METER,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::limit",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_limit::FillMeterParams>,
+                ),
+            },
             crate::limit::apply_authored_meter_fills
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -1139,8 +1203,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // ⚠ Reversing is safe against re-application: `apply` keeps the ORIGINAL
         // `prior` when a dilation is already live, so a slow refreshed while
         // running still restores the clock the body started on.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::dilation",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_time_dilation::TimeDilationParams>,
+                ),
+            },
             (
                 crate::dilation::expire_time_dilations,
                 crate::dilation::apply_authored_time_dilations,
@@ -1154,8 +1225,28 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // would make the arming delay one frame longer than the number the
         // moveset authored, which is the kind of drift nobody can see and
         // everybody feels.
-        app.add_systems(
-            sim,
+        install_techniques(
+            app,
+            &[
+                (
+                    ambition_platformer2d::characters::smash_mine::PLACE_MINE,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::mine",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_mine::PlaceMineParams>,
+                        ),
+                    },
+                ),
+                (
+                    ambition_platformer2d::characters::smash_mark::MARK_BODY,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::mark",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_mark::MarkBodyParams>,
+                        ),
+                    },
+                ),
+            ],
             (
                 crate::mine::arm_placed_mines,
                 crate::mine::place_or_detonate_authored_mines,
@@ -1200,13 +1291,58 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // answered inside the same frame it caught would have no visible catch
         // at all — the parry and its answer would be one instant — and message
         // buffers survive the frame boundary, so nothing is lost by the wait.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_counter::COUNTER,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::counter",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_counter::CounterParams>,
+                ),
+            },
             crate::counter::answer_a_parry_with_the_authored_counter
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        app.add_systems(
-            sim,
+        install_techniques(
+            app,
+            &[
+                (
+                    ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::capture",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureAttemptParams>,
+                        ),
+                    },
+                ),
+                (
+                    ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::capture",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureCarryParams>,
+                        ),
+                    },
+                ),
+                (
+                    ambition_platformer2d::characters::smash_capture::CAPTURE_PUMMEL,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::capture",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CapturePummelParams>,
+                        ),
+                    },
+                ),
+                (
+                    ambition_platformer2d::characters::smash_capture::CAPTURE_THROW,
+                    TechniqueOffer {
+                        owner: "ambition_demo_smash::capture",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureThrowParams>,
+                        ),
+                    },
+                ),
+            ],
             (
                 crate::capture::translate_smash_capture_effects,
                 ambition_platformer2d::combat::capture::systems::acquire_captures,
@@ -1260,8 +1396,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
             ),
         );
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::shark_ride",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_ride::SummonRideParams>,
+                ),
+            },
             crate::shark_ride::translate_shark_summons
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
                 // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
@@ -1283,8 +1426,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // — both are authored techniques dispatched as `ActorActionMessage` —
         // and burnt in `Settle`, after the item physics has had its say about
         // whether the object hit anything this tick.
-        app.add_systems(
-            sim,
+        install_technique(
+            app,
+            ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+            TechniqueOffer {
+                owner: "ambition_demo_smash::bomb",
+                params: TechniqueParams::Checked(
+                    check_hydrates::<ambition_platformer2d::characters::smash_bomb::DropBombParams>,
+                ),
+            },
             crate::bomb::translate_bomb_drops
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );

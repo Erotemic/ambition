@@ -37,14 +37,46 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
         );
     let declared: Vec<&str> = installed.0.keys().collect();
 
-    // The four the engine composition installs today. Named, because a COUNT
-    // cannot say which one left — and each of these is a capability whose
-    // handler exists in a different crate.
+    // ⭐ EVERY TECHNIQUE THE SHIPPED COMPOSITION INSTALLS, engine and game
+    // alike. Named, because a COUNT cannot say which one left.
+    //
+    // ⛔⛔ THE GAME'S HANDLERS USED TO DECLARE NOTHING. The first four are the
+    // engine composition's; the rest live in `ambition_demo_smash` and were
+    // bare `add_systems` calls, so "which techniques does this build install"
+    // had no answer for the sixteen that matter most to a player. Until they
+    // declared their keys, no strict unknown-key pass could be turned on: it
+    // would have refused every authored use of them.
     for expected in [
         ambition_platformer2d::characters::smash_teleport::TELEPORT,
         ambition_platformer2d::characters::smash_vitality::VITALITY,
         ambition_platformer2d::characters::smash_trapdoor::TRAPDOOR,
         ambition_platformer2d::characters::smash_flyline::FLYLINE,
+        ambition_platformer2d::characters::smash_sleep::SLEEP,
+        ambition_platformer2d::characters::smash_portal::PORTAL_PAIR,
+        ambition_platformer2d::characters::smash_bolt::STEERED_BOLT,
+        ambition_platformer2d::characters::smash_homing::HOMING_DASH,
+        ambition_platformer2d::characters::smash_riposte::RIPOSTE_STRIKE,
+        ambition_platformer2d::characters::smash_tether::TETHER_PULL,
+        ambition_platformer2d::characters::smash_spring::PLACE_SPRING,
+        ambition_platformer2d::characters::smash_mine::PLACE_MINE,
+        ambition_platformer2d::characters::smash_counter::COUNTER,
+        ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
+        ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+        // One handler, four keys — the shape that needed `install_techniques`.
+        ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT,
+        ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY,
+        ambition_platformer2d::characters::smash_capture::CAPTURE_PUMMEL,
+        ambition_platformer2d::characters::smash_capture::CAPTURE_THROW,
+        // ⛔ THESE THREE WERE MISSED BY THE FIRST SWEEP, and the miss is worth
+        // recording: their handlers test `if key != KEY` while the others write
+        // `if key.as_str() != KEY`, so a grep keyed on one spelling found
+        // fifteen of eighteen. `smash.mark_body` is an ON-HIT effect
+        // (`hit.effect.key`), a different shape again — and it shares its
+        // registration block with the mine, which is why that block declares
+        // TWO keys through `install_techniques`.
+        ambition_platformer2d::characters::smash_limit::FILL_METER,
+        ambition_platformer2d::characters::smash_mark::MARK_BODY,
+        ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION,
     ] {
         assert!(
             declared.contains(&expected),

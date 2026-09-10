@@ -757,6 +757,17 @@ pub fn step_projectiles(
         // which is the identity the ruling forbids by name, and which would
         // have worked well enough to look right.
         //
+        // ⛔ AND STEP 2 NEEDS A PREDICATE, NOT A FIFTH `Solid | BlinkWall { .. }`
+        // ARM — but only at the FILTERS. Three sites in
+        // `shared_tangle::projectile::collision` ask one question ("is this an
+        // unconditional solid surface?") and should ask it through one predicate
+        // on `BlockKind`, named for the semantics rather than for today's
+        // members. ⚠ The fourth site, that module's response resolver, must stay
+        // an exhaustive match: its own comment says "a new kind that a shot may
+        // hit must decide its response HERE — a fall-through would silently make
+        // it a passthrough." ⇒ **Predicate at the filters; enumeration where the
+        // enumeration is a compile-time obligation on the next author.**
+        //
         // ⇒ `is_le`, not `< - EPSILON`: a total deterministic comparison, with
         // the tie going where the protocol puts it.
         //

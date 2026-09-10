@@ -176,17 +176,69 @@ than a predicted SCC trajectory.
 
 ## Measured shape, not architectural acceptance
 
-The module-path instrument reports a nine-module SCC (abilities, construction,
-control, features, items, projectile, session, shrine, world) and the two-module
-assets/character_sprites SCC. It excludes several test forms but is a textual
-heuristic, not a Rust semantic dependency graph.
+⚠ **RE-DERIVED IN FULL 2026-09-10 at `09467966b`.** Every number below had been
+stamped to `300004d6` for 240+ commits, under a sentence telling readers to
+reproduce it. The old values are kept beside the new ones: **they were true when
+written, and overwriting an accurate record destroys the evidence that it moved.**
 
-The workspace inventory has 79 packages and 679,785 physical Rust lines under
-package `src` directories, including comments and tests. Of those, 98,464 are in
-the actor monolith. Foreign-ordering/installation instruments report 0 capability
-private orderings, 73 composition private orderings and 174 foreign system
-installations; installation classification reports 3 reducible and 38 irreducible
-blocks. Reproduce counts before quoting them for another revision.
+| measure | `300004d6` | `09467966b` | |
+|---|---|---|---|
+| module SCC size | 9 | **9** | ⛔ **two members changed** |
+| second SCC | assets/character_sprites | assets/character_sprites | unchanged |
+| workspace packages | 79 | **79** | unchanged |
+| physical Rust lines under `src/` | 679,785 | **694,104** | +14,319 |
+| …in the actor monolith | 98,464 | **104,545** | +6,081 |
+| capability private orderings | 0 | **10** | ⚠ unit differs — see below |
+| composition private orderings | 73 | **67** | −6 |
+| foreign system installations | 174 | **213** | +39 |
+| reducible installation blocks | 3 | **1** | ⭐ cause known |
+| irreducible installation blocks | 38 | **38** | unchanged |
+| facade non-optional parentage | 51 | **48** | re-derived `939d6aaa5`, holds here |
+
+⛔⛔ **THE SCC IS STILL NINE MODULES AND TWO OF THE NINE ARE DIFFERENT.**
+
+    was   abilities, construction, control, features, items, projectile, session, shrine, world
+    now   abilities, avatar, character_runtime, construction, control, features, items, session, world
+    ⇒ OUT: projectile, shrine     IN: avatar, character_runtime
+
+**A reader who checked the number 9 would have called the list current.** Set
+equality and cardinality are different questions and only the second is cheap to
+write down — the same shape as the four production readers in
+[`accepted-control-writer-map.md`](engine/accepted-control-writer-map.md), whose
+count stayed at four while a member turned out to be a test.
+
+⚠ **THE SCC IS DERIVED, NOT REPORTED.** `scripts/measure_kernel_module_graph.py`
+prints per-module out-edges and does **not** report SCCs; the condensation above
+is Tarjan over that edge list. ⚠ And `scripts/module_graph.py`, which does have an
+SCC layer, needs `uv run --script` — it fails under the tool venv with
+`ModuleNotFoundError: networkx`. **Say which instrument produced a number.**
+
+⭐ **REDUCIBLE 3 → 1 HAS A NAMEABLE CAUSE**, which is worth more than the fresh
+number: `61f297edf` — *"the latch drain installs itself; the other reducible block
+is declined, with the reason"*.
+
+⛔ **THE ORDERING ROW IS A UNIT TRAP AND THE NUMBERS ARE NOT COMPARABLE.** This
+page said *"0 capability private orderings, 73 composition private orderings"*.
+`scripts/measure_foreign_system_ordering.py` at `09467966b` reports **77 ordering
+edges — capability 10, composition 67 — across 93 written occurrences**, and
+separately **213** installations against this page's 174. ⇒ **"0 → 10" may be a
+real change or two definitions of the same word**; the instrument's own vocabulary
+is *"ORDERING a foreign system"*, not *"private ordering"*. **A number that cannot
+say which it is cannot be quoted**, and nobody should read 0 → 10 as a regression
+until the definitions are reconciled.
+
+⇒ Reproduce, and name the unit every time:
+
+```bash
+cargo metadata --no-deps --format-version 1     # 79 packages; lines counted under each package's src/
+uv run --script scripts/measure_kernel_module_graph.py   # module out-edges; condense for SCCs
+python3 scripts/measure_foreign_system_ordering.py       # ordering edges / installations
+python3 scripts/measure_carveable_installations.py       # reducible / irreducible
+cargo tree -e normal --no-default-features -p ambition_platformer2d   # 49 names, 48 others
+```
+
+The module-path instrument excludes several test forms and is a textual
+heuristic, not a Rust semantic dependency graph.
 
 The facade's nonoptional internal dependency traversal reaches 51 other workspace
 packages even without selecting optional dependencies. Render is reachable through

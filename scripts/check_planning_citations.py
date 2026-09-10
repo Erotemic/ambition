@@ -1072,9 +1072,28 @@ def main() -> int:
         # that cite a test correctly. See `role_report`.
         role_report(docs, by_suffix)
 
+    # ⛔⛔ THIS USED TO `return`, AND THAT MADE THE ONLY LANE THAT RUNS THIS
+    # CHECKER ASK ONE QUESTION OUT OF TWO.
+    #
+    # The `--maintenance` job passes `--vanished BASELINE <5 doc trees>
+    # --strict`. With the early return, that `--strict` gated the VANISHED
+    # report alone and ordinary resolution never ran — so **1,710 citations
+    # across 199 files were checked by no lane at all**, while the job printed
+    # `ok`. MEASURED 2026-09-10 at `d55de989a`: six were unresolved at the time
+    # the lane was green over them.
+    #
+    # ⛔ A GATE THAT REPORTS `ok` WITHOUT ASKING ITS QUESTION IS WORSE THAN NO
+    # GATE, because it converts an unknown into an assurance and nobody looks
+    # again. The two modes now run in one pass and the exit code takes both.
+    #
+    # ⚠ AND THE EARLIER READING OF THIS WAS TOO KIND. "A green `--strict` says
+    # nothing about `--vanished`" describes two lanes with different
+    # populations. The real shape was that the two questions were MUTUALLY
+    # EXCLUSIVE in one process: whichever mode a caller picked, the other was
+    # never asked, so "run the lane the gate runs" was not sufficient either.
+    vanished_findings = 0
     if args.vanished:
-        n = vanished_report(docs, args.vanished, defined)
-        return 1 if (n and args.strict) else 0
+        vanished_findings = vanished_report(docs, args.vanished, defined)
 
     # ⭐ COMMIT NAMES ARE CITATIONS TOO, and nothing checked them until
     # 2026-09-03. A fabricated SHA is invisible exactly the way a fabricated
@@ -1156,6 +1175,13 @@ def main() -> int:
                 "clean only for what answered."
             )
             return 1 if args.strict else 0
+        # ⚠ RESOLUTION IS CLEAN AND THE VANISHED HALF MAY NOT BE. Saying "all
+        # resolved" and exiting 0 over a live vanished finding is the same false
+        # assurance this arm was changed to stop giving, one mode over.
+        if vanished_findings:
+            print(f"all resolved, but {vanished_findings} vanished-name "
+                  f"finding(s) stand — see the report above.")
+            return 1 if args.strict else 0
         print("all resolved.")
         return 0
     print(f"{len(findings)} unresolved:\n")
@@ -1173,6 +1199,11 @@ def main() -> int:
 
   For a citation that is wrong deliberately -- a row quoting a mistake it is
   recording -- put `{MARKER}` on that line and it stops reporting.""")
+    if vanished_findings:
+        print(f"\n⚠ AND {vanished_findings} vanished-name finding(s) stand as "
+              "well, reported above. They are a different question from the "
+              "list here: these citations do not resolve NOW; those name what "
+              "a commit range REMOVED.")
     return 1 if args.strict else 0
 
 

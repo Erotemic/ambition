@@ -87,17 +87,33 @@ Stated per packet instead:
   because they all drive `update()` by hand, which never runs `finish`. Fixed by
   ONE DECLARED AUTHORITY, and the witness that says so differs from its green
   sibling by three calls. **Transitive withholding is fixed too**: the one-pass
-  filter published a summoner whose beast it had just refused. ⛔ **STILL OPEN:
-  a composition with no support table is still treated as "admit everything"
-  rather than "supports nothing".** That is the last A11 blocker and it is not
-  closed.
-- **A12** — REOPENED by the same review and NOT fixed. A verdict carrying
-  `attacker_move_instance: None` is credited to whatever move the fighter is
-  playing NOW, so a projectile launched by move A and landing during move B
-  marks B connected — the late-feedback defect A12 exists to eliminate. The
+  filter published a summoner whose beast it had just refused. 
+  ✅ **CLOSED 2026-09-10 by `4fe4a1a27`, and this line said
+  otherwise for half a day.** `admit_and_finalize_cast` now takes
+  `support: &TechniqueSupport`, **not `Option<&_>`** — the comment on that
+  parameter says *"NOT `Option`, AND THAT WAS THE LAST A11 BLOCKER."*
+  `TechniqueSupport::admit_at` opens with `self.offers.get(&effect.key)` and
+  returns `TechniqueRefusal::Unknown` on a miss, so an EMPTY table refuses every
+  native effect. ⇒ **A composition that installs no technique handlers does
+  not have an UNKNOWN support set. It has the EMPTY one.** Both production
+  empty-table roads are deliberate and documented: the `finish()` backstop, which
+  stands down on `ChecksAuthoredEffectsAtTheBarrier`, and the public
+  `close_preparation_barrier` for a host that installs none.
+  ⚠ **ALL THREE A11 BLOCKERS ARE CLOSED. A11 HAS NO OPEN BLOCKER.**
+- **A12** — REOPENED by the same review and **LANDED 2026-09-10 as
+  `f9baa86e8`**; this line read *"NOT fixed"* until then. A verdict carrying
+  `attacker_move_instance: None` WAS credited to whatever move the fighter was
+  playing at the time, so a projectile launched by move A and landing during
+  move B marked B connected — the late-feedback defect A12 exists to eliminate. The
   predicate's own comment defends `None` for hazards and contact attrition and
-  never addresses the projectile. **Both halves are needed: propagate the
-  instance through the projectile chain, THEN require a claim.**
+  never addresses the projectile. **Both halves were needed and both
+  landed:** the instance now travels `MovePlayback::instance` →
+  `MoveEventMessage::move_instance` → `RangedCommitment::CommittedMove`
+  → `ProjectileSpawnRequest` → `FiredByMoveInstance` on the shot
+  → the damage result, and the
+  predicate then requires the claim. ⚠ **The value is ABSENT, not zero**,
+  for a shot no move fired — a `0` would name a first use that never
+  played. `GGRS_ROLLBACK_SCHEMA_VERSION` 178 → 179.
 - **A7** — RECLASSIFIED from an occurrence-ownership completion to a
   COMPONENT-CONSTRUCTION SEAL. `GroundItem` is sealed and that is real; *"seven
   minting authorities became one"* is not, and callers still mint identity,

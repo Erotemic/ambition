@@ -62,6 +62,57 @@ first version of the dismount fix, which was later found to disable the rebuild
 for every production rider. The other nineteen had zero mount deaths and so
 never reached that road under any version.
 
+⛔⛔ **EVERY NUMBER IN THIS TABLE CARRIES THREE STAMPS, AND TWO OF THEM WERE
+DISCOVERED THE HARD WAY.** A figure that leaves this file without all three is a
+figure that will mislead somebody in a month.
+
+  1. **A COMMIT.** The 21-id sweep folded here was measured at `8dbb5e91d`.
+  2. **A PROFILE.** Every bout runs the `NoWindow` / `backends: None` composition.
+     That is not "the shipped game" — it is the shipped game minus a
+     render-to-texture path that cannot run without an adapter. ⚠ It is a
+     CONFIGURATION, not a property of the machine: a software Vulkan adapter is
+     enough for `VisibleRenderMode::OffscreenGpu`, so "headless" here means the
+     profile and never the hardware.
+  3. ⛔⛔ **A HOST. MEASURED 2026-09-10: TWO MACHINES RUNNING THE SAME COMMIT AND
+     THE SAME COMMAND PRODUCE DIFFERENT FIGHTS.**
+
+**The cross-host evidence, `npc_alice` at rung 9, same sha, same command:**
+
+| | host A (this one) | host B |
+|---|---|---|
+| duel ran | **3173, decided at 3178** | **3613, undecided** |
+| dmg/min | 1.38 / 1.55 | 1.58 / 1.59 |
+| hitstun | [236, 292] | [419, 340] |
+| seat 1 starts | 48 | 78 |
+| knockouts | 4 | 3 |
+| **birth seeds** | **0xd3b5b696… / 0xd2b5b509…** | **identical** |
+| **`[sym]` split** | **tick 522 (+79.49, −127.21)** | **identical** |
+
+⇒ **Identical to 0.01px for 522 ticks, then divergent — and the divergence
+enters exactly when the mirror breaks and not before.** Three consecutive runs
+on each host are individually bit-identical, so this is not run-to-run wobble.
+
+**Three mechanisms proposed and all three refuted:** asset-decode timing (the
+sheet landed at frame 5 and frame 8 on one host with bit-identical fights),
+executor/system order (`GgrsSchedule` sets `SingleThreadedExecutor` explicitly,
+`rollback_ggrs/src/lib.rs:142`), and seeding (the seeds match exactly).
+⚠ **UNATTRIBUTED, and the surviving candidate — entity storage order following
+host-dependent spawn order — is a CANDIDATE and not a conclusion.** Three dead
+mechanisms do not make a fourth likely. It is filed on S7 as a determinism
+question, because a rollback sim whose outcome depends on the host is a bigger
+row than any fighter's.
+
+⚠ **AND A DECIDED BOUT AND AN UNDECIDED ONE ARE NOT THE SAME KIND OF ROW.**
+Host A's Alice was decided by the fight, so her window is stable; host B's ran
+to the budget and carries the seating jitter. **An earlier version of this file
+said flatly that the window is non-reproducible. That is true only of undecided
+bouts.**
+
+⚠ **`npc_alice` is no longer UNMEASURABLE** — she was the only fighter reaching a
+`NoWindow` camera despawn, fixed at `4d3e0507a`. **Her row is not folded into the
+table above because that table is stamped to `8dbb5e91d` and hers is not**, and
+mixing stamps is how a table stops meaning anything.
+
     python3 scripts/measure_duel_roster.py --run     # run the sweep (slow)
     python3 scripts/measure_duel_roster.py           # fold an existing log
 """

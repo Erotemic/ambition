@@ -618,9 +618,19 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         // reports UNMEASURABLE for every rung where anybody dies.
         for seat in 0..2usize {
             let end = rows.iter().find(|r| r.0 == seat);
-            let (seed, authored) = end.map_or(("<not alive at the end>".to_string(), 0), |r| {
-                (format!("{} {} cfg={:?}", r.1, r.2, r.3), r.4)
-            });
+            // ⛔ `0` AND "WE COULD NOT READ IT" ARE DIFFERENT FACTS, and the
+            // first version of this line reported the second as the first: a
+            // seat not alive at the end printed `authored_moves=0`, which reads
+            // as a character with an empty moveset. 9 of the 40 seats in the
+            // 2026-09-10 roster sweep were dead at the end, so nine rows
+            // claimed a moveset size nobody measured.
+            let (seed, authored) = end.map_or(
+                (
+                    "<not alive at the end>".to_string(),
+                    "<not alive at the end>".to_string(),
+                ),
+                |r| (format!("{} {} cfg={:?}", r.1, r.2, r.3), r.4.to_string()),
+            );
             let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
             let seed_at_birth = first_noise[seat]
                 .map_or_else(|| "<no fighter brain at birth>".to_string(), |n| format!("{n:#018x}"));

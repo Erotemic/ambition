@@ -116,6 +116,28 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // stand next to each other and decline to press" — two different bugs with
     // the same reading of zero damage.
     let mut min_gap = f32::INFINITY;
+    // The two seats start as mirror images about the stage centre. If the CPUs
+    // read a SYMMETRIC STAGE they stay mirrored, and their damage/hitstun
+    // totals cannot part company. So the tick symmetry BREAKS is the tick the
+    // duel stops being a reflection — and a bout that never breaks it is a
+    // bout whose lockstep needs no explanation beyond the stage.
+    //
+    // Mirror about an unknown vertical axis is `x0 + x1 == const` with
+    // `y0 == y1`; both are read off the first tick both seats exist.
+    //
+    // ⚠ THE FIRST VERSION OF THIS PROBE REPORTED A BREAK FOR THREE OF FIVE
+    // BOUTS AT 0.0001px, WHICH IS ~3 ULP OF AN f32 NEAR A FEW HUNDRED PIXELS.
+    // "When did it first differ" is not a question about the duel; every bout
+    // differs in the last bits almost immediately. The question is whether the
+    // difference AMPLIFIES, so the magnitude is what is reported, and the first
+    // tick is only counted once the split is a whole pixel.
+    // ⭐ THE BRAIN EACH SEAT WAS BUILT WITH, read on the first tick it exists —
+    // because the reading at the END of the duel is a reading AFTER any
+    // knockout, and a respawned body is a body that was built a second time.
+    let mut first_brain: [Option<String>; 2] = [None, None];
+    let mut mirror_axis: Option<f32> = None;
+    let mut mirror_worst = (0.0f32, 0.0f32);
+    let mut mirror_broke_at: Option<(usize, f32, f32)> = None;
     // PROBE: the ABSOLUTE tick each seat is first seen, and each body's
     // half-extent.
     //
@@ -329,6 +351,17 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     }
                 }
                 {
+                    let mut bq = w.query::<(
+                        &MatchSeat,
+                        &ambition_platformer2d::characters::brain::Brain,
+                    )>();
+                    for (seat, brain) in bq.iter(w) {
+                        if seat.0 < 2 && first_brain[seat.0].is_none() {
+                            first_brain[seat.0] = Some(brain.label().to_string());
+                        }
+                    }
+                }
+                {
                     let mut pq = w.query::<(
                         &MatchSeat,
                         &ambition_platformer2d::engine_core::BodyKinematics,
@@ -347,6 +380,21 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     }
                     if let (Some(x), Some(y)) = (pos[0], pos[1]) {
                         let gap = (x - y).length();
+                        let axis = x.x + y.x;
+                        let dy = x.y - y.y;
+                        match mirror_axis {
+                            None => mirror_axis = Some(axis),
+                            Some(a0) => {
+                                let daxis = axis - a0;
+                                mirror_worst.0 = mirror_worst.0.max(daxis.abs());
+                                mirror_worst.1 = mirror_worst.1.max(dy.abs());
+                                if mirror_broke_at.is_none()
+                                    && (daxis.abs() >= 1.0 || dy.abs() >= 1.0)
+                                {
+                                    mirror_broke_at = Some((tick, daxis, dy));
+                                }
+                            }
+                        }
                         if gap < min_gap {
                             min_gap = gap;
                         }
@@ -419,10 +467,63 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         "[body] half-extent x: {:?} / {:?}; first seen at absolute tick {:?} / {:?}",
         half_extent[0], half_extent[1], first_seen[0], first_seen[1]
     );
+    // ⭐ THE SEED EACH SEAT IS THINKING ON, and the authored breadth it is
+    // choosing from — the two facts that separate "these fighters share a
+    // cognitive stream" from "they have distinct streams and behave identically
+    // anyway", which is the open question on D-CPU-INERT.
+    {
+        let w = app.world_mut();
+        let mut q = w.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::brain::Brain,
+            Option<&ambition_platformer2d::combat::moveset::ActorMoveset>,
+            &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+        )>();
+        let mut rows: Vec<(usize, String, usize)> = q
+            .iter(w)
+            .filter(|(seat, _, _, _)| seat.0 < 2)
+            .map(|(seat, brain, moveset, config)| {
+                use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+                let seed = match brain {
+                    Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => {
+                        format!("{:#018x}", state.noise)
+                    }
+                    other => format!("<none: {} brain>", other.label()),
+                };
+                (
+                    seat.0,
+                    format!(
+                        "{seed} {} cfg={:?}",
+                        brain.label(),
+                        config.brain_profile.template
+                    ),
+                    moveset.map_or(0, |m| m.0.moves.len()),
+                )
+            })
+            .collect();
+        rows.sort_by_key(|r| r.0);
+        for (seat, seed, authored) in rows {
+            let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
+            println!(
+                "[brain] seat {seat}: born={born} now={seed} authored_moves={authored}"
+            );
+        }
+    }
     println!(
         "[gap] closest the seats ever came: {min_gap:.0}px; ticks within 60px: \
          {close_ticks} of {both_seated_ticks}"
     );
+    let (worst_axis, worst_dy) = mirror_worst;
+    match mirror_broke_at {
+        None => println!(
+            "[sym] never split by a whole pixel in {both_seated_ticks} ticks; \
+             worst axis drift {worst_axis:.4}px, worst height split {worst_dy:.4}px"
+        ),
+        Some((tick, daxis, dy)) => println!(
+            "[sym] split by a pixel at tick {tick} ({daxis:+.2}, {dy:+.2}); \
+             worst axis drift {worst_axis:.2}px, worst height split {worst_dy:.2}px"
+        ),
+    }
     for seat in 0..2 {
         let mut rows: Vec<(&String, &usize)> = move_counts[seat].iter().collect();
         rows.sort_by(|a, b| b.1.cmp(a.1));

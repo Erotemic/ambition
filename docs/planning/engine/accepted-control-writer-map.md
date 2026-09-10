@@ -5,7 +5,12 @@ page is that, and nothing else. No type has moved and no split is proposed here;
 the frontier says the hold is released by the enumeration, so the enumeration is
 the deliverable.
 
-Measured 2026-09-10 against `966351e25`. Re-derive before acting:
+Measured 2026-09-10 against `966351e25`. **RE-DERIVED 2026-09-10 at
+`2bf960acf`, 156 commits later: all four rows are unchanged (8/8, 24/22, 38/28,
+4/4, total 74).** The instrument was poisoned to prove that it can still move —
+one added `&mut BodyKinematics` query in `ambition_portal2d/src/eviction.rs`
+took body execution to 39/29, and the site was then removed. Re-derive before
+acting:
 
 ```bash
 python3 scripts/measure_state_writers.py --domain control --sites
@@ -54,6 +59,46 @@ A4's question**, and it is the one place in this map where "one authority per
 fact" is genuinely in doubt. Both writers are correct today; the risk is that the
 shared spelling makes a third writer look reasonable.
 
+⛔⛔ **THE PARAGRAPH ABOVE RE-OPENED A CLOSED QUESTION. IT WAS ANSWERED ON
+2026-09-07, THREE DAYS BEFORE THIS PAGE WAS WRITTEN.** Read the answer before
+you do any work on this row:
+[`item-custody-and-accounting.md`](item-custody-and-accounting.md), the section
+that closes the carried-body question (`414019ec9`).
+
+**THE ANSWER IS: ONE FACT, TWO PRODUCERS, AND THE TWO DIFFER IN DURABILITY.**
+The fact is *"room residency is suspended, because another entity holds this
+one"*. The two producers write the same fact about different subjects:
+
+* `ambition_held_items` writes it for the holder of an ITEM. That subject also
+  carries `ItemCustody`.
+* `body_custody::project_body_custody` writes it for riders, limbs and possessed
+  BODIES. It queries `Without<GroundItem>`, because the item domain owns its own
+  custody projection. That subject carries no `ItemCustody`.
+
+Both subjects get an `InCustody` occurrence row. The save keeps only the ITEM
+rows: `persist_occurrence_horizon_to_save` filters on
+`Query<&SimId, With<ambition_held_items::ItemCustody>>`. The BODY rows stop at
+the save boundary.
+
+⭐ **THAT DROP IS CORRECT AND IT IS THE DESIGN.** A grip on a mount and a
+possession are session state. The loader does not put a rider back on a mount.
+A durable row that said *"somebody holds this body"* would be a claim that the
+loader cannot answer.
+
+⭐ **AND THE RECOMMENDED FIX ALREADY LANDED.** The 09-07 answer asked for one
+sentence at the marker. `1659e5402` put it at
+`lifecycle/continuity.rs:551`, above `project_custody_onto_authored_occurrences`.
+
+⇒ **A4 HAS NO OPEN "ONE AUTHORITY PER FACT" DOUBT.** This row needs no
+investigation and no split.
+
+⚠ **ONE THING IS STILL TRUE, AND IT IS NOT WHAT THIS PAGE SAID.** The risk is
+not that the spelling invites a third writer. The risk is that DURABILITY IS
+EXPRESSED AS AN ABSENCE: a row is non-durable because its subject has no
+`ItemCustody`. A third producer therefore becomes non-durable by default, and it
+becomes non-durable silently. Anyone who adds one must decide durability on
+purpose, because the save filter will not ask.
+
 ⚠ **`BodyKinematics` IS NOT A CONTROL FACT AND ITS 38 SITES SHOULD NOT BE READ AS
 ONE.** Ten of the foreign rows are `mut_param` seams in `shared_tangle` —
 helpers taking `&mut BodyKinematics`, which is a borrowed road rather than a
@@ -90,7 +135,36 @@ returns `None`: *"refusing ambiguous authority, so this seat drives nothing unti
 one of them vacates."* Measured by `git grep` when this page was written: **no
 test anywhere named `body_driving_seat`**, while four production readers depended
 on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
-`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`.
+`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`. <!-- cite-test: the wrong member, kept as the record; corrected below -->
+
+⛔⛔ **CORRECTED 2026-09-10 AT `2bf960acf`. THE COUNT IS STILL FOUR AND TWO OF
+THE MEMBERS ARE WRONG.** The list above holds one line that is not a production
+reader, and it omits one that is:
+
+* `control/queries.rs:224` IS A TEST. <!-- cite-test --> The `#[cfg(test)]` attribute is at
+  `control/queries.rs:209`, <!-- cite-test --> and it was at line 209 in `966351e25` also. ⇒ This
+  is an error at the stamp. It is not decay.
+* `avatar/systems.rs:103` IS A PRODUCTION READER AND IT IS NOT IN THE LIST. The
+  commit `ab308504b` added it. That is the same commit this section reports as
+  the fix, so the list here is older than the paragraph around it.
+
+⇒ ⭐ **THE TOTAL SURVIVED WHILE ITS MEMBERSHIP CHANGED.** A reader who checked
+only the number "four" would find the list correct. **A COUNT IS NOT A CHECK ON
+A LIST.** Set equality and cardinality are different questions, and only the
+second one is cheap to write down. Read the rows.
+
+⛔⛔ **AND THE CITATION LANE CANNOT FIND THIS CLASS. DO NOT READ A GREEN
+`check_planning_citations.py --strict` AS A CHECK ON IT.** The lane resolves a
+citation to a file and a line. It caught a bare `input_systems.rs:237` in the
+first draft of this correction, because two tracked files end with that suffix. <!-- cite-ok: the ambiguous form is the example -->
+It CANNOT catch `control/queries.rs:224`, <!-- cite-test --> because that line exists and the file
+exists — only the ROLE is wrong. A citation that points at a real line in a test
+and calls it production passes the lane.
+
+⚠ The other five citations on this page were checked at the same time and all
+five resolve: `abilities/traversal/possession.rs:56`,
+`abilities/traversal/possession.rs:268`, `control/input_systems.rs:237`,
+`control/queries.rs:45` and `ambition_sim_view::local_view.rs:145`.
 
 ⇒ **WHAT THE FIXTURE FOUND WAS THE INVERSE OF THE DOCUMENTED BEHAVIOUR.**
 `tick_controlled_brains` never asked the resolver: it iterated BODIES and read

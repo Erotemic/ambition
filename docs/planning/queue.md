@@ -441,6 +441,60 @@ A12b's remainder — of which "constructors private" is already effectively true
 literal exists, and its one construction site is inside `prepared.rs`), while
 "fallible" and the pinned REVISION both wait on the same A11c mechanism.
 
+**A12's REMAINING ROW, MEASURED AND OPEN 2026-09-10: "late contact feedback
+cannot mutate another move occurrence" IS NOT HONOURED, AND CANNOT BE.**
+`mark_move_playback_resolved_hits` keys on the ATTACKER ENTITY alone, and
+neither `ResolvedBodyHit` nor `BlockedBodyHit` carries an occurrence — so a
+verdict lands on whichever use is wearing the playback when it arrives. Witness:
+`a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it`,
+`#[ignore]`d as a known-open defect with a passing control beside it proving the
+verdict does arrive.
+
+Both ends of the window are the code's own statements: the verdict is ONE FRAME
+LATE against a player victim (`connected_hit`'s doc), and a replacement playback
+can appear IN THE SAME UPDATE (`instance`'s doc).
+
+⛔ **THE ROAD I FIRST BLAMED CANNOT DO IT, AND CHECKING THAT IS THE FINDING.** I
+had the mechanism as an OnHit cancel firing on the overlap frame and stranding
+the verdict on its successor. `CancelCondition::OnHit` is `contact.connected` —
+an OnHit cancel WAITS FOR the very verdict it would strand, so by the time it
+can fire the credit has already landed correctly. The reachable replacements are
+the ones that do not consult the verdict: a `CancelCondition::Always` window, or
+jab #1 simply ENDING before the verdict drains. ⇒ Had I shipped the first story
+it would have been a fabricated mechanism in a delivered doc, sitting on top of
+a real defect.
+
+⚠ **STILL UNPROVEN: that a shipped configuration reaches this in a running
+match.** The fixture measures the MECHANISM. Nobody should quote it as a live
+in-game defect until a composed harness reaches it.
+
+What a stale connect buys, if it lands: `connected_hit` feeds
+`MovePlayback::contact()`, which feeds BOTH the cancel road (`cancel_permits` /
+`cancel_successors`) and `FlowSignal::Connected` — so the successor is
+OnHit-cancellable having touched nothing, and an authored flow takes its "it
+worked" road on a strike that never landed.
+
+⭐ The repository already fixed this bug once, on the other side of the glass:
+`instance` exists because the inspector "credit[ed] the FIRST instance's contact
+to the second". The read model learned it; the runtime did not.
+
+**THE FIX, SCOPED — and its cost is why it is its own item.** Occurrence
+identity has to reach the verdict, and the carriers are not free:
+
+| hop | change | literals |
+|---|---|---|
+| the box that struck | a SEPARATE component beside `Hitbox`, so no `Hitbox` literal moves | 0 (+1 spawn site) |
+| `HitEvent` | `attacker_move_instance: Option<u32>` | 57 |
+| `ResolvedBodyHit` / `BlockedBodyHit` | same field, via `publish_resolved_hit` / `publish_blocked_hit` (one production writer each) | 13 |
+| `mark_move_playback_resolved_hits` | compare against `pb.instance` | 1 |
+
+⚠ Neither `Hitbox` nor `HitEvent` derives `Default` and NO literal uses
+`..Default::default()`, so every one is a hand edit — measured, not estimated.
+⛔ AND A PARTIAL FIX IS WORSE THAN THE HONEST GAP: gating on `pb.landed_hit`, or
+stamping "a verdict is pending for use N" on the body, both pass the fixture
+above and both still misattribute when the SUCCESSOR has overlapped something of
+its own. The channel has to carry the occurrence.
+
 **Acceptance:** invalid/uninstalled calls cannot publish definitions; rejection
 leaves active generation unchanged; existing 3-/4-node flows retain their traces.
 Finish does not remove recovery, Wait does not extend the move, and late contact

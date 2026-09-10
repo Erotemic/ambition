@@ -2651,6 +2651,138 @@ fn the_three_contact_outcomes_permit_three_different_cancels() {
     }
 }
 
+/// ⛔⛔ **A12: A LATE VERDICT MUST NOT BE CREDITED TO THE MOVE THAT REPLACED THE
+/// ONE THAT EARNED IT.** The acceptance row is "late contact feedback cannot
+/// mutate another move occurrence", and the runtime cannot honour it as written:
+/// `mark_move_playback_resolved_hits` keys on the ATTACKER ENTITY alone, and
+/// neither `ResolvedBodyHit` nor `BlockedBodyHit` carries an occurrence. When a
+/// verdict arrives it lands on whichever use is wearing the playback.
+///
+/// ⚠ **`#[ignore]` BECAUSE IT IS A KNOWN-OPEN DEFECT, NOT A FLAKE.** It reports
+/// as ignored rather than green: the mechanism below is measured and real, and
+/// the fix is a field on the verdict channel that has to be threaded from the
+/// box that struck (see the queue row). Delete the attribute when it is.
+///
+/// Both ends of the window are the code's own statements, not inferences:
+///
+/// - `ResolvedBodyHit` resolves ONE FRAME LATE against a player victim.
+///   `connected_hit`'s doc: *"the same frame the overlap is seen on the actor
+///   road every match fighter takes, the next frame for a player victim."*
+/// - A replacement playback can appear IN THE SAME UPDATE. `instance`'s doc:
+///   *"A self-cancel replaces a playback with a FRESH one of the same move in
+///   the same update — `jab → jab` with no tick between them."*
+///
+/// ⛔ **AND THE ROAD I FIRST BLAMED CANNOT DO IT — CHECKED, NOT ASSUMED.** The
+/// obvious story is an OnHit cancel firing on the overlap frame and stranding
+/// the verdict on the successor. It is wrong: `CancelCondition::OnHit` is
+/// `contact.connected`, so an OnHit cancel WAITS FOR the very verdict it would
+/// strand — by the time it can fire, that verdict has already been credited to
+/// the move that earned it. ⇒ The reachable replacements are the ones that do
+/// not consult the verdict: a `CancelCondition::Always` window (shipped content
+/// authors these), or simply jab #1 ENDING and jab #2 starting before the
+/// verdict drains.
+///
+/// ⚠ WHAT REMAINS UNPROVEN is that a shipped configuration reaches it in a
+/// running match; this fixture measures the MECHANISM. The queue row carries
+/// that distinction — do not quote this test as a live in-game defect.
+///
+/// ⚠ WHAT A STALE CONNECT BUYS, if it lands: `connected_hit` feeds
+/// `MovePlayback::contact()`, which feeds BOTH `cancel_permits` /
+/// `cancel_successors` — so the successor becomes OnHit-cancellable having
+/// touched nothing — and `FlowSignal::Connected`, so an authored flow takes its
+/// "it worked" road on a strike that never landed.
+///
+/// ⭐ AND THE REPOSITORY ALREADY FIXED THIS ONCE, ON THE OTHER SIDE OF THE
+/// GLASS. `instance` exists because an observer comparing move IDS "credit[ed]
+/// the FIRST instance's contact to the second" in the inspector. That is this
+/// bug, in the read model. The runtime's own contact fields never learned it.
+#[test]
+#[ignore = "known-open A12 defect: the verdict channel carries no occurrence; see docs/planning/queue.md"]
+fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it() {
+    use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+
+    let mut app = App::new();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.add_systems(Update, mark_move_playback_resolved_hits);
+
+    let fighter = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let victim = app.world_mut().spawn_empty().id();
+
+    // FRAME N. Jab #1 is playing and its strike has overlapped a player victim.
+    // Nothing is on the verdict channel yet — that road resolves next frame.
+    app.update();
+    let first = app.world().get::<MovePlayback>(fighter).unwrap().instance;
+
+    // …and on that same overlap frame the fighter cancels into jab #2. Same
+    // move, same body, fresh playback; only the instance says they are two.
+    app.world_mut()
+        .entity_mut(fighter)
+        .insert(MovePlayback::new(swat(), 1.0).succeeding(Some(first)));
+
+    // FRAME N+1. Jab #1's verdict arrives, naming the only thing the channel can
+    // name: the attacker.
+    app.world_mut().write_message(ResolvedBodyHit {
+        damage: 7,
+        victim,
+        attacker: Some(fighter),
+        hitlag_seconds: 0.05,
+        source: crate::HitSource::Melee,
+    });
+    app.update();
+
+    let pb = app.world().get::<MovePlayback>(fighter).unwrap();
+    assert_eq!(
+        pb.instance,
+        first.wrapping_add(1),
+        "the premise: the body is on its SECOND use of the move, so there is an \
+         occurrence for the verdict to be misattributed to"
+    );
+    assert!(
+        !pb.contact().connected,
+        "jab #2 is wearing jab #1's connect. It touched nothing, and it is now \
+         OnHit-cancellable and its flow's `Connected` signal is true — the \
+         channel names an attacker and no occurrence, so the verdict lands on \
+         whichever use happens to be wearing the playback when it arrives"
+    );
+}
+
+/// ⭐ THE CONTROL FOR THE ROW ABOVE, and without it that test passes on a world
+/// where the verdict never arrives at all. Same fixture, same two frames, NO
+/// self-cancel: the verdict must reach the move that earned it.
+#[test]
+fn a_late_connect_does_reach_the_move_that_earned_it_when_nothing_replaced_it() {
+    use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+
+    let mut app = App::new();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.add_systems(Update, mark_move_playback_resolved_hits);
+
+    let fighter = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let victim = app.world_mut().spawn_empty().id();
+
+    app.update();
+    app.world_mut().write_message(ResolvedBodyHit {
+        damage: 7,
+        victim,
+        attacker: Some(fighter),
+        hitlag_seconds: 0.05,
+        source: crate::HitSource::Melee,
+    });
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<MovePlayback>(fighter)
+            .unwrap()
+            .contact()
+            .connected,
+        "a verdict one frame late does not reach its own move even with nothing \
+         replacing it, so the sibling test proves nothing about occurrences"
+    );
+}
+
 /// …and the playback LEARNS those outcomes from the damage road's own channels.
 ///
 /// ⛔ THE OVERLAP AND THE VERDICT ARRIVE ON DIFFERENT SYSTEMS, on purpose:

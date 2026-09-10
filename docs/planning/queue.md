@@ -729,13 +729,30 @@ measure his IDLENESS, not the jitter. ⇒ **A control must hold the mechanism's
 PRECONDITION fixed, not just the treatment.** He measures the FLOOR of the
 effect, and that reading was chosen after seeing the data and is labelled as one.
 
-⛔ **AND A CONTENT FINDING FELL OUT OF HIM THAT NOBODY HAS OPENED: he deals 55/62
-damage at rung 3 and 44/66 at rung 6.** `npc_carl_stargan` is a
-`KNOWN_BARE_REGISTRATION` — the exemption list for ids that author **nothing**,
-not a body, not a policy, not a moveset — and he is fighting. **Something
-furnishes a body the roster believes does not exist.** Same species as the
-admiral's seat 1: *the composed thing is not what the declaration says*. Not
-chased; recorded.
+⛔ **AND A CONTENT FINDING FELL OUT OF HIM: he deals 55/62 damage at rung 3 and
+44/66 at rung 6**, while the catalog listed him in `KNOWN_BARE_REGISTRATIONS` —
+the exemption for ids that author *"nothing, not a body, not a policy, not a
+moveset"*.
+
+✔ **CHASED AND CLOSED 2026-09-10 (`30c15da29`), and the answer is that the
+CATALOG was wrong, not the roster.** `npc_carl_stargan` authors a **locomotion**,
+a **600-line moveset of his own** (`carl_stargan_moveset`, `pale_blue_dot` and
+all) and **`max_health = Some(4)`**. `authors_a_body` is TRUE, so that exemption
+had not been reached for him in a long time — **the list was right when written
+and the character grew a body underneath it.**
+
+⇒ **The duel probe is what caught it, and no census over declarations could
+have:** his seat performs `carl_stargan_dash_attack` and `pale_blue_dot`, which
+is not what a character who authors nothing does. **Q98 asked the maintainer
+whether the grid may seat a bodiless character, quoting that exemption as
+evidence — it is withdrawn.**
+
+⚠ **AND THE ASSERTION IT CAME FROM CLAIMED A CHECK IT DOES NOT PERFORM.** The
+message says *"not a body, not a policy, NOT A MOVESET"*; the predicate is
+`authors_a_body || authors_only_policy || exempt` and consults no moveset. The
+list is empty now, the message says what it checks, and **a new arm asserts every
+entry is LOAD-BEARING** so an exemption cannot outlive its need again —
+poison-verified by putting him back, which names him.
 
 ⚠ **AND ONE RUNG DOES NOT EXIST.** A rung-8 sweep returned *"two fighters shared
 the stage for only 0 of 3600 ticks"* — not a fight that ended early, **a fight

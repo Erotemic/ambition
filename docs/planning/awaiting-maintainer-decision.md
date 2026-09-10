@@ -412,8 +412,35 @@ grid and, put on a stage against a copy of himself at the top difficulty rung fo
 a full minute, **deals 0.00 damage — three move starts, zero hitstun, zero
 knockouts, in reach for 17 of 3613 ticks.**
 
-⛔⛔ **CORRECTED 2026-09-10, AND THE CORRECTION CHANGES THE QUESTION: HE FIGHTS
-AT LOWER RUNGS.** The 0.00 above is a **rung-9** reading. Swept across every
+⛔⛔⛔ **WITHDRAWN 2026-09-10 — THE PREMISE IS FALSE AND THE QUESTION DISSOLVES.
+`npc_carl_stargan` IS NOT A BARE REGISTRATION.** He authors a **locomotion**, a
+**600-line moveset of his own** (`carl_stargan_moveset`, `pale_blue_dot` and
+all) and **`max_health = Some(4)`**, so `authors_a_body` is TRUE and
+`KNOWN_BARE_REGISTRATIONS` had not been reached for him in a long time. **The
+exemption was stale and its text — which carries PLACEMENT EVIDENCE, so a reader
+takes it as a statement about what he authors — is what this question quoted.**
+
+⚠ **AND THE ASSERTION MESSAGE IT CAME FROM WAS A SPECIFICATION THE PREDICATE
+DOES NOT IMPLEMENT.** It read *"authors NOTHING — not a body, not a policy, NOT
+A MOVESET"* while the predicate is `authors_a_body || authors_only_policy ||
+exempt` and consults no moveset at all. **The third clause is the one lifted into
+this question as evidence.** ⇒ A failure message is read only by people who are
+already confused, which is when a false claim in it does the most damage.
+
+✔ **Fixed at `30c15da29`:** the list is empty, the message says what it checks,
+and a new arm asserts every entry is LOAD-BEARING so an exemption cannot outlive
+its need again — poison-verified by putting him back, which names him.
+
+⇒ **NOTHING IS ASKED OF THE MAINTAINER HERE. Delete this question.** The grid
+seats a character who authors a body, a locomotion and a moveset; that is a
+fighter, and the row it came from was measuring a rung, not a roster.
+
+⚠ **Kept until Jon reads it because the question was ASKED, and a question that
+withdraws itself is worth more than one that quietly disappears** — a maintainer
+who saw it in passing should be able to find out it was wrong.
+
+⚠ **The measurement that started this stands and is recorded in
+[D-CPU-INERT](queue.md): he fights at lower rungs.** The 0.00 above is a **rung-9** reading. Swept across every
 published rung, the same character against a copy of himself:
 
 | rung | starts | damage |

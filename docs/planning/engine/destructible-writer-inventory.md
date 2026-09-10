@@ -30,7 +30,7 @@ below is an ORCHESTRATOR of that one method, not a second interpretation of it.
 | site | writes | authority |
 |---|---|---|
 | `monolith features/ecs/spawn_static.rs:613` | constructs `BreakableFeature` | authored placement spawn |
-| `ambition_combat/src/breakables.rs:128` | constructs `BreakableFeature` | respawn re-insert |
+| ⛔ `ambition_combat/src/breakables.rs:128` | constructs `BreakableFeature` | ⛔ **THIS ROW IS WRONG AND NEEDS A DECISION — see below** |
 | `ambition_combat/src/breakables.rs:41` | `state = Intact` | respawn transition |
 | `monolith features/ecs/damage/mod.rs:397` | `&mut BreakableFeature` | damage transition |
 | `ambition_interaction/src/lib.rs:258,260` | `state = Broken` / `Cracking` | the domain state machine |
@@ -38,6 +38,36 @@ below is an ORCHESTRATOR of that one method, not a second interpretation of it.
 **Five writers, three crates.** `monolith damage/mod.rs` also calls
 `begin_ecs_breakable_respawn` at `:592` and `:989`; that function is
 `ambition_combat`'s, so the respawn authority is one place called from two.
+
+
+⛔⛤ **THE ROW ABOVE CITES A TEST, IN A TABLE HEADED "the complete production set".**
+Found by `check_planning_citations.py --roles` (`7a392427e`) and verified 2026-09-10:
+
+- `breakables.rs:128` is `BreakableFeature::new(b)` inside `fn stand_breakable`, a
+  helper under `#[cfg(test)]` at line 89. ⚠ Its sibling row `breakables.rs:41` IS
+  production — one test helper in a table asserting completeness.
+- ⭐⭐ **BOTH THINGS THIS ROW MIGHT HAVE MEANT ARE ALREADY ROWS IN THIS TABLE.**
+  Initial construction is row 1, `spawn_static.rs:613`, *"authored placement spawn"*.
+  The respawn transition is row 3, `breakables.rs:41`, `state = Intact` — verified
+  production, no `#[cfg(test)]` above it.
+- **And "re-insert" is the wrong verb regardless:** respawn is a MUTATION.
+  `breakables.rs:23` takes `&mut BreakableFeature` in the per-frame tick; nothing
+  re-inserts the component.
+
+⇒ ⛔ **THE ROW IS REDUNDANT AS WELL AS MIS-CITED, AND THE LIKELY FIX IS TO DELETE
+IT.** ⚠ **That changes the count in the sentence below the table** — *"Five writers,
+three crates"* is derived from a row set containing this one. **A total computed
+over a defective row is defective by exactly that row**, and deleting the row
+without re-deriving the count replaces one wrong number with another.
+
+⇒ **Left for whoever owns A5's destructible model**, because deleting a row from a
+table headed *"the complete production set"* is a claim about completeness, not a
+citation repair.
+
+⭐ **I first classified this as a citation fix and was wrong.** I checked that the
+pointer was bad and did not check the note beside it — having drawn the
+citation/claim distinction myself one message earlier. **Reading the citation and
+reading the note beside it are different acts.**
 
 ## Readers — measured, and NOT writers
 

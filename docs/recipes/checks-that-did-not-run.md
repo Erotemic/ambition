@@ -943,11 +943,36 @@ of these needed a theory, a reading of the code, or an argument — they needed 
 control, and the control was always cheap and always available.
 
 ⛔ **And the failure compounds when it reaches a report.** "Her effect ids are
-undefined" was about to be filed as a second finding beside the first, scoped to
-her. It IS a real finding — an authored id family with no admission check —
-**but it is a property of the whole corpus, and filing it as hers would have
-sent the next reader to fix a character.** ⇒ **Before writing a distinguishing
-feature into a row, ask what the denominator is.** Counting the denominator is the same discipline one step later.
+undefined" was about to be filed as a second finding scoped to her — so it was
+widened to the corpus, where it looked much stronger: *nothing in the tree
+defines any of them, across every fighter.* **Before writing a distinguishing
+feature into a row, ask what the denominator is.**
+
+⛔⛔ **AND THEN THE WIDENED FINDING WAS REFUTED TOO, WHICH IS THE PART THAT
+GENERALISES FURTHEST. ALL NINE IDS ARE DEFINED.** They ship in the sound bank and
+in every tier of the spritesheet manifests. The grep missed them because **the
+CONSUMER spells the bare row and the OWNER spells it compositely**:
+`vfx_at(.., "rune_burst", ..)` against `vfx.generic_exotic.rune_burst` in
+`sfx.bank.txt`. Two instrument defects in one line — it required the id in
+quotes, and it searched `*.rs` and `*.ron` while the registration lives in a
+`.txt` manifest. `vfx_at`'s own doc says so and was read past: *"The bank ships
+one `vfx.<family>.<row>` cue per authored row."*
+
+⇒ **A census keyed on the CONSUMER's spelling cannot see the OWNER's
+registrations.** And the widening — correct, disciplined, exactly the fix for the
+sampling error above — **did not touch the defect, because both readings shared
+one instrument.** ⛔ **Widening a population does not repair an instrument that is
+looking in the wrong place; it makes the wrong answer bigger, and the size feels
+like corroboration.** The corpus-wide zero was more convincing than the
+single-subject zero and just as false.
+
+⚠ **What survives is much smaller, and stating so is how it stays that way.**
+`vfx_cued`'s doc says an id neither the registry nor the packed bank authorises
+is *"counted and dropped, not heard — so a typo here is silence."* ⇒ **There IS a
+mechanism, and it OBSERVES rather than REFUSES.** Whether that is the right
+policy for authored content is a real question and a small one — nothing like
+"the whole flourish layer reaches nothing", which is what two rounds of widening
+had built.
 
 ## What this page cannot do
 

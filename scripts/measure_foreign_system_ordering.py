@@ -57,6 +57,98 @@ ADD_SYSTEMS = re.compile(r"\badd_systems\s*\(")
 PATH = re.compile(r"\b([a-z_][A-Za-z_0-9]*(?:::[A-Za-z_0-9]+)+)")
 
 
+# ⛔⛔ **A BARE IMPORTED NAME IS THE SAME EDGE, AND [`PATH`] CANNOT SEE IT.**
+# That pattern requires at least one `::`, so `.after(camera_follow)` — the name
+# brought in by `use ambition_platformer2d::render::rendering::camera_follow` at
+# the top of the file — scored as nothing at all, while the identical edge
+# written `.after(ambition_platformer2d::render::rendering::camera_follow)` three
+# files over scored as a violation. The census was reporting an IMPORT STYLE.
+#
+# ⭐ Measured 2026-09-10, the day this was added: the capability ceiling had been
+# driven to 0 and then broken by `moveset_render.rs`, which wrote the QUALIFIED
+# form of two edges `capture_scene.rs` had been writing bare all along. The zero
+# was a spelling, not an absence — so the count RISES here, on purpose, and the
+# ceiling becomes a decision about the architecture instead of about a regex.
+#
+# ⇒ Each file's `use` tree is resolved and every bare occurrence inside an
+# `add_systems(...)` body is rewritten to the full path BEFORE any of the
+# matching below runs. One substitution, so `.before`/`.after`, `.chain()` spans
+# and plain installation all see the same names.
+#
+# ⚠ A LOCAL BINDING THAT SHADOWS AN IMPORT would be rewritten too. Rust allows
+# it; nothing in this tree does it inside an `add_systems` body, and the
+# alternative — name resolution — is a compiler, not a census.
+USE_STMT = re.compile(r"^[ \t]*(?:pub(?:\([^)]*\))?\s+)?use\s+", re.MULTILINE)
+BARE_IDENT = re.compile(r"(?<![:\w.])([a-z_][A-Za-z_0-9]*)(?![\w:])")
+
+
+def _split_top(text: str) -> list[str]:
+    """Split on commas that are not inside a `{ ... }` group."""
+    parts, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(text[start:i])
+            start = i + 1
+    parts.append(text[start:])
+    return [p for p in (p.strip() for p in parts) if p]
+
+
+def _expand_use(tree: str, prefix: str, out: dict[str, str]) -> None:
+    tree = tree.strip()
+    if not tree:
+        return
+    if tree.endswith("}"):
+        head, _, rest = tree.partition("{")
+        base = prefix + head.strip()
+        for part in _split_top(rest[: rest.rfind("}")]):
+            _expand_use(part, base, out)
+        return
+    full = (prefix + tree).strip()
+    if " as " in full:
+        path, _, alias = full.rpartition(" as ")
+        alias = alias.strip()
+        if alias != "_":
+            out[alias] = path.strip()
+        return
+    leaf = full.split("::")[-1].strip()
+    if leaf == "*":
+        return
+    if leaf == "self":
+        parent = full.rsplit("::", 1)[0]
+        out[parent.split("::")[-1]] = parent
+        return
+    out[leaf] = full
+
+
+def use_map(text: str) -> dict[str, str]:
+    """Local name -> full path, for every `use` item in one file."""
+    out: dict[str, str] = {}
+    for match in USE_STMT.finditer(text):
+        depth, j = 0, match.end()
+        while j < len(text):
+            ch = text[j]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+            elif ch == ";" and depth == 0:
+                break
+            j += 1
+        _expand_use(text[match.end() : j], "", out)
+    return out
+
+
+def expand_aliases(block: str, uses: dict[str, str]) -> str:
+    """Rewrite bare imported names in one `add_systems` body to their full paths."""
+    if not uses:
+        return block
+    return BARE_IDENT.sub(lambda m: uses.get(m.group(1), m.group(1)), block)
+
+
 def add_systems_blocks(text: str) -> list[str]:
     """Every `add_systems( ... )` call body, by paren matching."""
     blocks = []
@@ -304,7 +396,9 @@ def findings(include_local: bool) -> list[tuple[str, str, str, str, str]]:
             body = strip_comments_and_tests(
                 path.read_text(encoding="utf-8", errors="ignore")
             )
-            for block in add_systems_blocks(body):
+            uses = use_map(body)
+            for raw_block in add_systems_blocks(body):
+                block = expand_aliases(raw_block, uses)
                 ordered = {
                     m.group(1)
                     for m in re.finditer(

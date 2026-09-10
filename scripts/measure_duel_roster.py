@@ -170,14 +170,26 @@ def fold() -> int:
         windows = sorted({r.get("window") for r in done})
         wobble = f"  ⚠ window {'/'.join(str(w) for w in windows)}" if len(windows) > 1 else ""
         starts = "/".join(str(s) for s in first.get("starts", []))
-        # ⛔⛔ **A MIRROR MATCH OF A DETERMINISTIC BRAIN CAN STAY IN LOCKSTEP, AND
-        # THEN THE BOUT IS ONE SEAT'S INFORMATION REPORTED TWICE.** Both CPUs hold
-        # identical state, decide identically, approach and whiff together — and
-        # every field comes out equal. MEASURED 2026-09-10: 3 of the 5 fighters
-        # below the gate are exactly symmetric on damage, starts, damage dealt AND
-        # hitstun; **0 of the 15 that clear it are.** ⇒ Those three are not
-        # fighters that convert badly; they are duels this harness cannot measure,
-        # and reporting them as fighter quality is what it did all evening.
+        # ⛔⛔ **A BOUT WHOSE TWO SEATS NEVER DIVERGE IS ONE SEAT'S INFORMATION
+        # REPORTED TWICE.** MEASURED 2026-09-10: 3 of the 5 fighters below the
+        # gate are exactly symmetric on damage, starts, damage dealt AND hitstun;
+        # **0 of the 15 that clear it are.** ⇒ Those three are not fighters that
+        # convert badly; they are duels this harness cannot measure.
+        #
+        # ⛔⛔ **AND THE OBVIOUS EXPLANATION IS FALSE — DO NOT REACH FOR IT.** This
+        # comment said "a mirror match of a deterministic brain with no noise
+        # input can stay in lockstep". The brains DO have noise:
+        # `fighter_cognition_seed` hashes `"<character>#seat<n>"` so the seats get
+        # different streams, `next_signed_unit(&mut state.noise)` consumes it in
+        # `ambition_combat/src/brain/fighter/decision.rs`, and `execution_noise`
+        # is 0.10 at rung 9.
+        #
+        # ⭐ THE INVERSION IS THE OPEN QUESTION. `npc_emmy_noether` is the one
+        # character authoring `preserves_mirror_symmetry` — twins deliberately
+        # SHARING a stream — and hers is the one duel that genuinely diverged. So
+        # three fighters with distinct seeds and live jitter produce bit-identical
+        # seats while the fighter with a shared seed does not. Nobody has a
+        # mechanism for that; four have died on this row already.
         #
         # ⚠ LOCKSTEP IS NOT *BY CONSTRUCTION* LOW DAMAGE. `medic`'s mirrored seats
         # dealt 41 each and took 118 hitstun each — they landed, symmetrically.
@@ -185,10 +197,11 @@ def fold() -> int:
         # not happen. Whether the lockstep causes the low damage is a claim this
         # instrument cannot separate, which is precisely why it cannot measure it.
         #
-        # ⭐ `ladder_rig` refuses a degenerate bout outright — *"no fighter brain
-        # ever took the noise seed, so every run of this bout is identical and the
-        # median is one sample reported N times"*. This one flags rather than
-        # refuses, because the flag is also the evidence for the finding.
+        # ⭐ `ladder_rig` REFUSES a degenerate bout outright rather than reporting
+        # it; this one flags, because here the flag is also the evidence for the
+        # finding. ⚠ Its refusal text names a noise seed, and that describes ITS
+        # OWN fixture building brains without one — it is NOT a claim that the
+        # shipped brain lacks a seed. It has one, per seat, and consumes it.
         symmetric = (
             len(set(first.get("starts", [0, 1]))) == 1
             and len(set(first.get("dealt", [0, 1]))) == 1

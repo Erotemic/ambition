@@ -558,6 +558,66 @@ hurt target) applies with no contributor identity at all. That is what
 `dc2fe7ce7` implemented. Contributor identity becomes REQUIRED for projectiles
 the moment this row is decided the second way — not before.
 
+### ⭐ ANSWERED 2026-09-10 — AND STILL UNDERDETERMINED. DO NOT CLOSE THIS ROW.
+
+**Jon, verbatim:** *"Yes, they collide. There might be instances that we mark that
+certain projectiles do not collide with certain types of collision surfaces. So do
+not exclude that possibility."*
+
+⇒ **The row moves from UNANSWERED to ANSWERED-BUT-UNDERDETERMINED**, which is a
+different state and is named as one because the difference is what stops someone
+closing it.
+
+⛔⛔ **THE WORDS DO NOT SELECT BETWEEN THE TWO MODELS ABOVE.** "A shot sees the
+surface too" is what BOTH the second bullet and the owner document say; they differ
+in what happens NEXT, and the ruling does not reach that. ⇒ **The ⛔⛤ above still
+stands: the second bullet is a third model no document specifies, and the ruling
+must not be read as selecting it.**
+
+⚠ **AND A PARAPHRASE ALREADY SELECTED ONCE.** The ruling was first relayed as
+*"a solid breakable stops a bolt."* **"Stops" is not in what Jon said** — it is the
+second bullet's behaviour, and the relay picked it because the bullet is the
+sentence sitting under this heading. ⇒ **The nearest available sentence beat the
+owner document.** The relayer caught and withdrew it. Recorded because a reader who
+sees only the paraphrase cannot tell an affirmation from a selection.
+
+⭐ **THE EXEMPTION CLAUSE IS BINDING ON WHICHEVER MODEL WINS.** *"Do not exclude
+that possibility"* forbids an unconditional rule. A per-projectile / per-surface
+exemption must be EXPRESSIBLE, and that obligation lands on the design before the
+first implementation, not after it.
+
+#### A recommendation, marked as a recommendation
+
+⚠ **THIS IS YardratAmbition's, RELAYED, AND NOT CONFIRMED BY JON.** It is recorded
+so the reasoning is visible, not so it can be built on. Jon gave a principle for
+other open questions — *"what is the most elegant solution — the one that pushes us
+towards single authority and compositionality?"* — and applied to Q96 it selects the
+owner document's **compound contact**, not the bullet:
+
+* the bullet makes surface response and hurt region COMPETE, so it needs a
+  precedence rule: **two authorities plus an arbitration layer**;
+* the compound contact is ONE event that resolves the target once and honours the
+  physical response: **one authority**.
+
+⛔ **AND ONE HALF OF THAT ARGUMENT DOES NOT HOLD, CHECKED HERE RATHER THAN
+FORWARDED.** The recommendation adds that an exemption has *"nowhere to go"* under
+the bullet. **It has somewhere.** Under the bullet, exempting a `(projectile,
+surface)` pair means the shot ignores that surface and reaches the hurt volume by
+the feature road — which is **exactly today's behaviour for that pair**, so it is
+both expressible and already implemented.
+
+⇒ **What actually differs is WHERE the exemption lands**, and that is a real
+distinction worth the ruling:
+* **compound:** the exemption masks the SURFACE half while the hurt half resolves
+  in the same contact — the shot passes through physically and still damages;
+* **bullet:** the exemption removes the surface from the sweep, and the damage
+  arrives on a separate road.
+
+⇒ So the exemption clause is **evidence about the shape**, not a disqualifier. The
+single-authority argument stands on its own; the "nowhere to put it" argument does
+not, and is struck rather than repeated. ⚠ **A peer's reasoning gets the same check
+as a peer's relay** — that is the whole lesson of the paraphrase above.
+
 ## Human measurements, not design answers
 
 These are recorded here only when the maintainer must supply the measurement; the

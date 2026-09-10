@@ -77,7 +77,8 @@ Stated per packet instead:
   exactly the query `ensure_sim_id` serves, so it is identified a tick later.
   **What is open is the general invariant, not that case.** The COMPOUND SOLID
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
-  unfinished work.
+  unfinished work. ⚠ **Q96 was answered 2026-09-10 and is still underdetermined**:
+  the words settle that a shot collides, not which of the two models follows.
 - **A3** — done; the only residual is a file move that removes no edge.
 - **A11** — **FOUR BLOCKERS CLOSED, AND A LANE HAS NOW SEEN THE FOURTH.** Green at
   `43059a46d`: 178 suites, 7714 passed, 0 failed, **78 Doc-tests phases** —

@@ -49,7 +49,9 @@ survives the ruling. ⇒ Do not read this ruling as selecting the bullet.
 that possibility"* is a constraint on whichever model wins: the rule may not be
 built unconditionally. A per-projectile / per-surface exemption has to be
 expressible, so the design owes a place to mark it — before the first
-implementation hard-codes "a solid surface always stops a shot".
+implementation hard-codes "a solid surface always blocks a shot". ⚠ **"Stops" and
+"blocks" are both paraphrases, and the paraphrase is where this row goes wrong** —
+see the ruling's own entry in `awaiting-maintainer-decision.md`.
 
 ## The state, and where the machine lives
 

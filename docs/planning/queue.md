@@ -177,7 +177,11 @@ protocol's, and then did not use its own answer.
 matrix's COMPOUND SOLID OBJECT row. A genuine compound contact — a destructible's
 own collision surface and its damageable volume as ONE contact rather than two
 competitors — needs stable collider-contributor identity. That is A5
-infrastructure, and Q96 has to be decided first.
+infrastructure, and Q96 has to be decided first. ⚠ **Q96 is ANSWERED and still
+UNDERDETERMINED as of 2026-09-10** — *"yes, they collide"* is true under both
+models on offer, so do not re-ask the maintainer the top-level question; the open
+part is which model, and it is stated in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 
 ⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09 —
 which is WHY the protocol's tie rule could be implemented exactly, with no

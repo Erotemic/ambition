@@ -98,10 +98,24 @@ reads. The tree's guards are much better floored than the raw 103 suggests.
 
 ## The Rust half, read by hand
 
-⚠ **The sweep is Python-only** — it classifies by Python AST — so the 12 Rust
-files under `crates/` and `game/` that read `.rs` source text were read by hand
-instead. That half matters: it is where one of the two real cases lived
+The Python sweep classifies by AST, which the Rust half has none of here, so
+`--rust` reads `assert!`/`assert_eq!` invocations textually and asks the same
+question. That half matters: it is where one of the two real cases lived
 (`the_death_drop_table_is_complete`).
+
+```bash
+python3 scripts/measure_source_text_guard_exposure.py --rust
+```
+
+**MEASURED: 12 files, ZERO exposed.** 4 floored, 1 equality against a
+hand-written table, 5 cross-checked, 2 not guards at all.
+
+⛔⛔ **AND THE INSTRUMENT CORRECTED THE HAND READING THAT PRECEDED IT.** Reading
+these twelve by eye, I grouped `app_it_sync.rs` with its three siblings as one
+"equality" shape. They are not the same: only `app_it_sync.rs` carries an
+`assert_eq!`, and it is a DUPLICATE-`mod` check, not the comparison I credited.
+All five are safe for a different reason than I wrote down — which is the
+argument for the instrument over the prose.
 
 **Nothing further found, and the reason is structural rather than lucky.**
 
@@ -115,10 +129,18 @@ instead. That half matters: it is where one of the two real cases lived
 | `app_it_sync.rs` and three siblings | `mod <name>;` | compares source text against a DIRECTORY LISTING |
 | `sprite_sheet/build.rs`, `baked_sheet_rons.rs` | — | build-time bakers, not guards |
 
-⭐ **The `*_it_sync` shape is the one worth copying: its two sides come from
-different kinds of evidence** — source text on one side, the filesystem on the
-other — so no spelling change can empty both. An equality is only self-limiting
-when the expectation does not come from the same scan as the subject.
+⭐⭐ **THE `*_it_sync` SHAPE IS THE ONE WORTH COPYING, and the shape classifier
+called all five of them EXPOSED before it could see why.** One set comes from
+SOURCE TEXT (`mod <name>;`), one from a DIRECTORY LISTING, and each difference is
+asserted empty. Blind the text side and the disk side is still full, so `missing`
+reddens; blind the disk side and `orphaned` reddens. **Neither can be silently
+emptied by a spelling change, because the other is not made of spellings.** That
+is a stronger anti-vacuity than any count floor, and reporting it as an exposure
+would have sent someone to "fix" the best guard shape in the tree. `--rust` now
+reports it as `cross-checked`, pinned by an arm.
+
+⇒ An equality is only self-limiting when the expectation does not come from the
+same scan as the subject. Cross-evidence is that condition made structural.
 
 ## The axis this sweep can only point at
 

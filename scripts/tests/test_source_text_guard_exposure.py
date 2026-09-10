@@ -108,3 +108,62 @@ def test_the_sweep_refuses_an_empty_corpus(monkeypatch, tmp_path):
             "the sweep reported on an EMPTY guard directory instead of refusing; "
             "an empty population is the failure this whole file is about"
         )
+
+
+def test_the_rust_half_reads_the_assertion_shapes():
+    module = _module()
+    floored, _ = module.classify_rust_file('assert!(scaled.len() >= 2, "broken");')
+    assert floored == module.Verdict.FLOORED
+    exposed, _ = module.classify_rust_file("assert!(offenders.is_empty());")
+    assert exposed == module.Verdict.EXPOSED
+    presence, _ = module.classify_rust_file('assert!(source.contains("Signal"));')
+    assert presence == module.Verdict.FLOORED, (
+        "a PRESENCE assertion over scanned source is an anti-vacuity floor: the "
+        "scan going blind fails it"
+    )
+    absence, _ = module.classify_rust_file('assert!(!source.contains("Banned"));')
+    assert absence == module.Verdict.EXPOSED, (
+        "an ABSENCE assertion passes on a blind scan, which is the silent direction"
+    )
+
+
+def test_cross_evidence_is_not_an_exposure():
+    """⛔⛔ THE `*_it_sync` SHAPE, which the shape classifier called exposed ×4.
+
+    One set from source text, one from a directory listing, each difference
+    asserted empty. Blinding either side leaves the OTHER full, so it reddens.
+    That is a stronger anti-vacuity than a count floor, and reporting it as an
+    exposure would have sent someone to "fix" the best guard shape in the tree.
+    """
+    module = _module()
+    src = (
+        "let missing: Vec<_> = on_disk.difference(&declared).collect();\n"
+        "assert!(missing.is_empty(), \"not included\");\n"
+        "let orphaned: Vec<_> = declared.difference(&on_disk).collect();\n"
+        "assert!(orphaned.is_empty(), \"no source\");\n"
+    )
+    verdict, _ = module.classify_rust_file(src)
+    assert verdict == module.Verdict.CROSS_CHECKED
+    # ⚠ ONE difference call is not cross-evidence -- only one side is checked.
+    one_way = (
+        "let missing: Vec<_> = on_disk.difference(&declared).collect();\n"
+        "assert!(missing.is_empty(), \"not included\");\n"
+    )
+    assert module.classify_rust_file(one_way)[0] == module.Verdict.EXPOSED
+
+
+def test_a_file_with_no_assertions_is_not_called_a_guard():
+    module = _module()
+    verdict, shapes = module.classify_rust_file("fn bake() { let _ = 1; }")
+    assert verdict == module.Verdict.NOT_A_GUARD and shapes == []
+
+
+def test_the_rust_sweep_refuses_a_shrunken_corpus(monkeypatch):
+    module = _module()
+    monkeypatch.setattr(module, "rust_guard_files", lambda: [])
+    try:
+        module.report_rust()
+    except AssertionError as error:
+        assert "lost its corpus" in str(error)
+    else:
+        raise AssertionError("the Rust sweep reported on an empty corpus")

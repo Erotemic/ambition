@@ -72,6 +72,8 @@ class Verdict:
     FLOORED = "floored"
     EXPOSED = "exposed"
     EQUALITY = "equality"
+    CROSS_CHECKED = "cross-checked"
+    NOT_A_GUARD = "not-a-guard"
     NO_SCAN_ASSERT = "unclassified"
 
 
@@ -233,10 +235,134 @@ def verdict_for(fn: ast.FunctionDef) -> tuple[str, set[str]]:
     return Verdict.NO_SCAN_ASSERT, shapes
 
 
+# ---------------------------------------------------------------------------
+# THE RUST HALF
+#
+# ⛔⛔ **THE PYTHON POPULATION IS NOT THE POPULATION.** One of the two guards
+# found blind on 2026-09-10 was a RUST test reading `.rs` text
+# (`the_death_drop_table_is_complete`), so a sweep that classifies by Python AST
+# is answering the question for the half that happened not to contain it.
+#
+# ⚠ NO AST, AND THE REPORT SAYS SO. This reads `assert!`/`assert_eq!` invocations
+# textually and classifies them by the same shapes. It is weaker than the Python
+# side and errs toward `unclassified` rather than toward `floored`, because the
+# expensive mistake here is calling an exposed guard safe.
+
+RUST_SOURCE_READ = ("include_str!", "read_to_string", "fs::read")
+
+
+def rust_guard_files() -> list[pathlib.Path]:
+    """`.rs` files that read `.rs` SOURCE TEXT -- not data, not assets."""
+    out: list[pathlib.Path] = []
+    for root in ("crates", "game"):
+        base = REPO / root
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.rs")):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if not any(marker in text for marker in RUST_SOURCE_READ):
+                continue
+            if '.rs"' not in text:
+                continue
+            out.append(path)
+    return out
+
+
+def _macro_args(text: str, start: int) -> str:
+    """The balanced argument list of a macro whose `(` is at `start`."""
+    depth, i = 0, start
+    while i < len(text):
+        if text[i] in "([{":
+            depth += 1
+        elif text[i] in ")]}":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1 : i]
+        i += 1
+    return text[start + 1 :]
+
+
+FLOOR_SHAPES = (
+    re.compile(r"\.len\(\)\s*>=?\s*\d"),
+    re.compile(r"\d\s*<=?\s*\w+\.len\(\)"),
+    re.compile(r"^\s*!\s*[\w.()\[\]:]+\.is_empty\(\)"),
+    re.compile(r"^\s*[\w.()\[\]:]+\.contains\("),
+    re.compile(r"^\s*\w+\s*>=\s*\d"),
+)
+EMPTY_SHAPES = (
+    re.compile(r"^\s*!\s*[\w.()\[\]:]+\.contains\("),
+    re.compile(r"^\s*[\w.()\[\]:]+\.is_empty\(\)"),
+    re.compile(r"^\s*[\w.()\[\]:]+\.all\("),
+    re.compile(r"\.len\(\)\s*<=?\s*\d"),
+)
+
+
+def classify_rust_file(text: str) -> tuple[str, list[str]]:
+    shapes: list[str] = []
+    for match in re.finditer(r"\bassert(_eq|_ne)?!\s*\(", text):
+        args = _macro_args(text, match.end() - 1)
+        first = args.split(",\n")[0]
+        if match.group(1) in ("_eq", "_ne"):
+            shapes.append("equality")
+            continue
+        if any(shape.search(first) for shape in FLOOR_SHAPES):
+            shapes.append("floor")
+        elif any(shape.search(first) for shape in EMPTY_SHAPES):
+            shapes.append("emptiness")
+        else:
+            shapes.append("unclassified")
+    if not shapes:
+        # No assertions at all -- a baker or a helper, not a guard.
+        return Verdict.NOT_A_GUARD, shapes
+    if "floor" in shapes:
+        return Verdict.FLOORED, shapes
+    # ⛔⛔ **CROSS-EVIDENCE IS A FLOOR THE SHAPE CLASSIFIER CANNOT SEE, AND IT
+    # REPORTED FOUR GUARDS AS EXPOSED FOR WANT OF IT.** The `*_it_sync` family
+    # derives one set from SOURCE TEXT (`mod <name>;`) and one from a DIRECTORY
+    # LISTING, then asserts each difference is empty. If the text side goes blind
+    # the disk side is still full and `missing` reddens; if the disk side goes
+    # blind the text side is still full and `orphaned` reddens. Neither can be
+    # silently emptied by a spelling change, because the other is not made of
+    # spellings. ⇒ Two `difference(` calls over independently-derived sets, each
+    # asserted empty, is a stronger anti-vacuity than a count floor -- it is the
+    # shape worth copying, not an exposure to fix.
+    if text.count(".difference(") >= 2 and "emptiness" in shapes:
+        return Verdict.CROSS_CHECKED, shapes
+    if "equality" in shapes:
+        return Verdict.EQUALITY, shapes
+    if "emptiness" in shapes:
+        return Verdict.EXPOSED, shapes
+    return Verdict.NO_SCAN_ASSERT, shapes
+
+
+def report_rust() -> int:
+    files = rust_guard_files()
+    # ⛔ ANTI-VACUITY, the same one this sweep asks of everything else.
+    assert len(files) >= 8, (
+        f"only {len(files)} Rust files read `.rs` source text; measured at 12 on "
+        "2026-09-10. This sweep has lost its corpus rather than found a tidy tree"
+    )
+    print("⛔ RUST SOURCE-TEXT GUARDS — would a scan that matched NOTHING still pass?")
+    print(f"   {len(files)} file(s) read `.rs` source text.\n")
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        verdict, shapes = classify_rust_file(text)
+        counts = {s: shapes.count(s) for s in sorted(set(shapes))}
+        print(f"   [{verdict:12}] {path.relative_to(REPO)}  {counts}")
+    print()
+    print("⚠ TEXTUAL, NOT AST. A macro argument spanning lines is read from its")
+    print("  FIRST line, and a floor asserted through a helper reads as absent.")
+    print("  This side errs toward `unclassified`, never toward `floored`.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exposed-only", action="store_true")
+    parser.add_argument("--rust", action="store_true", help="the Rust half")
     args = parser.parse_args()
+    if args.rust:
+        return report_rust()
 
     rows: list[tuple[str, str, str, set[str]]] = []
     candidates: dict[str, list[str]] = {}

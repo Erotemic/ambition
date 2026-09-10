@@ -305,7 +305,7 @@ this row.
 
 ⛔⛤ **B1 FIXED, AND THE FIX RESTS ON A PROPERTY NOTHING GUARDS.** `106c349b5`
 replaced the chain ordinal with `MoveOccurrence(u32)` on the BODY, advanced at
-`start_move`, and deleted `succeeding()` / `StartingMove::replacing` <!-- cite-ok: named BECAUSE d665d15c1 deleted it; a resolvable citation here would mean the deletion did not happen --> in the
+`start_move`, and deleted `succeeding()` / `StartingMove::replacing` <!-- cite-ok: named BECAUSE 106c349b5 deleted it; a resolvable citation here would mean the deletion did not happen --> in the
 same change so the old road cannot come back by accident.
 
 ⭐ **The repair IS an asymmetry**: `MovePlayback` is removed when a move ends
@@ -349,6 +349,27 @@ authoritative. Stopping at the Rust test ships a baseline the guard rejects.
 [the writer map](engine/accepted-control-writer-map.md), which says so in its own
 opening: *"the frontier says the hold is released by the enumeration, so the
 enumeration is the deliverable."*
+
+⚠ **A MERGE SHA IS A VALID TREE STAMP AND AN INVALID CHANGE CITATION, and this
+row uses one of each.** `2bf960acf` below and `4d5108c9f` further down are MERGES,
+cited as *"measured at"* — which is correct, because a measurement is stamped to a
+TREE and a merge names a tree perfectly well. ⛔ **But `d665d15c1` was cited as
+"the change that deleted `succeeding()`", and that is wrong**: the change is
+`106c349b5`; `d665d15c1` is the merge the push produced.
+
+⛔⛤ **THIS CLASS SURVIVES EVERY CHECK IN THE REPOSITORY.** The sha exists,
+`git show` works, `check_planning_citations.py --strict` resolves it, and the
+commit-citation lane passes. **Only reading the subject line reveals it** — a
+citation that resolves and points at the wrong KIND of object, which is the
+wrong-ROLE class one level out. ⇒ **`git log --format=%s -1 <sha> | grep -q '^Merge'`
+is the whole check**, and an audit of every sha in `docs/planning/` found SIX.
+
+⭐ **The cause is that `git push` reports what moved the REF, not what carried the
+CHANGE**, and those differ exactly when the shared branch was busy — which is
+exactly when the report matters. ⇒ **Capture it BEFORE merging**
+(`SHA=$(git rev-parse --short HEAD)`); `git log --no-merges -1` is not a reliable
+recovery, because it finds the last non-merge on the branch and that is yours only
+if nobody else's landed in between.
 
 ⭐ **RE-DERIVED 2026-09-10 at `2bf960acf`, 156 commits after the map's
 `966351e25` stamp. Every row is IDENTICAL:**

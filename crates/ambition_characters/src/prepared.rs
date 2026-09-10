@@ -420,7 +420,13 @@ pub struct StagedCastRevision {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
 }
 
-#[cfg(any(test, feature = "test-support"))]
+// ⚠ `cfg(test)` ALONE, unlike every other `test-support` item in this file.
+// Those are `pub` and exist for other crates' fixtures; this one is
+// `pub(crate)`, so the feature can never make it reachable from outside. Under
+// `test-support` WITHOUT `test` — which is what `--workspace` feature
+// unification produces — it compiled with its only caller excluded and went
+// dead, and `-D warnings` is red on that while `cargo test -p` cannot see it.
+#[cfg(test)]
 impl StagedCastRevision {
     /// Stage a prepared contribution directly, for a fixture that does not have
     /// an `App` to hand.
@@ -2117,7 +2123,7 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
         // `App::update` does not run `finish`, so a hand-driven fixture lets the
         // checked `PreStartup` system win a race it loses in production. The
         // witness that says so is
-        // `the_barrier_closes_through_the_checked_road_under_the_REAL_lifecycle`,
+        // `the_barrier_closes_through_the_checked_road_under_the_real_lifecycle`,
         // which differs from its green sibling only by calling `finish()` and
         // `cleanup()` first. **Same assertion, two orderings, opposite verdicts.**
         // (GPT review, 2026-09-10.)

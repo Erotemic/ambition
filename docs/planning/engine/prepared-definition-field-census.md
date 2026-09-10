@@ -100,8 +100,25 @@ is not what it implies. Keyed on the BINDING rather than the spelling:
 
 ⇒ **`character_json` is a SERIALIZER.** It reads those nine to dump them. It does
 not depend on what a `movement_tuning` MEANS; it depends on the field existing to
-emit. ⇒ Moving one breaks a **JSON output schema**, which is a versioned contract
-with a visible consumer, not a tool's behaviour.
+emit. ⇒ Moving one breaks a **JSON output schema**, not a tool's behaviour.
+
+⚠ **THAT IS THE MECHANISM. WHETHER IT IS EASIER WAS A SEPARATE QUESTION AND IT WAS
+ASSERTED BEFORE IT WAS MEASURED.** A serialized schema can be the HARDER thing to
+change: a semantic read breaks at compile time in this tree, while a dump field
+that stops appearing breaks whatever reads the JSON, silently, wherever that
+lives. **Two things decide it, and both were then measured at `17c1f3e40`:**
+
+1. **The bundle carries a schema id and a bump rule.** `moveset_export.rs:33`:
+   `SCHEMA = "ambition.moveset_inspector.v2"`, documented *"Bump the version when
+   a consumer would break."* Already at v2, so the rule has been exercised.
+2. **The only consumer is inside this repository.**
+   `tools/ambition_moveset_inspector`, fed by
+   `tools/ambition_moveset_inspector/data/moveset_bundle.json` — which is
+   **generated and not tracked by git**, so no copy of it is held anywhere else.
+
+⇒ **Both conditions hold, so the lighter ranking stands — on this evidence rather
+than on the reasoning that first produced it.** ⛔ Had either failed, the nine
+would have been the HARDER set, not the lighter one.
 
 ⛔ **AND THAT SPLITS THE THREE THIS PAGE SINGLED OUT.** Of `kit`, `vitals` and
 `movement_tuning`: **`kit` is a genuine semantic dependency in two binaries**;
@@ -114,6 +131,55 @@ UNDER-report, the direction that says "already clean". And `moveset_takes.rs:113
 and `moveset_render.rs:889` bind `prepared` to a **`bool`** returned by
 `move_exercise::prepare`; a search on the word rather than the binding counts them
 as definition reads. ⇒ **A matching identifier is not the same value.**
+
+## The nine dual-read fields, ranked — re-run 2026-09-10 at `420de5a04`
+
+⛔ **RANKING ONLY. NO BOUNDARY IS PROPOSED HERE.** A boundary over 27 fields and
+9 crates is not something a ranking decides. This gives the packet real numbers to
+decide on.
+
+Instrument: `scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition`
+— the **deprecation** seal, the same default the original run used.
+
+| field | sites | consumer crates | the census's reading |
+|---|---:|---:|---|
+| `kit` | **23** | **7** | mechanical, read twice; **the semantic tool dependency** |
+| `id` | 14 | 3 | identity key, legitimately both moments |
+| `provider` | 13 | 6 | identity/asset key, legitimately both |
+| `autonomous_profile` | 9 | 5 | policy, three moments |
+| `death_traits` | 8 | 4 | |
+| `movement_tuning` | **8** | **6** | mechanical, read twice |
+| `mount` | 7 | 4 | |
+| `sheet` | 5 | 4 | asset key, legitimately both |
+| `motion_model` | **4** | **4** | mechanical, read twice |
+
+⇒ **`kit` is first by both measures and by a wide margin** — 23 sites and 7 crates,
+against 14 and 6 for the next. It is also the only one of the eleven
+`ambition_app_tools` reads that drives logic rather than being serialized. **Every
+way of counting puts it first.**
+
+⇒ **`motion_model` is the smallest at 4 sites**, but across 4 crates — so it is
+thin, not narrow. **A field with one site per consumer has no cheap side.**
+
+⚠ **A TEXT SCAN UNDERCOUNTED BOTH OF THE ONES I CHECKED, AND UNDERCOUNT IS THE
+DANGEROUS DIRECTION.** Keyed on the binding, a `.field` grep gave `motion_model` 3
+and `movement_tuning` 6; the seal gives 4 and 8. ⇒ **An undercount makes a field
+look like a cheap landing.** The page already said a scan cannot answer this; this
+is what the gap looks like when someone tries anyway.
+
+⭐ **AND THE TOTAL BEING UNCHANGED AT 200/27 IS NOT A COINCIDENCE.** `ced8b7f7c`
+moved a `display_name` read out of `ambition_combat` and into
+`starting_character.rs:274`. **A move is not a removal**, so the count holds and
+the SITE changes — `worn_kit.rs` is gone from that field's list and the new line is
+in it.
+
+⚠ **THIS RUN REPRODUCES THE ORIGINAL; IT DOES NOT INDEPENDENTLY CONFIRM IT.** Same
+script, same default mode. Two runs of one instrument agreeing is weak evidence —
+proven here the same day, when two runs of a *grep* disagreed and the disagreement
+was the useful result. ⇒ What this run does establish is **stability**: the same
+instrument returns 200/27 across roughly 200 commits between `2418dc369` and
+`420de5a04`. That is a fact about the reader set holding still, not a second
+opinion about the method.
 
 ## The cheap end
 

@@ -243,7 +243,7 @@ fn a_no_window_app_can_despawn_a_plain_entity() {
 /// anti-vacuity trap the identity census fell into.
 #[test]
 fn whether_the_offscreen_render_path_composes_here_is_measured_not_assumed() {
-    let mut app = build_visible_app(VisibleRenderMode::OffscreenGpu, false);
+    let app = build_visible_app(VisibleRenderMode::OffscreenGpu, false);
     let render_app = app
         .get_sub_app(bevy::render::RenderApp)
         .is_some();

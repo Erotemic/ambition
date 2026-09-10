@@ -1,31 +1,40 @@
 #!/usr/bin/env python3
 """Enumerate the CROSS-CRATE readers of a struct's fields by SEALING them.
 
-⭐⭐ **THE ONE INSTRUMENT WITH NO BLIND SPOTS, AND THAT IS THE ONLY REASON TO
-SPEND A BUILD ON IT.** A text scan of `.field_name` cannot answer this: the field
+⭐⭐ **IT ASKS THE COMPILER, WHICH IS THE ONLY REASON TO SPEND A BUILD ON IT.**
+⚠ Not "no blind spots" — this docstring claimed that above two it then listed.
+Its blind spots are named below and they are narrow. A text scan of `.field_name` cannot answer this: the field
 names that matter are `id`, `body`, `kit`, `mount`, `vitals` — words that appear
 on every other type in the tree — and a scan also cannot see a read through a
 codec, a `Reflect` path, a macro, or a helper three calls down. Sealing asks the
 compiler instead, and the compiler cannot miss a read it has to reject.
 
-⇒ Rewrite `pub <field>:` to `pub(crate) <field>:` inside ONE named struct, run
-`cargo check --workspace --all-targets`, collect every `E0616` (private field),
-group them by field, and put the file back. The result is the exact set of
-readers OUTSIDE the owning crate, per field — which is what a "can this type be
-split" question actually needs.
+⇒ **DEFAULT: a DEPRECATION seal.** Tag every `pub` field of ONE named struct
+`#[deprecated]`, run `cargo check --workspace --all-targets`, collect every
+`deprecated` warning, group them by field, and put the file back.
+
+⛔⛔ **WHY NOT A VISIBILITY SEAL, WHICH THIS DOCSTRING USED TO DESCRIBE.** A
+private field is an ERROR, so the nearest dependent fails to compile and
+everything behind it is never built — the run reports the first ring and stops.
+Measured on `GroundItem`: **8 sites against 248.** A deprecation is a WARNING, so
+compilation completes and every ring is reached. ⇒ The visibility seal is still
+available (`--visibility-seal`, or `--private` for the stronger claim), and it is
+the wrong default.
 
 ⛔⛔ **IT IS A MEASUREMENT, NOT A CHANGE.** The seal is reverted before this
 script exits and the file's hash is checked against the one taken before. Making
-a field private is an API decision; whether the seal is worth KEEPING is a
-separate proposal that a census does not get to make on its own.
+a field private or deprecated is an API decision; whether a seal is worth KEEPING
+is a separate proposal that a census does not get to make on its own.
 
-⚠ **WHAT IT STILL CANNOT SEE: SAME-CRATE READERS.** `pub(crate)` keeps the field
-visible inside its own crate, so a reader in the defining crate compiles fine and
-never appears. That is deliberate — the question these packets ask is which
-FOREIGN consumers depend on a field — but it means a field reported with zero
-readers is "zero outside its crate", never "unused". Seal to private (`--private`)
-if you need the stronger claim, and expect the owning crate's own code to light
-up.
+⚠ **WHAT THE DEFAULT CANNOT SEE: a consumer carrying `#[allow(deprecated)]`.**
+It compiles silently and never appears. ⇒ A field reported with zero readers is
+"zero that warn", not "unused".
+
+⚠ **AND THE SAME-CRATE BLIND SPOT BELONGS TO THE VISIBILITY SEAL ONLY.**
+`pub(crate)` keeps a field visible inside its own crate, so the owning crate's
+own reads never appear there. The deprecation seal warns on them too, which is
+one of the reasons it is the default. **This paragraph used to be stated as a
+property of the tool rather than of one of its two modes.**
 
 ⚠ AND A FIELD BEHIND A FEATURE THIS BUILD DOES NOT ENABLE IS NOT CHECKED. The
 run uses `--workspace --all-targets`; add `--features` if a consumer of yours is
@@ -293,13 +302,38 @@ def main() -> int:
         print("   * SAME-CRATE readers: `pub(crate)` keeps the field visible inside its")
         print("     own crate. A field with 0 here is 'unused OUTSIDE', never 'unused'.")
     print("   * A consumer behind a feature this build does not enable.")
-    print("   * ⛔⛔ ONLY THE NEAREST DEPENDENT RING, AND THIS IS STRUCTURAL. A crate")
-    print("     that depends on one the seal broke cannot be compiled at all, so its")
-    print("     own readers never appear. `--keep-going` recovers every crate that is")
-    print("     INDEPENDENT of the failures; it cannot recover one downstream of them.")
-    print("     ⇒ This is a complete enumeration of the ring it reaches, NOT of the")
-    print("     reader set. To go deeper, fix the ring and seal again.")
+    # ⛔⛔ THIS CAVEAT BELONGS TO THE VISIBILITY MODES AND USED TO PRINT ALWAYS.
+    # It says the run reaches only the nearest dependent ring "because a crate
+    # that depends on one the seal BROKE cannot be compiled at all". A
+    # deprecation seal breaks nothing -- it warns, the build completes, and every
+    # ring is reached. Printed under a deprecation run it tells the reader the
+    # enumeration is partial when it is complete, and it is the OUTPUT that gets
+    # pasted into a report. The two caveats above it were already mode-gated;
+    # this one was not.
+    if by_visibility:
+        print("   * ⛔⛔ ONLY THE NEAREST DEPENDENT RING, AND THIS IS STRUCTURAL. A crate")
+        print("     that depends on one the seal broke cannot be compiled at all, so its")
+        print("     own readers never appear. `--keep-going` recovers every crate that is")
+        print("     INDEPENDENT of the failures; it cannot recover one downstream of them.")
+        print("     ⇒ This is a complete enumeration of the ring it reaches, NOT of the")
+        print("     reader set. To go deeper, fix the ring and seal again.")
+    else:
+        print("   * ⭐ NOT limited to one dependent ring: a deprecation warns rather than")
+        print("     breaks, so the build completes and every crate is reached. The")
+        print("     enumeration is complete except for the blind spots named above.")
     print("   * A workspace already red for an unrelated reason makes it an undercount.")
+    # ⛔⛔ THE TOTAL IS NOT A CHECK ON THE LIST, AND THIS BIT TWICE IN ONE
+    # AFTERNOON ON TWO DIFFERENT INSTRUMENTS. `ced8b7f7c` MOVED a `display_name`
+    # read from `ambition_combat` to `starting_character.rs`; this tool returned
+    # 200/27 before and after, because a move is not a removal. Separately, the A4
+    # writer map's "four production readers of `body_driving_seat`" is still four
+    # at HEAD with two members wrong. ⇒ In both cases the count held still while
+    # the membership moved underneath it, and a reader checking the number would
+    # have called the list correct. Cardinality and set equality are different
+    # questions; the cheap one is the one that gets checked.
+    print("   * ⛔ A STABLE TOTAL DOES NOT MEAN A STABLE MEMBER LIST. A read that")
+    print("     MOVES between crates leaves this count unchanged and the sites")
+    print("     different. Diff the SITES against your last run, not the total.")
     return 0
 
 

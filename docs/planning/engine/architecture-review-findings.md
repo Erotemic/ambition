@@ -199,6 +199,16 @@ finds 51 other workspace packages reachable from the facade. This is a lower
 bound, excluding optional edges, feature activation, external packages, build/dev
 dependencies and binary dead-code elimination.
 
+⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
+`300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed
+between the two, all on 2026-09-09: the render path through host, five dead
+dependency declarations, and the map capability. ⇒ Reproduce with
+`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
+unique `ambition_*` names (49) and subtract the facade itself (48).
+⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
+51 is an *other-packages* count. A number that cannot say which it is cannot be
+quoted. See `scripts/measure_minimum_profile_parentage.py`.
+
 The comment in `fixtures/minimal_game/Cargo.toml` implying that removing the
 render feature drops the render chain is unsupported by this path. This overlay
 does not change that non-planning file; A9 updates it with the implementation.

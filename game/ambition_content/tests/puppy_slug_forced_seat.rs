@@ -118,6 +118,21 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
         participants,
         ..Default::default()
     });
+    // ⛔ A SEATING FIXTURE, NOT AN ADMISSION ONE. This app installs no technique
+    // handlers, so real admission correctly refuses every character naming a
+    // native effect. The raw road is named explicitly so it cannot be reached by
+    // accident; see its doc for why the implicit escape was removed.
+    //
+    // ⚠ WITHOUT THIS CALL THE ROSTER SEATS ZERO, AND THE ZERO COMES FROM THE
+    // SEAT ROAD RATHER THAN FROM ADMISSION. Measured 2026-09-10 on the unfixed
+    // fixture: 182 refusals over 32 characters, and the barrier still PUBLISHED
+    // 8 definitions including `npc_puppy_slug` — admission withholds per
+    // definition, exactly as it says. What empties the match is
+    // `ambition_match::prepared`: an unresolvable participant records a problem
+    // and the run continues, then a non-empty problem list fails the WHOLE
+    // preparation. `npc_carl_stargan` is refused, so BOTH seats are lost.
+    // ⇒ A roster is all-or-nothing; a half-seated match is never published.
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
     app.update();
 
@@ -272,6 +287,21 @@ fn a_creature_with_one_verb_still_seats_and_simulates() {
         participants: vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")],
         ..Default::default()
     });
+    // ⛔ A SEATING FIXTURE, NOT AN ADMISSION ONE. This app installs no technique
+    // handlers, so real admission correctly refuses every character naming a
+    // native effect. The raw road is named explicitly so it cannot be reached by
+    // accident; see its doc for why the implicit escape was removed.
+    //
+    // ⚠ WITHOUT THIS CALL THE ROSTER SEATS ZERO, AND THE ZERO COMES FROM THE
+    // SEAT ROAD RATHER THAN FROM ADMISSION. Measured 2026-09-10 on the unfixed
+    // fixture: 182 refusals over 32 characters, and the barrier still PUBLISHED
+    // 8 definitions including `npc_puppy_slug` — admission withholds per
+    // definition, exactly as it says. What empties the match is
+    // `ambition_match::prepared`: an unresolvable participant records a problem
+    // and the run continues, then a non-empty problem list fails the WHOLE
+    // preparation. `npc_carl_stargan` is refused, so BOTH seats are lost.
+    // ⇒ A roster is all-or-nothing; a half-seated match is never published.
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
     // Many ticks, not one: a body that seats and then divides by zero on its
     // first brain tick would pass a single-update assertion.

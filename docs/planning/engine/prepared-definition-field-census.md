@@ -34,7 +34,7 @@ stated.
 | `ambition_platformer2d_actor_spawn` | 13 | materialization / construction |
 | `ambition_app_tools` | 11 | tool binaries |
 | `ambition_content` | 9 | game content |
-| `ambition_combat` | 4 | action execution |
+| `ambition_combat` | 3 | action execution (was 4; `display_name` left at `ced8b7f7c`) |
 | `ambition_body_seed` | 3 | body seeding |
 | `ambition_match` | 3 | match activation |
 | `ambition_demo_smash` | 2 | ruleset |
@@ -73,9 +73,14 @@ split.
 a coherent, non-overlapping group and nothing else:
 * `ambition_body_seed` → `body`, `locomotion`, `vitals`. Pure materialization,
   no policy in it.
-* `ambition_combat` → `authored_moveset`, `kit`, `ranged_execution` … **and
-  `display_name`**, which is presentation. That one field is the odd member of an
-  otherwise clean execution slice and is worth looking at before anything moves.
+* `ambition_combat` → `authored_moveset`, `kit`, `ranged_execution`. ✔ **CLEAN
+  AS OF `ced8b7f7c` (2026-09-10).** It also read `display_name`, which is
+  presentation and was the odd member of this slice. That field had exactly ONE
+  reader in the workspace — `apply_worn_character_overlay`, which sets the body's
+  `Name` — and that function already held both inputs the fallback needs, so the
+  resolution moved to it with no plumbing added. `ambition_combat` now reads no
+  `display_name` from a prepared definition. Re-measured after the move: three
+  fields, this list.
 
 ⚠ **`ambition_app_tools` READS ELEVEN FIELDS INCLUDING `kit`, `vitals` AND
 `movement_tuning`.** Tool binaries reach into mechanical values, so any narrowing
@@ -97,6 +102,21 @@ dependency is already a single edge:
 
 At the other end, thirteen fields have four or more consumer crates, `kit`
 highest at six.
+
+⛔⛔ **THE CHEAP END IS NOT WORK — IT IS ALREADY CLEAN, AND SAYING SO IS THE
+POINT.** A field with one consumer, or none outside its owner, has the dependency
+shape A6 wants. There is nothing to move. ⇒ Re-read 2026-09-10 while looking for
+the next landing after `display_name`: **none of the nine is misplaced.** The only
+field this page identified as *in the wrong slice* was `display_name`, and it has
+moved.
+
+⇒ **So A6's remaining work is the nine DUAL-READ fields** — `autonomous_profile`,
+`death_traits`, `id`, `kit`, `motion_model`, `mount`, `movement_tuning`,
+`provider`, `sheet` — and that is a boundary proposal, not a cleanup. It is
+gated by the `ambition_app_tools` constraint above, and `kit`, `movement_tuning`
+and `motion_model` are mechanical values read at both moments rather than
+identity keys legitimately read at both. **Do not expect another one-field
+landing.**
 
 ## What this census cannot see
 

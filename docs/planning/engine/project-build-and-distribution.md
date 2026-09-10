@@ -577,6 +577,16 @@ lower bound, not Cargo's final feature resolution. `default-features = false`
 on one edge is not proof that another dependency path cannot enable the same
 feature.
 
+⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
+`300004d601af1e633cfaee969f079cf9bb368ca8` baseline, which this document never stated. Three edges closed
+between the two, all on 2026-09-09: the render path through host, five dead
+dependency declarations, and the map capability. ⇒ Reproduce with
+`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
+unique `ambition_*` names (49) and subtract the facade itself (48).
+⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
+51 is an *other-packages* count. A number that cannot say which it is cannot be
+quoted. See `scripts/measure_minimum_profile_parentage.py`.
+
 For each shipping profile retain its exact target, features, Cargo-resolved graph,
 compile timings/cache state, linked artifact size and runtime startup behavior.
 These are separate metrics. Removing a manifest edge can improve rebuild fanout

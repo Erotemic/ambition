@@ -2706,3 +2706,44 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
          cannot select anything else"
     );
 }
+
+/// A6: the display-name fallback survived leaving `WornKit`.
+///
+/// ⛔ IT MOVED, SO ITS TEST MOVED. The per-field census found `display_name`
+/// inside `ambition_combat`'s otherwise clean execution slice with exactly one
+/// reader — `apply_worn_character_overlay`. The field is gone from `WornKit` and
+/// the three-level fallback is resolved here instead. The old assertion lived
+/// beside the struct; deleting it without replacing it would have retired the
+/// behaviour along with the field.
+///
+/// ⭐ THE UNKNOWN-ID ARM IS THE ONE THAT MATTERS. Naming an unknown body after
+/// its id is what makes a bad id visible in the world instead of silent, and it
+/// is the arm a rewrite is most likely to drop.
+#[test]
+fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
+    let catalog = CharacterCatalog::empty();
+    let mut name = Name::new("placeholder");
+    let mut action_set = ActionSet::default();
+    let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
+    let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
+
+    crate::avatar::apply_worn_character_overlay(
+        &catalog,
+        None,
+        &mut name,
+        &mut action_set,
+        &mut moveset,
+        &mut identity,
+        None,
+        "no_such_character",
+        ambition_platformer2d_core::AbilitySet::default(),
+        None,
+    );
+
+    assert_eq!(
+        name.as_str(),
+        "no_such_character",
+        "an id the catalog does not know must name the body after the id. A \
+         placeholder or an empty name here hides a bad id instead of showing it"
+    );
+}

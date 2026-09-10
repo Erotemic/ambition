@@ -347,6 +347,58 @@ fn the_noise_seed_only_moves_when_a_sample_is_taken() {
     );
 }
 
+/// ⛔⛔ EVERY OTHER TEST OF EXECUTION NOISE IN THIS FILE USES 0.9, AND NO
+/// AUTHORED RUNG PRODUCES IT. The shipped ladder spans 0.45 down to 0.10
+/// (`FighterBrainProfile::for_level`), so the fixtures above certify a
+/// population the game never seats. This asks the ladder itself.
+///
+/// The jitter is `(|sample| * execution_noise * interval()).round()` with
+/// `|sample|` in `[0, 1]` inclusive — `next_signed_unit` maps `unit = 0` to
+/// exactly `-1.0`, so the ceiling is REACHED, not approached. A rung's noise is
+/// therefore reachable exactly when `noise * interval >= 0.5`.
+///
+/// ⛔⛔ AND AT RUNG 9 IT IS NOT — by 3e-8. `0.10 * 5` is `0.4999999701976776` in
+/// f32, so `round()` returns 0 for every possible sample and the top authored
+/// rung presses exactly on its decision ticks, forever. §1.3 of the fighter
+/// brain design says level 9 is *"small numbers, never zero — a frame-perfect
+/// CPU is not a hard opponent, it is a different game"*, and for this term it is
+/// zero. Whether that is a defect or an accepted cost is a maintainer's call and
+/// is open; what is NOT open is that the ladder may not drift into or out of
+/// that state unnoticed, which is what this pins.
+///
+/// ⚠ This guards the GAP, not a fix: rungs 1-8 must keep a reachable jitter, and
+/// rung 9 is asserted to be within a whisker of the boundary rather than merely
+/// "small". Re-tuning the ladder in either direction fires this and forces the
+/// ruling. Do not "fix" it by widening the tolerance.
+#[test]
+fn every_authored_rung_but_the_top_can_actually_jitter_a_press() {
+    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
+
+    let mut unreachable = Vec::new();
+    for level in 1..=9u8 {
+        let noise = FighterBrainProfile::for_level(level).execution_noise;
+        // The largest jitter any sample can produce at this rung.
+        if (noise * interval).round() as u32 == 0 {
+            unreachable.push((level, noise, noise * interval));
+        }
+    }
+
+    assert_eq!(
+        unreachable.iter().map(|(l, ..)| *l).collect::<Vec<_>>(),
+        vec![9],
+        "the set of rungs whose execution noise can never move a press changed:          {unreachable:?} (interval {interval}). Rungs 1-8 must keep a reachable          jitter; rung 9's zero is a known open question, not a licence to grow          the set."
+    );
+
+    // ⛔ AND THE TOP RUNG MISSES BY A WHISKER, WHICH IS THE POINT. A ladder
+    // that had been retuned to a genuinely small jitter would leave the
+    // assertion above green while this one reddens.
+    let top = FighterBrainProfile::for_level(9).execution_noise * interval;
+    assert!(
+        (0.49..0.5).contains(&top),
+        "rung 9's jitter ceiling is {top}, no longer just under the rounding          boundary — the top rung's noise has been retuned and the open question          about it needs re-asking"
+    );
+}
+
 /// The habit model finally has a writer that is not a test. (FB5's open loop)
 ///
 /// A foe that keeps closing the gap should be read as an approacher.

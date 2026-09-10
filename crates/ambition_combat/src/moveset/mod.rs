@@ -2707,9 +2707,17 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         spec.id,
     );
     // ⭐⭐ THE COUNTER ADVANCES HERE, beside the log line above, because this is
-    // the same acceptance authority: every accepted move passes through this
-    // function and nothing else does. A counter advanced anywhere else would
+    // the PLAYER acceptance authority. A counter advanced anywhere else would
     // miss a road, and a road that misses it mints a duplicate identity.
+    //
+    // ⛔ THIS COMMENT SAID "every accepted move passes through this function and
+    // nothing else does". THAT WAS FALSE. `trigger_boss_attack_moves` inserted a
+    // `MovePlayback` directly, so every boss move reused occurrence 0 — and this
+    // function's own acceptance rules (action buffer, affordability, gesture,
+    // recovery, meter) are not boss-encounter policy, so the repair was to share
+    // the MINT rather than route boss intent through here. ⇒ Two start roads,
+    // one body-owned counter. A third road must join the mint, not this
+    // function.
     //
     // ⚠ THE INSERT IS DEFERRED and the playback is not. That is correct: the
     // playback carries the number for THIS move, and the component is what the

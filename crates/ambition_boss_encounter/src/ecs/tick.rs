@@ -148,6 +148,12 @@ pub fn sync_boss_encounter_phase(
 /// attacks use the possessor's effective faction.
 pub fn trigger_boss_attack_moves(
     mut commands: Commands,
+    // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bosses`, mirroring
+    // `trigger_moveset_moves`: `MoveOccurrence` appears in no other query here so
+    // a read-only lookup cannot alias, and `bosses` is already near the tuple
+    // width the engine accepts. It answers one question — what number has this
+    // body reached.
+    occurrences: Query<&ambition_combat::moveset::MoveOccurrence>,
     mut bosses: Query<
         (
             Entity,
@@ -221,13 +227,26 @@ pub fn trigger_boss_attack_moves(
             } else {
                 active_start(spec)
             };
+            // ⛔⛔ THE BODY-OWNED MINT, AND THIS ROAD USED TO SKIP IT ENTIRELY.
+            // `MovePlayback::new_at` leaves `instance` at 0, so every boss move
+            // reused occurrence 0 and a boss could carry `instance == 0`
+            // alongside a `MoveOccurrence(N)` advanced by the other start road.
+            //
+            // ⚠ IT DOES NOT ROUTE THROUGH `start_move`, deliberately. That
+            // function is the PLAYER acceptance authority — action buffer,
+            // affordability, gesture, recovery and meter semantics — and none of
+            // that is boss-encounter policy. What is shared is the body's
+            // COUNTER, not the acceptance rules, so this joins the mint and
+            // nothing else.
+            let occurrence =
+                ambition_combat::moveset::MoveOccurrence::next(occurrences.get(entity).ok());
             commands
                 .entity(entity)
-                .insert(ambition_combat::moveset::MovePlayback::new_at(
-                    spec.clone(),
-                    kin.facing,
-                    t0,
-                ));
+                .insert(ambition_combat::moveset::MoveOccurrence(occurrence));
+            commands.entity(entity).insert(
+                ambition_combat::moveset::MovePlayback::new_at(spec.clone(), kin.facing, t0)
+                    .at_occurrence(occurrence),
+            );
         }
     }
 }

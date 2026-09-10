@@ -621,7 +621,23 @@ holds all three cases at once:
 validation can share it *before world IR exists*. Measured: **every** consumer goes
 through it (`crates/ambition_platformer2d_world/src/platforms/mod.rs:176` `matches_id`, `crates/ambition_platformer2d_actor_monolith/src/world/rooms/binding.rs:160`
 `resolution_aliases`, `crates/ambition_platformer2d_ldtk/src/conversion/mod.rs:1603` `kinematic_path_aliases`) and
-**nobody** re-spells the disjunction. A path is legitimately reachable by id or by
+**nobody** re-spells the disjunction.
+
+⛔⛤ **THE WORD "MEASURED" IS DOING WORK THREE EXAMPLES CANNOT DO.** Checked
+2026-09-10: of the three cited witnesses,
+`crates/ambition_platformer2d_world/src/platforms/mod.rs:176` (`pub fn resolve`)
+and `crates/ambition_platformer2d_actor_monolith/src/world/rooms/binding.rs:160`
+(`fn room_paths`) are production, and
+`crates/ambition_platformer2d_ldtk/src/conversion/mod.rs:1603` is **a test** — `fn a_derived_path_id_is_a_spelling_the_resolvers_accept`.
+
+⇒ **Three examples cannot establish "every".** This row is an ILLUSTRATION wearing
+the word *"Measured"*, and that word is what stops a reader checking. Whether every
+consumer really goes through the single set depends on an enumeration nobody has
+done — **and if one had, its output would be a COUNT, not three names.**
+
+⚠ **A citation checker cannot see this.** All three citations resolve, two are
+production, and the sentence is still unsupported. **The test citation is a
+symptom; the unsupported quantifier is the defect.** A path is legitimately reachable by id or by
 its normalized display-name slug, and one place decides that.
 
 ⛔ **THE ROOM ALIAS HAD THE OPPOSITE SHAPE.** No named rule, no shared set, no

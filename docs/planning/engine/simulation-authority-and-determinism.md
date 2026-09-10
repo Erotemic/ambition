@@ -811,7 +811,7 @@ look at readers rather than at the type:
 | `content.sanic_super_form_latch` | `game/ambition_demo_sanic/src/lib.rs:1591` | bounded |
 | `feature.switch_on` | `crates/ambition_encounter_features/src/switch_index.rs:19`, `crates/ambition_sim_view/src/view_index.rs:252`, `game/ambition_content/src/falling_sand.rs:493` | bounded |
 | `item.released_as` | `crates/ambition_abilities/src/ranged/bomb.rs:57` — decides whether a fuse lights | bounded |
-| `smash.match_scoped` | `game/ambition_demo_smash/src/match_scope.rs:71`, `crates/ambition_match/src/seating.rs:248` — the retirement sweep | bounded |
+| `smash.match_scoped` | `game/ambition_demo_smash/src/match_scope.rs:71` — the retirement sweep, `pub fn sweep_objects_from_ended_matches`. ⛔ **`crates/ambition_match/src/seating.rs:248` IS A TEST** (`fn match_scoped_identity_is_session_and_tick_together`), and `match_scoped` appears NOWHERE ELSE in `ambition_match` — that crate never reads the key in production. Verified 2026-09-10 by `--roles`. **The site list overstates by one; the `bounded` verdict is unaffected because the first site carries it.** | bounded |
 | `presentation.body_source` | `crates/ambition_combat/src/hitbox/mod.rs:378`, `crates/ambition_combat/src/moveset/mod.rs:1169`, `crates/ambition_damage/src/lib.rs:1228` — voice/SFX selection only | **presentation, correctly out** |
 
 ⛔⛔ **AND ONE ROW HAS NO PRODUCTION READER AT ALL.** `smash.seat_credit`

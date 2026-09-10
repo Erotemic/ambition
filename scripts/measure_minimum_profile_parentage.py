@@ -180,6 +180,31 @@ def main() -> int:
         print(f"    {c}  (frontier excludes: {why})")
     print()
 
+    # ⭐⭐ WHICH OF THE FALSE OPTIONALS CAN EVEN BE REMOVED. A crate is present
+    # whenever the facade is if ANY of its parents is itself a non-optional
+    # dependency of the facade -- that parent links it unconditionally, so no
+    # feature a consumer selects can make it absent. ⇒ For those, the honest
+    # repair is to WITHDRAW THE ADVERTISED OPTIONALITY, not to remove an edge
+    # that is load-bearing. This is the `ambition_ui_nav` argument generalised:
+    # `ambition_game_shell` is facade-direct and non-optional and builds
+    # `ListCursor`, so ui_nav could never be absent.
+    #
+    # ⚠ REMOVABLE HERE MEANS "not settled by this rule", NOT "easy". It says the
+    # graph does not forbid removal; whether the code allows it is a per-edge
+    # question this cannot answer.
+    unremovable, open_q = [], []
+    for n in false_optional:
+        row = next(r for r in rows if r["crate"] == n)
+        blockers = [p for p in row["parents"] if p in required]
+        (unremovable if blockers else open_q).append((n, blockers))
+    print(f"UNREMOVABLE (a NON-OPTIONAL facade dep links it): {len(unremovable)}")
+    for n, b in unremovable:
+        print(f"    {n}  <- required parents: {', '.join(b)}")
+    print(f"NOT SETTLED BY THE GRAPH: {len(open_q)}")
+    for n, _ in open_q:
+        print(f"    {n}")
+    print()
+
     print(f"FALSE OPTIONAL: {len(false_optional)} of the facade's "
           f"{len(optional)} advertised-optional capabilities are linked anyway "
           f"by a consumer that selected NONE of them")

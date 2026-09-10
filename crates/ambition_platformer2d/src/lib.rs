@@ -127,14 +127,12 @@ pub mod content {
         // optional facade edge (slice H), so a composition without it must not
         // claim to own `item_catalog` — that is what makes "uninstalled
         // capability" a real refusal rather than a hypothetical one.
-        #[cfg(feature = "ambition_items")]
         registry
             .register(ambition_items::content_schema::item_catalog_schema())
             .expect("the engine's own schemas are registered once");
         // Same rule, same reason: `ambition_encounter` is an optional facade
         // edge, so a composition without it must not claim to own
         // `encounter_waves`.
-        #[cfg(feature = "ambition_encounter")]
         registry
             .register(ambition_encounter::content_schema::encounter_waves_schema())
             .expect("the engine's own schemas are registered once");
@@ -167,7 +165,6 @@ pub use ambition_gameplay_trace as gameplay_trace;
 pub use ambition_abilities as abilities;
 pub use ambition_body_seed as body_seed;
 pub use ambition_conversation as conversation;
-#[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
 /// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
 /// of `actors` (D33); a game that wires mounts names this domain, exactly as it
@@ -177,9 +174,7 @@ pub use ambition_cutscene as cutscene;
 /// 2026-08-26, exposed as its own domain beside `mount` and `boss_encounter`.
 pub use ambition_damage as damage;
 pub use ambition_dev_tools as dev_tools;
-#[cfg(feature = "ambition_dialog")]
 pub use ambition_dialog as dialog;
-#[cfg(feature = "ambition_encounter")]
 pub use ambition_encounter as encounter;
 /// The room-feature side of encounters: LDtk loading, ECS spawning, banners,
 /// save/quest projection. Carved out of the actor kernel 2026-09-03; games
@@ -196,7 +191,6 @@ pub use ambition_held_items as held_items;
 pub use ambition_input as input;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
-#[cfg(feature = "ambition_items")]
 pub use ambition_items as items;
 pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
@@ -206,7 +200,6 @@ pub use ambition_match as versus_match;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
 pub use ambition_mount as mount;
-#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
 pub use ambition_platformer2d_core as engine_core;
@@ -219,7 +212,6 @@ pub use ambition_platformer2d_shared_tangle as platformer;
 pub use ambition_portal2d as portal;
 #[cfg(feature = "ambition_portal2d_presentation")]
 pub use ambition_portal2d_presentation as portal_presentation;
-#[cfg(feature = "ambition_projectiles")]
 pub use ambition_projectiles as projectiles;
 #[cfg(feature = "relativity")]
 pub use ambition_relativity as relativity;
@@ -229,7 +221,6 @@ pub use ambition_relativity2d as relativity2d;
 pub use ambition_render as render;
 #[cfg(feature = "ambition_settings_menu")]
 pub use ambition_settings_menu as settings_menu;
-#[cfg(feature = "ambition_sfx")]
 pub use ambition_sfx as sfx;
 pub use ambition_sim_view as sim_view;
 pub use ambition_sprite_sheet as sprite_sheet;
@@ -237,7 +228,6 @@ pub use ambition_time as time;
 #[cfg(feature = "ambition_touch_input")]
 pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
-#[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;
 /// The physical life of a touched collectible: `WorldItem`, its motion, and the
 /// touch-collect pass.
@@ -261,7 +251,6 @@ pub mod participant {
 }
 
 /// Items as simulation state, when the item capability is installed.
-#[cfg(feature = "ambition_items")]
 pub mod item {
     pub use ambition_held_items::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
@@ -270,7 +259,6 @@ pub mod item {
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
-#[cfg(feature = "ambition_persistence")]
 pub mod settings {
     pub use ambition_persistence::settings::UserSettings;
 }
@@ -397,7 +385,6 @@ pub mod actor {
     /// use` compiles inside the workspace, where the default feature set is on,
     /// and fails for a consumer who took a narrower one — the exact shape the
     /// external-consumer fixture exists to catch.
-    #[cfg(feature = "ambition_projectiles")]
     pub use ambition_projectiles::ProjectileOwner;
     /// ⭐⭐ WHAT THE GAME INTENDS TO DRAW FOR THIS BODY, and it needs no renderer.
     ///
@@ -775,7 +762,6 @@ pub mod windowed_host {
     /// input`, which is the exact shape the external-consumer fixture exists to
     /// catch. The two other `ambition_persistence` re-exports in this file
     /// carry the same gate.
-    #[cfg(feature = "ambition_persistence")]
     pub use ambition_persistence::host::windowing::DisplayModeState;
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;

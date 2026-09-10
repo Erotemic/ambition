@@ -16,9 +16,7 @@
 /// ⛔ GATED, because `ambition_persistence` is an OPTIONAL capability of this
 /// facade and an ungated `pub use` of an optional crate is a compile error for
 /// any game that did not ask for it. `minimal_game` is the fixture that says so.
-#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence::save::AmbitionGameSave;
-#[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence::save_data::AmbitionGameSaveData;
 pub use ambition_platformer2d_runtime::{
     ContentDiagnostic, ContentEpoch, ContentFingerprint, ContentFingerprintSchemaVersion,

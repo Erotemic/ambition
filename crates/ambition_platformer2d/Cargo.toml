@@ -23,10 +23,10 @@ capture = ["ambition_render/capture"]
 content_pack = [
     "dep:ambition_content_pack",
     "ambition_characters/content_pack",
-    "ambition_items?/content_pack",
+    "ambition_items/content_pack",
     # Same `?` rule: the encounter capability owns `encounter_waves`, and a
     # composition without that optional edge must not try to compile it.
-    "ambition_encounter?/content_pack",
+    "ambition_encounter/content_pack",
     "ambition_audio/content_pack",
     "ambition_combat/content_pack",
     # ⭐ the boss schemas moved here with the boss thinking (D168, 2026-08-27).
@@ -61,23 +61,15 @@ all_capabilities = [
     # A game asking for EVERY capability has an LDtk world; a movement-only
     # game asks for neither this nor the crate behind it.
     "ldtk",
-    "ambition_cutscene",
-    "ambition_dialog",
-    "ambition_encounter",
     "ambition_inventory_ui",
-    "ambition_items",
     "ambition_menu",
-    "ambition_persistence",
     # This closes the FACADE's own edge, which is one of the four that hold it, not the footprint.
     "ambition_platformer2d_ldtk",
     "ambition_portal2d",
     "ambition_portal2d_presentation",
-    "ambition_projectiles",
     "ambition_render",
     "ambition_settings_menu",
-    "ambition_sfx",
     "ambition_touch_input",
-    "ambition_vfx",
 ]
 rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
 # ⭐ SPELLED OUT rather than left as the optional dependency's implicit feature,
@@ -182,10 +174,19 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_conversation = { path = "../ambition_conversation" }
-ambition_cutscene = { path = "../ambition_cutscene", optional = true }
+# ⛔⛔ THE EIGHT BELOW ARE NOT OPTIONAL AND ADVERTISING THEM WAS THE DEFECT (A9).
+# Measured by `scripts/measure_minimum_profile_parentage.py`: each is linked by a
+# NON-OPTIONAL dependency of this facade -- every one of them by
+# `ambition_platformer2d_actor_monolith` and/or `ambition_platformer2d_runtime`,
+# which are the engine and can never be optional. So no feature a consumer
+# selects could ever make them absent, while the manifest offered them as
+# declinable. ⇒ The promise is WITHDRAWN rather than the edge removed, because
+# the edge is load-bearing. This is closure-neutral by construction: the crates
+# were always linked.
+ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
-ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
-ambition_encounter = { path = "../ambition_encounter", optional = true }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+ambition_encounter = { path = "../ambition_encounter" }
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
@@ -200,18 +201,18 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_platformer2d_host = { path = "../ambition_platformer2d_host", default-features = false }
 ambition_input = { path = "../ambition_input" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
-ambition_items = { path = "../ambition_items", optional = true }
+ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional = true }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
 ambition_menu = { path = "../ambition_menu", features = ["ldtk"], optional = true }
-ambition_persistence = { path = "../ambition_persistence", optional = true }
+ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
-ambition_projectiles = { path = "../ambition_projectiles", optional = true }
+ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_relativity = { path = "../ambition_relativity", optional = true }
 ambition_relativity2d = { path = "../ambition_relativity2d", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
@@ -219,7 +220,7 @@ ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional =
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_platformer2d_rollback_ggrs = { path = "../ambition_platformer2d_rollback_ggrs", optional = true }
 ambition_settings_menu = { path = "../ambition_settings_menu", optional = true }
-ambition_sfx = { path = "../ambition_sfx", optional = true }
+ambition_sfx = { path = "../ambition_sfx" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 # The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the animation
@@ -238,7 +239,7 @@ ambition_touch_input = { path = "../ambition_touch_input", optional = true }
 # direction: the promise is withdrawn rather than the edge removed, because the
 # edge is real. `ambition_dialog` names it unconditionally too.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
-ambition_vfx = { path = "../ambition_vfx", optional = true }
+ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 bevy = { version = "0.19.1", default-features = false, features = [
     "bevy_asset",

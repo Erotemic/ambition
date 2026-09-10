@@ -565,8 +565,16 @@ calls". It is not. The press road calls
 `move_for_attack(base, dir, grounded, RUNNING)`; `move_for_directional_verb` is
 that function with the running branch skipped.
 
-⇒ **Eighteen of eighteen shipped fighters author a dash attack and not one is
-reachable by a CPU.** Census over `authored_movesets::tables()`: 22 authored
+⛔ **CORRECTED 2026-09-10 BY DAMAGE-BY-MOVE: THE CPU ALREADY PERFORMS DASH
+ATTACKS.** Seat 0 dealt 36 damage with `pirate_admiral_dash_attack` under the
+MISLABELED kit. The kit's own enumeration cannot reach the move — that census
+stands — but the press the brain issues produces it anyway, because the press
+road resolves the stance itself. ⇒ **The defect is the MISLABEL alone**: the
+brain scores one move's frame data while the body performs another. Anything
+below that reads as "the CPU cannot dash attack" is my error and is wrong.
+
+⇒ **Eighteen of eighteen shipped fighters author a dash attack no press IN THE
+KIT reaches.** Census over `authored_movesets::tables()`: 22 authored
 moves that can hit are unreachable by any brain press, and they are three
 families — 18 `*_dash_attack` (the defect), 3 `*_jab2` (cancel-chain successors,
 correctly absent from a fresh-press kit) and `dive_stomp_uncharged` (a
@@ -651,10 +659,22 @@ refuted. It leaves seat 0's top eight entirely and holds at 3 for seat 1.
 construction and both seats shift toward grab → pummel → throw. Seat 1 starts
 MORE moves and deals LESS damage.
 
-⚠ **Concurrent, not yet isolated.** Four mechanisms proposed, three measured
-false ("never stops running" at 14–19%, the `lifts` coupling inert, dash-attack
-spam refuted). The next instrument is damage attributed BY MOVE — not a fifth
-story.
+⭐⭐ **ISOLATED, by damage attributed by move** (joined on
+`ResolvedBodyHit::attacker_move_instance`, `+0 unclaimed` both runs):
+
+| | HEAD | truthful kit |
+|---|---|---|
+| seat 0 | **122** — dash 36, **jab 33**, grapeshot 18, … | **44** — grapeshot 18, heave_to 10, dash 9 |
+| seat 1 | **157** — **jab 126**, air_down 31 | **25** — heave_to 10, dash 9, tilt_up 6 |
+
+⇒ **Jab is 159 of 279 damage (57%) at HEAD and deals ZERO under the truthful
+kit.** The whole drop is jab's contribution vanishing.
+
+⚠ **And the remaining question is sharper than the one it replaced:** the
+truthful kit removes jab from the RUNNING menu only, standing menus are
+identical, and these bodies stand 60–70% of grounded time — so jab should fall by
+about a third, not to zero. That gap is the open subject. Four mechanisms have
+been proposed on this row and three are measured false; bring an instrument.
 
 ⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
 `fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move

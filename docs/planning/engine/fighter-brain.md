@@ -304,11 +304,35 @@ menu by construction, and both seats shift toward grab → pummel → throw: sea
 each, i.e. the grabs it does start now CONVERT instead of being re-thrown away.
 Seat 1 starts MORE moves (27 → 39) and deals LESS damage.
 
-⚠ Stated at the strength the measurement supports and no further: the
-distribution shift and the damage drop are concurrent and this is the trace F6
-asks for. That grab sequences deal less per minute than the jab-heavy pattern
-they replace is the natural reading, and it is **not yet isolated** — the honest
-next instrument is damage attributed BY MOVE, not another argument.
+⭐⭐ **DAMAGE ATTRIBUTED BY MOVE — the instrument named above, built and run, and
+it ISOLATES the drop.** Joined on `ResolvedBodyHit::attacker_move_instance`, so
+the resolved amount lands on the use that earned it rather than on whatever the
+body is playing a frame later. `+0 unclaimed` in both runs, which is also an
+independent check that the occurrence threading covers this road:
+
+| | HEAD (mislabeled) | truthful kit |
+|---|---|---|
+| seat 0 | **122** — dash_attack 36, **jab 33**, grapeshot 18, tilt_forward 14, tilt_up 12, air_forward 9 | **44** — grapeshot 18, heave_to 10, dash_attack 9, air_up 7 |
+| seat 1 | **157** — **jab 126**, air_down 31 | **25** — heave_to 10, dash_attack 9, tilt_up 6 |
+
+⇒ **JAB IS 159 OF 279 DAMAGE (57%) AT HEAD AND DEALS ZERO UNDER THE TRUTHFUL
+KIT.** The whole drop is jab's contribution disappearing. That is the isolation
+the previous paragraph asked for, and it retires "grab sequences deal less per
+minute" as the explanation.
+
+⛔⛔ **AND IT CORRECTS THIS PAGE'S OWN HEADLINE. The CPU was ALREADY PERFORMING
+DASH ATTACKS.** Seat 0 dealt 36 damage with `pirate_admiral_dash_attack` under
+the MISLABELED kit. "Eighteen of eighteen fighters have a dash attack no CPU can
+reach" is false as stated: the kit's enumeration cannot reach it, but the press
+the brain issues produces it anyway, because the press road resolves the stance
+itself. ⇒ The defect was never unreachability — it is purely the MISLABEL, the
+brain scoring one move's frame data while the body performs another.
+
+⚠ **THE REMAINING QUESTION IS SHARPER THAN THE ONE IT REPLACES, and it is open.**
+The truthful kit removes jab from the RUNNING menu only; standing menus are
+byte-identical, and these bodies stand 60–70% of their grounded time. So jab's
+contribution should fall by roughly a third, not to ZERO. Whatever takes it to
+zero is the actual subject, and nobody has measured it.
 
 ⚠ Three mechanisms were proposed before this one and all three are measured
 false: "the CPU never stops running" (14–19%), the `lifts` coupling (inert), and

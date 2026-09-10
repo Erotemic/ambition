@@ -82,6 +82,19 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut running_ticks = [0usize; 2];
     let mut move_counts: [std::collections::BTreeMap<String, usize>; 2] = Default::default();
     let mut last_instance: [Option<(String, u32)>; 2] = [None, None];
+    // ⭐ DAMAGE BY MOVE, joined on the occurrence the verdict now carries.
+    // `ResolvedBodyHit::attacker_move_instance` is `Some(n)` exactly when a move
+    // claimed the strike, so `(attacker seat, n) -> move id` attributes the
+    // RESOLVED amount to the use that earned it rather than to whatever the body
+    // happens to be playing when the verdict lands a frame later.
+    let mut instance_move: [std::collections::BTreeMap<u32, String>; 2] = Default::default();
+    let mut damage_by_move: [std::collections::BTreeMap<String, i32>; 2] = Default::default();
+    let mut unclaimed_damage = [0i32; 2];
+    let mut seat_of: std::collections::HashMap<Entity, usize> = Default::default();
+    let mut hits = app
+        .world()
+        .resource::<Messages<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>>()
+        .get_cursor();
     let mut grounded_ticks = [0usize; 2];
     // ⭐ THE DUEL ENDS WHEN SOMEBODY WINS, and everything after that is not a
     // measurement of a fight. A decided match despawns the loser, so the loop
@@ -221,17 +234,43 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                 // (id, instance) so a self-cancel into the same move counts
                 // twice — `MovePlayback::instance` exists for exactly that.
                 let mut mq = w.query::<(
+                    Entity,
                     &MatchSeat,
                     &ambition_platformer2d::combat::moveset::MovePlayback,
                 )>();
-                let starts: Vec<(usize, String, u32)> = mq
+                let starts: Vec<(Entity, usize, String, u32)> = mq
                     .iter(w)
-                    .map(|(seat, pb)| (seat.0, pb.spec.id.clone(), pb.instance))
+                    .map(|(e, seat, pb)| (e, seat.0, pb.spec.id.clone(), pb.instance))
                     .collect();
-                for (slot, id, instance) in starts {
-                    if slot < 2 && last_instance[slot].as_ref() != Some(&(id.clone(), instance)) {
-                        *move_counts[slot].entry(id.clone()).or_default() += 1;
-                        last_instance[slot] = Some((id, instance));
+                for (entity, slot, id, instance) in starts {
+                    if slot < 2 {
+                        seat_of.insert(entity, slot);
+                        instance_move.get_mut(slot).unwrap().insert(instance, id.clone());
+                        if last_instance[slot].as_ref() != Some(&(id.clone(), instance)) {
+                            *move_counts[slot].entry(id.clone()).or_default() += 1;
+                            last_instance[slot] = Some((id, instance));
+                        }
+                    }
+                }
+                // ⛔ ONE CURSOR, KEPT. A fresh `get_cursor()` inside the tick loop
+                // starts at the OLDEST buffered message and bevy holds messages
+                // two frames, so every hit would be counted twice.
+                {
+                    let msgs = w
+                        .resource::<Messages<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>>(
+                        );
+                    for hit in hits.read(msgs) {
+                        let Some(attacker) = hit.attacker else { continue };
+                        let Some(&slot) = seat_of.get(&attacker) else {
+                            continue;
+                        };
+                        match hit
+                            .attacker_move_instance
+                            .and_then(|n| instance_move[slot].get(&n).cloned())
+                        {
+                            Some(id) => *damage_by_move[slot].entry(id).or_default() += hit.damage,
+                            None => unclaimed_damage[slot] += hit.damage,
+                        }
                     }
                 }
                 for (slot, running, on_ground) in rows {
@@ -296,6 +335,15 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         let mut rows: Vec<(&String, &usize)> = move_counts[seat].iter().collect();
         rows.sort_by(|a, b| b.1.cmp(a.1));
         let total: usize = move_counts[seat].values().sum();
+        let mut dmg: Vec<(&String, &i32)> = damage_by_move[seat].iter().collect();
+        dmg.sort_by(|a, b| b.1.cmp(a.1));
+        let dealt: i32 = damage_by_move[seat].values().sum();
+        println!(
+            "[dealt] seat {seat}: {dealt} damage across {} moves (+{} unclaimed) -> {:?}",
+            damage_by_move[seat].len(),
+            unclaimed_damage[seat],
+            dmg.iter().take(8).collect::<Vec<_>>()
+        );
         println!(
             "[moves] seat {seat}: {total} starts across {} distinct -> {:?}",
             move_counts[seat].len(),

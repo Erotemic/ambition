@@ -116,6 +116,24 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // stand next to each other and decline to press" — two different bugs with
     // the same reading of zero damage.
     let mut min_gap = f32::INFINITY;
+    // PROBE: the ABSOLUTE tick each seat is first seen, and each body's
+    // half-extent.
+    //
+    // ⛔⛔ **THE FIGHT REPRODUCES AND THE WINDOW DOES NOT, AND THOSE HAVE TWO
+    // CAUSES.** Two runs of `perfect_cellular_automaton` gave byte-identical
+    // damage, hitstun and in-reach ticks over windows of 3580 and 3602. Either
+    // seating waits on wall-clock asset IO and the SIM after it is deterministic
+    // — harmless, harness-only — or the sim itself differs at the seating
+    // transaction, which in a rollback game is a desync class. ⇒ The
+    // discriminator is ABSOLUTE ticks: if the prologue length moves and
+    // everything after is identical offset by it, the sim is clean.
+    //
+    // ⚠ AND THE WIDTH IS HERE BECAUSE `walks_off` SCALES WITH IT.
+    // `ahead < half_extent.x * 2.0` is the only fighter-varying term in movement
+    // scoring, so a wider body reads "approach walks me off" from further back.
+    // Printing the width per fighter is what turns that into a claim or kills it.
+    let mut first_seen: [Option<usize>; 2] = [None, None];
+    let mut half_extent: [Option<f32>; 2] = [None, None];
     let mut close_ticks = 0usize;
     let mut hits = app
         .world()
@@ -239,6 +257,17 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                 }
             }
         }
+        {
+            // Absolute, and BEFORE the `seated == 2` gate, so a seat that
+            // arrives alone is still dated.
+            let w = app.world_mut();
+            let mut sq = w.query::<&MatchSeat>();
+            for seat in sq.iter(w) {
+                if seat.0 < 2 && first_seen[seat.0].is_none() {
+                    first_seen[seat.0] = Some(tick);
+                }
+            }
+        }
         if seated == 2 {
             duel_began = true;
             if decided_on.is_none() {
@@ -304,6 +333,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                         &MatchSeat,
                         &ambition_platformer2d::engine_core::BodyKinematics,
                     )>();
+                    for (seat, kin) in pq.iter(w) {
+                        if seat.0 < 2 {
+                            half_extent[seat.0] = Some(kin.size.x * 0.5);
+                        }
+                    }
                     let mut pos: [Option<ambition_platformer2d::engine_core::Vec2>; 2] =
                         [None, None];
                     for (seat, kin) in pq.iter(w) {
@@ -381,6 +415,10 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             100.0 * running_ticks[seat] as f32 / grounded_ticks[seat].max(1) as f32
         );
     }
+    println!(
+        "[body] half-extent x: {:?} / {:?}; first seen at absolute tick {:?} / {:?}",
+        half_extent[0], half_extent[1], first_seen[0], first_seen[1]
+    );
     println!(
         "[gap] closest the seats ever came: {min_gap:.0}px; ticks within 60px: \
          {close_ticks} of {both_seated_ticks}"

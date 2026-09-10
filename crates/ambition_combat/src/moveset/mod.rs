@@ -4160,9 +4160,32 @@ pub fn mark_move_playback_resolved_hits(
 /// "credit[ed] the FIRST instance's contact to the second" — and until now the
 /// verdict channel could not carry it.
 ///
-/// ⚠ **`None` IS ADMITTED, AND THAT IS NOT A LOOPHOLE.** This channel is broader
-/// than moveset strikes, so `None` means *nobody claimed this*, and a claim that
-/// names an instance must match.
+/// ⛔⛤ **`None` IS REFUSED. IT WAS ADMITTED UNTIL Q101 WAS RULED, 2026-09-10,
+/// and the admission was the last road by which a move could collect a hit it
+/// did not earn.**
+///
+/// > `Connected` is a fact owned by a specific move occurrence. An outcome may
+/// > modify it only if that outcome carries provenance naming that occurrence.
+/// > **`None` means NO move claims the outcome, and therefore it cannot modify
+/// > ANY move's `Connected` state.**
+///
+/// ⇒ *"Credit whoever is playing right now"* is not an authority. It attributes
+/// by **coincidence of timing** — which is the same rule, stated plainly, that
+/// this predicate was written to abolish for the one-body-two-uses case. It
+/// survived one screen below its own fix because `None` looked like a gap to be
+/// filled rather than an answer.
+///
+/// ⭐ **AND IT MAKES EVERY ABILITY A LOCAL QUESTION.** The runtime learns
+/// nothing about `blink`, `dive`, empowerment or a snake shell. It knows only
+/// how to consume a correctly attributed outcome: a move that invoked an ability
+/// propagates its occurrence and is satisfied by the hit; a player who invoked
+/// the same ability independently propagates nothing and satisfies nothing —
+/// including whichever move happens to be active when the hit lands.
+///
+/// ⚠ **AN OWNERSHIP BOUNDARY MAY DELIBERATELY STOP CARRYING CREDIT.** When an
+/// effect becomes independently owned persistent state — a long-lived
+/// empowerment aura, a summoned actor, an environmental effect — that boundary
+/// is where provenance is ALLOWED to end. That is authored, not lost.
 ///
 /// ⛔⛔ **AN EARLIER VERSION OF THIS COMMENT DEFENDED `None` WITH FOUR CATEGORIES
 /// AND THREE OF THEM CANNOT REACH THIS FUNCTION.** It named *"contact attrition,
@@ -4214,7 +4237,7 @@ pub fn mark_move_playback_resolved_hits(
 /// with no move behind it has no use to name, and inventing one would deny a
 /// real move its own hit.
 fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
-    instance.is_none_or(|earned| earned == pb.instance)
+    instance == Some(pb.instance)
 }
 
 /// Consume [`MoveEventMessage`]s — the moveset runtime is content-free, it only

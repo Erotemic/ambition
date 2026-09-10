@@ -95,6 +95,48 @@ roads, with a log line as the only symptom.
 `control/authority.rs` moves the code that maintains the invariant this refusal
 exists for. **Write that fixture before the move, not after.**
 
+⛔⛔ **AND THE RETRACTION SWEEP IS NARROWER THAN THE REFUSAL IT EXISTS FOR — SO
+AN AMBIGUOUS SEAT CAN HAVE NO ROAD BACK.**
+
+`control::authority::project_driving_participant` is the one system that retracts
+a stale second holder. It is bounded twice, and neither bound matches
+[`body_driving_seat`]'s:
+
+1. **It returns early unless `PossessionState.home` is set**, and `home` is set
+   only between a possession starting and the release branch clearing it. The
+   function's own comment states the consequence: *"A session that never
+   possesses — a versus match whose seat-0 fighter legitimately holds PRIMARY —
+   never reaches here at all."*
+2. **Both of its branches act on `PlayerSlot::PRIMARY` only.** The release
+   branch's sweep is `seat.0 == PlayerSlot::PRIMARY`; nothing anywhere retracts a
+   duplicate claim on any other seat.
+
+`body_driving_seat` refuses ambiguity for **any** slot. So the refusal is
+general and the repair is not: a second claim on a non-primary seat has no
+retraction road at all, and a second claim on PRIMARY has one only during a
+possession.
+
+⇒ **A claim nobody sweeps costs that seat its body until something unrelated
+removes the component**, and the only symptom is a log line. That is the strongest
+reason this packet needs the invariant pinned before `control/authority.rs` is
+regrouped: the code that maintains it is the code being moved.
+
+⚠ **MEASURED VS REASONED, because the tempting citation does not hold.** Bound (2)
+is measured — read the two branches. What is NOT established is a reachable
+production double-claim on a non-primary seat: `ambition_demo_twintrack`'s
+`game/ambition_demo_twintrack/src/participants.rs:316` does insert `DrivingParticipant` outside any possession
+window, but on `LAB_TWIN_SLOT`, which is `PlayerSlot(1)` — one holder, no
+ambiguity. It demonstrates the *unswept insertion*, not the *duplicate*. Whether
+any composition can produce two holders of one non-primary seat is open, and
+naming twintrack as a competing claim would be wrong.
+
+⭐ **AND THIS IS WHY THE RECOVERY ARM OF THE FIXTURE IS LOAD-BEARING RATHER THAN
+CEREMONIAL.** Since nothing sweeps, recovery can only come from the claim itself
+going away — so asserting that driving RESUMES on withdrawal pins that the
+refusal is a per-tick resolution and not a latch. That is the only property that
+makes the ambiguous state survivable. A reader who sees three arms and no reason
+will delete the third as redundant.
+
 ⚠ **"No double body tick" is covered only at the SCHEDULE level.**
 `no_system_is_registered_twice_in_one_schedule` catches the same system
 registered twice; it cannot see one BODY ticked by two different systems, which

@@ -129,3 +129,83 @@ fn every_damageable_body_these_roads_build_carries_a_stable_identity() {
         unidentified,
     );
 }
+
+/// ⛔⛔ **THE ROLLBACK LANE, WHERE AN UNIDENTIFIED BODY COSTS THE MOST.** A smash
+/// match is resimulated, and `StrikeVictim.sim_id`'s own doc gives the reason it
+/// exists: *"`Entity` is not stable across a rewind."* So this arm asks the
+/// question of the composition that actually rewinds, rather than of a sandbox
+/// that never does.
+///
+/// ⭐ IT TAKES THE SHORTCUT ITS NEIGHBOURS TAKE — insert a `MatchParticipantRoster`
+/// and go straight to the gameplay route — because the select screen is not what
+/// is under test here. `smash_roster`, not `smash_roster_at_levels`: the levelled
+/// helper overwrites every participant as a CPU.
+///
+/// ⚠ WAIT FOR THE ROUND TO GO LIVE, NOT FOR A FIXED FRAME COUNT. A fixed settle
+/// encodes the opening ceremony's LENGTH, and dev mode runs that ceremony ten
+/// times faster — so the same number lands in a different world. The condition
+/// is observable: a cast exists and nothing in it is still held by
+/// `ScriptedControl`. Both halves, because a cast that does not exist yet is not
+/// a cast whose hold has come off.
+#[test]
+fn every_fighter_in_a_match_carries_a_stable_identity() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    let mut live = false;
+    for _ in 0..900 {
+        app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        if seated > 0 && held == 0 {
+            live = true;
+            break;
+        }
+    }
+    assert!(
+        live,
+        "premise: the round never went live, so there is no cast to census and \
+         'every fighter is identified' would be true of nobody"
+    );
+
+    let (unidentified, total) = census(app.world_mut());
+    assert!(
+        total >= 2,
+        "the match census saw {total} damageable bodies and a two-seat match has \
+         at least two fighters. Fewer means the cast is not in \
+         `StrikeVictim`'s population at all and this arm measures nothing"
+    );
+    assert!(
+        unidentified.is_empty(),
+        "{} of {total} damageable bodies in a LIVE MATCH carry no `SimId`: {:?}. \
+         A match is resimulated, and the field exists because `Entity` does not \
+         survive a rewind — so every geometric tie between these bodies is \
+         resolved by Bevy query order, which a resimulation does not promise to \
+         reproduce. Identity belongs where the body is BUILT",
+        unidentified.len(),
+        unidentified,
+    );
+}

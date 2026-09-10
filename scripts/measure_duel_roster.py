@@ -108,7 +108,7 @@ def sweep(ids: list[str], runs: int) -> None:
                     env={**os.environ, "AMBITION_DUEL_FIGHTER": fighter},
                 )
                 for line in (proc.stdout + proc.stderr).split("\n"):
-                    if re.match(r"^\[(duel|gap|body|stance|moves|dealt)\]", line) or (
+                    if re.match(r"^\[(duel|gap|body|stance|moves|dealt|mount|brain)\]", line) or (
                         "panicked at" in line or "is not on the assembled" in line
                     ):
                         out.write(line + "\n")
@@ -136,6 +136,13 @@ def fold() -> int:
             row["reach"] = 100.0 * int(m.group(1)) / int(m.group(2))
         if m := re.search(r"half-extent x: Some\(([\d.]+)\)", line):
             row["width"] = float(m.group(1))
+        # ⭐ WHICH ROWS THE DISMOUNT FIX TOUCHED. A bout in which no mount died
+        # never reached the road that rebuilt a rider's brain as a brute, so its
+        # pre-fix numbers are still good; a bout in which one did was measuring
+        # a fighter against a brute. Without this the whole table can only be
+        # discarded, never sorted.
+        if m := re.match(r"^\[mount\] mounts that died this bout: (\d+)", line):
+            row["mounts_died"] = int(m.group(1))
         if m := re.match(r"^\[moves\] seat \d: (\d+) starts", line):
             row.setdefault("starts", []).append(int(m.group(1)))
         if m := re.match(r"^\[dealt\] seat \d: (\d+) damage", line):

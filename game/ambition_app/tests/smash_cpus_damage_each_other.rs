@@ -228,6 +228,8 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut knockouts = 0usize;
     let mut respawned_this_tick: Vec<bevy::prelude::Entity> = Vec::new();
     let mut spent_cursor = None;
+    let mut mount_died_cursor = None;
+    let mut mounts_died = 0usize;
     let mut due_cursor = None;
     // ⭐⭐ D194'S FAILURE MODE, NAMED. Two grabs on one tick made both bodies
     // captor AND captive, and a body in that state can neither act nor be
@@ -257,6 +259,20 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             }
         }
         let world = app.world_mut();
+        // ⭐ DID A MOUNT DIE? The dismount road rebuilds a rider's brain, and
+        // until 2026-09-10 it rebuilt it as a `melee_brute` regardless of what
+        // the match had seated — so every bout in which a mount died was
+        // measuring a fighter against a brute. ⇒ Without this count, nobody can
+        // say afterwards WHICH rows of a roster sweep the fix touched, and a
+        // whole table has to be discarded rather than partially trusted.
+        {
+            let messages = world
+                .resource::<bevy::ecs::message::Messages<
+                    ambition_platformer2d::platformer::body::MountDied,
+                >>();
+            let cursor = mount_died_cursor.get_or_insert_with(|| messages.get_cursor());
+            mounts_died += cursor.read(messages).count();
+        }
         {
             let messages = world
                 .resource::<bevy::ecs::message::Messages<
@@ -592,6 +608,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             );
         }
     }
+    println!("[mount] mounts that died this bout: {mounts_died}");
     println!(
         "[gap] closest the seats ever came: {min_gap:.0}px; ticks within 60px: \
          {close_ticks} of {both_seated_ticks}"

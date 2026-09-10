@@ -130,3 +130,18 @@ has been accurate about its own weakest claims every time.
 test listed that system in its own chain. Verify a worker's red finding by a
 different route too — a census once reported six brain families failing to rewind
 when the snapshot clones the whole component and only *detection* was missing.
+
+⛔⛔ **A PEER'S REASONING GETS THE SAME CHECK AS A PEER'S RELAY.** Provenance
+discipline covers the quote and leaves the argument bare, and the argument is the
+half that reaches the maintainer. Measured 2026-09-10 on Q96: a peer relayed a
+ruling with a one-word paraphrase that SELECTED a model where the maintainer had
+only AFFIRMED, caught it, and in the same message sent a recommendation whose
+second argument — *"an exemption has nowhere to go under the other model"* — was
+false. It has somewhere: it is today's behaviour for that pair.
+
+⭐ **The tell is that the false claim was the DISQUALIFIER.** The first argument was
+sound and complete; the second was reached for to make it decisive. ⇒ **A
+disqualifier is aimed at the decision, so it is what the maintainer weighs hardest
+and what its author examined least.** **A sound argument gets weaker when padded,
+because the pad is what gets tested.** ⇒ When a handback carries two arguments,
+check the one that closes the question first.

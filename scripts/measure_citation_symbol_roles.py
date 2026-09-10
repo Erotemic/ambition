@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """Count the "population-overstating" citation class — AND REFUTE IT.
 
-⛔⛔ **THIS SCRIPT'S RESULT IS THAT THE RULE IT MEASURES SHOULD NOT BE BUILT.**
-It is committed so the proposal is not made a second time.
+⛔⛔ **THIS EXISTS TO RETIRE A PROPOSAL. IT IS NOT A PERIODIC CHECK, IT HAS NO
+CALLER, AND THAT IS CORRECT — DO NOT DELETE IT AS DEAD CODE.**
+
+A script with no caller and no stated purpose reads as an abandoned feature, and
+the next dead-code sweep removes it and takes the refutation with it. This one
+answers a question that will be asked again: *"why not check that a cited symbol
+is production rather than test?"*
+
+⭐ **THE ARGUMENT LIVES IN
+[`docs/recipes/checks-that-did-not-run.md`](../docs/recipes/checks-that-did-not-run.md);
+this file is the REPRODUCTION.** The row is what a future proposer reads — they
+read planning docs, they do not grep `scripts/` for a refutation they do not know
+exists. The script is what lets the argument be re-tested when the corpus moves,
+rather than believed on anyone's say-so.
+
+⛔⛔ **THE RESULT IS THAT THE RULE IT MEASURES SHOULD NOT BE BUILT.**
 
 THE PROPOSED RULE. `--roles` reports a citation that lands inside a
 `#[cfg(test)]` region, and the mixed class needs a person to read the prose. Two

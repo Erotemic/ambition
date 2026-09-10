@@ -1087,6 +1087,63 @@ naming native effects. **A probe that had measured the shipped edit would have
 predicted them.** The defect was never in the code; it was in the scope of the
 sentence.
 
+## ⛔⛔ A CHECK THAT CANNOT BE BUILT, AND THE REASON IS NOT ITS PRECISION
+
+**Measured 2026-09-10 and RETIRED. Do not propose this rule again without
+reading this section.** Reproduce with
+`python3 scripts/measure_citation_symbol_roles.py [--adjacent]`.
+
+**THE PROPOSAL.** `check_planning_citations.py --roles` reports a line citation
+that lands inside a `#[cfg(test)]` region. The class it reports is MIXED — a row
+can name a test deliberately, or count a test as a production writer, reader or
+definition — so it reports and does not gate. Two rows in that report shared a
+narrower shape that looked machine-checkable: they put a backticked SYMBOL beside
+the citation, and every occurrence of that symbol in the cited file was inside a
+test. ⇒ *Report that, and you catch the rows that overstate a population without
+reading any prose.*
+
+**WHAT THE COUNTS SAID.** Three versions, each killed by its own measurement:
+
+| pairing | hits | why it fails |
+|---|---|---|
+| symbol and citation on the same LINE | 11 | 3 are TAUTOLOGIES: the symbol IS a test function's name, so "every occurrence is a test" is true by construction |
+| minus the tautologies | 8 | 6 are CROSS-PAIRING. A long table row holds several citations and many symbols; pairing all with all invents pairs no author or reader would connect |
+| symbol within 40 chars of the citation | 2 | it LOSES one of the two rows that motivated it, and one survivor is a false positive |
+
+⛔ **AND IT ACCUSES ROWS THAT ARE CORRECT.** `smash-parity-inventory.md:766`
+cites `hit_response.rs:98` for `HitReaction` — correctly — and
+`hit_reaction.rs:293` for a different claim; `hit_reaction.rs` has its
+`#[cfg(test)]` at 472, so that citation is production and the row is right.
+`george_grab_dash` appears only in a test because the running form is DERIVED by
+`dash_stance_verb` rather than authored, **which is what its row says.**
+
+⭐⭐ **THE DECISIVE OBJECTION IS STRUCTURAL, AND IT IS NOT ABOUT PRECISION.** The
+counts above could be survived — a larger corpus, a looser window, and they move.
+This cannot:
+
+> **A row that deliberately names a test writes it in backticks beside the
+> citation. So does a row that mis-cites a test as production. THE SHAPE IS HOW
+> HUMANS WRITE BOTH.**
+
+`tracks.md:125` satisfies every condition of the rule and is a correct row. ⇒
+Prose is the only thing that separates the two classes, so a rule built
+specifically to need no prose **still needs prose — it just fails less visibly.**
+
+⚠ **AND THE OBVIOUS PATCH IS NOT AN ANSWER.** Excluding symbols that are
+themselves test function names removes that example, and it is tempting to call
+the objection handled. It is not: a deliberate row can name a PRODUCTION symbol
+whose only use in the cited file is a test. **The arm narrows false positives; it
+does not separate the classes.**
+
+⇒ **The class is real — two rows prove it — and it is found by READING.**
+`--roles` already narrows the reading to fifteen rows, which is the whole value
+it can honestly deliver.
+
+⭐ **THE TRANSFERABLE RULE: ask whether a CORRECT case also matches, before
+asking how many cases match.** A population count can be survived by a bigger
+corpus. A correct row that matches cannot be tuned away, and it is usually
+cheaper to look for.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

@@ -833,6 +833,80 @@ carries a **positive control** that re-runs it against the sha that still had
 the defect, because a screen narrowed until it recognises nothing produces
 exactly the same output as a clean tree.
 
+## ⛔⛔ The instrument was pointed correctly and the SHUTTER opened at the wrong moment
+
+Five defects in one night, across three subsystems, and not one of them was a
+wrong value. Each was a correct reading of the right thing taken at the wrong
+moment, or over the wrong population, or against the wrong vocabulary — and in
+every case the wrong answer was indistinguishable from a right one.
+
+**1. A mutable field read at the end of a run.** `FighterState::new(cfg, seed)`
+stores the seed **in** `state.noise` and advances it on every draw. A probe read
+`state.noise` after 3613 ticks and reported it as the seat's seed; it is a
+stream POSITION. ⇒ The check built on it — *"the two seats have distinct
+seeds"* — was sound in exactly one direction: equal end positions do imply a
+shared stream, but two seats can share a seed and end apart merely by drawing a
+different NUMBER of samples, which is what a divergent bout does. **It was green
+on every row we had and blind on every row we were about to collect.**
+
+⇒ **A mutable field read at the end of a run is not the value it was
+initialised with, and a name that describes the initialisation — `noise`,
+`seed`, `state` — will not tell you that.**
+
+**2. A git ref read one cache layer short of the remote.** `git log
+origin/main..HEAD` is the standard "have I pushed?" check, and it reads
+`refs/remotes/origin/main` — a file on your disk that a plain `git pull` does
+not always move. Two agents disagreed for twenty minutes about whether a commit
+existed. `git branch -r --contains <sha>` asks the remote. ⇒ **A verification
+step can be one cache-layer short of the thing it claims to verify, and it
+reports confidently on the layer it actually reached.**
+
+**3. A per-seat fact printed through a survivorship filter.** The same probe
+recorded each seat's brain at BIRTH — precisely to avoid defect 1 — then printed
+those birth facts from a loop iterating an END-OF-BOUT query. A seat knocked out
+before the end is not in that query, so it printed no line at all. At the top
+rung nobody dies and the hole was invisible; one rung down, a fighter scoring 5
+knockouts silently lost a seat. **The clock was fixed and the population was
+left.** ⇒ **A per-seat fact printed from a per-entity query inherits that
+query's survivorship, and nothing in the printing code says so.**
+
+**4. A knob validated against the wider of two vocabularies.** A rung override
+was given a panic so a bad value could not fail quietly, and it validated
+`1..=9` because the brain ladder's `for_level` clamps there. But the roster
+seats a rung by naming a **published policy**, and only five of the nine exist.
+Asking for rung 8 refused every seat and returned `0 of 3600 ticks (decided on
+None)` after a full-length run — per fighter. ⇒ **Two vocabularies for one
+concept, and the validator was pointed at the wider one. A knob that accepts a
+value the composition cannot seat has not been validated; it has been
+type-checked.**
+
+⛔⛔ **AND ALL FOUR FAILED IN THE SAME DIRECTION: an EMPTY RUN, not a wrong
+number.** A missing probe line, a sentinel with no verdict of its own, a
+zero-tick bout, a refused seat. Every one arrived at the consumer as
+`UNMEASURABLE`, and **a wall of UNMEASURABLE reads as a careful null result** —
+nobody re-examines an instrument that declined to answer. ⇒ **Absence of output
+is a value, and every parser assigns it a meaning whether or not the author
+chose one.** The fix that caught all four was capturing the failure's REASON and
+not just the fact of it: *"the match was decided"* and *"the seating never
+happened"* must not share a verdict.
+
+⚠ **A REPAIRED SENTENCE IS THE LEAST SUSPECTED SENTENCE IN THE FILE.** When
+rung 8 first came back empty, the sweep's summary line was rewritten to say *"a
+rung-8 CPU decides the match"* — a correction, made carefully, and wrong,
+because the real cause was not yet known. It then printed under three more
+tables before anyone re-read it. ⇒ **A correction inherits the confidence of the
+thing it replaced.** Re-check the lines you have already fixed once; they are
+the ones nobody looks at twice.
+
+⚠ **What none of these would have been caught by.** Not review — each line is
+correct in isolation. Not a poison of the value — the values were right. The
+first two were caught by a second party reading the same number and asking where
+it came from. The rest were caught by **running the instrument ONCE, on a subject
+outside the regime it had always been used in, before trusting it fifteen
+times.** ⇒ **Before a sweep, run one row in the corner of the parameter space
+you have never visited.** A knob only ever used at its default has only ever
+been tested there.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

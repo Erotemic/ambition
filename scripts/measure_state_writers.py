@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""Who WRITES item occurrence, custody, inventory and checkpoint-baseline state.
+"""Who WRITES the state a decomposition packet is about, by family and by crate.
 
-⭐⭐ THE HOLD THIS RELEASES, in packet A7's own words: *"after A1, enumerate item
+⭐⭐ ONE INSTRUMENT, SEVERAL DOMAINS, because "what counts as a write" is one
+question and two copies of it would drift. A7 asks for item occurrence / holder /
+inventory / checkpoint writers; A4 asks for accepted-control writers. Same
+method, different type lists -- so the domains are DATA at the top of this file
+and the scanner below is the single authority.
+
+⭐ A7'S HOLD, in its own words: *"after A1, enumerate item
 occurrence, holder, inventory and checkpoint baseline writers"*
 (`docs/planning/engine/actor-monolith-work-frontier.md`, A7). The packet says the
 census comes BEFORE any type moves, so this is the deliverable, not a step
@@ -52,8 +58,9 @@ is invisible to the first two and there is exactly one such file in this tree,
 which is why it hides -- the sibling ordering census records two false rows from
 missing it.
 
-    python3 scripts/measure_item_state_writers.py
-    python3 scripts/measure_item_state_writers.py --family custody
+    python3 scripts/measure_state_writers.py --domain item
+    python3 scripts/measure_state_writers.py --domain control --sites
+    python3 scripts/measure_state_writers.py --domain item --family custody
 """
 
 from __future__ import annotations
@@ -71,16 +78,58 @@ ROOTS = ("crates", "game", "tools")
 # them as SEPARATE families is the point of the packet: the goal is that a body
 # can hold an item without that becoming a durable occurrence fact, and a census
 # that merged them could not show whether the code already agrees.
-FAMILIES: dict[str, list[str]] = {
-    "occurrence": ["GroundItem", "WorldItem", "SettledItem", "ItemMotion", "ItemEmerge"],
-    "custody": ["ItemCustody", "ReleasedAs", "ItemStruckBody"],
-    "inventory": ["OwnedItems"],
-    "checkpoint": [
-        "MintedItemBaseline",
-        "OwnedItemsBaseline",
-        "MintedItemDescription",
-        "ItemCheckpointRestoreInputs",
-    ],
+DOMAINS: dict[str, dict[str, list[str]]] = {
+    # A7 -- item custody and accounting.
+    "item": {
+        "occurrence": ["GroundItem", "WorldItem", "SettledItem", "ItemMotion", "ItemEmerge"],
+        "custody": ["ItemCustody", "ReleasedAs", "ItemStruckBody"],
+        "inventory": ["OwnedItems"],
+        "checkpoint": [
+            "MintedItemBaseline",
+            "OwnedItemsBaseline",
+            "MintedItemDescription",
+            "ItemCheckpointRestoreInputs",
+        ],
+    },
+    # A4 -- accepted control and body execution. The packet's four
+    # responsibilities, in its own order: "accepted driver relation, input
+    # projection, live body execution and custody reconciliation".
+    #
+    # ⚠ THE TYPE LIST IS THE MEASUREMENT'S SCOPE, AND A WIDE ONE IS A WORSE
+    # ANSWER, NOT A FULLER ONE. The first list here carried `PlayerSlot`,
+    # `ActorControlFrame`, `ActionSet` and `BodyBaseSize`. `PlayerSlot(0)` is a
+    # VALUE that appears wherever a seat is named, `ActorControlFrame` is the
+    # inner value `ActorControl` wraps, and `ActionSet` is an ability roster
+    # rather than input projection -- so the report described "code that mentions
+    # control vocabulary", which is not a writer map. ⇒ One component per
+    # responsibility: the thing whose mutation IS the responsibility.
+    "control": {
+        "driver_relation": ["DrivingParticipant"],
+        "input_projection": ["ActorControl"],
+        "body_execution": ["BodyKinematics"],
+        "custody_reconciliation": ["InCustodyOf", "BodyCustodySettled"],
+    },
+}
+
+OWNERS: dict[str, dict[str, set[str]]] = {
+    "item": {
+        "occurrence": {"ambition_held_items", "ambition_world_items"},
+        "custody": {"ambition_held_items"},
+        "inventory": {"ambition_items"},
+        "checkpoint": {"ambition_platformer2d_actor_monolith"},
+    },
+    # ⚠ FOR A4 THE "OWNER" IS WHERE THE TYPE IS DEFINED TODAY, WHICH IS THE
+    # QUESTION, NOT THE ANSWER. The packet's destination is "coherent logical
+    # actor/control modules in the SAME package first", so a foreign row here
+    # means a crate outside the type's home writes it -- useful -- while the
+    # monolith writing its own is exactly the population A4 wants to re-group
+    # INTERNALLY. Read the per-crate rows, not the foreign total.
+    "control": {
+        "driver_relation": {"ambition_characters"},
+        "input_projection": {"ambition_characters"},
+        "body_execution": {"ambition_platformer2d_core"},
+        "custody_reconciliation": {"ambition_platformer2d_shared_tangle"},
+    },
 }
 
 MECHANISMS: list[tuple[str, str]] = [
@@ -168,15 +217,10 @@ def crate_of(path: pathlib.Path) -> str:
     return rel.parts[1] if len(rel.parts) > 1 else "?"
 
 
-def owning_crate(family: str) -> set[str]:
+def owning_crate(domain: str, family: str) -> set[str]:
     """Which crate the family's types live in — a write from HERE is the domain
-    doing its job; a write from anywhere else is the thing A7 is about."""
-    return {
-        "occurrence": {"ambition_held_items", "ambition_world_items"},
-        "custody": {"ambition_held_items"},
-        "inventory": {"ambition_items"},
-        "checkpoint": {"ambition_platformer2d_actor_monolith"},
-    }[family]
+    doing its job; a write from anywhere else crosses a boundary."""
+    return OWNERS[domain][family]
 
 
 def scan(families: dict[str, list[str]]):
@@ -229,7 +273,18 @@ def scan(families: dict[str, list[str]]):
                         # writes nothing, and the tuple-struct syntax is
                         # indistinguishable from construction without knowing
                         # which side of a `match` you are on.
-                        if "matches!(" in line or re.match(r"\s*(?:Some|Ok|Err)?\(?\s*\w+\s*=>", line):
+                        # ⛔ A TUPLE STRUCT'S PATTERN IS SPELLED LIKE ITS
+                        # CONSTRUCTOR. `DrivingParticipant(slot)` reads on the
+                        # left of a `let` and writes on the right, so an
+                        # `if let Some(DrivingParticipant(slot)) = ..` and a
+                        # `match` arm both looked like minting a driver relation.
+                        # 20 of the monolith's 24 driver rows were that.
+                        if (
+                            "matches!(" in line
+                            or "if let" in line
+                            or "while let" in line
+                            or "=>" in line
+                        ):
                             continue
                         # ⛔ AND A RETURN TYPE IS A READ. `pub fn remembered(&self)
                         # -> &ambition_items::OwnedItems` hands one out.
@@ -241,6 +296,14 @@ def scan(families: dict[str, list[str]]):
                         # LDtk converter registry was reported as an `insert`
                         # write by a scan that could not tell code from text.
                         if re.search(rf'"[^"]*\b{re.escape(t)}\b[^"]*"', line):
+                            continue
+                        # ⛔ AND A MULTI-LINE STRING HAS NO CLOSING QUOTE ON THIS
+                        # LINE. `"control invariant: {} entities hold
+                        # DrivingParticipant({slot:?}); \` is a panic message
+                        # continued on the next line, and the paired-quote rule
+                        # above cannot see it. An ODD number of quotes before the
+                        # name means the name is inside one.
+                        if line[: line.find(t)].count('"') % 2 == 1:
                             continue
                         for mech, _ in MECHANISMS:
                             if compiled[t][mech].search(line):
@@ -254,17 +317,22 @@ def scan(families: dict[str, list[str]]):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--family", choices=sorted(FAMILIES), help="one family only")
+    parser.add_argument("--domain", choices=sorted(DOMAINS), default="item")
+    parser.add_argument("--family", help="one family of the chosen domain only")
     parser.add_argument("--sites", action="store_true", help="print every site")
     args = parser.parse_args()
 
-    families = {args.family: FAMILIES[args.family]} if args.family else FAMILIES
+    all_families = DOMAINS[args.domain]
+    if args.family and args.family not in all_families:
+        parser.error(f"--family must be one of {sorted(all_families)} for --domain {args.domain}")
+    families = {args.family: all_families[args.family]} if args.family else all_families
     rows = scan(families)
 
-    print("⛔ ITEM STATE WRITERS — a LOWER BOUND. Seal the type to get the upper one.\n")
+    print(f"⛔ {args.domain.upper()} STATE WRITERS — a LOWER BOUND. Seal the type "
+          "to get the upper one.\n")
     for family in families:
         fam_rows = [r for r in rows if r[0] == family]
-        owners = owning_crate(family)
+        owners = owning_crate(args.domain, family)
         foreign = [r for r in fam_rows if r[3] not in owners]
         print(f"== {family.upper()}  ({', '.join(sorted(owners))} owns it)")
         print(f"   {len(fam_rows)} write-capable sites, {len(foreign)} of them OUTSIDE the owning crate")
@@ -279,7 +347,7 @@ def main() -> int:
                 print(f"        {where}:{line_no}  [{mech}] {t}  {text}")
         print()
 
-    print("   TOTAL write-capable sites across all four families:", len(rows))
+    print(f"   TOTAL write-capable sites across the {len(families)} families:", len(rows))
     print()
     print("⛔ WHAT THIS METHOD CANNOT SEE — the number travels with these or not at all.")
     print("   * A ROLLBACK CODEC / `Reflect` / `serde` RESTORE writes without naming")

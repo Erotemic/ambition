@@ -87,6 +87,7 @@ pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
 pub use ecs::boss_component_snapshot;
+pub use ecs::body_identity::{install_body_identity_census, BodyIdentityCensus};
 pub use ecs::dismounted_rider::install_dismounted_rider_rebuild;
 mod feature_bundles;
 pub use feature_bundles::{ChestBundle, PickupBundle};

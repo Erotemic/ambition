@@ -173,9 +173,7 @@ pub fn rebuild_dismounted_rider_brains(
 #[cfg(test)]
 mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
     use super::*;
-    use ambition_characters::brain::{
-        ActionSet, Brain, BrainProfile, StateMachineCfg,
-    };
+    use ambition_characters::brain::{Brain, BrainProfile, StateMachineCfg};
     use ambition_combat::actor_tuning::ActorTuning;
     use ambition_platformer2d_shared_tangle::body::MountDied;
     use bevy::prelude::*;

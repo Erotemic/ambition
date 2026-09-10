@@ -1642,7 +1642,7 @@ exactly this row's species:
   `ambition_platformer2d_shared_tangle::construction`, and
   `ambition_platformer2d_actor_monolith`'s module doc still named it bare.
 - **A DELETION:** `projectile_reaches_boss` documented itself as *"the swept
-  sibling of `ecs_hit_event_hits_boss`"* — a predicate **A2 deleted** with the
+  sibling of `ecs_hit_event_hits_boss`"* <!-- cite-ok: the row RECORDS the deleted name; that the prose outlived its subject IS the finding --> — a predicate **A2 deleted** with the
   rest of the discrete family. The prose outlived its subject by two rows.
 
 Cleared at `6b30dd644`, ratchet green, every crate exactly at baseline, 156 → 145.

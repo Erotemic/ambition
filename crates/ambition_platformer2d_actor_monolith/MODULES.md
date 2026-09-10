@@ -8,7 +8,7 @@
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
-| [`actor_clusters`](src/actor_clusters.rs) | The per-tick view of an actor: [`ActorMut`], the borrow the integration mutates in place, and the query that assembles it from live components. |
+| [`actor_clusters`](src/actor_clusters.rs) | The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut), the borrow the integration mutates in place, and the query that assembles it from live components. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |

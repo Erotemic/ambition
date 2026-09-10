@@ -178,6 +178,39 @@ fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
          arm refuses the READING rather than the tree — check that the room \
          still constructs its cast within {SETTLE_FRAMES} frames"
     );
+    // ⭐⭐ AND THE COMPOSITION'S OWN OBSERVER, WHICH IS NOT LIMITED TO THE ROADS
+    // THIS FIXTURE DRIVES. Everything above censuses what these three roads
+    // produced; `BodyIdentityCensus` is fed by a system watching the INSERTION,
+    // so it sees every road the run travelled including ones nobody named here.
+    //
+    // ⚠ READ `observed` FIRST. A composition that never installed the system
+    // reports zero offenders and reads exactly like a healthy one — this is the
+    // arm that tells the two apart, and the only reason the number beside it
+    // means anything.
+    let census = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::actors::features::BodyIdentityCensus>()
+        .clone();
+    println!(
+        "[identity] composition observer: {} bodies observed at insertion, {} unidentified",
+        census.observed, census.unidentified
+    );
+    assert!(
+        census.observed > 0,
+        "the composition's `BodyIdentityCensus` observed NO body becoming \
+         damageable across this run, so its `unidentified: {}` is a reading about \
+         the observer rather than about the tree — check that \
+         `install_body_identity_census` is still wired into the sim schedule",
+        census.unidentified
+    );
+    assert_eq!(
+        census.unidentified, 0,
+        "{} damageable bodies became damageable with no `SimId`, seen by the \
+         COMPOSITION rather than by this fixture — so at least one is on a \
+         construction road this test does not drive. The error log names each.",
+        census.unidentified
+    );
+
     assert!(
         unidentified.is_empty(),
         "{} of {total} damageable bodies reached the world with no `SimId`: \

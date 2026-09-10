@@ -684,6 +684,20 @@ impl Plugin for CombatSchedulePlugin {
         // reference defect that line used to carry, and why both anchors are the
         // monolith's to name, are in `install_dismounted_rider_rebuild`.
         ambition_platformer2d_actor_monolith::features::install_dismounted_rider_rebuild(app, sim);
+        // ⛔⛔ AND EVERY BODY THAT BECOMES DAMAGEABLE IS OBSERVED FOR AN
+        // IDENTITY. The contact protocol calls a missing target identity a
+        // CONSTRUCTION failure rather than a sort fallback, so the invariant
+        // belongs where bodies are built — and observing the INSERTION is the
+        // only place that is exhaustive by construction rather than by
+        // discipline. A test can census only the roads its fixture drives
+        // (`every_damageable_body_is_identified` drives three of seven and says
+        // so); a road nobody thought to drive still passes through here.
+        //
+        // ⚠ IT COUNTS AND LOGS, IT DOES NOT PANIC. Measured before it was
+        // installed: zero unidentified across 120 frame-samples, so `SimId`
+        // arrives WITH the body and this is expected to stay at zero — but a
+        // future road that mints late should produce a finding, not a crash.
+        ambition_platformer2d_actor_monolith::features::install_body_identity_census(app, sim);
         // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
         // which owns leaving it because somebody DIED.
         //

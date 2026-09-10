@@ -38,6 +38,7 @@ use ambition_time::WorldTime;
 pub(crate) mod actors;
 mod aggression;
 pub mod anim_helpers;
+pub mod body_identity;
 mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;

@@ -119,12 +119,13 @@ combination, not after — the cheap fix is not starting the second copy.
 your change — `./run_tests.sh` had 6957/6957 tests passing before it fell over
 writing its status file.
 
-⛔⛔⛔ **AND NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT `incremental`, NOT
-`deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL.**
-A target directory that has grown enormous is a SYMPTOM and the cause is almost
-always this bindmount being absent. Run `--status` and fix the mount. If the
-disk is genuinely short after that, SAY SO AND STOP — the reclaim is Jon's call,
-on Jon's machine, and `cargo clean` is his to run.
+⛔ **`rm -rf` under `target/` is never the tool — `cargo clean` is.** And an
+enormous `target/` is usually an ABSENT BIND: run `--status` and repair the mount
+first, or a reclaim hides the cause and the space comes back.
+
+✔ **Bound, `target/` is yours to clean** (`cargo clean`, `--release`, `-p <crate>`
+— Jon, 2026-09-10). ⛔ **Unbound, it is Jon's filesystem** — where the incident
+below happened. So `--status` gates reclaiming as well as building.
 
 ⚠ **BINDING SHADOWS; IT DOES NOT RECLAIM — measured 2026-09-03, and this
 paragraph used to promise that "the space comes back on its own".** It does not,

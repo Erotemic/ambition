@@ -183,7 +183,7 @@ written, and overwriting an accurate record destroys the evidence that it moved.
 
 | measure | `300004d6` | `09467966b` | |
 |---|---|---|---|
-| module SCC size | 9 | **9** | ⛔ **two members changed** |
+| module SCC size | 9 | **10** | ⛔ **+1, and membership moved** |
 | second SCC | assets/character_sprites | assets/character_sprites | unchanged |
 | workspace packages | 79 | **79** | unchanged |
 | physical Rust lines under `src/` | 679,785 | **694,104** | +14,319 |
@@ -195,23 +195,40 @@ written, and overwriting an accurate record destroys the evidence that it moved.
 | irreducible installation blocks | 38 | **38** | unchanged |
 | facade non-optional parentage | 51 | **48** | re-derived `939d6aaa5`, holds here |
 
-⛔⛔ **THE SCC IS STILL NINE MODULES AND TWO OF THE NINE ARE DIFFERENT.**
+⛔⛔ **THE SCC IS TEN MODULES NOW, AND ONE LEFT WHILE TWO JOINED.**
 
-    was   abilities, construction, control, features, items, projectile, session, shrine, world
-    now   abilities, avatar, character_runtime, construction, control, features, items, session, world
-    ⇒ OUT: projectile, shrine     IN: avatar, character_runtime
+    was   abilities, construction, control, features, items, projectile, session, shrine, world      (9)
+    now   abilities, avatar, character_runtime, construction, control, features, items,
+          projectile, session, world                                                                 (10)
+    ⇒ OUT: shrine     IN: avatar, character_runtime
 
-**A reader who checked the number 9 would have called the list current.** Set
-equality and cardinality are different questions and only the second is cheap to
-write down — the same shape as the four production readers in
-[`accepted-control-writer-map.md`](engine/accepted-control-writer-map.md), whose
-count stayed at four while a member turned out to be a test.
+⇒ Reproduce with **`uv run --script scripts/measure_kernel_module_graph.py --scc`**.
 
-⚠ **THE SCC IS DERIVED, NOT REPORTED.** `scripts/measure_kernel_module_graph.py`
-prints per-module out-edges and does **not** report SCCs; the condensation above
-is Tarjan over that edge list. ⚠ And `scripts/module_graph.py`, which does have an
-SCC layer, needs `uv run --script` — it fails under the tool venv with
-`ModuleNotFoundError: networkx`. **Say which instrument produced a number.**
+⛔⛔ **AND THE FIRST VERSION OF THIS ROW SAID *"still nine, two members changed"*,
+WHICH WAS WRONG, BECAUSE I DERIVED THE SCC FROM THE TOOL'S DISPLAY INSTEAD OF
+ASKING THE TOOL.** Two compounding errors, both mine:
+
+* **The instrument HAS an `--scc` flag.** I ran it with no arguments, saw no
+  components, and wrote into this page that it *"does not report SCCs"*. ⇒ **Ran
+  it one way and concluded it cannot do the thing.**
+* **The printed table truncates.** Out-edges are `most_common(8)` per module, so
+  the edge that keeps `projectile` in the cycle is not shown. My hand-rolled
+  Tarjan over that table dropped `projectile` and produced a nine-module answer
+  that looked like a confirmation of the stale number.
+
+⚠ **THE TRUNCATION MADE THE WRONG ANSWER MORE PERSUASIVE, NOT LESS.** A derived
+9 matching the published 9 read as *"the count held, the membership moved"* — a
+tidy finding. **The real change is a count that moved, which the page's own
+number would have flagged to anyone who re-ran the instrument properly.**
+
+⭐ The membership finding survives and is the part worth keeping: **`shrine` left
+and `avatar` and `character_runtime` joined.** But the headline is now *"nine
+became ten"*, and a reader checking only the number **would** have caught it.
+
+⚠ `scripts/module_graph.py` also has an SCC layer and needs `uv run --script`
+(it fails under the tool venv with `ModuleNotFoundError: networkx`) — but it
+condenses over **1,606 file-level modules**, not the kernel's 38, so it is **not
+the instrument for this number.** Two tools, two granularities, one word.
 
 ⭐ **REDUCIBLE 3 → 1 HAS A NAMEABLE CAUSE**, which is worth more than the fresh
 number: `61f297edf` — *"the latch drain installs itself; the other reducible block
@@ -261,7 +278,7 @@ that measurement at the time. It separates the two effects well enough to retire
 
 ```bash
 cargo metadata --no-deps --format-version 1     # 79 packages; lines counted under each package's src/
-uv run --script scripts/measure_kernel_module_graph.py   # module out-edges; condense for SCCs
+uv run --script scripts/measure_kernel_module_graph.py --scc   # THE SCC; --scc is required
 python3 scripts/measure_foreign_system_ordering.py       # ordering edges / installations
 python3 scripts/measure_carveable_installations.py       # reducible / irreducible
 cargo tree -e normal --no-default-features -p ambition_platformer2d   # 49 names, 48 others

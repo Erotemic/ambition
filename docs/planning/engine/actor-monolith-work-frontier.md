@@ -243,6 +243,9 @@ recorded without a numeric target. No live gameplay or ordering change is intend
 
 ## A4. Co-locate accepted control and body execution
 
+**THE MAP THIS HOLD ASKS FOR IS DELIVERED:**
+[`accepted-control-writer-map.md`](accepted-control-writer-map.md) (2026-09-10).
+
 **HOLD on extraction:** first map writers and select production fixtures.
 **Source regions:** `control/authority.rs`, `control/input_systems.rs`,
 `abilities/traversal/possession.rs`, `body_custody.rs`, live actor clusters,
@@ -314,6 +317,15 @@ activation does not mix mechanical values and visual values from different
 revisions. Record current unsupported combinations instead of defaulting them.
 
 ## A7. Separate item custody/accounting from lifecycle orchestration
+
+**THE ENUMERATION THIS HOLD ASKS FOR IS DELIVERED:**
+[`item-writer-inventory.md`](item-writer-inventory.md) (2026-09-10, 60 sites).
+⇒ It reports the shape as the INVERSE of this packet's framing: the checkpoint
+baseline family is 9 of 9 inside the monolith, while `OwnedItems` is written from
+four crates with 3 of 16 sites in the crate that defines it. And `GroundItem` has
+no constructor, so seven struct-literal sites across three crates each mint an
+occurrence — including the death-drop path this packet's acceptance says must not
+become an alternative minting road.
 
 **HOLD:** after A1, enumerate item occurrence, holder, inventory and checkpoint
 baseline writers. **Source:** monolith items/persistence/minted horizon,

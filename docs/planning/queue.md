@@ -670,7 +670,26 @@ MORE moves and deals LESS damage.
 ⇒ **Jab is 159 of 279 damage (57%) at HEAD and deals ZERO under the truthful
 kit.** The whole drop is jab's contribution vanishing.
 
-⛔⛔ **AND JAB IS STARTED ZERO TIMES, NOT MERELY LANDING LESS.** Full
+⛔⛔⛔ **A SECOND RUNG DOES NOT REPRODUCE ANY OF IT — the rung-9 numbers above
+are ONE FIGHT.** Same duel, `RUNG` 6:
+
+| rung | HEAD | truthful | jab damage |
+|---|---|---|---|
+| **9** | 1.26 / 1.07 | **0.47** / 0.86 | 159 → **0** |
+| **6** | 1.56 / 1.69 | 1.52 / 1.39 | 68 → **161** |
+
+At rung 6 the cost is ~3% / ~18%, both far above the 0.5 threshold, with MORE
+knockouts (2 v 1), and **jab is the biggest damage source under the truthful
+kit**. ⇒ "The truthful kit halves CPU damage" is a rung-9 statement and must not
+be quoted without it. The fix still fails the gate — which is calibrated at rung
+9 — but the reason to hold it is "one rung regresses and we do not know why",
+not "the fix makes the CPUs worse".
+
+⚠ n=2 and the two disagree. Next measurement is MORE SAMPLES (other rungs, other
+fighters) before any mechanism is fitted. What follows described the rung-9 fight
+and is kept only as that.
+
+⛔ **AT RUNG 9, JAB IS STARTED ZERO TIMES, NOT MERELY LANDING LESS.** Full
 distribution rather than a top-eight: seat 0 starts 11 distinct moves, seat 1
 starts 13, and `jab` is in neither — against 10 and 4 starts at HEAD. The
 truthful kit removes jab from the RUNNING menu only, standing menus are

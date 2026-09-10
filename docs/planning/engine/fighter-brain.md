@@ -334,7 +334,30 @@ removes jab from the RUNNING menu only; standing menus are byte-identical, and
 these bodies stand 60–70% of their grounded time. So jab's contribution should
 fall by roughly a third.
 
-⛔⛔ **INSTEAD JAB IS STARTED ZERO TIMES.** Printing the FULL distribution rather
+⛔⛔⛔ **AND ALL OF THE ABOVE IS ONE RUNG. A SECOND SAMPLE DOES NOT REPRODUCE
+IT.** Same duel, same fighter, `RUNG` 6 instead of 9:
+
+| rung | HEAD | truthful | jab damage, HEAD → truthful |
+|---|---|---|---|
+| **9** | 1.26 / 1.07 | **0.47** / 0.86 | 159 → **0** |
+| **6** | 1.56 / 1.69 | 1.52 / 1.39 | 68 → **161** |
+
+At rung 6 the truthful kit costs ~3% and ~18% (both far above the 0.5 threshold),
+lands MORE knockouts (2 against 1), and **jab is the single biggest damage source
+UNDER the truthful kit** (124 for seat 1). The rung-9 collapse — damage halving,
+jab to zero — is not a property of the kit change. It is one fight.
+
+⇒ **So "the truthful kit halves CPU damage" must not be quoted without its rung.**
+The fix still fails the shipped acceptance test, which is calibrated at rung 9 and
+is the gate; but the reason to hold it is now "one rung regresses and we do not
+know why", not "the fix makes the CPUs worse". Those justify different next work.
+
+⚠ n=2. Two rungs disagree, so the next measurement is MORE SAMPLES — other rungs,
+other fighters — before any mechanism is fitted to either. Everything in the two
+paragraphs below was derived from the rung-9 fight alone and is retained only as
+a description of that fight.
+
+⛔ **AT RUNG 9, JAB IS STARTED ZERO TIMES.** Printing the FULL distribution rather
 than a top-eight: seat 0 starts 11 distinct moves and seat 1 starts 13, and `jab`
 is in neither list. Against 10 and 4 starts at HEAD. So this is not "jab lands
 less" — the brain stops CHOOSING it, on ticks where it is still on the menu.

@@ -242,6 +242,65 @@ line that prints only decodes ≥ 1.0 MP, so 7 lines stood for 252; a rollback
 guard reporting "4 systems, none unsafe" whose population was 1 canonical type
 of 113.
 
+### ⭐⭐ A SECOND RECURRING SHAPE: a guard whose input is SOURCE TEXT has inputs it does not control
+
+The FORMATTER is one, and the LANGUAGE'S OWN CONSTRUCTION RULES are the other.
+Three instances landed on 2026-09-10 and **none of them was found by looking**:
+
+- `rustfmt` wrapped one `commands.insert_resource(` call because its path was
+  long, and a guard anchored on the contiguous spelling reported a leak that was
+  not there;
+- sealing a type with `#[non_exhaustive]` removed struct-literal syntax, and a
+  guard recognising a drop by the literal `GroundItem {` went blind — the table
+  it builds read as empty;
+- a census recognising construction by a hand-kept list of blessed method names
+  (`::new`, `::default`, `::from`) lost six sites to that same seal, and
+  correcting it surfaced a minting site that had **never** been visible.
+
+⛔ **The axis is DIRECTION, not likelihood.** A guard blinded into reporting a
+PHANTOM is self-limiting — somebody chases it, which is what happened with the
+first of the three. A guard blinded into reporting **"no offenders"** prints a
+clean bill of health forever. Ask of every source-text guard: *if the scan under
+it matched nothing, would it still pass?*
+
+**The remedies, strongest first** — this ranking came out of the sweep, not out
+of its scoping:
+
+1. **Give it a second input of a different KIND.** The `*_it_sync` guards derive
+   one set from source text (`mod <name>;`) and one from a directory listing, and
+   assert each difference is empty. Blind either side and the other is still
+   full, so it reddens. A floor says "I saw N things"; cross-evidence says "two
+   independent worlds agree", and only one of those survives the instrument going
+   blind.
+2. **Repoint it at a spelling the language makes CANONICAL.** After the seal,
+   `the_death_drop_table_is_complete` watches `GroundItem::` — a closed spelling
+   the type owns, because no crate outside the owner can construct it another
+   way — instead of an open one any caller could vary.
+3. **Use Rust's shape rather than a list of names.** An associated function is
+   `Type::snake_case(`; a method is `value.snake_case(`. No list to keep.
+4. **Failing all three, add an anti-vacuity floor** so the blindness is loud.
+
+The sweep and its population live in
+[`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
+
+### ⛔⛔ And the mirror image: the guard is PERFECT and the SUBJECT is inert
+
+Everything above is a check that could not fail. This one *can* fail, does
+exactly what it says, and still tells you nothing — because **a fact only an
+instrument reads stays correct forever while meaning nothing.**
+
+Worked example: `SeatCredit` is written on one entity in one place, and its two
+tests assert that the entity *carries* `SeatCredit(0)`. Both pass. Nothing in
+production reads a seat credit — attribution in that engine runs on
+`HitEvent::attacker`, an `Entity`, and the match verdict is decided by stocks
+remaining. The assertion is true, the guard is sound, and the subject does no
+work.
+
+⇒ **Same green, opposite cause, and the remedies differ.** A vacuous guard wants
+a FLOOR. An inert subject wants a READER — and if there is no reader and no road
+that wants one, what you have found is dead state, not a weak test. Ask of a
+passing assertion about a stored fact: *who, in production, consults this?*
+
 ### Running this audit yourself
 
 It found eight real defects in one evening, so it is worth repeating rather than

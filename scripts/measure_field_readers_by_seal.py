@@ -1,31 +1,40 @@
 #!/usr/bin/env python3
 """Enumerate the CROSS-CRATE readers of a struct's fields by SEALING them.
 
-⭐⭐ **THE ONE INSTRUMENT WITH NO BLIND SPOTS, AND THAT IS THE ONLY REASON TO
-SPEND A BUILD ON IT.** A text scan of `.field_name` cannot answer this: the field
+⭐⭐ **IT ASKS THE COMPILER, WHICH IS THE ONLY REASON TO SPEND A BUILD ON IT.**
+⚠ Not "no blind spots" — this docstring claimed that above two it then listed.
+Its blind spots are named below and they are narrow. A text scan of `.field_name` cannot answer this: the field
 names that matter are `id`, `body`, `kit`, `mount`, `vitals` — words that appear
 on every other type in the tree — and a scan also cannot see a read through a
 codec, a `Reflect` path, a macro, or a helper three calls down. Sealing asks the
 compiler instead, and the compiler cannot miss a read it has to reject.
 
-⇒ Rewrite `pub <field>:` to `pub(crate) <field>:` inside ONE named struct, run
-`cargo check --workspace --all-targets`, collect every `E0616` (private field),
-group them by field, and put the file back. The result is the exact set of
-readers OUTSIDE the owning crate, per field — which is what a "can this type be
-split" question actually needs.
+⇒ **DEFAULT: a DEPRECATION seal.** Tag every `pub` field of ONE named struct
+`#[deprecated]`, run `cargo check --workspace --all-targets`, collect every
+`deprecated` warning, group them by field, and put the file back.
+
+⛔⛔ **WHY NOT A VISIBILITY SEAL, WHICH THIS DOCSTRING USED TO DESCRIBE.** A
+private field is an ERROR, so the nearest dependent fails to compile and
+everything behind it is never built — the run reports the first ring and stops.
+Measured on `GroundItem`: **8 sites against 248.** A deprecation is a WARNING, so
+compilation completes and every ring is reached. ⇒ The visibility seal is still
+available (`--visibility-seal`, or `--private` for the stronger claim), and it is
+the wrong default.
 
 ⛔⛔ **IT IS A MEASUREMENT, NOT A CHANGE.** The seal is reverted before this
 script exits and the file's hash is checked against the one taken before. Making
-a field private is an API decision; whether the seal is worth KEEPING is a
-separate proposal that a census does not get to make on its own.
+a field private or deprecated is an API decision; whether a seal is worth KEEPING
+is a separate proposal that a census does not get to make on its own.
 
-⚠ **WHAT IT STILL CANNOT SEE: SAME-CRATE READERS.** `pub(crate)` keeps the field
-visible inside its own crate, so a reader in the defining crate compiles fine and
-never appears. That is deliberate — the question these packets ask is which
-FOREIGN consumers depend on a field — but it means a field reported with zero
-readers is "zero outside its crate", never "unused". Seal to private (`--private`)
-if you need the stronger claim, and expect the owning crate's own code to light
-up.
+⚠ **WHAT THE DEFAULT CANNOT SEE: a consumer carrying `#[allow(deprecated)]`.**
+It compiles silently and never appears. ⇒ A field reported with zero readers is
+"zero that warn", not "unused".
+
+⚠ **AND THE SAME-CRATE BLIND SPOT BELONGS TO THE VISIBILITY SEAL ONLY.**
+`pub(crate)` keeps a field visible inside its own crate, so the owning crate's
+own reads never appear there. The deprecation seal warns on them too, which is
+one of the reasons it is the default. **This paragraph used to be stated as a
+property of the tool rather than of one of its two modes.**
 
 ⚠ AND A FIELD BEHIND A FEATURE THIS BUILD DOES NOT ENABLE IS NOT CHECKED. The
 run uses `--workspace --all-targets`; add `--features` if a consumer of yours is

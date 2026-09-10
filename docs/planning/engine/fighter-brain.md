@@ -234,6 +234,42 @@ fighter scoring.
 
 ### F6 — move-distribution readability
 
+⭐⭐ **STEP 1 IS DONE, 2026-09-10, and it produced a concrete missing term.**
+D-BRAIN-MENU found that `attack_kit_of` resolves presses with
+`move_for_directional_verb` while the press road calls
+`move_for_attack(.., RUNNING)` — so the kit is MISLABELED while a body runs, and
+eighteen of eighteen shipped fighters have a dash attack no CPU can reach.
+
+Making the kit truthful, measured on the duel rig (pirate admiral, rung 9, 3613
+ticks, `decided None`, 2 knockouts both ways):
+
+| kit | seat 0 | seat 1 | hitstun ticks |
+|---|---:|---:|---|
+| mislabeled | 1.26 | 1.07 | [525, 324] |
+| truthful | 0.47 | 0.86 | [81, 191] |
+
+⇒ **The fix did not make the CPU worse at choosing; it revealed that the CPU
+never stops running.** A run PRE-EMPTS the smash gesture on the press road, so
+while running `attack` and `smash` both resolve to `{base}_dash` — a truthful kit
+has ONE attack option whenever the body runs, where the mislabeled one offered
+the standing menu. A human stops running to reach their tilts and smashes.
+Nothing in the brain connects "a standing option scores better" to "then stop
+running", which is exactly the independence this section names.
+
+⇒ **The missing term is an opportunity term on MOVEMENT: the value of standing
+still is the best standing attack it unlocks.** Its zero case is a body already
+standing, or one whose best standing option scores no better than the dash
+attack; its nonzero case is a running body in range of a foe with a stronger
+committed option available. That is step 3's "one explicit policy term with clear
+zero/nonzero cases", and the table above is the step-4 measurement to repeat.
+
+⚠ **THE RIG IN THIS DOCUMENT CANNOT REFEREE IT.** `brain::fighter::evaluation`
+builds a synthetic kit (`rig_uptilt`, `rig_smash`) with no dash stance and
+measures APM and distinct frames, not damage. The duel rig
+(`smash_cpus_damage_each_other`) is the instrument that sees this, and any
+sentence sending a reader to the evaluation rig for a move-distribution question
+is sending them somewhere that cannot answer.
+
 A fighter repeatedly selecting one converted/dash move can arise from independent
 movement and attack scorers rather than the moveset itself.
 

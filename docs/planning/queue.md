@@ -591,8 +591,51 @@ a coordinator's judgement"*. Two acceptance tests reporting a worse fight IS the
 rig speaking, so landing it anyway would be exactly the judgement the doc
 forbids.
 
-⇒ **Next concrete step: run the fix through the evaluation rig**, not through
-another reading of the diff. The witness is
+⭐⭐ **TRACED 2026-09-10 RATHER THAN ARGUED, and the numbers change what this
+row IS.** The duel rig (`smash_cpus_damage_each_other`, pirate admiral, rung 9,
+3613 ticks, `decided None`, 2 knockouts both ways) reports:
+
+| kit | seat 0 | seat 1 | hitstun ticks |
+|---|---:|---:|---|
+| HEAD — mislabeled | **1.26** | **1.07** | [525, 324] |
+| truthful (`move_for_attack`) | **0.47** | **0.86** | [81, 191] |
+
+Damage per minute roughly HALVES and hitstun collapses by ~85% on seat 0. Neither
+match decided early, so this is not the "a fight good enough to end fast reads as
+less damage" artefact the threshold's own comment warns about — I checked that
+first and it is not what happened. The CPUs simply land far fewer hits.
+
+⇒ **AND THE MECHANISM IS A DESIGN FACT, NOT A BUG IN THE FIX.** The press road
+makes a run PRE-EMPT the smash gesture: while running, `attack` and `smash` BOTH
+resolve to `{base}_dash`. So a truthful kit has ONE attack candidate whenever the
+body runs, where the mislabeled one offered the whole standing menu. The fix did
+not make the CPU worse at choosing — it revealed that **the CPU never stops
+running to reach its own tilts and smashes.** A human stops; the brain's movement
+and attack scorers are independent and nothing connects them.
+
+⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
+`fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move
+can arise from independent movement and attack scorers rather than the moveset
+itself"*, and its instruction is to trace the scored movement+attack PAIR and
+identify the missing opportunity/commitment term before adding randomness or
+per-move caps. This trace is step 1 of that procedure, done.
+
+⇒ **Next concrete step is F6's step 2: the term that lets a brain choose to STOP
+RUNNING because a standing option scores better.** Until it exists, a truthful
+kit is strictly worse than a mislabeled one, which is why the fix stays held —
+and that is a statement about the SCORER, not about the resolver.
+
+⚠ The evaluation rig proper (`brain::fighter::evaluation`) cannot referee this:
+its kit is synthetic (`rig_uptilt`, `rig_smash`) with no dash stance at all, and
+it measures APM and distinct frames rather than damage. The duel rig above is the
+instrument that can see it.
+
+⇒ **Do not run the fix through `brain::fighter::evaluation`** despite the owner
+doc naming it: that rig cannot see the subject. Use the duel rig, and re-run the
+table above after F6's term lands — the fix is right the moment those two numbers
+come back up.
+
+The witness is
 `a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce`,
 `#[ignore]`d with that reason and green the moment the resolver changes.
 

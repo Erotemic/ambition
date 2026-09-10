@@ -112,7 +112,7 @@ most likely to owe are not on it:
 
 | check | when you owe it |
 |---|---|
-| `check_absence_contracts.py` | any carve — 37 contracts, including the capability-footprint ratchet |
+| `check_absence_contracts.py` | any carve — 39 contracts (2026-09-10, `93dd37c34`), including the capability-footprint ratchet |
 | `check_planning_citations.py` | any commit that MOVES a file a planning doc cites |
 | `check_no_warnings.py` | before a tip: warnings are CI-red under `-D warnings` and the per-crate runs do not see them |
 | `feature_gated_tests.py` | to see what a green default run was silent about |

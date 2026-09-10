@@ -126,6 +126,13 @@ architectural prohibition with its own name and its own owner. Re-checked at
 CONTRACT granularity at `dae963206`: **8 are named somewhere in `docs/planning`, 29
 are named nowhere.**
 
+⚠ **THE 37 IS STAMPED TO `dae963206` AND IS LEFT ALONE ON PURPOSE.** It is
+`8 + 29`, so overwriting the total would break its own breakdown and attribute a
+newer figure to an older commit. **Measured 2026-09-10 at `93dd37c34`: 39
+contracts** — the count grew by two and the 8/29 split was not re-derived, so the
+point this paragraph makes (one referenced script hiding dozens of unreferenced
+rules) holds at a larger scale rather than a smaller one.
+
 The eight that are named cluster around two programs (public SDK, capability
 footprint). The twenty-nine that are not include rules a plan would obviously
 want to point at — `central-rollback-does-not-enumerate-domains`,

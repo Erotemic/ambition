@@ -100,8 +100,25 @@ is not what it implies. Keyed on the BINDING rather than the spelling:
 
 ⇒ **`character_json` is a SERIALIZER.** It reads those nine to dump them. It does
 not depend on what a `movement_tuning` MEANS; it depends on the field existing to
-emit. ⇒ Moving one breaks a **JSON output schema**, which is a versioned contract
-with a visible consumer, not a tool's behaviour.
+emit. ⇒ Moving one breaks a **JSON output schema**, not a tool's behaviour.
+
+⚠ **THAT IS THE MECHANISM. WHETHER IT IS EASIER WAS A SEPARATE QUESTION AND IT WAS
+ASSERTED BEFORE IT WAS MEASURED.** A serialized schema can be the HARDER thing to
+change: a semantic read breaks at compile time in this tree, while a dump field
+that stops appearing breaks whatever reads the JSON, silently, wherever that
+lives. **Two things decide it, and both were then measured at `17c1f3e40`:**
+
+1. **The bundle carries a schema id and a bump rule.** `moveset_export.rs:33`:
+   `SCHEMA = "ambition.moveset_inspector.v2"`, documented *"Bump the version when
+   a consumer would break."* Already at v2, so the rule has been exercised.
+2. **The only consumer is inside this repository.**
+   `tools/ambition_moveset_inspector`, fed by
+   `tools/ambition_moveset_inspector/data/moveset_bundle.json` — which is
+   **generated and not tracked by git**, so no copy of it is held anywhere else.
+
+⇒ **Both conditions hold, so the lighter ranking stands — on this evidence rather
+than on the reasoning that first produced it.** ⛔ Had either failed, the nine
+would have been the HARDER set, not the lighter one.
 
 ⛔ **AND THAT SPLITS THE THREE THIS PAGE SINGLED OUT.** Of `kit`, `vitals` and
 `movement_tuning`: **`kit` is a genuine semantic dependency in two binaries**;

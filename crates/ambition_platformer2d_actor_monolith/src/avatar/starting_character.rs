@@ -260,7 +260,22 @@ pub fn apply_worn_character_overlay(
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
     let kit = WornKit::resolve(catalog, registry, character_id, base_abilities, match_kit);
-    *name = Name::new(kit.display_name.clone());
+    // ⭐ THE DISPLAY NAME IS RESOLVED HERE, NOT CARRIED THROUGH `WornKit` (A6).
+    // The per-field census found `display_name` sitting inside `ambition_combat`'s
+    // otherwise clean execution slice {`authored_moveset`, `kit`,
+    // `ranged_execution`} — one presentation field among mechanical ones. It had
+    // exactly ONE reader: this line. And this function already holds both inputs
+    // the fallback needs, so moving it costs no plumbing and adds no interface.
+    // ⇒ Prepared name, else the catalog's, else the id itself, so an unknown id is
+    // shown as the id and the problem stays visible.
+    *name = Name::new(
+        registry
+            .and_then(|registry| registry.get(character_id))
+            .map(|prepared| prepared.display_name.as_str())
+            .or_else(|| catalog.display_name(character_id))
+            .unwrap_or(character_id)
+            .to_string(),
+    );
     wear_kit(kit, action_set, moveset, identity, combat_kit)
 }
 

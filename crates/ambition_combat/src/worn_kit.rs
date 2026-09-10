@@ -23,9 +23,6 @@ use crate::moveset::{apply_player_robot_slash_sfx, build_actor_moveset};
 /// What a body carries once it wears a character.
 #[derive(Clone, Debug)]
 pub struct WornKit {
-    /// The prepared display name, else the catalog's, else the id itself — an
-    /// unknown id is shown as the id so the problem is visible.
-    pub display_name: String,
     pub action_set: ActionSet,
     pub moveset: MovesetContract,
     /// The un-granted baseline the brain reads: the action set and the moveset
@@ -66,11 +63,6 @@ impl WornKit {
         match_kit: Option<&ActionSet>,
     ) -> Self {
         let prepared = registry.and_then(|registry| registry.get(character_id));
-        let display_name = prepared
-            .map(|prepared| prepared.display_name.as_str())
-            .or_else(|| catalog.display_name(character_id))
-            .unwrap_or(character_id)
-            .to_string();
 
         let (set, derived, execution) = if let Some(kit) = match_kit {
             let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
@@ -120,7 +112,6 @@ impl WornKit {
             }
         };
         Self {
-            display_name,
             combat_kit: CombatKit::from_action_set(&set),
             identity: IdentityKit::of(set.clone(), derived.clone()),
             moveset: derived,
@@ -245,7 +236,6 @@ mod tests {
             ambition_platformer2d_core::AbilitySet::sandbox_all(),
             None,
         );
-        assert_eq!(kit.display_name, "nobody");
         assert_eq!(kit.execution, RangedExecution::ChargedProjectile);
         assert!(kit.action_set.melee.is_some());
         // The charge path owns the ranged press: no ranged move is derived.

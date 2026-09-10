@@ -297,6 +297,27 @@ For anything long, redirect straight to a file and read the file — progress is
 then a `wc -l` and a failure is a `grep` away while it runs, instead of a
 question you cannot answer until it ends.
 
+### ⛔⛔ ASK THE COMPOSED APP, NOT A SOURCE FILE — four instances in one day
+
+Every time a population came from what the running composition actually holds it
+was right; every time it came from a list in the tree it was wrong.
+
+| the question | asked of a file | asked of the app |
+|---|---|---|
+| which fighters can be duelled | `authored_movesets::tables()` — whose own header says *"NOT THE SELECTABLE CAST"* — gave ids the grid does not carry | the harness's refusal message prints the assembled grid |
+| which `--character` ids can be seated | nothing checked at all; `__nope__` printed as a fighter | `PreparedCharacterRegistry` after the warm-up updates |
+| how many moves a fighter authors | counting `MoveSpec` literals gives `pirate_admiral: 1` against **12 distinct started** | the composed `MovesetContract` |
+| whether a token is a real schema row | a near-miss rule over condition ids read a correct citation as a typo | `RollbackRegistry::schema_dump()` beside the condition catalog |
+
+⇒ **A list in the tree is a claim about the composition; the composition is the
+composition.** The failure is not that the lists are careless — three of the four
+carry a warning about themselves — it is that a list *reads as authoritative* at
+the moment you need it, and the app is one subprocess away.
+
+⚠ And the tell is cheap: **run the sanity check the answer implies.** `pirate_admiral: 1`
+against a fighter observed starting twelve distinct moves is a contradiction the
+table itself hands you, before anything is published.
+
 ### ⛔⛔ The RUNNER'S FOOTER is not the runner's VERDICT
 
 A suite that reports well explains what it did *not* cover, and those paragraphs

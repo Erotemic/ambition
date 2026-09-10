@@ -504,59 +504,56 @@ fighter measurement. Tightening the SWEEP's population is queue work
 ⭐ Not a feel ruling: it decides whether "on the grid" means "is a fighter", which
 is the property every CPU-quality measurement over that grid will assume.
 
-## Q96 — should a projectile collide with an ECS breakable's published surface?
+## Q102 — a solid breakable is published as `BlinkWall { Hard }`: is that the representation, or a borrow?
 
-**Measured 2026-09-09, while closing A2b.** A breakable authored
-`BreakableCollision::Solid` publishes a `BlockKind::BlinkWall { Hard }` into
-`FeatureEcsWorldOverlay::blocks` at its own AABB (`world/overlay.rs`), and the
-player collides with it. A PROJECTILE does not:
-`ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`
-composites only `gate_solids`, `portal_carves` and `removed_block_names`, so
-`overlay.blocks` — every ECS breakable surface and every pogo orb — is absent
-from the world a shot sweeps.
+**Flagged 2026-09-10 in the same review that ruled Q96, and it is a DO-NOT-MAKE-IT-
+WORSE constraint rather than a repair request.** Verbatim:
 
-Nothing is broken today: the shot reaches the crate through the FEATURE road
-instead, which is swept and now ordered against the world by time of impact. The
-question is which of two models is intended, because they differ once a
-destructible has both a surface and a hurt volume:
+> *"Representing a generic solid breakable as `BlockKind::BlinkWall { Hard }` mixes
+> ordinary solidity with blink-specific permeability semantics. That may be
+> justified by the current world vocabulary, but **projectile support should not
+> cement that representation into more systems.** Ideally consumers ask shared
+> collision semantics rather than learning that 'hard blink wall happens to mean
+> solid breakable'."*
 
-- **A shot sees only the hurt volume** (today). A solid crate stops the player
-  and is destroyed by shots; the two facts never interact. Simple, and the
-  compound-contact row of the contact protocol's acceptance matrix stays
-  unreachable.
-- **A shot sees the surface too.** Then a destructible's own wall and its
-  damageable volume are ONE contact and need stable collider-contributor
-  identity to be told apart from an unrelated blocker — the A5 work the protocol
-  already describes. It also changes behaviour: a `Bouncing` shot would bounce
-  off a solid crate rather than damage it.
+**Measured at HEAD 2026-09-10.** `world/overlay.rs:52-58` maps
+`BreakableCollision::OneWayUp` → `BlockKind::OneWay`, which is an honest match, and
+`BreakableCollision::Solid` → `BlockKind::BlinkWall { tier: Hard }`, which is a
+borrow.
 
-⚠ Not a feel ruling — it decides whether A5's contributor identity is required
-for projectiles or only for the player road. Owner document:
-[projectile contact protocol](engine/projectile-contact-protocol.md).
+⭐ **WHY THE BORROW WORKS TODAY, AND EXACTLY WHEN IT STOPS.**
+`ambition_platformer2d_core/src/world.rs` documents `BlockKind::Solid` as *"full
+collision on both axes, and also a hard blocker for blink pathing"*, and
+`BlinkWallTier::Hard` as *"intended to remain blocked until a stronger
+blink-phasing upgrade."* ⇒ **The two are behaviourally identical for blink pathing
+only while no stronger blink upgrade exists.** The day one is added,
+`BlinkWall { Hard }` becomes permeable to it and `Solid` does not — and **every
+solid breakable in the game silently becomes blink-passable.** That is the whole
+debt, and it is a one-feature fuse.
 
-⛔⛔ **THE SECOND BULLET CONTRADICTS THE OWNER DOCUMENT, AND THAT IS THE PART
-NEEDING A RULING.** Raised in the 2026-09-09 GPT review. "A shot sees the
-surface too" is framed above as *a `Bouncing` shot would bounce off a solid
-crate rather than damage it*. The protocol says the opposite for that exact
-case: a destructible's own surface and its hurt region COALESCE INTO ONE
-COMPOUND CONTACT that resolves the target once **and also** honors the surface's
-physical response — the whole point being that a generic "wall first" rule must
-not make every solid destructible immune to projectiles. So the two models on
-offer are not "today" versus "the protocol"; the second bullet is a THIRD model
-that no document specifies. Whichever way this is decided, the protocol section
-and this row have to end up saying the same thing.
+⚠ **CONSUMERS ARE ALREADY LEARNING THE COINCIDENCE.** `BlockKind` carries exactly
+ONE predicate — `is_pogo_target()` — so every other consumer enumerates variants.
+`shared_tangle/src/projectile/collision.rs` matches `Solid | BlinkWall { .. }` at
+four sites, and `features/ecs/perception.rs:802` maps `BlinkWall { .. }` to
+`SolidKind::BlinkWall`.
 
-⭐ **MEASURED 2026-09-09: the compound row is not merely unreached, it is
-STRUCTURALLY UNREACHABLE, and that is why A2 did not have to wait.** A shot
-sweeps `ProjectileCollisionWorld::solids()` — the authored room, plus gate
-solids, minus portal carves and named removals. `overlay.blocks`, which is every
-ECS breakable surface, never enters it; the module's own contract says a
-projectile "passes through breakable/ECS overlay solids". So every block the
-projectile sweep can return is by construction an INDEPENDENT blocker, and the
-protocol's tie rule (an independent surface at equal time beats an unrelated
-hurt target) applies with no contributor identity at all. That is what
-`dc2fe7ce7` implemented. Contributor identity becomes REQUIRED for projectiles
-the moment this row is decided the second way — not before.
+⇒ **THE CONSTRAINT ON Q96's IMPLEMENTATION:** when the compound-solid row is built,
+the projectile road must ask for **collision semantics**, not for `BlinkWall`. The
+cheap shape is a predicate on `BlockKind` beside `is_pogo_target()`; adding a fifth
+`Solid | BlinkWall { .. }` arm makes the eventual repair more expensive.
+
+⛔ **AND NAME THE PREDICATE FOR THE SEMANTICS, NEVER FOR ITS CURRENT MEMBERS.** Ask
+*does this block present a solid surface to a projectile* — not
+*is_solid_or_blink_wall*. **A predicate named after its members is a match arm
+wearing a function's clothes:** it moves the enumeration without removing it, and
+the next variant still has to be added in every caller's head. ⇒ Named for the
+semantics, this is also **the cheapest repair path for the debt above** — once
+consumers ask the predicate, fixing the representation touches the predicate and
+not the consumers.
+
+**The question for Jon** is only the eventual one: should a solid breakable get its
+own `BlockKind`, or is the borrow the intended vocabulary? ⛔ Nothing is blocked on
+the answer — Q96's work proceeds either way, under the constraint above.
 
 ## Human measurements, not design answers
 

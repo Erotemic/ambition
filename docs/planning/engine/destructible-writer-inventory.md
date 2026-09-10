@@ -13,6 +13,32 @@ it is not answered here. This page records who writes destructible state TODAY, 
 that a later ownership change has a subject and Q96 has a population. **Nothing
 here licenses an extraction.**
 
+## Q96 is ruled: the COMPOUND CONTACT
+
+⭐⭐ **RULED 2026-09-10.** A published collision surface participates in projectile
+collision, and a contributor supplying both a surface and a damageable volume at
+the same time of impact yields **ONE compound contact**: damage the target once AND
+apply the projectile's physical surface response. Exemptions are a projectile's
+POLICY against a collision CLASS, never a per-target carve-out. Contributor identity
+must be **real identity** — not matching AABBs, not name strings. Ruling in
+[`maintainer-decisions.md`](../maintainer-decisions.md); engineering state in the
+[projectile contact protocol](projectile-contact-protocol.md).
+
+⇒ **What it changes for THIS page: nothing in the table.** The inventory is about
+writers, the ruling is about contact. The six mutation sites and three crates are
+unaffected.
+
+⇒ **What it changes for A5: contributor identity is now REQUIRED for projectiles**,
+not only for the player road. ⚠ **That is a statement about what must EXIST, not
+about which crate should own it.** The ownership question is unchanged and this page
+still decides nothing.
+
+⛔ **AND THE IDENTITY CLAUSE IS THIS SESSION'S OWN DEFECT FAMILY, NOW RULED.** "Not
+inferred from matching AABBs or name strings" is the same failure the SystemSet
+census hit on the same day: **135 declarations collapsing to 134 names**, where a
+shared name pools memberships and hides an empty set behind a populated one. **A key
+two things can share is not an identity.**
+
 ## The state, and where the machine lives
 
 | carrier | crate |
@@ -158,6 +184,9 @@ rule that is currently two-thirds in the domain and one-third beside it.**
 wrong, and it cannot: *"moving all destructible state first would preserve an
 incorrect split interpretation"* is the frontier's own warning, and whether the
 interpretation is correct is what Q96 decides.
+
+⭐ **Q96 IS NOW RULED (see the top of this page), so that sentence has a successor
+rather than a blocker** — and the successor is contributor identity, not a move.
 
 ## Reproduce
 

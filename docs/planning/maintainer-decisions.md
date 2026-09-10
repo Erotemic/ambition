@@ -118,6 +118,7 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 | 2026-08-22 | **FIX MARY-O'S WALK DIP PROPERLY — add a pose field that lowers the TORSO without moving `foot_y`.** | High |
 | 2026-08-22 | **THE MARY-O RESTART REPORT IS CLOSED — it was Mary-O, and it is believed RESOLVED.** | Medium |
 | 2026-08-22 | **ADVANCE THE `dev/ambition_dev_measurements` POINTER PERIODICALLY — the cadence does not matter.** | Low |
+| 2026-09-10 | **A PUBLISHED COLLISION SURFACE PARTICIPATES IN PROJECTILE COLLISION, AND A DESTRUCTIBLE'S SURFACE PLUS ITS HURT VOLUME ARE ONE COMPOUND CONTACT** — damage once AND apply the surface response. (Q96) | High |
 
 
 ## Supplemental rulings that were previously stored as long-form sections
@@ -141,6 +142,22 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 - **2026-09-05 — authorship:** what Jon explicitly authored is the demo's claim.
   Agents may polish execution, but should not replace that authored idea with a
   different move/content concept merely because it is easier to implement.
+- **2026-09-10 — projectile contact with published surfaces (Q96):** a projectile
+  must not know *"this is an ECS breakable"*; it must know *"the collision world
+  published a surface with these collision semantics."* A
+  `BreakableCollision::Solid` surface therefore participates in projectile
+  collision. Where the same contributor supplies both a surface and a damageable
+  volume at the same time of impact, they **coalesce into ONE compound contact**:
+  damage the target once **and** apply the projectile's physical surface response.
+  A bouncing shot damages a solid crate **and** bounces. *"Wall wins, therefore the
+  crate is invulnerable"* is rejected. Where the surface lies before an INSET hurt
+  volume, only the surface was reached — no damage yet.
+- **2026-09-10 — projectile exemptions are POLICY, not FAMILY (Q96):** a ghost
+  shot, phase shot, terrain-piercing round or one that ignores one-ways excludes
+  appropriate **collision CLASSES**. Never a per-target carve-out.
+- **2026-09-10 — contributor identity must be REAL identity (Q96):** not inferred
+  from matching AABBs, and not from name strings such as `"ecs-breakable foo"`.
+  This ratifies the projectile contact protocol's existing wording.
 
 ## Maintenance rule
 

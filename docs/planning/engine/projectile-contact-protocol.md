@@ -420,15 +420,34 @@ are each other's floor. With the pre-existing
 body-before-wall, wall-before-feature, feature-before-wall, the large-body near
 face, and both directions of body-versus-feature.
 
-⚠ THE COMPOUND SOLID OBJECT ROW IS STILL OPEN, and it is not reachable on this
-road. A `BreakableCollision::Solid` feature publishes a `BlinkWall` into
+⭐⭐ THE COMPOUND SOLID OBJECT ROW IS RULED (Q96, 2026-09-10) AND NOT YET BUILT.
+The ruling selects **this document's compound contact**: a published surface
+participates in projectile collision, and a contributor supplying both a surface
+and a damageable volume at the same time of impact yields ONE contact that damages
+once and also applies the physical response. A bouncing shot damages a solid crate
+AND bounces. *"Wall wins, therefore the crate is invulnerable"* is rejected. Where
+the surface lies before an INSET hurt volume, only the surface was reached — no
+damage yet. Exemptions are a projectile's POLICY against a collision CLASS, never a
+per-target carve-out. See
+[`maintainer-decisions.md`](../maintainer-decisions.md).
+
+⚠ IT IS STILL NOT REACHABLE ON THIS ROAD, WHICH IS WHAT THE WORK HAS TO CHANGE.
+A `BreakableCollision::Solid` feature publishes a `BlinkWall` into
 `FeatureEcsWorldOverlay::blocks`, but `ProjectileCollisionWorld::solids()`
-composites only `gate_solids`, `portal_carves` and `removed_block_names` — so a
-destructible's own surface is not in the world a projectile sweeps, and the tie
-rule has no compound case to get wrong yet. An attempt to witness it produced a
-test that passed under a deliberately broken comparison twice (the fixture never
-published the surface; and the landing splash broke the crate regardless of the
-direct hit), and was deleted rather than kept.
+(`ambition_projectiles/src/collision_world.rs:53`, re-read 2026-09-10) composites
+only `gate_solids`, `portal_carves` and `removed_block_names` — so a destructible's
+own surface is not in the world a projectile sweeps, and the tie rule has no
+compound case to get wrong yet.
+
+⛔⛔ TWO WARNINGS FOR WHOEVER BUILDS IT, BOTH PAID FOR ALREADY.
+* **A witness test here has passed under a deliberately broken comparison TWICE** —
+  the fixture never published the surface, and the landing splash broke the crate
+  regardless of the direct hit. It was deleted rather than kept. ⇒ Poison the
+  comparison before trusting a green.
+* **A one-word paraphrase selected the REJECTED model twice** while Q96 was being
+  relayed: *"a solid breakable stops a bolt"*, and *"a solid surface always stops a
+  shot"*. Both read as "wall wins". ⇒ The rejected model is the one that fits in a
+  short sentence, so short sentences about this row are where it comes back.
 
 **A2b — the obstruction half landed; the swept-target half has not.**
 

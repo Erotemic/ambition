@@ -318,8 +318,8 @@ the exhaustive plan.
 BETTER THAN AN ASSERTION.** A first version tried
 `app.get_sub_app(bevy::render::RenderApp)` and did not compile: the consumer has
 no `bevy` dependency of its own and the `bevy` the facade re-exports at this
-profile is built without its render feature, so `RenderApp` is not a nameable
-type from there. The absence is enforced by the type system.
+profile is built without its render feature, so `RenderApp` is not a nameable type from there. <!-- cite-ok: `RenderApp` is BEVY'S and is named here precisely because this profile CANNOT name it; resolving to no definition in this tree is the finding, not a stale citation -->
+The absence is enforced by the type system.
 
 ⛔⛔ **AND THE FIRST BODY TEST WAS VACUOUS, which the fixture's own poison
 caught.** Its room was copied from `minimal_game`, whose floor block sits at the

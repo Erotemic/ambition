@@ -899,6 +899,30 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_combat::technique::InstalledTechniques",
         "install-time declaration of which technique handlers this composition added; written once at plugin build and never by the simulation",
     ),
+    // ⭐ THE SAME KIND OF FACT AS THE TWO ABOVE, one step over: a composition
+    // DECLARING that it closes the preparation barrier with an admission check,
+    // so `CharacterPreparationPlugin`'s unchecked backstop stands down. Inserted
+    // during `build`, read during `finish`, and never touched by a tick.
+    (
+        "ambition_characters::prepared::ChecksAuthoredEffectsAtTheBarrier",
+        "install-time declaration that this composition closes the preparation barrier through the CHECKED road; inserted at plugin build, read at finish, never by the simulation",
+    ),
+    // ⛔⛔ A DIAGNOSTIC COUNTER, AND REWINDING IT WOULD BE THE BUG. It records
+    // how many damageable bodies were observed and how many were still
+    // unidentified a tick after becoming damageable — an observation about what
+    // the simulation DID, not a fact the simulation reads. A rewind restoring it
+    // would erase observations that genuinely happened, and re-simulation would
+    // then re-count them; neither direction is a state a peer needs to agree
+    // about, because nothing reads it back.
+    //
+    // ⚠ IT IS DELIBERATELY OUTSIDE THE ENVELOPE RATHER THAN ACCIDENTALLY SO. A
+    // counter inside it would make two peers disagree about a NUMBER OF
+    // OBSERVATIONS while agreeing about the world, which is a desync report
+    // about the observer.
+    (
+        "ambition_platformer2d_actor_monolith::features::ecs::body_identity::BodyIdentityCensus",
+        "diagnostic counter of damageable bodies still lacking identity; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
+    ),
     // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
     // checkpoint terminal road is split in two. "This host could not prepare the
     // destination" is decided by asset residency and construction preflight —

@@ -115,6 +115,12 @@ serde_json = "1"
 [dev-dependencies]
 # Downstream crates are unaffected; only content's dev/test profile gets the feature.
 ambition_content = { path = ".", features = ["portal"] }
+# `tests/puppy_slug_forced_seat.rs` is an INTEGRATION test, so it is its own
+# crate and compiles WITHOUT the library's `cfg(test)`. It needs the gated raw
+# closer, and `[dependencies]` above deliberately does not carry the feature:
+# a dev-dependency's features do not reach a normal build under resolver 2, so
+# the bypass stays absent from anything that ships.
+ambition_characters = { path = "../../crates/ambition_characters", features = ["test-support"] }
 # The CLI's schema composition, so `content_pack_registry` can check it against the one the GAME
 # compiles with. Test-only: the CLI links no content and no renderer, so this costs the dev
 # profile nothing it does not already have.

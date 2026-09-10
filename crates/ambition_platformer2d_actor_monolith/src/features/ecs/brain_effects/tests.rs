@@ -88,6 +88,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
                 commitment: RangedCommitment::Attempt,
             },
+            move_instance: None,
         });
     app.update();
     let projectiles = live_projectile_bodies(&mut app);
@@ -140,6 +141,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
                 commitment: RangedCommitment::Attempt,
             },
+            move_instance: None,
         });
     app.update();
     let mut q = app
@@ -182,6 +184,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
                 dir_policy: ae::GameplayFramePolicy::ControlledBodyLocal,
                 commitment: RangedCommitment::Attempt,
             },
+            move_instance: None,
         });
     app.update();
     let projectiles = live_projectile_bodies(&mut app);
@@ -212,6 +215,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
                 commitment: RangedCommitment::Attempt,
             },
+            move_instance: None,
         });
     app.update();
     assert!(
@@ -281,6 +285,7 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
                     dir_policy: ae::GameplayFramePolicy::WorldSpace,
                     commitment,
                 },
+                move_instance: None,
             });
         app.update();
         live_projectile_bodies(&mut app).len()
@@ -374,6 +379,7 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
                     dir_policy: ae::GameplayFramePolicy::WorldSpace,
                     commitment: RangedCommitment::Attempt,
                 },
+                move_instance: None,
             });
         app.update();
         let projectiles = live_projectile_bodies(&mut app);
@@ -437,6 +443,7 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
                     dir_policy: ae::GameplayFramePolicy::WorldSpace,
                     commitment: RangedCommitment::Attempt,
                 },
+                move_instance: None,
             });
         app.update();
         app.world_mut()

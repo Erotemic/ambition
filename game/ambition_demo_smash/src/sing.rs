@@ -190,6 +190,7 @@ mod tests {
                 )
                 .expect("sleep params serialize"),
             },
+            move_instance: None,
         });
     }
 

@@ -65,7 +65,7 @@ fn fire(app: &mut App, actor: Entity) {
             .expect("bolt params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request });
+        .write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 

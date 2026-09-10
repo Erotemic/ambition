@@ -4,8 +4,7 @@ use bevy::prelude::*;
 
 use ambition_boss_encounter::BossClusterRef;
 use ambition_characters::brain::{
-    action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
-    SpecialActionSpec,
+    ActorActionMessage, BossAttackProfile, BossAttackState,
 };
 use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
@@ -139,21 +138,10 @@ pub fn spawn_apple_rain_from_special_messages(
     // Bosses with an `apple_rain` Special this tick. Multiple messages from one
     // boss collapse to the same entry — "any message this tick" = "strike
     // window active this tick".
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == APPLE_RAIN_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, APPLE_RAIN_KEY);
 
     for (entity, mut state, boss_feature, health) in &mut bosses {
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             // No message this tick → reset accumulator so a future
             // strike window starts on a clean beat.
             state.spawn_accum = 0.0;
@@ -196,7 +184,9 @@ pub fn spawn_apple_rain_from_special_messages(
                     boomerang_return_s: None,
                 },
                 ProjectileStart::StepThisTick,
-            ));
+            )
+            .fired_by_move_if_any(firing.get(&entity).copied().flatten()),
+            );
             state.spawn_index = state.spawn_index.wrapping_add(1);
         }
     }
@@ -336,18 +326,7 @@ pub fn spawn_overfit_volley_from_special_messages(
 ) {
     let dt = world_time.sim_dt();
 
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == OVERFIT_VOLLEY_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, OVERFIT_VOLLEY_KEY);
 
     for (entity, boss_feature, health, attack_state, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
@@ -399,7 +378,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             }
             // Strike hasn't fired yet — keep the gate open.
             state.fired_this_strike = false;
-        } else if firing.contains(&entity) {
+        } else if firing.contains_key(&entity) {
             let (shot_speed, damage) = (OVERFIT_VOLLEY_SHOT_SPEED, OVERFIT_VOLLEY_SHOT_DAMAGE);
             if !state.fired_this_strike {
                 let origin = boss.kin.pos + boss.config.behavior.projectile_origin_offset;
@@ -427,7 +406,9 @@ pub fn spawn_overfit_volley_from_special_messages(
                             boomerang_return_s: None,
                         },
                         ProjectileStart::StepThisTick,
-                    ));
+                    )
+                    .fired_by_move_if_any(firing.get(&entity).copied().flatten()),
+                    );
                 }
                 state.fired_this_strike = true;
                 state.samples.clear();
@@ -498,18 +479,7 @@ pub fn spawn_minima_trap_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == MINIMA_TRAP_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, MINIMA_TRAP_KEY);
 
     for (entity, boss_feature, health, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
@@ -519,7 +489,7 @@ pub fn spawn_minima_trap_from_special_messages(
                 .map(|kin| kin.aabb().center())
                 .or(Some(t.pos))
         });
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             // Strike window closed — reset the fired gate so the next
             // strike re-spawns the pit.
             state.fired_this_strike = false;
@@ -645,22 +615,11 @@ pub fn spawn_saddle_point_from_special_messages(
 ) {
     let dt = world_time.sim_dt();
 
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == SADDLE_POINT_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, SADDLE_POINT_KEY);
 
     for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             // Strike closed — despawn any lingering hitboxes and
             // reset state so the next strike starts clean.
             if let Some(h) = state.horizontal_hitbox.take() {
@@ -821,22 +780,11 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
     >,
 ) {
     let minion_count = GRADIENT_CASCADE_MINION_COUNT;
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == GRADIENT_CASCADE_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, GRADIENT_CASCADE_KEY);
 
     for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             // Strike closed — reset gate.
             state.fired_this_strike = false;
             continue;

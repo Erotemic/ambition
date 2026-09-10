@@ -349,6 +349,7 @@ fn actor_action_message_predicates_match_request_variant() {
             facing: 1.0,
             attack_axis: ae::LocalAxes::ZERO,
         },
+        move_instance: None,
     };
     assert!(m_melee.is_melee());
     assert!(!m_melee.is_ranged());
@@ -360,6 +361,7 @@ fn actor_action_message_predicates_match_request_variant() {
             spec: SpecialActionSpec::Special("bubble_shield".to_string()),
             params: Default::default(),
         },
+        move_instance: None,
     };
     assert!(m_special.is_special());
     assert!(!m_special.is_melee());

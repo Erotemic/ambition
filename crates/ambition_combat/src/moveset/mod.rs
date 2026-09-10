@@ -4187,10 +4187,32 @@ pub fn mark_move_playback_resolved_hits(
 /// of a move, so *"not attributable to this move"* may be FALSE for them.
 /// Refusing `None` there is a gameplay ruling, not a bug fix.
 ///
-/// ✔ **THE PROJECTILE CASE NEEDED NEITHER.** A shot now carries the instance of
-/// the move that fired it, from the firing event, so its verdict names its
-/// author and never reaches the `None` branch. See
+/// ⛔⛤ **THE PROJECTILE CASE WAS TWO ROADS, AND THIS NOTE ONLY EVER DESCRIBED
+/// ONE.** It said *"a shot now carries the instance of the move that fired it,
+/// from the firing event, so its verdict names its author and never reaches the
+/// `None` branch"* — true of `MoveEventKind::Ranged`, which is the road it was
+/// written beside. **FALSE of `MoveEventKind::Effect`**, where a move's
+/// `sustain_effect` becomes an
+/// [`ActionRequest::Special`](ambition_characters::brain::action_set::ActionRequest::Special),
+/// a content technique reads it, and the technique spawns the shot. Every boss
+/// special's bolt went out with `move_instance: None` and DID reach the `None`
+/// branch. `overfit_volley`'s live 2.4s, long enough for the authoring move to
+/// end and the next one to collect the hit.
+///
+/// ⚠ **A CORRECT SENTENCE ABOUT ONE ROAD READS AS A CLAIM ABOUT THE SUBJECT.**
+/// Nothing was wrong with the words; the scope was never stated, so the note
+/// closed the question for a reader standing on either road.
+///
+/// ✔ **BOTH ROADS CARRY IT NOW.** `ActorActionMessage::move_instance` threads
+/// the occurrence through the `Special` channel, and the technique spends it on
+/// `ProjectileSpawnRequest::fired_by_move_if_any`. Witnessed on the moveset side
+/// by `two_uses_of_an_effect_move_bridge_to_two_different_occurrences` and on
+/// the content side by `a_nova_bolt_carries_the_move_use_that_fired_it`. See
 /// `ambition_projectiles::FiredByMoveInstance`.
+///
+/// ⭐ **`None` REMAINS A REAL ANSWER on both.** A brain that presses its special
+/// with no move behind it has no use to name, and inventing one would deny a
+/// real move its own hit.
 fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
     instance.is_none_or(|earned| earned == pb.instance)
 }
@@ -4303,6 +4325,14 @@ pub fn dispatch_move_events(
                         spec: SpecialActionSpec::Special(effect.key.clone()),
                         params: effect.params.clone(),
                     },
+                    // ⛔⛤ THE PROVENANCE TRAVELS WITH THE REQUEST. A keyed
+                    // technique may spawn a projectile that flies for seconds;
+                    // the bolt's damage result has to name THIS use of the
+                    // move, not whatever plays when it lands. The value is
+                    // `ev.move_instance` — stamped where the event was emitted,
+                    // with the emitting playback in hand. Re-reading the
+                    // owner's playback inside the technique IS the defect.
+                    move_instance: Some(ev.move_instance),
                 });
             }
             MoveEventKind::Ranged => {
@@ -4397,6 +4427,11 @@ pub fn dispatch_move_events(
                         dir,
                         dir_policy,
                     },
+                    // The same instance the commitment above carries. The
+                    // commitment answers *may this shot spend?*; this field
+                    // answers *whose move earned the hit?* — two questions, one
+                    // number, and they must not be allowed to disagree.
+                    move_instance: Some(ev.move_instance),
                 });
             }
             // UNREACHABLE BY CONSTRUCTION, and named rather than swept into

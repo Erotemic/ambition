@@ -1512,6 +1512,7 @@ pub fn fire_held_ranged_system(
                 // as it does to every other body that fires this weapon.
                 commitment: ambition_characters::brain::action_set::RangedCommitment::Attempt,
             },
+            move_instance: None,
         });
     }
 }

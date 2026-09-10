@@ -57,7 +57,7 @@ fn drop_plate(app: &mut App, actor: Entity) {
             .expect("spring params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request });
+        .write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 
@@ -344,6 +344,7 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
             params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&authored)
                 .expect("spring params serialize"),
         },
+        move_instance: None,
     });
     placed.update();
     assert_eq!(
@@ -403,6 +404,7 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
             })
             .expect("spring params serialize"),
         },
+        move_instance: None,
     });
     quiet.update();
     let quiet_cues = {

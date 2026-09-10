@@ -84,7 +84,7 @@ fn answer(app: &mut App, actor: Entity, params: &RiposteStrikeParams) {
             .expect("riposte params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request });
+        .write_message(ActorActionMessage { actor, request, move_instance: None });
     // Twice: the first tick spawns the cut through `Commands`, the second
     // resolves it. Nothing here depends on which sync point Bevy chooses.
     app.update();
@@ -376,6 +376,7 @@ fn another_technique_does_not_cut() {
     app.world_mut().write_message(ActorActionMessage {
         actor: defender,
         request,
+        move_instance: None,
     });
     app.update();
     app.update();

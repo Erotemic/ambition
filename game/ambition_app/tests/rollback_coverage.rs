@@ -923,6 +923,20 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::features::ecs::body_identity::BodyIdentityCensus",
         "diagnostic counter of damageable bodies still lacking identity; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
     ),
+    // ⛔ THE SAME SHAPE AS THE CENSUS ABOVE, AND WAIVED FOR THE SAME REASON.
+    // It counts bodies the identity SWEEPER declined to name — `ensure_sim_id`'s
+    // `(None, None)` arm — over `BodyKinematics`, a wider population than the
+    // damageable pair above. Both are observations about what the simulation
+    // DID, and nothing reads either back.
+    //
+    // ⚠ IT IS A DIFFERENT SUBJECT, NOT A DUPLICATE. One asks whether each
+    // construction ROAD produced identified bodies; this asks whether a body the
+    // sweeper SKIPPED is nameable. A waiver that covered "the identity census"
+    // as one thing would hide the day the second one starts counting.
+    (
+        "ambition_platformer2d_runtime::sim_identity::UnmintedBodyCensus",
+        "diagnostic counter of bodies the identity sweeper declined to name; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
+    ),
     // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
     // checkpoint terminal road is split in two. "This host could not prepare the
     // destination" is decided by asset residency and construction preflight —

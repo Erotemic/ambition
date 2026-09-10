@@ -4,8 +4,7 @@ use bevy::prelude::*;
 
 use ambition_boss_encounter::BossClusterRef;
 use ambition_characters::brain::{
-    action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
-    SpecialActionSpec,
+    ActorActionMessage, BossAttackProfile, BossAttackState,
 };
 use ambition_combat::components::ActorTarget;
 use ambition_platformer2d::actor::FeatureSimEntity;
@@ -77,18 +76,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == MODE_COLLAPSE_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, MODE_COLLAPSE_KEY);
 
     for (entity, boss_feature, health, attack_state, mut state, actor_target) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
@@ -114,7 +102,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
             state.fired_this_strike = false;
             continue;
         }
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             state.locked_target = None;
             state.fired_this_strike = false;
             continue;
@@ -145,7 +133,9 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
                     boomerang_return_s: None,
                 },
                 ProjectileStart::StepThisTick,
-            ));
+            )
+            .fired_by_move_if_any(firing.get(&entity).copied().flatten()),
+            );
         }
         state.fired_this_strike = true;
         state.locked_target = None;

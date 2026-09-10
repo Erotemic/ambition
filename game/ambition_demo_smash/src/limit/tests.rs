@@ -245,6 +245,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
             )
             .expect("fill params serialize"),
         },
+        move_instance: None,
     });
     cloud.update();
     assert_eq!(

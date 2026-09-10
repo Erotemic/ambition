@@ -14,6 +14,43 @@
 
 use bevy::prelude::*;
 
+/// Which actors a `Special(<key>)` message names this tick, and **the use of
+/// the move that asked for it**.
+///
+/// ⛔⛤ THE OCCURRENCE COMES FROM THE MESSAGE, AND A TECHNIQUE MUST NOT
+/// RE-DERIVE IT. A technique frequently spawns a projectile that flies for
+/// seconds. By the time the bolt lands, the move that fired it can be over and
+/// a different move can be playing on the same body. A damage result that
+/// carries no occurrence is credited to whatever plays at that moment — the A12
+/// defect. So the occurrence travels with the request, and reading the owner's
+/// `MovePlayback` inside a technique reintroduces exactly the bug this avoids.
+///
+/// ⭐ `None` IS A CORRECT ANSWER. A boss brain that presses its special
+/// directly, with no move behind it, has no occurrence to give. Techniques pass
+/// the `Option` through unchanged rather than inventing a number.
+///
+/// Returns a map rather than a set because every caller needs the value, and a
+/// set makes the value unavailable at exactly the site that has to spend it.
+pub(crate) fn actors_firing(
+    messages: &mut MessageReader<ambition_characters::brain::ActorActionMessage>,
+    key: &str,
+) -> std::collections::HashMap<Entity, Option<u32>> {
+    use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
+    let mut firing = std::collections::HashMap::new();
+    for msg in messages.read() {
+        if let ActionRequest::Special {
+            spec: SpecialActionSpec::Special(fired),
+            ..
+        } = &msg.request
+        {
+            if fired == key {
+                firing.insert(msg.actor, msg.move_instance);
+            }
+        }
+    }
+    firing
+}
+
 mod echo_fan;
 mod eye_beam;
 mod gradient_nova;

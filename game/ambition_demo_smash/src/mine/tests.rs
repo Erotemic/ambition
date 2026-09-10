@@ -58,7 +58,7 @@ fn press(app: &mut App, actor: Entity) {
             .expect("place-mine params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request });
+        .write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 

@@ -105,6 +105,7 @@ fn fire(app: &mut bevy::prelude::App, body: bevy::prelude::Entity, params: Trapd
             params: ambition_entity_catalog::ParamValue::from_typed(&params)
                 .expect("trapdoor params serialize"),
         },
+        move_instance: None,
     });
     app.update();
 }

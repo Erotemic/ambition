@@ -109,7 +109,12 @@ pub fn tick_controlled_brains(
             // indistinguishable from driving — measured, the player kept
             // travelling its full 180px with the seat refused. "Refuse" has to
             // mean the stick reaches nothing, not "carry on with what you had".
-            *control = ActorControl::default();
+            // ⭐ `neutral()`, THE SPELLING THIS TYPE DOCUMENTS — "construction goes
+            // through `ActorControlFrame::neutral`" — and the one
+            // `blank_scripted_control_frames` twelve lines up already uses for
+            // the same job. `default()` is equal to it and is a second name for
+            // one fact.
+            control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             continue;
         }
         let input = slots.get(slot);

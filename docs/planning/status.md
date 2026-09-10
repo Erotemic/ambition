@@ -115,14 +115,18 @@ Stated per packet instead:
   stands down on `ChecksAuthoredEffectsAtTheBarrier`, and the public
   `close_preparation_barrier` for a host that installs none.
   ⚠ **ALL THREE A11 BLOCKERS ARE CLOSED. A11 HAS NO OPEN BLOCKER.**
-- **A12** — ⛔ **PROPAGATION LANDED (`f9baa86e8`); OCCURRENCE IDENTITY DID NOT.**
+- **A12** — **PROPAGATION LANDED (`f9baa86e8`), THEN IDENTITY (`106c349b5`). TWO
+  BLOCKERS REMAIN OPEN.**
   This line read *"NOT fixed"*, then *"LANDED"*, and both were wrong. What landed
   closes the DIRECT-REPLACEMENT case, where `succeeding(Some(prev))` genuinely
-  increments. ⛔ **`MovePlayback::instance` is a WITHIN-CHAIN ORDINAL, not a
-  body-local identity**: `new_at` sets it to `0` and `succeeding(None)` maps back
-  to `0`, and the playback component is REMOVED when a move ends — so a move
-  starting after an idle gap carries `0` again, and a shot stamped `0` by an
-  earlier move is credited to it. ⚠ Concretely reachable: `officer_the_draw`
+  increments. ✅ **IDENTITY FIXED IN `106c349b5`**: `MoveOccurrence(u32)` now lives
+  on the BODY, advances at `start_move`, and is NEVER REMOVED, so an idle gap keeps
+  its count. `MovePlayback::instance` copies it, and `succeeding()`/`replacing` were
+  deleted in the same change. ⚠ It WAS a within-chain ordinal — `new_at` set `0` and
+  `succeeding(None)` mapped back to `0` while the playback is removed when a move
+  ends, so a move starting after an idle gap carried `0` again and took credit for
+  a shot stamped `0` by an earlier one. ⭐ The same field stamped MELEE strike
+  volumes, so the two roads had one defect between them. ⚠ Concretely reachable: `officer_the_draw`
   fires at 0.348s and ends at 0.696s while its projectile lives up to 2.4s.
   ⛔ **Reflection** re-owns a shot to the interceptor (`intercept.rs:82`) and
   leaves `FiredByMoveInstance` untouched, pairing a new owner with the old

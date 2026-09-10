@@ -17,6 +17,7 @@ mod common;
 mod app_it_sync;
 
 mod a_dropped_item_falls;
+mod one_body_two_tickers;
 mod installed_techniques_are_declared;
 mod authored_effects_are_admitted;
 mod latched_input_reaches_the_tick;

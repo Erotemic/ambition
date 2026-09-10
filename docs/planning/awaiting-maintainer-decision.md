@@ -330,6 +330,54 @@ pointer bump; do **not** repoint the parent at a deletable agent-only commit. In
 the same change, flip `scripts/check_pinned_music_renderer_refuses_gm.py` from
 reporting to gating.
 
+## Q97 — a character authors a technique this composition did not install: refuse, or degrade?
+
+**Measured 2026-09-09, by turning A11's admission pass on at the preparation
+barrier and reading what it refused.** Wired as a refusal first, it reddened
+seven application tests, and EVERY refusal was a `smash.*` key in a composition
+that does not install `ambition_demo_smash`:
+
+```
+mary_o / mary_o_grab   / WindowSustain{1} : smash.capture_attempt
+mary_o / mary_o_pummel / Event{0}         : smash.capture_pummel
+mary_o / mary_o_fthrow / Event{0}         : smash.capture_throw   (+ b/u/d throws)
+```
+
+⛔ **THE MOVES ALREADY PLAY AND DO NOTHING THERE — the pass found that, it did
+not cause it.** `mary_o`'s grab, pummel and four throws name Smash's capture
+techniques. The capture REQUESTS are engine types in `ambition_combat`
+(`CaptureAttemptRequested` and friends); only the authored-effect TRANSLATION
+lives in `ambition_demo_smash::capture`. So any composition that wants grabs
+without composing the Smash demo gets a silent no-op on six moves.
+
+⚠ **AND THE TABLE CANNOT TELL THE TWO CASES APART.** `TechniqueSupport` knows
+only what THIS composition declared, so a genuine typo (`smash.teleprot`) and a
+technique some OTHER composition installs are both `Unknown` to it. Refusing on
+`Unknown` therefore cannot be narrowed to typos without a workspace-wide key
+registry, which does not exist.
+
+⇒ Three answers, and they are not equivalent:
+
+1. **Degrade loudly (what is implemented today).** The whole refusal list is
+   logged at `error!` at STARTUP instead of one `warn!` per move mid-fight,
+   which is the failure A11 exists to remove. The shipped composition is
+   separately ASSERTED to have zero refusals
+   (`authored_effects_are_admitted.rs`), so the guarantee is enforced where it
+   can be. Costs: an unsupported move still silently does nothing at runtime.
+2. **Refuse the definition.** Meets the acceptance row as written ("invalid or
+   uninstalled calls cannot publish definitions") and breaks every composition
+   that authors a technique it does not install — today that is `mary_o`
+   outside the Smash host.
+3. **Fix the layering instead: make capture an ENGINE technique.** Its requests
+   already are. Moving `translate_smash_capture_effects` into the engine
+   composition would make `mary_o`'s grabs work everywhere and shrink the
+   question to genuine typos — after which (2) becomes affordable.
+
+⚠ Not a feel ruling: it decides whether authored content may name a capability
+its host did not compose, which is the same question the SDK's minimum-profile
+work (A9) asks from the other side. Owner document:
+[authored technique admission](engine/authored-technique-admission.md).
+
 ## Q96 — should a projectile collide with an ECS breakable's published surface?
 
 **Measured 2026-09-09, while closing A2b.** A breakable authored

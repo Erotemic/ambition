@@ -18,12 +18,9 @@ pub use ambition_entity_catalog::{
     TechniqueRefusal, TechniqueSupport,
 };
 
-/// The techniques this composition installed handlers for.
-///
-/// ⭐ A KEY IN HERE MEANS SOMETHING INSTALLED ANSWERS IT, because the only way in
-/// is the statement that adds the handler system. That is the property a
-/// metadata registry cannot have, and the reason its predecessor —
-/// `ParamSchemaRegistry`, which had zero production callers — could not tell a
-/// misspelled effect key from a real one.
-#[derive(bevy::prelude::Resource, Default)]
-pub struct InstalledTechniques(pub TechniqueSupport);
+/// Re-exported: the shell moved to `ambition_characters::technique` because the
+/// admission pass reads it at the character PREPARATION barrier, and that crate
+/// cannot name this one. Effect execution still lives here; only the table's
+/// definition moved down, so every `ambition_combat::technique::InstalledTechniques`
+/// path keeps resolving.
+pub use ambition_characters::technique::InstalledTechniques;

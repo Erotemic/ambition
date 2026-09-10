@@ -1842,12 +1842,80 @@ fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
         .get_resource::<PreparedCharacterRegistry>()
         .map(PreparedCharacterRegistry::generation)
         .unwrap_or_default();
-    world.insert_resource(finalize_cast(
+    // ⛔⛔ **THE STRICT ADMISSION PASS, AND IT RUNS BEFORE THE REGISTRY IS
+    // PUBLISHED.** `TechniqueSupport::admit` has refused unknown keys, params on
+    // a paramless key, and params that do not hydrate since A11a — and had NO
+    // production caller over authored effects, so none of it ever ran. A
+    // misspelled `smash.teleprot` matched no handler, fell out of every
+    // consumer, and surfaced as a `warn!` in the middle of a fight on a move
+    // that plays and does nothing.
+    //
+    // ⭐ `MoveSpec::effect_refs` is A11b's exhaustive visitor: it destructures
+    // without `..` at every level, so a fifth effect site is a compile error
+    // rather than a silent gap. The two halves existed and nothing joined them;
+    // this is the join.
+    //
+    // ⛔⛔ **IT REPORTS RATHER THAN REFUSES, AND THE MEASUREMENT IS WHY.** Wired
+    // as a panic first — like `install_technique`'s conflict — it reddened seven
+    // application tests, and every refusal was a `smash.*` key in a composition
+    // that does not install `ambition_demo_smash`. `mary_o`'s grab, pummel and
+    // four throws author `smash.capture_*`; the capture REQUESTS
+    // (`CaptureAttemptRequested` and friends) are engine types in
+    // `ambition_combat`, and only the authored-effect TRANSLATION lives in the
+    // Smash demo. So a character in any other composition names a technique
+    // nothing there answers, and those moves already play and do nothing.
+    //
+    // ⇒ That is a real content-layering defect this pass FOUND, not one it
+    // caused, and refusing to boot over it would break shipped compositions to
+    // punish them for a gap they did not create. `TechniqueSupport` cannot tell
+    // the two apart either: a typo and a technique installed by some OTHER
+    // composition are both `Unknown` to a table that only knows what THIS
+    // composition declared.
+    //
+    // ⭐ So the guarantee stands where it can be enforced: the SHIPPED
+    // composition is asserted to have zero refusals by
+    // `authored_effects_are_admitted.rs`, and every other composition gets the
+    // whole list at STARTUP instead of one `warn!` per move mid-fight — which
+    // was the actual failure this packet exists to remove. Whether an
+    // uninstalled technique should refuse the definition outright is a content
+    // ruling; see the maintainer ledger.
+    //
+    // `admit_all` collects every refusal first so an author sees all of them at
+    // once rather than one per run.
+    //
+    // ⚠ AND `kit`'s MOVESET, NOT `authored_moveset`: the kit always carries one
+    // (derived from the action set when the character authored no timelines), so
+    // this is the full set of effects a body wearing this character can reach.
+    let prepared = finalize_cast(
         staged.into_values(),
         catalog.as_ref(),
         profiles.as_ref(),
         previous,
-    ));
+    );
+    if let Some(installed) = world.get_resource::<crate::technique::InstalledTechniques>() {
+        let mut refusals: Vec<String> = Vec::new();
+        for (id, definition) in prepared.iter() {
+            let Some(moveset) = definition.kit.projectable_moveset() else {
+                continue;
+            };
+            for mv in &moveset.moves {
+                for (site, effect) in mv.effect_refs() {
+                    if let Err(refusal) = installed.0.admit(effect) {
+                        refusals.push(format!("{id} / {} / {site:?}: {refusal}", mv.id));
+                    }
+                }
+            }
+        }
+        if !refusals.is_empty() {
+            bevy::prelude::error!(
+                "{} authored effect(s) name a technique this composition does not \
+                 support, so the moves carrying them will play and do nothing:\n    {}",
+                refusals.len(),
+                refusals.join("\n    ")
+            );
+        }
+    }
+    world.insert_resource(prepared);
 }
 
 #[cfg(test)]

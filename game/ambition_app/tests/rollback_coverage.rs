@@ -886,8 +886,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // rewind restoring it would restore the same table it already holds. What it
     // records is which capabilities this build installed, which cannot change
     // while the build runs.
+    // ⚠ The path is `ambition_characters` and not `ambition_combat`: the shell
+    // moved down so the character PREPARATION barrier — which is in that crate,
+    // and cannot name `ambition_combat` — can read the table to admit authored
+    // effects. `ambition_combat::technique` re-exports it, so this waiver has to
+    // name the DEFINING crate, which is what the census reports.
     (
-        "ambition_combat::technique::InstalledTechniques",
+        "ambition_characters::technique::InstalledTechniques",
         "install-time declaration of which technique handlers this composition added; written once at plugin build and never by the simulation",
     ),
     // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the

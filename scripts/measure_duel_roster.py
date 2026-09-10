@@ -84,15 +84,33 @@ def rosters() -> tuple[set[str], set[str]]:
     """`(PLAYABLE_ROSTER, KNOWN_BARE_REGISTRATIONS)` — two published vocabularies.
 
     ⚠ A grid id is not a playable one and neither is a bare registration, and the
-    three answer different questions. `npc_carl_stargan` is on the grid, is NOT
-    playable, and authors no body at all — reporting his zero as a fighter's is
-    how a content defect gets filed as an AI defect.
+    three answer different questions.
+
+    ⛔ **AND THE BARE LIST IS EMPTY AS OF 2026-09-10.** It carried
+    `npc_carl_stargan`, and this file's own header used to cite his 0.00 as "a
+    character with no authored body being seatable as a fighter". He authors a
+    locomotion, a moveset and vitals; the EXEMPTION was stale, not the roster.
+    A row classified `bare-registration` today would be a fact about a list
+    nobody had re-derived.
     """
     src = CATALOG.read_text(encoding="utf-8")
     block = src[src.index("pub const PLAYABLE_ROSTER") :]
     playable = set(re.findall(r'^\s*"([a-z_0-9]+)",', block[: block.index("];")], re.M))
+    # ⛔⛔ BOUND THE SCAN BY THE LIST, NOT BY A WINDOW WIDTH. This read a fixed
+    # 400 characters past the name, so when the list was emptied to `&[]` on
+    # 2026-09-10 the regex kept reading and returned `{"unused"}` -- a string
+    # literal from unrelated code below it. A parser with no terminator does not
+    # return "nothing"; it returns whatever comes next, and the caller cannot
+    # tell the two apart.
     bare_at = src.index("KNOWN_BARE_REGISTRATIONS")
-    bare = set(re.findall(r'^\s*"([a-z_0-9]+)",\s*$', src[bare_at : bare_at + 400], re.M))
+    open_at = src.index("&[", bare_at)
+    close_at = src.index("];", open_at)
+    # ⚠ THE ID, NOT THE REASON. Each entry is `("<id>", "<why>")`, and a regex
+    # over every quoted word in the block returns both -- caught by a poison
+    # that planted `("npc_poison_probe", "why")` and got a set of two. Real
+    # reasons are prose and would not have matched, so this would have stayed
+    # invisible until an exemption arrived with a one-word reason.
+    bare = set(re.findall(r'\(\s*"([a-z_0-9]+)"', src[open_at:close_at]))
     return playable, bare
 
 

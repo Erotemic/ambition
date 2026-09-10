@@ -20,9 +20,15 @@ def _module():
 def test_the_two_published_vocabularies_are_read():
     """⛔ A GRID ID, A PLAYABLE ID AND A BARE REGISTRATION ARE THREE THINGS.
 
-    `npc_carl_stargan` is on the grid, is NOT on `PLAYABLE_ROSTER`, and authors
-    no body — reporting his zero as a fighter's is how a content defect gets
-    filed as an AI defect.
+    ⛔⛔ AND THIS TEST USED TO ASSERT `npc_carl_stargan in bare`, WHICH WAS A
+    FACT ABOUT A STALE EXEMPTION. `KNOWN_BARE_REGISTRATIONS` was emptied on
+    2026-09-10 once he was measured to author a locomotion, a moveset and
+    vitals. Pinning a member of that list pins the content, not the parser.
+
+    ⚠ The parser is what this asserts now, and the empty case is the one that
+    bit: reading a fixed window past the name returned `{"unused"}` — a string
+    literal from unrelated code below the list — so the caller could not tell
+    "no exemptions" from "the scan ran off the end".
     """
     module = _module()
     playable, bare = module.rosters()
@@ -30,8 +36,16 @@ def test_the_two_published_vocabularies_are_read():
         "the playable roster no longer parses; every row would read `grid-only` "
         "and the table's own classification would silently stop working"
     )
-    assert "npc_carl_stargan" in bare
     assert "npc_carl_stargan" not in playable
+    assert all(b.startswith(("npc_", "smash_")) or "_" in b for b in bare), (
+        f"the bare-registration scan returned {bare!r}, which does not look like "
+        "character ids — it has run off the end of the list again"
+    )
+    assert "unused" not in bare, (
+        "the bare-registration scan picked up a string literal from the code "
+        "BELOW the list, which is what an unbounded window does when the list "
+        "is empty"
+    )
 
 
 def test_a_gate_failure_and_a_harness_failure_are_different_rows(tmp_path):

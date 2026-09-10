@@ -916,8 +916,14 @@ pub struct AmbitionGameSimulationPlugin;
 impl Plugin for AmbitionGameSimulationPlugin {
     fn build(&self, app: &mut App) {
         // `init_sandbox_resources` composes provider catalogs before building
-        // the asset manifest and world/session resources. The later content
-        // plugin registration is byte-identical and therefore idempotent.
+        // the asset manifest and world/session resources.
+        //
+        // ⚠ THIS NOTE USED TO END *"the later content plugin registration is
+        // byte-identical and therefore idempotent"* — a sentence that is a SYNC
+        // where an authority belongs, and it was load-bearing for exactly one
+        // fact: the starter `OwnedItems` roster, inserted here and again by the
+        // content side. The roster now has one home (`AmbitionContentPlugin`)
+        // and nothing here needs the two to agree.
         init_sandbox_resources(app);
         add_simulation_plugins(app);
     }

@@ -41,6 +41,23 @@ impl Plugin for AmbitionContentPlugin {
                 .clone(),
         );
 
+        // ⛔⛔ **WHAT THE GAME STARTS OWNING, STATED ONCE.** This line was in TWO
+        // places: `ambition_app`'s `init_sandbox_resources` and
+        // `AmbitionItemRosterPlugin`, which the app installs from
+        // `install_menu_setup_and_hotkeys`. The windowed app ran both and the
+        // headless harness ran only the first, so each composition saw one and
+        // neither reader could tell there were two. `plugins.rs` said so out
+        // loud — *"the later content plugin registration is byte-identical and
+        // therefore idempotent"* — which is a SYNC standing in for an authority.
+        //
+        // ⭐ AND THE ROSTER PLUGIN'S OWN COMMENT ALREADY NAMED THE RIGHT HOME:
+        // *"the 24-item catalog ownership model is always-on core state (pickups
+        // and dialogue read/write it regardless of which menu renders it)"*. It
+        // sat behind a menu installer anyway. This plugin is the one production
+        // installer both compositions reach, and the catalog above is lowered
+        // three lines up — the roster is what the catalog is a roster OF.
+        app.insert_resource(ambition_items::OwnedItems::starter());
+
         // Register Ambition's adaptive music catalog under its content provider.
         #[cfg(feature = "audio")]
         {

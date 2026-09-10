@@ -31,8 +31,11 @@ impl Plugin for AmbitionItemRosterPlugin {
         // reusable renderer names none of the asset paths.
         held_visuals::register(app);
 
-        // The 24-item catalog ownership model is always-on core state (pickups
-        // and dialogue read/write it regardless of which menu renders it).
-        app.insert_resource(ambition_items::OwnedItems::starter());
+        // ⚠ THE ROSTER STATE IS NOT HERE ANY MORE, and this plugin's own former
+        // comment is why: *"always-on core state (pickups and dialogue
+        // read/write it regardless of which menu renders it)"* — while this
+        // plugin is installed from `install_menu_setup_and_hotkeys`. It lives in
+        // `AmbitionContentPlugin` now, which every composition installs. What
+        // stays here is what actually is presentation: the item ART above.
     }
 }

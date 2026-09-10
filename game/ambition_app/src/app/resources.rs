@@ -354,11 +354,13 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
         .insert_resource(Platformer2dFeelTuningMonolith::default())
-        // The OwnedItems catalog is simulation state, not only presentation UI
-        // state. Headless Platformer2dSimHarness runs quest reward systems (which grant into
-        // OwnedItems) without loading `add_presentation_plugins`, so the resource
-        // must exist before the first Update tick.
-        .insert_resource(ambition_platformer2d::items::OwnedItems::starter())
+        // ⚠ `OwnedItems` IS NOT INSERTED HERE ANY MORE. The reason this line
+        // gave — *"headless `Platformer2dSimHarness` runs quest reward systems
+        // without loading `add_presentation_plugins`, so the resource must exist
+        // before the first Update tick"* — is still true, and it is now answered
+        // by `AmbitionContentPlugin`, which `add_simulation_plugins` installs in
+        // both compositions. Two build-time inserts of the same value is one
+        // authority too many; see the note there.
         .insert_resource(editable_abilities)
         // The neutral authority the SIMULATION reads, seeded from authored
         // content. `editable_tuning` beside it is the inspector's reflected

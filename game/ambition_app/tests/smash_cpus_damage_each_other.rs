@@ -6,6 +6,7 @@
 
 use ambition_demo_smash::select::SmashRoster;
 use ambition_demo_smash::SMASH_DUELIST_BRAIN;
+use ambition_platformer2d::characters::brain::CharacterBrainTemplate;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
@@ -78,6 +79,30 @@ fn rung() -> u8 {
                  four seats nobody and spends a full duel finding out."
             )
         })
+}
+
+/// The `Brain::label()` a resolved controller template must produce.
+///
+/// ⛔⛔ EXHAUSTIVE ON PURPOSE, AND IT MUST STAY THAT WAY. A tenth template has
+/// to fail to COMPILE here rather than fall into a `_ =>` that certifies
+/// whatever brain it was handed — a catch-all in a mapping is the wrong-party
+/// shape one level down, and this mapping exists because a seat ran the wrong
+/// brain for months.
+///
+/// ✔ Checked against `brain_builders::enemy_default_brain` 2026-09-10: the
+/// builder's own match is 1:1 across all nine template variants.
+fn expected_brain_label(template: CharacterBrainTemplate) -> &'static str {
+    match template {
+        CharacterBrainTemplate::StandStill => "stand_still",
+        CharacterBrainTemplate::Wanderer => "wanderer",
+        CharacterBrainTemplate::MeleeBrute => "melee_brute",
+        CharacterBrainTemplate::Skirmisher => "skirmisher",
+        CharacterBrainTemplate::Sniper => "sniper",
+        CharacterBrainTemplate::ChargeCrash => "charge_crash",
+        CharacterBrainTemplate::Smash => "smash",
+        CharacterBrainTemplate::Aerial => "aerial",
+        CharacterBrainTemplate::Fighter => "fighter",
+    }
 }
 
 /// One minute at 60Hz — the same budget `ladder_rig` uses, so the two are
@@ -558,7 +583,8 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             Option<&ambition_platformer2d::combat::moveset::ActorMoveset>,
             &ambition_platformer2d::combat::actor_tuning::ActorConfig,
         )>();
-        let mut rows: Vec<(usize, String, usize)> = q
+        type SeatBrainRow = (usize, String, &'static str, CharacterBrainTemplate, usize);
+        let mut rows: Vec<SeatBrainRow> = q
             .iter(w)
             .filter(|(seat, _, _, _)| seat.0 < 2)
             .map(|(seat, brain, moveset, config)| {
@@ -571,11 +597,9 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                 };
                 (
                     seat.0,
-                    format!(
-                        "{seed} {} cfg={:?}",
-                        brain.label(),
-                        config.brain_profile.template
-                    ),
+                    seed,
+                    brain.label(),
+                    config.brain_profile.template,
                     moveset.map_or(0, |m| m.0.moves.len()),
                 )
             })
@@ -593,12 +617,10 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         // reads a one-line block as an unparseable log, not as a dead seat, and
         // reports UNMEASURABLE for every rung where anybody dies.
         for seat in 0..2usize {
-            let (seed, authored) = rows
-                .iter()
-                .find(|r| r.0 == seat)
-                .map_or(("<not alive at the end>".to_string(), 0), |r| {
-                    (r.1.clone(), r.2)
-                });
+            let end = rows.iter().find(|r| r.0 == seat);
+            let (seed, authored) = end.map_or(("<not alive at the end>".to_string(), 0), |r| {
+                (format!("{} {} cfg={:?}", r.1, r.2, r.3), r.4)
+            });
             let born = first_brain[seat].as_deref().unwrap_or("<never seated>");
             let seed_at_birth = first_noise[seat]
                 .map_or_else(|| "<no fighter brain at birth>".to_string(), |n| format!("{n:#018x}"));
@@ -606,6 +628,48 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                 "[brain] seat {seat}: born={born} seed={seed_at_birth} now={seed} \
                  authored_moves={authored}"
             );
+
+            // ⛔⛔ THE SEAT IS STILL RUNNING THE BRAIN THE MATCH ASKED FOR.
+            //
+            // Nothing asserted this before 2026-09-10, and its absence is why
+            // `npc_pirate_admiral` duelled with a `melee_brute` on seat 1: the
+            // dismount road rebuilt a rider's brain from a hard-coded default
+            // while `ActorConfig.brain_profile.template` still said `Fighter`.
+            // Every column of his row — damage rate, start counts, hitstun
+            // split, and D-BRAIN-MENU's "jab is 57% of all damage" — was a
+            // fighter-vs-brute measurement, under a green suite.
+            //
+            // ⚠ DERIVED FROM THE SEAT'S OWN TEMPLATE, never hard-coded to
+            // "fighter". This harness seats twenty-one characters, and a guard
+            // that pins today's roster is one the next author edits instead of
+            // reads.
+            //
+            // ⚠ READ AT THE END. A brain swapped and swapped back inside the
+            // bout passes this. Catching that costs a query every tick for a
+            // defect nobody has seen, and the limit is stated rather than paid
+            // for.
+            if let Some((_, _, label, template, _)) = end {
+                assert_eq!(
+                    *label,
+                    expected_brain_label(*template),
+                    "seat {seat} finished the bout on a `{label}` brain while \
+                     its own ActorConfig asks for {template:?}. The match's \
+                     policy landed and something rebuilt the brain underneath \
+                     it — see the dismount road."
+                );
+                // ⚠ AND THE KIND MAY NOT CHANGE MID-BOUT. Strictly weaker,
+                // needs no mapping, and would have caught the same defect on
+                // its own — so it stands BESIDE the assertion above rather
+                // than behind it. Two arms that fail independently beat one
+                // arm that is cleverer.
+                if let Some(born) = first_brain[seat].as_deref() {
+                    assert_eq!(
+                        born, *label,
+                        "seat {seat} was born on a `{born}` brain and finished \
+                         on a `{label}` one"
+                    );
+                }
+            }
         }
     }
     println!("[mount] mounts that died this bout: {mounts_died}");

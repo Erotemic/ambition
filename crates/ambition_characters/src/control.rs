@@ -323,6 +323,29 @@ pub struct DrivingParticipant(pub PlayerSlot);
 /// field on `Brain` precisely so a brain swap cannot disturb the frame
 /// mid-tick, which is the same reason it does not live in `brain` at all: the
 /// frame outlives whatever produced it.
+///
+/// ⛔⛔ **AND THAT LINE HAS A CONSEQUENCE NOBODY DREW UNTIL IT COST A DEFECT: A
+/// FRAME THAT OUTLIVES ITS PRODUCER IS A LATCH, SO "DECLINE TO WRITE" AND
+/// "WRITE NEUTRAL" ARE DIFFERENT REFUSALS AND ONLY ONE OF THEM REFUSES.** A
+/// producer that skips a body leaves it holding LAST TICK'S FRAME, and under a
+/// HELD input that is indistinguishable from being driven — the body keeps
+/// moving with nothing writing to it.
+///
+/// MEASURED 2026-09-10, on the two-writer seat bug: gating `tick_controlled_brains`
+/// on the resolved seat with `continue` left an ambiguously-claimed body
+/// travelling its full 180px. Writing `ActorControlFrame::neutral()` was the fix.
+///
+/// ⚠ ⇒ **A GUARD THAT ASSERTS A REFUSAL BY CHECKING THE REFUSED THING DID NOT
+/// MOVE IS VACUOUS UNDER A HELD INPUT** if the producer merely skipped. Assert
+/// the FRAME, or assert across a release of the input.
+///
+/// ⭐ THE CODEBASE ALREADY KNEW, one seam over: `blank_scripted_control_frames`
+/// exists solely to write `ActorControlFrame::neutral()` over scripted bodies,
+/// and its doc says *"Device state is untouched, so held input resumes when
+/// scripted control ends."* Its existence IS the proof of the latch — if an
+/// unwritten frame were neutral, that system would have nothing to do. So this
+/// is not a new hazard; it is one seam missing a rule another seam already
+/// follows. Anything that decides not to drive a body owes it a neutral frame.
 #[derive(Component, Clone, Copy, Debug, Default)]
 #[require(
     crate::actor::attack_gesture::AttackGestureState,

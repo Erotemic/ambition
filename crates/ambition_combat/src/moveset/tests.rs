@@ -9027,6 +9027,191 @@ mod technique_flow {
         (app.world().resource::<FlowEffects>().0.clone(), node)
     }
 
+    /// What the move looks like from outside after `ticks`, which is the only
+    /// vantage the two acceptance rows below can be asked from.
+    ///
+    /// ⛔ `alive` IS THE COMPONENT'S PRESENCE, NOT A FLAG. `cancel_move_playback`
+    /// is the one teardown path and it ends with
+    /// `commands.entity(owner).remove::<MovePlayback>()`, so "the move is over"
+    /// is literally "the playback is gone" — the same fact every downstream
+    /// system reads. ⚠ Which is why `node` and `t` are `Option`: `run` above
+    /// reads the cursor with `unwrap_or_default()`, and a torn-down move would
+    /// report node 0 — indistinguishable from a flow parked on its first node.
+    struct FlowProbe {
+        node: Option<u16>,
+        t: Option<f32>,
+        alive: bool,
+    }
+
+    fn probe(flow: TechniqueFlow, ticks: usize, connected: bool) -> FlowProbe {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<HitEvent>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.init_resource::<FlowEffects>();
+        app.init_resource::<WorldTime>();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.1;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.1;
+        app.add_systems(Update, (advance_move_playback, capture_effects).chain());
+        let mut pb = MovePlayback::new(move_with_validity(flow, true), 1.0);
+        pb.connected_hit = connected;
+        pb.landed_hit = connected;
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorFaction::Player,
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ae::CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(20.0, 40.0)),
+                pb,
+            ))
+            .id();
+        for _ in 0..ticks {
+            app.update();
+        }
+        let live = app.world().get::<MovePlayback>(body);
+        FlowProbe {
+            node: live.map(|pb| pb.flow_node),
+            t: live.map(|pb| pb.t),
+            alive: live.is_some(),
+        }
+    }
+
+    /// The fixture's Active window, from `simple_melee`'s defaults: windup 0.12,
+    /// active 0.10. Everything after this is recovery, by the same arithmetic
+    /// `synth_swing_from_move` uses (`duration - startup - active`).
+    const ACTIVE_ENDS_S: f32 = 0.22;
+    /// `move_with_validity` overrides the prefab's duration.
+    const FIXTURE_DURATION_S: f32 = 5.0;
+
+    /// ⛔⛔ **`Finish` STOPS THE FLOW; IT DOES NOT END THE MOVE.** The two are
+    /// separate authorities and the interpreter's `FlowNode::Finish => break`
+    /// exits the per-tick node loop *only* — the TIMELINE ends the move, at
+    /// `MovePlayback::finished()`, which is `t >= spec.duration_s` and knows
+    /// nothing about flows.
+    ///
+    /// ⭐ THIS WAS TRUE BY CONSTRUCTION AND WITNESSED BY NOTHING, which is the
+    /// whole reason it is here. `FlowNode`'s own doc states it as fact — "`Finish`
+    /// stops flow activity; it does not remove the move's recovery" — and a
+    /// comment that sounds checked is the comment nobody re-checks. The edit that
+    /// makes this assertion false is a one-liner somebody would plausibly write
+    /// as a tidy-up: teaching `finished()` (or the teardown branch that calls it)
+    /// to also end on a flow that has reached `Finish`. The cost is a move whose
+    /// recovery vanishes the instant its flow runs out of nodes — every
+    /// flow-authored move becoming cancellable early, silently, on landing.
+    #[test]
+    fn a_finished_flow_leaves_the_move_playing_out_its_recovery() {
+        // The flow is over on tick one: emit, then Finish.
+        let flow = TechniqueFlow {
+            nodes: vec![effect("smash.teleport", 1), FlowNode::Finish],
+        };
+
+        // Ten ticks at dt=0.1 ⇒ t=1.0s, which is past the Active window and
+        // therefore inside recovery, with 4 seconds of move still owed.
+        let mid = probe(flow.clone(), 10, false);
+        assert!(
+            mid.alive,
+            "the flow reached Finish on tick one and the move was torn down with \
+             it — a move's recovery is owed by its timeline, not by whether its \
+             flow still has nodes to visit"
+        );
+        assert_eq!(mid.node, Some(1), "the cursor is parked on Finish");
+        let t = mid.t.expect("alive");
+        assert!(
+            t > ACTIVE_ENDS_S && t < FIXTURE_DURATION_S,
+            "the sample has to land inside recovery for this to say anything: \
+             t={t} against an Active window ending at {ACTIVE_ENDS_S} and a \
+             duration of {FIXTURE_DURATION_S}"
+        );
+
+        // ⭐ THE OTHER HALF, so this cannot pass by the move never ending at all.
+        // Fifty ticks is exactly `duration_s`, where `finished()` turns true.
+        // ⭐ THE OTHER HALF, so this cannot pass by the move never ending at all.
+        //
+        // ⚠ SIXTY TICKS, NOT FIFTY, AND THE REASON IS WORTH KEEPING: fifty steps
+        // of 0.1 accumulate to 4.9999976, not 5.0, so `finished()` — `t >=
+        // duration_s` — is still FALSE at the tick the arithmetic says is the
+        // last one. Measured, after this arm failed asserting the opposite. The
+        // move ends on tick 51, when `t` is clamped by `.min(duration_s)`.
+        // Bracketing the boundary rather than landing on it keeps this arm about
+        // Finish instead of about float accumulation.
+        let after = probe(flow, 60, false);
+        assert!(
+            !after.alive,
+            "the timeline is well past {FIXTURE_DURATION_S}s and the move is \
+             still playing, so the arm above proves nothing about Finish"
+        );
+    }
+
+    /// ⛔⛔ **AN UNFINISHED `Wait` DOES NOT EXTEND THE MOVE.** A flow parked on a
+    /// signal that never arrives holds its cursor and nothing else: the move ends
+    /// on its own duration with the flow still waiting, and every `Emit` past
+    /// that `Wait` never fires. ⇒ That is the real cost of an unbounded wait —
+    /// the authored sequence silently does half its job — and it is why
+    /// `FlowNode::Wait`'s timeout is mandatory rather than a convenience.
+    ///
+    /// ⚠ THE TIMEOUT HERE IS DELIBERATELY LONGER THAN THE MOVE (99s against 5s),
+    /// so the timeout edge is unreachable and the only thing that can end this
+    /// move is the timeline. A timeout shorter than the duration would let this
+    /// test pass through `on_timeout` and never touch the claim.
+    #[test]
+    fn a_move_ends_on_its_timeline_with_its_flow_still_waiting() {
+        let flow = TechniqueFlow {
+            nodes: vec![
+                FlowNode::Wait {
+                    on: FlowSignal::Connected,
+                    timeout_s: 99.0,
+                    then: 1,
+                    on_timeout: 2,
+                },
+                effect("smash.teleport", 2),
+                FlowNode::Finish,
+            ],
+        };
+
+        // `connected: false`, so the signal the wait is parked on never becomes
+        // true and the 99s patience never runs out inside a 5s move.
+        let mid = probe(flow.clone(), 10, false);
+        assert_eq!(
+            mid.node,
+            Some(0),
+            "the premise: the flow is still parked on the Wait, not advanced by \
+             its signal or released by its timeout"
+        );
+
+        // Sixty rather than fifty for the reason the sibling test measures: the
+        // accumulated clock is a hair under `duration_s` at tick 50.
+        let after = probe(flow.clone(), 60, false);
+        assert!(
+            !after.alive,
+            "the move outlived its own duration because its flow was still \
+             waiting — a flow parked on a signal must not hold the move open, \
+             or an authored wait becomes an unbounded one at the timeline's \
+             expense"
+        );
+
+        // ⭐ THE CONTROL, and it is what makes the arm above about WAITING rather
+        // than about moves ending. Same flow, same tick count, signal TRUE: the
+        // wait releases, the flow runs to Finish — and the move still ends at
+        // exactly the same moment, because the flow never had any say in it.
+        let released = probe(flow, 10, true);
+        assert_eq!(
+            released.node,
+            Some(2),
+            "with the signal satisfied the wait advances and the flow reaches \
+             Finish, so tick 10 is long enough for this flow to matter"
+        );
+        assert!(
+            released.alive,
+            "and finishing the flow early did not end the move either"
+        );
+    }
+
     /// A flow EMITS, and what it emits is an ordinary effect.
     ///
     /// ⭐ The point of the rung: `Emit` writes the same `MoveEventMessage` a

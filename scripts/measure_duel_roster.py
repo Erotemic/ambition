@@ -29,6 +29,39 @@ windows 3596 / 3613 / 3601 with first-seat ticks 22 / 5 / 17 — **the sums are 
 does not, so damage/min wobbles in its third digit. This reports the window so a
 reader can see it rather than averaging it away.
 
+⭐⭐ **RE-SWEPT 2026-09-10 after the dismount fix, and the mount column answered
+the question the re-sweep existed for: EXACTLY ONE of the twenty measured bouts
+had a mount die.** `npc_pirate_admiral`, one death — enough to make every column
+of his row a fighter-vs-brute measurement, with no dose-response.
+
+Cross-checked rather than taken on the column's word, by diffing every fighter
+against the pre-fix log:
+
+| | before | after | mounts died |
+|---|---|---|---|
+| 18 of 20 rows | — | **bit-identical** | 0 |
+| `npc_pirate_admiral` | 1.26 / 1.07, hitstun [525, 324], 2 KO | **0.84 / 0.76, [161, 142], 4 KO** | **1** |
+| `projectile_polygon` | 1.63 / 1.54, [318, 270] | 1.63 / 1.54, [318, **263**] | 0 |
+
+⇒ **The column and the diff agree on which row the road touched**, which is what
+makes either believable. **Nineteen rows never needed discarding.**
+
+⚠ `projectile_polygon` is not a dismount effect: its damage is identical and
+only seat 1's hitstun moved, by 7 ticks, and a re-run reproduced the OLD value.
+Small run-to-run variation in one field of one fighter.
+
+⛔⛔ **AND THE FIRST DIFF OF THAT ROW USED THE WRONG COLUMN.** Damage-per-minute
+divides by `both_seated_ticks` — the window this file's own header documents as
+non-reproducible — while the POOL FRACTION printed beside it on the same line is
+window-independent. ⇒ **A derived figure inherits the noise of its DENOMINATOR**,
+and reading the noisy one nearly reported window wobble as a behavioural change.
+Diff `took X / Y of pool`, never `= X / Y per minute`.
+
+⚠ **The admiral's post-fix row is PROVISIONAL.** It was measured against the
+first version of the dismount fix, which was later found to disable the rebuild
+for every production rider. The other nineteen had zero mount deaths and so
+never reached that road under any version.
+
     python3 scripts/measure_duel_roster.py --run     # run the sweep (slow)
     python3 scripts/measure_duel_roster.py           # fold an existing log
 """

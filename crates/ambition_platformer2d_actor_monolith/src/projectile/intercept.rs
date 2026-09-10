@@ -79,7 +79,29 @@ pub fn intercept_projectile(
             // damages the body that just saved itself.
             commands
                 .entity(projectile)
-                .insert((ProjectileOwner(interceptor), interceptor_allegiance));
+                .insert((ProjectileOwner(interceptor), interceptor_allegiance))
+                // ⛔⛤ AND THE OLD SHOOTER'S MOVE OCCURRENCE GOES WITH THE
+                // OWNERSHIP, because it is no longer TRUE of this shot. The
+                // interceptor did not make it with that move — nobody did.
+                //
+                // ⛔⛔ IT IS NOT MERELY UNTIDY, IT IS A CROSS-BODY COLLISION.
+                // `MoveOccurrence` counts PER ENTITY from 0, so the same small
+                // integers are live on many bodies at once. The verdict channel
+                // carries `(attacker, instance)`; reflection rewrites the
+                // attacker and, until this line, left the instance. A stale
+                // `Some(0)` then met the interceptor's own occurrence 0 — the
+                // expected case early in a fight — and credited a move that
+                // never fired the shot.
+                //
+                // ⚠ NO PREDICATE CAN REPAIR THIS. The number alone cannot say
+                // WHOSE it is, so the only defence is clearing it at the
+                // boundary where the pair stops being consistent. See
+                // `moveset::verdict_belongs_to`.
+                //
+                // ⭐ IF A MOVE CAUSED THE REFLECTION AND SHOULD OWN THE HIT,
+                // STAMP THAT OCCURRENCE EXPLICITLY. Unclaimed is the default and
+                // it is a real answer; inherited is never one.
+                .remove::<ambition_projectiles::FiredByMoveInstance>();
             kin.vel = -kin.vel * *speed_scale;
             true
         }
@@ -164,6 +186,66 @@ mod tests {
             Some(&mine),
             "the reflected shot kept the FIRER's allegiance, so it is still \
              hostile to the body that just parried it"
+        );
+    }
+
+    /// ⛔⛤ AND A REFLECTED SHOT DROPS THE FIRER'S MOVE OCCURRENCE — the fourth
+    /// thing that travels with ownership, and the one a rewrite would drop
+    /// because it is a REMOVAL rather than an insert.
+    ///
+    /// ⛔⛔ `MoveOccurrence` counts per entity from 0, so a stale stamp is not
+    /// an inert leftover: it is a number that COLLIDES with the new owner's own
+    /// occurrence, and most loudly at 0, which both bodies hold early in a
+    /// fight. The verdict channel carries `(attacker, instance)`; reflection
+    /// rewrote the attacker and left the instance, so the pair stopped being
+    /// internally consistent and `verdict_belongs_to` had no way to tell.
+    ///
+    /// ⚠ THE CONTROL ARM IS THE HALF THAT MAKES THIS A TEST. An assertion that
+    /// a component is absent passes on a fixture that never added it, on a
+    /// despawn, and on a typo in the type name. So this asserts the stamp was
+    /// THERE first.
+    #[test]
+    fn a_reflected_shot_drops_the_firers_move_occurrence() {
+        let (mut app, shot, interceptor) =
+            world_with_shot(ambition_platformer2d_core::Vec2::new(100.0, 0.0));
+        app.world_mut()
+            .entity_mut(shot)
+            .insert(ambition_projectiles::FiredByMoveInstance(0));
+        assert_eq!(
+            app.world()
+                .get::<ambition_projectiles::FiredByMoveInstance>(shot)
+                .map(|s| s.0),
+            Some(0),
+            "the premise: the shot carries the FIRER's occurrence before the \
+             reflection, so its absence afterwards is a claim about the \
+             reflection and not about the fixture"
+        );
+
+        let mut kin = BodyKinematics {
+            vel: ambition_platformer2d_core::Vec2::new(100.0, 0.0),
+            ..Default::default()
+        };
+        {
+            let mut commands = app.world_mut().commands();
+            let _ = intercept_projectile(
+                &mut commands,
+                shot,
+                &mut kin,
+                interceptor,
+                allegiance(ActorFaction::Player),
+                &ProjectileInterception::Reflect { speed_scale: 1.3 },
+            );
+        }
+        app.world_mut().flush();
+
+        assert_eq!(
+            app.world()
+                .get::<ambition_projectiles::FiredByMoveInstance>(shot),
+            None,
+            "the reflected shot still names the FIRER's use of their move. The \
+             interceptor's own occurrence counts from 0 on their body, so that \
+             stale number credits a move that never fired this shot -- and the \
+             collision is the EXPECTED case early in a fight, when both are 0"
         );
     }
 

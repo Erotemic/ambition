@@ -1010,8 +1010,14 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
 /// the player's faction and reverses (+boosts) its velocity, so the same
 /// faction-aware routing now sends it back at the enemies — deflect the
 /// boss's attack at it.
-#[test]
-fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
+/// A world with ONE player whose parry window is open, ready to reflect a shot
+/// that overlaps them. Returns the app and the player.
+///
+/// ⭐ Shared by both parry tests so neither can drift into a different world:
+/// the faction/velocity acceptance and the provenance one must be describing the
+/// SAME reflection, or one of them is answering about a road the other does not
+/// take.
+fn parry_ready_player_app() -> (App, Entity) {
     use ambition_characters::actor::BodyCombat;
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
@@ -1070,6 +1076,94 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
+    (app, player)
+}
+
+/// ⛔⛤ THE CROSS-ENTITY WITNESS. A PARRIED BOLT STOPS NAMING THE FIRER'S MOVE,
+/// THROUGH THE SHIPPED CALL SITE.
+///
+/// ⛔⛔ THE DEFECT THIS FAILS ON. `MoveOccurrence` counts PER ENTITY from 0, so
+/// the same small integers are live on every body at once. The verdict channel
+/// carries `(attacker, instance)`; parry rewrites the attacker — `ProjectileOwner`
+/// becomes the player — and used to leave the instance alone. An enemy shot
+/// stamped with the FIRER's occurrence 0, reflected, then landing, met the
+/// player's own occurrence 0 and credited whatever move the player was playing.
+/// ⚠ AND 0-AGAINST-0 IS THE EXPECTED CASE EARLY IN A FIGHT, not a corner.
+///
+/// ⭐⭐ A SAME-ENTITY FIXTURE CANNOT REACH THIS. Every other occurrence test in
+/// the tree puts one body's two uses against each other, where the numbers are
+/// genuinely comparable. The bug lives precisely where they are NOT — two
+/// counters, one integer range, and a predicate that cannot tell which body a
+/// number came from. No predicate can: the only defence is clearing the stamp at
+/// the boundary where the pair stops being consistent.
+///
+/// ⇒ This is the shipped road (`reflect_projectile` inside `step_projectiles`),
+/// not the domain function — `projectile::intercept` tests that directly. Both
+/// exist because a call site can stop calling.
+#[test]
+fn a_parried_enemy_shot_stops_naming_the_firers_move_use() {
+    let (mut app, _player) = parry_ready_player_app();
+    let player_pos = ae::Vec2::new(200.0, 200.0);
+    let incoming = ae::Vec2::new(-300.0, 0.0);
+    crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
+        &mut app,
+        ProjectileSpawn {
+            origin: player_pos,
+            dir: incoming.normalize(),
+            speed: 300.0,
+            damage: 2,
+            max_lifetime: 2.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
+            splash_half_extent: 0.0,
+            boomerang_return_s: None,
+        },
+        ActorFaction::Enemy,
+        // The FIRER's first use of their move. The player's first use is also 0.
+        Some(0),
+    );
+
+    // ⚠ THE PREMISE, ASSERTED: the bolt carries the firer's occurrence BEFORE
+    // the parry, so its absence afterwards is a claim about the parry and not
+    // about a fixture that never stamped it.
+    assert_eq!(
+        app.world_mut()
+            .query::<&ambition_projectiles::FiredByMoveInstance>()
+            .iter(app.world())
+            .map(|s| s.0)
+            .collect::<Vec<_>>(),
+        vec![0],
+        "the premise: one live bolt, stamped with the firer's use"
+    );
+
+    app.update();
+
+    assert_eq!(
+        live_projectile_bodies(&mut app).len(),
+        1,
+        "the premise: the parried bolt stayed in flight, so there is still a \
+         shot for the stamp to be absent from"
+    );
+    assert!(
+        app.world_mut()
+            .query::<&ambition_projectiles::FiredByMoveInstance>()
+            .iter(app.world())
+            .next()
+            .is_none(),
+        "the parried bolt still names the FIRER's use of their move. The player \
+         counts occurrences from 0 on their own body, so that stale 0 credits a \
+         move that never fired this shot -- and both bodies hold 0 on the first \
+         use, which is where a fight starts"
+    );
+}
+
+#[test]
+fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
+    let (mut app, player) = parry_ready_player_app();
+    let player_pos = ae::Vec2::new(200.0, 200.0);
     // An enemy bolt overlapping the player, travelling left (toward where it
     // came from — at the player).
     let incoming = ae::Vec2::new(-300.0, 0.0);

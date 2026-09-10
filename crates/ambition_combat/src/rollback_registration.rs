@@ -70,6 +70,19 @@ where
     // Same shape, same reason: stamped once at the spawn from state the
     // resimulation replays, so a rewind mints the identical number and there is
     // nothing to snapshot.
+    // ⛔⛔ AUTHORITATIVE, NOT DERIVED, AND THAT IS THE WHOLE DIFFERENCE. The
+    // stamps below are re-minted by a resimulation because the state they are
+    // computed from replays. This counter IS that state: nothing else records
+    // how many moves a body has started, so a rewind that kept the abandoned
+    // future's count would make the replayed move claim a number already spent,
+    // and a shot still in flight would then match nothing.
+    //
+    // ⚠ Absent on a body that has started no move, which is a real state and
+    // not a default — see `MoveOccurrence`.
+    registrar.rollback_component_canonical::<crate::moveset::MoveOccurrence>(
+        OWNER,
+        "actor.move_occurrence",
+    );
     registrar.declare_rollback_derived_component::<crate::moveset::AttackerMoveInstance>(
         OWNER,
         "derived.attacker_move_instance",

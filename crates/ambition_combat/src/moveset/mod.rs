@@ -275,10 +275,21 @@ pub struct MovePlayback {
     /// That made the inspector report the second jab as never accepted, and made
     /// it credit the FIRST instance's contact to the second.
     ///
-    /// ⛔ MONOTONIC PER BODY, seeded from the playback this one REPLACED. It
-    /// needs no separate counter and no global: all a reader has to distinguish
-    /// is one use from the one before it. A move started on a body that was
-    /// playing nothing begins at zero.
+    /// ⛔ MONOTONIC PER BODY. The body owns the count, in [`MoveOccurrence`],
+    /// and this field is a copy of it at the moment the move starts.
+    ///
+    /// ⛔⛔ THIS DOC SAID *"seeded from the playback this one REPLACED. It needs
+    /// no separate counter"*, AND THAT MECHANISM DOES NOT GIVE THE PROPERTY THE
+    /// SENTENCE ABOVE CLAIMS. The next sentence used to say *"a move started on
+    /// a body that was playing nothing begins at zero"* — and the runtime
+    /// REMOVES the playback when a move ends, so a body that is idle for one
+    /// tick starts its next move at zero as well.
+    ///
+    /// ⇒ Two different uses on one body both had instance 0. A shot fired by
+    /// the first landed during the second, and `verdict_belongs_to` gave the
+    /// credit to the second. A counter that restarts is an ORDINAL WITHIN A
+    /// CHAIN, not an identity, and every reader of this field wanted an
+    /// identity.
     ///
     /// ⚠ NOT DERIVABLE FROM THE CLOCK. `elapsed_s` running backwards looks like a
     /// restart and is also what a LOOPED move does every lap.
@@ -651,16 +662,56 @@ pub fn cancel_move_playback(
     commands.entity(owner).remove::<MovePlayback>();
 }
 
-impl MovePlayback {
-    /// Continue this body's instance count: the use after `previous`.
+/// How many moves this body has started. The identity behind
+/// [`MovePlayback::instance`].
+///
+/// ⛔⛔ IT LIVES ON THE BODY BECAUSE THE PLAYBACK DOES NOT LIVE LONG ENOUGH.
+/// `end_move` removes `MovePlayback`, so a count kept there restarts at zero
+/// after every idle tick. A body that fires a shot, finishes the move, and then
+/// starts a different move gave both moves the number 0.
+///
+/// ⭐ IT ONLY GOES UP, AND IT IS NEVER REMOVED. A reader compares two values for
+/// equality and asks nothing else, so the number needs no meaning beyond "not
+/// the same use". It wraps at `u32::MAX`, which is about 2 billion moves on one
+/// body.
+///
+/// ⛔ IT IS AUTHORITATIVE SIMULATION STATE. A rewind that kept a later count
+/// would make the resimulated move claim a number the abandoned future spent,
+/// and a shot in flight would then match nothing. It is rollback-registered.
+///
+/// ⚠ ABSENT MEANS ZERO. A body that has started no move carries no component,
+/// and the first move it starts is occurrence 0.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MoveOccurrence(pub u32);
+
+impl MoveOccurrence {
+    /// The number the NEXT move on this body takes.
     ///
-    /// ⛔ CALLED WHERE THE PLAYBACK IS INSERTED, because that is the only place
-    /// that can see both the outgoing use and the incoming one. `None` is a move
-    /// started on a body that was playing nothing.
-    pub fn succeeding(mut self, previous: Option<u32>) -> Self {
-        self.instance = previous.map_or(0, |prev| prev.wrapping_add(1));
+    /// ⚠ Read from `Option<&MoveOccurrence>`: a body that has started no move
+    /// has no component, and its first move is 0.
+    #[must_use]
+    pub fn next(current: Option<&Self>) -> u32 {
+        current.map_or(0, |seen| seen.0.wrapping_add(1))
+    }
+}
+
+impl MovePlayback {
+    /// Stamp this playback with the body occurrence it belongs to.
+    ///
+    /// ⛔⛔ THIS REPLACED `succeeding(Option<u32>)`, WHICH COMPUTED THE NUMBER
+    /// FROM THE PLAYBACK IT REPLACED AND GAVE 0 WHENEVER THERE WAS NONE. The
+    /// old road is deleted rather than left unused: a constructor that still
+    /// compiles is an invitation, and the defect it caused is invisible in a
+    /// test that supplies two different numbers by hand.
+    ///
+    /// ⚠ The caller reads [`MoveOccurrence::next`]. This function does no
+    /// arithmetic, so there is one place that decides what the next number is.
+    #[must_use]
+    pub fn at_occurrence(mut self, occurrence: u32) -> Self {
+        self.instance = occurrence;
         self
     }
+
 
     /// WHERE THIS MOVE IS REACHING right now, body-local, if a capture attempt
     /// is live under the clock.
@@ -2552,10 +2603,12 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// melee cluster or no ranged action, which is every move that fires
     /// nothing.
     weapon: Option<(&'a mut BodyMelee, f32)>,
-    /// The instance number of the playback this move REPLACES, when it replaces
-    /// one. See [`MovePlayback::instance`] — an observer that cannot tell one use
-    /// of a move from the next reads a self-cancel as one continuous move.
-    replacing: Option<u32>,
+    /// The occurrence number THIS move takes, from [`MoveOccurrence::next`].
+    ///
+    /// ⛔ THE CALLER READS THE BODY'S COUNTER. It is not derived from the
+    /// playback being replaced: a move that replaces nothing still takes the
+    /// next number, which is the whole repair. See [`MoveOccurrence`].
+    occurrence: u32,
     /// Seconds this body has BANKED for the move about to start, when it banked
     /// them for THIS move. See [`StoredMoveCharge`].
     banked_charge: Option<f32>,
@@ -2578,7 +2631,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     let StartingMove {
         commands,
         entity,
-        replacing,
+        occurrence,
         spec,
         facing,
         aim,
@@ -2653,9 +2706,22 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         "move accepted: entity={entity:?} move=`{}` grounded={started_grounded}",
         spec.id,
     );
+    // ⭐⭐ THE COUNTER ADVANCES HERE, beside the log line above, because this is
+    // the same acceptance authority: every accepted move passes through this
+    // function and nothing else does. A counter advanced anywhere else would
+    // miss a road, and a road that misses it mints a duplicate identity.
+    //
+    // ⚠ THE INSERT IS DEFERRED and the playback is not. That is correct: the
+    // playback carries the number for THIS move, and the component is what the
+    // NEXT move reads, one tick later at the earliest. A body starts at most one
+    // move per tick — `BodyActionBuffer` spends the press here — so no second
+    // reader sees the old value within the tick.
+    commands
+        .entity(entity)
+        .insert(crate::moveset::MoveOccurrence(occurrence));
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
-            .succeeding(replacing)
+            .at_occurrence(occurrence)
             .with_aim(aim)
             .with_aimed_stick(aimed_stick)
             .with_attack_intent(attack_intent)
@@ -2884,6 +2950,12 @@ pub fn body_is_helpless(
 
 pub fn trigger_moveset_moves(
     mut commands: Commands,
+    // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bodies`. `MoveOccurrence` appears in
+    // no other query here, so a read-only lookup cannot alias, and `bodies` is
+    // already close to the tuple width the engine accepts. It answers one
+    // question — what number has this body reached — for both start roads
+    // below.
+    occurrences: Query<&MoveOccurrence>,
     // THE MATCH'S DECLARED RULES, for the special-start turn (B-reverse /
     // wavebounce). `Option` because a world outside a match declares none and
     // turns nobody around.
@@ -3686,10 +3758,15 @@ pub fn trigger_moveset_moves(
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
-                // THE USE THIS ONE REPLACES — a self-cancel puts a fresh
-                // playback of the SAME move here, and only the instance tells
+                // ⭐ THE NEXT NUMBER ON THIS BODY. A self-cancel puts a fresh
+                // playback of the SAME move here, and only the occurrence tells
                 // an observer they are two.
-                replacing: Some(pb.instance),
+                //
+                // ⚠ READ FROM THE BODY, NOT FROM `pb.instance + 1`. The two
+                // agree today. They stop agreeing the moment any other road
+                // starts a move, and then the body's counter is the one that is
+                // right — so there is one source and this is not it.
+                occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
@@ -3801,8 +3878,15 @@ pub fn trigger_moveset_moves(
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
-                // Nothing was playing: this body's first use in the chain.
-                replacing: None,
+                // ⛔⛔ NOTHING WAS PLAYING, AND THAT DOES NOT MAKE THIS THE
+                // BODY'S FIRST MOVE. This said *"this body's first use in the
+                // chain"* and passed `None`, which started the count again at
+                // zero. `end_move` removes the playback, so every idle tick
+                // reached this road — and the move before it had number 0 too.
+                //
+                // ⇒ The body's counter does not care whether a playback was
+                // present. That is why it is on the body.
+                occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),

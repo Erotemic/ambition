@@ -2667,6 +2667,70 @@ fn spawn_mover(app: &mut App, playing: MoveSpec, control: ActorControl) -> Entit
         .id()
 }
 
+/// ⛔⛤ WITNESS 1 — TWO MOVES WITH AN IDLE TICK BETWEEN THEM MUST NOT SHARE AN
+/// OCCURRENCE.
+///
+/// ⛔⛔ THE DEFECT THIS FAILS ON. `end_move` removes `MovePlayback`, and the
+/// start road for a body with nothing playing used to pass `replacing: None`,
+/// which produced instance 0. So move A and move B — A finished, one idle tick,
+/// B started — BOTH had occurrence 0. A shot or a strike volume stamped by A
+/// landed during B, `verdict_belongs_to` compared 0 against 0, and B collected
+/// a `connected_hit` it never earned, with the OnHit escape that follows.
+///
+/// ⭐⭐ THE FIXTURE SUPPLIES NEITHER NUMBER, WHICH IS THE POINT. The system
+/// mints both. A test that writes two different instances by hand has assumed
+/// the property it is meant to test — that is how the defect above survived a
+/// green test that set playback 7 against event 3, numbers its author chose.
+///
+/// ⇒ It asserts only that the two differ. Their values are the runtime's
+/// business, so this stays true if the counter's base or width ever changes.
+#[test]
+fn two_moves_separated_by_an_idle_tick_do_not_share_an_occurrence() {
+    let mut app = trigger_app();
+    // ⚠ NO `MovePlayback`. `spawn_mover` starts a body mid-move, and a body
+    // that is already playing takes the cancel road — the one road that always
+    // worked, because it had a live playback to count from.
+    let body = app
+        .world_mut()
+        .spawn((
+            ActorMoveset(swat_moveset()),
+            pressing_attack(),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+
+    app.update();
+    let first = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the press started a move")
+        .instance;
+
+    // THE MOVE ENDS. `end_move` removes the playback; this is that state, and
+    // it is the state every move passes through on its way to the next one.
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+
+    // A tick with the body idle, so the next press cannot be read as a cancel.
+    app.update();
+    let second = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the next press started a second move")
+        .instance;
+
+    assert_ne!(
+        first, second,
+        "two uses on one body share occurrence {first}. A verdict earned by the \
+         first now credits the second: `verdict_belongs_to` compares these \
+         numbers and nothing else."
+    );
+}
+
 /// A distinct playing move so the replacement is observable by id, with an
 /// optional cancel window appended to its timeline.
 fn playing_move(cancel: Option<MoveWindow>) -> MoveSpec {
@@ -2800,6 +2864,18 @@ fn the_three_contact_outcomes_permit_three_different_cancels() {
 /// GLASS. `instance` exists because an observer comparing move IDS "credit[ed]
 /// the FIRST instance's contact to the second" in the inspector. That is this
 /// bug, in the read model. The runtime's own contact fields never learned it.
+///
+/// ⛔⛔ THIS TEST PROVES ROUTING, NOT IDENTITY, AND IT CANNOT PROVE IDENTITY.
+/// It hands the two playbacks their numbers — `first` and `first + 1` — so the
+/// distinctness under test is supplied by the fixture. It answers *"does a
+/// verdict naming use N reach the playback wearing N"*, which is a real
+/// question and is what it is kept for.
+///
+/// ⇒ It CANNOT answer *"does the runtime give two uses different numbers"*. A
+/// version of this test written with `succeeding(Some(first))` passed for the
+/// whole life of a defect where two real uses both got 0. See
+/// `two_moves_separated_by_an_idle_tick_do_not_share_an_occurrence`, which lets
+/// the SYSTEM mint both numbers and asserts nothing about their values.
 #[test]
 fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it() {
     use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
@@ -2821,7 +2897,7 @@ fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_
     // move, same body, fresh playback; only the instance says they are two.
     app.world_mut()
         .entity_mut(fighter)
-        .insert(MovePlayback::new(swat(), 1.0).succeeding(Some(first)));
+        .insert(MovePlayback::new(swat(), 1.0).at_occurrence(first + 1));
 
     // FRAME N+1. Jab #1's verdict arrives, naming the only thing the channel can
     // name: the attacker.

@@ -2667,6 +2667,152 @@ fn spawn_mover(app: &mut App, playing: MoveSpec, control: ActorControl) -> Entit
         .id()
 }
 
+/// ⛔⛔ THE INVARIANT B1 RESTS ON, ASSERTED RATHER THAN DOCUMENTED.
+///
+/// `MoveOccurrence`'s doc says *"never removed"*, and a doc comment is a claim.
+/// A grep turned it into a fact once; **nothing re-runs that grep.**
+///
+/// ⛔ THE ASYMMETRY IS THE WHOLE REPAIR:
+/// * `MovePlayback` IS removed when a move ends (`moveset/mod.rs:662`), and must
+///   be — that is what makes a body idle.
+/// * `MoveOccurrence` must NEVER be removed — that is what makes an idle gap
+///   keep its count instead of restarting at zero.
+///
+/// ⇒ So the one-directional invariant is: **a body carrying `MovePlayback`
+/// carries `MoveOccurrence`.** Only `start_move` inserts either, and it inserts
+/// both, so a playback without a counter means something took the counter away.
+///
+/// ⚠ EVERY OTHER WITNESS SURVIVES THIS ROTTING. The idle-gap witness builds a
+/// body from scratch and never tears one down, so a teardown path that removes
+/// components in bulk — a despawn-and-rebuild, a `retain`, a reset that clears a
+/// marker set — restores the aliasing defect with the whole suite green.
+fn every_playing_body_kept_its_occurrence(world: &mut World) {
+    // ⛔⛔ THE FLOOR COUNTS THE POPULATION THE INVARIANT IS ABOUT, which is
+    // bodies carrying `MovePlayback` — not bodies, and not entities. With no
+    // body mid-move the orphan query is empty and this guard passes while
+    // examining nothing.
+    //
+    // ⚠ MEASURED THE HARD WAY 2026-09-10, in A4's double-tick instrument: its
+    // anti-vacuity floor counted mutable BORROWS while the finding was about
+    // MOVEMENT, and passed comfortably over 479 borrows and 10 movements. **A
+    // floor can guard the wrong quantity and pass loudly.** The test is to state
+    // the finding in one sentence and check the floor's quantity appears in it:
+    // *"a body carrying a PLAYBACK kept its counter"* — so the floor counts
+    // playbacks.
+    let mut playing = world.query_filtered::<Entity, With<MovePlayback>>();
+    let mid_move = playing.iter(world).count();
+    assert!(
+        mid_move > 0,
+        "no body is mid-move, so this guard examined an empty population. It \
+         reports on bodies carrying `MovePlayback`, and with none present it \
+         cannot fail — call it after a move has started."
+    );
+
+    let mut q = world.query_filtered::<Entity, (With<MovePlayback>, Without<MoveOccurrence>)>();
+    let orphans: Vec<Entity> = q.iter(world).collect();
+    assert!(
+        orphans.is_empty(),
+        "{} body(ies) carry `MovePlayback` and NO `MoveOccurrence`: {orphans:?}. \
+         Only `start_move` inserts either and it inserts both, so the counter was \
+         REMOVED. A body that loses it restarts at zero on its next move, and two \
+         uses that share a number credit each other's hits — the A12 defect, back \
+         without a single test going red.",
+        orphans.len()
+    );
+}
+
+/// ⭐ THE PROPERTY HOLDS THROUGH A MOVE, AN IDLE GAP, AND THE NEXT MOVE.
+#[test]
+fn a_body_that_has_started_a_move_never_loses_its_occurrence() {
+    let mut app = trigger_app();
+    let body = app
+        .world_mut()
+        .spawn((
+            ActorMoveset(swat_moveset()),
+            pressing_attack(),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+
+    app.update();
+    every_playing_body_kept_its_occurrence(app.world_mut());
+    let first = app
+        .world()
+        .get::<MoveOccurrence>(body)
+        .expect("the accepted move gave this body a counter")
+        .0;
+
+    // THE IDLE GAP. `end_move` removes the playback; the counter must stay.
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    assert!(
+        app.world().get::<MoveOccurrence>(body).is_some(),
+        "the counter went away with the playback. It is on the BODY precisely so \
+         it outlives the move."
+    );
+
+    app.update();
+    every_playing_body_kept_its_occurrence(app.world_mut());
+    let second = app.world().get::<MoveOccurrence>(body).unwrap().0;
+    assert_ne!(first, second, "the second move reused the first move's number");
+}
+
+/// ⛔⛔ POISON THE PROPERTY, NOT THE ARM.
+///
+/// Deleting the assertion proves the assertion is load-bearing; it proves
+/// nothing about whether the assertion can SEE the failure. This removes
+/// `MoveOccurrence` from a body that is mid-move — the shape a bulk teardown
+/// would produce — and the guard must fail.
+///
+/// ⚠ THIS IS THE "DETECTION, NOT ATTRIBUTION" LESSON POINTED AT ITSELF: a
+/// control that only fires when you break the guard tests the guard. A control
+/// that fires when you break the PROPERTY tests the invariant.
+#[test]
+#[should_panic(expected = "NO `MoveOccurrence`")]
+fn removing_the_occurrence_mid_move_is_caught() {
+    let mut app = trigger_app();
+    let body = app
+        .world_mut()
+        .spawn((
+            ActorMoveset(swat_moveset()),
+            pressing_attack(),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<MovePlayback>(body).is_some(),
+        "the fixture must be mid-move before the counter is taken, or the guard \
+         is asked about a body it does not cover"
+    );
+
+    app.world_mut().entity_mut(body).remove::<MoveOccurrence>();
+    every_playing_body_kept_its_occurrence(app.world_mut());
+}
+
+/// ⛔ AND THE FLOOR ITSELF IS POISONED, because a floor is a guard and inherits
+/// every way a guard can be silent.
+///
+/// An empty world satisfies *"no playing body lost its counter"* perfectly. If
+/// the floor did not refuse, this guard would pass on a fixture that never
+/// started a move — which is how a guard ends up certifying a population it
+/// never had.
+#[test]
+#[should_panic(expected = "examined an empty population")]
+fn the_guard_refuses_a_world_with_no_body_mid_move() {
+    let mut app = trigger_app();
+    every_playing_body_kept_its_occurrence(app.world_mut());
+}
+
 /// ⛔⛤ WITNESS 1 — TWO MOVES WITH AN IDLE TICK BETWEEN THEM MUST NOT SHARE AN
 /// OCCURRENCE.
 ///

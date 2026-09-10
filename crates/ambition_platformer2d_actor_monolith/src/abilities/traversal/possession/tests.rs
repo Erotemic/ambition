@@ -651,17 +651,16 @@ fn the_possession_projection_leaves_item_custody_alone() {
     let item = app
         .world_mut()
         .spawn((
-            ambition_held_items::GroundItem {
-                spec: ambition_characters::brain::HeldItemSpec {
+            ambition_held_items::GroundItem::at_rest(
+                ambition_characters::brain::HeldItemSpec {
                     id: "axe".into(),
                     melee: None,
                     ranged: None,
                     use_behavior: ambition_characters::brain::HeldUseBehavior::ThrowOnUse,
                 },
-                pos: vec2(0.0, 0.0),
-                vel: vec2(0.0, 0.0),
-                half_extent: vec2(8.0, 8.0),
-            },
+                vec2(0.0, 0.0),
+                vec2(8.0, 8.0),
+            ),
             InCustodyOf(carrier),
         ))
         .id();

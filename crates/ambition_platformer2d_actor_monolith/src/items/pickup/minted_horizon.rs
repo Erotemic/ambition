@@ -440,17 +440,16 @@ mod tests {
     }
 
     fn ground(spec_id: &str) -> GroundItem {
-        GroundItem {
-            spec: ambition_characters::brain::HeldItemSpec {
+        GroundItem::at_rest(
+            ambition_characters::brain::HeldItemSpec {
                 id: spec_id.into(),
                 melee: None,
                 ranged: None,
                 use_behavior: ambition_characters::brain::HeldUseBehavior::ThrowOnUse,
             },
-            pos: Vec2::new(11.0, 22.0),
-            vel: Vec2::ZERO,
-            half_extent: Vec2::splat(18.0),
-        }
+            Vec2::new(11.0, 22.0),
+            Vec2::splat(18.0),
+        )
     }
 
     fn carried(app: &mut App, occurrence: SimId, origin: SpawnOrigin, spec_id: &str) -> Entity {

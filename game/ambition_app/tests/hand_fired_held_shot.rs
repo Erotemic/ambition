@@ -67,12 +67,7 @@ fn fire_from_the_hand(item: &str) -> (String, f32, f32) {
     let weapon = app
         .world_mut()
         .spawn((
-            GroundItem {
-                spec,
-                pos: at,
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(12.0),
-            },
+            GroundItem::at_rest(spec, at, Vec2::splat(12.0)),
             ItemCustody::InWorld,
         ))
         .id();

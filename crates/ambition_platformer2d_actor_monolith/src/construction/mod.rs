@@ -546,12 +546,7 @@ fn construct_authored_ground_item(
         root.entity(),
         (
             bevy::prelude::Name::new(format!("Ground item: {}", spec.name)),
-            ambition_held_items::GroundItem {
-                spec: held.clone(),
-                pos: spec.pos,
-                vel: ambition_platformer2d_core::Vec2::ZERO,
-                half_extent: spec.half_extent,
-            },
+            ambition_held_items::GroundItem::at_rest(held.clone(), spec.pos, spec.half_extent),
             // ⭐⭐ AN AUTHORED PLACEMENT IS ALREADY AT REST, and saying so is what
             // lets everything else fall. An author put this object where it is;
             // it is not necessarily standing on collision geometry the physics

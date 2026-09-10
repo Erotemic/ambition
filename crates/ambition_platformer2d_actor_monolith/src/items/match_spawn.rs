@@ -124,16 +124,15 @@ pub fn spawn_match_items(
         ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(activated_on, ordinal)
     });
     let mut spawned = commands.spawn_room_scoped((
-        ambition_held_items::GroundItem {
+        // AT REST, and the constructor is now what says so. A dropped item falls
+        // under `ground_item_physics` from wherever the stage put its point;
+        // giving it a velocity here would be this system having an opinion about
+        // how items arrive, which is presentation the stage owns.
+        ambition_held_items::GroundItem::at_rest(
             spec,
-            // AT REST. A dropped item falls under `ground_item_physics` from
-            // wherever the stage put its point; giving it a velocity here would
-            // be this system having an opinion about how items arrive, which is
-            // presentation the stage owns.
-            vel: ae::Vec2::ZERO,
-            pos: point,
-            half_extent: ambition_held_items::MINTED_ITEM_HALF_EXTENT,
-        },
+            point,
+            ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+        ),
         Name::new(format!("Match item: {id}")),
     ));
     if let Some(sim_id) = sim_id {

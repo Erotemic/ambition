@@ -84,12 +84,11 @@ fn two_local_seats_each_pick_up_their_own_bomb() {
         bombs.push(
             app.world_mut()
                 .spawn((
-                    GroundItem {
-                        spec: spec.clone(),
-                        pos: at,
-                        vel: ambition_platformer2d::engine_core::Vec2::ZERO,
-                        half_extent: ambition_platformer2d::engine_core::Vec2::splat(12.0),
-                    },
+                    GroundItem::at_rest(
+                        spec.clone(),
+                        at,
+                        ambition_platformer2d::engine_core::Vec2::splat(12.0),
+                    ),
                     ItemCustody::InWorld,
                 ))
                 .id(),

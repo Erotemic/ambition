@@ -219,12 +219,11 @@ pub fn place_or_detonate_authored_mines(
         let spawned = commands
             .spawn((
                 Name::new(format!("Placed mine: {}", params.item_id)),
-                ambition_platformer2d::item::GroundItem {
-                    spec: held,
-                    pos: at,
-                    vel: ae::Vec2::ZERO,
-                    half_extent: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
-                },
+                ambition_platformer2d::item::GroundItem::at_rest(
+                    held,
+                    at,
+                    ae::Vec2::new(params.half_extents.0, params.half_extents.1),
+                ),
                 PlacedMine {
                     owner_seat,
                     arm_s: params.arm_s,

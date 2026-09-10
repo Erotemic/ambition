@@ -60,12 +60,7 @@ fn a_hand_fired_shot_transits_an_authored_portal_in_the_real_app() {
     let weapon = sim
         .world_mut()
         .spawn((
-            GroundItem {
-                spec,
-                pos: at,
-                vel: Vec2::ZERO,
-                half_extent: Vec2::splat(12.0),
-            },
+            GroundItem::at_rest(spec, at, Vec2::splat(12.0)),
             ItemCustody::InWorld,
         ))
         .id();

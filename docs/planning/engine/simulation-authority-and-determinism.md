@@ -610,6 +610,47 @@ See [`../../architecture/bevy-system-boundaries.md`](../../architecture/bevy-sys
 A cohesive `SystemParam` or `QueryData` is good when it names one concept. It is
 not a fix when it only hides the parameter ceiling.
 
+### S7 — 59 canonical rows say outright they are not in the session checksum
+
+**Open, scoped, not started.** Raised 2026-09-10 by the canonical-finiteness
+observer (`game/ambition_app/tests/canonical_state_is_finite.rs`), which found
+nothing wrong and in doing so measured the size of what it cannot see.
+
+MEASURED against `game/ambition_app/tests/rollback_schema_baseline.txt`, 490
+rows:
+
+| kind | rows | seen by a canonical checksum |
+|---|---|---|
+| canonical/cursor/resolved/custom-checksum projections | 140 | yes — every float goes through `canonical_f32_bits` |
+| `component-clone` naming another authoritative projection | 107 | yes, by that projection |
+| **`component-clone`, detail: *"value-probed for localization, not in the session checksum"*** | **59** | **no** |
+| the rest — `message-clear` 83, `derived` 47, `required-rollback` 22, entity mapping 23, `resource-clone` 8, `dynamic-anchor` 1 | 184 | not state that must agree, or covered elsewhere |
+
+(140 + 107 + 59 + 184 = 490. `derived` rows are re-derived every tick and
+`message-clear` rows are drained, so neither is state two peers hold; all eight
+`resource-clone` rows name a projection or an entity-set probe.)
+
+⛔⛔ **A GREEN RUN OF THE FINITENESS GUARD DOES NOT MEAN THE CANONICAL STATE IS
+FINITE**, and that sentence needs to travel with the number or it will be quoted
+the other way. The observer is exhaustive BY CONSTRUCTION over the
+canonical-checksum half — passing through `canonical_f32_bits` is what MAKES a
+value canonical, so a type that gains a canonical float is observed
+automatically. It is exhaustively BLIND to these 59: they are cloned into the
+snapshot, restored from it, and never encoded, so no checksum compares them
+between peers and no observer can watch a codec that is never called.
+
+⚠ **The 59 are not a defect list.** "Value-probed for localization, not in the
+session checksum" is a deliberate registration choice, and for some of these it
+is the right one. The open question is whether it is right for all 59 — which is
+a question about each row, and the answer for a row that carries a float that
+two peers must agree about is different from the answer for a row that carries a
+presentation cursor.
+
+⇒ Whoever takes this: the deliverable is a per-row reading of the 59, not a
+sweep that promotes them. Promoting a row to canonical changes what two peers
+agree about, which is the same class of decision as
+[`netcode.md`](netcode.md)'s N3.
+
 ### S6 — session-scoped process-resource residue
 
 The current engine still has process resources that mirror one live gameplay

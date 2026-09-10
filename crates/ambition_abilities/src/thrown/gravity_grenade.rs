@@ -180,12 +180,12 @@ mod tests {
     use super::*;
 
     fn grenade_ground(vel: ae::Vec2) -> GroundItem {
-        GroundItem {
-            spec: ambition_characters::brain::held_item_by_id(GRAVITY_GRENADE_ID).unwrap(),
-            pos: ae::Vec2::new(100.0, 100.0),
+        GroundItem::released(
+            ambition_characters::brain::held_item_by_id(GRAVITY_GRENADE_ID).unwrap(),
+            ae::Vec2::new(100.0, 100.0),
             vel,
-            half_extent: ae::Vec2::splat(16.0),
-        }
+            ae::Vec2::splat(16.0),
+        )
     }
 
     /// ⭐ ASKED OF THE RELEASE, NOT THE VELOCITY. This used to spawn a grenade

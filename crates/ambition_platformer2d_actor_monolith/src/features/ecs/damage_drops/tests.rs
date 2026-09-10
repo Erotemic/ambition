@@ -225,7 +225,16 @@ fn collectible_drop_fns(src: &str) -> Vec<String> {
             close(&mut current, &mut body_drops_a_collectible, &mut found);
             let name = rest.split(['(', '<']).next().unwrap_or(rest);
             current = Some(name.trim().to_string());
-        } else if line.contains("PickupFeature::new(") || line.contains("GroundItem {") {
+        } else if line.contains("PickupFeature::new(") || line.contains("GroundItem::") {
+            // ⛔⛔ `GroundItem::`, NOT `GroundItem {` — AND THE SEAL IS WHY THIS IS
+            // NOW THE STRONGER SPELLING. This scan recognised minting by a struct
+            // literal, so `GroundItem` gaining `#[non_exhaustive]` and a pair of
+            // constructors made every drop in this file invisible and the table
+            // read as empty. ⇒ The old pattern watched an OPEN spelling that any
+            // caller could vary; `GroundItem::` watches a CLOSED one the type
+            // owns, because no crate outside `ambition_held_items` can assemble
+            // the struct any other way. A guard whose input is source text has
+            // the language's own rules as an input too.
             body_drops_a_collectible = true;
         }
     }

@@ -22,13 +22,13 @@ fn app() -> App {
 fn a_bomb(app: &mut App, fuse_s: f32, vel: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
-            GroundItem {
-                spec: ambition_platformer2d::characters::brain::held_item_by_id("polygon_bomb")
+            GroundItem::released(
+                ambition_platformer2d::characters::brain::held_item_by_id("polygon_bomb")
                     .expect("polygon_bomb is a registered held item"),
-                pos: ae::Vec2::ZERO,
+                ae::Vec2::ZERO,
                 vel,
-                half_extent: ae::Vec2::splat(8.0),
-            },
+                ae::Vec2::splat(8.0),
+            ),
             LiveBomb {
                 fuse_s,
                 damage: 12,

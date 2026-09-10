@@ -321,12 +321,12 @@ fn in_flight_ground_item_travels_through_the_portal_pair() {
     // A thrown item flying into the blue portal.
     let item = app
         .world_mut()
-        .spawn(GroundItem {
-            spec: ambition_held_items::axe_spec(),
-            pos: Vec2::new(20.0, 200.0),
-            vel: Vec2::new(-300.0, 0.0),
-            half_extent: Vec2::splat(12.0),
-        })
+        .spawn(GroundItem::released(
+            ambition_held_items::axe_spec(),
+            Vec2::new(20.0, 200.0),
+            Vec2::new(-300.0, 0.0),
+            Vec2::splat(12.0),
+        ))
         .id();
     app.update();
     let g = app.world().get::<GroundItem>(item).unwrap();

@@ -33,12 +33,11 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 
     let ground = app
         .world_mut()
-        .spawn(ambition_held_items::GroundItem {
-            spec: ambition_held_items::axe_spec(),
-            pos: ae::Vec2::ZERO,
-            vel: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(18.0),
-        })
+        .spawn(ambition_held_items::GroundItem::at_rest(
+            ambition_held_items::axe_spec(),
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(18.0),
+        ))
         .id();
     let ally = app
         .world_mut()
@@ -151,12 +150,11 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
         .world_mut()
         .spawn((
             RoomScopedEntity,
-            ambition_held_items::GroundItem {
-                spec: ambition_held_items::axe_spec(),
-                pos: ae::Vec2::new(64.0, 0.0),
-                vel: ae::Vec2::ZERO,
-                half_extent: ae::Vec2::splat(18.0),
-            },
+            ambition_held_items::GroundItem::at_rest(
+                ambition_held_items::axe_spec(),
+                ae::Vec2::new(64.0, 0.0),
+                ae::Vec2::splat(18.0),
+            ),
         ))
         .id();
     // Residue of the session that is being thrown away: a weapon dropped by a
@@ -164,12 +162,11 @@ fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
     // it back — this system is its only retirement.
     let dropped = app
         .world_mut()
-        .spawn(ambition_held_items::GroundItem {
-            spec: ambition_held_items::axe_spec(),
-            pos: ae::Vec2::new(-64.0, 0.0),
-            vel: ae::Vec2::ZERO,
-            half_extent: ae::Vec2::splat(18.0),
-        })
+        .spawn(ambition_held_items::GroundItem::at_rest(
+            ambition_held_items::axe_spec(),
+            ae::Vec2::new(-64.0, 0.0),
+            ae::Vec2::splat(18.0),
+        ))
         .id();
 
     app.world_mut().write_message(NewGameResetCommitted);

@@ -118,12 +118,7 @@ pub fn translate_bomb_drops(
         let spawned = commands
             .spawn((
                 Name::new(format!("Live bomb: {}", params.item_id)),
-                ambition_platformer2d::item::GroundItem {
-                    spec: held,
-                    pos: at,
-                    vel: ae::Vec2::ZERO,
-                    half_extent: half,
-                },
+                ambition_platformer2d::item::GroundItem::at_rest(held, at, half),
                 LiveBomb {
                     fuse_s: params.fuse_s,
                     damage: params.damage,

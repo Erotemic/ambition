@@ -216,12 +216,11 @@ fn populate(sim: &mut Platformer2dSimHarness) {
         );
         let world = sim.world_mut();
         world.spawn((
-            ambition_platformer2d::held_items::GroundItem {
+            ambition_platformer2d::held_items::GroundItem::at_rest(
                 spec,
-                pos: bevy::math::Vec2::new(320.0, 96.0),
-                vel: bevy::math::Vec2::ZERO,
-                half_extent: bevy::math::Vec2::splat(18.0),
-            },
+                bevy::math::Vec2::new(320.0, 96.0),
+                bevy::math::Vec2::splat(18.0),
+            ),
             dropped,
             bevy::prelude::Name::new("death-drop gauntlet"),
         ));

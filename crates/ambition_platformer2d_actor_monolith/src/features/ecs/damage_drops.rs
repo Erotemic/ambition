@@ -329,12 +329,7 @@ pub fn drop_held_weapon(
     commands.spawn_session_scoped(
         session_scope,
         (
-            ambition_held_items::GroundItem {
-                spec,
-                pos,
-                vel: ae::Vec2::ZERO,
-                half_extent,
-            },
+            ambition_held_items::GroundItem::at_rest(spec, pos, half_extent),
             SimId::death_drop(parent, DROP_KIND_WEAPON),
             bevy::prelude::Name::new(name.to_string()),
             // Room-scoped for the same reason as the coin above — and here the

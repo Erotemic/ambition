@@ -413,12 +413,7 @@ pub fn restore_custody_to_checkpoint(
                 occurrence.clone(),
                 origin,
                 Name::new(name),
-                GroundItem {
-                    spec: held.clone(),
-                    pos,
-                    vel: Vec2::ZERO,
-                    half_extent,
-                },
+                GroundItem::at_rest(held.clone(), pos, half_extent),
                 ItemCustody::Held { holder },
             ),
         );

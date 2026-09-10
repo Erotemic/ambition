@@ -132,12 +132,12 @@ mod tests {
     use super::*;
 
     fn bomb_ground(vel: ae::Vec2) -> GroundItem {
-        GroundItem {
-            spec: ambition_characters::brain::held_item_by_id(BOMB_ID).unwrap(),
-            pos: ae::Vec2::new(100.0, 100.0),
+        GroundItem::released(
+            ambition_characters::brain::held_item_by_id(BOMB_ID).unwrap(),
+            ae::Vec2::new(100.0, 100.0),
             vel,
-            half_extent: ae::Vec2::splat(14.0),
-        }
+            ae::Vec2::splat(14.0),
+        )
     }
 
     /// ⭐ THE ORIGINAL CONTRACT, ASKED OF THE RIGHT FACT. This arm used to spawn

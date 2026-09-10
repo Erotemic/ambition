@@ -263,13 +263,59 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 /// A required component makes "every ground item has a custody" a property of the TYPE, so a
 /// ninth spawn site cannot omit it and cannot default to a state that reads as "not in the
 /// world".
+///
+/// ⛔⛔ **`#[non_exhaustive]` BECAUSE MINTING AN OCCURRENCE HAD SEVEN AUTHORITIES
+/// AND NO CONSTRUCTOR.** MEASURED 2026-09-10 (A7's writer inventory,
+/// `docs/planning/engine/item-writer-inventory.md`): seven struct-literal sites
+/// across three crates each assembled a ground item, one of them a death-drop
+/// policy — which A7's own acceptance forbids, *"reward policy receives accepted
+/// outcomes; it does not become an alternative item minting path"*. It could
+/// because there was no narrower road to take. The attribute does not hide the
+/// fields (motion writes `pos` and `vel` every tick and still does); it removes
+/// the ability of another crate to ASSEMBLE one.
 #[derive(Component, Clone, Debug)]
 #[require(ItemCustody)]
+#[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
     pub pos: Vec2,
     pub vel: Vec2,
     pub half_extent: Vec2,
+}
+
+impl GroundItem {
+    /// An occurrence that arrives AT REST.
+    ///
+    /// ⭐ THE DISTINCTION WAS ALREADY IN THE CALL SITES, SPELLED AS A COMMENT.
+    /// Five of the six minting sites wrote `vel: Vec2::ZERO` and one of them
+    /// explained why in prose — *"a dropped item falls under
+    /// `ground_item_physics` from wherever the stage put its point; giving it a
+    /// velocity here would be this system having an opinion about how items
+    /// arrive"*. A comment stating a rule is a specification, so it is the type's
+    /// job: an authored placement, a match spawn, a death drop and a pickup
+    /// cannot now express a launch velocity by accident.
+    pub fn at_rest(spec: HeldItemSpec, pos: Vec2, half_extent: Vec2) -> Self {
+        Self {
+            spec,
+            pos,
+            vel: Vec2::ZERO,
+            half_extent,
+        }
+    }
+
+    /// An occurrence RELEASED with a velocity — a throw.
+    ///
+    /// ⚠ THE ONLY ROAD THAT TAKES A `vel`, and it is deliberately the narrow one:
+    /// exactly one site in the repo mints a moving ground item today (the release
+    /// path in this crate). A second caller is a design question, not a fill-in.
+    pub fn released(spec: HeldItemSpec, pos: Vec2, vel: Vec2, half_extent: Vec2) -> Self {
+        Self {
+            spec,
+            pos,
+            vel,
+            half_extent,
+        }
+    }
 }
 
 const GROUND_ITEM_GRAVITY: f32 = 1400.0;
@@ -1352,12 +1398,7 @@ pub fn throw_held_item_system(
             owned.take(item, 1);
         }
         let mut thrown = commands.spawn_room_scoped((
-            GroundItem {
-                spec,
-                vel: throw_vel,
-                pos: throw_pos,
-                half_extent: MINTED_ITEM_HALF_EXTENT,
-            },
+            GroundItem::released(spec, throw_pos, throw_vel, MINTED_ITEM_HALF_EXTENT),
             ReleasedAs(release),
             Name::new("Ground item: thrown"),
         ));

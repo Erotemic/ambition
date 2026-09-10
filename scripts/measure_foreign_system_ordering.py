@@ -382,7 +382,7 @@ def strip_comments_and_tests(text: str) -> str:
     """
     out: list[str] = []
     i = 0
-    pattern = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{")
+    pattern = re.compile(r"#\[cfg\(test\)\]\s*(?:(?:///?[^\n]*|//![^\n]*|#\[[^\]]*\])\s*)*(?:pub(?:\(crate\))?\s+)?mod\s+\w+\s*\{")
     while True:
         match = pattern.search(text, i)
         if not match:

@@ -21,6 +21,21 @@ pub(crate) fn spawn_test_projectile(
     request: ProjectileSpawn,
     faction: ActorFaction,
 ) {
+    spawn_test_projectile_fired_by(app, request, faction, None);
+}
+
+/// The same body, plus the use of the owner's move that fired it.
+///
+/// ⭐ `None` reproduces `spawn_test_projectile` exactly, so the two share ONE
+/// construction path. A second hand-built spawner would be a second authority
+/// on what a projectile entity IS, and the two would drift the first time
+/// either gained a component.
+pub(crate) fn spawn_test_projectile_fired_by(
+    app: &mut App,
+    request: ProjectileSpawn,
+    faction: ActorFaction,
+    fired_by_move: Option<u32>,
+) {
     let projectile = build_in_flight_projectile(request);
     let seq = {
         let mut counter = app
@@ -33,7 +48,7 @@ pub(crate) fn spawn_test_projectile(
     // OWNER to route as a player shot — spawn a bare faction-carrier entity and
     // own the projectile to it.
     let owner = app.world_mut().spawn(faction).id();
-    app.world_mut().spawn((
+    let mut shot = app.world_mut().spawn((
         projectile.body.kin,
         projectile.body.game,
         seq,
@@ -41,6 +56,12 @@ pub(crate) fn spawn_test_projectile(
         ambition_projectiles::LiveProjectile,
         Name::new("Test projectile"),
     ));
+    // ⚠ On the SPAWNED entity, not on whatever a query yields afterwards: the
+    // iteration order of a query is storage order, and a fixture that picks a
+    // projectile out of it stamps an arbitrary one the moment there are two.
+    if let Some(instance) = fired_by_move {
+        shot.insert(ambition_projectiles::FiredByMoveInstance(instance));
+    }
 }
 
 pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn) {

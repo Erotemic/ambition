@@ -322,6 +322,294 @@ fn enemy_glider_damages_a_relationally_hostile_actor() {
     );
 }
 
+/// One enemy glider at `pos`, carrying `fired_by_move` and the given damage so
+/// its hit is identifiable among several.
+fn spawn_stamped_enemy_glider(
+    app: &mut App,
+    pos: ae::Vec2,
+    damage: i32,
+    fired_by_move: Option<u32>,
+) {
+    spawn_stamped_enemy_glider_with_splash(app, pos, damage, fired_by_move, 0.0);
+}
+
+/// The same shot with a landing area, so the splash road is reachable.
+fn spawn_stamped_enemy_glider_with_splash(
+    app: &mut App,
+    pos: ae::Vec2,
+    damage: i32,
+    fired_by_move: Option<u32>,
+    splash_half_extent: f32,
+) {
+    crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
+        app,
+        ProjectileSpawn {
+            origin: pos,
+            dir: ae::Vec2::new(1.0, 0.0),
+            speed: 200.0,
+            damage,
+            max_lifetime: 2.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            bounces: 0,
+            bounce_on_world_contact: false,
+            splash_half_extent,
+            boomerang_return_s: None,
+        },
+        ActorFaction::Enemy,
+        fired_by_move,
+    );
+}
+
+/// ⛔⛤ THE SEAM NOTHING NAMED. `FiredByMoveInstance` ON THE SHOT BECOMES
+/// `attacker_move_instance` ON THE HIT.
+///
+/// ⛔⛔ MEASURED 2026-09-10: before this test that component was written by ONE
+/// line (`ambition_projectiles::materialize`), read by ONE line (this file's
+/// `step_projectiles`), and NAMED BY NO TEST IN THE TREE. It is not
+/// lightly-covered, it is uncovered — and it carries the A12 provenance for BOTH
+/// projectile roads, the moveset `Ranged` branch and the boss
+/// `Effect -> Special -> technique` branch. A silent break here surfaces as
+/// *"cancels credit the wrong move"*, with nothing between the cause and the
+/// symptom.
+///
+/// ⭐⭐ TWO SHOTS WITH DIFFERENT STAMPS, IN ONE WORLD, ON THE SAME TICK. One
+/// shot cannot tell a copy from a constant: any hard-coded value passes a
+/// single-shot test whose fixture happens to have chosen it. Two force the read
+/// to be per-shot, which is the property the damage road actually needs — a
+/// fighter has several shots in the air and they belong to different uses.
+///
+/// ⚠ The shots are told apart by DAMAGE, not by hit order. Hit order is
+/// iteration order over a query.
+#[test]
+fn each_shot_hands_its_own_move_use_to_the_hit_it_lands() {
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
+    let left = ae::Vec2::new(300.0, 100.0);
+    let right = ae::Vec2::new(500.0, 100.0);
+    spawn_boss_actor(&mut app, left);
+    spawn_boss_actor(&mut app, right);
+    // Damage 3 was fired by use 11; damage 5 by use 4. Neither number is the
+    // other's, and neither is a plausible default.
+    spawn_stamped_enemy_glider(&mut app, left, 3, Some(11));
+    spawn_stamped_enemy_glider(&mut app, right, 5, Some(4));
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let landed: Vec<(i32, Option<u32>)> = cap
+        .0
+        .iter()
+        .filter(|e| matches!(e.source, HitSource::Projectile))
+        .map(|e| (e.damage, e.attacker_move_instance))
+        .collect();
+    assert_eq!(
+        landed.len(),
+        2,
+        "the premise: both shots landed, so the stamps below are a claim about \
+         two hits that exist -- got {landed:?}"
+    );
+    assert!(
+        landed.contains(&(3, Some(11))),
+        "the shot fired by use 11 handed 11 to its hit; got {landed:?}"
+    );
+    assert!(
+        landed.contains(&(5, Some(4))),
+        "the shot fired by use 4 handed 4 to its hit; got {landed:?}"
+    );
+}
+
+/// ⛔⛤ AND THE LANDING AREA IS A SECOND SPEND SITE, NOT THE SAME ONE.
+///
+/// ⛔⛔ MEASURED 2026-09-10 by poisoning each spend site in turn against the
+/// WHOLE 1126-test crate suite: `step_projectiles` hands `fired_by_move` to
+/// FIVE places, and before these tests the suite reached NONE of them. Dropping
+/// the value at four of the five left every test in the crate green.
+///
+/// ⇒ A splash is a separate `HitEvent` with a separate field to fill, written
+/// by a separate call. It damages whatever is standing in the blast, which can
+/// be a body the shot never touched — so it needs the provenance for exactly
+/// the same reason the direct hit does, and it can lose it independently.
+///
+/// ⚠ Told apart from the direct hit by `HitTarget::Volume`, which is what a
+/// splash is: an area, not a named recipient.
+#[test]
+fn the_splash_of_a_landed_shot_names_the_move_use_that_fired_it() {
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
+    let pos = ae::Vec2::new(300.0, 100.0);
+    spawn_boss_actor(&mut app, pos);
+    spawn_stamped_enemy_glider_with_splash(&mut app, pos, 3, Some(11), 12.0);
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let splashes: Vec<Option<u32>> = cap
+        .0
+        .iter()
+        .filter(|e| {
+            matches!(e.source, HitSource::Projectile)
+                && e.target == ambition_combat::events::HitTarget::Volume
+        })
+        .map(|e| e.attacker_move_instance)
+        .collect();
+    assert_eq!(
+        splashes.len(),
+        1,
+        "the premise: the shot landed AND its splash was emitted, so the stamp \
+         below is a claim about an event that exists"
+    );
+    assert_eq!(
+        splashes[0],
+        Some(11),
+        "the splash names the same use as the shot that made it"
+    );
+}
+
+/// ⛔⛤ AND A SHOT THAT HITS NOTHING BUT A WALL IS A THIRD SPEND SITE.
+///
+/// A bolt that spends itself on world geometry still emits its landing area, and
+/// that area still damages whatever is standing in it — so it still owes the
+/// question *"which use of which move made this?"*. It is written by a THIRD
+/// `emit_landing_splash` call on a branch neither of the other two reaches:
+/// `WorldHitOutcome::Expired`, which needs a wall in the room.
+///
+/// ⚠ THE ROOM THE SHARED FIXTURE BUILDS HAS NO BLOCKS, so this branch was
+/// unreachable from every test in the crate. That is the whole reason it went
+/// unmeasured: not that anyone judged it unimportant, but that the fixture
+/// everyone reused could not get there.
+#[test]
+fn a_shot_that_expires_on_a_wall_still_names_the_move_use_that_fired_it() {
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
+    // A wall directly in the bolt's path. `insert_session_world_component`
+    // REPLACES the fixture's empty room.
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "phys",
+            ae::Vec2::new(800.0, 800.0),
+            ae::Vec2::new(400.0, 400.0),
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(320.0, 60.0),
+                ae::Vec2::new(40.0, 120.0),
+            )],
+        )),
+    );
+    crate::enemy_projectile::test_support::spawn_test_projectile_fired_by(
+        &mut app,
+        ProjectileSpawn {
+            origin: ae::Vec2::new(300.0, 100.0),
+            dir: ae::Vec2::new(1.0, 0.0),
+            // Fast enough to reach the wall inside one 1/60s tick.
+            speed: 3000.0,
+            damage: 3,
+            max_lifetime: 2.0,
+            half_extent: ae::Vec2::new(8.0, 8.0),
+            gravity: 0.0,
+            visual_id: String::new(),
+            // No bounces left, so world contact EXPIRES the shot rather than
+            // reflecting it — that is the branch under test.
+            bounces: 0,
+            bounce_on_world_contact: false,
+            splash_half_extent: 12.0,
+            boomerang_return_s: None,
+        },
+        ActorFaction::Enemy,
+        Some(11),
+    );
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let splashes: Vec<Option<u32>> = cap
+        .0
+        .iter()
+        .filter(|e| {
+            matches!(e.source, HitSource::Projectile)
+                && e.target == ambition_combat::events::HitTarget::Volume
+        })
+        .map(|e| e.attacker_move_instance)
+        .collect();
+    assert_eq!(
+        splashes.len(),
+        1,
+        "the premise: the bolt reached the wall and expired there, emitting one \
+         landing area -- without the wall this branch never runs and the \
+         assertion below would be vacuous"
+    );
+    assert_eq!(splashes[0], Some(11));
+}
+
+/// ⛔⛤ AND A BREAKABLE IS A FOURTH AND FIFTH SPEND SITE. A shot that reaches a
+/// crate takes a DIFFERENT branch of `step_projectiles` from a shot that reaches
+/// a body, and that branch writes its own `HitEvent` and its own splash.
+///
+/// ⚠ Both are hit here because a hole in either is the same defect: a breakable
+/// broken by move A's bolt, credited to move B.
+#[test]
+fn a_shot_that_reaches_a_breakable_names_the_move_use_that_fired_it() {
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
+    let pos = ae::Vec2::new(300.0, 100.0);
+    app.world_mut().spawn((
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+        ambition_combat::components::FeatureId::new("crate_a"),
+        ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 16.0)),
+        ambition_combat::components::BreakableFeature::new(
+            ambition_interaction::Breakable::new("crate_a", 10),
+        ),
+    ));
+    spawn_stamped_enemy_glider_with_splash(&mut app, pos, 3, Some(11), 12.0);
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let shots: Vec<(String, Option<u32>)> = cap
+        .0
+        .iter()
+        .filter(|e| matches!(e.source, HitSource::Projectile))
+        .map(|e| (format!("{:?}", e.target), e.attacker_move_instance))
+        .collect();
+    assert!(
+        shots.iter().any(|(target, _)| target.starts_with("Feature")),
+        "the premise: the shot took the FEATURE branch, not the body branch -- \
+         got {shots:?}"
+    );
+    assert!(
+        shots.iter().any(|(target, _)| target == "Volume"),
+        "the premise: the feature branch emitted its landing area too -- got \
+         {shots:?}"
+    );
+    assert!(
+        shots.iter().all(|(_, instance)| *instance == Some(11)),
+        "every event this shot produced names the use that fired it; got {shots:?}"
+    );
+}
+
+/// ⭐ AND AN UNSTAMPED SHOT HANDS OVER NOTHING. A gun, a thrown bomb and an
+/// environmental volley are fired by no move, and `None` is the answer for each
+/// of them — not a hole to be filled by whatever the owner happens to be
+/// playing when the shot lands.
+///
+/// ⚠ This arm is what fails if the read is ever replaced by a lookup with a
+/// default. It is the only arm a constant-stamping defect cannot satisfy.
+#[test]
+fn a_shot_no_move_fired_hands_over_no_move_use() {
+    let mut app = arena_projectile_app(ambition_combat::targeting::FactionRelations::default());
+    let pos = ae::Vec2::new(300.0, 100.0);
+    spawn_boss_actor(&mut app, pos);
+    spawn_stamped_enemy_glider(&mut app, pos, 3, None);
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let landed: Vec<Option<u32>> = cap
+        .0
+        .iter()
+        .filter(|e| matches!(e.source, HitSource::Projectile))
+        .map(|e| e.attacker_move_instance)
+        .collect();
+    assert_eq!(landed.len(), 1, "the premise: the shot landed");
+    assert_eq!(
+        landed[0], None,
+        "a shot no move fired names no move use; got {landed:?}"
+    );
+}
+
 /// Damage is PHYSICAL, not relational: with default relations (no targeting
 /// hostility set), an Enemy glider STILL damages a DIFFERENT-faction (Boss)
 /// actor it overlaps. Targeting is the relational concern; a shot that LANDS

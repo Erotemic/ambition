@@ -774,10 +774,21 @@ be a valid non-victim `owner` for the blast, which is exactly what
 `MatchScoped` is stamped on it too, and that IS read. `SeatCredit` is the one
 component of the three nothing consults.
 
-⇒ So the cost is a rollback snapshot-LAYOUT entry for a fact no system reads —
+⇒ So the cost was a rollback snapshot-LAYOUT entry for a fact no system reads —
 which per `rollback/registry.rs`'s v151 reasoning is what obliges a wire-format
-bump, so it is not free. The remedy is `ambition_demo_smash`'s owner's call and
-is deliberately not proposed here.
+bump, so it was not free.
+
+✔ **REMOVED AT SCHEMA v178.** `SeatCredit` is out of the layout and the row is
+gone from `rollback_schema_baseline.txt`; the reason sits in `registry.rs` beside
+v150/v151/v152. ⚠ **The stand-in ENTITY and `SeatCreditStandIn` stayed**, because
+what the blast needs is a valid non-victim owner carrying no `MatchSeat` and both
+of those are properties of the entity, not of the label. And the two tests that
+asserted the label were dropped rather than rewritten: **a component with no
+reader has no consequence to assert**, so there was nothing to re-express. What
+survives is `owner != victim` and "the stand-in is not a participant".
+
+⇒ `smash.seat_credit` therefore names a row this schema no longer has. That is
+deliberate: this section is the record of why it went.
 
 #### All 59 read — the final tally
 

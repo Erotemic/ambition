@@ -627,8 +627,14 @@ Corrected the same day.
 
 ⇒ **The first move is `scripts/setup/target_bindmount.sh --status`**, because a
 target that has grown enormous is usually an ABSENT BIND and repairing it
-returns the space without deleting anything. If the bind is present and the
-volume is genuinely full, report the numbers and STOP.
+returns the space without deleting anything.
+
+⭐ **AND IF THE BIND IS PRESENT, `cargo clean` IS NOW YOURS TO RUN** (`--release`,
+`-p <crate>` too) — Jon, 2026-09-10, recorded in AGENTS.md. ⛔ The quotation above
+is the UNBOUND rule and it still stands there: unbound, `target/` is Jon's
+filesystem, so report the numbers and STOP. `rm -rf` is never the tool in either
+state. ⇒ `--status` decides which rule you are under, so run it before reclaiming
+as well as before building.
 
 ⭐ **What is still worth knowing here is WHICH object is large, since that is
 what you report**: `fixtures/external_consumer` has its own

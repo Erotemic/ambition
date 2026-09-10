@@ -108,9 +108,10 @@ change: a semantic read breaks at compile time in this tree, while a dump field
 that stops appearing breaks whatever reads the JSON, silently, wherever that
 lives. **Two things decide it, and both were then measured at `17c1f3e40`:**
 
-1. **The bundle carries a schema id and a bump rule.** `moveset_export.rs:33`:
-   `SCHEMA = "ambition.moveset_inspector.v2"`, documented *"Bump the version when
-   a consumer would break."* Already at v2, so the rule has been exercised.
+1. **The bundle carries a schema id and a bump rule.** `moveset_export.rs:34`:
+   `SCHEMA = "ambition.moveset_inspector.v2"`, documented on the line above it —
+   *"Bump the version when a consumer would break."* Already at v2, so the rule
+   has been exercised.
 2. **The only consumer is inside this repository.**
    `tools/ambition_moveset_inspector`, fed by
    `tools/ambition_moveset_inspector/data/moveset_bundle.json` <!-- cite-ok: generated, never tracked --> — which is

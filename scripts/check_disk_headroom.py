@@ -122,14 +122,42 @@ def require_verified_target_volume() -> None:
     sys.exit(2)
 
 
+def _build_volume() -> Path | None:
+    """Ask the bind-mount script which directory the artifacts will land on.
+
+    Same authority as `_bindmount_check_exit_code`: the mount policy is stated
+    once, in the shell script, and read here. `None` when it cannot be asked.
+    """
+    if not os.path.isfile(BINDMOUNT):
+        return None
+    try:
+        done = subprocess.run(
+            ["bash", BINDMOUNT, "--build-volume"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    out = done.stdout.strip()
+    return Path(out) if done.returncode == 0 and out else None
+
+
 def free_gb_on_target() -> float:
     """Free space on the volume cargo writes to, once that volume is verified.
 
-    Falls back to the repo's own volume only when the target directory's parent
-    does not exist yet.
+    ⛔ WALKING UP FROM A MISSING `target/` ANSWERS ABOUT THE WRONG VOLUME. Before
+    the first build `target/` does not exist, so the walk reaches the REPO — the
+    shared mount — while the bind is about to put the local store underneath it.
+    Measured 2026-09-10, target ABSENT: repo 110.5 GB free, store 26.9, floor 40.
+    The gate printed OK on a volume 13 GB below its own floor.
+
+    ⇒ So ask `--build-volume` for the directory the artifacts land on, and walk
+    up from THAT. The walk stays, because the store's own parent may not exist on
+    a fresh box; it just starts from the right path.
     """
     require_verified_target_volume()
-    path = target_dir()
+    path = _build_volume() or target_dir()
     while not path.exists() and path != path.parent:
         path = path.parent
     return shutil.disk_usage(path).free / 1024**3
@@ -147,7 +175,9 @@ def main() -> int:
     args = parser.parse_args()
 
     free = free_gb_on_target()
-    where = target_dir()
+    # ⛔ NAME THE VOLUME THE NUMBER CAME FROM. Printing `target/` beside a figure
+    # read off the store sends the reader to `du` the wrong path.
+    where = _build_volume() or target_dir()
     if free < args.min_gb:
         print(
             f"REFUSING: {free:.1f} GB free on {where}, need {args.min_gb:.0f} GB.\n\n"
@@ -166,10 +196,12 @@ def main() -> int:
             "     An enormous target/ is almost always an ABSENT BIND, and\n"
             "     repairing it returns the space without deleting anything --\n"
             "     the duplicate underneath was never supposed to exist.\n"
-            f"  2. If it is bound and {where} is genuinely full: SAY SO AND STOP.\n"
-            "     Report the numbers and hand it to Jon. Do not delete, do not\n"
-            "     prune by mtime, do not run `cargo clean` -- that reclaim is\n"
-            "     his call on his machine.\n"
+            f"  2. Is it bound, and is {where}\n"
+            "     genuinely full? Bound, `cargo clean` is yours to run\n"
+            "     (also `--release`, `-p <crate>`) -- AGENTS.md, Jon 2026-09-10.\n"
+            "  3. UNBOUND, it is Jon's filesystem: report the numbers and stop.\n"
+            "     `rm -rf` is never the tool in either state, and never prune\n"
+            "     by mtime.\n"
             f"  Reading only (safe): du -sh {where}/debug/* | sort -h\n\n"
             "⚠ THE VOLUME IS SHARED with the main checkout and every other agent "
             "worktree, so a number you read here is not yours alone: on "

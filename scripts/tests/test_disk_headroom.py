@@ -11,6 +11,7 @@ that reads the wrong device is worse than none: it is a reason not to look.
 from __future__ import annotations
 
 import pytest
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -92,20 +93,41 @@ def test_the_refusal_does_not_recommend_deleting_anything():
     because a substring check cannot tell "do X" from "do not X". Naming the
     forbidden thing in order to forbid it is exactly what this message SHOULD
     do, so the rule is per line: any line naming one must also negate it.
+
+    ⭐ **AMENDED 2026-09-10: `cargo clean` IS NO LONGER ABSOLUTELY FORBIDDEN.**
+    Jon: bound, `target/` is the agent's to clean; unbound it is his filesystem.
+    AGENTS.md carries the grant. So the rule splits by the object named:
+
+      * `rm -rf` -- still absolute. Any line naming it must negate it.
+      * `cargo clean` -- may be RECOMMENDED, but only on a line that says which
+        state it applies to. A blanket "free space with `cargo clean`" is what
+        the 2026-09-03 incident followed, and the grant did not license that.
+
+    ⚠ `unbound` CONTAINS `bound`, so the state word is matched with a boundary
+    that rejects the negated spelling. A line reading "unbound: cargo clean"
+    must not pass by accident -- that is the half of the grant Jon did NOT give.
     """
     done = _run("--min-gb", "999999")
     negations = ("do not", "don't", "never", "forbid", "jon's", "is his")
+    scoped_to_bound = re.compile(r"(?<!un)\bbound\b")
     for line in done.stderr.splitlines():
         lowered = line.lower()
-        named = [f for f in ("cargo clean", "rm -rf") if f in lowered]
-        if not named:
-            continue
-        assert any(n in lowered for n in negations), (
-            f"this line RECOMMENDS {named!r}, which AGENTS.md forbids "
-            f"(\"the reclaim is Jon's call ... `cargo clean` is his to run\"); "
-            f"the remedy is the bind check, then reporting and stopping.\n"
-            f"  line: {line.strip()}"
-        )
+        if "rm -rf" in lowered:
+            assert any(n in lowered for n in negations), (
+                "this line RECOMMENDS `rm -rf`, which AGENTS.md forbids in its "
+                "strongest terms, bound or not.\n"
+                f"  line: {line.strip()}"
+            )
+        if "cargo clean" in lowered:
+            assert any(n in lowered for n in negations) or scoped_to_bound.search(
+                lowered
+            ), (
+                "this line recommends `cargo clean` without saying WHICH STATE "
+                "it applies to. Jon's 2026-09-10 grant is bound-only; unbound, "
+                "the reclaim is still his. A blanket recommendation is the "
+                "advice the 2026-09-03 incident followed.\n"
+                f"  line: {line.strip()}"
+            )
 
 
 def test_a_floor_of_zero_passes():
@@ -167,3 +189,52 @@ def test_the_probe_delegates_rather_than_re_deriving_the_mount():
         ["bash", guard.BINDMOUNT, "--check"], capture_output=True, text=True
     )
     assert guard._bindmount_check_exit_code() == real.returncode
+
+
+def test_a_missing_target_is_measured_on_the_store_not_the_repo(monkeypatch, tmp_path):
+    """⛔ THE ABSENT-BIND WINDOW, WHICH IS WHEN THE NUMBER IS ACTUALLY CONSULTED.
+
+    Before the first build of a session `target/` does not exist, so walking up
+    from it reaches the REPO volume — the shared mount — while the bind is about
+    to put the local store underneath. Measured 2026-09-10 on this box in exactly
+    that state: repo 110.5 GB free, store 26.9, floor 40. The gate printed OK on a
+    volume 13 GB below its own floor, at the one moment someone is deciding
+    whether to start a long build.
+    """
+    store = tmp_path / "store"
+    store.mkdir()
+    missing_target = tmp_path / "never-built" / "target"
+
+    monkeypatch.setattr(guard, "target_dir", lambda: missing_target)
+    monkeypatch.setattr(guard, "require_verified_target_volume", lambda: None)
+    monkeypatch.setattr(guard, "_build_volume", lambda: store)
+
+    import shutil
+
+    seen: list[Path] = []
+    real = shutil.disk_usage
+
+    def spy(path):
+        seen.append(Path(path))
+        return real(path)
+
+    monkeypatch.setattr(shutil, "disk_usage", spy)
+    guard.free_gb_on_target()
+
+    assert seen == [store], (
+        f"the guard measured {seen}, not the store the artifacts land on; a walk "
+        "up from a missing target/ escapes to the repo volume"
+    )
+
+
+def test_the_bindmount_script_answers_which_volume_the_build_lands_on():
+    """The policy is stated once, in the shell script, and read from Python."""
+    done = subprocess.run(
+        ["bash", str(REPO / "scripts" / "setup" / "target_bindmount.sh"), "--build-volume"],
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip().startswith("/"), (
+        "--build-volume must print one absolute path; a gate stats it directly"
+    )

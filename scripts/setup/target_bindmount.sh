@@ -9,6 +9,7 @@
 #   scripts/setup/target_bindmount.sh
 #   scripts/setup/target_bindmount.sh --status
 #   scripts/setup/target_bindmount.sh --check     # exit 2 if unbound on virtiofs
+#   scripts/setup/target_bindmount.sh --build-volume  # dir the artifacts land on
 #   scripts/setup/target_bindmount.sh --unmount          # refuses the primary worktree
 #   scripts/setup/target_bindmount.sh --unmount --force  # ...unless you mean it
 set -euo pipefail
@@ -243,10 +244,31 @@ cmd_unmount() {
         "$root" "$target" "$(store_for "$root")"
 }
 
+# Which DIRECTORY will cargo's artifacts land on? For a disk gate, not a human.
+#
+# ⛔ `target/` IS THE WRONG PATH TO MEASURE BEFORE THE FIRST BUILD. It does not
+# exist yet, so a caller that stats it walks up to the REPO volume and answers
+# about the shared mount instead of the store the bind is about to put under it.
+# Measured 2026-09-10 on this box, target ABSENT: the repo volume had 110.5 GB
+# free and the store had 26.9 -- so a 40 GB floor passed on a volume 13 GB below
+# it. Off virtiofs no bind happens, so `target/` is the honest answer there.
+cmd_build_volume() {
+    local root fs
+    root="$(worktree_root)"
+    fs="$(fstype_of "$root")"
+    if [ "$fs" = virtiofs ]; then
+        store_for "$root"
+    else
+        printf '%s/target' "$root"
+    fi
+    printf '\n'
+}
+
 case "${1:---mount}" in
     --mount|mount)     cmd_mount ;;
     --status|status)   cmd_status ;;
     --check|check)     cmd_check ;;
+    --build-volume)    cmd_build_volume ;;
     --unmount|umount|--umount) cmd_unmount "${2:-}" ;;
     -h|--help|help)    sed -n '3,30p' "$0" ;;
     *) die "unknown argument: $1 (try --status)" ;;

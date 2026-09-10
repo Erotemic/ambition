@@ -294,6 +294,36 @@ digits. And when the honest answer is that the quantity does not exist — a
 killed run has no duration — say so instead of substituting the nearest one
 that does.
 
+### ⛔⛔ WHERE TWO MODELS ARE ON OFFER, THE PAGE DRIFTS TO THE ONE THAT FITS IN A SENTENCE
+
+**Measured 2026-09-10 on Q96** — *should a projectile collide with a destructible's
+published surface?* Two models were written down. One paraphrases in four words:
+**"wall wins, crate survives."** The other needs a diagram — surface and hurt volume
+from the same contributor at the same time of impact coalesce into ONE contact that
+damages once and also applies the physical response.
+
+⇒ **The four-word model was selected by accident TWICE, in one evening, by two
+different people who both knew better.** Once relaying the maintainer's ruling
+(*"a solid breakable stops a bolt"* — "stops" was not in what he said), and once in
+a warning written AGAINST that very reading (*"before the first implementation
+hard-codes 'a solid surface always stops a shot'"*). ⛔ **Neither was a
+misunderstanding. Both were compressions**, and the compression has a preferred
+destination.
+
+⭐ **THE MECHANISM IS CHEAPNESS, NOT CONFUSION.** Prose needs a short form. When one
+model has a short form and the other does not, every summary, every commit subject
+and every relay pays less to reach for the short one — so the drift is one-way and
+it never stops. **The rejected model is the one that fits in a short sentence, so
+short sentences about that row are where it comes back.**
+
+⇒ **What to do when you find a row like this:**
+* **Name the asymmetry on the row itself**, so a reader knows the short form is a
+  trap rather than a summary.
+* **Treat any short paraphrase of that row as a claim to re-check**, including your
+  own, including one written to warn against it.
+* ⚠ **Watch the verb.** Both drifts here turned on a single word — *stops* — that
+  no ruling contained. **A verb nobody supplied is where a model gets chosen.**
+
 ### ⛔⛔ A CUT-OFF METRIC READS A SLOWDOWN AS A REDUCTION
 
 The sections above ask whether a number is stale or attached to the wrong noun.

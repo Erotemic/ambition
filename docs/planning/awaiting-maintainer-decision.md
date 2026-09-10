@@ -542,6 +542,15 @@ the projectile road must ask for **collision semantics**, not for `BlinkWall`. T
 cheap shape is a predicate on `BlockKind` beside `is_pogo_target()`; adding a fifth
 `Solid | BlinkWall { .. }` arm makes the eventual repair more expensive.
 
+⛔ **AND NAME THE PREDICATE FOR THE SEMANTICS, NEVER FOR ITS CURRENT MEMBERS.** Ask
+*does this block present a solid surface to a projectile* — not
+*is_solid_or_blink_wall*. **A predicate named after its members is a match arm
+wearing a function's clothes:** it moves the enumeration without removing it, and
+the next variant still has to be added in every caller's head. ⇒ Named for the
+semantics, this is also **the cheapest repair path for the debt above** — once
+consumers ask the predicate, fixing the representation touches the predicate and
+not the consumers.
+
 **The question for Jon** is only the eventual one: should a solid breakable get its
 own `BlockKind`, or is the borrow the intended vocabulary? ⛔ Nothing is blocked on
 the answer — Q96's work proceeds either way, under the constraint above.

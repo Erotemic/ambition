@@ -24,6 +24,16 @@ harder to see than a gate hole, because in every one of them the measurement
 was correct** — there is no red to find, no skipped job, and nothing to grep
 for. The only tell is the gap between what was measured and what was said.
 
+⛔⛔ **AND FAMILY THREE HAS NO AUTOMATED DETECTOR, AND PROBABLY CANNOT HAVE ONE.
+Do not write a script for it.** Families one and two are checkable — a job that
+does not appear in a lane, a corpus that is empty, an assertion that cannot
+fail. **Family three needs a reader who knows what was measured and reads what
+was claimed**, and no artifact holds both. ⇒ **Its remedy is a second reader,
+which is a process claim rather than a tooling one.** Every one of the six was
+caught by somebody other than the author, and **not one was found by the author
+re-reading their own sentence** — which is also why six appeared in a single day
+of two agents comparing notes, and none in the weeks before it.
+
 This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I

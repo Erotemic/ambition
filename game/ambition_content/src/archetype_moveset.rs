@@ -123,7 +123,7 @@ mod tests {
     /// the panic fired inside a headless boot, nineteen tests deep.
     #[test]
     fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
-        for (borrowed, archetype, owner, prefixes, owned_slots) in [
+        for (borrowed, archetype, owner, prefixes, owned_slots, retimed) in [
             (
                 crate::author_moveset::author_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
@@ -137,6 +137,9 @@ mod tests {
                 // that taking a slot has to be said out loud here, and each of
                 // those landings turned this row red until it was.
                 3,
+                // ...and no NORMAL of his is re-timed: his frame data is the
+                // archetype's, which is what borrowing the table means.
+                &[][..],
             ),
             (
                 crate::officer_moveset::officer_moveset(),
@@ -150,6 +153,8 @@ mod tests {
                 // across 2026-09-05; it is the fighter STATING how many slots it
                 // owns, and the assertion below is only exact because of it.
                 3,
+                // No normal of his is re-timed.
+                &[][..],
             ),
             (
                 crate::performer_moveset::performer_moveset(),
@@ -159,6 +164,40 @@ mod tests {
                 // All four specials are hers, and the down slot is a posture
                 // pair: five verbs she authored rather than borrowed.
                 5,
+                // ⛔⛔ AND EVERY NORMAL IS HERS TOO — BY TIMING, NOT BY ID, which
+                // is a way of owning a slot this check could not previously say.
+                // Her tilts, smashes and aerials were re-timed to her OWN
+                // animation clips on 2026-09-09 (`689290cbf`): 40 ms authored
+                // poses, extended stage-light blades, 160–280 ms active time,
+                // read off the renderer's `performer_stage_v1` specs. The moves
+                // still answer to the archetype's names, so the verb pairing
+                // still finds them and the equality below called all eleven a
+                // drift — main was RED on this row from 2026-09-09 to 2026-09-10.
+                //
+                // ⇒ The frame data being the archetype's is what BORROWING
+                // means, so a borrower that re-times a slot has stopped
+                // borrowing it. That has to be said out loud, exactly like
+                // `owned_slots` above, and the assertion below is only exact
+                // because it is.
+                //
+                // ⚠ HER TIMING HAS ITS OWN WITNESS and this is not a hole:
+                // `normal_contact_windows_match_the_authored_light_and_pose_clock`
+                // holds these against the animation clock they were taken from.
+                // This list says the archetype is no longer the authority; that
+                // test says what is.
+                &[
+                    "attack_air",
+                    "attack_air_back",
+                    "attack_air_down",
+                    "attack_air_forward",
+                    "attack_air_up",
+                    "attack_down",
+                    "attack_forward",
+                    "attack_up",
+                    "smash_down",
+                    "smash_forward",
+                    "smash_up",
+                ][..],
             ),
             (
                 crate::medic_moveset::medic_moveset(),
@@ -168,6 +207,8 @@ mod tests {
                 // All four specials are hers, and the down slot is a posture
                 // pair: five verbs she authored rather than borrowed.
                 5,
+                // No normal of hers is re-timed.
+                &[][..],
             ),
         ] {
             assert_eq!(
@@ -227,6 +268,7 @@ mod tests {
             // nothing to have drifted from — and that is what "a fighter who
             // borrows a table may still own a slot in it" means.
             let mut compared = 0usize;
+            let mut retimed_seen = 0usize;
             for (verb, target) in &borrowed.verbs {
                 let (Some(mine), Some(theirs)) = (
                     borrowed.moves.iter().find(|mv| mv.id == *target),
@@ -240,6 +282,23 @@ mod tests {
                 // The borrower's OWN move for this slot: a different move, not a
                 // renamed one, so there is nothing to compare.
                 if !mine.id.ends_with(super::strip_owner_prefix(&theirs.id, prefixes)) {
+                    continue;
+                }
+                // A slot the borrower re-timed on purpose. ⛔ ASSERTED TO STILL
+                // DIFFER, because a declaration that has stopped being true is
+                // the failure mode a hand-kept list always has: if the archetype
+                // is re-timed to match her tomorrow, this line is silently
+                // exempting a slot that no longer needs exempting, and the next
+                // real drift in it goes unseen.
+                if retimed.contains(&verb.as_str()) {
+                    retimed_seen += 1;
+                    assert_ne!(
+                        mine.duration_s, theirs.duration_s,
+                        "{owner}'s `{verb}` (`{}`) is declared re-timed and now \
+                         matches the archetype again — take it off the list, or \
+                         the exemption is hiding the next drift",
+                        mine.id
+                    );
                     continue;
                 }
                 compared += 1;
@@ -256,12 +315,23 @@ mod tests {
             // which is the only thing this assertion exists to catch. A fighter
             // states how many slots are HERS and the rest must match.
             assert_eq!(
-                compared + owned_slots,
+                compared + owned_slots + retimed_seen,
                 archetype.verbs.len(),
-                "{owner} matched {compared} of the archetype's {} bound verbs \
-                 and claims {owned_slots} of its own — a rename that stopped \
-                 lining up makes this check vacuous",
+                "{owner} matched {compared} of the archetype's {} bound verbs, \
+                 claims {owned_slots} of its own and {retimed_seen} re-timed — a \
+                 rename that stopped lining up makes this check vacuous",
                 archetype.verbs.len()
+            );
+            // ⛔ AND EVERY DECLARED RE-TIMED VERB WAS REACHED. A name that no
+            // longer binds — a typo, or a verb the borrower dropped — would
+            // otherwise sit in the list forever, exempting nothing and looking
+            // like diligence.
+            assert_eq!(
+                retimed_seen,
+                retimed.len(),
+                "{owner} declares {} re-timed verbs and the walk reached \
+                 {retimed_seen} of them, so a declared name binds nothing",
+                retimed.len()
             );
         }
     }

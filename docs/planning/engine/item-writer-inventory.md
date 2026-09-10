@@ -76,11 +76,44 @@ A7's acceptance says *"reward policy receives accepted outcomes; it does not
 become an alternative item minting path."* `damage_drops.rs:332` is a drop
 policy minting an occurrence directly, and the reason it can is that there is no
 narrower road to take. ⇒ **This is the "make it impossible, not checked" edge in
-the packet.** A constructor that takes what an occurrence needs, with the fields
-sealed, turns seven minting authorities into one and leaves the six callers
-stating what they are minting instead of assembling it. That also produces the
-exact upper-bound enumeration this page cannot: sealing is how you find the
-codec and `serde` writers a text scan misses.
+the packet.**
+
+⛔⛔ **AND THE SEAL ABOVE DOES NOT MEET IT. CORRECTED 2026-09-10 AFTER A REVIEW
+CAUGHT THIS PAGE CLAIMING IT DID.** An earlier version of this paragraph said a
+sealed constructor *"turns seven minting authorities into one"*, and the queue
+row was marked done on that sentence. **It is false, and the code says so
+plainly.** `drop_held_weapon`
+(`actor_monolith/src/features/ecs/damage_drops.rs:320-348`) still does all of
+this itself:
+
+```rust
+commands.spawn_session_scoped(session_scope, (
+    ambition_held_items::GroundItem::at_rest(spec, pos, half_extent),  // ← the sealed part
+    SimId::death_drop(parent, DROP_KIND_WEAPON),                       // identity
+    RoomScopedEntity,                                                  // custody
+    dynamic_drop_origin(parent, DROP_SEQUENCE_WEAPON),                 // provenance
+    super::attempt::SpawnedThisAttempt,                                // attempt state
+));
+```
+
+⇒ **CALLING A CENTRALIZED COMPONENT CONSTRUCTOR DOES NOT TRANSFER AUTHORITY OVER
+THE OCCURRENCE TO THAT COMPONENT'S CRATE.** The caller still decides that a new
+item occurrence exists, mints its identity, attaches its room scope, its
+provenance and its attempt state, and spawns it. The smash bomb/mine road and
+the match-spawn road do the same. **What was centralized is the COMPONENT's
+construction; what A7 asks about is the OCCURRENCE's authority, and they are
+different facts.**
+
+✔ **The seal is real and worth keeping on its own terms** — `#[non_exhaustive]`
+with two named constructors is what made the writer set enumerable at all, and
+it is how the codec and `serde` writers a text scan misses were found. **It is a
+component-construction seal, and this page should have called it that.**
+
+⛔ **AND THE FIX IS NOT A GENERIC ITEM-REQUEST BUS TO MAKE THE COUNT ONE.**
+Centralizing occurrence minting is justified only where it centralizes a real
+invariant — identity, custody, provenance, rollback ownership. A bus that exists
+to move a number from seven to one buys a number. **The documentation was the
+defect here, not the architecture.**
 
 ⛔ **AND THE STARTER ROSTER IS INSERTED BY TWO CRATES IN THE SAME COMPOSITION.**
 `OwnedItems::starter()` is `insert_resource`d at

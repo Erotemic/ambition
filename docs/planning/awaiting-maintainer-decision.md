@@ -622,6 +622,41 @@ maintainer's call even when the evidence for it has evaporated.** Nothing is
 blocked meanwhile: the fix is behind a default-off feature and the shipped
 behaviour is today's by construction.
 
+## Q100 — should the facade pull `bevy/debug` because it always links `ambition_dev_tools`?
+
+**Measured 2026-09-10 (`86c95490d`), and the remedy is a ruling rather than a
+repair.** A9's axis two asks which linked crates install anything in the minimum
+profile. All **557 systems report `<Enable the debug feature to see the name>`**,
+so the census cannot attribute one.
+
+⛔ **THE DATA DOES NOT EXIST, WHICH IS STRONGER THAN "HARD".**
+`bevy_utils::DebugName` has **no field** without `bevy_utils/debug`; the string is
+discarded at construction and no runtime accessor can recover it. `TypeId`
+survives and carries no crate name.
+
+⚠ **The inconsistency is what makes it a question.** `bevy_dev_tools` requires
+`bevy_utils/debug`, and the minimum profile does not link `bevy_dev_tools` — the
+workspace has the feature, the featureless facade does not. **But
+`ambition_dev_tools` IS in the minimum profile**: facade-direct, not optional, so
+a consumer selecting nothing links it, and its census attributes systems by name.
+
+⇒ **A mandatory diagnostics crate sits in a profile that cannot supply the one
+fact it reads.** That is vision.md's *"machine-readable diagnostics and
+provenance"* failing at the profile the SDK offers.
+
+**The trade is binary size against diagnosability.** ⛔ Adding a feature to the
+minimum-profile fixture is not an option: its whole value is that everything it
+links arrives implicitly.
+
+⚠ **This ruling blocks A9's axis two and nothing else.** Axis one is closed —
+false optionals are 0 of 13, and the non-optional closure is 48 excluding the
+facade at `939d6aaa5`.
+
+⭐ **The number was measured against `origin/main` at `58cc6c9a8`: Q99 was the
+highest filed, in both that ref and this worktree.** If another agent claims Q100
+concurrently, **renumber this one** — it was filed by the coordinator, not by the
+agent who did the measurement, and it is the cheaper of the two to move.
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

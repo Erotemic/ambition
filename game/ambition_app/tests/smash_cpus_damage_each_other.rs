@@ -79,6 +79,8 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut last = [0.0f32; 2];
     let mut hitstun_ticks = [0usize; 2];
     let mut both_seated_ticks = 0usize;
+    let mut running_ticks = [0usize; 2];
+    let mut grounded_ticks = [0usize; 2];
     // ⭐ THE DUEL ENDS WHEN SOMEBODY WINS, and everything after that is not a
     // measurement of a fight. A decided match despawns the loser, so the loop
     // below would otherwise go on dividing a finished fight by a full minute.
@@ -200,6 +202,29 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             duel_began = true;
             if decided_on.is_none() {
                 both_seated_ticks += 1;
+                // PROBE: how much of the duel is spent RUNNING while grounded —
+                // the stance in which the press road collapses the attack menu
+                // to the dash attack.
+                let w = app.world_mut();
+                let mut q = w.query::<(
+                    &MatchSeat,
+                    &ambition_platformer2d::engine_core::BodyMotionFacts,
+                    &ambition_platformer2d::engine_core::BodyGroundState,
+                )>();
+                let rows: Vec<(usize, bool, bool)> = q
+                    .iter(w)
+                    .map(|(seat, f, g)| (seat.0, f.running, g.on_ground))
+                    .collect();
+                for (slot, running, on_ground) in rows {
+                    if slot < 2 {
+                        if on_ground {
+                            grounded_ticks[slot] += 1;
+                            if running {
+                                running_ticks[slot] += 1;
+                            }
+                        }
+                    }
+                }
             }
         } else if duel_began && decided_on.is_none() {
             decided_on = Some(tick);
@@ -240,6 +265,14 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         per_minute(1),
     );
 
+    for seat in 0..2 {
+        println!(
+            "[stance] seat {seat}: grounded {} ticks, running {} of them ({:.0}%)",
+            grounded_ticks[seat],
+            running_ticks[seat],
+            100.0 * running_ticks[seat] as f32 / grounded_ticks[seat].max(1) as f32
+        );
+    }
     for seat in 0..2 {
         assert!(
             per_minute(seat) >= A_REAL_FIGHT,

@@ -248,16 +248,33 @@ ticks, `decided None`, 2 knockouts both ways):
 | mislabeled | 1.26 | 1.07 | [525, 324] |
 | truthful | 0.47 | 0.86 | [81, 191] |
 
-⇒ **The fix did not make the CPU worse at choosing; it revealed that the CPU
-never stops running.** A run PRE-EMPTS the smash gesture on the press road, so
-while running `attack` and `smash` both resolve to `{base}_dash` — a truthful kit
-has ONE attack option whenever the body runs, where the mislabeled one offered
-the standing menu. A human stops running to reach their tilts and smashes.
-Nothing in the brain connects "a standing option scores better" to "then stop
-running", which is exactly the independence this section names.
+⚠ **I FIRST WROTE THAT "the CPU never stops running", THEN MEASURED IT AND IT IS
+FALSE.** Stance instrumented on the same duel:
 
-⇒ **The missing term is an opportunity term on MOVEMENT: the value of standing
-still is the best standing attack it unlocks.** Its zero case is a body already
+| kit | seat 0 running/grounded | seat 1 | grounded ticks |
+|---|---|---|---|
+| mislabeled | 258/1908 = **14%** | 353/1822 = **19%** | 1908 / 1822 |
+| truthful | 402/1334 = **30%** | 569/1457 = **39%** | 1334 / 1457 |
+
+At HEAD these bodies run 14–19% of grounded time. What the trace shows is a
+FEEDBACK LOOP: making the dash attack reachable doubles the running fraction and
+cuts grounded time by a third, with damage falling alongside.
+
+⭐⭐ **AND THIS SECTION'S PREMISE NEEDS AMENDING. The movement and attack scorers
+are NOT independent — they are coupled, through one boolean, in the direction
+nobody intended.** `generate_options` calls
+`movement_options(&view, situation, !lifts.is_empty())`, so the ATTACK KIT feeds
+movement scoring via `lifting_candidates`. Changing what the kit holds changes
+how the body moves, which changes its stance, which changes the kit. A
+move-distribution symptom can therefore originate in either scorer and arrive at
+the other, and "independent movement and attack scorers" understates the problem.
+
+⚠ Which end moves first is NOT measured. Instrument `lifts` per tick under both
+kits before touching any weight.
+
+⇒ **The candidate term is an opportunity term on MOVEMENT: the value of standing
+still is the best standing attack it unlocks** — offered as a hypothesis, not a
+conclusion, because the loop above has to be broken before any weight is fitted. Its zero case is a body already
 standing, or one whose best standing option scores no better than the dash
 attack; its nonzero case is a running body in range of a foe with a stronger
 committed option available. That is step 3's "one explicit policy term with clear

@@ -605,13 +605,34 @@ match decided early, so this is not the "a fight good enough to end fast reads a
 less damage" artefact the threshold's own comment warns about — I checked that
 first and it is not what happened. The CPUs simply land far fewer hits.
 
-⇒ **AND THE MECHANISM IS A DESIGN FACT, NOT A BUG IN THE FIX.** The press road
-makes a run PRE-EMPT the smash gesture: while running, `attack` and `smash` BOTH
-resolve to `{base}_dash`. So a truthful kit has ONE attack candidate whenever the
-body runs, where the mislabeled one offered the whole standing menu. The fix did
-not make the CPU worse at choosing — it revealed that **the CPU never stops
-running to reach its own tilts and smashes.** A human stops; the brain's movement
-and attack scorers are independent and nothing connects them.
+⇒ **THE MECHANISM, MEASURED — AND IT CORRECTED MY FIRST READING OF IT.** The
+press road makes a run PRE-EMPT the smash gesture: while running, `attack` and
+`smash` BOTH resolve to `{base}_dash`, so a truthful kit has ONE attack candidate
+whenever the body runs where the mislabeled one offered the standing menu. From
+that I wrote *"the CPU never stops running"* — and then instrumented the duel for
+stance, which does not support it:
+
+| kit | seat 0 running / grounded | seat 1 | grounded ticks |
+|---|---|---|---|
+| mislabeled | 258/1908 = **14%** | 353/1822 = **19%** | 1908 / 1822 |
+| truthful | 402/1334 = **30%** | 569/1457 = **39%** | 1334 / 1457 |
+
+⛔ At HEAD these bodies run only 14–19% of their grounded time, so "never stops
+running" was false. What the trace actually shows is a FEEDBACK LOOP: making the
+dash attack reachable roughly DOUBLES the running fraction and cuts grounded time
+by a third, and the damage falls with it.
+
+⭐ **AND THE COUPLING THAT CAN CARRY IT IS REAL AND ONE LINE:**
+`generate_options` calls `movement_options(&view, situation, !lifts.is_empty())`
+— the ATTACK KIT feeds movement scoring through `lifting_candidates`. So changing
+what the kit contains changes how the body MOVES, which changes which stance it
+is in, which changes the kit. That is the independence F6 names, except the two
+scorers are not independent at all: they are coupled through one boolean, in the
+direction nobody intended.
+
+⚠ Which of the two moves first is NOT yet measured, and the next person should
+not assume it: instrument `lifts` per tick under both kits before touching a
+weight.
 
 ⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
 `fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move

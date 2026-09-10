@@ -285,9 +285,21 @@ The sweep and its population live in
 
 ### ⛔⛔ And the mirror image: the guard is PERFECT and the SUBJECT is inert
 
-Everything above is a check that could not fail. This one *can* fail, does
-exactly what it says, and still tells you nothing — because **a fact only an
-instrument reads stays correct forever while meaning nothing.**
+**The two produce the same passing green from opposite causes, and the remedies
+differ, which is why they belong side by side.**
+
+**The vacuous side, worked:** `test_text_spawns_resolve_a_font` asserts that no
+menu text is spawned without a resolved font. It anchored on
+`Text::(new|default)` — two blessed constructor names — with no anti-vacuity
+floor anywhere in the file. `bevy_ui` declares `pub struct Text(pub String);`, so
+`Text("Play".into())` is legal, unfonted, and was invisible. MEASURED by
+appending exactly that spawn to a copy of the menu renderer: **the guard passed.**
+Nothing was wrong with the assertion; the scan under it saw nothing, and seeing
+nothing is what a healthy tree looks like. ⇒ **A vacuous guard wants a FLOOR.**
+
+**The inert side, worked.** This one *can* fail, does exactly what it says, and
+still tells you nothing — because **a fact only an instrument reads stays correct
+forever while meaning nothing.**
 
 Worked example: `SeatCredit` is written on one entity in one place, and its two
 tests assert that the entity *carries* `SeatCredit(0)`. Both pass. Nothing in
@@ -296,10 +308,15 @@ production reads a seat credit — attribution in that engine runs on
 remaining. The assertion is true, the guard is sound, and the subject does no
 work.
 
-⇒ **Same green, opposite cause, and the remedies differ.** A vacuous guard wants
-a FLOOR. An inert subject wants a READER — and if there is no reader and no road
+⇒ **An inert subject wants a READER** — and if there is no reader and no road
 that wants one, what you have found is dead state, not a weak test. Ask of a
 passing assertion about a stored fact: *who, in production, consults this?*
+
+⚠ **And the diagnostic that separates them is one question, not two.** Both
+print green. For the vacuous guard, ask *would this still pass if the scan under
+it matched nothing?* For the inert subject, ask *who reads this outside the
+test?* A guard can be neither, either, or — as `SeatCredit`'s tests are — sound
+about a subject that does no work.
 
 ### Running this audit yourself
 

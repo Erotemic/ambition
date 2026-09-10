@@ -18,8 +18,11 @@
 //! exhaustive BY CONSTRUCTION rather than by discipline: passing through
 //! `canonical_f32_bits` is what MAKES a value canonical, so a type that gains a
 //! canonical float is observed automatically. There is no field walk to keep in
-//! sync. The alternative measured first was a per-type walk across **93
-//! hand-written `SnapshotState` impls**, each free to walk three of five fields.
+//! sync. The alternative measured first was a per-type walk across the
+//! hand-written `SnapshotState` impls, each free to walk three of five fields —
+//! **98 of them at 2026-09-10**, and the count is the point rather than the
+//! number: it moved from 93 to 98 during the day this was written, which is
+//! exactly what a walk kept by discipline has to keep up with.
 //!
 //! ⚠ **WHAT THIS DOES NOT COVER, and this file will not claim otherwise:
 //! values that are never ENCODED.** MEASURED 2026-09-10 against

@@ -16,28 +16,6 @@
 
 use ambition_entity_catalog::EffectRef;
 
-/// The techniques this composition installed handlers for.
-///
-/// ⭐ A KEY IN HERE MEANS SOMETHING INSTALLED ANSWERS IT, because the only way in
-/// is the statement that adds the handler system
-/// (`combat_schedule::install_technique`). That is the property a metadata
-/// registry cannot have, and the reason its predecessor — `ParamSchemaRegistry`,
-/// which had zero production callers — could not tell a misspelled effect key
-/// from a real one.
-///
-/// ⛔⛔ **IT LIVES HERE BECAUSE PREPARATION IS WHERE IT IS READ.** It was in
-/// `ambition_combat`, beside effect EXECUTION, which was right while the only
-/// consumer executed effects. The admission pass runs at the character
-/// preparation barrier — in THIS crate — and `ambition_characters` cannot name
-/// `ambition_combat` (the dependency runs the other way). A table the check
-/// cannot see is a check that cannot run, so the shell moved to the lower crate
-/// and `ambition_combat::technique` re-exports it; every existing path still
-/// resolves.
-///
-/// ⚠ Still NOT in `ambition_entity_catalog`, which owns `TechniqueSupport`
-/// itself: that crate is engine-free on purpose and this is a bevy `Resource`.
-#[derive(bevy::prelude::Resource, Default)]
-pub struct InstalledTechniques(pub ambition_entity_catalog::TechniqueSupport);
 
 /// The `on_hit` effect key the engine pogo technique answers.
 pub const POGO_BOUNCE_KEY: &str = "pogo_bounce";

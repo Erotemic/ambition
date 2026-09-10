@@ -48,6 +48,28 @@ pub struct SummonRideParams {
     pub reach: f32,
 }
 
+/// The character ids a `smash.summon_ride` effect names — its mount.
+///
+/// ⛔⛔ **THIS REFERENCE WAS CHECKED AT FIRE TIME AND NOWHERE ELSE.** A summon
+/// whose `character_id` names nothing prepared is refused by
+/// `preflight_planned_bodies`, which logs `summon batch rejected before
+/// mutation` and returns — so the move plays, the rider mounts nothing, and the
+/// only evidence is a log line during a fight. Declaring the reference lets the
+/// preparation barrier refuse it while an author is still looking.
+///
+/// ⚠ MALFORMED PARAMS NAME NOTHING HERE, deliberately: whether they hydrate at
+/// all is [`TechniqueParams::Checked`]'s question, asked on the same effect by
+/// the same pass, and answering it twice would report one defect as two.
+pub fn summon_ride_character_refs(
+    effect: &ambition_entity_catalog::EffectRef,
+) -> Vec<String> {
+    effect
+        .params
+        .hydrate::<SummonRideParams>()
+        .map(|params| vec![params.character_id])
+        .unwrap_or_default()
+}
+
 /// Author a summon-and-ride onto a move's timeline.
 ///
 /// # Panics

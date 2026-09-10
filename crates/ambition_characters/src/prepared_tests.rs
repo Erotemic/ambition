@@ -905,3 +905,390 @@ fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
          plays and silently stops. Report was: {reported:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ A NESTED REFERENCE WAS CHECKED AT FIRE TIME AND NOWHERE ELSE.
+//
+// `SummonRideParams::character_id` names another authored definition. Nothing
+// verified it during preparation, so a summon pointing at a character this
+// composition never prepared reached `preflight_planned_bodies`, which logs
+// "summon batch rejected before mutation" and RETURNS — the move plays, the
+// rider mounts nothing, and the only evidence is a log line during a fight.
+//
+// ⭐ THE OFFER DECLARES WHAT IT NAMES, so the checking loop never learns a
+// technique's name. Matching on `smash.summon_ride` inside the validation pass
+// would be the service locator the owner document forbids; asking the offer
+// keeps this a bounded validation catalog.
+// ---------------------------------------------------------------------------
+mod nested_references {
+    use super::*;
+    use crate::prepared::unsupported_authored_effects;
+    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery,
+        TechniqueOffer, TechniqueParams, TechniqueSupport,
+    };
+
+    /// A support table that installs the summon and declares its mount reference.
+    fn supporting_summons() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                SUMMON_RIDE,
+                TechniqueOffer {
+                    owner: "test::shark_ride",
+                    params: TechniqueParams::Checked(
+                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                    ),
+                    references: NestedReferences::Characters(summon_ride_character_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            )
+            .expect("a fresh table admits the first claim");
+        support
+    }
+
+    fn summoning(mount: &str) -> EffectRef {
+        EffectRef {
+            key: SUMMON_RIDE.to_string(),
+            params: ParamValue::parse(&format!(
+                "(character_id: \"{mount}\", half_extents: (24.0, 16.0), seconds: 5.0, \
+                 reach: 600.0)"
+            ))
+            .expect("the fixture's params parse"),
+        }
+    }
+
+    /// The extractor is the whole mechanism; prove it reads the id before any
+    /// registry question is asked of it.
+    #[test]
+    fn the_offer_reports_the_character_a_summon_names() {
+        assert_eq!(
+            summon_ride_character_refs(&summoning("burning_flying_shark")),
+            vec!["burning_flying_shark".to_string()],
+        );
+    }
+
+    /// ⭐ CONTROL. Params that do not hydrate name NOTHING here — whether they
+    /// hydrate is `TechniqueParams::Checked`'s question, asked on the same
+    /// effect by the same pass, and answering it twice reports one defect as
+    /// two.
+    #[test]
+    fn malformed_params_name_no_character() {
+        let effect = EffectRef {
+            key: SUMMON_RIDE.to_string(),
+            params: ParamValue::parse("(character_id: 12)").unwrap_or_default(),
+        };
+        assert!(summon_ride_character_refs(&effect).is_empty());
+    }
+
+    /// ⭐ CONTROL. A technique that declares no references names none, whatever
+    /// its params say — otherwise every key would be scanned for ids.
+    #[test]
+    fn a_technique_declaring_no_references_names_nothing() {
+        assert!(NestedReferences::None
+            .characters(&summoning("burning_flying_shark"))
+            .is_empty());
+    }
+
+    /// ⛔ THE CASE THAT USED TO REACH THE PLAYER. A summon naming a character
+    /// this composition never prepared is now refused while an author is
+    /// looking.
+    #[test]
+    fn a_summon_naming_an_unprepared_character_is_refused_at_preparation() {
+        let registry = registry_with_summon("burning_flying_shark", &[]);
+        let refusals = unsupported_authored_effects(&supporting_summons(), &registry);
+        assert_eq!(
+            refusals.len(),
+            1,
+            "expected exactly the missing mount; got {refusals:?}"
+        );
+        assert!(
+            refusals[0].detail.contains("burning_flying_shark"),
+            "the refusal must NAME the character that is missing, or an author \
+             cannot act on it: {:?}",
+            refusals[0]
+        );
+        // ⭐ AND IT MUST NAME THE RIDER, because that is the definition the fold
+        // WITHHOLDS. A refusal that cannot be attributed to a character can only
+        // be logged, which is the linting behaviour review #9 rejected.
+        assert_eq!(
+            refusals[0].character, "rider",
+            "the refusal must attribute itself to the definition that carries the \
+             effect: {:?}",
+            refusals[0]
+        );
+    }
+
+    /// ⭐ THE ANTI-VACUITY FLOOR. The same cast WITH the mount prepared must
+    /// pass — without this, a check that refused every summon would satisfy the
+    /// test above and break every rideable character in the game.
+    #[test]
+    fn the_same_summon_passes_once_its_mount_is_prepared() {
+        let registry = registry_with_summon("burning_flying_shark", &["burning_flying_shark"]);
+        let refusals = unsupported_authored_effects(&supporting_summons(), &registry);
+        assert!(
+            refusals.is_empty(),
+            "a summon whose mount IS prepared was refused: {refusals:?}"
+        );
+    }
+
+    /// A move whose ACTIVE WINDOW sustains `effect` — one of the four sites
+    /// `MoveSpec::effect_refs` visits, chosen because it is the site
+    /// `mary_o_grab` uses in the shipped content.
+    fn move_emitting(id: &str, effect: EffectRef) -> ambition_entity_catalog::MoveSpec {
+        let mut spec = crate::prepared_fixtures::slash(id, "cue", "strike");
+        spec.windows[0].sustain_effect = Some(effect);
+        spec
+    }
+
+    /// A rider whose move summons `mount`, plus `also` prepared beside it.
+    fn registry_with_summon(mount: &str, also: &[&str]) -> crate::prepared::PreparedCharacterRegistry {
+        use crate::prepared_fixtures::moveset_with;
+        let mut registry = crate::prepared::PreparedCharacterRegistry::default();
+        let rider = CharacterDefinition::new("rider", "Rider", "test_demo").with_moveset(
+            moveset_with(
+                &[("special", "call_the_shark")],
+                vec![move_emitting("call_the_shark", summoning(mount))],
+            ),
+        );
+        registry.insert(
+            crate::prepared::prepare_and_finalize_for_test(rider, &CharacterBindings::default())
+                .prepared,
+        );
+        for id in also {
+            let mount_def = CharacterDefinition::new(*id, *id, "test_demo");
+            registry.insert(
+                crate::prepared::prepare_and_finalize_for_test(
+                    mount_def,
+                    &CharacterBindings::default(),
+                )
+                .prepared,
+            );
+        }
+        registry
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ DETECTING A REFUSED TECHNIQUE AND THEN PUBLISHING IT ANYWAY IS NOT
+// ADMISSION — IT IS STARTUP LINTING.
+//
+// The first production wiring walked every expanded move, accumulated refusals,
+// logged them, and then inserted the registry unconditionally. The diagnostic
+// even said what followed: the moves "will play and do nothing" — which is
+// precisely the runtime failure A11 exists to prevent. GPT review #9 rejected
+// it, correctly. The owner contract requires the checked result BEFORE
+// active-definition publication.
+//
+// ⚠ PER DEFINITION, NOT PER CAST. Refusing the whole cast because ONE character
+// names a technique this host did not install would take down compositions over
+// a content/composition mismatch they did not create. Withholding exactly the
+// definitions that carry unsupported effects is the literal reading of "invalid
+// or uninstalled calls cannot publish definitions", and it is what these tests
+// pin.
+// ---------------------------------------------------------------------------
+mod withholding {
+    use super::*;
+    use crate::prepared::{admit_and_finalize_cast, CharacterCatalogGeneration};
+    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery,
+        TechniqueOffer, TechniqueParams, TechniqueSupport,
+    };
+
+    fn supporting_summons() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                SUMMON_RIDE,
+                TechniqueOffer {
+                    owner: "test::shark_ride",
+                    params: TechniqueParams::Checked(
+                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                    ),
+                    references: NestedReferences::Characters(summon_ride_character_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            )
+            .expect("a fresh table admits the first claim");
+        support
+    }
+
+    /// A move whose active window sustains one authored effect.
+    fn move_emitting(id: &str, effect: EffectRef) -> ambition_entity_catalog::MoveSpec {
+        let mut spec = crate::prepared_fixtures::slash(id, "cue", "strike");
+        spec.windows[0].sustain_effect = Some(effect);
+        spec
+    }
+
+    fn staged(definition: CharacterDefinition) -> crate::prepared::StagedCharacter {
+        crate::prepared::prepare_for_registration(definition, &CharacterBindings::default()).staged
+    }
+
+    /// `who` authors `key`; `plain` authors nothing unusual.
+    fn cast(who: &str, key: &str, plain: &str) -> Vec<crate::prepared::StagedCharacter> {
+        use crate::prepared_fixtures::moveset_with;
+        let effect = EffectRef {
+            key: key.to_string(),
+            params: ParamValue::parse(
+                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+            )
+            .expect("params parse"),
+        };
+        vec![
+            staged(
+                CharacterDefinition::new(who, who, "test_demo").with_moveset(moveset_with(
+                    &[("special", "the_move")],
+                    vec![move_emitting("the_move", effect)],
+                )),
+            ),
+            staged(CharacterDefinition::new(plain, plain, "test_demo")),
+        ]
+    }
+
+    /// ⛔ THE CASE REVIEW #9 REJECTED. An unsupported key must keep its
+    /// definition OUT of the published registry.
+    #[test]
+    fn a_definition_naming_an_uninstalled_technique_is_not_published() {
+        let admitted = admit_and_finalize_cast(
+            cast("rider", "smash.not_installed_here", "bystander"),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+
+        assert!(
+            admitted.registry.get("rider").is_none(),
+            "the definition naming an uninstalled technique was PUBLISHED; its \
+             moves would play and answer nothing, which is the exact failure \
+             admission exists to prevent"
+        );
+        assert_eq!(
+            admitted.refusals.len(),
+            1,
+            "expected one refusal naming the rider; got {:?}",
+            admitted.refusals
+        );
+        assert_eq!(admitted.refusals[0].character, "rider");
+    }
+
+    /// ⭐ THE ANTI-VACUITY FLOOR, and the reason this is per-DEFINITION. A
+    /// refusal must not take the rest of the cast down with it — a check that
+    /// withheld everything would satisfy the test above while emptying the game.
+    #[test]
+    fn the_rest_of_the_cast_is_still_published() {
+        let admitted = admit_and_finalize_cast(
+            cast("rider", "smash.not_installed_here", "bystander"),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+
+        assert!(
+            admitted.registry.get("bystander").is_some(),
+            "an unrelated character was withheld because a DIFFERENT definition \
+             was refused: {:?}",
+            admitted.refusals
+        );
+    }
+
+    /// ⭐ CONTROL. With no support table there is no admission authority, and
+    /// the unchecked fold must publish everything — that is the composition that
+    /// installed no techniques, not a composition that failed a check.
+    #[test]
+    fn without_a_support_table_nothing_is_withheld() {
+        let admitted = admit_and_finalize_cast(
+            cast("rider", "smash.not_installed_here", "bystander"),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            None,
+        );
+
+        assert!(admitted.refusals.is_empty());
+        assert!(admitted.registry.get("rider").is_some());
+        assert!(admitted.registry.get("bystander").is_some());
+    }
+
+    /// ⭐ CONTROL. A cast whose every effect IS supported publishes whole.
+    #[test]
+    fn a_fully_supported_cast_publishes_every_definition() {
+        let mut staged_cast = cast("rider", SUMMON_RIDE, "bystander");
+        // The mount the rider names, so the nested reference resolves too.
+        staged_cast.push(staged(CharacterDefinition::new("nobody", "nobody", "test_demo")));
+        let admitted = admit_and_finalize_cast(
+            staged_cast,
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+
+        assert!(
+            admitted.refusals.is_empty(),
+            "a supported cast was refused: {:?}",
+            admitted.refusals
+        );
+        assert!(admitted.registry.get("rider").is_some());
+        assert!(admitted.registry.get("bystander").is_some());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ `check_hydrates::<T>` IS NOT A SEMANTIC CHECK, AND THE DECLARATIONS SAID
+// IT WAS.
+//
+// `TimeDilationParams::problems` rejects `scale >= 1` — a "slow" that speeds the
+// victim up — and the LIVE HANDLER runs exactly that check at fire time. So a
+// move authored `{scale: 2.0}` played, and was refused in the middle of a fight.
+// The A11 declaration checked only that serde could build the struct, which the
+// owner document says explicitly is insufficient. GPT review #9 named it.
+// ---------------------------------------------------------------------------
+mod domain_semantics {
+    use crate::smash_time_dilation::{check_time_dilation_params, TimeDilationParams};
+    use ambition_entity_catalog::{check_hydrates, ParamValue};
+
+    fn params(ron_text: &str) -> ParamValue {
+        ParamValue::parse(ron_text).expect("the fixture parses")
+    }
+
+    /// ⛔ THE CASE THAT REACHED THE PLAYER. A scale above 1 hydrates perfectly.
+    #[test]
+    fn a_slow_that_speeds_the_victim_up_is_refused_at_admission() {
+        let authored = params("(scale: 2.0, seconds: 1.0)");
+
+        assert!(
+            check_hydrates::<TimeDilationParams>(&authored).is_ok(),
+            "the premise is gone: if this no longer hydrates, the test below \
+             passes for the wrong reason"
+        );
+        let refused = check_time_dilation_params(&authored);
+        assert!(
+            refused.is_err(),
+            "`scale: 2.0` was admitted; the handler refuses it at fire time, so \
+             the move plays and then does nothing"
+        );
+    }
+
+    /// ⭐ THE ANTI-VACUITY FLOOR. Params the domain accepts must still be
+    /// admitted — a check that refused everything would satisfy the test above
+    /// and break every authored slow in the game.
+    #[test]
+    fn a_well_formed_slow_is_still_admitted() {
+        assert_eq!(
+            check_time_dilation_params(&params("(scale: 0.35, seconds: 0.5)")),
+            Ok(())
+        );
+    }
+
+    /// ⭐ CONTROL. Params that do not hydrate at all are still refused, and by
+    /// the hydration error rather than a domain complaint — one defect, one
+    /// sentence.
+    #[test]
+    fn params_that_do_not_hydrate_are_still_refused() {
+        assert!(check_time_dilation_params(&params("(scale: \"fast\")")).is_err());
+    }
+}

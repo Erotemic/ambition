@@ -295,6 +295,104 @@ impl PreparedKit {
     }
 }
 
+/// One authored effect a composition cannot support, and whose definition it
+/// therefore may not publish.
+///
+/// ⚠ `character` is what makes REFUSAL possible rather than merely reportable:
+/// the fold withholds exactly the definitions named here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectRefusal {
+    /// The prepared character whose moveset carries the effect.
+    pub character: String,
+    /// The full human-readable refusal, naming move, site and cause.
+    pub detail: String,
+}
+
+/// Every authored effect in `prepared` that `installed` will not support.
+///
+/// ⛔⛔ **`TechniqueSupport::admit` HAD NO PRODUCTION CALLER OVER AUTHORED
+/// EFFECTS, AND NEITHER DID `MoveSpec::effect_refs`.** Both halves existed since
+/// A11a/A11b and nothing joined them, so a misspelled `smash.teleprot` matched
+/// no handler, fell out of every consumer, and surfaced as a `warn!` in the
+/// middle of a fight on a move that plays and does nothing. This is the join.
+///
+/// ⭐ `effect_refs` is the exhaustive visitor — it destructures without `..` at
+/// every level, so a fifth effect site is a compile error rather than a silent
+/// gap.
+///
+/// ⚠ `kit`'s moveset, NOT `authored_moveset`: the kit always carries one
+/// (derived from the action set when the character authored no timelines), so
+/// this is the full set of effects a body wearing that character can reach.
+pub fn unsupported_authored_effects(
+    installed: &ambition_entity_catalog::TechniqueSupport,
+    prepared: &PreparedCharacterRegistry,
+) -> Vec<EffectRefusal> {
+    let mut refusals: Vec<EffectRefusal> = Vec::new();
+    for (id, definition) in prepared.iter() {
+        let Some(moveset) = definition.kit.projectable_moveset() else {
+            continue;
+        };
+        for mv in &moveset.moves {
+            for (site, effect) in mv.effect_refs() {
+                // ⭐ THE SITE TRAVELS WITH THE EFFECT. `effect_refs` went to the
+                // trouble of labelling every reference and this call discarded
+                // it, so a technique authored somewhere its handler never reads
+                // passed validation and answered nothing at runtime.
+                if let Err(refusal) = installed.admit_at(Some(&site), effect) {
+                    refusals.push(EffectRefusal {
+                        character: id.to_string(),
+                        detail: format!("{id} / {} / {site:?}: {refusal}", mv.id),
+                    });
+                    // The key is not supported, so its params were never a
+                    // contract; asking what they NAME would report one defect
+                    // as two.
+                    continue;
+                }
+                // ⛔⛔ **THE NESTED REFERENCE, CHECKED WHERE THE CAST IS KNOWN.**
+                // `SummonRideParams::character_id` names another authored
+                // definition, and nothing checked it until FIRE TIME —
+                // `preflight_planned_bodies` logs "summon batch rejected before
+                // mutation" and returns, so the move plays, the rider mounts
+                // nothing, and the only evidence is a log line during a fight.
+                //
+                // ⭐ THE OFFER SAYS WHAT IT NAMES, so this loop never learns a
+                // technique's name. Matching on `smash.summon_ride` here would
+                // be the service locator the owner document forbids.
+                let Some(offer) = installed.offer(&effect.key) else {
+                    continue;
+                };
+                for named in offer.references.characters(effect) {
+                    if prepared.get(&named).is_none() {
+                        refusals.push(EffectRefusal {
+                            character: id.to_string(),
+                            detail: format!(
+                                "{id} / {} / {site:?}: effect '{}' names character \
+                                 '{named}', which this composition prepared no \
+                                 definition for",
+                                mv.id, effect.key
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    refusals
+}
+
+/// Every authored effect the preparation barrier refused, as a published fact.
+///
+/// ⭐ EMPTY IS THE CLAIM WORTH ASSERTING. The shipped composition must prepare a
+/// cast whose every authored effect names a technique it installed; a fixture
+/// can read this instead of scraping a log, and an inspector can show an author
+/// exactly which move is inert.
+///
+/// ⚠ Its presence does NOT mean the definitions were withheld — today they are
+/// published anyway and this reports. Whether an uninstalled technique should
+/// refuse outright is Q97.
+#[derive(bevy::prelude::Resource, Default, Debug, Clone, PartialEq, Eq)]
+pub struct AuthoredEffectRefusals(pub Vec<EffectRefusal>);
+
 /// A prepared character: flat, immutable, and COMPLETE.
 ///
 /// The session consumes resolved values. That is the real invariant behind §4.3 —
@@ -1577,7 +1675,7 @@ impl std::error::Error for CharacterRegistrationError {}
 /// definitions are folded. The accessors below expose only identity needed for
 /// duplicate validation before staging completes.
 #[derive(Debug, Clone)]
-struct StagedCharacter {
+pub(crate) struct StagedCharacter {
     inner: PreparedCharacterOverrides,
 }
 
@@ -1601,9 +1699,9 @@ impl StagedCharacter {
 
 /// What [`prepare_for_registration`] hands back: the staged value and what
 /// preparation could and could not verify.
-struct StagedRegistration {
+pub(crate) struct StagedRegistration {
     /// The partial. Opaque — see [`StagedCharacter`].
-    staged: StagedCharacter,
+    pub(crate) staged: StagedCharacter,
     /// Every reference a resolver was supplied for and could not resolve.
     report: BindingReport,
 }
@@ -1615,7 +1713,7 @@ struct StagedRegistration {
 /// identically in every build. What it CANNOT do is inherit, because the catalog
 /// is not knowable at registration time; that is [`finalize_cast`]'s job and the
 /// whole reason the two are separate.
-fn prepare_for_registration(
+pub(crate) fn prepare_for_registration(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
 ) -> StagedRegistration {
@@ -1806,17 +1904,42 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
     }
 
     fn finish(&self, app: &mut bevy::app::App) {
-        finalize_prepared_cast(app.world_mut());
+        finalize_prepared_cast(app.world_mut(), None);
     }
 }
 
 /// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
-fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
-    finalize_prepared_cast(world);
+///
+/// ⚠ UNCHECKED, and that is the point of a backstop: a composition with no
+/// admission authority has no installed techniques to admit against. A host that
+/// DOES install them drives [`close_preparation_barrier_admitting`] first; the
+/// `finalized` guard makes whichever fires first the only one that folds.
+pub fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
+    finalize_prepared_cast(world, None);
+}
+
+/// The barrier a composition that INSTALLED techniques drives, passing its own
+/// support table in.
+///
+/// ⭐ THE COMPOSITION KEEPS THE FACT AND HANDS IT OVER. `InstalledTechniques` is
+/// a Bevy resource owned by runtime/combat — which native handlers the selected
+/// application composition installed is composition state, not a property of a
+/// character definition. This crate never names that resource; it takes the
+/// plain `TechniqueSupport` value as an argument, so neither dependency
+/// reverses. It briefly did the opposite, and GPT review #9 was right to call
+/// that dependency convenience wearing ownership's clothes.
+pub fn close_preparation_barrier_admitting(
+    world: &mut bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+) {
+    finalize_prepared_cast(world, Some(support));
 }
 
 /// Fold the staged cast and publish it. Idempotent; runs at most once.
-fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
+fn finalize_prepared_cast(
+    world: &mut bevy::ecs::world::World,
+    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+) {
     let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
         return;
     };
@@ -1886,36 +2009,110 @@ fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
     // ⚠ AND `kit`'s MOVESET, NOT `authored_moveset`: the kit always carries one
     // (derived from the action set when the character authored no timelines), so
     // this is the full set of effects a body wearing this character can reach.
-    let prepared = finalize_cast(
-        staged.into_values(),
+    let staged: Vec<_> = staged.into_values().collect();
+    // ⭐ THE SUPPORT TABLE ARRIVES AS AN ORDINARY ARGUMENT. It is
+    // composition/runtime state and stays owned there; this crate names only
+    // `TechniqueSupport`, a plain data type in `ambition_entity_catalog` that it
+    // already depends on. Nothing about the dependency graph reverses, and the
+    // unchecked path below is what a composition WITHOUT an admission authority
+    // gets — which is also a composition with no installed techniques to check.
+    let admitted = admit_and_finalize_cast(
+        staged,
         catalog.as_ref(),
         profiles.as_ref(),
         previous,
+        support,
     );
-    if let Some(installed) = world.get_resource::<crate::technique::InstalledTechniques>() {
-        let mut refusals: Vec<String> = Vec::new();
-        for (id, definition) in prepared.iter() {
-            let Some(moveset) = definition.kit.projectable_moveset() else {
-                continue;
-            };
-            for mv in &moveset.moves {
-                for (site, effect) in mv.effect_refs() {
-                    if let Err(refusal) = installed.0.admit(effect) {
-                        refusals.push(format!("{id} / {} / {site:?}: {refusal}", mv.id));
-                    }
-                }
-            }
-        }
-        if !refusals.is_empty() {
-            bevy::prelude::error!(
-                "{} authored effect(s) name a technique this composition does not \
-                 support, so the moves carrying them will play and do nothing:\n    {}",
-                refusals.len(),
-                refusals.join("\n    ")
-            );
-        }
+    if !admitted.refusals.is_empty() {
+        bevy::prelude::error!(
+            "{} authored effect(s) name a technique this composition does not \
+             support. The definitions carrying them were NOT published:\n    {}",
+            admitted.refusals.len(),
+            admitted
+                .refusals
+                .iter()
+                .map(|refusal| refusal.detail.as_str())
+                .collect::<Vec<_>>()
+                .join("\n    ")
+        );
     }
-    world.insert_resource(prepared);
+    world.insert_resource(AuthoredEffectRefusals(admitted.refusals));
+    world.insert_resource(admitted.registry);
+}
+
+/// The fold, plus admission, with the definitions it refuses withheld.
+pub struct AdmittedCast {
+    /// Exactly the definitions this composition can support.
+    pub registry: PreparedCharacterRegistry,
+    /// Why each withheld definition was withheld.
+    pub refusals: Vec<EffectRefusal>,
+}
+
+/// Fold the staged cast and publish only what this composition can support.
+///
+/// ⛔⛔ **DETECTING AND THEN PUBLISHING ANYWAY IS NOT ADMISSION — IT IS STARTUP
+/// LINTING, and that is what this did until GPT review #9 said so.** The pass
+/// walked every expanded move, accumulated refusals, logged them, and then
+/// inserted the registry unconditionally — so the moves still "play and do
+/// nothing", which is precisely the runtime failure A11 exists to prevent. The
+/// owner contract requires the checked result BEFORE active-definition
+/// publication, and the queue's acceptance row says invalid or uninstalled calls
+/// cannot publish definitions.
+///
+/// ⇒ A refused definition is WITHHELD. `PreparedCharacterRegistry` is absent
+/// rather than empty when nothing registered, and absent already means "no such
+/// character" to every consumer — so a withheld definition degrades the same way
+/// an unregistered one does, loudly and at startup, instead of shipping a move
+/// that silently answers nothing.
+///
+/// ⚠ PER DEFINITION, NOT PER CAST. Refusing the whole cast because one character
+/// names a technique this host did not install would take down compositions over
+/// a content/composition mismatch they did not create; refusing exactly the
+/// definitions that carry the unsupported effects is the literal reading of
+/// "invalid calls cannot publish definitions" and leaves every valid character
+/// registered.
+///
+/// ⚠ ONE PASS, NOT A FIXPOINT. A summon naming a character that was itself
+/// withheld is not re-checked. Recording that rather than iterating: the case
+/// needs a real example before its cost is worth paying.
+pub fn admit_and_finalize_cast(
+    staged: Vec<StagedCharacter>,
+    catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
+    profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
+    previous: CharacterCatalogGeneration,
+    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+) -> AdmittedCast {
+    let full = finalize_cast(
+        staged.iter().cloned(),
+        catalog,
+        profiles,
+        previous,
+    );
+    let Some(support) = support else {
+        return AdmittedCast {
+            registry: full,
+            refusals: Vec::new(),
+        };
+    };
+    // ⚠ REFERENCES RESOLVE AGAINST THE WHOLE CAST, so the check needs the full
+    // fold before it can withhold anything: a summon may name a character
+    // staged after its rider.
+    let refusals = unsupported_authored_effects(support, &full);
+    if refusals.is_empty() {
+        return AdmittedCast {
+            registry: full,
+            refusals,
+        };
+    }
+    let refused: std::collections::BTreeSet<&str> =
+        refusals.iter().map(|r| r.character.as_str()).collect();
+    let kept = staged
+        .into_iter()
+        .filter(|character| !refused.contains(character.id()));
+    AdmittedCast {
+        registry: finalize_cast(kept, catalog, profiles, previous),
+        refusals,
+    }
 }
 
 #[cfg(test)]

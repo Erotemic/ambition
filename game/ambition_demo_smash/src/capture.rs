@@ -1,24 +1,24 @@
-//! The Smash ruleset's capture adapter: authored effect keys → typed requests.
+//! Capture's authored-effect chain, exercised end to end.
 //!
-//! ```text
-//! Smash authoring     an EffectRef on a move's window or timeline
-//!        ↓
-//! THIS MODULE         recognises the key, hydrates the params
-//!        ↓
-//! combat/body runtime CaptureAttemptRequested / Pummel / Throw
-//! ```
+//! ⛔⛔ **THE SYSTEM THIS TESTS MOVED TO `ambition_combat`; THESE TESTS DID NOT,
+//! AND THAT IS DELIBERATE.** Capture is an engine mechanic — its `CapturedBy`
+//! component, its twelve behaviour systems and its authored vocabulary are all
+//! engine-side — so the authored-key -> typed-request translation moved there
+//! too (2026-09-10). The TESTS stayed here because they compose the whole chain
+//! including `ambition_render`'s FX and the actor features, which
+//! `ambition_combat` does not depend on and must not: a test that forced those
+//! edges would buy coverage with an inverted dependency.
 //!
-//! the generic body runtime never matches `"smash.capture_throw"`, and
-//! this adapter never touches body ECS state. Each half does the thing it is the
-//! right place for: a ruleset knows what its own authored strings mean, and a
-//! body runtime knows how to hold and launch a body. Collapsing them would put
-//! Smash vocabulary in the engine or body surgery in the game, and both are the
-//! dependency this split exists to avoid.
-//!
-//! an unrecognised key falls through untouched — other techniques ride the
-//! same channel, and a `continue` here is how they stay unaffected.
+//! ⚠ SO THIS MODULE IS TEST-ONLY. It holds no production code; the demo installs
+//! nothing here any more. It exists because deleting the file with the system
+//! would have deleted the only end-to-end proof that an authored `smash.capture_*`
+//! reaches an acquisition, a pummel, a throw and an interruption.
 
-use bevy::prelude::*;
+#![cfg(test)]
+
+#[cfg(test)]
+mod tests {
+    use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
@@ -30,103 +30,6 @@ use ambition_platformer2d::combat::capture::{
     CaptureAttemptRequested, CaptureCarryRequested, CapturePummelRequested, CaptureThrowRequested,
 };
 use ambition_platformer2d::engine_core as ae;
-
-/// Translate this tick's authored capture effects into typed runtime requests.
-pub fn translate_smash_capture_effects(
-    mut actions: MessageReader<ActorActionMessage>,
-    mut attempts: MessageWriter<CaptureAttemptRequested>,
-    mut pummels: MessageWriter<CapturePummelRequested>,
-    mut throws: MessageWriter<CaptureThrowRequested>,
-    mut carries: MessageWriter<CaptureCarryRequested>,
-) {
-    for message in actions.read() {
-        let ActionRequest::Special { spec, params } = &message.request else {
-            continue;
-        };
-        // irrefutable today, and destructured anyway. `SpecialActionSpec`
-        // has exactly one variant since the per-boss variants collapsed onto the
-        // keyed effect seam. Naming it means the day a second variant arrives,
-        // this becomes a compile error at the one place that has to decide
-        // whether the new kind can carry a capture — rather than a silent
-        // fall-through that stops recognising grabs.
-        let SpecialActionSpec::Special(key) = spec;
-        match key.as_str() {
-            CAPTURE_ATTEMPT => {
-                // ⛔⛔ THIS COMMENT PROMISED A STARTUP CHECK THAT DOES NOT
-                // EXIST — corrected 2026-09-05 after ToothbrushAmbition counted
-                // the callers. It said a params typo "is a STARTUP error, not a
-                // silent default", because the key "registers `check_hydrates`
-                // with the param-schema registry". Nothing does.
-                // `ParamSchemaRegistry` has ZERO production users: `register`
-                // and `validate_all` are called only from
-                // `ambition_entity_catalog`'s own tests, and the type is not
-                // mentioned outside that crate. The registry is never populated
-                // in any shipped build.
-                //
-                // ⇒ SO THIS `Err` ARM IS NOT A LAST RESORT, IT IS THE ONLY
-                // THING between a fighter's bad grab data and a grab that
-                // silently does nothing. The old comment's conditional —
-                // "reaching here means the registration is missing" — was
-                // unconditionally true. The log fires; nothing fails at startup.
-                //
-                // ⚠ NOT KNOWN TO BE FIRING: whether any authored fighter has
-                // params that fail to hydrate was NOT established, so this is a
-                // missing guard rather than a broken grab. ⇒ Making it a real
-                // startup error is O4's business (the installed-technique
-                // catalog), and the first step is smaller than it looks —
-                // something must tell the registry that anything exists at all
-                // before it can answer "`smash.teleprot` does not exist".
-                match params.hydrate::<CaptureAttemptParams>() {
-                    Ok(p) => attempts.write(CaptureAttemptRequested {
-                        captor: message.actor,
-                        offset: ae::Vec2::new(p.offset.0, p.offset.1),
-                        half_extents: ae::Vec2::new(p.half_extents.0, p.half_extents.1),
-                        hold_offset: ae::Vec2::new(p.hold_offset.0, p.hold_offset.1),
-                    }),
-                    Err(err) => {
-                        warn!("smash capture attempt params did not hydrate: {err}");
-                        continue;
-                    }
-                };
-            }
-            CAPTURE_PUMMEL => match params.hydrate::<CapturePummelParams>() {
-                Ok(p) => {
-                    pummels.write(CapturePummelRequested {
-                        captor: message.actor,
-                        damage: p.damage,
-                    });
-                }
-                Err(err) => warn!("smash pummel params did not hydrate: {err}"),
-            },
-            CAPTURE_THROW => match params.hydrate::<CaptureThrowParams>() {
-                Ok(p) => {
-                    throws.write(CaptureThrowRequested {
-                        captor: message.actor,
-                        damage: p.damage,
-                        knockback: p.knockback,
-                        knockback_growth: p.knockback_growth,
-                        launch_dir: ae::Vec2::new(p.launch_dir.0, p.launch_dir.1),
-                    });
-                }
-                Err(err) => warn!("smash throw params did not hydrate: {err}"),
-            },
-            CAPTURE_CARRY => match params.hydrate::<CaptureCarryParams>() {
-                Ok(p) => {
-                    carries.write(CaptureCarryRequested {
-                        captor: message.actor,
-                        hold_offset: ae::Vec2::new(p.hold_offset.0, p.hold_offset.1),
-                    });
-                }
-                Err(err) => warn!("smash carry params did not hydrate: {err}"),
-            },
-            _ => continue,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::combat::capture::systems::{
         acquire_captures, apply_capture_pummels, apply_capture_throws, finalize_new_capture_pose,
@@ -151,7 +54,7 @@ mod tests {
         app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
         // ⛔⛔ AND THE CARRY, WHICH THIS FIXTURE CAUGHT THE ABSENCE OF. Adding a
-        // fourth `MessageWriter` to `translate_smash_capture_effects` made the
+        // fourth `MessageWriter` to `ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects` made the
         // WHOLE system fail parameter validation here, so George stopped being
         // able to grab at all — a system that writes four messages does not run
         // in a world that registers three. ⇒ Exactly why this repo has ruled
@@ -181,7 +84,7 @@ mod tests {
                 // THE FAN-OUT, so this fixture HEARS what a match hears.
                 // `dispatch_move_events` only writes `FxRequest`s; the cue is decided here.
                 ambition_platformer2d::render::fx::process_fx_requests,
-                translate_smash_capture_effects,
+                ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects,
                 acquire_captures,
                 apply_capture_pummels,
                 apply_capture_throws,
@@ -423,7 +326,7 @@ mod tests {
         app.add_message::<CapturePummelRequested>();
         app.add_message::<CaptureThrowRequested>();
         app.add_message::<CaptureCarryRequested>();
-        app.add_systems(Update, translate_smash_capture_effects);
+        app.add_systems(Update, ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects);
         let captor = app.world_mut().spawn_empty().id();
         app.world_mut().write_message(ActorActionMessage {
             actor: captor,

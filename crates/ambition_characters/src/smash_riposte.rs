@@ -81,6 +81,31 @@ pub struct RiposteStrikeParams {
     pub hit_sfx: Option<String>,
 }
 
+/// The admission check for `RIPOSTE_STRIKE`'s params: hydration AND the domain's own rule.
+///
+/// ⛔⛔ **`check_hydrates::<T>` IS NOT A SEMANTIC CHECK, AND THE DECLARATION SAID
+/// IT WAS.** [`RiposteStrikeParams::problems`] checks the response the counter will throw — and the live handler
+/// runs that check at FIRE TIME, so a move authored with bad numbers plays and
+/// is refused mid-fight. The A11 declaration checked only that serde could build
+/// the struct, so those params were "admitted" at startup. The owner document is
+/// explicit that successful hydration alone is insufficient. Caught by GPT
+/// review #9.
+///
+/// ⚠ The problems are JOINED rather than reported one at a time: an author fixing
+/// a move wants every complaint about it at once, which is the same reason
+/// `problems` returns a list rather than the first failure.
+pub fn check_riposte_strike_params(
+    params: &ambition_entity_catalog::ParamValue,
+) -> Result<(), String> {
+    let typed: RiposteStrikeParams = params.hydrate().map_err(|error| error.to_string())?;
+    let problems = typed.problems();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems.join("; "))
+    }
+}
+
 impl RiposteStrikeParams {
     /// Everything wrong with these params, as sentences an author can act on.
     ///

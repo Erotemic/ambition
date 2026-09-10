@@ -114,6 +114,57 @@ leave for `ambition_projectiles` without the victim queries following. The seman
 deletion gates the owner document requires have landed, INCLUDING the finite-time
 ordering rule reopened by review #7 above.
 
+**A2b's FINITE ORDERING is closed; compound-contact acceptance is DEFERRED to
+Q96/A5, and two narrow holes stay open (review #9).** Stated that way because
+this row previously read as closed and not-closed at once — it said "RE-CLOSED",
+then that the compound-solid row was not closed, and then listed compound solid
+object under acceptance anyway.
+
+**CLOSED 2026-09-10 — the tied world witness is authoritative (`1967a03d4`,
+ToothbrushAmbition).** `resolve_world_collision` re-answered "what stopped this
+shot" by scanning `world.blocks` for an endpoint overlap, solids before one-ways,
+after `first_body_sweep` had already ordered every candidate over the leg. The
+two priorities are different, so ordering and physics could name different
+colliders. Fixed by carrying the whole `SweepHit` — the ordering wants the time,
+the pull-back wants the centre, the response wants the collider — and giving the
+resolver the selected collider to dispatch on, with no re-admission. Guard:
+`a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one`,
+measured RED (0 surviving bodies) before the fix and green after.
+
+⭐ **AND THE FIXTURE NEEDED A SELF-VERIFYING ARM, which is the transferable
+lesson.** A bouncing fireball's half-extent is `(12, 9)`, not square, so
+hand-placed faces missed the intended tie by 3px and the wall won outright at
+t=0.42 — the test would have gone green over a tie that never happened.
+Asserting that the sweep picks the platform BEFORE asserting behaviour is what
+caught it. Any tie fixture wants that arm.
+
+**CLOSED 2026-09-10 — an unidentified victim beat an identified one
+(`c2188fa7a`, ToothbrushAmbition).** `StrikeVictim.sim_id` documents "a body
+without one still gets hit, it just cannot win the tie"; both resolver sites
+implemented it as a bare `Option` comparison, and `Option` orders `None` FIRST —
+so the comparison said the opposite of the sentence written above it. Fixed with
+ONE authority, `ambition_combat::hitbox::victim_identity_key`, read at
+systems.rs:892 and :930, ordering absent identity last, with rank as a leading
+field rather than a sentinel string so an authored id cannot collide with the
+stand-in. `sim_id` stays `Option`: as a Bevy `QueryData` field, requiring it
+silently drops unidentified bodies out of the query rather than failing
+construction — a gameplay change hidden inside a determinism fix. Guard:
+`an_unidentified_victim_does_not_beat_an_identified_one`, measured RED under both
+spawn orders; the existing stacked fixture could not express it because it
+hand-installs `SimId` on both bodies.
+
+⭐ **AND THE `debug_assert` WAS THE CENSUS.** The genuinely undecidable case — two
+coincident victims, neither identified — is a `debug_assert` naming both
+entities, chosen over a runtime census because an assert that never fires IS the
+measurement, and answers the question that matters ("does this happen on any road
+we exercise?") rather than the one a static scan can answer. It fired ONCE across
+1117 tests, in a fixture (`a_seated_fighters_shot_hits_a_same_faction_body_on_another_team`,
+two bodies on one point with no `SimId`), now identified. ⚠ It fires on ORDERING
+ambiguity, not OUTCOME ambiguity — that fixture's team filter made the order moot
+— so a future firing is a prompt to look, not proof of a live defect. A
+bundle-shaped static scanner had reported "2 of 2" and was describing its own
+method; it was deleted rather than committed.
+
 **A2 REOPENED AND RE-CLOSED AGAIN 2026-09-09 (GPT review #8), `dc2fe7ce7`.**
 Three defects, one cause: the road had a contact order that was not the
 protocol's, and then did not use its own answer.
@@ -165,8 +216,10 @@ row that measures nothing. Whether a projectile SHOULD collide with an ECS
 breakable's published surface is a separate open question, not this packet's.
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
-compound solid object, reflection/absorption, returning shots and rollback have
-explicit production-road outcomes. The initial sampled-target sweep is not a
+reflection/absorption, returning shots and rollback have explicit production-road
+outcomes. ⚠ COMPOUND SOLID OBJECT is deliberately NOT in this list — it is
+deferred to Q96/A5 and was previously named here while the same row said it was
+not closed. The initial sampled-target sweep is not a
 claim of full moving-target CCD. No second family query chooses the victim.
 
 ### A11/A12 - make authored technique admission truthful and bounded
@@ -198,11 +251,89 @@ It replaced two hand-kept lists that each read two of the four sites — includi
 the bare-specials census whose own doc records it having already missed a site
 once, and the held-item guard, where the miss means shipping a placeholder quad.
 
-⚠ **The remaining seventeen technique installers are all in
-`game/ambition_demo_smash/**`** (measured 2026-09-09 by locating every handler),
-which is the Smash lane. The four the engine composition installs are converted.
-Until those declare their keys the strict unknown-key pass cannot turn on, because
-it would reject every authored use of them.
+**Key declaration is COMPLETE, 4 -> 22 (`a596abd25`, `42766c8c1`).** Every
+technique the shipped composition installs declares the key it answers, engine
+and game alike; `install_techniques` (plural) exists because one handler can
+answer several keys. The last of them was `pogo_bounce`, an ENGINE technique
+authored by 36 characters and declared by nothing — found by walking the prepared
+corpus, not by grep, which could not see it (not in the `smash.` namespace,
+authored through prefabs, reached at an on-hit site).
+
+**ADMISSION IS NOW REAL, 2026-09-10 — the three things GPT review #9 named are
+done.** The review rejected `6a692b6d2` correctly; what replaced it:
+
+1. **Rejection GATES publication.** A refused definition is WITHHELD, per
+   definition, with the rest of the cast still published — the literal reading of
+   "invalid or uninstalled calls cannot publish definitions". Refusals carry the
+   character that owns them, which is what makes withholding possible rather than
+   merely reportable. Poisoned: stop withholding and only the "not published"
+   test dies; all three controls, including "the rest of the cast is still
+   published", hold.
+2. **`InstalledTechniques` is back in `ambition_combat`.** Moving it into
+   `ambition_characters` was dependency convenience wearing ownership's clothes —
+   my commit message admitted it ("THE TABLE HAD TO MOVE DOWN A CRATE FOR THE
+   CHECK TO EXIST AT ALL"). The runtime now passes `TechniqueSupport` in as an
+   ordinary argument, and the checked barrier is ordered explicitly
+   `.before(close_preparation_barrier)` — the `finalized` guard makes ORDER the
+   guarantee, so leaving it to plugin-registration order would be a silent bypass.
+3. **The predicate carries the site.** `admit_at` takes the `EffectSite` the
+   exhaustive visitor already returned, checked against a `TechniqueDelivery`
+   road per declaration — verified for all 23 declarations against the
+   `MessageReader` their handler actually uses, not assumed. Two declarations
+   swapped `check_hydrates::<T>` for the domain's own validator, so `{scale: 2.0}`
+   is refused at admission rather than mid-fight. `TechniqueRefusal::Disabled` is
+   deleted as unreachable vocabulary, with Q97 named as what would restore it.
+
+⭐ **AND CAPTURE MOVED TO THE ENGINE, which is what made refusal affordable.**
+Turning refusal on reddened seven application tests, every one a `smash.*` key in
+a composition without the Smash demo. Measured by state and behaviour ownership
+rather than by where the request types sat: `CapturedBy` and TWELVE behaviour
+systems are `ambition_combat`'s, the vocabulary is `ambition_characters`', and
+the demo owned ONE function that is a field-for-field `hydrate -> write` with no
+ruleset policy in any arm. The old module argued for the split — "a ruleset knows
+what its own authored strings mean" — and the argument does not survive its own
+premises, because the strings are engine constants. `mary_o`'s six grab and throw
+moves now work wherever combat is composed.
+
+⛔ **TWO MISTAKES IN THAT MOVE, both worth keeping.** Moving the translator
+WITHOUT its chain put it in a different set from its consumers, so a request
+written after `acquire_captures` would be consumed a tick late — the mechanic
+moves together or not at all. And the four request channels were registered ONLY
+by the demo (the `ambition_combat` registrations are `#[cfg(test)]` fixtures), so
+installing the systems without them panicked twelve application tests with
+"Message not initialized" — a composition fact living in a ruleset, from the
+registration side. The demo's own comment had already written the rule: a system
+that writes four messages does not run in a world that registers three.
+
+⚠ STILL OPEN in this lane: **A11c** — explicit prepared-revision activation, and
+the PREREQUISITE (not the successor) of the "edit rejected during active play"
+acceptance row, because there is still no production republication road:
+`stage_authored_character` panics after `finalized` and nothing else writes the
+registry. Also the two `item_id` nested references, which cannot be checked from
+`ambition_characters` (it cannot see the item vocabulary — the same layering wall
+the support table had to cross).
+
+⛔ SUPERSEDED — what review #9 named, kept for the shape of the errors:
+
+1. **Rejection must gate publication.** The pass currently logs refusals and then
+   publishes the offending definitions anyway, so the moves "play and do nothing"
+   exactly as before. The owner contract requires the checked result before
+   active-definition publication; the implementation must preserve the last-good
+   registry or refuse initial activation.
+2. **`InstalledTechniques` must go back to composition/runtime ownership.** It was
+   moved into `ambition_characters` because preparation could not see upward —
+   dependency convenience, not ownership, and the same category of error as the
+   earlier `actor_spawn` mistake. The fix needs no new abstraction: runtime/combat
+   keeps the resource and invokes a FALLIBLE preparation/publication function with
+   the support table as an ordinary input.
+3. **The predicate is weaker than the contract.** `admit` takes only an
+   `EffectRef`, so it discards the `EffectSite` the exhaustive visitor returns —
+   `pogo_bounce` authored in a timeline/sustain/flow slot passes validation and is
+   consumed by nothing. And most declarations check `check_hydrates::<T>` rather
+   than the domain's own validator (`TimeDilationParams::problems` rejects
+   `scale >= 1`; the declaration does not, so `{scale: 2.0}` is admitted and
+   refused only at fire time). `TechniqueRefusal::Disabled` is dead vocabulary
+   for the same reason: an absent key is always `Unknown`.
 
 **A12b's structural half landed 2026-09-09.** `FlowNode`'s edges are the runtime
 cursor's own `u16`, so the interpreter's narrowing `as u16` — which turned an
@@ -799,58 +930,78 @@ by a comment.
 ⇒ `check_no_warnings` is GREEN, which it had not been all session: the dead
 method was its only finding until two more of my own appeared beside it.
 
-### D-FOREIGN-ORDER-SPELLING — the ratchet at 0 counts one spelling of two
+### D-FOREIGN-ORDER-SPELLING — DONE 2026-09-10
 
-**Found 2026-09-09 while verifying the GPT review #8 fixes; NOT caused by them.**
-`scripts/tests/test_foreign_system_ordering.py::test_a_capability_does_not_order_another_crates_systems`
-is RED on `main` at `156b470b8`, reporting 2 capability-written foreign
-orderings against a ceiling of 0:
+**The ratchet at 0 counted one spelling of two.**
+`scripts/measure_foreign_system_ordering.py`'s `PATH` regex required at least one
+`::`, so `.after(camera_follow)` through a `use` import was invisible while the
+identical qualified edge scored as a violation. `capture_scene.rs` had been
+writing the bare form all along; `moveset_render.rs` (`24ccc544e`) wrote the
+qualified form and made a pre-existing violation VISIBLE rather than creating it.
+Census now resolves each file's `use` tree before matching (`6db1dd495`).
 
-```
-ambition_app_tools -> ambition_platformer2d::render::rendering::camera_follow
-ambition_app_tools -> ambition_platformer2d::render::rendering::sync_parallax_layers
-        (game/ambition_app_tools/src/bin/moveset_render.rs)
-```
+Classifier keyed on the SITE — a binary root is a composition whatever its
+package is called — rather than widening `COMPOSITION_SUFFIXES`, which cannot
+survive a capability crate named `*_tools` and is the classifier-collapse move
+the guard's own comments warn about. Both ceilings now count EDGES rather than
+written occurrences. `CAPABILITY_ORDERING_CEILING` 0 → 10 as a **debt ledger,
+ratchet-down only**; `TOTAL_ORDERING_CEILING` 75 → 77 (**the instrument changed,
+not the tree**; 93 under the old counting). Commits `6db1dd495`, `5f3f75508`.
+Guard: `scripts/tests/test_foreign_system_ordering.py`, 5 passed.
 
-`24ccc544e` ("The inspector frames the fighters, and steps one tick at a time")
-introduced them, three days after `84e7a835c` drove the count to 0. Confirmed by
-`git log -S` and by running the guard against the pre-change file, which fails
-identically — so it is that commit, not the review fixes that followed it.
+⛔⛔ **AND A CEILING CANNOT PIN THE CENSUS CORRECTION — this nearly shipped as a
+check that cannot fail.** Revert `expand_aliases` and the capability count falls
+10 → 2, comfortably UNDER the new ceiling, with the anti-vacuity floor still
+satisfied by the two survivors: every assertion stays green while the instrument
+goes blind again to the population it was just corrected to see. That is exactly
+how the original zero happened. A ceiling only ever sees a number GROWING. So the
+correction is pinned by a positive control naming an edge that exists ONLY in the
+bare spelling (`ambition_content -> ambition_portal2d::portal_transit`), plus a
+pin on the site classifier. Poison-verified both ways, tree restored
+byte-identical.
 
-⛔⛔ **AND THE `0` WAS NEVER AN ABSENCE — IT WAS A SPELLING.**
-`capture_scene.rs` has written the SAME two edges all along:
+⚠ **THE 10 ARE THREE JOBS, NOT ONE NUMBER**, and a single figure hides that:
+- **(a)** `ambition_content/src/portal/plugin.rs` — SIX orderings into
+  `ambition_portal2d`'s private systems from one file. One owner, one
+  published-set problem.
+- **(b)** `ambition_content/src/moveset_sound.rs:38` — a two-owner `.chain()`
+  over `ambition_combat` and `ambition_render`; the architecture note's own named
+  poison shape.
+- **(c)** `actor_monolith` ×3 — `.before(select_actor_targets)`
+  (`ambition_combat`), `.after(project_boss_attack_state_from_move)`
+  (`ambition_boss_encounter`), `.before(audio_play_sfx_messages)`
+  (`ambition_audio`); the first two through the crate's own `pub use` re-export.
 
-```rust
-use ambition_platformer2d::render::rendering::{camera_follow, sync_parallax_layers, ..};
-    ...  .after(camera_follow).before(sync_parallax_layers),
-```
+Publishing a set in `ambition_platformer2d::render::rendering` for both capture
+bins, and unpicking the portal block, are SEPARATE rows — deliberately not
+smuggled into a census correction.
 
-`measure_foreign_system_ordering.py`'s `PATH` regex requires at least one `::`
-(line 57), so a name brought in by `use` and called bare is invisible to the
-census. `moveset_render` wrote the qualified form and made a pre-existing
-architectural violation VISIBLE; it did not create the architecture. A census
-keyed on the CONSUMER'S SPELLING measures how a caller writes an import, not
-what it depends on.
+### D-DAMAGEABLE-BODY-IDENTITY — is every damageable body identified where it is BUILT?
 
-⇒ Three roads, and they are not equivalent:
+**Owner:** [projectile contact protocol](engine/projectile-contact-protocol.md);
+opened by A2's ordering half, 2026-09-10.
 
-1. **Do not "fix" it by importing the names.** That makes the ratchet green by
-   hiding the edge, which is the worst of the three and the tempting one.
-2. **Correct the census to resolve `use` aliases**, and expect the true count to
-   RISE (at least `capture_scene`'s two join it). Then the ceiling is a decision
-   about the real number rather than about a regex.
-3. **Publish a set** in `ambition_platformer2d::render::rendering` that a
-   capture tool can order against — the `DismountRequestsApplied` worked example
-   the guard's own comments describe. Both bins want the same "after the camera
-   policy, before the parallax" slot, which is exactly the shape a published set
-   exists for.
+`construction/mod.rs` mints `SimId::placement(..)` for enemies, bosses, giants,
+hands, shrines, riders and summons, so the placed roads are covered. What is NOT
+established is whether any damageable body reaches the world without one. The
+protocol calls missing required target identity a construction/verification
+failure rather than a sort fallback, so the invariant belongs where bodies are
+BUILT — the resolver can only report it.
 
-⚠ Whichever is taken, (2) should come first: acting on (3) while the instrument
-can only see half the population risks fixing the visible half and calling the
-row closed.
+⚠ The projectile resolver's `debug_assert` (`c2188fa7a`) is a PARTIAL census: it
+flags only the COINCIDENT pair, so a lone unidentified body passes it silently.
 
-**Acceptance:** the guard is green for a stated reason, and its number is the
-count of the ARCHITECTURE rather than of one import style.
+⚠ **A STATIC SCAN CANNOT ANSWER THIS.** Bodies receive `CenteredAabb` and
+`ActorFaction` from separate inserts, so a bundle-shaped scanner reports 2 of 2
+and is describing its own method rather than the tree. A runtime census over the
+`StrikeVictim` query is the instrument (precedent:
+`ambition_dev_tools/src/runtime_census.rs`).
+
+**Deliverable is the census, not a refactor.**
+
+**Acceptance:** the population of damageable bodies without a stable identity is
+measured at runtime and named; if it is empty, the invariant is asserted where
+bodies are built so it stays empty.
 
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 

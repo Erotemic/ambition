@@ -11,7 +11,10 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::technique::{check_hydrates, InstalledTechniques, TechniqueOffer, TechniqueParams};
+use ambition_combat::technique::{
+    check_hydrates, InstalledTechniques, NestedReferences, TechniqueDelivery, TechniqueOffer,
+    TechniqueParams,
+};
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -88,8 +91,47 @@ pub fn install_techniques<M>(
 }
 
 
+/// Drive the character preparation barrier with THIS composition's support table.
+///
+/// ⛔⛔ **THE COMPOSITION OWNS THE FACT AND HANDS IT OVER.** `InstalledTechniques`
+/// records which native handlers the selected application composition installed
+/// — composition state, not a property of a character definition. The admission
+/// check runs at the character preparation barrier, which lives in
+/// `ambition_characters` and cannot depend on this crate; the answer is NOT to
+/// push the resource down the graph (it briefly was, and GPT review #9 correctly
+/// called that dependency convenience wearing ownership's clothes) but to pass
+/// the plain `TechniqueSupport` value in from here.
+///
+/// ⚠ THE TABLE IS CLONED, once, at the barrier. `close_preparation_barrier_admitting`
+/// needs `&mut World` and the table lives in that world; a startup-time clone of
+/// a `BTreeMap` of offers is the cheap way to say "this value, as an argument"
+/// rather than threading a borrow through an exclusive-world call.
+fn close_preparation_barrier_with_installed_techniques(world: &mut bevy::ecs::world::World) {
+    let Some(support) = world
+        .get_resource::<InstalledTechniques>()
+        .map(|installed| installed.0.clone())
+    else {
+        // Nothing installed anything: `ambition_characters`' own backstop folds
+        // the cast unchecked, which is the right answer when there is no
+        // admission authority to check against.
+        return;
+    };
+    ambition_characters::prepared::close_preparation_barrier_admitting(world, &support);
+}
+
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // ⭐ BEFORE the unchecked backstop, explicitly. `CharacterPreparationPlugin`
+        // guards its fold with a `finalized` flag so whichever trigger fires
+        // first wins and the other is a no-op — which makes the ORDER the whole
+        // guarantee. An implicit plugin-registration order deciding whether the
+        // admission check runs at all is exactly the kind of silent bypass this
+        // packet exists to remove, so the edge is written down.
+        app.add_systems(
+            bevy::app::PreStartup,
+            close_preparation_barrier_with_installed_techniques
+                .before(ambition_characters::prepared::close_preparation_barrier),
+        );
         let sim = app.sim_schedule();
         // Open, content-owned projectile art registry. Init the empty catalog so
         // the projectile stepper's detonation-FX lookup always has a resource to
@@ -364,6 +406,8 @@ impl Plugin for CombatSchedulePlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_characters::smash_teleport::TeleportParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             // A teleport that ran a phase later would move the body after the
             // frame it was authored for.
@@ -379,6 +423,8 @@ impl Plugin for CombatSchedulePlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_characters::smash_vitality::VitalityParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             // AHEAD of `apply_effects`, so a fighter who paid for a move is
             // already poorer when this frame's hits resolve — a price that
@@ -396,6 +442,8 @@ impl Plugin for CombatSchedulePlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_characters::smash_trapdoor::TrapdoorParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
                 .in_set(CombatSet::Materialize)
@@ -409,6 +457,8 @@ impl Plugin for CombatSchedulePlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_characters::smash_flyline::FlylineParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             // ⭐ It writes no position at all — it hangs the body off a wire and
             // the movement kernel integrates it — so unlike its neighbours it has
@@ -428,6 +478,109 @@ impl Plugin for CombatSchedulePlugin {
         // is the statement that declares the key — which is the invariant, kept
         // exactly, rather than a `declare_only` escape hatch that reopens the
         // hole this seam closed.
+        // ⭐ CAPTURE IS AN ENGINE MECHANIC AND IS INSTALLED WHERE ITS STATE AND
+        // BEHAVIOUR LIVE. Its component (`CapturedBy`), its twelve systems and
+        // its authored vocabulary are all engine-side; only the authored-key ->
+        // typed-request TRANSLATION was in `ambition_demo_smash`, so a
+        // composition that did not mount that demo installed no translator and
+        // `mary_o`'s grab, pummel and four throws played and did nothing. Moved
+        // 2026-09-10 on the evidence, not on where the request types sat.
+        // ⛔⛔ AND THE MESSAGES MOVE WITH THE SYSTEMS. The four request channels
+        // were registered ONLY by the demo — the ones inside `ambition_combat`
+        // are `#[cfg(test)]` fixtures — so installing these systems without them
+        // panicked TWELVE application tests with "Message not initialized". The
+        // demo's own comment had already written the rule: a system that writes
+        // four messages does not run in a world that registers three.
+        app.add_message::<ambition_combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_combat::capture::CapturePummelRequested>();
+        app.add_message::<ambition_combat::capture::CaptureThrowRequested>();
+        app.add_message::<ambition_combat::capture::CaptureCarryRequested>();
+        install_techniques(
+            app,
+            &[
+                (
+                    ambition_characters::smash_capture::CAPTURE_ATTEMPT,
+                    TechniqueOffer {
+                        owner: "ambition_combat::capture::translate_authored_capture_effects",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_characters::smash_capture::CaptureAttemptParams>,
+                        ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::Action,
+                    },
+                ),
+                (
+                    ambition_characters::smash_capture::CAPTURE_CARRY,
+                    TechniqueOffer {
+                        owner: "ambition_combat::capture::translate_authored_capture_effects",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_characters::smash_capture::CaptureCarryParams>,
+                        ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::Action,
+                    },
+                ),
+                (
+                    ambition_characters::smash_capture::CAPTURE_PUMMEL,
+                    TechniqueOffer {
+                        owner: "ambition_combat::capture::translate_authored_capture_effects",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_characters::smash_capture::CapturePummelParams>,
+                        ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::Action,
+                    },
+                ),
+                (
+                    ambition_characters::smash_capture::CAPTURE_THROW,
+                    TechniqueOffer {
+                        owner: "ambition_combat::capture::translate_authored_capture_effects",
+                        params: TechniqueParams::Checked(
+                            check_hydrates::<ambition_characters::smash_capture::CaptureThrowParams>,
+                        ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::Action,
+                    },
+                ),
+            ],
+            (
+                // ⛔ THE TRANSLATOR HEADS THIS CHAIN, and losing that is a bug I
+                // shipped for one suite run. Moving it to the engine WITHOUT the
+                // chain put it in a different set from its consumers, so a
+                // request written after `acquire_captures` had run would be
+                // consumed a tick late. The whole mechanic moves together.
+                ambition_combat::capture::systems::translate_authored_capture_effects,
+                ambition_combat::capture::systems::acquire_captures,
+                // and posed the SAME tick it is caught. The pose sync also
+                // runs in `WorldPrep`, which is EARLIER in the tick than this —
+                // so without this second call a body grabbed now would hang where
+                // it stood until the next frame, one visible frame of a captive
+                // standing free inside somebody's grab animation.
+                // The pummel lands BEFORE the pose sync below, so the damage and
+                // the frame the captive is drawn in belong to the same tick.
+                ambition_combat::capture::systems::apply_capture_pummels,
+                // The throw releases and launches in one step. AFTER the pummel
+                // so a tick carrying both resolves in authored order, and BEFORE
+                // the pose sync so a thrown body is not snapped back into a hold
+                // it has just left.
+                ambition_combat::capture::systems::apply_capture_throws,
+                // THE CARRY, after the throw for the reason the throw sits after
+                // the pummel: a tick carrying both resolves in authored order.
+                // ⛔ And after rather than before because a release must win — a
+                // carry applied to a hold the same tick's throw has just ended
+                // would set terms on a relationship that no longer exists.
+                ambition_combat::capture::systems::apply_capture_carries,
+                ambition_combat::capture::systems::finalize_new_capture_pose,
+                // the captive's POSE, published beside the constraint that
+                // holds it. `CharacterAnim` has no held row, so this draws the
+                // hurt one — a body in somebody's hands reading as idle was the
+                // last thing about a grab that did not look like one.
+                ambition_combat::capture::systems::mirror_capture_into_anim_facts,
+            )
+                .chain()
+                .in_set(CombatSet::Materialize),
+        );
+
         install_technique(
             app,
             ambition_characters::technique::POGO_BOUNCE_KEY,
@@ -436,6 +589,8 @@ impl Plugin for CombatSchedulePlugin {
                 params: TechniqueParams::Checked(
                     ambition_characters::technique::check_pogo_bounce_params,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::OnHit,
             },
             (
                 // Hitbox-entity lifecycle for melee strikes (Task A of the

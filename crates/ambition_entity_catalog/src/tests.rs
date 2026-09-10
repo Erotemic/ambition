@@ -1979,8 +1979,8 @@ mod effect_sites {
 /// allowed to name.
 mod technique_support {
     use crate::{
-        check_hydrates, EffectRef, ParamValue, TechniqueOffer, TechniqueParams, TechniqueRefusal,
-        TechniqueSupport,
+        check_hydrates, EffectRef, EffectSite, NestedReferences, ParamValue, TechniqueDelivery,
+        TechniqueOffer, TechniqueParams, TechniqueRefusal, TechniqueSupport,
     };
 
     #[derive(serde::Deserialize)]
@@ -1993,6 +1993,8 @@ mod technique_support {
         TechniqueOffer {
             owner,
             params: TechniqueParams::Checked(check_hydrates::<Offset>),
+            references: NestedReferences::None,
+            delivery: TechniqueDelivery::Action,
         }
     }
 
@@ -2000,7 +2002,94 @@ mod technique_support {
         TechniqueOffer {
             owner,
             params: TechniqueParams::None,
+            references: NestedReferences::None,
+            delivery: TechniqueDelivery::Action,
         }
+    }
+
+    fn on_hit_only(owner: &'static str) -> TechniqueOffer {
+        TechniqueOffer {
+            owner,
+            params: TechniqueParams::None,
+            references: NestedReferences::None,
+            delivery: TechniqueDelivery::OnHit,
+        }
+    }
+
+    /// ⛔⛔ **THE ACCEPTED NO-OP.** `pogo_bounce` is consumed from
+    /// `OnHitEffectMessage` alone. Authored at a timeline event, a window's
+    /// sustain slot or a flow `Emit` it becomes an
+    /// `ActorActionMessage::Special`, which that handler never reads — so the
+    /// move plays and the technique does nothing. Site-blind admission passed it,
+    /// which is admitting the exact state admission exists to exclude.
+    #[test]
+    fn an_on_hit_technique_authored_in_a_timeline_slot_is_refused() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("pogo_bounce", on_hit_only("ambition_combat::on_hit"))
+            .expect("first claim");
+        let authored = effect("pogo_bounce", "()");
+
+        for site in [
+            EffectSite::WindowSustain { window: 0 },
+            EffectSite::Event { event: 0 },
+            EffectSite::FlowEmit { node: 0 },
+        ] {
+            let refusal = support.admit_at(Some(&site), &authored);
+            assert!(
+                matches!(refusal, Err(TechniqueRefusal::WrongSite { .. })),
+                "{site:?} reaches only the action road, and an on-hit handler \
+                 never reads it; got {refusal:?}"
+            );
+        }
+    }
+
+    /// ⭐ THE ANTI-VACUITY FLOOR. The site the handler DOES read must pass —
+    /// a check that refused every site would satisfy the test above and break
+    /// every pogo in the game.
+    #[test]
+    fn the_site_an_on_hit_technique_does_read_is_admitted() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("pogo_bounce", on_hit_only("ambition_combat::on_hit"))
+            .expect("first claim");
+
+        assert_eq!(
+            support.admit_at(
+                Some(&EffectSite::VolumeOnHit {
+                    window: 0,
+                    volume: 0
+                }),
+                &effect("pogo_bounce", "()")
+            ),
+            Ok(())
+        );
+    }
+
+    /// ⭐ CONTROL. An action-road technique is the mirror: the three action
+    /// sites pass and the on-hit site is refused.
+    #[test]
+    fn an_action_technique_is_refused_at_an_on_hit_site() {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare("smash.sleep", paramless("ambition_demo_smash::sing"))
+            .expect("first claim");
+        let authored = effect("smash.sleep", "()");
+
+        assert_eq!(
+            support.admit_at(Some(&EffectSite::Event { event: 0 }), &authored),
+            Ok(())
+        );
+        assert!(matches!(
+            support.admit_at(
+                Some(&EffectSite::VolumeOnHit {
+                    window: 0,
+                    volume: 0
+                }),
+                &authored
+            ),
+            Err(TechniqueRefusal::WrongSite { .. })
+        ));
     }
 
     fn effect(key: &str, ron_text: &str) -> EffectRef {

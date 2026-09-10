@@ -14,13 +14,32 @@
 //! mechanic crate it already depends on.
 
 pub use ambition_entity_catalog::{
-    check_hydrates, ParamCheck, TechniqueConflict, TechniqueOffer, TechniqueParams,
-    TechniqueRefusal, TechniqueSupport,
+    check_hydrates, NestedReferences, ParamCheck, TechniqueConflict, TechniqueDelivery,
+    TechniqueOffer, TechniqueParams, TechniqueRefusal, TechniqueSupport,
 };
 
-/// Re-exported: the shell moved to `ambition_characters::technique` because the
-/// admission pass reads it at the character PREPARATION barrier, and that crate
-/// cannot name this one. Effect execution still lives here; only the table's
-/// definition moved down, so every `ambition_combat::technique::InstalledTechniques`
-/// path keeps resolving.
-pub use ambition_characters::technique::InstalledTechniques;
+/// The techniques this composition installed handlers for.
+///
+/// ⭐ A KEY IN HERE MEANS SOMETHING INSTALLED ANSWERS IT, because the only way in
+/// is the statement that adds the handler system. That is the property a
+/// metadata registry cannot have, and the reason its predecessor —
+/// `ParamSchemaRegistry`, which had zero production callers — could not tell a
+/// misspelled effect key from a real one.
+///
+/// ⛔⛔ **IT STAYS HERE, AND A REVIEW HAD TO SAY SO.** It was briefly moved down
+/// into `ambition_characters` so the preparation barrier — which lives there and
+/// cannot depend on this crate — could read it. That was DEPENDENCY CONVENIENCE
+/// WEARING OWNERSHIP'S CLOTHES, the same category of error as the earlier
+/// `actor_spawn` mistake: what this table records is *which native handlers the
+/// selected application composition installed*, which is composition/runtime
+/// state and is not a fact about a character definition. Moving a resource down
+/// the graph because the desired consumer cannot see upward does not move who
+/// owns the fact.
+///
+/// ⇒ The check reaches it the other way instead, and needs no new abstraction:
+/// [`TechniqueSupport`] is a plain data type in `ambition_entity_catalog`, which
+/// `ambition_characters` already depends on, so composition passes the table
+/// INTO a fallible preparation/publication function as an ordinary argument.
+/// Neither dependency reverses.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct InstalledTechniques(pub TechniqueSupport);

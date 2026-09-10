@@ -15,7 +15,9 @@
 // keeps in step by hand. Before this, Smash's technique handlers were bare
 // `add_systems` calls declaring nothing — which is why a misspelled authored
 // key reached the runtime and surfaced as a `warn!` mid-fight.
-use ambition_platformer2d::combat::technique::{check_hydrates, TechniqueOffer, TechniqueParams};
+use ambition_platformer2d::combat::technique::{
+    check_hydrates, NestedReferences, TechniqueDelivery, TechniqueOffer, TechniqueParams,
+};
 use ambition_platformer2d::runtime::{install_technique, install_techniques};
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::engine_core as ae;
@@ -24,7 +26,7 @@ use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod bolt;
 pub mod bomb;
-pub mod capture;
+mod capture;
 pub mod counter;
 pub mod dilation;
 pub mod george_booul_moveset;
@@ -915,10 +917,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // The capture request channels. The ADAPTER below writes them and the
         // body runtime reads them, so this plugin owns them the same way it owns
         // the two above.
-        app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
-        app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
-        app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
-        app.add_message::<ambition_platformer2d::combat::capture::CaptureCarryRequested>();
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // THE CAPTURE LOOP, in the order the facts become available.
@@ -969,6 +967,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_sleep::SleepParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (
                 crate::sing::mash_out_of_sleep,
@@ -993,6 +993,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_portal::PortalPairParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (
                 crate::portal::open_authored_portal_pairs,
@@ -1014,6 +1016,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_bolt::SteeredBoltParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
                 .chain()
@@ -1030,6 +1034,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_homing::HomingDashParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
                 .chain()
@@ -1045,8 +1051,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::riposte",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_riposte::RiposteStrikeParams>,
+                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
+                    ambition_platformer2d::characters::smash_riposte::check_riposte_strike_params,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             crate::riposte::cut_where_a_riposte_answers
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -1065,6 +1074,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_tether::TetherPullParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (
                 crate::tether::begin_authored_tether_pulls,
@@ -1086,6 +1097,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_spring::PlaceSpringParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (crate::spring::drop_authored_springs, crate::spring::fire_and_expire_springs)
                 .chain()
@@ -1172,6 +1185,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_limit::FillMeterParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             crate::limit::apply_authored_meter_fills
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
@@ -1209,8 +1224,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::dilation",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_time_dilation::TimeDilationParams>,
+                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
+                    ambition_platformer2d::characters::smash_time_dilation::check_time_dilation_params,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             (
                 crate::dilation::expire_time_dilations,
@@ -1235,6 +1253,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                         params: TechniqueParams::Checked(
                             check_hydrates::<ambition_platformer2d::characters::smash_mine::PlaceMineParams>,
                         ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::Action,
                     },
                 ),
                 (
@@ -1244,6 +1264,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                         params: TechniqueParams::Checked(
                             check_hydrates::<ambition_platformer2d::characters::smash_mark::MarkBodyParams>,
                         ),
+                        references: NestedReferences::None,
+                        delivery: TechniqueDelivery::OnHit,
                     },
                 ),
             ],
@@ -1299,82 +1321,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_counter::CounterParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             crate::counter::answer_a_parry_with_the_authored_counter
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        install_techniques(
-            app,
-            &[
-                (
-                    ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::capture",
-                        params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureAttemptParams>,
-                        ),
-                    },
-                ),
-                (
-                    ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::capture",
-                        params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureCarryParams>,
-                        ),
-                    },
-                ),
-                (
-                    ambition_platformer2d::characters::smash_capture::CAPTURE_PUMMEL,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::capture",
-                        params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CapturePummelParams>,
-                        ),
-                    },
-                ),
-                (
-                    ambition_platformer2d::characters::smash_capture::CAPTURE_THROW,
-                    TechniqueOffer {
-                        owner: "ambition_demo_smash::capture",
-                        params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_capture::CaptureThrowParams>,
-                        ),
-                    },
-                ),
-            ],
-            (
-                crate::capture::translate_smash_capture_effects,
-                ambition_platformer2d::combat::capture::systems::acquire_captures,
-                // and posed the SAME tick it is caught. The pose sync also
-                // runs in `WorldPrep`, which is EARLIER in the tick than this —
-                // so without this second call a body grabbed now would hang where
-                // it stood until the next frame, one visible frame of a captive
-                // standing free inside somebody's grab animation.
-                // The pummel lands BEFORE the pose sync below, so the damage and
-                // the frame the captive is drawn in belong to the same tick.
-                ambition_platformer2d::combat::capture::systems::apply_capture_pummels,
-                // The throw releases and launches in one step. AFTER the pummel
-                // so a tick carrying both resolves in authored order, and BEFORE
-                // the pose sync so a thrown body is not snapped back into a hold
-                // it has just left.
-                ambition_platformer2d::combat::capture::systems::apply_capture_throws,
-                // THE CARRY, after the throw for the reason the throw sits after
-                // the pummel: a tick carrying both resolves in authored order.
-                // ⛔ And after rather than before because a release must win — a
-                // carry applied to a hold the same tick's throw has just ended
-                // would set terms on a relationship that no longer exists.
-                ambition_platformer2d::combat::capture::systems::apply_capture_carries,
-                ambition_platformer2d::combat::capture::systems::finalize_new_capture_pose,
-                // the captive's POSE, published beside the constraint that
-                // holds it. `CharacterAnim` has no held row, so this draws the
-                // hurt one — a body in somebody's hands reading as idle was the
-                // last thing about a grab that did not look like one.
-                ambition_platformer2d::combat::capture::systems::mirror_capture_into_anim_facts,
-            )
-                .chain()
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
-        );
+        
         // THE PIRATE'S SHARK. ⭐ `ContentSpecials`, which is the seam the runtime
         // already provides for exactly this: a CONTENT TECHNIQUE that must
         // produce its effects before the effect executors run
@@ -1404,6 +1357,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_ride::SummonRideParams>,
                 ),
+                references: NestedReferences::Characters(
+                    ambition_platformer2d::characters::smash_ride::summon_ride_character_refs,
+                ),
+                delivery: TechniqueDelivery::Action,
             },
             crate::shark_ride::translate_shark_summons
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
@@ -1434,6 +1391,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_bomb::DropBombParams>,
                 ),
+                references: NestedReferences::None,
+                delivery: TechniqueDelivery::Action,
             },
             crate::bomb::translate_bomb_drops
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),

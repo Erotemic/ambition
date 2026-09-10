@@ -257,6 +257,115 @@ impl std::fmt::Display for EffectSite {
     }
 }
 
+/// WHICH ROAD a technique's handler actually listens on.
+///
+/// ⛔⛔ **THE EXHAUSTIVE VISITOR RETURNS THE SITE AND ADMISSION THREW IT AWAY.**
+/// `MoveSpec::effect_refs` labels every reference with its [`EffectSite`], and
+/// `admit` took only the `EffectRef` — so an author could put `pogo_bounce` in a
+/// timeline event, a window's sustain slot or a flow `Emit`, pass startup
+/// validation, and get nothing at runtime. `pogo_bounce` is consumed from
+/// `OnHitEffectMessage` ONLY; a timeline/sustain/flow effect travels through
+/// `MoveEventKind::Effect` into `ActorActionMessage::Special`, which the pogo
+/// handler never reads. Admission had therefore admitted exactly the "move plays
+/// and nothing answers the technique" state it exists to exclude. Found by GPT
+/// review #9.
+///
+/// ⭐ TWO ROADS, NOT FOUR SITES. The four sites collapse into two DELIVERIES,
+/// and delivery is what a handler chooses when it picks a `MessageReader`. A
+/// declaration that listed sites would have to be re-checked every time a site
+/// is added; one that names the road it listens on stays true.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TechniqueDelivery {
+    /// Answered from `OnHitEffectMessage` — authored at a volume's `on_hit`.
+    OnHit,
+    /// Answered from `ActorActionMessage::Special` — authored at a timeline
+    /// event, a window's sustain slot, or a flow `Emit` node.
+    Action,
+    /// Answered on both roads. Rare, and a claim: a handler that reads only one
+    /// reader may not declare this.
+    Either,
+}
+
+impl TechniqueDelivery {
+    /// Does an effect authored at `site` reach a handler on this road?
+    pub fn reaches(self, site: &EffectSite) -> bool {
+        let authored = match site {
+            EffectSite::VolumeOnHit { .. } => Self::OnHit,
+            EffectSite::WindowSustain { .. }
+            | EffectSite::Event { .. }
+            | EffectSite::FlowEmit { .. } => Self::Action,
+        };
+        matches!(self, Self::Either) || self == authored
+    }
+
+    /// How an author would name this road in a diagnostic.
+    pub fn describe(self) -> &'static str {
+        match self {
+            Self::OnHit => "a volume's `on_hit`",
+            Self::Action => "a timeline event, a window's sustain slot, or a flow `Emit`",
+            Self::Either => "any authored effect site",
+        }
+    }
+}
+
+/// What OTHER authored definitions a technique's params name.
+///
+/// ⛔⛔ **"NAMES NOTHING" IS A CONTRACT, exactly as `Paramless` is.** Three
+/// technique params carry the id of another authored definition
+/// (`SummonRideParams::character_id`, and the two `item_id`s), and preparation
+/// checked none of them — so a summon naming an unknown character was refused at
+/// FIRE TIME by `preflight_planned_bodies`, which logs an error and returns: the
+/// move plays and nothing happens. That is the runtime failure this packet moves
+/// to preparation.
+///
+/// ⭐ THE DECLARATION CARRIES THE EXTRACTOR, so preparation never learns a
+/// technique's NAME. A validation pass that matched on `smash.summon_ride` would
+/// be the service locator the owner document forbids; asking the offer "what do
+/// you name?" keeps this a bounded validation catalog.
+///
+/// ⚠ EVERY VARIANT HERE IS CHECKED. A domain that can be DECLARED but not
+/// verified would be a claim the tree does not honour, so the `item_id` half
+/// stays `None` until there is a site that can see the item vocabulary —
+/// `ambition_characters` cannot reach it, which is the same layering wall the
+/// support table itself had to cross.
+#[derive(Clone, Copy)]
+pub enum NestedReferences {
+    /// Names no other authored definition.
+    None,
+    /// The character ids this effect's params name.
+    Characters(fn(&EffectRef) -> Vec<String>),
+}
+
+impl std::fmt::Debug for NestedReferences {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None => f.write_str("None"),
+            Self::Characters(_) => f.write_str("Characters(..)"),
+        }
+    }
+}
+
+impl PartialEq for NestedReferences {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::None, Self::None) | (Self::Characters(_), Self::Characters(_))
+        )
+    }
+}
+
+impl Eq for NestedReferences {}
+
+impl NestedReferences {
+    /// The character ids this effect names, or empty when it names none.
+    pub fn characters(&self, effect: &EffectRef) -> Vec<String> {
+        match self {
+            Self::None => Vec::new(),
+            Self::Characters(extract) => extract(effect),
+        }
+    }
+}
+
 /// What one capability declares when it installs a technique handler.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TechniqueOffer {
@@ -269,6 +378,13 @@ pub struct TechniqueOffer {
     /// wrote params for it believed they did something, and silently dropping
     /// them is the failure this whole packet is about.
     pub params: TechniqueParams,
+    /// What OTHER authored definitions this key's params name. See
+    /// [`NestedReferences`]: `None` is a claim, not an omission.
+    pub references: NestedReferences,
+    /// Which road this technique's handler listens on. See
+    /// [`TechniqueDelivery`]: an effect authored at a site this road does not
+    /// carry reaches nothing.
+    pub delivery: TechniqueDelivery,
 }
 
 /// How a technique treats authored parameters.
@@ -308,18 +424,26 @@ impl Eq for TechniqueParams {}
 /// Why an authored [`EffectRef`] is not admissible.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TechniqueRefusal {
+    // ⛔⛔ **`Disabled` LIVED HERE AND NOTHING COULD EVER CONSTRUCT IT.** It said
+    // "the key is declared, but by a capability this composition did not
+    // install", and drew a genuinely useful distinction: a typo is fixed in the
+    // move, an uninstalled capability is fixed in the composition. But
+    // `TechniqueSupport` stores ONLY installed offers, so an absent key is
+    // always `Unknown` — there was no known-but-disabled source to build it
+    // from. Vocabulary that cannot be reached is a promise the type makes and
+    // the code cannot keep, so it is gone. Removed on GPT review #9.
+    //
+    // ⚠ THE DISTINCTION IS STILL REAL AND IS NOW Q97's. Telling a typo from a
+    // technique some OTHER composition installs needs a workspace-wide registry
+    // of every declared key, which does not exist; the completeness guard
+    // enumerates them at BUILD time only. Restore this variant with that source,
+    // not before.
     /// No installed capability declares this key.
     ///
     /// ⛔ THE DIAGNOSTIC THIS PACKET EXISTS FOR. `smash.teleprot` used to reach
     /// the runtime, match no arm, and log a warning mid-fight — a move that plays
     /// and does nothing. It is a data error and it is knowable at install time.
     Unknown { key: String },
-    /// The key is declared, but by a capability this composition did not install.
-    ///
-    /// ⚠ A DIFFERENT SENTENCE FROM `Unknown`, and the difference is what an
-    /// author does next: a typo is fixed in the move, a disabled capability is
-    /// fixed in the composition.
-    Disabled { key: String, owner: &'static str },
     /// The technique takes no parameters and the author wrote some.
     UnexpectedParams { key: String, owner: &'static str },
     /// The technique's own check refused these parameters.
@@ -328,22 +452,38 @@ pub enum TechniqueRefusal {
         owner: &'static str,
         detail: String,
     },
+    /// The key is installed, but authored somewhere its handler never reads.
+    ///
+    /// ⛔ THE ACCEPTED NO-OP. `pogo_bounce` answers `OnHitEffectMessage` only;
+    /// authored at a timeline event it becomes an `ActorActionMessage::Special`
+    /// that the pogo handler never consumes. Site-blind admission passed it.
+    WrongSite {
+        key: String,
+        owner: &'static str,
+        site: String,
+        accepts: &'static str,
+    },
 }
 
 impl std::fmt::Display for TechniqueRefusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            TechniqueRefusal::WrongSite {
+                key,
+                owner,
+                site,
+                accepts,
+            } => write!(
+                f,
+                "effect '{key}' is authored at {site}, which its handler ({owner}) \
+                 never reads — it answers {accepts}. The move plays and the \
+                 technique does nothing"
+            ),
             TechniqueRefusal::Unknown { key } => write!(
                 f,
                 "effect '{key}' names a technique nothing installed declares — a \
                  misspelled key reaches the runtime, matches no handler, and the \
                  move plays and does nothing"
-            ),
-            TechniqueRefusal::Disabled { key, owner } => write!(
-                f,
-                "effect '{key}' is declared by '{owner}', which this composition \
-                 did not install — the key is spelled correctly and the capability \
-                 is missing"
             ),
             TechniqueRefusal::UnexpectedParams { key, owner } => write!(
                 f,
@@ -392,7 +532,7 @@ impl std::fmt::Display for TechniqueConflict {
 /// makes it evidence rather than metadata. A key present here means a capability
 /// said "I install the thing that answers this"; a key absent means nothing does.
 /// A test that registers a check and then validates against it proves neither.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TechniqueSupport {
     offers: BTreeMap<String, TechniqueOffer>,
 }
@@ -430,11 +570,41 @@ impl TechniqueSupport {
 
     /// Is this authored reference admissible against what is installed?
     pub fn admit(&self, effect: &EffectRef) -> Result<(), TechniqueRefusal> {
+        self.admit_at(None, effect)
+    }
+
+    /// The same, told WHERE the effect was authored.
+    ///
+    /// ⛔⛔ **SITE-BLIND ADMISSION ADMITS THE VERY NO-OP IT EXISTS TO EXCLUDE.**
+    /// `MoveSpec::effect_refs` labels each reference with its [`EffectSite`] and
+    /// the caller was discarding it, so `pogo_bounce` — consumed from
+    /// `OnHitEffectMessage` alone — passed validation when authored at a
+    /// timeline event, a sustain slot or a flow `Emit`, and answered nothing at
+    /// runtime. Pass the site and that becomes a refusal an author can read.
+    ///
+    /// `None` means "site unknown", for a caller validating a bare `EffectRef`
+    /// out of context; delivery is then unchecked, which is strictly weaker and
+    /// says so.
+    pub fn admit_at(
+        &self,
+        site: Option<&EffectSite>,
+        effect: &EffectRef,
+    ) -> Result<(), TechniqueRefusal> {
         let Some(offer) = self.offers.get(&effect.key) else {
             return Err(TechniqueRefusal::Unknown {
                 key: effect.key.clone(),
             });
         };
+        if let Some(site) = site {
+            if !offer.delivery.reaches(site) {
+                return Err(TechniqueRefusal::WrongSite {
+                    key: effect.key.clone(),
+                    owner: offer.owner,
+                    site: site.to_string(),
+                    accepts: offer.delivery.describe(),
+                });
+            }
+        }
         match offer.params {
             TechniqueParams::None => {
                 if effect.params.is_empty() {

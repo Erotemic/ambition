@@ -59,7 +59,12 @@ fn every_authored_effect_in_the_shipped_composition_is_admitted() {
             moves += 1;
             for (site, effect) in mv.effect_refs() {
                 effects += 1;
-                if let Err(refusal) = installed.admit(effect) {
+                // ⛔ THE SITE, or this guard is WEAKER THAN PRODUCTION. The
+                // barrier calls `admit_at(Some(&site), ..)`; a fixture calling
+                // bare `admit` skips the delivery check entirely and would pass
+                // a corpus the shipped composition refuses — a guard that agrees
+                // with itself rather than with the road.
+                if let Err(refusal) = installed.admit_at(Some(&site), effect) {
                     refusals.push(format!("{id} / {} / {site:?}: {refusal}", mv.id));
                 }
             }

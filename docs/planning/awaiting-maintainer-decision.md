@@ -368,10 +368,37 @@ registry, which does not exist.
    uninstalled calls cannot publish definitions") and breaks every composition
    that authors a technique it does not install — today that is `mary_o`
    outside the Smash host.
-3. **Fix the layering instead: make capture an ENGINE technique.** Its requests
-   already are. Moving `translate_smash_capture_effects` into the engine
-   composition would make `mary_o`'s grabs work everywhere and shrink the
-   question to genuine typos — after which (2) becomes affordable.
+3. ~~**Fix the layering instead: make capture an ENGINE technique.**~~ **DONE
+   2026-09-10 — and decided by MEASUREMENT, not by where the request types sat.**
+   The review was right to refuse that inference, so ownership was taken from the
+   mechanic's state and behaviour:
+
+   * STATE — `CapturedBy`, the component holding who has whom: `ambition_combat`.
+   * BEHAVIOUR — acquire, escape sampling, throw edge, hold ticking, pose,
+     carries, captor control restriction, release, interruption, pummels:
+     TWELVE systems, all `ambition_combat`.
+   * VOCABULARY — the four keys and their param structs:
+     `ambition_characters::smash_capture`, also engine-side.
+   * TRANSLATION — ONE function, in the game.
+
+   ⚠ The old module argued FOR the split — *"a ruleset knows what its own
+   authored strings mean"* — and the argument does not survive its own premises:
+   the strings are engine constants, and every arm is a field-for-field
+   `hydrate -> write` with no ruleset policy in it. The translation moved to
+   `ambition_combat::capture::systems::translate_authored_capture_effects` and is
+   installed and declared by the engine composition, so `mary_o`'s six grab and
+   throw moves now work wherever combat is composed rather than wherever Smash
+   happens to be mounted.
+
+⇒ **WHAT REMAINS OF Q97 IS THE POLICY HALF ONLY.** With capture fixed, no shipped
+composition is known to author a technique its host did not install — so the
+question is no longer "how do we repair these compositions" but the general one:
+**may authored content name a capability its host did not compose, and if it
+does, should the definition be refused or degraded?** Today it is REFUSED
+per-definition (`ambition_characters::prepared::admit_and_finalize_cast`), which
+is the literal reading of the acceptance row. Refusing the whole cast, or
+degrading with a report, are the alternatives. That is a content-architecture
+ruling and it is still Jon's.
 
 ⚠ Not a feel ruling: it decides whether authored content may name a capability
 its host did not compose, which is the same question the SDK's minimum-profile

@@ -124,6 +124,7 @@
     "derived.actor_decision_facts",
     "derived.actor_decision_frames",
     "derived.actor_steering",
+    "derived.attacker_move_instance",
     "derived.authored_switch_commands",
     "derived.body_contact_snapshot",
     "derived.body_environment_contact",

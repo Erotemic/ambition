@@ -120,11 +120,58 @@ def struct_body(src: list[str], start: int) -> str:
     return "\n".join(body)
 
 
+def without_test_modules(text: str) -> str:
+    """The file with every `#[cfg(test)] mod ..` body BLANKED — same height.
+
+    ⛔⛔ **A TEST'S OWN RESOURCE IS NOT CONTENT STATE, AND THIS SWEEP COUNTED
+    ONE.** `game/ambition_content/src/authored_movesets.rs` declares
+    `#[derive(Resource)] struct Seen(Vec<String>)` inside `mod flow_tests` — a
+    capture buffer for one fixture — and it arrived here as an UNTRIAGED content
+    resource demanding a per-attempt ruling. The answer is not a line in
+    `NOT_PER_ATTEMPT`: that list is a record of decisions about SHIPPED state, and
+    filling it with fixtures would make every new test a triage chore and rot the
+    list toward noise. The population was wrong.
+
+    ⚠ BLANKED, NOT DELETED. This sweep REPORTS LINE NUMBERS, and splicing a block
+    out moves every line below it — a citation that points at the wrong line looks
+    checkable and reads as checked.
+    """
+    out, i = [], 0
+    pattern = re.compile(
+        r"#\[cfg\(test\)\]\s*(?:(?:///?[^\n]*|//![^\n]*|#\[[^\]]*\])\s*)*"
+        r"(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{"
+    )
+    while True:
+        match = pattern.search(text, i)
+        if not match:
+            out.append(text[i:])
+            break
+        out.append(text[i : match.start()])
+        depth, j = 0, match.end() - 1
+        while j < len(text):
+            if text[j] == "{":
+                depth += 1
+            elif text[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        span = text[match.start() : j + 1]
+        out.append("\n" * span.count("\n"))
+        i = j + 1
+    return "".join(out)
+
+
 def collection_resources() -> list[tuple[str, int, str]]:
     """Every `#[derive(.., Resource, ..)]` struct in `game/` with a collection field."""
     found: list[tuple[str, int, str]] = []
     for path in sorted(REPO.glob("game/*/src/**/*.rs")):
-        src = path.read_text(encoding="utf-8", errors="replace").split("\n")
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        # ⚠ A WHOLE FILE CAN BE TEST-ONLY behind an inner attribute, invisible to
+        # the inline-`mod` strip below.
+        if re.search(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", raw, re.MULTILINE):
+            continue
+        src = without_test_modules(raw).split("\n")
         for i, line in enumerate(src):
             if "derive(" not in line or "Resource" not in line:
                 continue

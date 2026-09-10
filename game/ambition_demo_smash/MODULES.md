@@ -8,7 +8,7 @@
 |---|---|
 | [`bolt`](src/bolt.rs) | The steered bolt: a thing you fly with the same stick you walk with. |
 | [`bomb`](src/bomb.rs) | A live bomb on the stage: the ruleset half of `smash.drop_bomb`. |
-| [`capture`](src/capture.rs) | The Smash ruleset's capture adapter: authored effect keys → typed requests. |
+| [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
 | [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
 | [`dilation`](src/dilation.rs) | The game half of `smash.time_dilation`: who is slow, and for how long. |
 | [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |

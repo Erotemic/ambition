@@ -471,6 +471,31 @@ TWO files checked by two lanes, and negotiating an identity the repo keeps twice
 is negotiating which copy. Found the hard way — a new registration left the Rust
 baseline green and the Python one red.
 
+⛔⛔ **A FIFTH SPECIES, FOUND 2026-09-10 AND WORTH MORE THAN THE RED THAT
+PRODUCED IT: A GUARD WHOSE INPUT IS OUTSIDE THE POPULATION ANYONE RE-RUNS.**
+`--workspace` was red for hours and every hypothesis either agent floated was
+about SOURCE — the changed crates, their dependents, feature unification,
+`relativity`, flake. The failing test was
+`no_planning_doc_names_a_condition_the_engine_does_not_publish`, and the change
+that broke it was **a `.md` file**.
+
+⇒ **A test's inputs are not its crate.** `app_it` reads planning documents, the
+rollback baseline, asset manifests and LDtk worlds; any of those changing is a
+change to its subject. A diff-derived population of CRATES cannot contain a
+documentation edit at all, so no amount of per-crate discipline reaches it —
+which is why a per-crate `app_it` run passed 611/0 one commit before the page
+landed, honestly and uselessly. ⚠ Diagnostic: *what does this test read that is
+not its own crate?* Remedy: say so AT the test, so whoever edits that input knows
+they are editing a subject.
+
+⭐ Two narrower rules from the same hunt, both true and both insufficient on
+their own: a per-crate sweep of the CHANGED set is blind to what a change causes
+downstream (the population is the reverse dependency closure — 79 members, nine
+run), and `cargo test -p` builds BARE features while `--workspace` unifies them,
+so a sibling can turn on a capability an umbrella feature deliberately excluded
+([capability and runtime composition](engine/capability-and-runtime-composition.md)
+carries the `relativity` case).
+
 **Guard doctrine** ([checks that did not run](../recipes/checks-that-did-not-run.md)):
 three species that all print the same green. ⇒ **VACUOUS** — the guard is blind;
 ask *would this still pass if the scan matched nothing?*; wants a FLOOR.

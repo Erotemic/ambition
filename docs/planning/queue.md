@@ -588,9 +588,46 @@ impossible — but Carl's pair are in reach for half a percent of the duel. The
 attack scorer is rarely being offered a target at all, which makes this the
 MOVEMENT scorer's subject and not the attack menu's.
 
-⚠ Stated at the strength the measurement supports: three fighters, one run each,
-and a correlation across three points is a direction rather than a law. It is
-enough to say where NOT to look first.
+⭐⭐ **SWEPT ACROSS THE WHOLE GRID 2026-09-10 — 21 ids, and the answer is neither
+thing either of us expected.** The gate's population is NOT one, AND the roster is
+not broadly inert. **Twenty measured, fifteen clear the gate, five fall short —
+and the five DO NOT SHARE A MECHANISM.**
+
+| band | fighters | shape |
+|---|---|---|
+| top | `smash_george_booul` **64% in reach, 182/184 starts, 5.12 dmg** | highest on every column at once |
+| clearing | `npc_oiler`, `officer`, `pointed_polygon`, `projectile_polygon`, `perfect_cellular_automaton`, `player_robot_v3`, `npc_bob`, `mary_o_tall`, `sanic`, `npc_pirate_admiral`, `author`, `pugnacious_polygon`, `npc_ninja_shadow_oni_leader`, `goblin` | 17–49% in reach |
+| **barely press** | `npc_emmy_noether` (13 starts, 10%), `performer` (18, 20%), `npc_carl_stargan` (3, 0.5%) | low engagement, low activity |
+| **press and convert nothing** | **`special_patent_clerk` — 51/51 starts, 19% in reach, 0.09 dmg/min**; `medic` — 49/49, 25%, 0.41 | busy, in reach a normal share, converting almost nothing |
+
+⛔ **THE SECOND BAND KILLS THE MOVEMENT READING.** The patent clerk presses as
+often as `goblin`, `officer` and `npc_bob` — all of which clear the gate — and
+deals a twentieth of the damage. That is downstream of choosing and reaching, so
+it is a KIT / hitbox / conversion question, and neither the range probe nor
+`walks_off` can see it.
+
+⚠ **`goblin` is the counter-example on the other side:** 17% in reach, second
+lowest measured, 55/51 starts, and it clears the gate. ⇒ **Time-in-range and
+damage correlate at the extremes and not in the middle.** George is highest on
+everything, Carl lowest on everything, and between them neither predicts the
+other.
+
+⚠ **`performer` fails at 0.49 against a 0.5 gate** — at the threshold, not below
+it in any meaningful sense. Counting it as a failure carries a rounding artifact
+into a headline; the genuine count is FOUR, in two mechanisms.
+
+⚠ **`npc_alice` is UNMEASURABLE**, not inert: she panics in
+`bevy_render::sync_component.rs:55` on a `PendingSyncEntity` the headless
+composition never inserts — a despawn hook on a camera component. She is the only
+one of twenty-one that reaches it, so the trigger is hers and unexplained; nobody
+has run her in the windowed app, so "safe when shipped" is an inference.
+
+⚠ **The measurement WINDOW is not deterministic even though the fight is.**
+`perfect_cellular_automaton` ran 3580 and 3602 ticks with byte-identical damage,
+hitstun and in-reach counts. Every headline figure is a rate over that
+denominator, so third-digit wobble is expected and means nothing. The seating
+transaction is where to look, not the sim — and whether that is IO-bound startup
+or genuine non-determinism is NOT yet read.
 
 ⇒ **AND THERE IS EXACTLY ONE FIGHTER-VARYING TERM IN MOVEMENT SCORING, which is
 where to look FIRST.** `walks_off` — the ledge rule deciding whether closing is
@@ -619,6 +656,12 @@ the one fighter that passes. `two_cpus_in_the_shipped_composition_damage_each_ot
 asserts `>= 0.5` of pool per minute and would fail on two of the three sampled —
 so the guard is sound and its POPULATION is one. ⇒ Widening it to the roster is
 the first concrete step, and it will go red immediately; that is the point.
+
+⇒ **SO THIS ROW IS TWO ROWS AND SHOULD BE SPLIT WHEN EITHER IS PICKED UP.** The
+"barely press" band is a movement/engagement question and the width term below is
+its first candidate. The "press and convert nothing" band is a kit question with
+its own subject — `special_patent_clerk` at 51 starts and 0.09 damage is the
+sharpest single number in the sweep and does not belong in the same investigation.
 
 **Acceptance, and it is now two claims because the row holds two defects:** the
 duel gate is asserted over a representative set of AUTHORED fighters rather than

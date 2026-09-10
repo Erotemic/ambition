@@ -417,8 +417,26 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
         );
-        app.add_systems(
-            sim,
+        // ⛔⛔ **THE WHOLE CHAINED TUPLE GOES THROUGH THE INSTALL SEAM, and it has
+        // to.** `pogo_bounce` was authored by 36 characters' `attack_air_down`
+        // and declared by nothing — measured by walking the prepared corpus, not
+        // by grep — so every one of them named a technique the support table
+        // called unknown. Its two handlers (`apply_pogo_bounce` for bodies,
+        // `pogo_moveset_off_world_orbs` for genuine world surfaces) sit INSIDE
+        // this `.chain()`, and lifting them out to wrap them individually would
+        // silently reorder the damage road. So the statement that adds the chain
+        // is the statement that declares the key — which is the invariant, kept
+        // exactly, rather than a `declare_only` escape hatch that reopens the
+        // hole this seam closed.
+        install_technique(
+            app,
+            ambition_characters::technique::POGO_BOUNCE_KEY,
+            TechniqueOffer {
+                owner: "ambition_combat::on_hit::apply_pogo_bounce",
+                params: TechniqueParams::Checked(
+                    ambition_characters::technique::check_pogo_bounce_params,
+                ),
+            },
             (
                 // Hitbox-entity lifecycle for melee strikes (Task A of the
                 // actor/brain follow-up plan). `apply_hitbox_damage`

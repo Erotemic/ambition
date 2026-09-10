@@ -44,6 +44,27 @@ impl Default for PogoBounceParams {
     }
 }
 
+/// The admission check for a `pogo_bounce` effect's params.
+///
+/// ⭐ THE CHECK IS PUBLIC AND THE TYPE STAYS PRIVATE, deliberately.
+/// `PogoBounceParams` is this module's business — every reader goes through
+/// `pogo_rise_from` / `pogo_sfx_from`, which is why it was never exported — but
+/// a composition that INSTALLS the pogo handler has to declare what the key
+/// accepts, and `check_hydrates::<T>` needs `T`. Exposing the function rather
+/// than the struct gives the declaration what it needs without reopening the
+/// schema to callers who would then hydrate it themselves.
+///
+/// ⚠ AND IT IS STRICTER THAN THE READER. `pogo_rise_from` below does
+/// `.unwrap_or_default()`, so malformed params silently become the default pop
+/// at runtime. This refuses them at PREPARATION instead — which is the whole
+/// point of the admission contract, and a deliberate tightening rather than a
+/// restatement of current behaviour.
+pub fn check_pogo_bounce_params(
+    params: &ambition_entity_catalog::ParamValue,
+) -> Result<(), String> {
+    ambition_entity_catalog::check_hydrates::<PogoBounceParams>(params)
+}
+
 /// The rebound speed a `pogo_bounce` [`EffectRef`] carries — hydrated from its
 /// params, defaulting when absent/malformed. Shared by resolved-body pogo and
 /// world-surface pogo.

@@ -13,11 +13,19 @@ Rust guard's list still names every technique key that EXISTS. A new
 `smash_*.rs` module with a new key is then a red test naming the key, rather
 than a silent hole in a guard that keeps passing.
 
-⚠ SCOPED BY WHERE TECHNIQUE KEYS LIVE, not by an exception list. Every one of the
-22 is a `pub const` in `crates/ambition_characters/src/smash_*.rs`.
-`SMASH_SELECT_EXPERIENCE = "smash.select"` is also a `smash.` string, and it is a
-SHELL ROUTE ID declared in the demo's `lib.rs` — excluded by the scope rather
-than by naming it, so a future route id does not have to be added here.
+⚠ SCOPED BY WHERE TECHNIQUE KEYS LIVE, not by an exception list: the game's are
+`pub const`s in `crates/ambition_characters/src/smash_*.rs`, and the ENGINE's
+live in that crate's `technique.rs`, whose own doc calls itself "the authored
+schemas of engine techniques". `SMASH_SELECT_EXPERIENCE = "smash.select"` is
+also a `smash.` string, and it is a SHELL ROUTE ID declared in the demo's
+`lib.rs` — excluded by the scope rather than by naming it, so a future route id
+does not have to be added here.
+
+⛔ THE ENGINE HALF WAS MISSING FROM THE FIRST VERSION OF THIS FILE, and that is
+exactly the hole it exists to close: `pogo_bounce` is an engine technique, it was
+authored by 36 characters, nothing declared it, and a guard scoped to `smash_*`
+could never have said so. Found by walking the prepared corpus instead — see
+`authored_effects_are_admitted.rs`.
 """
 
 from __future__ import annotations
@@ -29,14 +37,26 @@ REPO = Path(__file__).resolve().parents[2]
 KEY_HOME = REPO / "crates" / "ambition_characters" / "src"
 GUARD = REPO / "game" / "ambition_app" / "tests" / "installed_techniques_are_declared.rs"
 
-CONST = re.compile(r'pub const ([A-Z][A-Z_0-9]*): &str = "(smash\.[a-z_0-9]+)"')
+#: ⛔ THE PATTERN IS PER-MODULE, and widening it to one shared regex was wrong.
+#: A game's technique key is NAMESPACED (`smash.sleep`); the engine's is a bare
+#: word (`pogo_bounce`). Accepting bare words everywhere pulled in
+#: `SHARK_CLASS = "shark"` from `smash_ride.rs` — a character class id sitting
+#: beside the technique key, which is a real const that is really not a
+#: technique. Requiring the namespace where the namespace is the convention
+#: excludes it by the rule rather than by an exception list.
+GAME_CONST = re.compile(r'pub const ([A-Z][A-Z_0-9]*): &str = "(smash\.[a-z_0-9]+)"')
+ENGINE_CONST = re.compile(r'pub const ([A-Z][A-Z_0-9]*): &str = "([a-z_0-9]+)"')
 
 
 def _defined_keys() -> dict[str, str]:
     """{CONST_NAME: "smash.key"} for every technique key module."""
     found: dict[str, str] = {}
     for path in sorted(KEY_HOME.glob("smash_*.rs")):
-        for name, value in CONST.findall(path.read_text(encoding="utf-8")):
+        for name, value in GAME_CONST.findall(path.read_text(encoding="utf-8")):
+            found[name] = value
+    engine = KEY_HOME / "technique.rs"
+    if engine.exists():
+        for name, value in ENGINE_CONST.findall(engine.read_text(encoding="utf-8")):
             found[name] = value
     return found
 
@@ -46,7 +66,7 @@ def test_the_technique_key_home_is_not_empty() -> None:
     failure mode where a file move silently turns a guard into a no-op."""
     defined = _defined_keys()
     assert len(defined) >= 20, (
-        f"only {len(defined)} technique key(s) found under {KEY_HOME}/smash_*.rs. "
+        f"only {len(defined)} technique key(s) found under {KEY_HOME}. "
         "Either the keys moved, in which case this guard is now measuring "
         "nothing, or the scan is wrong. Both are defects in this file."
     )

@@ -77,6 +77,13 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
         ambition_platformer2d::characters::smash_limit::FILL_METER,
         ambition_platformer2d::characters::smash_mark::MARK_BODY,
         ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION,
+        // ⛔⛔ THE ENGINE'S OWN TECHNIQUE, AND THE ONE THE CORPUS CAUGHT. 36
+        // characters author `pogo_bounce` on `attack_air_down` and nothing
+        // declared it — invisible to a `smash.`-scoped search, because it is not
+        // a game key. Its two handlers live inside a `.chain()` in
+        // `combat_schedule`, so the whole chained tuple goes through the install
+        // seam rather than being lifted apart.
+        ambition_platformer2d::characters::technique::POGO_BOUNCE_KEY,
     ] {
         assert!(
             declared.contains(&expected),

@@ -494,7 +494,14 @@ downstream (the population is the reverse dependency closure — 79 members, nin
 run), and `cargo test -p` builds BARE features while `--workspace` unifies them,
 so a sibling can turn on a capability an umbrella feature deliberately excluded
 ([capability and runtime composition](engine/capability-and-runtime-composition.md)
-carries the `relativity` case).
+carries the `relativity` case: taken OUT of `all_capabilities` on 2026-09-01 so
+the relativity crates would not be in every default build, and on anyway under
+`--workspace` because `ambition_demo_twintrack` names it. MEASURED both ways —
+`cargo tree -e normal -p ambition_app` has no relativity edge, while
+`cargo tree -e normal --workspace -i ambition_relativity2d` puts it under
+`ambition_platformer2d`, which reaches `ambition_app` and the rest. ⇒ **A
+statement that is false gets corrected; one that is true of a build nobody runs
+is quoted forever.**).
 
 **Guard doctrine** ([checks that did not run](../recipes/checks-that-did-not-run.md)):
 three species that all print the same green. ⇒ **VACUOUS** — the guard is blind;

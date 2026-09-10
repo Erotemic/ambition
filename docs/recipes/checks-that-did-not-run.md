@@ -934,7 +934,7 @@ with most confidence:
 | candidate | killed by |
 |---|---|
 | she uses a lot of VFX | another fighter uses **more**, and is clean |
-| her effect ids are undefined | **every** fighter's are undefined |
+| her effect ids look undefined | the same grep returns **zero for every fighter** — and was later shown wrong about all of them (below) |
 | her sprite sheet is 7.8MP and decodes mid-gameplay | another loads **7.5MP** mid-gameplay, flagged by the same log line, and is clean |
 | she dies and a death despawns something | another scores **5 knockouts** in one bout without failing |
 

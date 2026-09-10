@@ -101,7 +101,35 @@ Stated per packet instead:
   contract is violated"*), and **no lane invokes it at all** — 24 doc mentions,
   zero invocations outside its own tests. ⇒ **A 39-contract checker that no lane
   runs, whose default cannot fail, was red and nothing would have said so.**
-  ⚠ Wiring it into a lane is a gate change and is **not made here**. ⚠ This line
+  ⚠ Wiring it into a lane is a gate change and is **not made here**.
+
+⭐⭐ **MEASURED FOR WHOEVER DECIDES (`d398bcafc`), FOUR QUESTIONS, NO
+RECOMMENDATION:**
+
+1. **`--check` passes at HEAD — and only since one commit ago.** `exit 0`,
+   39 of 39 hold. **It was red until `3275ba09c`.** ⇒ A gate proposal whose
+   subject went green an hour ago is a proposal about a lane **that would have
+   been red today.**
+2. **9 seconds.** Cheaper than the citation lane, cheaper than one crate's tests,
+   for the whole 39-contract surface.
+3. ⭐⭐ **YES, IT WOULD HAVE CAUGHT TODAY'S RED AT INTRODUCTION**, and the diffs
+   show the mechanism: `43059a46d` moved `ron` out of `[dependencies]` and left
+   `fixtures/minimal_game/Cargo.lock` untouched; `3275ba09c` deleted exactly that
+   one lockfile line. **The repair is the one line the break should have carried.**
+   ⛔ **It went unnoticed for 11 commits / ~56 minutes — and the workspace lane
+   stamped `43059a46d` GREEN inside that window** (178 suites, 7,714 passed).
+   ⇒ **A 9-second check would have caught, at introduction, a defect a 20-minute
+   workspace lane certified as clean.**
+4. **All 39 print a plain `ok`; none qualifies its own pass.** ⚠ **STATED AS THE
+   WEAK NEGATIVE IT IS:** that is ONE run at ONE commit, with no history of reds
+   to sample. **A contract that is FLAKY rather than wrong looks identical to a
+   clean one in a single green run.** *"No noisy contract in one observation"* is
+   the finding; *"no noisy contracts"* is not.
+
+⚠ **The Q3 argument is STRONG AND NARROW.** One example settles that this
+contract, broken this way, would have been caught. **It says nothing about the
+other 38, and a gate is justified by its whole surface, not its best case.**
+Measured by ToothbrushAmbition; no recommendation made and nothing wired. ⚠ This line
   said *"FULLY re-closed"* after three, and **a completeness word is a hostage to
   the next review** — the fourth arrived hours later. ✅ **Closed in `95f0c1484`
   with a PROVEN boundary rather than an asserted one**: `cargo check -p ambition_app`

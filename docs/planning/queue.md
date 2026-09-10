@@ -1781,6 +1781,112 @@ call site"*, and that is an AST job, not a regex one.
 **Acceptance:** each compared side is obtained through the road its own party
 uses, or the test is deleted as a tautology with the reason recorded.
 
+### D-HEADLESS-DESPAWN — a headless composition can SPAWN render-synced entities but not DESPAWN them
+
+**Owner:** composition / the headless profile. Found 2026-09-10 by
+ToothbrushAmbition while asking why one fighter of twenty-one was UNMEASURABLE
+in the roster sweep.
+
+⚠ **`npc_alice` is the TRIGGER, not the subject.** Nothing about that character
+is wrong; she is the only fighter that happens to reach a despawn inside a duel.
+**A row titled after her sends the next reader to fix a character.**
+
+⛔⛔ **THE MECHANISM, FROM THE BACKTRACE.** `SyncToRenderWorld`'s **remove** hook
+requires `bevy_render::sync_world::PendingSyncEntity`, a render-world resource
+the headless composition does not hold:
+
+```
+sync_component.rs:55   (PendingSyncEntity does not exist in the `World`)
+  ← EntityWorldMut::despawn_no_free_with_caller
+  ← <F as Command>::apply        (a queued `commands.entity(e).despawn()`)
+  ← SingleThreadedExecutor::run   (Update)
+```
+
+⇒ **Spawning a render-synced entity headless is fine. Despawning one is fatal.**
+The bout runs 2.4 seconds and five hitstop cycles first, which is why it reads as
+a fighter problem.
+
+⛔ **THE COMPOSITION FACT.** That run's own census reports **104 `ambition_render`
+systems in `Update`** in a build with no render world. ⇒ The headless profile
+installs the presentation half and omits the world it syncs to, **so it works
+until something is cleaned up.**
+
+⚠ **FOUR CANDIDATES DIED, AND THIS TABLE IS THE ROW'S BEST CONTENT** — it is what
+stops the next person re-running them:
+
+| candidate | killed by |
+|---|---|
+| she uses a lot of VFX | `carl_stargan` uses **29** `vfx_at` to her 19, and is clean |
+| her effect ids are undefined | **every** fighter's are — `electric_arc`, `gear_scatter`, `evidence_ping`, all zero |
+| a 7.8MP sheet decoded mid-gameplay | `medic` loads **7.5MP** mid-gameplay, same log line, clean |
+| a death/knockout despawns something | `medic` at rung 3 scores **5 knockouts** without failing |
+
+⭐ **Each was killed by ONE non-accused subject**, which is the method worth
+copying: a property measured only on the accused is distinguishing by
+construction of the search.
+
+⛔⛔ **THE CONSEQUENCE THAT MAKES THIS URGENT RATHER THAN CURIOUS.** ⇒ **Any
+change that makes another fighter despawn a render-synced entity turns their row
+UNMEASURABLE too, and nothing would say why.** The sweep would report a narrower
+population and read as healthy.
+
+⚠ **THE STAKE IS JON'S FRESH-CLONE ASK.** A headless build carrying the render
+crate's Update systems without the render world runs a game right up until a
+cleanup — the class of failure a fresh clone hits and a warm one does not.
+
+⚠ **NOT DECIDED.** Whether the fix is to install the resource in the headless
+profile, keep those systems out of it, or make the hook tolerate a missing world
+is a maintainer's call. **This row is the report.**
+
+**Acceptance:** a headless composition either does not install render-sync hooks
+or can serve them, and a fighter that despawns a render-synced entity completes a
+duel.
+
+### D-VFX-ID-ADMISSION — REFUTED before it was worked; the search was keyed on the wrong spelling
+
+**Owner:** nobody — the premise is false. Kept because the SEARCH ARTIFACT is
+worth more than the row was, and because a row that refutes itself is cheaper
+than one that quietly disappears.
+
+⛔ **THE CLAIM WAS:** every fighter moveset names VFX effect ids —
+`four_point_glint`, `rune_burst`, `rune_circle`, `magic_seal_break`,
+`phase_ripple`, `pickup_twinkle`, `electric_arc`, `gear_scatter`,
+`evidence_ping` — and **grepping each outside the moveset files returns zero
+definitions**, in `.rs` and `.ron` alike. ⇒ Read as an authored key family with
+no admission check, A11's shape one layer over, with the worst case being that
+*every `vfx_at` call in the game is authored, reviewed and reaches nothing.*
+
+⛔⛔ **MEASURED 2026-09-10 AND IT IS FALSE. NINE FOR NINE, IN THE SHIPPED
+ASSETS:**
+
+| id | `assets/audio/sfx.bank.txt` | `assets/sprites_0_25x/` |
+|---|---|---|
+| all nine above | **1** | **1** |
+
+⭐ **THE CAUSE IS A NAME SPLIT, WHICH IS WHY THE GREP WAS HONEST AND WRONG.** The
+CONSUMER spells the bare row (`rune_burst`); the OWNER spells it **compositely** —
+`vfx.generic_exotic.rune_burst` in the packed bank, and as a row inside a
+`generic_*_fx` spritesheet manifest. ⇒ **A census keyed on the consumer's
+spelling cannot see the owner's registrations**, and the tell was in `vfx_at`'s
+own doc the whole time: *"the bank ships one `vfx.<family>.<row>` cue per
+authored row, so the name that finds the clip finds the sound."*
+
+⚠⚠ **AND THE WIDENING THAT LOOKED LIKE CORROBORATION IS THE LESSON.** The first
+version blamed one character's six ids; correcting it to *"every fighter's ids
+are undefined"* was the right widening of the POPULATION and **left the
+instrument defect untouched.** ⇒ **Widening a population does not fix an
+instrument looking in the wrong place — it makes the wrong answer bigger and more
+convincing.** The wider result felt like confirmation and was the same error at
+scale.
+
+⚠ **WHAT SURVIVES, and it is much smaller than the row it replaces.**
+`vfx_cued`'s doc: *"an id neither the registry nor the packed bank authorizes is
+counted and dropped, not heard — so a typo here is silence."* ⇒ **A mechanism
+exists and it OBSERVES rather than REFUSES.** Whether "counted and dropped" is
+the right policy for authored content, against A11's *refused at admission*, is a
+real question and a minor one. **It is not "the flourish layer reaches nothing",
+and nobody should spend a day on it.**
+
 ## P3 — human-gated measurements and local-machine work
 
 These rows cannot be completed from an ordinary headless source review. Keep the

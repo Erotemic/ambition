@@ -26,13 +26,31 @@ criterion by itself.
 
 ## Next architectural action
 
-**A1: checkpoint restoration ownership.** A1a characterizes/fixes startup's
-admission latch and tests denied-reset mutation. A1b moves restoration, progress
-and installation into session. A1c binds room, occurrence and item restoration
-to one selected immutable checkpoint and authorized common commit. The
-[checkpoint protocol](engine/checkpoint-restoration-protocol.md) is the normative
-recipe. Leave healing and checkpoint capture at the rest-point interaction;
-do not move the session lifecycle slot into `shared_tangle` to remove an import.
+⛔⛔ **THIS SECTION NAMED A1 UNTIL 2026-09-10, AND A1 WAS ALREADY FINISHED. IT SENT
+THREE AGENTS AT COMPLETED WORK IN ONE DAY.**
+
+**A1 is DONE.** Audited row by row, not inferred from the packets: the
+[checkpoint protocol](engine/checkpoint-restoration-protocol.md)'s executable
+acceptance matrix holds **18 rows, and all 18 carry a named witness** in the
+audit table beneath it. A1a's admission latch, A1b's move of restoration into
+session, and A1c's single immutable checkpoint are each closed there. The
+frontier's readiness map marks A1a/b/c DONE. Subcommit 5's targets are gone —
+`ResetToCheckpoint` has no raw restoration readers left, only writers and
+registration.
+
+⚠ **One item stays open and the protocol scopes it itself:** the terminal
+outcome has no presentation consumer, *"when one is wanted"*. **That is a
+deferral, not a defect, and it is not an architectural action.**
+
+⇒ **THERE IS NO SINGLE NEXT ARCHITECTURAL ACTION NAMED HERE ANY MORE, and that is
+deliberate.** A section that names one goes stale the moment that one lands, and
+this one stayed wrong long enough to misdirect three agents on the day it was
+noticed. **The open packets and their state are listed below; read those.**
+
+⚠ **AND THE COUNT ABOVE IS 18, NOT 17.** The agent who audited the rows reported
+17. Both a count of the matrix and a count of the audit table give 18. **The
+audit's finding stands; its arithmetic did not, and a number that crosses a
+document boundary travels with the method that produced it.**
 
 The [projectile protocol](engine/projectile-contact-protocol.md) makes A2's
 geometry sample, finite-shape obstruction, compound contacts and targeted delivery

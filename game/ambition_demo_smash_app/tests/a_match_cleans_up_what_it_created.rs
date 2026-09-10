@@ -112,6 +112,7 @@ fn nothing_a_match_created_survives_into_the_next_one() {
                     )
                     .expect("mine params serialize"),
                 },
+            move_instance: None,
         },
     );
     app.update();

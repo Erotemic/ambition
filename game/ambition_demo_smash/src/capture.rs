@@ -338,6 +338,7 @@ use ambition_platformer2d::engine_core as ae;
                 )
                 .expect("carry params serialize"),
             },
+            move_instance: None,
         });
         app.update();
         let messages = app.world().resource::<Messages<CaptureCarryRequested>>();

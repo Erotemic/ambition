@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::{
-    action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
+    ActorActionMessage,
 };
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d::actor::FeatureSimEntity;
@@ -61,21 +61,10 @@ pub fn spawn_gradient_nova_from_special_messages(
         With<FeatureSimEntity>,
     >,
 ) {
-    let mut firing: std::collections::HashSet<Entity> = std::collections::HashSet::new();
-    for msg in messages.read() {
-        if let ActionRequest::Special {
-            spec: SpecialActionSpec::Special(key),
-            ..
-        } = &msg.request
-        {
-            if key == GRADIENT_NOVA_KEY {
-                firing.insert(msg.actor);
-            }
-        }
-    }
+    let firing = super::actors_firing(&mut messages, GRADIENT_NOVA_KEY);
     for (entity, boss_feature, health, mut state) in &mut bosses {
         let boss = boss_feature.as_boss_ref();
-        if !firing.contains(&entity) {
+        if !firing.contains_key(&entity) {
             state.fired_this_strike = false;
             continue;
         }
@@ -102,7 +91,9 @@ pub fn spawn_gradient_nova_from_special_messages(
                     boomerang_return_s: None,
                 },
                 ProjectileStart::StepThisTick,
-            ));
+            )
+            .fired_by_move_if_any(firing.get(&entity).copied().flatten()),
+            );
         }
         state.fired_this_strike = true;
     }
@@ -111,6 +102,7 @@ pub fn spawn_gradient_nova_from_special_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 
     use ambition_time::WorldTime;
 
@@ -174,6 +166,7 @@ mod tests {
                     spec: SpecialActionSpec::Special(GRADIENT_NOVA_KEY.to_string()),
                     params: Default::default(),
                 },
+                move_instance: None,
             });
         app.update();
 
@@ -185,6 +178,124 @@ mod tests {
         assert_eq!(
             count, NOVA_COUNT as usize,
             "the full nova burst should materialize as projectile entities",
+        );
+    }
+
+    /// Drive the same road with a move occurrence on the request and read it
+    /// back off the SPAWNED PROJECTILE ENTITIES.
+    ///
+    /// Returns `(materialized, stamped_with)` so one body serves both arms.
+    fn nova_projectile_stamps(asked_by: Option<u32>) -> (usize, Vec<Option<u32>>) {
+        use ambition_boss_encounter::BossClusterScratch;
+        use ambition_entity_catalog::placements::BossBrain;
+        use ambition_projectiles::{
+            materialize_projectiles_for_this_tick, ProjectileSeqCounter, ProjectileSpawnRequest,
+        };
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<ProjectileSpawnRequest>();
+        app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<WorldTime>();
+        {
+            let mut wt = app.world_mut().resource_mut::<WorldTime>();
+            wt.scaled_dt = 1.0 / 60.0;
+            wt.raw_dt = 1.0 / 60.0;
+        }
+        app.add_systems(
+            Update,
+            (
+                spawn_gradient_nova_from_special_messages,
+                materialize_projectiles_for_this_tick,
+            )
+                .chain(),
+        );
+
+        let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
+        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let boss = BossClusterScratch::new(
+            &boss_catalog,
+            "test_boss",
+            "Test Boss",
+            aabb,
+            BossBrain::Dormant,
+        )
+        .into_components();
+        let actor = app
+            .world_mut()
+            .spawn((FeatureSimEntity, ExplodingGradientState::default(), boss))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Special {
+                    spec: SpecialActionSpec::Special(GRADIENT_NOVA_KEY.to_string()),
+                    params: Default::default(),
+                },
+                move_instance: asked_by,
+            });
+        app.update();
+
+        let mut q = app.world_mut().query_filtered::<(
+            Option<&ambition_projectiles::FiredByMoveInstance>,
+            (),
+        ), With<ambition_projectiles::LiveProjectile>>();
+        let stamps: Vec<Option<u32>> = q
+            .iter(app.world())
+            .map(|(stamp, ())| stamp.map(|s| s.0))
+            .collect();
+        (stamps.len(), stamps)
+    }
+
+    /// ⛔⛤ WITNESS — A12 BLOCKER 2, THE CONTENT HALF. A TECHNIQUE'S PROJECTILE
+    /// CARRIES THE MOVE USE THAT ASKED FOR IT.
+    ///
+    /// ⛔⛔ THE DEFECT THIS FAILS ON. A boss `Special(key)` profile compiles to a
+    /// move whose Active window carries a `sustain_effect`; that bridges to
+    /// `ActorActionMessage::Special`, and THIS system turns it into projectiles.
+    /// The bolts outlive the move — the sentinel's live 2.4s. Every one of them
+    /// spawned with `move_instance: None`, and `moveset::verdict_belongs_to`
+    /// admits `None` against ANY playback, so a bolt fired by move A and landing
+    /// during move B credited B with a hit it never earned.
+    ///
+    /// ⭐⭐ IT READS THE SPAWNED ENTITY, NOT THE REQUEST. The request is the
+    /// system's own output; the entity is what survives into the tick where the
+    /// damage is resolved, which is the only place the number matters. A test
+    /// that stops at the request cannot see the materializer drop it.
+    ///
+    /// ⚠ AND THE NUMBER TRAVELS ONE WAY ONLY. Nothing downstream may recover it
+    /// by reading the owner's `MovePlayback`, because by the time a bolt lands
+    /// the authoring move is over — that re-read IS the defect.
+    #[test]
+    fn a_nova_bolt_carries_the_move_use_that_fired_it() {
+        let (count, stamps) = nova_projectile_stamps(Some(7));
+        assert_eq!(
+            count, NOVA_COUNT as usize,
+            "the premise: the full burst materialized, so the stamps below are \
+             a claim about projectiles that exist"
+        );
+        assert!(
+            stamps.iter().all(|s| *s == Some(7)),
+            "every bolt names the move use that asked for it; got {stamps:?}. An \
+             unstamped bolt is credited to whatever move plays when it lands."
+        );
+    }
+
+    /// ⭐ AND `None` IS AN ANSWER, NOT A HOLE. A boss brain that presses its
+    /// special directly — no move behind it — has no use to name, and the
+    /// technique must pass that through rather than invent a number. A stamp
+    /// here would be a FALSE provenance, which is worse than none: it would
+    /// deny a real move its own hit.
+    #[test]
+    fn a_brain_pressed_nova_stamps_no_move_use() {
+        let (count, stamps) = nova_projectile_stamps(None);
+        assert_eq!(count, NOVA_COUNT as usize, "the premise: the burst materialized");
+        assert!(
+            stamps.iter().all(|s| s.is_none()),
+            "a special with no move behind it stamps nothing; got {stamps:?}"
         );
     }
 

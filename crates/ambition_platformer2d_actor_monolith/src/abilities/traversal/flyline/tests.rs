@@ -57,6 +57,7 @@ fn fire(app: &mut bevy::prelude::App, body: bevy::prelude::Entity, params: Flyli
             params: ambition_entity_catalog::ParamValue::from_typed(&params)
                 .expect("flyline params serialize"),
         },
+        move_instance: None,
     });
     app.update();
 }

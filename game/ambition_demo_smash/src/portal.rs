@@ -327,6 +327,7 @@ mod tests {
                 ))
                 .expect("portal params serialize"),
             },
+            move_instance: None,
         });
         (app, body)
     }
@@ -380,6 +381,7 @@ mod tests {
                     )
                     .expect("portal params serialize"),
                 },
+                move_instance: None,
             });
         }
         app.update();
@@ -464,6 +466,7 @@ mod tests {
                     )
                     .expect("portal params serialize"),
                 },
+                move_instance: None,
             });
             app.update();
         };
@@ -767,6 +770,7 @@ mod tests {
                 params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&p)
                     .expect("portal params serialize"),
             },
+            move_instance: None,
         });
         app.update();
         let mut out: Vec<ae::Vec2> = app

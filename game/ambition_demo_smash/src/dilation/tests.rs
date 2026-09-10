@@ -38,6 +38,7 @@ fn ask(app: &mut App, who: Entity, scale: f32, seconds: f32) {
             )
             .expect("dilation params serialize"),
         },
+        move_instance: None,
     });
     app.update();
 }

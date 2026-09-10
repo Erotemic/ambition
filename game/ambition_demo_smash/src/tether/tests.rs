@@ -113,7 +113,7 @@ fn throw(app: &mut App, actor: Entity, reach: f32) {
             .expect("tether params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request });
+        .write_message(ActorActionMessage { actor, request, move_instance: None });
     app.update();
 }
 

@@ -289,6 +289,25 @@ pub struct ActorActionMessage {
     /// The concrete action request produced by the actor's
     /// ActionSet.
     pub request: action_set::ActionRequest,
+    /// The use of the actor's move that asked for this action, when a move
+    /// asked for it.
+    ///
+    /// ⭐ `None` IS A CORRECT ANSWER, not a placeholder. A brain that presses
+    /// its special, a held item, and an equipment grant all emit actions that
+    /// no move authored. Only the moveset runtime fills this in.
+    ///
+    /// ⛔⛤ WHY IT EXISTS. A move `Effect` event becomes an
+    /// [`ActionRequest::Special`](action_set::ActionRequest::Special), the
+    /// keyed technique spawns a projectile, and the bolt lands SECONDS LATER.
+    /// Without this field the spawn request carries `move_instance: None`, and
+    /// a `None` verdict is credited to whatever move plays when the bolt
+    /// connects — which is the A12 defect the moveset road already fixed for
+    /// its own `Ranged` branch. The Effect road dropped it here.
+    ///
+    /// ⚠ THE EMITTER SETS THIS. A CONSUMER MUST NOT RE-DERIVE IT by reading
+    /// the actor's current `MovePlayback`: at the moment a technique runs, the
+    /// authoring move may already have ended. That re-read IS the defect.
+    pub move_instance: Option<u32>,
 }
 
 impl ActorActionMessage {
@@ -355,6 +374,7 @@ pub fn emit_brain_action_messages(
             writer.write(ActorActionMessage {
                 actor: entity,
                 request,
+                move_instance: None,
             });
         }
     }
@@ -421,6 +441,7 @@ pub fn emit_player_projectile_tick_messages(
                 held: frame.projectile_held,
                 released: frame.projectile_released,
             },
+            move_instance: None,
         });
     }
 }

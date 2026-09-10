@@ -141,7 +141,7 @@ fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
         .expect("tether params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor: her, request });
+        .write_message(ActorActionMessage { actor: her, request, move_instance: None });
 
     // ⛔⛔ PROMPTLY, AND THE DEADLINE IS THE ASSERTION. A 40-tick window cannot
     // tell this row's work from the absence of it: measured on this stage, a
@@ -203,7 +203,7 @@ fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
         .expect("tether params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor: her, request });
+        .write_message(ActorActionMessage { actor: her, request, move_instance: None });
 
     for _ in 0..40 {
         app.update();

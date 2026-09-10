@@ -2877,6 +2877,171 @@ fn two_moves_separated_by_an_idle_tick_do_not_share_an_occurrence() {
     );
 }
 
+/// The `swat` move with a SUSTAINED effect on its Active window — the shape a
+/// boss `Special(key)` profile compiles to (`attack_moveset.rs` puts the
+/// special key in `sustain_effect`, not in the timeline events).
+fn sustained_effect_moveset(key: &str) -> MovesetContract {
+    let mut spec = swat();
+    let active = spec
+        .windows
+        .iter_mut()
+        .find(|w| matches!(w.tag, WindowTag::Active))
+        .expect("the seed move has an Active window");
+    active.sustain_effect = Some(ambition_entity_catalog::EffectRef::new(key));
+    MovesetContract {
+        verbs: [("attack".to_string(), "swat".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![spec],
+    }
+}
+
+/// The full chain a boss special travels: press -> `trigger_moveset_moves`
+/// mints the occurrence -> `advance_move_playback` emits the sustained
+/// `Effect` -> `dispatch_move_events` bridges it to
+/// `ActorActionMessage::Special`, which is what a content technique reads.
+fn effect_bridge_app(moveset: MovesetContract) -> (App, Entity) {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(
+        super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
+    );
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_vfx::FxRequest>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.3;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.3;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+            advance_move_playback,
+            dispatch_move_events,
+        )
+            .chain(),
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ActorMoveset(moveset),
+            pressing_attack(),
+            // ⛔ NOT DECORATION. `advance_move_playback` asks for
+            // `&ActorFaction`, so a body without one is not in its query at
+            // all: the move plays, no window ever opens, and the channel this
+            // test reads stays empty for a reason that has nothing to do with
+            // the property under test.
+            ActorFaction::Enemy,
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+    (app, body)
+}
+
+/// Every `Special` action bridged from a move this tick, as
+/// `(key, move_instance)`.
+fn bridged_specials(app: &mut App) -> Vec<(String, Option<u32>)> {
+    app.world_mut()
+        .resource_mut::<Messages<ambition_characters::brain::ActorActionMessage>>()
+        .drain()
+        .filter_map(|m| match &m.request {
+            ActionRequest::Special {
+                spec: SpecialActionSpec::Special(key),
+                ..
+            } => Some((key.clone(), m.move_instance)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// ⛔⛤ WITNESS — A12 BLOCKER 2. THE `Effect -> Special` ROAD MUST CARRY THE USE
+/// OF THE MOVE THAT AUTHORED IT.
+///
+/// ⛔⛔ THE DEFECT THIS FAILS ON. A boss `Special(key)` profile compiles to a
+/// move whose Active window carries a `sustain_effect`. That effect bridges to
+/// `ActorActionMessage::Special`, a content technique reads it and spawns
+/// projectiles that fly for SECONDS (`overfit_volley`'s bolts live 2.4s). The
+/// bridge dropped the occurrence, so the technique had nothing to give
+/// `ProjectileSpawnRequest`, every such shot carried `move_instance: None`, and
+/// `verdict_belongs_to` admits `None` against ANY playback — so a bolt fired by
+/// move A and landing during move B credited B. That is the same A12 defect the
+/// `Ranged` branch beside it already fixed; only this road still had it.
+///
+/// ⭐⭐ THE FIXTURE SUPPLIES NEITHER NUMBER. `trigger_moveset_moves` mints both
+/// occurrences and the runtime carries them. A test that writes an instance by
+/// hand asserts the arithmetic it chose, not the plumbing — which is exactly how
+/// the `move_instance: 0` fixture in
+/// `move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special` stayed green
+/// across the whole life of this defect. It reads the field it is handed.
+///
+/// ⇒ Two uses, an idle tick between them, and the assertion is that the two
+/// bridged actions do not name the same use.
+#[test]
+fn two_uses_of_an_effect_move_bridge_to_two_different_occurrences() {
+    let (mut app, body) = effect_bridge_app(sustained_effect_moveset("overfit_volley"));
+
+    // One tick starts the move AND opens its sustained window: the tick is
+    // 0.3s and the Active window is [0.28, 0.36), so the effect is owed the
+    // same tick the press lands.
+    app.update();
+    let first_playing = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the press started a move")
+        .instance;
+    let first = bridged_specials(&mut app);
+    assert_eq!(
+        first.len(),
+        1,
+        "the sustained effect bridged to exactly one Special action, got {first:?}"
+    );
+    assert_eq!(first[0].0, "overfit_volley");
+    assert_eq!(
+        first[0].1,
+        Some(first_playing),
+        "the bridged action names the use that was PLAYING when the effect fired. \
+         `None` here is the defect: a technique that spawns a 2.4s projectile has \
+         nothing to stamp it with, and the shot is credited to whatever move is \
+         playing when it lands."
+    );
+
+    // THE MOVE ENDS. `end_move` removes the playback; this is the state every
+    // move passes through on its way to the next one, and the state a bolt
+    // still in flight outlives.
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+
+    let second_playing = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the held press started a second move")
+        .instance;
+    let second = bridged_specials(&mut app);
+    assert_eq!(
+        second.len(),
+        1,
+        "the second use bridged to exactly one Special action, got {second:?}"
+    );
+    assert_eq!(second[0].1, Some(second_playing));
+
+    assert_ne!(
+        first[0].1, second[0].1,
+        "two uses of one move bridged to the SAME occurrence {:?}. A projectile \
+         fired by the first now earns the second's verdict — `verdict_belongs_to` \
+         compares these numbers and nothing else.",
+        first[0].1
+    );
+}
+
 /// A distinct playing move so the replacement is observable by id, with an
 /// optional cancel window appended to its timeline.
 fn playing_move(cancel: Option<MoveWindow>) -> MoveSpec {

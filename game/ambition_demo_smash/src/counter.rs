@@ -112,6 +112,7 @@ pub fn answer_a_parry_with_the_authored_counter(
                 spec: SpecialActionSpec::Special(stance.response.clone()),
                 params: stance.response_params.clone(),
             },
+            move_instance: None,
         });
     }
 }
@@ -361,6 +362,7 @@ mod tests {
                 params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params)
                     .expect("counter params serialize"),
             },
+            move_instance: None,
         });
         app.update();
 

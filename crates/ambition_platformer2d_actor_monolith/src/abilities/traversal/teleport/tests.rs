@@ -254,6 +254,7 @@ fn an_authored_teleport_records_one_scripted_remap() {
             })
             .expect("teleport params serialize"),
         },
+        move_instance: None,
     });
     app.update();
 
@@ -632,6 +633,7 @@ fn teleport_from(
             })
             .expect("teleport params serialize"),
         },
+        move_instance: None,
     });
     app.update();
     app.world()

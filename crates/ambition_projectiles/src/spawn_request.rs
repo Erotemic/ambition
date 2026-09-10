@@ -117,6 +117,20 @@ impl ProjectileSpawnRequest {
         self.move_instance = Some(instance);
         self
     }
+
+    /// Set the use of the move that made this shot, when the caller has one.
+    ///
+    /// ⭐ `None` STAYS `None` AND THAT IS AN ANSWER. A technique a brain pressed
+    /// directly was authored by no move. The caller that knows this is the one
+    /// that read the request; a later reader cannot tell the two cases apart.
+    ///
+    /// ⚠ Give it the value the `ActorActionMessage` carried. Do not read the
+    /// owner's playback — see [`Self::fired_by_move`].
+    #[must_use]
+    pub fn fired_by_move_if_any(mut self, instance: Option<u32>) -> Self {
+        self.move_instance = instance;
+        self
+    }
 }
 
 /// Lower substrate-neutral authored spawn data into the shared in-flight body.

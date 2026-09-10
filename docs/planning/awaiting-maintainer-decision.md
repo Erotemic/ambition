@@ -504,119 +504,47 @@ fighter measurement. Tightening the SWEEP's population is queue work
 ⭐ Not a feel ruling: it decides whether "on the grid" means "is a fighter", which
 is the property every CPU-quality measurement over that grid will assume.
 
-## Q96 — should a projectile collide with an ECS breakable's published surface?
+## Q102 — a solid breakable is published as `BlinkWall { Hard }`: is that the representation, or a borrow?
 
-**Measured 2026-09-09, while closing A2b.** A breakable authored
-`BreakableCollision::Solid` publishes a `BlockKind::BlinkWall { Hard }` into
-`FeatureEcsWorldOverlay::blocks` at its own AABB (`world/overlay.rs`), and the
-player collides with it. A PROJECTILE does not:
-`ambition_projectiles::collision_world::ProjectileCollisionWorld::solids()`
-composites only `gate_solids`, `portal_carves` and `removed_block_names`, so
-`overlay.blocks` — every ECS breakable surface and every pogo orb — is absent
-from the world a shot sweeps.
+**Flagged 2026-09-10 in the same review that ruled Q96, and it is a DO-NOT-MAKE-IT-
+WORSE constraint rather than a repair request.** Verbatim:
 
-Nothing is broken today: the shot reaches the crate through the FEATURE road
-instead, which is swept and now ordered against the world by time of impact. The
-question is which of two models is intended, because they differ once a
-destructible has both a surface and a hurt volume:
+> *"Representing a generic solid breakable as `BlockKind::BlinkWall { Hard }` mixes
+> ordinary solidity with blink-specific permeability semantics. That may be
+> justified by the current world vocabulary, but **projectile support should not
+> cement that representation into more systems.** Ideally consumers ask shared
+> collision semantics rather than learning that 'hard blink wall happens to mean
+> solid breakable'."*
 
-- **A shot sees only the hurt volume** (today). A solid crate stops the player
-  and is destroyed by shots; the two facts never interact. Simple, and the
-  compound-contact row of the contact protocol's acceptance matrix stays
-  unreachable.
-- **A shot sees the surface too.** Then a destructible's own wall and its
-  damageable volume are ONE contact and need stable collider-contributor
-  identity to be told apart from an unrelated blocker — the A5 work the protocol
-  already describes. It also changes behaviour: a `Bouncing` shot would bounce
-  off a solid crate rather than damage it.
+**Measured at HEAD 2026-09-10.** `world/overlay.rs:52-58` maps
+`BreakableCollision::OneWayUp` → `BlockKind::OneWay`, which is an honest match, and
+`BreakableCollision::Solid` → `BlockKind::BlinkWall { tier: Hard }`, which is a
+borrow.
 
-⚠ Not a feel ruling — it decides whether A5's contributor identity is required
-for projectiles or only for the player road. Owner document:
-[projectile contact protocol](engine/projectile-contact-protocol.md).
+⭐ **WHY THE BORROW WORKS TODAY, AND EXACTLY WHEN IT STOPS.**
+`ambition_platformer2d_core/src/world.rs` documents `BlockKind::Solid` as *"full
+collision on both axes, and also a hard blocker for blink pathing"*, and
+`BlinkWallTier::Hard` as *"intended to remain blocked until a stronger
+blink-phasing upgrade."* ⇒ **The two are behaviourally identical for blink pathing
+only while no stronger blink upgrade exists.** The day one is added,
+`BlinkWall { Hard }` becomes permeable to it and `Solid` does not — and **every
+solid breakable in the game silently becomes blink-passable.** That is the whole
+debt, and it is a one-feature fuse.
 
-⛔⛔ **THE SECOND BULLET CONTRADICTS THE OWNER DOCUMENT, AND THAT IS THE PART
-NEEDING A RULING.** Raised in the 2026-09-09 GPT review. "A shot sees the
-surface too" is framed above as *a `Bouncing` shot would bounce off a solid
-crate rather than damage it*. The protocol says the opposite for that exact
-case: a destructible's own surface and its hurt region COALESCE INTO ONE
-COMPOUND CONTACT that resolves the target once **and also** honors the surface's
-physical response — the whole point being that a generic "wall first" rule must
-not make every solid destructible immune to projectiles. So the two models on
-offer are not "today" versus "the protocol"; the second bullet is a THIRD model
-that no document specifies. Whichever way this is decided, the protocol section
-and this row have to end up saying the same thing.
+⚠ **CONSUMERS ARE ALREADY LEARNING THE COINCIDENCE.** `BlockKind` carries exactly
+ONE predicate — `is_pogo_target()` — so every other consumer enumerates variants.
+`shared_tangle/src/projectile/collision.rs` matches `Solid | BlinkWall { .. }` at
+four sites, and `features/ecs/perception.rs:802` maps `BlinkWall { .. }` to
+`SolidKind::BlinkWall`.
 
-⭐ **MEASURED 2026-09-09: the compound row is not merely unreached, it is
-STRUCTURALLY UNREACHABLE, and that is why A2 did not have to wait.** A shot
-sweeps `ProjectileCollisionWorld::solids()` — the authored room, plus gate
-solids, minus portal carves and named removals. `overlay.blocks`, which is every
-ECS breakable surface, never enters it; the module's own contract says a
-projectile "passes through breakable/ECS overlay solids". So every block the
-projectile sweep can return is by construction an INDEPENDENT blocker, and the
-protocol's tie rule (an independent surface at equal time beats an unrelated
-hurt target) applies with no contributor identity at all. That is what
-`dc2fe7ce7` implemented. Contributor identity becomes REQUIRED for projectiles
-the moment this row is decided the second way — not before.
+⇒ **THE CONSTRAINT ON Q96's IMPLEMENTATION:** when the compound-solid row is built,
+the projectile road must ask for **collision semantics**, not for `BlinkWall`. The
+cheap shape is a predicate on `BlockKind` beside `is_pogo_target()`; adding a fifth
+`Solid | BlinkWall { .. }` arm makes the eventual repair more expensive.
 
-### ⭐ ANSWERED 2026-09-10 — AND STILL UNDERDETERMINED. DO NOT CLOSE THIS ROW.
-
-**Jon, verbatim:** *"Yes, they collide. There might be instances that we mark that
-certain projectiles do not collide with certain types of collision surfaces. So do
-not exclude that possibility."*
-
-⇒ **The row moves from UNANSWERED to ANSWERED-BUT-UNDERDETERMINED**, which is a
-different state and is named as one because the difference is what stops someone
-closing it.
-
-⛔⛔ **THE WORDS DO NOT SELECT BETWEEN THE TWO MODELS ABOVE.** "A shot sees the
-surface too" is what BOTH the second bullet and the owner document say; they differ
-in what happens NEXT, and the ruling does not reach that. ⇒ **The ⛔⛤ above still
-stands: the second bullet is a third model no document specifies, and the ruling
-must not be read as selecting it.**
-
-⚠ **AND A PARAPHRASE ALREADY SELECTED ONCE.** The ruling was first relayed as
-*"a solid breakable stops a bolt."* **"Stops" is not in what Jon said** — it is the
-second bullet's behaviour, and the relay picked it because the bullet is the
-sentence sitting under this heading. ⇒ **The nearest available sentence beat the
-owner document.** The relayer caught and withdrew it. Recorded because a reader who
-sees only the paraphrase cannot tell an affirmation from a selection.
-
-⭐ **THE EXEMPTION CLAUSE IS BINDING ON WHICHEVER MODEL WINS.** *"Do not exclude
-that possibility"* forbids an unconditional rule. A per-projectile / per-surface
-exemption must be EXPRESSIBLE, and that obligation lands on the design before the
-first implementation, not after it.
-
-#### A recommendation, marked as a recommendation
-
-⚠ **THIS IS YardratAmbition's, RELAYED, AND NOT CONFIRMED BY JON.** It is recorded
-so the reasoning is visible, not so it can be built on. Jon gave a principle for
-other open questions — *"what is the most elegant solution — the one that pushes us
-towards single authority and compositionality?"* — and applied to Q96 it selects the
-owner document's **compound contact**, not the bullet:
-
-* the bullet makes surface response and hurt region COMPETE, so it needs a
-  precedence rule: **two authorities plus an arbitration layer**;
-* the compound contact is ONE event that resolves the target once and honours the
-  physical response: **one authority**.
-
-⛔ **AND ONE HALF OF THAT ARGUMENT DOES NOT HOLD, CHECKED HERE RATHER THAN
-FORWARDED.** The recommendation adds that an exemption has *"nowhere to go"* under
-the bullet. **It has somewhere.** Under the bullet, exempting a `(projectile,
-surface)` pair means the shot ignores that surface and reaches the hurt volume by
-the feature road — which is **exactly today's behaviour for that pair**, so it is
-both expressible and already implemented.
-
-⇒ **What actually differs is WHERE the exemption lands**, and that is a real
-distinction worth the ruling:
-* **compound:** the exemption masks the SURFACE half while the hurt half resolves
-  in the same contact — the shot passes through physically and still damages;
-* **bullet:** the exemption removes the surface from the sweep, and the damage
-  arrives on a separate road.
-
-⇒ So the exemption clause is **evidence about the shape**, not a disqualifier. The
-single-authority argument stands on its own; the "nowhere to put it" argument does
-not, and is struck rather than repeated. ⚠ **A peer's reasoning gets the same check
-as a peer's relay** — that is the whole lesson of the paraphrase above.
+**The question for Jon** is only the eventual one: should a solid breakable get its
+own `BlockKind`, or is the borrow the intended vocabulary? ⛔ Nothing is blocked on
+the answer — Q96's work proceeds either way, under the constraint above.
 
 ## Human measurements, not design answers
 

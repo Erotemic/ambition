@@ -96,8 +96,10 @@ leave for `ambition_projectiles` without the victim queries following. The seman
 deletion gates the owner document requires have landed, INCLUDING the finite-time
 ordering rule reopened by review #7 above.
 
-**A2b's FINITE ORDERING is closed; compound-contact acceptance is DEFERRED to
-Q96/A5, and two narrow holes stay open (review #9).** Stated that way because
+**A2b's FINITE ORDERING is closed; compound-contact acceptance was DEFERRED to
+Q96/A5, and two narrow holes stay open (review #9).** ⭐ **Q96 IS RULED 2026-09-10,
+so the deferral is now to A5's CONTRIBUTOR IDENTITY alone** — engineering work, no
+longer a pending ruling. Stated that way because
 this row previously read as closed and not-closed at once — it said "RE-CLOSED",
 then that the compound-solid row was not closed, and then listed compound solid
 object under acceptance anyway.
@@ -177,11 +179,14 @@ protocol's, and then did not use its own answer.
 matrix's COMPOUND SOLID OBJECT row. A genuine compound contact — a destructible's
 own collision surface and its damageable volume as ONE contact rather than two
 competitors — needs stable collider-contributor identity. That is A5
-infrastructure, and Q96 has to be decided first. ⚠ **Q96 is ANSWERED and still
-UNDERDETERMINED as of 2026-09-10** — *"yes, they collide"* is true under both
-models on offer, so do not re-ask the maintainer the top-level question; the open
-part is which model, and it is stated in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+infrastructure, and Q96 had to be decided first. ⭐ **Q96 IS RULED 2026-09-10 — the
+COMPOUND CONTACT.** A published surface participates in projectile collision, and a
+surface plus a hurt volume from the same contributor at the same time of impact are
+ONE contact: damage once AND apply the surface response. ⇒ **Contributor identity is
+now REQUIRED for projectiles**, and it must be real identity — not matching AABBs,
+not name strings. Ruling in
+[`maintainer-decisions.md`](maintainer-decisions.md); engineering state in the
+[projectile contact protocol](engine/projectile-contact-protocol.md).
 
 ⭐ **AND THE CASE IS NOT REACHABLE ON THIS ROAD AT ALL, measured 2026-09-09 —
 which is WHY the protocol's tie rule could be implemented exactly, with no
@@ -198,8 +203,10 @@ can hit, and the tie rule has no compound case to get wrong yet.
 under a deliberately broken comparison TWICE — once because the fixture never
 published the surface, and once because the shot's landing splash broke the crate
 whether or not the direct hit landed. It was deleted rather than kept as a green
-row that measures nothing. Whether a projectile SHOULD collide with an ECS
-breakable's published surface is a separate open question, not this packet's.
+row that measures nothing. ⇒ **Poison the comparison before trusting a green here.**
+⭐ Whether a projectile SHOULD collide with an ECS breakable's published surface was
+the separate question Q96, and it is **RULED 2026-09-10: yes, and the surface plus
+the hurt volume are ONE compound contact.**
 
 **Acceptance:** authored-empty geometry, thin wall/target, equal-time ties,
 reflection/absorption, returning shots and rollback have explicit production-road

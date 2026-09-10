@@ -334,13 +334,32 @@ removes jab from the RUNNING menu only; standing menus are byte-identical, and
 these bodies stand 60–70% of their grounded time. So jab's contribution should
 fall by roughly a third.
 
-⛔⛔⛔ **AND ALL OF THE ABOVE IS ONE RUNG. A SECOND SAMPLE DOES NOT REPRODUCE
-IT.** Same duel, same fighter, `RUNG` 6 instead of 9:
+⛔⛔⛔ **AND ALL OF THE ABOVE IS ONE RUNG. THREE RUNGS SAY THE EFFECT IS
+RUNG-DEPENDENT, AND HELPFUL AT THE BOTTOM.** Same duel, same fighter, `RUNG` 6 instead of 9:
 
 | rung | HEAD | truthful | jab damage, HEAD → truthful |
 |---|---|---|---|
 | **9** | 1.26 / 1.07 | **0.47** / 0.86 | 159 → **0** |
 | **6** | 1.56 / 1.69 | 1.52 / 1.39 | 68 → **161** |
+
+Jab, HEAD → truthful: 159 → **0** at rung 9; 68 → **161** at rung 6.
+
+| rung | HEAD | truthful | verdict |
+|---|---|---|---|
+| **3** | 0.78 / 0.61 | **0.86 / 0.76** | truthful kit is BETTER on both seats |
+| **6** | 1.56 / 1.69 | 1.52 / 1.39 | −3% / −18%, both far above the 0.5 gate |
+| **9** | 1.26 / 1.07 | **0.47** / 0.86 | −63% / −20%; the only rung that FAILS |
+
+⇒ **The direction is consistent and it is not "the fix is a regression": the
+higher the rung, the worse the truthful kit does, and at the bottom of the ladder
+it HELPS.** That is a coherent story about a weaker brain benefiting from an
+honest menu and a stronger one being disturbed by it — and it is still one fight
+per rung, so it is a direction, not a curve.
+
+⚠ Rung 12 is not a sample: the ladder has no such entry, both fighters failed to
+seat, and the test's own 600-tick floor REFUSED to report rather than divide by
+zero ticks. The floor doing its job is why that run is absent from the table
+instead of sitting in it as a number.
 
 At rung 6 the truthful kit costs ~3% and ~18% (both far above the 0.5 threshold),
 lands MORE knockouts (2 against 1), and **jab is the single biggest damage source

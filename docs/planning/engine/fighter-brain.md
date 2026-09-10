@@ -284,11 +284,36 @@ driven body's top speed and a dismount's recovery.
 with a named exception: the wire is one boolean, it is inert today, and a fighter
 whose only lifting move is a tilt or a smash would make it live.
 
-⚠ **AND THE DAMAGE DROP UNDER THE CORRECT FIX IS STILL UNEXPLAINED.** Three
-mechanisms have been proposed for it and two are now measured false ("the CPU
-never stops running", and this coupling). The remaining difference is emergent —
-the fight diverges and the bodies end up running more — and nobody has isolated
-the cause. Do not adopt a fourth story without an instrument behind it.
+⭐⭐ **THE MOVE DISTRIBUTION ITSELF, WHICH IS WHAT THIS SECTION ASKS FOR IN THE
+FIRST PLACE.** Starts counted per `(move_id, MovePlayback::instance)` so a
+self-cancel into the same move counts twice, same duel:
+
+| | HEAD (mislabeled) | truthful kit |
+|---|---|---|
+| seat 0 | 54 starts / 12 distinct — `pirate_grab` 13, **`jab` 10**, `grapeshot` 9, `dash_attack` 5 | 43 starts / 11 — `grapeshot` 9, `call_the_shark` 5, **`pirate_fthrow` 5, `pirate_pummel` 5**, `pirate_grab` 4 |
+| seat 1 | 27 starts / 12 — `call_the_shark` 5, `grapeshot` 5, **`jab` 4**, `dash_attack` 3 | 39 starts / 13 — `grapeshot` 9, `call_the_shark` 6, `pirate_grab_dash` 5, `dash_attack` 3 |
+
+⛔ **THE OBVIOUS SUSPECT IS REFUTED TOO: THE CPU DOES NOT SPAM THE DASH ATTACK.**
+It falls out of seat 0's top eight entirely and holds at 3 for seat 1 — fewer
+than under the mislabeled kit for seat 0. Anyone reasoning that a newly reachable
+move gets over-selected should stop here; it does not.
+
+⇒ **What actually moves is `jab` and the GRAB CHAIN.** Jab leaves the running
+menu by construction, and both seats shift toward grab → pummel → throw: seat 0's
+`pirate_grab` falls 13 → 4 while `pirate_fthrow` and `pirate_pummel` arrive at 5
+each, i.e. the grabs it does start now CONVERT instead of being re-thrown away.
+Seat 1 starts MORE moves (27 → 39) and deals LESS damage.
+
+⚠ Stated at the strength the measurement supports and no further: the
+distribution shift and the damage drop are concurrent and this is the trace F6
+asks for. That grab sequences deal less per minute than the jab-heavy pattern
+they replace is the natural reading, and it is **not yet isolated** — the honest
+next instrument is damage attributed BY MOVE, not another argument.
+
+⚠ Three mechanisms were proposed before this one and all three are measured
+false: "the CPU never stops running" (14–19%), the `lifts` coupling (inert), and
+dash-attack spam (refuted above). Do not adopt a fifth story without an
+instrument behind it.
 
 ⇒ **The candidate term is an opportunity term on MOVEMENT: the value of standing
 still is the best standing attack it unlocks** — offered as a hypothesis, not a

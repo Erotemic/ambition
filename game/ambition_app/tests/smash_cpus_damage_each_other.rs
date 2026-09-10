@@ -80,6 +80,8 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut hitstun_ticks = [0usize; 2];
     let mut both_seated_ticks = 0usize;
     let mut running_ticks = [0usize; 2];
+    let mut move_counts: [std::collections::BTreeMap<String, usize>; 2] = Default::default();
+    let mut last_instance: [Option<(String, u32)>; 2] = [None, None];
     let mut grounded_ticks = [0usize; 2];
     // ⭐ THE DUEL ENDS WHEN SOMEBODY WINS, and everything after that is not a
     // measurement of a fight. A decided match despawns the loser, so the loop
@@ -215,6 +217,23 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     .iter(w)
                     .map(|(seat, f, g)| (seat.0, f.running, g.on_ground))
                     .collect();
+                // PROBE: which MOVES each seat actually starts. Keyed on
+                // (id, instance) so a self-cancel into the same move counts
+                // twice — `MovePlayback::instance` exists for exactly that.
+                let mut mq = w.query::<(
+                    &MatchSeat,
+                    &ambition_platformer2d::combat::moveset::MovePlayback,
+                )>();
+                let starts: Vec<(usize, String, u32)> = mq
+                    .iter(w)
+                    .map(|(seat, pb)| (seat.0, pb.spec.id.clone(), pb.instance))
+                    .collect();
+                for (slot, id, instance) in starts {
+                    if slot < 2 && last_instance[slot].as_ref() != Some(&(id.clone(), instance)) {
+                        *move_counts[slot].entry(id.clone()).or_default() += 1;
+                        last_instance[slot] = Some((id, instance));
+                    }
+                }
                 for (slot, running, on_ground) in rows {
                     if slot < 2 {
                         if on_ground {
@@ -271,6 +290,16 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             grounded_ticks[seat],
             running_ticks[seat],
             100.0 * running_ticks[seat] as f32 / grounded_ticks[seat].max(1) as f32
+        );
+    }
+    for seat in 0..2 {
+        let mut rows: Vec<(&String, &usize)> = move_counts[seat].iter().collect();
+        rows.sort_by(|a, b| b.1.cmp(a.1));
+        let total: usize = move_counts[seat].values().sum();
+        println!(
+            "[moves] seat {seat}: {total} starts across {} distinct -> {:?}",
+            move_counts[seat].len(),
+            rows.iter().take(8).collect::<Vec<_>>()
         );
     }
     for seat in 0..2 {

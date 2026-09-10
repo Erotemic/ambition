@@ -636,10 +636,25 @@ reddens every fighter — **a fighter's lifting move IS its up-special**
 specials strips every body's RECOVERY from its kit while running and movement
 scoring changes for a body that no longer believes it can get home.
 
-⚠ **THREE MECHANISMS PROPOSED, TWO MEASURED FALSE, THE DAMAGE DROP STILL
-UNEXPLAINED.** The remaining difference is emergent. ⇒ The next person should
-bring an instrument, not a fourth story — mine were all plausible and two were
-wrong.
+⭐⭐ **THE MOVE DISTRIBUTION, MEASURED — F6's step 1 finally answered with counts
+rather than a story.** Starts per `(move_id, instance)`:
+
+| | HEAD (mislabeled) | truthful kit |
+|---|---|---|
+| seat 0 | 54 starts — `pirate_grab` 13, **`jab` 10**, `dash_attack` 5 | 43 — **`pirate_fthrow` 5, `pirate_pummel` 5**, `pirate_grab` 4, jab out of the top eight |
+| seat 1 | 27 starts — `jab` 4, `dash_attack` 3 | 39 — `pirate_grab_dash` 5, `dash_attack` 3 |
+
+⛔ **THE CPU DOES NOT SPAM THE DASH ATTACK** — that is the third mechanism
+refuted. It leaves seat 0's top eight entirely and holds at 3 for seat 1.
+
+⇒ What moves is `jab` and the GRAB CHAIN: jab leaves the running menu by
+construction and both seats shift toward grab → pummel → throw. Seat 1 starts
+MORE moves and deals LESS damage.
+
+⚠ **Concurrent, not yet isolated.** Four mechanisms proposed, three measured
+false ("never stops running" at 14–19%, the `lifts` coupling inert, dash-attack
+spam refuted). The next instrument is damage attributed BY MOVE — not a fifth
+story.
 
 ⛔ **THAT IS F6, NAMED IN THE OWNER DOCUMENT, AND IT IS THE REAL BLOCKER.**
 `fighter-brain.md` §F6: *"A fighter repeatedly selecting one converted/dash move

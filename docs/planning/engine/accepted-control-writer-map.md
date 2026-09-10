@@ -135,14 +135,14 @@ returns `None`: *"refusing ambiguous authority, so this seat drives nothing unti
 one of them vacates."* Measured by `git grep` when this page was written: **no
 test anywhere named `body_driving_seat`**, while four production readers depended
 on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
-`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`.
+`control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`. <!-- cite-test: the wrong member, kept as the record; corrected below -->
 
 ⛔⛔ **CORRECTED 2026-09-10 AT `2bf960acf`. THE COUNT IS STILL FOUR AND TWO OF
 THE MEMBERS ARE WRONG.** The list above holds one line that is not a production
 reader, and it omits one that is:
 
-* `control/queries.rs:224` IS A TEST. The `#[cfg(test)]` attribute is at
-  `control/queries.rs:209`, and it was at line 209 in `966351e25` also. ⇒ This
+* `control/queries.rs:224` IS A TEST. <!-- cite-test --> The `#[cfg(test)]` attribute is at
+  `control/queries.rs:209`, <!-- cite-test --> and it was at line 209 in `966351e25` also. ⇒ This
   is an error at the stamp. It is not decay.
 * `avatar/systems.rs:103` IS A PRODUCTION READER AND IT IS NOT IN THE LIST. The
   commit `ab308504b` added it. That is the same commit this section reports as
@@ -157,7 +157,7 @@ second one is cheap to write down. Read the rows.
 `check_planning_citations.py --strict` AS A CHECK ON IT.** The lane resolves a
 citation to a file and a line. It caught a bare `input_systems.rs:237` in the
 first draft of this correction, because two tracked files end with that suffix. <!-- cite-ok: the ambiguous form is the example -->
-It CANNOT catch `control/queries.rs:224`, because that line exists and the file
+It CANNOT catch `control/queries.rs:224`, <!-- cite-test --> because that line exists and the file
 exists — only the ROLE is wrong. A citation that points at a real line in a test
 and calls it production passes the lane.
 

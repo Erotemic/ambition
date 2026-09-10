@@ -694,6 +694,139 @@ def submodule_files() -> list[str]:
     return listing.stdout.split()
 
 
+ROLE_MARKER = "cite-test"
+
+
+def cfg_test_regions(path: Path) -> list[tuple[int, int]]:
+    """The line ranges of `path` that only a test build compiles.
+
+    ⛔⛔ **EVERY `#[cfg(test)]` OPENS A REGION. DO NOT SPLIT THE FILE AT THE
+    FIRST ONE, AND DO NOT LOOK FOR `mod tests`.** A file can hold several test
+    modules, a test module can sit above production items, and a module named
+    for its subject (`mod breakable_tests`, `mod slot_gesture_tests`) is
+    invisible to a name search. Splitting at the first attribute classifies
+    every definition below it as a test, which is the same defect this check
+    exists to find, one level up.
+
+    ⛔ **AN ATTRIBUTE ON AN ITEM WITH NO BODY OPENS NO REGION.**
+    `#[cfg(test)] mod slot_gesture_tests;` and `#[cfg(test)] use ...;` end at
+    their semicolon. MEASURED 2026-09-10: a first version that counted braces
+    without this rule ran on to the next unrelated block and swallowed
+    `CharacterBrainTemplate`, a production enum, plus two more. It reported 21
+    findings where there are 18. ⇒ **The instrument's own false positives look
+    exactly like the defect it hunts.**
+    """
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError as err:
+        _note_unreadable(path, err)
+        return []
+    regions: list[tuple[int, int]] = []
+    for i, line in enumerate(lines):
+        if not line.strip().startswith("#[cfg(test)]"):
+            continue
+        depth, started, end = 0, False, None
+        for j in range(i + 1, len(lines)):
+            body = lines[j]
+            if not started and ";" in body and "{" not in body.split(";")[0]:
+                break
+            depth += body.count("{") - body.count("}")
+            if "{" in body:
+                started = True
+            if started and depth <= 0:
+                end = j
+                break
+        if started and end is not None:
+            regions.append((i + 1, end + 1))
+    return regions
+
+
+def role_report(docs: list[Path], by_suffix: dict[str, list[str]]) -> int:
+    """Report line citations that land inside a `#[cfg(test)]` region.
+
+    ⭐⭐ **A COUNT IS NOT A CHECK ON A LIST, AND THIS IS THE CHEAPEST PART OF
+    THE LIST TO CHECK.** MEASURED 2026-09-10 on A4's writer map: the page named
+    four production readers of `body_driving_seat`, the count was still four
+    156 commits later, and two of the four members were wrong. One of them,
+    `control/queries.rs:224`, is a TEST — `#[cfg(test)]` sits at line 209, and
+    it sat at 209 in the stamped commit too. ⇒ **Wrong at the stamp, and
+    invisible to 156 commits of checking, because every other check asked
+    whether the citation RESOLVED.** It resolves. Only its ROLE is wrong.
+
+    ⛔⛔ **WHAT THIS CANNOT DO, AND NOBODY SHOULD INHERIT THE BLIND SPOT:**
+
+    * It cannot see a citation that lands on a real PRODUCTION line that is
+      simply the wrong one. Nothing here knows what the row meant to point at.
+    * It does not read the prose, so it cannot tell a row CLAIMING production
+      from a row citing a test on purpose. It reports both and asks a person.
+    * It judges only unambiguous single-file citations. A suffix matching two
+      tracked files is already reported by the resolver.
+
+    ⇒ **REPORT-ONLY ON PURPOSE.** MEASURED 2026-09-10: 18 of 336 line citations
+    across `docs/` land in a test region, and roughly half are deliberate. A
+    gate here would redden the whole planning corpus on rows that are correct,
+    and a blanket sweep of `cite-test` markers would be the amnesty list that
+    hides the real ones. Triage them; mark the deliberate ones with `cite-test`.
+    """
+    findings: list[tuple[str, int, str, str]] = []
+    checked = 0
+    regions: dict[str, list[tuple[int, int]]] = {}
+    for doc in docs:
+        try:
+            rel = doc.relative_to(REPO)
+        except ValueError:
+            rel = doc
+        try:
+            doc_lines = doc.read_text(errors="replace").splitlines()
+        except OSError as err:
+            _note_unreadable(rel, err)
+            continue
+        for lineno, line in enumerate(doc_lines, 1):
+            if ROLE_MARKER in line or (
+                lineno < len(doc_lines) and ROLE_MARKER in doc_lines[lineno]
+            ):
+                continue
+            for m in FILE_LINE.finditer(line):
+                path, want = m.group(1), int(m.group(2))
+                hits = sorted(p for p in by_suffix.get(Path(path).name, [])
+                              if p.endswith(path))
+                if len(hits) != 1:
+                    continue
+                checked += 1
+                if hits[0] not in regions:
+                    regions[hits[0]] = cfg_test_regions(REPO / hits[0])
+                for start, end in regions[hits[0]]:
+                    if start <= want <= end:
+                        findings.append((str(rel), lineno, m.group(0),
+                                         f"{hits[0]} compiles this line only in a "
+                                         f"TEST build — `#[cfg(test)]` at line {start}"))
+                        break
+    print(f"\nchecked the ROLE of {checked} unambiguous line citation(s)")
+    if not findings:
+        print("none of them land inside a #[cfg(test)] region.")
+        return 0
+    print(f"{len(findings)} land inside a #[cfg(test)] region:\n")
+    for rel, lineno, cite, why in findings:
+        print(f"  {rel}:{lineno}\n    {cite} -- {why}")
+    print(f"""
+⇒ EACH ONE IS EITHER A ROW CITING A TEST ON PURPOSE OR A ROW THAT CALLS A TEST
+  PRODUCTION. This check cannot tell them apart, because it does not read the
+  prose. A person must.
+
+  Citing a test deliberately -- "asserted in-tree at ...", a fixture named in a
+  coverage table -- is correct and common. Put `{ROLE_MARKER}` on that line and
+  it stops reporting.
+
+  A row that counts the line as a production writer, a reader, a type
+  definition or a dependency USE is wrong, and the count above it will not say
+  so: a list can keep its total while a member changes role.
+
+⛔ WHAT THIS CHECK CANNOT SEE: a citation that resolves to a real PRODUCTION
+  line that is simply the wrong one. Nothing here knows what the row meant to
+  point at. A green role check is not a check on that.""")
+    return len(findings)
+
+
 def _same_component(have: str, want: str) -> bool:
     """One path component, allowing the crate-directory abbreviation.
 
@@ -763,6 +896,12 @@ def main() -> int:
         help="report BARE backticked citations of names that were defined at "
              "REF and are not now -- the post-carve pass. Takes `A..B` too, "
              "which is the form to use once HEAD has moved past the carve",
+    )
+    parser.add_argument(
+        "--roles", action="store_true",
+        help="also report line citations that land inside a `#[cfg(test)]` "
+             "region -- a row that calls a test a production site. REPORTS, "
+             "does not gate: about half of them cite a test on purpose",
     )
     parser.add_argument("paths", nargs="*", type=Path,
                         default=[REPO / "docs" / "planning"])
@@ -925,6 +1064,13 @@ def main() -> int:
                 if tail not in defined:
                     findings.append((str(rel), lineno, m.group(0),
                                      "nothing DEFINES this name"))
+
+    if args.roles:
+        # ⚠ ITS COUNT IS NOT ADDED TO `findings`. This lane REPORTS; a role
+        # finding is a worklist entry for a person, not a resolution failure,
+        # and folding it into the gate would redden `--strict` on the many rows
+        # that cite a test correctly. See `role_report`.
+        role_report(docs, by_suffix)
 
     if args.vanished:
         n = vanished_report(docs, args.vanished, defined)

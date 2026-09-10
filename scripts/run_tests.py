@@ -933,6 +933,20 @@ def build_maintenance_jobs() -> list[Job]:
                 # stop being. Verified 2026-09-03: 13 findings, exit 0 without
                 # it, exit 1 with it.
                 "--strict",
+                # ⭐ THE ROLE OF A CITATION, WHICH RESOLUTION CANNOT ASK. A
+                # `file.rs:NN` inside a `#[cfg(test)]` region resolves perfectly
+                # and may still be counted as a production writer, reader or
+                # type definition. MEASURED 2026-09-10: A4's writer map named
+                # four production readers, the count was still four 156 commits
+                # later, and one member was a test line — invisible to every
+                # check that asks only whether a citation resolves.
+                #
+                # ⚠ IT REPORTS AND DOES NOT GATE, deliberately, and `--strict`
+                # above does not change that. 18 of 336 live line citations land
+                # in a test region and about half are deliberate, so failing
+                # here would redden the planning corpus on rows that are
+                # correct. Triage them and mark the deliberate ones `cite-test`.
+                "--roles",
             ],
         ),
     ]

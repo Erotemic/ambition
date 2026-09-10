@@ -22,10 +22,7 @@ mod tests {
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_capture::{
-    CaptureAttemptParams, CaptureCarryParams, CapturePummelParams, CaptureThrowParams,
-    CAPTURE_ATTEMPT, CAPTURE_CARRY, CAPTURE_PUMMEL, CAPTURE_THROW,
-};
+use ambition_platformer2d::characters::smash_capture::CaptureCarryParams;
 use ambition_platformer2d::combat::capture::{
     CaptureAttemptRequested, CaptureCarryRequested, CapturePummelRequested, CaptureThrowRequested,
 };

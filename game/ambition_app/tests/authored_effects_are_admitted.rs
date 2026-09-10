@@ -148,7 +148,7 @@ fn every_authored_effect_in_the_shipped_composition_is_admitted() {
 /// ⇒ This drives the lifecycle Bevy drives. **A guard that exercises the
 /// convenient ordering is a guard for a program nobody runs.**
 #[test]
-fn the_barrier_closes_through_the_checked_road_under_the_REAL_lifecycle() {
+fn the_barrier_closes_through_the_checked_road_under_the_real_lifecycle() {
     let mut app = ambition_app::app::build_visible_app(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,

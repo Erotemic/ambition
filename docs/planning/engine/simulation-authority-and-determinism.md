@@ -678,14 +678,15 @@ maintainer: state whose next reader may be arbitrarily far away.** A divergent
 `ability.player_mark` (a dropped teleport point) is read when the player
 recalls, which may be minutes later or never; `portal.owned_gun_pair` is read on
 re-equip; `actor.persona_baseline` and `actor.projected_character_kit` on the
-next re-dress. For those, "the checksum catches it eventually" is not a bound —
-and it is exactly the population where a per-row reader check would settle it.
+next re-dress. For those, "the checksum catches it eventually" is not a bound.
+That population is reader-checked below.
 
 ⚠ **AND THE FLOAT COUNT AND SELF-DESCRIPTION ARE ALL THE SCRIPT MEASURES.** The
-latency classes are not something a text scan can decide. The reader check below
-was done by hand, on four rows, and is what a per-row ruling would rest on.
+latency classes are not something a text scan can decide, so the rest of this
+row is a hand reader-check over 15 rows, and it is what a per-row ruling would
+rest on.
 
-#### The reader check, four rows, 2026-09-10
+#### The reader check, 2026-09-10
 
 ⚠ The `player_mark` row was first written as *"bounded if a brain consumes that
 fact"* — an open question standing in for a measurement. It took one grep:
@@ -695,8 +696,8 @@ the other three.
 | row | its readers | latency |
 |---|---|---|
 | `portal.owned_gun_pair` | **one, and it is a MENU** — `game/ambition_app/src/menu/effects.rs:101`, whose own comment says *"Read so a menu re-equip hands back the gun the player actually has"*. Nothing in `ambition_portal2d` reads it. | unbounded |
-| `actor.persona_baseline` | `avatar/starting_character.rs:368`, as *"what THIS system last applied to this body"* — and that system writes `BodyHealth`, `Mass` and `CombatTuning`. | unbounded; fires on the next re-dress |
-| `actor.projected_character_kit` | `character_runtime/presentation.rs:229`, in a query filtered `Or<(Changed<WornCharacter>, Added<CombatTuning>)>` — gated on a change by construction. | unbounded; fires on the next re-dress |
+| `actor.persona_baseline` | `crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs:368`, as *"what THIS system last applied to this body"* — and that system writes `BodyHealth`, `Mass` and `CombatTuning`. | unbounded; fires on the next re-dress |
+| `actor.projected_character_kit` | `crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:229`, in a query filtered `Or<(Changed<WornCharacter>, Added<CombatTuning>)>` — gated on a change by construction. | unbounded; fires on the next re-dress |
 | `ability.player_mark` | `crates/ambition_abilities/src/traversal/mark_recall.rs:61` (acts only on a recall) and `crates/ambition_sim_view/src/facts.rs:306`, which fills `MarkBeaconsView` — whose ONLY consumer is `crates/ambition_render/src/rendering/mark_beacon.rs:32`, a renderer. No brain reads it. | unbounded |
 
 ⛔⛔ **`portal.owned_gun_pair` IS THE STRONGEST ROW IN THE CLASS AND IT IS NOT A

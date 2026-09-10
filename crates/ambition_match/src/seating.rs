@@ -7,28 +7,30 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatchSeat(pub usize);
 
-/// An entity that stands for a seat's COMBAT CREDIT and nothing else.
-///
-/// ⭐⭐ SEMANTIC ATTRIBUTION OUTLIVES THE BODY. A delayed attack -- a mark with a
-/// 1.4s fuse -- can materialise after the fighter who authored it has lost
-/// their last stock and been despawned. Every hitbox names its credited
-/// attacker as an `Entity`, so a ruleset that could not find a live body for
-/// the seat had two bad answers: credit the VICTIM (the first mark did; a
-/// bystander it KO'd was credited to the fighter who was marked) or credit a
-/// dead `Entity` nobody can resolve to a seat. A GPT review named the case
-/// 2026-09-07.
-///
-/// ⇒ This is the third answer: a stand-in carrying the seat, spawned by the
-/// ruleset for the blast's lifetime. It is NOT a participant -- it carries no
-/// [`MatchSeat`], so [`match_participants`] cannot count it and the match
-/// decides exactly as before -- and it has no body, so the live-source
-/// projections a resolver reads off an attacker (rage, staleness, grudge) read
-/// as absent, which is the honest value for a fighter who is out.
-///
-/// A consumer that resolves "which seat did this" from an attacker entity asks
-/// `MatchSeat` OR `SeatCredit`; the two never coexist on one entity.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SeatCredit(pub usize);
+// ⛔⛔ **`SeatCredit` LIVED HERE AND WAS REMOVED AT v178 (2026-09-10) BECAUSE
+// NOTHING EVER READ IT.** It labelled a stand-in entity that a ruleset spawns
+// when a delayed attack — a mark with a 1.4s fuse — materialises after the
+// fighter who authored it has lost their last stock. That stand-in is REAL and
+// still exists: every hitbox names its credited attacker as an `Entity`, and
+// without it the blast fell back to the marked VICTIM as its owner, so a
+// bystander it KO'd was credited to the fighter who was marked.
+//
+// ⇒ What the stand-in needs is to BE a valid non-victim `Entity` and to carry no
+// [`MatchSeat`], so [`match_participants`] cannot count it and the match decides
+// exactly as before. Both of those are load-bearing. The positive seat LABEL was
+// not: this type's own doc promised that "a consumer that resolves which seat
+// did this asks `MatchSeat` OR `SeatCredit`", and MEASURED 2026-09-10, no such
+// consumer was ever written. Attribution runs on `Entity` throughout —
+// `ambition_combat::events` says a body past the blast margin is "credited by
+// `HitEvent::attacker`, not by geometry", `BodyKnockedOut` carries a `cause` and
+// no attacker, and `MatchVerdict` is decided by stocks with no per-seat KO tally
+// anywhere in the tree.
+//
+// ⚠ So it was not an unfinished half of a road; the road was never built and the
+// engine made a different choice about what carries credit. It cost a snapshot
+// LAYOUT entry for a fact no system reads. ⭐ And the two tests that covered it
+// asserted the LABEL rather than a consequence — which they had to, because a
+// component with no reader HAS no consequence to assert. That is the tell.
 
 /// Derive live fighter entities from rollback-restored [`MatchSeat`] components, sorted by seat.
 /// No resource stores live entity handles for the cast.

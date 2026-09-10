@@ -369,7 +369,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// overlapped and let query order decide which part of a multi-part boss was
 /// credited. A peer on the old schema cannot produce the new tag, and a targeted
 /// feature hit must not compare equal to a broadcast remainder.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 177;
+/// ⛔ v178: `smash.seat_credit` LEAVES THE SNAPSHOT LAYOUT. `SeatCredit` labelled
+/// the stand-in entity a mark's blast uses when its author has left the match,
+/// and MEASURED 2026-09-10 nothing ever read it — attribution runs on `Entity`
+/// throughout, `BodyKnockedOut` carries a `cause` and no attacker, and no
+/// per-seat KO tally exists anywhere in the tree. A layout entry for a fact no
+/// system reads, so a peer on v177 has an entry this one lacks. ⭐ The stand-in
+/// ENTITY stays: what the blast needs is a valid non-victim owner carrying no
+/// `MatchSeat`, and both are properties of the entity rather than of the label.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 178;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

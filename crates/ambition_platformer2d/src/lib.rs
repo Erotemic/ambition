@@ -333,7 +333,7 @@ pub mod actor {
     /// the entire argument for keeping one.
     pub use ambition_match::{
         ControlAuthority, ControllerBinding, MatchParticipant, MatchParticipantRoster,
-        MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating, SeatCredit,
+        MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
     };
 
     /// What a human seat is playing ON, and the map from those sources to

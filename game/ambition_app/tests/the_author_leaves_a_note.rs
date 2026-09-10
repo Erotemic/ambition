@@ -280,7 +280,7 @@ fn the_real_down_tilt_marks_the_target_who_can_read_it_and_is_then_hit_by_the_au
 /// is hurt by it.
 #[test]
 fn a_note_whose_author_was_eliminated_still_credits_the_authors_seat() {
-    use ambition_platformer2d::actor::{FighterEliminated, FighterStocks, SeatCredit};
+    use ambition_platformer2d::actor::{FighterEliminated, FighterStocks};
 
     let (mut app, author, target, others) = a_settled_match_of(3, Some(1));
     let third = others[0];
@@ -350,11 +350,6 @@ fn a_note_whose_author_was_eliminated_still_credits_the_authors_seat() {
     assert_ne!(
         owner, target,
         "the blast fell back to the marked target as its owner"
-    );
-    assert_eq!(
-        app.world().get::<SeatCredit>(owner).copied(),
-        Some(SeatCredit(0)),
-        "the blast's owner does not name the Author's seat"
     );
     assert!(
         damage_taken_by(&app, third) > third_before,

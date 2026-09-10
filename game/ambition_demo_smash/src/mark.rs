@@ -37,7 +37,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::{MatchSeat, SeatCredit};
+use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::characters::smash_mark::{MarkBodyParams, MARK_BODY};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
 
@@ -85,8 +85,13 @@ pub const SEAT_CREDIT_STAND_IN_S: f32 = 0.25;
 ///
 /// ⛔ ROLLBACK STATE, like the mark that spawned it: a rewind across the
 /// detonation must put the stand-in back or the resimulated blast credits
-/// nobody. The seat rides the `SeatCredit` beside it, which is the vocabulary
-/// consumers read; this is the ruleset's lifetime bookkeeping.
+/// nobody.
+///
+/// ⚠ The ENTITY is what matters, not a label on it. A `SeatCredit(seat)` rode
+/// beside this until v178 and was removed for having no reader: attribution runs
+/// on `Entity` everywhere, so what the blast needs is a valid non-victim owner
+/// that carries no `MatchSeat`. Both of those are properties of the entity
+/// itself. This component is the ruleset's lifetime bookkeeping for it.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct SeatCreditStandIn {
     pub remaining_s: f32,
@@ -95,11 +100,6 @@ pub struct SeatCreditStandIn {
 /// Value projection for the rollback checksum: the clock.
 pub fn seat_credit_stand_in_probe(stand_in: &SeatCreditStandIn) -> u64 {
     (stand_in.remaining_s * 1000.0).round().max(0.0) as u64
-}
-
-/// Value projection for the seat a stand-in credits.
-pub fn seat_credit_probe(credit: &SeatCredit) -> u64 {
-    credit.0 as u64
 }
 
 impl BodyMark {
@@ -236,9 +236,9 @@ pub fn detonate_body_marks(
         // fighter eliminated inside the 1.4s fuse in a three-way match -- which
         // re-created the defect one case over: a bystander KO'd by the blast was
         // credited to the victim. The seat is the credit; the body is an
-        // OPTIONAL live source. With no body, a `SeatCredit` stand-in names the
-        // seat for the blast's lifetime, carries no `MatchSeat` so the match
-        // still counts two participants, and has no rage or staleness to read,
+        // OPTIONAL live source. With no body, a stand-in entity is the blast's
+        // owner for its lifetime, carries no `MatchSeat` so the match still
+        // counts two participants, and has no rage or staleness to read,
         // which is the honest value for a fighter who is out. Never the victim.
         let owner = seats
             .iter()
@@ -252,7 +252,6 @@ pub fn detonate_body_marks(
                 );
                 let stand_in = commands
                     .spawn((
-                        SeatCredit(mark.attacker_seat),
                         SeatCreditStandIn {
                             remaining_s: SEAT_CREDIT_STAND_IN_S,
                         },

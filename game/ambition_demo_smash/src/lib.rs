@@ -3070,14 +3070,11 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "smash.body_mark",
                 crate::mark::body_mark_probe,
             );
-            // Delayed combat attribution can outlive the fighter body that authored it.
-            // These are distinct rollback types: `SeatCredit` must not collapse onto
-            // live `MatchSeat`, and the stand-in must never count as a participant.
-            app.rollback_component_clone_probed::<ambition_platformer2d::actor::SeatCredit>(
-                "ambition_demo_smash",
-                "smash.seat_credit",
-                crate::mark::seat_credit_probe,
-            );
+            // Delayed combat attribution can outlive the fighter body that authored
+            // it, and the stand-in must never count as a participant — which is
+            // carried by the ABSENCE of `MatchSeat`, not by a positive label. The
+            // label was `SeatCredit` and it left the layout at v178; see
+            // `SeatCreditStandIn`.
             app.rollback_component_clone_probed::<crate::mark::SeatCreditStandIn>(
                 "ambition_demo_smash",
                 "smash.seat_credit_stand_in",

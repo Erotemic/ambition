@@ -509,6 +509,33 @@ fn no_planning_doc_names_a_condition_the_engine_does_not_publish() {
     // `ConditionId::new`. A doc is checked against what the engine actually
     // answers, so publishing a condition cannot leave this guard behind.
     let published: Vec<String> = catalog.describe_all().map(|d| d.id.to_string()).collect();
+
+    // ⛔⛔ **A SECOND PUBLISHED VOCABULARY SHAPED EXACTLY LIKE THE FIRST, and
+    // without it this guard reports a correct document as a defect.** Rollback
+    // schema rows are `namespace.snake_case` too, and they COLLIDE: the row
+    // `feature.switch_on` shares its question half with the condition
+    // `world.switch_on`, so the near-miss rule below reads a correct citation of
+    // a schema row as a misspelled condition. MEASURED 2026-09-10 — it flagged
+    // `simulation-authority-and-determinism.md`'s census table, whose subject IS
+    // the schema, and the "fix" would have been to write a WRONG row id into a
+    // right document to silence a guard asking a different question.
+    //
+    // ⭐ CROSS-EVIDENCE, not a bigger allow-list: the schema dump is a different
+    // world from the condition catalog, and a token that appears verbatim in
+    // either is a real id. Both come from the composed app, so neither can drift
+    // into a hand-kept list.
+    let schema_rows: Vec<String> = sim
+        .world()
+        .get_resource::<ambition_platformer2d::rollback::RollbackRegistry>()
+        .map(|registry| {
+            registry
+                .schema_dump()
+                .lines()
+                .filter_map(|line| line.split('\t').next())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
     assert!(
         published.len() >= 5,
         "the composed catalog published {} condition(s); with a near-empty \
@@ -543,6 +570,11 @@ fn no_planning_doc_names_a_condition_the_engine_does_not_publish() {
         for (n, line) in lines.iter().enumerate() {
             for token in backticked_dotted_words(line) {
                 if published.iter().any(|p| p == &token) {
+                    correct_citations += 1;
+                    continue;
+                }
+                // A rollback SCHEMA row is a published id of a different kind.
+                if schema_rows.iter().any(|r| r == &token) {
                     correct_citations += 1;
                     continue;
                 }

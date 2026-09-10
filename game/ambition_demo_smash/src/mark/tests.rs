@@ -487,8 +487,13 @@ fn a_live_mark_is_a_readable_clock_on_its_body() {
 /// ⛔⛔ THE CREDIT OUTLIVES THE BODY. A fighter eliminated inside the fuse has
 /// no live `MatchSeat` when the mark goes off, and the first fix fell back to
 /// the marked VICTIM as the blast's owner -- the original defect one case over.
-/// The seat is the credit; a `SeatCredit` stand-in names it for the blast's
-/// lifetime and then leaves. Never the victim.
+/// A stand-in entity is the blast's owner for its lifetime and then leaves.
+/// Never the victim.
+///
+/// ⚠ This asserted a third thing — that the stand-in carried a `SeatCredit(0)`
+/// label — until v178 removed that component for having no reader. The two
+/// assertions left are the ones with a CONSEQUENCE behind them: the owner is not
+/// the victim, and the stand-in is not a participant.
 #[test]
 fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_victim() {
     let mut app = app();
@@ -513,11 +518,6 @@ fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_v
         owner, victim,
         "the attacker's body was gone and the blast fell back to the VICTIM as \
          its owner: a bystander it KOs is credited to the fighter who was marked"
-    );
-    assert_eq!(
-        app.world().get::<SeatCredit>(owner).copied(),
-        Some(SeatCredit(0)),
-        "the owner does not name the attacker's seat"
     );
     assert!(
         app.world().get::<MatchSeat>(owner).is_none(),

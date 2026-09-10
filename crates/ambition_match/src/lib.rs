@@ -25,7 +25,7 @@ pub use prepared::{
     MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
 pub use seating::{
-    match_participants, ActiveMatch, MatchInstance, MatchScoped, MatchSeat, SeatCredit,
+    match_participants, ActiveMatch, MatchInstance, MatchScoped, MatchSeat,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchItemSpawns, MatchParticipant,

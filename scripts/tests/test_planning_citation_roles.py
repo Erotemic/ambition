@@ -22,6 +22,8 @@ from __future__ import annotations
 import importlib.util
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -121,6 +123,17 @@ def test_a_bodyless_cfg_test_mod_opens_no_region(tmp_path) -> None:
 
 
 def _run(tmp_path: Path, body: str) -> str:
+    """One checker subprocess over one fixture document.
+
+    ⛔⛔ EVERY CALL RE-INDEXES ~3,300 TRACKED FILES, so each one costs 15-30s of
+    the repo-tooling gate. `test_planning_citations.py` learned this the
+    expensive way — *"eight tests used to spawn eight identical subprocesses ...
+    about two minutes of every gate run"* — and solved it with a module-scoped
+    fixture. I read that comment and then wrote three fresh spawns anyway.
+
+    ⇒ The two arms that share one document share one run, below. This helper
+    stays for an arm that genuinely needs its own document.
+    """
     doc = tmp_path / "fixture.md"
     doc.write_text(body)
     proc = subprocess.run(
@@ -128,6 +141,12 @@ def _run(tmp_path: Path, body: str) -> str:
         cwd=REPO, capture_output=True, text=True,
     )
     return proc.stdout + proc.stderr
+
+
+@pytest.fixture(scope="module")
+def _tracked_test_line() -> tuple[str, int]:
+    """Scanned once. `cfg_test_regions` reads files until it finds a region."""
+    return _a_tracked_file_with_a_test_region()
 
 
 def _a_tracked_file_with_a_test_region() -> tuple[str, int]:
@@ -149,21 +168,21 @@ def _a_tracked_file_with_a_test_region() -> tuple[str, int]:
     raise AssertionError("no tracked .rs file has a #[cfg(test)] region")
 
 
-def test_a_citation_into_a_test_region_is_reported(tmp_path) -> None:
+def test_a_citation_into_a_test_region_is_reported(tmp_path, _tracked_test_line) -> None:
     """⭐ THE POSITIVE ARM, and it is the one that matters.
 
     A lane that reported nothing would still pass the marker test below.
     """
-    rel, line = _a_tracked_file_with_a_test_region()
+    rel, line = _tracked_test_line
     out = _run(tmp_path, f"A citation that names a test line: `{rel}:{line}`.\n")
     assert "1 land inside a #[cfg(test)] region" in out, out
     assert f"{rel}:{line}" in out, out
     assert "only in a TEST build" in out, out
 
 
-def test_the_cite_test_marker_silences_one(tmp_path) -> None:
+def test_the_cite_test_marker_silences_one(tmp_path, _tracked_test_line) -> None:
     """The deliberate case: a fixture named in a coverage table is not a defect."""
-    rel, line = _a_tracked_file_with_a_test_region()
+    rel, line = _tracked_test_line
     out = _run(
         tmp_path,
         f"A citation that names a test line ON PURPOSE: `{rel}:{line}`. "

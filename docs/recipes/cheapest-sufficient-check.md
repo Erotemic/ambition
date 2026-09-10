@@ -1,6 +1,48 @@
 # The cheapest command that settles a change
 
-This is the durable residue of the completed test-iteration campaign; the full campaign record is archived at `docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`.
+This is the durable residue of the completed test-iteration campaign.
+
+⛔⛔ **THE FULL CAMPAIGN RECORD IS NOT IN THIS CHECKOUT, AND THE FIRST TWO
+ANSWERS I GAVE ABOUT IT WERE BOTH WRONG.** This line named
+`docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`. <!-- cite-ok: the record this page is the residue of; it lives in the history store -->
+`docs/archive/` does not exist at HEAD, and the commit holding it (`c85687a6f`)
+is not an ancestor of HEAD: git epoch 1 (`b924f419c`, 2026-09-06) did not carry
+it. **That much is true and it is where the reasoning should have stopped.**
+
+⚠ **FIRST WRONG ANSWER: "gone".** `git show c85687a6f:<that path>` prints the
+file on this checkout, so it is not gone.
+
+⛔⛔ **SECOND WRONG ANSWER, AND IT IS THE ONE THIS PAGE IS ABOUT: "held only by
+a local stash, one command from destruction".** The only LOCAL ref containing
+that commit is a `refs/stash`, and I reported that as a repository fact and
+raised it as urgent. **It is not.** The history store holds the objects under
+`refs/epochs/ambition/*`, on six or more archived refs.
+
+⇒ **`git for-each-ref`, `git log --all` and `git branch -r --contains` ALL
+SEARCH LOCAL REFS.** A custom refspace is invisible to every one of them. "The
+only ref containing it" was a true statement about one machine, offered as a
+statement about the repository — the same shape as a peer who reported "not
+present" from a store they had let go stale. **An absence must name the
+ref-space it searched**, and here "all local refs" is not the ref-space that
+decides the question.
+
+⭐ **AND THE ANSWER WAS ALREADY WRITTEN DOWN.**
+[`repository-history.md`](../planning/repository-history.md) predicts this exact
+error in its own words: *"A normal branch-oriented clone of the history store
+does not fetch these custom refs. Seeing only its README on GitHub does not mean
+the archive is empty."* ⇒ **The cheapest sufficient check here was reading the
+page that describes the archive**, and no amount of `git` would have substituted
+for it.
+
+⇒ **28 citations across 18 files name a `docs/archive/` path** — a `grep` count
+of path-shaped strings, NOT a checker finding. The citation checker reports
+exactly ONE. That difference travels with the number.
+
+⭐ `docs/adr/0031` annotates six of them *"removed from the checkout 2026-09-05;
+still in git history"*, and **that annotation is correct**. I read it as
+falsified by the epoch. The history store IS git history — just not history any
+clone fetches by default.
+
 Jon, 2026-08-02: *"run_tests looks so alluring to an agent, it prevents it from
 running the focused test that actually matters, and instead it just runs all the
 junk."* A faster front door does not fix that. Knowing which narrow command is
@@ -410,7 +452,7 @@ grep -E 'checked|unresolved|all resolved' /tmp/cit.log    # the VERDICT, not the
 ⇒ **Decide BEFORE running a tool which line proves the outcome, and grep for that
 line.** An exit code proves nothing when the tool is deliberately non-gating; a
 tail proves nothing when the footer is constant in both outcomes.
-ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked
+ⓘ And cite FULL PATHS: a bare `collision.rs:96` is AMBIGUOUS across four tracked <!-- cite-ok: the ambiguous form is the lesson -->
 files, which the checker reports as unresolved rather than guessing.
 
 ⓘ **AND THE MIRROR SWEEP — a citation that NAMES something can be checked, so I
@@ -421,7 +463,7 @@ hits), field names (`attack_from_aim_stick`), module paths — all match a
 "long snake_case in backticks" heuristic. ⇒ automated narrowing 2,163 → 210,
 judgement 210 → **one** real finding.
 
-⭐ The one: `spawn_actors.rs:861` justifies a LIVE setting with a deleted
+⭐ The one: `spawn_actors.rs:861` justifies a LIVE setting with a deleted <!-- cite-ok: the dead citation is the finding being recorded -->
 function — *"STRIKE offense is the frame-driven Boss hitboxes
 (`sync_boss_strike_hitboxes`), so `is_hostile` stays off"* — where that function
 exists nowhere. Six OTHER citations of the same name are CORRECT, because they
@@ -483,8 +525,8 @@ being built, and it should not be built.** Across `docs/planning/**`:
 distinct line citations   383      (2026-09-05; every count here is a timestamp)
 resolved and in range     355
 PAST END OF FILE            0   <- the only thing this check can decide
-path not resolvable         3   <- all deliberate examples: `file.rs:123`,
-                                   `path.rs:123`, `semantic_NOPE.rs:9999`
+path not resolvable         3   <- all deliberate examples: `file.rs:123`, <!-- cite-ok -->
+                                   `path.rs:123`, `semantic_NOPE.rs:9999` <!-- cite-ok -->
 ambiguous basename         25   <- abbreviated paths matching several files
 ```
 

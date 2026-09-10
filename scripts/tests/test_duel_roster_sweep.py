@@ -80,3 +80,63 @@ def test_the_grid_is_asked_of_the_app_not_of_a_file():
     source = SCRIPT.read_text(encoding="utf-8")
     assert "do NOT fall back to a list" in source
     assert "authored_movesets" not in source.split('"""')[2] if source.count('"""') > 2 else True
+
+
+def test_a_lockstep_bout_is_flagged_and_an_asymmetric_one_is_not(tmp_path, capsys):
+    """⛔⛔ A MIRROR MATCH OF A DETERMINISTIC BRAIN IS ONE SEAT REPORTED TWICE.
+
+    MEASURED 2026-09-10: 3 of the 5 fighters below the gate are exactly symmetric
+    on damage, starts, damage dealt AND hitstun; **0 of the 15 that clear it
+    are.** Those three are not fighters that convert badly, they are duels this
+    harness cannot measure — and it reported them as fighter quality.
+
+    ⚠ The arm pins BOTH directions, because a flag that fires on everything is as
+    useless as one that never fires: `npc_emmy_noether` diverged on every field
+    and failed the gate anyway, which is what makes her the one real failure.
+    """
+    module = _module()
+    log = tmp_path / "sweep.log"
+    rows = []
+    for i in range(16):  # clear the population floor
+        rows.append(
+            f"=== clear_{i} run1\n"
+            f"[duel] clear_{i} rung 9: duel ran 3600 ticks, took 1.0 / 1.1 of pool "
+            f"= 1.00 / 1.10 per minute of duel, hitstun [300, 310] ticks, 1 knockout\n"
+            f"[moves] seat 0: 50 starts across 9 distinct -> []\n"
+            f"[moves] seat 1: 48 starts across 9 distinct -> []\n"
+            f"[dealt] seat 0: 90 damage across 4 moves (+0 unclaimed) -> []\n"
+            f"[dealt] seat 1: 95 damage across 4 moves (+0 unclaimed) -> []\n"
+        )
+    rows.append(
+        "=== locked run1\n"
+        "[duel] locked rung 9: duel ran 3600 ticks, took 0.4 / 0.4 of pool "
+        "= 0.40 / 0.40 per minute of duel, hitstun [118, 118] ticks, 0 knockouts\n"
+        "[moves] seat 0: 49 starts across 6 distinct -> []\n"
+        "[moves] seat 1: 49 starts across 6 distinct -> []\n"
+        "[dealt] seat 0: 41 damage across 1 moves (+0 unclaimed) -> []\n"
+        "[dealt] seat 1: 41 damage across 1 moves (+0 unclaimed) -> []\n"
+    )
+    rows.append(
+        "=== diverged run1\n"
+        "[duel] diverged rung 9: duel ran 3600 ticks, took 0.28 / 0.44 of pool "
+        "= 0.28 / 0.44 per minute of duel, hitstun [38, 59] ticks, 0 knockouts\n"
+        "[moves] seat 0: 13 starts across 7 distinct -> []\n"
+        "[moves] seat 1: 12 starts across 7 distinct -> []\n"
+        "[dealt] seat 0: 18 damage across 1 moves (+0 unclaimed) -> []\n"
+        "[dealt] seat 1: 15 damage across 1 moves (+0 unclaimed) -> []\n"
+    )
+    log.write_text("".join(rows) + "SWEEP DONE\n")
+    module.LOG = log
+    module.fold()
+    printed = capsys.readouterr().out
+    locked = next(l for l in printed.split("\n") if l.startswith("locked"))
+    diverged = next(l for l in printed.split("\n") if l.startswith("diverged"))
+    assert "LOCKSTEP" in locked, (
+        "a bout whose two seats agree on damage, starts, dealt and hitstun was not "
+        "flagged; that row would be read as a fact about the fighter"
+    )
+    assert "BELOW GATE" in diverged and "LOCKSTEP" not in diverged, (
+        "a bout that diverged on every field was flagged as lockstep, which would "
+        "explain away the one genuine failure on the grid"
+    )
+    assert "1 LOCKSTEP" in printed

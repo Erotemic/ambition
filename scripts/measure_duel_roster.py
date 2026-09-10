@@ -138,6 +138,10 @@ def fold() -> int:
             row["width"] = float(m.group(1))
         if m := re.match(r"^\[moves\] seat \d: (\d+) starts", line):
             row.setdefault("starts", []).append(int(m.group(1)))
+        if m := re.match(r"^\[dealt\] seat \d: (\d+) damage", line):
+            row.setdefault("dealt", []).append(int(m.group(1)))
+        if m := re.search(r"hitstun \[(\d+), (\d+)\]", line):
+            row["hitstun"] = (int(m.group(1)), int(m.group(2)))
         if "is not on the assembled" in line:
             row["verdict"] = "NOT ON THE GRID"
         elif "panicked at" in line and "verdict" not in row:
@@ -166,6 +170,34 @@ def fold() -> int:
         windows = sorted({r.get("window") for r in done})
         wobble = f"  ⚠ window {'/'.join(str(w) for w in windows)}" if len(windows) > 1 else ""
         starts = "/".join(str(s) for s in first.get("starts", []))
+        # ⛔⛔ **A MIRROR MATCH OF A DETERMINISTIC BRAIN CAN STAY IN LOCKSTEP, AND
+        # THEN THE BOUT IS ONE SEAT'S INFORMATION REPORTED TWICE.** Both CPUs hold
+        # identical state, decide identically, approach and whiff together — and
+        # every field comes out equal. MEASURED 2026-09-10: 3 of the 5 fighters
+        # below the gate are exactly symmetric on damage, starts, damage dealt AND
+        # hitstun; **0 of the 15 that clear it are.** ⇒ Those three are not
+        # fighters that convert badly; they are duels this harness cannot measure,
+        # and reporting them as fighter quality is what it did all evening.
+        #
+        # ⚠ LOCKSTEP IS NOT *BY CONSTRUCTION* LOW DAMAGE. `medic`'s mirrored seats
+        # dealt 41 each and took 118 hitstun each — they landed, symmetrically.
+        # What is proven is that the seats never DIVERGED, not that the fight did
+        # not happen. Whether the lockstep causes the low damage is a claim this
+        # instrument cannot separate, which is precisely why it cannot measure it.
+        #
+        # ⭐ `ladder_rig` refuses a degenerate bout outright — *"no fighter brain
+        # ever took the noise seed, so every run of this bout is identical and the
+        # median is one sample reported N times"*. This one flags rather than
+        # refuses, because the flag is also the evidence for the finding.
+        symmetric = (
+            len(set(first.get("starts", [0, 1]))) == 1
+            and len(set(first.get("dealt", [0, 1]))) == 1
+            and first["dmg"][0] == first["dmg"][1]
+            and len(set(first.get("hitstun", (0, 1)))) == 1
+        )
+        if symmetric:
+            counts["lockstep"] += 1
+            band = (band + " " if band else "") + "LOCKSTEP"
         print(
             f"{fighter:28} {first['dmg'][0]:.2f} / {first['dmg'][1]:.2f}  "
             f"{first.get('reach', 0):5.1f}% {starts:>9} {first.get('width', 0):6.2f}  "
@@ -181,8 +213,10 @@ def fold() -> int:
     print(
         f"\n   {counts['measured']} measured, {counts['clears']} clear the {GATE} gate, "
         f"{counts['AT THRESHOLD']} at threshold, {counts['BELOW GATE']} below, "
-        f"{counts['unmeasured']} not measurable."
+        f"{counts['unmeasured']} not measurable, {counts['lockstep']} LOCKSTEP."
     )
+    print("⛔ A LOCKSTEP ROW IS NOT A RESULT ABOUT THAT FIGHTER. Its two seats never")
+    print("   diverged, so the bout carries one seat's information reported twice.")
     print("\n⚠ ONE FIGHT PER FIGHTER. The harness fixes its seed, so repeats reproduce")
     print("  rather than sample — 21 fighters is a wider POPULATION, not more samples.")
     return 0

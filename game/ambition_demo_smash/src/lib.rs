@@ -2269,7 +2269,7 @@ fn hold_the_respawn_platforms(
     // ⭐ AND IT IS THE GENRE'S ANSWER TOO: a respawn platform is somewhere you
     // LEAVE, and one that follows cannot be left.
     platforms.0.retain(|platform| {
-        !platform.id.starts_with("respawn_platform_")
+        !is_respawn_platform_id(&platform.id)
             || wanted.iter().any(|(id, _)| *id == platform.id)
     });
     for (id, centre) in wanted {
@@ -2389,7 +2389,33 @@ fn leaving_the_platform_spends_the_respawn_protection(
 /// Keyed by SEAT rather than by entity: a returning fighter is a body that may
 /// be rebuilt, and the platform is a property of where that seat comes back.
 fn respawn_platform_id(seat: usize) -> String {
-    format!("respawn_platform_{seat}")
+    format!("{RESPAWN_PLATFORM_PREFIX}{seat}")
+}
+
+/// The one place this id family is SPELLED.
+///
+/// ⛔⛔ **A PRODUCER AND A CONSUMER BUILDING THE SAME SEMANTIC ID FROM SEPARATE
+/// FORMAT STRINGS IS WHAT D-ID-CONVENTION-DRIFT IS ABOUT.** The builder below
+/// had `format!("respawn_platform_{seat}")` and the retain above had
+/// `starts_with("respawn_platform_")` — one convention, two literals, and a
+/// rename of either is a silent behaviour change: every held platform stops
+/// matching, so `hold_the_respawn_platforms` retains none of them and every
+/// returning fighter's block is rebuilt from scratch each tick.
+///
+/// ⚠ **MEASURED, NOT ASSUMED, AND THE FIRST VERSION OF THIS COMMENT WAS WRONG.**
+/// It said "no test would have said so". Restoring the two-literal form with the
+/// BUILDER renamed and the reader's copy left behind: **one of the five respawn
+/// arms fails** (`the_respawn_platform_lives_exactly_as_long_as_the_grant`) and
+/// four pass. So the suite is not blind here — but four fifths of it is, and the
+/// arm that catches it does so as a side effect of the platform set it reads,
+/// not because anything asserts the two spellings agree.
+/// `scripts/measure_id_prefixes_spelled_twice.py` is what names the drift.
+const RESPAWN_PLATFORM_PREFIX: &str = "respawn_platform_";
+
+/// Is this the id of somebody's respawn platform? The PARSE half of the pair,
+/// so a reader asks the convention's owner instead of re-deriving it.
+fn is_respawn_platform_id(id: &str) -> bool {
+    id.starts_with(RESPAWN_PLATFORM_PREFIX)
 }
 
 /// The platform a returning fighter materialises on: three body-widths across

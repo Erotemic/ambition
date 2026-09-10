@@ -78,8 +78,39 @@ ABSOLUTE FIRST-SEEN TICK. A bout that fails to seat produces a perfect-looking
 1.00 for the wrong reason; such a run is reported UNMEASURABLE and never as
 lockstep.
 
+⭐⭐ **MEASURED 2026-09-10, all 15 rows, every one carrying two DISTINCT
+`seed=` values so the shared-stream confound is excluded by reading rather than
+by inference:**
+
+| fighter | 1 | 3 | 5 | 6 | 9 |
+|---|---|---|---|---|---|
+| `medic` | SEP | SEP | SEP | SEP | **LOCKSTEP** |
+| `special_patent_clerk` | SEP | SEP | SEP | SEP | **LOCKSTEP** |
+| `npc_carl_stargan` (control) | SEP | SEP | **LOCKSTEP** | SEP | **LOCKSTEP** |
+
+⇒ **Both load-bearing fighters are monotone and break exactly where the jitter's
+ceiling reaches zero.** A live jitter IS sufficient to break lockstep. ⛔ It is
+NOT the cause of the roster's lockstep rows: the jitter is dead at rung 9 for
+ALL twenty fighters and seventeen of them diverged anyway.
+
+⚠ **AND THE CONTROL WAS NEVER A CONTROL.** Carl is LOCKSTEP at rung 5 with
+**7/7 starts and 0/0 damage**, and SEPARATED at rungs 1, 3 and 6 where he takes
+20-44. ⇒ He does not hold "acts normally" fixed while the jitter varies -- he
+varies both -- so his rows measure his ACTIVITY, not the mechanism. **A control
+has to hold the mechanism's PRECONDITION fixed, and enough behaviour for a
+one-tick nudge to matter is a precondition here.** The reading that fits is that
+Carl measures the FLOOR of the effect rather than its absence; that is a reading
+chosen after seeing the data and is labelled as one.
+
+⛔ **An open content question this sweep raised and did not answer:** Carl deals
+55/62 damage at rung 3 and 44/66 at rung 6, and he is in
+`KNOWN_BARE_REGISTRATIONS` -- the exemption list for ids that author NOTHING.
+A character with no authored body, policy or moveset is fighting. Filed on
+D-CPU-INERT as an observation.
+
     python3 scripts/measure_duel_rung_sensitivity.py --run   # slow, 15 duels
     python3 scripts/measure_duel_rung_sensitivity.py         # fold the log
+    python3 scripts/measure_duel_rung_sensitivity.py --fill  # only missing rows
 """
 
 from __future__ import annotations
@@ -244,7 +275,10 @@ def fold() -> int:
     print(f"{'fighter':<22}{'rung':>5}{'starts':>12}{'dealt':>12}"
           f"{'first seen':>14}{'window':>8}{'seeds':>9}  verdict")
     by_fighter: dict[str, list[str]] = collections.defaultdict(list)
-    for (fighter, rung), row in rows.items():
+    order = list(SUBJECTS)
+    for (fighter, rung), row in sorted(
+        rows.items(), key=lambda kv: (order.index(kv[0][0]), kv[0][1])
+    ):
         v = verdict(row)
         by_fighter[fighter].append(v)
         starts = "/".join(str(s) for s in row.get("starts", [])) or "-"
@@ -296,10 +330,10 @@ def fold() -> int:
         print("   IS sufficient to break lockstep. ⛔ That does NOT make it the")
         print("   cause: jitter is dead at rung 9 for all 20 fighters and 17 of")
         print("   them diverged anyway.")
-        print("⚠ And rung 8 cannot corroborate it: a rung-8 CPU DECIDES the")
-        print("   match, so the seats stop sharing the stage before the window")
-        print("   closes. The cleanest comparison in the design is the one the")
-        print("   instrument cannot reach.")
+        print("⚠ No seatable pair isolates the jitter with L3 rollouts held")
+        print("   constant: of the five published rungs, 1/3/5 are rollouts-off")
+        print("   and 6/9 are on. The monotone series is the evidence; a")
+        print("   controlled contrast does not exist in this composition.")
     else:
         print("⚠ SPLIT at rung 3 — the fighters disagree, so the cause is not a")
         print("   property of the rung alone. Read the rows, not this line.")

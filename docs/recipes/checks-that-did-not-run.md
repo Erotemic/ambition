@@ -769,6 +769,70 @@ failure looks like a PASS.** A detector that dies is loud, because you get no
 findings at all; a confirmer that dies is silent, because "nothing to report"
 is also what success looks like.
 
+## ⛔⛔ A test whose SUBJECT comes from a FIXTURE must assert the fixture supplied it
+
+`the_same_seed_produces_the_same_fighter` guarded the fighter brain's replay
+determinism: run two identically-seeded brains, compare the ticks they pressed
+on, and a rollback resimulation is safe. It passed for the life of the project.
+
+Measured 2026-09-10, before it was changed: **0 presses of 90 frames, and
+`a.noise` still exactly the initial seed.** The runner handed the brain
+`BrainSnapshot::idle()` — an empty `attack_kit` — so no attack was ever wanted,
+the noise stream was never sampled, and the test compared **two empty vectors
+and two seeds that had not moved.** It could not have failed for its stated
+reason.
+
+⇒ **The rule is not "test the shipped value". It is that a test whose subject is
+supplied by a fixture must assert the fixture supplied it.** One line:
+
+```rust
+assert!(presses.iter().any(|p| *p), "the fixture produced no press, so the
+        comparison below is between two empty vectors");
+```
+
+⚠ **This is a different defect from a fixture that measures the WRONG subject,
+and it is worse.** The same file's noise fixtures all used
+`execution_noise = 0.9`, a value no authored rung produces — that is a guard
+certifying a population the game never seats, and it is bad. But it *ran*. Here
+the subject **was never constructed at all**, and the assertion was still true.
+A test can be wrong about what it measured; this one measured nothing and said
+so in the affirmative.
+
+⭐ **The shape is `assert_eq!(left, right)` where both sides come from one
+helper** — determinism, order independence, replay safety, cross-backend parity.
+It is one of the most common guards there is, and its single failure mode is
+that an empty answer equals an empty answer.
+`scripts/measure_floorless_equality_tests.py` screens for it: **7916 test bodies
+across 1075 files, two hits.**
+
+⚠ **A hit is a shape, not a verdict, and one of the two is sound.** Comparing
+against a non-empty **constant** carries its own floor: if the built side came
+back empty it would differ from the constant and fail. Read the survivors; do
+not report the count.
+
+⛔ **The other survivor shows the shape's worse cousin, where emptiness is the
+lesser half.** `cross_backend_model_parity_inventory_and_system` reads:
+
+```rust
+let cube_pages = build();
+let grid_pages = build();
+```
+
+One closure, no backend argument anywhere. It asserts `build() == build()` —
+the purity of a single function — while its own doc claims *"the active tab's
+`MenuPageModel` is built from the SAME backend-agnostic builders regardless of
+which backend renders it."* ⇒ **The fixture ASSUMES the fact the test claims to
+check**, so if a backend ever stopped using the shared builder the test stays
+green. A test that constructs both sides of a comparison from one source is
+measuring its own fixture.
+
+⭐ **And the screen needed two guards of its own, both of which fired.** Its
+first run scanned **0 files** — the `git grep` pathspec preceded the pattern —
+and printed a clean bill of health; a corpus floor now refuses that. And it
+carries a **positive control** that re-runs it against the sha that still had
+the defect, because a screen narrowed until it recognises nothing produces
+exactly the same output as a clean tree.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

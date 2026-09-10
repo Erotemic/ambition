@@ -21,12 +21,22 @@ where to look and to see the shape; seal the one you are going to act on.
 
 | family | owning crate | sites | outside the owner |
 |---|---|---|---|
-| occurrence (`GroundItem`, `SettledItem`, `WorldItem`, `ItemMotion`, `ItemEmerge`) | `ambition_held_items`, `ambition_world_items` | 25 | 9 |
+| occurrence (`GroundItem`, `SettledItem`, `WorldItem`, `ItemMotion`, `ItemEmerge`) | `ambition_held_items`, `ambition_world_items` | 26 | 10 |
 | custody (`ItemCustody`, `ItemStruckBody`, `ReleasedAs`) | `ambition_held_items` | 10 | 1 |
 | inventory (`OwnedItems`) | `ambition_items` | 16 | **13** |
 | checkpoint baseline (`MintedItemBaseline`, `OwnedItemsBaseline`, `MintedItemDescription`, `ItemCheckpointRestoreInputs`) | `ambition_platformer2d_actor_monolith` | 9 | **0** |
 
-**60 write-capable sites in total.**
+**61 write-capable sites in total.**
+
+⚠ **THE FIRST RUN OF THIS PAGE SAID 25 AND 60, AND THE INSTRUMENT WAS WRONG.**
+It recognised construction by a hand-kept list of blessed method names — `{ }`,
+`(`, `::new`, `::default`, `::from` — so `WorldItem::equipping(..)`
+(`game/ambition_demo_mary_o/src/powerups.rs:668`) was invisible: a whole crate
+minting an occurrence, missing from a census whose subject is who mints
+occurrences. The rule is Rust's own shape instead: an associated function is
+`Type::snake_case(`, a method is `value.snake_case(`. The control domain's
+numbers are unchanged by the correction (8 / 24 / 38 / 4), so this was a gap in
+the pattern, not a re-definition of a write.
 
 ## What the inventory says
 
@@ -54,6 +64,13 @@ struct literal:
 | `crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:416` | pickup/throw |
 | `game/ambition_demo_smash/src/bomb.rs:121` | a ruleset's bomb |
 | `game/ambition_demo_smash/src/mine.rs:222` | a ruleset's mine |
+
+✔ **SEALED 2026-09-10.** `GroundItem` is `#[non_exhaustive]` with
+`at_rest(spec, pos, half_extent)` and `released(spec, pos, vel, half_extent)`,
+so the seven above are two roads and no crate outside `ambition_held_items` can
+assemble one. `rustc` then enumerated 13 further assembly sites in test code
+across six crates — exactly the upper bound this page said a text scan could not
+give. The production count of 7 was correct as written.
 
 A7's acceptance says *"reward policy receives accepted outcomes; it does not
 become an alternative item minting path."* `damage_drops.rs:332` is a drop

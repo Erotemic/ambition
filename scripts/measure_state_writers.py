@@ -145,7 +145,21 @@ MECHANISMS: list[tuple[str, str]] = [
     ("remove", r"remove(?:_resource)?::<\s*{t}\b"),
     ("register", r"(?:register[_a-z]*\w*|reflect|from_save|to_save|deserialize)\s*[(<:].{{0,80}}\b{t}\b"),
     ("mut_param", r"\w+\s*:\s*(?:Option\s*<\s*)?&\s*mut\s+{t}\b"),
-    ("construct", r"\b{t}\s*(?:\{{|::new\b|::default\b|::from\b|\()"),
+    # ⛔⛔ **THE CONSTRUCTOR NAMES WERE A HAND-KEPT LIST AND SEALING A TYPE BROKE
+    # IT.** This read `{t} {{`, `{t}(`, `::new`, `::default`, `::from` — so when
+    # `GroundItem` gained `#[non_exhaustive]` plus `at_rest`/`released`
+    # (2026-09-10, A7), six minting sites became invisible and OCCURRENCE fell
+    # 25 -> 18 with no code removed. A census that recognises construction by a
+    # list of blessed method names goes blind exactly when a type stops being
+    # constructible any other way, which is the moment its writers most need
+    # counting. ⇒ Rust's own convention is the rule: an ASSOCIATED FUNCTION is
+    # `Type::snake_case(`, and a METHOD is `value.snake_case(` — so the shape,
+    # not the name, says this is a mint.
+    # ⚠ IT WILL COUNT A NON-CONSTRUCTOR ASSOCIATED FN, and UFCS
+    # (`GroundItem::aabb(item)`) would read as a write. Neither appears in these
+    # domains today; both would inflate rather than hide, which is the direction
+    # a lower-bound report can afford.
+    ("construct", r"\b{t}\s*(?:\{{|\(|::[a-z_][a-z0-9_]*\s*\()"),
     ("insert", r"(?:insert|insert_if_new|spawn|spawn_batch|try_insert|insert_resource|init_resource)\s*[(<].{{0,200}}\b{t}\b"),
 ]
 

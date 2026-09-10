@@ -236,7 +236,6 @@ pub use ambition_sprite_sheet as sprite_sheet;
 pub use ambition_time as time;
 #[cfg(feature = "ambition_touch_input")]
 pub use ambition_touch_input as touch_input;
-#[cfg(feature = "ambition_ui_nav")]
 pub use ambition_ui_nav as ui_nav;
 #[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;

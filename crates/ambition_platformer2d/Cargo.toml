@@ -77,7 +77,6 @@ all_capabilities = [
     "ambition_settings_menu",
     "ambition_sfx",
     "ambition_touch_input",
-    "ambition_ui_nav",
     "ambition_vfx",
 ]
 rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
@@ -230,7 +229,15 @@ ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_character_sprites = { path = "../ambition_character_sprites" }
 ambition_time = { path = "../ambition_time" }
 ambition_touch_input = { path = "../ambition_touch_input", optional = true }
-ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
+# ⛔ NOT OPTIONAL, AND ADVERTISING IT AS A CAPABILITY WAS THE DEFECT (A9).
+# `ambition_ui_nav` is a VOCABULARY crate -- `ListCursor`, `RowPress`,
+# `MenuFocusState`, `DialogChoiceSlot` -- not a capability with an installer.
+# `ambition_game_shell` is a non-optional dependency of this facade and builds
+# `ListCursor` in three places, so a consumer selecting NOTHING linked it anyway
+# while the manifest offered it as declinable. ⇒ Repaired in the honest
+# direction: the promise is withdrawn rather than the edge removed, because the
+# edge is real. `ambition_dialog` names it unconditionally too.
+ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_vfx = { path = "../ambition_vfx", optional = true }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 bevy = { version = "0.19.1", default-features = false, features = [

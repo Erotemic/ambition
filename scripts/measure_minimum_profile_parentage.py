@@ -153,7 +153,7 @@ def main() -> int:
             row = next(r for r in rows if r["crate"] == n)
             extra = ""
             if kind == "SHARED":
-                extra = "  <- non-hub: " + ", ".join(row["non_hub_parents"][:4])
+                extra = "  <- parents: " + ", ".join(row["parents"])
             print(f"    {n}{extra}")
         print()
     print(f"FALSE OPTIONAL: {len(false_optional)} of the facade's "
@@ -161,8 +161,14 @@ def main() -> int:
           f"by a consumer that selected NONE of them")
     for n in false_optional:
         row = next(r for r in rows if r["crate"] == n)
-        via = ", ".join(row["non_hub_parents"][:4]) or ", ".join(row["parents"][:3])
-        print(f"    {n}  <- reached unconditionally via: {via}")
+        # ⛔⛔ EVERY PARENT, NOT THE INTERESTING ONES. This line printed only the
+        # NON-HUB parents and truncated at four, and I then read it as the parent
+        # set and called `cutscene <- boss_encounter` a single-edge fix. It has
+        # three parents; two are hubs the filter hid, and one of those owns the
+        # cutscene PLAYER. A summary that drops rows is not a summary a decision
+        # can be made on, and the decision I made on it was wrong.
+        via = ", ".join(row["parents"])
+        print(f"    {n}  ({len(row['parents'])} edges) <- {via}")
     print()
     print("HUB-ONLY is the set a consumer selecting NO capability cannot decline "
           "except by an ownership change; it is a subject list, not a carve list.")

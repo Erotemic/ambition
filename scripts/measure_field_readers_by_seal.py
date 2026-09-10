@@ -302,12 +302,25 @@ def main() -> int:
         print("   * SAME-CRATE readers: `pub(crate)` keeps the field visible inside its")
         print("     own crate. A field with 0 here is 'unused OUTSIDE', never 'unused'.")
     print("   * A consumer behind a feature this build does not enable.")
-    print("   * ⛔⛔ ONLY THE NEAREST DEPENDENT RING, AND THIS IS STRUCTURAL. A crate")
-    print("     that depends on one the seal broke cannot be compiled at all, so its")
-    print("     own readers never appear. `--keep-going` recovers every crate that is")
-    print("     INDEPENDENT of the failures; it cannot recover one downstream of them.")
-    print("     ⇒ This is a complete enumeration of the ring it reaches, NOT of the")
-    print("     reader set. To go deeper, fix the ring and seal again.")
+    # ⛔⛔ THIS CAVEAT BELONGS TO THE VISIBILITY MODES AND USED TO PRINT ALWAYS.
+    # It says the run reaches only the nearest dependent ring "because a crate
+    # that depends on one the seal BROKE cannot be compiled at all". A
+    # deprecation seal breaks nothing -- it warns, the build completes, and every
+    # ring is reached. Printed under a deprecation run it tells the reader the
+    # enumeration is partial when it is complete, and it is the OUTPUT that gets
+    # pasted into a report. The two caveats above it were already mode-gated;
+    # this one was not.
+    if by_visibility:
+        print("   * ⛔⛔ ONLY THE NEAREST DEPENDENT RING, AND THIS IS STRUCTURAL. A crate")
+        print("     that depends on one the seal broke cannot be compiled at all, so its")
+        print("     own readers never appear. `--keep-going` recovers every crate that is")
+        print("     INDEPENDENT of the failures; it cannot recover one downstream of them.")
+        print("     ⇒ This is a complete enumeration of the ring it reaches, NOT of the")
+        print("     reader set. To go deeper, fix the ring and seal again.")
+    else:
+        print("   * ⭐ NOT limited to one dependent ring: a deprecation warns rather than")
+        print("     breaks, so the build completes and every crate is reached. The")
+        print("     enumeration is complete except for the blind spots named above.")
     print("   * A workspace already red for an unrelated reason makes it an undercount.")
     return 0
 

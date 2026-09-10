@@ -681,11 +681,72 @@ re-equip; `actor.persona_baseline` and `actor.projected_character_kit` on the
 next re-dress. For those, "the checksum catches it eventually" is not a bound —
 and it is exactly the population where a per-row reader check would settle it.
 
-⚠ **AND THIS PAGE STOPS AT WHAT IT MEASURED.** The float count and the
-self-description come from the type definitions and their doc comments. The
-latency classes above are read from those same doc comments and are NOT a reader
-census — a row moved between the two classes on the strength of its prose would
-be a guess. Whoever acts on this owes the reader check first.
+⚠ **AND THE FLOAT COUNT AND SELF-DESCRIPTION ARE ALL THE SCRIPT MEASURES.** The
+latency classes are not something a text scan can decide. The reader check below
+was done by hand, on four rows, and is what a per-row ruling would rest on.
+
+#### The reader check, four rows, 2026-09-10
+
+| row | its readers | latency |
+|---|---|---|
+| `portal.owned_gun_pair` | **one, and it is a MENU** — `game/ambition_app/src/menu/effects.rs:101`, whose own comment says *"Read so a menu re-equip hands back the gun the player actually has"*. Nothing in `ambition_portal2d` reads it. | unbounded |
+| `actor.persona_baseline` | `avatar/starting_character.rs:368`, as *"what THIS system last applied to this body"* — and that system writes `BodyHealth`, `Mass` and `CombatTuning`. | unbounded; fires on the next re-dress |
+| `actor.projected_character_kit` | `character_runtime/presentation.rs:229`, in a query filtered `Or<(Changed<WornCharacter>, Added<CombatTuning>)>` — gated on a change by construction. | unbounded; fires on the next re-dress |
+| `ability.player_mark` | `traversal/mark_recall.rs:61` (acts only on a recall) **and** `ambition_sim_view/src/facts.rs:306`, a per-tick projection brains observe. | **bounded if a brain consumes that fact** — the one row of the four whose class turns on a question the doc comments cannot answer |
+
+⛔⛔ **`portal.owned_gun_pair` IS THE STRONGEST ROW IN THE CLASS AND IT IS NOT A
+LATENCY PROBLEM AT ALL.** Nothing in the simulation reads it, so its divergence
+never propagates and the checksum never catches it — not late, ever. It surfaces
+when the player re-equips: one peer hands back pair A, the other pair B, and
+from that moment the two are placing different portals, which the sim very much
+does read. ⇒ Two peers can disagree about a durable ownership fact for an
+unbounded time with every checksum they compare in perfect agreement — which is
+`rollback/registry.rs`'s own v151 argument for why this component obliged a wire
+bump, arriving at the same place from the other side.
+
+⚠ **Three of the four are re-dress-gated or menu-gated, so "the checksum catches
+it eventually" is not a bound for any of them.** That is the finding to rule on.
+
+#### The rest of the float-free rows — readers first, class second
+
+The 14 rows carrying no float were the candidate pool, on the reasoning that a
+row with nothing continuous to drift is more likely to be latched state read on
+an event. **The readers say otherwise for ten of them**, which is the reason to
+look at readers rather than at the type:
+
+| row | readers | class |
+|---|---|---|
+| `actor.control_holds` | `crates/ambition_characters/src/control.rs:464`, `crates/ambition_combat/src/capture/systems.rs:550` — gates ordinary control every tick | bounded |
+| `actor.driving_participant` | 21 sites; the accepted-driver relation, read in the movement path | bounded |
+| `actor.move_brandished_item` | `crates/ambition_combat/src/held_items.rs:123`, `:341`, `:431`, `crates/ambition_combat/src/moveset/mod.rs:4096` | bounded |
+| `content.mary_o_pipe_entry_latch` | `game/ambition_demo_mary_o/src/lib.rs:2229`, a per-tick rising-edge read | bounded |
+| `content.sanic_ball_dash_input` | `game/ambition_demo_sanic/src/ball_dash.rs:97`, `:219`, `:363` | bounded |
+| `content.sanic_super_form_latch` | `game/ambition_demo_sanic/src/lib.rs:1591` | bounded |
+| `feature.switch_on` | `crates/ambition_encounter_features/src/switch_index.rs:19`, `crates/ambition_sim_view/src/view_index.rs:252`, `game/ambition_content/src/falling_sand.rs:493` | bounded |
+| `item.released_as` | `crates/ambition_abilities/src/ranged/bomb.rs:57` — decides whether a fuse lights | bounded |
+| `smash.match_scoped` | `game/ambition_demo_smash/src/match_scope.rs:71`, `crates/ambition_match/src/seating.rs:248` — the retirement sweep | bounded |
+| `presentation.body_source` | `crates/ambition_combat/src/hitbox/mod.rs:378`, `crates/ambition_combat/src/moveset/mod.rs:1169`, `crates/ambition_damage/src/lib.rs:1228` — voice/SFX selection only | **presentation, correctly out** |
+
+⛔⛔ **AND ONE ROW HAS NO PRODUCTION READER AT ALL.** `smash.seat_credit`
+(`SeatCredit`) is written in exactly one place — `game/ambition_demo_smash/src/mark.rs:255`, on
+a stand-in entity spawned when a mark detonates for a seat that has left the
+match — and every other mention in the tree is its own checksum probe, a re-export,
+or an assertion in two tests. Nothing in `ambition_combat`, `ambition_damage` or
+`ambition_match` reads a seat credit; `stocks.rs` contains the word nowhere.
+
+⚠ **The two tests assert the LABEL, not a consequence:** *"the blast's owner does
+not name the Author's seat"* checks that the stand-in carries `SeatCredit(0)`.
+That is a fact only an instrument reads, and the class of thing that stays
+correct forever while meaning nothing.
+
+⇒ **This is not a checksum question and it should not be filed as one.** Either
+the credit road is unfinished — a departed seat's KO is attributed to nobody —
+or the component is dead and is costing a rollback snapshot-layout entry, which
+is what obliges a wire-format bump. Both are questions for the smash ruleset's
+owner. Recorded here because the checksum census is what found it.
+
+The remaining 44 rows were not reader-checked and this page does not classify
+them.
 
 ### S6 — session-scoped process-resource residue
 

@@ -974,6 +974,37 @@ policy for authored content is a real question and a small one — nothing like
 "the whole flourish layer reaches nothing", which is what two rounds of widening
 had built.
 
+## ⛔⛔ A PROPOSAL and a RECEIPT are one tense apart
+
+A planning page argued for sealing a component's construction and ended the
+argument like this:
+
+> *A constructor that takes what an occurrence needs, with the fields sealed,
+> **turns** seven minting authorities into one.*
+
+The seal was then built, and the queue row was marked done on that sentence.
+**It describes what a fix WOULD buy; it was read as what the fix DID buy.** The
+seal is real and useful — it made the writer set enumerable, which is how the
+codec and `serde` writers a grep misses were found — but the callers still mint
+the occurrence's identity, custody, provenance and attempt state themselves.
+**Four of the five facts never moved.**
+
+⇒ **This is not overclaiming, which is what makes it dangerous.** Nobody wrote a
+false sentence. **A forward-looking claim and a completion claim are one tense
+apart, and English hides the difference** — *"turns"* is equally at home in a
+proposal and in a receipt, and a careful reader has no way to tell which one a
+page is holding.
+
+⭐ **The remedy is cheap and mechanical: a proposal says WOULD; a receipt names a
+COMMIT.** A sentence with neither is a sentence whose tense the next reader will
+guess, and they will guess "done", because a page that has been edited recently
+reads as a page describing the present.
+
+⚠ **Every "⇒ this is the edge in the packet" paragraph has this shape.** They are
+written in the argumentative present precisely because they are arguing — and
+they sit in the same document as the receipts, under the same headings, in the
+same voice.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

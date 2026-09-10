@@ -9,6 +9,26 @@ fn warden_behavior() -> crate::pattern::profile::BossBehaviorProfile {
     crate::pattern::profile::BossBehaviorProfile::clockwork_warden()
 }
 
+/// The same two-profile boss the geometry test builds, as a value.
+///
+/// ⚠ Extracted rather than duplicated: an occurrence witness that built its own
+/// moveset could pass while the SHIPPED shape changed underneath it.
+fn boss_moveset_for_test() -> ambition_combat::moveset::ActorMoveset {
+    let cap = BossCapability {
+        specials: vec![
+            (BossAttackProfile::Strike("floor_slam".to_string()), 0.3),
+            (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
+        ],
+    };
+    crate::attack_moveset::boss_attack_moveset(
+        &cap,
+        &warden_behavior(),
+        ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+        &[],
+    )
+    .expect("a boss with strikes -> a moveset")
+}
+
 /// Boss-fold slice (fable review §A1): EVERY boss strike runs through the SHARED
 /// moveset. `boss_attack_moveset` builds one move per profile — a GEOMETRY strike
 /// gets an Active-window hit volume (from `volumes_for_profile`), a SPECIAL gets a
@@ -304,4 +324,107 @@ fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
     // No authored telegraph for side_sweep → no anticipation events.
     let sweep = moveset.0.move_by_id("side_sweep").unwrap();
     assert!(sweep.events.is_empty());
+}
+
+/// **TWO boss moves separated by idle take DIFFERENT occurrence numbers, and each
+/// playback carries the number the body reached.**
+///
+/// ⛔⛔ THE SECOND ASSERTION IS THE ONE THAT WAS MISSING, AND ITS ABSENCE IS WHY
+/// A12 BLOCKER 1 SURVIVED A GREEN SUITE. The guard in `moveset/tests.rs` queries
+/// `With<MovePlayback>, Without<MoveOccurrence>` — it asserts the counter is
+/// PRESENT, never that `playback.instance == occurrence.0`. ⇒ A road that
+/// inserted a playback with `instance` left at 0 beside a `MoveOccurrence(N)`
+/// advanced by the other start road passed it every time. **A propagation check
+/// is not an identity check.**
+///
+/// ⚠ AND IT HAD TO BE A BOSS FIXTURE. The existing witness runs against the
+/// generic trigger, and `trigger_boss_attack_moves` is a SECOND production start
+/// road: `combat_schedule.rs` installs it in `CombatSet::Trigger`, so this was
+/// never dormant code.
+///
+/// ⚠ THE EDIT THAT MAKES THIS FALSE: drop the `.at_occurrence(occurrence)` from
+/// the boss insert, or drop the `MoveOccurrence` insert beside it. The first
+/// leaves both moves at `instance: 0`; the second restarts the body's count.
+#[test]
+fn two_boss_moves_separated_by_idle_take_different_occurrences() {
+    use ambition_combat::moveset::{MoveOccurrence, MovePlayback};
+
+    let mut app = App::new();
+    app.add_systems(Update, trigger_boss_attack_moves);
+    let moveset = boss_moveset_for_test();
+
+    let boss = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            BossAttackIntent {
+                active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
+                ..Default::default()
+            },
+            moveset,
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ambition_platformer2d_core::Vec2::ZERO,
+                vel: ambition_platformer2d_core::Vec2::ZERO,
+                size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+
+    // FIRST move.
+    app.update();
+    let first = {
+        let w = app.world();
+        let playback = w
+            .get::<MovePlayback>(boss)
+            .expect("the boss trigger started a move");
+        let occurrence = w
+            .get::<MoveOccurrence>(boss)
+            .expect("the boss road joined the body-owned mint");
+        assert_eq!(
+            playback.instance, occurrence.0,
+            "the first boss move's playback carries `instance: {}` while the body \
+             reached `MoveOccurrence({})`. A playback whose number disagrees with \
+             the body's counter credits another use's hits — and a guard that \
+             only checks the counter is PRESENT cannot see it.",
+            playback.instance, occurrence.0
+        );
+        occurrence.0
+    };
+
+    // IDLE: the move is removed and no intent is standing, so nothing starts.
+    app.world_mut().entity_mut(boss).remove::<MovePlayback>();
+    app.world_mut().entity_mut(boss).insert(BossAttackIntent::default());
+    app.update();
+    assert!(
+        app.world().get::<MovePlayback>(boss).is_none(),
+        "the idle tick started a move, so the gap this test needs does not exist"
+    );
+
+    // SECOND move, after the gap.
+    app.world_mut().entity_mut(boss).insert(BossAttackIntent {
+        active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
+        ..Default::default()
+    });
+    app.update();
+    let w = app.world();
+    let playback = w
+        .get::<MovePlayback>(boss)
+        .expect("the boss trigger started a second move");
+    let occurrence = w
+        .get::<MoveOccurrence>(boss)
+        .expect("the counter survived the idle gap");
+
+    assert_ne!(
+        occurrence.0, first,
+        "two boss moves separated by an idle tick both took occurrence {first}. \
+         `MovePlayback::new_at` leaves `instance` at 0, so before the mint every \
+         boss move reused the same number and two uses credited each other."
+    );
+    assert_eq!(
+        playback.instance, occurrence.0,
+        "the second boss move's playback carries `instance: {}` while the body \
+         reached `MoveOccurrence({})`.",
+        playback.instance, occurrence.0
+    );
 }

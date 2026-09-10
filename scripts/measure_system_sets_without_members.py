@@ -71,6 +71,15 @@ printed, not filtered on.**
 
 ## What it does not answer
 
+⛔⛔ **IT COUNTS NAMES, AND A REPEATED NAME POOLS ITS MEMBERSHIPS.** Membership is
+matched as `in_set(...Name)` across the corpus, so two sets sharing a name cannot
+be told apart: an EMPTY one is hidden by a populated sibling, which is precisely
+the no-op this script hunts. **The collapse is now PRINTED rather than silent** —
+measured 2026-09-10, 135 declarations against 134 names, the repeat being two
+function-local `Umbrella` sets in one test file, both populated. ⇒ The run is not
+refused, because a repeat is not by itself a defect; it is named so the reader can
+check the pair.
+
 ⚠ It counts `in_set(` in source. A set could also gain members through
 `configure_sets(child.in_set(parent))` chains — those are counted, since the
 spelling is the same — but a set populated only by a macro or a generated file is
@@ -131,8 +140,18 @@ def main() -> int:
             "⇒ REFUSING TO REPORT: an empty corpus cannot find an unwired set."
         )
 
-    declared: dict[str, str] = {}
+    declared: dict[str, tuple[str, bool]] = {}
     sources: dict[str, str] = {}
+    # ⛔⛔ THE POPULATION IS NAMES, NOT DECLARATIONS, AND A REPEAT COLLAPSES.
+    # `declared` is keyed on the bare name because MEMBERSHIP is: the counter
+    # below matches `in_set(...Name)` across the whole corpus and cannot tell two
+    # same-named sets apart. So a second declaration of a name is dropped here
+    # rather than re-keyed -- re-keying would print two rows sharing one pooled
+    # count, which is a worse lie than one row.
+    # ⚠ AND THE POOLING IS THIS TOOL'S OWN FAILURE MODE: an EMPTY set can be
+    # hidden by a populated same-named sibling, which is exactly the no-op this
+    # script hunts. Measured 2026-09-10: 135 declarations, 134 names.
+    repeats: collections.defaultdict[str, list[str]] = collections.defaultdict(list)
     for rel in tracked:
         try:
             text = (REPO / rel).read_text(errors="replace")
@@ -140,7 +159,9 @@ def main() -> int:
             continue
         sources[rel] = text
         for m in DECL.finditer(text):
-            declared.setdefault(m.group(2), (rel, bool(m.group(1))))
+            name = m.group(2)
+            repeats[name].append(rel)
+            declared.setdefault(name, (rel, bool(m.group(1))))
 
     members: collections.Counter[str] = collections.Counter()
     for rel, text in sources.items():
@@ -170,6 +191,18 @@ def main() -> int:
         )
     print(f"{len(declared)} SystemSet types declared ({public} public, "
           f"{len(declared) - public} private), across {len(tracked)} tracked .rs files\n")
+    collapsed = {n: w for n, w in repeats.items() if len(w) > 1}
+    if collapsed:
+        total = sum(len(w) for w in repeats.values())
+        print(
+            f"⚠ {total} declarations collapsed to {len(declared)} names. A repeated "
+            "name pools its memberships, so an EMPTY one is hidden by a populated "
+            "sibling — the very no-op this script hunts:"
+        )
+        for name, where in sorted(collapsed.items()):
+            print(f"   {name:42} {len(where)}x  {', '.join(sorted(set(where)))}")
+        print()
+
     print(f"{len(empty)} with ZERO `in_set(` members — ordering against these is a NO-OP:")
     for name, (where, is_pub) in empty:
         print(f"   {name:42} {'pub ' if is_pub else 'priv'} {where}")

@@ -282,6 +282,76 @@ fn move_played_for_moveset(
         .expect("an attack or grab edge on a body with a moveset starts a move")
 }
 
+fn jab_uptilt_and_dash() -> MovesetContract {
+    let mut set = jab_and_uptilt();
+    // The genre's dash attack: `{base}_dash`, exactly the spelling
+    // `dash_stance_verb` builds and `move_for_attack` looks for.
+    set.verbs
+        .insert("attack_dash".to_string(), "dash_attack".to_string());
+    set.moves.push(strike("dash_attack", 40.0));
+    set
+}
+
+/// ⛔⛔ **A RUNNING BODY'S KIT OFFERS THE MOVE ITS PRESS ACTUALLY PRODUCES.**
+///
+/// The kit is resolved with `move_for_attack(base, dir, grounded, RUNNING)`
+/// because that is what `trigger_moveset_moves` calls. For as long as the kit
+/// existed it called `move_for_directional_verb` instead — that same function
+/// with the running branch skipped — while a comment beside it asserted the two
+/// were the same function.
+///
+/// ⇒ MEASURED 2026-09-10 across the shipped roster: eighteen of eighteen
+/// fighters author a dash attack and not one was reachable from the kit. ⚠ And
+/// the absence was the SMALLER half. While the body ran, the brain scored
+/// `jab`'s frame data, issued the attack press, and the press road performed
+/// `dash_attack` — a candidate whose `move_id` and `frames` described a
+/// different move than the one it produced. Every scoring term downstream
+/// (startup, reach, damage, frame advantage) was reading the wrong move.
+#[test]
+#[ignore = "known-open D-BRAIN-MENU defect: fixing it re-prices CPU matchups and needs the ladder rig; see the block in attack_kit_of"]
+fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() {
+    let moveset = ActorMoveset(jab_uptilt_and_dash());
+    let brain = fighter_brain();
+
+    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
+    let standing_ids: Vec<&str> = standing.iter().map(|c| c.move_id.as_str()).collect();
+    assert_eq!(
+        standing_ids,
+        vec!["jab", "uptilt"],
+        "a body standing still is offered exactly what it was before — the dash \
+         attack is not a new option everywhere, it is the answer to one stance"
+    );
+
+    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None);
+    let dashing_ids: Vec<&str> = dashing.iter().map(|c| c.move_id.as_str()).collect();
+    assert!(
+        dashing_ids.contains(&"dash_attack"),
+        "a running body's attack press produces `dash_attack` and its kit does \
+         not offer it, so the brain can never choose the move — and, worse, \
+         scores whatever it thinks the press reaches instead: {dashing_ids:?}"
+    );
+    assert!(
+        !dashing_ids.contains(&"jab"),
+        "the kit offers `jab` to a RUNNING body, but that press resolves to \
+         `dash_attack` — the candidate's id and frame data describe a move the \
+         press will not produce, which is the mislabel this guard exists for: \
+         {dashing_ids:?}"
+    );
+
+    // ⭐ AND THE FRAME DATA TRAVELS WITH THE ID, since the scoring reads that and
+    // not the name. A candidate carrying the right id and the wrong frames would
+    // satisfy every assertion above and still misprice the choice.
+    let dash = dashing
+        .iter()
+        .find(|c| c.move_id == "dash_attack")
+        .expect("checked above");
+    assert_eq!(
+        dash.frames.max_damage,
+        strike("dash_attack", 40.0).frame_data().max_damage,
+        "the candidate carries another move's frame data"
+    );
+}
+
 /// The kit is what the body can press, and every entry can be pressed.
 ///
 /// The guard on the row above it: if the kit ever went back to listing
@@ -291,7 +361,7 @@ fn move_played_for_moveset(
 fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
 
     let ids: Vec<&str> = kit.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
@@ -332,7 +402,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
@@ -354,7 +424,7 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, Some(&brain), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None);
 
     let view = scene(16.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
@@ -379,7 +449,7 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
 #[test]
 fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()), None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None);
     let grab = kit
         .iter()
         .find(|candidate| candidate.move_id == "grab")

@@ -556,6 +556,55 @@ The generic fighter brain can have legal authored attacks that its scoring shape
 never selects. Implement the owner doc's current scoring/menu packet; do not add
 per-character special-case button scripts.
 
+**MEASURED 2026-09-10, and the row's premise is understated: the CPU is not
+merely failing to SELECT some attacks, its kit MISLABELS them.**
+
+`attack_kit_of` resolves every press with `move_for_directional_verb`, while a
+comment beside it asserted that was "the same function `trigger_moveset_moves`
+calls". It is not. The press road calls
+`move_for_attack(base, dir, grounded, RUNNING)`; `move_for_directional_verb` is
+that function with the running branch skipped.
+
+⇒ **Eighteen of eighteen shipped fighters author a dash attack and not one is
+reachable by a CPU.** Census over `authored_movesets::tables()`: 22 authored
+moves that can hit are unreachable by any brain press, and they are three
+families — 18 `*_dash_attack` (the defect), 3 `*_jab2` (cancel-chain successors,
+correctly absent from a fresh-press kit) and `dive_stomp_uncharged` (a
+`when_refused` fallback, likewise).
+
+⚠ **The absence is the smaller half.** While the body runs, the brain scores
+`jab`'s frame data, issues the attack press, and the press road performs
+`{base}_dash` — a candidate whose `move_id` and `frames` describe a different
+move than the one the press produces, so every scoring term downstream (startup,
+reach, damage, frame advantage) reads the wrong move.
+
+⛔ **THE FIX IS WRITTEN AND DELIBERATELY NOT LANDED.** Resolving with
+`move_for_attack` makes the kit truthful; it also re-prices how the CPUs fight.
+MEASURED: it reddens
+`smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+("the CPUs are not fighting") and
+`smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`
+— both green at HEAD, both failing reproducibly in isolation, neither flaky.
+This row's own owner document rules on that case: a change that re-prices
+matchups *"needs the ladder rig (`brain::fighter::evaluation` + `scenarios`), not
+a coordinator's judgement"*. Two acceptance tests reporting a worse fight IS the
+rig speaking, so landing it anyway would be exactly the judgement the doc
+forbids.
+
+⇒ **Next concrete step: run the fix through the evaluation rig**, not through
+another reading of the diff. The witness is
+`a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce`,
+`#[ignore]`d with that reason and green the moment the resolver changes.
+
+⚠ AND A CORRECTION TO MY OWN FIRST ATTEMPT, kept because it is the reusable
+part: I initially redirected `SPECIAL` to `ATTACK` while running too. The press
+road does not — it resolves a special in an EARLIER branch that never reaches
+`move_for_attack`, and its `base_verb` is only ever Attack or Smash. That
+collapsed a running fighter's whole kit to the single dash attack and took its
+specials away, reddening two DIFFERENT acceptance tests. ⇒ Copying "the rule the
+production road uses" means copying where the road APPLIES it, not just what it
+says.
+
 **Acceptance:** representative CPU can select movement-compatible attacks,
 smashes/charged options become live customers where the authored menu permits
 them, and easiest difficulty remains intentionally poor rather than suicidal.

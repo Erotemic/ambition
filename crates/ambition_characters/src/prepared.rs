@@ -424,7 +424,7 @@ pub struct StagedCastRevision {
 impl StagedCastRevision {
     /// Stage a prepared contribution directly, for a fixture that does not have
     /// an `App` to hand.
-    pub fn insert_for_test(
+    pub(crate) fn insert_for_test(
         &mut self,
         id: ambition_entity_catalog::CharacterId,
         staged: StagedCharacter,
@@ -2027,6 +2027,18 @@ struct StagedCharacterOverrides {
     /// Set when the barrier closes, so a late contribution is a panic rather than
     /// a value nobody will ever fold.
     finalized: bool,
+    /// WHICH ROAD CLOSED IT: `true` when the fold was handed a
+    /// [`ambition_entity_catalog::TechniqueSupport`] and therefore CHECKED the
+    /// authored effects, `false` when the unchecked backstop won the race.
+    ///
+    /// ⛔⛔ **THE ORDERING GUARANTEE HAD NO WITNESS UNTIL THIS.** The checked
+    /// fold and the backstop are two systems racing a `finalized` flag, so the
+    /// ORDER is the entire guarantee — and if the backstop won, admission simply
+    /// would not happen. Nothing could see that: the app-level admission guard
+    /// re-derives `admit_at` itself against `InstalledTechniques`, so it passes
+    /// whether or not the barrier ever consulted them. A silent bypass that
+    /// every test agrees with is exactly what this packet exists to remove.
+    closed_with_admission: bool,
 }
 
 impl StagedCharacterOverrides {
@@ -2077,13 +2089,48 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
         // after every plugin's `build`, which is the entire ordering hazard
         // `finish` exists to remove. What `finish` still buys is that the
         // registry exists before ANY system runs, including `Startup`.
-        app.add_systems(bevy::app::PreStartup, close_preparation_barrier);
+        use bevy::ecs::schedule::IntoScheduleConfigs as _;
+        app.add_systems(
+            bevy::app::PreStartup,
+            close_preparation_barrier.in_set(PreparationBarrier),
+        );
     }
 
     fn finish(&self, app: &mut bevy::app::App) {
         finalize_prepared_cast(app.world_mut(), None);
     }
 }
+
+/// Did the preparation barrier close through the CHECKED road?
+///
+/// `false` means the unchecked backstop folded the cast — legitimate in a
+/// composition that installs no techniques, and a silent bypass in one that
+/// does. ⭐ Exported because the resource behind it is deliberately private and
+/// a host cannot otherwise tell which of the two racing systems won.
+pub fn barrier_closed_with_admission(world: &bevy::ecs::world::World) -> bool {
+    world
+        .get_resource::<StagedCharacterOverrides>()
+        .is_some_and(|staged| staged.closed_with_admission)
+}
+
+/// **WHERE THE PREPARATION BARRIER CLOSES.** A host that admits authored
+/// techniques runs its checked fold BEFORE this set; the unchecked backstop is
+/// inside it.
+///
+/// ⛔⛔ **PUBLISHED BECAUSE A SEQUENCING FACT BELONGS TO THE CRATE THAT OWNS
+/// IT.** `combat_schedule` needs its admitting barrier to close first, and it
+/// said so with `.before(ambition_characters::prepared::close_preparation_barrier)`
+/// — a foreign crate ordering against another crate's private function path.
+/// That reached across the boundary for a fact this crate is the authority on,
+/// and it moved the foreign-ordering ratchet 77 → 78; the ratchet is a RATCHET
+/// and its own comment forbids re-baselining upward to make a new edge green,
+/// which is the correct rule and caught this.
+///
+/// ⇒ The edge was real and the SPELLING was wrong. Ordering against a named set
+/// this crate exposes on purpose says the same thing, survives the system being
+/// renamed or split in two, and is the one road a host is meant to use.
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PreparationBarrier;
 
 /// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
 ///
@@ -2128,6 +2175,7 @@ fn finalize_prepared_cast(
         return;
     }
     staged.finalized = true;
+    staged.closed_with_admission = support.is_some();
     let staged = std::mem::take(&mut staged.by_id);
     let catalog = world
         .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
@@ -2252,7 +2300,7 @@ pub struct AdmittedCast {
 /// ⚠ ONE PASS, NOT A FIXPOINT. A summon naming a character that was itself
 /// withheld is not re-checked. Recording that rather than iterating: the case
 /// needs a real example before its cost is worth paying.
-pub fn admit_and_finalize_cast(
+pub(crate) fn admit_and_finalize_cast(
     staged: Vec<StagedCharacter>,
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,

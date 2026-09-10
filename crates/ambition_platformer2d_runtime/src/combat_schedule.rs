@@ -126,8 +126,11 @@ impl Plugin for CombatSchedulePlugin {
         // packet exists to remove, so the edge is written down.
         app.add_systems(
             bevy::app::PreStartup,
+            // ⭐ AGAINST THE PUBLISHED SET, not the other crate's private
+            // function path. The edge is the same guarantee; the spelling was a
+            // foreign ordering, which the ratchet counted and was right to.
             close_preparation_barrier_with_installed_techniques
-                .before(ambition_characters::prepared::close_preparation_barrier),
+                .before(ambition_characters::prepared::PreparationBarrier),
         );
         let sim = app.sim_schedule();
         // Open, content-owned projectile art registry. Init the empty catalog so

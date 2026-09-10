@@ -1701,6 +1701,11 @@ pub(super) fn attack_kit_of(
     moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,
+    // ⛔⛔ AND ITS REAL STANCE, which is the other half of the same fact and was
+    // MISSING. Like `grounded`, never a choice: a brain that could claim it was
+    // running would be picking a move its body cannot perform. ⚠ THREADED BUT
+    // NOT YET CONSULTED — see the block below for why the behaviour is held.
+    _running: bool,
     // only a FIGHTER brain reads the kit, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
     // the game would have paid for a list nothing looks at, which is a cost
@@ -1737,12 +1742,28 @@ pub(super) fn attack_kit_of(
     // SCORED and then come out as a generic swing, and the winner's identity had
     // nowhere to travel.
     //
-    // Asking the moveset's OWN resolver — `move_for_directional_verb`, the same
-    // function `trigger_moveset_moves` calls — makes the kit executable by
-    // construction: every candidate is a move some press reaches, and the press
-    // is the candidate. The chain falls back (`attack_air_up` → `attack_up` →
+    // Asking the moveset's OWN resolver — `move_for_attack`, the same function
+    // `trigger_moveset_moves` calls — makes the kit executable by construction:
+    // every candidate is a move some press reaches, and the press is the
+    // candidate. The chain falls back (`attack_air_up` → `attack_up` →
     // `attack_air` → `attack`), so a body that authors only a base attack yields
     // that move once and a body with the full directional set yields each.
+    //
+    // ⛔⛔ **THIS COMMENT NAMED THE WRONG FUNCTION FOR AS LONG AS THE KIT
+    // EXISTED, AND THE WHOLE JUSTIFICATION ABOVE RESTED ON IT.** It said
+    // `move_for_directional_verb` was "the same function `trigger_moveset_moves`
+    // calls". It is not: the press road calls `move_for_attack(base, dir,
+    // grounded, RUNNING)`, and `move_for_directional_verb` is that function's
+    // fallback with the running branch skipped. So the kit resolved every press
+    // as though the body were standing still.
+    //
+    // ⇒ Measured 2026-09-10 across the shipped roster: EIGHTEEN OF EIGHTEEN
+    // fighters author a dash attack and not one was reachable from the kit. And
+    // the sharper half is not the absence — it is the MISLABEL. While the body
+    // runs, the brain scored `jab`'s frame data, issued the attack press, and
+    // `trigger_moveset_moves` performed `{base}_dash` instead: a candidate whose
+    // `move_id` and `frames` describe a different move than the one the press
+    // produces. The kit was "executable by construction" and wrong anyway.
     //
     // The POSTURE is the body's real one, never a choice: a brain that could
     // claim `Grounded` while airborne would pick a move its body cannot perform,
@@ -1760,6 +1781,26 @@ pub(super) fn attack_kit_of(
             AttackDir::Up,
             AttackDir::Down,
         ] {
+            // ⛔⛔ **AND THE FIX IS NOT LANDED, DELIBERATELY.** Resolving with
+            // `move_for_attack(.., running)` — which is what the press road does
+            // — makes the kit truthful and gives every CPU its dash attack. It
+            // also CHANGES HOW THE CPUs FIGHT, measured: it reddened
+            // `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+            // ("the CPUs are not fighting") and
+            // `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`,
+            // both green at HEAD and both failing reproducibly in isolation.
+            //
+            // ⇒ `engine/fighter-brain.md` rules on exactly this: a change that
+            // re-prices matchups "needs the ladder rig (`brain::fighter::evaluation`
+            // + `scenarios`), not a coordinator's judgement". Two acceptance tests
+            // saying the fight got worse IS that rig speaking. Landing the
+            // behaviour on a queue row's say-so would be the coordinator's
+            // judgement the doc forbids.
+            //
+            // ⚠ So the kit stays WRONG here on purpose, with the defect named
+            // rather than hidden, and D-BRAIN-MENU carries the rig work. The
+            // witness is `a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce`,
+            // `#[ignore]`d for as long as this line stands.
             let Some(spec) = moveset
                 .0
                 .move_for_directional_verb(verb_name, direction, grounded)
@@ -1944,7 +1985,13 @@ fn build_enemy_brain_snapshot(
         // world-in port — exactly like `actor_aerial`.
         //
         // Built every tick like every other snapshot field.
-        attack_kit: attack_kit_of(moveset, body.ground.on_ground, brain, playback),
+        attack_kit: attack_kit_of(
+            moveset,
+            body.ground.on_ground,
+            motion_facts.running,
+            brain,
+            playback,
+        ),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

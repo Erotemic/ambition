@@ -27,6 +27,37 @@
 use ambition_app::{Platformer2dSimHarness, TimestepMode};
 use ambition_app::AmbitionSim;
 
+/// ⛔⛔ **THE SHIPPED COMPOSITION CLOSED ITS BARRIER THROUGH THE CHECKED ROAD.**
+///
+/// The admitting fold and the unchecked backstop are two `PreStartup` systems
+/// racing a `finalized` flag, so the ORDER is the entire guarantee: if the
+/// backstop wins, the cast publishes with no admission at all.
+///
+/// ⚠ **AND THE GUARD BELOW CANNOT SEE THAT**, which is why this one exists. It
+/// re-derives `admit_at` itself against `InstalledTechniques` and would pass
+/// identically in a world where the barrier never consulted them — a green
+/// result about a road that did not run. Asking which road CLOSED it is a
+/// different question from asking whether the corpus would be admitted.
+///
+/// ⭐ Written the day the ordering edge was respelled: the runtime used to say
+/// `.before(ambition_characters::prepared::close_preparation_barrier)`, a foreign
+/// crate ordering against another's private function path, and it now orders
+/// against the published `PreparationBarrier` set. The guarantee is identical
+/// and the edge is a line in a composition — so it needs a witness that fails
+/// when the line goes, rather than a comment saying it matters.
+#[test]
+fn the_shipped_composition_closes_its_barrier_through_the_checked_road() {
+    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    assert!(
+        ambition_platformer2d::characters::prepared::barrier_closed_with_admission(sim.world()),
+        "the unchecked backstop folded the cast before the admitting barrier \
+         could, so every authored effect in this composition was published \
+         WITHOUT being checked against the techniques it installs — and nothing \
+         else in this suite can tell the difference"
+    );
+}
+
 #[test]
 fn every_authored_effect_in_the_shipped_composition_is_admitted() {
     use ambition_platformer2d::combat::technique::InstalledTechniques;

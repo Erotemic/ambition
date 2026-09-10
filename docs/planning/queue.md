@@ -600,11 +600,47 @@ and the five DO NOT SHARE A MECHANISM.**
 | **barely press** | `npc_emmy_noether` (13 starts, 10%), `performer` (18, 20%), `npc_carl_stargan` (3, 0.5%) | low engagement, low activity |
 | **press and convert nothing** | **`special_patent_clerk` — 51/51 starts, 19% in reach, 0.09 dmg/min**; `medic` — 49/49, 25%, 0.41 | busy, in reach a normal share, converting almost nothing |
 
-⛔ **THE SECOND BAND KILLS THE MOVEMENT READING.** The patent clerk presses as
-often as `goblin`, `officer` and `npc_bob` — all of which clear the gate — and
-deals a twentieth of the damage. That is downstream of choosing and reaching, so
-it is a KIT / hitbox / conversion question, and neither the range probe nor
-`walks_off` can see it.
+⛔⛔ **AND THE SECOND BAND IS NOT A FIGHTER PROBLEM AT ALL — IT IS THE HARNESS
+MEASURING A DEGENERATE MIRROR MATCH. Traced 2026-09-10 and the mechanism is
+verified in the engine's own words.**
+
+The duel seats two CPUs of the SAME fighter with a deterministic brain and no
+noise input, so a matchup that never breaks symmetry stays in lockstep: both
+bodies hold identical state, choose the same move on the same tick, and throw it
+at the same instant. `arbitrate_attack_clanks` then does exactly what it is for —
+*"Close enough: both attacks are refused"*, cancelled by despawn **before**
+`apply_hitbox_damage` asks any of them about a victim — and `clank_verdict` refuses
+both whenever the damage `difference` is inside the window. **Two identical moves
+have a difference of ZERO.** So every exchange clanks, forever.
+
+⇒ **The tell is seat symmetry, and it is in the table already:**
+
+| fighter | starts | damage | verdict |
+|---|---|---|---|
+| `special_patent_clerk` | **51 / 51** | 0.09 / 0.09, hitstun [11, 11] | fails |
+| `medic` | **49 / 49** | 0.41 / 0.41 | fails |
+| every one of the 15 that clear | 70/54, 83/72, 54/27, 69/93, 41/33, 55/51 … | — | **not one is exactly equal** |
+
+⭐ Corroborated from the static side, which is what sent me looking: **the clerk's
+kit is authored STRONGER than the goblin's on every axis** — total authored damage
+207 vs 137, median hit-box half-extent 26 vs 20, median reach 42 vs 32, and
+structurally identical (26 vs 27 moves, both exactly 6 with no Active window, both
+exactly 2 Active-but-empty, which are their grabs and correct). His `tilt_forward`
+reaches 58px against 42 and hits for 7 against 4. **A kit that good deals 0.09
+only if the fight is not happening.** His one damaging move all match is a single
+`patent_clerk_dash_attack` — the one moment the mirror broke.
+
+⇒ **So this is a defect in the INSTRUMENT, and the fix is the one `ladder_rig`
+already implements**: that rig refuses to report a bout where *"no fighter brain
+ever took the noise seed, so every run of this bout is identical."* This harness
+has no such guard. **Give the duel a noise seed or seat the two sides
+asymmetrically**, and re-measure — until then it cannot measure any fighter whose
+mirror stays in lockstep, and will keep reporting them as inert.
+
+⚠ **WHAT THIS DOES NOT EXPLAIN, and it may be a second finding:** the clerk's CPU
+picks only **4 distinct moves of 26** (`synchronize_clocks` 17, `tilt_forward` 17,
+`clerk_grab` 16, dash attack 1) where the pirate admiral picks 12. Symmetry
+explains why those four never land. It does not explain why there are four.
 
 ⚠ **`goblin` is the counter-example on the other side:** 17% in reach, second
 lowest measured, 55/51 starts, and it clears the gate. ⇒ **Time-in-range and

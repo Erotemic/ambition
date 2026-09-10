@@ -322,6 +322,18 @@ def main() -> int:
         print("     breaks, so the build completes and every crate is reached. The")
         print("     enumeration is complete except for the blind spots named above.")
     print("   * A workspace already red for an unrelated reason makes it an undercount.")
+    # ⛔⛔ THE TOTAL IS NOT A CHECK ON THE LIST, AND THIS BIT TWICE IN ONE
+    # AFTERNOON ON TWO DIFFERENT INSTRUMENTS. `ced8b7f7c` MOVED a `display_name`
+    # read from `ambition_combat` to `starting_character.rs`; this tool returned
+    # 200/27 before and after, because a move is not a removal. Separately, the A4
+    # writer map's "four production readers of `body_driving_seat`" is still four
+    # at HEAD with two members wrong. ⇒ In both cases the count held still while
+    # the membership moved underneath it, and a reader checking the number would
+    # have called the list correct. Cardinality and set equality are different
+    # questions; the cheap one is the one that gets checked.
+    print("   * ⛔ A STABLE TOTAL DOES NOT MEAN A STABLE MEMBER LIST. A read that")
+    print("     MOVES between crates leaves this count unchanged and the sites")
+    print("     different. Diff the SITES against your last run, not the total.")
     return 0
 
 

@@ -2355,9 +2355,33 @@ pub struct AdmittedCast {
 /// "invalid calls cannot publish definitions" and leaves every valid character
 /// registered.
 ///
-/// ⚠ ONE PASS, NOT A FIXPOINT. A summon naming a character that was itself
-/// withheld is not re-checked. Recording that rather than iterating: the case
-/// needs a real example before its cost is worth paying.
+/// ⛔⛔ **IT IS A FIXPOINT NOW, AND THE ONE-PASS VERSION INVALIDATED ITS OWN
+/// PROOF.** This comment used to say *"one pass, not a fixpoint… the case needs
+/// a real example before its cost is worth paying"* — and GPT review 2026-09-10
+/// supplied the example by reading the algorithm rather than by finding a
+/// character:
+///
+/// 1. A carries a supported summon naming character B;
+/// 2. that reference RESOLVES, because validation examines the full candidate
+///    registry;
+/// 3. B carries an unsupported effect and is refused;
+/// 4. A is retained;
+/// 5. the published registry contains A referring to a B that is not in it.
+///
+/// ⇒ **The published registry is exactly the artifact the check was supposed to
+/// make safe, and the filtering step happened AFTER the proof.** The invariant
+/// has to be *references resolve in the PUBLISHED registry*, not *in the
+/// original candidate registry*. Construction catches it much later — at the
+/// summon, as "body character not registered" — which is *"play the move, summon
+/// nothing"*, the state A11 exists to eliminate.
+///
+/// ⚠ **IT TERMINATES BECAUSE EACH ROUND STRICTLY SHRINKS THE KEPT SET**: a
+/// non-empty refusal names at least one character that is in `kept` (the
+/// refusals are derived from a registry folded from `kept`), so the loop runs at
+/// most once per staged character. The shrink is ASSERTED rather than assumed —
+/// a round that refuses somebody and removes nobody would otherwise spin
+/// forever, and that would be a defect in `unsupported_authored_effects`
+/// reporting a character it was not given.
 pub(crate) fn admit_and_finalize_cast(
     staged: Vec<StagedCharacter>,
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
@@ -2365,31 +2389,41 @@ pub(crate) fn admit_and_finalize_cast(
     previous: CharacterCatalogGeneration,
     support: Option<&ambition_entity_catalog::TechniqueSupport>,
 ) -> AdmittedCast {
-    let full = finalize_cast(staged.iter().cloned(), catalog, profiles, previous);
     let Some(support) = support else {
         return AdmittedCast {
-            registry: full,
+            registry: finalize_cast(staged.iter().cloned(), catalog, profiles, previous),
             refusals: Vec::new(),
         };
     };
-    // ⚠ REFERENCES RESOLVE AGAINST THE WHOLE CAST, so the check needs the full
-    // fold before it can withhold anything: a summon may name a character
-    // staged after its rider.
-    let refusals = unsupported_authored_effects(support, &full);
-    if refusals.is_empty() {
-        return AdmittedCast {
-            registry: full,
-            refusals,
-        };
-    }
-    let refused: std::collections::BTreeSet<&str> =
-        refusals.iter().map(|r| r.character.as_str()).collect();
-    let kept = staged
-        .into_iter()
-        .filter(|character| !refused.contains(character.id()));
-    AdmittedCast {
-        registry: finalize_cast(kept, catalog, profiles, previous),
-        refusals,
+    let mut kept = staged;
+    let mut refusals: Vec<EffectRefusal> = Vec::new();
+    loop {
+        // ⚠ REFERENCES RESOLVE AGAINST THE CAST AS IT WOULD BE PUBLISHED, which
+        // is why the fold is inside the loop: a summon may name a character
+        // staged after its rider, and it may name one this round is about to
+        // withhold.
+        let candidate = finalize_cast(kept.iter().cloned(), catalog, profiles, previous);
+        let round = unsupported_authored_effects(support, &candidate);
+        if round.is_empty() {
+            return AdmittedCast {
+                registry: candidate,
+                refusals,
+            };
+        }
+        let refused: std::collections::BTreeSet<String> =
+            round.iter().map(|r| r.character.clone()).collect();
+        let before = kept.len();
+        kept.retain(|character| !refused.contains(character.id()));
+        let named = refused.len();
+        assert!(
+            kept.len() < before,
+            "admission refused {named} character(s) — {refused:?} — and removed \
+             none of them from a kept set of {before}. The refusals are derived \
+             from a registry folded from `kept`, so every refused id must be in \
+             it; a round that shrinks nothing would loop forever, and this says \
+             which names could not be found instead."
+        );
+        refusals.extend(round);
     }
 }
 

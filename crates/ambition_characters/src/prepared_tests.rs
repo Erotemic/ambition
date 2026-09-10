@@ -1197,6 +1197,104 @@ mod withholding {
         );
     }
 
+    /// A summons `beast`; `beast` authors an uninstalled technique.
+    fn a_summoner_and_the_beast_it_names() -> Vec<crate::prepared::StagedCharacter> {
+        use crate::prepared_fixtures::moveset_with;
+        let summon = EffectRef {
+            key: SUMMON_RIDE.to_string(),
+            params: ParamValue::parse(
+                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+            )
+            .expect("params parse"),
+        };
+        let unsupported = EffectRef {
+            key: "smash.not_installed_here".to_string(),
+            params: ParamValue::parse(
+                "(character_id: \"nobody\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+            )
+            .expect("params parse"),
+        };
+        vec![
+            staged(
+                CharacterDefinition::new("summoner", "summoner", "test_demo").with_moveset(
+                    moveset_with(
+                        &[("special", "call_the_beast")],
+                        vec![move_emitting("call_the_beast", summon)],
+                    ),
+                ),
+            ),
+            staged(
+                CharacterDefinition::new("beast", "beast", "test_demo").with_moveset(moveset_with(
+                    &[("special", "the_move")],
+                    vec![move_emitting("the_move", unsupported)],
+                )),
+            ),
+            staged(CharacterDefinition::new("bystander", "bystander", "test_demo")),
+        ]
+    }
+
+    /// ⛔⛔ **A SUMMONER WHOSE BEAST WAS WITHHELD MUST NOT BE PUBLISHED EITHER —
+    /// AND THE ONE-PASS VERSION PUBLISHED IT.**
+    ///
+    /// GPT review 2026-09-10 derived this from the algorithm rather than from a
+    /// character: validation examined the FULL candidate registry, so
+    /// `summoner`'s reference to `beast` resolved; `beast` was then refused and
+    /// removed; `summoner` was retained. ⇒ **The published registry contained a
+    /// definition pointing at one that is not in it** — and construction catches
+    /// that only at the summon, as "body character not registered", which is
+    /// *"play the move, summon nothing"*: the exact state A11 exists to
+    /// eliminate.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is returning after the first filtering
+    /// round instead of re-folding until the accepted set stops changing. The
+    /// invariant is **references resolve in the PUBLISHED registry**, not in the
+    /// candidate one.
+    #[test]
+    fn a_summoner_whose_beast_was_withheld_is_withheld_too() {
+        let admitted = admit_and_finalize_cast(
+            a_summoner_and_the_beast_it_names(),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+
+        assert!(
+            admitted.registry.get("beast").is_none(),
+            "premise: the beast authors an uninstalled technique and must be \
+             withheld before the summoner's reference can dangle at all"
+        );
+        assert!(
+            admitted.registry.get("summoner").is_none(),
+            "the summoner was PUBLISHED while the character its summon names was \
+             withheld, so its move would play and summon nothing. Refusals: {:?}",
+            admitted.refusals
+        );
+    }
+
+    /// ⭐ AND THE FIXPOINT MUST NOT EAT THE CAST, which is the arm that stops the
+    /// one above from passing on a check that withholds everything.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is refusing the whole cast on any
+    /// refusal, or iterating on a set that never converges.
+    #[test]
+    fn the_bystander_survives_a_transitive_withholding() {
+        let admitted = admit_and_finalize_cast(
+            a_summoner_and_the_beast_it_names(),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+
+        assert!(
+            admitted.registry.get("bystander").is_some(),
+            "a character unrelated to the refused pair was withheld by the \
+             fixpoint: {:?}",
+            admitted.refusals
+        );
+    }
+
     /// ⭐ CONTROL. With no support table there is no admission authority, and
     /// the unchecked fold must publish everything — that is the composition that
     /// installed no techniques, not a composition that failed a check.

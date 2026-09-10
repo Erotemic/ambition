@@ -784,6 +784,34 @@ impl Plugin for CombatSchedulePlugin {
             CombatSet::ContentSpecials.before(ambition_combat::strike::EffectExecutionSet),
         );
     }
+
+    /// ⛔⛔ **THE CHECKED CLOSE AT `finish`, WHICH IS WHERE A RUNNER LOOKS — AND
+    /// THE `PreStartup` COPY IS THE BACKSTOP FOR APPS THAT NEVER GET ONE.**
+    ///
+    /// This composition told `ambition_characters` its unchecked backstop must
+    /// stand down (`checks_authored_effects_at_the_barrier`, in `build`), so it
+    /// owes a closer at every lifecycle point that used to have one.
+    ///
+    /// ⚠ **AND `finish` IS ONE OF THEM, WHICH THE FIRST VERSION OF THIS CHANGE
+    /// MISSED AND FOUR TESTS SAID SO.** `shared_tangle::app_finalization::finalize`
+    /// is `app.finish(); app.cleanup();` and **runs no update at all** — its own
+    /// doc says it exists "for a caller that wants to inspect the finalized world
+    /// before any system has run, which is exactly what a test of a `finish`-time
+    /// barrier wants". Moving the close to `PreStartup` alone left every such
+    /// caller with a staged cast and no published one:
+    /// `every_composed_character_can_say_at_least_one_line`,
+    /// `every_registered_character_resolves_the_art_it_declares`,
+    /// `..._share_one_provider_namespace` and
+    /// `the_migrated_mites_reach_the_prepared_registry_with_their_death_traits`
+    /// all read `PreparedCharacterRegistry` immediately after `finalize`.
+    ///
+    /// ⇒ **ONE AUTHORITY MEANS ONE CHECKED ROAD AT EVERY ENTRY, not one entry.**
+    /// The `finalized` flag makes whichever fires first win and the other a
+    /// no-op — which was the DEFECT while one road was unchecked, and is exactly
+    /// right now that both are the same checked call.
+    fn finish(&self, app: &mut App) {
+        close_preparation_barrier_with_installed_techniques(app.world_mut());
+    }
 }
 
 #[cfg(test)]

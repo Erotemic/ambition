@@ -18,14 +18,41 @@
 //! deliberately: correct a place that already sees every case, rather than
 //! building a second walk beside it.
 //!
-//! ⚠ **IT COUNTS RATHER THAN PANICS, AND THE REASON IS NOT TIMIDITY.** A body
-//! could in principle be damageable for a frame before its identity lands, and a
-//! panic would make that a crash rather than a finding. **MEASURED 2026-09-10
-//! before this was written: zero unidentified across 120 frame-samples in a
-//! sandbox that drove the placement, enemy and boss roads — `SimId` arrives WITH
-//! the body, never after.** So the counter is expected to stay at zero, and the
-//! test arm that reads it is the assertion. If a future road does mint late, this
-//! reports it instead of taking the game down.
+//! ⛔⛔ **AND THE MOMENT IT ASKS AT IS THE WHOLE DESIGN. THE FIRST VERSION ASKED
+//! AT INSERTION AND WAS WRONG — IT COUNTED THE PLAYER, EVERY RUN, FOREVER.**
+//!
+//! This file's header used to say *"MEASURED: zero unidentified across 120
+//! frame-samples — `SimId` arrives WITH the body, never after."* **The
+//! measurement was real and the sentence generalised it one step too far.** Those
+//! 120 samples covered three construction roads whose bodies happen to be
+//! identified at construction; the engine also has a DESIGNATED LATE-MINT road,
+//! and the tree says so in two places:
+//!
+//! - `sim_identity::ensure_sim_id` mints from two authored facts — an authored
+//!   placement's `FeatureId`, and the primary player's slot — and runs *"at the
+//!   head of the frame, before anything reads identity"*, then AGAIN at the tail
+//!   so identity is synchronous with the tick that spawned the body;
+//! - `world/rooms/stage.rs:907`: *"family-loop enemy's body only receives its
+//!   `SimId` from `ensure_sim_id`"* — i.e. AFTER.
+//!
+//! ⇒ A body observed at INSERTION is being asked a question the engine has not
+//! finished answering, so `unidentified` conflated **"never identified"** with
+//! **"identified by the designated later system"**. The player is guaranteed to
+//! be counted, in every composition. (Found by CalculexAmbition, 2026-09-10,
+//! driving the cut-rope victory road: `first=Some("492v0 (Player)")`,
+//! `still_unidentified_now=[]`.)
+//!
+//! ⭐ **THE INVARIANT THE CONTACT PROTOCOL ACTUALLY NEEDS IS "no damageable body
+//! is STILL unidentified when a consumer could read it"**, so this now skips
+//! bodies that became damageable ON THIS TICK and judges the rest. **That is
+//! ordering-independent** — it needs no edge against `ensure_sim_id`, whose
+//! function path this crate should not be naming anyway — and it makes the
+//! counter mean what its name says.
+//!
+//! ⚠ **IT COUNTS RATHER THAN PANICS, AND THE REASON IS NOT TIMIDITY.** A panic
+//! would turn a future late-minting road into a crash rather than a finding, and
+//! the case above is exactly why that judgement was right: the first thing this
+//! observer found was legitimate.
 
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -40,9 +67,14 @@ use bevy::prelude::*;
 /// first.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub struct BodyIdentityCensus {
-    /// Damageable bodies that became damageable with no `SimId`.
+    /// Damageable bodies STILL carrying no `SimId` a tick after they became
+    /// damageable — i.e. after the designated late-mint road has had both of its
+    /// turns. **Not "unidentified at insertion", which counts the player.**
     pub unidentified: u64,
-    /// Damageable bodies observed at all. **Read this first.**
+    /// Damageable-body observations that were actually JUDGED (a body that became
+    /// damageable this tick is skipped, so it is not in here either). **Read this
+    /// first**: it is the denominator, and zero means the observer saw nothing
+    /// rather than that the tree is clean.
     pub observed: u64,
     /// ⛔⛔ WHO, not just how many — and the first version of this resource
     /// carried only the count while its own comment said *"a census that says
@@ -54,17 +86,20 @@ pub struct BodyIdentityCensus {
     pub first_unidentified: Option<String>,
 }
 
-/// Observe every body as it BECOMES damageable.
+/// Observe every damageable body that has had a tick to be identified.
 ///
-/// ⚠ THE FILTER IS THE SUBTLE PART. `CenteredAabb` and `ActorFaction` arrive from
-/// SEPARATE inserts — that is the row's own reason a bundle-shaped static scan
-/// cannot answer this — so neither `Added` alone is the moment a body becomes
-/// damageable. `Or<(Added<A>, Added<B>)>` with `With<>` on both fires on the tick
-/// the SECOND one lands, whichever that is, and fires once.
+/// ⚠ THE `Added` PAIR IS THE SUBTLE PART, and it is used to EXCLUDE rather than
+/// to select. `CenteredAabb` and `ActorFaction` arrive from SEPARATE inserts —
+/// the row's own reason a bundle-shaped static scan cannot answer this — so
+/// neither `Added` alone is the moment a body becomes damageable.
+/// `Or<(Added<A>, Added<B>)>` with `With<>` on both identifies the bodies that
+/// became damageable THIS tick, and those are the ones the designated late-mint
+/// road has not had its turn on yet.
 pub fn observe_damageable_body_identity(
     mut census: ResMut<BodyIdentityCensus>,
-    bodies: Query<
-        (Entity, Option<&SimId>, Option<&Name>),
+    bodies: Query<(Entity, Option<&SimId>, Option<&Name>), (With<CenteredAabb>, With<ActorFaction>)>,
+    became_damageable_this_tick: Query<
+        Entity,
         (
             With<CenteredAabb>,
             With<ActorFaction>,
@@ -73,6 +108,11 @@ pub fn observe_damageable_body_identity(
     >,
 ) {
     for (entity, sim_id, name) in &bodies {
+        // Not yet judged: `ensure_sim_id` runs within this same tick, twice, and
+        // a body it is about to serve is not a body without identity.
+        if became_damageable_this_tick.contains(entity) {
+            continue;
+        }
         census.observed += 1;
         if sim_id.is_none() {
             census.unidentified += 1;
@@ -85,12 +125,14 @@ pub fn observe_damageable_body_identity(
             // ⚠ NAMED, not counted only. A census that says "one" and cannot say
             // WHICH sends the reader to re-derive the population by hand.
             error!(
-                "a damageable body reached the world with no `SimId`: {entity} \
-                 ({}). The contact protocol calls a missing target identity a \
-                 CONSTRUCTION failure rather than a sort fallback — whatever \
-                 built this has to mint one. The projectile resolver's own \
-                 `debug_assert` cannot see it: that flags only a COINCIDENT \
-                 pair, so a lone unidentified body passes it in silence.",
+                "a damageable body is STILL unidentified a tick after it became \
+                 damageable: {entity} ({}). `ensure_sim_id` has had both of its \
+                 turns and did not serve it, so no authored fact names it. The \
+                 contact protocol calls a missing target identity a CONSTRUCTION \
+                 failure rather than a sort fallback — whatever built this has to \
+                 mint one. The projectile resolver's own `debug_assert` cannot \
+                 see it: that flags only a COINCIDENT pair, so a lone \
+                 unidentified body passes it in silence.",
                 name.map_or("no Name either", |name| name.as_str())
             );
         }
@@ -132,6 +174,11 @@ mod the_census_sees_a_body_become_damageable {
         // fire on the tick the pair COMPLETES rather than on either insert.
         app.update();
         app.world_mut().entity_mut(body).insert(ActorFaction::Enemy);
+        // ⚠ TWO UPDATES AFTER THE PAIR COMPLETES, not one. The tick a body
+        // becomes damageable is the tick the engine's designated late-mint road
+        // still gets to serve it, so the observer SKIPS it; the judgement is on
+        // the next tick. A fixture that reads after one update measures the skip.
+        app.update();
         app.update();
         (app.world().resource::<BodyIdentityCensus>().clone(), body)
     }

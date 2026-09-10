@@ -95,6 +95,55 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
     }
 }
 
+/// ⛔⛔ **A KEY CAN BE DECLARED WHILE THE THING IT NAMES GOES UNCHECKED.** The
+/// guard above proves the composition installs a handler for each key; it says
+/// nothing about whether that declaration carries the NESTED REFERENCE its
+/// params hold. Three technique params name another authored definition —
+/// `SummonRideParams::character_id` and the two `item_id`s — and preparation
+/// checked none of them until 2026-09-10. Forgetting to wire one is invisible to
+/// every other guard in the tree: the key is declared, the params hydrate, and
+/// the move still summons a character or drops an item nothing answers to.
+///
+/// ⭐ ASKED OF THE BUILT APP, like its neighbour, because a declaration is a line
+/// in a composition and a line can be deleted.
+#[test]
+fn the_techniques_that_name_other_definitions_declare_that_they_do() {
+    use ambition_platformer2d::combat::technique::{InstalledTechniques, NestedReferences};
+
+    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let installed = &sim
+        .world()
+        .get_resource::<InstalledTechniques>()
+        .expect("the composition declares its techniques")
+        .0;
+
+    for (key, expected) in [
+        (
+            ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
+            "a character",
+        ),
+        (
+            ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+            "a held item",
+        ),
+        (
+            ambition_platformer2d::characters::smash_mine::PLACE_MINE,
+            "a held item",
+        ),
+    ] {
+        let offer = installed
+            .offer(key)
+            .unwrap_or_else(|| panic!("'{key}' is not declared at all"));
+        assert!(
+            !matches!(offer.references, NestedReferences::None),
+            "'{key}' names {expected} in its params and its declaration says it \
+             references nothing, so preparation never resolves it — the move \
+             plays and the thing it names does not exist"
+        );
+    }
+}
+
 /// ⛔ A DECLARED TECHNIQUE ADMITS ITS OWN AUTHORED USE, and refuses a typo of it.
 ///
 /// ⭐ THE SECOND HALF IS THE POINT. A support table that admits everything would

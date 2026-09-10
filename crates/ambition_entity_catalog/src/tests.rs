@@ -1843,8 +1843,8 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
 mod effect_sites {
     use super::bare_move;
     use crate::{
-        EffectRef, EffectSite, FlowNode, FlowSignal, HitVolume, MoveEvent, MoveEventKind,
-        MoveSpec, MoveWindow, ParamValue, TechniqueFlow, VolumeShape, WindowTag,
+        EffectRef, EffectSite, FlowNode, FlowSignal, HitVolume, MoveEvent, MoveEventKind, MoveSpec,
+        MoveWindow, ParamValue, TechniqueFlow, VolumeShape, WindowTag,
     };
 
     fn effect(key: &str) -> EffectRef {
@@ -1939,7 +1939,10 @@ mod effect_sites {
                     },
                     "site.on_hit".to_string()
                 ),
-                (EffectSite::WindowSustain { window: 0 }, "site.sustain".to_string()),
+                (
+                    EffectSite::WindowSustain { window: 0 },
+                    "site.sustain".to_string()
+                ),
                 (EffectSite::Event { event: 1 }, "site.event".to_string()),
                 (EffectSite::FlowEmit { node: 1 }, "site.flow".to_string()),
             ],
@@ -2255,7 +2258,9 @@ mod technique_flow {
         };
         let problems = flow.problems();
         assert!(
-            problems.iter().any(|p| p.contains("no `Finish` is reachable")),
+            problems
+                .iter()
+                .any(|p| p.contains("no `Finish` is reachable")),
             "a flow whose only Finish is unreachable was accepted, so the move \
              would stay under its control forever: {problems:?}"
         );
@@ -2432,9 +2437,7 @@ mod technique_flow {
         };
         let problems = flow.problems();
         assert!(
-            problems
-                .iter()
-                .any(|p| p.contains("node 2 is unreachable")),
+            problems.iter().any(|p| p.contains("node 2 is unreachable")),
             "a stranded node was accepted, so whatever it was authored to do \
              silently never happens: {problems:?}"
         );

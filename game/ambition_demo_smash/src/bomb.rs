@@ -115,21 +115,23 @@ pub fn translate_bomb_drops(
             "bomb dropped: owner={:?} item=`{}` at {at:?} fuse={}s",
             message.actor, params.item_id, params.fuse_s,
         );
-        let spawned = commands.spawn((
-            Name::new(format!("Live bomb: {}", params.item_id)),
-            ambition_platformer2d::item::GroundItem {
-                spec: held,
-                pos: at,
-                vel: ae::Vec2::ZERO,
-                half_extent: half,
-            },
-            LiveBomb {
-                fuse_s: params.fuse_s,
-                damage: params.damage,
-                blast_radius: params.blast_radius,
-                impact_speed: params.impact_speed,
-            },
-        )).id();
+        let spawned = commands
+            .spawn((
+                Name::new(format!("Live bomb: {}", params.item_id)),
+                ambition_platformer2d::item::GroundItem {
+                    spec: held,
+                    pos: at,
+                    vel: ae::Vec2::ZERO,
+                    half_extent: half,
+                },
+                LiveBomb {
+                    fuse_s: params.fuse_s,
+                    damage: params.damage,
+                    blast_radius: params.blast_radius,
+                    impact_speed: params.impact_speed,
+                },
+            ))
+            .id();
         // The match owns this object's end. See `crate::match_scope`.
         crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
     }
@@ -210,12 +212,12 @@ pub fn burn_fuses_and_answer_impacts(
                     // which is what makes a live bomb a thing you respect
                     // rather than a free projectile.
                     // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
-                            // saying Neutral hurts everybody; the resolver says the exact opposite
-                            // — `melee_source` excludes it from the body path and its terminal arm
-                            // is empty, with the contract that Neutral never spawns a damaging
-                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
-                            // the effect request existed.
-                            faction: ambition_platformer2d::vfx::HitSide::Environment,
+                    // saying Neutral hurts everybody; the resolver says the exact opposite
+                    // — `melee_source` excludes it from the body path and its terminal arm
+                    // is empty, with the contract that Neutral never spawns a damaging
+                    // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                    // the effect request existed.
+                    faction: ambition_platformer2d::vfx::HitSide::Environment,
                     half_extent: ae::Vec2::splat(bomb.blast_radius),
                     damage: bomb.damage,
                     // ⛔⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED, AND THIS READ

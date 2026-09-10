@@ -123,7 +123,6 @@ impl ParamValue {
             _ => false,
         }
     }
-
 }
 
 /// Content-defined technique/effect reference with opaque parameters. Timed
@@ -334,6 +333,16 @@ pub enum NestedReferences {
     None,
     /// The character ids this effect's params name.
     Characters(fn(&EffectRef) -> Vec<String>),
+    /// The HELD-ITEM ids this effect's params name.
+    ///
+    /// ⛔ I RECORDED THIS AS UNCHECKABLE AND IT WAS NOT. The note said the two
+    /// `item_id` references could not be verified from `ambition_characters`
+    /// because it cannot see the item vocabulary — the same layering wall the
+    /// support table had to cross. Wrong: `held_item_by_id` is a static registry
+    /// in `ambition_characters::brain::action_set`, the SAME crate as the
+    /// barrier. The wall was assumed from the shape of an earlier problem rather
+    /// than measured.
+    HeldItems(fn(&EffectRef) -> Vec<String>),
 }
 
 impl std::fmt::Debug for NestedReferences {
@@ -341,6 +350,7 @@ impl std::fmt::Debug for NestedReferences {
         match self {
             Self::None => f.write_str("None"),
             Self::Characters(_) => f.write_str("Characters(..)"),
+            Self::HeldItems(_) => f.write_str("HeldItems(..)"),
         }
     }
 }
@@ -349,7 +359,9 @@ impl PartialEq for NestedReferences {
     fn eq(&self, other: &Self) -> bool {
         matches!(
             (self, other),
-            (Self::None, Self::None) | (Self::Characters(_), Self::Characters(_))
+            (Self::None, Self::None)
+                | (Self::Characters(_), Self::Characters(_))
+                | (Self::HeldItems(_), Self::HeldItems(_))
         )
     }
 }
@@ -360,8 +372,16 @@ impl NestedReferences {
     /// The character ids this effect names, or empty when it names none.
     pub fn characters(&self, effect: &EffectRef) -> Vec<String> {
         match self {
-            Self::None => Vec::new(),
             Self::Characters(extract) => extract(effect),
+            _ => Vec::new(),
+        }
+    }
+
+    /// The held-item ids this effect names, or empty when it names none.
+    pub fn held_items(&self, effect: &EffectRef) -> Vec<String> {
+        match self {
+            Self::HeldItems(extract) => extract(effect),
+            _ => Vec::new(),
         }
     }
 }
@@ -415,7 +435,10 @@ impl PartialEq for TechniqueParams {
     /// checked technique, which is exactly why [`TechniqueSupport::declare`]
     /// reports a conflict by KEY AND CLAIMED OWNER and never by comparing checks.
     fn eq(&self, other: &Self) -> bool {
-        matches!((self, other), (TechniqueParams::None, TechniqueParams::None))
+        matches!(
+            (self, other),
+            (TechniqueParams::None, TechniqueParams::None)
+        )
     }
 }
 

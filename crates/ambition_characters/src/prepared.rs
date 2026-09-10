@@ -361,6 +361,23 @@ pub fn unsupported_authored_effects(
                 let Some(offer) = installed.offer(&effect.key) else {
                     continue;
                 };
+                // ⭐ HELD ITEMS, checked against the registry that answers them
+                // at runtime — `held_item_by_id` is in THIS crate, so the id an
+                // author wrote is resolvable at preparation exactly as it is at
+                // fire time.
+                for named in offer.references.held_items(effect) {
+                    if crate::brain::action_set::held_item_by_id(&named).is_none() {
+                        refusals.push(EffectRefusal {
+                            character: id.to_string(),
+                            detail: format!(
+                                "{id} / {} / {site:?}: effect '{}' names held item \
+                                 '{named}', which no registered held item answers \
+                                 to — the object it drops could not be picked up",
+                                mv.id, effect.key
+                            ),
+                        });
+                    }
+                }
                 for named in offer.references.characters(effect) {
                     if prepared.get(&named).is_none() {
                         refusals.push(EffectRefusal {
@@ -2242,12 +2259,7 @@ pub fn admit_and_finalize_cast(
     previous: CharacterCatalogGeneration,
     support: Option<&ambition_entity_catalog::TechniqueSupport>,
 ) -> AdmittedCast {
-    let full = finalize_cast(
-        staged.iter().cloned(),
-        catalog,
-        profiles,
-        previous,
-    );
+    let full = finalize_cast(staged.iter().cloned(), catalog, profiles, previous);
     let Some(support) = support else {
         return AdmittedCast {
             registry: full,

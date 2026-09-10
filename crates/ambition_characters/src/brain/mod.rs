@@ -36,7 +36,6 @@ pub use action_set::{
     SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 pub use ambition_entity_catalog::{BrainProfileId, BrainProfileRef};
-pub use profile::AuthoredBrainOverride;
 #[allow(unused_imports)]
 pub use boss_pattern::{
     BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState, BossCapability,
@@ -46,6 +45,7 @@ pub use boss_pattern::{
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
+pub use profile::AuthoredBrainOverride;
 pub use profile::BrainProfile;
 #[allow(unused_imports)]
 // ⛔ THE DATA ONLY. `CrowdingSignal`, `ObservationFrame`, `SpecificAction` and

@@ -52,6 +52,25 @@ pub struct DropBombParams {
     pub offset: (f32, f32),
 }
 
+/// The held-item ids a `bomb` effect names.
+///
+/// ⛔ ITS OWN DOC ALREADY STATED THE STAKE: the id "must be a registered held
+/// item or nobody can pick [it] up — which is half the move". Nothing checked
+/// it. `bomb.rs` resolves it at FIRE TIME with `held_item_by_id` and logs on
+/// `None`, so an unregistered id produced an object nobody can take, mid-fight,
+/// with a log line as the only symptom.
+///
+/// ⚠ Malformed params name nothing here: whether they hydrate is
+/// `TechniqueParams::Checked`'s question, asked on the same effect by the same
+/// pass.
+pub fn bomb_held_item_refs(effect: &ambition_entity_catalog::EffectRef) -> Vec<String> {
+    effect
+        .params
+        .hydrate::<DropBombParams>()
+        .map(|params| vec![params.item_id])
+        .unwrap_or_default()
+}
+
 /// Author a bomb drop onto a move's timeline.
 ///
 /// # Panics

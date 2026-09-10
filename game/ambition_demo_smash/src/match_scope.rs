@@ -42,7 +42,9 @@ pub fn match_scoped_probe(scoped: &MatchScoped) -> u64 {
 /// case always has one.
 pub fn stamp(commands: &mut Commands, entity: Entity, active: Option<&ActiveMatch>) {
     if let Some(active) = active {
-        commands.entity(entity).insert(MatchScoped(active.instance()));
+        commands
+            .entity(entity)
+            .insert(MatchScoped(active.instance()));
     }
 }
 

@@ -16,7 +16,6 @@
 
 use ambition_entity_catalog::EffectRef;
 
-
 /// The `on_hit` effect key the engine pogo technique answers.
 pub const POGO_BOUNCE_KEY: &str = "pogo_bounce";
 

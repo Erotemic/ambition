@@ -150,16 +150,18 @@ pub fn carry_homing_dashes(
         Option<ambition_platformer2d::combat::targeting::MatchTeam>,
     )> = bodies
         .iter()
-        .map(|(entity, kin, _, sim_id, health, out_of_play, faction, team)| {
-            (
-                entity,
-                sim_id.cloned(),
-                kin.pos,
-                ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play),
-                faction.copied(),
-                team.cloned(),
-            )
-        })
+        .map(
+            |(entity, kin, _, sim_id, health, out_of_play, faction, team)| {
+                (
+                    entity,
+                    sim_id.cloned(),
+                    kin.pos,
+                    ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play),
+                    faction.copied(),
+                    team.cloned(),
+                )
+            },
+        )
         .collect();
     for (entity, mut kin, dash, _, _, _, self_faction, self_team) in &mut bodies {
         let Some(mut dash) = dash else {

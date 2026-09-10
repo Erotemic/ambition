@@ -15,13 +15,13 @@
 // keeps in step by hand. Before this, Smash's technique handlers were bare
 // `add_systems` calls declaring nothing — which is why a misspelled authored
 // key reached the runtime and surfaced as a `warn!` mid-fight.
+use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::combat::technique::{
     check_hydrates, NestedReferences, TechniqueDelivery, TechniqueOffer, TechniqueParams,
 };
-use ambition_platformer2d::runtime::{install_technique, install_techniques};
-use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::runtime::{install_technique, install_techniques};
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod bolt;
@@ -32,20 +32,20 @@ pub mod dilation;
 pub mod george_booul_moveset;
 pub mod homing;
 pub mod limit;
+pub mod mark;
 pub mod match_scope;
 pub mod mine;
-pub mod mark;
 pub mod motion;
 pub mod moveset;
 pub mod portal;
 pub mod riposte;
-pub mod sing;
-pub mod tether;
-pub mod spring;
 pub mod select;
 pub mod select_screen;
 pub mod shark_ride;
+pub mod sing;
 pub mod smash_pack;
+pub mod spring;
+pub mod tether;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
@@ -991,7 +991,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::portal",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_portal::PortalPairParams>,
+                    check_hydrates::<
+                        ambition_platformer2d::characters::smash_portal::PortalPairParams,
+                    >,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1014,12 +1016,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::bolt",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_bolt::SteeredBoltParams>,
+                    check_hydrates::<
+                        ambition_platformer2d::characters::smash_bolt::SteeredBoltParams,
+                    >,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (crate::bolt::fire_authored_bolts, crate::bolt::steer_and_fly_bolts)
+            (
+                crate::bolt::fire_authored_bolts,
+                crate::bolt::steer_and_fly_bolts,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -1032,12 +1039,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::homing",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_homing::HomingDashParams>,
+                    check_hydrates::<
+                        ambition_platformer2d::characters::smash_homing::HomingDashParams,
+                    >,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (crate::homing::begin_authored_homing_dashes, crate::homing::carry_homing_dashes)
+            (
+                crate::homing::begin_authored_homing_dashes,
+                crate::homing::carry_homing_dashes,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -1072,7 +1084,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::tether",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_tether::TetherPullParams>,
+                    check_hydrates::<
+                        ambition_platformer2d::characters::smash_tether::TetherPullParams,
+                    >,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1095,12 +1109,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::spring",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_spring::PlaceSpringParams>,
+                    check_hydrates::<
+                        ambition_platformer2d::characters::smash_spring::PlaceSpringParams,
+                    >,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            (crate::spring::drop_authored_springs, crate::spring::fire_and_expire_springs)
+            (
+                crate::spring::drop_authored_springs,
+                crate::spring::fire_and_expire_springs,
+            )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
@@ -1251,9 +1270,13 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mine",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_mine::PlaceMineParams>,
+                            check_hydrates::<
+                                ambition_platformer2d::characters::smash_mine::PlaceMineParams,
+                            >,
                         ),
-                        references: NestedReferences::None,
+                        references: NestedReferences::HeldItems(
+                            ambition_platformer2d::characters::smash_mine::mine_held_item_refs,
+                        ),
                         delivery: TechniqueDelivery::Action,
                     },
                 ),
@@ -1262,7 +1285,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mark",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_platformer2d::characters::smash_mark::MarkBodyParams>,
+                            check_hydrates::<
+                                ambition_platformer2d::characters::smash_mark::MarkBodyParams,
+                            >,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::OnHit,
@@ -1327,7 +1352,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::counter::answer_a_parry_with_the_authored_counter
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        
+
         // THE PIRATE'S SHARK. ⭐ `ContentSpecials`, which is the seam the runtime
         // already provides for exactly this: a CONTENT TECHNIQUE that must
         // produce its effects before the effect executors run
@@ -1363,21 +1388,20 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 delivery: TechniqueDelivery::Action,
             },
             crate::shark_ride::translate_shark_summons
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
-                // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
-                // THE SET IMPLIES IT NOW, AND THE FIX WAS IN THE ENGINE RATHER
-                // THAN HERE. `apply_summon_effects` was CHAINED after
-                // `apply_effects` without being IN `EffectExecutionSet`, so the
-                // summon executor inherited no order from the phase and this
-                // ruleset had to name an engine system by hand to get one. The
-                // runtime installs it into the set now, so
-                // `ContentSpecials.before(EffectExecutionSet)` covers it and the
-                // membership above is the whole ordering.
-                //
-                // ⚠ THE ORIGINAL MEASUREMENT STILL STANDS AND IS WHY THIS IS NOT
-                // A TIDY-UP: with the set alone the executor ran every tick and
-                // read zero requests, and the shark never appeared. What changed
-                // is that the phase now MEANS what that measurement assumed.
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials), // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
+                                                                                                  // THE SET IMPLIES IT NOW, AND THE FIX WAS IN THE ENGINE RATHER
+                                                                                                  // THAN HERE. `apply_summon_effects` was CHAINED after
+                                                                                                  // `apply_effects` without being IN `EffectExecutionSet`, so the
+                                                                                                  // summon executor inherited no order from the phase and this
+                                                                                                  // ruleset had to name an engine system by hand to get one. The
+                                                                                                  // runtime installs it into the set now, so
+                                                                                                  // `ContentSpecials.before(EffectExecutionSet)` covers it and the
+                                                                                                  // membership above is the whole ordering.
+                                                                                                  //
+                                                                                                  // ⚠ THE ORIGINAL MEASUREMENT STILL STANDS AND IS WHY THIS IS NOT
+                                                                                                  // A TIDY-UP: with the set alone the executor ran every tick and
+                                                                                                  // read zero requests, and the shark never appeared. What changed
+                                                                                                  // is that the phase now MEANS what that measurement assumed.
         );
         // THE BOMB. Recognised where the shark's summon is, for the same reason
         // — both are authored techniques dispatched as `ActorActionMessage` —
@@ -1391,7 +1415,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_platformer2d::characters::smash_bomb::DropBombParams>,
                 ),
-                references: NestedReferences::None,
+                references: NestedReferences::HeldItems(
+                    ambition_platformer2d::characters::smash_bomb::bomb_held_item_refs,
+                ),
                 delivery: TechniqueDelivery::Action,
             },
             crate::bomb::translate_bomb_drops
@@ -1990,16 +2016,10 @@ fn announce_the_opening_countdown(
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     prepared: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::PreparedMatch>>,
     tick: Option<bevy::prelude::Res<ambition_platformer2d::time::SimTick>>,
-    settled: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::versus_match::StocksMatchSettled,
-        >,
-    >,
+    settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     // The sudden-death latch: see the stand-down below.
     sudden_death: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::versus_match::SuddenDeathEntered,
-        >,
+        bevy::prelude::Res<ambition_platformer2d::versus_match::SuddenDeathEntered>,
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
@@ -2547,11 +2567,17 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     prior: Option<bevy::prelude::Res<SmashPresentationPrior>>,
-    mana: Option<bevy::prelude::Res<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>>,
-    transit: Option<
-        bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
+    mana: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>,
     >,
-    cone: Option<bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalViewConeConfig>>,
+    transit: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection,
+        >,
+    >,
+    cone: Option<
+        bevy::prelude::Res<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
+    >,
     limit: Option<bevy::prelude::Res<crate::limit::SmashLimitFill>>,
 ) {
     use ambition_platformer2d::portal_presentation as portal_view;
@@ -2572,9 +2598,8 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         commands.insert_resource(crate::limit::SmashLimitFill(
             ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE,
         ));
-        commands.insert_resource(
-            ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0),
-        );
+        commands
+            .insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0));
         // A viewer-dependent cone is undefined with no primary player, and a
         // seamless camera transit is a single-camera effect.
         commands.insert_resource(portal_view::PortalCameraContinuitySelection {
@@ -2588,9 +2613,9 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
         let prior = prior.expect("checked").clone();
         match prior.mana {
             Some(value) => commands.insert_resource(value),
-            None => commands.remove_resource::<
-                ambition_platformer2d::actors::avatar::systems::PlayerManaRegen,
-            >(),
+            None => commands
+                .remove_resource::<ambition_platformer2d::actors::avatar::systems::PlayerManaRegen>(
+                ),
         }
         match prior.transit {
             Some(value) => commands.insert_resource(value),
@@ -2689,11 +2714,7 @@ fn return_to_the_select_screen_when_the_match_ends(
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
     // WHETHER THIS MATCH IS OVER, from the authority that rewinds.
-    settled: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::versus_match::StocksMatchSettled,
-        >,
-    >,
+    settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     // ⛔ `Option`: absent means there is no rollback host, and the module's own
     // doc says that case confirms everything.
@@ -2806,11 +2827,7 @@ fn announce_the_winner(
     // keeps its cursor is still bounded by a two-frame channel, so a confirmation
     // arriving later loses the announcement rather than delaying it. State has no
     // cursor.
-    settled: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::versus_match::StocksMatchSettled,
-        >,
-    >,
+    settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     // ⛔ `Option`: absent means there is no rollback host, and that module's own
     // doc says the absent case confirms everything.
@@ -3271,11 +3288,7 @@ fn offer_to_exit_the_match(
     // The SETTLEMENT, and it is what the comment below is about. Optional
     // because a composition may reach this route before the stocks feature has
     // installed anything, and there the honest answer is "not settled".
-    settled: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d::versus_match::StocksMatchSettled,
-        >,
-    >,
+    settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     offered: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellAbandonOffer>>,
 ) {
     let on_stage = router
@@ -4468,7 +4481,6 @@ impl SmashStockChoice {
             .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
         Self::ALL[(here + 1) % Self::ALL.len()]
     }
-
 }
 
 impl SmashStageChoice {
@@ -4514,7 +4526,6 @@ impl SmashStageChoice {
             .expect("every variant is in ALL — asserted by `all_lists_every_variant`");
         Self::ALL[(here + 1) % Self::ALL.len()]
     }
-
 }
 
 /// The stage, as the shared preparation lifecycle wants it.

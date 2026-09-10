@@ -15,11 +15,9 @@ use ambition_combat::technique::{
     check_hydrates, InstalledTechniques, NestedReferences, TechniqueDelivery, TechniqueOffer,
     TechniqueParams,
 };
+use ambition_platformer2d_shared_tangle::schedule::CombatSet;
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet,
-};
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
 pub struct CombatSchedulePlugin;
@@ -89,7 +87,6 @@ pub fn install_techniques<M>(
         }
     }
 }
-
 
 /// Drive the character preparation barrier with THIS composition's support table.
 ///
@@ -503,7 +500,9 @@ impl Plugin for CombatSchedulePlugin {
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_characters::smash_capture::CaptureAttemptParams>,
+                            check_hydrates::<
+                                ambition_characters::smash_capture::CaptureAttemptParams,
+                            >,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,

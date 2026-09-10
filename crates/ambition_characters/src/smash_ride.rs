@@ -60,9 +60,7 @@ pub struct SummonRideParams {
 /// ⚠ MALFORMED PARAMS NAME NOTHING HERE, deliberately: whether they hydrate at
 /// all is [`TechniqueParams::Checked`]'s question, asked on the same effect by
 /// the same pass, and answering it twice would report one defect as two.
-pub fn summon_ride_character_refs(
-    effect: &ambition_entity_catalog::EffectRef,
-) -> Vec<String> {
+pub fn summon_ride_character_refs(effect: &ambition_entity_catalog::EffectRef) -> Vec<String> {
     effect
         .params
         .hydrate::<SummonRideParams>()

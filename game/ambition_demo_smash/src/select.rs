@@ -559,7 +559,14 @@ impl SmashSelect {
         // the stage unarmed. That is the honest answer for a caller that has not
         // said what its experience grants; production goes through
         // `roster_seeded` with [`crate::smash_seating_melee`].
-        self.roster_seeded(fighters, 0, policy, &Default::default(), None, crate::STARTING_STOCKS)
+        self.roster_seeded(
+            fighters,
+            0,
+            policy,
+            &Default::default(),
+            None,
+            crate::STARTING_STOCKS,
+        )
     }
 
     /// The match this screen decided, with the random squares resolved.

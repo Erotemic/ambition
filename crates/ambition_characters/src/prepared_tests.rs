@@ -855,8 +855,8 @@ fn mirror_symmetry_survives_preparation_and_reaches_the_body_blueprint() {
 /// a red test rather than a boot failure.
 #[test]
 fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
-    use ambition_entity_catalog::{FlowNode, TechniqueFlow};
     use crate::brain::ActionSet;
+    use ambition_entity_catalog::{FlowNode, TechniqueFlow};
 
     let broken = |flow: Option<TechniqueFlow>| {
         let mut spec = slash("special", "swing", "hit");
@@ -925,8 +925,8 @@ mod nested_references {
     use crate::prepared::unsupported_authored_effects;
     use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
-        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery,
-        TechniqueOffer, TechniqueParams, TechniqueSupport,
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueSupport,
     };
 
     /// A support table that installs the summon and declares its mount reference.
@@ -1043,15 +1043,17 @@ mod nested_references {
     }
 
     /// A rider whose move summons `mount`, plus `also` prepared beside it.
-    fn registry_with_summon(mount: &str, also: &[&str]) -> crate::prepared::PreparedCharacterRegistry {
+    fn registry_with_summon(
+        mount: &str,
+        also: &[&str],
+    ) -> crate::prepared::PreparedCharacterRegistry {
         use crate::prepared_fixtures::moveset_with;
         let mut registry = crate::prepared::PreparedCharacterRegistry::default();
-        let rider = CharacterDefinition::new("rider", "Rider", "test_demo").with_moveset(
-            moveset_with(
+        let rider =
+            CharacterDefinition::new("rider", "Rider", "test_demo").with_moveset(moveset_with(
                 &[("special", "call_the_shark")],
                 vec![move_emitting("call_the_shark", summoning(mount))],
-            ),
-        );
+            ));
         registry.insert(
             crate::prepared::prepare_and_finalize_for_test(rider, &CharacterBindings::default())
                 .prepared,
@@ -1093,8 +1095,8 @@ mod withholding {
     use crate::prepared::{admit_and_finalize_cast, CharacterCatalogGeneration};
     use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
-        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery,
-        TechniqueOffer, TechniqueParams, TechniqueSupport,
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueSupport,
     };
 
     fn supporting_summons() -> TechniqueSupport {
@@ -1218,7 +1220,11 @@ mod withholding {
     fn a_fully_supported_cast_publishes_every_definition() {
         let mut staged_cast = cast("rider", SUMMON_RIDE, "bystander");
         // The mount the rider names, so the nested reference resolves too.
-        staged_cast.push(staged(CharacterDefinition::new("nobody", "nobody", "test_demo")));
+        staged_cast.push(staged(CharacterDefinition::new(
+            "nobody",
+            "nobody",
+            "test_demo",
+        )));
         let admitted = admit_and_finalize_cast(
             staged_cast,
             None,
@@ -1497,6 +1503,133 @@ mod revision_activation {
             second,
             RevisionOutcome::NothingStaged,
             "a refused edit was still staged and would have been retried silently"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ A HELD-ITEM ID NOBODY REGISTERED, CHECKED AT FIRE TIME AND NOWHERE ELSE.
+//
+// `DropBombParams::item_id` and `PlaceMineParams::item_id` both carry the id the
+// dropped object becomes in somebody's hands, and both docs state the stake:
+// "It must be a registered held item or nobody can pick [it] up — which is half
+// the move." Nothing checked it. `bomb.rs` and `mine.rs` resolve it with
+// `held_item_by_id` when the move FIRES and log on `None`, so an unregistered id
+// produced an object nobody could take, mid-fight, with a log line as the only
+// symptom.
+//
+// ⚠ I RECORDED THIS AS UNCHECKABLE AND IT WAS NOT. The note said these two could
+// not be verified from `ambition_characters` because it cannot see the item
+// vocabulary — the same layering wall the support table had to cross. Wrong:
+// `held_item_by_id` is a static registry in `ambition_characters::brain::action_set`,
+// the SAME crate as the barrier. The wall was assumed from the shape of an
+// earlier problem rather than measured.
+// ---------------------------------------------------------------------------
+mod held_item_references {
+    use super::*;
+    use crate::brain::action_set::{held_item_by_id, held_item_ids};
+    use crate::prepared::unsupported_authored_effects;
+    use crate::smash_bomb::{bomb_held_item_refs, DropBombParams, DROP_BOMB};
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueSupport,
+    };
+
+    fn supporting_bombs() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                DROP_BOMB,
+                TechniqueOffer {
+                    owner: "test::bomb",
+                    params: TechniqueParams::Checked(check_hydrates::<DropBombParams>),
+                    references: NestedReferences::HeldItems(bomb_held_item_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            )
+            .expect("first claim");
+        support
+    }
+
+    fn dropping(item: &str) -> EffectRef {
+        EffectRef {
+            key: DROP_BOMB.to_string(),
+            // ⚠ The real field list, from `DropBombParams`. My first version
+            // carried a `knockback` this technique does not take — and the
+            // params check caught it, reporting ONLY the hydration failure and
+            // not a spurious item complaint, which is the "one defect, one
+            // sentence" rule doing its job on my own fixture.
+            params: ParamValue::parse(&format!(
+                "(item_id: \"{item}\", fuse_s: 2.0, damage: 4, blast_radius: 24.0, \
+                 impact_speed: 120.0, half_extents: (8.0, 8.0), offset: (0.0, 0.0))"
+            ))
+            .expect("the fixture's params parse"),
+        }
+    }
+
+    fn cast_dropping(item: &str) -> crate::prepared::PreparedCharacterRegistry {
+        use crate::prepared_fixtures::moveset_with;
+        let mut spec = crate::prepared_fixtures::slash("the_move", "cue", "strike");
+        spec.windows[0].sustain_effect = Some(dropping(item));
+        let definition = CharacterDefinition::new("bomber", "Bomber", "test_demo")
+            .with_moveset(moveset_with(&[("special", "the_move")], vec![spec]));
+        let mut registry = crate::prepared::PreparedCharacterRegistry::default();
+        registry.insert(
+            crate::prepared::prepare_and_finalize_for_test(
+                definition,
+                &CharacterBindings::default(),
+            )
+            .prepared,
+        );
+        registry
+    }
+
+    /// ⭐ THE PREMISE. If the fixture's params stopped hydrating, the extractor
+    /// would name nothing and every assertion below would pass vacuously.
+    #[test]
+    fn the_extractor_reports_the_item_a_bomb_names() {
+        assert_eq!(
+            bomb_held_item_refs(&dropping("gun_sword")),
+            vec!["gun_sword".to_string()]
+        );
+    }
+
+    /// ⛔ THE CASE THAT REACHED THE PLAYER.
+    #[test]
+    fn a_bomb_naming_an_unregistered_held_item_is_refused_at_preparation() {
+        let item = "no_such_held_item";
+        assert!(
+            held_item_by_id(item).is_none(),
+            "the fixture's premise is gone: '{item}' is registered, so the \
+             refusal below would say nothing"
+        );
+
+        let refusals = unsupported_authored_effects(&supporting_bombs(), &cast_dropping(item));
+
+        assert_eq!(refusals.len(), 1, "expected one refusal; got {refusals:?}");
+        assert!(
+            refusals[0].detail.contains(item),
+            "the refusal must NAME the item an author has to fix: {:?}",
+            refusals[0]
+        );
+    }
+
+    /// ⭐ THE ANTI-VACUITY FLOOR. A REGISTERED item must still be admitted —
+    /// a check that refused every item would satisfy the test above and break
+    /// every bomb and mine in the game.
+    #[test]
+    fn a_bomb_naming_a_registered_held_item_is_admitted() {
+        let registered = held_item_ids();
+        let item = registered
+            .first()
+            .expect("the held-item registry is empty, so this arm proves nothing");
+        assert!(held_item_by_id(item).is_some());
+
+        let refusals = unsupported_authored_effects(&supporting_bombs(), &cast_dropping(item));
+
+        assert!(
+            refusals.is_empty(),
+            "a bomb naming the registered item '{item}' was refused: {refusals:?}"
         );
     }
 }

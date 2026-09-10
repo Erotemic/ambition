@@ -14,9 +14,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_limit::{
-    FillMeterParams, LimitMeterFill, FILL_METER,
-};
+use ambition_platformer2d::characters::smash_limit::{FillMeterParams, LimitMeterFill, FILL_METER};
 use ambition_platformer2d::engine_core as ae;
 
 /// The match's Limit rule. A game that never inserts one fills nothing.

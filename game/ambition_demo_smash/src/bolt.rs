@@ -87,7 +87,10 @@ pub fn steered_bolt_probe(bolt: &SteeredBolt) -> u64 {
 pub fn fire_authored_bolts(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
-    casters: Query<(&ae::BodyKinematics, &ambition_platformer2d::actor::MatchSeat)>,
+    casters: Query<(
+        &ae::BodyKinematics,
+        &ambition_platformer2d::actor::MatchSeat,
+    )>,
     // ⛔ WHICH MATCH IS RUNNING, so what this spawns dies with it. See
     // `crate::match_scope`: the lifetime belongs to the match, not to the move.
     active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
@@ -129,29 +132,31 @@ pub fn fire_authored_bolts(
             "bolt fired: seat={} at {at:?} speed={} turn={}deg/s",
             seat.0, params.speed, params.turn_rate_deg,
         );
-        let spawned = commands.spawn((
-            Name::new("Steered bolt"),
-            SteeredBolt {
-                trail_vfx: params.trail_vfx.clone(),
-                trail_every_s: params.trail_every_s,
-                // ⛔ ZERO SO THE FIRST MARK LANDS ON THE SPAWN TICK. A trail that
-                // waited a full interval would leave the bolt invisible for its
-                // first frames, which is exactly when the caster is looking for
-                // it.
-                trail_in_s: 0.0,
-                owner_seat: seat.0,
-                pos: at,
-                vel,
-                remaining_s: params.lifetime_s,
-                turn_rate: params.turn_rate_deg.to_radians(),
-                radius: params.radius,
-                damage: params.damage,
-                knockback: params.knockback,
-                self_launch: params.self_launch,
-                // It starts inside him, by construction.
-                clear_of_caster: false,
-            },
-        )).id();
+        let spawned = commands
+            .spawn((
+                Name::new("Steered bolt"),
+                SteeredBolt {
+                    trail_vfx: params.trail_vfx.clone(),
+                    trail_every_s: params.trail_every_s,
+                    // ⛔ ZERO SO THE FIRST MARK LANDS ON THE SPAWN TICK. A trail that
+                    // waited a full interval would leave the bolt invisible for its
+                    // first frames, which is exactly when the caster is looking for
+                    // it.
+                    trail_in_s: 0.0,
+                    owner_seat: seat.0,
+                    pos: at,
+                    vel,
+                    remaining_s: params.lifetime_s,
+                    turn_rate: params.turn_rate_deg.to_radians(),
+                    radius: params.radius,
+                    damage: params.damage,
+                    knockback: params.knockback,
+                    self_launch: params.self_launch,
+                    // It starts inside him, by construction.
+                    clear_of_caster: false,
+                },
+            ))
+            .id();
         // The match owns this object's end. See `crate::match_scope`.
         crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
     }
@@ -223,10 +228,8 @@ pub fn steer_and_fly_bolts(
                 let step = (bolt.turn_rate * dt).min(dot.acos());
                 let (sin, cos) = (step * cross.signum()).sin_cos();
                 let speed = bolt.vel.length();
-                bolt.vel = ae::Vec2::new(
-                    have.x * cos - have.y * sin,
-                    have.x * sin + have.y * cos,
-                ) * speed;
+                bolt.vel =
+                    ae::Vec2::new(have.x * cos - have.y * sin, have.x * sin + have.y * cos) * speed;
             }
         }
         let step = bolt.vel * dt;

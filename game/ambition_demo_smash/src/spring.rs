@@ -66,8 +66,7 @@ pub struct PlacedSpring {
 /// can disagree about. ⛔ Not the position or the launch — those are constants
 /// copied off the move and cannot diverge.
 pub fn placed_spring_probe(spring: &PlacedSpring) -> u64 {
-    (spring.remaining_s.to_bits() as u64)
-        .rotate_left(17)
+    (spring.remaining_s.to_bits() as u64).rotate_left(17)
         ^ (spring.rearm_s.to_bits() as u64)
         ^ (spring.arm_s.to_bits() as u64).rotate_left(31)
         ^ u64::from(spring.uses_left)
@@ -120,20 +119,22 @@ pub fn drop_authored_springs(
                 pose: ambition_platformer2d::vfx::FxPose::UPRIGHT,
             });
         }
-        let spawned = commands.spawn((
-            Name::new("Placed spring"),
-            PlacedSpring {
-                vfx: params.vfx.clone(),
-                pos: at,
-                half_extents: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
-                launch: ae::Vec2::new(params.launch.0, params.launch.1),
-                remaining_s: params.lifetime_s,
-                uses_left: params.uses,
-                rearm_s: 0.0,
-                // Long enough for the engineer to step off his own plate.
-                arm_s: 0.30,
-            },
-        )).id();
+        let spawned = commands
+            .spawn((
+                Name::new("Placed spring"),
+                PlacedSpring {
+                    vfx: params.vfx.clone(),
+                    pos: at,
+                    half_extents: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
+                    launch: ae::Vec2::new(params.launch.0, params.launch.1),
+                    remaining_s: params.lifetime_s,
+                    uses_left: params.uses,
+                    rearm_s: 0.0,
+                    // Long enough for the engineer to step off his own plate.
+                    arm_s: 0.30,
+                },
+            ))
+            .id();
         // The match owns this object's end. See `crate::match_scope`.
         crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
     }

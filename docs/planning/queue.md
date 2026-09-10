@@ -341,9 +341,31 @@ holding.
 2026-09-05 — a production message pointing a developer at nothing, read at the
 exact moment they hit it. It now names the mechanism instead.
 
-⚠ STILL OPEN in this lane: the two `item_id` nested references, which cannot be
-checked from `ambition_characters` (it cannot see the item vocabulary — the same
-layering wall the support table had to cross).
+**NESTED REFERENCES LANDED 2026-09-10, closing A11.** Three technique params
+name another authored definition and preparation resolved none of them:
+`SummonRideParams::character_id` and the two `item_id`s. Each one was a move that
+hydrates, declares its key, passes every guard in the tree, plays its animation,
+and summons a character or drops an item that does not exist. `NestedReferences`
+is declared BESIDE the handler like the key and the params already are —
+`Characters(fn)` / `HeldItems(fn)` / `None` — so the barrier resolves what a
+technique names without knowing what any technique is.
+
+⛔ **I RECORDED THE TWO `item_id`s AS UNCHECKABLE AND THAT WAS WRONG.** The note
+that stood here said `ambition_characters` "cannot see the item vocabulary — the
+same layering wall the support table had to cross." There is no wall:
+`held_item_by_id` is a static registry in `ambition_characters::brain::action_set`,
+the SAME CRATE as the barrier. I inferred the obstacle from the shape of an
+earlier problem instead of measuring it, and a deferral written that way expires
+the moment someone believes it — this one would have parked a real gap behind a
+reason that was never true. ⭐ A deferral's REASONS expire like a measurement
+does: re-derive them, don't re-read them.
+
+Guards: three unit tests in `prepared_tests::held_item_references` (extractor,
+admitted, refused-at-preparation) — poisoned by making `held_items()` return
+empty, which kills the refusal test alone while both controls hold. Plus
+`installed_techniques_are_declared::the_techniques_that_name_other_definitions_declare_that_they_do`,
+asked of the BUILT APP, because a key can be declared while the thing it names
+goes unchecked and no other guard in the tree can see the difference.
 
 ⛔ SUPERSEDED — what review #9 named, kept for the shape of the errors:
 

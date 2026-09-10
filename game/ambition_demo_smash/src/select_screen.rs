@@ -1870,7 +1870,7 @@ mod touch_tests {
         // touch test in this module went red at once when it was missing, which
         // is the right failure and a loud one.
         app.init_resource::<crate::SmashStageChoice>();
-    app.init_resource::<crate::SmashStockChoice>();
+        app.init_resource::<crate::SmashStockChoice>();
         // See the note in `lib.rs`'s fixture: the cursor integrates a clock.
         app.init_resource::<Time>();
         app.init_resource::<Touches>();

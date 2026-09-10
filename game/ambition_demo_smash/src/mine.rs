@@ -100,7 +100,10 @@ pub fn place_or_detonate_authored_mines(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_platformer2d::vfx::EffectRequest>,
-    placers: Query<(&ae::BodyKinematics, &ambition_platformer2d::actor::MatchSeat)>,
+    placers: Query<(
+        &ae::BodyKinematics,
+        &ambition_platformer2d::actor::MatchSeat,
+    )>,
     mines: Query<(
         Entity,
         &PlacedMine,
@@ -142,8 +145,9 @@ pub fn place_or_detonate_authored_mines(
         let owner_seat = seat.0;
 
         // Do I already have one out?
-        if let Some((entity, mine, item, custody)) =
-            mines.iter().find(|(_, mine, _, _)| mine.owner_seat == owner_seat)
+        if let Some((entity, mine, item, custody)) = mines
+            .iter()
+            .find(|(_, mine, _, _)| mine.owner_seat == owner_seat)
         {
             if !mine.armed() {
                 info!(
@@ -174,12 +178,12 @@ pub fn place_or_detonate_authored_mines(
                         // entire move. A neutral blast is what makes the timing
                         // a decision instead of a formality.
                         // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
-                            // saying Neutral hurts everybody; the resolver says the exact opposite
-                            // — `melee_source` excludes it from the body path and its terminal arm
-                            // is empty, with the contract that Neutral never spawns a damaging
-                            // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
-                            // the effect request existed.
-                            faction: ambition_platformer2d::vfx::HitSide::Environment,
+                        // saying Neutral hurts everybody; the resolver says the exact opposite
+                        // — `melee_source` excludes it from the body path and its terminal arm
+                        // is empty, with the contract that Neutral never spawns a damaging
+                        // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
+                        // the effect request existed.
+                        faction: ambition_platformer2d::vfx::HitSide::Environment,
                         half_extent: ae::Vec2::splat(mine.blast_radius),
                         damage: mine.damage,
                         // ⛔⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED. This read
@@ -212,21 +216,23 @@ pub fn place_or_detonate_authored_mines(
             "mine placed: seat={owner_seat} item=`{}` at {at:?} arm={}s",
             params.item_id, params.arm_s,
         );
-        let spawned = commands.spawn((
-            Name::new(format!("Placed mine: {}", params.item_id)),
-            ambition_platformer2d::item::GroundItem {
-                spec: held,
-                pos: at,
-                vel: ae::Vec2::ZERO,
-                half_extent: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
-            },
-            PlacedMine {
-                owner_seat,
-                arm_s: params.arm_s,
-                damage: params.damage,
-                blast_radius: params.blast_radius,
-            },
-        )).id();
+        let spawned = commands
+            .spawn((
+                Name::new(format!("Placed mine: {}", params.item_id)),
+                ambition_platformer2d::item::GroundItem {
+                    spec: held,
+                    pos: at,
+                    vel: ae::Vec2::ZERO,
+                    half_extent: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
+                },
+                PlacedMine {
+                    owner_seat,
+                    arm_s: params.arm_s,
+                    damage: params.damage,
+                    blast_radius: params.blast_radius,
+                },
+            ))
+            .id();
         // The match owns this object's end. See `crate::match_scope`.
         crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
     }

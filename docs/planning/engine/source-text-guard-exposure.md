@@ -66,9 +66,21 @@ also carries a floor (5 measured, floor 3) and a regression arm asserting the
 tuple-struct spelling is seen and that `TextFont(`, `TextColor(` and
 `TextLayout::new_with_justify(` are not.
 
-## The remedy that beats a cleverer regex
+## The remedies, strongest first
 
-⭐ Where a guard can be repointed at a spelling **the language makes canonical**,
+⭐⭐ **A SECOND INPUT OF A DIFFERENT KIND beats everything below it**, and the
+sweep found the example rather than being scoped to look for it: the `*_it_sync`
+guards derive one set from SOURCE TEXT (`mod <name>;`) and one from a DIRECTORY
+LISTING, then assert each difference is empty. Blind either side and the other is
+still full, so it reddens. **A floor says "I saw N things"; cross-evidence says
+"two independent worlds agree"** — and only the second survives the instrument
+going blind, because the two inputs are not made of the same stuff. Worked twice
+more since: the planning-citation guard that read a rollback schema row as a
+misspelled condition id was narrowed by consulting
+`RollbackRegistry::schema_dump()` alongside the condition catalog, both published
+by the composed app, so neither can drift into a hand-kept list.
+
+⭐ Failing that, where a guard can be repointed at a spelling **the language makes canonical**,
 that is worth more than widening its pattern. `the_death_drop_table_is_complete`
 now watches `GroundItem::` rather than `GroundItem {`: because `GroundItem` is
 `#[non_exhaustive]`, no crate outside `ambition_held_items` can spell a
@@ -76,10 +88,14 @@ construction any other way, so the anchor is closed rather than open. The same
 move is available wherever a sealed type, a single public constructor, or an
 enum's exhaustive match makes one spelling the only legal one.
 
-Where it is not available, the rule is Rust's own shape rather than a list of
+Failing THAT, the rule is Rust's own shape rather than a list of
 names: **an associated function is `Type::snake_case(`, a method is
 `value.snake_case(`.** That is what replaced the blessed-name lists in both
 `measure_state_writers.py` and the text-font guard.
+
+⚠ And only when none of the three is available does an **anti-vacuity floor**
+come next — it does not stop the guard going blind, it makes the blindness
+loud.
 
 ## Anti-vacuity, stated plainly
 

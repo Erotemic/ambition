@@ -889,8 +889,60 @@ pub fn step_projectiles(
                 at.total_cmp(bt)
                     .then(ax.total_cmp(&bx))
                     .then(ay.total_cmp(&by))
-                    .then_with(|| a.sim_id.cmp(&b.sim_id))
+                    // ⚠ THE KEY, NOT THE `Option`. `a.sim_id.cmp(&b.sim_id)`
+                    // put an UNIDENTIFIED body first, which is the reverse of
+                    // the rule the field documents.
+                    .then_with(|| {
+                        ambition_combat::hitbox::victim_identity_key(
+                            a.sim_id.map(|id| id.as_str()),
+                        )
+                        .cmp(&ambition_combat::hitbox::victim_identity_key(
+                            b.sim_id.map(|id| id.as_str()),
+                        ))
+                    })
             });
+
+            // ⛔⛔ **TWO COINCIDENT VICTIMS THAT ARE BOTH UNIDENTIFIED ARE
+            // UNDECIDABLE HERE, AND THE SORT ABOVE WOULD HIDE IT.** Ordering
+            // absent identity LAST fixes the case where one body has a `SimId`
+            // and the other does not; it cannot fix the case where NEITHER
+            // does. Those two compare equal on every key, `sort_by` is stable,
+            // and stability over an equal key is Bevy query order — which a
+            // rollback resimulation does not promise to reproduce. The protocol
+            // calls missing required target identity a CONSTRUCTION failure, not
+            // a sort fallback, so there is nothing for this seam to invent.
+            //
+            // ⭐ AND THE ASSERT IS ALSO THE CENSUS. A static scan cannot see this
+            // population — bodies receive `CenteredAabb` and `ActorFaction` from
+            // separate inserts, so a bundle-shaped scanner reports 2 of 2 and is
+            // describing itself. An assertion that never fires across the whole
+            // suite answers the question that matters — *does this happen on any
+            // road we exercise?* — and if it fires it hands over the exact
+            // fixture, which is worth more than a count.
+            //
+            // ⚠ DEBUG ONLY, DELIBERATELY. This is a per-shot hot loop and a case
+            // that should never happen does not earn a per-frame log.
+            #[cfg(debug_assertions)]
+            {
+                let ambiguous = ordered
+                    .windows(2)
+                    .find(|pair| {
+                        let ((at, a), (bt, b)) = (&pair[0], &pair[1]);
+                        a.sim_id.is_none()
+                            && b.sim_id.is_none()
+                            && at == bt
+                            && a.aabb.aabb().center() == b.aabb.aabb().center()
+                    })
+                    .map(|pair| (pair[0].1.entity, pair[1].1.entity));
+                debug_assert!(
+                    ambiguous.is_none(),
+                    "two victims coincide in time AND position and NEITHER carries \
+                     a `SimId`, so which one this shot strikes is Bevy query order: \
+                     {ambiguous:?}. Nothing on `StrikeVictim` can separate them — \
+                     `Entity` does not survive a rewind and every geometric key is \
+                     already spent. Give the bodies identity where they are BUILT",
+                );
+            }
 
             for (contact_time, victim) in &ordered {
                 // ⛔ THE EARLIEST CONTACT WINS, WHATEVER FAMILY IT IS IN.
@@ -926,8 +978,14 @@ pub fn step_projectiles(
                         .then(feature.target_center.x.total_cmp(&victim_center.x))
                         .then(feature.target_center.y.total_cmp(&victim_center.y))
                         .then_with(|| {
-                            Some(feature.target_id.as_str())
-                                .cmp(&victim.sim_id.map(|id| id.as_str()))
+                            // The feature is always identified; the body may not
+                            // be, and an unidentified body does not win the tie.
+                            ambition_combat::hitbox::victim_identity_key(Some(
+                                feature.target_id.as_str(),
+                            ))
+                            .cmp(&ambition_combat::hitbox::victim_identity_key(
+                                victim.sim_id.map(|id| id.as_str()),
+                            ))
                         })
                         .is_lt()
                 }) {

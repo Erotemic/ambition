@@ -1546,7 +1546,14 @@ fn a_bouncing_shot_still_crosses_a_one_way_platform_sideways() {
 ///
 /// Spawn order IS archetype order for two identical mobs, so running the same
 /// shot against `[a, b]` and `[b, a]` asks the question directly.
-fn the_body_a_stacked_shot_strikes(spawn_order: [&'static str; 2]) -> String {
+fn the_body_a_stacked_shot_strikes(
+    spawn_order: [&'static str; 2],
+    // ⭐ WHICH MOB IS LEFT WITHOUT AN IDENTITY, and `None` for the original
+    // arm where both carry one. The unidentified case cannot be expressed by
+    // hand-installing `SimId` on both bodies, which is what this fixture used
+    // to do unconditionally — so the arm that matters most had no way to exist.
+    unidentified: Option<&'static str>,
+) -> String {
     let world = ae::World::new(
         "stacked",
         ae::Vec2::new(2000.0, 2000.0),
@@ -1595,6 +1602,9 @@ fn the_body_a_stacked_shot_strikes(spawn_order: [&'static str; 2]) -> String {
                 .collect()
         };
         for (entity, id) in mobs {
+            if unidentified == Some(id.as_str()) {
+                continue;
+            }
             world
                 .entity_mut(entity)
                 .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&id));
@@ -1631,8 +1641,8 @@ fn the_body_a_stacked_shot_strikes(spawn_order: [&'static str; 2]) -> String {
 
 #[test]
 fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order() {
-    let forward = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"]);
-    let reversed = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"]);
+    let forward = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"], None);
+    let reversed = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"], None);
     assert_eq!(
         forward, reversed,
         "the struck body followed spawn order: {forward} when a was spawned first, \
@@ -1641,6 +1651,43 @@ fn two_stacked_victims_are_struck_in_identity_order_whatever_the_archetype_order
     assert_eq!(
         forward, "stack_a",
         "the tie-break is the victim's SimId, so the lower placement id is struck"
+    );
+}
+
+/// ⛔⛔ **AN UNIDENTIFIED VICTIM WINS THE TIE, AND THE FIELD'S OWN DOC SAYS IT
+/// CANNOT.**
+///
+/// `StrikeVictim.sim_id` is `Option<&SimId>` and documents the rule exactly: *"a
+/// body without one still gets hit, it just cannot win the tie."* The resolver
+/// implements that as `a.sim_id.cmp(&b.sim_id)` — and `Option`'s derived
+/// ordering puts `None` FIRST, so an unidentified body beats every identified
+/// one at a full geometric tie. The comparison says the opposite of the sentence
+/// above it.
+///
+/// ⭐ AND THE EXISTING STACKED FIXTURE CANNOT SEE IT, BY CONSTRUCTION. It
+/// hand-installs `SimId` on BOTH bodies, so every victim it produces is
+/// identified and the `None` arm of the comparison is never evaluated. The
+/// half of a rule that never runs is the half with no test.
+///
+/// ⚠ BOTH SPAWN ORDERS, because one order alone cannot tell "the rule picked
+/// the identified body" from "the query happened to yield it first" — which is
+/// the same reason the sibling test runs both.
+#[test]
+fn an_unidentified_victim_does_not_beat_an_identified_one() {
+    let a_first = the_body_a_stacked_shot_strikes(["stack_a", "stack_b"], Some("stack_b"));
+    let b_first = the_body_a_stacked_shot_strikes(["stack_b", "stack_a"], Some("stack_b"));
+    assert_eq!(
+        a_first, b_first,
+        "the struck body followed spawn order: {a_first} when a was spawned \
+         first, {b_first} when b was. A resimulation does not promise either"
+    );
+    assert_eq!(
+        a_first, "stack_a",
+        "`stack_b` carries no `SimId` and was struck anyway, so an unidentified \
+         body WON the tie against an identified one. `Option` orders `None` \
+         first, which is the reverse of the rule `StrikeVictim.sim_id` \
+         documents: a body without an identity still gets hit, it just cannot \
+         win the tie"
     );
 }
 

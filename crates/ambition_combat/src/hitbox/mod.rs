@@ -359,7 +359,40 @@ pub struct StrikeVictim {
     /// tie-break. Two bodies at one position (a spawn point, a stack) tie on
     /// every geometric key, and `Entity` is not stable across a rewind; a body
     /// without one still gets hit, it just cannot win the tie.
+    ///
+    /// ⚠ ORDER IT THROUGH [`victim_identity_key`], never by comparing the
+    /// `Option`s: the derived ordering puts `None` FIRST and so says the
+    /// opposite of the sentence above.
     pub sim_id: Option<&'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
+/// THE ordering key for a victim's stable identity, read by every resolver that
+/// breaks a geometric tie.
+///
+/// ⛔⛔ **`Option`'s DERIVED ORDERING SAYS THE OPPOSITE OF THE RULE.**
+/// [`StrikeVictim::sim_id`] documents it exactly — *"a body without one still
+/// gets hit, it just cannot win the tie"* — and the resolvers implemented that
+/// as a bare `a.sim_id.cmp(&b.sim_id)`. `None` sorts FIRST, so an unidentified
+/// body BEAT every identified one at a full tie, which is the rule inverted.
+/// `an_unidentified_victim_does_not_beat_an_identified_one` is that case.
+///
+/// ⇒ Absent identity sorts LAST, and the rank is a separate leading field rather
+/// than a sentinel string: an authored id could otherwise collide with whatever
+/// stand-in was chosen.
+///
+/// ⚠ **TWO ABSENT IDENTITIES STILL COMPARE EQUAL, AND THAT IS NOT A TIE-BREAK
+/// THIS FUNCTION CAN INVENT.** Two coincident bodies that both lack a `SimId`
+/// have no stable discriminator on `StrikeVictim` at all — `Entity` does not
+/// survive a rewind, and every geometric key is already spent by the time this
+/// is reached. The protocol calls missing required target identity a
+/// construction failure rather than a sort fallback, so the answer lives where
+/// bodies are BUILT, not here. Callers that must not be ambiguous say so at
+/// their own seam.
+pub fn victim_identity_key(sim_id: Option<&str>) -> (u8, &str) {
+    match sim_id {
+        Some(id) => (0, id),
+        None => (1, ""),
+    }
 }
 
 impl StrikeVictimItem<'_, '_> {

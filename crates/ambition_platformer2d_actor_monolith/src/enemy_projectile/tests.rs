@@ -374,6 +374,14 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 2"),
+            // ⚠ IDENTIFIED, BECAUSE THE TWO BODIES BELOW SIT ON ONE POINT. The
+            // resolver's `debug_assert` caught this fixture: two coincident
+            // victims with no `SimId` between them are ordered by Bevy query
+            // order, and a rollback resimulation does not reproduce it. The
+            // outcome here happens not to depend on the order — the teammate is
+            // filtered by the team rule — but a fixture that leaves the resolver
+            // undecided is one edit away from asserting on query order.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("seat_two_fighter"),
         ))
         .id();
     //  THE POISON, in the fixture: a body on the FIRER'S OWN team, overlapping
@@ -387,6 +395,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("same_team_fighter"),
         ))
         .id();
 

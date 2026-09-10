@@ -217,15 +217,45 @@ SCC layer, needs `uv run --script` — it fails under the tool venv with
 number: `61f297edf` — *"the latch drain installs itself; the other reducible block
 is declined, with the reason"*.
 
-⛔ **THE ORDERING ROW IS A UNIT TRAP AND THE NUMBERS ARE NOT COMPARABLE.** This
-page said *"0 capability private orderings, 73 composition private orderings"*.
-`scripts/measure_foreign_system_ordering.py` at `09467966b` reports **77 ordering
-edges — capability 10, composition 67 — across 93 written occurrences**, and
-separately **213** installations against this page's 174. ⇒ **"0 → 10" may be a
-real change or two definitions of the same word**; the instrument's own vocabulary
-is *"ORDERING a foreign system"*, not *"private ordering"*. **A number that cannot
-say which it is cannot be quoted**, and nobody should read 0 → 10 as a regression
-until the definitions are reconciled.
+⭐⭐ **THE ORDERING ROW IS RECONCILED, AND IT IS NOT A REGRESSION — IT IS MOSTLY
+THE INSTRUMENT.** Resolved 2026-09-10 by running the BASELINE instrument (from
+`300004d6`) against today's tree, which separates a change in the code from a
+change in the measure:
+
+| bucket | page @`300004d6` | baseline instr @today | current instr @today | tree effect | instrument effect |
+|---|---|---|---|---|---|
+| capability | 0 | 2 | **10** | +2 | **+8** |
+| composition | 73 | 58 | **67** | **−15** | +9 |
+| installing | 174 | 168 | **213** | −6 | **+45** |
+
+⇒ **THE TREE IMPROVED WHERE THE PAGE APPEARS TO SHOW IT WORSENING.** Composition
+orderings fell **73 → 58** on the same instrument. The published number moves only
+73 → 67 because the instrument simultaneously got stricter and added nine back.
+**A reader comparing the two published numbers sees −6 and would never learn that
+the code closed fifteen.**
+
+⛔ **AND `0 → 10` IS FOUR-FIFTHS INSTRUMENT.** Two of the ten are real
+capability-written edges that did not exist at the baseline; eight are edges the
+baseline instrument could not see. **It is not a regression and must not be
+quoted as one.**
+
+⚠ **WHY THE INSTRUMENT MOVED, from its own history:** `5f3f75508` keyed the
+classifier on the SITE and made the ceilings count EDGES; `6db1dd495` found *"the
+census counted an import style, not an architecture"*; and the current version
+counts every foreign system named anywhere inside `add_systems(...)`, including
+CHAINED TUPLES that a `.before(` regex misses entirely. The baseline classifier
+has no `is_binary_root` at all, and reports raw occurrences where the current one
+reports unique edges (77 edges across 93 occurrences).
+
+⛔ **THE WORD *"private"* IS NOT THE INSTRUMENT'S.** It appears once, in the
+script's docstring prose, and never in its output — the labels are *"written by a
+capability / ruleset"* and *"written by a composition layer"*. This page inherited
+a vocabulary the tool does not use.
+
+⚠ **THE DECOMPOSITION IS APPROXIMATE AND THE MIDDLE COLUMN NEVER EXISTED.** The
+baseline instrument against today's tree is a hypothetical run: no one ever took
+that measurement at the time. It separates the two effects well enough to retire
+"regression", not well enough to attribute single edges.
 
 ⇒ Reproduce, and name the unit every time:
 

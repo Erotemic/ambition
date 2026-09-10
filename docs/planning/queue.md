@@ -384,10 +384,25 @@ keys legitimately read at both moments, while `kit`, `movement_tuning` and
 `autonomous_profile` is read by four crates at three moments; its siblings
 `provoked_profile` and `provoked_profile_id` are runtime-only.
 
-⇒ **THE QUESTION TO ASK BEFORE ANY BOUNDARY IS PROPOSED, and it is cheaper than
-a split: is `autonomous_profile` one field doing two jobs?** A field whose
-siblings live in one place while it lives in three is not a straddle — it is a
-name carrying both a policy ID and a live policy. Four call sites answer it.
+⛔ **THAT QUESTION WAS ASKED AND THE ANSWER IS NO — do not re-open it.** I
+proposed that `autonomous_profile` might be one name carrying both a policy ID
+and a live policy, which would have explained its three-moment spread without a
+boundary change. MEASURED at the four call sites: **the split already exists.**
+`PreparedCharacterDefinition` carries BOTH `autonomous_profile` (the value,
+"Carried") and `autonomous_profile_ref`, whose own doc says it is *"RESOLVED at
+preparation, so nothing downstream ever sees the name"*.
+
+⚠ The one reader that appears to resolve a profile BY NAME at spawn —
+`npc_policy.rs:94`, `catalog.autonomous_profile(name)` — is the
+`AMBITION_ACTOR_BRAIN_PROFILE` dev-tools override, documented in place as *"a
+measurement knob, unset in every ordinary run"*. It is a different road, not a
+leak of the authored one, so the contract holds.
+
+⇒ So the three-moment spread is not a name doing two jobs; it is one value read
+wherever autonomy is decided — folded at preparation, seeded at construction,
+ticked at runtime. **The uneven-straddle observation stands and the cheap
+explanation for it is dead**, which means any A6 boundary proposal has to account
+for a field that is genuinely wanted in three places.
 Same shape, smaller: `display_name` sits inside `ambition_combat`'s otherwise
 clean execution slice {`authored_moveset`, `kit`, `ranged_execution`}, and one
 presentation field in an execution slice is usually a read that belongs

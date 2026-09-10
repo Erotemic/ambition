@@ -698,6 +698,58 @@ diverge (one takes a hit, one is launched further, one is nearer a ledge)"*.
 SELECTED on a statistic correlated with the one then measured.** This is strong
 evidence for the mechanism and not yet a statement about the other fifteen.
 
+**Half three, and it is the arm that makes the conjunction testable: WAKING THE
+JITTER BREAKS LOCKSTEP.** Fifteen duels across every published rung, `035c56307`,
+**every row carrying two distinct `seed=` values read at BIRTH** so the
+shared-stream confound is excluded by reading rather than by inference:
+
+| fighter | rung 1 | 3 | 5 | 6 | 9 |
+|---|---|---|---|---|---|
+| `medic` | SEP | SEP | SEP | SEP | **LOCKSTEP** |
+| `special_patent_clerk` | SEP | SEP | SEP | SEP | **LOCKSTEP** |
+| `npc_carl_stargan` (control) | SEP | SEP | **LOCKSTEP** | SEP | **LOCKSTEP** |
+
+⇒ **Both load-bearing fighters separate at every rung where the jitter is alive
+and lock at the one where it is dead** — and the jitter's reachable ceiling goes
+2.25 → 1.81 → 1.38 → 1.16 → **0** across exactly those rungs. **The outcome
+tracks the mechanism's own parameter monotonically and breaks where the
+arithmetic says the term dies**, which a single separation could never have
+shown.
+
+⚠ **The numbers under the verdicts matter as much as the verdicts:** the clerk
+deals **96/105 at rung 5 and 9/9 at rung 9**. The lockstep row is not merely
+symmetric, it is a **different fight** — and a tenfold damage drop at the locked
+rung is exactly what a threshold gate would misread as a fighter problem.
+
+⚠ **THE CONTROL WAS NEVER A CONTROL, and its owner said so rather than reporting
+it as a counterexample.** `npc_carl_stargan` is not monotone — LOCKSTEP at rung 5
+with **7/7 starts and 0/0 damage**. A fighter that takes seven actions in a
+minute has almost no surface for a one-tick nudge to act on, so his lockstep rows
+measure his IDLENESS, not the jitter. ⇒ **A control must hold the mechanism's
+PRECONDITION fixed, not just the treatment.** He measures the FLOOR of the
+effect, and that reading was chosen after seeing the data and is labelled as one.
+
+⛔ **AND A CONTENT FINDING FELL OUT OF HIM THAT NOBODY HAS OPENED: he deals 55/62
+damage at rung 3 and 44/66 at rung 6.** `npc_carl_stargan` is a
+`KNOWN_BARE_REGISTRATION` — the exemption list for ids that author **nothing**,
+not a body, not a policy, not a moveset — and he is fighting. **Something
+furnishes a body the roster believes does not exist.** Same species as the
+admiral's seat 1: *the composed thing is not what the declaration says*. Not
+chased; recorded.
+
+⚠ **AND ONE RUNG DOES NOT EXIST.** A rung-8 sweep returned *"two fighters shared
+the stage for only 0 of 3600 ticks"* — not a fight that ended early, **a fight
+that never began**: `smash_roster_at_levels` names each seat
+`duelist_l{level}` and the smash experience publishes only
+`l1, l3, l5, l6, l9`. ⇒ **The sweep's own validator checked `1..=9` — the
+LADDER's range — while the roster needs a PUBLISHED POLICY, a strictly smaller
+set.** Two vocabularies for one concept, and the guard was pointed at the wider
+one, so a knob accepted a value the composition cannot seat and failed silently
+and expensively at the far end. **Of the five seatable rungs, 1/3/5 are
+rollouts-off and 6/9 are rollouts-on, so no seatable pair isolates jitter with
+rollouts held constant** — the monotone series is the evidence; a controlled
+contrast is not available in this composition at all.
+
 **Half two — at rung 9 the jitter is not small, it is zero.** See
 [D-RUNG9-NOISE](#d-rung9-noise--the-hardest-cpu-is-the-only-one-with-execution-noise-disabled)
 below, which is its own row because it is a shipped defect independent of this

@@ -174,8 +174,12 @@ def main() -> int:
     contradicted = sorted(
         (c, why) for c, why in EXCLUDED_BY_FRONTIER.items() if c in required
     )
-    print(f"FRONTIER CONTRADICTION: {len(contradicted)} capability the frontier's "
-          f"minimum EXCLUDES is a NON-OPTIONAL dependency of the facade itself")
+    # ⛔ EVERY COUNT PRINTS ITS GOOD VALUE. A bare number cannot be read: `0 of 13`
+    # and `39 of 39` say what passing looks like, and a lone `4` does not. Put one
+    # in a column of ratios and a reader carries away a fourth green line.
+    print(f"FRONTIER CONTRADICTION: {len(contradicted)} of {len(EXCLUDED_BY_FRONTIER)} "
+          f"(good = 0) — a capability the frontier's minimum EXCLUDES is a "
+          f"NON-OPTIONAL dependency of the facade itself")
     for c, why in contradicted:
         print(f"    {c}  (frontier excludes: {why})")
     print()
@@ -197,7 +201,8 @@ def main() -> int:
         row = next(r for r in rows if r["crate"] == n)
         blockers = [p for p in row["parents"] if p in required]
         (unremovable if blockers else open_q).append((n, blockers))
-    print(f"UNREMOVABLE (a NON-OPTIONAL facade dep links it): {len(unremovable)}")
+    print(f"UNREMOVABLE (a NON-OPTIONAL facade dep links it): {len(unremovable)} "
+          f"of {len(false_optional)} false optionals (good = 0, once none remain)")
     for n, b in unremovable:
         print(f"    {n}  <- required parents: {', '.join(b)}")
     print(f"NOT SETTLED BY THE GRAPH: {len(open_q)}")

@@ -182,6 +182,23 @@ instrument returns 200/27 across roughly 200 commits between `2418dc369` and
 `420de5a04`. That is a fact about the reader set holding still, not a second
 opinion about the method.
 
+⭐⭐ **AND ON 2026-09-10 AT `0f63e6cc5` THE MEMBER LIST WAS DIFFED, NOT JUST THE
+TOTAL.** The instrument's own last warning is that a stable total hides a moved
+member, so a third run was compared to `420de5a04` site by site rather than
+count by count. Across 57 intervening commits:
+
+* the `(field, file)` key set is **identical** — nothing entered, left, or
+  changed crate;
+* per-field counts are identical, `kit` 23 and `motion_model` 4 included, so the
+  ranking below stands unre-derived;
+* 168 of 200 sites are on the same line, and the other 32 all moved **+6, all
+  inside `crates/ambition_characters/src/prepared.rs`** — six lines added to
+  `StagedCastRevision` at `:420`, above every shifted site and below none of the
+  unshifted ones. An edit inside the owning crate, not a dependency change.
+
+⇒ So the ranking is not merely un-recomputed; it is **measured unchanged**, and
+this is the first run where "stable" means the member list rather than the total.
+
 ## The cheap end
 
 Nine fields have **at most one consumer outside the owning crate**, so their

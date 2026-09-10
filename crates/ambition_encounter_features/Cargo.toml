@@ -27,8 +27,12 @@ ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.19.1", default-features = false }
 # The authored encounter fixtures are RON, parsed here and in the tests.
-ron = { workspace = true }
 
 [dev-dependencies]
+# Test-only: the ONLY `ron::` uses in this crate are `src/tests.rs` and the
+# `ENCOUNTER_WAVE_BOOK_FIXTURE` static, which carries `#[cfg(test)]` and whose
+# own doc says production embeds no encounter wave data. No benches, no
+# examples, no build.rs.
+ron = { workspace = true }
 ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk" }
 ambition_asset_manager = { path = "../ambition_asset_manager" }

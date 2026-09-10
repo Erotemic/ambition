@@ -98,10 +98,22 @@ dependency stops being named.** That is the process finding; the count is not.
 **Reported by the detector, then cleared by the confirmer — production code
 behind a non-default feature. These are NOT removable:**
 
+⛔ **ONE ROW IN THIS TABLE WAS WRONG, AND ITS SHAPE IS WHAT GAVE IT AWAY.**
+`ambition_encounter_features` / `ron` sat here justified by a bare pointer to
+`crates/ambition_encounter_features/src/loading.rs:22` — while every other row states an EVIDENCE CLASS: a named
+feature gate, or a count of non-test references. ⇒ In a table whose
+justification column is otherwise consistent, **the outlier row is the one to
+check first, and the check is cheap because the neighbours define what a
+sufficient answer looks like.** That line is inside
+`ENCOUNTER_WAVE_BOOK_FIXTURE`, which carries `#[cfg(test)]` and whose own doc
+says production embeds no encounter wave data. The dependency moved to
+`[dev-dependencies]`; the row is gone rather than reworded.
+
+⚠ The other five rows were audited at the same time and are sound.
+
 | crate | dependency | where it is really used |
 |---|---|---|
 | `ambition_encounter` | `ron` | `crates/ambition_encounter/src/content_schema.rs:48`, behind `#[cfg(feature = "content_pack")]` at `crates/ambition_encounter/src/lib.rs:11` |
-| `ambition_encounter_features` | `ron` | `crates/ambition_encounter_features/src/loading.rs:22` |
 | `ambition_dialog` | `ambition_persistence` | `crates/ambition_dialog/src/bridge.rs:26`, `crates/ambition_dialog/src/systems.rs:18`, behind that crate's `#[cfg(feature = "ui")]` modules |
 | `ambition_game_shell` | `ambition_persistence` | 11 non-test references |
 | `ambition_input` | `ambition_entity_catalog` | 5 non-test references |

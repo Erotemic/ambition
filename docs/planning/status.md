@@ -79,10 +79,27 @@ Stated per packet instead:
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
   unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11** — ⛔ **THREE BLOCKERS CLOSED, A FOURTH FOUND. THIS LINE SAID "FULLY
-  re-closed" AND A COMPLETENESS WORD IS A HOSTAGE TO THE NEXT REVIEW.** It was true
+- **A11** — **FOUR BLOCKERS CLOSED, AND A LANE HAS NOW SEEN THE FOURTH.** Green at
+  `43059a46d`: 178 suites, 7714 passed, 0 failed, **78 Doc-tests phases** —
+  **workspace test scope, doctests included, and nothing wider.** ⛔ That lane does
+  NOT enforce `-D warnings`, does not cover the `--rust` set, and compiles nothing
+  behind a **non-default** `cfg(feature = ...)`; `check_no_warnings.py`'s own note
+  records three warnings that once lived in exactly that gap while its line read
+  clean. ⇒ **A11 is CLOSABLE on that scope, not closed on a wider one.**
+  ⭐ **It is the first run of the whole tree with the raw finalizer ABSENT** — the
+  poison proved the boundary in isolation; this proved nothing else depended on it. ⚠ This line
+  said *"FULLY re-closed"* after three, and **a completeness word is a hostage to
+  the next review** — the fourth arrived hours later. ✅ **Closed in `95f0c1484`
+  with a PROVEN boundary rather than an asserted one**: `cargo check -p ambition_app`
+  ships **without** the function, `--workspace --all-targets` reaches all ten test
+  callers, and a poisoned non-test call fails with `error[E0425]: cannot find
+  function`. ⭐ **Passing the two checks showed only that nothing broke; the poison
+  showed something is now impossible.** ⛔ **But that commit carries NO workspace
+  test-scope claim** — two `cargo check`s and one poison, no suite. **A `Cargo.toml`
+  change plus a `cfg` gate is exactly the shape that compiles everywhere and breaks
+  a runtime path**, so this is not closed until a lane says so. It was true
   of the three blockers then known and became false the moment a fourth was found —
-  `close_preparation_barrier_without_admission` is plain `pub`
+  `close_preparation_barrier_without_admission` WAS plain `pub`
   (`crates/ambition_characters/src/prepared.rs:2278`), whose path is
   `finalized = true` → mark unchecked → raw `finalize_cast` → publish with no
   refusal filtering, and once it runs the checked closer sees `finalized` and cannot
@@ -115,14 +132,18 @@ Stated per packet instead:
   stands down on `ChecksAuthoredEffectsAtTheBarrier`, and the public
   `close_preparation_barrier` for a host that installs none.
   ⚠ **ALL THREE A11 BLOCKERS ARE CLOSED. A11 HAS NO OPEN BLOCKER.**
-- **A12** — ⛔ **PROPAGATION LANDED (`f9baa86e8`); OCCURRENCE IDENTITY DID NOT.**
+- **A12** — **PROPAGATION LANDED (`f9baa86e8`), THEN IDENTITY (`106c349b5`). TWO
+  BLOCKERS REMAIN OPEN.**
   This line read *"NOT fixed"*, then *"LANDED"*, and both were wrong. What landed
   closes the DIRECT-REPLACEMENT case, where `succeeding(Some(prev))` genuinely
-  increments. ⛔ **`MovePlayback::instance` is a WITHIN-CHAIN ORDINAL, not a
-  body-local identity**: `new_at` sets it to `0` and `succeeding(None)` maps back
-  to `0`, and the playback component is REMOVED when a move ends — so a move
-  starting after an idle gap carries `0` again, and a shot stamped `0` by an
-  earlier move is credited to it. ⚠ Concretely reachable: `officer_the_draw`
+  increments. ✅ **IDENTITY FIXED IN `106c349b5`**: `MoveOccurrence(u32)` now lives
+  on the BODY, advances at `start_move`, and is NEVER REMOVED, so an idle gap keeps
+  its count. `MovePlayback::instance` copies it, and `succeeding()`/`replacing` were
+  deleted in the same change. ⚠ It WAS a within-chain ordinal — `new_at` set `0` and
+  `succeeding(None)` mapped back to `0` while the playback is removed when a move
+  ends, so a move starting after an idle gap carried `0` again and took credit for
+  a shot stamped `0` by an earlier one. ⭐ The same field stamped MELEE strike
+  volumes, so the two roads had one defect between them. ⚠ Concretely reachable: `officer_the_draw`
   fires at 0.348s and ends at 0.696s while its projectile lives up to 2.4s.
   ⛔ **Reflection** re-owns a shot to the interceptor (`intercept.rs:82`) and
   leaves `FiredByMoveInstance` untouched, pairing a new owner with the old

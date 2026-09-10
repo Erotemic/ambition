@@ -2258,6 +2258,23 @@ pub fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
 /// [`close_preparation_barrier`], which checks against an EMPTY table and
 /// withholds — because a composition supporting zero techniques has the empty
 /// support set, not an unknown one.
+/// ⛔⛔ GATED, BECAUSE AN UNGATED `pub` HERE IS A SECOND PUBLIC PATH TO
+/// ACTIVATING UNVALIDATED AUTHORED DATA — exactly what A11 exists to forbid.
+/// This sets `finalized`, marks the close unchecked, and publishes a registry
+/// through raw `finalize_cast` with no refusal filtering; once it has run the
+/// checked closer sees `finalized` and CANNOT correct the publication. No
+/// shipped app called it, and the contract is violated by REACHABILITY rather
+/// than by use (`authored-technique-admission.md:114-119`).
+///
+/// ⭐ MEASURED 2026-09-10, because the obvious objection is that this feature
+/// buys nothing: the workspace is `resolver = "2"`, and ALL FOUR crates that
+/// enable `ambition_characters/test-support` do so from `[dev-dependencies]`.
+/// Under resolver 2 a dev-dependency's features do not unify into a normal
+/// build, so a shipping app compiles with `test-support` OFF and this function
+/// does not exist for it. ⚠ It IS on under `--all-targets`, which is a
+/// different build and the one that made `insert_for_test` dead code; do not
+/// read that case as evidence that this gate is inert.
+#[cfg(any(test, feature = "test-support"))]
 pub fn close_preparation_barrier_without_admission(world: &mut bevy::ecs::world::World) {
     let support = ambition_entity_catalog::TechniqueSupport::default();
     let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {

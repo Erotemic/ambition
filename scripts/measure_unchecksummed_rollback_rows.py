@@ -47,14 +47,41 @@ def rows() -> list[tuple[str, str]]:
     return out
 
 
+_DEFINITION_INDEX: dict[str, list[str]] | None = None
+
+
+def _definition_index() -> dict[str, list[str]]:
+    """`type name -> ["path:line", ..]`, built with ONE `git grep`.
+
+    ⚠ NOT AN OPTIMISATION FOR ITS OWN SAKE. This ran one `git grep` per type
+    across 59 types, twice over (definition and readers), and the arm that walks
+    the population took 20 s of a lane other people wait on. The lane's cost is
+    shared; a census that is correct and slow gets run less often, which is its
+    own way of not being run.
+    """
+    global _DEFINITION_INDEX
+    if _DEFINITION_INDEX is None:
+        index: dict[str, list[str]] = {}
+        out = subprocess.run(
+            ["git", "grep", "-n", "-E", r"(struct|enum) [A-Z]\w*", "--", "crates/", "game/"],
+            capture_output=True,
+            text=True,
+            cwd=REPO,
+        ).stdout.splitlines()
+        pattern = re.compile(r"\b(?:struct|enum)\s+([A-Z]\w*)")
+        for row in out:
+            head, _, body = row.partition(":")
+            line, _, rest = body.partition(":")
+            match = pattern.search(rest)
+            if match:
+                index.setdefault(match.group(1), []).append(f"{head}:{line}")
+        _DEFINITION_INDEX = index
+    return _DEFINITION_INDEX
+
+
 def definition(ty: str) -> tuple[str, str, str]:
     """`(kind, float-bearing field types, the type's own first doc line)`."""
-    found = subprocess.run(
-        ["git", "grep", "-n", "-E", rf"(struct|enum) {ty}\b", "--", "crates/", "game/"],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-    ).stdout.splitlines()
+    found = _definition_index().get(ty, [])
     # ⚠ A TEST FIXTURE MAY DECLARE A TYPE OF THE SAME NAME.
     found = [f for f in found if "/tests" not in f and "tests.rs" not in f]
     if not found:

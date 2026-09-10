@@ -48,12 +48,44 @@ behaviour, so the distinction has to be maintained by hand here — and a blanke
 sentence covering four packets goes stale the moment any one of them lands.
 Stated per packet instead:
 
-- **A2** — acceptance met, except the COMPOUND SOLID row, which is deferred to
-  Q96/A5 and is a maintainer ruling rather than unfinished work.
+- **A2** — the RESOLVER half is met: one real swept projectile leg, exact
+  `total_cmp` ordering, the selected world collider carried into physical
+  response, and an identified victim ordered ahead of an unidentified one. ⛔
+  **The CONSTRUCTION-IDENTITY row is NOT met and this line used to say
+  otherwise.** The protocol calls a missing deterministic identity a
+  construction failure rather than a sort fallback, and construction still
+  permits one. ⚠ **The specific example a review supplied — the cut-rope victory
+  NPC — was REFUTED**: it carries `FeatureId` + `BodyKinematics`, which is
+  exactly the query `ensure_sim_id` serves, so it is identified a tick later.
+  **What is open is the general invariant, not that case.** The COMPOUND SOLID
+  row remains deferred to Q96/A5 and is a maintainer ruling rather than
+  unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11/A12** — CLOSED 2026-09-10, every acceptance row witnessed by a named
-  guard; the list is under *Closure* in the protocol document. Q97's policy half
-  is still Jon's.
+- **A11** — REOPENED and partly re-closed 2026-09-10 after a review of the 125
+  commits following `6a692b6`. ⛔⛤ **The shipped game had been closing its
+  admission barrier UNCHECKED**: Bevy's runner does `finish()` before the first
+  `update()`, `PreStartup` lives inside that update, and the unchecked backstop
+  therefore won in every app reaching `App::run` — while every guard agreed,
+  because they all drive `update()` by hand, which never runs `finish`. Fixed by
+  ONE DECLARED AUTHORITY, and the witness that says so differs from its green
+  sibling by three calls. **Transitive withholding is fixed too**: the one-pass
+  filter published a summoner whose beast it had just refused. ⛔ **STILL OPEN:
+  a composition with no support table is still treated as "admit everything"
+  rather than "supports nothing".** That is the last A11 blocker and it is not
+  closed.
+- **A12** — REOPENED by the same review and NOT fixed. A verdict carrying
+  `attacker_move_instance: None` is credited to whatever move the fighter is
+  playing NOW, so a projectile launched by move A and landing during move B
+  marks B connected — the late-feedback defect A12 exists to eliminate. The
+  predicate's own comment defends `None` for hazards and contact attrition and
+  never addresses the projectile. **Both halves are needed: propagate the
+  instance through the projectile chain, THEN require a claim.**
+- **A7** — RECLASSIFIED from an occurrence-ownership completion to a
+  COMPONENT-CONSTRUCTION SEAL. `GroundItem` is sealed and that is real; *"seven
+  minting authorities became one"* is not, and callers still mint identity,
+  custody, provenance and attempt state themselves. ⇒ Calling a centralized
+  component constructor does not transfer authority over the OCCURRENCE.
+  Q97's policy half is still Jon's.
 - **A9** — open, and its next question is which of the 49 crates a minimum
   profile has a RIGHT to expect for the crates the frontier does not name.
 

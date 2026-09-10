@@ -418,7 +418,43 @@ one consumer outside the owner and five have none, but `kit` has six.
 ⭐ The clean slices exist and are small: `ambition_body_seed` reads exactly
 {`body`, `locomotion`, `vitals`} — pure materialization, no policy.
 
-### A7 - DONE 2026-09-10; the census and the occurrence seal both landed.
+### A7 - RECLASSIFIED 2026-09-10: a component-construction SEAL, not an occurrence-ownership completion
+
+⛔⛔ **THIS ROW SAID DONE ON A CLAIM THE CODE DOES NOT SUPPORT, and a GPT review
+of the 125 commits after `6a692b6` is right about it.** The seal below is real
+and worth keeping. *"Seven minting authorities became one"* is not.
+
+`drop_held_weapon` (`actor_monolith/src/features/ecs/damage_drops.rs:320-348`)
+still spawns the entity itself and mints four of the occurrence's five facts —
+`SimId::death_drop(..)`, `RoomScopedEntity`, `dynamic_drop_origin(..)`,
+`SpawnedThisAttempt` — with `GroundItem::at_rest` one component in a tuple of
+five. The smash bomb/mine and match-spawn roads do their own. ⇒ **Calling a
+centralized component constructor does not transfer authority over the
+OCCURRENCE to that component's crate.**
+
+⭐⭐ **AND THE MECHANISM OF THE FALSE CLOSURE IS WORTH MORE THAN THE CORRECTION.**
+The sentence in `item-writer-inventory.md` was written as a **PROPOSAL** —
+*"a constructor that takes what an occurrence needs… turns seven minting
+authorities into one"*, describing what a fix WOULD buy — and was then read as a
+description of what the seal DID buy, and the row was marked done on it. ⇒ **A
+forward-looking sentence and a completion claim are one tense apart, and the
+page gave a reader no way to tell which it was holding.** That is not
+overclaiming; it is a grammatical ambiguity that survives careful reading, which
+makes it worse. **A proposal says WOULD; a receipt names a COMMIT.** Corrected in
+the owner document at `1e1af1760`.
+
+⛔ **AND THE FIX IS NOT A GENERIC ITEM-REQUEST BUS TO MAKE THE COUNT ONE.**
+Centralizing occurrence minting is justified only where it centralizes a real
+invariant — identity, custody, provenance, rollback ownership. **A bus that
+exists to move a number from seven to one buys a number.** The documentation was
+the defect, not the architecture.
+
+⇒ **WHAT A7 STILL OWES:** the packet's acceptance is *"reward policy receives
+accepted outcomes; it does not become an alternative item minting path."* **That
+is a question about who may DECIDE an occurrence exists, and it is untouched.**
+
+**What is genuinely DONE below: the census and the seal.**
+
 
 ⭐ **THE SEAL PRODUCED THE UPPER BOUND THE CENSUS PAGE SAID A TEXT SCAN COULD
 NOT.** `GroundItem` had four `pub` fields and NO constructor, so seven production
@@ -1842,9 +1878,36 @@ change that makes another fighter despawn a render-synced entity turns their row
 UNMEASURABLE too, and nothing would say why.** The sweep would report a narrower
 population and read as healthy.
 
-⚠ **THE STAKE IS JON'S FRESH-CLONE ASK.** A headless build carrying the render
-crate's Update systems without the render world runs a game right up until a
-cleanup — the class of failure a fresh clone hits and a warm one does not.
+⛔⛤ **AND THE STAKE IS NOT "A MACHINE WITHOUT A GPU" — THAT FRAMING WAS MINE AND
+IT IS WRONG.** ⇒ **The subject is the `NoWindow` / `backends: None` PROFILE
+specifically, which is a CONFIGURATION CHOICE, not a property of the host.**
+MEASURED on an agent machine with no discrete GPU: `vulkaninfo` reports a working
+software adapter (`llvmpipe`, LLVM 20.1.2), and the repo already ships
+`VisibleRenderMode::OffscreenGpu`, documented as needing an adapter *"software or
+otherwise"*. Sampled in one process (`bc935b1d3`):
+
+```
+[offscreen] render_app=true    render_device_in_main_world=false
+[offscreen] control no_window_render_app=false
+```
+
+⭐ **So the landed gate is SELF-ADJUSTING and costs no coverage: it keys on
+`RenderApp` presence, which IS the adapter question one step downstream.** An
+`OffscreenGpu` run installs the view-cone rig and exercises it normally. ⚠ **An
+earlier version of this row claimed the fix made the subsystem invisible to every
+agent — "a crash converted into permanent silence".** Two agents built that
+argument, neither checked, and **it is retracted: the observability was never
+lost.**
+
+⚠ `render_device_in_main_world=false` is real and not hidden: `build_visible_app`
+runs `finish`/`cleanup` only on the `NoWindow` arm, so the offscreen app's
+`RenderDevice` had not reached the main world when sampled. **The render app
+COMPOSES; whether an offscreen run DRAWS is unmeasured.** Do not read "headless
+agents can produce pixels" off this.
+
+⚠ **THE STAKE IS STILL JON'S FRESH-CLONE ASK, narrowed:** a composition that
+installs the render crate's Update systems with `backends: None` runs a game
+right up until a cleanup.
 
 ⚠ **NOT DECIDED.** Whether the fix is to install the resource in the headless
 profile, keep those systems out of it, or make the hook tolerate a missing world

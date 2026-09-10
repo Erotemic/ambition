@@ -9,6 +9,15 @@ use ambition_platformer2d_core::snapshot::{
 };
 use ambition_platformer2d_core::snapshot_unit_enum;
 
+impl SnapshotState for crate::moveset::MoveOccurrence {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.u32()?))
+    }
+}
+
 impl SnapshotState for crate::targeting::MatchTeam {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.as_str());

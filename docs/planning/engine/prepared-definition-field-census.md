@@ -88,6 +88,33 @@ of the definition's public surface breaks the tools first. They are binary roots
 so nothing can be composed away from them — but they are also where a change is
 noticed last.
 
+⭐⭐ **MEASURED 2026-09-10 AT `36af83f89`: ELEVEN IS RIGHT, BUT NINE OF THE ELEVEN
+ARE SERIALIZED, NOT COMPUTED WITH.** The paragraph above is true and its mechanism
+is not what it implies. Keyed on the BINDING rather than the spelling:
+
+| read | fields | site |
+|---|---|---|
+| **logic** | `kit` | `moveset_export.rs:649` and `moveset_takes.rs:716`, both `.projectable_moveset()` |
+| **logic** | `portrait` | `moveset_export.rs:624`, into `portrait_for_declared_character` |
+| **serialized** | `display_name`, `provider`, `vitals`, `locomotion`, `movement_tuning`, `abilities`, `mount`, `held_item`, `body` | all inside one `serde_json::json!` in `character_json` |
+
+⇒ **`character_json` is a SERIALIZER.** It reads those nine to dump them. It does
+not depend on what a `movement_tuning` MEANS; it depends on the field existing to
+emit. ⇒ Moving one breaks a **JSON output schema**, which is a versioned contract
+with a visible consumer, not a tool's behaviour.
+
+⛔ **AND THAT SPLITS THE THREE THIS PAGE SINGLED OUT.** Of `kit`, `vitals` and
+`movement_tuning`: **`kit` is a genuine semantic dependency in two binaries**;
+`vitals` and `movement_tuning` are dump fields. The gate is real for `kit` and
+much lighter for the other two.
+
+⚠ **TWO INSTRUMENT FAILURES PRODUCED THIS TABLE AND BOTH ARE WORTH THE SPACE.**
+A first pass read ONE function's window and reported five fields, not eleven — an
+UNDER-report, the direction that says "already clean". And `moveset_takes.rs:1136`
+and `moveset_render.rs:889` bind `prepared` to a **`bool`** returned by
+`move_exercise::prepare`; a search on the word rather than the binding counts them
+as definition reads. ⇒ **A matching identifier is not the same value.**
+
 ## The cheap end
 
 Nine fields have **at most one consumer outside the owning crate**, so their

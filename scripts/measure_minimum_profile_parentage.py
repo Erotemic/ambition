@@ -156,6 +156,30 @@ def main() -> int:
                 extra = "  <- parents: " + ", ".join(row["parents"])
             print(f"    {n}{extra}")
         print()
+    # ⛔⛔ THE FRONTIER NAMES A MINIMUM AND THE FACADE CONTRADICTS IT. The packet's
+    # stated minimum is "a constructed body advancing against world geometry,
+    # WITHOUT renderer, audio, inventory, encounters or game content". A9's trace
+    # concluded these "arrive through the monolith and/or runtime -- these are the
+    # hub, not a gate". ⇒ That is FALSE for any of them the facade names in its
+    # OWN `[dependencies]` without `optional`: gating every hub edge would not
+    # remove them, because the facade's own edge still holds them.
+    EXCLUDED_BY_FRONTIER = {
+        "ambition_audio": "audio",
+        "ambition_boss_encounter": "encounters",
+        "ambition_encounter": "encounters",
+        "ambition_encounter_features": "encounters",
+        "ambition_inventory_ui": "inventory",
+        "ambition_render": "renderer",
+    }
+    contradicted = sorted(
+        (c, why) for c, why in EXCLUDED_BY_FRONTIER.items() if c in required
+    )
+    print(f"FRONTIER CONTRADICTION: {len(contradicted)} capability the frontier's "
+          f"minimum EXCLUDES is a NON-OPTIONAL dependency of the facade itself")
+    for c, why in contradicted:
+        print(f"    {c}  (frontier excludes: {why})")
+    print()
+
     print(f"FALSE OPTIONAL: {len(false_optional)} of the facade's "
           f"{len(optional)} advertised-optional capabilities are linked anyway "
           f"by a consumer that selected NONE of them")

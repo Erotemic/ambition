@@ -1158,7 +1158,7 @@ mod withholding {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
 
         assert!(
@@ -1186,7 +1186,7 @@ mod withholding {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
 
         assert!(
@@ -1256,7 +1256,7 @@ mod withholding {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
 
         assert!(
@@ -1284,7 +1284,7 @@ mod withholding {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
 
         assert!(
@@ -1295,22 +1295,74 @@ mod withholding {
         );
     }
 
-    /// ⭐ CONTROL. With no support table there is no admission authority, and
-    /// the unchecked fold must publish everything — that is the composition that
-    /// installed no techniques, not a composition that failed a check.
+    /// ⛔⛔ **AN EMPTY SUPPORT TABLE WITHHOLDS, AND THIS TEST USED TO ASSERT THE
+    /// OPPOSITE.**
+    ///
+    /// It was `without_a_support_table_nothing_is_withheld`, and it deliberately
+    /// locked in the escape a GPT review named as A11's last blocker: the fold
+    /// took `Option<&TechniqueSupport>` and returned the whole cast unexamined on
+    /// `None`, with an authored `"smash.not_installed_here"` in it. ⇒ **`None`
+    /// carried two meanings that must not be conflated** — *"this composition
+    /// supports zero techniques"*, which is a legitimate production state, and
+    /// *"skip installed-technique validation entirely"*, which is not an
+    /// admission mode at all.
+    ///
+    /// **A composition that installs no technique handlers does not have an
+    /// UNKNOWN support set. It has the EMPTY one**, and a character naming a
+    /// native effect there has a move that plays and answers nothing — exactly
+    /// what A11 exists to prevent. The argument is no longer optional, so the
+    /// escape cannot be selected.
+    ///
+    /// ⚠ MEASURED BEFORE INVERTING: the whole workspace passes either way (178
+    /// blocks, 7703 passed, 0 failed with the empty table in production), so **no
+    /// composition here was relying on the unchecked reading.**
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is restoring an early return for an
+    /// empty table.
     #[test]
-    fn without_a_support_table_nothing_is_withheld() {
+    fn an_empty_support_table_withholds_a_native_effect_nobody_installed() {
         let admitted = admit_and_finalize_cast(
             cast("rider", "smash.not_installed_here", "bystander"),
             None,
             None,
             CharacterCatalogGeneration::default(),
-            None,
+            &TechniqueSupport::default(),
         );
 
-        assert!(admitted.refusals.is_empty());
-        assert!(admitted.registry.get("rider").is_some());
-        assert!(admitted.registry.get("bystander").is_some());
+        assert!(
+            admitted.registry.get("rider").is_none(),
+            "a composition that installs NOTHING published a definition naming a \
+             native effect; its move would play and answer nothing, which is the \
+             failure admission exists to prevent. Refusals: {:?}",
+            admitted.refusals
+        );
+        assert_eq!(admitted.refusals.len(), 1);
+        assert_eq!(admitted.refusals[0].character, "rider");
+    }
+
+    /// ⭐ AND THE ANTI-VACUITY ARM: an empty table must not withhold a character
+    /// that names no technique at all. A check that refused everything would
+    /// satisfy the test above while emptying the game.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is refusing the cast rather than the
+    /// definitions that carry unsupported effects.
+    #[test]
+    fn an_empty_support_table_still_publishes_a_character_that_names_nothing() {
+        let admitted = admit_and_finalize_cast(
+            cast("rider", "smash.not_installed_here", "bystander"),
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            &TechniqueSupport::default(),
+        );
+
+        assert!(
+            admitted.registry.get("bystander").is_some(),
+            "a character naming no technique was withheld by an EMPTY support \
+             table, so admission is refusing the cast rather than the \
+             definitions that carry unsupported effects: {:?}",
+            admitted.refusals
+        );
     }
 
     /// ⭐ CONTROL. A cast whose every effect IS supported publishes whole.
@@ -1328,7 +1380,7 @@ mod withholding {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
 
         assert!(
@@ -1490,7 +1542,7 @@ mod revision_activation {
             None,
             None,
             CharacterCatalogGeneration::default(),
-            Some(&supporting_summons()),
+            &supporting_summons(),
         );
         assert!(
             admitted.refusals.is_empty(),
@@ -1522,7 +1574,7 @@ mod revision_activation {
             .get();
 
         stage(&mut world, authoring("rider", SUMMON_RIDE));
-        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
 
         let after = world.resource::<PreparedCharacterRegistry>().generation();
         assert!(
@@ -1548,7 +1600,7 @@ mod revision_activation {
             .get();
 
         stage(&mut world, authoring("rider", "smash.not_installed_here"));
-        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
 
         assert!(
             matches!(outcome, RevisionOutcome::Refused { .. }),
@@ -1576,7 +1628,7 @@ mod revision_activation {
             .generation()
             .get();
 
-        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
 
         assert_eq!(outcome, RevisionOutcome::NothingStaged);
         assert_eq!(
@@ -1594,9 +1646,9 @@ mod revision_activation {
     fn a_refused_revision_does_not_linger_for_the_next_activation() {
         let mut world = world_with_live_cast();
         stage(&mut world, authoring("rider", "smash.not_installed_here"));
-        let _ = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        let _ = activate_staged_revision(&mut world, &supporting_summons());
 
-        let second = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        let second = activate_staged_revision(&mut world, &supporting_summons());
         assert_eq!(
             second,
             RevisionOutcome::NothingStaged,

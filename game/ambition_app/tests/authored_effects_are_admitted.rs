@@ -170,3 +170,50 @@ fn the_barrier_closes_through_the_checked_road_under_the_REAL_lifecycle() {
          never runs `finish()`."
     );
 }
+
+/// ⛔⛔ **WHAT THE BARRIER ACTUALLY WITHHELD, READ FROM THE ARTIFACT RATHER THAN
+/// RE-DERIVED — AND NOTHING IN THIS SUITE ASKED THAT UNTIL NOW.**
+///
+/// `every_authored_effect_in_the_shipped_composition_is_admitted` above walks
+/// the prepared registry and asks `admit_at` again itself. ⇒ **It answers "would
+/// this cast admit cleanly", not "did the barrier refuse anything"**, and the
+/// queue records exactly that about it: *"the app-level admission guard
+/// re-derives `admit_at` itself against `InstalledTechniques`, so it passes
+/// whether or not the barrier ever consulted them."*
+///
+/// `AuthoredEffectRefusals` exists so a refusal is an inspectable fact rather
+/// than a log line, and until this test **nothing outside a rollback waiver list
+/// ever read it.** ⭐ ASK THE ARTIFACT, NOT THE FUNCTION.
+///
+/// ⚠ **AND IT IS NOT THE SAME QUESTION AS THE GUARD ABOVE, WHICH IS WHY BOTH
+/// EXIST.** A withheld definition is ABSENT from the registry, so a walk OVER
+/// the registry cannot see it — the one road that would notice is the one that
+/// records what was removed.
+#[test]
+fn the_shipped_composition_withheld_nothing_at_its_barrier() {
+    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let refusals = sim
+        .world()
+        .get_resource::<ambition_platformer2d::characters::prepared::AuthoredEffectRefusals>()
+        .map(|r| r.0.clone())
+        .unwrap_or_default();
+
+    println!(
+        "[admission] the shipped composition withheld {} definition(s)",
+        refusals.len()
+    );
+    for refusal in &refusals {
+        println!("[admission]   withheld: {refusal:?}");
+    }
+
+    assert!(
+        refusals.is_empty(),
+        "the barrier WITHHELD {} definition(s) from the shipped composition: \
+         {refusals:?}. Each one is a character whose moves are absent from the \
+         prepared registry — every consumer reads it as 'no such character'. ⚠ \
+         The sibling guard above cannot see this: it walks the registry and a \
+         withheld definition is not IN the registry.",
+        refusals.len()
+    );
+}

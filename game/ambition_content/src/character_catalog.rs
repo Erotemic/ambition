@@ -230,6 +230,15 @@ mod tests {
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
         crate::player_robot_lineage::register_declared_cast(&mut app);
+        // ⛔ A LOW-LEVEL CONTENT QUESTION, NOT AN ADMISSION ONE. This fixture
+        // installs no technique handlers, so real admission would correctly
+        // withhold every character naming a native effect — the right answer to a
+        // question this test is not asking. The raw road is named explicitly so
+        // it cannot be reached by accident; see its doc for why the implicit
+        // escape was removed.
+        ambition_characters::prepared::close_preparation_barrier_without_admission(
+            app.world_mut(),
+        );
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
@@ -289,6 +298,15 @@ mod tests {
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
         crate::player_robot_lineage::register_declared_cast(&mut app);
+        // ⛔ A LOW-LEVEL CONTENT QUESTION, NOT AN ADMISSION ONE. This fixture
+        // installs no technique handlers, so real admission would correctly
+        // withhold every character naming a native effect — the right answer to a
+        // question this test is not asking. The raw road is named explicitly so
+        // it cannot be reached by accident; see its doc for why the implicit
+        // escape was removed.
+        ambition_characters::prepared::close_preparation_barrier_without_admission(
+            app.world_mut(),
+        );
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
@@ -519,6 +537,15 @@ mod tests {
         // The lineage and declared cast are separate registration paths; include both.
         crate::player_robot_lineage::register(&mut app);
         crate::player_robot_lineage::register_declared_cast(&mut app);
+        // ⛔ A LOW-LEVEL CONTENT QUESTION, NOT AN ADMISSION ONE. This fixture
+        // installs no technique handlers, so real admission would correctly
+        // withhold every character naming a native effect — the right answer to a
+        // question this test is not asking. The raw road is named explicitly so
+        // it cannot be reached by accident; see its doc for why the implicit
+        // escape was removed.
+        ambition_characters::prepared::close_preparation_barrier_without_admission(
+            app.world_mut(),
+        );
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()

@@ -1383,6 +1383,11 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
         ..Default::default()
     });
 
+    // ⛔ A LOW-LEVEL SEATING QUESTION, NOT AN ADMISSION ONE. This fixture's
+    // cast authors `pogo_bounce` and the app installs no technique handlers, so
+    // real admission correctly withholds it — the right answer to a question
+    // this test is not asking. Named explicitly; see the function's doc.
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
@@ -1539,6 +1544,11 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
         ..Default::default()
     });
 
+    // ⛔ A LOW-LEVEL SEATING QUESTION, NOT AN ADMISSION ONE. This fixture's
+    // cast authors `pogo_bounce` and the app installs no technique handlers, so
+    // real admission correctly withholds it — the right answer to a question
+    // this test is not asking. Named explicitly; see the function's doc.
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     finalize_and_update(&mut app);
     finalize_and_update(&mut app);
 
@@ -1603,6 +1613,11 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
         participants: vec![cpu("veteran")],
         ..Default::default()
     });
+    // ⛔ A LOW-LEVEL SEATING QUESTION, NOT AN ADMISSION ONE. This fixture's
+    // cast authors `pogo_bounce` and the app installs no technique handlers, so
+    // real admission correctly withholds it — the right answer to a question
+    // this test is not asking. Named explicitly; see the function's doc.
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     finalize_and_update(&mut app);
     finalize_and_update(&mut app);
 

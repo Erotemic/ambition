@@ -489,7 +489,10 @@ pub fn stage_character_revision(
 /// arbitrary world retention after a destructive native failure is NOT required.
 pub fn activate_staged_revision(
     world: &mut bevy::ecs::world::World,
-    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+    // ⛔ The composition's support table, and an EMPTY one is a legitimate value
+    // meaning "this host installs nothing" — not a reason to skip admission. See
+    // `admit_and_finalize_cast`.
+    support: &ambition_entity_catalog::TechniqueSupport,
 ) -> RevisionOutcome {
     let staged: Vec<StagedCharacter> = match world.get_resource_mut::<StagedCastRevision>() {
         Some(mut revision) if !revision.by_id.is_empty() => {
@@ -528,7 +531,7 @@ pub fn activate_staged_revision(
     // ⚠ ADMITTED AGAINST THE WHOLE CANDIDATE, not against the edit alone: a
     // summon in an edited move may name a character the edit did not touch, and
     // an edit may REMOVE the definition some untouched move was naming.
-    if let Some(support) = support {
+    {
         let refusals = unsupported_authored_effects(support, &candidate);
         if !refusals.is_empty() {
             bevy::prelude::error!(
@@ -2130,7 +2133,10 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
         {
             return;
         }
-        finalize_prepared_cast(app.world_mut(), None);
+        finalize_prepared_cast(
+            app.world_mut(),
+            &ambition_entity_catalog::TechniqueSupport::default(),
+        );
     }
 }
 
@@ -2192,12 +2198,91 @@ pub struct PreparationBarrier;
 
 /// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
 ///
-/// ⚠ UNCHECKED, and that is the point of a backstop: a composition with no
-/// admission authority has no installed techniques to admit against. A host that
-/// DOES install them drives [`close_preparation_barrier_admitting`] first; the
-/// `finalized` guard makes whichever fires first the only one that folds.
+/// ⛔⛔ **CHECKED AGAINST AN EMPTY TABLE, NOT UNCHECKED — AND THE DIFFERENCE IS
+/// THE LAST A11 BLOCKER.** This used to pass `None`, and `None` carried two
+/// meanings that must not be conflated:
+///
+/// - *"this composition supports zero techniques"* — a legitimate production
+///   state, and one every authored native effect should be REFUSED against;
+/// - *"skip installed-technique validation entirely"* — which is not an
+///   admission mode at all.
+///
+/// ⇒ **A composition that installs no technique handlers does not have an
+/// UNKNOWN support set. It has the EMPTY one.** A character naming a native
+/// effect there has a move that plays and answers nothing, which is exactly what
+/// A11 exists to prevent — so it is withheld, loudly, at startup. (GPT review,
+/// 2026-09-10.)
+///
+/// ⚠ **MEASURED BEFORE CHANGING: the whole workspace passes either way** — 178
+/// blocks, 7703 passed, 0 failed with the empty table in place. **No composition
+/// in this repository was relying on the unchecked reading**, which is what makes
+/// this a free correction rather than a policy change with a cost.
+///
+/// A host that installs techniques drives [`close_preparation_barrier_admitting`]
+/// with its own table; the `finalized` guard makes whichever fires first the only
+/// one that folds.
 pub fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
-    finalize_prepared_cast(world, None);
+    finalize_prepared_cast(
+        world,
+        &ambition_entity_catalog::TechniqueSupport::default(),
+    );
+}
+
+/// **Fold the cast WITHOUT admission, for a low-level test that is asking a
+/// question about a character definition rather than about a composition.**
+///
+/// ⛔⛔ **EXPLICIT, AND THAT IS THE ENTIRE POINT.** A GPT review (2026-09-10)
+/// closed the last A11 blocker by removing the implicit escape — admission took
+/// `Option<&TechniqueSupport>` and returned the whole cast unexamined on `None`,
+/// so *"skip validation"* was selectable by passing nothing, and the unchecked
+/// backstop selected it in production. The review's own instruction: *"if an
+/// unchecked/raw preparation road is useful for low-level tests, make it
+/// EXPLICIT rather than attaching it to the normal Bevy lifecycle."* This is
+/// that road, named so it cannot be reached by accident and can be found by
+/// grep.
+///
+/// ⚠ **WHAT IT IS FOR:** `ambition_content`'s catalog fixtures build a bare
+/// `App`, register a cast, and ask whether a definition prepared with the
+/// intrinsics its author gave it. **They install no technique handlers**, so
+/// under real admission every character naming a native effect is correctly
+/// withheld — which is the right answer to a question they are not asking.
+///
+/// ⛔ **IT IS NOT FOR A SHIPPING COMPOSITION.** A host that installs handlers
+/// calls [`close_preparation_barrier_admitting`]; a host that installs none gets
+/// [`close_preparation_barrier`], which checks against an EMPTY table and
+/// withholds — because a composition supporting zero techniques has the empty
+/// support set, not an unknown one.
+pub fn close_preparation_barrier_without_admission(world: &mut bevy::ecs::world::World) {
+    let support = ambition_entity_catalog::TechniqueSupport::default();
+    let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
+        return;
+    };
+    if staged.finalized {
+        return;
+    }
+    // Mark it closed FIRST, then fold with an empty table but skip the refusal
+    // filtering: the caller has declared this is not an admission question.
+    staged.finalized = true;
+    staged.closed_with_admission = false;
+    let staged_cast = std::mem::take(&mut staged.by_id);
+    let _ = support;
+    let catalog = world
+        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
+        .cloned();
+    let profiles = world
+        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
+        .cloned();
+    let previous = world
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(|registry| registry.generation())
+        .unwrap_or_default();
+    let registry = finalize_cast(
+        staged_cast.into_values(),
+        catalog.as_ref(),
+        profiles.as_ref(),
+        previous,
+    );
+    world.insert_resource(registry);
 }
 
 /// The barrier a composition that INSTALLED techniques drives, passing its own
@@ -2214,13 +2299,13 @@ pub fn close_preparation_barrier_admitting(
     world: &mut bevy::ecs::world::World,
     support: &ambition_entity_catalog::TechniqueSupport,
 ) {
-    finalize_prepared_cast(world, Some(support));
+    finalize_prepared_cast(world, support);
 }
 
 /// Fold the staged cast and publish it. Idempotent; runs at most once.
 fn finalize_prepared_cast(
     world: &mut bevy::ecs::world::World,
-    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+    support: &ambition_entity_catalog::TechniqueSupport,
 ) {
     let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
         return;
@@ -2233,7 +2318,18 @@ fn finalize_prepared_cast(
         return;
     }
     staged.finalized = true;
-    staged.closed_with_admission = support.is_some();
+    // ⛔⛤ **A NON-EMPTY TABLE, NOT `support.is_some()` — AND KEEPING THIS
+    // DISTINCTION IS WHY BLOCKER 2 IS NOT A ONE-LINE CHANGE.** The support
+    // argument is no longer optional, so `is_some()` would now be a constant
+    // `true` and this witness would be VACUOUS: `barrier_closed_with_admission`
+    // exists precisely to tell a composition that checked against installed
+    // techniques from one that did not, and a change that makes it always answer
+    // yes removes the guard while looking like a simplification.
+    //
+    // ⇒ A composition with an EMPTY table is checked against NOTHING, which is
+    // the honest reading of "installs no admission authority" and is still not
+    // the same as having one.
+    staged.closed_with_admission = support.keys().next().is_some();
     let staged = std::mem::take(&mut staged.by_id);
     let catalog = world
         .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
@@ -2387,14 +2483,16 @@ pub(crate) fn admit_and_finalize_cast(
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
     previous: CharacterCatalogGeneration,
-    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+    // ⛔⛤ **NOT `Option`, AND THAT WAS THE LAST A11 BLOCKER.** This took
+    // `Option<&TechniqueSupport>` and returned the whole cast unexamined on
+    // `None` — so a caller could select "admit everything" by passing nothing,
+    // and the unchecked backstop did exactly that in production. ⇒ **A
+    // composition that installs no technique handlers does not have an UNKNOWN
+    // support set; it has the EMPTY one**, and a character naming a native
+    // effect there must be refused like any other. An empty table says that;
+    // `None` said "do not ask".
+    support: &ambition_entity_catalog::TechniqueSupport,
 ) -> AdmittedCast {
-    let Some(support) = support else {
-        return AdmittedCast {
-            registry: finalize_cast(staged.iter().cloned(), catalog, profiles, previous),
-            refusals: Vec::new(),
-        };
-    };
     let mut kept = staged;
     let mut refusals: Vec<EffectRefusal> = Vec::new();
     loop {

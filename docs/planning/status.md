@@ -174,8 +174,32 @@ Measured by ToothbrushAmbition; no recommendation made and nothing wired. ⚠ Th
   stands down on `ChecksAuthoredEffectsAtTheBarrier`, and the public
   `close_preparation_barrier` for a host that installs none.
   ⚠ **ALL THREE A11 BLOCKERS ARE CLOSED. A11 HAS NO OPEN BLOCKER.**
-- **A12** — **PROPAGATION LANDED (`f9baa86e8`), THEN IDENTITY (`106c349b5`). TWO
-  BLOCKERS REMAIN OPEN.**
+- **A12** — **PROPAGATION LANDED (`f9baa86e8`), THEN IDENTITY (`106c349b5`).
+  ⛔⛤ THIS LINE SAID *"TWO BLOCKERS REMAIN OPEN"* AND THE TRUE COUNT WAS FOUR.**
+  An outside review of 52 commits found two more, both of them roads the
+  identity fix did not reach, and a reader of this row would have sized the
+  remaining work at half of what it was. ⭐ **The correction is not that the
+  number was stale — it is that a count of blockers is a claim about a
+  POPULATION, and nothing re-derived the population when `106c349b5` changed
+  what "fixed" meant.** ⇒ The four, and where each stands:
+
+  | # | blocker | state |
+  |---|---|---|
+  | 1 | the boss start road inserted `MovePlayback::new_at` directly, never joining the body-owned mint | ✅ **CLOSED `051e95972`** |
+  | 2 | provenance died on the `Effect → Special → projectile` road | ✅ **CLOSED `2ba3b6700`** |
+  | 3 | reflection re-owns a shot and leaves `FiredByMoveInstance` untouched | ⛔ **OPEN** |
+  | 4 | `None` still credits the move playing at the time | ⛔ **OPEN — Q101 is Jon's** |
+
+  ⚠ **3 AND 4 ARE ONE QUESTION WEARING TWO FACES.** Clearing the stamp on
+  reflection produces exactly the state blocker 4 mishandles, so fixing 3 alone
+  moves the defect rather than closing it. Both wait on what `None` is allowed
+  to mean.
+
+  ⭐ **Blocker 2's shape is the reusable part.** The bridge that dropped the
+  occurrence sat beside the branch that carried it, in the same `match`, and the
+  doc comment above the predicate *described the carrying branch as if it were
+  the subject*. A correct sentence with an unstated scope closed the question
+  for a reader standing on either road. **Both witnesses now name their road.**
   This line read *"NOT fixed"*, then *"LANDED"*, and both were wrong. What landed
   closes the DIRECT-REPLACEMENT case, where `succeeding(Some(prev))` genuinely
   increments. ✅ **IDENTITY FIXED IN `106c349b5`**: `MoveOccurrence(u32)` now lives

@@ -220,11 +220,31 @@ enforced by nothing.** A spawn site that forgets leaves a damageable body that
 `ensure_sim_id` deliberately skips.
 
 ⇒ **THE WORK IS NOT "FIND THE BAD SPAWN SITE". IT IS TO MAKE THAT ARM
-OBSERVABLE.** The runtime census
-(`game/ambition_app/tests/every_damageable_body_is_identified.rs`) is the right
-instrument and already exists. ⚠ Its `DAMAGEABLE_FLOOR = 4` against a measurement
-of 4 is **a ratchet at its ceiling**: it cannot see an addition, which is the
-direction a new unidentified body arrives from.
+OBSERVABLE.**
+
+✅ **PART OF THIS LANDED IN `68b7e6de6`, AND IT IS NOT THIS PART.** A2 drove the
+undriven construction roads and observes identity **where bodies are BUILT**, which
+is the better place to enforce — the invariant's own comment says the SPAWN SITE
+must mint, and a build-site census can name WHICH road produced an unidentified
+body rather than only that one was skipped. ⭐ Two of the seven candidate roads
+turned out not to be roads: shrines are out of population, riders mint no body at
+all so the floor became the RELATION (`pirate_sky_lookout`: 11 bodies, 4 mounted
+pairs — **eleven bodies with zero pairs is what a body-count floor would pass**).
+
+⛔ **THE SWEEPER'S SILENT SKIP IS STILL UNCOVERED, and the author of `68b7e6de6`
+refused to let it be counted as covered.** A body with `BodyKinematics`, no
+`SimId`, no `FeatureId` and no `PrimaryPlayer` is still skipped by `ensure_sim_id`
+with nothing reporting it. **Build-site coverage and sweeper coverage are different
+subjects**: the first asks whether each ROAD produces identified bodies, the second
+asks whether a body the sweeper SKIPS is ever nameable.
+
+⚠ **`DAMAGEABLE_FLOOR` WAS 4 AGAINST A MEASUREMENT OF 4 AND THIS ROW SAID SO. IT IS
+1 NOW AND THE ROW WAS WRONG TO ASK FOR HEADROOM.** ⭐ A floor equal to its
+population *"fires on the first change in either direction and teaches the next
+reader to bump the number"* — which is how it reached 4. The repair was to make the
+total floor a bare anti-vacuity check, let the **per-road** floors do the
+discriminating, and PRINT the measured total in the failure message instead of
+asserting on it.
 
 ⚠ **The cut-rope victory NPC was REFUTED as an example** — it carries `FeatureId`
 + `BodyKinematics`, exactly the query the first arm serves. **What is open is the

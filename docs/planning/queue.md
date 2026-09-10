@@ -1083,6 +1083,32 @@ require", and A2a had just made the damage-facing publication require
 `Res<BossCatalog>`. If that were it the failure would be deterministic in the
 disabled arm; 25 clean module runs say it is not.
 
+**THIRD SIGHTING 2026-09-10, AND IT WAS NOT A FLAKE — which is the finding.**
+`workspace (default features)` went red while every changed crate passed
+individually. That is the exact signature the two sightings above describe, and
+two agents spent hours on it generating flake-adjacent hypotheses: feature
+unification, `relativity` turned on by a sibling, `content_pack`-gated tests, a
+downstream dependent, load. **Every one was measured and eliminated.**
+
+⇒ **The cause was a `.md` FILE.** `no_planning_doc_names_a_condition_the_engine_does_not_publish`
+reads planning documents at runtime, and a new census page cited a rollback
+SCHEMA row (`feature.switch_on`) that the guard read as a misspelled condition id
+(`world.switch_on`). Deterministic, reproducible on two machines, and invisible
+to every per-crate run because **no crate had changed in a way that mattered**.
+
+⇒ **So "workspace red + per-crate green" now has a non-flake explanation that was
+not on this row's list, and it should be checked FIRST because it is free:** did
+anything change that a test READS but does not COMPILE — a planning document, a
+baseline file, an asset manifest, an LDtk world? A diff grouped by crate cannot
+show it. See the fifth-species entry above.
+
+⭐ **AND THE ROW'S OWN ADVICE WAS PAID FOR A THIRD TIME BEFORE IT WAS FOLLOWED.**
+A reproduction was piped through `tail`, which writes only at EOF — eighty minutes
+of a live run and a hung run are the same 0-byte reading, and when cargo exited
+the pipeline never flushed. ⇒ Redirect to a FILE and read the file WHILE it runs:
+progress is a `wc -l` and a failure is a `grep`, instead of a question nobody can
+answer until the end. Both agents' runs that finally named things were unpiped.
+
 ### POST-CARVE-DOC-SWEEP — update moved-source references in the same carve
 
 **Owner:** the carve author.

@@ -160,11 +160,22 @@ pub fn begin_authored_tether_pulls(
             target: "ambition::moves",
             "tether: bit a ledge at {:?}, reeling from {:?}", contact.anchor, kin.pos,
         );
-        commands.entity(message.actor).try_insert(TetherReel {
-            remaining_s: params.timeout_s,
-            speed: params.speed,
-            anchor: contact.anchor,
-        });
+        commands.entity(message.actor).try_insert((
+            TetherReel {
+                remaining_s: params.timeout_s,
+                speed: params.speed,
+                anchor: contact.anchor,
+            },
+            // ⭐⭐ THE LINE THE PLAYER SEES, published as an ENGINE fact rather
+            // than drawn from this component. A 150px reel that draws nothing is
+            // the mechanic without the read — the same argument `grab_reach` and
+            // `wire_anchor` each make for the two lines that already exist — and
+            // presentation must not learn what a `TetherReel` is to show it.
+            // `BodyLineAnchor` is the generic body-to-world fact; the ruleset
+            // owns when it exists, the read model projects it, and the line road
+            // that already draws grabs draws this too.
+            ambition_platformer2d::engine_core::BodyLineAnchor(contact.anchor),
+        ));
     }
 }
 
@@ -207,7 +218,14 @@ pub fn reel_tethered_fighters(
         // recovery she had left and read as the game freezing her in the air.
         if !has_budget {
             info!(target: "ambition::moves", "tether: the reel gave up short of {:?}", reel.anchor);
-            commands.entity(entity).try_remove::<TetherReel>();
+            // ⛔ THE LINE GOES WITH THE REEL. A body that stopped reeling and
+            // kept its anchor draws a rope to a ledge it is no longer attached
+            // to — which is worse than no line, because it is a lie the player
+            // reads as a live threat.
+            commands
+                .entity(entity)
+                .try_remove::<TetherReel>()
+                .try_remove::<ambition_platformer2d::engine_core::BodyLineAnchor>();
             continue;
         }
         // ⭐⭐ ASK THE AUTHORITY WHETHER IT WOULD CATCH HER HERE, rather than
@@ -249,7 +267,14 @@ pub fn reel_tethered_fighters(
             // releasing her with upward velocity would leave her hanging in the
             // air beside the ledge she just reached.
             crate::motion::command_body_velocity(&mut kin, ae::Vec2::ZERO, "tether arrived");
-            commands.entity(entity).try_remove::<TetherReel>();
+            // ⛔ THE LINE GOES WITH THE REEL. A body that stopped reeling and
+            // kept its anchor draws a rope to a ledge it is no longer attached
+            // to — which is worse than no line, because it is a lie the player
+            // reads as a live threat.
+            commands
+                .entity(entity)
+                .try_remove::<TetherReel>()
+                .try_remove::<ambition_platformer2d::engine_core::BodyLineAnchor>();
             continue;
         }
         // ⛔ THE LAST STEP IS SHORTENED SO SHE LANDS ON THE ANCHOR RATHER THAN

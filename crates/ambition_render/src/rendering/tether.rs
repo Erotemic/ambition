@@ -58,7 +58,15 @@ pub fn sync_tether_visuals(
     // body visual.
     let mut reaching: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
     for (body, pose, presented) in &bodies {
-        if let Some(reach) = pose.grab_reach {
+        // ⭐ EITHER FACT DRAWS THE SAME LINE. A live grab reaches TO a point; a
+        // ledge tether is reeled TOWARD one it latched. Both are "this body is
+        // lined to somewhere", which is all this file ever needed to know — so a
+        // third mechanic that publishes `line_anchor` draws itself.
+        //
+        // ⛔ THE GRAB WINS A TIE, because a capture window is the shorter-lived
+        // and more urgent read: a fighter reeling to a ledge who also has a live
+        // grab box is threatening with the grab.
+        if let Some(reach) = pose.grab_reach.or(pose.line_anchor) {
             reaching.push((
                 body,
                 ambition_sim_view::presented_pose::draw_pos(pose, presented),
@@ -70,7 +78,8 @@ pub fn sync_tether_visuals(
         let Some(view) = feature_views.as_ref().and_then(|i| i.get(&visual.id)) else {
             continue;
         };
-        if let Some(reach) = view.grab_reach {
+        // Same rule as the player road above.
+        if let Some(reach) = view.grab_reach.or(view.line_anchor) {
             reaching.push((
                 body,
                 bevy::math::Vec2::new(view.pos.x, view.pos.y),

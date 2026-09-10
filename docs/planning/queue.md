@@ -640,18 +640,40 @@ before tuning anything.
 
 ## P2 — current engine/game work
 
-### D-TETHER-LINE — give the ledge tether a readable generic reach line
+### D-TETHER-LINE — DONE 2026-09-10; the reel publishes a fact, not a component
 
-**Owner:** [`engine/expressive-move-capabilities.md`](engine/expressive-move-capabilities.md).
+**Re-derived before starting, and the row was half true.** A tether line already
+existed (`ambition_render::rendering::tether`) and neither `ambition_render` nor
+`ambition_sim_view` carries a `ambition_demo_smash` dependency — so the layering
+half of the acceptance was already met. What was missing is what the row's first
+sentence actually says: **the REEL published nothing.** The line drew from
+`grab_reach`, which is the capture box's reach under the move clock, so a fighter
+latching a ledge and being reeled across the stage drew NOTHING.
 
-The reel is mechanically visible through movement but has no attachment line.
-Do not teach `sim_view` about the Smash-specific `TetherReel` component. Publish a
-generic body-to-world reach/attachment fact from gameplay and let the existing
-presentation line road consume it.
+⇒ `BodyLineAnchor` — a generic body-to-world point, in `ambition_platformer2d_core`
+— is inserted and removed by the smash ruleset beside `TetherReel`, projected by
+both read models as `line_anchor`, and consumed by the line road as
+`grab_reach.or(line_anchor)`. **Presentation never learns what a `TetherReel` is,
+and a third line mechanic draws itself by publishing the same component.**
 
-**Acceptance:** diagonal ledge tether draws from body to actual anchor, Performer
-flyline/grab reach remain correct, and no engine/view crate imports Smash ruleset
-state.
+⛔ THREE REASONS IT IS ITS OWN FACT rather than reusing a neighbour. `wire_anchor`
+is *"where the wire she is HANGING FROM comes down from"* — suspended beneath a
+point. `grab_reach` is where a live capture box reaches TO. A reel is neither: the
+body is pulled TOWARD a point it latched, and folding it into either makes one
+field mean two mechanics with no way for a renderer to ask which. ⚠ And it is a
+COMPONENT rather than a `BodyMotionFacts` field for a structural reason — those
+facts are rebuilt from the motion model every tick, so a ruleset writing there is
+overwritten before anything reads it.
+
+⚠ THE ANCHOR IS REMOVED AT BOTH REEL-END SITES, not just the one. A body that
+stopped reeling and kept its anchor draws a rope to a ledge it is no longer
+attached to — worse than no line, because the player reads it as a live threat.
+
+**Acceptance: met.** Guard `a_fighter_reeled_to_a_ledge_gets_a_line_without_a_grab`
+(no grab anywhere, only the latched anchor) with a control
+(`a_fighter_lined_to_nothing_gets_no_line`), poisoned by reverting the line road
+to `grab_reach` alone — which kills the new test and leaves the other four
+standing. render 258, sim_view 102, core 546, demo_smash 268.
 
 ### D-POTATO-ASPECT — resolve tier-dependent character trim/aspect drift
 

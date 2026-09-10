@@ -59,6 +59,16 @@ pub struct FeatureView {
     /// above it is: a match fighter takes THIS road, and a presentation rule
     /// stated only on the player road never fires in a versus match.
     pub grab_reach: Option<ae::Vec2>,
+    /// A POINT THIS BODY IS LINED TO, in world space — a ledge tether's latched
+    /// anchor today. The twin of `BodyPoseView::line_anchor`, here for the same
+    /// reason `grab_reach` above it is: a match fighter takes THIS road, and a
+    /// presentation rule stated only on the player road never fires in a versus
+    /// match.
+    ///
+    /// ⭐ PROJECTED FROM `BodyLineAnchor`, an ENGINE component whose lifetime a
+    /// ruleset owns, so this read model never learns what a `TetherReel` is. A
+    /// third line mechanic publishes the same fact and needs no change here.
+    pub line_anchor: Option<ae::Vec2>,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -280,7 +290,13 @@ pub fn rebuild_feature_view_index(
             // THE MOVE THIS BODY IS PLAYING, read for one thing: where a live
             // grab is reaching. It carries its own locked facing, which is why
             // this needs no body facing beside it.
-            Option<&ambition_combat::moveset::MovePlayback>,
+            // ⛔ NESTED, because a bevy `Query` tuple stops at sixteen and this
+            // one is at the ceiling. Grouping the two move-adjacent reads keeps
+            // the addition honest rather than dropping a fact to make room.
+            (
+                Option<&ambition_combat::moveset::MovePlayback>,
+                Option<&ambition_platformer2d_core::BodyLineAnchor>,
+            ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
         // `sync_boss_actor_components`) but are their OWN feature family below. Without this
@@ -322,6 +338,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -352,6 +369,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -382,6 +400,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -412,6 +431,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -446,7 +466,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        playback,
+        (playback, line_anchor),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -506,6 +526,7 @@ pub fn rebuild_feature_view_index(
                 // ⛔ THE MOVE'S OWN FACING, not a body facing this road does not
                 // carry: a move locks its facing at start and places its volumes
                 // with it, so the line and the box agree even mid-turn.
+                line_anchor: line_anchor.map(|anchor| anchor.0),
                 grab_reach: playback.and_then(|pb| {
                     pb.live_capture_reach().map(|reach| {
                         let side = if pb.facing >= 0.0 { 1.0 } else { -1.0 };
@@ -565,6 +586,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -604,6 +626,7 @@ pub fn rebuild_feature_view_index(
                 submerged: false,
                 wire_anchor: None,
                 grab_reach: None,
+            line_anchor: None,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -1048,6 +1071,7 @@ mod view_index_tests {
             submerged: false,
             wire_anchor: None,
             grab_reach: None,
+            line_anchor: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

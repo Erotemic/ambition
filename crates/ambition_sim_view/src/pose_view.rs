@@ -112,6 +112,18 @@ pub struct BodyPoseView {
     /// the facing and the acceleration frame, and would be a second authority on
     /// where the grab goes.
     pub grab_reach: Option<ambition_platformer2d_core::Vec2>,
+    /// A POINT THIS BODY IS LINED TO, in world space — a ledge tether's latched
+    /// anchor today, and `None` for a body lined to nothing.
+    ///
+    /// ⭐ THE THIRD LINE FACT, and deliberately its own. `wire_anchor` is where a
+    /// body HANGS FROM; `grab_reach` is where a live capture box reaches TO,
+    /// derived from the move clock. A reel is neither — the body is pulled TOWARD
+    /// a point it latched — and folding it into either would make one field mean
+    /// two mechanics with no way for a renderer to ask which.
+    ///
+    /// ⛔ Projected from `BodyLineAnchor`, an ENGINE component a ruleset inserts
+    /// and removes, so this read model never learns what a `TetherReel` is.
+    pub line_anchor: Option<ambition_platformer2d_core::Vec2>,
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
@@ -171,6 +183,7 @@ impl Default for BodyPoseView {
             submerged: false,
             wire_anchor: None,
             grab_reach: None,
+            line_anchor: None,
             charge_tier: None,
             smash_charge: None,
             authored_render: None,
@@ -255,6 +268,9 @@ pub fn rebuild_body_pose_views(
                 // one the move NAMES — the same request the actor path carries
                 // on `ActorAnimFrame::clip` (sprite redirect P0).
                 Option<&ambition_combat::moveset::MovePlayback>,
+                // A ledge tether's latched anchor, published by whichever ruleset
+                // owns the mechanic. See `BodyPoseView::line_anchor`.
+                Option<&ambition_platformer2d_core::BodyLineAnchor>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -310,6 +326,7 @@ pub fn rebuild_body_pose_views(
             sheet_authored_body,
             respawn_grace,
             playback,
+            line_anchor,
             pose,
         ),
     ) in &mut bodies
@@ -454,6 +471,7 @@ pub fn rebuild_body_pose_views(
             // ⛔ RESOLVED HERE because this is where the facing and the frame
             // are both in hand — the same reason the move timeline resolves its
             // own event offsets rather than publishing body-local ones.
+            line_anchor: line_anchor.map(|anchor| anchor.0),
             grab_reach: playback.and_then(|pb| {
                 pb.live_capture_reach().map(|reach| {
                     // ⛔ THE MOVE'S OWN FACING, not the drawn one. A move

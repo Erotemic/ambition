@@ -44,6 +44,7 @@ pub use body_clusters::{
     BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch,
     BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime,
+    BodyLineAnchor,
     BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
     RecoveryRefresh, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };

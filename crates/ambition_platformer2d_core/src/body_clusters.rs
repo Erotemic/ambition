@@ -506,6 +506,34 @@ pub struct BodyBlinkState {
     pub cooldown: f32,
 }
 
+/// **A POINT IN THE WORLD THIS BODY IS CURRENTLY LINED TO**, or absent when it is
+/// not lined to anything.
+///
+/// ⭐⭐ THE FACT PRESENTATION NEEDS, PUBLISHED BY WHOEVER OWNS THE MECHANIC. A
+/// reach that crosses a third of the stage and draws nothing is the mechanic
+/// without the read — the argument `grab_reach` and `wire_anchor` already make,
+/// once each, for the two lines that existed. A ledge tether is the third and it
+/// had NO line: the reel is visible only through the movement it causes, so an
+/// opponent cannot see what latched or where it is pulling from.
+///
+/// ⛔⛔ **DELIBERATELY NOT `wire_anchor`, AND NOT `grab_reach`.** `wire_anchor`
+/// is *"where the wire she is HANGING FROM comes down from"* — a body suspended
+/// beneath a point. `grab_reach` is where a live capture box reaches TO, derived
+/// from the move clock. A reel is neither: the body is being PULLED TOWARD a
+/// point it latched. Writing one into the other would make a single field mean
+/// two mechanics, and the renderer would have no way to ask which.
+///
+/// ⛔ A COMPONENT AND NOT A `BodyMotionFacts` FIELD, for a structural reason:
+/// those facts are rebuilt from the motion model every tick
+/// (`BodyMotionFacts::from_model`), so a ruleset writing there is overwritten
+/// before anything reads it. A ruleset owns this by inserting and removing it.
+///
+/// ⇒ **WORLD SPACE, because the anchor does not move with the body.** The point
+/// is latched at the moment the line bites; publishing it body-local would make
+/// every consumer re-derive it against a body that is being pulled.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct BodyLineAnchor(pub crate::Vec2);
+
 /// Ledge re-grab cooldown (a time fact, shared with combat's knock-off rule).
 /// The hang / pull-up state itself is axis maneuver state
 /// ([`crate::movement::AxisManeuverState::ledge_grab`]); combat knocks a body

@@ -510,6 +510,7 @@ mod tests {
             submerged: false,
             wire_anchor: None,
             grab_reach: None,
+            line_anchor: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

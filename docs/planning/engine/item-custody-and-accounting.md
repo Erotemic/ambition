@@ -1,5 +1,13 @@
 # Item custody and accounting
 
+**The writer census this page's packet held for is delivered:**
+[`item-writer-inventory.md`](item-writer-inventory.md) (2026-09-10, 61
+write-capable sites). ⇒ Its headline is that the shape is the INVERSE of A7's
+framing — the monolith's checkpoint-baseline family is 9 of 9 inside its own
+crate, while `OwnedItems` is written from four crates with 3 of 16 sites in the
+crate that defines it. And `GroundItem` had no constructor, so seven sites minted
+an occurrence; it is `#[non_exhaustive]` with two constructors as of `7108a57b1`.
+
 **State:** OPEN / NARROW — and as of 2026-09-04 the exploration side of every
 migration row is CLOSED. I1 (2026-09-02) and I4 are done; I2's exploration half
 is done and its one residual (`match_spawn.rs:113`) belongs to the fighter lane;

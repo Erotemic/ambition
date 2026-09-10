@@ -2425,3 +2425,89 @@ fn a_shot_resolves_against_the_collider_the_sweep_selected_not_the_harder_one() 
         after.vel
     );
 }
+
+/// ⛔⛔ **THE TRIP-IT ARM FOR THE UNDECIDABLE-VICTIM ASSERT, AND WITHOUT IT THAT
+/// ASSERT IS A CHECK THAT CANNOT BE SHOWN TO FAIL.**
+///
+/// `step_projectiles` carries a `debug_assert` for two victims that coincide in
+/// time AND position with NEITHER carrying a `SimId` — the case where the
+/// resolver has no stable key left and `sort_by`'s stability hands the answer to
+/// Bevy query order. The full `--rust` lane ran 49/49 green with that assert in
+/// place, and a green lane says nothing about an assert nothing constructs the
+/// state for. ⇒ A negative result is a claim about the INSTRUMENT until the
+/// instrument is shown to fire.
+///
+/// ⚠ `should_panic` WITHOUT `expected`, deliberately. The assert's own message
+/// is printed by the inner panic inside the system; Bevy catches it and re-panics
+/// with its own wrapper, so the payload `should_panic` can match is Bevy's, not
+/// the assert's. Matching the wrapper would pin a Bevy string, which is worse
+/// than matching nothing — and the CONTROL below is what makes the bare
+/// `should_panic` mean something.
+#[test]
+#[should_panic]
+#[cfg(debug_assertions)]
+fn two_coincident_victims_with_no_identity_between_them_trip_the_resolver() {
+    stacked_unidentified_victims(false);
+}
+
+/// ⭐ THE CONTROL, and it is the half that makes the arm above a measurement.
+/// The SAME two bodies at the SAME point, differing only in carrying a `SimId`,
+/// must NOT trip anything. Without this, a `should_panic` test passes when the
+/// fixture panics for any reason at all — a missing resource, a bad spawn, a
+/// typo in the world size.
+#[test]
+#[cfg(debug_assertions)]
+fn the_same_two_victims_with_identities_do_not() {
+    stacked_unidentified_victims(true);
+}
+
+fn stacked_unidentified_victims(identified: bool) {
+    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+
+    let world = ae::World::new(
+        "two_unidentified_victims",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(100.0, 300.0),
+        vec![],
+    );
+    let mut app = projectile_test_app(world, ae::Vec2::new(100.0, 300.0), 1.0);
+    // ⚠ ONE POINT, NOT TWO NEARBY ONES. The assert fires only on an EXACT tie in
+    // both time and position; two bodies a pixel apart are separated by the
+    // geometric key and never reach the identity comparison at all.
+    let at = ae::Vec2::new(500.0, 300.0);
+    for which in 0..2 {
+        let mut entity = app.world_mut().spawn((
+            FeatureSimEntity,
+            ambition_combat::components::FeatureId::new(format!("stacked_{which}")),
+            CenteredAabb::new(at, ae::Vec2::new(16.0, 24.0)),
+            ActorFaction::Enemy,
+        ));
+        if identified {
+            entity.insert(
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&format!(
+                    "stacked_{which}"
+                )),
+            );
+        }
+    }
+
+    {
+        let spec = ProjectileKind::Fireball.spec(
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+        body.kin.pos = ae::Vec2::new(400.0, 300.0);
+        // ⚠ FAST ENOUGH TO REACH THEM. At 4000 px/s the 0.016s leg is 64px and
+        // the shot's right edge stops at 476 — three pixels short of the pair's
+        // near face at 484 — so the first version of this fixture reached no
+        // victim at all and reported "the assert does not fire".
+        body.kin.vel = ae::Vec2::new(8000.0, 0.0);
+        body.game.gravity = 0.0;
+        crate::projectile::tests::spawn_player_projectile(&mut app, body);
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+}

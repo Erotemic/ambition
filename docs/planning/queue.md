@@ -600,8 +600,10 @@ the first concrete step, and it will go red immediately; that is the point.
 
 **Acceptance, and it is now two claims because the row holds two defects:** the
 duel gate is asserted over a representative set of AUTHORED fighters rather than
-one, and every fighter in that set fights; and the Smash grid does not seat a
-character that authors no body.
+one, and every fighter in that set fights; and the Smash grid's seating rule is
+RULED ON rather than assumed — see [Q98](awaiting-maintainer-decision.md), because
+the bodiless character on the grid is there by a deliberate maintainer placement
+and removing him retracts it.
 
 ⚠ **THE SET MUST BE `PLAYABLE_ROSTER` OR THE ASSEMBLED GRID CROSSED AGAINST IT,
 NOT `authored_movesets::tables()`.** That list's own header warns it is *"NOT THE

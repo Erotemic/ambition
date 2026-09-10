@@ -405,6 +405,47 @@ its host did not compose, which is the same question the SDK's minimum-profile
 work (A9) asks from the other side. Owner document:
 [authored technique admission](engine/authored-technique-admission.md).
 
+## Q98 — may the Smash grid seat a character that authors no body?
+
+**Measured 2026-09-10.** `npc_carl_stargan` is seatable on the assembled Smash
+grid and, put on a stage against a copy of himself at the top difficulty rung for
+a full minute, **deals 0.00 damage — three move starts, zero hitstun, zero
+knockouts, in reach for 17 of 3613 ticks.**
+
+⇒ **He is not a broken fighter; he is not a fighter.** `character_catalog.rs`
+lists him in exactly one place — `KNOWN_BARE_REGISTRATIONS`, the exemption for
+ids that author *"NOTHING — not a body, not a policy, not a moveset"* — and the
+entry records the reason verbatim: *"one placement: hall_of_characters NpcSpawn,
+brain_override stand_still. Never an EnemySpawn, so no archetype vitals exist to
+retract. **Registered because Jon put him on the Smash grid (2026-08-11) and the
+grid drops what it cannot seat.**"*
+
+⚠ So this is a decision that was already made once, deliberately, by the
+maintainer — which is exactly why it is a question here rather than a defect in
+`queue.md`. He is not on `PLAYABLE_ROSTER` (13 ids, six of them `npc_` fighters);
+he reaches the grid by a different road.
+
+⇒ Three answers, and they are not equivalent:
+
+1. **Keep him seatable.** A player can pick a character who cannot fight. That is
+   a real product statement if the grid is meant to be "everyone we can draw",
+   and it costs nothing to leave.
+2. **Drop bodiless characters from the grid.** The grid's rule becomes "a
+   fighter", not "an id we can seat". ⛔ This RETRACTS a placement Jon made on
+   purpose, so it needs saying out loud rather than being fixed quietly.
+3. **Author him a body.** He becomes a fighter and the question dissolves — the
+   most work and the only answer that makes the grid entry mean what a player
+   would assume.
+
+⚠ **AND THE ENGINEERING HALF DOES NOT WAIT ON THIS RULING**, so it is not
+blocking: the duel gate's own assertion checks that an id can be SEATED, not that
+it is an authored fighter, and that is what let a bodiless character into a
+fighter measurement. Tightening the SWEEP's population is queue work
+(D-CPU-INERT) whichever way this is answered.
+
+⭐ Not a feel ruling: it decides whether "on the grid" means "is a fighter", which
+is the property every CPU-quality measurement over that grid will assume.
+
 ## Q96 — should a projectile collide with an ECS breakable's published surface?
 
 **Measured 2026-09-09, while closing A2b.** A breakable authored

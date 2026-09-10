@@ -592,6 +592,28 @@ MOVEMENT scorer's subject and not the attack menu's.
 and a correlation across three points is a direction rather than a law. It is
 enough to say where NOT to look first.
 
+⇒ **AND THERE IS EXACTLY ONE FIGHTER-VARYING TERM IN MOVEMENT SCORING, which is
+where to look FIRST.** `walks_off` — the ledge rule deciding whether closing is
+safe — is `floor_ahead(toward) < half_extent.x * 2.0`. **It scales with the
+body's WIDTH**, so a wider fighter reads "approach walks me off" from further
+back and retreats where a narrower one advances. Nothing else in
+`movement_options` differs by fighter at all.
+
+⭐ The dependence is now pinned by
+`options::tests::a_wider_body_refuses_an_approach_a_narrower_one_takes` (two
+bodies at one spot differing only in half-extent, plus a mid-platform control;
+poisoned by replacing the width term with a constant, which kills that test alone
+and leaves 37 standing). It was real, unstated and unguarded until 2026-09-10.
+
+⚠ **THIS IS A CANDIDATE, NOT THE CAUSE**, and the guard asserts only that the
+term exists and varies. ⇒ **The join that would settle it: `half_extent.x` per
+fighter against time-in-range.** A correlation implicates the term; equal widths
+across a 6× engagement spread would exonerate it, which is as useful — the same
+shape as the `lifts` coupling that turned out real and inert.
+⚠ Take the width from the COMPOSED WORLD, not from source: the character catalog
+says in its own header that it is *"NOT a second body-construction authority"*,
+and bodies are assembled from registered `CharacterDefinition` values.
+
 ⚠ **And the acceptance test cannot see it**, because `FIGHTER` is a const set to
 the one fighter that passes. `two_cpus_in_the_shipped_composition_damage_each_other`
 asserts `>= 0.5` of pool per minute and would fail on two of the three sampled —

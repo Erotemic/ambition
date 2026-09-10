@@ -13,6 +13,44 @@ it is not answered here. This page records who writes destructible state TODAY, 
 that a later ownership change has a subject and Q96 has a population. **Nothing
 here licenses an extraction.**
 
+## Q96 IS RULED — and read the provenance before you build on it
+
+⭐⭐ **YES, PROJECTILES COLLIDE.** Jon, 2026-09-10, quoted: *"Yes, they collide.
+There might be instances that we mark that certain projectiles do not collide with
+certain types of collision surfaces. So do not exclude that possibility."*
+
+⚠ **PROVENANCE: RELAYED, NOT HEARD FIRST-HAND.** This reached this page through
+YardratAmbition quoting Jon. It is recorded here because the page's own hold cites
+Q96, and it is marked because **a relayed instruction is not the instruction** —
+that rule cost this project a wrongly-relayed stop earlier the same day. ⇒ Anyone
+about to write CODE on this row should confirm it against
+[`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md) once the
+ruling is recorded there by whoever owns that page.
+
+⇒ **What it changes for THIS page: nothing in the table.** The inventory is about
+writers, the ruling is about contact. The six mutation sites and three crates are
+unaffected.
+
+⇒ **What it changes for A5: the successor question is now askable.** Q96 decided
+the second way makes stable collider-contributor identity **REQUIRED for
+projectiles**, not only for the player road — the awaiting-decision row says so
+explicitly, and says contributor identity was not required before this row fell.
+
+⛔⛔ **AND IT DOES NOT SETTLE THE THING THAT PAGE FLAGS AS NEEDING A RULING.** That
+row records a contradiction between its own second bullet — *a `Bouncing` shot
+would bounce off a solid crate rather than damage it* — and the owner document,
+[projectile contact protocol](projectile-contact-protocol.md), which says a
+destructible's surface and its hurt region **coalesce into ONE compound contact**
+that resolves the target once and also honours the surface's physical response.
+**"Yes, they collide" is true under both**, so the third-model contradiction
+survives the ruling. ⇒ Do not read this ruling as selecting the bullet.
+
+⚠ **THE SECOND HALF OF THE RULING IS THE HALF THAT GETS DROPPED.** *"Do not exclude
+that possibility"* is a constraint on whichever model wins: the rule may not be
+built unconditionally. A per-projectile / per-surface exemption has to be
+expressible, so the design owes a place to mark it — before the first
+implementation hard-codes "a solid surface always stops a shot".
+
 ## The state, and where the machine lives
 
 | carrier | crate |
@@ -158,6 +196,12 @@ rule that is currently two-thirds in the domain and one-third beside it.**
 wrong, and it cannot: *"moving all destructible state first would preserve an
 incorrect split interpretation"* is the frontier's own warning, and whether the
 interpretation is correct is what Q96 decides.
+
+⭐ **Q96 IS NOW RULED (see the top of this page), so that sentence has a successor
+rather than a blocker.** ⚠ It is still not a licence to move anything from this
+table: the ruling makes contributor identity required for projectiles, which is a
+statement about what must EXIST, not about which crate should own it. **The
+ownership question is unchanged and this page still decides nothing.**
 
 ## Reproduce
 

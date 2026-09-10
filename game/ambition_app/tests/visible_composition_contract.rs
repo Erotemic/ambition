@@ -163,3 +163,55 @@ fn the_browser_persona_boots_the_launcher_with_the_tile_spine_and_no_desktop_cur
          a canvas has no such window and `web/index.html` owns the page's loading state"
     );
 }
+
+/// D-HEADLESS-DESPAWN: a `NoWindow` app still CANNOT despawn a camera.
+///
+/// ⛔⛔ THE CLASS IS "ANY `Camera` ENTITY", NOT "A PORTAL RIG". `backends: None`
+/// makes `create_render` return false, so `RenderPlugin::build` skips
+/// `ExtractPlugin` — and with it `SyncWorldPlugin`, the ONLY thing that inserts
+/// `PendingSyncEntity`. Everything after that `if` is added anyway, including
+/// `CameraPlugin`'s `ExtractComponentPlugin::<CameraMainTextureUsages>`, whose
+/// `SyncComponentPlugin` on_remove hook reads that resource UNWRAPPED.
+///
+/// ⇒ Spawning is safe — the Add path is an OBSERVER `SyncWorldPlugin` never
+/// registered, so it silently does nothing. Despawning is fatal, because the
+/// Remove path is a COMPONENT HOOK a different, still-installed plugin
+/// registered. That asymmetry is the whole defect.
+///
+/// ⛔ THIS ASSERTS THE BUG, NOT THE FIX, AND THAT IS DELIBERATE. Gating the
+/// portal view-cone capture rig on `RenderApp` presence closed the only despawn
+/// a DUEL can reach; it did not close this. An `#[ignore]` would rot silently
+/// and a red test would break the lane, so the current behaviour is pinned
+/// instead: when the upstream hook learns to tolerate a missing render world,
+/// THIS TEST FAILS LOUDLY and whoever fixed it deletes the `should_panic` and
+/// the `still_` in the name.
+///
+/// ⭐ WHY THIS AND NOT THE DUEL. The bout that found it reaches this through
+/// `npc_alice`'s portal up-B, 3600 ticks and ~6s away, which reads as a fighter
+/// defect. Two entities and no fighter say the same thing in ~1s.
+#[test]
+#[should_panic(expected = "PendingSyncEntity")]
+fn a_no_window_app_still_cannot_despawn_a_camera() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let camera = app.world_mut().spawn(Camera2d).id();
+    app.world_mut().entity_mut(camera).despawn();
+}
+
+/// The CONTROL for [`a_no_window_app_still_cannot_despawn_a_camera`], and it is
+/// what makes that test mean anything.
+///
+/// ⛔ Without it, the sibling's panic is indistinguishable from "despawn is
+/// broken in this composition" or "the fixture never built". This despawns
+/// through the SAME app and the SAME path, differing ONLY in carrying no camera
+/// components. ⇒ The pair localizes the defect to the camera hook rather than to
+/// despawn, to `NoWindow`, or to the app.
+///
+/// ⚠ It is also the poison: swap `Camera2d` for any non-camera component in the
+/// sibling and it stops panicking, which is exactly the edit this arm holds
+/// fixed.
+#[test]
+fn a_no_window_app_can_despawn_a_plain_entity() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let plain = app.world_mut().spawn(Transform::default()).id();
+    app.world_mut().entity_mut(plain).despawn();
+}

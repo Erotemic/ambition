@@ -335,7 +335,17 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         #[cfg(feature = "portal_render")]
         {
             use ambition_portal2d_presentation::{PortalPresentationPlugin, PortalPresentationSet};
-            app.add_plugins(PortalPresentationPlugin::default());
+            // MEASUREMENT ONLY (D-HEADLESS-DESPAWN, not a landed fix): a view-cone
+            // capture rig is render-to-texture — an offscreen `Camera2d` whose
+            // target is an `Image`. `backends: None` omits the RenderApp, so the
+            // image never fills AND the rig's teardown despawns a `Camera`, whose
+            // `CameraMainTextureUsages` sync hook reads a resource only
+            // `SyncWorldPlugin` creates. Same reasoning as `tile_spine`.
+            let has_render_app = app.get_sub_app(bevy::render::RenderApp).is_some();
+            app.add_plugins(PortalPresentationPlugin {
+                view_cones: has_render_app,
+                ..PortalPresentationPlugin::default()
+            });
             // Portal body-copy visuals must run after the player animator, not only after
             // `sync_visuals`: trimmed sprites can update `Sprite::custom_size` and `Anchor` during
             // animation, and the portal exit copy must clone that final per-frame render basis.

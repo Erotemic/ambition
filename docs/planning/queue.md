@@ -533,7 +533,7 @@ instrument going blind.
 ([source-text guard exposure](engine/source-text-guard-exposure.md) is the sweep:
 121 Python guard files and 12 Rust, one real case.)
 
-### D-CPU-INERT — two CPUs of a shipped fighter deal ZERO damage in a minute
+### D-CPU-INERT — an authored fighter's CPUs engage 11% of a duel; a NON-fighter is seatable
 
 **Owner:** [fighter brain](engine/fighter-brain.md), F6 and the utility
 progression. Found 2026-09-10 while sampling D-BRAIN-MENU across fighters; it is
@@ -547,12 +547,25 @@ matchup — the FIGHTER is the only variable:
 |---|---|---|---|---|---|
 | `npc_pirate_admiral` | 1.26 / 1.07 | 54 / 27 | 14% / 19% | [525, 324] | 2 |
 | `npc_emmy_noether` | **0.28 / 0.44** | 13 / 12 | 2% / 2% | [38, 59] | **0** |
-| `npc_carl_stargan` | **0.00 / 0.00** | **3 / 3** | **0% / 0%** | **[0, 0]** | **0** |
+| `npc_carl_stargan` ⚠ NOT a fighter | **0.00 / 0.00** | **3 / 3** | **0% / 0%** | **[0, 0]** | **0** |
 
-⇒ **Carl's two CPUs stand on a stage for a full minute at the hardest difficulty
-and land NOTHING.** Three move starts each — a dash attack, `pale_blue_dot` and
-a forward smash — and zero hitstun on either side. Both seats are identical
-because the fight never diverges: nothing happens to diverge it.
+⛔⛔ **AND MY FIRST VERSION OF THIS ROW CALLED CARL A SHIPPED FIGHTER. HE IS
+NOT.** `npc_carl_stargan` appears in `character_catalog.rs` in exactly one place:
+`KNOWN_BARE_REGISTRATIONS`, the exemption list for ids that author **nothing —
+not a body, not a policy, not a moveset**. The entry records the reason in place:
+*"one placement: hall_of_characters NpcSpawn, brain_override stand_still… Registered because Jon put him on the Smash grid and the grid drops what it
+cannot seat."*
+
+⇒ **So his 0.00 is not a CPU-quality result — it is a character with no authored
+body being SEATABLE AS A FIGHTER**, which is a content/roster defect and a
+genuine second finding. `npc_emmy_noether` IS on `PLAYABLE_ROSTER` (the curated
+cast, every id a catalog row with a renderable sheet), so hers is the brain
+finding. Two different defects; the first version of this row conflated them.
+
+⚠ **The failure was mine and it is worth naming: I picked a subject by grepping
+fighter ids and never asked whether it was a fighter**, while one screen away the
+catalog carried an assertion whose entire purpose is to say it is not. An
+instrument's population is not the list that is easy to grep.
 
 ⚠ **THIS IS NOT A MENU-BREADTH PROBLEM, which is what F6's framing would
 predict.** Emmy starts 7–8 DISTINCT moves out of her 13, and Carl 3 out of 3. The
@@ -585,8 +598,16 @@ asserts `>= 0.5` of pool per minute and would fail on two of the three sampled �
 so the guard is sound and its POPULATION is one. ⇒ Widening it to the roster is
 the first concrete step, and it will go red immediately; that is the point.
 
-**Acceptance:** the duel gate is asserted over a representative set of shipped
-fighters rather than one, and every fighter in that set fights. ⚠ Until then, no
+**Acceptance, and it is now two claims because the row holds two defects:** the
+duel gate is asserted over a representative set of AUTHORED fighters rather than
+one, and every fighter in that set fights; and the Smash grid does not seat a
+character that authors no body.
+
+⚠ **THE SET MUST BE `PLAYABLE_ROSTER` OR THE ASSEMBLED GRID CROSSED AGAINST IT,
+NOT `authored_movesets::tables()`.** That list's own header warns it is *"NOT THE
+SELECTABLE CAST"*, and it has already produced one census that read as a
+statement about the game and was not. A bare registration in the fighter table
+makes "N of 19 are inert" a number that travels and is wrong. ⚠ Until then, no
 CPU-quality number quoted from this harness travels without naming its fighter.
 
 ⚠ n=1 run per fighter and all three are MIRROR matches. The contrast is

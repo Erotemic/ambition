@@ -5,7 +5,12 @@ page is that, and nothing else. No type has moved and no split is proposed here;
 the frontier says the hold is released by the enumeration, so the enumeration is
 the deliverable.
 
-Measured 2026-09-10 against `966351e25`. Re-derive before acting:
+Measured 2026-09-10 against `966351e25`. **RE-DERIVED 2026-09-10 at
+`2bf960acf`, 156 commits later: all four rows are unchanged (8/8, 24/22, 38/28,
+4/4, total 74).** The instrument was poisoned to prove that it can still move —
+one added `&mut BodyKinematics` query in `ambition_portal2d/src/eviction.rs`
+took body execution to 39/29, and the site was then removed. Re-derive before
+acting:
 
 ```bash
 python3 scripts/measure_state_writers.py --domain control --sites
@@ -91,6 +96,25 @@ one of them vacates."* Measured by `git grep` when this page was written: **no
 test anywhere named `body_driving_seat`**, while four production readers depended
 on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:237`,
 `control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`.
+
+⛔⛔ **CORRECTED 2026-09-10 AT `2bf960acf`. THE COUNT IS STILL FOUR AND TWO OF
+THE MEMBERS ARE WRONG.** The list above holds one line that is not a production
+reader, and it omits one that is:
+
+* `control/queries.rs:224` IS A TEST. The `#[cfg(test)]` attribute is at
+  `control/queries.rs:209`, and it was at line 209 in `966351e25` also. ⇒ This
+  is an error at the stamp. It is not decay.
+* `avatar/systems.rs:103` IS A PRODUCTION READER AND IT IS NOT IN THE LIST. The
+  commit `ab308504b` added it. That is the same commit this section reports as
+  the fix, so the list here is older than the paragraph around it.
+
+⇒ ⭐ **THE TOTAL SURVIVED WHILE ITS MEMBERSHIP CHANGED.** A reader who checked
+only the number "four" would find the list correct. Read the rows.
+
+⚠ The other five citations on this page were checked at the same time and all
+five resolve: `abilities/traversal/possession.rs:56`,
+`abilities/traversal/possession.rs:268`, `control/input_systems.rs:237`,
+`control/queries.rs:45` and `ambition_sim_view::local_view.rs:145`.
 
 ⇒ **WHAT THE FIXTURE FOUND WAS THE INVERSE OF THE DOCUMENTED BEHAVIOUR.**
 `tick_controlled_brains` never asked the resolver: it iterated BODIES and read

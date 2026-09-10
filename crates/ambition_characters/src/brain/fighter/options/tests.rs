@@ -889,6 +889,75 @@ fn approaching_off_the_edge_of_a_platform_scores_worse_than_approaching_inward()
     );
 }
 
+/// ⛔⛔ **THE LEDGE PENALTY SCALES WITH THE BODY'S WIDTH, so two fighters on the
+/// same tile disagree about whether closing is safe.** `walks_off` is
+/// `floor_ahead(toward) < half_extent.x * 2.0`, so a WIDER body reads "approach
+/// walks me off" from further back and retreats where a narrower one advances.
+///
+/// ⭐ WHY THIS IS WORTH PINNING RATHER THAN A CURIOSITY. It is the only
+/// fighter-varying term in movement scoring, and CPU engagement varies enormously
+/// by fighter: measured 2026-09-10 on the duel harness, two CPUs of one shipped
+/// fighter spend 33% of a match within attack range while two of another spend
+/// 11%, and their damage rates track that almost exactly. This is the first place
+/// to look for why — a body's WIDTH silently changes how far it is willing to
+/// chase — and until now nothing said the dependence existed.
+///
+/// ⚠ IT IS NOT AN ASSERTION THAT THE SCALING IS WRONG. A wider body genuinely
+/// needs more floor. What the guard fixes is that the dependence is DELIBERATE
+/// and visible, so a future change to body widths cannot quietly re-tune every
+/// fighter's willingness to approach.
+#[test]
+fn a_wider_body_refuses_an_approach_a_narrower_one_takes() {
+    // Both stand at the same spot with the same foe, on a platform that ends
+    // 40px to the right. Only the half-extent differs.
+    let narrow = {
+        let mut v = on_a_platform(360.0, 500.0, (100.0, 400.0));
+        v.self_view.half_extent = ae::Vec2::new(12.0, 24.0);
+        v
+    };
+    let wide = {
+        let mut v = on_a_platform(360.0, 500.0, (100.0, 400.0));
+        v.self_view.half_extent = ae::Vec2::new(24.0, 24.0);
+        v
+    };
+
+    let weights = UtilityWeights::default();
+    let narrow_opts =
+        generate_options(Perceived::cheating(&narrow), Situation::Neutral, &[], &weights);
+    let wide_opts =
+        generate_options(Perceived::cheating(&wide), Situation::Neutral, &[], &weights);
+
+    // 40px of floor ahead: the narrow body needs 24 and advances; the wide body
+    // needs 48 and does not.
+    assert_eq!(
+        score_of(&narrow_opts, MovementVerb::Approach),
+        0.5,
+        "a 12px-half-extent body has 40px of floor ahead — more than the 24 it \
+         needs — and was penalised anyway"
+    );
+    assert!(
+        score_of(&wide_opts, MovementVerb::Approach)
+            < score_of(&wide_opts, MovementVerb::Retreat),
+        "a 24px-half-extent body needs 48px of floor and has 40, so closing \
+         should lose to backing away — the ledge rule is not reading its width"
+    );
+
+    // ⭐ THE CONTROL, and without it this passes on a rule that penalises every
+    // approach regardless of width. Same two bodies, mid-platform: both advance.
+    for half_x in [12.0f32, 24.0] {
+        let mut safe = on_a_platform(250.0, 500.0, (100.0, 400.0));
+        safe.self_view.half_extent = ae::Vec2::new(half_x, 24.0);
+        let opts =
+            generate_options(Perceived::cheating(&safe), Situation::Neutral, &[], &weights);
+        assert_eq!(
+            score_of(&opts, MovementVerb::Approach),
+            0.5,
+            "a {half_x}px-half-extent body in the MIDDLE of the platform was \
+             penalised, so the rule is not about the ledge at all"
+        );
+    }
+}
+
 /// A body with no perceived terrain is not penalised. An airborne fighter,
 /// or a view whose terrain was never filled, is not a ledge question — and
 /// treating "I cannot see the floor" as "the floor ends here" would freeze every

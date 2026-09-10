@@ -84,6 +84,35 @@ def find_struct(name: str) -> tuple[pathlib.Path, int, int]:
     raise SystemExit(f"no struct named {name!r} found under {ROOTS}")
 
 
+def mark_deprecated(text: str, start: int, end: int) -> tuple[str, list[str]]:
+    """Tag every `pub` field of one struct `#[deprecated]`.
+
+    ⭐⭐ **THE SEAL ONLY EVER REACHED ONE RING, AND DEPRECATION REACHES ALL OF
+    THEM.** Making a field private is an ERROR at every use site, so the nearest
+    dependent crate fails to compile and everything downstream of it is never
+    built — measured on `GroundItem`: 8 sites, all in `ambition_abilities`, while
+    the writer census had already named three other crates constructing the type.
+    `--keep-going` recovers crates INDEPENDENT of the failure and there were
+    none. The limit is structural, not a flag.
+
+    ⇒ `#[deprecated]` is a WARNING. Compilation continues through the whole
+    workspace and every use site reports, in one pass, including SAME-CRATE ones
+    — which also removes the `pub(crate)` blind spot the seal could not close.
+
+    ⚠ A consumer carrying `#[allow(deprecated)]` is still invisible, and a
+    `derive` that touches the fields warns inside the owning crate.
+    """
+    body = text[start:end]
+    fields = re.findall(r"^([ \t]*)pub\s+([a-z_][A-Za-z_0-9]*)\s*:", body, re.MULTILINE)
+    tagged = re.sub(
+        r"^([ \t]*)(pub\s+[a-z_][A-Za-z_0-9]*\s*:)",
+        lambda m: f'{m.group(1)}#[deprecated(note = "census seal")]\n{m.group(1)}{m.group(2)}',
+        body,
+        flags=re.MULTILINE,
+    )
+    return text[:start] + tagged + text[end:], [name for _, name in fields]
+
+
 def seal(text: str, start: int, end: int, visibility: str) -> tuple[str, list[str]]:
     body = text[start:end]
     fields = re.findall(r"^([ \t]*)pub\s+([a-z_][A-Za-z_0-9]*)\s*:", body, re.MULTILINE)
@@ -98,7 +127,13 @@ def seal(text: str, start: int, end: int, visibility: str) -> tuple[str, list[st
 
 def cargo_check() -> list[dict]:
     proc = subprocess.run(
-        [CARGO, "check", "--workspace", "--all-targets", "--message-format=json"],
+        # ⛔⛔ `--keep-going` OR THE ANSWER IS ONE CRATE DEEP. Without it cargo
+        # stops at the first crate that fails, and a sealed field fails the
+        # NEAREST dependent — so the first run of this script reported 8 sites,
+        # all in `ambition_abilities`, while the writer census had already named
+        # three other crates constructing the type. They were never compiled.
+        [CARGO, "check", "--workspace", "--all-targets", "--keep-going",
+         "--message-format=json"],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -121,7 +156,12 @@ def main() -> int:
     parser.add_argument(
         "--private",
         action="store_true",
-        help="seal to fully private instead of pub(crate); also catches same-crate readers",
+        help="VISIBILITY seal (errors, one dependent ring only) instead of the default deprecation seal",
+    )
+    parser.add_argument(
+        "--visibility-seal",
+        action="store_true",
+        help="VISIBILITY seal to pub(crate) -- errors, and reaches only the nearest dependent ring",
     )
     args = parser.parse_args()
 
@@ -144,13 +184,17 @@ def main() -> int:
 
     original = path.read_text(encoding="utf-8")
     before = digest(path)
-    visibility = "" if args.private else "pub(crate)"
-    sealed_text, fields = seal(original, start, end, visibility or "")
+    by_visibility = args.private or args.visibility_seal
+    if by_visibility:
+        sealed_text, fields = seal(original, start, end, "" if args.private else "pub(crate)")
+        how = "private" if args.private else "pub(crate)"
+    else:
+        sealed_text, fields = mark_deprecated(original, start, end)
+        how = "deprecated"
     if not fields:
         raise SystemExit(f"{args.struct_name} has no `pub` fields to seal")
 
-    print(f"sealing {len(fields)} field(s) of {args.struct_name} in {rel} "
-          f"to {'private' if args.private else 'pub(crate)'} ...")
+    print(f"sealing {len(fields)} field(s) of {args.struct_name} in {rel} by {how} ...")
     tmp = path.with_suffix(path.suffix + ".seal.tmp")
     tmp.write_text(sealed_text, encoding="utf-8")
     os.replace(tmp, path)
@@ -167,25 +211,64 @@ def main() -> int:
             )
         print(f"restored {rel} (sha256 {after[:12]} matches)")
 
-    # E0616 is "field is private"; E0603 covers a private item reached by path.
+    # ⛔⛔ THREE CODES, AND THE FIRST RUN COLLECTED ONE. E0616 is a private field
+    # READ (`x.spec`); E0603 a private item reached by path; **E0451 is a
+    # private field in a STRUCT LITERAL** — `GroundItem { spec, pos, .. }` — and
+    # leaving it out reported 8 sites, all reads, while the writer census had
+    # already named `actor_monolith`, `ambition_demo_smash` and
+    # `ambition_content` CONSTRUCTING the type. A seal that collects only reads
+    # answers a narrower question than the one it prints.
+    # ⛔⛔ AN INSTRUMENT THAT SWALLOWS A COMPILE ERROR REPORTS ITS OWN FINDING.
+    # The first deprecation run emitted `note = \"census seal\"` -- literal
+    # backslashes, from an over-escaped replacement -- so the OWNING crate failed
+    # to parse, nothing downstream was built, no warnings existed, and the report
+    # printed a confident `0` for all four fields. A null result is a claim about
+    # the instrument until the instrument proves it compiled.
+    broke_owner = any(
+        isinstance(msg.get("message"), dict)
+        and msg["message"].get("level") == "error"
+        and any(
+            span.get("file_name", "").endswith(str(rel))
+            for span in msg["message"].get("spans", [])
+        )
+        for msg in messages
+    )
+    if broke_owner and not by_visibility:
+        raise SystemExit(
+            f"⛔⛔ the deprecation seal made {rel} FAIL TO COMPILE, so no use site "
+            "could report and any count below would be a finding about this "
+            "script. Fix the rewrite before trusting a number."
+        )
+
     readers: dict[str, set[tuple[str, int]]] = collections.defaultdict(set)
     for message in messages:
         payload = message.get("message")
         if not isinstance(payload, dict):
             continue
         code = (payload.get("code") or {}).get("code")
-        if code not in ("E0616", "E0603"):
-            continue
         text = payload.get("message", "")
-        field = next((f for f in fields if f"`{f}`" in text), None)
+        if by_visibility:
+            if code not in ("E0616", "E0603", "E0451"):
+                continue
+        elif "deprecated" not in text:
+            continue
+        # ⛔⛔ THE MESSAGE NAMES THE FIELD QUALIFIED. rustc says "use of deprecated
+        # field `GroundItem::spec`", not "`spec`", so matching on `` `spec` ``
+        # attributed every row to nothing and the report printed 0 for all four
+        # fields — a NULL RESULT that was a finding about this parser, not about
+        # the tree. Rows that still fail to attribute are printed under `?`
+        # rather than dropped, because a lookup that silently defaults reports a
+        # confident wrong answer.
+        field = next(
+            (f for f in fields if re.search(rf"\b{re.escape(f)}\b", text)), None
+        )
         for span in payload.get("spans", []):
             if not span.get("is_primary"):
                 continue
             name = field or next((f for f in fields if f == span.get("text", [{}])[0].get("text", "").strip()), None)
             readers[name or "?"].add((span["file_name"], span["line_start"]))
 
-    print(f"\n⛔ CROSS-CRATE READERS OF {args.struct_name}'S FIELDS "
-          f"({'private seal' if args.private else 'pub(crate) seal'})\n")
+    print(f"\n⛔ USE SITES OF {args.struct_name}'S FIELDS ({how} seal)\n")
     total = 0
     for name in fields:
         sites = sorted(readers.get(name, set()))
@@ -194,14 +277,29 @@ def main() -> int:
         print(f"  {mark} {name:28s} {len(sites):3d}")
         for where, line in sites:
             print(f"          {where}:{line}")
+    stray = sorted(readers.get("?", set()))
+    if stray:
+        print(f"   ⛔ ? (unattributed)           {len(stray):3d}")
+        for where, line in stray:
+            print(f"          {where}:{line}")
+        total += len(stray)
     print(f"\n   {total} reader site(s) across {len(fields)} field(s)")
     print("\n⛔ WHAT THIS CANNOT SEE")
-    if not args.private:
+    if not by_visibility:
+        print("   * A consumer carrying `#[allow(deprecated)]`.")
+        print("   * A `derive` on the struct warns inside the OWNING crate; those rows")
+        print("     are the owner's own code, not a foreign dependency.")
+    if by_visibility and not args.private:
         print("   * SAME-CRATE readers: `pub(crate)` keeps the field visible inside its")
         print("     own crate. A field with 0 here is 'unused OUTSIDE', never 'unused'.")
     print("   * A consumer behind a feature this build does not enable.")
-    print("   * The check stops at the first crate that fails to compile for an")
-    print("     UNRELATED reason, so a red workspace makes this an undercount.")
+    print("   * ⛔⛔ ONLY THE NEAREST DEPENDENT RING, AND THIS IS STRUCTURAL. A crate")
+    print("     that depends on one the seal broke cannot be compiled at all, so its")
+    print("     own readers never appear. `--keep-going` recovers every crate that is")
+    print("     INDEPENDENT of the failures; it cannot recover one downstream of them.")
+    print("     ⇒ This is a complete enumeration of the ring it reaches, NOT of the")
+    print("     reader set. To go deeper, fix the ring and seal again.")
+    print("   * A workspace already red for an unrelated reason makes it an undercount.")
     return 0
 
 

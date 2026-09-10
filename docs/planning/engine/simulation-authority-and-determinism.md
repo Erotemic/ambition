@@ -713,6 +713,38 @@ bump, arriving at the same place from the other side.
 ⚠ **Three of the four are re-dress-gated or menu-gated, so "the checksum catches
 it eventually" is not a bound for any of them.** That is the finding to rule on.
 
+#### A row for state that cannot exist — `mount.brain_cache`, 2026-09-10
+
+⛔⛔ **`mount.brain_cache` is a rollback-registered `component-clone` row for a
+component NOTHING IN PRODUCTION CONSTRUCTS.** `MountedBrainCache` is declared
+(`ambition_mount/src/lib.rs:204`), registered
+(`rollback_component_clone::<MountedBrainCache>(OWNER, "mount.brain_cache")`,
+`:1437`), and READ twice — `ambition_mount/src/lib.rs:1015` and
+`features/ecs/dismounted_rider.rs:86`, both `Option<&MountedBrainCache>`. Every
+construction of it in the tree is inside a test fixture. Its own doc says it is
+*"attached at composite spawn"*; nothing attaches it.
+
+⇒ **The row is not mis-classified, it is EMPTY.** No peer ever holds this
+component, so the snapshot clones nothing and the class question the rest of
+this section asks — bounded or unbounded — does not apply to it. It is a schema
+entry describing state the running game cannot reach.
+
+⚠ **Found by a defect it caused, not by a schema audit.** A fix keyed its skip
+on `mounted_cache.is_none()` — semantically exactly right, and a constant `true`
+for every production rider, so the behaviour it guarded was off for all of them.
+The unit test passed *both arms* because its fixture inserted the component by
+hand: **the anti-vacuity arm verified a population that does not exist.**
+
+⇒ **The check that finds this class in one command is `git grep` for a
+CONSTRUCTION, not a mention.** Declared, registered, and read three times — every
+one of those made the component look more real, and none of them is a writer.
+**Reads are not writers.**
+
+⚠ **Scoped, not decided.** Either something should attach it at composite spawn
+as its doc claims, or the component and its schema row should go. **A schema row
+is a durable wire fact, so deleting one is not a tidy-up** — see the v151
+argument above. Nobody should remove it on the strength of this paragraph.
+
 #### The rest of the float-free rows — readers first, class second
 
 The 14 rows carrying no float were the candidate pool, on the reasoning that a

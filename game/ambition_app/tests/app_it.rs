@@ -182,3 +182,8 @@ mod competing_control_claims;
 
 // D-DAMAGEABLE-BODY-IDENTITY — the runtime census over `StrikeVictim`'s population.
 mod damageable_bodies_carry_identity;
+
+// The canonical-encoder finiteness observer, and its positive control — a NaN in
+// rollback-canonical state is normalised so the desync check cannot see it.
+mod canonical_state_is_finite;
+

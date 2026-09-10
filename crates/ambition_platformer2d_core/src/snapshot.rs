@@ -197,10 +197,132 @@ impl<'a> Reader<'a> {
 }
 
 fn canonical_f32_bits(value: f32) -> u32 {
+    // ⚠ THE OBSERVATION IS EXCLUSIVE: an infinity is non-finite, so it must not
+    // ALSO land in the finite tally that a caller uses as its anti-vacuity floor.
+    // A floor inflated by the very values it is meant to make visible is a floor
+    // that rises when the defect spreads.
+    if value.is_finite() {
+        non_finite::count_finite();
+    } else {
+        non_finite::observe(value);
+    }
     if value.is_nan() {
         f32::NAN.to_bits()
     } else {
         value.to_bits()
+    }
+}
+
+/// ⛔⛔ **A NON-FINITE VALUE IN CANONICAL STATE IS NORMALISED SO THE DESYNC CHECK
+/// CANNOT SEE IT EITHER — and that is not a bug, it is why nobody caught this.**
+///
+/// [`canonical_f32_bits`] already asks `is_nan()`, and it asks in order to
+/// collapse every NaN to ONE bit pattern **so that two peers' checksums agree**.
+/// The mechanism that exists to notice two peers diverging has been made blind to
+/// this specific poison, deliberately, for a good reason. ⇒ Two peers can hold a
+/// NaN in the same canonical field and agree perfectly about it forever, while
+/// `f32::clamp` returns NaN for a NaN input, so one such value poisons a meter
+/// permanently and every later comparison against it is false. The failure and
+/// the healthy state are indistinguishable to everything that looks.
+///
+/// ⭐ SO THIS IS NOT A NEW GUARD — it is the smallest possible correction to a
+/// function that already computes the answer and throws it away. And it is
+/// EXHAUSTIVE BY CONSTRUCTION rather than by discipline: passing through here is
+/// what MAKES a value canonical, so a type that gains a canonical float is
+/// observed automatically. There is no walk to keep in sync and nothing to
+/// forget.
+///
+/// ⚠ **WHAT IT DOES NOT COVER, and the text must not claim otherwise: values
+/// that are never ENCODED.** MEASURED 2026-09-10 against
+/// `game/ambition_app/tests/rollback_schema_baseline.txt` (490 rows): 166 are
+/// `component-clone` and call `encode` on nothing. 107 of those name another
+/// authoritative projection that does cover them; **59 say in as many words that
+/// they are "not in the session checksum"**, and those are the rows nothing here
+/// or anywhere else observes. This sees the canonical-checksum half — the half
+/// that must agree between peers — and is blind to the other.
+///
+/// ⚠ AND `inf` / `-inf` ARE COUNTED HERE BUT NOT CANONICALISED BY THE ENCODER.
+/// Counting without changing the encoding is deliberate: whether an infinity
+/// should collapse the way a NaN does changes what two peers agree about, which
+/// is a maintainer's decision and not this observer's.
+pub mod non_finite {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    // ⛔⛔ PROCESS-GLOBAL, NOT THREAD-LOCAL, AND THE FIRST DESIGN WAS THE OTHER ONE.
+    // A thread-local was the obvious way to keep one test's numbers out of
+    // another's, and it MEASURED ZERO: `cargo test` runs the harness step from
+    // the caller's thread, but bevy's multi-threaded executor runs the encoding
+    // systems on TASK-POOL threads, so a thread-local armed by the test observes
+    // nothing at all. The anti-vacuity floor below is the only reason that was
+    // visible instead of reading as a clean bill of health -- MEASURED
+    // 2026-09-10: thread-local 0 finite, process-global 116,280 finite over the
+    // same 30 sync-test frames.
+    static ARMED: AtomicBool = AtomicBool::new(false);
+    static NON_FINITE: AtomicU64 = AtomicU64::new(0);
+    static FINITE: AtomicU64 = AtomicU64::new(0);
+
+    fn arming_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    /// Held for as long as the counters are armed.
+    ///
+    /// ⚠ THE LOCK SERIALISES OBSERVERS, NOT THE PROCESS. Two tests that both arm
+    /// cannot interleave -- which matters, because one of them deliberately
+    /// injects a NaN and would otherwise redden the other. Every OTHER test in
+    /// the binary keeps encoding while this one is armed, so the counts are
+    /// PROCESS-WIDE for the armed window and a caller must not describe them as
+    /// its own. That is a weaker claim and it is the true one: what a green run
+    /// certifies is "no canonical float encoded ANYWHERE in this process during
+    /// the window was non-finite".
+    pub struct Armed {
+        _guard: MutexGuard<'static, ()>,
+    }
+
+    impl Drop for Armed {
+        fn drop(&mut self) {
+            ARMED.store(false, Ordering::Relaxed);
+        }
+    }
+
+    impl Armed {
+        /// `(non-finite seen, finite seen)` since arming.
+        ///
+        /// ⚠ THE SECOND NUMBER IS THE LOAD-BEARING ONE. A window that encoded NO
+        /// floats reports zero non-finite and reads exactly like a healthy one,
+        /// so a caller must floor the population rather than only check the
+        /// offenders.
+        pub fn observed(&self) -> (u64, u64) {
+            (
+                NON_FINITE.load(Ordering::Relaxed),
+                FINITE.load(Ordering::Relaxed),
+            )
+        }
+    }
+
+    /// ⭐ DISARMED BY DEFAULT, so the shipped encoder pays one relaxed atomic
+    /// load per float and nothing else. A counter that is always on is a cost
+    /// paid every frame of every build for a question only a test asks.
+    pub fn arm() -> Armed {
+        let guard = arming_lock().lock().unwrap_or_else(|e| e.into_inner());
+        NON_FINITE.store(0, Ordering::Relaxed);
+        FINITE.store(0, Ordering::Relaxed);
+        ARMED.store(true, Ordering::Relaxed);
+        Armed { _guard: guard }
+    }
+
+    pub(super) fn observe(_value: f32) {
+        if ARMED.load(Ordering::Relaxed) {
+            NON_FINITE.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    pub(super) fn count_finite() {
+        if ARMED.load(Ordering::Relaxed) {
+            FINITE.fetch_add(1, Ordering::Relaxed);
+        }
     }
 }
 

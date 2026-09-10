@@ -109,6 +109,27 @@ fn which_linked_crates_install_systems_in_the_minimum_profile() {
     }
 
     if names_stripped {
+        // ⛔⛔ THE NAME IS NOT UNREADABLE, IT IS NEVER STORED. Traced 2026-09-10:
+        // `bevy_utils::DebugName` has NO FIELD AT ALL without `bevy_utils/debug`
+        // (`debug_info.rs`), so the string is discarded at construction and no
+        // runtime accessor can recover it. `TypeId` survives and carries no crate.
+        // ⇒ Attribution without `System::name()` is not merely hard here; the data
+        // does not exist.
+        //
+        // ⭐ AND WHAT ENABLES IT IN THE FULL BUILD NAMES THE INCONSISTENCY:
+        // `bevy_dev_tools` requires `bevy_utils/debug`, and the minimum profile
+        // does not link `bevy_dev_tools`. Measured with `cargo tree -e features`:
+        // the workspace has `bevy_utils feature "debug"`, the featureless facade
+        // does not. Meanwhile OUR `ambition_dev_tools` IS in the minimum profile --
+        // facade-direct and non-optional -- and its census attributes systems BY
+        // NAME. So a mandatory diagnostics crate sits in a profile that cannot
+        // supply the one fact it reads.
+        //
+        // ⚠ The remedy is a RULING, not a repair: should the facade pull
+        // `bevy/debug` because it always links `ambition_dev_tools`? That trades
+        // binary size against diagnosability at the profile the SDK offers, and it
+        // is not this fixture's to decide. Adding a feature HERE is forbidden --
+        // the fixture's whole value is that everything it links arrives implicitly.
         // ⭐⭐ THIS IS THE FINDING, NOT A SKIP. `bevy_ecs`'s `debug` feature is
         // off in the featureless closure, so EVERY system in the minimum profile
         // reports the same placeholder name. The profile links

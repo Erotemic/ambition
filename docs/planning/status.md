@@ -87,7 +87,21 @@ Stated per packet instead:
   records three warnings that once lived in exactly that gap while its line read
   clean. ⇒ **A11 is CLOSABLE on that scope, not closed on a wider one.**
   ⭐ **It is the first run of the whole tree with the raw finalizer ABSENT** — the
-  poison proved the boundary in isolation; this proved nothing else depended on it. ⚠ This line
+  poison proved the boundary in isolation; this proved nothing else depended on it.
+  ⛔⛤ **AND THAT SAME TREE HAD A RED GATE WHILE THE LANE WAS GREEN.**
+  `check_absence_contracts.py` reports
+  `capability-footprint-sentinel-lockfile-is-stale` — **1 of 39 contracts
+  violated at `43059a46d`**, caused by that commit's `Cargo.toml` edit, because
+  the sentinel keeps its OWN lockfile in `fixtures/minimal_game` that a workspace
+  build never touches. ⇒ **The verdict is not wrong; its SCOPE is why.** *"Nothing
+  wider"* is the sentence that keeps it honest, and an unqualified *"green at
+  `43059a46d`"* would now be false.
+  ⛔ **TWO STRUCTURAL DEFECTS MADE IT UNDISCOVERABLE**, both verified 2026-09-10:
+  the checker **exits 0 over a violation** (`--check` is opt-in — *"exit 1 when a
+  contract is violated"*), and **no lane invokes it at all** — 24 doc mentions,
+  zero invocations outside its own tests. ⇒ **A 39-contract checker that no lane
+  runs, whose default cannot fail, was red and nothing would have said so.**
+  ⚠ Wiring it into a lane is a gate change and is **not made here**. ⚠ This line
   said *"FULLY re-closed"* after three, and **a completeness word is a hostage to
   the next review** — the fourth arrived hours later. ✅ **Closed in `95f0c1484`
   with a PROVEN boundary rather than an asserted one**: `cargo check -p ambition_app`

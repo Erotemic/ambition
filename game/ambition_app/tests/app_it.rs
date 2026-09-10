@@ -179,3 +179,6 @@ mod enemy_body_scale;
 
 // A4 — the accepted-control invariant that had no fixture (`body_driving_seat`).
 mod competing_control_claims;
+
+// D-DAMAGEABLE-BODY-IDENTITY — the runtime census over `StrikeVictim`'s population.
+mod damageable_bodies_carry_identity;

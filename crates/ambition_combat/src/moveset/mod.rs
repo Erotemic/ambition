@@ -4211,21 +4211,57 @@ pub fn mark_move_playback_resolved_hits(
 /// Refusing `None` there is a gameplay ruling, not a bug fix. **It was ruled —
 /// see below.**
 ///
-/// ⛔⛤ **THE TABLE ABOVE IS STALE, AND THE STALE HALF IS THE LOAD-BEARING ONE.**
-/// Re-measured 2026-09-10: **15 non-test sites write `attacker_move_instance:
-/// None`**, and the ability rows point at `abilities/traversal/` inside the
-/// actor monolith while those files now live in
-/// `crates/ambition_abilities/src/traversal/`. Two sites are new since it was
-/// written (`authored_movesets.rs`, and one in this file).
+/// ⛔⛤ **THE TABLE ABOVE IS SUPERSEDED. RE-DERIVED 2026-09-10 BY INSTRUMENT,
+/// NOT BY READING, AND THE COUNT WAS WRONG IN BOTH DIRECTIONS.**
 ///
-/// ⚠ **THE *`reaches this function`* COLUMN HAS NOT BEEN RE-DERIVED, AND IT IS
-/// THE ONLY COLUMN THAT SIZES ANYTHING.** A count of SITES sizes nothing: a
-/// verdict whose `attacker` is `None` never arrives here at all. ⇒ **Do not read
-/// "15" as "15 to do".** Re-derive the reaching set before planning off it.
+/// **13 CODE SITES, not 15 and not 16.** The 15 included two lines of PROSE —
+/// the sentence introducing this table and a doc comment in
+/// `authored_movesets.rs`. A grep that excludes test FILES does not exclude
+/// commentary.
 ///
-/// ⭐ **A MOVED DIRECTORY IS A CITATION BROKEN IN SILENCE.** The table did not
-/// get louder when the code left; nothing checks prose paths inside a doc
-/// comment.
+/// ⚠ And the ability rows above cite `abilities/traversal/` inside the actor
+/// monolith. Those files live in `crates/ambition_abilities/src/traversal/`.
+/// ⭐ **A MOVED DIRECTORY IS A CITATION BROKEN IN SILENCE** — nothing checks a
+/// path that appears as prose inside a doc comment, so the table did not get
+/// louder when the code left.
+///
+/// **MEASURED**, `cargo test -p ambition_app --test app_it`, the composition
+/// suite — the only lane that installs both this predicate and the ability
+/// roads. Each candidate site was stamped with a unique sentinel occurrence and
+/// the predicate logged every call:
+///
+/// | site | `attacker` | writes | arrivals | verdict |
+/// |---|---|---|---|---|
+/// | `hazards.rs:169`, `hazards.rs:213` | `None` | — | — | **cannot reach** |
+/// | `rollback_registration.rs:641` | `None` | — | — | **cannot reach** |
+/// | `features/ecs/actors/update.rs:1005` | `None` | — | — | **cannot reach** |
+/// | `abilities/ranged/bomb.rs:109` | `None` | — | — | **cannot reach** |
+/// | `features/enemies/integration.rs:579` | `Some` | — | **45** | **REACHES** |
+/// | `abilities/traversal/dive.rs:209` | `Some` | 1 | 0 | written, never arrived |
+/// | `abilities/traversal/blink.rs:190` | `Some` | 2 | 0 | written, never arrived |
+/// | `features/empowerment.rs:275` | `Some` | 0 | 0 | **unexercised** |
+/// | `features/ecs/actors/update.rs:969` | `Some` | 0 | 0 | **unexercised** |
+/// | `abilities/traversal/mark_recall.rs:138` | `Some` | 0 | 0 | **unexercised** |
+/// | `demo_mary_o/snake.rs:736`, `:750` | `Some` | 0 | 0 | **unexercised** |
+///
+/// ⇒ **The five `None` rows are a PROOF, not a sample.**
+/// `mark_move_playback_resolved_hits` does `let Some(attacker) = .. else
+/// { continue; }`, so a verdict naming no attacker never arrives here.
+///
+/// ⚠ **"WRITTEN, NEVER ARRIVED" IS NOT "DOES NOT REACH".** One sample and two
+/// samples are too few to call structural; they say the attacker held no
+/// `MovePlayback` on those occasions.
+///
+/// ⚠ **AND "UNEXERCISED" IS A FACT ABOUT THE SUITE, NOT THE GAME.** Five rows
+/// are unknown. Do not read them as safe.
+///
+/// ⛔⛤ **THE CONTROL ARM IS WHY THIS TABLE IS NOT FICTION.** The predicate
+/// logged **253 calls** in that suite, so a zero beside a site means the site
+/// did not arrive — not that the instrument was dead. **Without it the run
+/// reported `snake.rs:736` as 293 writes and 0 arrivals, which reads as a
+/// crisp "does not reach" and was VACUOUS: `verdict_belongs_to` is called ZERO
+/// times in the whole `ambition_demo_mary_o_app` suite**, because only
+/// `ambition_platformer2d_runtime::combat_schedule` installs its consumer.
 ///
 /// ⛔⛤ **THE PROJECTILE CASE WAS TWO ROADS, AND THIS NOTE ONLY EVER DESCRIBED
 /// ONE.** It said *"a shot now carries the instance of the move that fired it,

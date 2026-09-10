@@ -73,6 +73,14 @@ fn the_cut_rope_victory_npc_is_a_damageable_body_with_a_stable_identity() {
         let mut q = world.query::<&ambition_content::bosses::SmirkingBehemothVictoryNpc>();
         q.iter(world).count()
     };
+    // ⭐ THIS FLOOR IS SELF-VERIFYING, WHICH IS WHY IT CARRIES NO POISON ARM.
+    // The usual objection to an unpoisoned assertion is that nobody has seen it
+    // fail, so it might be incapable of failing. Here the PASSING direction is
+    // the proof: this query returns a COUNT, and the only way to clear the
+    // assertion is to have found bodies. A query that named the wrong component,
+    // or a run in which the road went untravelled, both return zero and redden
+    // it. ⇒ A green here cannot mean "the fixture could not see the NPC"; that
+    // possibility and the failure mode are the same observation.
     assert!(
         npc_count > 0,
         "the victory NPC never spawned, so this test measured nothing. Boss \

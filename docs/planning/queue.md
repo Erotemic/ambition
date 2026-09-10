@@ -559,6 +559,26 @@ predict.** Emmy starts 7–8 DISTINCT moves out of her 13, and Carl 3 out of 3. 
 variety is there; the ACTIVITY is not. A brain that picked badly would still
 press. These barely press at all.
 
+⭐⭐ **AND THE MECHANISM IS MEASURED: THEY ARE NOT FAILING TO ATTACK, THEY ARE
+FAILING TO CLOSE.** Ticks spent within 60px — roughly a body-and-a-half, inside
+which an ordinary grounded attack reaches:
+
+| fighter | ticks in reach | closest ever | damage/min |
+|---|---:|---:|---|
+| `npc_pirate_admiral` | **1194** of 3613 (33%) | 10px | 1.26 / 1.07 |
+| `npc_emmy_noether` | **392** (11%) | 0px | 0.28 / 0.44 |
+| `npc_carl_stargan` | **17** (0.5%) | 2px | 0.00 / 0.00 |
+
+⇒ **Time-in-range tracks damage across all three.** Every fighter DOES reach its
+opponent — the closest approach is 0–10px in each case, so approach is not
+impossible — but Carl's pair are in reach for half a percent of the duel. The
+attack scorer is rarely being offered a target at all, which makes this the
+MOVEMENT scorer's subject and not the attack menu's.
+
+⚠ Stated at the strength the measurement supports: three fighters, one run each,
+and a correlation across three points is a direction rather than a law. It is
+enough to say where NOT to look first.
+
 ⚠ **And the acceptance test cannot see it**, because `FIGHTER` is a const set to
 the one fighter that passes. `two_cpus_in_the_shipped_composition_damage_each_other`
 asserts `>= 0.5` of pool per minute and would fail on two of the three sampled —

@@ -91,6 +91,11 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut damage_by_move: [std::collections::BTreeMap<String, i32>; 2] = Default::default();
     let mut unclaimed_damage = [0i32; 2];
     let mut seat_of: std::collections::HashMap<Entity, usize> = Default::default();
+    // ⭐ DO THEY EVER GET CLOSE? Separates "the CPUs never approach" from "they
+    // stand next to each other and decline to press" — two different bugs with
+    // the same reading of zero damage.
+    let mut min_gap = f32::INFINITY;
+    let mut close_ticks = 0usize;
     let mut hits = app
         .world()
         .resource::<Messages<ambition_platformer2d::combat::hitbox::ResolvedBodyHit>>()
@@ -273,6 +278,30 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                         }
                     }
                 }
+                {
+                    let mut pq = w.query::<(
+                        &MatchSeat,
+                        &ambition_platformer2d::engine_core::BodyKinematics,
+                    )>();
+                    let mut pos: [Option<ambition_platformer2d::engine_core::Vec2>; 2] =
+                        [None, None];
+                    for (seat, kin) in pq.iter(w) {
+                        if seat.0 < 2 {
+                            pos[seat.0] = Some(kin.pos);
+                        }
+                    }
+                    if let (Some(x), Some(y)) = (pos[0], pos[1]) {
+                        let gap = (x - y).length();
+                        if gap < min_gap {
+                            min_gap = gap;
+                        }
+                        // Roughly a body-and-a-half: inside this an ordinary
+                        // grounded attack can reach.
+                        if gap <= 60.0 {
+                            close_ticks += 1;
+                        }
+                    }
+                }
                 for (slot, running, on_ground) in rows {
                     if slot < 2 {
                         if on_ground {
@@ -331,6 +360,10 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             100.0 * running_ticks[seat] as f32 / grounded_ticks[seat].max(1) as f32
         );
     }
+    println!(
+        "[gap] closest the seats ever came: {min_gap:.0}px; ticks within 60px: \
+         {close_ticks} of {both_seated_ticks}"
+    );
     for seat in 0..2 {
         let mut rows: Vec<(&String, &usize)> = move_counts[seat].iter().collect();
         rows.sort_by(|a, b| b.1.cmp(a.1));

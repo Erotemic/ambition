@@ -303,6 +303,35 @@ nobody had run happened to carry it.
 CLAIMING ANY OF THEM AGREE.** I wrote the two-baseline instruction that shaped
 this row.
 
+⛔⛤ **B1 FIXED, AND THE FIX RESTS ON A PROPERTY NOTHING GUARDS.** `d665d15c1`
+replaced the chain ordinal with `MoveOccurrence(u32)` on the BODY, advanced at
+`start_move`, and deleted `succeeding()` / `StartingMove::replacing` <!-- cite-ok: named BECAUSE d665d15c1 deleted it; a resolvable citation here would mean the deletion did not happen --> in the
+same change so the old road cannot come back by accident.
+
+⭐ **The repair IS an asymmetry**: `MovePlayback` is removed when a move ends
+(`crates/ambition_combat/src/moveset/mod.rs:662`) and must be; **`MoveOccurrence`
+must never be removed**, because that is what makes an idle gap keep its count.
+`MoveOccurrence::next(None)` returns `0` only for a body that has never moved,
+where the old `succeeding(None)` returned `0` on every idle gap.
+
+⚠ **"Never removed" is a doc comment, and I made it a fact with one grep. Nothing
+re-runs that grep.** ⇒ **A body-teardown path that removes components in bulk
+would silently restore the aliasing defect**, and every existing witness would
+still pass — the idle-gap test starts a body from scratch and never tears one down.
+
+⇒ **THE GUARD IS ONE ARM, NOT A SYSTEM: a body that has started a move and then
+LOSES `MoveOccurrence` is the failure.** Cheap to write, and it guards the
+asymmetry rather than the value. **Not yet built.** Raised by ToothbrushAmbition
+while reviewing the review — *"the property most likely to rot"*.
+
+⭐⭐ **AND THE FIX DEFEATED A SECOND ROAD NOBODY WAS LOOKING AT.**
+`AttackerMoveInstance` stamps MELEE strike volumes from the same field
+(`moveset/mod.rs:1913`), so the projectile road and the melee road had **one defect
+between them**. Repairing the stamp on the projectile chain would have left melee
+broken and looked complete. ⚠ It was found while reading the rollback registration
+for somewhere to put the new component — **so finding a sibling is evidence you are
+at the right level, and NOT finding one is not evidence you are wrong.**
+
 ⛔ **THE TWO ROLLBACK BASELINES ARE NOT TWO COPIES OF ONE FINGERPRINT.**
 `rollback_schema_baseline.txt` holds the version and the rows;
 `rollback-schema-baseline.json` holds `stable_schema_names` and `encoded_types`

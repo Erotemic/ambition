@@ -545,7 +545,7 @@ matchup — the FIGHTER is the only variable:
 
 | fighter | damage/min | move starts | running | hitstun | KOs |
 |---|---|---|---|---|---|
-| `npc_pirate_admiral` | 1.26 / 1.07 | 54 / 27 | 14% / 19% | [525, 324] | 2 |
+| `npc_pirate_admiral` ⛔ VOID | 1.26 / 1.07 | 54 / 27 | 14% / 19% | [525, 324] | 2 |
 | `npc_emmy_noether` | **0.28 / 0.44** | 13 / 12 | 2% / 2% | [38, 59] | **0** |
 | `npc_carl_stargan` ⚠ NOT a fighter | **0.00 / 0.00** | **3 / 3** | **0% / 0%** | **[0, 0]** | **0** |
 
@@ -668,10 +668,74 @@ one fighter whose duel genuinely DIVERGED. The three lockstep bouts belong to
 fighters who already have distinct seeds and non-zero jitter and stayed
 bit-identical anyway.
 
-⛔ **BLOCKED ON: why three fighters with DISTINCT cognition seeds and non-zero
-execution noise produce bit-identical seats, when the character who deliberately
-SHARES a seed does not.** No mechanism is proposed here — four have died on this
-row already.
+**ANSWERED 2026-09-10, AND IT IS A CONJUNCTION — WHICH IS WHY FIVE SINGLE-CAUSE
+MECHANISMS DIED ON IT.** Each of the five was a variable somebody could name, so
+each arrived with a story attached and the story is what got tested. Both
+surviving halves were measured, neither was argued:
+
+> **Lockstep = (the rung-9 press jitter is identically zero) AND (nothing in the
+> bout ever broke the stage's mirror symmetry).**
+
+**Half one — the seats really are exact mirrors, and it is not a close call.**
+`[sym]` in `smash_cpus_damage_each_other` reports each bout's worst departure
+from `x0 + x1 = const, y0 = y1`:
+
+| fighter | outcome | worst axis drift over 3613 ticks |
+|---|---|---|
+| `special_patent_clerk` | LOCKSTEP | **0.0000 px** |
+| `npc_carl_stargan` | LOCKSTEP | **0.0020 px** |
+| `medic` | LOCKSTEP | **0.0022 px** |
+| `npc_emmy_noether` | diverges | **240.79 px** |
+| `npc_pirate_admiral` | diverges | **446.62 px** |
+
+⇒ **Five orders of magnitude with nothing in between.** A lockstep bout never
+leaves a hundredth of a pixel of exact reflection; a divergent one leaves the
+stage. And the mechanism was in the tree the whole time, in Emmy's own
+`gameplay_description`: *"the reflection… BREAKS as soon as their observations
+diverge (one takes a hit, one is launched further, one is nearer a ledge)"*.
+
+⚠ **SCOPE, and it is not a formality: n=5, and the three lockstep subjects were
+SELECTED on a statistic correlated with the one then measured.** This is strong
+evidence for the mechanism and not yet a statement about the other fifteen.
+
+**Half two — at rung 9 the jitter is not small, it is zero.** See
+[D-RUNG9-NOISE](#d-rung9-noise--the-hardest-cpu-is-the-only-one-with-execution-noise-disabled)
+below, which is its own row because it is a shipped defect independent of this
+one. Distinct seeds are drawn and discarded, so **the seed reaches nothing at the
+rung the game seats CPUs on** — which is why three fighters with distinct streams
+behave identically.
+
+⇒ **AND THAT DISSOLVES THE INVERSION RATHER THAN EXPLAINING IT.** Emmy's
+`preserves_mirror_symmetry` buys nothing at rung 9, because at rung 9 *every*
+character's stream is inert. She diverges because her STAGE broke, which is her
+own design comment working as written. **The apparent paradox was an artefact of
+believing the seed mattered.**
+
+⛔⛔ **AND THE ADMIRAL'S ENTIRE ROW IS VOID: HE WAS A FIGHTER BEATING UP A
+BRUTE.** Measured with a `[brain]` probe reading each seat's brain at BIRTH and at
+the end: seat 1 was born `fighter` and ended `melee_brute`, having pressed
+`call_the_shark` five times. `rebuild_dismounted_rider_brains` answered the
+shark's death by handing the rider a brain derived from its kit — and
+`dismounted_rider_brain_and_action_set` chooses between a skirmisher and a forced
+brute, **consulting no template at all**. Fixed at `f77ba3a45`: a rider with no
+`MountedBrainCache` never gave up a controller on boarding, so it has none to get
+back. The same bout after the fix:
+
+| | before | after |
+|---|---|---|
+| seat 1 brain at end | `melee_brute` | **`fighter`** |
+| hitstun | [525, 324] | **[161, 142]** |
+| knockouts | 2 | **4** |
+| damage/min | 1.26 / 1.07 | **0.84 / 0.76** |
+
+⇒ **A 201-tick hitstun split collapsed to 19.** Every admiral column above — and
+the 54/27 start count that a ratio screen flagged as the roster's lone outlier —
+measured a mismatched bout.
+
+⛔ **NEXT IN THIS ROW: THE WHOLE 21-ID SWEEP IS A MEASUREMENT OF A COMPOSITION
+THAT NO LONGER EXISTS.** Not one row: the fix changes any bout in which a rider's
+mount dies, and neither the roster script nor the sweep log records whether one
+did. **Re-run the full sweep before any band in that table is quoted again.**
 
 ⚠ AND `ladder_rig`'s *"no fighter brain ever took the noise seed"* is about a
 FIXTURE that built brains without one. It is not a claim about the shipped brain,
@@ -1310,6 +1374,136 @@ the time it ran. The RANGE form over the same session
 `a_boss_is_reached_only_through_its_published_volumes` by the A2c predicate
 deletion two commits later. Repointed. ⇒ A carve author who runs only the
 working-tree form has not run this row's check at all.
+
+### D-RUNG9-NOISE — the hardest CPU is the only one with execution noise disabled
+
+**Owner:** [fighter brain](engine/fighter-brain.md), the authored ladder. Found
+2026-09-10 by ToothbrushAmbition while deriving a rung sweep for D-CPU-INERT;
+split out because it is a shipped defect that row does not own.
+
+⛔⛔ **AT RUNG 9 THE FIGHTER PRESS JITTER IS IDENTICALLY ZERO FOR EVERY POSSIBLE
+SAMPLE, AND THE EVIDENCE IS A MEASUREMENT, NOT THE ARITHMETIC.** Guarded at
+`4a709158c`: two seats on **different** seeds pressed on **identical ticks**
+across 600 ticks, 24 presses, in a unit test with no duel harness. Rungs 1–8
+pass, so the seat-symmetry fix works everywhere it can be reached.
+
+**The arithmetic is the explanation for that measurement, not its evidence.**
+`decision.rs:472` is `(|sample| * execution_noise * interval()).round()`;
+`execution_noise = 0.45 - t*0.35` with `t = (level-1)/8`; `interval()` is 5; and
+`|sample|` REACHES exactly 1.0. In f32 the rung-9 ceiling is `0.4999999701976776`
+— under the tie by 3e-8 — so `round()` returns 0 for every sample including the
+maximum.
+
+| rung | noise | ceiling | max jitter | P(jitter>0) | L3 rollouts |
+|---:|---|---:|---:|---:|---|
+| 3 | 0.36250 | 1.8125 | 2 | 0.72 | off |
+| 5 | 0.27500 | 1.3750 | 1 | 0.64 | off |
+| 6 | 0.23125 | 1.1562 | 1 | 0.57 | on |
+| 8 | 0.14375 | 0.7187 | 1 | 0.30 | on |
+| 9 | 0.10000 | **0.49999997** | **0** | **0.00** | on |
+
+⛔ §1.3 says level 9 is *"small numbers, never zero — a frame-perfect CPU is not a
+hard opponent, it is a different game"*. For this term it is zero, and the top
+rung presses exactly on its decision ticks forever.
+
+⛔⛔ **AND `decision.rs:471` IS THE STREAM'S ONLY CONSUMER IN THE TREE**, so at
+rung 9 the per-seat cognition seed has no observable effect at all. ⇒
+**`two_participants_of_one_character_do_not_share_a_stream` guards a fix that
+cannot reach the shipped rung.** Measured: `medic` and `special_patent_clerk`
+have distinct seeds (`0x1da79d34…`/`0x1ca79b9f…`, `0xe8b8d6d8…`/`0xe7b8d543…`)
+and their mirror duels drift 0.0000 px and 0.0022 px over 3613 ticks — the
+reflection that change exists to prevent.
+
+⚠⚠ **AND NO TEST COULD SEE IT, FOR A REASON WORTH MORE THAN THE BUG. The
+determinism guard was vacuous on its own subject.** `run` hands the brain a
+`BrainSnapshot::idle()` with an **empty `attack_kit`**, so `wants_attack` is never
+`Some` and the jitter path is never entered. Measured before the repair:
+`the_same_seed_produces_the_same_fighter` made **0 presses of 90 frames** and left
+`a.noise` at exactly its initial seed — it was comparing two all-`false` vectors
+and asserting equality between two seeds that had never moved. **It could not
+have failed for its stated reason.** Separately, every execution-noise fixture in
+that file used `execution_noise = 0.9`, a value **no authored rung produces**.
+
+⇒ **Two distinct species, and conflating them loses the sharper one: the 0.9
+fixture measured the WRONG character; the idle snapshot measured NO character and
+the assertion was still true.** The transferable rule is **a test whose subject is
+supplied by a fixture must assert the fixture supplied it** — `assert!(presses > 0)`
+is one line, and it is the difference between a guard and a sentence. Every
+"same input ⇒ same output" test has this shape and almost none count the outputs.
+
+✔ Guarded at `359c8be69` pinning the GAP rather than the fix: rungs 1–8 must keep
+a reachable jitter **and** rung 9's ceiling must stay just under the boundary, so
+a ladder retuned to a genuinely small jitter reddens the second while the first
+stays green. Both poisoned (interval 1 → only the first fires; interval 4 → only
+the whisker fires).
+
+⛔ **OPEN — MAINTAINER'S CALL, deliberately not written into the guard.** Whether
+the hardest CPU shipping with execution noise disabled is a defect or an accepted
+cost is Jon's. If it is a defect the fix is one constant, but **waking it re-tunes
+every rung-9 CPU in the game**, and every measurement taken at rung 9 — including
+all twenty rows of D-CPU-INERT — becomes a measurement of a different opponent.
+
+**Acceptance:** the ruling is recorded, and the ladder cannot drift into or out of
+a zero-jitter rung unnoticed.
+
+### D-PARITY-SELF — a cross-backend parity guard compares one backend to itself
+
+**Owner:** menu composition. Found 2026-09-10 by
+`scripts/measure_floorless_equality_tests.py` while screening for a different
+defect; the emptiness shape found it, but emptiness is not what is wrong with it.
+
+⛔⛔ **`cross_backend_model_parity_inventory_and_system`
+(`game/ambition_app/src/menu/grid_backend/tests.rs`) BUILDS BOTH SIDES FROM ONE
+CLOSURE.**
+
+```rust
+let build = || build_inventory_pages(&owned, equipped, MenuFocus::Item(0), &settings, ...);
+let cube_pages = build();
+let grid_pages = build();
+```
+
+**There is no backend argument anywhere in the fixture.** It asserts
+`build() == build()` — that one function is deterministic — and reports it as
+cross-backend parity.
+
+⚠ **Its doc states the claim accurately, which is what makes it convincing:**
+*"CROSS-BACKEND CONTENT PARITY: the active tab's `MenuPageModel` is built from the
+SAME backend-agnostic builders regardless of which backend renders it."* ⇒ **The
+fixture ASSUMES that sentence by calling one builder twice.** The thing the test
+claims to check is the thing it does to construct its subject.
+
+⛔⛔ **THIS IS A WRONG-PARTY GUARD, AND ITS COST IS NOT A MISSED BUG BUT AN ACTIVE
+CERTIFICATION.** If a backend ever stops calling `build_inventory_pages` and
+builds its own model, this stays green forever and reports parity for a tree that
+has none. **Leaving it standing costs more than deleting it would**, because
+somebody trusts it.
+
+⚠ **NOT FIXED, DELIBERATELY.** A repair has to establish what parity *means*
+between the two backends and reach one of them through its own road; a fix
+written without that produces a wrong-party guard with a passing test — the same
+defect one layer down. **This row is the report, not the repair.**
+
+⇒ **The check that would be real:** drive each backend through the road it
+actually uses to obtain a `MenuPageModel` and compare those. If both genuinely
+call the same builder the test is a tautology and should be DELETED rather than
+rewritten; if they do not, it has been lying and the divergence is the finding.
+
+✔ Screened across the whole tree: 7916 `#[test]` bodies in 1075 files, **two hits
+with this shape** — and the second was READ and found SOUND (it compares against a
+hard-coded 8-entry constant, so an empty answer would differ from it and fail).
+Both were read before either was named. The screen's own first run scanned **0
+files** and printed a clean bill of health — a `git grep` pathspec before the
+pattern — so it now carries a corpus floor and a positive control pinned to
+`359c8be69` by sha.
+
+⚠ **"Two hits" is a FLOOR on this species, not a census of it.** The screen sees
+this shape only when the compared bindings are plausibly-empty collections; **a
+parity test comparing two scalars from one closure has the identical defect and is
+invisible to it.** The real query is *"tests whose two compared sides trace to one
+call site"*, and that is an AST job, not a regex one.
+
+**Acceptance:** each compared side is obtained through the road its own party
+uses, or the test is deleted as a tautology with the reason recorded.
 
 ## P3 — human-gated measurements and local-machine work
 

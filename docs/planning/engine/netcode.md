@@ -107,6 +107,16 @@ Before external peers begin play, negotiate exact prepared-content identity and
 rollback schema fingerprint. A peer with mismatched simulation content must fail
 before speculative play rather than discovering incompatibility after divergence.
 
+⛔ **THE FINGERPRINT HAS TWO RECORDINGS TODAY AND THEY ARE CHECKED IN DIFFERENT
+LANES.** `game/ambition_app/tests/rollback_schema_baseline.txt` is read by the
+Rust lane and `scripts/baselines/rollback-schema-baseline.json` by
+`scripts/check_absence_contracts.py` in the repo-tooling lane. A single new
+registration owes both, and on 2026-09-10 one landed with only the first
+updated: the Rust lane was green, which is precisely what made the other
+invisible. Negotiating an identity the repo itself keeps twice is negotiating
+which copy — one authority is a prerequisite for this row, not a tidy-up after
+it.
+
 ### N4 — coordinated lifecycle barrier
 
 The local rollback host can commit a confirmed room transition and immediately

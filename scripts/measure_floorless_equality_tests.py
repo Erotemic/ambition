@@ -46,6 +46,31 @@ disciplined about this -- and it is worth more with the two verdicts attached:
     and built its own model, this test stays green. **Reported, not fixed: the
     menu backends are not this row's subject.**
 
+⛔⛔ **AND THE WIDER FAMILY CANNOT BE CENSUSED THIS WAY — MEASURED, NOT
+ASSUMED.** The emptiness heuristic finds a member only when the compared sides
+are plausibly-empty collections; a parity test comparing two scalars from one
+call has the identical defect and is invisible here. **Two hits is a FLOOR on
+this species, not a census of it.**
+
+An attempt at the real question — *"tests whose two compared sides trace to one
+call site"* — was made 2026-09-10 and abandoned with its numbers, because the
+screen cannot answer it and a candidate list nobody triages becomes an amnesty
+list:
+
+  * both sides assigned the IDENTICAL call text: **27 of 7918** bodies;
+  * requiring both bindings IMMUTABLE and never taken by `&mut`, which removes
+    "two arms built from one constructor and then mutated apart": **17**;
+  * of those, the ones read by hand were all legitimate — `playback(&app)` twice
+    with the app advanced between, `find_portal(&apertures, ..)` twice with the
+    apertures reordered between, `p.resolve_solid_hit(block)` twice where the
+    call mutates `p`.
+
+⇒ **The discriminator is not "the same call text" but "nothing between the two
+calls changes what the call reads", which is a dataflow question and not a
+textual one.** A regex screen can produce candidates for this family; it cannot
+produce a verdict, and the one confirmed member below was found through the
+emptiness door rather than this one.
+
     python3 scripts/measure_floorless_equality_tests.py
     python3 scripts/measure_floorless_equality_tests.py --positive-control
 """

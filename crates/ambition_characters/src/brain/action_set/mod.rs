@@ -1335,7 +1335,7 @@ pub enum RangedCommitment {
     ///
     /// One body plays moves in sequence. A shot can land after its move stops.
     /// Without this value, the next move gets the hit. That is the A12 defect.
-    /// [`MovePlayback::instance`] holds the fact. This field carries it.
+    /// `MovePlayback::instance` holds the fact. This field carries it.
     ///
     /// ⛔ THE REQUEST CARRIES THE VALUE. NO CONSUMER READS IT AGAIN. A consumer
     /// that reads the owner's playback at spawn time gets the move that plays

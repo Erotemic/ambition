@@ -2025,7 +2025,7 @@ pub fn stage_authored_character(
 /// What providers have authored, before the catalog exists to fold against.
 ///
 /// The preparation-phase half of the registry. Holds partial values and is
-/// consumed by [`CharacterPreparationPlugin::finish`].
+/// consumed by `CharacterPreparationPlugin::finish`.
 ///
 ///  PRIVATE, and that is the barrier's second half. A resource this crate does not export
 /// cannot be read, taken, or reconstructed by a host — so there is no route to a
@@ -2152,7 +2152,7 @@ impl bevy::app::Plugin for CharacterPreparationPlugin {
 /// ⛔ Inserted during `build`, read during `finish`. Bevy runs every plugin's
 /// `build` before any plugin's `finish`, so a composition can declare this from
 /// any plugin in any registration order and
-/// [`CharacterPreparationPlugin::finish`] is guaranteed to see it. **That is the
+/// `CharacterPreparationPlugin::finish` is guaranteed to see it. **That is the
 /// whole reason this is a resource rather than a construction parameter** — the
 /// declaring crate and the declared-about crate cannot see each other's plugin
 /// order.

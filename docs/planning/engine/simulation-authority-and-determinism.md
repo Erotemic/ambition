@@ -687,12 +687,17 @@ was done by hand, on four rows, and is what a per-row ruling would rest on.
 
 #### The reader check, four rows, 2026-09-10
 
+⚠ The `player_mark` row was first written as *"bounded if a brain consumes that
+fact"* — an open question standing in for a measurement. It took one grep:
+`MarkBeaconsView`'s only consumer is a renderer, so the row is unbounded like
+the other three.
+
 | row | its readers | latency |
 |---|---|---|
 | `portal.owned_gun_pair` | **one, and it is a MENU** — `game/ambition_app/src/menu/effects.rs:101`, whose own comment says *"Read so a menu re-equip hands back the gun the player actually has"*. Nothing in `ambition_portal2d` reads it. | unbounded |
 | `actor.persona_baseline` | `avatar/starting_character.rs:368`, as *"what THIS system last applied to this body"* — and that system writes `BodyHealth`, `Mass` and `CombatTuning`. | unbounded; fires on the next re-dress |
 | `actor.projected_character_kit` | `character_runtime/presentation.rs:229`, in a query filtered `Or<(Changed<WornCharacter>, Added<CombatTuning>)>` — gated on a change by construction. | unbounded; fires on the next re-dress |
-| `ability.player_mark` | `traversal/mark_recall.rs:61` (acts only on a recall) **and** `ambition_sim_view/src/facts.rs:306`, a per-tick projection brains observe. | **bounded if a brain consumes that fact** — the one row of the four whose class turns on a question the doc comments cannot answer |
+| `ability.player_mark` | `crates/ambition_abilities/src/traversal/mark_recall.rs:61` (acts only on a recall) and `crates/ambition_sim_view/src/facts.rs:306`, which fills `MarkBeaconsView` — whose ONLY consumer is `crates/ambition_render/src/rendering/mark_beacon.rs:32`, a renderer. No brain reads it. | unbounded |
 
 ⛔⛔ **`portal.owned_gun_pair` IS THE STRONGEST ROW IN THE CLASS AND IT IS NOT A
 LATENCY PROBLEM AT ALL.** Nothing in the simulation reads it, so its divergence
@@ -739,11 +744,39 @@ not name the Author's seat"* checks that the stand-in carries `SeatCredit(0)`.
 That is a fact only an instrument reads, and the class of thing that stays
 correct forever while meaning nothing.
 
-⇒ **This is not a checksum question and it should not be filed as one.** Either
-the credit road is unfinished — a departed seat's KO is attributed to nobody —
-or the component is dead and is costing a rollback snapshot-layout entry, which
-is what obliges a wire-format bump. Both are questions for the smash ruleset's
-owner. Recorded here because the checksum census is what found it.
+⇒ **This is not a checksum question and it should not be filed as one.** The
+question is whether the credit road is unfinished or the component is dead.
+
+**DETERMINED 2026-09-10: no road exists that wants this fact.** Not "the road
+exists and this is its missing half" — the road was never built, and the engine
+made a different choice about what carries credit.
+
+1. **Attribution runs on `Entity`, not on seats.** `crates/ambition_combat/src/events.rs:345`
+   states it as the rule: a body knocked past the blast margin is *"credited by
+   `HitEvent::attacker`, not by geometry"*. `DamageBox.owner`
+   (`crates/ambition_combat/src/strike.rs:40`) is an `Entity` too.
+2. **`BodyKnockedOut` carries no attacker.** Its fields are `body` and `cause:
+   HitSource` (`crates/ambition_combat/src/stocks.rs:23`) — the KIND of hit, not
+   who landed it. Nothing downstream of a knockout asks who scored.
+3. **The match outcome does not consult a scorer.** `MatchVerdict`
+   (`crates/ambition_combat/src/stocks.rs:550`) is `Winner(String)` / `Draw` /
+   stopped-from-outside, decided by stocks remaining. There is no per-seat KO
+   tally anywhere in the tree.
+4. **Every `MatchSeat` reader is something else.** Participant enumeration,
+   match activation, versus reactions and the HUD readout
+   (`game/ambition_app/src/app/versus_rules.rs:581`), or a tool. None is an
+   attribution road the stand-in falls out of.
+
+⚠ **And the stand-in ENTITY is not dead — only the label on it.** Its job is to
+be a valid non-victim `owner` for the blast, which is exactly what
+`HitEvent::attacker` needs, and `SeatCreditStandIn` is the clock that retires it.
+`MatchScoped` is stamped on it too, and that IS read. `SeatCredit` is the one
+component of the three nothing consults.
+
+⇒ So the cost is a rollback snapshot-LAYOUT entry for a fact no system reads —
+which per `rollback/registry.rs`'s v151 reasoning is what obliges a wire-format
+bump, so it is not free. The remedy is `ambition_demo_smash`'s owner's call and
+is deliberately not proposed here.
 
 The remaining 44 rows were not reader-checked and this page does not classify
 them.

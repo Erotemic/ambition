@@ -380,6 +380,164 @@ pub fn unsupported_authored_effects(
     refusals
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// A11c — THE LATER CAST CHANGE, AS AN EXPLICIT TRANSACTION.
+//
+// ⛔⛔ **THERE WAS NO PRODUCTION REPUBLICATION ROAD AT ALL, AND THAT IS WHY AN
+// ACCEPTANCE ROW COULD NOT BE WRITTEN.** `PreparedCharacterRegistry` has exactly
+// one production writer — the barrier, guarded to run once — and
+// `stage_authored_character` PANICS after it closes, pointing at a design note
+// in a directory that has since been deleted. So "a rejected edit leaves the
+// active generation unchanged" was untestable: nothing could produce a second
+// generation to leave unchanged. Three attempts at that fixture stopped on
+// different obstacles, and this is the prerequisite all three were missing.
+//
+// ⭐ THE PANIC'S OWN SENTENCE IS THE DESIGN: *"A later cast change is a separate
+// explicit transaction."* Not a second road into the barrier — a revision that
+// is staged, admitted, and then activated at a boundary the session chooses.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Edits staged for a LATER cast, after the preparation barrier closed.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct StagedCastRevision {
+    by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
+}
+
+#[cfg(any(test, feature = "test-support"))]
+impl StagedCastRevision {
+    /// Stage a prepared contribution directly, for a fixture that does not have
+    /// an `App` to hand.
+    pub fn insert_for_test(
+        &mut self,
+        id: ambition_entity_catalog::CharacterId,
+        staged: StagedCharacter,
+    ) {
+        self.by_id.insert(id, staged);
+    }
+}
+
+/// What an activation did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RevisionOutcome {
+    /// Nothing was staged; the active cast is untouched.
+    NothingStaged,
+    /// The revision was admitted and published under a new generation.
+    Activated {
+        generation: CharacterCatalogGeneration,
+        /// How many definitions the edit replaced or added.
+        changed: usize,
+    },
+    /// The revision was refused. **The active registry and its generation are
+    /// unchanged** — the last-good cast is still the published one.
+    Refused { refusals: Vec<EffectRefusal> },
+}
+
+/// Stage a character edit for a later explicit activation.
+///
+/// ⚠ THIS DOES NOT PUBLISH. It contributes to the next revision; nothing sees
+/// the edit until [`activate_staged_revision`] runs at a boundary the session
+/// chooses. That is the whole difference between this and
+/// `stage_authored_character`, which contributes to a cast that has not been
+/// built yet.
+pub fn stage_character_revision(
+    app: &mut bevy::app::App,
+    definition: CharacterDefinition,
+    bindings: &CharacterBindings,
+) -> Result<(), CharacterRegistrationError> {
+    if definition.id.as_str().trim().is_empty() {
+        return Err(CharacterRegistrationError::BlankId);
+    }
+    let staged = prepare_for_registration(definition, bindings).staged;
+    let id = ambition_entity_catalog::CharacterId::new(staged.id());
+    app.world_mut()
+        .get_resource_or_insert_with(StagedCastRevision::default)
+        .by_id
+        .insert(id, staged);
+    Ok(())
+}
+
+/// Activate the staged revision, or refuse it and keep the last-good cast.
+///
+/// ⛔⛔ **A REFUSED REVISION CHANGES NOTHING, and that is a different rule from
+/// initial activation.** At the barrier there IS no last-good, so a refused
+/// definition is withheld and the rest of the cast still publishes
+/// ([`admit_and_finalize_cast`]). A revision is a TRANSACTION over a cast that
+/// is already live: applying half of it would leave the session in a state no
+/// author asked for, so the whole edit is refused and the previous registry —
+/// generation included — remains the published one. That is the
+/// last-good-prepared-definition retention the packet requires.
+///
+/// ⚠ AND IT IS NOT LAST-GOOD-WORLD RETENTION. Nothing here rolls back anything
+/// a body already did with the previous definitions; the packet is explicit that
+/// arbitrary world retention after a destructive native failure is NOT required.
+pub fn activate_staged_revision(
+    world: &mut bevy::ecs::world::World,
+    support: Option<&ambition_entity_catalog::TechniqueSupport>,
+) -> RevisionOutcome {
+    let staged: Vec<StagedCharacter> = match world.get_resource_mut::<StagedCastRevision>() {
+        Some(mut revision) if !revision.by_id.is_empty() => {
+            std::mem::take(&mut revision.by_id).into_values().collect()
+        }
+        _ => return RevisionOutcome::NothingStaged,
+    };
+    let Some(active) = world.get_resource::<PreparedCharacterRegistry>() else {
+        // No cast has been published, so there is nothing to revise and nothing
+        // to protect; the barrier has not run.
+        return RevisionOutcome::NothingStaged;
+    };
+    let previous = active.generation();
+    let catalog = world
+        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
+        .cloned();
+    let profiles = world
+        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
+        .cloned();
+
+    // The candidate: the live cast with the edits folded over it. Built as a
+    // separate value so a refusal cannot have touched the published one.
+    let changed = staged.len();
+    let mut candidate = world
+        .get_resource::<PreparedCharacterRegistry>()
+        .expect("checked above")
+        .clone();
+    for character in staged {
+        candidate.insert(finalize_character(
+            character.inner,
+            catalog.as_ref(),
+            profiles.as_ref(),
+        ));
+    }
+
+    // ⚠ ADMITTED AGAINST THE WHOLE CANDIDATE, not against the edit alone: a
+    // summon in an edited move may name a character the edit did not touch, and
+    // an edit may REMOVE the definition some untouched move was naming.
+    if let Some(support) = support {
+        let refusals = unsupported_authored_effects(support, &candidate);
+        if !refusals.is_empty() {
+            bevy::prelude::error!(
+                "a staged cast revision was REFUSED and the previous cast is still \
+                 active ({previous}); {} authored effect(s):\n    {}",
+                refusals.len(),
+                refusals
+                    .iter()
+                    .map(|refusal| refusal.detail.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n    ")
+            );
+            world.insert_resource(AuthoredEffectRefusals(refusals.clone()));
+            return RevisionOutcome::Refused { refusals };
+        }
+    }
+    candidate.stamp_after(previous);
+    let generation = candidate.generation();
+    world.insert_resource(AuthoredEffectRefusals(Vec::new()));
+    world.insert_resource(candidate);
+    RevisionOutcome::Activated {
+        generation,
+        changed,
+    }
+}
+
 /// Every authored effect the preparation barrier refused, as a published fact.
 ///
 /// ⭐ EMPTY IS THE CLAIM WORTH ASSERTING. The shipped composition must prepare a
@@ -1806,7 +1964,9 @@ pub fn stage_authored_character(
              after finalization would be folded against a catalog the published cast \
              was already built without, so half the session would know a character the \
              other half does not. A later cast change is a separate explicit \
-             transaction (see docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md)"
+             transaction: stage it with `stage_character_revision` and apply it with \
+             `activate_staged_revision` at a session boundary, which admits the edit \
+             and keeps the last-good cast if it is refused."
         );
     }
     // A display name already spoken for by a DIFFERENT id is rejected before the

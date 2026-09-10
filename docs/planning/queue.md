@@ -305,13 +305,45 @@ installing the systems without them panicked twelve application tests with
 registration side. The demo's own comment had already written the rule: a system
 that writes four messages does not run in a world that registers three.
 
-⚠ STILL OPEN in this lane: **A11c** — explicit prepared-revision activation, and
-the PREREQUISITE (not the successor) of the "edit rejected during active play"
-acceptance row, because there is still no production republication road:
-`stage_authored_character` panics after `finalized` and nothing else writes the
-registry. Also the two `item_id` nested references, which cannot be checked from
-`ambition_characters` (it cannot see the item vocabulary — the same layering wall
-the support table had to cross).
+**A11c LANDED 2026-09-10, and with it the acceptance row that could not be
+written.** "Rejection leaves the active generation unchanged" was untestable
+because there was no production republication road at ALL:
+`PreparedCharacterRegistry` has one production writer, guarded to run once, and
+`stage_authored_character` PANICS after the barrier closes — so nothing could
+produce a second generation to leave unchanged. Three attempts at that fixture
+stopped on three different obstacles; this was the prerequisite all three were
+missing.
+
+The panic's own sentence was the design: *"a later cast change is a separate
+explicit transaction."* `stage_character_revision` contributes an edit;
+`activate_staged_revision` folds it over the LIVE cast, admits the whole
+candidate, and either publishes under a new generation or refuses.
+
+⚠ **AND THE REVISION RULE IS NOT THE BARRIER'S.** At initial activation there is
+no last-good, so a refused definition is withheld and the rest of the cast still
+publishes. A revision is a TRANSACTION over a cast that is already live: applying
+half of it would leave a session in a state no author asked for, so the whole
+edit is refused and the previous registry — generation included — stays
+published. That is the last-good-prepared-definition retention the packet
+requires. It is NOT last-good-WORLD retention, which the packet explicitly does
+not ask for.
+
+⚠ Admission runs against the whole CANDIDATE, not the edit alone: a summon in an
+edited move may name a character the edit did not touch, and an edit may remove
+the definition an untouched move was naming.
+
+Four tests, two of them controls. Poisoned: let a refused revision publish and
+only `a_refused_revision_leaves_the_active_generation_unchanged` dies, with the
+premise arm (an admitted revision DOES bump the generation) and both controls
+holding.
+
+⭐ The panic also cited `docs/archive/planning-superseded/…`, a directory deleted
+2026-09-05 — a production message pointing a developer at nothing, read at the
+exact moment they hit it. It now names the mechanism instead.
+
+⚠ STILL OPEN in this lane: the two `item_id` nested references, which cannot be
+checked from `ambition_characters` (it cannot see the item vocabulary — the same
+layering wall the support table had to cross).
 
 ⛔ SUPERSEDED — what review #9 named, kept for the shape of the errors:
 

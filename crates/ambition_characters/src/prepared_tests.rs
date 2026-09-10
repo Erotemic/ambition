@@ -1292,3 +1292,211 @@ mod domain_semantics {
         assert!(check_time_dilation_params(&params("(scale: \"fast\")")).is_err());
     }
 }
+
+// ---------------------------------------------------------------------------
+// A11c — THE ACCEPTANCE ROW THAT COULD NOT BE WRITTEN.
+//
+// "Rejection leaves the active generation unchanged" was untestable, and the
+// re-derivation that found out why is worth keeping: `PreparedCharacterRegistry`
+// has exactly ONE production writer, guarded to run once, and
+// `stage_authored_character` PANICS after the barrier closes. So nothing could
+// produce a second generation to leave unchanged — the row was waiting on a
+// republication road that did not exist, which is why three attempts at the
+// fixture stopped on three different obstacles.
+//
+// ⚠ AND THE RULE IS NOT THE BARRIER'S. At initial activation there is no
+// last-good, so a refused definition is WITHHELD and the rest of the cast still
+// publishes. A revision is a transaction over a cast that is already live:
+// applying half of it would leave a session in a state no author asked for, so
+// the whole edit is refused and the previous registry — generation included —
+// stays published.
+// ---------------------------------------------------------------------------
+mod revision_activation {
+    use super::*;
+    use crate::prepared::{
+        activate_staged_revision, admit_and_finalize_cast, CharacterCatalogGeneration,
+        PreparedCharacterRegistry, RevisionOutcome, StagedCastRevision,
+    };
+    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueSupport,
+    };
+
+    fn supporting_summons() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                SUMMON_RIDE,
+                TechniqueOffer {
+                    owner: "test::shark_ride",
+                    params: TechniqueParams::Checked(
+                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                    ),
+                    references: NestedReferences::Characters(summon_ride_character_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            )
+            .expect("first claim");
+        support
+    }
+
+    fn move_emitting(id: &str, effect: EffectRef) -> ambition_entity_catalog::MoveSpec {
+        let mut spec = crate::prepared_fixtures::slash(id, "cue", "strike");
+        spec.windows[0].sustain_effect = Some(effect);
+        spec
+    }
+
+    fn effect(key: &str) -> EffectRef {
+        EffectRef {
+            key: key.to_string(),
+            params: ParamValue::parse(
+                "(character_id: \"mount\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+            )
+            .expect("params parse"),
+        }
+    }
+
+    /// A definition whose one move carries `key`.
+    fn authoring(id: &str, key: &str) -> CharacterDefinition {
+        use crate::prepared_fixtures::moveset_with;
+        CharacterDefinition::new(id, id, "test_demo").with_moveset(moveset_with(
+            &[("special", "the_move")],
+            vec![move_emitting("the_move", effect(key))],
+        ))
+    }
+
+    /// A world with a published cast: `rider` (summoning `mount`) and `mount`.
+    fn world_with_live_cast() -> bevy::ecs::world::World {
+        let mut world = bevy::ecs::world::World::new();
+        let staged = vec![
+            crate::prepared::prepare_for_registration(
+                authoring("rider", SUMMON_RIDE),
+                &CharacterBindings::default(),
+            )
+            .staged,
+            crate::prepared::prepare_for_registration(
+                CharacterDefinition::new("mount", "mount", "test_demo"),
+                &CharacterBindings::default(),
+            )
+            .staged,
+        ];
+        let admitted = admit_and_finalize_cast(
+            staged,
+            None,
+            None,
+            CharacterCatalogGeneration::default(),
+            Some(&supporting_summons()),
+        );
+        assert!(
+            admitted.refusals.is_empty(),
+            "the fixture's premise is gone: the starting cast is refused {:?}",
+            admitted.refusals
+        );
+        world.insert_resource(admitted.registry);
+        world
+    }
+
+    fn stage(world: &mut bevy::ecs::world::World, definition: CharacterDefinition) {
+        let staged =
+            crate::prepared::prepare_for_registration(definition, &CharacterBindings::default())
+                .staged;
+        let id = ambition_entity_catalog::CharacterId::new(staged.id());
+        world
+            .get_resource_or_insert_with(StagedCastRevision::default)
+            .insert_for_test(id, staged);
+    }
+
+    /// ⭐ THE PREMISE ARM. Without a revision that DOES activate, "refused leaves
+    /// it unchanged" is satisfied by a mechanism that never activates anything.
+    #[test]
+    fn an_admitted_revision_publishes_under_a_new_generation() {
+        let mut world = world_with_live_cast();
+        let before = world
+            .resource::<PreparedCharacterRegistry>()
+            .generation()
+            .get();
+
+        stage(&mut world, authoring("rider", SUMMON_RIDE));
+        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+
+        let after = world.resource::<PreparedCharacterRegistry>().generation();
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
+            "expected one changed definition; got {outcome:?}"
+        );
+        assert_eq!(
+            after.get(),
+            before + 1,
+            "an admitted revision must publish under a NEW generation, or nothing \
+             downstream can tell the cast changed"
+        );
+    }
+
+    /// ⛔ THE ROW ITSELF. A revision naming a technique nothing installed is
+    /// refused, and the live cast keeps BOTH its definitions and its generation.
+    #[test]
+    fn a_refused_revision_leaves_the_active_generation_unchanged() {
+        let mut world = world_with_live_cast();
+        let before = world
+            .resource::<PreparedCharacterRegistry>()
+            .generation()
+            .get();
+
+        stage(&mut world, authoring("rider", "smash.not_installed_here"));
+        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+
+        assert!(
+            matches!(outcome, RevisionOutcome::Refused { .. }),
+            "expected a refusal; got {outcome:?}"
+        );
+        let active = world.resource::<PreparedCharacterRegistry>();
+        assert_eq!(
+            active.generation().get(),
+            before,
+            "a REFUSED revision bumped the generation; every body stamped with the \
+             previous one now reads as stale for an edit that never happened"
+        );
+        assert!(
+            active.get("rider").is_some() && active.get("mount").is_some(),
+            "the last-good cast lost a definition to a refused edit"
+        );
+    }
+
+    /// ⭐ CONTROL. Nothing staged is not a refusal and not an activation.
+    #[test]
+    fn activating_nothing_is_not_a_refusal() {
+        let mut world = world_with_live_cast();
+        let before = world
+            .resource::<PreparedCharacterRegistry>()
+            .generation()
+            .get();
+
+        let outcome = activate_staged_revision(&mut world, Some(&supporting_summons()));
+
+        assert_eq!(outcome, RevisionOutcome::NothingStaged);
+        assert_eq!(
+            world
+                .resource::<PreparedCharacterRegistry>()
+                .generation()
+                .get(),
+            before
+        );
+    }
+
+    /// ⭐ CONTROL. A refused revision must not leave its edits staged to be
+    /// applied by the NEXT activation — a transaction that fails is spent.
+    #[test]
+    fn a_refused_revision_does_not_linger_for_the_next_activation() {
+        let mut world = world_with_live_cast();
+        stage(&mut world, authoring("rider", "smash.not_installed_here"));
+        let _ = activate_staged_revision(&mut world, Some(&supporting_summons()));
+
+        let second = activate_staged_revision(&mut world, Some(&supporting_summons()));
+        assert_eq!(
+            second,
+            RevisionOutcome::NothingStaged,
+            "a refused edit was still staged and would have been retried silently"
+        );
+    }
+}

@@ -100,7 +100,7 @@ behind a non-default feature. These are NOT removable:**
 
 ⛔ **ONE ROW IN THIS TABLE WAS WRONG, AND ITS SHAPE IS WHAT GAVE IT AWAY.**
 `ambition_encounter_features` / `ron` sat here justified by a bare pointer to
-`loading.rs:22` — while every other row states an EVIDENCE CLASS: a named
+`crates/ambition_encounter_features/src/loading.rs:22` — while every other row states an EVIDENCE CLASS: a named
 feature gate, or a count of non-test references. ⇒ In a table whose
 justification column is otherwise consistent, **the outlier row is the one to
 check first, and the check is cheap because the neighbours define what a

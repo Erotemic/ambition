@@ -79,7 +79,15 @@ Stated per packet instead:
   row remains deferred to Q96/A5 and is a maintainer ruling rather than
   unfinished work.
 - **A3** — done; the only residual is a file move that removes no edge.
-- **A11** — **FOUR BLOCKERS CLOSED; NO LANE HAS SEEN THE FOURTH YET.** ⚠ This line
+- **A11** — **FOUR BLOCKERS CLOSED, AND A LANE HAS NOW SEEN THE FOURTH.** Green at
+  `43059a46d`: 178 suites, 7714 passed, 0 failed, **78 Doc-tests phases** —
+  **workspace test scope, doctests included, and nothing wider.** ⛔ That lane does
+  NOT enforce `-D warnings`, does not cover the `--rust` set, and compiles nothing
+  behind a **non-default** `cfg(feature = ...)`; `check_no_warnings.py`'s own note
+  records three warnings that once lived in exactly that gap while its line read
+  clean. ⇒ **A11 is CLOSABLE on that scope, not closed on a wider one.**
+  ⭐ **It is the first run of the whole tree with the raw finalizer ABSENT** — the
+  poison proved the boundary in isolation; this proved nothing else depended on it. ⚠ This line
   said *"FULLY re-closed"* after three, and **a completeness word is a hostage to
   the next review** — the fourth arrived hours later. ✅ **Closed in `95f0c1484`
   with a PROVEN boundary rather than an asserted one**: `cargo check -p ambition_app`

@@ -533,6 +533,46 @@ instrument going blind.
 ([source-text guard exposure](engine/source-text-guard-exposure.md) is the sweep:
 121 Python guard files and 12 Rust, one real case.)
 
+### D-CPU-INERT — two CPUs of a shipped fighter deal ZERO damage in a minute
+
+**Owner:** [fighter brain](engine/fighter-brain.md), F6 and the utility
+progression. Found 2026-09-10 while sampling D-BRAIN-MENU across fighters; it is
+not a consequence of that row's held change — every number below is HEAD.
+
+⛔⛔ **THE ACCEPTANCE TEST PASSES FOR ONE FIGHTER OUT OF THREE SAMPLED.** Same
+harness, same rung (9, the top authored rung), same 3613 ticks, same mirror
+matchup — the FIGHTER is the only variable:
+
+| fighter | damage/min | move starts | running | hitstun | KOs |
+|---|---|---|---|---|---|
+| `npc_pirate_admiral` | 1.26 / 1.07 | 54 / 27 | 14% / 19% | [525, 324] | 2 |
+| `npc_emmy_noether` | **0.28 / 0.44** | 13 / 12 | 2% / 2% | [38, 59] | **0** |
+| `npc_carl_stargan` | **0.00 / 0.00** | **3 / 3** | **0% / 0%** | **[0, 0]** | **0** |
+
+⇒ **Carl's two CPUs stand on a stage for a full minute at the hardest difficulty
+and land NOTHING.** Three move starts each — a dash attack, `pale_blue_dot` and
+a forward smash — and zero hitstun on either side. Both seats are identical
+because the fight never diverges: nothing happens to diverge it.
+
+⚠ **THIS IS NOT A MENU-BREADTH PROBLEM, which is what F6's framing would
+predict.** Emmy starts 7–8 DISTINCT moves out of her 13, and Carl 3 out of 3. The
+variety is there; the ACTIVITY is not. A brain that picked badly would still
+press. These barely press at all.
+
+⚠ **And the acceptance test cannot see it**, because `FIGHTER` is a const set to
+the one fighter that passes. `two_cpus_in_the_shipped_composition_damage_each_other`
+asserts `>= 0.5` of pool per minute and would fail on two of the three sampled —
+so the guard is sound and its POPULATION is one. ⇒ Widening it to the roster is
+the first concrete step, and it will go red immediately; that is the point.
+
+**Acceptance:** the duel gate is asserted over a representative set of shipped
+fighters rather than one, and every fighter in that set fights. ⚠ Until then, no
+CPU-quality number quoted from this harness travels without naming its fighter.
+
+⚠ n=1 run per fighter and all three are MIRROR matches. The contrast is
+controlled (one variable) but the absolute figures are single samples; re-measure
+before tuning anything.
+
 ## P2 — current engine/game work
 
 ### D-TETHER-LINE — give the ledge tether a readable generic reach line

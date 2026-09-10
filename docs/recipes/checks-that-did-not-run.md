@@ -1005,6 +1005,33 @@ written in the argumentative present precisely because they are arguing — and
 they sit in the same document as the receipts, under the same headings, in the
 same voice.
 
+## ⛔⛔ TWO HONEST GREENS, ONE TREE, CONTRADICTING EACH OTHER
+
+On 2026-09-10 two agents measured the same commit within minutes of each other.
+One reported **"178 blocks, 7703 passed, 0 failed"**. The other reported **seven
+failing tests**. Neither was wrong, neither had a stale checkout, and the trees
+were identical.
+
+**They ran different lanes.** `cargo test --workspace` and
+`scripts/run_tests.py --rust` do not execute the same set: the `--rust` lane
+carries the repo-coupled pytest guards and a `--maintenance` sub-run, and the
+workspace build carries neither. ⇒ **The seven reds were invisible to a green
+that had been quoted four times.**
+
+⭐ **A verdict's reference point has TWO halves and this repository had been
+recording one.** A commit says *which tree*; a lane says *which questions were
+asked of it*. **"7703 passed at `<sha>`" is not a claim about the repository** —
+it is a claim about one lane at one commit, and it reads exactly like the
+stronger claim.
+
+⚠ **This is the same failure as a number crossing a document boundary without
+its method, arriving through a gate instead of a table.** The remedy is
+identical and just as cheap: **a green result names its lane.**
+
+⛔ **And the asymmetry matters: a lane you did not run is a guard that does not
+exist.** The bracketing worked here only because two agents happened to disagree
+out loud. **One agent, one lane, one green would have shipped all seven.**
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

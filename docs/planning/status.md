@@ -100,8 +100,20 @@ Stated per packet instead:
   stands down on `ChecksAuthoredEffectsAtTheBarrier`, and the public
   `close_preparation_barrier` for a host that installs none.
   ⚠ **ALL THREE A11 BLOCKERS ARE CLOSED. A11 HAS NO OPEN BLOCKER.**
-- **A12** — REOPENED by the same review and **LANDED 2026-09-10 as
-  `f9baa86e8`**; this line read *"NOT fixed"* until then. A verdict carrying
+- **A12** — ⛔ **PROPAGATION LANDED (`f9baa86e8`); OCCURRENCE IDENTITY DID NOT.**
+  This line read *"NOT fixed"*, then *"LANDED"*, and both were wrong. What landed
+  closes the DIRECT-REPLACEMENT case, where `succeeding(Some(prev))` genuinely
+  increments. ⛔ **`MovePlayback::instance` is a WITHIN-CHAIN ORDINAL, not a
+  body-local identity**: `new_at` sets it to `0` and `succeeding(None)` maps back
+  to `0`, and the playback component is REMOVED when a move ends — so a move
+  starting after an idle gap carries `0` again, and a shot stamped `0` by an
+  earlier move is credited to it. ⚠ Concretely reachable: `officer_the_draw`
+  fires at 0.348s and ends at 0.696s while its projectile lives up to 2.4s.
+  ⛔ **Reflection** re-owns a shot to the interceptor (`intercept.rs:82`) and
+  leaves `FiredByMoveInstance` untouched, pairing a new owner with the old
+  shooter's stamp. ⛔ **`None` still credits the current move**, so clearing the
+  stamp on reflection is the same defect with an extra step. A12b's
+  prepared-revision items remain open and always said so. A verdict carrying
   `attacker_move_instance: None` WAS credited to whatever move the fighter was
   playing at the time, so a projectile launched by move A and landing during
   move B marked B connected — the late-feedback defect A12 exists to eliminate. The

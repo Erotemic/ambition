@@ -657,6 +657,43 @@ highest filed, in both that ref and this worktree.** If another agent claims Q10
 concurrently, **renumber this one** — it was filed by the coordinator, not by the
 agent who did the measurement, and it is the cheaper of the two to move.
 
+## Q101 — may an ability's own contact satisfy the launching move's `Connected`?
+
+`verdict_belongs_to` admits `None`, and `None` currently means *"credit whatever
+move this body is playing NOW"*. ⭐ **The predicate's own census names every
+production site that writes `attacker_move_instance: None` AND REACHES IT** —
+`features/empowerment.rs`, `features/ecs/actors/update.rs:964`,
+`features/enemies/integration.rs`, and `abilities/traversal/{blink,dive,mark_recall}.rs`.
+
+⚠ **These are ABILITY AND CONTACT roads. Not hazards, not the blast zone.** The
+comment's older defence of `None` named four legitimate producers; measured, only
+one of the four reaches this predicate, *"and both of them were used to size a
+change as too large to make."*
+
+**The question.** For `blink`, `dive`, `mark_recall` and empowerment contact harm,
+the player triggered the ability, possibly as part of a move.
+
+- **If that contact SHOULD satisfy the launching move's `Connected` condition**,
+  the occurrence must be propagated through those roads, exactly as `f9baa86e8`
+  now does for projectiles.
+- **If they are INDEPENDENT effects**, they must not mutate a move-local latch,
+  and `None` must stop meaning *"credit the current move"*.
+
+⛔ **It is not a bug fix either way.** *"Not attributable to this move"* may be
+FALSE for blink and dive, so refusing `None` globally would silently stop
+crediting contacts a player would expect to count.
+
+⚠ **A12's reflection blocker cannot be closed without this answer.** Reflection
+re-owns a shot and keeps the shooter's stamp; clearing the stamp yields `None`,
+which credits whoever is playing — the same defect with an extra step — and
+re-stamping is only correct if the reflection is itself move-authored, which in
+general it is not. **Every road out passes through this ruling.**
+
+Measured by ToothbrushAmbition; census verified in the predicate's own comment.
+⭐ Q99 was the highest filed when this was written, in `origin/main` and in the
+worktree, read in one command. **If another agent claims Q101 concurrently, this
+one renumbers.**
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

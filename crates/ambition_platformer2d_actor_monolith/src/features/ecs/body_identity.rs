@@ -4,9 +4,17 @@
 //! The projectile contact protocol calls a missing target identity a
 //! construction/verification failure rather than a sort fallback — so the
 //! invariant belongs where bodies are BUILT, and the resolver can only report
-//! it. `construction/mod.rs` mints `SimId::placement(..)` for enemies, bosses,
-//! giants, hands, shrines, riders and summons; **what nothing established is
-//! whether any damageable body arrives without one.**
+//! it. `construction/mod.rs` mints an identity for enemies, bosses, giants,
+//! hands, shrines, riders and summons; **what nothing established is whether any
+//! damageable body arrives without one.**
+//!
+//! ⚠ TWO OF THOSE SEVEN DO NOT MINT `SimId::placement`, and this header said
+//! they did until 2026-09-10: hands take `SimId::spawned(host, ordinal)` and
+//! summons take `SimId::spawned(summoner, sequence)`. ⛔ AND THE SEVEN ARE NOT
+//! ALL DAMAGEABLE. `construct_shrine` inserts `Name` + `HealShrine` and never
+//! the `CenteredAabb`/`ActorFaction` pair, so a shrine mints an identity and is
+//! not a body this observer can ever see. Minting an identity and being
+//! damageable are different properties.
 //!
 //! ⚠ **WHY THIS IS A SYSTEM AND NOT A TEST, and it is the whole design.** A test
 //! can only census the roads its fixture drives —

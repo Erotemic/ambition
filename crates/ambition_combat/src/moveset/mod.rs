@@ -4208,7 +4208,24 @@ pub fn mark_move_playback_resolved_hits(
 /// NONE OF THEM IS A HAZARD.** That is not a reason to do it. For `blink`,
 /// `dive` and `mark_recall` the player triggered the ability, possibly as part
 /// of a move, so *"not attributable to this move"* may be FALSE for them.
-/// Refusing `None` there is a gameplay ruling, not a bug fix.
+/// Refusing `None` there is a gameplay ruling, not a bug fix. **It was ruled —
+/// see below.**
+///
+/// ⛔⛤ **THE TABLE ABOVE IS STALE, AND THE STALE HALF IS THE LOAD-BEARING ONE.**
+/// Re-measured 2026-09-10: **15 non-test sites write `attacker_move_instance:
+/// None`**, and the ability rows point at `abilities/traversal/` inside the
+/// actor monolith while those files now live in
+/// `crates/ambition_abilities/src/traversal/`. Two sites are new since it was
+/// written (`authored_movesets.rs`, and one in this file).
+///
+/// ⚠ **THE *`reaches this function`* COLUMN HAS NOT BEEN RE-DERIVED, AND IT IS
+/// THE ONLY COLUMN THAT SIZES ANYTHING.** A count of SITES sizes nothing: a
+/// verdict whose `attacker` is `None` never arrives here at all. ⇒ **Do not read
+/// "15" as "15 to do".** Re-derive the reaching set before planning off it.
+///
+/// ⭐ **A MOVED DIRECTORY IS A CITATION BROKEN IN SILENCE.** The table did not
+/// get louder when the code left; nothing checks prose paths inside a doc
+/// comment.
 ///
 /// ⛔⛤ **THE PROJECTILE CASE WAS TWO ROADS, AND THIS NOTE ONLY EVER DESCRIBED
 /// ONE.** It said *"a shot now carries the instance of the move that fired it,

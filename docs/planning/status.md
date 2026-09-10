@@ -187,13 +187,38 @@ Measured by ToothbrushAmbition; no recommendation made and nothing wired. ⚠ Th
   |---|---|---|
   | 1 | the boss start road inserted `MovePlayback::new_at` directly, never joining the body-owned mint | ✅ **CLOSED `051e95972`** |
   | 2 | provenance died on the `Effect → Special → projectile` road | ✅ **CLOSED `2ba3b6700`** |
-  | 3 | reflection re-owns a shot and leaves `FiredByMoveInstance` untouched | ⛔ **OPEN** |
-  | 4 | `None` still credits the move playing at the time | ⛔ **OPEN — Q101 is Jon's** |
+  | 3 | reflection re-owns a shot and leaves `FiredByMoveInstance` untouched | ✅ **CLOSED `a7e6bcbf6`** |
+  | 4 | `None` still credits the move playing at the time | ✅ **CLOSED `fa86d3c41`** |
 
-  ⚠ **3 AND 4 ARE ONE QUESTION WEARING TWO FACES.** Clearing the stamp on
-  reflection produces exactly the state blocker 4 mishandles, so fixing 3 alone
-  moves the defect rather than closing it. Both wait on what `None` is allowed
-  to mean.
+  ⚠ **3 AND 4 WERE ONE QUESTION WEARING TWO FACES, AND THE ORDER MATTERED.**
+  Clearing the stamp on reflection produces exactly the state blocker 4
+  mishandled, so the clear had to come SECOND:
+
+  | | stale stamp | cleared to `None` |
+  |---|---|---|
+  | `is_none_or` (before) | credited **iff the numbers collide** | credited **always** |
+  | `== Some(pb.instance)` | collides (unchanged) | **nobody credited** ✅ |
+
+  ⛔ **Clear-first converts an intermittent false credit into a guaranteed one.**
+  Two readers — mine and a peer's — argued for clear-first from the same wrong
+  premise, that the flip loosened `Some`. It never did: `is_none_or` already
+  compared `Some(x)` with `==`, so the flip changes the `None` case ALONE. ⭐ The
+  four-cell table settled in one reading what neither of us had settled by
+  re-reading the code.
+
+  ⭐⭐ **Q101 IS WHAT CLOSED 4, AND IT IS A RULING, NOT A REPAIR.** *"`Connected`
+  is a fact owned by a specific move occurrence. `None` means no move claims the
+  outcome, and therefore it cannot modify ANY move's `Connected` state."*
+  Crediting *"whoever is playing right now"* is not an authority — it attributes
+  by coincidence of timing. ⇒ Every ability becomes a LOCAL question: propagate
+  the occurrence and the hit satisfies the move; propagate nothing and it
+  satisfies nothing. The runtime learns about no ability.
+
+  ⚠ **AND BLOCKER 3 WAS AN ATTRIBUTION QUESTION, NOT A GAMEPLAY ONE.** It was
+  filed as needing a per-ability ruling. `MoveOccurrence` counts per entity from
+  0, so a reflected shot's stale stamp COLLIDES with the new owner's own
+  occurrence — most loudly at 0, which both bodies hold on their first use. No
+  predicate can repair that; the number alone cannot say whose it is.
 
   ⭐ **Blocker 2's shape is the reusable part.** The bridge that dropped the
   occurrence sat beside the branch that carried it, in the same `match`, and the

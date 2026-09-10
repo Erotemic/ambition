@@ -54,6 +54,59 @@ fn planted_press(ticks: u32) -> PendingAttack {
     }
 }
 
+/// A body that can actually throw something, which nothing else in this module
+/// supplies. `run` above hands the brain `BrainSnapshot::idle()` — an EMPTY
+/// `attack_kit` — so no fixture here has ever produced a press from the brain's
+/// own decision, and the noise stream is never sampled at all.
+fn armed_snapshot() -> BrainSnapshot {
+    BrainSnapshot {
+        attack_kit: vec![ambition_characters::brain::attack_kit::AttackCandidate {
+            move_id: "jab".to_string(),
+            frames: ambition_entity_catalog::MoveFrameData {
+                total_s: 0.35,
+                charge_hold_at_s: None,
+                startup_s: 0.05,
+                active_spans: vec![(0.05, 0.15)],
+                recovery_s: 0.2,
+                cancel_windows: Vec::new(),
+                reach: 60.0,
+                ignores_guard: false,
+                coverage: Some(ambition_entity_catalog::MoveCoverage {
+                    min: (0.0, -12.0),
+                    max: (60.0, 12.0),
+                }),
+                max_damage: 8,
+                max_knockback: 40.0,
+                start_impulse: (0.0, 0.0),
+                lift_speed: 0.0,
+                lift_at_s: 0.0,
+                lift_side: 0.0,
+                recovery_route: Default::default(),
+            },
+            binding: AttackBinding {
+                verb: AttackVerb::Basic,
+                direction: AttackDir::Forward,
+            },
+            legality: ambition_characters::brain::attack_kit::ActionLegality::Now,
+        }],
+        abilities: Some(ae::AbilitySet::basic()),
+        ..BrainSnapshot::idle()
+    }
+}
+
+/// `run`, but with a foe inside jab range and a body that owns a jab.
+fn run_armed(cfg: &FighterCfg, state: &mut FighterState, ticks: u32) -> Vec<bool> {
+    let snapshot = armed_snapshot();
+    let view = scene(300.0, 340.0);
+    let mut out = ActorControlFrame::neutral();
+    let mut presses = Vec::new();
+    for _ in 0..ticks {
+        tick_fighter(cfg, state, &snapshot, Some(&view), &mut out);
+        presses.push(out.melee_pressed);
+    }
+    presses
+}
+
 /// A profile that reacts instantly and never rolls out, so a test measures the
 /// rig rather than the delay buffer or L3.
 fn immediate_profile() -> FighterBrainProfile {
@@ -241,21 +294,42 @@ fn a_dropped_press_does_not_stop_the_body_moving() {
 
 /// The noise stream reproduces, which is what makes the brain rollback-safe:
 /// the same seed and the same inputs produce the same fighter.
+///
+/// ⛔⛔ THIS TEST WAS VACUOUS ON ITS OWN SUBJECT UNTIL 2026-09-10. It ran on
+/// `run`, which hands the brain an EMPTY `attack_kit`, so no press was ever
+/// wanted, the noise stream was never sampled, and it compared two all-`false`
+/// vectors while asserting `a.noise == b.noise` on two seeds that had not moved.
+/// Measured before the change: 0 presses of 90 frames, `a.noise` still the
+/// initial seed. ⇒ The guard for the stream's replay determinism never
+/// exercised the stream.
 #[test]
 fn the_same_seed_produces_the_same_fighter() {
     let mut profile = immediate_profile();
     profile.execution_noise = 0.9;
     let cfg = FighterCfg::new(profile);
 
-    let mut a = FighterState::new(&cfg, 0xABCD_EF01);
-    let mut b = FighterState::new(&cfg, 0xABCD_EF01);
-    let left = run(&cfg, &mut a, 90);
-    let right = run(&cfg, &mut b, 90);
+    let seed = 0xABCD_EF01;
+    let mut a = FighterState::new(&cfg, seed);
+    let mut b = FighterState::new(&cfg, seed);
+    let left_presses = run_armed(&cfg, &mut a, 90);
+    let right_presses = run_armed(&cfg, &mut b, 90);
+
+    // ⚠ THE FLOOR IS THE POINT. Two fighters that never press agree trivially,
+    // and a fixture that stops offering an attack would turn every assertion
+    // below green while proving nothing.
+    assert!(
+        left_presses.iter().any(|p| *p),
+        "the fixture produced no press in 90 ticks, so nothing here samples the \
+         noise stream and the comparisons are between two empty vectors"
+    );
+    assert_ne!(
+        a.noise, seed,
+        "the noise stream never advanced, so this measures a seed rather than a \
+         stream"
+    );
 
     assert_eq!(a.noise, b.noise, "the noise streams diverged");
     assert_eq!(a.apm, b.apm);
-    let left_presses: Vec<bool> = left.iter().map(|f| f.melee_pressed).collect();
-    let right_presses: Vec<bool> = right.iter().map(|f| f.melee_pressed).collect();
     assert_eq!(
         left_presses, right_presses,
         "two fighters with the same seed pressed on different ticks, so a replay \
@@ -396,6 +470,62 @@ fn every_authored_rung_but_the_top_can_actually_jitter_a_press() {
     assert!(
         (0.49..0.5).contains(&top),
         "rung 9's jitter ceiling is {top}, no longer just under the rounding          boundary — the top rung's noise has been retuned and the open question          about it needs re-asking"
+    );
+}
+
+/// ⛔⛔ THE SEAT-SYMMETRY FIX IS GUARDED BY SEED VALUES AND NOT BY BEHAVIOUR.
+/// `brain_builders::cognition_stream_tests` proves two seats get different
+/// stream VALUES; nothing anywhere proves a different stream produces a
+/// different fighter. It does not at rung 9 — the sole consumer of the stream
+/// is the jitter at `decision.rs:471`, and that rounds to zero there — so the
+/// reflection those tests exist to prevent is present at the shipped top rung.
+///
+/// This asks the behaviour instead, and derives its own population so it heals:
+/// the rungs it covers are exactly the rungs whose jitter is REACHABLE, computed
+/// from the ladder. If rung 9's noise is ever retuned, this covers rung 9 with
+/// no edit.
+///
+/// ⚠ The floor is the load-bearing half. Two fighters that never press agree
+/// trivially, so a fixture that stopped pressing would turn this green while
+/// proving nothing — which is the failure mode of
+/// [`the_same_seed_produces_the_same_fighter`] above, whose press vectors are
+/// compared but never counted.
+#[test]
+fn a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable() {
+    const TICKS: u32 = 600;
+    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
+
+    let mut covered = Vec::new();
+    for level in 1..=9u8 {
+        let profile = FighterBrainProfile::for_level(level);
+        if (profile.execution_noise * interval).round() as u32 == 0 {
+            continue; // no sample can move a press at this rung; see the row.
+        }
+        covered.push(level);
+
+        let cfg = FighterCfg::new(profile);
+        // Two seats of one character, as `fighter_cognition_seed` builds them:
+        // the high half differs, the level term below is shared.
+        let mut one = FighterState::new(&cfg, 0xd9b0_ccd3_02fd_1ed1);
+        let mut two = FighterState::new(&cfg, 0xd8b0_cb3e_02fd_1ed1);
+        let left = run_armed(&cfg, &mut one, TICKS);
+        let right = run_armed(&cfg, &mut two, TICKS);
+
+        let presses = left.iter().filter(|p| **p).count();
+        assert!(
+            presses > 0,
+            "rung {level}: neither fighter pressed anything in {TICKS} ticks, so              this fixture cannot witness a jitter at all and its agreement is              vacuous"
+        );
+        assert_ne!(
+            left, right,
+            "rung {level}: two seats on DIFFERENT streams pressed on identical              ticks ({presses} presses), so the stream reaches no behaviour and              a mirror match is a reflection again"
+        );
+    }
+
+    assert_eq!(
+        covered,
+        vec![1, 2, 3, 4, 5, 6, 7, 8],
+        "the set of rungs whose jitter is reachable changed; if rung 9 was          fixed this is the edit that adopts it, and if a rung was LOST this          test just stopped covering it silently"
     );
 }
 

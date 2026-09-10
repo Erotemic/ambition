@@ -1,25 +1,8 @@
-//! The Performer — the sword archetype's table, with four specials of her own.
+//! The Performer’s stage-light normals and stage-machinery specials.
 //!
-//! ⭐ AND SHE CARRIES NO SWORD. The Pointed Polygon's frame data retargets onto
-//! her for the reason the Author's does: his pen occupies the arming sword's
-//! exact axis, and her conjured blade of stage light occupies it too — authored
-//! as the swing's own axis extended past her hand, so the reach the table
-//! assumes is the reach the sheet draws.
-//!
-//! ⭐⭐ HER SPECIALS ARE STAGE MACHINERY, and the two that move her move her in
-//! two different ways. The FLYLINE is a wire: one beat, aimed, straight up out
-//! of the scene — `smash.teleport`, the technique the Author's revision already
-//! used. The TRAP is not. She goes THROUGH the floor and travels under it, and
-//! that is `smash.trapdoor` plus a body mode, because Jon was explicit that it
-//! is *"not a blink. It's a different kind of mobility move"* and that *"I do
-//! want the player to be able to control where they move."*
-//!
-//! ⭐ THE OTHER TWO ARE STAGECRAFT WITHOUT MACHINERY. The MONOLOGUE and THE
-//! LINE are plain strikes; what makes them hers is the SHAPE the art gave them,
-//! and neither needed a technique to say it.
-//!
-//! See [`crate::archetype_moveset`] for why the borrowed ids are renamed rather
-//! than shared or copied.
+//! Normal poses and swept blade geometry are authored in `performer_stage_v1`;
+//! this table owns their combat timing and consequences. The sword archetype
+//! supplies the remaining ordinary repertoire under her own move IDs.
 
 use ambition_characters::moveset_authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
 use ambition_characters::smash_flyline::{author_flyline, FlylineParams};
@@ -235,12 +218,61 @@ pub fn performer_moveset() -> MovesetContract {
         &["polygon", "pointed_polygon"],
         "performer",
     );
+    author_normals(&mut set);
     crate::special_slots::replace_special(&mut set, "special_down", the_trap());
     crate::special_slots::replace_special(&mut set, "special_air_down", the_trap_airborne());
     crate::special_slots::replace_special(&mut set, "special_up", the_flyline());
     crate::special_slots::replace_special(&mut set, "special", the_monologue());
     crate::special_slots::replace_special(&mut set, "special_forward", the_line());
     set
+}
+
+/// Normal timelines match the 40 ms poses in `performer_stage_v1`.
+/// The sprite manifest supplies the swept light geometry; the table supplies
+/// active time, recovery, landing commitment, and consequences.
+fn author_normals(set: &mut MovesetContract) {
+    use ambition_platformer2d::entity_catalog::WindowTag;
+
+    for mv in &mut set.moves {
+        let (startup_frames, active_frames, total_frames) = match mv.clip.clip.as_str() {
+            "attack_side" | "attack_up" | "attack_down" => (2, 4, 10),
+            "smash_forward" => (5, 4, 17),
+            "smash_up" => (5, 5, 17),
+            "smash_down" => (5, 6, 18),
+            "air_neutral" => (2, 7, 14),
+            "air_forward" | "air_up" => (2, 5, 12),
+            "air_back" => (2, 4, 12),
+            "air_down" => (4, 5, 15),
+            _ => continue,
+        };
+        let startup = startup_frames as f32 * 0.04;
+        let active_end = (startup_frames + active_frames) as f32 * 0.04;
+        mv.duration_s = total_frames as f32 * 0.04;
+        for window in &mut mv.windows {
+            match window.tag {
+                WindowTag::Startup => { window.start_s = 0.0; window.end_s = startup; }
+                WindowTag::Active => { window.start_s = startup; window.end_s = active_end; }
+                WindowTag::Recovery => { window.start_s = active_end; window.end_s = mv.duration_s; }
+                _ => {}
+            }
+        }
+        // Contiguous windows sample each authored shape and share one hit ledger.
+        mv.windows = std::mem::take(&mut mv.windows).into_iter().flat_map(|window| {
+            if window.tag != WindowTag::Active {
+                return vec![window];
+            }
+            (startup_frames..startup_frames + active_frames).map(|frame| {
+                let mut sample = window.clone();
+                sample.start_s = frame as f32 * 0.04;
+                sample.end_s = (frame + 1) as f32 * 0.04;
+                sample
+            }).collect()
+        }).collect();
+        if mv.clip.clip.starts_with("air_") {
+            mv.landing_lag_s = Some(if mv.clip.clip == "air_down" { 0.20 } else { 0.12 });
+            mv.autocancel_after_s = Some(active_end + 0.04);
+        }
+    }
 }
 
 /// Neutral special: she plants, opens both arms and DELIVERS.
@@ -722,6 +754,47 @@ fn the_flyline() -> MoveSpec {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn normal_contact_windows_match_the_authored_light_and_pose_clock() {
+        use ambition_platformer2d::entity_catalog::WindowTag;
+        let library = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/performer_stage_v1",
+        );
+        let read = |folder: &str, clip: &str, kind: &str| -> serde_json::Value {
+            let path = library.join(folder).join(format!("{clip}.{kind}.json"));
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+        };
+        for mv in super::performer_moveset().moves {
+            let clip = mv.clip.clip.as_str();
+            if !matches!(clip, "attack_side" | "attack_up" | "attack_down"
+                | "smash_forward" | "smash_up" | "smash_down"
+                | "air_neutral" | "air_forward" | "air_back" | "air_up" | "air_down") {
+                continue;
+            }
+            let animation = read("clips", clip, "clip");
+            let effect = read("specs", clip, "spec");
+            let frame_s = animation["sampling"]["frame_duration_ms"].as_f64().unwrap() / 1000.0;
+            let active = effect["hitbox"]["active"].as_array().unwrap();
+            let first = active.first().unwrap().as_u64().unwrap();
+            let end = active.last().unwrap().as_u64().unwrap() + 1;
+            let contacts: Vec<_> = mv.windows.iter().filter(|w| w.tag == WindowTag::Active).collect();
+            assert_eq!(contacts.len(), active.len(), "{clip}: one shape per active pose");
+            for (window, frame) in contacts.iter().zip(active) {
+                let frame = frame.as_u64().unwrap();
+                assert!((window.start_s as f64 - frame as f64 * frame_s).abs() < 1e-6);
+                assert!((window.end_s as f64 - (frame + 1) as f64 * frame_s).abs() < 1e-6);
+            }
+            for (actual, expected) in [
+                (contacts.first().unwrap().start_s, first as f64 * frame_s),
+                (contacts.last().unwrap().end_s, end as f64 * frame_s),
+                (mv.duration_s, animation["duration_s"].as_f64().unwrap()),
+            ] {
+                assert!((actual as f64 - expected).abs() < 1e-6,
+                    "{clip}: runtime {actual}s disagrees with authored {expected}s");
+            }
+        }
+    }
+
     use super::*;
 
     /// ⛔⛔ SHE STEERS UNDER THE STAGE, AND THE ROOTING IS WHAT TAKES IT AWAY.

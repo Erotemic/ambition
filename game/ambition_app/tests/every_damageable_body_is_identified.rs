@@ -365,6 +365,76 @@ fn the_giant_road_builds_a_host_and_two_identified_hands() {
         "{} damageable bodies reached the world with no `SimId`: {unidentified:?}",
         unidentified.len()
     );
+
+}
+
+/// **A body the sweeper DECLINES to identify is nameable.**
+///
+/// ⛔⛔ ITS OWN TEST, AND THAT IS A CORRECTION TO A REAL DEFECT IN THIS GUARD.
+/// This arm first lived at the end of the giant-road test, after that test's
+/// `unidentified.is_empty()` assertion. Poisoning `ensure_sim_id` reddened the
+/// run — at the EARLIER arm, naming the player, never reaching this one. ⇒ A
+/// poison that stops at a preceding assertion proves THAT assertion, and says
+/// nothing about the one behind it. Assertions run in order, so an arm placed
+/// after another arm that fails on the same poison can never be shown to work.
+///
+/// ⚠ A DIFFERENT SUBJECT FROM EVERY OTHER TEST IN THIS FILE. Those ask whether
+/// each construction ROAD produced identified bodies. This asks whether a body
+/// the SWEEPER declined is nameable: `ensure_sim_id` mints from two authored
+/// facts — an authored `FeatureId`, and the primary player's slot — and
+/// `continue`s on `(None, None)`, with the invariant living in that line's own
+/// comment ("its spawn site must mint it") and enforced by nothing.
+///
+/// ⚠ AND ITS POPULATION IS WIDER. `BodyKinematics` is not
+/// `CenteredAabb + ActorFaction`: a body can be simulated without being
+/// damageable, so this reaches bodies the strike-road census cannot see.
+///
+/// ⛔ IT COUNTS AND NAMES; IT DOES NOT MINT. Minting here would answer the
+/// census and hide the spawn sites the invariant points at.
+///
+/// ⚠ THE EDIT THAT MAKES THIS FALSE — and it was run: delete the
+/// `(None, Some(_)) => SimId::player_slot(0)` arm from `ensure_sim_id`. The
+/// primary player then reaches the sweeper unnameable and this test fails
+/// naming it.
+#[test]
+fn a_body_the_sweeper_declines_to_identify_is_nameable() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..SETTLE_FRAMES {
+        sim.step(AgentAction::default());
+    }
+
+    let census = sim
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::sim_identity::UnmintedBodyCensus>()
+        .cloned()
+        .expect("the runtime plugin installs `UnmintedBodyCensus`");
+    println!(
+        "[unminted] {} body-observations judged, {} skipped, first={:?}",
+        census.observed, census.skipped, census.first_skipped
+    );
+
+    // ⛔ FLOOR FIRST. `skipped: 0` over a population of zero is not a clean bill
+    // of health — it is an absent measurement wearing one, and the two are the
+    // same bytes unless something forces them apart.
+    assert!(
+        census.observed > 0,
+        "the sweeper census judged NO body across {SETTLE_FRAMES} frames, so its \
+         `skipped: {}` is a reading about the observer rather than about the \
+         tree — check that `observe_unminted_bodies` is still installed after \
+         the TAIL `ensure_sim_id` pass",
+        census.skipped
+    );
+    assert_eq!(
+        census.skipped, 0,
+        "{} body(ies) carry `BodyKinematics` with no `SimId`, no `FeatureId` and \
+         no `PrimaryPlayer` a tick after they became bodies — so BOTH \
+         `ensure_sim_id` passes and every in-tick spawner declined to name them, \
+         and nothing else will. First: {:?}. ⚠ The repair is at the SPAWN SITE, \
+         which is what the sweeper's own comment says; minting here would answer \
+         this census and hide the site.",
+        census.skipped, census.first_skipped
+    );
 }
 
 /// **The rider road: a mounted pair, both damageable, both identified.**

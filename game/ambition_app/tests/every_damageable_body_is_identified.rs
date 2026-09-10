@@ -86,8 +86,40 @@ fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
             script_id: "mockingbird".to_string(),
         },
     );
-    for _ in 0..SETTLE_FRAMES {
+    // ⭐⭐ SAMPLED EVERY FRAME, NOT ONCE AT THE END — because a body that is
+    // damageable for three frames before its identity arrives is exactly the
+    // defect this row is about, and an end-state reading cannot see it.
+    //
+    // ⛔ IT ALSO ANSWERS A QUESTION THE END-STATE VERSION HAD TO ASSUME:
+    // whether `SimId` lands with the body or after it. If it ever lagged, this
+    // counter would be non-zero while the final census read clean, and the two
+    // disagreeing is the finding. They agree, so the identity arrives with the
+    // body — which is what makes a build-site assertion safe to consider.
+    let mut ever_unidentified = 0usize;
+    let mut worst_frame: Option<(usize, String)> = None;
+    for frame in 0..SETTLE_FRAMES {
         sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut sample = world.query_filtered::<
+            (Entity, Option<&Name>),
+            (
+                bevy::prelude::With<CenteredAabb>,
+                bevy::prelude::With<ActorFaction>,
+                bevy::prelude::Without<SimId>,
+            ),
+        >();
+        for (entity, name) in sample.iter(world) {
+            ever_unidentified += 1;
+            if worst_frame.is_none() {
+                worst_frame = Some((
+                    frame,
+                    match name {
+                        Some(name) => format!("{entity} ({name})"),
+                        None => format!("{entity}"),
+                    },
+                ));
+            }
+        }
     }
 
     let world = sim.world_mut();
@@ -106,6 +138,15 @@ fn every_body_the_strike_road_can_hit_has_a_stable_identity() {
         }
     }
 
+    assert_eq!(
+        ever_unidentified, 0,
+        "a damageable body was seen WITHOUT a `SimId` on {ever_unidentified} \
+         frame-samples across the {SETTLE_FRAMES} settling frames after the \
+         spawns — first at {worst_frame:?}. ⚠ The end-of-run census below may \
+         still read clean, and the two disagreeing is the finding: it would mean \
+         identity arrives AFTER the body becomes damageable, so there is a window \
+         in which the strike road can reach a body it cannot name."
+    );
     identities.sort();
     println!(
         "[identity] {total} damageable bodies, {} without a `SimId`; identified: {identities:?}",

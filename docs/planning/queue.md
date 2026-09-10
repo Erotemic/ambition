@@ -1448,9 +1448,21 @@ to exercise more construction roads rather than to lower it.
 clear on the sandbox cast plus the enemy and the census would report health for a
 road it no longer travels. Each named road must appear in the identities.
 
-✔ Poison-verified by stripping one body's `SimId` — the arm fires and NAMES it
-(*"1 of 4 … [\"488v0 (Feature actor npc: Kernel Guide NPC)\"]"*), 0 compile
-errors.
+⭐⭐ **SAMPLED EVERY FRAME, NOT ONCE AT THE END — and that answers a question the
+end-state version had to ASSUME.** A body that is damageable for three frames
+before its identity arrives is exactly the defect this row is about, and an
+end-of-run reading cannot see it. **MEASURED: zero unidentified across 120
+frame-samples after the spawns.** ⇒ **`SimId` arrives WITH the body, never
+after** — so there is no window in which the strike road can reach a body it
+cannot name, and **a build-site assertion is therefore safe to consider** rather
+than being a race nobody has characterised. ⚠ If the two arms had disagreed —
+per-frame dirty, end-state clean — that would have been the finding.
+
+✔ Poison-verified twice, at both moments: stripping one body's `SimId` at the end
+fires the census arm and NAMES it
+(*"1 of 4 … [\"488v0 (Feature actor npc: Kernel Guide NPC)\"]"*), and stripping
+one MID-FLIGHT fires the per-frame arm naming the frame (*"1 frame-samples …
+first at Some((3, …))"*). 0 compile errors both.
 
 ⛔ **WHAT THIS DOES NOT SAY, and it must not be read as more: THREE ROADS ARE
 COVERED, NOT SEVEN.** The authored `NpcSpawn` placement, the enemy road, the boss

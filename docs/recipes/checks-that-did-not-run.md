@@ -9,6 +9,21 @@ itself "a DIFFERENT SPECIES from 1-9"** — the check that ran perfectly and cou
 not have failed. It has its own section below, and its instances live in a
 journal.
 
+⭐⭐ **AND A THIRD FAMILY ARRIVED ON 2026-09-10, LARGE ENOUGH TO NEED
+ANNOUNCING: the check ran, could have failed, and DID NOT LIE — and the SENTENCE
+WRITTEN ABOUT IT was wrong anyway.** A blast-radius probe quoted about a wider
+edit than it measured. A green quoted as a claim about the repository when it
+was a claim about one lane. A proposal read as a receipt. A property measured
+only on the accused. A reading taken at the wrong tick, or over a population
+that had survivorship in it.
+
+⇒ **Families one and two are about instruments. This one is about the CLAIMS
+people carry away from working instruments**, and it is the family this page had
+no map for while it accumulated six members in a day. ⚠ **Its members are
+harder to see than a gate hole, because in every one of them the measurement
+was correct** — there is no red to find, no skipped job, and nothing to grep
+for. The only tell is the gap between what was measured and what was said.
+
 This page is the dual of
 [`cheapest-sufficient-check.md`](cheapest-sufficient-check.md). That page asks
 *what is the least I can run to settle this change*. This one asks *did what I

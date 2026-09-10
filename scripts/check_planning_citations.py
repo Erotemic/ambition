@@ -80,6 +80,31 @@ from pathlib import Path
 #: quoted mistake outlives the mistake, and must not be silently "fixed".
 MARKER = "cite-ok"
 
+
+def marker_suppresses(lines: list[str], lineno: int, marker: str = MARKER) -> bool:
+    """Does `marker` silence the citation on 1-based `lineno` of `lines`?
+
+    ⭐⭐ **THE SCOPE IS THE CITATION'S OWN LINE OR THE ONE BELOW IT**, because a
+    citation often ends a wrapped sentence and the marker will not fit beside
+    it at 80 columns.
+
+    ⛔⛔ **THIS PREDICATE IS A FUNCTION SO THAT IT HAS ONE KEEPER.** It was
+    spelled out three times here and a FOURTH time, DIFFERENTLY, in
+    `scripts/tests/test_planning_citations_are_deterministic.py`, which accepted
+    the marker only on the SAME line. MEASURED 2026-09-10: a marker placed one
+    line below its citation is legal by this module's documented rule, passed
+    `--strict`, and reddened that guard.
+
+    ⇒ **An author who follows the documentation gets a red.** A documented
+    affordance that is a trap is worse than an undocumented one, and the fix is
+    to widen the deviating reader — never to narrow the documented rule to match
+    it. Any new reader of the marker calls this rather than re-spelling it.
+    """
+    if marker in lines[lineno - 1]:
+        return True
+    # `lines[lineno]` IS the next line: `lineno` is 1-based, the list is not.
+    return lineno < len(lines) and marker in lines[lineno]
+
 REPO = Path(
     subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -782,9 +807,7 @@ def role_report(docs: list[Path], by_suffix: dict[str, list[str]]) -> int:
             _note_unreadable(rel, err)
             continue
         for lineno, line in enumerate(doc_lines, 1):
-            if ROLE_MARKER in line or (
-                lineno < len(doc_lines) and ROLE_MARKER in doc_lines[lineno]
-            ):
+            if marker_suppresses(doc_lines, lineno, ROLE_MARKER):
                 continue
             for m in FILE_LINE.finditer(line):
                 path, want = m.group(1), int(m.group(2))
@@ -959,9 +982,7 @@ def main() -> int:
                 stripped = line.lstrip()
                 if not stripped.startswith("//"):
                     continue
-                if MARKER in line or (
-                    lineno < len(src_lines) and MARKER in src_lines[lineno]
-                ):
+                if marker_suppresses(src_lines, lineno):
                     continue
                 for m in SYMBOL.finditer(line):
                     parts = m.group(1).split("::")
@@ -986,9 +1007,7 @@ def main() -> int:
             rel = doc
         doc_lines = doc.read_text(errors="replace").splitlines()
         for lineno, line in enumerate(doc_lines, 1):
-            if MARKER in line or (
-                lineno < len(doc_lines) and MARKER in doc_lines[lineno]
-            ):
+            if marker_suppresses(doc_lines, lineno):
                 continue
             for m in FILE_LINE.finditer(line):
                 checked += 1

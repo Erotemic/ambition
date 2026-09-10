@@ -650,8 +650,32 @@ registration (Q98), one is unrunnable.
 fire on Emmy — a flag that fired on everything would explain away the only real
 finding.
 
-⛔ **BLOCKED ON: a noise seed or asymmetric seating in the duel harness.** Until
-then it cannot measure a fighter whose mirror stays in lockstep.
+⛔⛔ **AND THE OBVIOUS FIX IS NOT THE FIX — the noise seed already exists, is
+per-seat, and IS consumed. Measured before implementing it:**
+
+1. `fighter_cognition_seed` (`brain_builders.rs:70`) hashes the participant id
+   `"<character>#seat<n>"`, so two seats get DIFFERENT streams —
+2. unless the character authors `preserves_mirror_symmetry`, which strips the
+   seat so twins deliberately share one stream;
+3. and the stream is consumed at
+   `ambition_combat::brain::fighter::decision.rs:471`,
+   `next_signed_unit(&mut state.noise)`, feeding press jitter scaled by
+   `execution_noise` — 0.10 at rung 9, non-zero.
+
+⇒ **THE INVERSION IS THE OPEN QUESTION.** `npc_emmy_noether` is the character who
+authors `preserves_mirror_symmetry` — twins sharing one stream — and she is the
+one fighter whose duel genuinely DIVERGED. The three lockstep bouts belong to
+fighters who already have distinct seeds and non-zero jitter and stayed
+bit-identical anyway.
+
+⛔ **BLOCKED ON: why three fighters with DISTINCT cognition seeds and non-zero
+execution noise produce bit-identical seats, when the character who deliberately
+SHARES a seed does not.** No mechanism is proposed here — four have died on this
+row already.
+
+⚠ AND `ladder_rig`'s *"no fighter brain ever took the noise seed"* is about a
+FIXTURE that built brains without one. It is not a claim about the shipped brain,
+and I quoted it as though it were.
 
 ⭐ Corroborated from the static side, which is what sent me looking: **the clerk's
 kit is authored STRONGER than the goblin's on every axis** — total authored damage

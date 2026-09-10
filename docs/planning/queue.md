@@ -262,7 +262,26 @@ the firing path.
 **MEASURED 2026-09-10:** `officer` is the one fighter on the shipped grid that can
 reach the bug — a shot move plus a conditional cancel. The census test
 `a_shot_and_a_conditional_cancel_never_share_a_fighter` keeps that live.
-`GGRS_ROLLBACK_SCHEMA_VERSION` 178 → 179, both baselines updated.
+`GGRS_ROLLBACK_SCHEMA_VERSION` 178 → 179.
+
+⛔⛔ **THIS ROW SAID "BOTH BASELINES" AND THE FACT HAS THREE RECORDERS.**
+
+| recorder | lane | `f9baa86e8` |
+|---|---|---|
+| `game/ambition_app/tests/rollback_schema_baseline.txt` | a Rust test | updated |
+| `scripts/baselines/rollback-schema-baseline.json` | `check_absence_contracts.py` | updated |
+| `scripts/tests/rollback_codec_shape.txt` | a pytest guard | ⛔ **MISSED**, fixed in `2796d9148` |
+
+`impl SnapshotState for FiredByMoveInstance` took `snapshot_impls.rs` from **43 to
+45 encoded fields**, and the third baseline records a per-file field count and
+hash. It was GREEN on the workspace job and on `check_absence_contracts.py` while
+RED in the repo-tooling suite. ⇒ **The A12 work reported as verified was verified
+by two recorders out of three**, and the third was found only because a lane
+nobody had run happened to carry it.
+
+⭐⭐ **"BOTH" WAS NEVER THE RIGHT WORD. ASK HOW MANY RECORDERS A FACT HAS BEFORE
+CLAIMING ANY OF THEM AGREE.** I wrote the two-baseline instruction that shaped
+this row.
 
 ⛔ **THE TWO ROLLBACK BASELINES ARE NOT TWO COPIES OF ONE FINGERPRINT.**
 `rollback_schema_baseline.txt` holds the version and the rows;
@@ -2058,7 +2077,7 @@ otherwise"*. Sampled in one process (`bc935b1d3`):
 ```
 
 ⭐ **So the landed gate is SELF-ADJUSTING and costs no coverage: it keys on
-`RenderApp` presence, which IS the adapter question one step downstream.** An
+`RenderApp` presence, which IS the adapter question one step downstream.** <!-- cite-ok: `RenderApp` is BEVY'S type, not one this tree defines; the baseline index recorded it as locally defined and it is not -->An
 `OffscreenGpu` run installs the view-cone rig and exercises it normally. ⚠ **An
 earlier version of this row claimed the fix made the subsystem invisible to every
 agent — "a crash converted into permanent silence".** Two agents built that

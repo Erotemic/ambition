@@ -382,6 +382,75 @@ production readers of `body_driving_seat`; the count is still four at HEAD, and
   `ab308504b` — *the same commit the surrounding paragraph reports as the fix.*
   **The list is older than the prose around it.**
 
+⛔⛤ **AND A4's "NO DOUBLE BODY TICK" IS GUARDED AGAINST A FAILURE A4 WILL NOT
+CAUSE.** The [writer map](engine/accepted-control-writer-map.md) says it in its own
+words: `boot_budget::no_system_is_registered_twice_in_one_schedule` *"catches the
+same system registered twice; it cannot see one BODY ticked by two different
+systems, which is the failure a control/execution regrouping would actually
+produce."*
+
+⇒ **An extraction that splits control from body execution produces exactly "two
+systems now both advance this body", and nothing in the tree would notice.**
+
+⛔ **THE TIMING IS THE ARGUMENT, NOT THE DIFFICULTY.** Measure BEFORE the
+extraction and a double tick is a regression against a known baseline. Measure
+AFTER and **you cannot tell a double tick from the new design** — the second writer
+is now expected, so the question stops being answerable rather than merely
+unanswered. ⚠ **A clean baseline here is not a null result; it is the reference
+point that makes A4's extraction reviewable at all.**
+
+⚠ **THE SCHEDULE-LEVEL GUARD IS STRONG AND MUST NOT BE WEAKENED TO MAKE ROOM.** It
+initializes each schedule before reading — a 2026-09-06 poison found it silently
+skipping `GgrsSchedule`, `PhysicsSchedule`, `ReadInputs`, `Render` and four more
+while a deliberate double-install stayed GREEN — it floors on `!counts.is_empty()`,
+and its ten-entry deliberate-duplicate list is checked **in both directions**,
+because ⭐ *"a reason expires exactly like a measurement"*: a stale exemption
+silently re-opens the hole the day someone duplicates that system for real. **Three
+of its ten are `sim_identity::*` running head AND tail of the frame by design**, so
+"the same system twice" is legitimately normal here.
+
+⛔ **A PER-SYSTEM ANSWER IS UNAVAILABLE IN BEVY 0.19 — not expensive, unavailable.**
+`System::component_access()` is gone; access moved to `SystemWithAccess::access`,
+which is `pub(crate)` in the vendored `bevy_ecs` 0.19.1 schedule-node module — an
+external crate this repository does not contain, so no citation here can resolve — and
+`Schedule::systems()` hands out `&ScheduleSystem`, which cannot reach it. ⇒ **The
+answerable granularity is the PHASE SEAM**, and that is the right one rather than a
+consolation: `PlatformerRuntimeSet`'s `ControlInput` and `ActorSimulation` are
+precisely the seam A4 splits. ⚠ Such a probe cannot see two writes inside ONE
+phase, and that limit is not a choice.
+
+⛔⛤ **AND `.after(phase)` DOES NOT PLACE A PROBE AT THAT SEAM.** It forbids
+running BEFORE the phase and constrains nothing else, so the scheduler may run
+every probe at the very end of the tick in any order — whichever ran first then
+collected every change in the tick, and **no body could ever be credited to two
+phases.** ⇒ **A probe must be penned: `.after(phase).before(next_phase)`.**
+
+⚠ **THE FIRST RUN OF THAT BROKEN INSTRUMENT REPORTED `0 double ticks` OVER 240
+WRITES — a perfectly tidy result.** The per-phase distribution is what exposed it:
+`{"ControlInput": 240}`, **zero attributed to `ActorSimulation`, the phase whose
+entire job is advancing actors.** ⭐⭐ **A TIDY FIRST NUMBER IS AS SUSPECT AS A
+DRAMATIC ONE, and it is far more comfortable to publish.**
+
+⛔ **AND THE POISON PASSED THE WHOLE TIME.** A different-phase write was detected in
+both the broken and the fixed version. ⇒ ⭐⭐ **A POSITIVE CONTROL TESTS DETECTION,
+NOT ATTRIBUTION.** It proved the instrument can see *a* double tick, never that it
+credits writes to the right phase — a green poison sitting over a broken
+measurement.
+
+⚠ **Two further traps, both in the instrument's own file:** `SimSchedule` is a
+RESOURCE HOLDING a label, not a label — which schedule it names depends on the host,
+so a probe registered into a named schedule instead of the app's own runs where no
+body moves and reports a serene zero. And the tick boundary smears: anything writing
+`BodyKinematics` between the harvest and the next tick's first probe is credited to
+`WorldPrep`, a phase that did not make the write.
+
+⚠ **AND `is_changed()` IS THE WRONG PREDICATE IN A ONCE-PER-TICK PROBE** — it means
+*"changed since the previous TICK"*, true of every moving body, which would report
+the whole cast as doubled. `Ref::last_changed()` against the value stored a phase
+ago asks the intended question. ⭐ **An instrument whose first run reports a
+catastrophe is exactly as suspect as one that reports nothing, and far more
+tempting to publish.**
+
 ⇒ ⭐⭐ **A COUNT IS NOT A CHECK ON A LIST.** A reader who verified "four" would have
 called the list correct. **Set equality and cardinality are different questions,
 and only one of them is cheap to write down.**

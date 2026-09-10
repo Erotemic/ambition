@@ -79,6 +79,39 @@ struct Seat {
     abilities: ambition_platformer2d_core::AbilitySet,
 }
 
+/// Say WHY a roster seated nothing, if the composition refused it.
+///
+/// ⛔⛔ A ROSTER THAT SEATS ZERO BODIES MUST SAY WHY, AND UNTIL NOW IT DID NOT.
+/// `prepare_match` refuses a roster that it cannot resolve, and it refuses the
+/// WHOLE roster: one participant that it cannot resolve gives zero seats, not
+/// one seat. It records each reason in `MatchPreparationProblems`, and it
+/// writes nothing to the log.
+///
+/// ⚠ THE SEAT-COUNT ASSERTIONS THEN READ `0` AND REPORT ONLY `left: 0`. That
+/// message sends a reader to look for a seating defect. The cause can be in the
+/// CONTENT instead. An admission barrier withholds a character, so nothing
+/// registers it, so the same `0` also means "this composition declined to offer
+/// this cast". The two causes need different repairs.
+///
+/// ⭐ MEASURED 2026-09-10 on this fixture: the refusal named
+/// `npc_carl_stargan`, which the A11 admission pass withholds. The seat count
+/// alone named nobody.
+///
+/// ⇒ Call this before each seat-count assertion. It keeps those assertions
+/// honest, because it stops them from reporting a content refusal as a seating
+/// count.
+fn say_why_if_the_cast_was_withheld(app: &App) {
+    if let Some(problems) = app
+        .world()
+        .get_resource::<ambition_platformer2d::versus_match::MatchPreparationProblems>()
+    {
+        panic!(
+            "this composition REFUSED the roster, so it built no seat. This is \
+             not a seating defect. The refusal says: {problems}"
+        );
+    }
+}
+
 fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
     let mut app = seating_app_with_the_real_cast();
     app.insert_resource(MatchParticipantRoster {
@@ -87,6 +120,8 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
     });
     ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
     app.update();
+
+    say_why_if_the_cast_was_withheld(&app);
 
     let world = app.world_mut();
     let mut q = world.query_filtered::<(
@@ -243,6 +278,7 @@ fn a_creature_with_one_verb_still_seats_and_simulates() {
     for _ in 0..120 {
         app.update();
     }
+    say_why_if_the_cast_was_withheld(&app);
 
     let world = app.world_mut();
     let mut q = world.query_filtered::<(

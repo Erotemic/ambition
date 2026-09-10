@@ -209,10 +209,23 @@ def sweep(ids: list[str], runs: int) -> None:
                     capture_output=True, text=True, cwd=REPO,
                     env={**os.environ, "AMBITION_DUEL_FIGHTER": fighter},
                 )
+                # ⛔ THE PANIC PAYLOAD IS ON THE NEXT LINE, AND THE FOLD NEEDS
+                # IT. `panicked at <file>:<line>:` gives the location only. The
+                # sentence that says WHY comes after it. A filter that keeps
+                # only the header throws away the one fact that separates a
+                # harness that broke from a cast the composition would not
+                # seat — both panic, and both panic in this same file.
+                payload = 0
                 for line in (proc.stdout + proc.stderr).split("\n"):
-                    if re.match(r"^\[(duel|gap|body|stance|moves|dealt|mount|brain)\]", line) or (
-                        "panicked at" in line or "is not on the assembled" in line
-                    ):
+                    keep = re.match(
+                        r"^\[(duel|gap|body|stance|moves|dealt|mount|brain)\]", line
+                    ) or ("panicked at" in line or "is not on the assembled" in line)
+                    if keep:
+                        payload = 2 if "panicked at" in line else 0
+                    elif payload > 0 and line.strip():
+                        keep = True
+                        payload -= 1
+                    if keep:
                         out.write(line + "\n")
                 out.flush()
         out.write("SWEEP DONE\n")
@@ -255,10 +268,54 @@ def fold() -> int:
             row["verdict"] = "NOT ON THE GRID"
         elif "panicked at" in line and "verdict" not in row:
             where = line.split("panicked at")[-1].strip()
+            row["where"] = where
             row["verdict"] = (
                 "gate" if "smash_cpus_damage_each_other.rs" in where
-                else "UNMEASURABLE: " + where.split("/")[-1].split(":")[0]
+                else "HARNESS BROKE: " + where.split("/")[-1].split(":")[0]
             )
+        elif row.get("verdict") and "why" not in row and not line.startswith("["):
+            row["why"] = line.strip()
+
+    # ⛔⛔ TWO ROWS WITH NO NUMBERS ARE NOT ONE FACT. A fighter can miss the
+    # table for two reasons, and they call for opposite actions.
+    #
+    # 1. THE HARNESS BROKE. Something panicked while the bout ran. MEASURED
+    #    2026-09-10: `npc_alice` panicked in `bevy_render/sync_component.rs`.
+    #    The fighter is not the subject of that failure. Repair the harness and
+    #    the row comes back.
+    #
+    # 2. THE COMPOSITION WITHHELD THE CAST. `prepare_match` refuses a roster
+    #    that it cannot resolve. One participant that it cannot resolve gives
+    #    ZERO seats, not one seat: `ambition_match/src/prepared.rs:636` records
+    #    the problem, and line 872 fails the whole preparation. The bout then
+    #    runs with no fighters on the stage, and the seating floor fires. This
+    #    is a true fact ABOUT THAT FIGHTER. It says the shipped composition
+    #    will not seat it, which is what this sweep asks.
+    #
+    # ⚠ BOTH PANIC IN THE HARNESS FILE, SO THE LOCATION CANNOT SEPARATE THEM.
+    # The seated-tick count separates them. Zero seated ticks in a full bout
+    # means that no cast ever stood up.
+    #
+    # ⛔ AN EARLIER VERSION OF THIS FUNCTION CRASHED ON CASE 2. It read
+    # `first["dmg"]` for every row that was not `UNMEASURABLE` or `NOT ON`. The
+    # seating floor fires BEFORE the `[duel]` line prints, so a withheld cast
+    # has no `dmg` key and the fold raised `KeyError`. A sweep that contains
+    # one withheld fighter must still print the other twenty rows.
+    for entries in runs.values():
+        for row in entries:
+            if row.get("verdict") != "gate" or "dmg" in row:
+                continue
+            why = row.get("why", "")
+            seated = re.search(r"shared the stage for only (\d+) of", why)
+            if seated and int(seated.group(1)) == 0:
+                row["verdict"] = "CAST WITHHELD: no seat ever stood up"
+            elif seated:
+                row["verdict"] = f"NO NUMBERS: bout ended after {seated.group(1)} ticks"
+            else:
+                at = row.get("where", "").split(":")
+                row["verdict"] = "NO NUMBERS: harness assertion at line " + (
+                    at[1] if len(at) > 1 else "?"
+                )
 
     print(f"{'fighter':28} {'dmg/min':13} {'reach':>6} {'starts':>9} {'width':>6}  class")
     counts = collections.Counter()
@@ -267,9 +324,14 @@ def fold() -> int:
         if not done:
             continue
         first = done[0]
-        if first.get("verdict", "").startswith(("UNMEASURABLE", "NOT ON")):
-            counts["unmeasured"] += 1
-            print(f"{fighter:28} {first['verdict']}")
+        verdict = first.get("verdict", "")
+        if verdict.startswith(("HARNESS BROKE", "NO NUMBERS")):
+            counts["broken"] += 1
+            print(f"{fighter:28} {verdict}")
+            continue
+        if verdict.startswith(("CAST WITHHELD", "NOT ON")):
+            counts["withheld"] += 1
+            print(f"{fighter:28} {verdict}")
             continue
         low = min(first["dmg"])
         band = "AT THRESHOLD" if abs(low - GATE) < 0.02 else ("BELOW GATE" if low < GATE else "")
@@ -335,7 +397,12 @@ def fold() -> int:
     print(
         f"\n   {counts['measured']} measured, {counts['clears']} clear the {GATE} gate, "
         f"{counts['AT THRESHOLD']} at threshold, {counts['BELOW GATE']} below, "
-        f"{counts['unmeasured']} not measurable, {counts['lockstep']} LOCKSTEP."
+        f"{counts['lockstep']} LOCKSTEP."
+    )
+    print(
+        f"   {counts['broken']} HARNESS BROKE (no fact about the fighter; repair and "
+        f"re-run), {counts['withheld']} CAST WITHHELD (a fact about the fighter: this "
+        "composition will not seat it)."
     )
     print("⛔ A LOCKSTEP ROW IS NOT A RESULT ABOUT THAT FIGHTER. Its two seats never")
     print("   diverged, so the bout carries one seat's information reported twice.")

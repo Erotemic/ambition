@@ -437,6 +437,43 @@ no error, no warning, nothing at the call site. ⚠ The writer map frames A4 aro
 that vocabulary, **so the extraction can be planned against phases no system belongs
 to.**
 
+✅ **NO LIVE DEFECT — MEASURED `09467966b`. NOTHING ORDERS AGAINST IT AT ALL.**
+Six references in the whole repository and **not one** is `.after(`, `.before(`,
+`.in_set(` or `configure_sets`: the definition, a re-export nothing imports, a doc
+comment, an ADR line, and two rows of this file. ⇒ **The risk is PROSPECTIVE**, and
+it is the one A4 walks into, because the writer map frames the packet here.
+
+⭐ **AND IT IS ONE OF 127.** Of 127 declared `SystemSet` types, exactly ONE has zero
+`in_set` members. **Not a sloppy habit — a single vocabulary declared and never
+realized while 126 are wired.**
+
+⛔⛤ **THE MAPPING'S SAFE-LOOKING HALF IS THE DANGEROUS HALF.**
+
+| | | | |
+|---|---|---|---|
+| vocabulary | `WorldPrep` | `ControlInput` | `ActorSimulation` |
+| realization | `WorldPrep` | `PlayerInput` | `PlayerSimulation` |
+
+The differing names announce themselves. ⇒ **`WorldPrep` exists in BOTH, and the
+realization's `WorldPrep` does what the vocabulary calls `ActorSimulation`** — the
+A4 baseline measured **100% of body position changes in `WorldPrep/Integrate`**.
+**Anyone mapping by name lands integration in the wrong phase, and the shared name
+is what makes it look safe.** ⚠ ADR 0019 says the two *"coexist until the concrete
+app schedule can be mapped cleanly"*; that mapping has half its names changed and
+one shared name meaning a different phase. **Whether this is dead vocabulary or
+unfinished design belongs to whoever owns ADR 0019.**
+
+⛔ **AND THE CENSUS SCRIPT REPORTED THE OPPOSITE OF THE TRUTH TWICE, BOTH CAUGHT BY
+A NUMBER DISAGREEING WITH A FACT MEASURED ANOTHER WAY:**
+- **it counted PROSE** — its only "member" for the empty set was a **doc comment
+  saying the set has zero members**. An instrument that reads prose counts the
+  sentence describing an absence as an instance of the thing.
+- **it missed QUALIFIED PATHS** (`in_set(a::b::Name)`) and reported **42** empty
+  sets where there is **one** — and that draft was **a simplification made while
+  tidying the working version for commit.** ⇒ ⭐⭐ **A CLEANUP PASS IS AN EDIT, AND
+  AN EDIT TO AN INSTRUMENT NEEDS THE INSTRUMENT RE-RUN.** It changed the answer by
+  a factor of forty, silently.
+
 ⛔ **AND THE PHASE NAMES ARE BACKWARDS FOR BODIES.** `PlayerSimulation` borrows
 every body every tick and moves **none**; `WorldPrep` moves them, through
 `WorldPrepSet::{BeforeIntegrate, Integrate, AfterIntegrate}` chained inside it.

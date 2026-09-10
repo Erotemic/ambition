@@ -155,8 +155,17 @@ second one is cheap to write down. Read the rows.
 
 ⛔⛔ **AND THE CITATION LANE CANNOT FIND THIS CLASS. DO NOT READ A GREEN
 `check_planning_citations.py --strict` AS A CHECK ON IT.** The lane resolves a
-citation to a file and a line. It caught a bare `input_systems.rs:237` in the
-first draft of this correction, because two tracked files end with that suffix. <!-- cite-ok: the ambiguous form is the example -->
+citation to a file and a line. It caught a bare `input_systems.rs:237` <!-- cite-ok: the ambiguous form IS the example; the marker must sit on THIS line, see below --> in the
+first draft of this correction, because two tracked files end with that suffix.
+
+⚠ **AND THE MARKER ABOVE HAD TO MOVE ONTO THE CITATION'S OWN LINE. TWO GUARDS
+READ `cite-ok` WITH DIFFERENT SCOPE.** `check_planning_citations.py` accepts the
+marker on the citation's line OR THE LINE AFTER IT.
+`scripts/tests/test_planning_citations_are_deterministic.py` accepts it only on
+the SAME line. ⇒ MEASURED 2026-09-10: a marker placed one line below its
+citation — legal by the checker's own rule, and `--strict` went green — still
+reddened the repo-tooling suite. An author who follows the tool's documented
+rule can break a guard that never states its own.
 It CANNOT catch `control/queries.rs:224`, <!-- cite-test --> because that line exists and the file
 exists — only the ROLE is wrong. A citation that points at a real line in a test
 and calls it production passes the lane.

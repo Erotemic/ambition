@@ -2,21 +2,47 @@
 
 This is the durable residue of the completed test-iteration campaign.
 
-⛔⛔ **THE FULL CAMPAIGN RECORD IS NOT IN THIS REPOSITORY.** This line named
-`docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`. <!-- cite-ok: the record this page is the residue of; not reachable from HEAD -->
-`docs/archive/` does not exist at HEAD, and the commit that holds it is NOT an
-ancestor of HEAD: git epoch 1 (`b924f419c`, 2026-09-06) did not carry it.
+⛔⛔ **THE FULL CAMPAIGN RECORD IS NOT IN THIS CHECKOUT, AND THE FIRST TWO
+ANSWERS I GAVE ABOUT IT WERE BOTH WRONG.** This line named
+`docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`. <!-- cite-ok: the record this page is the residue of; it lives in the history store -->
+`docs/archive/` does not exist at HEAD, and the commit holding it (`c85687a6f`)
+is not an ancestor of HEAD: git epoch 1 (`b924f419c`, 2026-09-06) did not carry
+it. **That much is true and it is where the reasoning should have stopped.**
 
-⚠ **AND IT IS READABLE ON SOME MACHINES, WHICH IS WORSE THAN GONE.** MEASURED
-2026-09-10: `git show c85687a6f:<that path>` prints the file on this checkout,
-because a local `refs/stash` is the only ref that still contains that commit. A
-stash is not pushed. ⇒ A fresh clone cannot read it, so a citation of it is
-dead for every reader who did not happen to make that stash.
+⚠ **FIRST WRONG ANSWER: "gone".** `git show c85687a6f:<that path>` prints the
+file on this checkout, so it is not gone.
 
-⇒ **28 citations across 18 files name a `docs/archive/` path.** `docs/adr/0031`
-annotates six of them as *"removed from the checkout 2026-09-05; still in git
-history"*. The first half is right. **The second half stopped being true when
-the epoch landed a day later**, and nothing re-read it.
+⛔⛔ **SECOND WRONG ANSWER, AND IT IS THE ONE THIS PAGE IS ABOUT: "held only by
+a local stash, one command from destruction".** The only LOCAL ref containing
+that commit is a `refs/stash`, and I reported that as a repository fact and
+raised it as urgent. **It is not.** The history store holds the objects under
+`refs/epochs/ambition/*`, on six or more archived refs.
+
+⇒ **`git for-each-ref`, `git log --all` and `git branch -r --contains` ALL
+SEARCH LOCAL REFS.** A custom refspace is invisible to every one of them. "The
+only ref containing it" was a true statement about one machine, offered as a
+statement about the repository — the same shape as a peer who reported "not
+present" from a store they had let go stale. **An absence must name the
+ref-space it searched**, and here "all local refs" is not the ref-space that
+decides the question.
+
+⭐ **AND THE ANSWER WAS ALREADY WRITTEN DOWN.**
+[`repository-history.md`](../planning/repository-history.md) predicts this exact
+error in its own words: *"A normal branch-oriented clone of the history store
+does not fetch these custom refs. Seeing only its README on GitHub does not mean
+the archive is empty."* ⇒ **The cheapest sufficient check here was reading the
+page that describes the archive**, and no amount of `git` would have substituted
+for it.
+
+⇒ **28 citations across 18 files name a `docs/archive/` path** — a `grep` count
+of path-shaped strings, NOT a checker finding. The citation checker reports
+exactly ONE. That difference travels with the number.
+
+⭐ `docs/adr/0031` annotates six of them *"removed from the checkout 2026-09-05;
+still in git history"*, and **that annotation is correct**. I read it as
+falsified by the epoch. The history store IS git history — just not history any
+clone fetches by default.
+
 Jon, 2026-08-02: *"run_tests looks so alluring to an agent, it prevents it from
 running the focused test that actually matters, and instead it just runs all the
 junk."* A faster front door does not fix that. Knowing which narrow command is

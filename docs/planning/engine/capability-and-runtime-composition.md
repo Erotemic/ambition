@@ -131,6 +131,44 @@ closures separately. The supported production profile is defined by normal
 runtime dependencies and its deployment assets, while tests may need additional
 tooling. Do not infer binary bytes from any of those graph counts.
 
+### ⛔⛔ The graph the SUITE compiles is not the graph the game ships — measured 2026-09-10
+
+The paragraph above states the rule; here is what it costs in practice, and it is
+one feature.
+
+`relativity` was deliberately taken OUT of `all_capabilities` on 2026-09-01, and
+the manifest says why in as many words: *"nothing in the shipped game asks for
+spacetime, and listing it here put `ambition_relativity` +
+`ambition_relativity2d` into every build that took the default features."*
+`game/ambition_demo_twintrack` then names it explicitly, which is the correct way
+for its one real consumer to ask.
+
+MEASURED, both directions:
+
+| invocation | `ambition_relativity2d` under `ambition_platformer2d` |
+|---|---|
+| `cargo tree -e normal -p ambition_app` | **absent** — the intent holds for the ship |
+| `cargo tree -e normal --workspace -i ambition_relativity2d` | **present**, and `ambition_platformer2d` is its parent, so it reaches `ambition_app`, `ambition_content`, `ambition_demo_mary_o` and the rest |
+
+⇒ **The stated decision is intact for `cargo build -p ambition_app` and reversed
+for every workspace-wide invocation** — which is what `./run_tests.sh` and every
+`--workspace` lint or test run is. Nothing is broken: unification is doing what
+it is documented to do, and A9's
+`the-featureless-facade-links-none-of-these` contract walks a per-package
+feature-resolved tree, so it still measures the right graph.
+
+⚠ **AND THE COMMENT IS NOT WRONG, WHICH IS THE WORSE CASE.** It is right about
+the intent and silently untrue in one lane, so a reader who checks the manifest
+gets the correct answer for the wrong graph. A statement that is false is
+eventually corrected; one that is true of a build nobody runs is quoted forever.
+
+⚠ **The asymmetry is what to carry.** A capability kept out of the
+default set is still compiled, linked and exercised by the suite, so the suite
+cannot tell you that removing it works — and a defect that only appears when it
+is ABSENT is invisible to a lane that never builds that shape. "A green result
+names its lane" applies to Cargo's feature resolution too, and the lane the gate
+runs is the union.
+
 Start with a small supported profile set rather than promising every combination:
 headless body/world; windowed body/world; headless combat; collection without held
 use; generic encounters without named boss content. Rich default composition

@@ -283,6 +283,20 @@ of its scoping:
 The sweep and its population live in
 [`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
 
+### ⛔⛔ `| tail` on a long run hides whether there is any output at all
+
+`tail` writes only at EOF. A `cargo nextest run --workspace 2>&1 | tail -60 >
+log` therefore produced a **0-byte file for eighty minutes** while the run was
+perfectly healthy — and a live run, a hung run and a dead run are the same
+reading. When cargo finally exited the pipeline never flushed at all: bash alive,
+no cargo child, empty file, nothing to show for it.
+
+⇒ Same species as the `| grep` that voids a non-zero exit status: **the shape
+that makes the output convenient is the shape that hides whether there is any.**
+For anything long, redirect straight to a file and read the file — progress is
+then a `wc -l` and a failure is a `grep` away while it runs, instead of a
+question you cannot answer until it ends.
+
 ### ⛔⛔ The RUNNER'S FOOTER is not the runner's VERDICT
 
 A suite that reports well explains what it did *not* cover, and those paragraphs

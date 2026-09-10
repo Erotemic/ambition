@@ -1032,6 +1032,36 @@ identical and just as cheap: **a green result names its lane.**
 exist.** The bracketing worked here only because two agents happened to disagree
 out loud. **One agent, one lane, one green would have shipped all seven.**
 
+## ⛔⛔ The BLAST-RADIUS PROBE measured a narrower change than the one that shipped
+
+Before widening an admission check, an author probed the cost: point the
+**backstop** road at an empty support table, run everything, see what breaks.
+The answer was **"178 blocks, 7703 passed, 0 failed"**, and it was reported —
+correctly, for what it tested — as *no composition was relying on the unchecked
+reading.*
+
+The change that then shipped was wider: the argument stopped being optional, so
+**every caller that had passed `None` also got a real check**, not just the
+backstop. Full workspace at the shipped change: **`7693 passed, 11 failed`.**
+
+⇒ **The probe was honest and the sentence it produced was quoted about a
+different change.** *"No composition was relying on it"* is true of the backstop
+road and false of the direct callers — and nothing in the sentence says which
+road it was measured on.
+
+⭐ **A blast-radius measurement is a measurement of a SPECIFIC EDIT, and it
+expires the moment the edit widens.** The remedy is the same as for every other
+number in this page: **the reading travels with what was changed to produce
+it**, not with the intention behind it. *"Empty blast radius"* means nothing;
+*"empty blast radius with the backstop pointed at an empty table"* means
+something and visibly does not cover the wider edit.
+
+⚠ **And the shipped failures were the change WORKING** — fixtures that prepare a
+cast with no technique handlers installed now correctly withhold characters
+naming native effects. **A probe that had measured the shipped edit would have
+predicted them.** The defect was never in the code; it was in the scope of the
+sentence.
+
 ## What this page cannot do
 
 It cannot make a gate honest. Every member above was found by a person asking

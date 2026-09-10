@@ -769,6 +769,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
     for _ in 0..4 {
         app.update();
@@ -2543,6 +2544,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
 
     let mut heard_seat_zero = false;

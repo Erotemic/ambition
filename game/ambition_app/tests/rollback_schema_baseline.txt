@@ -154,6 +154,7 @@ derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities,
 derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
+derived.attacker_move_instance	derived	AttackerMoveInstance	stamped from MovePlayback::instance when the volume spawns
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world

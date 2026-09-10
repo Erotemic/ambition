@@ -187,6 +187,7 @@ pub fn blink_system(
             mode: ambition_combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         sfx.write_for(
             player,

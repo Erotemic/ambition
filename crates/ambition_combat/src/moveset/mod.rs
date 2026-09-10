@@ -1060,6 +1060,29 @@ pub struct StrikeVolume {
 /// ⛔ NOT a per-move exception and not a `priority` field: adding one would let
 /// two volumes claim the same rank and make the answer depend on query order,
 /// which is the determinism trap this repository keeps rediscovering.
+/// WHICH USE of the attacker's move spawned this volume.
+///
+/// ⛔⛔ **THE VERDICT CHANNEL COULD NOT SAY WHICH USE OF A MOVE IT BELONGED TO.**
+/// `mark_move_playback_resolved_hits` keys a resolved or blocked verdict on the
+/// attacker ENTITY alone, and a body plays one move after another on that same
+/// entity — so a verdict that drains after its move has been replaced is
+/// credited to whatever playback is wearing the body when it arrives. The read
+/// model already learned this lesson: [`MovePlayback::instance`] exists because
+/// an observer comparing move IDS "credit[ed] the FIRST instance's contact to the
+/// second" in the inspector. The runtime's own contact fields never did.
+///
+/// ⇒ A SEPARATE COMPONENT beside [`Hitbox`](crate::hitbox::Hitbox), not a field
+/// on it. `Hitbox` holds an `Entity` so it cannot derive `Default`, and not one
+/// of its 43 literals uses `..Default::default()` — a field there is 43 hand
+/// edits to carry one number that only the strike seam reads.
+///
+/// ⚠ AND IT IS DERIVED ROLLBACK STATE, stamped at the spawn from
+/// `MovePlayback::instance`, exactly as [`StrikeRank`] is stamped from the
+/// authored `(window, volume)`. A resimulation replays the move and mints the
+/// same number; nothing has to be snapshotted.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AttackerMoveInstance(pub u32);
+
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StrikeRank {
     /// The window this volume was authored in, then its index within that
@@ -1868,6 +1891,11 @@ pub fn advance_move_playback(
                                 window: w_idx as u16,
                                 volume: v_idx as u16,
                             },
+                            // WHICH USE of this move the volume belongs to, so a
+                            // verdict that drains after the move has been
+                            // replaced can be refused rather than credited to
+                            // its successor. See `AttackerMoveInstance`.
+                            AttackerMoveInstance(pb.instance),
                         ));
                         // I4: a stable identity for the transient box, derived from
                         // rollback state only (owner id, move, window, volume) so
@@ -3996,6 +4024,9 @@ pub fn mark_move_playback_resolved_hits(
             continue;
         };
         if let Ok(mut pb) = playbacks.get_mut(attacker) {
+            if !verdict_belongs_to(connect.attacker_move_instance, &pb) {
+                continue;
+            }
             pb.connected_hit = true;
         }
     }
@@ -4004,9 +4035,32 @@ pub fn mark_move_playback_resolved_hits(
             continue;
         };
         if let Ok(mut pb) = playbacks.get_mut(attacker) {
+            if !verdict_belongs_to(block.attacker_move_instance, &pb) {
+                continue;
+            }
             pb.blocked_hit = true;
         }
     }
+}
+
+/// Does a verdict belong to the playback currently wearing the attacker's body?
+///
+/// ⛔⛔ **THE ATTACKER ENTITY IS NOT AN ANSWER TO "WHOSE HIT WAS THAT".** One
+/// body plays one move after another on the same entity, so a verdict that
+/// drains after its move has been replaced arrives at the SUCCESSOR's playback.
+/// `MovePlayback::instance` already exists to tell one use from the next — its
+/// doc records the read model learning this the hard way, an inspector that
+/// "credit[ed] the FIRST instance's contact to the second" — and until now the
+/// verdict channel could not carry it.
+///
+/// ⚠ **`None` IS ADMITTED, AND THAT IS NOT A LOOPHOLE.** This channel is broader
+/// than moveset strikes: contact attrition, a hazard, the blast zone and an
+/// ability's own volume all resolve through it and no move claims them. Refusing
+/// `None` would silently stop crediting every one of those, which is a bigger
+/// change than the defect. ⇒ `None` means *nobody claimed this*, and a claim
+/// that names an instance must match.
+fn verdict_belongs_to(instance: Option<u32>, pb: &MovePlayback) -> bool {
+    instance.is_none_or(|earned| earned == pb.instance)
 }
 
 /// Consume [`MoveEventMessage`]s — the moveset runtime is content-free, it only

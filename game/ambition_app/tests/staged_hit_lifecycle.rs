@@ -72,6 +72,7 @@ fn stage_a_hit_from_inside_the_frame(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         },
         attacker_id: None,
         victim_id: None,

@@ -2697,7 +2697,6 @@ fn the_three_contact_outcomes_permit_three_different_cancels() {
 /// the FIRST instance's contact to the second" in the inspector. That is this
 /// bug, in the read model. The runtime's own contact fields never learned it.
 #[test]
-#[ignore = "known-open A12 defect: the verdict channel carries no occurrence; see docs/planning/queue.md"]
 fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_it() {
     use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
 
@@ -2728,6 +2727,11 @@ fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_
         attacker: Some(fighter),
         hitlag_seconds: 0.05,
         source: crate::HitSource::Melee,
+        // ⭐ NAMING THE USE THAT EARNED IT — jab #1 — which is the whole of the
+        // fix. Before the channel carried this the verdict could only name the
+        // attacker, and `mark_move_playback_resolved_hits` had nothing to
+        // compare against the playback now wearing the body.
+        attacker_move_instance: Some(first),
     });
     app.update();
 
@@ -2763,12 +2767,18 @@ fn a_late_connect_does_reach_the_move_that_earned_it_when_nothing_replaced_it() 
     let victim = app.world_mut().spawn_empty().id();
 
     app.update();
+    let playing = app.world().get::<MovePlayback>(fighter).unwrap().instance;
     app.world_mut().write_message(ResolvedBodyHit {
         damage: 7,
         victim,
         attacker: Some(fighter),
         hitlag_seconds: 0.05,
         source: crate::HitSource::Melee,
+        // ⭐ THE SAME USE THAT IS STILL PLAYING, so this arm exercises the
+        // MATCH. Left at `None` it would pass through the "no move claimed
+        // this" admission instead, and prove nothing about the comparison the
+        // sibling test above is for.
+        attacker_move_instance: Some(playing),
     });
     app.update();
 
@@ -2780,6 +2790,52 @@ fn a_late_connect_does_reach_the_move_that_earned_it_when_nothing_replaced_it() 
             .connected,
         "a verdict one frame late does not reach its own move even with nothing \
          replacing it, so the sibling test proves nothing about occurrences"
+    );
+}
+
+/// ⛔⛔ **AND A VERDICT NO MOVE CLAIMS STILL REACHES THE PLAYBACK — the half of
+/// the occurrence rule that is an ADMISSION rather than a refusal.**
+///
+/// `ResolvedBodyHit`/`BlockedBodyHit` carry more than moveset strikes: contact
+/// attrition, a hazard, the blast zone and an ability's own volume all resolve
+/// through this channel and none of them is a use of a move, so they name no
+/// instance. `verdict_belongs_to` admits `None` for exactly that reason.
+///
+/// ⭐ WITHOUT THIS ARM, TIGHTENING THE RULE TO `instance == Some(pb.instance)`
+/// would pass every other test in this file while silently stopping the credit
+/// for every unclaimed verdict in the game. The two sibling tests above both
+/// name an instance now, so neither of them would notice.
+#[test]
+fn a_verdict_no_move_claims_still_reaches_the_playback() {
+    use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+
+    let mut app = App::new();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.add_systems(Update, mark_move_playback_resolved_hits);
+
+    let fighter = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    let victim = app.world_mut().spawn_empty().id();
+    app.update();
+
+    app.world_mut().write_message(ResolvedBodyHit {
+        damage: 7,
+        victim,
+        attacker: Some(fighter),
+        hitlag_seconds: 0.05,
+        source: crate::HitSource::Melee,
+        // NOBODY CLAIMS IT: not "instance 0", but "no move earned this".
+        attacker_move_instance: None,
+    });
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<MovePlayback>(fighter)
+            .unwrap()
+            .contact()
+            .connected,
+        "an unclaimed verdict was refused. `None` means no MOVE earned this hit —          contact attrition, a hazard, an ability's own volume — and refusing it          stops the credit for every road that is not a moveset strike, which is          a bigger change than the misattribution the occurrence rule fixes"
     );
 }
 
@@ -2809,10 +2865,12 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
         attacker: Some(struck),
         hitlag_seconds: 0.05,
         source: crate::HitSource::Melee,
+            attacker_move_instance: None,
     });
     app.world_mut().write_message(BlockedBodyHit {
         victim,
         attacker: Some(guarded),
+            attacker_move_instance: None,
     });
     // ⛔ AND ONE WITH NO ATTACKER — a hazard or the blast zone. It must reach no
     // playback at all rather than the first one the query yields.
@@ -2822,6 +2880,7 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
         attacker: None,
         hitlag_seconds: 0.0,
         source: crate::HitSource::Hazard,
+            attacker_move_instance: None,
     });
     app.update();
 

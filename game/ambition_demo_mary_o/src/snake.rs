@@ -733,6 +733,7 @@ pub fn run_snake_shells(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: vec![format!("enemy:{self_id}"), format!("npc:{self_id}")],
+                    attacker_move_instance: None,
         });
         if side_hit {
             if let Some((player_entity, ..)) = player_read {
@@ -746,6 +747,7 @@ pub fn run_snake_shells(
                     mode: HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),
+                                    attacker_move_instance: None,
                 });
             }
         }

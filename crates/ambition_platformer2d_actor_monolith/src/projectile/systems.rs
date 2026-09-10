@@ -414,6 +414,7 @@ pub(crate) fn emit_landing_splash(
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
@@ -1193,6 +1194,7 @@ pub fn step_projectiles(
                         follow: None,
                     }),
                     ignored_targets: Vec::new(),
+                                    attacker_move_instance: None,
                 });
                 // CM8: the struck body's feedback (sound + spray) is emitted by
                 // the ONE victim-side reaction now — a player victim through
@@ -1281,6 +1283,7 @@ pub fn step_projectiles(
                 mode: HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
             };
             if let Some(contact) = feature_contact.as_ref() {
                 // ⛔⛔ **DIRECT FIRST, THEN ITS LANDING AREA — and this branch had

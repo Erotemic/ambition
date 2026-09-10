@@ -81,6 +81,7 @@ fn a_block_moves_nothing_at_all_unless_the_block_source_is_authored() {
     silent.world_mut().write_message(BlockedBodyHit {
         victim: guard,
         attacker: Some(poker),
+            attacker_move_instance: None,
     });
     silent.update();
     assert_eq!(
@@ -107,6 +108,7 @@ fn a_block_with_no_known_striker_still_pays_the_guard() {
     app.world_mut().write_message(BlockedBodyHit {
         victim: guard,
         attacker: None,
+            attacker_move_instance: None,
     });
     app.update();
     assert!(
@@ -157,6 +159,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         hitlag_seconds: 0.0,
         source: ambition_platformer2d::combat::HitSource::Melee,
         damage: 10,
+            attacker_move_instance: None,
     });
     dealt.update();
     assert!(
@@ -185,6 +188,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         hitlag_seconds: 0.0,
         source: ambition_platformer2d::combat::HitSource::Melee,
         damage: 10,
+            attacker_move_instance: None,
     });
     taken.update();
     assert!(
@@ -211,6 +215,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     blocked.world_mut().write_message(BlockedBodyHit {
         victim: guard,
         attacker: Some(poker),
+            attacker_move_instance: None,
     });
     blocked.update();
     assert!(

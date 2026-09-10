@@ -206,6 +206,7 @@ pub fn fire_dive_system(
                 follow: None,
             }),
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         sfx.write_for(
             player,

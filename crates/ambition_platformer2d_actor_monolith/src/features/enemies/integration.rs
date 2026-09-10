@@ -576,6 +576,7 @@ impl ContactAttack {
                 follow: None,
             }),
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         })
     }
 }

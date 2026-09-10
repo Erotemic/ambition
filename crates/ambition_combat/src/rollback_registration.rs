@@ -67,6 +67,14 @@ where
         "derived.strike_rank",
         "stamped from the move's authored (window, volume) when the volume spawns",
     );
+    // Same shape, same reason: stamped once at the spawn from state the
+    // resimulation replays, so a rewind mints the identical number and there is
+    // nothing to snapshot.
+    registrar.declare_rollback_derived_component::<crate::moveset::AttackerMoveInstance>(
+        OWNER,
+        "derived.attacker_move_instance",
+        "stamped from MovePlayback::instance when the volume spawns",
+    );
     // ⛔ EVENT-CREATED: a chest starts falling when it is knocked loose, so it
     // exists in no boot world and the coverage census never saw it. `vel_y` is
     // where the chest IS a tick later, and a rewind that kept the future speed
@@ -617,6 +625,7 @@ mod pending_hit_checksum_tests {
                 }),
                 ignored_targets: Vec::new(),
                 strike_sfx: None,
+                            attacker_move_instance: None,
             },
         }])
     }

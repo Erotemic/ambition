@@ -108,6 +108,18 @@ pub struct ResolvedBodyHit {
     /// alternated frozen/moving forever. A consumer that wants a CONNECT must
     /// say so.
     pub source: crate::HitSource,
+    /// WHICH USE of the attacker's move earned this verdict, when a move did.
+    ///
+    /// ⛔⛔ WITHOUT IT THE CHANNEL CANNOT SAY, and a verdict draining after its
+    /// move has been replaced is credited to the successor —
+    /// `mark_move_playback_resolved_hits` keys on the attacker ENTITY alone and
+    /// one body plays one move after another on that entity. Carried from
+    /// `HitEvent::attacker_move_instance`, which is stamped from
+    /// `crate::moveset::AttackerMoveInstance` on the volume.
+    ///
+    /// ⛔ `None` MEANS NO MOVE CLAIMED THIS, never "instance 0": this channel
+    /// also carries contact attrition, hazards and the blast zone.
+    pub attacker_move_instance: Option<u32>,
 }
 
 /// A strike a GUARD consumed.
@@ -131,6 +143,18 @@ pub struct BlockedBodyHit {
     /// Whose strike it was, where the road knows. `None` for a resolution with
     /// no striker.
     pub attacker: Option<bevy::prelude::Entity>,
+    /// WHICH USE of the attacker's move earned this verdict, when a move did.
+    ///
+    /// ⛔⛔ WITHOUT IT THE CHANNEL CANNOT SAY, and a verdict draining after its
+    /// move has been replaced is credited to the successor —
+    /// `mark_move_playback_resolved_hits` keys on the attacker ENTITY alone and
+    /// one body plays one move after another on that entity. Carried from
+    /// `HitEvent::attacker_move_instance`, which is stamped from
+    /// `crate::moveset::AttackerMoveInstance` on the volume.
+    ///
+    /// ⛔ `None` MEANS NO MOVE CLAIMED THIS, never "instance 0": this channel
+    /// also carries contact attrition, hazards and the blast zone.
+    pub attacker_move_instance: Option<u32>,
 }
 
 /// A strike a PERFECT SHIELD caught: the defence succeeded and the attack was
@@ -580,7 +604,16 @@ pub struct StrikeOutcomeWriters<'w> {
 }
 
 pub fn apply_hitbox_damage(
-    mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
+    // ⭐ THE MOVE INSTANCE RIDES ALONG, `Option` because this system resolves
+    // volumes that no move spawned (an ability's own box, a hazard). See
+    // `crate::moveset::AttackerMoveInstance`: `None` here means no move claims
+    // the verdict, which is not the same as instance 0.
+    mut hitboxes: Query<(
+        Entity,
+        &Hitbox,
+        &mut HitboxHits,
+        Option<&crate::moveset::AttackerMoveInstance>,
+    )>,
     owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
@@ -653,7 +686,7 @@ pub fn apply_hitbox_damage(
     // late sourspot is the SAME pulse and does not re-hit, while a genuine
     // multi-hit puts a GAP in Active time and earns its second hit.
     let mut pulse_records: Vec<(Entity, Entity, Entity)> = Vec::new();
-    for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
+    for (hitbox_entity, hitbox, mut hits, move_instance) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
         // Actors carry `CenteredAabb`; bare fixtures may carry only
         // `BodyKinematics`. If neither resolves (owner despawned), leave the
@@ -968,6 +1001,7 @@ pub fn apply_hitbox_damage(
                     mode: HitMode::Knockback,
                     knockback,
                     ignored_targets: Vec::new(),
+                                    attacker_move_instance: move_instance.map(|i| i.0),
                 });
                 out.landed.write(LandedBodyHit {
                     hitbox: hitbox_entity,
@@ -1009,6 +1043,7 @@ pub fn apply_hitbox_damage(
                     mode: HitMode::Knockback,
                     knockback: None,
                     ignored_targets: attacker.already_hit(hitbox.owner),
+                                    attacker_move_instance: move_instance.map(|i| i.0),
                 });
             }
             continue;
@@ -1034,6 +1069,7 @@ pub fn apply_hitbox_damage(
                         mode: HitMode::Knockback,
                         knockback: None,
                         ignored_targets: Vec::new(),
+                                            attacker_move_instance: move_instance.map(|i| i.0),
                     });
                 }
             }
@@ -1068,7 +1104,7 @@ pub fn apply_hitbox_damage(
             if *sibling_owner != owner || *sibling == striker {
                 continue;
             }
-            if let Ok((_, _, mut hits)) = hitboxes.get_mut(*sibling) {
+            if let Ok((_, _, mut hits, _)) = hitboxes.get_mut(*sibling) {
                 hits.hit.insert(victim);
             }
         }

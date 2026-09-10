@@ -644,6 +644,7 @@ pub(crate) fn handle_player_damage_events(
                 death_writers.blocked.as_mut(),
                 player_entity,
                 damage.attacker,
+                damage.attacker_move_instance,
             );
             false
         }
@@ -711,6 +712,7 @@ pub(crate) fn handle_player_damage_events(
                         combat.hitstop_timer,
                         damage.source.clone(),
                         damage.damage,
+                        damage.attacker_move_instance,
                     );
                     publish_reaction(death_writers, player_entity, reaction);
                     false
@@ -806,6 +808,7 @@ pub(crate) fn handle_player_damage_events(
                     combat.hitstop_timer,
                     damage.source.clone(),
                     damage.damage,
+                    damage.attacker_move_instance,
                 );
                 publish_reaction(death_writers, player_entity, reaction);
                 false
@@ -959,9 +962,14 @@ pub fn publish_blocked_hit(
     blocked: Option<&mut MessageWriter<'_, ambition_combat::hitbox::BlockedBodyHit>>,
     victim: bevy::prelude::Entity,
     attacker: Option<bevy::prelude::Entity>,
+    attacker_move_instance: Option<u32>,
 ) {
     if let Some(blocked) = blocked {
-        blocked.write(ambition_combat::hitbox::BlockedBodyHit { victim, attacker });
+        blocked.write(ambition_combat::hitbox::BlockedBodyHit {
+            victim,
+            attacker,
+            attacker_move_instance,
+        });
     }
 }
 
@@ -972,6 +980,7 @@ pub fn publish_resolved_hit(
     hitlag_seconds: f32,
     source: ambition_combat::HitSource,
     damage: i32,
+    attacker_move_instance: Option<u32>,
 ) {
     if let Some(resolved) = resolved {
         resolved.write(ambition_combat::hitbox::ResolvedBodyHit {
@@ -980,6 +989,7 @@ pub fn publish_resolved_hit(
             hitlag_seconds,
             source,
             damage,
+            attacker_move_instance,
         });
     }
 }

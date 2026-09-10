@@ -325,6 +325,7 @@ fn defeat_the_rooms_hostiles(app: &mut App) -> Vec<String> {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
     }
     victims.into_iter().map(|(_, id, _)| id).collect()

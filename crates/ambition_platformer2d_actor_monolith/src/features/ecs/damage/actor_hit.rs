@@ -408,6 +408,7 @@ pub(crate) fn apply_actor_hit(
                 writers.blocked.as_mut(),
                 actor_entity,
                 event.attacker,
+                event.attacker_move_instance,
             );
             return true;
         }
@@ -511,6 +512,7 @@ pub(crate) fn apply_actor_hit(
                 combat.hitstop_timer,
                 event.source.clone(),
                 event.damage,
+                event.attacker_move_instance,
             );
             #[cfg(feature = "causal")]
             if let Some(reactions) = writers.reactions.as_mut() {

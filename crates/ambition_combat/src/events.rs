@@ -495,6 +495,22 @@ pub struct HitEvent {
     pub ignored_targets: Vec<String>,
     /// Authored contact-sound id. `None` uses the victim feedback default.
     pub strike_sfx: Option<ambition_sfx::SfxId>,
+    /// WHICH USE of the attacker's move produced this hit, when a move did.
+    ///
+    /// ⛔⛔ **THE VERDICT CHANNEL COULD NOT SAY, AND A LATE VERDICT WAS CREDITED
+    /// TO THE MOVE THAT REPLACED THE ONE THAT EARNED IT.**
+    /// `mark_move_playback_resolved_hits` keys on the attacker ENTITY alone,
+    /// and one body plays one move after another on that entity, so a verdict
+    /// draining after its move has been replaced landed on the successor. It
+    /// travels from `AttackerMoveInstance` on the volume, through here, onto
+    /// `ResolvedBodyHit` / `BlockedBodyHit`.
+    ///
+    /// ⛔ `Option<u32>` AND NOT `u32`, deliberately. This channel is broader
+    /// than strikes — contact attrition, hazards, the blast zone — and `None`
+    /// here means *no move claimed this*, never *instance 0*. A defaulted zero
+    /// would credit the FIRST use of every move and be strictly worse than
+    /// carrying nothing.
+    pub attacker_move_instance: Option<u32>,
 }
 
 #[cfg(test)]

@@ -272,6 +272,7 @@ pub fn apply_contact_harm(
                     follow: None,
                 }),
                 ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
             });
         }
     }

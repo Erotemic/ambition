@@ -1077,6 +1077,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.world_mut().write_message(FeatureHitEvent {
         strike_sfx: None,
@@ -1088,6 +1089,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.world_mut().write_message(FeatureHitEvent {
         strike_sfx: None,
@@ -1099,6 +1101,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
 
     app.update();
@@ -1133,6 +1136,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
             mode: ambition_combat::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         }
     }
     fn app_with_staged_hit() -> App {

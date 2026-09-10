@@ -966,6 +966,7 @@ pub(crate) fn integrate_actor_body(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     }
@@ -1001,6 +1002,7 @@ pub(crate) fn integrate_actor_body(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
     }
     // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline. The kernel NAMED

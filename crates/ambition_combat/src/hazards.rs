@@ -166,6 +166,7 @@ pub fn update_ecs_hazards(
                     follow: None,
                 }),
                 ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
             });
         }
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
@@ -209,6 +210,7 @@ pub fn update_ecs_hazards(
                 mode: hazard.mode,
                 knockback: None,
                 ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
             });
         }
     }

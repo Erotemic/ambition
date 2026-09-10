@@ -35,6 +35,7 @@ fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
         attacker: None,
         hitlag_seconds: hitlag,
         source,
+            attacker_move_instance: None,
     });
 }
 

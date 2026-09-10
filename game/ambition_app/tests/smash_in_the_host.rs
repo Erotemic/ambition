@@ -3941,6 +3941,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
                     mode: ambition_platformer2d::combat::events::HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),
+                                    attacker_move_instance: None,
                 });
         }
         for _ in 0..4 {

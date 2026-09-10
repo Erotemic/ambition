@@ -143,6 +143,7 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
     }

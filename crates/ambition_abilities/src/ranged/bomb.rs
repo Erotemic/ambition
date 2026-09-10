@@ -106,6 +106,7 @@ pub fn tick_bomb_fuses(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         // The bomb inherits its thrower's source at spawn, so the blast is the
         // thrower's cue — and falls back to the session when nothing stamped it.

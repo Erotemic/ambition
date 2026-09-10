@@ -86,6 +86,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
 
     app.update();
@@ -155,6 +156,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         app
@@ -234,6 +236,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         let after = app
@@ -298,6 +301,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
 
     app.update();
@@ -354,6 +358,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
 
     app.update();
@@ -403,6 +408,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
     assert_eq!(
@@ -435,6 +441,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
     assert_eq!(
@@ -597,6 +604,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         app.world().resource::<CapturedBubbles>().0
@@ -662,6 +670,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         (
@@ -725,6 +734,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     };
 
     app.world_mut().write_message(slash());
@@ -806,6 +816,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
     (app, actor)
@@ -911,6 +922,7 @@ fn player_slash_shatters_a_breakable() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
 
@@ -1260,6 +1272,7 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
         // Same resolution as before: side +1, standard feel strength.
         knockback: Some(slash_knockback(center, 1.0)),
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     }
 }
 
@@ -1486,6 +1499,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
             follow: None,
         }),
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
     let kin = app
@@ -1582,6 +1596,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
         mode: HitMode::Knockback,
         knockback,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
 
@@ -1707,6 +1722,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
             follow: None,
         }),
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
 
@@ -1786,6 +1802,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
             mode: HitMode::Knockback,
             knockback: Some(slash_knockback(center, 1.0)),
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         app.world()
@@ -1853,6 +1870,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
     assert_eq!(
@@ -1902,6 +1920,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
 
@@ -2067,6 +2086,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
         (
@@ -2110,6 +2130,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
+            attacker_move_instance: None,
     });
     app.update();
 
@@ -2207,6 +2228,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
+                    attacker_move_instance: None,
         });
         app.update();
 
@@ -2500,6 +2522,7 @@ fn the_hostile_flag_follows_the_per_body_threshold_not_the_spawn_default() {
                 mode: HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
+                            attacker_move_instance: None,
             });
             app.update();
         }

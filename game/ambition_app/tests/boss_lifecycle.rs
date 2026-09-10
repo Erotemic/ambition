@@ -153,6 +153,7 @@ pub(crate) fn kill_boss_with_a_real_hit(
                 knockback: None,
                 ignored_targets: Vec::new(),
                 strike_sfx: None,
+                            attacker_move_instance: None,
             });
             sim.step(AgentAction::default());
             return frame;

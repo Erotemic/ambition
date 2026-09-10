@@ -72,6 +72,7 @@ fn slash(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_cor
         knockback: None,
         ignored_targets: Vec::new(),
         strike_sfx: None,
+            attacker_move_instance: None,
     });
 }
 

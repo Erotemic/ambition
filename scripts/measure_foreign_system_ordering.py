@@ -338,6 +338,39 @@ def is_composition_layer(crate: str) -> bool:
     return crate.endswith(COMPOSITION_SUFFIXES)
 
 
+def is_binary_root(where: str) -> bool:
+    """Is this file the top of its own build graph — a `main.rs` or a `bin/*.rs`?
+
+    ⭐⭐ **A BINARY ROOT IS A COMPOSITION WHATEVER ITS PACKAGE IS CALLED, and
+    that is the only reason it is exempt.** The ceiling's sentence is *"a crate
+    that cannot be composed away from the crate it names"*. Nothing can depend on
+    a binary root, so nothing can compose it away from anything — the harm the
+    ceiling measures cannot occur there. The `fn main` that assembles an App is
+    composing, exactly as a `*_runtime` does.
+
+    ⛔ AND IT IS KEYED ON THE SITE, NOT THE CRATE NAME, DELIBERATELY. The
+    tempting fix was to add `_tools` to [`COMPOSITION_SUFFIXES`] because
+    `game/ambition_app_tools` is where the two red rows lived. A name list does
+    not survive somebody naming a CAPABILITY crate `*_tools` later, and this
+    guard's own history records what that costs: making `is_composition_layer`
+    true for everything emptied the bucket the ceiling watched and read as
+    perfect compliance. A site rule cannot collapse that way — it exempts a FILE,
+    never a crate, so `ambition_app_tools/src/lib.rs` would still be counted if
+    that package ever grew one.
+
+    ⚠ `ambition_app_tools`' own manifest agrees, and was the evidence rather than
+    the reason: *"This package has no lib and no tests on purpose. It is a place
+    for binaries to live, not a layer."*
+    """
+    parts = pathlib.PurePosixPath(where).parts
+    return "bin" in parts or parts[-1] == "main.rs"
+
+
+def is_composition_site(crate: str, where: str) -> bool:
+    """THE classifier: which bucket does an ordering written HERE fall into."""
+    return is_composition_layer(crate) or is_binary_root(where)
+
+
 def strip_comments_and_tests(text: str) -> str:
     """Line comments out; inline `#[cfg(test)] mod` blocks out.
 
@@ -474,14 +507,17 @@ def main() -> int:
     # question, and it is most of what a composition layer does today.
     ordering = [r for r in foreign if r[4] == "ordering"]
     install = [r for r in foreign if r[4] == "install"]
-    capability = [r for r in ordering if not is_composition_layer(r[0])]
-    composition = [r for r in ordering if is_composition_layer(r[0])]
+    capability = [r for r in ordering if not is_composition_site(r[0], r[2])]
+    composition = [r for r in ordering if is_composition_site(r[0], r[2])]
 
     print("⛔ FOREIGN SYSTEMS NAMED IN A SCHEDULE — every one is the prerequisite's subject.")
     print("   (writer role is information, not an exemption: the runtime owns PHASES,")
     print("    not the pairwise order of two capabilities' private systems.)\n")
     memberships = sets_by_system()
-    print(f"-- written by a capability / ruleset: {len(capability)}")
+    print(
+        f"-- written by a capability / ruleset: {len(set(capability))} edges"
+        f"  ({len(capability)} written occurrences)"
+    )
     for crate, target, where, _, _k in sorted(set(capability)):
         system = target.split("::")[-1]
         already = memberships.get(system, set())
@@ -492,12 +528,20 @@ def main() -> int:
             else "\n          ⛔ in no set — needs one published before it can be named"
         )
         print(f"   {crate}\n       -> {target}\n          {where}{hint}")
-    print(f"\n-- written by a composition layer: {len(composition)}")
+    print(
+        f"\n-- written by a composition layer: {len(set(composition))} edges"
+        f"  ({len(composition)} written occurrences)"
+    )
     for crate, target, where, _, _k in sorted(set(composition)):
         print(f"   {crate}\n       -> {target}\n          {where}")
 
-    print(f"\n   ORDERING a foreign system (the sharp defect): {len(ordering)}"
-          f"   — capability {len(capability)}, composition {len(composition)}")
+    # ⚠ EDGES, NOT OCCURRENCES, IS THE POPULATION THE GUARD ASSERTS ON. The
+    # ceiling's sentence is about an EDGE (crate -> foreign system); how many
+    # times somebody typed it is not a second violation. Both are printed so a
+    # drop from 24 to 14 is never read as progress when it is deduplication.
+    print(f"\n   ORDERING a foreign system (the sharp defect): {len(set(ordering))} edges"
+          f"   — capability {len(set(capability))}, composition {len(set(composition))}"
+          f"   [{len(ordering)} written occurrences]")
     print(f"   INSTALLING a foreign system (the broader question): {len(install)}")
     print(f"   TOTAL foreign systems named inside add_systems: {len(foreign)}")
     if args.all:

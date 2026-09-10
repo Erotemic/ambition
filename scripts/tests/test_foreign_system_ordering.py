@@ -80,12 +80,48 @@ MEASURE = REPO / "scripts" / "measure_foreign_system_ordering.py"
 # ruleset was naming the function because there was nothing else to name — the
 # system belonged to no published set — which is the shape of most of what is
 # left here.
-CAPABILITY_ORDERING_CEILING = 0
+# ⛔⛔ **0 -> 10 BECAUSE THE ZERO WAS A SPELLING, NOT AN ABSENCE, AND NO
+# ORDERING WAS ADDED TO THE TREE.** `PATH` in the measure required at least one
+# `::`, so `.after(camera_follow)` — the name a `use` brought into the file —
+# scored as nothing, while the identical edge written out in full scored as a
+# violation. `capture_scene.rs` had been writing the bare form all along. The
+# census now resolves `use` aliases, and what it found was ten capability edges
+# that were always there. A ceiling asserting "zero" was asserting something
+# false, and a permanently red gate teaches everyone to ignore the gate.
+#
+# ⭐ THIS IS A DEBT LEDGER, NOT AN ACCEPTANCE, AND IT IS STILL A RATCHET — IT
+# MAY ONLY GO DOWN. Nobody re-baselines it upward to make a new violation green.
+# The ten are three different jobs, which a single number hides:
+#   * `ambition_content/src/portal/plugin.rs` — SIX orderings into
+#     `ambition_portal2d`'s private systems from one file. One owner, one
+#     published-set problem.
+#   * `ambition_content/src/moveset_sound.rs:38` — a two-owner `.chain()` over
+#     `ambition_combat` and `ambition_render`. The architecture note's own named
+#     poison shape.
+#   * `actor_monolith` x3 — `.before(select_actor_targets)` (`ambition_combat`),
+#     `.after(project_boss_attack_state_from_move)` (`ambition_boss_encounter`),
+#     `.before(audio_play_sfx_messages)` (`ambition_audio`), the first two
+#     through the crate's own `pub use` re-export.
+#
+# ⚠ AND IT COUNTS EDGES, NOT OCCURRENCES. The ceiling's sentence is about an
+# EDGE — a crate that cannot be composed away from the crate it NAMES — so
+# writing the same edge in two `add_systems` blocks is one violation restated,
+# not two. 10 edges, 19 written occurrences.
+CAPABILITY_ORDERING_CEILING = 10
 # ⭐⭐ 78 -> 75 BY THE FIRST CAPABILITY-OWNED PLUGIN (prerequisite C2).
 # `ambition_mount` now ships `MountPlugin` + `install_mount_simulation_systems`,
 # so the runtime adds a PLUGIN and says which schedule and which phase instead
 # of naming four of that crate's private systems. Mount rows: 7 -> 2.
-TOTAL_ORDERING_CEILING = 75
+# ⛔⛔ **75 -> 77 BECAUSE THE INSTRUMENT CHANGED, NOT THE TREE. NO ORDERING WAS
+# ADDED.** The census learned to resolve `use` aliases (see above), so edges it
+# was blind to are now counted: 8 files it could not see at all. A number going
+# UP reads as regression, and this repository has been bitten by the inverse —
+# a count that fell because a scan was corrected, read as progress.
+#
+# ⚠ 77 IS EDGES. Counted the old way — one row per written occurrence — the same
+# population is 93. The two are printed side by side by the measure so nobody
+# reads the difference as work.
+TOTAL_ORDERING_CEILING = 77
 
 
 def _module():
@@ -99,7 +135,7 @@ def _rows():
     module = _module()
     foreign = [r for r in module.findings(include_local=False) if r[3] == "foreign"]
     ordering = [r for r in foreign if r[4] == "ordering"]
-    capability = [r for r in ordering if not module.is_composition_layer(r[0])]
+    capability = [r for r in ordering if not module.is_composition_site(r[0], r[2])]
     return ordering, capability
 
 
@@ -109,11 +145,17 @@ def test_a_capability_does_not_order_another_crates_systems() -> None:
     anything, it is asserting that somebody else's system runs at a particular
     moment relative to its own."""
     _, capability = _rows()
-    assert len(capability) <= CAPABILITY_ORDERING_CEILING, (
-        f"{len(capability)} capability-written foreign orderings "
-        f"(ceiling {CAPABILITY_ORDERING_CEILING}). Each one is a crate that "
-        "cannot be composed away from the crate it names:\n  "
-        + "\n  ".join(f"{c} -> {t}  ({w})" for c, t, w, _, _ in sorted(set(capability)))
+    # ⚠ THE SET, AND IT IS THE SAME LIST PRINTED BELOW. This asserted on the raw
+    # list while displaying the deduplicated one, so its number and its evidence
+    # were two different populations (24 against 14) and a reader calibrating a
+    # ceiling had no way to tell which.
+    edges = sorted(set(capability))
+    assert len(edges) <= CAPABILITY_ORDERING_CEILING, (
+        f"{len(edges)} capability-written foreign ordering EDGES "
+        f"(ceiling {CAPABILITY_ORDERING_CEILING}; {len(capability)} written "
+        "occurrences, which is context, not the count). Each edge is a crate "
+        "that cannot be composed away from the crate it names:\n  "
+        + "\n  ".join(f"{c} -> {t}  ({w})" for c, t, w, _, _ in edges)
     )
 
 
@@ -122,9 +164,11 @@ def test_foreign_ordering_overall_only_shrinks() -> None:
     owning PHASES is not the same as the runtime owning the pairwise order of two
     capabilities' private systems, and only the second is counted here."""
     ordering, _ = _rows()
-    assert len(ordering) <= TOTAL_ORDERING_CEILING, (
-        f"{len(ordering)} foreign orderings (ceiling {TOTAL_ORDERING_CEILING}); "
-        "the prerequisite is that this number reaches zero, so it may not rise"
+    edges = set(ordering)
+    assert len(edges) <= TOTAL_ORDERING_CEILING, (
+        f"{len(edges)} foreign ordering EDGES (ceiling {TOTAL_ORDERING_CEILING}; "
+        f"{len(ordering)} written occurrences); the prerequisite is that this "
+        "number reaches zero, so it may not rise"
     )
 
 
@@ -152,16 +196,83 @@ def test_the_capability_split_is_not_degenerate() -> None:
         "the runtime is no longer recognised as a composition layer, so the "
         "split has collapsed the other way and every row reads as a capability"
     )
+    # ⛔⛔ **THE SITE HALF OF THE CLASSIFIER NEEDS ITS OWN PIN, AND FOR THE SAME
+    # REASON THE NAME HALF DOES.** `is_composition_site` exempts binary roots,
+    # which is how `ambition_app_tools`' two capture bins stopped being counted.
+    # Widened by one careless `or` it would exempt everything, empty the
+    # capability bucket, and read as perfect compliance — exactly the collapse
+    # the arms above pin against. So: a library file is NEVER a composition site
+    # on the strength of its crate name alone, and a bin IS one whatever its
+    # package is called.
+    assert not module.is_composition_site("ambition_app_tools", "game/ambition_app_tools/src/lib.rs"), (
+        "a library file is being exempted as a composition site, so the site "
+        "rule has stopped being about binary roots and is excusing whole crates"
+    )
+    assert module.is_composition_site("ambition_app_tools", "game/ambition_app_tools/src/bin/capture_scene.rs"), (
+        "a binary root is no longer recognised as a composition site — nothing "
+        "can depend on a `fn main`, so nothing can be composed away from it, "
+        "which is the whole reason it is exempt"
+    )
+    assert not module.is_binary_root("crates/ambition_demo_smash/src/lib.rs")
+    assert module.is_binary_root("game/ambition_app/src/main.rs")
+
+    # ⛔⛔ AND THE CAPABILITY BUCKET IS FLOORED AGAIN, because it stopped being
+    # empty. The floor moved OFF it when the count reached zero and the comment
+    # below records why; the zero turned out to be a spelling the census could
+    # not see, so the population is back and so is its floor. A bucket at zero
+    # and a bucket the classifier emptied look identical from here.
+    _, capability_rows = _rows()
+    assert capability_rows, (
+        "zero capability-written orderings. That was believed once and was an "
+        "artifact of the census requiring a `::` in the path; a zero here means "
+        "the classifier collapsed or the measure stopped resolving `use` aliases"
+    )
+
     # ⛔⛔ THIS ARM USED TO SAY "zero would be excellent news and is not what this
-    # tree contains", floored on the CAPABILITY bucket. It is zero now — somebody
-    # did fix them — so the floor had to move rather than be deleted, or the
-    # classifier could collapse and nothing would notice. ⇒ Floor the population
-    # that is still non-empty, and keep the classifier pinned above.
+    # tree contains", floored on the CAPABILITY bucket. It went to zero — which
+    # turned out to be a SPELLING, not a fix — so the floor had moved here rather
+    # than being deleted. Both are floored now.
     ordering, _ = _rows()
     assert ordering, (
         "zero foreign orderings ANYWHERE, capability and composition alike. That "
         "would be a finished prerequisite and is not what this tree contains: a "
         "zero here means the measure stopped finding them"
+    )
+
+
+def test_the_measure_still_sees_a_bare_imported_name() -> None:
+    """⭐⭐ THE POSITIVE CONTROL FOR `use`-ALIAS RESOLUTION, AND THE CEILING
+    CANNOT SUBSTITUTE FOR IT.
+
+    ⛔⛔ A ceiling only sees the number GROWING. Revert `expand_aliases` in the
+    measure and the capability count falls from 10 to 2 — comfortably under the
+    ceiling, with the anti-vacuity floor still satisfied by the two survivors —
+    so every assertion in this file stays green while the census goes blind
+    again to the exact population it was corrected to see. That is how the zero
+    happened the first time.
+
+    ⇒ Pin one edge that exists ONLY in the bare spelling.
+    `game/ambition_content/src/portal/plugin.rs` writes `.after(portal_transit)`
+    against a name imported from `ambition_portal2d`; there is no `::` in that
+    call, so a census that cannot resolve the file's `use` tree cannot see it.
+    """
+    module = _module()
+    rows = {
+        (r[0], r[1], r[2])
+        for r in module.findings(include_local=False)
+        if r[3] == "foreign" and r[4] == "ordering"
+    }
+    bare = (
+        "ambition_content",
+        "ambition_portal2d::portal_transit",
+        "game/ambition_content/src/portal/plugin.rs",
+    )
+    assert bare in rows, (
+        "the measure no longer sees `.after(portal_transit)` — a foreign "
+        "ordering written through a bare `use` import. Either alias resolution "
+        "regressed and the census is back to counting one import style, or that "
+        "edge was genuinely repaired, in which case repoint this control at "
+        "another bare row rather than deleting it"
     )
 
 

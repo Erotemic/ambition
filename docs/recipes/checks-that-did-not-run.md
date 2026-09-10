@@ -283,6 +283,29 @@ of its scoping:
 The sweep and its population live in
 [`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
 
+### ⛔⛔ The RUNNER'S FOOTER is not the runner's VERDICT
+
+A suite that reports well explains what it did *not* cover, and those paragraphs
+contain numbers. On 2026-09-10 the `--rust` lane printed
+
+> ⇒ `49/49 jobs passed` from this lane is true of the lane that ran, not of the
+> repository.
+
+as boilerplate about the everything-plan — **in the same output as a run that was
+6 of 7, with `workspace (default features)` red.** The sentence is not wrong; it
+is about a different plan. Read at a glance it is a green result naming somebody
+else's lane, printed beside the red it is not about.
+
+⇒ **The authority is the machine-readable record**: `target/run_tests_status.json`
+while a run is live (it names the current job and every completed one with its
+`ok`), and `dev/ambition_dev_measurements/run_tests_cost.jsonl` afterwards, which
+carries `per_job` with the failing job's name and the commit it ran at. Both are
+one `python -c` away and neither has prose in it.
+
+⚠ The same record is what makes "was this red before my change?" answerable at
+all: the cost ledger showed that job failing at one commit, passing at the next,
+and failing again — three data points that no footer would have given.
+
 ### ⛔⛔ And the mirror image: the guard is PERFECT and the SUBJECT is inert
 
 **The two produce the same passing green from opposite causes, and the remedies

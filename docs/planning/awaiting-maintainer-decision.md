@@ -412,7 +412,38 @@ grid and, put on a stage against a copy of himself at the top difficulty rung fo
 a full minute, **deals 0.00 damage — three move starts, zero hitstun, zero
 knockouts, in reach for 17 of 3613 ticks.**
 
-⇒ **He is not a broken fighter; he is not a fighter.** `character_catalog.rs`
+⛔⛔ **CORRECTED 2026-09-10, AND THE CORRECTION CHANGES THE QUESTION: HE FIGHTS
+AT LOWER RUNGS.** The 0.00 above is a **rung-9** reading. Swept across every
+published rung, the same character against a copy of himself:
+
+| rung | starts | damage |
+|---|---|---|
+| 1 | — | separates |
+| 3 | 20 / 20 | **55 / 62** |
+| 5 | 7 / 7 | 0 / 0 |
+| 6 | 34 / 40 | **44 / 66** |
+| 9 | 3 / 3 | 0 / 0 |
+
+⇒ **A character the catalog says authors NOTHING — not a body, not a policy, not
+a moveset — starts 34 moves and deals 66 damage at rung 6.** So "he is not a
+fighter" was true of the rung it was measured at and false of the roster. **Do
+not rule on the 0.00.**
+
+⚠ **AND THAT MAKES A SECOND QUESTION THE FIRST ONE HID: what is he fighting
+WITH?** Something furnishes a body, a policy and a moveset to an id whose only
+registration is the exemption list for ids that have none. **Until that is
+answered, options 2 and 3 below are not costed** — "drop bodiless characters"
+does not describe him if he is not bodiless, and "author him a body" may be
+duplicating one he already receives from somewhere. ⇒ **This is a measurement
+somebody owes before the decision, not part of the decision.**
+
+⭐ It is the same species as the defect fixed at `f77ba3a45`, where a duel seat
+silently ran a different AI backend from the one the match assigned: **the
+composed thing is not what the declaration says**, and a census over declarations
+cannot see it.
+
+⇒ **He is not a broken fighter; he is not a fighter** *at rung 9*.
+`character_catalog.rs`
 lists him in exactly one place — `KNOWN_BARE_REGISTRATIONS`, the exemption for
 ids that author *"NOTHING — not a body, not a policy, not a moveset"* — and the
 entry records the reason verbatim: *"one placement: hall_of_characters NpcSpawn,
@@ -507,6 +538,62 @@ engineering follow-up belongs in `queue.md`.
 
 - **D-RASTER-3:** weak-GPU framebuffer/source-tier comparison.
 - **Switch Pro outer range:** radial maxima/dead-zone measurement on both machines.
+
+## Q99 — D-BRAIN-MENU is held by two red tests and neither is now evidence about the fighter brain: drop the hold?
+
+**The change.** `truthful_attack_kit` makes the CPU's attack kit resolve a press
+the way the PRESS ROAD does (`move_for_attack(.., running)`) instead of its
+stance-blind fallback. Today the brain scores `jab`'s frame data while the body
+performs `{base}_dash`: **eighteen of eighteen shipped fighters author a dash
+attack no press in the kit reaches**, and every scoring term downstream — startup,
+reach, damage, frame advantage — reads a different move than the one the press
+produces. See [D-BRAIN-MENU](queue.md) for the full receipt.
+
+**It is held because two acceptance tests redden. Both were re-measured
+2026-09-10 and neither now says anything about the fighter brain.**
+
+⛔ **RED 1 is a threshold whose calibration subject moved underneath it.** The
+gate is 0.50 damage per pool-minute; the fix reads 0.47 on `npc_pirate_admiral`.
+⇒ But that fighter's own HEAD baseline moved **1.26 → 0.84** when `f77ba3a45`
+stopped a dismount replacing his opponent's brain — **his row was a fighter
+beating a brute** — and a second shipped fighter, `medic`, **fails the same gate
+at 0.41 with nothing changed at all.** On `medic`, the clean subject with no
+mount and no confound, the fix is an IMPROVEMENT: 0.41 → **0.45** damage, hitstun
+118 → **132**.
+
+⛔ **RED 2 is a fixture whose own strike does not land.** Its message reads *"the
+percent meter is not reaching the launch"*. Measured across the strike:
+
+| up-tilt fixture | feature OFF | feature ON |
+|---|---|---|
+| percent = 0 | meter **0 → 10**, rose 3.4 px | meter **0 → 0**, rose 26.6 px |
+| percent = 1427 | meter **1427 → 1437**, rose 372.8 px | meter **1427 → 1427**, rose 26.6 px |
+
+The shipped arm scales 110×, so the meter is fine; under the feature the victim's
+meter does not move by a point. **Every knockback input in that fixture is a
+literal in its own file, so the launch cannot stop scaling except by the victim
+not taking the hit.** ⚠ That fixture shares its app with live CPU fighters whose
+walking it does not control — **it is a gate on "the CPUs still walk the way they
+did in August", and this change is a change to how CPUs walk.** It now asserts its
+own strike landed, so it cannot make this accusation a fourth time.
+
+⇒ **THE QUESTION IS NOT WHETHER THE EVIDENCE HOLDS — IT DOES NOT. It is whether
+a hold is dropped on that basis by an agent.** Two answers:
+
+1. **Drop the hold and land the fix**, re-deriving the 0.50 gate against the
+   roster it is meant to police — it does not hold across fighters at HEAD, which
+   is a defect in the gate whatever happens to this row.
+2. **Keep the hold** and require a positive result — a measurement showing the
+   truthful kit makes CPUs fight BETTER on a stated population — before landing.
+   ⚠ The three subjects measured at rung 9 say improvement, no-op, and mixed; the
+   row's owner document says re-pricing matchups *"needs the ladder rig, not a
+   coordinator's judgement"*, and the ladder rig cannot seat Ambition's authored
+   movesets at all.
+
+⚠ **Recorded as a question rather than acted on because dropping a hold is a
+maintainer's call even when the evidence for it has evaporated.** Nothing is
+blocked meanwhile: the fix is behind a default-off feature and the shipped
+behaviour is today's by construction.
 
 ## Maintenance rule
 

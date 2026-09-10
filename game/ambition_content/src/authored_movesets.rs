@@ -239,6 +239,234 @@ mod reach_tests {
 mod flow_tests {
     use super::tables;
 
+    /// ⛔⛔ **EVERY SHIPPED FLOW STILL RUNS THE TRACE IT WAS AUTHORED FOR** —
+    /// A12's last acceptance row, asked of the AUTHORED CONTENT rather than of a
+    /// synthetic fixture.
+    ///
+    /// `ambition_combat`'s own flow tests build their graphs by hand, so every
+    /// one of them would keep passing while a shipped flow's edges were rewired
+    /// underneath them. `problems()` runs at authoring and is STRUCTURAL — it
+    /// catches a dangling edge and an unreachable `Finish` and says nothing about
+    /// what the flow DOES. Nothing anywhere ran a shipped flow through the
+    /// interpreter, so "existing flows retain their traces" was an acceptance row
+    /// with no witness.
+    ///
+    /// ⭐ BOTH ROADS OF EVERY FLOW, because these are all `Wait`-shaped and a
+    /// trace taken on one road cannot see the other. The satisfied road is the
+    /// grab; the timeout road is the whiff, and the whiff emitting NOTHING is the
+    /// half a careless edit breaks — an `on_timeout` pointed at the `Emit`
+    /// instead of at `Finish` hands the fighter a free grab for missing, which is
+    /// exactly the balance decision the goblin's own comment agonises over.
+    ///
+    /// ⚠ THE EXPECTED TABLE IS EXACT AND MUST COVER THE DISCOVERED SET. A new
+    /// authored flow FAILS this test until somebody writes down what it emits.
+    /// That is the ratchet: a hand-kept list that only ever gets read is the
+    /// failure mode this file's own header describes.
+    #[test]
+    fn every_shipped_flow_still_runs_the_trace_it_was_authored_for() {
+        use ambition_combat::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use bevy::prelude::*;
+
+        // ⛔ A ROAD IS A CONTACT STATE, NOT A BOOLEAN. The oni's flow BRANCHES on
+        // `Blocked` after waiting on `Overlapped`, so it has three roads, and a
+        // two-road table would leave the branch untested — the exact shape of a
+        // guard walking half its subject. `MoveContact::overlapped` is derived as
+        // `landed || connected || blocked`, so a blocked road needs no separate
+        // landed flag to count as having touched something.
+        #[derive(Clone, Copy)]
+        struct Road {
+            what: &'static str,
+            landed: bool,
+            connected: bool,
+            blocked: bool,
+        }
+        const WHIFFED: Road = Road {
+            what: "touched nothing",
+            landed: false,
+            connected: false,
+            blocked: false,
+        };
+        const CONNECTED: Road = Road {
+            what: "connected with a body",
+            landed: true,
+            connected: true,
+            blocked: false,
+        };
+        const BLOCKED: Road = Road {
+            what: "was eaten by a guard",
+            landed: true,
+            connected: false,
+            blocked: true,
+        };
+
+        let grab = ambition_characters::smash_capture::CAPTURE_ATTEMPT;
+        let teleport = ambition_platformer2d::characters::smash_teleport::TELEPORT;
+
+        // Every shipped flow, every road, and what it emits there.
+        let expected: std::collections::BTreeMap<&str, Vec<(Road, Vec<&str>)>> = [
+            (
+                // THE GOBLIN'S TACKLE, three nodes: wait on the connect, grab,
+                // finish. A landed charge grabs; a whiff is the punish window and
+                // has to stay empty-handed.
+                "headlong_charge",
+                vec![
+                    (CONNECTED, vec![grab]),
+                    (WHIFFED, vec![]),
+                    // ⭐ A BLOCKED CHARGE MUST NOT GRAB, and this road is the one
+                    // the move's own comment argues for: waiting on the overlap
+                    // "would hand the goblin a grab for running into a shield —
+                    // the single most punishable thing in the genre becoming its
+                    // best option". That is a balance decision written in prose
+                    // beside an authored edge; this is the assertion of it.
+                    (BLOCKED, vec![]),
+                ],
+            ),
+            (
+                // THE ONI LEADER'S IAIJUTSU, four nodes: wait on the overlap,
+                // branch on the guard, teleport behind them, finish.
+                "iaijutsu",
+                vec![
+                    (BLOCKED, vec![teleport]),
+                    // ⛔ HE DOES NOT ESCAPE A HIT THAT LANDED. The branch's
+                    // `otherwise` is `Finish`; a connect taking the teleport road
+                    // would let him cut and vanish with no answer.
+                    (CONNECTED, vec![]),
+                    (WHIFFED, vec![]),
+                ],
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        /// What the flow emitted, in order.
+        ///
+        /// ⛔⛔ **A SYSTEM WITH A `MessageReader`, NOT A CURSOR TAKEN PER TICK,
+        /// AND THE DIFFERENCE IS A WRONG ANSWER THAT LOOKS RIGHT.** The first
+        /// version of this called `Messages::get_cursor()` inside the tick loop.
+        /// A fresh cursor starts at the OLDEST buffered message and bevy holds
+        /// messages for two frames, so every emission was counted TWICE and both
+        /// flows reported `[grab, grab]`. A `MessageReader` in a system keeps its
+        /// cursor in system-local state and reads each message once.
+        ///
+        /// ⚠ THE EMPTY ROADS COULD NOT HAVE CAUGHT IT — zero doubled is zero — so
+        /// the roads that emit are the only arms with any power over this class
+        /// of instrument bug. That is an argument for pinning the exact trace
+        /// rather than asserting "the grab happened".
+        #[derive(bevy::prelude::Resource, Default)]
+        struct Seen(Vec<String>);
+
+        fn capture(
+            mut reader: bevy::prelude::MessageReader<MoveEventMessage>,
+            mut seen: bevy::prelude::ResMut<Seen>,
+        ) {
+            for ev in reader.read() {
+                if let MoveEventKind::Effect(effect) = &ev.kind {
+                    seen.0.push(effect.key.clone());
+                }
+            }
+        }
+
+        /// One flow, driven through the real interpreter.
+        fn trace(spec: &ambition_platformer2d::entity_catalog::MoveSpec, road: Road) -> Vec<String> {
+            let mut app = App::new();
+            app.add_message::<MoveEventMessage>();
+            app.add_message::<ambition_combat::events::HitEvent>();
+            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_message::<ambition_sfx::OwnedSfxMessage>();
+            app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
+            app.init_resource::<ambition_time::WorldTime>();
+            app.insert_resource(
+                ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            );
+            app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
+            {
+                let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+                time.scaled_dt = 1.0 / 60.0;
+                time.raw_dt = 1.0 / 60.0;
+            }
+            app.init_resource::<Seen>();
+            app.add_systems(Update, (advance_move_playback, capture).chain());
+
+            let mut pb = MovePlayback::new(spec.clone(), 1.0);
+            // The contact fact the flow branches on, stated up front — the same
+            // fields the strike seam and the damage road write in production.
+            pb.landed_hit = road.landed;
+            pb.connected_hit = road.connected;
+            pb.blocked_hit = road.blocked;
+            let body = app
+                .world_mut()
+                .spawn((
+                    // `advance_move_playback` narrows to combat bodies: with no
+                    // faction the query does not match and the flow never runs.
+                    ambition_combat::components::ActorFaction::Player,
+                    ambition_platformer2d_core::BodyKinematics::default(),
+                    ambition_platformer2d_core::CenteredAabb::from_center_size(
+                        ambition_platformer2d_core::Vec2::ZERO,
+                        ambition_platformer2d_core::Vec2::new(20.0, 40.0),
+                    ),
+                    pb,
+                ))
+                .id();
+            let _ = body;
+
+            // Long enough for every authored timeout here (0.30s) to expire and
+            // for the move to play out.
+            for _ in 0..120 {
+                app.update();
+            }
+            app.world().resource::<Seen>().0.clone()
+        }
+
+        let mut found: std::collections::BTreeSet<String> = Default::default();
+        let mut wrong: Vec<String> = Vec::new();
+        for (_, contract) in tables() {
+            for mv in &contract.moves {
+                if mv.flow.is_none() {
+                    continue;
+                }
+                found.insert(mv.id.clone());
+                let Some(roads) = expected.get(mv.id.as_str()) else {
+                    continue;
+                };
+                for (road, want) in roads {
+                    let got = trace(mv, *road);
+                    if got != *want {
+                        wrong.push(format!(
+                            "{}: when the strike {}, expected {want:?} and it ran {got:?}",
+                            mv.id, road.what
+                        ));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            wrong.is_empty(),
+            "a shipped flow no longer runs the trace it was authored for:\n  {}",
+            wrong.join("\n  ")
+        );
+
+        // ⛔ THE RATCHET, both directions. A flow this crate authors that nobody
+        // wrote an expectation for is not covered, and an expectation naming a
+        // move that no longer authors a flow is a stale line pretending to guard
+        // something.
+        let want: std::collections::BTreeSet<String> =
+            expected.keys().map(|k| (*k).to_string()).collect();
+        assert_eq!(
+            found, want,
+            "the set of shipped flows and the set this test pins have drifted \
+             apart — a new authored flow needs its trace written down here, and a \
+             removed one needs its line taken out"
+        );
+        // ⛔ ANTI-VACUITY: an empty roster would satisfy both assertions above.
+        assert!(
+            found.len() >= 2,
+            "this crate authors fewer than two flows, so the walk found almost \
+             nothing and the guard is reporting on an empty population"
+        );
+    }
+
     /// ⛔⛔ EVERY HELD ITEM A MOVE CREATES HAS ART, OR IT IS A PLACEHOLDER QUAD.
     ///
     /// Jon, 2026-09-05, asked for three icons — the mine, the bomb and the

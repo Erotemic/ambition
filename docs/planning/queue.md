@@ -787,6 +787,89 @@ that question askable rather than answering it.
 promised absent capability is absent from both installation and resolved closure,
 and the full Ambition composition continues to work.
 
+### A6 - MEASURED 2026-09-10; the two-way split the packet assumes does not exist
+
+**Owner:** [prepared-definition field census](engine/prepared-definition-field-census.md).
+200 use sites, 27 fields, 9 consumer crates.
+
+⛔ **PREPARATION AND MATERIALIZATION ARE NOT ALREADY SEPARATED.** Nine fields are
+read by BOTH the spawn road and the runtime — `autonomous_profile`,
+`death_traits`, `id`, `kit`, `motion_model`, `mount`, `movement_tuning`,
+`provider`, `sheet` — which is nine of the thirteen `actor_spawn` touches at all.
+They are not homogeneous either: `id`/`provider`/`sheet` are identity and asset
+keys legitimately read at both moments, while `kit`, `movement_tuning` and
+`motion_model` are MECHANICAL VALUES read twice.
+
+⭐ **POLICY STRADDLES UNEVENLY, and that is what a two-way split cannot absorb.**
+`autonomous_profile` is read by four crates at three moments; its siblings
+`provoked_profile` and `provoked_profile_id` are runtime-only.
+
+⇒ **THE QUESTION TO ASK BEFORE ANY BOUNDARY IS PROPOSED, and it is cheaper than
+a split: is `autonomous_profile` one field doing two jobs?** A field whose
+siblings live in one place while it lives in three is not a straddle — it is a
+name carrying both a policy ID and a live policy. Four call sites answer it.
+Same shape, smaller: `display_name` sits inside `ambition_combat`'s otherwise
+clean execution slice {`authored_moveset`, `kit`, `ranged_execution`}, and one
+presentation field in an execution slice is usually a read that belongs
+elsewhere.
+
+⚠ **THE BINDING CONSTRAINT, and it belongs at the top of any proposal rather
+than in a caveat: `ambition_app_tools` reads ELEVEN fields including `kit`,
+`vitals` and `movement_tuning`.** Tool binaries reach into mechanical values, so
+narrowing the surface breaks the tools first — and being binary roots, that is
+where a change is noticed last. The cheap end is real: nine fields have at most
+one consumer outside the owner and five have none, but `kit` has six.
+
+⭐ The clean slices exist and are small: `ambition_body_seed` reads exactly
+{`body`, `locomotion`, `vitals`} — pure materialization, no policy.
+
+### A7 - item custody/accounting: the writer census and the occurrence seal
+
+**Owner:** [item custody and accounting](engine/item-custody-and-accounting.md).
+
+Four populations kept separate, because they are four questions: an occurrence
+exists, a holder is a relationship, an inventory is an aggregate, a checkpoint is
+a snapshot of all three. **Checkpoint is already fully owned (9 sites, 0 outside
+`actor_monolith`); custody is nearly (10 sites, 1 outside).**
+
+⛔ **The headline is inventory: `ambition_items` owns `OwnedItems`, holds three
+`&mut` delegation seams, and schedules NOTHING** — all 13 foreign writers are in
+`ambition_app` (5), `ambition_content` (5) and `actor_monolith` (3), and they
+mutate through methods on an already-private `counts`. **Its problem is not
+encapsulation, which a seal would not touch; it is that the domain has no road of
+its own.** Occurrence: 25 write sites, 9 outside the owning crates, and eight of
+the nine MINT a `GroundItem` directly rather than asking the domain to.
+
+**The occurrence seal (`89984d166`) splits "occurrence" in two.** `GroundItem`
+has **248 use sites across seven crates** (93 production) and
+`ambition_held_items` is not even the biggest user of `spec` — actor_monolith 7,
+held_items 3. `WorldItem` has **49**, with its owning crate the dominant user of
+every field. ⇒ Whatever A7 does about occurrence is one decision for
+`GroundItem` and a much smaller, different one for `WorldItem`.
+
+⭐⭐ **AND THE INSTRUMENT HAD TO CHANGE, WHICH IS A RESULT ABOUT SEALS
+GENERALLY: A VISIBILITY SEAL IS STRUCTURALLY ONE CRATE DEEP.** Private fields
+are an ERROR at every use site, so the nearest dependent crate fails to compile
+and everything downstream is never built — measured on `GroundItem` at 8 sites,
+all in `ambition_abilities`, while the writer census had already named three
+other crates constructing the type. `--keep-going` recovers crates INDEPENDENT
+of the failure and there were none, so it is not a flag problem. `#[deprecated]`
+is a WARNING: one pass, whole workspace, every use site, including same-crate
+ones — which also closes the blind spot `pub(crate)` could not. 8 sites against
+248 is the size of the difference.
+
+Instruments: `scripts/measure_state_writers.py --domain item` (a lower bound;
+blind spots printed in its own output) and
+`scripts/measure_field_readers_by_seal.py` (the deprecation seal; the visibility
+seal stays available behind `--visibility-seal`). Commits `bd7756511`,
+`966351e25`, `66fe66395`, `89984d166`.
+
+⚠ Four matcher defects were corrected mid-census, every one INFLATING the crate
+the packet is about (occurrence 37→25, actor_monolith 17→6), plus a citation
+defect: line numbers were counted in text with blocks spliced out, so any
+`--sites` line quoted before `66fe66395` must be re-derived. Counts and per-crate
+splits were never line-derived and stand.
+
 ### C2 - capability-owned installation, only where ownership is established
 
 **Owner:** [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).

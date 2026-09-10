@@ -156,7 +156,7 @@ second one is cheap to write down. Read the rows.
 ⛔⛔ **AND THE CITATION LANE CANNOT FIND THIS CLASS. DO NOT READ A GREEN
 `check_planning_citations.py --strict` AS A CHECK ON IT.** The lane resolves a
 citation to a file and a line. It caught a bare `input_systems.rs:237` in the
-first draft of this correction, because two tracked files end with that suffix.
+first draft of this correction, because two tracked files end with that suffix. <!-- cite-ok: the ambiguous form is the example -->
 It CANNOT catch `control/queries.rs:224`, because that line exists and the file
 exists — only the ROLE is wrong. A citation that points at a real line in a test
 and calls it production passes the lane.

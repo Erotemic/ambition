@@ -96,6 +96,30 @@ Each correction is an arm in `scripts/tests/test_source_text_guard_exposure.py`,
 because a sweep whose false-positive rate is unpinned produces a list nobody
 reads. The tree's guards are much better floored than the raw 103 suggests.
 
+## The Rust half, read by hand
+
+⚠ **The sweep is Python-only** — it classifies by Python AST — so the 12 Rust
+files under `crates/` and `game/` that read `.rs` source text were read by hand
+instead. That half matters: it is where one of the two real cases lived
+(`the_death_drop_table_is_complete`).
+
+**Nothing further found, and the reason is structural rather than lucky.**
+
+| file | anchor | why an empty scan is not silent |
+|---|---|---|
+| `time/time_control/tests.rs` | `.decay_reaction_timers(`, `let dt = world_time.sim_dt()` | `assert!(scaled.len() >= 2, "the scan is broken, not the code")` |
+| `audio/tests.rs` | `"fundsp"` and `"audio"` in a manifest | `assert!(ids.len() >= 2)` |
+| `dev_tools/runtime_census.rs` | a system-name census | `assert!(found.len() >= 19)` |
+| `content/falling_sand/tests.rs` | banned identifiers | `assert!(source.contains("SpawnParticleSignal"))` runs before the absence checks |
+| `features/ecs/damage_drops/tests.rs` | `GroundItem::`, `PickupFeature::new(` | `assert_eq!(defined, guarded)` against a hand-written table |
+| `app_it_sync.rs` and three siblings | `mod <name>;` | compares source text against a DIRECTORY LISTING |
+| `sprite_sheet/build.rs`, `baked_sheet_rons.rs` | — | build-time bakers, not guards |
+
+⭐ **The `*_it_sync` shape is the one worth copying: its two sides come from
+different kinds of evidence** — source text on one side, the filesystem on the
+other — so no spelling change can empty both. An equality is only self-limiting
+when the expectation does not come from the same scan as the subject.
+
 ## The axis this sweep can only point at
 
 ⚠ **33 scripts strip `#[cfg(test)]` before scanning**, and stripping is *correct*
@@ -107,8 +131,3 @@ two. The evidence that the distinction is real: the writer census strips test
 modules by design and its production count of `GroundItem` minting sites was
 exactly right, while sealing the type revealed **13 further assembly sites in
 test code** it could never have seen.
-
-⚠ **Rust guards that read source text are not in this population** — 12 files
-under `crates/` and `game/` read `.rs` text, including
-`the_death_drop_table_is_complete`, which is where one of the two real cases was.
-The sweep is Python-only because it classifies by Python AST.

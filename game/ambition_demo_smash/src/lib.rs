@@ -1016,9 +1016,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             TechniqueOffer {
                 owner: "ambition_demo_smash::bolt",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<
-                        ambition_platformer2d::characters::smash_bolt::SteeredBoltParams,
-                    >,
+                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it":
+                    // an invisible bolt, a trail redrawn never, and a bolt nobody
+                    // can steer were all rules the Rust authoring helper asserted
+                    // and this road admitted.
+                    ambition_platformer2d::characters::smash_bolt::check_steered_bolt_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,

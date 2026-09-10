@@ -1633,3 +1633,224 @@ mod held_item_references {
         );
     }
 }
+
+/// ⛔⛔ **A NON-FINITE AUTHORED NUMBER IS REFUSED AT ADMISSION, WHATEVER THE
+/// TECHNIQUE.**
+///
+/// `NaN`, `inf` and `-inf` are valid RON and hydrate cleanly, so
+/// `check_hydrates::<T>` — which is what twenty of the twenty-three shipped
+/// declarations use — admits all three. MEASURED 2026-09-10 before this existed:
+/// `(amount: NaN)` parsed, hydrated to `FillMeterParams { amount: NaN }`, and was
+/// admitted.
+///
+/// ⇒ The cost is not one misbehaving move. `ResourceMeter::refill` is
+/// `(current + amount).clamp(0.0, max)`, and `f32::clamp` returns `NaN` for a
+/// `NaN` input, so one authored fill leaves the meter `NaN` FOREVER — every later
+/// comparison against it false, and `body.mana` is rollback-canonical, so the
+/// poison is snapshotted and restored across every rewind.
+mod nonfinite_params {
+    use ambition_entity_catalog::{
+        check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
+        TechniqueParams, TechniqueRefusal, TechniqueSupport,
+    };
+
+    /// The meter fill, declared exactly the way the shipped composition declares
+    /// it — `check_hydrates` and nothing else, which is the whole point.
+    fn support() -> TechniqueSupport {
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                crate::smash_limit::FILL_METER,
+                TechniqueOffer {
+                    owner: "test::limit",
+                    params: TechniqueParams::Checked(
+                        check_hydrates::<crate::smash_limit::FillMeterParams>,
+                    ),
+                    references: NestedReferences::None,
+                    delivery: TechniqueDelivery::Either,
+                },
+            )
+            .expect("a fresh table admits the first claim");
+        support
+    }
+
+    fn probe(text: &str) -> Result<(), TechniqueRefusal> {
+        support().admit(&EffectRef {
+            key: crate::smash_limit::FILL_METER.to_string(),
+            params: ParamValue::parse(text).expect("the fixture params are valid RON"),
+        })
+    }
+
+    #[test]
+    fn nan_infinity_and_negative_infinity_are_all_refused() {
+        for text in ["(amount: NaN)", "(amount: inf)", "(amount: -inf)"] {
+            let refusal = probe(text).expect_err(&format!(
+                "{text} was admitted — it is valid RON and serde builds it, so \
+                 nothing downstream refuses it either"
+            ));
+            let said = refusal.to_string();
+            assert!(
+                said.contains("amount"),
+                "the refusal must name the FIELD an author has to go fix, and it \
+                 said: {said}"
+            );
+        }
+    }
+
+    /// ⭐ THE CONTROL, and without it the arm above passes on a check that
+    /// refuses every number there is.
+    #[test]
+    fn an_ordinary_finite_amount_is_admitted() {
+        probe("(amount: 25.0)").expect("an ordinary authored fill is admitted");
+        // ⛔ AND A NEGATIVE ONE IS TOO. It is finite, so this check has nothing
+        // to say about it — whether `smash.fill_meter` may DRAIN a meter is a
+        // domain question for that technique's own validator, and conflating the
+        // two would make this refusal mean something it cannot enforce
+        // generally.
+        probe("(amount: -25.0)")
+            .expect("a negative fill is finite, so finiteness is not the check that refuses it");
+    }
+
+    /// ⛔ NESTED, because the params that matter are tuples and structs. A
+    /// walk that only looked at top-level fields would pass every authored
+    /// `half_extents`, `offset` and `launch_dir` in the game.
+    #[test]
+    fn a_nonfinite_number_nested_in_a_tuple_is_found() {
+        let params = ParamValue::parse(
+            "(item_id: \"x\", fuse_s: 2.0, damage: 4, blast_radius: 24.0, \
+             impact_speed: 120.0, half_extents: (8.0, NaN), offset: (0.0, 0.0))",
+        )
+        .expect("valid RON");
+        let found = params.nonfinite_fields();
+        assert_eq!(
+            found,
+            vec!["half_extents[1]".to_string()],
+            "a NaN inside a tuple has to be found and NAMED by its position"
+        );
+    }
+
+    /// ⭐ AN INTEGER CAN NEVER FAIL THIS, and saying so is not padding: the walk
+    /// converts every `ron::Number` through `into_f64`, so a bug there would
+    /// reject `damage: 4` and take the whole roster down with it.
+    #[test]
+    fn integers_are_never_a_finding() {
+        let params = ParamValue::parse(
+            "(a: 0, b: -9000, c: 4294967295, d: 1.5)",
+        )
+        .expect("valid RON");
+        assert!(
+            params.nonfinite_fields().is_empty(),
+            "an authored integer was reported as non-finite"
+        );
+    }
+}
+
+/// ⛔⛔ **A DOMAIN RULE THAT ONLY THE RUST AUTHORING ROAD ASKS IS NOT A RULE.**
+///
+/// `SteeredBoltParams` had three real constraints — a bolt must draw something,
+/// its trail must be redrawn at some interval, and it must be steerable — and all
+/// three lived as `assert!`s inside `author_steered_bolt`, the helper that Rust
+/// content calls. The smash composition declared the technique with
+/// `check_hydrates::<SteeredBoltParams>`, so a bolt arriving as an ordinary
+/// `EffectRef` was checked for nothing but whether serde could build the struct.
+///
+/// ⇒ `SteeredBoltParams::problems` is now the one authority and BOTH roads ask
+/// it: the helper asserts on it, the declaration refuses on it. That is what
+/// makes these tests worth having — they hold the two roads to the same answer.
+mod bolt_domain_rules {
+    use crate::smash_bolt::{check_steered_bolt_params, SteeredBoltParams};
+    use ambition_entity_catalog::ParamValue;
+
+    fn ok_params() -> SteeredBoltParams {
+        SteeredBoltParams {
+            trail_vfx: "spark_row".to_string(),
+            trail_every_s: 0.05,
+            damage: 9,
+            radius: 10.0,
+            knockback: 1.0,
+            turn_rate_deg: 240.0,
+            speed: 300.0,
+            lifetime_s: 3.0,
+            self_launch: 0.0,
+            offset: (18.0, 0.0),
+        }
+    }
+
+    fn refusal_for(edit: impl FnOnce(&mut SteeredBoltParams)) -> String {
+        let mut params = ok_params();
+        edit(&mut params);
+        let value = ParamValue::from_typed(&params).expect("params serialize");
+        check_steered_bolt_params(&value)
+            .expect_err("the declaration admitted a bolt its own authoring road panics on")
+    }
+
+    /// ⭐ THE CONTROL FIRST, because every arm below is an `expect_err` and all
+    /// of them pass against a predicate that refuses everything.
+    #[test]
+    fn an_ordinary_bolt_is_admitted() {
+        let value = ParamValue::from_typed(&ok_params()).expect("params serialize");
+        check_steered_bolt_params(&value).expect("an ordinary authored bolt is admitted");
+        assert!(
+            ok_params().problems().is_empty(),
+            "the fixture the other arms edit is itself invalid, so each of them \
+             could be passing for the wrong reason"
+        );
+    }
+
+    #[test]
+    fn a_bolt_that_draws_nothing_is_refused() {
+        let said = refusal_for(|p| p.trail_vfx = "   ".to_string());
+        assert!(
+            said.contains("trail_vfx"),
+            "the refusal must name the field: {said}"
+        );
+    }
+
+    #[test]
+    fn a_trail_redrawn_never_is_refused() {
+        for bad in [0.0, -1.0] {
+            let said = refusal_for(|p| p.trail_every_s = bad);
+            assert!(
+                said.contains("trail_every_s"),
+                "a trail interval of {bad} was not refused by name: {said}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_bolt_nobody_can_steer_is_refused() {
+        for bad in [0.0, -30.0] {
+            let said = refusal_for(|p| p.turn_rate_deg = bad);
+            assert!(
+                said.contains("turn_rate_deg"),
+                "a turn rate of {bad} was not refused by name: {said}"
+            );
+        }
+    }
+
+    /// ⛔ AND THE TWO ROADS AGREE. The helper's assert and the declaration's
+    /// refusal read the same `problems()`, so a rule cannot be added to one and
+    /// forgotten in the other — this is the arm that fails if somebody
+    /// re-inlines a check into either side.
+    #[test]
+    fn the_authoring_road_refuses_exactly_what_the_declaration_refuses() {
+        for (name, edit) in [
+            ("trail_vfx", Box::new(|p: &mut SteeredBoltParams| p.trail_vfx = String::new())
+                as Box<dyn FnOnce(&mut SteeredBoltParams)>),
+            ("trail_every_s", Box::new(|p: &mut SteeredBoltParams| p.trail_every_s = 0.0)),
+            ("turn_rate_deg", Box::new(|p: &mut SteeredBoltParams| p.turn_rate_deg = 0.0)),
+        ] {
+            let mut params = ok_params();
+            edit(&mut params);
+            let value = ParamValue::from_typed(&params).expect("params serialize");
+            assert!(
+                !params.problems().is_empty(),
+                "{name}: the authoring road accepts it"
+            );
+            assert!(
+                check_steered_bolt_params(&value).is_err(),
+                "{name}: the declaration accepts what the authoring road panics on"
+            );
+        }
+    }
+}

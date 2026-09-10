@@ -86,6 +86,78 @@ impl Default for ParamValue {
 }
 
 impl ParamValue {
+    /// Every authored field here holding a float that is NOT FINITE, by the
+    /// path an author would read.
+    ///
+    /// ⛔⛔ **`NaN`, `inf` AND `-inf` ARE VALID RON AND HYDRATE CLEANLY, SO
+    /// `check_hydrates::<T>` ADMITS ALL THREE.** Measured 2026-09-10:
+    /// `(amount: NaN)` parses, hydrates to `FillMeterParams { amount: NaN }`, and
+    /// is admitted by twenty of the twenty-three shipped declarations, which
+    /// check nothing but that serde could build the struct.
+    ///
+    /// ⇒ What that buys is not a move that misbehaves once. A non-finite float
+    /// reaching gameplay state POISONS IT PERMANENTLY: `ResourceMeter::refill` is
+    /// `(current + amount).clamp(0.0, max)` and `f32::clamp` returns `NaN` for a
+    /// `NaN` input, so one authored fill leaves the meter `NaN` forever — every
+    /// later comparison against it is false, and `body.mana` is ROLLBACK-CANONICAL,
+    /// so the poison is snapshotted and restored. The same is true of a position,
+    /// a velocity or a radius: NaN does not stay where it lands.
+    ///
+    /// ⭐ STRUCTURAL, SO IT NEEDS NO LIST OF TECHNIQUES AND COVERS ONE ADDED
+    /// TOMORROW. It walks the `ron::Value` rather than any typed struct, so a
+    /// technique that never thought about finiteness gets the check for free —
+    /// the same reasoning as the held-item art scan, and the opposite of a
+    /// hand-kept list of keys that only ever goes stale.
+    ///
+    /// ⚠ INTEGERS CANNOT FAIL THIS. `Number::into_f64` maps every integer
+    /// variant to a finite `f64`, so an authored `damage: 4` is never a finding.
+    pub fn nonfinite_fields(&self) -> Vec<String> {
+        fn walk(value: &ron::Value, path: &str, out: &mut Vec<String>) {
+            match value {
+                ron::Value::Number(number) => {
+                    if !number.into_f64().is_finite() {
+                        out.push(if path.is_empty() {
+                            "<the value itself>".to_string()
+                        } else {
+                            path.to_string()
+                        });
+                    }
+                }
+                ron::Value::Map(map) => {
+                    for (key, child) in map.iter() {
+                        let name = match key {
+                            ron::Value::String(name) => name.clone(),
+                            other => format!("{other:?}"),
+                        };
+                        let next = if path.is_empty() {
+                            name
+                        } else {
+                            format!("{path}.{name}")
+                        };
+                        walk(child, &next, out);
+                    }
+                }
+                ron::Value::Seq(items) => {
+                    for (index, child) in items.iter().enumerate() {
+                        walk(child, &format!("{path}[{index}]"), out);
+                    }
+                }
+                // ⭐ An `Option` is walked THROUGH, not skipped: an authored
+                // `Some(NaN)` is exactly as poisonous as a bare one.
+                ron::Value::Option(Some(inner)) => walk(inner, path, out),
+                ron::Value::Bool(_)
+                | ron::Value::Char(_)
+                | ron::Value::Option(None)
+                | ron::Value::String(_)
+                | ron::Value::Bytes(_)
+                | ron::Value::Unit => {}
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.0, "", &mut out);
+        out
+    }
+
     /// Parse authored RON param text (`"(rise: 320.0)"`) into a value.
     pub fn parse(ron_text: &str) -> Result<Self, ron::error::SpannedError> {
         Ok(ParamValue(ron::from_str(ron_text)?))
@@ -627,6 +699,26 @@ impl TechniqueSupport {
                     accepts: offer.delivery.describe(),
                 });
             }
+        }
+        // ⛔⛔ BEFORE THE DECLARATION'S OWN PREDICATE, AND NOT PART OF IT. A
+        // non-finite float is not a fact about any one technique — it is a value
+        // no authored field may hold — so making each declaration remember to
+        // check it is the same mistake as making each one remember its key.
+        // Twenty of the twenty-three shipped declarations check only
+        // `check_hydrates::<T>`, and serde builds `NaN` happily.
+        let nonfinite = effect.params.nonfinite_fields();
+        if !nonfinite.is_empty() {
+            return Err(TechniqueRefusal::BadParams {
+                key: effect.key.clone(),
+                owner: offer.owner,
+                detail: format!(
+                    "not a finite number: {}. NaN and infinity are valid RON and \
+                     hydrate cleanly, so nothing downstream refuses them — and a \
+                     non-finite value reaching gameplay state poisons it \
+                     permanently rather than misbehaving once",
+                    nonfinite.join(", ")
+                ),
+            });
         }
         match offer.params {
             TechniqueParams::None => {

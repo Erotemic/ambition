@@ -441,6 +441,51 @@ A12b's remainder — of which "constructors private" is already effectively true
 literal exists, and its one construction site is inside `prepared.rs`), while
 "fallible" and the pinned REVISION both wait on the same A11c mechanism.
 
+**BLOCKER #3's SECOND HALF CLOSED 2026-09-10: the declarations were weaker than
+the domain in two different ways, and only one of them was per-technique.**
+
+⛔⛔ **THE GENERAL ONE FIRST, because it is not a fact about any technique.**
+`NaN`, `inf` and `-inf` are valid RON and hydrate cleanly, so
+`check_hydrates::<T>` — which is what TWENTY of the twenty-three shipped
+declarations use — admits all three. MEASURED before the fix: `(amount: NaN)`
+parses, hydrates to `FillMeterParams { amount: NaN }`, and is admitted.
+
+⇒ What that buys is not one misbehaving move. A non-finite float reaching
+gameplay state POISONS IT PERMANENTLY: `ResourceMeter::refill` is
+`(current + amount).clamp(0.0, max)` and `f32::clamp` returns `NaN` for a `NaN`
+input, so one authored fill leaves the meter `NaN` forever — every later
+comparison against it false — and `body.mana` is ROLLBACK-CANONICAL, so the
+poison is snapshotted and restored across every rewind. The same holds for any
+authored position, velocity or radius.
+
+⭐ The refusal is STRUCTURAL and sits in `admit_at` BEFORE the declaration's own
+predicate, because "no authored field may hold a non-finite number" is not
+something each declaration should have to remember — the same mistake as making
+each one remember its key. It walks the `ron::Value`, so it covers nested tuples
+(`half_extents[1]`), `Some(NaN)`, and a technique added tomorrow.
+⚠ Integers cannot fail it: `Number::into_f64` maps every integer variant to a
+finite `f64`, and there is a test pinning that, because a bug there would reject
+`damage: 4` and take the whole roster down.
+
+⛔ **THE PER-TECHNIQUE ONE: a domain rule that only the Rust authoring road asks
+is not a rule.** `SteeredBoltParams` had three — a bolt must draw something, its
+trail must be redrawn at some interval, and it must be steerable — and all three
+were `assert!`s inside `author_steered_bolt`, the helper Rust content calls. A
+bolt arriving as an ordinary `EffectRef`, which is every other way a technique is
+authored, was checked only for hydration. `SteeredBoltParams::problems` is now the
+one authority and BOTH roads ask it: the helper asserts on it, the declaration
+refuses on it, and a test holds them to the same answer so a rule cannot be added
+to one and forgotten in the other.
+⚠ `at_s` stayed an assert deliberately — a bolt fired past its move's duration is
+a fact about the TIMELINE, and the params road has no move to compare against.
+
+⭐ The three declarations that ALREADY asked their domain — time dilation,
+riposte, pogo bounce — are unchanged. `smash_limit`'s `problems()` turned out to
+be on `LimitMeterFill`, not on the params type, so it was never the missing
+validator it looked like; `FILL_METER` has no shipped customer at all, so its
+negative-amount question (a "fill" that drains, when `MoveGates::meter_cost`
+already owns spending) is recorded here and not invented into a rule.
+
 **A12's REMAINING ROW, MEASURED AND OPEN 2026-09-10: "late contact feedback
 cannot mutate another move occurrence" IS NOT HONOURED, AND CANNOT BE.**
 `mark_move_playback_resolved_hits` keys on the ATTACKER ENTITY alone, and

@@ -105,6 +105,70 @@ pub struct SteeredBoltParams {
     pub offset: (f32, f32),
 }
 
+impl SteeredBoltParams {
+    /// Everything wrong with these params, in the words an author needs.
+    ///
+    /// ⛔⛔ **THESE THREE RULES EXISTED AND ONLY THE RUST AUTHORING ROAD ASKED
+    /// THEM.** They were `assert!`s inside [`author_steered_bolt`], which content
+    /// written as Rust calls — so a bolt arriving as an ordinary `EffectRef`,
+    /// which is every other way a technique is authored, was checked for nothing
+    /// but whether serde could build the struct. The declaration in the smash
+    /// composition says `check_hydrates::<SteeredBoltParams>` and that is the
+    /// whole of it.
+    ///
+    /// ⇒ One authority, asked from both roads: the helper asserts on this, the
+    /// declaration refuses on this, and they cannot drift apart. A rule that
+    /// lives in the constructor of one of two roads is not a rule.
+    ///
+    /// ⚠ `at_s` IS NOT HERE and that is not an oversight — a bolt fired past its
+    /// move's own duration is a fact about the TIMELINE, not about these params,
+    /// and the params road has no move to compare against. It stays an assert in
+    /// the helper, which is the only road that knows the move.
+    pub fn problems(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        // ⛔ AN INVISIBLE BOLT IS AN UNPLAYABLE MOVE, not merely an unpolished
+        // one: the stick steers what the player can see.
+        if self.trail_vfx.trim().is_empty() {
+            out.push(
+                "`trail_vfx` is empty, so the bolt draws nothing — the whole move \
+                 is flying it, and the caster cannot fly what they cannot see"
+                    .to_string(),
+            );
+        }
+        if !(self.trail_every_s > 0.0) {
+            out.push(format!(
+                "`trail_every_s` is {}, so the trail is redrawn never",
+                self.trail_every_s
+            ));
+        }
+        if !(self.turn_rate_deg > 0.0) {
+            out.push(format!(
+                "`turn_rate_deg` is {}, and a bolt nobody can steer is a slow \
+                 projectile wearing a steering move's startup",
+                self.turn_rate_deg
+            ));
+        }
+        out
+    }
+}
+
+/// The declaration's predicate: hydrates AND obeys its own domain rules.
+///
+/// ⭐ What `check_hydrates::<SteeredBoltParams>` could never say. See
+/// [`SteeredBoltParams::problems`] for why the rules could not stay where they
+/// were.
+pub fn check_steered_bolt_params(
+    params: &ambition_entity_catalog::ParamValue,
+) -> Result<(), String> {
+    let typed: SteeredBoltParams = params.hydrate().map_err(|error| error.to_string())?;
+    let problems = typed.problems();
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems.join("; "))
+    }
+}
+
 /// Author a steered bolt onto a move's timeline.
 ///
 /// # Panics
@@ -114,19 +178,14 @@ pub struct SteeredBoltParams {
 /// not positive, because a bolt nobody can turn is a slow projectile wearing a
 /// steering move's startup.
 pub fn author_steered_bolt(mut spec: MoveSpec, at_s: f32, params: SteeredBoltParams) -> MoveSpec {
-    // ⛔ AN INVISIBLE BOLT IS AN UNPLAYABLE MOVE, not merely an unpolished one:
-    // the stick steers what the player can see.
+    // ⭐ THE SAME AUTHORITY THE DECLARATION REFUSES ON, so the Rust road and the
+    // `EffectRef` road cannot disagree about what a valid bolt is.
+    let problems = params.problems();
     assert!(
-        !params.trail_vfx.trim().is_empty(),
-        "move `{}` fires a bolt that draws nothing — the whole move is flying it, \
-         and the caster cannot fly what they cannot see",
+        problems.is_empty(),
+        "move `{}` authors an invalid bolt: {}",
         spec.id,
-    );
-    assert!(
-        params.trail_every_s > 0.0,
-        "move `{}` redraws its bolt every {}s, which is never",
-        spec.id,
-        params.trail_every_s,
+        problems.join("; "),
     );
     assert!(
         at_s <= spec.duration_s,
@@ -134,13 +193,6 @@ pub fn author_steered_bolt(mut spec: MoveSpec, at_s: f32, params: SteeredBoltPar
          would never appear and the move would spend a recovery to do nothing",
         spec.id,
         spec.duration_s,
-    );
-    assert!(
-        params.turn_rate_deg > 0.0,
-        "move `{}` authors a bolt that turns at {}°/s — a bolt nobody can steer \
-         is a slow projectile wearing a steering move's startup",
-        spec.id,
-        params.turn_rate_deg,
     );
     spec.events.push(MoveEvent {
         at_s,

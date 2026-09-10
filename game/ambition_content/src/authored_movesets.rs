@@ -1480,3 +1480,104 @@ mod stance_coupling {
         );
     }
 }
+
+#[cfg(test)]
+mod a12_projectile_credit_census {
+    use super::tables;
+
+    /// ⭐⭐ CAN A PROJECTILE'S VERDICT EVER REACH A CONNECT CONDITION?
+    ///
+    /// A12 blocker 4: a damage verdict carrying `attacker_move_instance: None`
+    /// is credited to whatever move the attacker is playing NOW
+    /// (`moveset::verdict_belongs_to`). A projectile's verdict carries `None` —
+    /// three sites in `projectile/systems.rs` hardcode it — so move A can fire a
+    /// shot, end, and move B can be credited with `connected_hit` it never
+    /// earned, taking an OnHit escape it did not pay for.
+    ///
+    /// ⛔ THE PREDICATE'S OWN COMMENT DEFENDS ADMITTING `None`, and its reasoning
+    /// is sound as far as it goes: *"contact attrition, a hazard, the blast zone
+    /// and an ability's own volume all resolve through it and no move claims
+    /// them."* It never addresses the projectile, which is the case at issue.
+    ///
+    /// ⇒ THE FIX HAS TWO HALVES — propagate the instance to the shot, then
+    /// require a claim — and the second is much cheaper than the first (the
+    /// message gains a field across 43 construction sites). **This census exists
+    /// to find out whether the first half is needed at all**, by asking the
+    /// decidable version of the question: does any fighter author BOTH a move
+    /// that fires a shot AND a move that takes a conditional cancel? If no
+    /// fighter does, no projectile verdict can reach a connect condition, and
+    /// the cheap half is complete on its own.
+    ///
+    /// ⚠ THE AUTHORED SET IS A SUPERSET OF THE ADMITTED ONE, which is what makes
+    /// this instrument sound for a NEGATIVE result: a pairing absent from
+    /// everything authored is absent from everything seated. A POSITIVE result
+    /// would have to be re-asked of the composed app, because a character can be
+    /// withheld at the admission barrier.
+    #[test]
+    fn a_shot_and_a_conditional_cancel_never_share_a_fighter() {
+        use ambition_platformer2d::entity_catalog::{CancelCondition, MoveEventKind, WindowTag};
+
+        let mut shooters = 0usize;
+        let mut confirmers = 0usize;
+        let mut both: Vec<String> = Vec::new();
+
+        for (fighter, contract) in tables() {
+            let mut shots: Vec<&str> = Vec::new();
+            let mut confirms: Vec<&str> = Vec::new();
+            for m in &contract.moves {
+                if m.events
+                    .iter()
+                    .any(|ev| matches!(ev.kind, MoveEventKind::Ranged))
+                {
+                    shots.push(m.id.as_str());
+                }
+                if m.windows.iter().any(|w| {
+                    matches!(
+                        w.tag,
+                        WindowTag::Cancelable {
+                            condition: CancelCondition::OnHit
+                                | CancelCondition::OnBlock
+                                | CancelCondition::OnWhiff,
+                            ..
+                        }
+                    )
+                }) {
+                    confirms.push(m.id.as_str());
+                }
+            }
+            if !shots.is_empty() {
+                shooters += 1;
+            }
+            if !confirms.is_empty() {
+                confirmers += 1;
+            }
+            if !shots.is_empty() && !confirms.is_empty() {
+                both.push(format!("{fighter}: shots={shots:?} confirms={confirms:?}"));
+            }
+        }
+
+        // ⚠ ANTI-VACUITY, AND BOTH HALVES ARE LOAD-BEARING. A roster with no
+        // shooters, or none with a conditional cancel, would report "no overlap"
+        // while measuring nothing — and a guard that requires a confirm to exist
+        // already lives in this file, so zero here means this walk is broken
+        // rather than that the roster changed.
+        assert!(
+            shooters >= 1,
+            "no authored move fires a shot, so this census walked nothing"
+        );
+        assert!(
+            confirmers >= 1,
+            "no authored move takes a conditional cancel, so this census cannot \
+             see the pairing it exists to look for"
+        );
+
+        println!(
+            "[a12] fighters with a shot: {shooters}; with a conditional cancel: \
+             {confirmers}; with BOTH: {}",
+            both.len()
+        );
+        for row in &both {
+            println!("[a12] {row}");
+        }
+    }
+}

@@ -403,52 +403,30 @@ one consumer outside the owner and five have none, but `kit` has six.
 ⭐ The clean slices exist and are small: `ambition_body_seed` reads exactly
 {`body`, `locomotion`, `vitals`} — pure materialization, no policy.
 
-### A7 - item custody/accounting: the writer census and the occurrence seal
+### A7 - DONE 2026-09-10; the census and the occurrence seal both landed.
 
-**Owner:** [item custody and accounting](engine/item-custody-and-accounting.md).
+⭐ **THE SEAL PRODUCED THE UPPER BOUND THE CENSUS PAGE SAID A TEXT SCAN COULD
+NOT.** `GroundItem` had four `pub` fields and NO constructor, so seven production
+sites across three crates each minted an occurrence — including a death-drop
+policy, which A7's own acceptance forbids, and it could because there was no
+narrower road to take. `#[non_exhaustive]` plus `at_rest` / `released` made the
+enumeration `rustc`'s job: the census's 7 production sites were exactly right,
+and 13 MORE in test code it strips by design. Commits `be2f97fa3`, `7108a57b1`.
 
-Four populations kept separate, because they are four questions: an occurrence
-exists, a holder is a relationship, an inventory is an aggregate, a checkpoint is
-a snapshot of all three. **Checkpoint is already fully owned (9 sites, 0 outside
-`actor_monolith`); custody is nearly (10 sites, 1 outside).**
+⇒ **The findings are decisions and they live in the owner document**
+([item custody and accounting](engine/item-custody-and-accounting.md), plus the
+[writer inventory](engine/item-writer-inventory.md)): inventory is the headline
+rather than session-adjacency (`ambition_items` owns `OwnedItems`, schedules
+NOTHING, and 13 of 16 writers are foreign), checkpoint is already 9-of-9 inside
+its owner, and "occurrence" is one decision for `GroundItem` (248 sites, seven
+crates) and a much smaller different one for `WorldItem` (49, owner-dominant).
 
-⛔ **The headline is inventory: `ambition_items` owns `OwnedItems`, holds three
-`&mut` delegation seams, and schedules NOTHING** — all 13 foreign writers are in
-`ambition_app` (5), `ambition_content` (5) and `actor_monolith` (3), and they
-mutate through methods on an already-private `counts`. **Its problem is not
-encapsulation, which a seal would not touch; it is that the domain has no road of
-its own.** Occurrence: 25 write sites, 9 outside the owning crates, and eight of
-the nine MINT a `GroundItem` directly rather than asking the domain to.
+⚠ Two instrument corrections are recorded there and matter to anyone re-running
+it: a VISIBILITY seal reaches only the nearest dependent ring (8 sites where a
+`#[deprecated]` pass finds 248), and the writer census recognised construction by
+a blessed-name list until `3934f560c`, which had hidden `WorldItem::equipping`
+entirely.
 
-**The occurrence seal (`89984d166`) splits "occurrence" in two.** `GroundItem`
-has **248 use sites across seven crates** (93 production) and
-`ambition_held_items` is not even the biggest user of `spec` — actor_monolith 7,
-held_items 3. `WorldItem` has **49**, with its owning crate the dominant user of
-every field. ⇒ Whatever A7 does about occurrence is one decision for
-`GroundItem` and a much smaller, different one for `WorldItem`.
-
-⭐⭐ **AND THE INSTRUMENT HAD TO CHANGE, WHICH IS A RESULT ABOUT SEALS
-GENERALLY: A VISIBILITY SEAL IS STRUCTURALLY ONE CRATE DEEP.** Private fields
-are an ERROR at every use site, so the nearest dependent crate fails to compile
-and everything downstream is never built — measured on `GroundItem` at 8 sites,
-all in `ambition_abilities`, while the writer census had already named three
-other crates constructing the type. `--keep-going` recovers crates INDEPENDENT
-of the failure and there were none, so it is not a flag problem. `#[deprecated]`
-is a WARNING: one pass, whole workspace, every use site, including same-crate
-ones — which also closes the blind spot `pub(crate)` could not. 8 sites against
-248 is the size of the difference.
-
-Instruments: `scripts/measure_state_writers.py --domain item` (a lower bound;
-blind spots printed in its own output) and
-`scripts/measure_field_readers_by_seal.py` (the deprecation seal; the visibility
-seal stays available behind `--visibility-seal`). Commits `bd7756511`,
-`966351e25`, `66fe66395`, `89984d166`.
-
-⚠ Four matcher defects were corrected mid-census, every one INFLATING the crate
-the packet is about (occurrence 37→25, actor_monolith 17→6), plus a citation
-defect: line numbers were counted in text with blocks spliced out, so any
-`--sites` line quoted before `66fe66395` must be re-derived. Counts and per-crate
-splits were never line-derived and stand.
 
 ### C2 - DONE; acceptance met.
 
@@ -463,6 +441,50 @@ overwritten before the tick sees it. And "the sim did not run" and "the drain is
 not installed" are the same green until a PROBE system in the same set tells them
 apart. Both live in that suite now.
 
+
+### S7 / N3 / guard doctrine — landed 2026-09-10, recorded where they are OWNED
+
+Not queue rows: three findings whose homes are elsewhere, listed here only so the
+next reader of this file knows they exist.
+
+**S7 — 59 rollback rows outside the session checksum, all read**
+([simulation authority and determinism](engine/simulation-authority-and-determinism.md)).
+53 bounded, 4 unbounded, 1 presentation correctly out, and 1 (`smash.seat_credit`)
+with no production reader at all — removed at v178, `2c1ecfedb`. ⛔ The honest
+reading is NOT "59 undetected divergences": `rollback/registry.rs` already argues
+that uncompared state "appears a tick later as a checksum mismatch with no
+obvious cause", and the localization probe exists BECAUSE that is true. It is a
+latency-and-attribution problem with a mitigation already chosen. ⚠ The class
+that is genuinely open is state whose next reader may be arbitrarily far away —
+`portal.owned_gun_pair`'s only production reader is a MENU re-equip, so its
+divergence never propagates and the checksum never catches it, **not late, ever**.
+
+⚠ AND THE CANONICAL-FINITENESS OBSERVER COVERS ONLY THE CHECKSUMMED HALF
+(`13021f0bf`, 116,280 finite / 0 non-finite over 30 frames). A green run does not
+mean the canonical state is finite. ⭐ Its own construction is the finding worth
+keeping: `canonical_f32_bits` already tested `is_nan()` — it collapses NaN to one
+bit pattern **so two peers' checksums agree**, which makes the one mechanism that
+notices divergence blind to this poison by design.
+
+**N3** ([netcode](engine/netcode.md)): the rollback schema fingerprint is kept in
+TWO files checked by two lanes, and negotiating an identity the repo keeps twice
+is negotiating which copy. Found the hard way — a new registration left the Rust
+baseline green and the Python one red.
+
+**Guard doctrine** ([checks that did not run](../recipes/checks-that-did-not-run.md)):
+three species that all print the same green. ⇒ **VACUOUS** — the guard is blind;
+ask *would this still pass if the scan matched nothing?*; wants a FLOOR.
+⇒ **INERT SUBJECT** — the guard is perfect and nothing in production reads what
+it asserts; ask *who reads this outside the test?*; wants a READER. ⇒ **WRONG
+PARTY** — the guard is sighted, the tree is RIGHT, and the message names the
+wrong file; it is the only one whose remedy is destructive if believed, and the
+worked case is a correct schema census nearly edited to silence a condition
+guard. ⭐ Remedy ranking: cross-evidence (two inputs of different KINDS) beats a
+closed anchor, which beats a cleverer pattern — a floor says "I saw N things",
+cross-evidence says "two independent worlds agree", and only one survives the
+instrument going blind.
+([source-text guard exposure](engine/source-text-guard-exposure.md) is the sweep:
+121 Python guard files and 12 Rust, one real case.)
 
 ## P2 — current engine/game work
 

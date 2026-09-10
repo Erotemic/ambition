@@ -1531,6 +1531,14 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
         }
     };
     press_up_b(&mut app);
+    // ⭐ WHAT KIND OF MIND IS HOLDING THE REINS, recorded before the shark dies.
+    // See the assertion after the dissolution: this test ran the exact road the
+    // defect lived on and never looked at the rider.
+    let brain_before_the_shark_dies = app
+        .world()
+        .get::<ambition_platformer2d::characters::brain::Brain>(seat0)
+        .map(|b| b.label())
+        .expect("a seated admiral has a brain");
     let ridden = app
         .world()
         .get::<RidingOn>(seat0)
@@ -1560,6 +1568,38 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
          authored pair whose shark respawns and wrong for a summon that never \
          comes back"
     );
+    // ⛔⛔⛔ AND THE ADMIRAL IS STILL AN ADMIRAL. THIS TEST RAN THE EXACT ROAD THE
+    // DEFECT LIVED ON FOR MONTHS AND NEVER LOOKED AT THE RIDER.
+    //
+    // MEASURED 2026-09-10 in `smash_cpus_damage_each_other`: a mirror duel ended
+    // with seat 1 running a `melee_brute` — born `fighter`, five presses of
+    // `call_the_shark` in between, and its `ActorConfig.brain_profile.template`
+    // still `Fighter` at that moment. `rebuild_dismounted_rider_brains` answered
+    // the shark's death by handing the rider a brain derived from its KIT, and
+    // `dismounted_rider_brain_and_action_set` chooses between a skirmisher and a
+    // forced brute consulting no template at all. A seated fighter is neither.
+    //
+    // ⇒ The two assertions around this one — the link dissolved, the up-B is
+    // free — are both correct and both silent about whether the body that came
+    // down is the one that went up. **A road covered end to end is not a road
+    // whose every OUTCOME is covered**, and the missing one was the character.
+    //
+    // ⚠ THE EDIT THAT MAKES THIS FALSE is deleting the `MountedBrainCache` skip
+    // in `rebuild_dismounted_rider_brains`. A rider that never gave up its
+    // controller on boarding — every runtime `board()` customer, which is what
+    // the admiral is — has none to get back.
+    let brain_after_the_shark_dies = app
+        .world()
+        .get::<ambition_platformer2d::characters::brain::Brain>(seat0)
+        .map(|b| b.label())
+        .expect("the admiral still has a brain after his shark dies");
+    assert_eq!(
+        brain_after_the_shark_dies, brain_before_the_shark_dies,
+        "the admiral rode a shark as a `{brain_before_the_shark_dies}` and came \
+         down a `{brain_after_the_shark_dies}` — losing a mount replaced the mind \
+         the match gave him, for the rest of the bout"
+    );
+
     // ⭐ AND THE UP-B IS FREE AGAIN. Without the dissolution above,
     // `translate_shark_summons` would refuse forever: one dead shark, no more
     // sharks, for the rest of the match.

@@ -1098,6 +1098,19 @@ mod tests {
     /// still in the roster is how a character silently loses them.
     #[test]
     fn every_build_only_id_authors_something() {
+        // ⭐ WHICH IDS ACTUALLY NEEDED THE EXEMPTION, collected as the loop runs
+        // and checked against the list afterwards. See the assertion below the
+        // loop: an exemption nobody needs is a false claim sitting in a list
+        // that reads as evidence.
+        let mut genuinely_bare: Vec<&str> = Vec::new();
+        // ⛔ EMPTY, and that is a RESULT rather than an oversight — see the
+        // staleness arm below the loop. Its sole entry was `npc_carl_stargan`,
+        // who authors a locomotion, a 600-line moveset of his own and
+        // `max_health = Some(4)`, so the exemption had not been reached in a
+        // long time while its text read as evidence that he authors nothing.
+        // Each entry carries the placement evidence, because that is the whole
+        // argument — which is exactly why a stale one is expensive.
+        const KNOWN_BARE_REGISTRATIONS: &[(&str, &str)] = &[];
         for id in buildable_only_cast() {
             let bare = ambition_platformer2d::character::CharacterDefinition::new(
                 id,
@@ -1129,25 +1142,65 @@ mod tests {
             // placed only as a peaceful Hall `NpcSpawn` never had any, so a bare
             // registration costs it nothing and buys it a seat. Each entry
             // carries the placement evidence, because that is the whole argument.
-            const KNOWN_BARE_REGISTRATIONS: &[(&str, &str)] = &[(
-                "npc_carl_stargan",
-                "one placement: hall_of_characters NpcSpawn, brain_override \
-                 stand_still. Never an EnemySpawn, so no archetype vitals exist \
-                 to retract. Registered because Jon put him on the Smash grid \
-                 (2026-08-11) and the grid drops what it cannot seat.",
-            )];
             let exempt = KNOWN_BARE_REGISTRATIONS
                 .iter()
                 .any(|(known, _)| *known == id);
+            if !authors_a_body && !authors_only_policy {
+                genuinely_bare.push(id);
+            }
             assert!(
                 authors_a_body || authors_only_policy || exempt,
                 "`{id}` is registered as buildable and authors NOTHING — not a \
-                 body, not a policy, not a moveset. A bare registration means it \
-                 has no body, not that its archetype keeps it. If it has no \
-                 archetype body to lose, say so in `KNOWN_BARE_REGISTRATIONS` \
-                 with the placement evidence."
+                 body and not a policy. A bare registration means it has no \
+                 body, not that its archetype keeps it. If it has no archetype \
+                 body to lose, say so in `KNOWN_BARE_REGISTRATIONS` with the \
+                 placement evidence. ⚠ A MOVESET DOES NOT SATISFY THIS and the \
+                 message used to say it did — see the staleness arm below."
             );
         }
+
+        // ⛔⛔⛔ AN EXEMPTION NOBODY NEEDS IS A FALSE CLAIM IN A LIST THAT READS
+        // AS EVIDENCE, AND THIS ONE WAS ABOUT TO REACH THE MAINTAINER.
+        //
+        // MEASURED 2026-09-10. `npc_carl_stargan` was the sole entry, and its
+        // text said he was registered because *"the grid drops what it cannot
+        // seat"* — read, reasonably, as "he authors nothing". He authors a
+        // LOCOMOTION, a MOVESET of his own (`carl_stargan_moveset`, 600 lines,
+        // `pale_blue_dot` and all) and `max_health = Some(4)`, so
+        // `authors_a_body` is TRUE and this exemption has not been reached in a
+        // long time. A duel probe caught it: his seat performs
+        // `carl_stargan_dash_attack` and `pale_blue_dot`, which is not what a
+        // character who authors nothing does.
+        //
+        // ⚠ AND THE ASSERTION MESSAGE ABOVE WAS A SPECIFICATION THE PREDICATE
+        // DOES NOT IMPLEMENT. It said "not a body, not a policy, NOT A MOVESET"
+        // while the predicate is `authors_a_body || authors_only_policy ||
+        // exempt` and consults no moveset at all. The third clause was quoted
+        // verbatim into a maintainer question (Q98) as evidence that a shipped
+        // character authors nothing. The message now says what it checks.
+        //
+        // ⚠ THE EDIT THAT MAKES THIS FALSE is putting a passing id back into
+        // `KNOWN_BARE_REGISTRATIONS`, or letting an id there stop being bare
+        // without the entry going with it — which is exactly what happened.
+        let listed: Vec<&str> = KNOWN_BARE_REGISTRATIONS
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        let unneeded: Vec<&str> = listed
+            .iter()
+            .copied()
+            .filter(|id| !genuinely_bare.contains(id))
+            .collect();
+        assert!(
+            unneeded.is_empty(),
+            "{unneeded:?} sit in `KNOWN_BARE_REGISTRATIONS` and do not need to: \
+             each authors a body or a policy and passes the rule on its own \
+             merits. An exemption that is not load-bearing is a claim nobody \
+             re-checks — and this list's entries carry PLACEMENT EVIDENCE, so a \
+             stale one reads as a statement about what a character authors. \
+             Delete the entry; the character is fine. (Genuinely bare right now: \
+             {genuinely_bare:?}.)"
+        );
     }
 
     /// AND THE OTHER DIRECTION, which is the one that loses work silently.

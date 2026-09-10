@@ -215,3 +215,53 @@ fn a_no_window_app_can_despawn_a_plain_entity() {
     let plain = app.world_mut().spawn(Transform::default()).id();
     app.world_mut().entity_mut(plain).despawn();
 }
+
+/// Can a headless agent reach the RENDER path at all on this machine?
+///
+/// ⛔⛔ THE PREMISE THIS EXISTS TO TEST WAS WRONG WHEN I ASSERTED IT. I claimed
+/// gating the portal view-cone rig on `RenderApp` presence made that subsystem
+/// unobservable to every agent, because none of us has a GPU. `NoWindow` sets
+/// `backends: None` and therefore never has a render app — but `OffscreenGpu`
+/// is the SAME recipe minus that one field, and its doc says it needs a working
+/// wgpu adapter "software or otherwise". A software adapter is an adapter.
+///
+/// ⇒ So the question "is the render path reachable without a GPU" is not a
+/// property of the team, it is a property of the composition and the host's
+/// installed drivers, and this measures it instead of assuming it.
+///
+/// ⭐⭐ MEASURED 2026-09-10 ON A MACHINE WITH NO GPU: `render_app=true` under
+/// `llvmpipe` (LLVM 20.1.2, `lvp_icd.json`), against `false` for the `NoWindow`
+/// control in the same process. ⇒ The render path IS reachable without a GPU,
+/// and the D-HEADLESS-DESPAWN gate is therefore SELF-ADJUSTING rather than
+/// subsystem-removing: it keys on `RenderApp` presence, so an `OffscreenGpu` run
+/// installs the portal view-cone rig and exercises it. The stake of that row is
+/// the `backends: None` PROFILE, not "a machine without a GPU".
+///
+/// ⚠ IT REPORTS WHICH CASE IT TOOK RATHER THAN SKIPPING QUIETLY. A machine with
+/// no adapter is a legitimate outcome; a test that passed silently in both cases
+/// would be indistinguishable from one that never ran, which is the same
+/// anti-vacuity trap the identity census fell into.
+#[test]
+fn whether_the_offscreen_render_path_composes_here_is_measured_not_assumed() {
+    let mut app = build_visible_app(VisibleRenderMode::OffscreenGpu, false);
+    let render_app = app
+        .get_sub_app(bevy::render::RenderApp)
+        .is_some();
+    let device = app
+        .world()
+        .get_resource::<bevy::render::renderer::RenderDevice>()
+        .is_some();
+    eprintln!(
+        "[offscreen] render_app={render_app} render_device_in_main_world={device}"
+    );
+    // The NoWindow control, in the same process: the one field that differs.
+    let no_window = build_visible_app(VisibleRenderMode::NoWindow, false);
+    let no_window_render_app = no_window.get_sub_app(bevy::render::RenderApp).is_some();
+    eprintln!("[offscreen] control no_window_render_app={no_window_render_app}");
+    assert!(
+        !no_window_render_app,
+        "`NoWindow` sets `backends: None`, so it must NOT have a render app — if \
+         it does, the whole reason D-HEADLESS-DESPAWN exists is gone and this \
+         file's other assertions are measuring something else"
+    );
+}

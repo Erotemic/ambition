@@ -7,15 +7,34 @@ review existed** — a closure banner and an open-items paragraph are never on
 screen together, so whoever adds the second does not see the first.
 
 **A11** — shipping lifecycle, empty-support checking and transitive withholding
-are REPAIRED. ⛔ **Raw public activation is still open**:
-`close_preparation_barrier_without_admission` is plain `pub`
-(`crates/ambition_characters/src/prepared.rs:2261`), which is the second public path to activating unvalidated
-authored data that this page's own trust boundary forbids.
+are REPAIRED. ✅ **Raw public activation is CLOSED, and this line was the stale
+half.** It read *"still open ... plain `pub`"*. The function now carries
+`#[cfg(any(test, feature = "test-support"))]`
+(`crates/ambition_characters/src/prepared.rs:2277`), so a shipping app does not
+compile it at all.
 
-**A12** — occurrence PROPAGATION landed. ⛔ **Occurrence IDENTITY did not**:
-`MovePlayback::instance` restarts at `0` after an idle gap, reflection pairs a new
-owner with the old shooter's stamp, and `None` still credits the current move.
-A12b's prepared-revision items remain open, as line 610 already said. Every acceptance row this page
+⭐ **AND THE GATE WAS CHECKED, NOT READ.** A `cfg` on the declaration only holds
+if nothing turns the feature on for a production build. MEASURED 2026-09-10 at
+`2ba3b6700`: every one of the five manifests that requests
+`ambition_characters/test-support` does so from `[dev-dependencies]` —
+`ambition_match`, `ambition_body_seed`, `ambition_platformer2d_actor_spawn`,
+`ambition_platformer2d_actor_monolith`, `ambition_content` — and
+`ambition_body_seed`'s own `test-support` is likewise only requested from
+dev-dependency rows. ⇒ **No production dependency enables the bypass.**
+
+⚠ The paragraph above the function already warns that `--all-targets` DOES turn
+it on and that this is a different build. That warning is why reading the `cfg`
+alone would not have settled it.
+
+**A12** — occurrence PROPAGATION landed, and so has occurrence IDENTITY
+(`106c349b5`): `MoveOccurrence(u32)` lives on the BODY and is never removed, so
+an idle gap no longer restarts the count at `0`. ⛔ **TWO BLOCKERS REMAIN, and
+this line previously named the wrong ones.** The count and the current state of
+all four live in `docs/planning/status.md`'s A12 row, which is the single place
+they are tracked; do not restate them here. What is still open is reflection
+pairing a new owner with the old shooter's stamp, and `None` crediting the move
+that happens to be playing. A12b's prepared-revision items remain open, as line
+610 already said. Every acceptance row this page
 owns is witnessed by a named guard; the list is at the bottom of this file under
 *Closure*. What remains open is not implementation — it is Q97's policy half,
 which is a maintainer ruling, and the definition-level part of A10, which is on

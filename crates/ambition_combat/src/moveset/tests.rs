@@ -3284,20 +3284,32 @@ fn a_late_connect_does_reach_the_move_that_earned_it_when_nothing_replaced_it() 
     );
 }
 
-/// ⛔⛔ **AND A VERDICT NO MOVE CLAIMS STILL REACHES THE PLAYBACK — the half of
-/// the occurrence rule that is an ADMISSION rather than a refusal.**
+/// ⛔⛤ **A VERDICT NO MOVE CLAIMS REACHES NO MOVE. THIS TEST USED TO ASSERT THE
+/// OPPOSITE, AND WAS RIGHT TO, UNTIL Q101 WAS RULED.**
 ///
-/// `ResolvedBodyHit`/`BlockedBodyHit` carry more than moveset strikes: contact
-/// attrition, a hazard, the blast zone and an ability's own volume all resolve
-/// through this channel and none of them is a use of a move, so they name no
-/// instance. `verdict_belongs_to` admits `None` for exactly that reason.
+/// It read *"a verdict no move claims STILL REACHES the playback"* and guarded
+/// `is_none_or`: `None` credited whatever move the attacker happened to be
+/// playing. That was the deliberate, documented behaviour — the arm existed
+/// precisely so that tightening the rule could not happen by accident. ⭐ **It
+/// worked. The tightening had to come and argue.**
 ///
-/// ⭐ WITHOUT THIS ARM, TIGHTENING THE RULE TO `instance == Some(pb.instance)`
-/// would pass every other test in this file while silently stopping the credit
-/// for every unclaimed verdict in the game. The two sibling tests above both
-/// name an instance now, so neither of them would notice.
+/// ⛔⛔ **THE RULING (Q101, 2026-09-10).** `Connected` is a fact owned by a
+/// specific move occurrence. An outcome may modify it only if that outcome
+/// carries provenance naming that occurrence. **`None` means NO move claims the
+/// outcome, and therefore it cannot modify ANY move's `Connected` state.**
+///
+/// ⇒ Crediting by *"whoever is playing right now"* is not an authority at all —
+/// it attributes by **coincidence of timing**. Under single authority a verdict
+/// either NAMES its author or names nobody.
+///
+/// ⚠ **AND THIS IS A BEHAVIOUR CHANGE, NOT A BUG FIX.** The population it moves
+/// is enumerated on `verdict_belongs_to`: empowerment, an enemy-integration
+/// road, `blink` / `dive` / `mark_recall`, and a snake shell. Each of those now
+/// credits no move unless it propagates the occurrence of the move that invoked
+/// it — which is a LOCAL question with a local answer, and the point of the
+/// ruling: the moveset runtime learns nothing about any ability.
 #[test]
-fn a_verdict_no_move_claims_still_reaches_the_playback() {
+fn a_verdict_no_move_claims_reaches_no_move() {
     use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
 
     let mut app = App::new();
@@ -3321,12 +3333,15 @@ fn a_verdict_no_move_claims_still_reaches_the_playback() {
     app.update();
 
     assert!(
-        app.world()
+        !app.world()
             .get::<MovePlayback>(fighter)
             .unwrap()
             .contact()
             .connected,
-        "an unclaimed verdict was refused. `None` means no MOVE earned this hit —          contact attrition, a hazard, an ability's own volume — and refusing it          stops the credit for every road that is not a moveset strike, which is          a bigger change than the misattribution the occurrence rule fixes"
+        "an unclaimed verdict credited the move that happened to be playing. \
+         `None` means no move earned this hit, so it may modify no move's \
+         `Connected` -- crediting the current one attributes by coincidence of \
+         timing, which is the defect the occurrence rule exists to remove"
     );
 }
 
@@ -3356,12 +3371,20 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
         attacker: Some(struck),
         hitlag_seconds: 0.05,
         source: crate::HitSource::Melee,
-            attacker_move_instance: None,
+            // ⚠ NAMED, because this test's subject is the CHANNEL, not the
+            // occurrence rule. It used to pass `None` as a convenience; after
+            // Q101 an unclaimed verdict reaches no move at all, so a `None`
+            // here would test the refusal instead of the wiring.
+            attacker_move_instance: Some(0),
     });
     app.world_mut().write_message(BlockedBodyHit {
         victim,
         attacker: Some(guarded),
-            attacker_move_instance: None,
+            // ⚠ NAMED, because this test's subject is the CHANNEL, not the
+            // occurrence rule. It used to pass `None` as a convenience; after
+            // Q101 an unclaimed verdict reaches no move at all, so a `None`
+            // here would test the refusal instead of the wiring.
+            attacker_move_instance: Some(0),
     });
     // ⛔ AND ONE WITH NO ATTACKER — a hazard or the blast zone. It must reach no
     // playback at all rather than the first one the query yields.
@@ -3371,7 +3394,11 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
         attacker: None,
         hitlag_seconds: 0.0,
         source: crate::HitSource::Hazard,
-            attacker_move_instance: None,
+            // ⚠ NAMED, because this test's subject is the CHANNEL, not the
+            // occurrence rule. It used to pass `None` as a convenience; after
+            // Q101 an unclaimed verdict reaches no move at all, so a `None`
+            // here would test the refusal instead of the wiring.
+            attacker_move_instance: Some(0),
     });
     app.update();
 

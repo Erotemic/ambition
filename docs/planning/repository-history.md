@@ -159,6 +159,34 @@ local lookup result. They were not evidence of lost history. They have not all
 been resolved by this follow-up: remote archive metadata was inspected, but a
 full archive fetch/reconstruction was unavailable in the review container.
 
+### Worked example: a red citation guard that was red about its own container
+
+2026-09-10. An outside review of 52 commits reported the citation ratchet RED on
+two commit hashes it could not resolve, and was careful to say so rather than
+call them fabricated — citing the rule in the table above.
+
+Re-run in the working checkout:
+
+    citation guard:  9 passed
+    git merge-base --is-ancestor 414019ec9 HEAD   ->  ancestor
+    git merge-base --is-ancestor 1659e5402 HEAD   ->  ancestor
+
+⇒ **Both resolve and both are reachable.** No hydration, no allow-list, no hash
+correction. The finding was true of the review container and false of the
+repository.
+
+⭐ **THE METHOD IS THE DURABLE PART, NOT THE VERDICT.** The next such report will
+name different hashes. What transfers is the order: **re-run the guard where the
+objects live BEFORE changing anything the guard names.** An edit made from a
+red-elsewhere reading would have deleted two good citations.
+
+⚠ **AND THE SAME SHAPE ARRIVED THREE TIMES ON ONE DAY, from three people who
+were not comparing notes**: a stale object store reported *"not present"*; an
+accidental unpushed stash reported *"present"* for objects no clone can read;
+and this container's broken `git` enumeration turned a whole guard red. ⇒ **An
+absence is a claim about the store you looked in.** Say *"not present in this
+checkout at `<sha>`"*, and for a presence claim, name the ref that reaches it.
+
 ## Repeatable rollover acceptance
 
 This is a verification contract, not authorization to run another truncation.

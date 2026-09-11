@@ -1101,3 +1101,167 @@ fn a_candidate_that_changes_only_items_publishes_the_pack_and_leaves_the_cast() 
          identical — a republication nothing asked for"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ **PUBLICATION IS REFUSED WHILE A ROLLBACK TIMELINE IS SPECULATING.**
+//
+// ⭐⭐ THE CONTRACT IS DERIVED, NOT INVENTED. MEASURED 2026-09-11:
+// `ambition_platformer2d_rollback_ggrs`'s per-frame contract check already
+// INVALIDATES a live GGRS timeline when the prepared content identity changes
+// under it — a timeline promised the identity it rewinds. So publishing anyway
+// earns a desync diagnosis, and refusing is strictly better than
+// publish-and-be-invalidated. It is also the explicit contract a REMOTE session
+// needs, instead of behaviour that "mostly works locally".
+// ---------------------------------------------------------------------------
+
+use ambition_platformer2d_runtime::rollback::{ActiveRollbackAuthority, RollbackTimelineContract};
+use ambition_platformer2d_runtime::SnapshotSchemaFingerprint;
+use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+/// An authority that GOVERNS this world, with a live timeline.
+fn live_authority() -> ActiveRollbackAuthority {
+    ActiveRollbackAuthority::installed(
+        None,
+        Some(SessionScopeId(1)),
+        RollbackTimelineContract {
+            content: None,
+            schema: SnapshotSchemaFingerprint::from_bytes([7u8; 32]),
+        },
+    )
+}
+
+/// A host with a cast, a pack selection, and whatever authority `authority` is.
+fn host_with_authority(authority: Option<ActiveRollbackAuthority>) -> (bevy::app::App, f32) {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    let published = live_duration(&app);
+    if let Some(authority) = authority {
+        app.world_mut().insert_resource(authority);
+    }
+    (app, published)
+}
+
+/// A candidate that WOULD publish — a real edit, against no base claim.
+fn a_publishable_candidate() -> ambition_content_pack::CandidateGeneration {
+    ambition_content_pack::CandidateGeneration::prepared_against(
+        std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles")),
+        None,
+    )
+}
+
+/// ⭐ THE CONTROL, FIRST. Without a candidate that DOES publish through this
+/// exact road, "refused while a timeline is live" is satisfied by a road that
+/// refuses everything — and a control read after the subject is one you consult
+/// only once you have already believed the result.
+#[test]
+fn with_no_rollback_authority_the_same_candidate_publishes() {
+    let (mut app, before) = host_with_authority(None);
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "the control did not publish: {outcome:?}"
+    );
+    assert_ne!(live_duration(&app), before, "the control published nothing");
+}
+
+/// ⛔ A LIVE TIMELINE REFUSES, AND NOTHING MOVES.
+#[test]
+fn a_candidate_is_refused_while_a_rollback_timeline_is_live() {
+    let (mut app, before) = host_with_authority(Some(live_authority()));
+    let selection = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    let generation = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    assert_eq!(
+        outcome,
+        MoveReload::RefusedDuringLiveTimeline,
+        "got {outcome:?}"
+    );
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selection,
+        "a refused publication moved the App's content selection"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .generation(),
+        generation,
+        "a refused publication moved the cast generation"
+    );
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "a refused publication changed what the cast plays"
+    );
+}
+
+/// ⛔⛔ **AND PUBLISHING MUST NOT HEAL AN UNHEALTHY AUTHORITY** — the poison the
+/// architecture review asks for by name. `RollbackTimelineStatus::carried_from`
+/// hands an unhealthy timeline's reason to its replacement, and
+/// `acknowledge_and_clear` is the ONLY sanctioned way to clear one: *"a tool that
+/// has shown the divergence to a human and been told to carry on"*. A content
+/// publication that established a fresh timeline would launder a desync into
+/// health by a side door.
+#[test]
+fn publishing_does_not_heal_an_unhealthy_rollback_authority() {
+    let mut authority = live_authority();
+    authority.invalidate("a deliberate desync, for this test".to_string());
+    let (mut app, _) = host_with_authority(Some(authority));
+    assert!(
+        !app.world()
+            .resource::<ActiveRollbackAuthority>()
+            .status()
+            .is_healthy(),
+        "the premise: the authority starts UNHEALTHY"
+    );
+
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    match &outcome {
+        MoveReload::RefusedWhileRollbackUnhealthy(why) => assert!(
+            why.contains("deliberate desync"),
+            "the refusal dropped the diagnosis: {why}"
+        ),
+        other => panic!("expected a refusal naming the desync; got {other:?}"),
+    }
+    let status = app
+        .world()
+        .resource::<ActiveRollbackAuthority>()
+        .status()
+        .clone();
+    assert!(
+        !status.is_healthy(),
+        "a local content publication HEALED an unhealthy rollback authority"
+    );
+    assert_eq!(
+        status.invalidation.as_deref(),
+        Some("a deliberate desync, for this test"),
+        "the diagnosis was replaced rather than preserved"
+    );
+}
+
+/// ⚠ A STOOD-DOWN TIMELINE IS NOT A LIVE ONE. The gameplay session outlived its
+/// timeline; nothing is speculating, so there is nothing to invalidate.
+#[test]
+fn a_stood_down_timeline_does_not_refuse() {
+    let mut authority = live_authority();
+    authority.stand_down_timeline();
+    let (mut app, before) = host_with_authority(Some(authority));
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "a stood-down timeline refused a publication: {outcome:?}"
+    );
+    assert_ne!(live_duration(&app), before);
+}

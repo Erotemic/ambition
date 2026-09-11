@@ -86,6 +86,29 @@ pub enum MoveReload {
         prepared_against: String,
         active: String,
     },
+    /// A rollback timeline is LIVE over this world, so a content generation may
+    /// not be published into it.
+    ///
+    /// ⭐⭐ **THE REFUSAL IS DERIVED, NOT INVENTED — and that is the whole point
+    /// of it being a refusal rather than a new rule.** MEASURED 2026-09-11:
+    /// `ambition_platformer2d_rollback_ggrs`'s per-frame contract check already
+    /// INVALIDATES a live GGRS timeline when the prepared content identity
+    /// changes under it (*"prepared content changed while the GGRS session was
+    /// active"*), because a timeline promised the identity it rewinds. ⇒ Publish
+    /// anyway and the architecture's own answer is a desync diagnosis; refusing
+    /// is strictly better than publishing and being invalidated, and it is the
+    /// explicit contract a remote session needs rather than behaviour that
+    /// "mostly works locally".
+    RefusedDuringLiveTimeline,
+    /// The rollback authority governing this world is UNHEALTHY.
+    ///
+    /// ⛔⛔ **AND PUBLISHING MUST NOT HEAL IT.** `RollbackTimelineStatus::carried_from`
+    /// hands an unhealthy timeline's reason to the timeline that replaces it, and
+    /// the only sanctioned way to clear one is `acknowledge_and_clear` — *"a tool
+    /// that has shown the divergence to a human and been told to carry on"*. A
+    /// content publication that established a fresh timeline would otherwise
+    /// launder a desync into health by a side door.
+    RefusedWhileRollbackUnhealthy(String),
     /// This world installs no technique table at all.
     ///
     /// ⛔⛤ **ABSENT IS NOT EMPTY, AND MY FIRST VERSION CONFLATED THEM.** An
@@ -259,6 +282,16 @@ pub fn publish_candidate(
     candidate: ambition_content_pack::CandidateGeneration,
     cast_base: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
+    // ⛔ THE BOUNDARY IS ASKED BEFORE ANYTHING IS READ OR STAGED. A publication
+    // that is not legal now must leave the world exactly as it found it, and the
+    // cheapest way to guarantee that is to answer the question first.
+    match publication_boundary(world) {
+        PublicationBoundary::Legal => {}
+        PublicationBoundary::LiveTimeline => return MoveReload::RefusedDuringLiveTimeline,
+        PublicationBoundary::Unhealthy(reason) => {
+            return MoveReload::RefusedWhileRollbackUnhealthy(reason)
+        }
+    }
     let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
     match candidate.verdict(active) {
         ambition_content_pack::CandidateVerdict::Stale {
@@ -292,6 +325,47 @@ pub fn publish_candidate(
             }
             outcome
         }
+    }
+}
+
+/// May a content generation be published into this world right now?
+///
+/// ⛔⛤ **COMPUTED HERE RATHER THAN TAKEN AS A PARAMETER, AND I CHANGED MY MIND
+/// ABOUT THAT.** A `legality: PublicationBoundary` argument would have been a
+/// precondition every caller could answer wrongly — and a reload road that grew
+/// a second caller would grow a second opinion about when publishing is legal.
+/// The authority is a resource; reading it is not a dependency the composition
+/// has to thread.
+///
+/// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
+/// composition that installs no rollback has no timeline to invalidate. A stood-
+/// down timeline is legal for the same reason — it is not speculating.
+enum PublicationBoundary {
+    Legal,
+    LiveTimeline,
+    Unhealthy(String),
+}
+
+fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary {
+    use ambition_platformer2d_runtime::rollback::{
+        ActiveRollbackAuthority, RollbackConfirmationState,
+    };
+    let Some(authority) = world.get_resource::<ActiveRollbackAuthority>() else {
+        return PublicationBoundary::Legal;
+    };
+    // ⛔ THE AUTHORITY'S OWN SCOPE, never a stranger's. `confirmation_for` returns
+    // `Unavailable` for a scope it does not govern, and reading a stranger's
+    // answer would report every world as publishable.
+    match authority.confirmation_for(authority.owner()) {
+        RollbackConfirmationState::Unavailable => PublicationBoundary::Legal,
+        RollbackConfirmationState::Healthy => PublicationBoundary::LiveTimeline,
+        RollbackConfirmationState::Unhealthy => PublicationBoundary::Unhealthy(
+            authority
+                .status()
+                .invalidation
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", authority.status().mismatch_frames)),
+        ),
     }
 }
 

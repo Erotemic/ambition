@@ -2062,6 +2062,17 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    NINE px tall). Nobody above the floor moved. ⚠ **THOSE `before` FIGURES ARE AT THE
    SINCE-DELETED KNOB 1.25**, so they are 1.5625x the table above; what survives is
    the SHAPE of the lever, not its endpoints.
+   ✅ **AND FOR THE OFFICER, THE PER-CHARACTER WORK IS NOW A CONTENT EDIT.** His
+   table is `assets/data/movesets/officer.ron` as of 2026-09-11, so
+   `officer_tilt_forward`'s `half_extents: (21.0, 16.0)` at `offset: (27.0, -1.0)`
+   is a number in a file — changed, validated and loaded without a Rust rebuild
+   (0.61 s against 6.30 s, measured). He is one of the seven at 0.64x.
+   ⚠ **THE TRAP, STATED ONCE:** while `officer_moveset.rs` is still the
+   exporter's source, a hand edit to the RON is overwritten by the next export.
+   The generated file says so in a banner. Which of the two becomes the real
+   source — delete the Rust and author the RON, or keep authoring Rust and treat
+   the RON as build output — is Jon's ruling and is deliberately not taken here.
+
    ⚠ **AND IT REACHED ONLY ONE OF THE TWO ROADS.** goblin and
    npc_ninja_shadow_oni_leader resolve authored `VolumeShape::Rect`s through
    `ambition_combat` and did not move at any floor value. ⇒ **Per-character authoring
@@ -2088,6 +2099,34 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    of the engine**: `chained_frame` is a pure function of the ACTION tick by design,
    and hitlag freezes the move's proper time while the action tick keeps running, so
    a sweep of `--chain-at` is not a sweep of the move's own clock.
+   ⛔⛤ **AND A SEPARATE SEAM WAS BROKEN ALL ALONG — THE BRAIN COULD NOT SEE A
+   CLASS-NAMED CANCEL.** Found 2026-09-11 while re-deriving the row above, which
+   was already closed. `attack_kit_of` prices each candidate's `ActionLegality`
+   through `legality_of`, whose own doc says *"the name list must match
+   `trigger_moveset_moves` exactly … asking with a different list would make this
+   answer a question nothing enforces."* It passed `[verb, move_id]`. The trigger
+   passes `cancel_names_for(base, running)` PLUS the move id — for an attack,
+   `["attack", "any_attack", <id>]`.
+   ⇒ A window authored `into: ["any_attack"]` was INVISIBLE to the brain. That is
+   the class every shipped cancel uses, because an author writes *"cancel into an
+   attack"* rather than naming twenty-six move ids — the Performer's three tilts
+   author exactly that, `OnHit`, over their recovery. **The window permitted, the
+   trigger would have accepted, and the CPU was told `BlockedByPlayback` and
+   stood through the recovery.**
+   ⇒ `legality_of` asks `cancel_names_for` now, which is the vocabulary's own
+   answer to *"which names does this candidate answer to"* — the same question
+   rather than a second one that happens to agree. Guards:
+   `the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept`, with
+   `outside_the_cancel_window_the_brain_is_told_the_body_is_busy` as the control,
+   because "nothing is blocked" is also what an always-`Now` answer would say.
+   ⚠ POISON-VERIFIED: restoring the two-name list reddens the first and leaves
+   the control green; restore re-verified by re-running, and the monolith's 1,155
+   tests are unchanged by the fix.
+   ⭐ **THE SCRIPTED ROAD NEVER HAD THIS BUG** — `moveset_takes` presses through
+   `trigger_moveset_moves`, which always passed the classes. So the item above
+   closing for the scripted road said nothing about the brain, and a live CPU was
+   the only observer that could have shown it.
+
 3. ⛔⛤ **RE-MEASURED 2026-09-11: THE "BACK AIR REACHES ~38 px" FIGURE WAS READ OFF A
    MOVE NO PRESS CAN PERFORM**, and the mistake is one a bundle makes easy.
    The performer's move list holds BOTH `performer_air_back` (reach **55.0**,

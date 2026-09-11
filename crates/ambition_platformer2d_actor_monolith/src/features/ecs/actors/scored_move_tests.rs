@@ -580,3 +580,124 @@ fn a_grab_edge_plays_the_authored_grab() {
         "a Grab press reached a body that authors one and it swung something else"
     );
 }
+
+/// ⭐⭐ **CAN THE BRAIN SEE A CANCEL THE TRIGGER WOULD ACCEPT?**
+///
+/// ⛔⛤ **IT COULD NOT, AND `legality_of`'s OWN DOC ASKED FOR THE THING THE CODE
+/// DID NOT DO.** It said *"the name list must match `trigger_moveset_moves`
+/// exactly: the verb the press resolves through, plus the resolved move id. That
+/// is the one cancel namespace, and asking with a different list would make this
+/// answer a question nothing enforces."* It then passed `[verb, move_id]` —
+/// while the trigger passes `cancel_names_for(base, running)` **plus** the move
+/// id, which for an attack is `["attack", "any_attack", <id>]`.
+///
+/// ⇒ A window authored `into: ["any_attack"]` was INVISIBLE to the brain. That
+/// is the CLASS every shipped cancel uses, because an author writes "cancel into
+/// an attack" rather than naming twenty-six move ids — the Performer's three
+/// tilts author exactly that, `OnHit`, over their recovery. So the window
+/// permitted, the trigger would have accepted, and the CPU was told
+/// `BlockedByPlayback` and stood through the recovery.
+///
+/// ⚠ THIS IS A KIT-LEVEL TEST, NOT A MATCH. What it pins is that the two seams
+/// answer the SAME question; whether a given match then takes the cancel is the
+/// scorer's business and a separate measurement.
+#[test]
+fn the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept() {
+    let mut jab = strike("jab", 16.0);
+    // The recovery window, authored the way the shipped tilts author theirs: by
+    // CLASS, on a connected hit.
+    jab.windows.push(MoveWindow {
+        start_s: 0.2,
+        end_s: 0.4,
+        tag: WindowTag::Cancelable {
+            into: vec!["any_attack".to_string()],
+            condition: ambition_entity_catalog::CancelCondition::OnHit,
+        },
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    });
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "jab".to_string()),
+            ("attack_up".to_string(), "uptilt".to_string()),
+        ]),
+        moves: vec![jab.clone(), strike("uptilt", 40.0)],
+    });
+
+    // Mid-recovery, with the strike CONNECTED — which is what `OnHit` asks.
+    let mut playback = MovePlayback::new_at(jab, 1.0, 0.3);
+    playback.connected_hit = true;
+    assert!(
+        playback
+            .spec
+            .cancel_permits(playback.t, playback.contact(), &["any_attack"]),
+        "the fixture's own window does not permit, so the assertion below would \
+         be about the fixture rather than about the brain"
+    );
+
+    let kit = attack_kit_of(
+        Some(&moveset),
+        true,
+        false,
+        Some(&fighter_brain()),
+        Some(&playback),
+    );
+    let blocked: Vec<&str> = kit
+        .iter()
+        .filter(|c| {
+            c.legality == ambition_characters::brain::attack_kit::ActionLegality::BlockedByPlayback
+        })
+        .map(|c| c.move_id.as_str())
+        .collect();
+    assert!(
+        blocked.is_empty(),
+        "the window permits `any_attack` and the trigger would accept it, but the \
+         brain was told these are blocked: {blocked:?}"
+    );
+}
+
+/// ⛔ AND THE CONTROL, because "nothing is blocked" is also what a
+/// `legality_of` that always answered `Now` would say. OUTSIDE the cancel
+/// window, every candidate is blocked.
+#[test]
+fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
+    let mut jab = strike("jab", 16.0);
+    jab.windows.push(MoveWindow {
+        start_s: 0.2,
+        end_s: 0.4,
+        tag: WindowTag::Cancelable {
+            into: vec!["any_attack".to_string()],
+            condition: ambition_entity_catalog::CancelCondition::OnHit,
+        },
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    });
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "jab".to_string()),
+            ("attack_up".to_string(), "uptilt".to_string()),
+        ]),
+        moves: vec![jab.clone(), strike("uptilt", 40.0)],
+    });
+
+    // t = 0.15: inside the Active window, BEFORE the cancel window opens.
+    let mut playback = MovePlayback::new_at(jab, 1.0, 0.15);
+    playback.connected_hit = true;
+
+    let kit = attack_kit_of(
+        Some(&moveset),
+        true,
+        false,
+        Some(&fighter_brain()),
+        Some(&playback),
+    );
+    assert!(!kit.is_empty(), "an empty kit would make this arm vacuous");
+    assert!(
+        kit.iter().all(|c| c.legality
+            == ambition_characters::brain::attack_kit::ActionLegality::BlockedByPlayback),
+        "a body mid-swing, before its cancel window opens, was told it could start \
+         something"
+    );
+}

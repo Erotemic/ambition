@@ -1835,7 +1835,7 @@ pub(super) fn attack_kit_of(
                 move_id: spec.id.clone(),
                 frames: spec.frame_data(),
                 binding: AttackBinding { verb, direction },
-                legality: legality_of(playback, verb_name, &spec.id),
+                legality: legality_of(playback, verb_name, running_now, &spec.id),
             });
         }
     }
@@ -1861,6 +1861,7 @@ pub(super) fn attack_kit_of(
 fn legality_of(
     playback: Option<&ambition_combat::moveset::MovePlayback>,
     verb_name: &str,
+    running_attack: bool,
     move_id: &str,
 ) -> ambition_characters::brain::attack_kit::ActionLegality {
     use ambition_characters::brain::attack_kit::ActionLegality;
@@ -1868,10 +1869,25 @@ fn legality_of(
         // Nothing owns the body: every candidate is startable.
         return ActionLegality::Now;
     };
-    if pb
-        .spec
-        .cancel_permits(pb.t, pb.contact(), &[verb_name, move_id])
-    {
+    // ⛔⛤ **THE NAMES, NOT A PAIR — AND THIS FUNCTION'S OWN DOC ASKED FOR IT
+    // WHILE THE CODE DID NOT DO IT.** It said *"the name list must match
+    // `trigger_moveset_moves` exactly"*, and it passed `[verb, move_id]` while
+    // the trigger passes `cancel_names_for(base, running) + move_id` — which for
+    // an attack is `["attack", "any_attack", <id>]`.
+    //
+    // ⇒ A window authored `into: ["any_attack"]` — the CLASS every shipped
+    // cancel uses, because an author writes "cancel into an attack" rather than
+    // naming twenty-six move ids — was INVISIBLE HERE. The trigger would have
+    // accepted the press; the brain was told `BlockedByPlayback` and waited out
+    // the recovery, so a permitting window and a CPU that never takes it.
+    //
+    // ⚠ `cancel_names_for` is the vocabulary's own answer to "which names does
+    // this candidate answer to", and asking it is what makes this the same
+    // question rather than a second one that happens to agree.
+    let mut names: Vec<&str> =
+        ambition_entity_catalog::cancel_names_for(verb_name, running_attack).to_vec();
+    names.push(move_id);
+    if pb.spec.cancel_permits(pb.t, pb.contact(), &names) {
         ActionLegality::Now
     } else {
         ActionLegality::BlockedByPlayback
@@ -1939,7 +1955,10 @@ fn capture_candidate(
             verb: AttackVerb::Grab,
             direction: AttackDir::Neutral,
         },
-        legality: legality_of(playback, ambition_entity_catalog::GRAB_VERB, &spec.id),
+        // ⚠ A GRAB IS NOT A RUNNING ATTACK HERE: `cancel_names_for` reduces
+        // `grab_dash` to `grab` on its own, and this candidate is the standing
+        // one. `false` is the honest answer rather than a value carried in.
+        legality: legality_of(playback, ambition_entity_catalog::GRAB_VERB, false, &spec.id),
     })
 }
 

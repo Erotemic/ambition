@@ -2059,6 +2059,52 @@ what exists today.** Only the per-frame SAMPLING claim survives unqualified: the
 performer splits her Active window per frame and the other twenty use one coarse
 window.
 
+#### The authored clock, censused over all 323 moves (2026-09-11)
+
+The move tables became content, so the clock is a file read.
+`measure_authored_strike_extents.py --clock` reports the Active seconds and
+frames; 323 moves with Active windows across 17 tables.
+
+⛔⛤ **"ACTIVE RUNS 10-17 FRAMES AGAINST ULTIMATE'S USUAL 2-5" IS FALSE AS A ROSTER
+STATEMENT.** The roster's median Active is **5.4 frames**, the mean 5.9 and the
+90th percentile 9.6 — which is the "Ultimate's usual" end of that sentence, not
+the claimed one. Only **27 of 323 moves (8%) reach 10 frames or more**, and:
+
+* **nine of the seventeen fighters have NO move at 10 frames or more** — alice,
+  author, carl_stargan, goblin, medic, ninja_shadow_oni_leader, pirate_admiral,
+  projectile_polygon, pugnacious_polygon;
+* **18 of the 27 belong to two fighters** — `cellular_automaton` 11 and
+  `performer` 7.
+
+⇒ The band is real and it is two fighters' idiom, not the roster's. ⭐ And it is
+absent from the ground normals entirely: `attack_forward`, `attack_up`,
+`attack_down`, `attack_air_back` and both grabs top out at **8.4–9.6 frames across
+all seventeen**. Everything at 10+ is a special, a smash or an aerial.
+
+⚠ **AND THE FORWARD-TILT RANGE NEEDS ONE CORRECTION: `cellular_automaton` TIES THE
+PERFORMER.** Both author 0.160 s (9.6 f) of Active on `attack_forward` — the
+performer across FOUR windows, cellular_automaton across TWO — so "everybody but
+the performer is 2.4–6.6 frames" omits the fighter that matches her. The other
+fifteen are 2.4–6.6; two are at 9.6.
+
+⚠ **AND "THE OTHER TWENTY USE ONE COARSE WINDOW" IS NEARLY RIGHT.** Seventeen
+moves in the corpus author three or more Active windows, and **eleven are the
+performer's**; the other six are one move each from alice, oiler, bob,
+pointed_polygon, emmy_noether and cellular_automaton. Multi-window authoring is
+her idiom, but it is not hers alone.
+
+⇒ **WHAT THIS DOES AND DOES NOT SETTLE.** It settles that a roster-wide clock
+claim cannot be made from one fighter, which is the same error this row already
+records for the spatial knob. It does NOT settle whether the performer's 2.3x live
+frames at an identical box is the right generosity lever — that is a product call,
+and the only thing measurement adds is that it is a lever with no spatial
+judgement in it.
+
+⛔ **THE INSTRUMENT'S OWN BOUND, restated because these numbers will be quoted:**
+it reads the AUTHORED window, not the resolved one. For a sprite-manifest fighter
+the drawn box is inflated in frame space by its spec, which the file cannot see —
+so these are the numbers a content edit changes, not the numbers a player meets.
+
 ⇒ **THE PER-CHARACTER WORK IS AUTHORING, IN TWO PLACES THAT ALREADY EXIST**: the
 sprite spec's `inflate`/`per_frame`, and a moveset table that samples the frames the
 library already declares. ⛔ It is content, in a submodule, and published assets are

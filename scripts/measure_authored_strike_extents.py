@@ -46,15 +46,29 @@ RECT = re.compile(
 )
 HALF = re.compile(r"^\s*half_extents: \(([-\d.]+), ([-\d.]+)\),\s*$")
 OFFSET = re.compile(r"^\s*offset: \(([-\d.]+), ([-\d.]+)\),\s*$")
+# ⛔ `start_s`/`end_s` PRECEDE `tag:` IN EVERY WINDOW, so the clock has to be
+# buffered and committed when the tag arrives. Reading them after the tag finds
+# the NEXT window's numbers, which is a silent off-by-one-window rather than a
+# parse failure.
+START = re.compile(r"^\s*start_s: ([-\d.]+),\s*$")
+END = re.compile(r"^\s*end_s: ([-\d.]+),\s*$")
 
 
-def read(path: pathlib.Path) -> tuple[dict[str, str], dict[str, list[tuple[float, float]]]]:
-    """`(verb -> move id, move id -> the half-extents of its Active volumes)`."""
+def read(
+    path: pathlib.Path,
+) -> tuple[
+    dict[str, str],
+    dict[str, list[tuple[float, float]]],
+    dict[str, list[tuple[float, float]]],
+]:
+    """`(verb -> move id, move -> Active half-extents, move -> Active windows)`."""
     verbs: dict[str, str] = {}
     volumes: dict[str, list[tuple[float, float]]] = {}
+    clocks: dict[str, list[tuple[float, float]]] = {}
     move: str | None = None
     in_active = False
     in_verbs = False
+    pending: list[float | None] = [None, None]
     for line in path.read_text().splitlines():
         if "verbs: {" in line:
             in_verbs = True
@@ -71,10 +85,22 @@ def read(path: pathlib.Path) -> tuple[dict[str, str], dict[str, list[tuple[float
         if m:
             move = m.group(1)
             volumes.setdefault(move, [])
+            clocks.setdefault(move, [])
             in_active = False
+            continue
+        st = START.match(line)
+        if st:
+            pending[0] = float(st.group(1))
+            continue
+        en = END.match(line)
+        if en:
+            pending[1] = float(en.group(1))
             continue
         if ACTIVE.match(line):
             in_active = True
+            if move and pending[0] is not None and pending[1] is not None:
+                clocks[move].append((pending[0], pending[1]))
+            pending = [None, None]
             continue
         if line.strip().startswith("tag:"):
             in_active = False
@@ -83,12 +109,17 @@ def read(path: pathlib.Path) -> tuple[dict[str, str], dict[str, list[tuple[float
             h = HALF.match(line)
             if h:
                 volumes[move].append((float(h.group(1)), float(h.group(2))))
-    return verbs, volumes
+    return verbs, volumes, clocks
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--verb", default=None, help="report this verb only")
+    ap.add_argument(
+        "--clock",
+        action="store_true",
+        help="report the ACTIVE duration instead of the volume (seconds and frames at 60)",
+    )
     args = ap.parse_args()
 
     files = sorted(MOVESETS.glob("*.ron"))
@@ -97,8 +128,9 @@ def main() -> int:
         return 2
 
     rows: list[tuple[str, str, str, float, float, float]] = []
+    clock_rows: list[tuple[str, str, str, float, int]] = []
     for path in files:
-        verbs, volumes = read(path)
+        verbs, volumes, clocks = read(path)
         # ⛔ THE FLOOR. A mis-parse yields an empty map and a clean, empty
         # report, which is this repository's most repeated instrument failure.
         if len(verbs) < 5:
@@ -109,6 +141,33 @@ def main() -> int:
                 continue
             for (hx, hy) in volumes.get(move, []):
                 rows.append((path.stem, verb, move, hx, hy, 4.0 * hx * hy))
+            windows = clocks.get(move, [])
+            if windows:
+                live = sum(e - s for s, e in windows)
+                clock_rows.append((path.stem, verb, move, live, len(windows)))
+    if args.clock:
+        # ⛔ THE CLOCK'S OWN FLOOR. A buffering bug yields zero windows and a
+        # clean empty table, which reads exactly like a verb nobody authors.
+        if not clock_rows:
+            print("no Active WINDOWS matched — the clock reader is broken")
+            return 2
+        clock_rows.sort(key=lambda r: r[3])
+        print(
+            f"{'table':<26}{'verb':<20}{'move':<28}{'active_s':>10}"
+            f"{'frames60':>10}{'windows':>9}"
+        )
+        for table, verb, move, live, n in clock_rows:
+            print(
+                f"{table:<26}{verb:<20}{move:<28}{live:>10.3f}"
+                f"{live * 60.0:>10.1f}{n:>9}"
+            )
+        lo, hi = clock_rows[0][3], clock_rows[-1][3]
+        print(
+            f"\n{len(clock_rows)} move(s) with Active windows across {len(files)} "
+            f"table(s); live {lo:.3f}s ({lo * 60:.1f}f) to {hi:.3f}s ({hi * 60:.1f}f)"
+        )
+        return 0
+
     if not rows:
         print("no Active volumes matched — nothing to report")
         return 2

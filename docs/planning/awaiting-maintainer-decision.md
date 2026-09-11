@@ -691,6 +691,56 @@ Measured by ToothbrushAmbition; census verified in the predicate's own comment.
 worktree, read in one command. **If another agent claims Q101 concurrently, this
 one renumbers.**
 
+## Q106 — are `ambition_items` and `ambition_encounter` optional capability edges of the facade, or not?
+
+**A comment says one thing and four measurements say the other.**
+`crates/ambition_platformer2d/Cargo.toml:20` reads *"`ambition_items?/content_pack`:
+the `?` means only if that optional edge is already enabled. A movement-only game
+with `default-features = false` gets the compiler without being forced to link
+the items capability to have it."*
+
+Measured at `9604a3649`:
+
+* the entries that comment annotates — `:27` `"ambition_items/content_pack"` and
+  `:30` `"ambition_encounter/content_pack"` — carry **no `?`**;
+* neither dependency is declared `optional = true` (`:193`, `:208`);
+* neither appears in `all_capabilities`, the list the manifest says names every
+  optional crate edge;
+* and `cargo tree -p ambition_platformer2d --no-default-features --features
+  content_pack` **links both** — 367 crates, items and encounter among them.
+
+⭐ **The manifest uses `?/` correctly four times elsewhere** (`:102`, `:112`,
+`:125`, `:128`), so this is not a syntax error. Somebody meant the design and it
+is not implemented.
+
+**The question.** Either:
+
+* **they ARE optional capability edges** — then the `?`, `optional = true` and the
+  `all_capabilities` entries are missing, and the payoff is that a movement-only
+  game can take the content compiler without the items and encounter
+  capabilities; or
+* **they are NOT** — then the comment describes a design that was considered and
+  declined, and it should be deleted rather than left describing behaviour the
+  build does not have.
+
+⛔ **It is a capability-edge ruling, not a repair.** Slice H's stance is that the
+facade's edges are optional capabilities and the default is all of them; whether
+`item_catalog` and `encounter_waves` belong in that set is a product question
+about which games may exist without them — `engine_schemas()` registers both
+unconditionally today, and a composition that must not claim to own a schema it
+cannot install is the reason the `?` was wanted in the first place.
+
+⚠ **Nothing is blocked meanwhile.** The shipped behaviour is today's by
+construction, and the schema list that reads these edges was collapsed to one
+place at `9604a3649` without needing the answer.
+
+Found while collapsing `engine_schemas()` and `ambition_content_cli::default_registry()`.
+⭐ **Q102 was the highest filed in `origin/main` at `9604a3649`, read in the same
+command that wrote this.** ⚠ Q103–Q105 are claimed concurrently by
+ToothbrushAmbition and are not yet in this ref, which is why this row starts at
+106 and why a reader seeing a gap should look for their push rather than assume a
+retired number. **If those three land differently, this one renumbers.**
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

@@ -3438,6 +3438,55 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// definition cannot name the verb its moveset binds without reaching up into
 /// the runtime crate. Re-exported from `ambition_platformer2d::combat::moveset`, so every
 /// existing path still resolves.
+/// How much more generous a strike volume is than the art it was authored from.
+///
+/// ⛔⛤ ONE NUMBER, BECAUSE A HITBOX HAS TWO ROADS AND A FIGHTER HAS ONE FEEL.
+/// A body whose sprite library publishes per-animation polys resolves through
+/// `ambition_character_sprites::actor_attack_hitbox_local`; a body whose moves
+/// carry authored `VolumeShape::Rect`s resolves through
+/// `ambition_combat::moveset::place_body_local_volume`. MEASURED 2026-09-11
+/// across the 21-fighter smash grid, FOURTEEN take the first road and SEVEN take
+/// the second — and a knob on one of them makes half the roster feel different
+/// for a reason no player can see.
+///
+/// ⭐ THE ARGUMENT IS THE ONE ALREADY WRITTEN ON THE PLAYER'S OWN KNOB: *"a move
+/// that connects only where the sprite overlaps feels stingy — so the generous
+/// part is declared rather than faked by drawing a longer sword."* This is that
+/// declaration, for every body that swings.
+///
+/// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
+/// overpowered."* Per-move tuning is a different question, asked per swing by a
+/// spec's `hitbox.inflate` or an authored rect's own extents.
+pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.6;
+
+impl VolumeShape {
+    /// This shape, grown about the body's own origin by `factor`.
+    ///
+    /// ⭐ REACH AND SIZE TOGETHER, which is what the sprite road already does by
+    /// scaling the render size the poly offsets derive from. Growing the extents
+    /// alone would make a swing fatter without letting it reach any further, and
+    /// "it does not reach" is the half a player feels first.
+    ///
+    /// ⚠ `factor` of `1.0` is the identity, so a caller that does not want the
+    /// generosity says so by passing it rather than by calling something else.
+    #[must_use]
+    pub fn from_generous(shape: &Self, factor: f32) -> Self {
+        match shape {
+            Self::Rect {
+                offset,
+                half_extents,
+            } => Self::Rect {
+                offset: (offset.0 * factor, offset.1 * factor),
+                half_extents: (half_extents.0 * factor, half_extents.1 * factor),
+            },
+            Self::Circle { offset, radius } => Self::Circle {
+                offset: (offset.0 * factor, offset.1 * factor),
+                radius: radius * factor,
+            },
+        }
+    }
+}
+
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the
 /// distinct `smash` base. A moveset that authors no smash verb falls back to its

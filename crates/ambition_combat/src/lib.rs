@@ -143,6 +143,10 @@ use bevy::prelude::*;
 pub mod technique;
 
 pub use ambition_entity_catalog::placements::DamageKind;
+/// Re-exported so a crate that can see BOTH hitbox roads can pin this against
+/// `ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE` — see
+/// `ambition_platformer2d_runtime`'s `the_two_hitbox_roads_are_equally_generous`.
+pub use ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY;
 use ambition_entity_catalog::placements::{DamageTeam, HazardRespawn};
 use ambition_platformer2d_core::{Aabb, AabbExt, KinematicPath, Vec2};
 

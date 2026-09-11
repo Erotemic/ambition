@@ -1848,8 +1848,27 @@ pub fn advance_move_playback(
                             // the same call a capture attempt makes — so a grab
                             // box and an attack box cannot disagree about gravity.
                             None => {
+                                // ⛔⛤ THE AUTHORED-RECT ROAD GETS THE SAME
+                                // GENEROSITY THE SPRITE ROAD DOES. MEASURED
+                                // 2026-09-11 over the 21-fighter grid: fourteen
+                                // resolve a manifest poly and seven resolve an
+                                // authored rect, and a feel knob on one of them
+                                // makes half the roster play differently for a
+                                // reason no player can see. Goblin 0.35, ninja
+                                // 0.51 and mary_o 0.76 of their own body AREA
+                                // sat untouched while their neighbours grew.
+                                //
+                                // ⚠ APPLIED HERE, NOT IN THE SHARED PLACEMENT,
+                                // because `place_body_local_volume` is also the
+                                // CAPTURE road. A grab's range is a separate
+                                // balance question and inflating it silently
+                                // alongside strikes would answer it by accident.
+                                let generous = ambition_entity_catalog::VolumeShape::from_generous(
+                                    &volume.shape,
+                                    ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY,
+                                );
                                 let placed =
-                                    place_body_local_volume(&volume.shape, pb.facing, &body_frame);
+                                    place_body_local_volume(&generous, pb.facing, &body_frame);
                                 (placed.world_offset, placed.half_extent, placed.shape)
                             }
                         };

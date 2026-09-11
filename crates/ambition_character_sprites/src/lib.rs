@@ -13,7 +13,7 @@ pub use anim::{
     ActorAnimState, FighterClipFacts, GuardBreakBeat, body_state_clip, pick_actor_anim,
     pick_player_anim,
 };
-pub use attack_hitbox::{
+pub use attack_hitbox::{ACTOR_ATTACK_HITBOX_SCALE, 
     actor_attack_hitbox_local, actor_attack_hitbox_world, authored_attack_volume_resolver,
     manifest_attack_hitbox_local, manifest_attack_hitbox_world, player_attack_hitbox_local,
     player_attack_hitbox_world, refused_file_roots, resolves_by_file_root,

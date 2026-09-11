@@ -223,7 +223,17 @@ const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 /// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
 /// overpowered."* This is the roster-wide feel lever; per-move tuning is the
 /// spec's `inflate`, which is a different question asked per swing.
-const ACTOR_ATTACK_HITBOX_SCALE: f32 = 1.6;
+/// ⚠ THE SAME NUMBER AS `ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY`,
+/// AND DELIBERATELY NOT THE SAME CONSTANT. This crate takes `entity_catalog` as
+/// a DEV-dependency on purpose — its own manifest says why, and the capability
+/// footprint reads `cargo tree --edges normal` — so importing it here to share
+/// one `f32` would trade a documented boundary for a line of deduplication.
+///
+/// ⛔ THE COPY IS PINNED BY A TEST THAT CAN SEE BOTH, not by anyone remembering:
+/// `ambition_combat`'s `the_two_hitbox_roads_are_equally_generous`. Two roads
+/// that drift apart make half the roster feel different for a reason no player
+/// can see.
+pub const ACTOR_ATTACK_HITBOX_SCALE: f32 = 1.6;
 
 /// The player's authored melee volume for `animation`, BODY-LOCAL.
 ///

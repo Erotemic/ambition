@@ -989,3 +989,32 @@ fn refresh_authored_volume_resolver(
 ) {
     *resolver = authored_volume_resolver_for(&sheets);
 }
+
+#[cfg(test)]
+mod generosity_tests {
+    /// ⛔⛤ A HITBOX HAS TWO ROADS AND A FIGHTER HAS ONE FEEL.
+    ///
+    /// A body whose sprite library publishes per-animation polys resolves
+    /// through `ambition_character_sprites`; a body whose moves carry authored
+    /// `VolumeShape::Rect`s resolves through `ambition_combat`. MEASURED
+    /// 2026-09-11 over the 21-fighter smash grid: FOURTEEN take the first road
+    /// and SEVEN take the second, and the generosity knob existed on neither
+    /// until today.
+    ///
+    /// ⚠ THE TWO CONSTANTS ARE DELIBERATELY SEPARATE. `ambition_character_sprites`
+    /// takes `ambition_entity_catalog` as a DEV-dependency on purpose — its
+    /// manifest says why, and the capability footprint reads
+    /// `cargo tree --edges normal` — so sharing one `f32` would trade a
+    /// documented boundary for a line of deduplication. This crate can see both,
+    /// so the copy is pinned HERE rather than by anyone remembering.
+    #[test]
+    fn the_two_hitbox_roads_are_equally_generous() {
+        assert_eq!(
+            ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE,
+            ambition_combat::ATTACK_VOLUME_GENEROSITY,
+            "the sprite-poly road and the authored-rect road disagree about how \
+             generous a strike volume is. Half the roster would play differently \
+             for a reason no player can see."
+        );
+    }
+}

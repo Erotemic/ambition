@@ -8,6 +8,8 @@
 /// The loadable content envelope (fast-iteration I2): versioned, sectioned, and
 /// opaque to every domain it carries.
 pub mod artifact;
+/// A prepared-but-unpublished complete content generation (fast-iteration I3).
+pub mod candidate;
 mod diagnostic;
 mod draft;
 mod identity;
@@ -15,6 +17,7 @@ mod prepared;
 mod refs;
 mod schema;
 
+pub use candidate::{CandidateGeneration, CandidateVerdict};
 pub use diagnostic::{CompileFailure, CompileStage, Diagnostic, DiagnosticCode, Severity};
 pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile};
 pub use identity::{

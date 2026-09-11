@@ -75,6 +75,17 @@ pub enum MoveReload {
     /// another reload, or a tool, published in between. **Nothing was
     /// published**; the caller re-reads and tries again.
     Stale { prepared_against: u64, active: u64 },
+    /// The CANDIDATE was prepared against a content generation that is no longer
+    /// selected. **Nothing was published** — not the cast, not the selection.
+    ///
+    /// ⛔ SEPARATE FROM `Stale`, WHICH IS THE CAST'S CLOCK. That these are two
+    /// variants is the honest report of a real defect in the architecture, not a
+    /// design: I3 wants ONE generation identity, and until the epoch binding
+    /// lands a caller can be stale against either clock independently.
+    StaleGeneration {
+        prepared_against: String,
+        active: String,
+    },
     /// This world installs no technique table at all.
     ///
     /// ⛔⛤ **ABSENT IS NOT EMPTY, AND MY FIRST VERSION CONFLATED THEM.** An
@@ -209,31 +220,93 @@ pub fn reload_move_tables_from_dir(
     }
 }
 
-/// Republish the cast AND make the new pack this App's selection.
+/// Publish a COMPLETE candidate generation, or refuse it, as one act.
 ///
-/// ⭐⭐ **SELECTION MOVES ONLY IF THE CAST DID.** A reload that swapped the
-/// App's pack first and revised after would leave a refused or stale reload with
-/// the cast built from pack A while every LATER read answered from pack B — two
-/// authorities for "what content is this App running", which is exactly what
-/// App-scoped selection exists to collapse. So the outcome decides: a published
-/// revision selects, and everything else leaves the selection alone.
+/// ⭐⭐ **THE DECISION IS MADE ON THE WHOLE PACK'S IDENTITY, NOT ON THE MOVE
+/// FAMILY'S.** [`ambition_content_pack::CandidateGeneration::verdict`] answers
+/// stale / complete-no-op / publish from the pack's own `ContentFingerprint`,
+/// which covers every content id, schema, capability, asset and reference. The
+/// move family's own outcome is then a CONSEQUENCE of that decision rather than
+/// an input to it.
 ///
-/// ⚠ `Unchanged` SELECTS TOO, and deliberately: the bytes are identical, so the
-/// two packs say the same thing, and refusing to adopt the new one would leave
-/// the App holding a value with no advantage and an older provenance.
+/// ⛔⛤ **AND THAT IS THE FIX FOR A DEFECT I SHIPPED HOURS EARLIER.** This
+/// function used to conclude `Unchanged` from the MOVE material and install the
+/// whole newly-loaded pack anyway:
+///
+/// ```text
+/// generation N   moves = A   items = X
+/// candidate      moves = A   items = Y
+/// → "Unchanged", and the whole candidate pack became the App's selection.
+/// ```
+///
+/// One subsystem believing nothing changed while another can observe new
+/// mechanical content. ⇒ It is NOT fixed by special-casing `Unchanged` — that
+/// hides the missing abstraction. The complete identity is the abstraction.
+///
+/// ⚠ **A CHANGED PACK WHOSE MOVES ARE IDENTICAL NOW PUBLISHES THE SELECTION AND
+/// LEAVES THE CAST GENERATION ALONE**, which is the correct pair of answers and
+/// was not expressible before: the pack really did change, and the cast really
+/// did not.
+///
+/// ⛔ **WHAT THIS STILL DOES NOT DO** (fast-iteration I3's remaining half): it
+/// establishes no `ContentEpoch`, no `PreparedContentIdentity` and no rollback
+/// timeline boundary, and it carries TWO base clocks — the pack fingerprint and
+/// [`CharacterCatalogGeneration`] — where the architecture wants one. Both are
+/// additions at this one seam rather than rewrites, which is why the decision
+/// was moved here first.
+pub fn publish_candidate(
+    world: &mut bevy::ecs::world::World,
+    candidate: ambition_content_pack::CandidateGeneration,
+    cast_base: Option<CharacterCatalogGeneration>,
+) -> MoveReload {
+    let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
+    match candidate.verdict(active) {
+        ambition_content_pack::CandidateVerdict::Stale {
+            prepared_against,
+            active,
+        } => MoveReload::StaleGeneration {
+            prepared_against: prepared_against.hex(),
+            active: active.hex(),
+        },
+        // ⛔ A COMPLETE NO-OP TOUCHES NOTHING — not the cast, not the selection.
+        // A file watcher fires on a SAVE, not on a CHANGE, so this is the common
+        // case in the loop this exists for.
+        ambition_content_pack::CandidateVerdict::Unchanged { .. } => {
+            let generation = world
+                .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+                .map(|registry| registry.generation().get())
+                .unwrap_or_default();
+            MoveReload::Unchanged { generation }
+        }
+        ambition_content_pack::CandidateVerdict::Publish { .. } => {
+            let pack = candidate.into_pack();
+            let outcome = reload_move_tables_from(world, &pack, cast_base);
+            // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A
+            // refused or stale revision must leave the App reading the pack its
+            // cast was actually built from.
+            if matches!(
+                outcome,
+                MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
+            ) {
+                world.insert_resource(crate::pack::SelectedContentPack(pack));
+            }
+            outcome
+        }
+    }
+}
+
+/// Publish a freshly compiled pack as a candidate prepared against what is live.
+///
+/// ⚠ THE CONVENIENCE FORM, for a caller that compiled and published without
+/// yielding. A caller that did file I/O in between must build the candidate
+/// itself with the identity it READ, or its base claim is a fiction.
 pub fn reload_move_tables_selecting(
     world: &mut bevy::ecs::world::World,
     fresh: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
     compiled_against: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
-    let outcome = reload_move_tables_from(world, &fresh, compiled_against);
-    if matches!(
-        outcome,
-        MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
-    ) {
-        world.insert_resource(crate::pack::SelectedContentPack(fresh));
-    }
-    outcome
+    let candidate = ambition_content_pack::CandidateGeneration::prepared_against(fresh, None);
+    publish_candidate(world, candidate, compiled_against)
 }
 
 #[cfg(test)]

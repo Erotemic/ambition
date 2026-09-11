@@ -1273,6 +1273,41 @@ each saying what happened to the LIVE cast, and every variant has a witness:
 CONTENT problem sends an author to edit files over a lifecycle fact about the
 caller.
 
+✅ **I2'S ACCEPTANCE IS A FACT NOW (`c4f2eb56b`) — A PREBUILT HOST PLAYS A MOVE
+EDITED ON DISK AFTER IT WAS BUILT.**
+
+The sentence was exact and unwitnessable: *"a prebuilt host plays the edited
+artifact without invoking Cargo or its linker."* WHERE CONTENT COMES FROM was
+`env!("CARGO_MANIFEST_DIR")` — baked at BUILD time, so a shipped binary read a
+path on the machine that compiled it and a running host could not be pointed
+anywhere else. A directory is an argument now: `pack::compile_pack_from(root)`,
+`pack::export_sources_to(root)`, `reload::reload_move_tables_from_dir(world, root)`.
+
+⛔⛔ **EVERY MISSING FILE IS NAMED AND NONE IS SILENTLY INHERITED.** A per-file
+fallback to the binary's own text compiles a MIXED pack out of a directory and a
+build, and *"which half did I just play"* becomes whichever files happened to
+exist. The root's own problems are reported BEFORE the compiler's: an absent file
+reaches the compiler as an empty source whose diagnostic points at byte 0 — true,
+and useless to somebody who mistyped a directory.
+
+⛔⛤ **AND WRITING THE WITNESS FOUND A FACT THAT TWO TRUE SENTENCES HIDE.**
+`authored_intrinsics` says the pack's table is *"A REPLACEMENT, NOT A MERGE"* —
+true of the CONTRACT it hands over. `overlay_authored_moves` says an authored
+table OVERLAYS the kit-derived one and a derived move the table does not name
+SURVIVES — true of the kit that contract is folded into. **MEASURED: `author.ron`
+carries 26 moves and the published `author` plays 33.** The seven extras are
+derived kit moves, and one of them authors `pogo_bounce`, a key **no shipped move
+table mentions**. A fixture built on the pack's keys alone reported a roster of
+technique refusals that read exactly like a reload defect.
+
+⇒ `the_published_moveset_keeps_the_kit_moves_the_table_does_not_name` pins it,
+and it gives the "seven shadowed `MoveSpec`s" row above its MECHANISM: 33 − 26 =
+7, per fighter, and they are admitted against technique support like any other.
+
+⚠ **WHAT IS STILL OPEN:** nothing in the shipped app CALLS the directory road —
+no hotkey, no watcher. The loop is reachable and witnessed; it is not yet wired
+to a keystroke, and that is a composition decision rather than a packet.
+
 ✅ **I3 STEP 1 LANDED THE SAME DAY (`9eb08bd97`) — THE PACK IS APP-SCOPED.**
 
 The acceptance was one line and the answer was structurally NO: *"Two Apps can

@@ -418,6 +418,33 @@ pub fn unsupported_authored_effects(
 #[derive(bevy::prelude::Resource, Default)]
 pub struct StagedCastRevision {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
+    /// Which published cast this revision was built ON TOP OF.
+    ///
+    /// ⭐⭐ **A CANDIDATE IS PREPARED AGAINST A GENERATION, AND FOLDING IT ONTO A
+    /// DIFFERENT ONE IS A SILENT MERGE** (fast-iteration I3a, *"stale-attempt
+    /// rejection"*). `revise_staged_moveset` reads the live source at STAGE
+    /// time; `activate_staged_revision` folds onto the live registry at ACTIVATE
+    /// time. With an activation in between — a second tool, a watcher, a
+    /// scripted reload — the edit is applied to a cast it never saw, and the
+    /// intervening change is absorbed without a word.
+    ///
+    /// ⚠ `None` MEANS "NO CLAIM", not "generation zero": a revision staged
+    /// before any cast was published has nothing to be stale against. Only a
+    /// stamped value can refuse.
+    prepared_against: Option<CharacterCatalogGeneration>,
+}
+
+impl StagedCastRevision {
+    /// Record which cast an edit is being built on top of, once per revision.
+    ///
+    /// ⛔ THE FIRST STAMP WINS. A revision is one transaction over one base; a
+    /// later edit re-stamping it to the current generation would erase exactly
+    /// the disagreement this field exists to report.
+    fn stamp(&mut self, against: Option<CharacterCatalogGeneration>) {
+        if self.prepared_against.is_none() {
+            self.prepared_against = against;
+        }
+    }
 }
 
 // ⚠ `cfg(test)` ALONE, unlike every other `test-support` item in this file.
@@ -434,7 +461,12 @@ impl StagedCastRevision {
         &mut self,
         id: ambition_entity_catalog::CharacterId,
         staged: StagedCharacter,
+        against: Option<CharacterCatalogGeneration>,
     ) {
+        // ⛔ THE FIXTURE STAMPS TOO. A test helper that skipped this would stage
+        // revisions no staleness rule could ever refuse, so every fixture built
+        // on it would be exempt from the rule it is meant to exercise.
+        self.stamp(against);
         self.by_id.insert(id, staged);
     }
 }
@@ -472,6 +504,15 @@ pub enum RevisionOutcome {
     Unchanged {
         generation: CharacterCatalogGeneration,
     },
+    /// The revision was built on top of a cast that is no longer the live one.
+    /// **Nothing was published and the edits are SPENT** — a stale transaction
+    /// is not retried silently against a base it never saw.
+    Stale {
+        /// The generation the edit was prepared against.
+        prepared_against: CharacterCatalogGeneration,
+        /// The generation that is actually live.
+        active: CharacterCatalogGeneration,
+    },
 }
 
 /// Stage a character edit for a later explicit activation.
@@ -491,10 +532,15 @@ pub fn stage_character_revision(
     }
     let staged = prepare_for_registration(definition, bindings).staged;
     let id = ambition_entity_catalog::CharacterId::new(staged.id());
-    app.world_mut()
-        .get_resource_or_insert_with(StagedCastRevision::default)
-        .by_id
-        .insert(id, staged);
+    let against = app
+        .world()
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(PreparedCharacterRegistry::generation);
+    let mut revision = app
+        .world_mut()
+        .get_resource_or_insert_with(StagedCastRevision::default);
+    revision.stamp(against);
+    revision.by_id.insert(id, staged);
     Ok(())
 }
 
@@ -519,18 +565,46 @@ pub fn activate_staged_revision(
     // `admit_and_finalize_cast`.
     support: &ambition_entity_catalog::TechniqueSupport,
 ) -> RevisionOutcome {
-    let staged: Vec<StagedCharacter> = match world.get_resource_mut::<StagedCastRevision>() {
-        Some(mut revision) if !revision.by_id.is_empty() => {
-            std::mem::take(&mut revision.by_id).into_values().collect()
-        }
-        _ => return RevisionOutcome::NothingStaged,
-    };
+    let (staged, prepared_against): (Vec<StagedCharacter>, Option<CharacterCatalogGeneration>) =
+        match world.get_resource_mut::<StagedCastRevision>() {
+            Some(mut revision) if !revision.by_id.is_empty() => {
+                let against = revision.prepared_against.take();
+                (
+                    std::mem::take(&mut revision.by_id).into_values().collect(),
+                    against,
+                )
+            }
+            _ => return RevisionOutcome::NothingStaged,
+        };
     let Some(active) = world.get_resource::<PreparedCharacterRegistry>() else {
         // No cast has been published, so there is nothing to revise and nothing
         // to protect; the barrier has not run.
         return RevisionOutcome::NothingStaged;
     };
     let previous = active.generation();
+
+    // ⛔⛔ **A REVISION PREPARED AGAINST A CAST THAT IS NO LONGER LIVE IS
+    // REFUSED, NOT MERGED** (fast-iteration I3a, "stale-attempt rejection").
+    // The edit was computed from the source as it stood at STAGE time; folding
+    // it onto a registry that has since moved applies it to a cast it never saw
+    // and absorbs the intervening change without a word.
+    //
+    // ⚠ THE EDITS ARE SPENT EITHER WAY — they were taken above. A stale
+    // transaction that stayed staged would be retried against an even newer base
+    // on the next activation, which is the same defect one tick later.
+    if let Some(prepared_against) = prepared_against {
+        if prepared_against != previous {
+            bevy::prelude::error!(
+                "a staged cast revision was prepared against generation \
+                 {prepared_against} and the live cast is {previous}; it is \
+                 REFUSED rather than folded onto a cast it never saw"
+            );
+            return RevisionOutcome::Stale {
+                prepared_against,
+                active: previous,
+            };
+        }
+    }
 
     // ⭐⭐ **A REVISION THAT PROPOSES NOTHING NEW DOES NOT MOVE THE GENERATION**
     // (fast-iteration I3a, "no-op identity"). Asked of the SOURCE the live
@@ -692,10 +766,12 @@ pub fn revise_staged_moveset(
     };
     let mut revised = staged.clone();
     revised.inner.moveset = Some(moveset);
-    world
-        .get_resource_or_insert_with(StagedCastRevision::default)
-        .by_id
-        .insert(key, revised);
+    let against = world
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(PreparedCharacterRegistry::generation);
+    let mut revision = world.get_resource_or_insert_with(StagedCastRevision::default);
+    revision.stamp(against);
+    revision.by_id.insert(key, revised);
     Ok(())
 }
 
@@ -2438,10 +2514,7 @@ pub struct PreparationBarrier;
 /// with its own table; the `finalized` guard makes whichever fires first the only
 /// one that folds.
 pub fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
-    finalize_prepared_cast(
-        world,
-        &ambition_entity_catalog::TechniqueSupport::default(),
-    );
+    finalize_prepared_cast(world, &ambition_entity_catalog::TechniqueSupport::default());
 }
 
 /// **Fold the cast WITHOUT admission, for a low-level test that is asking a

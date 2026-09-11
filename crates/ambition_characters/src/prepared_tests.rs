@@ -1229,7 +1229,11 @@ mod withholding {
                     vec![move_emitting("the_move", unsupported)],
                 )),
             ),
-            staged(CharacterDefinition::new("bystander", "bystander", "test_demo")),
+            staged(CharacterDefinition::new(
+                "bystander",
+                "bystander",
+                "test_demo",
+            )),
         ]
     }
 
@@ -1404,7 +1408,9 @@ mod withholding {
 // owner document says explicitly is insufficient. GPT review #9 named it.
 // ---------------------------------------------------------------------------
 mod domain_semantics {
-    use ambition_entity_catalog::smash_time_dilation::{check_time_dilation_params, TimeDilationParams};
+    use ambition_entity_catalog::smash_time_dilation::{
+        check_time_dilation_params, TimeDilationParams,
+    };
     use ambition_entity_catalog::{check_hydrates, ParamValue};
 
     fn params(ron_text: &str) -> ParamValue {
@@ -1572,13 +1578,30 @@ mod revision_activation {
     }
 
     fn stage(world: &mut bevy::ecs::world::World, definition: CharacterDefinition) {
+        // ⛔ AGAINST THE LIVE GENERATION, which is what a real staging road reads.
+        // A fixture that stamped `None` would stage revisions the staleness rule
+        // can never refuse, so every test built on it would be exempt from the
+        // rule it exists to exercise.
+        let against = world
+            .get_resource::<PreparedCharacterRegistry>()
+            .map(PreparedCharacterRegistry::generation);
+        stage_against(world, definition, against);
+    }
+
+    /// Stage claiming a DIFFERENT base than the live one — the only way to build
+    /// the state `RevisionOutcome::Stale` refuses.
+    fn stage_against(
+        world: &mut bevy::ecs::world::World,
+        definition: CharacterDefinition,
+        against: Option<crate::prepared::CharacterCatalogGeneration>,
+    ) {
         let staged =
             crate::prepared::prepare_for_registration(definition, &CharacterBindings::default())
                 .staged;
         let id = ambition_entity_catalog::CharacterId::new(staged.id());
         world
             .get_resource_or_insert_with(StagedCastRevision::default)
-            .insert_for_test(id, staged);
+            .insert_for_test(id, staged, against);
     }
 
     /// ⭐ THE PREMISE ARM. Without a revision that DOES activate, "refused leaves
@@ -1735,6 +1758,170 @@ mod revision_activation {
                 .get(),
             published.get() + 1,
             "a real edit did not move the generation"
+        );
+    }
+
+    /// ⛔⛔ **A REVISION PREPARED AGAINST A CAST THAT IS NO LONGER LIVE IS
+    /// REFUSED, NOT MERGED** — fast-iteration I3a's "stale-attempt rejection".
+    ///
+    /// The edit was computed from the source as it stood at STAGE time. An
+    /// activation in between — a second tool, a file watcher, a scripted reload
+    /// — moves the registry, and folding the edit on anyway applies it to a cast
+    /// it never saw while absorbing the intervening change without a word. The
+    /// two roads are far enough apart in time for this to be ordinary rather
+    /// than exotic: `revise_staged_moveset` reads live at stage,
+    /// `activate_staged_revision` folds live at activate.
+    #[test]
+    fn a_revision_prepared_against_a_superseded_cast_is_refused() {
+        let mut world = world_with_live_cast();
+        let base = world.resource::<PreparedCharacterRegistry>().generation();
+
+        // Somebody else publishes first.
+        let mut theirs = authoring("rider", SUMMON_RIDE);
+        theirs.display_name = "Rider, theirs".to_string();
+        stage(&mut world, theirs);
+        let first = activate_staged_revision(&mut world, &supporting_summons());
+        assert!(
+            matches!(first, RevisionOutcome::Activated { .. }),
+            "the premise: the cast actually moved under us; got {first:?}"
+        );
+        let active = world.resource::<PreparedCharacterRegistry>().generation();
+        assert_ne!(
+            base, active,
+            "the fixture never superseded anything, so the arm below would pass \
+             against a generation that never changed"
+        );
+
+        // Our edit, prepared before that, arrives late.
+        let mut ours = authoring("rider", SUMMON_RIDE);
+        ours.display_name = "Rider, ours".to_string();
+        stage_against(&mut world, ours, Some(base));
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
+
+        assert_eq!(
+            outcome,
+            RevisionOutcome::Stale {
+                prepared_against: base,
+                active,
+            },
+            "a stale revision was not refused: {outcome:?}"
+        );
+        let registry = world.resource::<PreparedCharacterRegistry>();
+        assert_eq!(
+            registry.generation(),
+            active,
+            "a refused-as-stale revision moved the generation"
+        );
+        assert_eq!(
+            registry.get("rider").map(|r| r.display_name.as_str()),
+            Some("Rider, theirs"),
+            "the stale edit was folded on anyway and silently overwrote the \
+             publication it never saw"
+        );
+    }
+
+    /// ⭐ THE CONTROL THAT MAKES THE ARM ABOVE MEAN SOMETHING. "Refused as
+    /// stale" is also what a rule that refuses EVERY stamped revision reports.
+    /// A revision staged against the CURRENT generation still publishes.
+    #[test]
+    fn a_revision_prepared_against_the_live_cast_still_publishes() {
+        let mut world = world_with_live_cast();
+        let live = world.resource::<PreparedCharacterRegistry>().generation();
+
+        let mut ours = authoring("rider", SUMMON_RIDE);
+        ours.display_name = "Rider, current".to_string();
+        stage_against(&mut world, ours, Some(live));
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
+
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
+            "an up-to-date revision was refused; got {outcome:?}"
+        );
+    }
+
+    /// ⚠ `None` IS "NO CLAIM", NOT "GENERATION ZERO". A revision staged before
+    /// any cast was published has nothing to be stale against, and treating its
+    /// missing stamp as zero would refuse every one of them the moment the
+    /// registry moved past zero.
+    #[test]
+    fn a_revision_with_no_recorded_base_is_not_treated_as_stale() {
+        let mut world = world_with_live_cast();
+        let mut theirs = authoring("rider", SUMMON_RIDE);
+        theirs.display_name = "Rider, theirs".to_string();
+        stage(&mut world, theirs);
+        assert!(
+            matches!(
+                activate_staged_revision(&mut world, &supporting_summons()),
+                RevisionOutcome::Activated { .. }
+            ),
+            "the premise: the generation is past zero"
+        );
+
+        let mut ours = authoring("rider", SUMMON_RIDE);
+        ours.display_name = "Rider, unstamped".to_string();
+        stage_against(&mut world, ours, None);
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
+            "an unstamped revision was refused as stale; got {outcome:?}"
+        );
+    }
+
+    /// ⛔ A STALE REVISION IS SPENT, like a refused one. Left staged, it would
+    /// be retried against an even newer base on the next activation — the same
+    /// defect one tick later, and now invisible because nothing staged it.
+    #[test]
+    fn a_stale_revision_does_not_linger_for_the_next_activation() {
+        let mut world = world_with_live_cast();
+        let base = world.resource::<PreparedCharacterRegistry>().generation();
+        let mut theirs = authoring("rider", SUMMON_RIDE);
+        theirs.display_name = "Rider, theirs".to_string();
+        stage(&mut world, theirs);
+        let _ = activate_staged_revision(&mut world, &supporting_summons());
+
+        let mut ours = authoring("rider", SUMMON_RIDE);
+        ours.display_name = "Rider, ours".to_string();
+        stage_against(&mut world, ours, Some(base));
+        let _ = activate_staged_revision(&mut world, &supporting_summons());
+
+        assert_eq!(
+            activate_staged_revision(&mut world, &supporting_summons()),
+            RevisionOutcome::NothingStaged,
+            "a stale edit was still staged and would have been retried silently"
+        );
+    }
+
+    /// ⛔ THE FIRST STAMP WINS. A revision is one transaction over one base; a
+    /// second edit re-stamping it to the current generation would erase exactly
+    /// the disagreement the field exists to report — and that is not a
+    /// hypothetical shape, it is what `get_resource_or_insert_with(..).stamp()`
+    /// would do on every call if `stamp` overwrote.
+    #[test]
+    fn a_second_edit_does_not_re_stamp_the_revisions_base() {
+        let mut world = world_with_live_cast();
+        let base = world.resource::<PreparedCharacterRegistry>().generation();
+        let mut theirs = authoring("rider", SUMMON_RIDE);
+        theirs.display_name = "Rider, theirs".to_string();
+        stage(&mut world, theirs);
+        let _ = activate_staged_revision(&mut world, &supporting_summons());
+        let active = world.resource::<PreparedCharacterRegistry>().generation();
+
+        // Two edits in one transaction: the first claims the old base, the
+        // second is staged by the ordinary road, which reads the CURRENT one.
+        let mut ours = authoring("rider", SUMMON_RIDE);
+        ours.display_name = "Rider, ours".to_string();
+        stage_against(&mut world, ours, Some(base));
+        let mut also = authoring("mount", SUMMON_RIDE);
+        also.display_name = "Mount, ours".to_string();
+        stage(&mut world, also);
+
+        assert_eq!(
+            activate_staged_revision(&mut world, &supporting_summons()),
+            RevisionOutcome::Stale {
+                prepared_against: base,
+                active,
+            },
+            "the later edit re-stamped the transaction and hid the staleness"
         );
     }
 
@@ -1982,10 +2169,8 @@ mod nonfinite_params {
     /// reject `damage: 4` and take the whole roster down with it.
     #[test]
     fn integers_are_never_a_finding() {
-        let params = ParamValue::parse(
-            "(a: 0, b: -9000, c: 4294967295, d: 1.5)",
-        )
-        .expect("valid RON");
+        let params =
+            ParamValue::parse("(a: 0, b: -9000, c: 4294967295, d: 1.5)").expect("valid RON");
         assert!(
             params.nonfinite_fields().is_empty(),
             "an authored integer was reported as non-finite"
@@ -2083,10 +2268,19 @@ mod bolt_domain_rules {
     #[test]
     fn the_authoring_road_refuses_exactly_what_the_declaration_refuses() {
         for (name, edit) in [
-            ("trail_vfx", Box::new(|p: &mut SteeredBoltParams| p.trail_vfx = String::new())
-                as Box<dyn FnOnce(&mut SteeredBoltParams)>),
-            ("trail_every_s", Box::new(|p: &mut SteeredBoltParams| p.trail_every_s = 0.0)),
-            ("turn_rate_deg", Box::new(|p: &mut SteeredBoltParams| p.turn_rate_deg = 0.0)),
+            (
+                "trail_vfx",
+                Box::new(|p: &mut SteeredBoltParams| p.trail_vfx = String::new())
+                    as Box<dyn FnOnce(&mut SteeredBoltParams)>,
+            ),
+            (
+                "trail_every_s",
+                Box::new(|p: &mut SteeredBoltParams| p.trail_every_s = 0.0),
+            ),
+            (
+                "turn_rate_deg",
+                Box::new(|p: &mut SteeredBoltParams| p.turn_rate_deg = 0.0),
+            ),
         ] {
             let mut params = ok_params();
             edit(&mut params);
@@ -2127,8 +2321,12 @@ mod moveset_revision {
     fn app_with_a_prepared_cast() -> bevy::app::App {
         let mut app = bevy::app::App::new();
         app.add_plugins(CharacterPreparationPlugin);
-        stage_authored_character(&mut app, plain("brawler", "jab"), &CharacterBindings::default())
-            .expect("the cast stages");
+        stage_authored_character(
+            &mut app,
+            plain("brawler", "jab"),
+            &CharacterBindings::default(),
+        )
+        .expect("the cast stages");
         close_preparation_barrier_without_admission(app.world_mut());
         app
     }
@@ -2236,11 +2434,12 @@ mod moveset_revision {
         use crate::prepared::stage_character_revision;
 
         let mut app = app_with_a_prepared_cast();
-        let renamed = CharacterDefinition::new("brawler", "The Brawler", "test_demo")
-            .with_moveset(moveset_with(
+        let renamed = CharacterDefinition::new("brawler", "The Brawler", "test_demo").with_moveset(
+            moveset_with(
                 &[("attack", "jab")],
                 vec![crate::prepared_fixtures::slash("jab", "cue", "land")],
-            ));
+            ),
+        );
         stage_character_revision(&mut app, renamed, &CharacterBindings::default())
             .expect("the rename stages");
         let outcome = activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
@@ -2297,7 +2496,9 @@ mod moveset_revision {
         let refusals = crate::prepared::stage_move_section(app.world_mut(), &section);
         assert_eq!(
             refusals,
-            vec![MovesetRevisionError::UnknownCharacter("somebody_else".to_string())]
+            vec![MovesetRevisionError::UnknownCharacter(
+                "somebody_else".to_string()
+            )]
         );
 
         // ⚠ THE HALF THAT MATTERS: the GOOD id in the same pack is not staged,
@@ -2403,7 +2604,9 @@ mod moveset_revision {
         );
         assert_eq!(
             outcome,
-            Err(MovesetRevisionError::UnknownCharacter("somebody_else".to_string()))
+            Err(MovesetRevisionError::UnknownCharacter(
+                "somebody_else".to_string()
+            ))
         );
         assert_eq!(live_move_ids(&app), vec!["jab".to_string()]);
     }

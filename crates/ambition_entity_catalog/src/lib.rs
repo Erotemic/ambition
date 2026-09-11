@@ -32,6 +32,10 @@
 /// Bevy graph to do it (fast-iteration packet I1).
 pub mod authoring;
 
+/// The move family's artifact section: its kind, its own version, and the codec
+/// that turns a move table into a payload the content envelope can carry.
+pub mod move_section;
+
 use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};

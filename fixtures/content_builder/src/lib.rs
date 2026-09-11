@@ -20,8 +20,12 @@
 //! startup/active/recovery timeline), `on_hit` (the technique reference) and
 //! `charge` (a second window shape), and asserts the emitted values.
 
+use ambition_content_pack::artifact::{ArtifactSection, ContentArtifact};
 use ambition_entity_catalog::authoring::{charge, on_hit, strike, Charge, Strike};
-use ambition_entity_catalog::{MoveSpec, WindowTag};
+use ambition_entity_catalog::move_section::{
+    encode, MoveSectionData, MOVE_SECTION_KIND, MOVE_SECTION_VERSION,
+};
+use ambition_entity_catalog::{MoveSpec, MovesetContract, WindowTag};
 
 /// The technique a landed hit asks the ruleset for. A KEY, never a handler — the
 /// authoring crate cannot see a handler and must not need to.
@@ -115,6 +119,63 @@ mod tests {
             "the authored smash lasts {}s, which is shorter than its own \
              startup — the timeline builder did not run",
             m.duration_s
+        );
+    }
+}
+
+/// Emit a loadable artifact carrying this crate's authored move table — I2's
+/// "have the independent Rust builder emit this artifact".
+///
+/// ⭐ THE BUILDER NEVER SEES A HOST. It produces text; whether a host will ADMIT
+/// that text is the host's question, asked with `ContentArtifact::admit`. Those
+/// being separable is what lets content be built on a machine that has never
+/// compiled the engine.
+pub fn emit_artifact() -> String {
+    let mut verbs = std::collections::BTreeMap::new();
+    verbs.insert("attack_forward".to_string(), "outside_smash_forward".to_string());
+    let mut data = MoveSectionData::new();
+    data.insert(
+        "outside_fighter".to_string(),
+        MovesetContract {
+            verbs,
+            moves: vec![a_chargeable_smash()],
+        },
+    );
+    ContentArtifact::new(vec![ArtifactSection {
+        kind: MOVE_SECTION_KIND.to_string(),
+        section_version: MOVE_SECTION_VERSION,
+        payload: encode(&data).expect("the authored table encodes"),
+    }])
+    .to_ron()
+    .expect("the artifact serializes")
+}
+
+#[cfg(test)]
+mod artifact_tests {
+    use super::*;
+
+    /// ⛔ WHAT AN OUTSIDE AUTHOR EMITS IS SOMETHING A HOST WOULD ADMIT. Emitting
+    /// text nothing accepts is the failure this arm exists to catch, and it is
+    /// invisible to a round-trip test that only reads its own output.
+    #[test]
+    fn the_emitted_artifact_is_one_a_host_would_admit() {
+        let text = emit_artifact();
+        let parsed = ContentArtifact::parse(&text).expect("the emitted text parses");
+        assert_eq!(
+            parsed.admit(&|kind| (kind == MOVE_SECTION_KIND)
+                .then_some(MOVE_SECTION_VERSION)),
+            vec![],
+            "the builder emitted an artifact a host would refuse"
+        );
+        let section = parsed
+            .section(MOVE_SECTION_KIND)
+            .expect("it carries a move section");
+        let back = ambition_entity_catalog::move_section::decode(&section.payload)
+            .expect("the payload decodes");
+        assert_eq!(
+            back["outside_fighter"].moves[0],
+            a_chargeable_smash(),
+            "the move the builder authored is not the move the artifact carries"
         );
     }
 }

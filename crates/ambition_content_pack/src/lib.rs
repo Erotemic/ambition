@@ -5,6 +5,9 @@
 //! of Bevy and game-domain types; capability owners register their schemas via
 //! [`SchemaRegistry`]. Ordinary content changes therefore do not rebuild Rust.
 
+/// The loadable content envelope (fast-iteration I2): versioned, sectioned, and
+/// opaque to every domain it carries.
+pub mod artifact;
 mod diagnostic;
 mod draft;
 mod identity;

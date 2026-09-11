@@ -21,3 +21,9 @@ publish = false
 
 [dependencies]
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
+# The content envelope. Bevy-free (ron + serde + thiserror), so emitting a
+# loadable artifact does not put the engine back in this closure.
+ambition_content_pack = { path = "../../crates/ambition_content_pack" }
+
+[dev-dependencies]
+ron = "0.11"

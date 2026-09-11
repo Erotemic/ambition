@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`artifact`](src/artifact.rs) | The loadable content envelope — fast-iteration packet I2, step 1. |
 | [`diagnostic`](src/diagnostic.rs) | Structured diagnostics — the compiler's output when it refuses. |
 | [`draft`](src/draft.rs) | `ContentPackDraft` — the authored side, read but not yet meaningful. |
 | [`identity`](src/identity.rs) | The stable identities a prepared pack assigns. |
@@ -13,7 +14,7 @@
 | [`refs`](src/refs.rs) | References — the two safe forms, and the one that is not. |
 | [`schema`](src/schema.rs) | Schema registration — how a capability contributes an authored content family WITHOUT editing one central closed enum. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -80,6 +80,10 @@ pub mod items;
 pub mod authored_movesets;
 #[cfg(test)]
 mod moveset_sound;
+/// Test-only: can a loadable artifact carry the SHIPPED roster's move tables
+/// exactly? I2's precondition, asked of the whole set rather than one fighter.
+#[cfg(test)]
+mod moveset_artifact;
 #[cfg(feature = "audio")]
 pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;

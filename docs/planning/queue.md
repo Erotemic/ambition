@@ -660,10 +660,64 @@ and removing the fixture's `[workspace]` fails the independence arm.
 improvement, not yet the claim that the host never relinks for data edits.** That
 is I2 and I3.
 
-**Next bounded action:** I2 in the
-[packet catalog](engine/fast-iteration-implementation.md) — an actually loadable
-move artifact through existing preparation — then I3a-I3c for the sealed
-candidate and repeatable scenario reload. I3b uses A10's bounded construction path; a loader that destroys
+◐ **I2 STEPS 1-3 LANDED 2026-09-11. THE CODEC WAS NEVER THE MISSING PART.**
+Step 1 asks for a *"canonical numeric/key encoding"*. MEASURED before writing
+any: a `MoveSpec` built by the authoring helpers **already round-trips through
+`ron` losslessly** — 2,072 bytes for a chargeable smash with a technique
+reference — because every type on the move timeline derives
+`Serialize + Deserialize` for the authored RON catalog road. What was missing was
+a VERSIONED, REFUSABLE envelope around it.
+
+`ambition_content_pack::artifact` is that envelope, and it knows nothing about
+moves: a section is `(kind, section_version, payload)` with the payload opaque,
+so adding a content family is adding a KIND rather than editing the envelope —
+and the two crates need no dependency on each other.
+`ambition_entity_catalog::move_section` owns the move family's codec, beside the
+values it encodes.
+
+⛔ **TWO VERSIONS, AND THEY ARE NOT THE SAME QUESTION.** The envelope version is
+*"can this reader parse the outer shape"*; a section version is *"does this
+reader understand this family's payload"*. One number would let a host that
+understands a newer envelope silently misread an older section as the shape it
+expects now. `admit()` refuses on: a foreign envelope version, a section newer
+than the host understands, a DUPLICATE section kind (which is how a partial write
+or a watcher firing mid-copy selects a mixed pack), an empty pack (*"admits
+cleanly and replaces a host's content with nothing"*), an unnamed kind, and a
+section count past its bound. ⭐ A kind the host does not know at all is CARRIED,
+not refused — a pack may hold a family this build did not compile.
+
+⛔⛤ **AND THE SECTION CARRIES THE CONTRACT, NOT `Vec<MoveSpec>` — I HAD IT WRONG
+FIRST.** A `MovesetContract` is `(verbs, moves)`, and the verbs decide WHICH move
+a press plays. A section carrying only the move list would round-trip losslessly,
+pass every arm, and deliver a fighter whose buttons are unbound. **Reading a
+shipped table is what found it**, not reasoning about the format.
+
+✅ **THE PRECONDITION FOR STEPS 4-5 IS MEASURED, OVER THE WHOLE SHIPPED SET.**
+`every_shipped_move_table_survives_the_artifact_exactly` encodes
+`authored_movesets::tables()` into an artifact, admits it, decodes it and
+compares per character: **19 tables, 470 moves, 1,456,700 bytes, exact.** Behind a
+floor that refuses a roster smaller than 10 tables / 100 moves, because an empty
+`tables()` makes every comparison trivially true. ⚠ 1.4 MB is pretty-printed RON
+— clarity over compression is step 1's own instruction, and it is the number to
+beat if transport ever matters.
+
+✅ **AND THE OUTSIDE BUILDER EMITS ONE.** `fixtures/content_builder::emit_artifact`
+produces an artifact a host would admit, still with zero engine crates in its
+resolved closure — `ambition_content_pack` is `ron + serde + thiserror`.
+
+⚠ **THE CLOSURE GUARD FAILED ON THAT, AND THE GUARD WAS WRONG.** Its forbidden
+list was substrings, and `ambition_content` matched `ambition_content_pack`. Same
+shape as a peer's `git grep "GroundItem {"` matching an unrelated enum variant the
+same day: a matcher confidently answering about a different population. Split into
+prefixes (real families) and exact names, **with the control arm it was missing**
+— a test that the classifier does NOT reject a pure value crate.
+
+**Next bounded action:** I2 steps 4-6 — a selected-host load path through the
+current source/resolver policy, then removing the migrated move table as a
+compiled authoritative input (a test-only old table may be a parity oracle, never
+a runtime fallback). The carrier is proven; what is unproven is admission against
+*installed* technique support, which is the step-4 refusal that cannot be
+answered by a codec. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

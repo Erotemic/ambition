@@ -10,6 +10,7 @@ This is the repository operating guide for coding agents. Keep it short, session
 * **Pre-release engine, zero dependents.** Behavior and feel are NOT sacred until a polish pass — optimize for the elegant unified design, not for preserving current output. Delete duplicates, compat shims, and bridges on sight. Never fold a richer path onto a simpler one to "preserve" it; make the richer/general path universal and delete the rest.
 * Unified actors. Player / Enemy / Boss / NPC are controller, capabilities, and authored data—not separate engine types.
 * **ONE BODY, ONE PATH.** The player is an actor; controller kind does not define a simulation path. Before adding behavior keyed to player/enemy/boss, check whether the behavior already exists for another controller kind. If so, unify onto one shared body/capability seam and delete the duplicate path. Do not add a parallel implementation “for now.” See `docs/concepts/one-body-one-path.md`.
+* All new comments and documentation must be written in ASD-STE100 Simplified Technical English
 
 ## Cold start
 

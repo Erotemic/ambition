@@ -17,7 +17,7 @@
 //!
 //! Every one is a row a shipped generic sheet carries.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -28,7 +28,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, multihit, on_contact, sfx, strike, strike_tag, vfx_at, Pulse,
 };
 
@@ -53,7 +53,7 @@ pub fn bob_moveset() -> MovesetContract {
         launch_dir: None,
         on_hit: None,
     });
-    let jab = strike_tag(jab, ambition_characters::moveset_prefabs::SLASH_POKE_VFX);
+    let jab = strike_tag(jab, ambition_entity_catalog::authoring::SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.07, "hit_metal", (22.0, 0.0), SHOP_FX);
     let jab = on_contact(jab, "player.hit");
 
@@ -535,10 +535,10 @@ pub fn bob_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("bob_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("bob_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "bob_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             9,
             97.5,
         ),

@@ -6,7 +6,7 @@
 //! body's other movement resources. The pistol remains an `ActionSet` capability rather
 //! than a move-table entry, keeping ranged execution under one authority.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -19,7 +19,7 @@ use ambition_platformer2d::entity_catalog::{
     ImpulseMode, MoveEvent, MoveEventKind, MovesetContract,
 };
 
-use ambition_characters::moveset_authoring::{impulse, on_contact, sfx, strike, vfx, vfx_at};
+use ambition_entity_catalog::authoring::{impulse, on_contact, sfx, strike, vfx, vfx_at};
 
 /// How far across the grapple hauls him, engine units per second along
 /// facing.
@@ -343,7 +343,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // nearly nothing from a standstill. It advertises no route (a static reader
     // cannot say what an additive impulse produces), which is why the recovery
     // search never proposes this move as a way home.
-    let side_b = ambition_characters::moveset_authoring::hitless_special(
+    let side_b = ambition_entity_catalog::authoring::hitless_special(
         "run_out_the_guns",
         "special",
         GUNS_FIRE_AT_S,
@@ -389,7 +389,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // player's to steer, which is the whole mechanic — a rise bolted on top
     // would be a second recovery inside the first, and it is the thing to reach
     // for first if five seconds of flight turns out not to save him.
-    let up_b = ambition_characters::moveset_authoring::hitless_special(
+    let up_b = ambition_entity_catalog::authoring::hitless_special(
         "call_the_shark",
         "special_up",
         SHARK_AT_S,
@@ -550,10 +550,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("pirate_admiral_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("pirate_admiral_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "pirate_admiral_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             9,
             97.5,
         ),

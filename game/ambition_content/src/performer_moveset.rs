@@ -4,7 +4,7 @@
 //! this table owns their combat timing and consequences. The sword archetype
 //! supplies the remaining ordinary repertoire under her own move IDs.
 
-use ambition_characters::moveset_authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
+use ambition_entity_catalog::authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
 use ambition_characters::smash_flyline::{author_flyline, FlylineParams};
 use ambition_characters::smash_trapdoor::{author_trapdoor, TrapdoorParams};
 use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
@@ -494,7 +494,7 @@ fn the_trap() -> MoveSpec {
 /// endlag, and the whole benefit is that an opponent has to read which one it
 /// was.
 fn the_trap_airborne() -> MoveSpec {
-    let mut spec = ambition_characters::moveset_authoring::hitless_special(
+    let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "performer_trapdoor_air",
         "blink_out",
         DOOR_OPENS_S,
@@ -504,8 +504,8 @@ fn the_trap_airborne() -> MoveSpec {
     // The SAME first frames as the real thing — the same clip, the same smoke,
     // the same wooden report of a door that is about to open. What differs is
     // that no door does.
-    let spec = ambition_characters::moveset_authoring::vfx(spec, 0.0, SMOKE_VFX);
-    ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open")
+    let spec = ambition_entity_catalog::authoring::vfx(spec, 0.0, SMOKE_VFX);
+    ambition_entity_catalog::authoring::sfx(spec, DOOR_OPENS_S, "world.door.open")
 }
 
 /// Down special: the boards give, she drops through, and she comes up somewhere
@@ -532,7 +532,7 @@ fn the_trap_airborne() -> MoveSpec {
 /// scored as a punishable commitment it is not.
 fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     let mut spec =
-        ambition_characters::moveset_authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
+        ambition_entity_catalog::authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
     spec.display_name = Some("The Trap".to_string());
     // ⛔⛔ THE RECOVERY BEGINS WHEN SHE SURFACES, and the gap between the two
     // beats is load-bearing. `hitless_special` roots the body across its whole
@@ -613,9 +613,9 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // ⛔ AND IT MUST NOT ROOT HER. A smash's freeze roots because a windup is a
     // commitment; this one holds TRAVEL. `SmashChargeSpec::roots` is where the
     // two uses of one mechanic say which they are.
-    let spec = ambition_characters::moveset_authoring::charge(
+    let spec = ambition_entity_catalog::authoring::charge(
         spec,
-        ambition_characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: HOLD_UNDER_AT_S,
             max_hold_s: MAX_UNDER_S,
             // Nothing is banked: what she was holding was a position, and she is
@@ -658,8 +658,8 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // the surfacing, so the twelve hundredths between them are frames of an open
     // hole with nobody out of it yet — which is the tell that something is
     // coming.
-    let spec = ambition_characters::moveset_authoring::vfx(spec, EXIT_DOOR_OPENS_S, TRAPDOOR_VFX);
-    let spec = ambition_characters::moveset_authoring::sfx(
+    let spec = ambition_entity_catalog::authoring::vfx(spec, EXIT_DOOR_OPENS_S, TRAPDOOR_VFX);
+    let spec = ambition_entity_catalog::authoring::sfx(
         spec,
         EXIT_DOOR_OPENS_S,
         "world.door.heavy_open",
@@ -702,13 +702,13 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // is performed behind, so it goes off on frame ONE — ahead of the door's own
     // report at `DOOR_OPENS_S` and well ahead of her going through it. See
     // [`SMOKE_VFX`].
-    let spec = ambition_characters::moveset_authoring::vfx(spec, 0.0, SMOKE_VFX);
-    let spec = ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
+    let spec = ambition_entity_catalog::authoring::vfx(spec, 0.0, SMOKE_VFX);
+    let spec = ambition_entity_catalog::authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
     let spec =
-        ambition_characters::moveset_authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
+        ambition_entity_catalog::authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
     let spec =
-        ambition_characters::moveset_authoring::sfx(spec, TRAP_ENDS_S - 0.06, "world.door.close");
-    ambition_characters::moveset_authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
+        ambition_entity_catalog::authoring::sfx(spec, TRAP_ENDS_S - 0.06, "world.door.close");
+    ambition_entity_catalog::authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
 }
 
 /// Up special: a wire comes down out of the flies, takes her at the waist, and a
@@ -733,7 +733,7 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
 /// acceleration. She is still drawn, still solid and still hittable — which is
 /// why the wire is a maneuver in the movement kernel and not a body mode.
 fn the_flyline() -> MoveSpec {
-    let mut spec = ambition_characters::moveset_authoring::hitless_special(
+    let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "performer_curtain_call",
         "fly",
         WIRE_AT_S,
@@ -781,8 +781,8 @@ fn the_flyline() -> MoveSpec {
     // ⛔ AUTHORED ON THE TIMELINE rather than granted by the technique, for the
     // reason the Trap's are: the window is what the CANCEL and scoring layers
     // read without looking at a live body.
-    let spec = ambition_characters::moveset_authoring::invuln(spec, WIRE_AT_S, WIRE_RELEASES_S);
-    let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
+    let spec = ambition_entity_catalog::authoring::invuln(spec, WIRE_AT_S, WIRE_RELEASES_S);
+    let spec = ambition_entity_catalog::authoring::sfx(spec, 0.0, "player.attack.charge");
     // ⛔⛔ NO `player.blink` ANYWHERE ON IT, and now nothing downstream asks for
     // one either. `apply_authored_flylines` writes no position, picks no
     // destination and records no Class-B remap — there is nothing for a teleport

@@ -5,8 +5,8 @@
 //! head-mounted cannon; the rest of the kit stays readable so the move library
 //! remains useful as a bestial pose reference rather than a one-off gimmick.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{impulse, strike};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -458,7 +458,7 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     //
     // ⛔ NO MELEE VOLUME. The tail IS the damage, going out and coming back;
     // a move that also carried a strike would be two moves on one button.
-    let side_special = ambition_characters::moveset_authoring::hitless_special(
+    let side_special = ambition_entity_catalog::authoring::hitless_special(
         "polygon_ponytail_boomerang",
         "attack_side",
         PONYTAIL_THROWN_AT_S,
@@ -546,7 +546,7 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     // ⛔ NO MELEE VOLUME. Laying a bomb is not a hit — the bomb is — and a
     // down-B that also struck would be two moves on one button. It replaces
     // `polygon_low_burst`, an ordinary low arc that said nothing about her.
-    let grounded_down_special = ambition_characters::moveset_authoring::hitless_special(
+    let grounded_down_special = ambition_entity_catalog::authoring::hitless_special(
         "polygon_lay_bomb",
         "attack_down",
         BOMB_LAID_AT_S,
@@ -575,8 +575,8 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         },
     );
     let grounded_down_special =
-        ambition_characters::moveset_authoring::sfx(grounded_down_special, BOMB_LAID_AT_S, "player.land.heavy");
-    let grounded_down_special = ambition_characters::moveset_authoring::vfx(
+        ambition_entity_catalog::authoring::sfx(grounded_down_special, BOMB_LAID_AT_S, "player.land.heavy");
+    let grounded_down_special = ambition_entity_catalog::authoring::vfx(
         grounded_down_special,
         BOMB_LAID_AT_S,
         "poof_small",
@@ -683,10 +683,10 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         // The genre shapes are deliberate: this is still a reusable reference fighter.
         // Projectile identity belongs to the head cannon and shoot pose, not
         // to making every grounded movement action species-specific.
-        taunt: ambition_characters::moveset_authoring::taunt("projectile_polygon_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("projectile_polygon_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "projectile_polygon_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             90.0,
         ),

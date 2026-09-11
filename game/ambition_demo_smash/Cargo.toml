@@ -7,6 +7,10 @@ authors.workspace = true
 description = "Stocks-based platform-fighter demo. The first consumer of the S4 stocks loop, and the oracle for whether a stocks game is expressible through the facade."
 
 [dependencies]
+# The pure move/entity value vocabulary and its authoring primitives.
+# ⭐ DIRECT, not through the engine facade: authoring a move is a value
+# computation, and I1's whole point is that it must not pull the graph.
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 # Authored effect params round-trip through the `ParamValue` seam.
 serde = { workspace = true }
 # The E9 oracle rule, unchanged: `ambition_platformer2d` + `bevy` and nothing else. If authoring

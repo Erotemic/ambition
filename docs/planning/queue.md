@@ -613,12 +613,57 @@ engine facade; current prepared packs hold in-process values. A small crate alon
 does not remove the final host link. The user reports iteration latency as a
 present development constraint, not a future modding concern.
 
-**Next bounded action:** I1 in the
-[packet catalog](engine/fast-iteration-implementation.md): move only the pure
-move-helper closure into the existing Bevy-free value owner, migrate callers,
-and prove an independent builder's resolved dependency closure. Continue to I2
-and I3a-I3c for an actually loadable artifact, sealed candidate and repeatable
-scenario reload. I3b uses A10's bounded construction path; a loader that destroys
+✅ **I1 IS DONE, 2026-09-11 — AND THE INVENTORY IT ASKED FOR FIRST IS WHY IT WAS
+ONE MOVE RATHER THAN A CARVE.** Step 1 says *"inventory each helper's
+input/output types, constants and dependencies; move only functions which
+construct pure `MoveSpec` values."* MEASURED on
+`ambition_characters/src/moveset_authoring.rs`, 1,846 lines: <!-- cite-ok: the path it MOVED FROM --> **`bevy` appears
+ZERO times**, every `super::` is inside a test module, and the only reach outside
+the crate is `use` of `ambition_entity_catalog` plus TWO `&str` VFX constants.
+⇒ There was no pure/impure split to make. The whole module was already a pure
+value computation living in a crate that links Bevy for unrelated reasons.
+
+`ambition_entity_catalog::authoring` is its home now, the two constants came with
+it, and `moveset_prefabs` imports them back. **No bridge and no re-export**, per
+the packet: 35 files were repointed, including nine that reached the helpers
+through `ambition_platformer2d::characters::…` — the engine umbrella — which is
+the edge I1 exists to cut. Four demo/tool crates gained a direct path dependency
+on the pure value crate instead.
+
+⭐ **PARITY IS THE DIFF, and for a relocation that is stronger than a golden
+file.** The moved module's rename-detected diff is: import paths rewritten to
+`crate::`, the two constants relocated, one `pub(crate)` → `pub`, and three
+comment/doc-link repairs. **No emitted value changed**, and the five test modules
+travelled with the file (`ambition_entity_catalog` 0 → 461 tests).
+
+✅ **THE CLOSURE WITNESS, MEASURED RATHER THAN ARGUED.**
+`fixtures/content_builder` authors a real multi-window move with a technique
+reference — through `strike`, `on_hit` and `charge`, not a `MoveSpec` literal,
+because a literal would compile against this closure while proving nothing about
+the BUILDERS. Its whole resolved closure across `normal,build,dev` is **12
+crates: itself, the value crate, `ron`, `serde` and the proc-macro machinery.
+Zero Bevy.**
+
+⛔ **IT IS OUTSIDE THE WORKSPACE AND THE GUARD CHECKS THAT IT STILL IS.** Cargo
+unifies features and shares one lockfile across a workspace, so from inside, "I
+do not need Bevy" is unfalsifiable — the union resolved it anyway.
+`scripts/tests/test_authoring_needs_no_engine.py` asserts the fixture still
+declares its own `[workspace]` before it asserts anything about the closure, and
+floors the crate count so a failed `cargo tree` cannot read as a clean bill.
+
+✅ Poison-verified, both arms the packet names: adding `ambition_characters` to
+the fixture's manifest fails the witness and NAMES the path — *"authoring a move
+resolves 22 engine crate(s): [ambition_characters, bevy, bevy_app, … ]"* —
+and removing the fixture's `[workspace]` fails the independence arm.
+
+⚠ **WHAT I1 DOES NOT CLAIM, in the packet's own words: this is an authoring
+improvement, not yet the claim that the host never relinks for data edits.** That
+is I2 and I3.
+
+**Next bounded action:** I2 in the
+[packet catalog](engine/fast-iteration-implementation.md) — an actually loadable
+move artifact through existing preparation — then I3a-I3c for the sealed
+candidate and repeatable scenario reload. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

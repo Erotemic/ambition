@@ -71,7 +71,7 @@ trusted code; a typed installer does not sandbox them.
 | --- | --- |
 | `crates/ambition_entity_catalog/src/lib.rs` | EffectRef/ParamValue, the parameter registry, MoveSpec/HitVolume/FlowNode and structural flow validation |
 | `crates/ambition_characters/src/prepared.rs` | Character preparation, final definitions, registry generation and registration lifecycle |
-| `crates/ambition_characters/src/moveset_authoring.rs` | Move authoring transformation surface |
+| `crates/ambition_entity_catalog/src/authoring.rs` | Move authoring transformation surface (moved from `ambition_characters` by I1) |
 | `crates/ambition_characters/src/moveset_prefabs.rs` | Shared move-prefab expansion/authoring |
 | `crates/ambition_combat/src/moveset/mod.rs` | Live flow interpreter, u16 cursor, move clock/contact latches and normal teardown |
 | `crates/ambition_platformer2d_runtime/src/combat_schedule.rs` | Move/effect execution before hit-resolution feedback |

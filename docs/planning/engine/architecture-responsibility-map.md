@@ -54,7 +54,9 @@ symbol in these packages:
   `crates/ambition_combat/src/brain/mod.rs`.
 * `crates/ambition_characters/src/lib.rs`, `crates/ambition_characters/src/prepared.rs`,
   `crates/ambition_characters/src/actor/mod.rs`,
-  `crates/ambition_characters/src/moveset_authoring.rs`.
+  `crates/ambition_entity_catalog/src/authoring.rs` (moved out of
+  `ambition_characters` by fast-iteration I1, 2026-09-11: authoring a move is a
+  pure value computation and must not link Bevy).
 * `crates/ambition_platformer2d_runtime/src/lib.rs`,
   `crates/ambition_platformer2d_runtime/src/content_identity.rs`,
   `crates/ambition_platformer2d_runtime/src/external_effects.rs`,

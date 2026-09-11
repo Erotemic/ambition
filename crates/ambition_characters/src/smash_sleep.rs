@@ -71,7 +71,7 @@ mod tests {
     use super::*;
 
     fn shell() -> MoveSpec {
-        crate::moveset_authoring::hitless_special("test_sing", "special", 0.2, 0.8)
+        ambition_entity_catalog::authoring::hitless_special("test_sing", "special", 0.2, 0.8)
     }
 
     fn params() -> SleepParams {

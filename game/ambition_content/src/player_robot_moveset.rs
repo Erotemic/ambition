@@ -12,7 +12,7 @@
 //! which is what lets Ambition read this table as Hollow-Knight combat and
 //! Smash read it as a platform fighter.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -26,10 +26,10 @@ use ambition_platformer2d::entity_catalog::{
     MovesetContract, VolumeShape, WindowTag,
 };
 
-// the authoring primitives are SHARED (`moveset_authoring`), so the goblin's
+// the authoring primitives are SHARED (`ambition_entity_catalog::authoring`), so the goblin's
 // table below is written with the same `strike` this one is rather than a copy
 // of it. They left this file the day a second character authored moves.
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     armor, committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
@@ -340,7 +340,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // ⛔ NO HITBOX. A recovery that also struck on both ends would be a
     // recovery you throw at people, and the blink's offensive shockwave belongs
     // to the held item's version of it.
-    let up_b = ambition_characters::moveset_authoring::hitless_special(
+    let up_b = ambition_entity_catalog::authoring::hitless_special(
         "phase_shift",
         "fly",
         BLINK_AT_S,
@@ -509,10 +509,10 @@ pub fn player_robot_moveset() -> MovesetContract {
         },
     );
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("player_robot_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("player_robot_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "player_robot_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             90.0,
         ),

@@ -6,8 +6,8 @@
 //! cue name; rows whose audio cue uses a `.loop` suffix specify it explicitly with
 //! `vfx_cued`.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -21,7 +21,7 @@ use ambition_platformer2d::entity_catalog::{
     WindowTag,
 };
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, strike, strike_tag, vfx_at, vfx_cued,
 };
 
@@ -785,10 +785,10 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         },
     );
     let repertoire = SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("emmy_noether_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("emmy_noether_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "emmy_noether_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             11,
             95.0,
         ),

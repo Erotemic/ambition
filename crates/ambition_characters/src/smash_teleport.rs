@@ -183,7 +183,7 @@ pub fn author_teleport(mut spec: MoveSpec, at_s: f32, params: TeleportParams) ->
         // never closes on this timeline, and the honest reading of "intangible
         // longer than the move lasts" is "intangible for the move".
         let ends = (at_s + params.intangible_s).min(spec.duration_s);
-        spec = crate::moveset_authoring::invuln(spec, at_s, ends);
+        spec = ambition_entity_catalog::authoring::invuln(spec, at_s, ends);
     }
     spec.gates.recovery_route = Some(ambition_entity_catalog::AuthoredRecoveryRoute::Teleport {
         distance: params.distance,

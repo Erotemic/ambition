@@ -97,7 +97,8 @@ machine leaves M0 open; it does not hold I1's pure ownership extraction.
 
 **Class:** DO. **Input:** no new runtime required.
 Read `crates/ambition_entity_catalog/src/lib.rs`,
-`crates/ambition_characters/src/moveset_authoring.rs`,
+`crates/ambition_entity_catalog/src/authoring.rs` (it was
+`crates/ambition_characters/src/moveset_authoring.rs` when this packet was written; I1 moved it 2026-09-11), <!-- cite-ok: the path it moved from -->
 `crates/ambition_characters/src/moveset_prefabs.rs`, and imports in
 `game/ambition_demo_smash/src/moveset.rs`. Follow all helper callers with rg and
 inspect the corresponding import bodies. A6 supplies the field responsibility map.

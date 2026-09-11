@@ -1,0 +1,23 @@
+# I1's witness: a move author who does NOT build a game.
+#
+# ⛔⛔ IT IS OUTSIDE THE WORKSPACE ON PURPOSE — its own `[workspace]`, its own
+# lockfile, no workspace dependency table. Inside the workspace, cargo's feature
+# unification and one shared lock make "this crate does not need Bevy" a claim
+# nothing can falsify: some other member asks for Bevy, so it is built anyway and
+# a `cargo tree` here would show whatever the union resolved. Resolving
+# independently is the whole instrument.
+#
+# ⭐ AND ITS DEPENDENCY LIST IS THE ASSERTION. One path dependency, on the pure
+# value vocabulary. If authoring a move ever needs the engine again, this
+# manifest is where that shows up, and it shows up as a LINE SOMEBODY ADDED
+# rather than as a slow build nobody attributes.
+[package]
+name = "content_builder"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }

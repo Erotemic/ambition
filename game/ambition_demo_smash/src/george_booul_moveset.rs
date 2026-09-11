@@ -6,14 +6,14 @@
 //! George's table; stand-in robot fighters continue to use their provider-owned
 //! repertoires.
 
-use ambition_platformer2d::characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
 use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
 use crate::moveset::{feel, Feel};
-use ambition_platformer2d::characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     cancelable, committed_tail, impulse, on_hit, strike,
 };
 
@@ -224,9 +224,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.44)),
         on_hit: None,
     });
-    let mut f_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let mut f_smash = ambition_entity_catalog::authoring::charge(
         f_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -285,9 +285,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });
-    let up_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let up_smash = ambition_entity_catalog::authoring::charge(
         up_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -313,9 +313,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.95, -0.45)),
         on_hit: None,
     });
-    let down_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let down_smash = ambition_entity_catalog::authoring::charge(
         down_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -717,7 +717,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
-        taunt: ambition_platformer2d::characters::moveset_authoring::taunt(
+        taunt: ambition_entity_catalog::authoring::taunt(
             "george_booul_taunt",
             0.9,
         ),
@@ -730,11 +730,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         // becomes `COMMIT_MIN_STARTUP_S`. that is not the law getting in the
         // way: George is the heavy, and a shoulder charge you can see coming is
         // what the heavy's dash attack should be.
-        dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "george_booul_dash_attack",
-            ambition_platformer2d::characters::moveset_authoring::DashAttackShape {
+            ambition_entity_catalog::authoring::DashAttackShape {
                 startup_s: COMMIT_MIN_STARTUP_S,
-                ..ambition_platformer2d::characters::moveset_authoring::DashAttackShape::GENRE
+                ..ambition_entity_catalog::authoring::DashAttackShape::GENRE
             },
             14,
             175.0,

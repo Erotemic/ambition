@@ -5,8 +5,8 @@
 //! except for the forward smash. VFX rows normally derive their cue name; the oil
 //! geyser stream names its `.loop` cue explicitly with `vfx_cued`.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -19,7 +19,7 @@ use ambition_platformer2d::entity_catalog::{
     HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, strike, strike_tag, vfx, vfx_cued,
 };
 
@@ -615,16 +615,16 @@ pub fn oiler_moveset() -> MovesetContract {
         },
     );
     let repertoire = SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("oiler_taunt", 0.9),
+        taunt: ambition_entity_catalog::authoring::taunt("oiler_taunt", 0.9),
         // 0.11 active, not the genre's 0.09 — Oiler's whole design is that
         // every move that reaches holds its box for `TOLERANCE_S`, and his own
         // `debug_assert` says so at the bottom of this function. The widest catch
         // window on the grid is what he trades his growth ceiling for.
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "oiler_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape {
+            ambition_entity_catalog::authoring::DashAttackShape {
                 active_s: 0.11,
-                ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+                ..ambition_entity_catalog::authoring::DashAttackShape::GENRE
             },
             8,
             97.5,

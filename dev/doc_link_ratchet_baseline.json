@@ -45,8 +45,6 @@
       "crates/ambition_characters/src/brain/smash.rs: unresolved `BrainSnapshot`",
       "crates/ambition_characters/src/brain/smash.rs: unresolved `SpecificAction::Sprint`",
       "crates/ambition_characters/src/brain/state_machine/mod.rs: unresolved `tick_state_machine_with_actions`",
-      "crates/ambition_characters/src/moveset_authoring.rs: unresolved `ChargeSustain`",
-      "crates/ambition_characters/src/moveset_authoring.rs: unresolved `WindboxVolume::repeating`",
       "crates/ambition_characters/src/prepared.rs: private `CharacterBindings -> PreparedCharacter::checked`",
       "crates/ambition_characters/src/prepared.rs: unresolved `register_character`",
       "crates/ambition_characters/src/smash_capture.rs: unresolved `ambition_platformer2d::combat::capture::CapturedBy`",

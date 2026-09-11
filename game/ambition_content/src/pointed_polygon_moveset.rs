@@ -6,8 +6,8 @@
 //! reach: the sword extends ordinary humanoid spacing without turning the fighter
 //! into a heavyweight or projectile character.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, impulse, multihit, strike, Pulse};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{committed_tail, impulse, multihit, strike, Pulse};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -234,9 +234,9 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         0.52,
         0.20,
     );
-    let neutral_special = ambition_characters::moveset_authoring::tipper(
+    let neutral_special = ambition_entity_catalog::authoring::tipper(
         neutral_special,
-        ambition_characters::moveset_authoring::Tip {
+        ambition_entity_catalog::authoring::Tip {
             // The far 28px of the thrust, reaching 80px where the base reaches
             // 76. ⭐ THE SWEETSPOT IS THE TIP'S WHOLE 28px, not the 4px the base
             // misses: the tip is authored FIRST, and the strike seam takes the
@@ -524,14 +524,14 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 
     SmashRepertoire {
         // See `select.rs` for the same shape: a stale copy is a revert with no diff to review.
-        taunt: ambition_characters::moveset_authoring::taunt("pointed_polygon_taunt", 0.9),
+        taunt: ambition_entity_catalog::authoring::taunt("pointed_polygon_taunt", 0.9),
         // the genre shape, deliberately: this character is the REFERENCE rig,
         // so its dash attack is the one a new humanoid should copy before it has
         // a reason to differ. A bespoke reach here would be a number nobody
         // chose being copied into every fighter that starts from these poses.
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "pointed_polygon_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             90.0,
         ),

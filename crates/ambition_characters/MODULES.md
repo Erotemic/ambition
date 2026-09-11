@@ -14,7 +14,6 @@
 | [`control`](src/control.rs) | **WHO IS DRIVING, and what they pressed.** The per-seat control vocabulary: seat identity, the tables keyed by it, and the component that says which body a seat drives. |
 | [`equipment`](src/equipment.rs) | Content-free equipment rules. |
 | [`load_demand`](src/load_demand.rs) | What characters a composition has asked to have realized. |
-| [`moveset_authoring`](src/moveset_authoring.rs) | The primitives a character's move table is written with — shared, because the second character to author one must not begin by copying the first. |
 | [`moveset_prefabs`](src/moveset_prefabs.rs) | Move authoring — the build-time half of the Smash model: the functions that turn authored specs (`MeleeActionSpec`/`RangedActionSpec`), tunable params (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into `MoveSpec`s, plus `build_actor_moveset` which assembles an actor's full `MovesetContract` from its catalog + worn equipment. |
 | [`perception`](src/perception.rs) | Controller-neutral per-body perception. |
 | [`prepared`](src/prepared.rs) | Character registration and preparation. |
@@ -44,7 +43,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

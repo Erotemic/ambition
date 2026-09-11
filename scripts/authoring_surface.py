@@ -72,7 +72,12 @@ def main():
 
 #: The module holding the verbs a fighter author composes a move OUT OF, as
 #: opposed to the keyed techniques a move REACHES FOR.
-VERBS = REPO / "crates/ambition_characters/src/moveset_authoring.rs"
+# ⛔ MOVED CRATES 2026-09-11 (fast-iteration I1): authoring a move is a pure
+# value computation and now lives in the Bevy-free value owner. A path that
+# no longer exists makes this half print NOTHING, which reads as "no verbs"
+# rather than as "the file moved" — the census asserts its own population
+# for exactly that reason.
+VERBS = REPO / "crates/ambition_entity_catalog/src/authoring.rs"
 
 
 def report_the_authoring_verbs() -> None:

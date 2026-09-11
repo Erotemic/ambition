@@ -22,13 +22,21 @@
 //! RULESET's. That is what lets one table read as Hollow-Knight combat in one
 //! game and a platform fighter in another.
 
-use crate::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
-use ambition_entity_catalog::{
+use crate::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
     MoveGates, MoveSpec, MoveWindow, VolumeShape, WindowTag,
 };
 
-// The posture now follows from the slot in [`crate::smash_repertoire::SmashRepertoire`], which is
+/// The sweep an arcing slash draws.
+///
+/// ⭐ HERE RATHER THAN BESIDE THE PREFABS, because a move-BUILDING fact belongs
+/// with the builders — `strike` names it by default and every authored table
+/// reaches it through this module. `moveset_prefabs` imports it back.
+pub const SLASH_ARC_VFX: &str = "slash_arc";
+/// The sweep a straight poke draws.
+pub const SLASH_POKE_VFX: &str = "slash_poke";
+
+// The posture now follows from the slot in `ambition_characters::smash_repertoire::SmashRepertoire`, which is
 // the only place in the repo that knows what a tilt or an aerial IS. Leaving the helpers here would
 // have left the per-move override available to a fighter that did not mean to take it.
 
@@ -173,7 +181,7 @@ pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
 ///
 ///  this is NOT an FX-sheet row name. `HitVolume::vfx` is a two-word
 /// vocabulary ([`SLASH_ARC_VFX`] /
-/// [`SLASH_POKE_VFX`](crate::moveset_prefabs::SLASH_POKE_VFX))
+/// [`SLASH_POKE_VFX`])
 /// that the move runtime
 /// reads twice: it picks the arc-vs-jab shape drawn out of the spawned volume,
 /// and it is the flag that makes a volume prefer the sprite manifest's authored
@@ -222,7 +230,13 @@ pub fn active_start(m: &MoveSpec) -> f32 {
 /// # Panics
 ///
 /// If the window would never be open.
-pub(crate) fn refuse_a_window_that_never_opens(
+// ⭐ `pub` NOW THAT THE MODULE MOVED CRATES, because the constraint it enforces
+// is one every AUTHOR owes, not one this crate owes itself. `moveset_prefabs`
+// calls it from `ambition_characters`, and the alternative — a second copy of
+// the same assertion beside each caller — is exactly what this helper's own
+// doc warns about: a constraint filed on the first case that suffered it is a
+// constraint the second and third never read.
+pub fn refuse_a_window_that_never_opens(
     id: &str,
     start_s: f32,
     end_s: f32,
@@ -408,7 +422,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -467,7 +481,7 @@ pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32)
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -650,7 +664,7 @@ pub struct Pulse {
     pub active_s: f32,
     pub gap_s: f32,
     /// The hold itself.
-    pub autolink: ambition_entity_catalog::AutolinkVolume,
+    pub autolink: crate::AutolinkVolume,
 }
 
 /// A MULTI-HIT: `pulses` holding hits, then the strike you pass in as the
@@ -705,7 +719,7 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
                 knockback: 1.0,
                 knockback_growth: Some(0.0),
                 launch_dir: None,
-                reaction: Some(ambition_entity_catalog::VolumeReaction::Autolink(
+                reaction: Some(crate::VolumeReaction::Autolink(
                     pulse.autolink,
                 )),
                 on_hit: None,
@@ -810,8 +824,8 @@ pub fn gust(spec: Gust<'_>) -> MoveSpec {
         on_hit: None,
     });
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
-        volume.reaction = Some(ambition_entity_catalog::VolumeReaction::Windbox(
-            ambition_entity_catalog::WindboxVolume {
+        volume.reaction = Some(crate::VolumeReaction::Windbox(
+            crate::WindboxVolume {
                 repeating: spec.sustained,
             },
         ));
@@ -922,7 +936,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -960,7 +974,7 @@ mod multihit_tests {
             damage: 2,
             active_s: 0.035,
             gap_s: 0.030,
-            autolink: ambition_entity_catalog::AutolinkVolume {
+            autolink: crate::AutolinkVolume {
                 anchor: (14.0, 6.0),
                 carry: 1.0,
                 pull: 22.0,
@@ -1140,7 +1154,7 @@ mod refusal_tests {
     /// well against three verbs that panic unconditionally.
     #[test]
     fn all_three_accept_a_window_that_opens() {
-        use ambition_entity_catalog::WindowTag;
+        use crate::WindowTag;
         let armoured = armor(taunt("test_armor_ok", 0.5), 0.05, 0.20);
         let invulnerable = invuln(taunt("test_invuln_ok", 0.5), 0.05, 0.20);
         let cancelling = cancelable(
@@ -1226,8 +1240,8 @@ mod charge_tests {
             max_hold_s: 1.2,
             stores: false,
             roots: true,
-            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_entity_catalog::ChargeGesture::Special,
+            sustain: crate::ChargeSustain::WhileHeld,
+            gesture: crate::ChargeGesture::Special,
             multiplier: 1.6,
         }
     }
@@ -1242,7 +1256,7 @@ mod charge_tests {
         assert_eq!(spec.max_hold_s, 1.2);
         assert!(spec.roots, "the hold roots him");
         assert!(!spec.stores, "and does not bank");
-        assert_eq!(m.charge_gesture, ambition_entity_catalog::ChargeGesture::Special);
+        assert_eq!(m.charge_gesture, crate::ChargeGesture::Special);
         assert_eq!(m.smash_charge_mult, 1.6);
     }
 
@@ -1363,7 +1377,7 @@ mod wake_tests {
             .expect("a wind volume");
         assert!(matches!(
             wind.reaction,
-            Some(ambition_entity_catalog::VolumeReaction::Windbox(_))
+            Some(crate::VolumeReaction::Windbox(_))
         ));
         assert_eq!(
             wind.knockback_growth,
@@ -1587,10 +1601,10 @@ pub struct Charge {
     /// Is the fighter ROOTED while holding?
     pub roots: bool,
     /// What sustains the hold — see [`ChargeSustain`].
-    pub sustain: ambition_entity_catalog::ChargeSustain,
+    pub sustain: crate::ChargeSustain,
     /// Which press drives it. `Smash` is the genre's default; `Special` is for a
     /// charge that lives on a special button.
-    pub gesture: ambition_entity_catalog::ChargeGesture,
+    pub gesture: crate::ChargeGesture,
     /// What a FULL hold multiplies THIS MOVE by.
     ///
     /// ⚠ `1.0` IS LEGITIMATE AND THE FIRST DRAFT OF THIS VERB REFUSED IT. The
@@ -1636,7 +1650,7 @@ pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
          move WEAKER is the one reading of this number that cannot be right",
         charge.multiplier,
     );
-    m.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
+    m.smash_charge = Some(crate::SmashChargeSpec {
         hold_at_s: charge.hold_at_s,
         max_hold_s: charge.max_hold_s,
         stores: charge.stores,
@@ -1727,8 +1741,8 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
         // wearing wind's costume — the same reasoning `gust` states.
         knockback_growth: Some(0.0),
         launch_dir: Some(wake.push_dir),
-        reaction: Some(ambition_entity_catalog::VolumeReaction::Windbox(
-            ambition_entity_catalog::WindboxVolume {
+        reaction: Some(crate::VolumeReaction::Windbox(
+            crate::WindboxVolume {
                 repeating: wake.repeating,
             },
         )),

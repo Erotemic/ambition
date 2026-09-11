@@ -23,8 +23,7 @@ use ambition_entity_catalog::{
 /// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
 /// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
 /// (never a silent drop — a tagged volume asked for presentation).
-pub const SLASH_ARC_VFX: &str = "slash_arc";
-pub const SLASH_POKE_VFX: &str = "slash_poke";
+pub use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 
 /// The SFX cue a plain swing fires. Names the engine's procedural `slash` cue
 /// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
@@ -312,7 +311,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
     // `recover_s: 0.0` — which the clamp above permits — advertises a follow-up
     // that can never be taken. Measured 2026-09-06: no caller passes zero, so
     // this is the guard for a hazard rather than a repair of a live one.
-    crate::moveset_authoring::refuse_a_window_that_never_opens(
+    ambition_entity_catalog::authoring::refuse_a_window_that_never_opens(
         RANGED_VERB,
         windup,
         duration,

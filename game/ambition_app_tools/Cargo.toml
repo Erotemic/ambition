@@ -48,6 +48,10 @@ causal = ["ambition_app/causal"]
 profile = ["ambition_app/profile"]
 
 [dependencies]
+# The pure move/entity value vocabulary and its authoring primitives.
+# ⭐ DIRECT, not through the engine facade: authoring a move is a value
+# computation, and I1's whole point is that it must not pull the graph.
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_app = { path = "../ambition_app" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["capture"] }
 # ⭐ THE MOVE-EXERCISE AND CAPTURE MACHINERY, which used to be a `#[path]`-included

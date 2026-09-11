@@ -7,10 +7,11 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`action_scheme`](src/action_scheme.rs) | Device-free character action vocabulary. |
+| [`authoring`](src/authoring.rs) | The primitives a character's move table is written with — shared, because the second character to author one must not begin by copying the first. |
 | [`brain_profile_ref`](src/brain_profile_ref.rs) | Naming a shared autonomous-controller policy, in the two forms an authored reference and a resolved identity need to be. |
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 
-_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

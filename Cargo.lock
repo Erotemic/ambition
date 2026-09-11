@@ -207,6 +207,7 @@ dependencies = [
  "ambition_content",
  "ambition_demo_smash",
  "ambition_demo_smash_app",
+ "ambition_entity_catalog",
  "ambition_platformer2d",
  "ambition_sim_harness",
  "bevy",
@@ -461,6 +462,7 @@ dependencies = [
 name = "ambition_demo_mary_o"
 version = "0.1.0"
 dependencies = [
+ "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
 ]
@@ -487,6 +489,7 @@ dependencies = [
 name = "ambition_demo_sanic"
 version = "0.1.0"
 dependencies = [
+ "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
 ]
@@ -505,6 +508,7 @@ dependencies = [
 name = "ambition_demo_smash"
 version = "0.1.0"
 dependencies = [
+ "ambition_entity_catalog",
  "ambition_platformer2d",
  "bevy",
  "serde",

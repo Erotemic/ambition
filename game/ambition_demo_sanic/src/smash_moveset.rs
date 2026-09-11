@@ -19,8 +19,8 @@
 //! tail — and the weakest single hit in the game. He does not win an exchange;
 //! he has three before you finish one.
 
-use ambition_platformer2d::characters::moveset_authoring::Strike;
-use ambition_platformer2d::characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::characters::smash_capture::{
@@ -450,11 +450,11 @@ pub fn sanic_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("sanic_taunt", 0.9),
+        taunt: ambition_entity_catalog::authoring::taunt("sanic_taunt", 0.9),
 
-        dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "sanic_dash_attack",
-            ambition_platformer2d::characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             7,
             77.5,
         ),

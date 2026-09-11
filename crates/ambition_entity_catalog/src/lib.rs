@@ -23,6 +23,15 @@
 //! interchange uses JSON). Headless by construction: no Bevy, no assets —
 //! a simulation can parse, validate, and play a move without loading a PNG.
 
+/// The primitives a character's move table is written with.
+///
+/// ⛔⛤ **IT LIVED IN `ambition_characters`, WHICH LINKS BEVY.** Nothing in it
+/// needed to: the whole module references `bevy` zero times and reached outside
+/// this crate for exactly two `&str` constants. Authoring a move is a pure value
+/// computation, and an author who wants to write one should not have to build a
+/// Bevy graph to do it (fast-iteration packet I1).
+pub mod authoring;
+
 use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};

@@ -4,8 +4,8 @@
 //! vocabulary but expresses every slot with close-range body mechanics: punches,
 //! kicks, uppercuts, shoulder rushes, grabs, pummels, and all four throws.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, gravity_modifier, impulse, strike};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{committed_tail, gravity_modifier, impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -72,7 +72,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     // the end of the move (0.19). Opened earlier it would let her cancel the jab
     // before it could connect, which is a cancel out of STARTUP — the thing that
     // makes a move safe on whiff and is not what a confirm is for.
-    let jab = ambition_characters::moveset_authoring::cancelable(
+    let jab = ambition_entity_catalog::authoring::cancelable(
         jab,
         0.09,
         0.19,
@@ -282,9 +282,9 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.28)),
         on_hit: None,
     });
-    let haymaker = ambition_characters::moveset_authoring::charge(
+    let haymaker = ambition_entity_catalog::authoring::charge(
         haymaker,
-        ambition_characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             // Early in the 0.16s startup: the wind-up is visible before the
             // freeze, so the opponent sees it begin rather than a statue appear.
             hold_at_s: 0.06,
@@ -529,10 +529,10 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         // humanoid should copy before it has a reason to differ. Five fighters
         // own a `DashAttackShape` because their own laws refused the generic
         // one; a reference rig has no such law to refuse it.
-        taunt: ambition_characters::moveset_authoring::taunt("pugnacious_polygon_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("pugnacious_polygon_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "pugnacious_polygon_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             90.0,
         ),

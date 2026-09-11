@@ -159,7 +159,7 @@ def authored_corpus(*, with_helpers: bool) -> tuple[str, int]:
     RULES as unauthored.
 
     `with_helpers=False` (VARIANT axis) excludes them, because a helper that
-    OFFERS a builder is vocabulary, not a customer. `moveset_authoring.rs` names
+    OFFERS a builder is vocabulary, not a customer. `authoring.rs` names
     `WindboxVolume` six times while no fighter authors a windbox — including it
     makes the one confirmed gap disappear.
 

@@ -218,7 +218,7 @@ fn a_grounded_hatch_leaves_its_move_playing() {
 /// A minimal move for the playback the two arms above look at. Its CONTENT is
 /// irrelevant — what is being asked is whether the component survives.
 fn trap_spec() -> ambition_entity_catalog::MoveSpec {
-    ambition_characters::moveset_authoring::hitless_special(
+    ambition_entity_catalog::authoring::hitless_special(
         "trapdoor_test_move",
         "blink_out",
         0.16,

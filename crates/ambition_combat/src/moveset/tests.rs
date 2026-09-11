@@ -7090,8 +7090,8 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
 
     let recovery = |gates: MoveGates| MoveSpec {
         gates,
-        ..ambition_characters::moveset_authoring::strike(
-            ambition_characters::moveset_authoring::Strike {
+        ..ambition_entity_catalog::authoring::strike(
+            ambition_entity_catalog::authoring::Strike {
                 id: "rise",
                 clip: "attack_up",
                 startup_s: 0.05,
@@ -7312,7 +7312,7 @@ fn a_move_that_costs_meter_is_refused_when_the_body_cannot_pay() {
         mana.meter.current = meter;
         // The move being cancelled OUT of: cancelable into "swat" for its whole
         // life, so the window is open on the tick the press lands.
-        let playing = ambition_characters::moveset_authoring::cancelable(
+        let playing = ambition_entity_catalog::authoring::cancelable(
             uncancelable("holding"),
             0.0,
             9.0,
@@ -7462,7 +7462,7 @@ fn a_refused_priced_move_falls_through_to_its_authored_variant() {
             // about what the player reached for, and the gates decide which of
             // the two specs that press produces.
             body.insert(MovePlayback::new(
-                ambition_characters::moveset_authoring::cancelable(
+                ambition_entity_catalog::authoring::cancelable(
                     uncancelable("holding"),
                     0.0,
                     9.0,
@@ -9180,7 +9180,7 @@ fn the_guard_banks_nothing_from_a_charge_that_does_not_store() {
 /// repository writes a commitment, and it is exactly the authoring that makes
 /// the damped stick unreadable.
 fn rooted_special() -> MoveSpec {
-    ambition_characters::moveset_authoring::hitless_special("committed", "special_up", 0.18, 0.48)
+    ambition_entity_catalog::authoring::hitless_special("committed", "special_up", 0.18, 0.48)
 }
 
 /// The stick as a body actually carries it INSIDE a rooted move: the intent the
@@ -10091,8 +10091,8 @@ fn an_authored_gravity_beat_reaches_the_movement_policy_and_outlives_the_move() 
 
     // A SHORT move — 0.05s of startup and nothing else — that opens a two
     // second parasol on its first beat. The mismatch is the point.
-    let spec = ambition_characters::moveset_authoring::gravity_modifier(
-        ambition_characters::moveset_authoring::hitless_special("parasol", "special", 0.0, 0.05),
+    let spec = ambition_entity_catalog::authoring::gravity_modifier(
+        ambition_entity_catalog::authoring::hitless_special("parasol", "special", 0.0, 0.05),
         0.0,
         0.25,
         2.0,

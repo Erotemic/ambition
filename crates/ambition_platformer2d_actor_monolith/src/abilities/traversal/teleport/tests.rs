@@ -563,7 +563,7 @@ fn the_ledge_assist_follows_gravity_into_every_frame() {
 /// latch the technique reads. `None` is a player who asked for nothing.
 fn playback_aimed(local: Option<ae::Vec2>) -> ambition_combat::moveset::MovePlayback {
     ambition_combat::moveset::MovePlayback::new(
-        ambition_characters::moveset_authoring::hitless_special(
+        ambition_entity_catalog::authoring::hitless_special(
             "committed",
             "special_up",
             0.18,

@@ -21,7 +21,7 @@
 //! See [`crate::archetype_moveset`] for why the normals' ids are renamed rather
 //! than shared or copied.
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     fixed_knockback, hitless_special, impulse, sfx, strike, vfx, Strike,
 };
 use ambition_characters::smash_vitality::{author_vitality, VitalityParams};
@@ -116,7 +116,7 @@ fn adrenaline() -> MoveSpec {
             sfx: "player.attack.charge".to_string(),
         },
     );
-    let spec = ambition_characters::moveset_authoring::cancelable(
+    let spec = ambition_entity_catalog::authoring::cancelable(
         spec,
         INJECT_AT_S + 0.07,
         INJECT_ENDS_S,
@@ -176,7 +176,7 @@ fn tourniquet() -> MoveSpec {
     // only a volume carrying `Some(0.0)` is actually fixed.
     let spec = fixed_knockback(spec);
     let spec = sfx(spec, STRAP_STARTUP_S, "player.slash");
-    ambition_characters::moveset_authoring::on_contact(spec, "player.hit")
+    ambition_entity_catalog::authoring::on_contact(spec, "player.hit")
 }
 
 /// Down special: she goes to one knee and holds pressure on her own ribs.

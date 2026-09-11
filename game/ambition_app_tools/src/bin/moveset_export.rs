@@ -899,8 +899,8 @@ mod tests {
     }
 
     fn spec_named(id: &str, fires: bool) -> MoveSpec {
-        let mut spec = ambition_platformer2d::characters::moveset_authoring::strike(
-            ambition_platformer2d::characters::moveset_authoring::Strike {
+        let mut spec = ambition_entity_catalog::authoring::strike(
+            ambition_entity_catalog::authoring::Strike {
                 id,
                 clip: "jab",
                 startup_s: 0.05,

@@ -13,7 +13,7 @@
 //! the equivalent on a fighter built for this — it is a boss standing in a
 //! platform fighter, and the numbers say so.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -27,7 +27,7 @@ use ambition_platformer2d::entity_catalog::{
     MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
 };
 
@@ -577,10 +577,10 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("cellular_automaton_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("cellular_automaton_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "cellular_automaton_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             92.5,
         ),

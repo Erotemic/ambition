@@ -4,8 +4,8 @@
 //! moveset therefore does not grant combat capability by itself. A host that
 //! grants attack can use this light, quick kit with strong down-air pressure.
 
-use ambition_platformer2d::characters::moveset_authoring::Strike;
-use ambition_platformer2d::characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::characters::smash_capture::{
@@ -432,10 +432,10 @@ pub fn mary_o_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_platformer2d::characters::moveset_authoring::taunt("mary_o_taunt", 0.9),
-        dash_attack: ambition_platformer2d::characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("mary_o_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "mary_o_dash_attack",
-            ambition_platformer2d::characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             7,
             82.5,
         ),

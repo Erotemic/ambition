@@ -5,7 +5,7 @@
 //! than adding teleport, clone, or smoke mechanics; those belong to abilities or
 //! techniques rather than hit definitions.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -16,7 +16,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
@@ -261,7 +261,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     //
     // ⚠ THE WINDOW OPENS AFTER THE ACTIVE FRAMES CLOSE (0.10s), so the cancel is
     // a decision made once the verdict is in, not a buffer held from the press.
-    let n_b = ambition_characters::moveset_authoring::cancelable(
+    let n_b = ambition_entity_catalog::authoring::cancelable(
         n_b,
         0.10,
         0.30,
@@ -579,15 +579,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         },
     );
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
+        taunt: ambition_entity_catalog::authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
         // 0.30 recovery, not the genre's 0.26 — nothing he swings recovers
         // in under 3x its active window, which is what stops any of it being
         // thrown casually. 0.09 active buys 0.27, and his law wants MORE.
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "ninja_shadow_oni_leader_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape {
+            ambition_entity_catalog::authoring::DashAttackShape {
                 recover_s: 0.30,
-                ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+                ..ambition_entity_catalog::authoring::DashAttackShape::GENRE
             },
             7,
             82.5,

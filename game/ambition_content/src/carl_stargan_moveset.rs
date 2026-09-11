@@ -5,8 +5,8 @@
 //! on the move that emits them; cue names are explicit where the bank id does not
 //! follow the default family/row convention.
 
-use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_entity_catalog::authoring::Strike;
+use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -17,7 +17,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, strike, strike_tag, tipper, vfx_at, vfx_cued, Tip,
 };
 
@@ -358,9 +358,9 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // ⛔ IT DOES NOT STORE. A stored charge is a threat you carry into the next
     // exchange, which is the brawler's haymaker and a different character; his
     // is a thing you commit to on the page you are on.
-    let n_b = ambition_characters::moveset_authoring::charge(
+    let n_b = ambition_entity_catalog::authoring::charge(
         n_b,
-        ambition_characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             // Just after the sweep's own cue at 0.04s, so the wind-up reads
             // before the freeze rather than a statue appearing.
             hold_at_s: 0.08,
@@ -674,7 +674,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         // asks of every move in this table. A cosmic sweep over the head: he is
         // not threatening you, he is showing you the scale of the thing.
         taunt: vfx_at(
-            ambition_characters::moveset_authoring::taunt("carl_stargan_taunt", 0.9),
+            ambition_entity_catalog::authoring::taunt("carl_stargan_taunt", 0.9),
             0.20,
             "cosmic_calendar_sweep",
             (0.0, -26.0),
@@ -687,14 +687,14 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         // undercut `pale_blue_dot`, which reaches 69 and takes 0.24s. the law
         // is not in the way of the move; it is what the move is.
         dash_attack: vfx_at(
-            ambition_characters::moveset_authoring::dash_attack(
+            ambition_entity_catalog::authoring::dash_attack(
                 "carl_stargan_dash_attack",
-                ambition_characters::moveset_authoring::DashAttackShape {
+                ambition_entity_catalog::authoring::DashAttackShape {
                     // EXACTLY his jab's reach, which his module doc pins as
                     // `NEAREST_REACH`: the shoulder check is his shortest move
                     // and his fastest, and both halves of that are his law.
                     reach_px: NEAREST_REACH,
-                    ..ambition_characters::moveset_authoring::DashAttackShape::GENRE
+                    ..ambition_entity_catalog::authoring::DashAttackShape::GENRE
                 },
                 8,
                 90.0,

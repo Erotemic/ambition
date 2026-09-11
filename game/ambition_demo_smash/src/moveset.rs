@@ -6,7 +6,7 @@
 //! data. Authored `knockback_growth` uses absolute px/s per damage point; values
 //! here are chosen to match the stage's base-relative growth policy.
 
-use ambition_platformer2d::characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     active_start, cancelable, on_contact, sfx, strike, vfx, Strike,
 };
 use ambition_platformer2d::entity_catalog::{
@@ -81,7 +81,7 @@ pub(crate) fn airborne_only() -> MoveGates {
 // ---------------------------------------------------------------------------
 // What is left here is the PLATFORM-FIGHTER half. The move-building
 // combinators — `strike`, `impulse`, `cancelable`, `committed_tail`, `on_hit`,
-// `active_start` — live in `moveset_authoring`, where every other character's
+// `active_start` — live in `ambition_entity_catalog::authoring`, where every other character's
 // table already reaches for them. `Feel` is the half that does not travel: it
 // is this game's opinion about how a swing is heard and seen.
 // ---------------------------------------------------------------------------
@@ -427,9 +427,9 @@ pub fn fighter_moveset() -> MovesetContract {
     // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
     // an author who set the spec alone got a charge that buys nothing. The verb
     // refuses that.
-    let mut f_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let mut f_smash = ambition_entity_catalog::authoring::charge(
         f_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -490,9 +490,9 @@ pub fn fighter_moveset() -> MovesetContract {
     // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
     // an author who set the spec alone got a charge that buys nothing. The verb
     // refuses that.
-    let up_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let up_smash = ambition_entity_catalog::authoring::charge(
         up_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -524,9 +524,9 @@ pub fn fighter_moveset() -> MovesetContract {
     // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
     // an author who set the spec alone got a charge that buys nothing. The verb
     // refuses that.
-    let down_smash = ambition_platformer2d::characters::moveset_authoring::charge(
+    let down_smash = ambition_entity_catalog::authoring::charge(
         down_smash,
-        ambition_platformer2d::characters::moveset_authoring::Charge {
+        ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
             max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
@@ -956,7 +956,7 @@ pub fn fighter_moveset() -> MovesetContract {
     // a grounded blink would replace that with a worse one.
     let recovery = ambition_platformer2d::characters::smash_teleport::author_teleport(
         {
-            let mut shell = ambition_platformer2d::characters::moveset_authoring::hitless_special(
+            let mut shell = ambition_entity_catalog::authoring::hitless_special(
                 "slip_upward",
                 "special",
                 0.10,

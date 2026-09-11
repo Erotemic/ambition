@@ -88,8 +88,8 @@ fn a_swing_spends_only_the_respawn_grant_on_a_body_that_holds_two() {
 
 /// A minimal move for the test above: only its existence matters.
 fn test_move() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    ambition_platformer2d::characters::moveset_authoring::strike(
-        ambition_platformer2d::characters::moveset_authoring::Strike {
+    ambition_entity_catalog::authoring::strike(
+        ambition_entity_catalog::authoring::Strike {
             id: "test_swing",
             clip: "attack",
             startup_s: 0.05,

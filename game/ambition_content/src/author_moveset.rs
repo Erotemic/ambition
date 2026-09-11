@@ -121,7 +121,7 @@ pub fn author_moveset() -> MovesetContract {
 /// step he takes to reposition is a turn he did not choose — and flying it home
 /// means walking where the bolt needs him to walk.
 fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    let spec = ambition_characters::moveset_authoring::hitless_special(
+    let spec = ambition_entity_catalog::authoring::hitless_special(
         "author_train_of_thought",
         "special_forward",
         BOLT_AT_S,
@@ -164,7 +164,7 @@ fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
         },
     );
     let spec =
-        ambition_characters::moveset_authoring::sfx(spec, BOLT_AT_S, "player.attack.charge");
+        ambition_entity_catalog::authoring::sfx(spec, BOLT_AT_S, "player.attack.charge");
     spec
 }
 
@@ -241,7 +241,7 @@ fn the_second_draft() -> ambition_platformer2d::entity_catalog::MoveSpec {
 
 /// The Author's recovery: he edits himself out and back in somewhere else.
 fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    let spec = ambition_characters::moveset_authoring::hitless_special(
+    let spec = ambition_entity_catalog::authoring::hitless_special(
         "author_revision",
         "special_up",
         TELEPORT_AT_S,
@@ -277,7 +277,7 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
             arrive_vfx: "four_point_glint".to_string(),
         },
     );
-    let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
+    let spec = ambition_entity_catalog::authoring::sfx(spec, 0.0, "player.attack.charge");
     // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
     // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
     // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same

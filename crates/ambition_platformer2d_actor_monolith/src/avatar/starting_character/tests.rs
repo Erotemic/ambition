@@ -2566,7 +2566,7 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
 /// only property that mattered: a body whose BODY KIT special is
 /// `bubble_shield` while its MOVESET says a direction means something else.
 fn a_robot_shaped_repertoire() -> ambition_entity_catalog::MovesetContract {
-    use ambition_characters::moveset_authoring::hitless_special;
+    use ambition_entity_catalog::authoring::hitless_special;
     let mut contract = ambition_entity_catalog::MovesetContract::default();
     for (verb, id) in [
         ("special", "bubble_shield"),

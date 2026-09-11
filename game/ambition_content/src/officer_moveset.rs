@@ -44,7 +44,7 @@ pub fn officer_moveset() -> MovesetContract {
 /// carries damage, and `hit_reaction`'s `flinchless: hitbox.windbox().is_some()`
 /// saying *"this is a push, not a hit"* — and NOTHING used it. Measured
 /// 2026-09-05: zero authored windboxes anywhere. ⇒ This move costs authoring
-/// only; see `moveset_authoring::gust`.
+/// only; see `ambition_entity_catalog::authoring::gust`.
 ///
 /// ⭐ IT MAKES HIS KIT ONE IDEA. He already draws a sidearm and plants a riot
 /// shield; a crowd-control officer's third tool is *get back*, not a haymaker.
@@ -61,8 +61,8 @@ pub fn officer_moveset() -> MovesetContract {
 /// a wall rather than a shove, and it is the whole reason `repeating` is an
 /// authored bool: a one-shot version of this move would be a worse haymaker.
 fn the_order_to_disperse() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    ambition_characters::moveset_authoring::gust(
-        ambition_characters::moveset_authoring::Gust {
+    ambition_entity_catalog::authoring::gust(
+        ambition_entity_catalog::authoring::Gust {
             id: "officer_disperse",
             clip: "attack_side",
             // Slower to open than the haymaker it replaces: holding ground is
@@ -168,7 +168,7 @@ fn the_riot_shield() -> ambition_platformer2d::entity_catalog::MoveSpec {
 /// plant your feet for; carrying the rush's momentum into it would make the
 /// shot longest out of a run, and this move's whole read is that he stopped.
 fn the_draw() -> MoveSpec {
-    let mut spec = ambition_characters::moveset_authoring::hitless_special(
+    let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "officer_the_draw",
         "shoot",
         FIRE_AT_S,
@@ -179,13 +179,13 @@ fn the_draw() -> MoveSpec {
         at_s: FIRE_AT_S,
         kind: MoveEventKind::Ranged,
     });
-    let spec = ambition_characters::moveset_authoring::sfx(spec, DRAW_AT_S, "player.attack.charge");
+    let spec = ambition_entity_catalog::authoring::sfx(spec, DRAW_AT_S, "player.attack.charge");
     // ⭐ THE SHOT'S OWN SOUND IS NOT AUTHORED HERE. A `Ranged` event routes both
     // the report and the projectile off the weapon that fired it, so a pistol
     // sounds like a pistol without this table naming a cue it would then have to
     // keep in step with the weapon.
-    let spec = ambition_characters::moveset_authoring::vfx(spec, FIRE_AT_S, "muzzle_flash");
-    ambition_characters::moveset_authoring::committed_tail(spec, HOLSTER_AT_S, 0.35)
+    let spec = ambition_entity_catalog::authoring::vfx(spec, FIRE_AT_S, "muzzle_flash");
+    ambition_entity_catalog::authoring::committed_tail(spec, HOLSTER_AT_S, 0.35)
 }
 
 #[cfg(test)]

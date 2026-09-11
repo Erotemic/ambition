@@ -660,6 +660,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "check", "--all-targets"],
                     cwd=str(REPO / "fixtures" / "headless_profile")))
 
+    # ⭐ THE OTHER DIRECTION OF THE SAME QUESTION, and it is seconds because its
+    # whole closure is 12 crates. The consumers above ask "does the umbrella
+    # still compile for a third party"; this one asks "can somebody AUTHOR
+    # CONTENT without building the engine at all" — fast-iteration packet I1. It
+    # runs its TESTS rather than a check, because the tests are what prove the
+    # authoring BUILDERS ran and not a hand-written literal, and they cost
+    # nothing. The closure claim itself is `scripts/tests`'
+    # `test_authoring_needs_no_engine.py`.
+    jobs.append(Job("external consumer: authoring without the engine",
+                    [CARGO, "test"],
+                    cwd=str(REPO / "fixtures" / "content_builder")))
+
     # These checks are repo-coupled and remain part of the default verdict, but
     # they do not gate STARTING the Rust tests. Running them after the workspace,
     # render-composition, and external-consumer Rust jobs minimizes time to the

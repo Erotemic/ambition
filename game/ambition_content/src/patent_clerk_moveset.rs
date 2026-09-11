@@ -5,7 +5,7 @@
 //! character/system abilities rather than move-table effects. Character-specific VFX
 //! cue overrides live here with the authored moves.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -16,7 +16,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, fixed_knockback, impulse, on_contact, strike, vfx_at, vfx_cued,
 };
 
@@ -385,7 +385,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // still a free hit, so armour buys the crossing and nothing on either side of
     // it. ⇒ Every number on the move is otherwise unchanged: this is a window
     // ADDED, not a rebalance.
-    let side_b = ambition_characters::moveset_authoring::armor(side_b, 0.20, 0.31);
+    let side_b = ambition_entity_catalog::authoring::armor(side_b, 0.20, 0.31);
     let side_b = committed_tail(side_b, 0.66, 0.0);
     let side_b = vfx_cued(
         side_b,
@@ -613,10 +613,10 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         },
     );
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("patent_clerk_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("patent_clerk_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "patent_clerk_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             9,
             102.5,
         ),

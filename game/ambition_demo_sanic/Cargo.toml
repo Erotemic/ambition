@@ -7,6 +7,10 @@ authors.workspace = true
 description = "Tiny Sanic-style demo content home used as an oracle for the Ambition facade crate."
 
 [dependencies]
+# The pure move/entity value vocabulary and its authoring primitives.
+# ⭐ DIRECT, not through the engine facade: authoring a move is a value
+# computation, and I1's whole point is that it must not pull the graph.
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 # The E9 oracle's asterisk, paid explicitly. A content crate that defines its own
 # ECS components/resources CANNOT reach bevy's derive macros through

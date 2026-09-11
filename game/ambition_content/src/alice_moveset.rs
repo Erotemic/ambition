@@ -18,7 +18,7 @@
 //!
 //! The day she gets her own art, this file is where the names change and nothing else does.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -29,7 +29,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     armor, committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
 };
 
@@ -569,10 +569,10 @@ pub fn alice_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("alice_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("alice_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "alice_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             8,
             90.0,
         ),

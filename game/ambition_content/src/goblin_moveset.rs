@@ -4,7 +4,7 @@
 //! the shared `strike` authoring shape and standard animation fallback vocabulary,
 //! so missing specialized clips affect presentation rather than gameplay.
 
-use ambition_characters::moveset_authoring::Strike;
+use ambition_entity_catalog::authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -15,7 +15,7 @@ use ambition_characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
-use ambition_characters::moveset_authoring::{
+use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at, wake, Wake,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
@@ -594,10 +594,10 @@ pub fn goblin_moveset() -> MovesetContract {
         },
     );
     let mut contract = SmashRepertoire {
-        taunt: ambition_characters::moveset_authoring::taunt("goblin_taunt", 0.9),
-        dash_attack: ambition_characters::moveset_authoring::dash_attack(
+        taunt: ambition_entity_catalog::authoring::taunt("goblin_taunt", 0.9),
+        dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "goblin_dash_attack",
-            ambition_characters::moveset_authoring::DashAttackShape::GENRE,
+            ambition_entity_catalog::authoring::DashAttackShape::GENRE,
             6,
             75.0,
         ),

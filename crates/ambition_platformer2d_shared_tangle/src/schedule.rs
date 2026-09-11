@@ -131,23 +131,6 @@ impl SimScheduleExt for App {
     }
 }
 
-/// Generic platformer runtime phases.
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum PlatformerRuntimeSet {
-    /// Build or refresh world-derived runtime inputs before actors tick.
-    WorldPrep,
-    /// Translate input/control intent into actor control frames.
-    ControlInput,
-    /// Integrate actors, held items, projectiles, and other gameplay bodies.
-    ActorSimulation,
-    /// Handle room unload/load, room-scoped cleanup, and authored room respawn.
-    RoomLifecycle,
-    /// Resolve damage, hitboxes, combat intents, and gameplay consequences.
-    Combat,
-    /// Publish simulation state to presentation-facing mirrors/caches.
-    PresentationSync,
-}
-
 /// Startup-phase slot for the app's presentation setup (camera, root
 /// UI scaffolding). Machinery that must initialize after presentation
 /// setup (e.g. audio channel/cue loading) orders `.after(this set)`

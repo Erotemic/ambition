@@ -18,10 +18,10 @@
 //!
 //! ## How it attributes a write to a phase
 //!
-//! `PlatformerRuntimeSet` already names the phases A4 will split — `ControlInput`
-//! and `ActorSimulation` among them. A probe runs after each phase and records
-//! every body whose `BodyKinematics` change tick has MOVED since the previous
-//! probe in the same tick. A body credited to two phases was advanced twice.
+//! `Platformer2dSimulationPhaseMonolith` names the phases A4 will split. A probe
+//! runs after each phase and records every body whose `BodyKinematics` change tick
+//! has MOVED since the previous probe in the same tick. A body credited to two
+//! phases was advanced twice.
 //!
 //! ⛔ **CHANGE TICKS, NOT `is_changed()`.** A probe runs once per tick, so
 //! `is_changed()` on it means *"changed since the previous TICK"* — which every
@@ -87,14 +87,16 @@ use bevy::prelude::*;
 /// The phases probed, in schedule order.
 ///
 /// ⛔⛔ THESE ARE `Platformer2dSimulationPhaseMonolith`, AND THE FIRST VERSION OF
-/// THIS FILE PROBED `PlatformerRuntimeSet` INSTEAD — WHICH HAS NO MEMBERS.
+/// THIS FILE PROBED `PlatformerRuntimeSet` INSTEAD — WHICH HAD NO MEMBERS.
 ///
-/// MEASURED 2026-09-10: `in_set(PlatformerRuntimeSet::..)` appears **zero**
-/// times in `crates/` and `game/`, and nothing calls `configure_sets` on it. It
-/// is the *"reusable runtime vocabulary that future crates should depend on"*
-/// (`actor_monolith/src/schedule/schedule.rs:5`), and
-/// `Platformer2dSimulationPhaseMonolith` is *"the app-level realization"*. The
-/// vocabulary is aspirational; the realization is what systems join.
+/// MEASURED 2026-09-10: `in_set(PlatformerRuntimeSet::..)` appeared **zero**
+/// times in `crates/` and `game/` and nothing called `configure_sets` on it, so
+/// it was an aspirational vocabulary beside a realization that 18 packages
+/// already order against. ⭐ IT IS DELETED (2026-09-11) and the gate that keeps
+/// any set from being empty is
+/// `scripts/tests/test_system_set_census_refusals.py`. The lesson below is why
+/// the deletion was worth making, and it is kept because the FAILURE MODE
+/// outlives the one instance of it.
 ///
 /// ⇒ **`.after(<a set with no members>)` IS A SILENT NO-OP.** It constrains
 /// nothing, the scheduler places the system anywhere, and an instrument built on

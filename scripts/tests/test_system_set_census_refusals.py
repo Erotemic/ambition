@@ -20,6 +20,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
+SCRIPT = REPO / "scripts" / "measure_system_sets_without_members.py"
 
 import measure_system_sets_without_members as census  # noqa: E402
 
@@ -89,4 +90,35 @@ def test_a_repeated_name_is_printed_because_its_memberships_pool(
     assert "1 with ZERO" not in out, (
         "the pooled count hides the empty one; this test documents that, and the "
         "collapse notice is the only warning the reader gets"
+    )
+
+
+def test_this_repository_declares_no_system_set_with_zero_members():
+    """⛔⛤ THE CENSUS IS ALSO THE GATE, because the finding was a single instance.
+
+    `PlatformerRuntimeSet` was the ONE empty set of 134 and it is deleted
+    (2026-09-11). A ratchet over a population of one is a floor at zero, so this
+    asks the instrument for the repository's own answer rather than pinning a
+    number that would only ever be re-derived.
+
+    ⚠ THE ANTI-VACUITY ARM IS THE DECLARATION COUNT, not the emptiness. The
+    script's own docstring records it printing `0 SystemSet types declared, 0 with
+    ZERO members` from a corpus `git ls-files` had refused to produce — a clean
+    bill from nothing. It exits 1 on that now, and this floors the population too,
+    so a corpus that lost its subject cannot pass by having none.
+    """
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT)], cwd=str(REPO), capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+    declared = int(proc.stdout.splitlines()[0].split()[0])
+    assert declared >= 100, (
+        f"only {declared} SystemSet declarations found. This gate is meaningless "
+        "over a corpus that lost its subject — check the file list before reading "
+        "the verdict below it."
+    )
+    assert "0 with ZERO `in_set(` members" in proc.stdout, (
+        "a declared `SystemSet` has no members. `.after(<that set>)` is a SILENT "
+        "no-op: not a compile error, not a warning, nothing at the call site, and "
+        "the only symptom is a measurement that looks too tidy.\n" + proc.stdout
     )

@@ -46,8 +46,14 @@ Tradeoffs:
 `RoomScopedEntity` paths used by presentation and reset code.
 - Crude architecture tests can produce false positives and need explicit
 allowlist maintenance.
-- `Platformer2dSimulationPhaseMonolith` and `PlatformerRuntimeSet` coexist until the concrete app schedule
-can be mapped cleanly onto reusable runtime phases.
+- `Platformer2dSimulationPhaseMonolith` and `PlatformerRuntimeSet` coexisted until the concrete app schedule
+could be mapped cleanly onto reusable runtime phases. **That deferral expired by being answered the other
+way, and it is closed (2026-09-11).** The realization moved INTO the reusable crate — 
+`Platformer2dSimulationPhaseMonolith` is declared in `ambition_platformer2d_shared_tangle`, the lowest
+platformer crate, with 125 `in_set` members across 18 packages — so the vocabulary layer had nothing left
+to be lower than. `PlatformerRuntimeSet` never gained a member and was deleted: ordering against an empty
+`SystemSet` is a silent no-op, and the gate that keeps any set from being empty is
+`scripts/tests/test_system_set_census_refusals.py`.
 
 ## Validation
 

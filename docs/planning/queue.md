@@ -458,15 +458,33 @@ it is the one A4 walks into, because the writer map frames the packet here.
 `in_set` members. **Not a sloppy habit — a single vocabulary declared and never
 realized while 126 are wired.**
 
+✅ **CLOSED 2026-09-11: `PlatformerRuntimeSet` IS DELETED, AND THE DEFERRAL THAT KEPT <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
+IT EXPIRED BY BEING ANSWERED THE OTHER WAY.** ADR 0019 said the two vocabularies
+*"coexist until the concrete app schedule can be mapped cleanly onto reusable runtime
+phases"*. The mapping never happened; what happened instead is that the REALIZATION
+moved into the reusable crate. `Platformer2dSimulationPhaseMonolith` is declared in
+`ambition_platformer2d_shared_tangle` — the lowest platformer crate — with 125
+`in_set` members across 18 packages, so the aspirational layer had nothing left to be
+lower than. ⇒ **One authority per fact**, and `.after(PlatformerRuntimeSet::X)` is now
+a compile error rather than a silent no-op.
+⭐ **The guard defends the GAP, not the fix**:
+`scripts/tests/test_system_set_census_refusals.py::test_this_repository_declares_no_system_set_with_zero_members`
+refuses ANY declared set with zero members, with the declaration count as its
+anti-vacuity floor. Poison-verified by adding an empty set (fires) and removing it
+(green), with the removal asserted.
+⚠ **A4's framing question survives the deletion.** The writer map still frames the
+packet on that vocabulary; it must be re-framed on the realization, whose phase names
+are the ones the baseline below measured.
+
 ⛔⛤ **THE MAPPING'S SAFE-LOOKING HALF IS THE DANGEROUS HALF.**
 
 | | | | |
 |---|---|---|---|
-| vocabulary | `WorldPrep` | `ControlInput` | `ActorSimulation` |
+| vocabulary | `WorldPrep` | `ControlInput` | `ActorSimulation` | <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
 | realization | `WorldPrep` | `PlayerInput` | `PlayerSimulation` |
 
 The differing names announce themselves. ⇒ **`WorldPrep` exists in BOTH, and the
-realization's `WorldPrep` does what the vocabulary calls `ActorSimulation`** — the
+realization's `WorldPrep` does what the vocabulary calls `ActorSimulation`** — the <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
 A4 baseline measured **100% of body position changes in `WorldPrep/Integrate`**.
 **Anyone mapping by name lands integration in the wrong phase, and the shared name
 is what makes it look safe.** ⚠ ADR 0019 says the two *"coexist until the concrete
@@ -504,8 +522,9 @@ which is `pub(crate)` in the vendored `bevy_ecs` 0.19.1 schedule-node module —
 external crate this repository does not contain, so no citation here can resolve — and
 `Schedule::systems()` hands out `&ScheduleSystem`, which cannot reach it. ⇒ **The
 answerable granularity is the PHASE SEAM**, and that is the right one rather than a
-consolation: `PlatformerRuntimeSet`'s `ControlInput` and `ActorSimulation` are
-precisely the seam A4 splits. ⚠ Such a probe cannot see two writes inside ONE
+consolation: the realization's `PlayerInput` and `PlayerSimulation` are
+precisely the seam A4 splits (the deleted vocabulary spelled them `ControlInput` <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
+and `ActorSimulation`). ⚠ Such a probe cannot see two writes inside ONE <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
 phase, and that limit is not a choice.
 
 ⛔⛤ **AND `.after(phase)` DOES NOT PLACE A PROBE AT THAT SEAM.** It forbids
@@ -516,7 +535,7 @@ phases.** ⇒ **A probe must be penned: `.after(phase).before(next_phase)`.**
 
 ⚠ **THE FIRST RUN OF THAT BROKEN INSTRUMENT REPORTED `0 double ticks` OVER 240
 WRITES — a perfectly tidy result.** The per-phase distribution is what exposed it:
-`{"ControlInput": 240}`, **zero attributed to `ActorSimulation`, the phase whose
+`{"ControlInput": 240}`, **zero attributed to `ActorSimulation`, the phase whose <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: these rows record what it spelled and why it went. A resolvable citation here would mean the deletion did not happen -->
 entire job is advancing actors.** ⭐⭐ **A TIDY FIRST NUMBER IS AS SUSPECT AS A
 DRAMATIC ONE, and it is far more comfortable to publish.**
 

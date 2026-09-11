@@ -5,11 +5,13 @@
 Not a compile error, not a warning, nothing at the call site. The system is placed
 wherever the scheduler likes, and the only symptom is a result that looks fine.
 
-⭐ MEASURED 2026-09-10: of **127** declared `SystemSet` types, exactly **ONE** has
+⭐ MEASURED 2026-09-10: of **127** declared `SystemSet` types, exactly **ONE** had
 zero `in_set(` members — `PlatformerRuntimeSet`
-(`ambition_platformer2d_shared_tangle/src/schedule.rs`). ⇒ **This is not a
-widespread habit; it is one vocabulary declared and never realized.** 126 sets are
-wired, led by `Platformer2dSimulationPhaseMonolith` at 125 members.
+(`ambition_platformer2d_shared_tangle/src/schedule.rs`). ⇒ **It was not a
+widespread habit; it was one vocabulary declared and never realized**, beside a
+realization at 125 members. ✔ **It is deleted (2026-09-11) and the answer is now
+ZERO**, which is what `scripts/tests/test_system_set_census_refusals.py` gates:
+a population of one has no ratchet, only a floor.
 
 ## How this was found, and what it cost
 

@@ -2,11 +2,13 @@
 //!
 //! Single source of truth for the concrete sandbox app schedule.
 //!
-//! `ambition_platformer2d_shared_tangle::schedule::PlatformerRuntimeSet` names the
-//! reusable runtime vocabulary that future crates should depend on. `Platformer2dSimulationPhaseMonolith`
-//! is the app-level realization of that vocabulary, plus Ambition-specific tail
-//! phases. Add new systems through module-owned plugins and stable sets rather
-//! than pinning a fragile cross-system `.after(other_system)` in this file or in
+//! `ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith`
+//! is the reusable phase vocabulary AND the app's realization of it: it lives in
+//! the lowest platformer crate and 18 packages order against it. A second,
+//! aspirational `PlatformerRuntimeSet` stood beside it with ZERO members until
+//! 2026-09-11; ordering against an empty set is a silent no-op, so it is gone.
+//! Add new systems through module-owned plugins and stable sets rather than
+//! pinning a fragile cross-system `.after(other_system)` in this file or in
 //! `plugins.rs`.
 
 use bevy::prelude::*;

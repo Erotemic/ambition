@@ -26,15 +26,18 @@ fn declared_schemas() -> BTreeSet<SchemaId> {
         .collect()
 }
 
-/// Adding a source to `pack.ron` without registering its schema in BOTH
-/// compositions fails here.
+/// Adding a source to `pack.ron` without registering its schema fails here.
 ///
-/// This is the whole point. Migrating a content family is four edits — a
-/// handler, a registration, a `pack.ron` line, and the runtime read — and the
-/// registration half is the one with two sites and no compiler error when you
-/// miss one. Miss the engine side and the game panics at startup on its own
-/// content; miss the CLI side and `ambition_content` reports a pack the game
-/// runs fine as unknown-schema.
+/// This is the load-bearing half and it survives the collapse: it compares the
+/// shipped MANIFEST — the file a human edits — against what the compositions
+/// install, which no amount of list-sharing can make true by construction.
+///
+/// ⚠ THE TWO ARMS BELOW NOW ASK ONE QUESTION. `pack_schemas()` and
+/// `default_registry()` both forward to `ambition_engine_schemas`, so the
+/// registration half is no longer "two sites with no compiler error when you
+/// miss one" — it is one site. Both arms are kept because their MESSAGES name
+/// different consequences a reader still needs (a startup panic versus a tool
+/// refusing a pack the game runs), not because they can disagree.
 #[test]
 fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
     let declared = declared_schemas();
@@ -56,7 +59,8 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
         missing_from_game.is_empty(),
         "pack.ron declares {missing_from_game:?}, which the GAME's registry does not install.\n\
          The game panics at startup on its own content. Register the schema in \
-         `ambition_platformer2d::content::engine_schemas()`."
+         `ambition_engine_schemas::engine_schemas()` — the ONE list both \
+         compositions forward to."
     );
 
     let missing_from_cli: Vec<_> = declared
@@ -68,29 +72,17 @@ fn every_schema_the_shipped_pack_declares_is_installed_in_both_compositions() {
         missing_from_cli.is_empty(),
         "pack.ron declares {missing_from_cli:?}, which the CLI's registry does not install.\n\
          `ambition_content` would refuse a pack the game runs fine. Register the schema in \
-         `ambition_content_cli::default_registry()` and link the owning capability crate."
+         `ambition_engine_schemas::engine_schemas()` and link the owning capability \
+         crate there."
     );
 }
 
-/// The two compositions install the same schemas, not merely enough of them.
-///
-/// Coverage of the shipped pack is the load-bearing half above; this is the tighter statement,
-/// and it is true today because every schema Ambition authors is owned by an ENGINE capability.
-/// A silent divergence is what must not happen.
-#[test]
-fn the_tools_composition_and_the_games_composition_are_the_same_set() {
-    let game: BTreeSet<String> = ambition_content::pack::pack_schemas()
-        .schemas()
-        .map(|registration| registration.id.to_string())
-        .collect();
-    let cli: BTreeSet<String> = ambition_content_cli::default_registry()
-        .schemas()
-        .map(|registration| registration.id.to_string())
-        .collect();
-
-    assert_eq!(
-        game, cli,
-        "the game and the CLI compose different schema sets, so one of them \
-         judges Ambition's content by rules the other does not apply"
-    );
-}
+// ⛔⛤ `the_tools_composition_and_the_games_composition_are_the_same_set` WAS HERE
+// AND IS DELETED, because the structure it guarded can no longer express the
+// defect. It compared `pack::pack_schemas()` against
+// `ambition_content_cli::default_registry()`; both now forward to
+// `ambition_engine_schemas::engine_schemas()`, so it asserted a function equal
+// to itself. ⇒ The edit that would once have caught a real drift — registering a
+// schema in one list and not the other — is UNSPELLABLE now: there is one list.
+// A test that cannot fail is not coverage, and keeping it would say the set is
+// watched when nothing is watching anything.

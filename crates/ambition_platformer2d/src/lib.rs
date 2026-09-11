@@ -82,68 +82,18 @@ pub mod content {
 
     /// The schemas the ENGINE itself owns, ready for a consumer to add to.
     ///
+    /// ⭐ THE LIST LIVES IN `ambition_engine_schemas` — one place, reachable by
+    /// BOTH the facade and `ambition_content_cli`, which cannot link this crate.
+    /// It used to be spelled here and again in the CLI, with a test holding the
+    /// two equal; a rule about a list that should not have been two lists.
+    ///
     /// this is the piece a consumer cannot assemble for itself without
     /// knowing which crates own which schemas — which is exactly the internal
     /// topology the SDK is supposed to hide. A capability's own schema is added
     /// on top; nobody has to know that the character catalog lives in
     /// `ambition_characters`.
     pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
-        let mut registry = ambition_content_pack::SchemaRegistry::new();
-        registry
-            .register(crate::characters::actor::character_catalog::character_catalog_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(
-                ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
-            )
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema())
-            .expect("the engine's own schemas are registered once");
-        // The capability owns the schema even though its types still live in
-        // `ambition_characters` — which is the point of registering it, since a registration is
-        // where ownership becomes something a tool can print rather than a comment.
-        registry
-            .register(crate::characters::smash_fighter::content_schema::smash_fighter_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(
-                ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),
-            )
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(ambition_boss_encounter::pattern::content_schema::boss_profiles_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(ambition_boss_encounter::pattern::content_schema::boss_encounter_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(ambition_audio::content_schema::music_registry_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
-            .register(ambition_audio::content_schema::sfx_registry_schema())
-            .expect("the engine's own schemas are registered once");
-        // a capability's schema follows the CAPABILITY. `ambition_items` is an
-        // optional facade edge (slice H), so a composition without it must not
-        // claim to own `item_catalog` — that is what makes "uninstalled
-        // capability" a real refusal rather than a hypothetical one.
-        registry
-            .register(ambition_items::content_schema::item_catalog_schema())
-            .expect("the engine's own schemas are registered once");
-        // Same rule, same reason: `ambition_encounter` is an optional facade
-        // edge, so a composition without it must not claim to own
-        // `encounter_waves`.
-        registry
-            .register(ambition_encounter::content_schema::encounter_waves_schema())
-            .expect("the engine's own schemas are registered once");
-        // ⭐⭐ MOVE TABLES ARE CONTENT (fast-iteration I2, step 4). The same
-        // capability owns them as owns the catalog they key against: a move
-        // table names a character, and a composition that installs one without
-        // the other could admit a file describing a fighter it cannot build.
-        registry
-            .register(crate::characters::moveset_content_schema::moveset_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
+        ambition_engine_schemas::engine_schemas()
     }
 }
 

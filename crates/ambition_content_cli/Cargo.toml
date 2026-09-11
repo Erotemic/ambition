@@ -13,21 +13,18 @@ description = "The content-pack validator's diagnostic front door. Composes the 
 # would notice until someone timed it.
 [dependencies]
 ambition_content_pack = { path = "../ambition_content_pack" }
-# Capability crates, for their schema registrations. Each contributes the
-# schemas it owns; which ones are linked here IS the composition this CLI
-# validates against, and it is why "uninstalled capability" is a real refusal.
-ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
-# ⭐ THE BOSS SCHEMAS MOVED WITH THE BOSS'S THINKING (D168, 2026-08-27). This
-# tool registers every authored schema, so it follows them; same
-# `content_pack` feature, same reason.
-ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["content_pack"] }
-ambition_items = { path = "../ambition_items", features = ["content_pack"] }
-# The encounter capability owns `encounter_waves`. the CLI must judge Ambition's
-# content by the SAME rules the game does — a test pins the two registries equal
-# — so a schema added to one belongs in the other in the same commit.
-ambition_encounter = { path = "../ambition_encounter", features = ["content_pack"] }
-ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
-ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
+# ⭐⭐ THE SIX CAPABILITY CRATES ARE GONE FROM HERE, AND THAT IS THE OTHER HALF OF
+# THE COLLAPSE. They were declared so this manifest's own `default_registry()`
+# could spell each registration; that list moved to `ambition_engine_schemas`,
+# and leaving the deps behind would have been the SAME defect one level down —
+# two hand-kept copies of "which six crates own the engine's schemas", one in
+# each manifest, with nothing holding them equal.
+#
+# ⚠ The composition is unchanged: this binary still links all six, transitively
+# and by exactly one declaration. MEASURED by member, not by count: the closure
+# goes 324 -> 325 and the single addition is `ambition_engine_schemas` itself.
+# Every other member is identical and `ambition_platformer2d` is still absent.
+ambition_engine_schemas = { path = "../ambition_engine_schemas" }
 
 [[bin]]
 name = "ambition_content"

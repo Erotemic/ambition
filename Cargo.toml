@@ -22,6 +22,7 @@ members = [
     "crates/ambition_combat",
     "crates/ambition_causal",
     "crates/ambition_content_pack",
+    "crates/ambition_engine_schemas",
     "crates/ambition_content_cli",
     "crates/ambition_conversation",
     "crates/ambition_boss_encounter",

@@ -1,0 +1,25 @@
+[package]
+name = "ambition_engine_schemas"
+version = "0.1.0"
+edition = "2021"
+
+# ⛔⛔ IT EXISTS TO BE THE ONE LIST, AND ITS DEPENDENCY SET IS THE WHOLE DESIGN.
+# Exactly the six capability crates that OWN the engine's authored schemas, each
+# under `content_pack` — which is the set `ambition_content_cli` already declared
+# and the set the facade's own `content_pack` feature already enabled. Measured
+# 2026-09-11, by MEMBER rather than by count: the CLI's closure goes 324 -> 325
+# and the only addition is this crate. Every capability it names was already
+# there, which is what makes the list movable at all.
+#
+# ⛔ AND IT MUST NEVER DEPEND ON `ambition_platformer2d`. That facade is what the
+# CLI deliberately does not link — it is a lightweight validator — and routing
+# the list through the umbrella is the collapse that looks obvious and is wrong.
+# The facade re-exports THIS crate, not the other way round.
+[dependencies]
+ambition_content_pack = { path = "../ambition_content_pack" }
+ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
+ambition_items = { path = "../ambition_items", features = ["content_pack"] }
+ambition_encounter = { path = "../ambition_encounter", features = ["content_pack"] }
+ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
+ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["content_pack"] }

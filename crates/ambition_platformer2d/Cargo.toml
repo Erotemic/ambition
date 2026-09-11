@@ -22,6 +22,7 @@ capture = ["ambition_render/capture"]
 # the compiler without being forced to link the items capability to have it.
 content_pack = [
     "dep:ambition_content_pack",
+    "dep:ambition_engine_schemas",
     "ambition_characters/content_pack",
     "ambition_items/content_pack",
     # Same `?` rule: the encounter capability owns `encounter_waves`, and a
@@ -170,6 +171,9 @@ ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy
 ambition_audio = { path = "../ambition_audio" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+# The ONE list of engine-owned schemas, shared with `ambition_content_cli`,
+# which must not link this facade. Optional for the same reason the compiler is.
+ambition_engine_schemas = { path = "../ambition_engine_schemas", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }

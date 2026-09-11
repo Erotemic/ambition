@@ -397,13 +397,8 @@ dependencies = [
 name = "ambition_content_cli"
 version = "0.1.0"
 dependencies = [
- "ambition_audio",
- "ambition_boss_encounter",
- "ambition_characters",
- "ambition_combat",
  "ambition_content_pack",
- "ambition_encounter",
- "ambition_items",
+ "ambition_engine_schemas",
 ]
 
 [[package]]
@@ -602,6 +597,19 @@ dependencies = [
  "ambition_time",
  "bevy",
  "ron 0.11.0",
+]
+
+[[package]]
+name = "ambition_engine_schemas"
+version = "0.1.0"
+dependencies = [
+ "ambition_audio",
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_content_pack",
+ "ambition_encounter",
+ "ambition_items",
 ]
 
 [[package]]
@@ -815,6 +823,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_encounter_features",
+ "ambition_engine_schemas",
  "ambition_entity_catalog",
  "ambition_game_shell",
  "ambition_gameplay_trace",

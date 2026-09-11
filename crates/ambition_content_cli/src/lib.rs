@@ -17,39 +17,27 @@ use ambition_content_pack::{
 ///
 /// Adding a capability here is what makes its authored content validatable —
 /// which is the same act, in the same vocabulary, as installing it in an app.
+///
+/// ⛔⛤ IT USED TO BE A SECOND HAND-KEPT COPY OF `engine_schemas()`. Twelve
+/// registrations, in a different order, in a different crate, with
+/// `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set`
+/// holding the two equal and this comment stating the rule that test enforced:
+/// *"A schema added to one belongs in the other in the same commit."* A rule
+/// about keeping two lists identical is a rule that should not need stating.
+///
+/// ⭐ THE LIST IS NOW `ambition_engine_schemas`, which this crate can link
+/// because it is NOT the facade. Routing through `ambition_platformer2d` was the
+/// obvious collapse and the wrong one: this is a lightweight validator and the
+/// facade is precisely what it must not pull in. MEASURED before moving
+/// anything — the facade is absent from this crate's 324-crate closure, and the
+/// six capability crates the shared list depends on were all already in it, so
+/// nothing here grew.
+///
+/// ⚠ THE COMPOSITION CLAIM IS UNCHANGED. Which schemas this binary links IS the
+/// composition it validates against, and it is still exactly the engine's own
+/// set — now by construction rather than by agreement.
 pub fn default_registry() -> SchemaRegistry {
-    let mut registry = SchemaRegistry::new();
-    // ⭐ ONE LIST, ONE INVARIANT. This used to be eleven
-    // `.register(..).expect(..)` stanzas, each restating "the default registry
-    // installs each schema once" — a rule about the REGISTRY repeated once per
-    // schema, so a twelfth entry could state it differently or not at all.
-    // `register` fails only on a DUPLICATE id, which is a fact about this list
-    // rather than about any one member of it.
-    //
-    // ⚠ The SET is load-bearing and is not free to drift:
-    // `content_pack_registry::the_tools_composition_and_the_games_composition_are_the_same_set`
-    // asserts it equals the GAME's, because the CLI must judge Ambition's content
-    // by the same rules the game applies. A schema added to one belongs in the
-    // other in the same commit, and that test is what says so.
-    for schema in [
-        ambition_characters::actor::character_catalog::character_catalog_schema(),
-        ambition_items::content_schema::item_catalog_schema(),
-        ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
-        ambition_characters::smash_fighter::content_schema::smash_fighter_schema(),
-        ambition_characters::moveset_content_schema::moveset_schema(),
-        ambition_encounter::content_schema::encounter_waves_schema(),
-        ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema(),
-        ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),
-        ambition_boss_encounter::pattern::content_schema::boss_profiles_schema(),
-        ambition_boss_encounter::pattern::content_schema::boss_encounter_schema(),
-        ambition_audio::content_schema::music_registry_schema(),
-        ambition_audio::content_schema::sfx_registry_schema(),
-    ] {
-        registry
-            .register(schema)
-            .expect("the default registry installs each schema once");
-    }
-    registry
+    ambition_engine_schemas::engine_schemas()
 }
 
 /// What the CLI was asked to do.

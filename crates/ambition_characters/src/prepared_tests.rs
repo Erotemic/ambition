@@ -1537,6 +1537,7 @@ mod revision_activation {
             )
             .staged,
         ];
+        let sources = staged.clone();
         let admitted = admit_and_finalize_cast(
             staged,
             None,
@@ -1550,6 +1551,23 @@ mod revision_activation {
             admitted.refusals
         );
         world.insert_resource(admitted.registry);
+        // ⛔⛤ **THE SOURCE THE REGISTRY IS A FOLD OF, WHICH THIS FIXTURE DID NOT
+        // HAVE.** In production the preparation barrier retains
+        // `StagedCharacterOverrides` past itself; this world called
+        // `admit_and_finalize_cast` directly and so had the fold with no source
+        // behind it. Two things read that resource —
+        // `activate_staged_revision`'s no-op check and its write-back — and both
+        // are `if let Some(..)`, so in a world without it they SILENTLY DO
+        // NOTHING. The no-op test caught it by failing; the write-back had no
+        // test that could.
+        let mut overrides = crate::prepared::StagedCharacterOverrides::default();
+        for character in sources {
+            overrides.by_id.insert(
+                ambition_entity_catalog::CharacterId::new(character.id()),
+                character,
+            );
+        }
+        world.insert_resource(overrides);
         world
     }
 
@@ -1565,6 +1583,12 @@ mod revision_activation {
 
     /// ⭐ THE PREMISE ARM. Without a revision that DOES activate, "refused leaves
     /// it unchanged" is satisfied by a mechanism that never activates anything.
+    ///
+    /// ⛔⛤ **IT STAGED THE DEFINITION THE FIXTURE WAS ALREADY LIVE WITH**, and
+    /// passed because the old activation published unconditionally. So a test
+    /// named *"publishes under a NEW generation"* could not tell "publishes a
+    /// change" from "publishes anything" — the no-op rule is what exposed it, by
+    /// correctly reporting `Unchanged` here. It stages a real edit now.
     #[test]
     fn an_admitted_revision_publishes_under_a_new_generation() {
         let mut world = world_with_live_cast();
@@ -1573,7 +1597,9 @@ mod revision_activation {
             .generation()
             .get();
 
-        stage(&mut world, authoring("rider", SUMMON_RIDE));
+        let mut edited = authoring("rider", SUMMON_RIDE);
+        edited.display_name = "Rider, revised".to_string();
+        stage(&mut world, edited);
         let outcome = activate_staged_revision(&mut world, &supporting_summons());
 
         let after = world.resource::<PreparedCharacterRegistry>().generation();
@@ -1637,6 +1663,78 @@ mod revision_activation {
                 .generation()
                 .get(),
             before
+        );
+    }
+
+    /// ⭐⭐ **RE-STAGING WHAT IS ALREADY LIVE DOES NOT MOVE THE GENERATION**
+    /// (fast-iteration I3a, "no-op identity").
+    ///
+    /// ⛔ A FILE WATCHER FIRES ON A SAVE, NOT ON A CHANGE. Touch a file, re-run
+    /// a formatter, save with no edit, and the same bytes arrive again.
+    /// `CharacterCatalogGeneration` is what every staleness check in the session
+    /// keys on, so publishing them would invalidate live bodies, cached plans
+    /// and rollback diagnoses for nothing — the failure a reload loop produces
+    /// constantly and a one-shot activation never does.
+    #[test]
+    fn re_staging_the_live_values_does_not_move_the_generation() {
+        let mut world = world_with_live_cast();
+        // First, a REAL edit, so the live cast has something to re-stage.
+        let mut edited = authoring("rider", SUMMON_RIDE);
+        edited.display_name = "Rider, revised".to_string();
+        stage(&mut world, edited.clone());
+        let first = activate_staged_revision(&mut world, &supporting_summons());
+        assert!(
+            matches!(first, RevisionOutcome::Activated { .. }),
+            "the premise: an edit that DOES activate; got {first:?}"
+        );
+        let published = world.resource::<PreparedCharacterRegistry>().generation();
+
+        // Now the same definition again — byte-for-byte what is live.
+        stage(&mut world, edited);
+        let second = activate_staged_revision(&mut world, &supporting_summons());
+
+        assert_eq!(
+            second,
+            RevisionOutcome::Unchanged {
+                generation: published
+            },
+            "re-staging the live values reported {second:?}"
+        );
+        assert_eq!(
+            world.resource::<PreparedCharacterRegistry>().generation(),
+            published,
+            "the generation moved for a revision that proposed nothing new"
+        );
+    }
+
+    /// ⛔ AND THE CONTROL, because "the generation did not move" is also what a
+    /// mechanism that stopped activating ANYTHING would report. A revision that
+    /// changes one field on the SAME character still publishes.
+    #[test]
+    fn a_revision_that_changes_one_field_still_publishes() {
+        let mut world = world_with_live_cast();
+        let mut first = authoring("rider", SUMMON_RIDE);
+        first.display_name = "Rider, revised".to_string();
+        stage(&mut world, first);
+        let _ = activate_staged_revision(&mut world, &supporting_summons());
+        let published = world.resource::<PreparedCharacterRegistry>().generation();
+
+        let mut edited = authoring("rider", SUMMON_RIDE);
+        edited.display_name = "Rider, renamed again".to_string();
+        stage(&mut world, edited);
+        let outcome = activate_staged_revision(&mut world, &supporting_summons());
+
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
+            "a changed field must still publish; got {outcome:?}"
+        );
+        assert_eq!(
+            world
+                .resource::<PreparedCharacterRegistry>()
+                .generation()
+                .get(),
+            published.get() + 1,
+            "a real edit did not move the generation"
         );
     }
 

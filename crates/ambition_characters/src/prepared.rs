@@ -453,6 +453,25 @@ pub enum RevisionOutcome {
     /// The revision was refused. **The active registry and its generation are
     /// unchanged** — the last-good cast is still the published one.
     Refused { refusals: Vec<EffectRefusal> },
+    /// Every staged definition is byte-for-byte what the live cast was built
+    /// from, so nothing was published and **the generation did not move**.
+    ///
+    /// ⭐⭐ **A NO-OP IS NOT AN ACTIVATION, AND A RELOAD LOOP MAKES THAT MATTER**
+    /// (fast-iteration I3a's *"no-op identity"*). A file watcher fires on a
+    /// SAVE, not on a CHANGE: touch a file, re-run a formatter, save with no
+    /// edit, and the same bytes arrive again. Publishing them would bump
+    /// `CharacterCatalogGeneration`, and a generation is what every staleness
+    /// check in the session keys on — so an idle editor would invalidate live
+    /// bodies, cached plans and rollback diagnoses for no reason.
+    ///
+    /// ⚠ IT IS A CLAIM ABOUT THE SOURCE, NOT THE FOLD. The catalog and brain
+    /// profiles are folded in at activation, so a catalog that moved underneath
+    /// could make identical sources produce a different registry. That is a
+    /// different transaction on a different road; this says only *"this revision
+    /// proposes nothing new"*.
+    Unchanged {
+        generation: CharacterCatalogGeneration,
+    },
 }
 
 /// Stage a character edit for a later explicit activation.
@@ -512,6 +531,31 @@ pub fn activate_staged_revision(
         return RevisionOutcome::NothingStaged;
     };
     let previous = active.generation();
+
+    // ⭐⭐ **A REVISION THAT PROPOSES NOTHING NEW DOES NOT MOVE THE GENERATION**
+    // (fast-iteration I3a, "no-op identity"). Asked of the SOURCE the live
+    // registry is a fold of, not of the fold: two folds can coincide while the
+    // authored values differ, and the source is the authority.
+    //
+    // ⛔ BEFORE THE ADMISSION GATE AND BEFORE THE FOLD, deliberately. A no-op is
+    // by definition content that is already live and already admitted, so
+    // re-admitting it would be work; and a fold that ran would produce a
+    // candidate identical to the published one, which is a clone of the whole
+    // cast for nothing. A watcher firing on every SAVE is the ordinary case.
+    if let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() {
+        let nothing_new = staged.iter().all(|character| {
+            overrides
+                .by_id
+                .get(&ambition_entity_catalog::CharacterId::new(character.id()))
+                == Some(character)
+        });
+        if nothing_new {
+            return RevisionOutcome::Unchanged {
+                generation: previous,
+            };
+        }
+    }
+
     let catalog = world
         .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
         .cloned();
@@ -1996,7 +2040,7 @@ impl std::error::Error for CharacterRegistrationError {}
 /// [`PreparedCharacterRegistry`]; the private lifecycle controls when staged
 /// definitions are folded. The accessors below expose only identity needed for
 /// duplicate validation before staging completes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StagedCharacter {
     inner: PreparedCharacterOverrides,
 }

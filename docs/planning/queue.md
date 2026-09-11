@@ -1196,6 +1196,42 @@ one function, so it asserted a function equal to itself. Its name was
 load-bearing sibling, which compares the shipped MANIFEST against what the
 compositions install, survives and was re-poisoned after the deletion.
 
+✅ **I3a's NO-OP IDENTITY, LANDED 2026-09-11 — A REVISION THAT PROPOSES NOTHING
+NEW NO LONGER MOVES THE GENERATION.**
+
+⛔ **A FILE WATCHER FIRES ON A SAVE, NOT ON A CHANGE.** Touch a file, re-run a
+formatter, save with no edit, and the same bytes arrive again.
+`CharacterCatalogGeneration` is what every staleness check in the session keys
+on, so publishing them would invalidate live bodies, cached plans and rollback
+diagnoses for nothing — a failure a reload loop produces constantly and a
+one-shot activation never does. `RevisionOutcome::Unchanged { generation }`.
+
+⭐ **ASKED OF THE SOURCE, NOT THE FOLD**, and before the admission gate: two
+folds can coincide while the authored values differ, the source is the authority,
+and a no-op is by definition content that is already live and already admitted.
+⚠ It is a claim about the SOURCE only — a catalog that moved underneath could
+make identical sources fold differently, and that is a different transaction.
+
+⛔⛤ **AND IT EXPOSED TWO THINGS THE OLD BEHAVIOUR HID.**
+1. **`an_admitted_revision_publishes_under_a_new_generation` STAGED THE
+   DEFINITION THE FIXTURE WAS ALREADY LIVE WITH.** It passed because activation
+   published unconditionally, so a test named *"publishes under a NEW
+   generation"* could not tell *"publishes a change"* from *"publishes
+   anything"*. The no-op rule reported `Unchanged` and failed it. It stages a
+   real edit now.
+2. **THE REVISION FIXTURE HAD A FOLD WITH NO SOURCE BEHIND IT.** It called
+   `admit_and_finalize_cast` directly, so `StagedCharacterOverrides` — which the
+   preparation barrier retains in production — was never inserted. TWO readers
+   take it as `if let Some(..)` and therefore did NOTHING in that world: the new
+   no-op check, and the source WRITE-BACK added earlier today. The write-back had
+   no test that could have caught it; the no-op test caught it by failing.
+
+⚠ Poison-verified: disabling the rule reddens only
+`re_staging_the_live_values_does_not_move_the_generation`, and its control
+(`a_revision_that_changes_one_field_still_publishes`) stays green — because "the
+generation did not move" is also what a mechanism that stopped activating
+anything would report.
+
 **Next bounded action:** step 5 — remove the migrated move table as a compiled
 AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,
 never a runtime fallback), and the file/watcher road that makes "prebuilt host"
@@ -2271,6 +2307,23 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    | carl_stargan / emmy_noether | 1 | 0.100s | 6.0 |
    | oiler | 1 | 0.110s | 6.6 |
    | **performer** | **4** | **0.160s** | **9.6** |
+
+   ⛔⛤ **AND THE READER THAT PRODUCED THIS TABLE DOUBLE-COUNTS ONE FILE.**
+   `cellular_automaton.ron` is the only source carrying TWO entities over one
+   table (the mapping's one-table-two-ids case), and the census keys its volume
+   and clock lists by MOVE ID alone — so all 26 of its moves accumulate twice.
+   MEASURED: 52 move records for 26 unique moves; every other file is 1:1.
+   ⇒ Per ENTITY its `attack_forward` is **one Active window, 0.080 s, 4.8
+   frames**, which is what the table above says. A peer extending the reader read
+   2 x 0.080 = 0.160 and reported a tie with the performer, then verified the
+   duplication independently and WITHDREW it — 54 `id:` lines, 28 distinct, 26
+   move ids appearing twice. ⭐ The withdrawal is visible in the row rather than
+   edited away: **a correction that is itself wrong is exactly what a silent fix
+   hides.**
+   ⚠ **THE SIZES ARE SAFE AND THE COUNTS ARE NOT.** Extents are per-volume rows,
+   so 22 x 15 is right; every COUNT and SUM for that one fighter is doubled. The
+   `n` column added to make multihits honest was reporting this all along and I
+   read it as "two entities" because I had just written the mapping.
 
    ⇒ **HER GENEROSITY IS IN TIME, NOT IN SIZE — 2.3x the live frames at the same
    box.** That is a lever with no spatial judgement in it, which is the half of

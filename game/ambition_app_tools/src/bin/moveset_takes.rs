@@ -908,6 +908,13 @@ mod causal_trace {
 /// aerials start in 2–4 authored frames at 40 ms.
 const AERIAL_LEAD_PX: f32 = 24.0;
 
+/// How deep an overlap has to be before it counts as one.
+///
+/// ⚠ The engine tests `strict_intersects`, so a tangent is not a hit. A shape
+/// that grazes by a fraction of a pixel is a REACH finding wearing an engine
+/// finding's clothes.
+const GRAZE_PX: f32 = 1.0;
+
 fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
     let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
     let mut best: Option<(f32, f32)> = None;
@@ -943,7 +950,13 @@ fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
                 ((hx - tx).abs() - (hhx + thx)).max(0.0),
                 ((hy - ty).abs() - (hhy + thy)).max(0.0),
             );
-            if gap.0 <= 0.0 && gap.1 <= 0.0 {
+            // ⛔⛤ A HAIR-THIN OVERLAP IS NOT EVIDENCE OF AN ENGINE FAULT.
+            // MEASURED: the performer's down air overlapped the sandbag by
+            // 0.9 px on two ticks and recorded no contact — and the engine's own
+            // contact test is `strict_intersects`, for which a touch is false.
+            // Reporting that as "the shapes overlapped, so the finding is in the
+            // engine" sends a reader to the wrong half of the system.
+            if gap.0 <= -GRAZE_PX && gap.1 <= -GRAZE_PX {
                 overlapped = true;
             }
             // Closest by the axis that is furthest out: a box 2 px short

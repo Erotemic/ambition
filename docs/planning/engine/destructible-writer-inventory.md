@@ -280,6 +280,32 @@ Row two is the discriminating case `0157476ba` found: with no surface a bolt fli
 through a solid crate it cannot damage. Row four is why the overlay skips
 pogo-refresh breakables, documented at the site.
 
+### The authored population: the solid variant IS selected, six times
+
+`0157476ba` closed compound contact after finding that *"every projectile-vs-breakable
+fixture in the suite uses a non-solid crate, because `Breakable::new` defaults
+`collision` to `None`"*, and expected the same blind spot here — *"a destructible's
+solid variant is the configuration nobody's fixture selects."* ⇒ **Measured over the
+four shipped LDtk worlds, that is true of the FIXTURES and false of the CONTENT.**
+
+| authored entity | collision | trigger | count |
+|---|---|---|---:|
+| `BreakablePlatform` | `Solid` | `OnHit` | **4** |
+| `BreakablePlatform` | `Solid` | `OnStand` | **2** |
+| `BreakablePlatform` | `OneWayUp` | `OnStand` | 3 |
+| `BreakablePogoOrb` | *(no such fields)* | | 5 |
+
+**14 authored breakables; six are solid.** ⭐ And the two `Solid` + `OnStand`
+platforms are exactly the discriminating case that commit's own poison identified —
+a solid object a shot CANNOT damage, which a bolt flew straight through before the
+fix. The repair was not hypothetical: it changed behaviour for two shipped
+placements, and no fixture in the repository selected that configuration.
+
+⚠ `BreakablePogoOrb` declares neither `collision` nor `trigger`, so all five take
+the type's defaults. A census keyed on the authored FIELD would report five
+breakables with no collision setting; they have one, and it is `None` by the
+constructor rather than by an author.
+
 ### What this adds to A5's premise
 
 The inventory already found no scattered authority to consolidate. This adds the

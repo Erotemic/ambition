@@ -979,6 +979,27 @@ def build_maintenance_jobs() -> list[Job]:
                 "--roles",
             ],
         ),
+        # ⛔⛤ A ROW THAT ANNOUNCES ITS HOLD IS DISCHARGED AND STILL STATES IT.
+        # Three instances on 2026-09-11 by two agents, and one cost a whole
+        # packet brief: A7 carried `**HOLD:** after A1, enumerate …` twenty-two
+        # lines BELOW its own `THE ENUMERATION THIS HOLD ASKS FOR IS DELIVERED`
+        # banner, and an agent briefed from that row redid work landed the day
+        # before. A4 was in the same state, and a third banner was then added
+        # above A4's still-live hold by the agent who had just been told about
+        # A7. ⭐ Periodic for the same reason as the vanished sweep above: it
+        # answers "which rows stopped being true while nobody re-read them",
+        # not "is this edit ok".
+        # ⚠ IT GATES BY DEFAULT (`--report-only` to soften) because the corpus
+        # is clean today and the row-level escape is `hold-ok` for the one
+        # legitimate shape — half of a two-part hold delivered, the other half
+        # still live.
+        Job(
+            "planning rows announcing a discharged hold while stating it (periodic)",
+            [
+                sys.executable,
+                "scripts/check_discharged_holds_are_rewritten.py",
+            ],
+        ),
     ]
 
 

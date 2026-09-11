@@ -7,6 +7,21 @@ partial, and what can be added cleanly with the engine we have now.
 ## Smash-local P0: raw two-fighter combat semantics
 
 **Maintainer priority, 2026-09-09:** this is the highest-priority Smash work.
+
+**Maintainer override, 2026-09-11 — SPENT, and recorded because the detour was
+otherwise invisible to this rule.** Jon armed a goal naming *"the moveset and hitbox
+work that you started"* by name, which is an explicit instruction to work
+`D-STRIKE-GENEROSITY` (filed P2) ahead of the open `S0.*` rows. ⇒ That work is
+finished or corrected, the override does not extend further, and **`S0.1` is the
+next Smash item under the rule above.**
+
+⚠ **`S0.1` IS TWO HALVES AND ONLY ONE IS ENGINEERING.** Clanking's mechanism is
+finished and on the production schedule; what holds it is that every shipped ruleset
+declares `clank_damage_window: 0.0` and turning it on re-tunes the ground game — a
+PLAY SESSION, which is Jon's. **Projectile clash / priority arbitration is the
+engineering half**, and it is confirmed open at HEAD: `arbitrate_attack_clanks`
+queries `(&Hitbox, &StrikeVolume, Option<&SimId>)` and names projectiles nowhere, so
+a projectile carries no `StrikeVolume` and is structurally outside the arbitration.
 While any unblocked `S0.*` row below remains open, do not select another Smash
 feature, stage, match-rule, roster-breadth, presentation, item, training, or CPU
 polish row merely because it is smaller or easier. [`D72`](../queue.md) starts

@@ -1462,9 +1462,24 @@ against `ambition_demo_smash_app`'s acceptance suite, one run per value: 1.0 / 1
 ANTI-VACUITY floor — *"no fighter was ever outside the room's own bounds in this match
 (0 body-frames)"* where 1.0 produces more than twenty; at **1.6** two more join it.
 ⇒ Generous enough boxes make two CPUs trade constantly and nobody leaves the stage.
-⚠ The same symptom, same test, is already recorded for hitbox clanking at 9 damage in
-[the parity inventory](demos/smash-parity-inventory.md). ⚠ The MECHANISM is NOT
-measured, and the cliff is one sample per value.
+
+⛔⛤ **AND I WROTE THAT THIS WAS "THE SAME SYMPTOM, SAME TEST" AS HITBOX CLANKING.
+IT IS THE SAME TEST AND A DIFFERENT CAUSE — CORRECTED 2026-09-11.** That floor has
+at least TWO distinct mechanisms behind it and reading them as one misleads whoever
+touches the ground game next:
+
+* **THE CLANK CASES ARE REFUSALS, AND THEY ARE EXPLAINED.** `clank.rs` says it in
+  its own words about aerial clanking: *"nobody was ever launched, because nearly
+  every exchange in the air ended in a refusal"* — a clank ENDS BOTH MOVES, so no
+  damage and no knockback resolve. The same account covers `clank_damage_window: 9.0`.
+* **THE GENEROSITY CASE CANNOT BE THAT.** Every shipped ruleset declares
+  `clank_damage_window: 0.0` (`rules.rs`, four sites) and `arbitrate_attack_clanks`
+  returns immediately on zero. **Clanking never ran during the sweep.** Bigger boxes
+  produce MORE resolved hits, not refusals, and why that removes off-stage knockouts
+  is still unexplained.
+
+⚠ So the mechanism for the generosity cliff is NOT measured, the cliff is one sample
+per value, and the clank rows are not evidence about it.
 
 ✅ **AND THE SEAM THAT SHAPES THE BOX ASKED THE WRONG QUESTION (`0536c537e`).**
 `CombatTuning::sprite_character_id` documents that `WornCharacter` OUTRANKS it and

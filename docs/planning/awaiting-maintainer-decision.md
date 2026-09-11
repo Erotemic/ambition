@@ -935,6 +935,45 @@ a facade feature gate and the matching hub gate — and a partial one is invisib
 `python3 scripts/measure_minimum_profile_closure.py --minimum <crates...>` to
 price any capability set before ruling; it answers in seconds.
 
+## Q109 — should a simulated identity be able to name its room instance?
+
+**MEASURED 2026-09-11 by `scripts/measure_identity_instance_scope.py`: zero of
+ten `SimId` constructors take a room or an instance.** `SimId::placement(id)` is
+`"placement:{id}"` — the map's own iid and nothing else — so two instances of one
+prepared room mint the same identity for every authored placement.
+`SimId::encounter` has the same shape; four more (`spawned`, `death_drop`,
+`strike_volume`, `geometry`) inherit whatever scope their parent had, which is
+none.
+
+⭐ **IT REFUSES RATHER THAN CORRUPTS TODAY.** A second instance hits the
+construction planner's `IdentityAlreadyLive`, so the current failure is loud.
+Nothing is broken; what is unavailable is the capability A8 and open-world
+residency are written against.
+
+**The narrower half, and the one that can be decided on its own:**
+`GeoSource::TileLayer { layer: String }` is scoped by a STRING CONVENTION —
+`ldtk/intgrid.rs` passes `"{level}/{layer}"`, *"because an active area can span
+multiple levels that each carry this layer"*. The type cannot hold anyone to it,
+and MEASURED, one production site already does not: `ambition_demo_sanic` spells
+`"sanic_speedway_ground"` bare, and `Block::solid_tiled` / `one_way_tiled` take
+whatever `layer` a caller passes. Latent, because that demo has one level.
+
+⇒ **Making the level a FIELD would make the bare key unconstructible** — the
+make-it-impossible shape rather than a rule about a string. ⚠ It is not free:
+`SimId::geometry` derives a persisted identity string from `GeoSource`, so the
+format must stay `tile/{level}/{layer}` for the LDtk road (it already would) and
+`ambition_demo_sanic`'s ids would change.
+
+**What is being asked:**
+1. Should identity carry instance scope at all, or should two live instances of
+   one room stay a refusal? A8 assumes the former; nothing has ruled it.
+2. Independently: should `TileLayer` carry the level as a field now, ahead of
+   that ruling, purely to stop the convention being unenforceable?
+
+⚠ Nothing is blocked meanwhile, and the census is the deliverable A8 was held
+for. Re-run the script after any identity change; it prices the answer in
+milliseconds.
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

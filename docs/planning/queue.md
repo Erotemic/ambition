@@ -1067,7 +1067,7 @@ character for."*
 TIME FOUND TWO DEFECTS IN ONE RUN.** That is what the migration bought, and it
 paid before a single move was retuned:
 
-1. **`CANCEL_CLASS_NAMES` DISAGREED WITH THE RUNTIME, AND SHIPPED CONTENT SAT ON
+1. **`CANCEL_CLASS_NAMES` <!-- cite-ok: the const this row records the removal of; it is `cancel_class_names()` now --> DISAGREED WITH THE RUNTIME, AND SHIPPED CONTENT SAT ON
    THE GAP.** The medic's neutral special authors `into: ["smash", …]`;
    `cancel_names_for` DOES hand a smash press `["smash", "attack", "any_attack"]`,
    so the runtime honours it — and the const omitted `smash`, `grab` and `taunt`.
@@ -2059,46 +2059,59 @@ what exists today.** Only the per-frame SAMPLING claim survives unqualified: the
 performer splits her Active window per frame and the other twenty use one coarse
 window.
 
-#### The authored clock, censused over all 323 moves (2026-09-11)
+#### The authored clock, censused over all 343 moves (2026-09-11)
 
-The move tables became content, so the clock is a file read.
-`measure_authored_strike_extents.py --clock` reports the Active seconds and
-frames; 323 moves with Active windows across 17 tables.
+⛔⛤ **THE FIRST VERSION OF THIS BLOCK WAS COMPUTED WITH A DOUBLE COUNT AND IS
+CORRECTED HERE RATHER THAN REPLACED.** `cellular_automaton.ron` is the one file
+carrying TWO entities (`perfect_` and `imperfect_cellular_automaton`) over one
+table, and the reader keyed windows by MOVE ID alone — so its 26 moves were
+accumulated twice and its verb map was overwritten by the second entity. The
+sizes were never affected (they are per-volume rows), but **every count and every
+sum for that one file was doubled**. ⇒ Keyed by `(entity, move)` the corpus is
+**18 entities over 17 files, 343 moves with Active windows**.
 
-⛔⛤ **"ACTIVE RUNS 10-17 FRAMES AGAINST ULTIMATE'S USUAL 2-5" IS FALSE AS A ROSTER
-STATEMENT.** The roster's median Active is **5.4 frames**, the mean 5.9 and the
-90th percentile 9.6 — which is the "Ultimate's usual" end of that sentence, not
-the claimed one. Only **27 of 323 moves (8%) reach 10 frames or more**, and:
+⛔⛤ **AND THE "CELLULAR_AUTOMATON TIES THE PERFORMER" CORRECTION PUBLISHED HERE
+WAS ITSELF THE ARTIFACT.** Per entity, `rule_front` is ONE window of 0.080 s
+(4.8 f); 2 × 0.080 = the 0.160 s "tie" that was reported. **The performer is alone
+at the top of `attack_forward`, and the other seventeen entities are 2.4–6.6 f** —
+which is what this row said before the correction. The correction is withdrawn.
 
-* **nine of the seventeen fighters have NO move at 10 frames or more** — alice,
-  author, carl_stargan, goblin, medic, ninja_shadow_oni_leader, pirate_admiral,
-  projectile_polygon, pugnacious_polygon;
-* **18 of the 27 belong to two fighters** — `cellular_automaton` 11 and
-  `performer` 7.
+⭐ The tell was in the output all along: the extents table printed
+`cellular_automaton … n=2`, which reads as *"two volumes in one move"* and meant
+*"two entities"*. A column added to make multihits honest was reporting a
+duplicate.
 
-⇒ The band is real and it is two fighters' idiom, not the roster's. ⭐ And it is
-absent from the ground normals entirely: `attack_forward`, `attack_up`,
-`attack_down`, `attack_air_back` and both grabs top out at **8.4–9.6 frames across
-all seventeen**. Everything at 10+ is a special, a smash or an aerial.
+**The corrected census**, `measure_authored_strike_extents.py --clock` keyed by
+entity:
 
-⚠ **AND THE FORWARD-TILT RANGE NEEDS ONE CORRECTION: `cellular_automaton` TIES THE
-PERFORMER.** Both author 0.160 s (9.6 f) of Active on `attack_forward` — the
-performer across FOUR windows, cellular_automaton across TWO — so "everybody but
-the performer is 2.4–6.6 frames" omits the fighter that matches her. The other
-fifteen are 2.4–6.6; two are at 9.6.
+```text
+median 4.8 frames, mean 5.6, 90th percentile 8.4, max 20.4
+at >=10 frames:              18 of 343  (5%)
+entities with no such move:   9 of 18
+largest contributor:          performer, 7 of its 18 moves
+```
 
-⚠ **AND "THE OTHER TWENTY USE ONE COARSE WINDOW" IS NEARLY RIGHT.** Seventeen
-moves in the corpus author three or more Active windows, and **eleven are the
-performer's**; the other six are one move each from alice, oiler, bob,
-pointed_polygon, emmy_noether and cellular_automaton. Multi-window authoring is
-her idiom, but it is not hers alone.
+⛔ **"ACTIVE RUNS 10-17 FRAMES AGAINST ULTIMATE'S USUAL 2-5" IS FALSE AS A ROSTER
+STATEMENT, AND MORE CLEANLY THAN THE DOUBLE-COUNTED VERSION SHOWED.** The median
+is 4.8 frames — the *"Ultimate's usual"* end of that sentence — and **ten of the
+twenty verbs contain no move at 10 frames or more**: `attack_forward`,
+`attack_up`, `attack_down`, `attack_air_back`, `smash_forward`, `attack_dash`,
+`special_air_down`, `grab` and `grab_dash`. Across the ground normals and grabs
+that is **108 moves with a maximum of 9.6 f and none above**. The 18 that do reach
+the band are specials (5 in `special`, 4 in `special_down`) plus one move each in
+nine other verbs.
 
-⇒ **WHAT THIS DOES AND DOES NOT SETTLE.** It settles that a roster-wide clock
-claim cannot be made from one fighter, which is the same error this row already
-records for the spatial knob. It does NOT settle whether the performer's 2.3x live
-frames at an identical box is the right generosity lever — that is a product call,
-and the only thing measurement adds is that it is a lever with no spatial
-judgement in it.
+⇒ The band is real, it is 5% of the corpus, and the performer is its largest
+single contributor at 7 moves. An idiom, not a roster property.
+
+⚠ **AND "THE OTHER TWENTY USE ONE COARSE WINDOW" IS NEARLY RIGHT:** 18 moves
+author three or more Active windows and **eleven are the performer's**; the rest
+are one each from alice, bob, both cellular automata, emmy_noether, oiler and
+pointed_polygon.
+
+⇒ **WHAT THIS DOES NOT SETTLE:** whether the performer's live-frame generosity at
+an identical box is the right lever. That is a product call; measurement adds only
+that the band she sits in is 5% of the corpus and mostly hers.
 
 ⛔ **THE INSTRUMENT'S OWN BOUND, restated because these numbers will be quoted:**
 it reads the AUTHORED window, not the resolved one. For a sprite-manifest fighter

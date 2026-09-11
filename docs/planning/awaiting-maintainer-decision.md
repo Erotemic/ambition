@@ -861,6 +861,46 @@ own eighth drift. The 18% requires a CODE reference.
 ⚠ This is a call about where authoring lives, not a refactor. The generated file
 carries a do-not-hand-edit banner meanwhile, so the trap is at least visible.
 
+## Q107 — do sprite `active` frames own contact timing, or does moveset authoring?
+
+**Two independently authored clocks, pinned together by a test.** A move's Active
+window is authored in the move table (`start_s`/`end_s`). The sprite library also
+declares a per-frame `active` list and a frame duration, and
+`normal_contact_windows_match_the_authored_light_and_pose_clock` asserts the two
+agree. ⇒ That is SYNCHRONISATION, not ownership, and
+[`queue.md`'s `D-STRIKE-GENEROSITY`](queue.md) records that the moveset side
+HARDCODES the frame counts rather than reading the library.
+
+**The question.** Either:
+
+* **the sprite `active` frames own contact timing** — then the runtime must publish
+  that list as a semantic fact (`AnimationMetrics` does not today; it exposes frame
+  duration and geometry, and empty per-frame geometry cannot be read as "inactive"
+  because the sampler falls back to the coarse polygon), and move windows derive
+  from it; or
+* **moveset authoring owns it** — then the sprite `active` metadata is an
+  art-generation concern and the pinning test is the boundary, which is what it is
+  doing today by accident rather than by decision.
+
+⛔ **MAINTAINING BOTH IS WHAT EXISTS**, and generalising the current shape to every
+fighter would multiply a second hardcoded combat clock that merely resembles the art
+metadata.
+
+⭐ **WHY IT IS BEING ASKED NOW.** Censused 2026-09-11 over 343 moves: the performer
+authors FOUR consecutive Active windows on her forward tilt where the other
+seventeen entities author one, at an identical 27×14 volume — 9.6 live frames
+against their 2.4–6.6. **If the SHEET owns contact timing, those four windows are a
+workaround for a sheet and a table that disagree**; if the TABLE owns it, they are
+authoring and the question is only whether the value is wanted. The measurement
+cannot tell those apart, and neither can anyone else until this is ruled.
+
+⚠ Nothing is blocked meanwhile: the pinning test keeps the two in step, and the
+census is a file read now rather than an app boot.
+
+⭐ **Q106 was the highest filed in `origin/main` when this was written, read in the
+same command** — Q103–Q105 had landed by then, so the gap Q106 warned about is
+closed and that row's note can go when somebody next touches it.
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

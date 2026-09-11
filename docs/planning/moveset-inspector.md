@@ -798,7 +798,11 @@ shows both with the window's frame range and condition.
 ⛔⛔ **THE EXPORTER RESOLVES IT, NOT THE BROWSER.**
 `MovesetContract::cancel_targets` matches on `cancel_names_for` — the same
 verb-class list the trigger road matches on, which moved to the catalog beside
-`CANCEL_CLASS_NAMES` so there is one copy rather than two that must agree.
+`cancel_class_names()` so there is one copy rather than two that must agree.
+⚠ That was the const `CANCEL_CLASS_NAMES` <!-- cite-ok: naming the superseded const is the point of this note --> until 2026-09-11, when it was
+DERIVED from `cancel_names_for` instead — the const had omitted `smash`, `grab`
+and `taunt` while the runtime honoured them, which is the two-copies failure this
+sentence claims to have fixed, still live one layer down.
 
 ⛔⛔ **AND THE NAMESPACE HAD TO BE TOTAL, NOT A FALL-THROUGH.** The first version
 treated everything that was not a special as attack-family, and a real export

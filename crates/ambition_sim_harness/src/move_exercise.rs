@@ -562,7 +562,7 @@ pub fn gap_to_seat(app: &mut App, seat: usize) -> Option<f32> {
 ///
 /// ⛔⛤ AN AERIAL PRESSED AT THE TOP OF A JUMP CANNOT REACH A GROUNDED TARGET,
 /// AND THE TAKE LOOKS LIKE A HITBOX FAULT. `prepare` jumps and then settles the
-/// aim, so the press lands near the apex; MEASURED 2026-09-11, the performer's
+/// aim, so the press lands near the apex; The performer's
 /// five aerials published their shapes **19 to 59 px above** a sandbag standing
 /// on the floor, with the horizontal gap already zero for three of them. Every
 /// one recorded as a miss across three separate scenarios, and the conclusion
@@ -734,17 +734,15 @@ pub fn stage_for_press(app: &mut App, verb: &Verb, spacing: Option<f32>)
 ///
 /// Returns whether the body actually reached the position this move needs.
 ///
-/// ⛔⛔ IT USED TO RETURN `true` FOR BOTH DIRECTIONAL STAGINGS AND SAY SO IN THIS
-/// COMMENT: *"the directional stagings place the prop instead and always succeed."*
-/// They do not. `place_seat_relative` returns `false` when seat 0 has no position
-/// to place the prop relative TO, and `descend_to_meet` returns `false` when the
-/// subject is missing or the descent never reaches the band. Both results were
-/// DISCARDED, and the recorder and the renderer then read this function's `true`
-/// as evidence that the setup had worked.
+/// ⛔⛔ EVERY ARM MUST RETURN ITS HELPER'S RESULT. `place_seat_relative` answers
+/// `false` when seat 0 has no position to place the prop relative TO, and
+/// `descend_to_meet` answers `false` when the subject is missing or the descent
+/// never reaches the band. Both callers act on a `false` — the recorder warns,
+/// the renderer folds it into `prepared`.
 ///
-/// ⇒ A staging failure that reports success is the worst shape a fixture can
-/// take: the take records a move performed from the wrong place and nothing says
-/// so, and the miss reads as a hitbox fault. The results are returned.
+/// ⇒ A staging failure that reports success is the worst shape a fixture takes:
+/// the take records a move performed from the wrong place, nothing says so, and
+/// the miss reads as a hitbox fault.
 pub fn stage_airborne(app: &mut App, verb: &Verb) -> bool {
     if !verb.airborne {
         return true;
@@ -760,7 +758,7 @@ pub fn stage_airborne(app: &mut App, verb: &Verb) -> bool {
 ///
 /// ⛔⛤ A SCENARIO WITH ONE GEOMETRY CANNOT MEASURE A DIRECTIONAL MOVE, AND IT
 /// REPORTS THE ATTEMPT AS A HITBOX FAULT. The observatory had exactly one:
-/// walk toward the target, jump, press. MEASURED 2026-09-11 on the performer,
+/// walk toward the target, jump, press. Measured on the performer,
 /// facing `+1`:
 ///
 /// | move | its box | the target | |
@@ -889,7 +887,7 @@ fn seat_pos(app: &mut App, seat: usize) -> Option<(f32, f32)> {
 ///
 /// ⛔⛤ A BACK AIR CANNOT BE MEASURED FROM IN FRONT, AND THE TAKE LOOKED LIKE A
 /// HITBOX FAULT. The volume is placed against FACING: pressed while facing
-/// right, `attack_air_back` puts its box to the LEFT. MEASURED 2026-09-11 with
+/// right, `attack_air_back` puts its box to the LEFT. Measured with
 /// her facing `+1`, the box sat 19.3 px behind her while the sandbag stood
 /// 29.5 px in front — **opposite sides, ~49 px apart** — and the move recorded
 /// as a miss in every scenario the observatory had.
@@ -1270,16 +1268,11 @@ mod tests {
 mod staging_failure_tests {
     use super::*;
 
-    /// ⛔⛤ EVERY DIRECTIONAL STAGING USED TO RETURN `true` UNCONDITIONALLY, and
-    /// its own doc comment asserted it: *"the directional stagings place the prop
-    /// instead and always succeed."* `place_seat_relative` and `descend_to_meet`
-    /// each return a result and both were discarded, so the recorder and the
-    /// renderer read that `true` as evidence the setup had worked.
+    /// The regression: a directional staging that could not run reported success,
+    /// and the take then recorded a move performed from wherever the body was.
     ///
-    /// ⭐ THE FAILURE IS REACHED BY REMOVING THE SUBJECT, which is the real
-    /// condition: both helpers look seat 0 up and answer `None` when nothing is
-    /// seated. A world with no bodies is exactly the case where the take would
-    /// otherwise record a move performed from wherever the body happened to be.
+    /// Both helpers look seat 0 up and answer `None` when nothing is seated, so a
+    /// world with no bodies is the failure condition to drive.
     fn no_bodies() -> App {
         App::new()
     }

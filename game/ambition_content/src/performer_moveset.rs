@@ -294,12 +294,9 @@ fn author_normals(set: &mut MovesetContract) {
         // ⚠ THE WINDOW IS THE RECOVERY, not the active frames. Cancelling out of
         // the strike itself would let her erase her own hitbox mid-swing.
         //
-        // ⭐ AND IT IS OBSERVED IN A MATCH, 2026-09-11. `moveset_takes
-        // --characters performer --verbs attack_forward --chain attack_up
-        // --chain-at 14 --spacing 40` cuts this tilt off at frame 15 of 24. The
-        // earlier note here said the opposite; what it had actually recorded was
-        // a tilt thrown 100 px short of the target, so the `OnHit` window never
-        // opened. See the test below.
+        // ⭐ OBSERVABLE WITH `moveset_takes --chain attack_up --spacing 40`,
+        // which cuts this tilt short. A chain probe staged out of reach cannot
+        // open an `OnHit` window and records a fresh press instead.
         if matches!(mv.clip.clip.as_str(), "attack_side" | "attack_up" | "attack_down") {
             mv.windows.push(MoveWindow {
                 start_s: active_end,
@@ -852,26 +849,11 @@ mod tests {
     ///
     /// ⚠ THIS IS A CLAIM ABOUT THE AUTHORED DATA, and it is the only claim made.
     ///
-    /// ✅ AND THE MATCH-LEVEL HALF IS NOW MEASURED (2026-09-11). This comment
-    /// used to end *"a chain driven through `moveset_takes` ... still ran the tilt
-    /// to its full 24 ticks. What stands between the two is NOT ISOLATED."*
-    /// **Both halves of that were the SCENARIO, not the engine:**
-    ///
-    /// 1. At the take's default seat spacing the sandbag stands 192 px away and
-    ///    the tilt reaches about 92 — `closest_gap_px [100.2, -33.2]`,
-    ///    `boxes_overlapped_target: false`. The window is `OnHit`, so it
-    ///    correctly refused, and the "second tilt" in that recording was an
-    ///    ordinary fresh press AFTER the first move ended.
-    /// 2. At `--spacing 40` the tilt connects and the cancel FIRES. Chained into
-    ///    `attack_up`, the forward tilt is cut off at frame 15 of 24 with
-    ///    `--chain-at 14` and at frame 20 with `--chain-at 20`; below about
-    ///    frame 12 the press is spent inside HITLAG and does nothing.
-    ///
-    /// ⛔⛔ AND CHAINING INTO THE SAME VERB HID IT COMPLETELY. A tilt cancelled
-    /// into another tilt reads as ONE uninterrupted `performer_tilt_forward` from
-    /// the first frame to the last, because the take recorded the move by NAME.
-    /// It now records `MovePlayback::instance` as well, and the same recording
-    /// reads `move_starts=2` with the instance stepping 0 -> 1 mid-move.
+    /// ⚠ A CHAIN PROBE MUST PUT THE TARGET IN REACH AND CHAIN INTO A DIFFERENT
+    /// MOVE. The window is `OnHit`, so a tilt thrown short of the target refuses
+    /// correctly and the recording shows a fresh press after the move ended; and
+    /// a tilt cancelled into another tilt reads as one uninterrupted run of that
+    /// name unless the take is read by `move_starts`, not by move id.
     #[test]
     fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
         use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};

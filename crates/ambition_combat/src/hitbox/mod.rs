@@ -773,17 +773,6 @@ pub fn apply_hitbox_damage(
             // `projectile/systems.rs` and nowhere else. One rule, one key, both
             // roads — rather than two answers to "which victim first".
             //
-            // ⛔⛔ THIS FIXED NOTHING THAT WAS MEASURABLY BROKEN, AND SAYING SO
-            // IS THE POINT. It was written while chasing a GGRS checksum
-            // mismatch that raising `ATTACK_VOLUME_GENEROSITY` to 1.6 made
-            // reachable, on the reasoning that a bigger box reaches two victims
-            // at once. MEASURED 2026-09-11: with this sort in place the oracle
-            // STILL failed; the real cause was two rollback-derived components
-            // going missing on a restored strike volume. ⇒ A fix that closes a
-            // plausible mechanism is not evidence about the cause. It stays
-            // because query order is not a resimulation-stable order and the
-            // projectile road already said so.
-            //
             // ⚠ TWO VICTIMS THAT BOTH LACK A `SimId` STILL COMPARE EQUAL, and
             // `victim_identity_key`'s own doc says why that cannot be repaired
             // here: `Entity` does not survive a rewind and every geometric key

@@ -126,22 +126,20 @@ pub fn manifest_attack_hitbox_local(
     FrameToBody::planting_feet(record, render_size, collision).volume(hitbox, frame)
 }
 
-// ⛔⛤ A `MIN_STRIKE_EXTENT_OVER_BODY` FLOOR LIVED HERE AND IS REMOVED
-// (2026-09-11). It grew any resolved volume whose half-extent fell under half the
-// body's on that axis, which made the medic's 17.8 x 4.8 forward tilt 17.8 x 24.0 —
-// and did the same to every other sprite-poly fighter and every one of their moves.
+// ⛔ A MINIMUM-SIZE FLOOR DOES NOT BELONG HERE EITHER. Growing a resolved volume
+// to a floor on one axis RESHAPES the authored polygon, which damages a swing
+// drawn deliberately long and low most of all. An undersized swing is an
+// authoring question — see `hitbox.inflate` below.
+
+// ⛔⛔ THIS ROAD HAS NO GENEROSITY KNOB, AND MUST NOT GAIN ONE THAT SCALES
+// `render_size`. `FrameToBody::point` is `anchor_local + (px - feet_px) * scale`
+// with `scale = render_size / frame`, so a factor there multiplies the
+// DISPLACEMENT FROM THE FEET PIXEL: the volume grows AND TRANSLATES away from the
+// anchor, and resolves where the animation does not draw it.
 //
-// ⇒ Jon: *"It also appears your changes fucked up the performer's previously
-// reasonable hitboxes... If you used a global to adjust everything at once that is
-// WRONG."* A per-axis floor does not merely resize an authored polygon, it
-// RESHAPES it — so a volume drawn deliberately long and low is the exact case it
-// damages most, and those are the ones somebody spent effort on.
-//
-// ⚠ THE MEASUREMENT THAT MOTIVATED IT STANDS and is in `docs/planning/queue.md`
-// under `D-STRIKE-GENEROSITY`: ten of twenty-one grid fighters swing a box smaller
-// than their own body, and the roster spans 75x for one verb. That is real and is
-// still open. The repair is per-character authoring, which is what the census
-// exists to direct.
+// ⇒ Per-swing generosity belongs in the sprite spec's `hitbox.inflate`, which the
+// renderer applies in FRAME SPACE against the art. A code-side knob here would
+// have to scale the RESOLVED volume about its own centre, with a stated pivot.
 
 /// [`manifest_attack_hitbox_local`] placed for a body that exists right now.
 ///

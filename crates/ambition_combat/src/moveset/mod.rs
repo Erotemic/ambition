@@ -1137,23 +1137,16 @@ pub struct StrikeVolume {
 /// of its 43 literals uses `..Default::default()` — a field there is 43 hand
 /// edits to carry one number that only the strike seam reads.
 ///
-/// ⛔⛔ **IT IS CANONICAL ROLLBACK STATE, NOT DERIVED.** Until 2026-09-11 this
-/// component and [`StrikeRank`] were declared derived, for the reason "stamped
-/// at the spawn". That reason is correct only if the spawn occurs again. The
-/// volume entity carries [`StrikeVolume`], which is rollback-registered, so GGRS
-/// RESTORES that entity instead of the game code spawning it again. The restored
-/// entity came back WITHOUT these two components, the strike seam then read a
-/// different order, and the sync test showed a checksum mismatch at frames
-/// 60-62 as soon as volumes grew large enough for two of them to tie.
+/// ⛔⛔ **IT IS CANONICAL ROLLBACK STATE, NOT DERIVED**, and so is [`StrikeRank`].
+/// The volume entity carries [`StrikeVolume`], which is rollback-registered, so
+/// GGRS RESTORES that entity rather than letting the spawn run again — and a
+/// component only the spawn writes comes back missing.
 ///
-/// ⇒ **A component that only a spawn writes must go on the wire when its entity
-/// is rollback state.** "Derived" is a claim that SOME SYSTEM WRITES THE VALUE
-/// AGAIN — not a claim about where the value first came from. Sixteen of the
-/// other seventeen derived declarations name that cadence in their own reason;
-/// the seventeenth (`derived.actor_action_scheme`) does not and is sound anyway,
-/// because `reconcile_action_schemes` re-derives on `existing.is_none()`. These
-/// two had no such system at all: one write site each, inside the spawn, and the
-/// authored `(window, volume)` indices are not recoverable from anything else.
+/// ⇒ "Derived" is a claim that SOME SYSTEM WRITES THE VALUE AGAIN, not a claim
+/// about where the value first came from. These two have one write site each,
+/// inside `commands.spawn`, and the authored `(window, volume)` indices are
+/// recoverable from nothing else. Declaring them derived loses the sweetspot
+/// order across a rewind, which the sync test sees as a checksum mismatch.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AttackerMoveInstance(pub u32);
 
@@ -1819,25 +1812,13 @@ pub fn advance_move_playback(
                         // synthetic authored shape.
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
-                            // ⛔⛤ `character_id`, NOT A SECOND RESOLUTION — and
-                            // the second one asked in the WRONG ORDER. This read
-                            // `config.sprite_character_id` first and fell back to
-                            // `worn`, which is the documented rule inverted:
-                            // `CombatTuning::sprite_character_id`'s own doc says
-                            // *"`WornCharacter` OUTRANKS it (AC7.1) ... every seam
-                            // that resolves a character asks `WornCharacter`
-                            // first"*, and names the consequence — *"that
-                            // precedence is what lets a body SWAP its character at
-                            // runtime (Sanic's transformation) and take its new
-                            // repertoire and volumes with it"*. ⇒ A transformed
-                            // body kept swinging the hit polygon of the character
-                            // it used to be, because this seam is the one that
-                            // decides the shape of the damage box.
-                            //
-                            // ⚠ MEASURED 2026-09-11: FIVE seams resolve this pair
-                            // and four asked worn-first. The fifth was this one,
-                            // 490 lines below a `character_id` in the same loop
-                            // body that already held the right answer.
+                            // ⛔ `character_id`, NOT A SECOND RESOLUTION.
+                            // `WornCharacter` OUTRANKS `CombatTuning::sprite_character_id`
+                            // (AC7.1), which is what lets a body swap its character
+                            // at runtime and take its new volumes with it. Resolving
+                            // the pair again here — in either order — gives a
+                            // transformed body the hit polygon of the character it
+                            // used to be, because this seam decides the damage box.
                             let sprite_cid = character_id;
                             // The window's OWN start, not the move's clock: a
                             // hitbox track lays several Active windows end to
@@ -1877,8 +1858,8 @@ pub fn advance_move_playback(
                             // box and an attack box cannot disagree about gravity.
                             None => {
                                 // ⛔⛤ THE AUTHORED-RECT ROAD GETS THE SAME
-                                // GENEROSITY THE SPRITE ROAD DOES. MEASURED
-                                // 2026-09-11 over the 21-fighter grid: fourteen
+                                // GENEROSITY THE SPRITE ROAD DOES. Measured
+                                // over the 21-fighter grid: fourteen
                                 // resolve a manifest poly and seven resolve an
                                 // authored rect, and a feel knob on one of them
                                 // makes half the roster play differently for a

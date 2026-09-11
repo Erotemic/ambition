@@ -37,13 +37,11 @@ struct Frame {
     /// suggests. See `CombatObservation::contacts`.
     contacts: Vec<serde_json::Value>,
     move_id: Option<String>,
-    /// ⛔⛤ WHICH USE OF THAT MOVE, because the ID CANNOT SEE A CANCEL INTO THE
-    /// SAME MOVE. MEASURED 2026-09-11: the performer's forward tilt cancelled
-    /// into another forward tilt reads as ONE uninterrupted
-    /// `performer_tilt_forward` from the first frame to the last, and a chain
-    /// probe therefore reported *"the tilt ran to its full length"* about a move
-    /// that had been cut short and restarted. `MovePlayback::instance` is the
-    /// identity that exists for exactly this confusion.
+    /// ⛔ WHICH USE OF THAT MOVE. The id alone CANNOT SEE A CANCEL INTO THE SAME
+    /// MOVE: a tilt cancelled into another tilt reads as one uninterrupted run of
+    /// that name, so a chain probe reports the move playing to its full length
+    /// when it was cut short and restarted. `MovePlayback::instance` is the
+    /// identity that tells the two apart.
     move_instance: Option<u32>,
     grounded: Option<bool>,
     subject_pos: Option<(f32, f32)>,
@@ -890,18 +888,13 @@ mod causal_trace {
 /// blade, an OBB or a circle answers exactly, and two shapes whose bounding
 /// boxes overlap while the shapes do not answer NO.
 ///
-/// ⛔⛤ THIS FUNCTION USED TO RE-DERIVE IT FROM AABBs AGAINST THE COARSE BODY BOX,
-/// WHICH IS THE THIRD INSTANCE OF ONE MISTAKE. `overlaps` exists because
-/// `moveset_report.py` did the same thing, and the field's own comment says the
-/// error has a DIRECTION: *"it claimed contact the engine denied, which reads as
-/// 'the strike was on the target and the engine ignored it'"* — a reader sent to
-/// the engine when the geometry never touched. The coarse box is also the wrong
-/// subject: a hit is decided against hurtboxes, and localized hurtboxes make the
-/// gap wider still.
+/// ⛔ DO NOT RE-DERIVE IT FROM AABBs. A bounds comparison errs in ONE direction —
+/// it claims contact the engine denied — which sends a reader to the engine when
+/// the geometry never touched. The coarse body box is the wrong subject too: a
+/// hit is decided against hurtboxes.
 ///
-/// ⚠ THE BOUNDS GAP IS KEPT AND RENAMED, because "how far short did it fall" is
-/// a real question this answers and `overlaps` does not. It is a BOUNDS number
-/// and its name says so.
+/// ⚠ The bounds gap is a separate DIAGNOSTIC and its name says so: it answers
+/// "how far short did it fall", which `overlaps` does not.
 fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
     let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
     let mut best: Option<(f32, f32)> = None;
@@ -1332,14 +1325,10 @@ fn main() {
                 .iter()
                 .filter_map(|f| f["move"].as_str().map(str::to_string))
                 .collect();
-            // ⛔⛤ HOW MANY MOVES STARTED, WHICH THE SET OF NAMES CANNOT SAY.
-            // MEASURED 2026-09-11: the performer's forward tilt CANCELLED into
-            // another forward tilt records `moves = {performer_tilt_forward}` and
-            // one unbroken run of that name from the first frame to the last — so
-            // a chain probe read a move that had been cut short and restarted as
-            // *"the tilt ran to its full length"*, and the authored cancel was
-            // filed as unobserved for a day. Keyed on `(move, instance)`, which is
-            // the identity `MovePlayback::instance` exists to provide.
+            // ⛔ HOW MANY MOVES STARTED, WHICH THE SET OF NAMES CANNOT SAY. A
+            // move cancelled into ITSELF records one name and one unbroken run of
+            // it, so two starts are indistinguishable from one long move. Keyed on
+            // `(move, instance)`.
             let move_starts = frames
                 .windows(2)
                 .filter(|w| {
@@ -1665,14 +1654,9 @@ mod tests {
         })
     }
 
-    /// ⛔⛔ BOUNDS THAT PENETRATE DEEPLY AND SHAPES THAT DO NOT TOUCH.
-    ///
-    /// A rotated blade's bounding box can sit right over a target while the hull
-    /// misses it entirely. Before 2026-09-11 this function decided the question
-    /// by comparing those bounding boxes with a 1 px tolerance, and it would have
-    /// called this a contact the engine refused — sending a reader to the engine
-    /// over geometry that never touched. The verdict is `overlaps`, which is
-    /// `CombatVolume::intersects` against the target's hurtboxes.
+    /// The regression: a rotated blade's bounding box sits over the target while
+    /// the hull misses entirely, and a bounds comparison calls that a contact the
+    /// engine refused.
     #[test]
     fn deeply_penetrating_bounds_are_not_a_contact_when_the_engine_says_no() {
         // Bounds overlap by 16 px on each axis — far past any tolerance.

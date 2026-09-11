@@ -3438,45 +3438,22 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// definition cannot name the verb its moveset binds without reaching up into
 /// the runtime crate. Re-exported from `ambition_platformer2d::combat::moveset`, so every
 /// existing path still resolves.
-/// How much more generous a strike volume is than the art it was authored from.
+/// How much more generous an authored-rect strike volume is than its authored
+/// size. `1.0` is authored size.
 ///
-/// ⛔⛤ ONE NUMBER, BECAUSE A HITBOX HAS TWO ROADS AND A FIGHTER HAS ONE FEEL.
-/// A body whose sprite library publishes per-animation polys resolves through
-/// `ambition_character_sprites::actor_attack_hitbox_local`; a body whose moves
-/// carry authored `VolumeShape::Rect`s resolves through
-/// `ambition_combat::moveset::place_body_local_volume`. MEASURED 2026-09-11
-/// across the 21-fighter smash grid, FOURTEEN take the first road and SEVEN take
-/// the second — and a knob on one of them makes half the roster feel different
-/// for a reason no player can see.
+/// ⚠ IT GOVERNS THE AUTHORED-RECT ROAD ONLY. `place_body_local_volume` grows a
+/// rect by this about the BODY ORIGIN; the sprite-poly road has no equivalent
+/// and must not gain one that scales `render_size` — doing so moves every volume
+/// off the art it was authored against.
 ///
-/// ⭐ THE ARGUMENT IS THE ONE ALREADY WRITTEN ON THE PLAYER'S OWN KNOB: *"a move
-/// that connects only where the sprite overlaps feels stingy — so the generous
-/// part is declared rather than faked by drawing a longer sword."* This is that
-/// declaration, for every body that swings.
+/// ⛔ NOT A FEEL LEVER. Raising it scales every character's every move, including
+/// the ones whose volumes were shaped deliberately, which makes those worse.
+/// Per-swing generosity is a sprite spec's `hitbox.inflate`, applied in frame
+/// space where the blade is; per-move generosity is that rect's own extents.
 ///
-/// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
-/// overpowered."* Per-move tuning is a different question, asked per swing by a
-/// spec's `hitbox.inflate` or an authored rect's own extents.
-/// ⛔⛤ IT WAS STOOD DOWN TO `1.0` (`05450c12a`) BECAUSE RAISING IT REDDENED
-/// `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
-/// — a GGRS sync-test checksum mismatch at frames 60-62, MEASURED both ways with
-/// nothing else different. **That determinism defect is repaired** (2026-09-11);
-/// what this number should BE is now an ordinary feel question.
-///
-/// ⛔⛔ IT IS `1.0` — AUTHORED SIZE — AND A ROSTER-WIDE MULTIPLIER IS THE WRONG
-/// TOOL. Jon, 2026-09-11, after this was raised to 1.25: *"It also appears your
-/// changes fucked up the performer's previously reasonable hitboxes... If you
-/// used a global to adjust everything at once that is WRONG."*
-///
-/// ⇒ A character whose volumes were shaped deliberately is made worse by a knob
-/// that scales everybody, and the roster holds several of those. Per-move and
-/// per-character authoring is the road; this number exists so both hitbox roads
-/// agree about what "authored size" means, not as a feel lever.
-///
-/// ⚠ WHAT THE SWEEP MEASURED IS KEPT IN `docs/planning/queue.md` under
-/// `D-STRIKE-GENEROSITY` rather than here, because it is an investigation and
-/// this is a contract. The short of it: at 1.30 a full CPU match stops producing
-/// off-stage knockouts.
+/// ⛔ ITS SIZE IS ROLLBACK-OBSERVABLE. Large enough volumes make two of a move's
+/// windows reach one victim on the same tick, and the winner is decided by
+/// `StrikeRank` — canonical rollback state for that reason.
 pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.0;
 
 impl VolumeShape {

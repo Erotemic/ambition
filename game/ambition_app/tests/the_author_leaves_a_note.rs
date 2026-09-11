@@ -171,8 +171,49 @@ fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
     app.world_mut()
         .entity_mut(author)
         .insert(MovePlayback::new(spec, facing));
+    // ⛔⛤ AND THE SPEC'S OFFSET IS NOT WHERE THIS MOVE ACTUALLY HITS. The comment
+    // above is right that a typed position would be a second answer; the offset
+    // it reads instead is a second answer TOO, because a `vfx`-tagged window
+    // resolves its volume from the SPRITE MANIFEST and falls back to the spec
+    // rect only when the sheet authors no row. The two agreed by coincidence
+    // until a manifest volume changed shape (2026-09-11,
+    // `MIN_STRIKE_EXTENT_OVER_BODY`) and this fixture failed with
+    // "the road from the move to the mark is broken" about a road that was fine.
+    //
+    // ⇒ THE LIVE BOX IS THE ONLY AUTHORITY ON WHERE IT HITS. The spec offset
+    // above still seats the target in the right REGION before the move starts;
+    // this re-parks it on the volume the engine actually spawned, once there is
+    // one to read.
     for tick in 0..90 {
         app.update();
+        let live = {
+            let world = app.world_mut();
+            let mut q = world.query::<(
+                &ambition_platformer2d::combat::strike::Hitbox,
+                &ambition_platformer2d::combat::moveset::StrikeVolume,
+            )>();
+            q.iter(world)
+                .find(|(_, volume)| volume.owner == author)
+                .map(|(hitbox, _)| hitbox.clone())
+        };
+        if let Some(hitbox) = live {
+            let owner_pos = app
+                .world()
+                .get::<ae::CenteredAabb>(author)
+                .map(|aabb| aabb.center);
+            if let Some(owner_pos) = owner_pos {
+                let box_center = {
+                    use ae::AabbExt;
+                    hitbox.world_aabb(owner_pos).center()
+                };
+                let mut kin = app
+                    .world_mut()
+                    .get_mut::<ae::BodyKinematics>(target)
+                    .expect("the target has a body");
+                kin.pos = box_center;
+                kin.vel = ae::Vec2::ZERO;
+            }
+        }
         if app.world().get::<BodyMark>(target).is_some() {
             return tick;
         }

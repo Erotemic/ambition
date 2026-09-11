@@ -126,6 +126,119 @@ pub fn manifest_attack_hitbox_local(
     FrameToBody::planting_feet(record, render_size, collision).volume(hitbox, frame)
 }
 
+/// The smallest a resolved strike volume may be IN EACH AXIS, as a fraction of
+/// the body's own half-extent on that axis.
+///
+/// ⛔⛤ MEASURED 2026-09-11 OVER THE 21-FIGHTER GRID'S FORWARD TILT
+/// (`scripts/measure_strike_area_over_body.py`): the roster spans **75x for one
+/// verb** — `medic` 0.14, `sanic` 0.16, `npc_carl_stargan` 0.18 against
+/// `performer` 3.22 and `player_robot_v3` 10.48 — and TEN of twenty-one swing a
+/// box smaller than their own body. `medic`'s forward tilt resolves to bounds
+/// **17.8 x 4.8 px** against a 48 px body. A box that thin does not read as a
+/// weak fighter; it reads as a broken one.
+///
+/// ⭐ THE SPREAD IS NOT A BALANCE DECISION. `medic` and `pugnacious_polygon` play
+/// the SAME authored moveset and measure 0.14 against 0.78, so the whole
+/// difference is how tightly each sheet's hit polygon was drawn to its art —
+/// an authoring accident, not an intent anybody recorded.
+///
+/// ⇒ A FLOOR IS THE ROSTER-WIDE LEVER, exactly as `ACTOR_ATTACK_HITBOX_SCALE` is.
+/// `0.0` disables it entirely and restores the authored size everywhere.
+///
+/// ⛔⛔ AND IT IS PER-AXIS, NOT AN AREA FLOOR, BECAUSE AN AREA FLOOR DOES NOT
+/// REPAIR THE DEFECT IT WAS WRITTEN FOR. MEASURED: an area floor of 0.5 takes
+/// `medic`'s forward tilt from 17.8 x 4.8 to 33.8 x 9.1 — three and a half times
+/// the area, and still **nine pixels tall against a 48 px body**, which misses
+/// vertically for the same reason 4.8 did. The complaint is a DEGENERATE AXIS and
+/// only a per-axis rule can answer it.
+///
+/// ⇒ Each half-extent of the resolved bounds is grown to at least this fraction
+/// of the body's half-extent on the SAME axis, and each axis is scaled
+/// independently — so a blade that is long and flat is made taller and left as
+/// long as it was authored. ⚠ That deliberately CHANGES the poly's proportions
+/// when it bites; a uniform scale cannot, which is the whole point.
+///
+/// ⚠ IT IS THE BOUNDS, so a diagonal arc is measured by the rectangle around it
+/// and reaches the floor sooner than its real extent deserves. The census reports
+/// under the same approximation and says so.
+///
+/// ⭐⭐ `0.5` REPAIRS THE BROKEN AND LEAVES THE REST ALONE, and that is the whole
+/// reason it is not higher. It lifts `medic` 0.14, `sanic` 0.16,
+/// `npc_carl_stargan` 0.18, `officer` 0.39, `perfect_cellular_automaton` 0.44 and
+/// `projectile_polygon` 0.48 — the ones whose boxes are not small but degenerate —
+/// and touches nobody from `goblin` 0.55 upward. **A roster-wide rebalance is a
+/// different decision and is Jon's.**
+///
+/// ⛔⛔ AND `1.0` WAS MEASURED, BECAUSE I EXPECTED IT TO FAIL AND IT DID NOT.
+/// The prediction was that a floor would trip the same wall the generosity knob
+/// hit at 1.30 — `every_live_fighter_stays_inside_the_frame` reporting ZERO
+/// off-stage body-frames. MEASURED 2026-09-11 at `MIN_STRIKE_EXTENT_OVER_BODY =
+/// 1.0`: `ambition_demo_smash_app`'s `the_stage_kills` and
+/// `the_repertoire_gets_used`, **28 of 28 green.**
+/// ⇒ **The two levers are not the same lever.** The knob scales EVERY box,
+/// including `performer` 3.22 and `player_robot_v3` 10.48; the floor lifts only
+/// the bottom and leaves the top where it is. So what breaks the CPU knockout
+/// game is making the ALREADY-GENEROUS boxes bigger, not making the stingy ones
+/// adequate — and raising this number is a one-line change with that evidence
+/// already attached.
+/// ⚠ WHAT IS STILL UNMEASURED: every value above was censused on `attack_forward`
+/// alone. This floor applies to every animation carrying an authored poly, jabs
+/// and aerials included, and those are not censused.
+///
+/// ⛔ IT REACHES ONE OF THE TWO HITBOX ROADS. A fighter whose moves carry authored
+/// `VolumeShape::Rect`s resolves through `ambition_combat` and is not floored
+/// here — MEASURED: `goblin` 0.55 and `npc_ninja_shadow_oni_leader` 0.80 do not
+/// move at any floor value, which is how the census tells the two roads apart.
+pub const MIN_STRIKE_EXTENT_OVER_BODY: f32 = 0.5;
+
+/// [`manifest_attack_hitbox_local`], grown to [`MIN_STRIKE_EXTENT_OVER_BODY`].
+///
+/// Resolved TWICE when the floor bites, on purpose: the poly's offsets derive
+/// LINEARLY from `render_size` on each axis, so one per-axis multiply lands
+/// exactly on the floor. Re-resolving through the sheet is what keeps the
+/// authored geometry — scaling the returned volume's BOUNDS would replace a
+/// blade with the brick around it.
+fn manifest_attack_hitbox_local_floored(
+    record: &SheetRecord,
+    animation: &str,
+    collision: ae::Vec2,
+    render_size: ae::Vec2,
+    clip_elapsed: Option<f32>,
+) -> Option<ae::CombatVolume> {
+    let volume =
+        manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)?;
+    if MIN_STRIKE_EXTENT_OVER_BODY <= 0.0 {
+        return Some(volume);
+    }
+    let body_half = collision * 0.5;
+    let half = {
+        use ae::AabbExt;
+        volume.bounds().half_size()
+    };
+    // ⛔ A ZERO EXTENT CANNOT BE SCALED UP AND IS LEFT ALONE. A volume with no
+    // width on an axis is not a thin box, it is an authoring fault this floor
+    // would turn into a silent full-size one.
+    let grow = |have: f32, body: f32| {
+        let want = MIN_STRIKE_EXTENT_OVER_BODY * body;
+        if have > 0.0 && have < want {
+            want / have
+        } else {
+            1.0
+        }
+    };
+    let k = ae::Vec2::new(grow(half.x, body_half.x), grow(half.y, body_half.y));
+    if k.x == 1.0 && k.y == 1.0 {
+        return Some(volume);
+    }
+    manifest_attack_hitbox_local(
+        record,
+        animation,
+        collision,
+        ae::Vec2::new(render_size.x * k.x, render_size.y * k.y),
+        clip_elapsed,
+    )
+}
+
 /// [`manifest_attack_hitbox_local`] placed for a body that exists right now.
 ///
 /// - `body_pos`: collision-box centre, world coords (y grows downward).
@@ -265,7 +378,7 @@ pub fn player_attack_hitbox_local(
     // from — grows reach + size about the feet anchor, player-only.
     let render_size =
         player_render_size(authored, catalog, collision)? * ACTOR_ATTACK_HITBOX_SCALE;
-    manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
+    manifest_attack_hitbox_local_floored(record, animation, collision, render_size, clip_elapsed)
 }
 
 /// [`player_attack_hitbox_local`] placed for a body that exists right now.
@@ -325,7 +438,7 @@ pub fn actor_attack_hitbox_local(
         // the feet anchor, and touches neither the drawn sprite nor any
         // authored collision box.
         * ACTOR_ATTACK_HITBOX_SCALE;
-    manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
+    manifest_attack_hitbox_local_floored(record, animation, collision, render_size, clip_elapsed)
 }
 
 /// [`actor_attack_hitbox_local`] placed for a body that exists right now.

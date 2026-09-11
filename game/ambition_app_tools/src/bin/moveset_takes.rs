@@ -37,6 +37,14 @@ struct Frame {
     /// suggests. See `CombatObservation::contacts`.
     contacts: Vec<serde_json::Value>,
     move_id: Option<String>,
+    /// ⛔⛤ WHICH USE OF THAT MOVE, because the ID CANNOT SEE A CANCEL INTO THE
+    /// SAME MOVE. MEASURED 2026-09-11: the performer's forward tilt cancelled
+    /// into another forward tilt reads as ONE uninterrupted
+    /// `performer_tilt_forward` from the first frame to the last, and a chain
+    /// probe therefore reported *"the tilt ran to its full length"* about a move
+    /// that had been cut short and restarted. `MovePlayback::instance` is the
+    /// identity that exists for exactly this confusion.
+    move_instance: Option<u32>,
     grounded: Option<bool>,
     subject_pos: Option<(f32, f32)>,
     subject_vel: Option<(f32, f32)>,
@@ -357,6 +365,10 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                     ),
                     pose.is_some(),
                     sim_id.map(|id| id.as_str().to_string()),
+                    // ⛔ APPENDED AT THE TAIL ON PURPOSE: this tuple is also read
+                    // POSITIONALLY below (`row.14`), so a field inserted in the
+                    // middle silently renames every index after it.
+                    play.map(|p| p.instance),
                 )
             },
         )
@@ -405,6 +417,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
         drawn,
         has_pose,
         sim_id,
+        instance,
     ) in &rows
     {
         let role = roles.role_of(*entity);
@@ -413,6 +426,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
             frame.subject_pos = Some(*pos);
             frame.subject_vel = Some(*vel);
             frame.move_id = playing.clone();
+            frame.move_instance = *instance;
             frame.grounded = *on_ground;
             frame.facing = Some(*facing);
             frame.gesture = gesture.clone();
@@ -956,6 +970,7 @@ fn record(
         "projectiles": frame.projectiles,
         "contacts": frame.contacts,
         "move": frame.move_id,
+        "move_instance": frame.move_instance,
         "grounded": frame.grounded,
         "subject_pos": frame.subject_pos.map(|p| vec![p.0, p.1]),
         "subject_vel": frame.subject_vel.map(|v| vec![v.0, v.1]),
@@ -1302,6 +1317,28 @@ fn main() {
                 .iter()
                 .filter_map(|f| f["move"].as_str().map(str::to_string))
                 .collect();
+            // ⛔⛤ HOW MANY MOVES STARTED, WHICH THE SET OF NAMES CANNOT SAY.
+            // MEASURED 2026-09-11: the performer's forward tilt CANCELLED into
+            // another forward tilt records `moves = {performer_tilt_forward}` and
+            // one unbroken run of that name from the first frame to the last — so
+            // a chain probe read a move that had been cut short and restarted as
+            // *"the tilt ran to its full length"*, and the authored cancel was
+            // filed as unobserved for a day. Keyed on `(move, instance)`, which is
+            // the identity `MovePlayback::instance` exists to provide.
+            let move_starts = frames
+                .windows(2)
+                .filter(|w| {
+                    let key = |f: &serde_json::Value| {
+                        (
+                            f["move"].as_str().map(str::to_string),
+                            f["move_instance"].as_u64(),
+                        )
+                    };
+                    let (prev, here) = (key(&w[0]), key(&w[1]));
+                    here.0.is_some() && here != prev
+                })
+                .count()
+                + usize::from(frames.first().is_some_and(|f| !f["move"].is_null()));
             let rode = frames.iter().any(|f| !f["riding"].is_null());
             // ⭐ THE SUBJECT'S OWN OUTPUT. Everything in the world is still in
             // the frame for the viewer; what the MOVE is credited with is only
@@ -1440,7 +1477,7 @@ fn main() {
                     .any(|c| c["victim_role"].as_str() == Some("target"))
             });
             println!(
-                "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}{}",
+                "[take] {character:<24} {:<16} moves={:?} starts={move_starts} hitboxes<={live} shots<={shots} rode={rode}{}{}",
                 verb.verb,
                 moves,
                 // ⛔ SAID ON THE LINE, NOT ONLY IN THE FILE. A reader scanning a
@@ -1517,6 +1554,8 @@ fn main() {
                 // A take that reached no move says so here rather than looking
                 // like a move with nothing in it.
                 "moves_seen": moves.iter().cloned().collect::<Vec<_>>(),
+                // ⭐ TWO STARTS WITH ONE NAME IS A CANCEL INTO THE SAME MOVE.
+                "move_starts": move_starts,
                 "rode_a_mount": rode,
                 "max_live_hitboxes": live,
                 // ⛔ THE PREMISE BEHIND A MISS. `overlapped: false` says the

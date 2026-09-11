@@ -1407,15 +1407,25 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    they are smaller still. The roster-wide knob was the SHARED cause and is spent;
    these need per-character work. medic's forward tilt is 3.8 px TALL against a 48 px
    body.
-2. **The performer's tilt cancels are authored and guarded but NOT OBSERVED in a
-   match** (`ba2f8887a`). `cancel_permits` accepts through the whole recovery with a
-   CONNECTED contact, and the engine's own unit test proves the road works, yet a
-   chain through `moveset_takes --chain-at 20` ran the tilt to its full 24 ticks
-   against both a sandbag and a live CPU. ⭐ **The first thing to measure is whether
-   the tilt CONNECTS at all**: the window is `OnHit`, `verdict_belongs_to` refuses a
-   `None` provenance since Q101 (2026-09-10), and the take already records
-   `reach.contacted_target`. A window that permits and a press that arrives are both
-   established; a contact is not.
+2. ✅ **CLOSED 2026-09-11 — THE PERFORMER'S TILT CANCELS ARE OBSERVED IN A MATCH,
+   and `ba2f8887a`'s note said the opposite.** Both halves of *"not observed"* were
+   the SCENARIO:
+   * **The tilt was thrown 100 px short.** At the take's default seat spacing the
+     sandbag stands 192 px away and the tilt reaches ~92 —
+     `closest_gap_px [100.2, -33.2]`, `boxes_overlapped_target: false`. The window
+     is `OnHit`, so it correctly refused, and the "second tilt" in that recording
+     was a fresh press AFTER the first move ended.
+   * **Chaining into the SAME verb hid the cancel entirely.** A tilt cancelled into
+     another tilt reads as one uninterrupted `performer_tilt_forward`, because the
+     take recorded the move by NAME. ⇒ The take now records
+     `MovePlayback::instance` and a `move_starts` count, and the same recording
+     reads `move_starts=2` with the instance stepping 0 → 1 mid-move.
+   MEASURED at `--spacing 40`, chained into `attack_up`: cut at frame 15 of 24 with
+   `--chain-at 14`, at frame 20 with `--chain-at 20`, and nothing below ~12, where
+   the press is spent inside HITLAG. ⚠ **That last one is a limit of the driver, not
+   of the engine**: `chained_frame` is a pure function of the ACTION tick by design,
+   and hitlag freezes the move's proper time while the action tick keeps running, so
+   a sweep of `--chain-at` is not a sweep of the move's own clock.
 3. `attack_air_back` connects by 0.2 px where the forward air has 17.8 to spare.
 4. **The authored clock is not Ultimate-shaped in one axis**: startup is right, ACTIVE
    runs 10–17 frames against Ultimate's usual 2–5, and totals are SHORTER. Jon has not

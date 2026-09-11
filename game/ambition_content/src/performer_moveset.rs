@@ -294,10 +294,12 @@ fn author_normals(set: &mut MovesetContract) {
         // ⚠ THE WINDOW IS THE RECOVERY, not the active frames. Cancelling out of
         // the strike itself would let her erase her own hitbox mid-swing.
         //
-        // ⛔⛤ AND THIS IS AUTHORED-AND-GUARDED, NOT OBSERVED IN A MATCH. See
-        // `a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery` for
-        // what IS proven, and the commit that added this for the chain probe
-        // that does not yet show the engine taking it.
+        // ⭐ AND IT IS OBSERVED IN A MATCH, 2026-09-11. `moveset_takes
+        // --characters performer --verbs attack_forward --chain attack_up
+        // --chain-at 14 --spacing 40` cuts this tilt off at frame 15 of 24. The
+        // earlier note here said the opposite; what it had actually recorded was
+        // a tilt thrown 100 px short of the target, so the `OnHit` window never
+        // opened. See the test below.
         if matches!(mv.clip.clip.as_str(), "attack_side" | "attack_up" | "attack_down") {
             mv.windows.push(MoveWindow {
                 start_s: active_end,
@@ -849,11 +851,27 @@ mod tests {
     /// window — and a cancellable forward smash is not this genre.
     ///
     /// ⚠ THIS IS A CLAIM ABOUT THE AUTHORED DATA, and it is the only claim made.
-    /// `cancel_permits` accepts from t=0.26 with a connected contact, and the
-    /// engine's own `cancel_window_starts_the_new_move_same_frame` proves the
-    /// road works — but a chain driven through `moveset_takes` against both a
-    /// sandbag and a live CPU still ran the tilt to its full 24 ticks. What
-    /// stands between the two is NOT ISOLATED.
+    ///
+    /// ✅ AND THE MATCH-LEVEL HALF IS NOW MEASURED (2026-09-11). This comment
+    /// used to end *"a chain driven through `moveset_takes` ... still ran the tilt
+    /// to its full 24 ticks. What stands between the two is NOT ISOLATED."*
+    /// **Both halves of that were the SCENARIO, not the engine:**
+    ///
+    /// 1. At the take's default seat spacing the sandbag stands 192 px away and
+    ///    the tilt reaches about 92 — `closest_gap_px [100.2, -33.2]`,
+    ///    `boxes_overlapped_target: false`. The window is `OnHit`, so it
+    ///    correctly refused, and the "second tilt" in that recording was an
+    ///    ordinary fresh press AFTER the first move ended.
+    /// 2. At `--spacing 40` the tilt connects and the cancel FIRES. Chained into
+    ///    `attack_up`, the forward tilt is cut off at frame 15 of 24 with
+    ///    `--chain-at 14` and at frame 20 with `--chain-at 20`; below about
+    ///    frame 12 the press is spent inside HITLAG and does nothing.
+    ///
+    /// ⛔⛔ AND CHAINING INTO THE SAME VERB HID IT COMPLETELY. A tilt cancelled
+    /// into another tilt reads as ONE uninterrupted `performer_tilt_forward` from
+    /// the first frame to the last, because the take recorded the move by NAME.
+    /// It now records `MovePlayback::instance` as well, and the same recording
+    /// reads `move_starts=2` with the instance stepping 0 -> 1 mid-move.
     #[test]
     fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
         use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};

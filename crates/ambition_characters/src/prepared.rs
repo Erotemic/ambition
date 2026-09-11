@@ -526,9 +526,9 @@ pub fn activate_staged_revision(
         .get_resource::<PreparedCharacterRegistry>()
         .expect("checked above")
         .clone();
-    for character in staged {
+    for character in &staged {
         candidate.insert(finalize_character(
-            character.inner,
+            character.inner.clone(),
             catalog.as_ref(),
             profiles.as_ref(),
         ));
@@ -556,12 +556,103 @@ pub fn activate_staged_revision(
     }
     candidate.stamp_after(previous);
     let generation = candidate.generation();
+
+    // ⛔⛔ **THE SOURCE IS UPDATED TOO, AND SKIPPING THIS IS A SECOND AUTHORITY
+    // THAT DRIFTS SILENTLY.** `StagedCharacterOverrides::by_id` is the authored
+    // truth the registry is a FOLD of. Publishing to the registry alone would
+    // leave the source at its pre-revision value, so the NEXT revision — which
+    // reads the source to build its edit — would silently revert this one. The
+    // drift is invisible until somebody revises the same character twice, which
+    // is precisely what a content-iteration loop does all day.
+    //
+    // ⚠ AFTER the admission gate, never before: a REFUSED revision must change
+    // nothing, and the source is part of "nothing".
+    if let Some(mut overrides) = world.get_resource_mut::<StagedCharacterOverrides>() {
+        for character in staged {
+            let id = ambition_entity_catalog::CharacterId::new(character.id());
+            overrides.by_id.insert(id, character);
+        }
+    }
+
     world.insert_resource(AuthoredEffectRefusals(Vec::new()));
     world.insert_resource(candidate);
     RevisionOutcome::Activated {
         generation,
         changed,
     }
+}
+
+/// Why a moveset revision could not even be STAGED.
+///
+/// ⚠ Distinct from [`RevisionOutcome::Refused`], which is a revision that was
+/// staged and then failed admission. This is "there is nothing here to revise".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MovesetRevisionError {
+    /// A move edit names a character this build did not prepare.
+    UnknownCharacter(String),
+    /// The preparation barrier has not run, so there is no cast to revise.
+    NoStagedCast,
+}
+
+impl std::fmt::Display for MovesetRevisionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownCharacter(id) => write!(
+                f,
+                "no character `{id}` is staged: a move edit names a character \
+                 this build did not prepare, and inventing a definition to hang \
+                 it on would publish a fighter nobody authored"
+            ),
+            Self::NoStagedCast => f.write_str(
+                "the preparation barrier has not run, so there is no cast to \
+                 revise (a revision is a transaction over a cast already live)",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for MovesetRevisionError {}
+
+/// Replace ONE character's authored moveset and re-fold the cast.
+///
+/// ⭐⭐ **THE ENTRY POINT A LOADABLE MOVE ARTIFACT NEEDS** (fast-iteration I2,
+/// step 4/6). An artifact carries a move section, not whole character
+/// definitions; the revision road takes a whole `CharacterDefinition`; and
+/// nothing could reconstruct the rest of a live character's definition to apply
+/// a move-only edit to it. This is the third way out, and it is a PURE FUNCTION
+/// of state already held rather than any new state: the authored source is
+/// retained past the barrier, so the edit is "replace a field and re-run the
+/// fold".
+///
+/// ⛔ IT GOES THROUGH THE EXISTING REVISION ROAD, deliberately. That road is
+/// already transactional — a refused revision changes nothing and the previous
+/// registry, generation included, stays published — and it already admits
+/// against installed technique support. A second publication path would be a
+/// second answer to "may this cast go live", which is the authority split this
+/// packet exists to avoid.
+///
+/// ⚠ AN UNKNOWN ID IS REFUSED rather than created. A move edit naming a
+/// character this build did not prepare is an unresolved reference, and
+/// inventing a definition to hang it on would publish a fighter nobody authored.
+pub fn revise_staged_moveset(
+    world: &mut bevy::ecs::world::World,
+    id: &str,
+    moveset: MovesetContract,
+) -> Result<(), MovesetRevisionError> {
+    let key = ambition_entity_catalog::CharacterId::new(id);
+    let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
+        return Err(MovesetRevisionError::NoStagedCast);
+    };
+    let Some(staged) = overrides.by_id.get(&key) else {
+        return Err(MovesetRevisionError::UnknownCharacter(id.to_string()));
+    };
+    let mut revised = staged.clone();
+    revised.inner.moveset = Some(moveset);
+    world
+        .get_resource_or_insert_with(StagedCastRevision::default)
+        .by_id
+        .insert(key, revised);
+    Ok(())
 }
 
 /// Every authored effect the preparation barrier refused, as a published fact.
@@ -2032,6 +2123,34 @@ pub fn stage_authored_character(
 /// `StagedCharacter` at all outside this module, let alone to folding one.
 #[derive(bevy::ecs::resource::Resource, Debug, Clone, Default)]
 struct StagedCharacterOverrides {
+    /// The authored, pre-fold definitions — THE SOURCE, retained past the
+    /// barrier rather than consumed by it.
+    ///
+    /// ⛔⛤ **THE BARRIER USED TO `std::mem::take` THIS, AND THE TAKE WAS
+    /// INCIDENTAL.** Idempotence is owned by [`Self::finalized`], added
+    /// precisely because the consumption made a second barrier call republish an
+    /// empty registry. So nothing depended on the table being emptied — and
+    /// emptying it destroyed the only flattened pre-fold definition in the
+    /// process, which is exactly what a MOVESET-ONLY revision needs.
+    ///
+    /// ⚠ **A SAFEGUARD THAT OUTLIVES ITS REASON BECOMES A CONSTRAINT NOBODY
+    /// CHOSE.** Reconstructing a definition from `PreparedCharacterDefinition`
+    /// plus the catalog is not possible: `autonomous_profile_ref` and
+    /// `action_set` are lost outright, and `motion_model`, `movement_tuning`,
+    /// `vitals.max_health` and `locomotion.baseline_free_flight` are FOLDED —
+    /// "authored nothing" and "authored exactly the row's value" become the same
+    /// prepared value.
+    ///
+    /// ⛔⛔ **SO THIS IS THE AUTHORITY AND THE REGISTRY IS ITS FOLD**, which is
+    /// only true while every activated revision writes back here. A revision
+    /// that published to the registry alone would leave this stale, and the NEXT
+    /// revision would silently revert it — two authorities, drifting, with the
+    /// drift invisible until somebody revised twice.
+    ///
+    /// ⚠ MEMORY: the whole cast's pre-fold overrides now stay resident. MEASURED
+    /// nowhere; the shipped host prepares 58 characters, and if that ever matters
+    /// the answer is to shrink what an override holds, not to go back to
+    /// destroying it.
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
     /// Set when the barrier closes, so a late contribution is a panic rather than
     /// a value nobody will ever fold.
@@ -2287,7 +2406,8 @@ pub fn close_preparation_barrier_without_admission(world: &mut bevy::ecs::world:
     // filtering: the caller has declared this is not an admission question.
     staged.finalized = true;
     staged.closed_with_admission = false;
-    let staged_cast = std::mem::take(&mut staged.by_id);
+    // ⛔⛤ CLONED, NOT TAKEN — see `StagedCharacterOverrides::by_id`.
+    let staged_cast = staged.by_id.clone();
     let _ = support;
     let catalog = world
         .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
@@ -2353,7 +2473,11 @@ fn finalize_prepared_cast(
     // the honest reading of "installs no admission authority" and is still not
     // the same as having one.
     staged.closed_with_admission = support.keys().next().is_some();
-    let staged = std::mem::take(&mut staged.by_id);
+    // ⛔⛤ CLONED, NOT TAKEN — see `StagedCharacterOverrides::by_id`. ⚠ BOTH
+    // barrier roads, together: retaining in one and not the other would make a
+    // shipping app and a test build disagree about whether a revision is
+    // possible at all, and the unchecked backstop is `cfg`-gated to test builds.
+    let staged = staged.by_id.clone();
     let catalog = world
         .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
         .cloned();

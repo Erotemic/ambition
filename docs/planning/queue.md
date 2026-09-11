@@ -811,10 +811,36 @@ parity claim is about the SOURCE tables** (`authored_movesets::tables()`), which
 is what `every_shipped_move_table_survives_the_artifact_exactly` measures, and it
 must stay that way.
 
-**Next bounded action:** retain `by_id` past the barrier and add a
-`revise_staged_moveset` entry point, sealing the claim that `staged.finalized` is
-the only post-barrier reader rather than grepping for it. Then step 5's removal
-of the compiled table, then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
+✅ **DONE 2026-09-11.** `StagedCharacterOverrides::by_id` is retained past BOTH
+barrier roads — cloned, not taken — and `revise_staged_moveset(world, id,
+moveset)` replaces one character's authored table and re-folds through the
+EXISTING revision road, which is already transactional and already admits against
+installed technique support. An unknown id is refused rather than invented.
+
+⛔⛔ **AND THE SOURCE IS UPDATED ON ACTIVATION, WHICH IS NOT OPTIONAL.**
+`by_id` is the authored truth and the registry is its FOLD; a revision that
+published to the registry alone would leave the source at its pre-edit value, so
+a LATER edit built from that source silently reverts it. ⚠ After the admission
+gate, never before — a refused revision must change nothing, and the source is
+part of "nothing".
+
+⛔⛤ **MY FIRST WITNESS FOR THAT WAS UNFALSIFIABLE.** Two successive MOVE edits
+compose with or without the write-back, because each replaces the moveset
+wholesale and never reads the stale value — the poison did not fire. The arm that
+works has the FIRST revision change something else (a display name, through the
+ordinary whole-definition road) and asserts the move edit carries it forward;
+without the write-back the name reverts, which is a user-visible bug.
+⇒ **A SAFEGUARD NEEDS A CASE THAT READS THE THING IT KEEPS IN STEP.**
+
+⚠ Both poisons fire on their own claim: restoring `mem::take` reddens the two
+edit-reaches-the-cast arms, and dropping the write-back reddens only the
+carry-forward arm. ⚠ Memory: the whole cast's pre-fold overrides now stay
+resident (58 characters in the shipped host), unmeasured; if it ever matters the
+answer is to shrink what an override holds, not to destroy it again.
+
+**Next bounded action:** the hydration adapter — decode a move section and drive
+`revise_staged_moveset` per character — then step 5's removal of the compiled
+table as an authoritative input. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

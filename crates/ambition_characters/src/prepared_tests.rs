@@ -2004,3 +2004,190 @@ mod bolt_domain_rules {
         }
     }
 }
+
+/// I2 step 4/6: a MOVE-ONLY edit reaches the live cast, through the road that
+/// already exists.
+mod moveset_revision {
+    use super::*;
+    use crate::prepared::{
+        activate_staged_revision, close_preparation_barrier_without_admission,
+        revise_staged_moveset, stage_authored_character, CharacterPreparationPlugin,
+        MovesetRevisionError, PreparedCharacterRegistry, RevisionOutcome,
+    };
+    use crate::prepared_fixtures::moveset_with;
+    use ambition_entity_catalog::TechniqueSupport;
+
+    fn plain(id: &str, move_id: &str) -> CharacterDefinition {
+        CharacterDefinition::new(id, id, "test_demo").with_moveset(moveset_with(
+            &[("attack", move_id)],
+            vec![crate::prepared_fixtures::slash(move_id, "cue", "land")],
+        ))
+    }
+
+    /// An app whose cast went through the REAL barrier, which is what populates
+    /// the staged source a move-only revision reads.
+    fn app_with_a_prepared_cast() -> bevy::app::App {
+        let mut app = bevy::app::App::new();
+        app.add_plugins(CharacterPreparationPlugin);
+        stage_authored_character(&mut app, plain("brawler", "jab"), &CharacterBindings::default())
+            .expect("the cast stages");
+        close_preparation_barrier_without_admission(app.world_mut());
+        app
+    }
+
+    fn live_display_name(app: &bevy::app::App) -> String {
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .iter()
+            .find(|(id, _)| id == &"brawler")
+            .map(|(_, definition)| definition.display_name.clone())
+            .unwrap_or_default()
+    }
+
+    fn live_move_ids(app: &bevy::app::App) -> Vec<String> {
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .iter()
+            .find(|(id, _)| id == &"brawler")
+            .map(|(_, definition)| {
+                definition
+                    .kit
+                    .projectable_moveset()
+                    .map(|m| m.moves.iter().map(|mv| mv.id.clone()).collect())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default()
+    }
+
+    /// ⭐ THE ROW. A move section arrives, one character's table is replaced, and
+    /// the live cast plays the new one — without a `CharacterDefinition`, which
+    /// an artifact does not carry.
+    #[test]
+    fn a_move_only_edit_reaches_the_live_cast() {
+        let mut app = app_with_a_prepared_cast();
+        // ⚠ THE PREMISE: the barrier published the cast this edit revises.
+        assert_eq!(live_move_ids(&app), vec!["jab".to_string()]);
+
+        revise_staged_moveset(
+            app.world_mut(),
+            "brawler",
+            moveset_with(
+                &[("attack", "uppercut")],
+                vec![crate::prepared_fixtures::slash("uppercut", "cue", "land")],
+            ),
+        )
+        .expect("the character is staged");
+        let outcome = activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
+            "expected one changed definition; got {outcome:?}"
+        );
+        assert_eq!(live_move_ids(&app), vec!["uppercut".to_string()]);
+    }
+
+    /// ⛔⛔ TWO EDITS IN A ROW COMPOSE, AND THIS IS THE ARM THE WRITE-BACK EXISTS
+    /// FOR. The registry is a FOLD of the staged source; a revision that
+    /// published to the registry alone would leave the source at its pre-edit
+    /// value, so the SECOND edit — which reads the source — would silently revert
+    /// the first. The drift is invisible until somebody revises twice, which is
+    /// exactly what a content-iteration loop does all day.
+    #[test]
+    fn a_second_move_edit_does_not_revert_the_first() {
+        let mut app = app_with_a_prepared_cast();
+        for move_id in ["uppercut", "haymaker"] {
+            revise_staged_moveset(
+                app.world_mut(),
+                "brawler",
+                moveset_with(
+                    &[("attack", move_id)],
+                    vec![crate::prepared_fixtures::slash(move_id, "cue", "land")],
+                ),
+            )
+            .expect("the character is staged");
+            let outcome = activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+            assert!(
+                matches!(outcome, RevisionOutcome::Activated { .. }),
+                "edit `{move_id}` did not activate: {outcome:?}"
+            );
+        }
+        assert_eq!(
+            live_move_ids(&app),
+            vec!["haymaker".to_string()],
+            "the second edit did not stick — the staged source was left at its \
+             pre-revision value, so the fold rebuilt the cast from stale truth"
+        );
+    }
+
+    /// ⛔⛔ A MOVE EDIT MUST NOT REVERT AN EARLIER, UNRELATED REVISION — and
+    /// THIS is the arm the write-back exists for.
+    ///
+    /// ⚠ **MY FIRST ATTEMPT AT IT WAS UNFALSIFIABLE.** Two successive MOVE edits
+    /// compose with or without the write-back, because each one REPLACES the
+    /// moveset wholesale and never reads the stale value. The poison did not
+    /// fire, which is a finding about the fixture: a safeguard needs a case that
+    /// READS the thing it keeps in step.
+    ///
+    /// ⇒ So the first revision changes something else — the display name,
+    /// through the ordinary whole-definition road — and the move edit then has to
+    /// carry it forward. Without the write-back the staged source still holds the
+    /// OLD name, `revise_staged_moveset` builds its edit from that, and the
+    /// fold republishes the old name: a user-visible revert nobody asked for.
+    #[test]
+    fn a_move_edit_carries_an_earlier_revision_forward() {
+        use crate::prepared::stage_character_revision;
+
+        let mut app = app_with_a_prepared_cast();
+        let renamed = CharacterDefinition::new("brawler", "The Brawler", "test_demo")
+            .with_moveset(moveset_with(
+                &[("attack", "jab")],
+                vec![crate::prepared_fixtures::slash("jab", "cue", "land")],
+            ));
+        stage_character_revision(&mut app, renamed, &CharacterBindings::default())
+            .expect("the rename stages");
+        let outcome = activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+        assert!(
+            matches!(outcome, RevisionOutcome::Activated { .. }),
+            "the rename did not activate: {outcome:?}"
+        );
+        assert_eq!(live_display_name(&app), "The Brawler");
+
+        revise_staged_moveset(
+            app.world_mut(),
+            "brawler",
+            moveset_with(
+                &[("attack", "uppercut")],
+                vec![crate::prepared_fixtures::slash("uppercut", "cue", "land")],
+            ),
+        )
+        .expect("the character is staged");
+        activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+
+        assert_eq!(live_move_ids(&app), vec!["uppercut".to_string()]);
+        assert_eq!(
+            live_display_name(&app),
+            "The Brawler",
+            "a MOVE edit reverted an earlier rename: it was built from a staged \
+             source the previous revision never updated, so the registry and its \
+             own source had drifted apart"
+        );
+    }
+
+    /// ⚠ AN UNRESOLVED REFERENCE IS REFUSED, NOT INVENTED. A move edit naming a
+    /// character this build did not prepare must not conjure a fighter to hang
+    /// it on.
+    #[test]
+    fn an_edit_for_a_character_this_build_never_prepared_is_refused() {
+        let mut app = app_with_a_prepared_cast();
+        let outcome = revise_staged_moveset(
+            app.world_mut(),
+            "somebody_else",
+            moveset_with(&[], Vec::new()),
+        );
+        assert_eq!(
+            outcome,
+            Err(MovesetRevisionError::UnknownCharacter("somebody_else".to_string()))
+        );
+        assert_eq!(live_move_ids(&app), vec!["jab".to_string()]);
+    }
+}

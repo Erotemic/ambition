@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CapturePummelParams, CaptureThrowParams, SmashCaptureRepertoire,
 };
@@ -231,7 +231,7 @@ impl ThrowAuthoring {
 impl CaptureKitAuthoring {
     /// Preparation: authored values become the runtime kit.
     ///
-    /// Through the same [`smash_capture`](crate::smash_capture) helpers a Rust
+    /// Through the same [`smash_capture`](ambition_entity_catalog::smash_capture) helpers a Rust
     /// literal uses, deliberately — a second lowering road would be a second
     /// place for the effect keys and the window shape to drift.
     ///
@@ -253,7 +253,7 @@ impl CaptureKitAuthoring {
         SmashCaptureRepertoire {
             // A facet-authored kit takes the shipped rows; a fighter whose art
             // is its own overrides them where it builds its repertoire.
-            cues: crate::smash_capture::CaptureCues::GENERIC,
+            cues: ambition_entity_catalog::smash_capture::CaptureCues::GENERIC,
             grab: author_standing_grab(
                 grab_shell(
                     &grab.id,

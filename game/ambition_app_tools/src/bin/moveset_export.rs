@@ -22,7 +22,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     MoveCoverage, MoveEventKind, MoveSpec, MovesetContract, RecoveryUse, VolumeShape, WindowTag,
 };
 
@@ -130,7 +130,7 @@ fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
 /// A circle is reported with its radius AND the enclosing half-extents, so a
 /// viewer that only knows rectangles still draws something true rather than
 /// nothing.
-fn volume_json(volume: &ambition_platformer2d::entity_catalog::HitVolume) -> serde_json::Value {
+fn volume_json(volume: &ambition_entity_catalog::HitVolume) -> serde_json::Value {
     let (offset, half, radius) = match volume.shape {
         VolumeShape::Rect {
             offset,
@@ -149,8 +149,8 @@ fn volume_json(volume: &ambition_platformer2d::entity_catalog::HitVolume) -> ser
         "knockback_growth": volume.knockback_growth,
         "launch_dir": volume.launch_dir.map(|d| vec![d.0, d.1]),
         "reaction": volume.reaction.map(|r| match r {
-            ambition_platformer2d::entity_catalog::VolumeReaction::Autolink(_) => "autolink",
-            ambition_platformer2d::entity_catalog::VolumeReaction::Windbox(_) => "windbox",
+            ambition_entity_catalog::VolumeReaction::Autolink(_) => "autolink",
+            ambition_entity_catalog::VolumeReaction::Windbox(_) => "windbox",
         }),
         "on_hit": volume.on_hit.as_ref().map(|e| e.key.clone()),
         "vfx": volume.vfx.clone(),
@@ -159,10 +159,10 @@ fn volume_json(volume: &ambition_platformer2d::entity_catalog::HitVolume) -> ser
 }
 
 fn window_json(
-    window: &ambition_platformer2d::entity_catalog::MoveWindow,
+    window: &ambition_entity_catalog::MoveWindow,
     // The contract this window belongs to, because a broad cancel rule means
     // THIS CHARACTER'S moves and nothing else can say which those are.
-    moveset: Option<&ambition_platformer2d::entity_catalog::MovesetContract>,
+    moveset: Option<&ambition_entity_catalog::MovesetContract>,
 ) -> serde_json::Value {
     let (tag, cancel_into) = match &window.tag {
         WindowTag::Startup => ("startup".to_string(), Vec::new()),
@@ -225,15 +225,15 @@ fn window_json(
 /// GAP between them earns a second connection. Deriving a carry any other way
 /// makes a sweetspot pair look like a multihit and a genuine multihit look the
 /// same as one.
-fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> {
-    let mut actives: Vec<&ambition_platformer2d::entity_catalog::MoveWindow> = spec
+fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_entity_catalog::MoveWindow>> {
+    let mut actives: Vec<&ambition_entity_catalog::MoveWindow> = spec
         .windows
         .iter()
         .filter(|w| matches!(w.tag, WindowTag::Active))
         .collect();
     actives.sort_by(|a, b| a.start_s.total_cmp(&b.start_s));
 
-    let mut pulses: Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> = Vec::new();
+    let mut pulses: Vec<Vec<&ambition_entity_catalog::MoveWindow>> = Vec::new();
     let mut open_until = f32::NEG_INFINITY;
     for window in actives {
         // `>` and not `>=`: windows that merely TOUCH leave no Active gap, so
@@ -512,7 +512,7 @@ fn derived_json(
     })
 }
 
-fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde_json::Value {
+fn event_json(event: &ambition_entity_catalog::MoveEvent) -> serde_json::Value {
     let (kind, detail) = match &event.kind {
         MoveEventKind::Sfx { cue } => ("sfx", cue.clone()),
         MoveEventKind::Vfx { effect, .. } => ("vfx", effect.clone()),
@@ -544,7 +544,7 @@ fn move_json(
     verbs: &[String],
     // The whole contract, so a cancel rule can be resolved against the moves
     // this fighter actually has.
-    moveset: Option<&ambition_platformer2d::entity_catalog::MovesetContract>,
+    moveset: Option<&ambition_entity_catalog::MovesetContract>,
     body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
     // How tall its OWNER stands, so the coverage census can say what fraction of
     // that silhouette this move fronts. `0.0` when the character declares none
@@ -917,7 +917,7 @@ mod tests {
         );
         if fires {
             spec.events
-                .push(ambition_platformer2d::entity_catalog::MoveEvent {
+                .push(ambition_entity_catalog::MoveEvent {
                     at_s: 0.05,
                     kind: MoveEventKind::Ranged,
                 });

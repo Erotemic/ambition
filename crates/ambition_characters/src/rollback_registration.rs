@@ -139,7 +139,7 @@ where
     // escape progress. Authoritative sim state for exactly the reason its
     // relation half is: a rewind past a pummel must undo the pummel, and a
     // rewind past a mash must undo the progress it bought.
-    registrar.rollback_component_canonical::<crate::smash_capture::SmashHoldState>(
+    registrar.rollback_component_canonical::<crate::smash_hold_state::SmashHoldState>(
         OWNER,
         "smash.hold_state",
     );

@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_mine::{PlaceMineParams, PLACE_MINE};
+use ambition_platformer2d::entity_catalog::smash_mine::{PlaceMineParams, PLACE_MINE};
 use ambition_platformer2d::engine_core as ae;
 
 /// How hard the mine throws what it catches, as the FEEL MULTIPLIER

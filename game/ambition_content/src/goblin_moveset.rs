@@ -5,20 +5,20 @@
 //! so missing specialized clips affect presentation rather than gameplay.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::MovesetContract;
+use ambition_entity_catalog::MovesetContract;
 
 use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at, wake, Wake,
 };
-use ambition_platformer2d::entity_catalog::ImpulseMode;
+use ambition_entity_catalog::ImpulseMode;
 
 /// The goblin's standard platform-fighter verb map.
 pub fn goblin_moveset() -> MovesetContract {
@@ -305,23 +305,23 @@ pub fn goblin_moveset() -> MovesetContract {
     // captive's answer is the one the rules already give them —
     // `grab_mash_seconds`, 14.4 frames per press — so this shortens the road to a
     // throw rather than removing anybody's out.
-    let side_b = ambition_platformer2d::entity_catalog::MoveSpec {
-        flow: Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+    let side_b = ambition_entity_catalog::MoveSpec {
+        flow: Some(ambition_entity_catalog::TechniqueFlow {
             nodes: vec![
                 // ⛔ THE TIMEOUT SITS PAST THE ACTIVE WINDOW (0.14 + 0.10) AND
                 // SHORT OF THE TAIL. A charge that connected with nothing is a
                 // whiff, and a whiff is supposed to be the punish window.
-                ambition_platformer2d::entity_catalog::FlowNode::Wait {
-                    on: ambition_platformer2d::entity_catalog::FlowSignal::Connected,
+                ambition_entity_catalog::FlowNode::Wait {
+                    on: ambition_entity_catalog::FlowSignal::Connected,
                     timeout_s: 0.30,
                     then: 1,
                     on_timeout: 2,
                 },
-                ambition_platformer2d::entity_catalog::FlowNode::Emit {
-                    effect: ambition_platformer2d::entity_catalog::EffectRef {
-                        key: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+                ambition_entity_catalog::FlowNode::Emit {
+                    effect: ambition_entity_catalog::EffectRef {
+                        key: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
                             .to_string(),
-                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
+                        params: ambition_entity_catalog::ParamValue::from_typed(
                             &CaptureAttemptParams {
                                 // Closer than its standing grab: it is already
                                 // inside you, which is how the charge landed.
@@ -334,7 +334,7 @@ pub fn goblin_moveset() -> MovesetContract {
                     },
                     then: 2,
                 },
-                ambition_platformer2d::entity_catalog::FlowNode::Finish,
+                ambition_entity_catalog::FlowNode::Finish,
             ],
         }),
         ..side_b
@@ -486,8 +486,8 @@ pub fn goblin_moveset() -> MovesetContract {
         spec
     };
     let uncharged_dive = on_contact(uncharged_dive, "enemy.goblin.hit");
-    let air_down_b = ambition_platformer2d::entity_catalog::MoveSpec {
-        gates: ambition_platformer2d::entity_catalog::MoveGates {
+    let air_down_b = ambition_entity_catalog::MoveSpec {
+        gates: ambition_entity_catalog::MoveGates {
             meter_cost: 60.0,
             // ⚠ BOUND TO NO VERB. `move_by_id` searches every move the contract
             // carries, not only the verb-bound ones, so the fallback needs an id
@@ -584,10 +584,10 @@ pub fn goblin_moveset() -> MovesetContract {
     // ⚠ NO DAMAGE ON THE CARRY. Taking the weight is not a hit, and a carry that
     // also chipped would make entering it strictly better than the throw it
     // replaced instead of a different choice.
-    let down_throw = ambition_characters::smash_capture::author_carry(
+    let down_throw = ambition_entity_catalog::smash_capture::author_carry(
         capture_beat("goblin_dthrow", "attack", 0.26),
         0.13,
-        ambition_characters::smash_capture::CaptureCarryParams {
+        ambition_entity_catalog::smash_capture::CaptureCarryParams {
             // Up and over the shoulder. `+y` is gravity-DOWN, so the negative
             // lifts them; slightly forward so the goblin is not wearing them.
             hold_offset: (6.0, -18.0),
@@ -660,7 +660,7 @@ mod dirt_tests {
     /// that, which is why this asserts the ORDER and the damage on each side.
     #[test]
     fn the_dirt_kick_hits_what_it_reaches_and_shoves_what_it_misses() {
-        use ambition_platformer2d::entity_catalog::{VolumeReaction, WindowTag};
+        use ambition_entity_catalog::{VolumeReaction, WindowTag};
         let kick = goblin_moveset()
             .move_by_id("dirt_kick")
             .expect("dirt_kick exists")
@@ -705,7 +705,7 @@ mod tests {
     /// happens — so the guard checks the relationship rather than the number.
     #[test]
     fn the_goblins_limit_dive_costs_exactly_the_matchs_full_meter() {
-        use ambition_platformer2d::characters::smash_limit::LimitMeterFill;
+        use ambition_entity_catalog::smash_limit::LimitMeterFill;
         let set = super::goblin_moveset();
         let dive = set
             .moves
@@ -768,7 +768,7 @@ mod tests {
     /// best option.
     #[test]
     fn the_goblins_charge_grabs_on_a_connect_and_not_on_a_mere_overlap() {
-        use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+        use ambition_entity_catalog::{FlowNode, FlowSignal};
         let set = super::goblin_moveset();
         let charge = set
             .moves
@@ -806,7 +806,7 @@ mod tests {
         });
         assert_eq!(
             emitted.as_deref(),
-            Some(ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT),
+            Some(ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT),
             "the charge follows up with {emitted:?} rather than the capture the \
              goblin already authors"
         );
@@ -834,7 +834,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The goblin is not the robot with different numbers.
@@ -855,13 +855,13 @@ mod tests {
         };
 
         let (g_jab, r_jab) = (find(&goblin, "jab"), find(&robot, "jab"));
-        let startup = |m: &ambition_platformer2d::entity_catalog::MoveSpec| {
+        let startup = |m: &ambition_entity_catalog::MoveSpec| {
             m.windows
                 .iter()
                 .find(|w| {
                     matches!(
                         w.tag,
-                        ambition_platformer2d::entity_catalog::WindowTag::Active
+                        ambition_entity_catalog::WindowTag::Active
                     )
                 })
                 .expect("a strike has an active window")
@@ -872,12 +872,12 @@ mod tests {
             "the goblin's jab comes out faster"
         );
 
-        let reach = |m: &ambition_platformer2d::entity_catalog::MoveSpec| {
+        let reach = |m: &ambition_entity_catalog::MoveSpec| {
             m.windows
                 .iter()
                 .flat_map(|w| w.volumes.iter())
                 .map(|v| match v.shape {
-                    ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+                    ambition_entity_catalog::VolumeShape::Rect {
                         offset,
                         half_extents,
                     } => offset.0.abs() + half_extents.0,
@@ -890,7 +890,7 @@ mod tests {
             "and it reaches less far, which is what makes it have to get close"
         );
 
-        let damage = |m: &ambition_platformer2d::entity_catalog::MoveSpec| {
+        let damage = |m: &ambition_entity_catalog::MoveSpec| {
             m.windows
                 .iter()
                 .flat_map(|w| w.volumes.iter())
@@ -928,11 +928,11 @@ mod tests {
             })
             .collect();
         assert!(
-            keys.contains(&ambition_characters::smash_capture::CAPTURE_CARRY),
+            keys.contains(&ambition_entity_catalog::smash_capture::CAPTURE_CARRY),
             "the goblin's down press does not take the weight: {keys:?}"
         );
         assert!(
-            !keys.contains(&ambition_characters::smash_capture::CAPTURE_THROW),
+            !keys.contains(&ambition_entity_catalog::smash_capture::CAPTURE_THROW),
             "the goblin's down press both hauls AND throws: {keys:?}"
         );
     }

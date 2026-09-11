@@ -30,7 +30,7 @@ snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
 // `ambition_combat:capture:CapturedBy`: the relation is generic
 // and these four are the ruleset's, so they rewind under this crate's ownership
 // rather than widening a row somebody else owns.
-snapshot_pod!(crate::smash_capture::SmashHoldState {
+snapshot_pod!(crate::smash_hold_state::SmashHoldState {
     pummels_landed: u8,
     held_for: f32,
     mash_credit: f32,

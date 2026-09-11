@@ -1,6 +1,6 @@
 //! A move that pays or repays its own mover's health.
 //!
-//! ⭐⭐ THE OTHER HALF OF `ambition_characters::smash_vitality`. The key and its
+//! ⭐⭐ THE OTHER HALF OF `ambition_entity_catalog::smash_vitality`. The key and its
 //! params are what a MOVESET authors; charging a live body is engine work, and
 //! it belongs HERE rather than in a game crate because this crate already owns
 //! every other road to a body's health — `strike::apply_effects`, the hit
@@ -15,7 +15,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
-use ambition_characters::smash_vitality::{VitalityParams, VITALITY};
+use ambition_entity_catalog::smash_vitality::{VitalityParams, VITALITY};
 
 /// Recognise an authored health change and apply it to the mover.
 ///

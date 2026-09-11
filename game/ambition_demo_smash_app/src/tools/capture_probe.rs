@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use ambition_platformer2d::characters::smash_capture::SmashHoldState;
+use ambition_platformer2d::characters::smash_hold_state::SmashHoldState;
 
 
 use ambition_platformer2d::combat::capture::{CaptureAttemptRequested, CapturedBy};
@@ -284,7 +284,7 @@ pub fn run(args: CaptureProbeArgs) {
         let mut query = world.query::<(
             bevy::prelude::Entity,
             &CapturedBy,
-            &ambition_platformer2d::characters::smash_capture::SmashHoldState,
+            &ambition_platformer2d::characters::smash_hold_state::SmashHoldState,
         )>();
         let now: HashMap<bevy::prelude::Entity, SmashHoldState> =
             query.iter(world).map(|(e, _, state)| (e, *state)).collect();

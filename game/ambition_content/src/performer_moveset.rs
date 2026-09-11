@@ -5,9 +5,9 @@
 //! supplies the remaining ordinary repertoire under her own move IDs.
 
 use ambition_entity_catalog::authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
-use ambition_characters::smash_flyline::{author_flyline, FlylineParams};
-use ambition_characters::smash_trapdoor::{author_trapdoor, TrapdoorParams};
-use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
+use ambition_entity_catalog::smash_flyline::{author_flyline, FlylineParams};
+use ambition_entity_catalog::smash_trapdoor::{author_trapdoor, TrapdoorParams};
+use ambition_entity_catalog::{MoveSpec, MovesetContract};
 
 /// THE TRAP, AS JON SPECIFIED IT — the whole lifecycle, in his words,
 /// 2026-08-28:
@@ -231,7 +231,7 @@ pub fn performer_moveset() -> MovesetContract {
 /// The sprite manifest supplies the swept light geometry; the table supplies
 /// active time, recovery, landing commitment, and consequences.
 fn author_normals(set: &mut MovesetContract) {
-    use ambition_platformer2d::entity_catalog::{MoveWindow, WindowTag};
+    use ambition_entity_catalog::{MoveWindow, WindowTag};
 
     for mv in &mut set.moves {
         let (startup_frames, active_frames, total_frames) = match mv.clip.clip.as_str() {
@@ -307,7 +307,7 @@ fn author_normals(set: &mut MovesetContract) {
                         "special".to_string(),
                         "jump".to_string(),
                     ],
-                    condition: ambition_platformer2d::entity_catalog::CancelCondition::OnHit,
+                    condition: ambition_entity_catalog::CancelCondition::OnHit,
                 },
                 volumes: vec![],
                 sustain_effect: None,
@@ -404,10 +404,10 @@ fn the_monologue() -> MoveSpec {
     // same reason. Sleeping on frame one would catch whoever happened to be
     // adjacent when she began; at 0.45s they had every frame of her wind-up and
     // her swing to leave, and stayed.
-    let spec = ambition_characters::smash_sleep::author_sleep(
+    let spec = ambition_entity_catalog::smash_sleep::author_sleep(
         spec,
         0.45,
-        ambition_characters::smash_sleep::SleepParams {
+        ambition_entity_catalog::smash_sleep::SleepParams {
             // Long enough that landing it is worth a charged smash, which is the
             // whole payoff the genre's version trades its reach for.
             duration_s: 1.4,
@@ -791,14 +791,14 @@ fn the_flyline() -> MoveSpec {
     // `SmashRepertoire::into_contract` has lowered the table it joins, nothing
     // else will stamp `gates.recovery` on it — and an up-B that spends nothing
     // is flight. The swing is *"a bit"* of recovery, not a free traversal.
-    ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
+    ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn normal_contact_windows_match_the_authored_light_and_pose_clock() {
-        use ambition_platformer2d::entity_catalog::WindowTag;
+        use ambition_entity_catalog::WindowTag;
         let library = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
             "../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/performer_stage_v1",
         );
@@ -856,7 +856,7 @@ mod tests {
     /// name unless the take is read by `move_starts`, not by move id.
     #[test]
     fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
-        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        use ambition_entity_catalog::{CancelCondition, WindowTag};
         let set = super::performer_moveset();
         let cancels = |clip: &str| -> Vec<(Vec<String>, CancelCondition)> {
             set.moves
@@ -1068,13 +1068,13 @@ mod tests {
             .iter()
             .find_map(|event| match &event.kind {
                 ambition_entity_catalog::MoveEventKind::Effect(effect)
-                    if effect.key == ambition_characters::smash_sleep::SLEEP =>
+                    if effect.key == ambition_entity_catalog::smash_sleep::SLEEP =>
                 {
                     Some((
                         event.at_s,
                         effect
                             .params
-                            .hydrate::<ambition_characters::smash_sleep::SleepParams>()
+                            .hydrate::<ambition_entity_catalog::smash_sleep::SleepParams>()
                             .expect("sleep params hydrate"),
                     ))
                 }
@@ -1163,9 +1163,9 @@ mod tests {
     /// is true now, and this arm is what keeps it true.
     #[test]
     fn the_wire_is_a_flyline_and_never_reaches_the_teleport_executor() {
-        use ambition_characters::smash_flyline::FLYLINE;
-        use ambition_characters::smash_teleport::TELEPORT;
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_flyline::FLYLINE;
+        use ambition_entity_catalog::smash_teleport::TELEPORT;
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         let wire = set
@@ -1210,8 +1210,8 @@ mod tests {
     /// spec test cannot feel.
     #[test]
     fn the_lift_fits_inside_the_move_that_authors_it() {
-        use ambition_characters::smash_flyline::{FlylineParams, FLYLINE};
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_flyline::{FlylineParams, FLYLINE};
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         let wire = set
@@ -1316,8 +1316,8 @@ mod tests {
     /// the cancel unnecessary rather than merely handled.
     #[test]
     fn the_airborne_form_is_a_puff_of_smoke_and_no_trapdoor_at_all() {
-        use ambition_characters::smash_trapdoor::TRAPDOOR;
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_trapdoor::TRAPDOOR;
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         let air = set
@@ -1369,7 +1369,7 @@ mod tests {
     /// rather than hiding one.
     #[test]
     fn the_smoke_goes_off_on_the_first_frame_of_both_forms() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         for id in ["performer_trapdoor", "performer_trapdoor_air"] {
@@ -1439,7 +1439,7 @@ mod tests {
     /// that cannot say "nothing" gets filled with something wrong.
     #[test]
     fn the_wire_names_nothing_belonging_to_the_trapdoor() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         let wire = set
@@ -1493,8 +1493,8 @@ mod tests {
     /// the authority; an `Impulse` re-added beside it would be the same bug.
     #[test]
     fn the_leap_has_one_authority_and_it_is_the_surfacing_beat() {
-        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+        use ambition_entity_catalog::MoveEventKind;
         let set = performer_moveset();
         let trap = set
             .moves
@@ -1559,8 +1559,8 @@ mod tests {
     /// the timeline, so this is where that guard lives.
     #[test]
     fn the_trap_puts_her_under_the_stage_and_brings_her_back() {
-        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         // ⛔ THE GROUNDED FORM ONLY, for the reason above: the airborne one goes
@@ -1610,8 +1610,8 @@ mod tests {
     /// back is a copy-paste from his table.
     #[test]
     fn the_trap_carries_no_teleport_and_no_blink_dressing() {
-        use ambition_characters::smash_teleport::TELEPORT;
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::smash_teleport::TELEPORT;
+        use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
         for id in ["performer_trapdoor", "performer_trapdoor_air"] {
@@ -1643,8 +1643,8 @@ mod tests {
     /// as a punishable commitment it is not.
     #[test]
     fn the_timeline_says_she_is_untouchable_for_the_whole_trip() {
-        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
-        use ambition_platformer2d::entity_catalog::{MoveEventKind, WindowTag};
+        use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+        use ambition_entity_catalog::{MoveEventKind, WindowTag};
 
         let set = performer_moveset();
         let mv = set
@@ -1687,7 +1687,7 @@ mod tests {
             .expect("her up-B is in the table");
         assert_ne!(
             up.gates.recovery,
-            ambition_platformer2d::entity_catalog::RecoveryUse::None,
+            ambition_entity_catalog::RecoveryUse::None,
             "an up-B that costs nothing is flight"
         );
     }

@@ -8,16 +8,16 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{committed_tail, impulse, multihit, strike, Pulse};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::AutolinkVolume;
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_entity_catalog::AutolinkVolume;
+use ambition_entity_catalog::{ImpulseMode, MovesetContract};
 
 /// Complete sword-fundamentals repertoire: every typed Smash slot plus all four throws.
 pub fn pointed_polygon_moveset() -> MovesetContract {
@@ -406,22 +406,22 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     // ⚠ THE RECOVERY IS THE PRICE, at 0.42s against a 0.15s stance — within a
     // frame of the riposte's own 0.44/0.16, deliberately: a counter you can
     // throw out on reaction to nothing is a defensive option with no downside.
-    let grounded_down_special = ambition_characters::smash_counter::counter_move(
+    let grounded_down_special = ambition_entity_catalog::smash_counter::counter_move(
         "polygon_riposte",
         "attack_down",
         0.07,
         0.15,
         0.42,
-        ambition_characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // A HEARTBEAT, not a duration — `parry_window_timer` decays and the
             // stance re-arms it every live frame. Three ticks of slack at 60Hz.
             window_s: 0.05,
             // His own answer: the cut comes from HIS blade, so it is aimed by
             // his facing rather than planted on the attacker.
             answers_the_attacker: false,
-            response: ambition_characters::smash_riposte::RIPOSTE_STRIKE.to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_characters::smash_riposte::RiposteStrikeParams {
+            response: ambition_entity_catalog::smash_riposte::RIPOSTE_STRIKE.to_string(),
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_riposte::RiposteStrikeParams {
                     // Harder than the swipe it replaces (8), because it is paid
                     // for by having to READ the swing rather than throw it out.
                     damage: 12,
@@ -588,7 +588,7 @@ mod tests {
             .windows
             .iter()
             .find(|w| {
-                w.tag == ambition_platformer2d::entity_catalog::WindowTag::Active
+                w.tag == ambition_entity_catalog::WindowTag::Active
                     && !w.volumes.is_empty()
             })
             .expect("the thrust has an active window");
@@ -631,7 +631,7 @@ mod tests {
     /// on this table while the roster page read "shipped".
     #[test]
     fn his_down_b_is_a_counter_that_answers_with_the_blade() {
-        use ambition_characters::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+        use ambition_entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
 
         let set = pointed_polygon_moveset();
         let stance = set
@@ -639,11 +639,11 @@ mod tests {
             .iter()
             .find(|m| m.id == "polygon_riposte")
             .expect("his grounded down-B is the riposte");
-        let counter: ambition_characters::smash_counter::CounterParams = stance
+        let counter: ambition_entity_catalog::smash_counter::CounterParams = stance
             .windows
             .iter()
             .filter_map(|window| window.sustain_effect.as_ref())
-            .find(|effect| effect.key == ambition_characters::smash_counter::COUNTER)
+            .find(|effect| effect.key == ambition_entity_catalog::smash_counter::COUNTER)
             .and_then(|effect| effect.params.hydrate().ok())
             .expect("the stance carries a counter");
 

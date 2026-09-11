@@ -24,8 +24,8 @@
 use ambition_entity_catalog::authoring::{
     fixed_knockback, hitless_special, impulse, sfx, strike, vfx, Strike,
 };
-use ambition_characters::smash_vitality::{author_vitality, VitalityParams};
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
+use ambition_entity_catalog::smash_vitality::{author_vitality, VitalityParams};
+use ambition_entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
 /// ADRENALINE, from `special.clip.json`: 10 frames at 70ms, and the injector
 /// goes into her thigh on frame 5.
@@ -121,7 +121,7 @@ fn adrenaline() -> MoveSpec {
         INJECT_AT_S + 0.07,
         INJECT_ENDS_S,
         &["smash", "special", "attack"],
-        ambition_platformer2d::entity_catalog::CancelCondition::Always,
+        ambition_entity_catalog::CancelCondition::Always,
     );
     sfx(spec, 0.0, "player.attack.charge")
 }
@@ -242,7 +242,7 @@ fn rescue_lift() -> MoveSpec {
     let spec = impulse(spec, LIFT_AT_S, (34.0, -905.0), ImpulseMode::Set);
     let spec = sfx(spec, 0.0, "player.attack.charge");
     let spec = vfx(spec, LIFT_AT_S, "classic_burst");
-    ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
+    ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
 #[cfg(test)]
@@ -284,8 +284,8 @@ mod tourniquet_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::smash_vitality::{VitalityParams, VITALITY};
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::smash_vitality::{VitalityParams, VITALITY};
+    use ambition_entity_catalog::MoveEventKind;
 
     fn vitality_of(set: &MovesetContract, id: &str) -> VitalityParams {
         set.moves

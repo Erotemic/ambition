@@ -7,15 +7,15 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
@@ -506,12 +506,12 @@ pub fn oiler_moveset() -> MovesetContract {
     // 2.2s, and it throws straight up at less than his own climb. It is a
     // follow-up for whoever chases him offstage, not a second recovery — he is
     // already gone by the time it matters to him.
-    let up_b = ambition_characters::smash_spring::author_place_spring(
+    let up_b = ambition_entity_catalog::smash_spring::author_place_spring(
         up_b,
         // At the CREST, where `oil_geyser_impact` draws. The column finishes and
         // what it leaves is where it finished.
         0.88,
-        ambition_characters::smash_spring::PlaceSpringParams {
+        ambition_entity_catalog::smash_spring::PlaceSpringParams {
             // Up is negative y. Below `GEYSER_SPEED`: the pool is a bonus, not a
             // better version of the move that made it.
             launch: (0.0, -700.0),
@@ -760,7 +760,7 @@ mod tests {
     /// property the pool could have quietly reversed.
     #[test]
     fn the_geysers_pool_throws_less_hard_than_the_geyser_itself() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         let set = super::oiler_moveset();
         let up = set
             .moves
@@ -772,13 +772,13 @@ mod tests {
             .iter()
             .find_map(|e| match &e.kind {
                 MoveEventKind::Effect(effect)
-                    if effect.key == ambition_characters::smash_spring::PLACE_SPRING =>
+                    if effect.key == ambition_entity_catalog::smash_spring::PLACE_SPRING =>
                 {
                     Some((
                         e.at_s,
                         effect
                             .params
-                            .hydrate::<ambition_characters::smash_spring::PlaceSpringParams>(),
+                            .hydrate::<ambition_entity_catalog::smash_spring::PlaceSpringParams>(),
                     ))
                 }
                 _ => None,
@@ -810,7 +810,7 @@ mod tests {
     }
 
     use super::*;
-    use ambition_platformer2d::entity_catalog::{AttackDir, MoveEventKind};
+    use ambition_entity_catalog::{AttackDir, MoveEventKind};
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -835,7 +835,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// THE TOLERANCE BAND, AS AN ASSERTION.

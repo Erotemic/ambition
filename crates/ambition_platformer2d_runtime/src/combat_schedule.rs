@@ -430,11 +430,11 @@ impl Plugin for CombatSchedulePlugin {
         // that installs the handler also says which key it answers.
         install_technique(
             app,
-            ambition_characters::smash_teleport::TELEPORT,
+            ambition_entity_catalog::smash_teleport::TELEPORT,
             TechniqueOffer {
                 owner: "ambition_platformer2d_actor_monolith::abilities::traversal::teleport",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_characters::smash_teleport::TeleportParams>,
+                    check_hydrates::<ambition_entity_catalog::smash_teleport::TeleportParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -447,11 +447,11 @@ impl Plugin for CombatSchedulePlugin {
         );
         install_technique(
             app,
-            ambition_characters::smash_vitality::VITALITY,
+            ambition_entity_catalog::smash_vitality::VITALITY,
             TechniqueOffer {
                 owner: "ambition_combat::vitality",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_characters::smash_vitality::VitalityParams>,
+                    check_hydrates::<ambition_entity_catalog::smash_vitality::VitalityParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -466,11 +466,11 @@ impl Plugin for CombatSchedulePlugin {
         );
         install_technique(
             app,
-            ambition_characters::smash_trapdoor::TRAPDOOR,
+            ambition_entity_catalog::smash_trapdoor::TRAPDOOR,
             TechniqueOffer {
                 owner: "ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_characters::smash_trapdoor::TrapdoorParams>,
+                    check_hydrates::<ambition_entity_catalog::smash_trapdoor::TrapdoorParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -481,11 +481,11 @@ impl Plugin for CombatSchedulePlugin {
         );
         install_technique(
             app,
-            ambition_characters::smash_flyline::FLYLINE,
+            ambition_entity_catalog::smash_flyline::FLYLINE,
             TechniqueOffer {
                 owner: "ambition_platformer2d_actor_monolith::abilities::traversal::flyline",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_characters::smash_flyline::FlylineParams>,
+                    check_hydrates::<ambition_entity_catalog::smash_flyline::FlylineParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -529,12 +529,12 @@ impl Plugin for CombatSchedulePlugin {
             app,
             &[
                 (
-                    ambition_characters::smash_capture::CAPTURE_ATTEMPT,
+                    ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT,
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
                             check_hydrates::<
-                                ambition_characters::smash_capture::CaptureAttemptParams,
+                                ambition_entity_catalog::smash_capture::CaptureAttemptParams,
                             >,
                         ),
                         references: NestedReferences::None,
@@ -542,33 +542,33 @@ impl Plugin for CombatSchedulePlugin {
                     },
                 ),
                 (
-                    ambition_characters::smash_capture::CAPTURE_CARRY,
+                    ambition_entity_catalog::smash_capture::CAPTURE_CARRY,
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_characters::smash_capture::CaptureCarryParams>,
+                            check_hydrates::<ambition_entity_catalog::smash_capture::CaptureCarryParams>,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,
                     },
                 ),
                 (
-                    ambition_characters::smash_capture::CAPTURE_PUMMEL,
+                    ambition_entity_catalog::smash_capture::CAPTURE_PUMMEL,
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_characters::smash_capture::CapturePummelParams>,
+                            check_hydrates::<ambition_entity_catalog::smash_capture::CapturePummelParams>,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,
                     },
                 ),
                 (
-                    ambition_characters::smash_capture::CAPTURE_THROW,
+                    ambition_entity_catalog::smash_capture::CAPTURE_THROW,
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_characters::smash_capture::CaptureThrowParams>,
+                            check_hydrates::<ambition_entity_catalog::smash_capture::CaptureThrowParams>,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,

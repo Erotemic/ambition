@@ -29,7 +29,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key.
 pub const TETHER_PULL: &str = "smash.tether_pull";

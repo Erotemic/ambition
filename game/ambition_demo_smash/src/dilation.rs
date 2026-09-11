@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_time_dilation::{TimeDilationParams, TIME_DILATION};
+use ambition_platformer2d::entity_catalog::smash_time_dilation::{TimeDilationParams, TIME_DILATION};
 use ambition_platformer2d::engine_core as ae;
 
 /// A body currently running on a slowed clock, and what to put back.

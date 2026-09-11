@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_spring::{PlaceSpringParams, PLACE_SPRING};
+use ambition_platformer2d::entity_catalog::smash_spring::{PlaceSpringParams, PLACE_SPRING};
 use ambition_platformer2d::engine_core as ae;
 
 /// A plate somebody dropped, and the two limits that spend it.

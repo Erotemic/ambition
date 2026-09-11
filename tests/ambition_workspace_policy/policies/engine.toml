@@ -1758,7 +1758,7 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d_runtime"]
 watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
-rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render"
+rationale = "runtime composes sim/mechanic/model/dev-state crates, not app/content/host/render; `ambition_entity_catalog` is the pure value vocabulary (serde + ron, no Bevy) the combat schedule names technique keys and param types from"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_spawn", "ambition_projectiles", "ambition_combat", "ambition_encounter", "ambition_dialog", "ambition_characters", "ambition_portal2d", "ambition_sim_view", "ambition_vfx", "ambition_time", "ambition_input", "ambition_platformer2d_core", "ambition_sfx", "ambition_persistence", "ambition_menu", "ambition_items", "ambition_platformer2d_shared_tangle", "ambition_dev_tools", "ambition_platformer2d_world", "ambition_load",
@@ -1814,7 +1814,7 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_sp
     "ambition_abilities",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
-    "ambition_gameplay_trace"]
+    "ambition_gameplay_trace", "ambition_entity_catalog"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]

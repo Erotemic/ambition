@@ -13,15 +13,15 @@
 //! Smash read it as a platform fighter.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveGates, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
 };
@@ -32,7 +32,7 @@ use ambition_platformer2d::entity_catalog::{
 use ambition_entity_catalog::authoring::{
     armor, committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
-use ambition_platformer2d::entity_catalog::ImpulseMode;
+use ambition_entity_catalog::ImpulseMode;
 
 /// The fighter repertoire, as one authored contract.
 ///
@@ -346,10 +346,10 @@ pub fn player_robot_moveset() -> MovesetContract {
         BLINK_AT_S,
         BLINK_ENDS_S,
     );
-    let up_b = ambition_characters::smash_teleport::author_teleport(
+    let up_b = ambition_entity_catalog::smash_teleport::author_teleport(
         up_b,
         BLINK_AT_S,
-        ambition_characters::smash_teleport::TeleportParams {
+        ambition_entity_catalog::smash_teleport::TeleportParams {
             // Aimed, like every recovery: the stick, then straight up.
             behind_nearest_foe: false,
             behind_gap: 0.0,
@@ -569,7 +569,7 @@ mod stabilizer_tests {
     /// found a `WindowTag::Armor` passes against exactly that move.
     #[test]
     fn the_stabilizer_slam_is_armoured_only_while_it_plants() {
-        use ambition_platformer2d::entity_catalog::WindowTag;
+        use ambition_entity_catalog::WindowTag;
         let slam = player_robot_moveset()
             .move_by_id("stabilizer_slam")
             .expect("stabilizer_slam exists")
@@ -605,7 +605,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The protagonist states its own verbs, so a match stops guessing.
@@ -669,7 +669,7 @@ mod tests {
     /// chain.
     #[test]
     fn the_theorem_chain_is_two_hits_on_one_timeline() {
-        use ambition_platformer2d::entity_catalog::WindowTag;
+        use ambition_entity_catalog::WindowTag;
         let set = theorem_chain_moveset();
         let mv = set
             .move_for_verb("special")
@@ -826,7 +826,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             gates: MoveGates::default(),
             start_impulse: None,
             smash_charge_mult: 1.0,
-            charge_gesture: ambition_platformer2d::entity_catalog::ChargeGesture::default(),
+            charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
             smash_charge: None,
             repeat: None,
             landing_lag_s: None,

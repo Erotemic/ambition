@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key. Namespaced like every other smash technique so an
 /// unrecognised key falls through other rulesets untouched.
@@ -58,10 +58,10 @@ pub struct SummonRideParams {
 /// preparation barrier refuse it while an author is still looking.
 ///
 /// ⚠ MALFORMED PARAMS NAME NOTHING HERE, deliberately: whether they hydrate at
-/// all is [`TechniqueParams::Checked`](ambition_entity_catalog::TechniqueParams::Checked)'s
+/// all is [`TechniqueParams::Checked`](crate::TechniqueParams::Checked)'s
 /// question, asked on the same effect by
 /// the same pass, and answering it twice would report one defect as two.
-pub fn summon_ride_character_refs(effect: &ambition_entity_catalog::EffectRef) -> Vec<String> {
+pub fn summon_ride_character_refs(effect: &crate::EffectRef) -> Vec<String> {
     effect
         .params
         .hydrate::<SummonRideParams>()
@@ -114,7 +114,7 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
     // make the search certify a rise that never happens. What it offers is
     // SECONDS OF MOVEMENT AUTHORITY, so that is what it says.
     spec.gates.recovery_route = Some(
-        ambition_entity_catalog::AuthoredRecoveryRoute::SustainedAuthority {
+        crate::AuthoredRecoveryRoute::SustainedAuthority {
             seconds: params.seconds,
             reach: params.reach,
         },

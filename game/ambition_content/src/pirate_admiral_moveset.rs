@@ -7,15 +7,15 @@
 //! than a move-table entry, keeping ranged execution under one authority.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     ImpulseMode, MoveEvent, MoveEventKind, MovesetContract,
 };
 
@@ -395,10 +395,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         SHARK_AT_S,
         SHARK_ENDS_S,
     );
-    let up_b = ambition_characters::smash_ride::author_summon_ride(
+    let up_b = ambition_entity_catalog::smash_ride::author_summon_ride(
         up_b,
         SHARK_AT_S,
-        ambition_characters::smash_ride::SummonRideParams {
+        ambition_entity_catalog::smash_ride::SummonRideParams {
             character_id: SHARK_CHARACTER.to_string(),
             // The authored shark body, so the summoned mount is the one the
             // saddle offset on its `Mountable` was authored against.
@@ -592,7 +592,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::{MoveSpec, VolumeShape, WindowTag};
+    use ambition_entity_catalog::{MoveSpec, VolumeShape, WindowTag};
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -640,12 +640,12 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The commanded (`Set`) velocity a move states, if it states one.
     fn commanded(set: &MovesetContract, id: &str) -> Option<(f32, f32)> {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         find(set, id).events.iter().find_map(|e| match &e.kind {
             MoveEventKind::Impulse {
                 local,
@@ -722,7 +722,7 @@ mod tests {
     /// content-level falsifier.
     #[test]
     fn the_four_specials_are_four_different_mechanisms() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         let set = pirate_admiral_moveset();
 
         // Neutral: a recoil. Commanded, and it points BACKWARD.
@@ -803,7 +803,7 @@ mod tests {
                 .events
                 .iter()
                 .any(|e| matches!(&e.kind, MoveEventKind::Effect(effect)
-                    if effect.key == ambition_characters::smash_ride::SUMMON_RIDE)),
+                    if effect.key == ambition_entity_catalog::smash_ride::SUMMON_RIDE)),
             "the up-B summons nothing, so the admiral has no recovery at all"
         );
         assert_eq!(
@@ -832,7 +832,7 @@ mod tests {
     /// spelling.
     #[test]
     fn the_specials_and_the_juggle_carry_their_own_feedback() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         let set = pirate_admiral_moveset();
         for id in [
             "grapeshot",
@@ -943,7 +943,7 @@ mod tests {
     /// route that lied about a rise would make the search certify one.
     #[test]
     fn the_sharks_summon_advertises_seconds_of_authority_and_no_lift() {
-        use ambition_platformer2d::entity_catalog::RecoveryRoute;
+        use ambition_entity_catalog::RecoveryRoute;
         let set = pirate_admiral_moveset();
         let frames = find(&set, "call_the_shark").frame_data();
         assert_eq!(

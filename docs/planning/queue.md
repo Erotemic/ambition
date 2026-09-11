@@ -688,6 +688,63 @@ and removing the fixture's `[workspace]` fails the independence arm.
 improvement, not yet the claim that the host never relinks for data edits.** That
 is I2 and I3.
 
+⛔⛤ **AND "I1 IS DONE" WAS TOO BROAD — I MEASURED ONE FILE AND CLAIMED A FAMILY.**
+The inventory above covered `moveset_authoring.rs` and stopped there, because
+that is the file the packet names. It is not the file shipped movesets are built
+from. **MEASURED 2026-09-11 by reading the imports of all 19 shipped
+`*_moveset.rs` tables:** every one of them calls
+`ambition_characters::smash_repertoire` and `…::smash_capture` — the verbs, the
+grab, the pummel, the throws — and those lived in the Bevy-linked crate the whole
+time. ⇒ The closure witness was true and narrow: an outside author could reach
+`strike`, `on_hit` and `charge`, and **nothing a real roster uses.**
+
+✅ **THE REST OF I1 STEP 1, LANDED: 20 MODULES, 4,767 LINES, `ambition_characters`
+→ `ambition_entity_catalog`.** `smash_{bolt,bomb,capture,counter,flyline,homing,
+limit,mark,mine,portal,repertoire,ride,riposte,sleep,spring,teleport,tether,
+time_dilation,trapdoor,vitality}`. MEASURED before the move, and it is why this
+was a move rather than a carve: across all 21 `smash_*` modules **every mention
+of `bevy`, `ambition_combat`, `ambition_platformer2d`, `ambition_portal`,
+`ambition_demo_smash` and `ambition_time` is inside a COMMENT** — a grep for
+those names outside `//` lines returns nothing — and **zero `crate::` references
+point anywhere but at another `smash_*` module**. The family was already a closed
+pure island.
+
+⭐⭐ **ONE `#[derive(Component)]` WAS PINNING ALL OF IT.** `SmashHoldState` —
+pummel count, hold age, mash credit, throw arming — is rollback-registered
+runtime state, not authoring, and it sat in the middle of `smash_capture.rs`.
+It moved to `ambition_characters::smash_hold_state`, which is where its
+rollback registration and snapshot impl already live. That single derive was the
+whole reason 4,767 lines of pure value construction needed Bevy.
+
+✅ **THE WITNESS NOW COVERS THE VOCABULARY A ROSTER USES.**
+`fixtures/content_builder::a_capture_kit` authors a grab, a pummel and a forward
+throw through `smash_capture`'s own builders — the same three calls
+`alice_moveset` makes — and reads the throw's parameters back out of the
+`EffectRef` with `hydrate`, which is the shape that actually crosses to a host.
+⛔ Its first arm asserted the grab's technique as an EVENT and failed: a capture
+attempt is a window `sustain_effect`, because a reach that fires at an instant
+does not catch a body that walks in on frame two. The arm now pins the sustain.
+
+⭐ **THE CLOSURE DID NOT GROW. MEASURED at `cargo tree -e normal,build` inside
+the fixture's own workspace: 15 crates** — itself, the two pure ambition crates,
+`ron`, `serde`, `thiserror`, `base64`, `bitflags` and the proc-macro machinery.
+**Zero Bevy, zero engine.** Moving 4,767 lines in added nothing, which is the
+point: they were already pure. (The earlier row's 12 predates the
+`ambition_content_pack` dependency I2 step 3 added; the delta is `thiserror`,
+`thiserror-impl` and the pack crate, not today's move.)
+
+✅ **AND THE SHIPPED TABLES NOW NAME THE LEAF CRATE DIRECTLY.** All 19
+`game/ambition_content/src/*_moveset.rs` files plus mary_o's and sanic's reached
+`MovesetContract`, `ImpulseMode` and friends through
+`ambition_platformer2d::entity_catalog` — the engine umbrella. Repointed at
+`ambition_entity_catalog`. ⇒ **Every character move table in this repository now
+imports exactly one crate, and it is the one with no Bevy in it** — which is what
+makes I2 step 5 ("remove the migrated move table as a compiled authoritative
+input of the host") a move rather than a rewrite. ⚠ Scoped deliberately to move
+TABLES: the 541 other `ambition_platformer2d::entity_catalog::` uses in 112 files
+are the SDK's supported path and stay, and one test file
+(`smash_roster_movesets.rs`) was reverted back to the umbrella for that reason.
+
 ◐ **I2 STEPS 1-3 LANDED 2026-09-11. THE CODEC WAS NEVER THE MISSING PART.**
 Step 1 asks for a *"canonical numeric/key encoding"*. MEASURED before writing
 any: a `MoveSpec` built by the authoring helpers **already round-trips through
@@ -857,6 +914,58 @@ plays the new move. Nothing between the payload and the fighter is a compile ste
 ⚠ **It stops short of I2's full claim** (*"a PREBUILT host plays it without
 invoking Cargo"*): this is one process that already linked the engine. What is
 established is that the DATA path is complete and the values survive it.
+
+⛔⛤ **AND THE ROAD STEP 4 ASKS FOR ALREADY EXISTS — I BUILT A PARALLEL ONE
+WITHOUT LOOKING. FOUND 2026-09-11 while sizing step 5.** Step 4's words are *"a
+selected-host load path through the CURRENT source/resolver policy"*, and that
+policy is `game/ambition_content/src/pack.rs` — *"the compile that IS the load
+path"*: a `pack.ron` manifest of `(path, schema, version)` sources, a
+`SchemaRegistry` of capability-owned handlers, and `ambition_content_pack::compile`
+refusing unknown schemas, version mismatches, duplicate identities and missing
+capabilities. **Eight content families ship on it today.** Its own doc states the
+goal my envelope restates: *"the compiler proves content correct and the runtime
+parses the same bytes a second time — two readers of one file, which is the shape
+this whole crate exists to remove."*
+
+⇒ The envelope is NOT wasted — it is the BUILDER's output shape, step 3's *"have
+the independent Rust builder emit this artifact"*, and it is the half a machine
+that never compiled the engine can produce. The pack road is the HOST's, step 4's
+half. They are the two frontends step 3 names, and step 3 requires them to agree
+at the admitted value.
+
+⛔⛔ **BUT THE MOVE CODEC IS A SECOND AUTHORITY, AND SO IS ITS VERSION NUMBER.**
+`ambition_entity_catalog::EntityCatalogDoc` already is: a versioned document
+(`schema_version`), `parse`/`to_ron`, and `validate()` returning fifteen
+`CatalogError` variants — duplicate move ids, windows outside `[0, duration_s]`,
+a smash charge that freezes the clock where a strike is already live, volumes on
+an inactive window, an unknown cancel target, **and `UnknownVerbMove`: a verb
+bound to a move that does not exist.** My `move_section` module re-spelled the
+codec and the version beside it.
+
+⭐ **AND `EntityCatalogDoc` HAS ZERO PRODUCTION CONSUMERS. MEASURED:**
+`git grep EntityCatalog` outside its own crate returns five hits, all in
+`ambition_combat/src/moveset/tests.rs`, and `git ls-files '*.ron' | xargs grep -l
+schema_version` returns NOTHING. A complete, tested, validated source-data
+frontend for exactly the family I2 migrates — built, and nothing ships through
+it. That is step 3's *"add a source-data frontend for the same section where it
+fits the existing RON path"*, already written.
+
+⛔ **`schema_version` IS WRITTEN THIRTEEN TIMES AND READ NOWHERE.** `validate()`
+never looks at it; no parse path compares it. A version field with no reader
+cannot refuse anything — the exact failure `ArtifactRefusal::SectionTooNew` was
+added to prevent, sitting unnoticed in the crate the section belongs to.
+
+⇒ **THE SHAPE OF STEP 4/5, decided and not yet landed:** the move section's
+payload becomes an `EntityCatalogDoc` (one wire shape, one version number, one
+structural validator); a `movesets` schema registers in `engine_schemas()` whose
+handler parses it, runs `validate()` and maps every `CatalogError` to a
+diagnostic, then lowers the table; `pack.ron` declares the source and
+`source_text` reads it off disk so editing it costs no rebuild — the road
+`validating_a_character_edit_does_not_rebuild_rust` already keeps honest for the
+character catalog; and `authored_intrinsics` takes the moveset from the lowered
+pack instead of each `author()` fn calling `.with_moveset(compiled_table())`.
+⚠ NOT "delete the Rust tables": I1 just made Rust authoring the pure road. The
+tables move OUT of the host's compile, to a builder that emits the file.
 
 **Next bounded action:** step 5 — remove the migrated move table as a compiled
 AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,

@@ -22,7 +22,7 @@ mod tests {
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_capture::CaptureCarryParams;
+use ambition_platformer2d::entity_catalog::smash_capture::CaptureCarryParams;
 use ambition_platformer2d::combat::capture::{
     CaptureAttemptRequested, CaptureCarryRequested, CapturePummelRequested, CaptureThrowRequested,
 };
@@ -261,7 +261,7 @@ use ambition_platformer2d::engine_core as ae;
                 .expect("the pummel released the hold it belongs to");
             let state = app
                 .world()
-                .get::<ambition_platformer2d::characters::smash_capture::SmashHoldState>(victim)
+                .get::<ambition_platformer2d::characters::smash_hold_state::SmashHoldState>(victim)
                 .expect("a held body carries this ruleset's hold state");
             assert_eq!(state.pummels_landed, expected);
         }
@@ -329,7 +329,7 @@ use ambition_platformer2d::engine_core as ae;
             actor: captor,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special(
-                    ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY.to_string(),
+                    ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_CARRY.to_string(),
                 ),
                 params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
                     &CaptureCarryParams {

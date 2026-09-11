@@ -9,7 +9,7 @@
 use ambition_entity_catalog::authoring::{
     active_start, cancelable, on_contact, sfx, strike, vfx, Strike,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract,
     RecoveryUse, VolumeShape, WindowTag,
 };
@@ -431,11 +431,11 @@ pub fn fighter_moveset() -> MovesetContract {
         f_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.7,
         },
     );
@@ -494,11 +494,11 @@ pub fn fighter_moveset() -> MovesetContract {
         up_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.7,
         },
     );
@@ -528,11 +528,11 @@ pub fn fighter_moveset() -> MovesetContract {
         down_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.6,
         },
     );
@@ -652,33 +652,33 @@ pub fn fighter_moveset() -> MovesetContract {
     // a middleweight's numbers, deliberately between the two fighters that
     // already author one: slower than the admiral's `0.07` snatch, faster than
     // George's `0.16` commitment, and its throw sits below both a smash and his.
-    let capture = ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire {
-        cues: ambition_platformer2d::characters::smash_capture::CaptureCues::GENERIC,
-        grab: ambition_platformer2d::characters::smash_capture::author_standing_grab(
-            ambition_platformer2d::characters::smash_capture::grab_shell(
+    let capture = ambition_entity_catalog::smash_capture::SmashCaptureRepertoire {
+        cues: ambition_entity_catalog::smash_capture::CaptureCues::GENERIC,
+        grab: ambition_entity_catalog::smash_capture::author_standing_grab(
+            ambition_entity_catalog::smash_capture::grab_shell(
                 "grab", "grab", 0.12, 0.05, 0.24,
             ),
-            ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+            ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                 offset: (20.0, 0.0),
                 half_extents: (22.0, 14.0),
                 hold_offset: (18.0, -2.0),
             },
         ),
-        pummel: ambition_platformer2d::characters::smash_capture::author_pummel(
-            ambition_platformer2d::characters::smash_capture::capture_beat(
+        pummel: ambition_entity_catalog::smash_capture::author_pummel(
+            ambition_entity_catalog::smash_capture::capture_beat(
                 "pummel", "attack", 0.18,
             ),
             0.09,
-            ambition_platformer2d::characters::smash_capture::CapturePummelParams { damage: 3 },
+            ambition_entity_catalog::smash_capture::CapturePummelParams { damage: 3 },
         ),
-        forward_throw: ambition_platformer2d::characters::smash_capture::author_throw(
-            ambition_platformer2d::characters::smash_capture::capture_beat(
+        forward_throw: ambition_entity_catalog::smash_capture::author_throw(
+            ambition_entity_catalog::smash_capture::capture_beat(
                 "throw_forward",
                 "attack",
                 0.28,
             ),
             0.16,
-            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+            ambition_entity_catalog::smash_capture::CaptureThrowParams {
                 damage: 9,
                 knockback: 120.0,
                 knockback_growth: 2.1,
@@ -686,14 +686,14 @@ pub fn fighter_moveset() -> MovesetContract {
             },
         ),
         back_throw: Some(
-            ambition_platformer2d::characters::smash_capture::author_throw(
-                ambition_platformer2d::characters::smash_capture::capture_beat(
+            ambition_entity_catalog::smash_capture::author_throw(
+                ambition_entity_catalog::smash_capture::capture_beat(
                     "throw_back",
                     "attack",
                     0.3,
                 ),
                 0.17,
-                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                ambition_entity_catalog::smash_capture::CaptureThrowParams {
                     damage: 10,
                     knockback: 130.0,
                     knockback_growth: 2.21,
@@ -702,12 +702,12 @@ pub fn fighter_moveset() -> MovesetContract {
             ),
         ),
         up_throw: Some(
-            ambition_platformer2d::characters::smash_capture::author_throw(
-                ambition_platformer2d::characters::smash_capture::capture_beat(
+            ambition_entity_catalog::smash_capture::author_throw(
+                ambition_entity_catalog::smash_capture::capture_beat(
                     "throw_up", "attack", 0.29,
                 ),
                 0.16,
-                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                ambition_entity_catalog::smash_capture::CaptureThrowParams {
                     damage: 9,
                     knockback: 125.0,
                     knockback_growth: 2.14,
@@ -716,14 +716,14 @@ pub fn fighter_moveset() -> MovesetContract {
             ),
         ),
         down_throw: Some(
-            ambition_platformer2d::characters::smash_capture::author_throw(
-                ambition_platformer2d::characters::smash_capture::capture_beat(
+            ambition_entity_catalog::smash_capture::author_throw(
+                ambition_entity_catalog::smash_capture::capture_beat(
                     "throw_down",
                     "attack",
                     0.31,
                 ),
                 0.17,
-                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                ambition_entity_catalog::smash_capture::CaptureThrowParams {
                     damage: 7,
                     knockback: 89.0,
                     knockback_growth: 1.68,
@@ -759,15 +759,15 @@ pub fn fighter_moveset() -> MovesetContract {
     // recovery long enough that a whiff is punished. It travels, because a
     // command grab that closes no distance is a worse standing grab.
     let mut command_grab =
-        ambition_platformer2d::characters::smash_capture::author_standing_grab(
-            ambition_platformer2d::characters::smash_capture::grab_shell(
+        ambition_entity_catalog::smash_capture::author_standing_grab(
+            ambition_entity_catalog::smash_capture::grab_shell(
                 "lunge_grab",
                 "special",
                 0.26,
                 0.06,
                 0.38,
             ),
-            ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+            ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                 // Reaches forward from a lunging body, so the box sits further
                 // out and is a little taller than the standing grab's — it has
                 // to catch somebody the lunge is arriving at.
@@ -811,23 +811,23 @@ pub fn fighter_moveset() -> MovesetContract {
     // ⚠ THE HOLD MATCHES THE OTHER TWO GRABS, for the reason `lunge_grab` gives
     // in place: the follow-up throws are shared, so a captive held somewhere
     // else would make them read differently depending on which grab caught them.
-    let riposte = ambition_platformer2d::characters::smash_counter::counter_move(
+    let riposte = ambition_entity_catalog::smash_counter::counter_move(
         "riposte",
         "special",
         0.06,
         0.16,
         0.44,
-        ambition_platformer2d::characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // ⛔ A HEARTBEAT, NOT A DURATION — `parry_window_timer` decays, and
             // the stance re-arms it every frame it is live. Three ticks of slack
             // at 60Hz, so a frame the sustain misses does not close the window.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
-            response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+            response: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
                 .to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                     // Closer than the lunge: the attacker is already inside your
                     // guard, which is how they got parried.
                     offset: (24.0, 0.0),
@@ -891,22 +891,22 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     confirm.gates = grounded_only();
-    confirm.flow = Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+    confirm.flow = Some(ambition_entity_catalog::TechniqueFlow {
         nodes: vec![
             // 0 — hold for the verdict on this swing.
-            ambition_platformer2d::entity_catalog::FlowNode::Wait {
-                on: ambition_platformer2d::entity_catalog::FlowSignal::Connected,
+            ambition_entity_catalog::FlowNode::Wait {
+                on: ambition_entity_catalog::FlowSignal::Connected,
                 timeout_s: 0.22,
                 then: 1,
                 on_timeout: 2,
             },
             // 1 — it landed: go for the grab, at the reach the standing grab uses.
-            ambition_platformer2d::entity_catalog::FlowNode::Emit {
-                effect: ambition_platformer2d::entity_catalog::EffectRef {
-                    key: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT
+            ambition_entity_catalog::FlowNode::Emit {
+                effect: ambition_entity_catalog::EffectRef {
+                    key: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
                         .to_string(),
-                    params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                        &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+                    params: ambition_entity_catalog::ParamValue::from_typed(
+                        &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                             offset: (22.0, 0.0),
                             half_extents: (20.0, 20.0),
                             hold_offset: (18.0, -2.0),
@@ -917,7 +917,7 @@ pub fn fighter_moveset() -> MovesetContract {
                 then: 2,
             },
             // 2 — done either way; the move plays out its own recovery.
-            ambition_platformer2d::entity_catalog::FlowNode::Finish,
+            ambition_entity_catalog::FlowNode::Finish,
         ],
     });
     // ⛔ VALIDATED WHERE IT IS AUTHORED. Every failure `problems()` names is
@@ -954,7 +954,7 @@ pub fn fighter_moveset() -> MovesetContract {
     // ⚠ AIRBORNE ONLY, deliberately. On the ground these fighters answer up-B
     // with the neutral special through the fallback chain, which is a real move;
     // a grounded blink would replace that with a worse one.
-    let recovery = ambition_platformer2d::characters::smash_teleport::author_teleport(
+    let recovery = ambition_entity_catalog::smash_teleport::author_teleport(
         {
             let mut shell = ambition_entity_catalog::authoring::hitless_special(
                 "slip_upward",
@@ -969,7 +969,7 @@ pub fn fighter_moveset() -> MovesetContract {
             shell
         },
         0.10,
-        ambition_platformer2d::characters::smash_teleport::TeleportParams {
+        ambition_entity_catalog::smash_teleport::TeleportParams {
             // ⛔ AIMED, NOT AN AMBUSH. `behind_nearest_foe` is the other thing
             // this technique does, and a recovery that teleports you next to
             // whoever is edgeguarding you is the opposite of an escape.
@@ -1032,7 +1032,7 @@ pub fn fighter_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::AttackDir;
+    use ambition_entity_catalog::AttackDir;
 
     /// ⭐⭐ WHAT A PRESS ANSWERS, not what a verb list binds — the two are
     /// different and the difference is eight presses.
@@ -1049,7 +1049,7 @@ mod tests {
     /// claim and the guard are the same act.
     #[test]
     fn the_only_presses_this_fighter_cannot_answer_are_specials() {
-        use ambition_platformer2d::entity_catalog::AttackDir;
+        use ambition_entity_catalog::AttackDir;
         let set = fighter_moveset();
         let dirs = [
             ("neutral", AttackDir::Neutral),
@@ -1108,7 +1108,7 @@ mod tests {
     /// answers with nothing. Shared by the relation test below so the two
     /// fighters are measured by one instrument rather than two copies of one.
     fn silent_presses(
-        set: &ambition_platformer2d::entity_catalog::MovesetContract,
+        set: &ambition_entity_catalog::MovesetContract,
     ) -> Vec<String> {
         let dirs = [
             ("neutral", AttackDir::Neutral),
@@ -1227,7 +1227,7 @@ mod tests {
     /// on, and the longest thing authored today reaches 62.
     #[test]
     fn no_grab_this_demo_authors_reaches_further_than_the_stage_allows() {
-        use ambition_platformer2d::characters::smash_capture::{
+        use ambition_entity_catalog::smash_capture::{
             CaptureAttemptParams, CAPTURE_ATTEMPT,
         };
 
@@ -1285,7 +1285,7 @@ mod tests {
 
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
-        use ambition_platformer2d::entity_catalog::WindowTag;
+        use ambition_entity_catalog::WindowTag;
         let set = fighter_moveset();
 
         let special = set
@@ -1323,7 +1323,7 @@ mod tests {
                 .find(|w| w.tag == WindowTag::Active)
                 .and_then(|w| w.sustain_effect.as_ref())
                 .map(|e| e.key.as_str()),
-            Some(ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT),
+            Some(ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT),
             "the special's live window sustains some OTHER effect, so it is not \
              a capture at all"
         );
@@ -1347,7 +1347,7 @@ mod tests {
                 && standing.windows.iter().any(|w| w.tag == WindowTag::Active),
             "one of the two grabs has no active window"
         );
-        let first_active = |m: &ambition_platformer2d::entity_catalog::MoveSpec| {
+        let first_active = |m: &ambition_entity_catalog::MoveSpec| {
             m.windows
                 .iter()
                 .find(|w| w.tag == WindowTag::Active)
@@ -1463,7 +1463,7 @@ mod tests {
             .filter(|w| {
                 matches!(
                     w.tag,
-                    ambition_platformer2d::entity_catalog::WindowTag::Active
+                    ambition_entity_catalog::WindowTag::Active
                 )
             })
             .map(|w| w.start_s)
@@ -1578,7 +1578,7 @@ mod tests {
 
 #[cfg(test)]
 mod hit_confirm_tests {
-    use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+    use ambition_entity_catalog::{FlowNode, FlowSignal};
 
     /// The neutral special CONFIRMS: it waits on a connect, and answers with a
     /// grab.
@@ -1639,7 +1639,7 @@ mod hit_confirm_tests {
             .collect();
         assert_eq!(
             emitted,
-            vec![ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT],
+            vec![ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT],
             "the confirm's payoff is {emitted:?} rather than the grab"
         );
     }
@@ -1677,7 +1677,7 @@ mod hit_confirm_tests {
         let active_ends = spec
             .windows
             .iter()
-            .filter(|w| matches!(w.tag, ambition_platformer2d::entity_catalog::WindowTag::Active))
+            .filter(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
             .map(|w| w.end_s)
             .fold(0.0_f32, f32::max);
         assert!(
@@ -1722,8 +1722,8 @@ mod hit_confirm_tests {
 
 #[cfg(test)]
 mod recovery_tests {
-    use ambition_platformer2d::characters::smash_teleport::{TeleportParams, TELEPORT};
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::smash_teleport::{TeleportParams, TELEPORT};
+    use ambition_entity_catalog::MoveEventKind;
 
     /// These fighters can recover, and the recovery is AIMED.
     ///

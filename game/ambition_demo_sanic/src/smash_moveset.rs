@@ -23,15 +23,15 @@ use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
-use ambition_platformer2d::characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_platformer2d::characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_entity_catalog::{ImpulseMode, MovesetContract};
 
 const RUSH_FX: f32 = 0.85;
 const BOOM_FX: f32 = 1.2;
@@ -496,7 +496,7 @@ pub fn sanic_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::WindowTag;
+    use ambition_entity_catalog::WindowTag;
 
     // Fourteen fighters each carried a copy of it: every bound verb names a move
     // this table defines, and the table binds the whole vocabulary. Both are now
@@ -505,7 +505,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_platformer2d::characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// SPEED IS THE WHOLE CHARACTER, and it is checkable. Every one of his

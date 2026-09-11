@@ -406,7 +406,7 @@ fn another_technique_does_not_cut() {
 /// the two systems, and for that any stance naming the key will do.
 #[test]
 fn a_parry_answered_with_the_blade_cuts_the_attacker() {
-    use ambition_platformer2d::characters::smash_counter::{counter_move, CounterParams};
+    use ambition_platformer2d::entity_catalog::smash_counter::{counter_move, CounterParams};
     use ambition_platformer2d::combat::hitbox::{LandedBodyHit, ParriedBodyHit};
     use ambition_platformer2d::combat::moveset::MovePlayback;
 

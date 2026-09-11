@@ -1,5 +1,5 @@
 use super::*;
-use ambition_platformer2d::characters::smash_mark::MarkBodyParams;
+use ambition_platformer2d::entity_catalog::smash_mark::MarkBodyParams;
 use ambition_platformer2d::combat::on_hit::OnHitEffectMessage;
 use ambition_platformer2d::engine_core as ae;
 
@@ -59,7 +59,7 @@ fn params(fuse_s: f32) -> MarkBodyParams {
 
 fn land_a_marking_hit(app: &mut App, owner: Entity, victim: Entity, fuse_s: f32) {
     let effect = ambition_platformer2d::entity_catalog::EffectRef {
-        key: ambition_platformer2d::characters::smash_mark::MARK_BODY.to_string(),
+        key: ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY.to_string(),
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params(fuse_s))
             .expect("params serialize"),
     };

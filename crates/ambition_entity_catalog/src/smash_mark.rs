@@ -26,7 +26,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveSpec, ParamValue};
 
 /// The authored effect key. Namespaced like every other smash technique so an
 /// unrecognised key falls through other rulesets untouched.
@@ -102,7 +102,7 @@ pub fn author_mark_on_hit(mut spec: MoveSpec, params: MarkBodyParams) -> MoveSpe
 /// otherwise a silent no-op — the fighter ships with a technique that never
 /// happens and every test still passes. The same trap `when_refused` carries.
 pub fn mark_move_in(
-    contract: &mut ambition_entity_catalog::MovesetContract,
+    contract: &mut crate::MovesetContract,
     id: &str,
     params: MarkBodyParams,
 ) {

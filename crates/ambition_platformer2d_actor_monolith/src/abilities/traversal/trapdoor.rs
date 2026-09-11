@@ -1,6 +1,6 @@
 //! A move that takes its owner under the stage, and one that brings her back.
 //!
-//! ⭐⭐ THE OTHER HALF OF `ambition_characters::smash_trapdoor`. It sits beside
+//! ⭐⭐ THE OTHER HALF OF `ambition_entity_catalog::smash_trapdoor`. It sits beside
 //! the authored teleport because it needs the same two things that file already
 //! owns: a collision view of the stage, and
 //! [`ledge_assisted_arrival`](super::teleport::ledge_assisted_arrival), which is
@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
-use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
 use ambition_platformer2d_core::{self as ae};
 
 /// Recognise an authored trapdoor beat and move the body between modes.

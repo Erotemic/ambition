@@ -154,7 +154,7 @@ fn scene(gap: f32) -> WorldView {
 /// the jab out-damages the throw (14 against 11), which is the genre's own arrangement and the
 /// only one that asks a real question.
 fn jab_and_grab() -> MovesetContract {
-    use ambition_characters::smash_capture::{
+    use ambition_entity_catalog::smash_capture::{
         author_standing_grab, author_throw, capture_beat, grab_shell, CaptureAttemptParams,
         CaptureThrowParams,
     };

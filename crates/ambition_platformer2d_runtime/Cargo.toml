@@ -40,6 +40,7 @@ ambition_damage = { path = "../ambition_damage" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_encounter_features = { path = "../ambition_encounter_features" }
 ambition_characters = { path = "../ambition_characters" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Optional for the same reason the LDtk edge above is: a portal is a
 # capability a game HAS. The monolith and the host already declare it this way.
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }

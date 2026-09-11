@@ -7,15 +7,15 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{impulse, strike};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     ChargeGesture, ClipBinding, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, SmashChargeSpec, WindowTag,
 };
@@ -215,7 +215,7 @@ fn charge_shot() -> MoveSpec {
             // WAITS, and getting hit banks it instead of wasting it.
             stores: true,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
         }),
         charge_gesture: ChargeGesture::Special,
         repeat: None,
@@ -346,12 +346,12 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     // conditional. Detonating from across the stage costs you a swing at air;
     // detonating from on top of it is a two-hit option that can also kill you,
     // since the blast is neutral. Both of those are choices, which is the point.
-    let down_smash = ambition_characters::smash_mine::author_place_mine(
+    let down_smash = ambition_entity_catalog::smash_mine::author_place_mine(
         down_smash,
         // The end of the active window: the sweep plants it. Placing during
         // STARTUP would let her cancel the smash and keep the mine.
         0.28,
-        ambition_characters::smash_mine::PlaceMineParams {
+        ambition_entity_catalog::smash_mine::PlaceMineParams {
             item_id: MINE_ITEM.to_string(),
             // ⭐ LONGER THAN THE MOVE ITSELF (0.57s), so plant-and-detonate is
             // never one continuous input. You have to survive the wait.
@@ -515,12 +515,12 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     // that drifts out facing away from the stage gets the plain 745px/s pop and
     // nothing more — which is the read that keeps a tether from being a free
     // return ticket.
-    let up_special = ambition_characters::smash_tether::author_tether_pull(
+    let up_special = ambition_entity_catalog::smash_tether::author_tether_pull(
         up_special,
         // Just after the pop, so the line goes out while she is rising rather
         // than at the apex where she has already spent the height.
         0.10,
-        ambition_characters::smash_tether::TetherPullParams {
+        ambition_entity_catalog::smash_tether::TetherPullParams {
             reach: THE_TETHERS_REACH,
             // Faster than the pop that threw her: once the line bites, the reel
             // IS her motion, and a reel slower than a fall would lose ground.
@@ -554,10 +554,10 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     );
     let mut grounded_down_special = grounded_down_special;
     grounded_down_special.display_name = Some("Lay a Bomb".to_string());
-    let grounded_down_special = ambition_characters::smash_bomb::author_drop_bomb(
+    let grounded_down_special = ambition_entity_catalog::smash_bomb::author_drop_bomb(
         grounded_down_special,
         BOMB_LAID_AT_S,
-        ambition_characters::smash_bomb::DropBombParams {
+        ambition_entity_catalog::smash_bomb::DropBombParams {
             item_id: BOMB_ITEM.to_string(),
             // ⭐ JON'S NUMBER, verbatim: *"detonate in 4 seconds"*.
             fuse_s: 4.0,
@@ -740,11 +740,11 @@ mod tests {
         // the capture on the ACTIVE WINDOW as a `sustain_effect` — the attempt
         // is live for the window's duration rather than fired at an instant —
         // so a scan of `events` finds nothing. Written after that scan failed.
-        let capture: ambition_characters::smash_capture::CaptureAttemptParams = grab
+        let capture: ambition_entity_catalog::smash_capture::CaptureAttemptParams = grab
             .windows
             .iter()
             .filter_map(|window| window.sustain_effect.as_ref())
-            .find(|effect| effect.key == ambition_characters::smash_capture::CAPTURE_ATTEMPT)
+            .find(|effect| effect.key == ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT)
             .and_then(|effect| effect.params.hydrate().ok())
             .expect("her grab captures");
 
@@ -753,12 +753,12 @@ mod tests {
             .iter()
             .find(|m| m.id == "polygon_projectile_recoil_lift")
             .expect("she has an up-B");
-        let tether: ambition_characters::smash_tether::TetherPullParams = lift
+        let tether: ambition_entity_catalog::smash_tether::TetherPullParams = lift
             .events
             .iter()
             .find_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
-                    if effect.key == ambition_characters::smash_tether::TETHER_PULL =>
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_entity_catalog::smash_tether::TETHER_PULL =>
                 {
                     effect.params.hydrate().ok()
                 }
@@ -847,12 +847,12 @@ mod tests {
             .iter()
             .find_map(|event| match &event.kind {
                 ambition_entity_catalog::MoveEventKind::Effect(effect)
-                    if effect.key == ambition_characters::smash_mine::PLACE_MINE =>
+                    if effect.key == ambition_entity_catalog::smash_mine::PLACE_MINE =>
                 {
                     Some(
                         effect
                             .params
-                            .hydrate::<ambition_characters::smash_mine::PlaceMineParams>()
+                            .hydrate::<ambition_entity_catalog::smash_mine::PlaceMineParams>()
                             .expect("place-mine params hydrate"),
                     )
                 }

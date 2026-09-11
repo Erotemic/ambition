@@ -36,7 +36,7 @@ pub const SLASH_ARC_VFX: &str = "slash_arc";
 /// The sweep a straight poke draws.
 pub const SLASH_POKE_VFX: &str = "slash_poke";
 
-// The posture now follows from the slot in `ambition_characters::smash_repertoire::SmashRepertoire`, which is
+// The posture now follows from the slot in `crate::smash_repertoire::SmashRepertoire`, which is
 // the only place in the repo that knows what a tilt or an aerial IS. Leaving the helpers here would
 // have left the per-move override available to a fighter that did not mean to take it.
 

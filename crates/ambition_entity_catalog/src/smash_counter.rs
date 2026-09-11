@@ -23,7 +23,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveSpec, MoveWindow, ParamValue, WindowTag};
+use crate::{EffectRef, MoveSpec, MoveWindow, ParamValue, WindowTag};
 
 /// The authored effect key. Namespaced like every other smash technique so an
 /// unrecognised key falls through other rulesets untouched.
@@ -132,7 +132,7 @@ pub fn counter_move(
     MoveSpec {
         display_name: None,
         id: id.to_string(),
-        clip: ambition_entity_catalog::ClipBinding {
+        clip: crate::ClipBinding {
             clip: clip.to_string(),
             fallbacks: vec!["attack".to_string(), "idle".to_string()],
         },
@@ -162,7 +162,7 @@ pub fn counter_move(
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -254,7 +254,7 @@ mod tests {
 #[cfg(test)]
 mod round_trip_probe {
     use super::*;
-    use ambition_entity_catalog::ParamValue;
+    use crate::ParamValue;
 
     #[test]
     fn counter_params_survive_a_param_value_round_trip() {

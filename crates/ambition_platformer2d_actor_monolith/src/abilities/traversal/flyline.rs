@@ -1,6 +1,6 @@
 //! A move that hangs its owner off a wire and lets a winch take her up.
 //!
-//! ⭐⭐ THE OTHER HALF OF `ambition_characters::smash_flyline`, and it is a
+//! ⭐⭐ THE OTHER HALF OF `ambition_entity_catalog::smash_flyline`, and it is a
 //! remarkably small file on purpose. It needs no collision view and picks no
 //! destination: everything about being on a rope — the pendulum, the winch, the
 //! stick that buys angular acceleration, the one release that writes one exit
@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
-use ambition_characters::smash_flyline::{FlylineParams, FLYLINE};
+use ambition_entity_catalog::smash_flyline::{FlylineParams, FLYLINE};
 use ambition_platformer2d_core::{self as ae};
 
 /// Recognise an authored flyline beat and put the body on the wire.

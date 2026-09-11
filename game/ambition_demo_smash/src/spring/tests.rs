@@ -446,7 +446,7 @@ fn a_plate_with_an_authored_cue_announces_both_its_arrival_and_its_launch() {
 fn a_plate_authored_with_no_cue_is_refused() {
     let mut silent = params();
     silent.vfx = String::new();
-    let _ = ambition_platformer2d::characters::smash_spring::author_place_spring(
+    let _ = ambition_platformer2d::entity_catalog::smash_spring::author_place_spring(
         ambition_entity_catalog::authoring::hitless_special(
             "silent_plate",
             "special",

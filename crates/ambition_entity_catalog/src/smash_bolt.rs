@@ -34,7 +34,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key. Namespaced like every other smash technique.
 pub const STEERED_BOLT: &str = "smash.steered_bolt";
@@ -158,7 +158,7 @@ impl SteeredBoltParams {
 /// [`SteeredBoltParams::problems`] for why the rules could not stay where they
 /// were.
 pub fn check_steered_bolt_params(
-    params: &ambition_entity_catalog::ParamValue,
+    params: &crate::ParamValue,
 ) -> Result<(), String> {
     let typed: SteeredBoltParams = params.hydrate().map_err(|error| error.to_string())?;
     let problems = typed.problems();

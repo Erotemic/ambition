@@ -32,7 +32,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key.
 pub const RIPOSTE_STRIKE: &str = "smash.riposte_strike";
@@ -95,7 +95,7 @@ pub struct RiposteStrikeParams {
 /// a move wants every complaint about it at once, which is the same reason
 /// `problems` returns a list rather than the first failure.
 pub fn check_riposte_strike_params(
-    params: &ambition_entity_catalog::ParamValue,
+    params: &crate::ParamValue,
 ) -> Result<(), String> {
     let typed: RiposteStrikeParams = params.hydrate().map_err(|error| error.to_string())?;
     let problems = typed.problems();

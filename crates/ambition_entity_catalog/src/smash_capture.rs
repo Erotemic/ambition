@@ -6,7 +6,7 @@
 //! parameter encoding stay centralized. The generic move timeline sees ordinary
 //! `MoveSpec` effect windows/events and does not learn capture-specific variants.
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue, VolumeShape};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue, VolumeShape};
 use serde::{Deserialize, Serialize};
 
 /// The effect key an active grab window sustains.
@@ -192,20 +192,20 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
     MoveSpec {
         display_name: None,
         id: id.to_string(),
-        clip: ambition_entity_catalog::ClipBinding {
+        clip: crate::ClipBinding {
             clip: clip.to_string(),
             fallbacks: vec!["attack".to_string(), "idle".to_string()],
         },
         duration_s: active_end + recover_s,
         windows: vec![
-            window(ambition_entity_catalog::WindowTag::Startup, 0.0, startup_s),
+            window(crate::WindowTag::Startup, 0.0, startup_s),
             window(
-                ambition_entity_catalog::WindowTag::Active,
+                crate::WindowTag::Active,
                 startup_s,
                 active_end,
             ),
             window(
-                ambition_entity_catalog::WindowTag::Recovery,
+                crate::WindowTag::Recovery,
                 active_end,
                 active_end + recover_s,
             ),
@@ -215,7 +215,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -234,7 +234,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
     MoveSpec {
         display_name: None,
         id: id.to_string(),
-        clip: ambition_entity_catalog::ClipBinding {
+        clip: crate::ClipBinding {
             clip: clip.to_string(),
             fallbacks: vec!["attack".to_string(), "idle".to_string()],
         },
@@ -245,7 +245,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -340,11 +340,11 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         gates,
         start_impulse,
         smash_charge_mult,
-        smash_charge: smash_charge.map(|policy| ambition_entity_catalog::SmashChargeSpec {
+        smash_charge: smash_charge.map(|policy| crate::SmashChargeSpec {
             hold_at_s: policy.hold_at_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             ..policy
         }),
-        repeat: repeat.map(|l| ambition_entity_catalog::MoveLoop {
+        repeat: repeat.map(|l| crate::MoveLoop {
             from_s: l.from_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             to_s: l.to_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             // A DURATION, not a point: how long the loop may run does not
@@ -365,10 +365,10 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
     }
     for w in &mut running.windows {
         match w.tag {
-            ambition_entity_catalog::WindowTag::Startup => {
+            crate::WindowTag::Startup => {
                 w.end_s += RUNNING_GRAB_EXTRA_STARTUP_S;
             }
-            ambition_entity_catalog::WindowTag::Recovery => {
+            crate::WindowTag::Recovery => {
                 w.start_s += RUNNING_GRAB_EXTRA_STARTUP_S;
                 w.end_s += RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S;
             }
@@ -384,11 +384,11 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
 }
 
 fn window(
-    tag: ambition_entity_catalog::WindowTag,
+    tag: crate::WindowTag,
     start_s: f32,
     end_s: f32,
-) -> ambition_entity_catalog::MoveWindow {
-    ambition_entity_catalog::MoveWindow {
+) -> crate::MoveWindow {
+    crate::MoveWindow {
         start_s,
         end_s,
         tag,
@@ -416,7 +416,7 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
     };
     let mut attached = 0usize;
     for window in &mut spec.windows {
-        if window.tag == ambition_entity_catalog::WindowTag::Active {
+        if window.tag == crate::WindowTag::Active {
             window.sustain_effect = Some(effect.clone());
             attached += 1;
         }
@@ -435,9 +435,9 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
 ///
 /// Naming the effect is naming the cue.
 fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
-    spec.events.push(ambition_entity_catalog::MoveEvent {
+    spec.events.push(crate::MoveEvent {
         at_s,
-        kind: ambition_entity_catalog::MoveEventKind::Vfx {
+        kind: crate::MoveEventKind::Vfx {
             effect: effect.to_string(),
             at: (0.0, 0.0),
             scale,
@@ -453,7 +453,7 @@ fn cue_at_effect(spec: MoveSpec, effect: &str, scale: f32) -> MoveSpec {
     let at = spec
         .events
         .iter()
-        .find(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Effect(_)))
+        .find(|e| matches!(e.kind, crate::MoveEventKind::Effect(_)))
         .map(|e| e.at_s)
         .unwrap_or(0.0);
     burst(spec, at, effect, scale)
@@ -464,7 +464,7 @@ fn cue_at_reach(spec: MoveSpec, effect: &str) -> MoveSpec {
     let at = spec
         .windows
         .iter()
-        .find(|w| w.tag == ambition_entity_catalog::WindowTag::Active)
+        .find(|w| w.tag == crate::WindowTag::Active)
         .map(|w| w.start_s)
         .unwrap_or(0.0);
     burst(spec, at, effect, 0.45)
@@ -472,9 +472,9 @@ fn cue_at_reach(spec: MoveSpec, effect: &str) -> MoveSpec {
 
 /// Attach a pummel impact to `spec` at `at_s` of its own timeline.
 pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams) -> MoveSpec {
-    spec.events.push(ambition_entity_catalog::MoveEvent {
+    spec.events.push(crate::MoveEvent {
         at_s,
-        kind: ambition_entity_catalog::MoveEventKind::Effect(EffectRef {
+        kind: crate::MoveEventKind::Effect(EffectRef {
             key: CAPTURE_PUMMEL.to_string(),
             params: ParamValue::from_typed(&params).expect("capture pummel params serialize"),
         }),
@@ -526,112 +526,14 @@ pub fn author_carry(mut spec: MoveSpec, at_s: f32, params: CaptureCarryParams) -
 }
 
 pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -> MoveSpec {
-    spec.events.push(ambition_entity_catalog::MoveEvent {
+    spec.events.push(crate::MoveEvent {
         at_s,
-        kind: ambition_entity_catalog::MoveEventKind::Effect(EffectRef {
+        kind: crate::MoveEventKind::Effect(EffectRef {
             key: CAPTURE_THROW.to_string(),
             params: ParamValue::from_typed(&params).expect("capture throw params serialize"),
         }),
     });
     spec
-}
-
-/// why this is not on [`CapturedBy`](ambition_platformer2d::combat::capture::CapturedBy) any more. That
-/// component is the RELATION: who holds whom, where, and what physical state release must give
-/// back. Every field of it is answerable without knowing what genre is being played.
-///
-///  they were fine on the relation while the mechanic was being proven, and
-/// they are not convincing final owners. The split is not cosmetic: it is why a
-/// capture in another game does not pay to rewind a pummel counter it has no
-/// rule for.
-///
-///  it rides BESIDE `CapturedBy` on the captive, and its lifetime is that
-/// component's. A hold with no `SmashHoldState` is a hold this ruleset has no
-/// opinion about, which is the honest reading for a game that constrains bodies
-/// without pummelling them.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct SmashHoldState {
-    pub pummels_landed: u8,
-    /// How long this hold has lasted, in the same scaled seconds a move
-    /// timeline advances in — so a capture does not age during hitstop.
-    ///
-    /// Without an age, a fighter who grabs and then does nothing holds a body for the rest of
-    /// the match.
-    pub held_for: f32,
-    /// What the captive's OWN input has bought toward getting out, in the
-    /// same seconds [`Self::held_for`] counts.
-    ///
-    ///  the shape matters more than the number. A captive is not a body
-    /// whose input ceased to exist — it is a body whose input reaches a
-    /// restricted channel, and this is that channel's accumulator.
-    pub mash_credit: f32,
-    /// How long THIS hold lasts, decided when it began.
-    ///
-    ///  stored rather than recomputed, and that is the genre's rule rather
-    /// than a caching trick. Ultimate reads the captive's percent AT THE GRAB;
-    /// a hold that re-read it every tick would grow every time its captor
-    /// pummelled, which turns a pummel from a decision into a free extension of
-    /// the advantage you already have.
-    pub escape_seconds: f32,
-    /// Has the captor's stick returned to NEUTRAL since this hold began?
-    ///
-    /// ⛔⛔ A DIRECTION ALONE THROWS, SO IT HAS TO BE A NEW DIRECTION. You walk
-    /// into a grab, so the stick that reached it is usually already pointing
-    /// somewhere — reading the live axis on the first held tick threw the
-    /// victim instantly, before the captor could pummel or choose.
-    ///
-    /// ⭐ ARMED BY NEUTRAL rather than by remembering the direction at capture:
-    /// a captor who grabs holding forward and keeps holding forward has not
-    /// pressed anything, and one who centres and pushes forward again has —
-    /// same final direction, different input.
-    ///
-    /// ⛔ AND IT LIVES HERE, NOT ON `CapturedBy`, which is the whole reason this
-    /// component exists. "Centre the stick before a direction throws" is a
-    /// platform-fighter INPUT rule, not a fact about who holds whom or what
-    /// release must restore. A game that constrains bodies without a throw
-    /// vocabulary should not pay to rewind this, exactly as it does not pay to
-    /// rewind `pummels_landed`.
-    pub throw_armed: bool,
-    /// May this hold's captor WALK while holding?
-    ///
-    /// ⭐⭐ THE CARGO CARRY, and it lives HERE for the reason the note on
-    /// [`Self::throw_armed`] gives about itself: "may the captor move" is a
-    /// platform-fighter rule, not a fact about who holds whom. `CapturedBy` is
-    /// the generic relation and has no opinion about locomotion — a game that
-    /// constrains bodies without a throw vocabulary should not pay to rewind
-    /// this, exactly as it does not pay to rewind `pummels_landed`.
-    ///
-    /// ⛔ IT REWINDS. It is decided once and then constant, which is precisely
-    /// why a rollback that restored the hold without it would be wrong: the
-    /// resimulated timeline would hand the captor back a hold they can no
-    /// longer walk with, and a carry that ends on one peer and not the other is
-    /// a divergence in position, not just in state.
-    ///
-    /// ⚠ FALSE BY DEFAULT, and `Default` is how every existing hold gets it. An
-    /// ordinary grab pins its captor, which is the genre's rule and was this
-    /// engine's only behaviour before the carry existed.
-    pub carrying: bool,
-}
-
-impl SmashHoldState {
-    /// A fresh hold that lasts `escape_seconds`.
-    ///
-    ///  the only way to start one, and `Default` is not it. A default row
-    /// has `escape_seconds == 0.0`, which [`Self::escaped`] correctly reads as a
-    /// hold already over — so a fixture that reached for `default()` would watch
-    /// its capture end on tick one and call that a timeout.
-    pub fn lasting(escape_seconds: f32) -> Self {
-        Self {
-            escape_seconds,
-            ..Default::default()
-        }
-    }
-
-    /// Is this hold over? The ONE place the two clocks are compared, so no
-    /// caller can end a hold by half the rule.
-    pub fn escaped(&self) -> bool {
-        self.held_for + self.mash_credit >= self.escape_seconds
-    }
 }
 
 /// A fighter's capture kit.
@@ -674,7 +576,7 @@ pub mod verbs {
     //! move SELECTOR has to resolve them and that crate is the one both the
     //! selector and this authoring module can see. Spelling them again here
     //! would be two places for a typo to become a press that does nothing.
-    pub use ambition_entity_catalog::{
+    pub use crate::{
         CAPTURE_PUMMEL_VERB as PUMMEL, CAPTURE_THROW_BACK_VERB as THROW_BACK,
         CAPTURE_THROW_DOWN_VERB as THROW_DOWN, CAPTURE_THROW_FORWARD_VERB as THROW_FORWARD,
         CAPTURE_THROW_UP_VERB as THROW_UP, GRAB_DASH_VERB as GRAB_DASH, GRAB_VERB as GRAB,
@@ -706,7 +608,7 @@ fn row_first(mut spec: MoveSpec, rows: &[&str]) -> MoveSpec {
         fresh
     });
     let mut chain = chain.into_iter();
-    spec.clip = ambition_entity_catalog::ClipBinding {
+    spec.clip = crate::ClipBinding {
         clip: chain.next().unwrap_or_default(),
         fallbacks: chain.collect(),
     };
@@ -782,7 +684,7 @@ impl SmashCaptureRepertoire {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_entity_catalog::{ClipBinding, MoveWindow, WindowTag};
+    use crate::{ClipBinding, MoveWindow, WindowTag};
 
     fn spec(id: &str, windows: Vec<MoveWindow>) -> MoveSpec {
         MoveSpec {
@@ -799,7 +701,7 @@ mod tests {
             start_impulse: None,
             smash_charge_mult: 1.0,
             smash_charge: None,
-            charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+            charge_gesture: crate::ChargeGesture::default(),
             repeat: None,
             landing_lag_s: None,
             autocancel_after_s: None,
@@ -918,14 +820,14 @@ mod tests {
             running.duration_s
         );
 
-        let find = |spec: &MoveSpec, tag: ambition_entity_catalog::WindowTag| {
+        let find = |spec: &MoveSpec, tag: crate::WindowTag| {
             spec.windows
                 .iter()
                 .find(|w| w.tag == tag)
                 .map(|w| (w.start_s, w.end_s))
                 .expect("window present")
         };
-        use ambition_entity_catalog::WindowTag;
+        use crate::WindowTag;
         let (_, s_end) = find(&standing, WindowTag::Startup);
         let (r_s_start, r_s_end) = find(&running, WindowTag::Startup);
         assert!(r_s_start.abs() < 1e-6, "the wind-up still begins at zero");
@@ -974,9 +876,9 @@ mod tests {
         // because the cue is applied after derivation, which makes this a trap
         // for the next author rather than a live bug.
         let mut timed = grab_shell("grab", "grab", 0.07, 0.05, 0.2);
-        timed.events.push(ambition_entity_catalog::MoveEvent {
+        timed.events.push(crate::MoveEvent {
             at_s: 0.09,
-            kind: ambition_entity_catalog::MoveEventKind::Sfx {
+            kind: crate::MoveEventKind::Sfx {
                 cue: "reach".to_string(),
             },
         });
@@ -1107,7 +1009,7 @@ mod tests {
 #[cfg(test)]
 mod capture_cue_tests {
     use super::*;
-    use ambition_entity_catalog::MoveEventKind;
+    use crate::MoveEventKind;
 
     fn effects(spec: &MoveSpec) -> Vec<(f32, String)> {
         spec.events

@@ -156,7 +156,7 @@ fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
 /// not do.
 #[test]
 fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
-    use ambition_platformer2d::characters::smash_counter::CounterParams;
+    use ambition_platformer2d::entity_catalog::smash_counter::CounterParams;
     use ambition_platformer2d::combat::hitbox::ParriedBodyHit;
     use ambition_platformer2d::combat::moveset::MovePlayback;
 
@@ -196,7 +196,7 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
         .expect("dilation params serialize"),
         absorbs_projectiles: false,
     };
-    let mut spec = ambition_platformer2d::characters::smash_counter::counter_move(
+    let mut spec = ambition_platformer2d::entity_catalog::smash_counter::counter_move(
         "probe_stance",
         "special",
         0.05,

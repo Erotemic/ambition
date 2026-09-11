@@ -10,7 +10,7 @@
 //! See [`crate::archetype_moveset`] for why the ids are renamed rather than
 //! shared or copied.
 
-use ambition_platformer2d::entity_catalog::{MoveEvent, MoveEventKind, MoveSpec, MovesetContract};
+use ambition_entity_catalog::{MoveEvent, MoveEventKind, MoveSpec, MovesetContract};
 
 /// ⭐⭐ THESE FOUR NUMBERS ARE READ OFF THE ART, NOT CHOSEN. `shoot.clip.json`
 /// runs 12 frames at 58ms; it raises `sidearm_vis` on frame 2, marks its
@@ -60,7 +60,7 @@ pub fn officer_moveset() -> MovesetContract {
 /// ⚠ SUSTAINED, SO IT PUSHES EVERY FRAME YOU STAND IN IT. That is what makes it
 /// a wall rather than a shove, and it is the whole reason `repeating` is an
 /// authored bool: a one-shot version of this move would be a worse haymaker.
-fn the_order_to_disperse() -> ambition_platformer2d::entity_catalog::MoveSpec {
+fn the_order_to_disperse() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::authoring::gust(
         ambition_entity_catalog::authoring::Gust {
             id: "officer_disperse",
@@ -111,8 +111,8 @@ fn the_order_to_disperse() -> ambition_platformer2d::entity_catalog::MoveSpec {
 /// ⚠ The response is the standing grab: absorbing a shot leaves him next to
 /// whoever threw it, and a stance that ate the projectile and did nothing else
 /// would be a wall rather than a decision.
-fn the_riot_shield() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    ambition_characters::smash_counter::counter_move(
+fn the_riot_shield() -> ambition_entity_catalog::MoveSpec {
+    ambition_entity_catalog::smash_counter::counter_move(
         "officer_riot_shield",
         "special",
         // Slower to plant than a sword counter: this is a commitment to a
@@ -120,15 +120,15 @@ fn the_riot_shield() -> ambition_platformer2d::entity_catalog::MoveSpec {
         0.12,
         0.20,
         0.38,
-        ambition_characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // A heartbeat, not a duration — `parry_window_timer` decays, and the
             // stance re-arms it every frame it is live.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
-            response: ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT.to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_platformer2d::characters::smash_capture::CaptureAttemptParams {
+            response: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT.to_string(),
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                     offset: (26.0, 0.0),
                     half_extents: (22.0, 22.0),
                     hold_offset: (18.0, -2.0),
@@ -279,7 +279,7 @@ mod tests {
             .find(|m| m.id == "officer_disperse")
             .expect("…and the move it names must be in the table");
 
-        let volumes: Vec<&ambition_platformer2d::entity_catalog::HitVolume> = gust
+        let volumes: Vec<&ambition_entity_catalog::HitVolume> = gust
             .windows
             .iter()
             .flat_map(|window| window.volumes.iter())

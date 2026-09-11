@@ -357,7 +357,7 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
             .expect("an admiral states what it can board");
         assert!(
             can.can_pilot(&ambition_platformer2d::mount::MountClass(
-                ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string()
+                ambition_platformer2d::entity_catalog::smash_ride::SHARK_CLASS.to_string()
             )),
             "{name} cannot pilot a shark at all, so this test cannot tell a \
              reservation from a missing licence"
@@ -590,7 +590,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     assert!(
         can.as_ref()
             .is_some_and(|c| c.can_pilot(&ambition_platformer2d::mount::MountClass(
-                ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string()
+                ambition_platformer2d::entity_catalog::smash_ride::SHARK_CLASS.to_string()
             ))),
         "an admiral seated FROM THE GRID cannot pilot a shark: {can:?}"
     );

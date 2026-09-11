@@ -97,7 +97,7 @@ pub fn tables() -> Vec<(&'static str, MovesetContract)> {
 
 #[cfg(test)]
 mod reach_tests {
-    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+    use ambition_entity_catalog::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     /// The ordinary ceiling for a grab's reach, in pixels.
     ///
@@ -265,7 +265,7 @@ mod flow_tests {
     #[test]
     fn every_shipped_flow_still_runs_the_trace_it_was_authored_for() {
         use ambition_combat::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         use bevy::prelude::*;
 
         // ⛔ A ROAD IS A CONTACT STATE, NOT A BOOLEAN. The oni's flow BRANCHES on
@@ -300,8 +300,8 @@ mod flow_tests {
             blocked: true,
         };
 
-        let grab = ambition_characters::smash_capture::CAPTURE_ATTEMPT;
-        let teleport = ambition_platformer2d::characters::smash_teleport::TELEPORT;
+        let grab = ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT;
+        let teleport = ambition_entity_catalog::smash_teleport::TELEPORT;
 
         // Every shipped flow, every road, and what it emits there.
         let expected: std::collections::BTreeMap<&str, Vec<(Road, Vec<&str>)>> = [
@@ -368,7 +368,7 @@ mod flow_tests {
         }
 
         /// One flow, driven through the real interpreter.
-        fn trace(spec: &ambition_platformer2d::entity_catalog::MoveSpec, road: Road) -> Vec<String> {
+        fn trace(spec: &ambition_entity_catalog::MoveSpec, road: Road) -> Vec<String> {
             let mut app = App::new();
             app.add_message::<MoveEventMessage>();
             app.add_message::<ambition_combat::events::HitEvent>();
@@ -501,7 +501,7 @@ mod flow_tests {
         use bevy::prelude::App;
 
         // What the roster ASKS FOR: every `item_id` any authored effect names.
-        fn item_ids_in(params: &ambition_platformer2d::entity_catalog::ParamValue) -> Vec<String> {
+        fn item_ids_in(params: &ambition_entity_catalog::ParamValue) -> Vec<String> {
             let ron::Value::Map(map) = &params.0 else {
                 return Vec::new();
             };
@@ -583,7 +583,7 @@ mod flow_tests {
     /// holds is that whatever it becomes stays somewhere a player can watch it.
     #[test]
     fn an_authored_portal_rise_stays_inside_the_stage() {
-        use ambition_platformer2d::characters::smash_portal::{PortalPairParams, PORTAL_PAIR};
+        use ambition_entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
 
         /// `ambition_demo_smash::CEILING_BLAST_MARGIN_PX`, repeated because this
         /// crate is below the ruleset and cannot read it.
@@ -597,7 +597,7 @@ mod flow_tests {
         for (fighter, contract) in tables() {
             for mv in &contract.moves {
                 for event in &mv.events {
-                    let ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect) =
+                    let ambition_entity_catalog::MoveEventKind::Effect(effect) =
                         &event.kind
                     else {
                         continue;
@@ -647,7 +647,7 @@ mod flow_tests {
     /// so this guard requires one to exist.
     #[test]
     fn every_cancel_target_resolves_and_a_confirm_is_authored() {
-        use ambition_platformer2d::entity_catalog::{
+        use ambition_entity_catalog::{
             base_verb_of, cancel_names_for, CancelCondition, WindowTag, CANCEL_CLASS_NAMES,
         };
 
@@ -856,7 +856,7 @@ mod expressiveness_census {
     /// ⭐ The GRAINS stay different on purpose — fighters against specials, a
     /// floor against a list. What cannot differ is what counts.
     fn expressive_reasons(
-        mv: &ambition_platformer2d::entity_catalog::MoveSpec,
+        mv: &ambition_entity_catalog::MoveSpec,
     ) -> Vec<&'static str> {
         let mut why = Vec::new();
         if mv.flow.is_some() {
@@ -894,7 +894,7 @@ mod expressiveness_census {
             .any(|e| {
                 matches!(
                     e.kind,
-                    ambition_platformer2d::entity_catalog::MoveEventKind::Effect(_)
+                    ambition_entity_catalog::MoveEventKind::Effect(_)
                 )
             })
         {
@@ -906,7 +906,7 @@ mod expressiveness_census {
             .any(|e| {
                 matches!(
                     e.kind,
-                    ambition_platformer2d::entity_catalog::MoveEventKind::GravityModifier { .. }
+                    ambition_entity_catalog::MoveEventKind::GravityModifier { .. }
                 )
             })
         {
@@ -924,7 +924,7 @@ mod expressiveness_census {
         if mv.events.iter().any(|e| {
             matches!(
                 e.kind,
-                ambition_platformer2d::entity_catalog::MoveEventKind::Impulse { .. }
+                ambition_entity_catalog::MoveEventKind::Impulse { .. }
             )
         }) {
             why.push("impulse");
@@ -932,7 +932,7 @@ mod expressiveness_census {
         if mv.events.iter().any(|e| {
             matches!(
                 e.kind,
-                ambition_platformer2d::entity_catalog::MoveEventKind::Ranged
+                ambition_entity_catalog::MoveEventKind::Ranged
             )
         }) {
             why.push("ranged");
@@ -953,17 +953,17 @@ mod expressiveness_census {
         // a move with three invulnerable windows says "invuln" once — and so that
         // a seventh `WindowTag` is a COMPILE error here rather than a silent
         // omission, which is the whole lesson of the `MoveEventKind` miscount.
-        let tagged = |wanted: fn(&ambition_platformer2d::entity_catalog::WindowTag) -> bool| {
+        let tagged = |wanted: fn(&ambition_entity_catalog::WindowTag) -> bool| {
             mv.windows.iter().any(|w| wanted(&w.tag))
         };
         // Invincibility frames: a move you can throw THROUGH something.
         if tagged(|t| {
-            matches!(t, ambition_platformer2d::entity_catalog::WindowTag::Invuln)
+            matches!(t, ambition_entity_catalog::WindowTag::Invuln)
         }) {
             why.push("invuln");
         }
         // Super armour: you get hit and you swing anyway.
-        if tagged(|t| matches!(t, ambition_platformer2d::entity_catalog::WindowTag::Armor)) {
+        if tagged(|t| matches!(t, ambition_entity_catalog::WindowTag::Armor)) {
             why.push("armor");
         }
         // A cancel window is authored follow-up: what this move is ALLOWED to
@@ -971,7 +971,7 @@ mod expressiveness_census {
         if tagged(|t| {
             matches!(
                 t,
-                ambition_platformer2d::entity_catalog::WindowTag::Cancelable { .. }
+                ambition_entity_catalog::WindowTag::Cancelable { .. }
             )
         }) {
             why.push("cancelable");
@@ -1229,7 +1229,7 @@ mod expressiveness_census {
     // `mod tests` at the foot of the same file with its own idea of what
     // counts as authoring. Two modules, two definitions, one subject — which
     // is how it came to report the roster's first authored windbox as plain.
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::MoveEventKind;
 
     /// Does this move carry a TECHNIQUE, or is it a hitbox and nothing else?
     ///
@@ -1244,7 +1244,7 @@ mod expressiveness_census {
     /// ⇒ `MoveSpec::effect_refs` is exhaustive by destructure, so a fifth site is
     /// a compile error at the walk instead of a silent gap in every hand-listed
     /// copy of it.
-    fn techniques(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> Vec<String> {
+    fn techniques(spec: &ambition_entity_catalog::MoveSpec) -> Vec<String> {
         let mut keys: Vec<String> = spec
             .effect_refs()
             .into_iter()
@@ -1373,7 +1373,7 @@ mod expressiveness_census {
 #[cfg(test)]
 mod stance_coupling {
     use super::tables;
-    use ambition_platformer2d::entity_catalog::AttackDir;
+    use ambition_entity_catalog::AttackDir;
 
     /// ⛔⛔ **THE ONE WIRE BETWEEN THE ATTACK KIT AND MOVEMENT SCORING IS INERT,
     /// AND THAT IS WHY IT CANNOT EXPLAIN A MOVEMENT CHANGE.**
@@ -1409,7 +1409,7 @@ mod stance_coupling {
         // The kit the brain would hold in one stance, resolved the way the PRESS
         // ROAD resolves it: a run pre-empts the smash gesture and forces the base
         // to ATTACK, and a special never takes that road at all.
-        let kit_lifts = |set: &ambition_platformer2d::entity_catalog::MovesetContract,
+        let kit_lifts = |set: &ambition_entity_catalog::MovesetContract,
                          running: bool|
          -> Vec<String> {
             let mut seen: Vec<String> = Vec::new();
@@ -1515,7 +1515,7 @@ mod a12_projectile_credit_census {
     /// withheld at the admission barrier.
     #[test]
     fn a_shot_and_a_conditional_cancel_never_share_a_fighter() {
-        use ambition_platformer2d::entity_catalog::{CancelCondition, MoveEventKind, WindowTag};
+        use ambition_entity_catalog::{CancelCondition, MoveEventKind, WindowTag};
 
         let mut shooters = 0usize;
         let mut confirmers = 0usize;

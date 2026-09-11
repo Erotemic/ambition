@@ -1,6 +1,6 @@
 //! A move that teleports its owner, with the ledge assist a recovery needs.
 //!
-//! ⭐⭐ THE OTHER HALF OF `ambition_characters::smash_teleport`. The key and its
+//! ⭐⭐ THE OTHER HALF OF `ambition_entity_catalog::smash_teleport`. The key and its
 //! params are what a MOVESET authors; resolving a destination against the
 //! collision world is engine work, and it belongs HERE rather than in a game
 //! crate because [`blink_target`](super::blink::blink_target) is already the one
@@ -17,7 +17,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::brain::{ActionRequest, ActorActionMessage, SpecialActionSpec};
-use ambition_characters::smash_teleport::{TeleportParams, TELEPORT};
+use ambition_entity_catalog::smash_teleport::{TeleportParams, TELEPORT};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
 /// Snap an arrival onto a nearby ledge.

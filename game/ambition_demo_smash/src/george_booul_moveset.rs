@@ -7,10 +7,10 @@
 //! repertoires.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_platformer2d::characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
+use ambition_entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
 use crate::moveset::{feel, Feel};
 use ambition_entity_catalog::authoring::{
@@ -228,11 +228,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         f_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.7,
         },
     );
@@ -248,14 +248,14 @@ pub fn george_booul_moveset() -> MovesetContract {
     for window in f_smash.windows.iter_mut().filter(|w| {
         matches!(
             w.tag,
-            ambition_platformer2d::entity_catalog::WindowTag::Active
+            ambition_entity_catalog::WindowTag::Active
         )
     }) {
         let tip = window.volumes[0].clone();
         window
             .volumes
-            .push(ambition_platformer2d::entity_catalog::HitVolume {
-                shape: ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+            .push(ambition_entity_catalog::HitVolume {
+                shape: ambition_entity_catalog::VolumeShape::Rect {
                     // Inboard of the tip and overlapping it, so a body between
                     // the two is genuinely reached by both.
                     offset: (16.0, -4.0),
@@ -289,11 +289,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         up_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.7,
         },
     );
@@ -317,11 +317,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         down_smash,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
             stores: false,
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Smash,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Smash,
             multiplier: 1.7,
         },
     );
@@ -466,13 +466,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         let end = bivalence.duration_s;
         bivalence
             .windows
-            .push(ambition_platformer2d::entity_catalog::MoveWindow {
+            .push(ambition_entity_catalog::MoveWindow {
                 start_s: 0.42,
                 end_s: 0.50,
-                tag: ambition_platformer2d::entity_catalog::WindowTag::Active,
-                volumes: vec![ambition_platformer2d::entity_catalog::HitVolume {
+                tag: ambition_entity_catalog::WindowTag::Active,
+                volumes: vec![ambition_entity_catalog::HitVolume {
                     // An ordinary hit, not a gust.
-                    shape: ambition_platformer2d::entity_catalog::VolumeShape::Circle {
+                    shape: ambition_entity_catalog::VolumeShape::Circle {
                         offset: (0.0, -4.0),
                         radius: 46.0,
                     },
@@ -525,8 +525,8 @@ pub fn george_booul_moveset() -> MovesetContract {
         spec.id = "bivalence_unmetered".to_string();
         spec
     };
-    let bivalence = ambition_platformer2d::entity_catalog::MoveSpec {
-        gates: ambition_platformer2d::entity_catalog::MoveGates {
+    let bivalence = ambition_entity_catalog::MoveSpec {
+        gates: ambition_entity_catalog::MoveGates {
             // ⚠ EXACTLY THE CAP (`LimitMeterFill::JONS_BASELINE.cap`), which is
             // how "available when the meter is full" is spelled here — nothing
             // new decides it, `afford_meter` refuses anything less.
@@ -788,7 +788,7 @@ pub fn george_booul_moveset() -> MovesetContract {
                 .find(|w| {
                     matches!(
                         w.tag,
-                        ambition_platformer2d::entity_catalog::WindowTag::Active
+                        ambition_entity_catalog::WindowTag::Active
                     )
                 })
                 .map_or(0.0, |w| w.start_s);
@@ -803,7 +803,7 @@ pub fn george_booul_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::{MoveSpec, WindowTag};
+    use ambition_entity_catalog::{MoveSpec, WindowTag};
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -844,7 +844,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_platformer2d::characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// THE EXCLUDED MIDDLE, AS AN ASSERTION.
@@ -1049,7 +1049,7 @@ mod tests {
     /// that the brain and the recovery probe can see this move at all.
     #[test]
     fn the_ascent_commands_its_rise_and_advertises_it() {
-        use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveEventKind};
+        use ambition_entity_catalog::{ImpulseMode, MoveEventKind};
         let up_b = find(&george_booul_moveset(), "excluded_middle");
         let burst = up_b
             .events
@@ -1097,7 +1097,7 @@ mod tests {
     /// is any other one rotated.
     #[test]
     fn the_four_specials_are_four_different_mechanisms() {
-        use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveEventKind, WindowTag};
+        use ambition_entity_catalog::{ImpulseMode, MoveEventKind, WindowTag};
         let set = george_booul_moveset();
         let commanded = |id: &str| -> Option<(f32, f32)> {
             find(&set, id).events.iter().find_map(|e| match &e.kind {
@@ -1145,7 +1145,7 @@ mod tests {
     /// EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.
     #[test]
     fn both_postures_reach_at_least_eight_distinct_moves() {
-        use ambition_platformer2d::entity_catalog::AttackDir;
+        use ambition_entity_catalog::AttackDir;
         let set = george_booul_moveset();
         let reachable = |grounded: bool| -> std::collections::BTreeSet<String> {
             let mut ids = std::collections::BTreeSet::new();
@@ -1195,7 +1195,7 @@ mod tests {
     /// feedback that silently never plays.
     #[test]
     fn important_moves_sound_and_look_like_themselves() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         let set = george_booul_moveset();
         let mut effects = std::collections::BTreeSet::new();
         let mut cues = std::collections::BTreeSet::new();
@@ -1255,7 +1255,7 @@ mod tests {
     /// would have gone on asserting about a window it was not written for.
     #[test]
     fn the_jab_strings_on_a_whiff_and_opens_the_commitments_only_when_it_lands() {
-        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        use ambition_entity_catalog::{CancelCondition, WindowTag};
         let jab = find(&george_booul_moveset(), "jab");
         let cancels: Vec<(Vec<String>, CancelCondition)> = jab
             .windows
@@ -1353,7 +1353,7 @@ mod tests {
 
     #[test]
     fn the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks() {
-        use ambition_platformer2d::entity_catalog::AttackDir;
+        use ambition_entity_catalog::AttackDir;
         let set = george_booul_moveset();
         let dirs = [
             ("neutral", AttackDir::Neutral),
@@ -1409,7 +1409,7 @@ mod tests {
 
     #[test]
     fn a_shielded_jab_buys_george_a_grab() {
-        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        use ambition_entity_catalog::{CancelCondition, WindowTag};
         let george = george_booul_moveset();
         let jab = find(&george, "jab");
         let blocked: Vec<&Vec<String>> = jab
@@ -1452,14 +1452,14 @@ mod tests {
 mod limit_payoff_tests {
     use super::george_booul_moveset;
 
-    fn spec(id: &str) -> ambition_platformer2d::entity_catalog::MoveSpec {
+    fn spec(id: &str) -> ambition_entity_catalog::MoveSpec {
         george_booul_moveset()
             .move_by_id(id)
             .unwrap_or_else(|| panic!("the contract carries `{id}`"))
             .clone()
     }
 
-    fn top_damage(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> i32 {
+    fn top_damage(spec: &ambition_entity_catalog::MoveSpec) -> i32 {
         spec.windows
             .iter()
             .flat_map(|w| w.volumes.iter())
@@ -1527,7 +1527,7 @@ mod limit_payoff_tests {
     fn the_price_is_the_whole_meter() {
         assert_eq!(
             spec("bivalence").gates.meter_cost,
-            ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE.cap,
+            ambition_entity_catalog::smash_limit::LimitMeterFill::JONS_BASELINE.cap,
             "the payoff must cost exactly the match's Limit cap"
         );
     }

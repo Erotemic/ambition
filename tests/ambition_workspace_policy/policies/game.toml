@@ -95,10 +95,10 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d"]
 watch_paths = ["game/ambition_demo_sanic/Cargo.toml"]
-rationale = "Sanic demo depends on the umbrella plus its own content only"
+rationale = "Sanic demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d"]
+allow = ["ambition_platformer2d", "ambition_entity_catalog"]
 manifest = "game/ambition_demo_sanic/Cargo.toml"
 
 [[policy]]
@@ -119,10 +119,10 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d"]
 watch_paths = ["game/ambition_demo_mary_o/Cargo.toml"]
-rationale = "Mary-O demo depends on the umbrella plus its own content only"
+rationale = "Mary-O demo depends on the umbrella plus its own content only; the pure MOVE VOCABULARY is not the engine and a move table must not reach it through a crate that links Bevy (fast-iteration I1)"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_platformer2d"]
+allow = ["ambition_platformer2d", "ambition_entity_catalog"]
 manifest = "game/ambition_demo_mary_o/Cargo.toml"
 
 [[policy]]

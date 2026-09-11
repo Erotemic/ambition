@@ -36,6 +36,44 @@ pub mod authoring;
 /// that turns a move table into a payload the content envelope can carry.
 pub mod move_section;
 
+/// The platform-fighter authoring vocabulary — captures, repertoires, counters,
+/// tethers, portals and the rest of the technique families, as PURE VALUE
+/// CONSTRUCTORS.
+///
+/// ⛔⛤ **TWENTY MODULES, ~4,800 LINES, AND ALL OF IT LIVED IN
+/// `ambition_characters`, WHICH LINKS BEVY** — for the sake of ONE `#[derive(Component)]`
+/// on runtime hold state, which now lives in
+/// `ambition_characters::smash_hold_state` where it belongs. MEASURED
+/// 2026-09-11 before the move: every one of these files referenced `bevy` zero
+/// times in code and named no crate but this one outside a comment.
+///
+/// ⇒ That edge was the reason an offline builder could author a TOY move and
+/// not a SHIPPED one: every real moveset in this repository calls
+/// [`smash_repertoire`] and [`smash_capture`], so the fixture that proves
+/// "authoring needs no engine" could only ever prove it about moves nobody
+/// plays (fast-iteration packet I1, step 1).
+pub mod smash_bolt;
+pub mod smash_bomb;
+pub mod smash_capture;
+pub mod smash_counter;
+pub mod smash_flyline;
+pub mod smash_homing;
+pub mod smash_limit;
+pub mod smash_mark;
+pub mod smash_mine;
+pub mod smash_portal;
+pub mod smash_repertoire;
+pub mod smash_ride;
+pub mod smash_riposte;
+pub mod smash_sleep;
+pub mod smash_spring;
+pub mod smash_teleport;
+pub mod smash_tether;
+pub mod smash_time_dilation;
+pub mod smash_trapdoor;
+pub mod smash_vitality;
+
+
 use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};

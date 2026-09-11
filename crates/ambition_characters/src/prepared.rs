@@ -1121,7 +1121,7 @@ fn runtime_verb_vocabulary() -> Vec<String> {
     // stays because it is a generative RULE over the four directional bases —
     // which every character has, smash repertoire or not.
     vocabulary.extend(
-        crate::smash_repertoire::REPERTOIRE_VERBS
+        ambition_entity_catalog::smash_repertoire::REPERTOIRE_VERBS
             .iter()
             .copied()
             .map(str::to_owned),

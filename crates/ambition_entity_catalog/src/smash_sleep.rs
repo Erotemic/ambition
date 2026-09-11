@@ -17,7 +17,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key.
 pub const SLEEP: &str = "smash.sleep";
@@ -71,7 +71,7 @@ mod tests {
     use super::*;
 
     fn shell() -> MoveSpec {
-        ambition_entity_catalog::authoring::hitless_special("test_sing", "special", 0.2, 0.8)
+        crate::authoring::hitless_special("test_sing", "special", 0.2, 0.8)
     }
 
     fn params() -> SleepParams {

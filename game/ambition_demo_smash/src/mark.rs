@@ -38,7 +38,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actor::MatchSeat;
-use ambition_platformer2d::characters::smash_mark::{MarkBodyParams, MARK_BODY};
+use ambition_platformer2d::entity_catalog::smash_mark::{MarkBodyParams, MARK_BODY};
 use ambition_platformer2d::combat::death_rules::OutOfPlay;
 
 /// A live mark on one body.

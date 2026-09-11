@@ -179,3 +179,113 @@ mod artifact_tests {
         );
     }
 }
+
+/// A capture kit authored from outside the engine: the grab, the pummel, the
+/// throw.
+///
+/// ⭐⭐ **THIS IS THE ARM THE I1 MOVE ACTUALLY BOUGHT, AND IT COULD NOT HAVE BEEN
+/// WRITTEN BEFORE IT.** `smash_capture` and `smash_repertoire` — the vocabulary
+/// EVERY shipped fighter's table is built from — lived in `ambition_characters`,
+/// which links Bevy, so an outside author could reach `strike` and `charge` and
+/// nothing a real roster uses. The fixture above proved the timeline builders
+/// were pure; it could not prove the technique families were, because they were
+/// not reachable.
+///
+/// ⚠ THE PARAMS ARE THE POINT, not the three calls. Each of these authors an
+/// `EffectRef` whose payload is a serialized parameter struct, and that
+/// serialization is where "pure value" stops being a claim about imports and
+/// becomes a claim about what crosses the wire to a host.
+pub fn a_capture_kit() -> ambition_entity_catalog::smash_capture::SmashCaptureRepertoire {
+    use ambition_entity_catalog::smash_capture as capture;
+    capture::SmashCaptureRepertoire {
+        cues: capture::CaptureCues::GENERIC,
+        grab: capture::author_standing_grab(
+            capture::grab_shell("outside_grab", "grab", 0.07, 0.05, 0.2),
+            capture::CaptureAttemptParams {
+                offset: (16.0, 0.0),
+                half_extents: (14.0, 12.0),
+                hold_offset: (18.0, 2.0),
+            },
+        ),
+        pummel: capture::author_pummel(
+            capture::capture_beat("outside_pummel", "attack", 0.18),
+            0.08,
+            capture::CapturePummelParams { damage: 3 },
+        ),
+        forward_throw: capture::author_throw(
+            capture::capture_beat("outside_fthrow", "attack", 0.26),
+            0.12,
+            capture::CaptureThrowParams {
+                damage: 9,
+                knockback: 150.0,
+                knockback_growth: 0.9,
+                launch_dir: (1.0, 0.35),
+            },
+        ),
+        back_throw: None,
+        up_throw: None,
+        down_throw: None,
+    }
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+    use ambition_entity_catalog::smash_capture as capture;
+    use ambition_entity_catalog::MoveEventKind;
+
+    /// ⛔ THE TECHNIQUE KEYS AND THEIR PARAMETERS BOTH REACH THE SPEC. A kit whose
+    /// three moves carried no effect events would satisfy any test that only
+    /// counted moves, and it is exactly what a builder that stopped calling the
+    /// `author_*` functions would produce.
+    #[test]
+    fn an_outside_author_emits_a_real_capture_kit() {
+        let kit = a_capture_kit();
+        let keys = |spec: &MoveSpec| -> Vec<String> {
+            spec.events
+                .iter()
+                .filter_map(|e| match &e.kind {
+                    MoveEventKind::Effect(r) => Some(r.key.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        // ⛔ THE GRAB'S TECHNIQUE IS A WINDOW `sustain_effect`, NOT AN EVENT, and
+        // asserting it as an event is what this arm caught first. An instant is
+        // the wrong shape for a capture attempt: the reach has to be LIVE for the
+        // whole Active window or a body that walks in on frame two is not caught.
+        let sustained: Vec<&str> = kit
+            .grab
+            .windows
+            .iter()
+            .filter_map(|w| w.sustain_effect.as_ref().map(|e| e.key.as_str()))
+            .collect();
+        assert_eq!(
+            sustained,
+            vec![capture::CAPTURE_ATTEMPT],
+            "the grab sustains no capture attempt, so it would play, cost its \
+             recovery, and catch nobody"
+        );
+        assert!(
+            keys(&kit.pummel).contains(&capture::CAPTURE_PUMMEL.to_string()),
+            "the pummel asks for no capture technique: {:?}",
+            keys(&kit.pummel)
+        );
+
+        // ⭐ AND THE THROW'S PARAMETERS SURVIVE, read back the way a host reads
+        // them. A key with an empty payload would pass the arms above.
+        let effect = kit
+            .forward_throw
+            .events
+            .iter()
+            .find_map(|e| match &e.kind {
+                MoveEventKind::Effect(r) if r.key == capture::CAPTURE_THROW => Some(r),
+                _ => None,
+            })
+            .expect("the throw carries its technique reference");
+        let params: ambition_entity_catalog::smash_capture::CaptureThrowParams =
+            effect.params.hydrate().expect("the throw parameters read back");
+        assert_eq!(params.damage, 9);
+        assert_eq!(params.launch_dir, (1.0, 0.35));
+    }
+}

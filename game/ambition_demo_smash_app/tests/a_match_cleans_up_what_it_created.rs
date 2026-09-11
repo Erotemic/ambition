@@ -98,10 +98,10 @@ fn nothing_a_match_created_survives_into_the_next_one() {
                 ambition_platformer2d::characters::brain::action_set::ActionRequest::Special {
                     spec:
                         ambition_platformer2d::characters::brain::action_set::SpecialActionSpec::Special(
-                            ambition_platformer2d::characters::smash_mine::PLACE_MINE.to_string(),
+                            ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE.to_string(),
                         ),
                     params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                        &ambition_platformer2d::characters::smash_mine::PlaceMineParams {
+                        &ambition_platformer2d::entity_catalog::smash_mine::PlaceMineParams {
                             arm_s: 0.05,
                             damage: 1,
                             blast_radius: 8.0,

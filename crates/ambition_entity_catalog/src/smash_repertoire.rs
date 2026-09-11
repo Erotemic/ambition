@@ -12,7 +12,7 @@
 //! Smash vocabulary stops here and lowers into the generic [`MovesetContract`];
 //! engine-level move execution does not depend on Smash-specific action names.
 
-use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract, RecoveryUse};
+use crate::{MoveGates, MoveSpec, MovesetContract, RecoveryUse};
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
 /// aerials rather than throwing a tilt in mid-air.
@@ -253,7 +253,7 @@ pub struct SmashRepertoire {
     /// ships and gets noticed, it does not build.
     pub capture: crate::smash_capture::SmashCaptureRepertoire,
     /// `taunt` — the move that buys nothing. Required like every other slot,
-    /// so a fighter with nothing to say has to say so; `ambition_entity_catalog::authoring::taunt`
+    /// so a fighter with nothing to say has to say so; `crate::authoring::taunt`
     /// is the one-liner for a fighter whose taunt is not yet designed.
     pub taunt: MoveSpec,
     /// `attack_dash` — the move a body already moving forward throws.
@@ -261,7 +261,7 @@ pub struct SmashRepertoire {
     /// `AttackIntent::DashForward` for a dashing swing since long before any
     /// fighter could answer it, and an unauthored dash attack does not read as
     /// missing — it reads as the forward tilt, which is worse than a gap because
-    /// nothing looks wrong. `ambition_entity_catalog::authoring::dash_attack` owns the shape.
+    /// nothing looks wrong. `crate::authoring::dash_attack` owns the shape.
     pub dash_attack: MoveSpec,
 }
 
@@ -468,7 +468,7 @@ impl SmashRepertoire {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_entity_catalog::{AttackDir, ClipBinding};
+    use crate::{AttackDir, ClipBinding};
 
     pub(super) fn spec(id: &str) -> MoveSpec {
         MoveSpec {
@@ -505,7 +505,7 @@ mod tests {
             },
             start_impulse: None,
             smash_charge_mult: 1.0,
-            charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+            charge_gesture: crate::ChargeGesture::default(),
             smash_charge: None,
             repeat: None,
             landing_lag_s: None,
@@ -536,10 +536,10 @@ mod tests {
             neutral_special,
             side_special: spec("sspecial"),
             up_special: UpSpecial::Standard(spec("uspecial")),
-            taunt: ambition_entity_catalog::authoring::taunt("taunt", 0.9),
-            dash_attack: ambition_entity_catalog::authoring::dash_attack(
+            taunt: crate::authoring::taunt("taunt", 0.9),
+            dash_attack: crate::authoring::dash_attack(
                 "dash_attack",
-                ambition_entity_catalog::authoring::DashAttackShape::GENRE,
+                crate::authoring::DashAttackShape::GENRE,
                 9,
                 320.0,
             ),
@@ -867,7 +867,7 @@ mod up_special_recovery_tests {
 mod taunt_slot_tests {
     use super::tests::{repertoire, spec};
     use super::*;
-    use ambition_entity_catalog::MoveSpec;
+    use crate::MoveSpec;
 
     fn kit() -> SmashRepertoire {
         repertoire(
@@ -899,7 +899,7 @@ mod taunt_slot_tests {
     /// A TAUNT THREATENS NOBODY, AND IT COSTS YOU THE FLOOR.
     #[test]
     fn an_authored_taunt_has_no_volume_and_roots_the_body() {
-        let spec = ambition_entity_catalog::authoring::taunt("t", 0.9);
+        let spec = crate::authoring::taunt("t", 0.9);
         assert!(spec.duration_s > 0.0);
         assert!(
             spec.windows.iter().all(|w| w.volumes.is_empty()),

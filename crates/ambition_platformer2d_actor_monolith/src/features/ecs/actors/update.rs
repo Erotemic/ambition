@@ -239,7 +239,7 @@ pub fn tick_actor_brains(
         // the RELATION says who holds whom; the RULESET's state says how long
         // and how many. `Option` because a hold this ruleset has no opinion
         // about is a real thing.
-        Option<&ambition_characters::smash_capture::SmashHoldState>,
+        Option<&ambition_characters::smash_hold_state::SmashHoldState>,
     )>,
     // The log, lent to whichever worker thread this tick lands on.
     //
@@ -1905,7 +1905,7 @@ fn capture_candidate(
 ) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
-    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+    use ambition_entity_catalog::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,

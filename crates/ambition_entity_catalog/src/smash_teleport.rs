@@ -21,7 +21,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key. Namespaced like every other smash technique so an
 /// unrecognised key falls through other rulesets untouched.
@@ -183,9 +183,9 @@ pub fn author_teleport(mut spec: MoveSpec, at_s: f32, params: TeleportParams) ->
         // never closes on this timeline, and the honest reading of "intangible
         // longer than the move lasts" is "intangible for the move".
         let ends = (at_s + params.intangible_s).min(spec.duration_s);
-        spec = ambition_entity_catalog::authoring::invuln(spec, at_s, ends);
+        spec = crate::authoring::invuln(spec, at_s, ends);
     }
-    spec.gates.recovery_route = Some(ambition_entity_catalog::AuthoredRecoveryRoute::Teleport {
+    spec.gates.recovery_route = Some(crate::AuthoredRecoveryRoute::Teleport {
         distance: params.distance,
     });
     spec

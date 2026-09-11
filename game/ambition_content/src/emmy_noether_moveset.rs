@@ -8,15 +8,15 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     ClipBinding, HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
     WindowTag,
 };
@@ -557,7 +557,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        charge_gesture: ambition_platformer2d::entity_catalog::ChargeGesture::default(),
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         smash_charge: None,
         repeat: None,
         landing_lag_s: Some(0.24),
@@ -629,7 +629,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     //
     // ⚠ THE HEAL IS SMALL ON PURPOSE. A parry is already a full punish window;
     // three points is a reason to take the read, not a reason to turtle.
-    let down_b = ambition_characters::smash_counter::counter_move(
+    let down_b = ambition_entity_catalog::smash_counter::counter_move(
         "invariant_field",
         // Her own clip, kept: the art is a field closing and that is still what
         // the move looks like.
@@ -640,15 +640,15 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         // would be a guess.
         0.15,
         0.30,
-        ambition_characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // A heartbeat, not a duration: `parry_window_timer` decays and the
             // stance re-arms it every live frame.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
-            response: ambition_characters::smash_vitality::VITALITY.to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_characters::smash_vitality::VitalityParams {
+            response: ambition_entity_catalog::smash_vitality::VITALITY.to_string(),
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_vitality::VitalityParams {
                     change: 3,
                     // ⓘ IGNORED BY A RESTORE — the floor only bounds a PRICE, and
                     // this is a gain. Stated at the type's own default rather
@@ -853,7 +853,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::MoveEventKind;
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -894,7 +894,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// THE SYMMETRY, AS AN ASSERTION — and the poison is every other fighter.
@@ -1136,11 +1136,11 @@ mod tests {
             .find(|m| m.id == "invariant_field")
             .expect("her grounded down special");
 
-        let params: ambition_platformer2d::characters::smash_counter::CounterParams = field
+        let params: ambition_entity_catalog::smash_counter::CounterParams = field
             .windows
             .iter()
             .filter_map(|w| w.sustain_effect.as_ref())
-            .find(|e| e.key == ambition_platformer2d::characters::smash_counter::COUNTER)
+            .find(|e| e.key == ambition_entity_catalog::smash_counter::COUNTER)
             .expect("the field holds a counter stance")
             .params
             .hydrate()
@@ -1148,10 +1148,10 @@ mod tests {
 
         assert_eq!(
             params.response,
-            ambition_platformer2d::characters::smash_vitality::VITALITY,
+            ambition_entity_catalog::smash_vitality::VITALITY,
             "she must answer by keeping the energy, not by grabbing or leaving"
         );
-        let gain: ambition_platformer2d::characters::smash_vitality::VitalityParams =
+        let gain: ambition_entity_catalog::smash_vitality::VitalityParams =
             params.response_params.hydrate().expect("vitality params hydrate");
         assert!(
             gain.change > 0,

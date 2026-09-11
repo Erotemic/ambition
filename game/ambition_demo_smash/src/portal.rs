@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_portal::{PortalPairParams, PORTAL_PAIR};
+use ambition_platformer2d::entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
 use ambition_platformer2d::engine_core as ae;
 
 /// One aperture a MOVE opened, and how long it has left.

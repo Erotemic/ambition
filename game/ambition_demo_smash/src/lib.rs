@@ -961,11 +961,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // reading rather than a fix.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_sleep::SLEEP,
+            ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
             TechniqueOffer {
                 owner: "ambition_demo_smash::sing",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_sleep::SleepParams>,
+                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_sleep::SleepParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -987,12 +987,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // frame was never a route.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_portal::PORTAL_PAIR,
+            ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
             TechniqueOffer {
                 owner: "ambition_demo_smash::portal",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
-                        ambition_platformer2d::characters::smash_portal::PortalPairParams,
+                        ambition_platformer2d::entity_catalog::smash_portal::PortalPairParams,
                     >,
                 ),
                 references: NestedReferences::None,
@@ -1012,7 +1012,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // the one place the clearance latch must not be resolved wrongly.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_bolt::STEERED_BOLT,
+            ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
             TechniqueOffer {
                 owner: "ambition_demo_smash::bolt",
                 params: TechniqueParams::Checked(
@@ -1020,7 +1020,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                     // an invisible bolt, a trail redrawn never, and a bolt nobody
                     // can steer were all rules the Rust authoring helper asserted
                     // and this road admitted.
-                    ambition_platformer2d::characters::smash_bolt::check_steered_bolt_params,
+                    ambition_platformer2d::entity_catalog::smash_bolt::check_steered_bolt_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1037,12 +1037,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // still for one frame — which on a 0.28s move is 6% of it.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_homing::HOMING_DASH,
+            ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
             TechniqueOffer {
                 owner: "ambition_demo_smash::homing",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
-                        ambition_platformer2d::characters::smash_homing::HomingDashParams,
+                        ambition_platformer2d::entity_catalog::smash_homing::HomingDashParams,
                     >,
                 ),
                 references: NestedReferences::None,
@@ -1061,12 +1061,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // special request, and any move that names the key gets a cut.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_riposte::RIPOSTE_STRIKE,
+            ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
             TechniqueOffer {
                 owner: "ambition_demo_smash::riposte",
                 params: TechniqueParams::Checked(
                     // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
-                    ambition_platformer2d::characters::smash_riposte::check_riposte_strike_params,
+                    ambition_platformer2d::entity_catalog::smash_riposte::check_riposte_strike_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1082,12 +1082,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // `crate::tether` for why that separation is the point of the row.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_tether::TETHER_PULL,
+            ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
             TechniqueOffer {
                 owner: "ambition_demo_smash::tether",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
-                        ambition_platformer2d::characters::smash_tether::TetherPullParams,
+                        ambition_platformer2d::entity_catalog::smash_tether::TetherPullParams,
                     >,
                 ),
                 references: NestedReferences::None,
@@ -1107,12 +1107,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // standing inside it.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_spring::PLACE_SPRING,
+            ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
             TechniqueOffer {
                 owner: "ambition_demo_smash::spring",
                 params: TechniqueParams::Checked(
                     check_hydrates::<
-                        ambition_platformer2d::characters::smash_spring::PlaceSpringParams,
+                        ambition_platformer2d::entity_catalog::smash_spring::PlaceSpringParams,
                     >,
                 ),
                 references: NestedReferences::None,
@@ -1200,11 +1200,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // charges its own owner reaches its technique on the frame it is pressed.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_limit::FILL_METER,
+            ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
             TechniqueOffer {
                 owner: "ambition_demo_smash::limit",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_limit::FillMeterParams>,
+                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_limit::FillMeterParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1241,12 +1241,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // running still restores the clock the body started on.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION,
+            ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
             TechniqueOffer {
                 owner: "ambition_demo_smash::dilation",
                 params: TechniqueParams::Checked(
                     // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
-                    ambition_platformer2d::characters::smash_time_dilation::check_time_dilation_params,
+                    ambition_platformer2d::entity_catalog::smash_time_dilation::check_time_dilation_params,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1268,27 +1268,27 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             app,
             &[
                 (
-                    ambition_platformer2d::characters::smash_mine::PLACE_MINE,
+                    ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mine",
                         params: TechniqueParams::Checked(
                             check_hydrates::<
-                                ambition_platformer2d::characters::smash_mine::PlaceMineParams,
+                                ambition_platformer2d::entity_catalog::smash_mine::PlaceMineParams,
                             >,
                         ),
                         references: NestedReferences::HeldItems(
-                            ambition_platformer2d::characters::smash_mine::mine_held_item_refs,
+                            ambition_platformer2d::entity_catalog::smash_mine::mine_held_item_refs,
                         ),
                         delivery: TechniqueDelivery::Action,
                     },
                 ),
                 (
-                    ambition_platformer2d::characters::smash_mark::MARK_BODY,
+                    ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY,
                     TechniqueOffer {
                         owner: "ambition_demo_smash::mark",
                         params: TechniqueParams::Checked(
                             check_hydrates::<
-                                ambition_platformer2d::characters::smash_mark::MarkBodyParams,
+                                ambition_platformer2d::entity_catalog::smash_mark::MarkBodyParams,
                             >,
                         ),
                         references: NestedReferences::None,
@@ -1342,11 +1342,11 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // buffers survive the frame boundary, so nothing is lost by the wait.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_counter::COUNTER,
+            ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
             TechniqueOffer {
                 owner: "ambition_demo_smash::counter",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_counter::CounterParams>,
+                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_counter::CounterParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
@@ -1378,14 +1378,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         );
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
+            ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
             TechniqueOffer {
                 owner: "ambition_demo_smash::shark_ride",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_ride::SummonRideParams>,
+                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_ride::SummonRideParams>,
                 ),
                 references: NestedReferences::Characters(
-                    ambition_platformer2d::characters::smash_ride::summon_ride_character_refs,
+                    ambition_platformer2d::entity_catalog::smash_ride::summon_ride_character_refs,
                 ),
                 delivery: TechniqueDelivery::Action,
             },
@@ -1411,14 +1411,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // whether the object hit anything this tick.
         install_technique(
             app,
-            ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+            ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
             TechniqueOffer {
                 owner: "ambition_demo_smash::bomb",
                 params: TechniqueParams::Checked(
-                    check_hydrates::<ambition_platformer2d::characters::smash_bomb::DropBombParams>,
+                    check_hydrates::<ambition_platformer2d::entity_catalog::smash_bomb::DropBombParams>,
                 ),
                 references: NestedReferences::HeldItems(
-                    ambition_platformer2d::characters::smash_bomb::bomb_held_item_refs,
+                    ambition_platformer2d::entity_catalog::smash_bomb::bomb_held_item_refs,
                 ),
                 delivery: TechniqueDelivery::Action,
             },
@@ -2624,7 +2624,7 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             limit: limit.map(|r| *r),
         });
         commands.insert_resource(crate::limit::SmashLimitFill(
-            ambition_platformer2d::characters::smash_limit::LimitMeterFill::JONS_BASELINE,
+            ambition_platformer2d::entity_catalog::smash_limit::LimitMeterFill::JONS_BASELINE,
         ));
         commands
             .insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(0.0));

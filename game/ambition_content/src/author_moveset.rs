@@ -9,7 +9,7 @@
 //! What is his own is the NAME on it — and, since 2026-08-27, his RECOVERY.
 //! See [`author_moveset`].
 
-use ambition_platformer2d::entity_catalog::MovesetContract;
+use ambition_entity_catalog::MovesetContract;
 
 /// When the thought leaves him.
 const BOLT_AT_S: f32 = 0.20;
@@ -80,10 +80,10 @@ pub fn author_moveset() -> MovesetContract {
     // carries the victim, `HitVolume::on_hit` already carries an authored
     // payload, `DamageBoxEffect` already owns a blast, and the clock is a
     // ruleset component with `PlacedMine`'s exact precedent.
-    ambition_platformer2d::characters::smash_mark::mark_move_in(
+    ambition_entity_catalog::smash_mark::mark_move_in(
         &mut set,
         "author_tilt_down",
-        ambition_platformer2d::characters::smash_mark::MarkBodyParams {
+        ambition_entity_catalog::smash_mark::MarkBodyParams {
             fuse_s: 1.4,
             damage: 6,
             blast_radius: 44.0,
@@ -120,17 +120,17 @@ pub fn author_moveset() -> MovesetContract {
 /// helpless, he is DIVIDED. One stick walks him and turns the thought, so every
 /// step he takes to reposition is a turn he did not choose — and flying it home
 /// means walking where the bolt needs him to walk.
-fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
+fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
         "author_train_of_thought",
         "special_forward",
         BOLT_AT_S,
         BOLT_ENDS_S,
     );
-    let spec = ambition_characters::smash_bolt::author_steered_bolt(
+    let spec = ambition_entity_catalog::smash_bolt::author_steered_bolt(
         spec,
         BOLT_AT_S,
-        ambition_characters::smash_bolt::SteeredBoltParams {
+        ambition_entity_catalog::smash_bolt::SteeredBoltParams {
             // Slow enough to steer and fast enough to cross a gap.
             speed: 300.0,
             // ⭐ THE NUMBER THAT IS THE MOVE. At 220°/s a full reversal takes
@@ -193,8 +193,8 @@ fn a_train_of_thought() -> ambition_platformer2d::entity_catalog::MoveSpec {
 /// can see". An author does not throw your sentence back at you; he deletes it.
 /// It also keeps the move from being strictly better than George's: reposition
 /// OR reflection, not both.
-fn the_second_draft() -> ambition_platformer2d::entity_catalog::MoveSpec {
-    ambition_platformer2d::characters::smash_counter::counter_move(
+fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
+    ambition_entity_catalog::smash_counter::counter_move(
         "author_second_draft",
         "special",
         // Faster to open than the riposte and shorter-lived: he is not blocking,
@@ -202,15 +202,15 @@ fn the_second_draft() -> ambition_platformer2d::entity_catalog::MoveSpec {
         0.05,
         0.14,
         0.42,
-        ambition_platformer2d::characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // A HEARTBEAT, not a duration — `parry_window_timer` decays and the
             // stance re-arms it every live frame. Three ticks of slack at 60Hz.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
-            response: ambition_platformer2d::characters::smash_teleport::TELEPORT.to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_platformer2d::characters::smash_teleport::TeleportParams {
+            response: ambition_entity_catalog::smash_teleport::TELEPORT.to_string(),
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_teleport::TeleportParams {
                     behind_nearest_foe: true,
                     // From the foe's EDGE, so he arrives the same distance behind
                     // a small body and a large one.
@@ -240,7 +240,7 @@ fn the_second_draft() -> ambition_platformer2d::entity_catalog::MoveSpec {
 }
 
 /// The Author's recovery: he edits himself out and back in somewhere else.
-fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
+fn authors_teleport() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
         "author_revision",
         "special_up",
@@ -249,10 +249,10 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     );
     let mut spec = spec;
     spec.display_name = Some("Revision".to_string());
-    let spec = ambition_characters::smash_teleport::author_teleport(
+    let spec = ambition_entity_catalog::smash_teleport::author_teleport(
         spec,
         TELEPORT_AT_S,
-        ambition_characters::smash_teleport::TeleportParams {
+        ambition_entity_catalog::smash_teleport::TeleportParams {
             // Aimed, like every recovery: any direction given between the
             // press and the transit at `TELEPORT_AT_S`, and straight up from a
             // player who gave none. That startup IS the aim window, which is
@@ -296,7 +296,7 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     // joins, so nothing else will stamp `gates.recovery` on it — and an up-B
     // that spends nothing is flight. Restating the rule here instead would put a
     // second copy of it beside the one place that decides it.
-    ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
+    ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
 #[cfg(test)]
@@ -345,13 +345,13 @@ mod tests {
             .iter()
             .find(|m| m.id == "author_train_of_thought")
             .expect("…and the move it names must be in the table");
-        let bolt: ambition_platformer2d::characters::smash_bolt::SteeredBoltParams = move_spec
+        let bolt: ambition_entity_catalog::smash_bolt::SteeredBoltParams = move_spec
             .events
             .iter()
             .find_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
                     if effect.key
-                        == ambition_platformer2d::characters::smash_bolt::STEERED_BOLT =>
+                        == ambition_entity_catalog::smash_bolt::STEERED_BOLT =>
                 {
                     effect.params.hydrate().ok()
                 }
@@ -402,12 +402,12 @@ mod tests {
             .find(|m| m.id == "author_second_draft")
             .expect("…and the move it names must be in the table");
 
-        let params: ambition_platformer2d::characters::smash_counter::CounterParams = counter
+        let params: ambition_entity_catalog::smash_counter::CounterParams = counter
             .windows
             .iter()
             .filter_map(|window| window.sustain_effect.as_ref())
             .find(|effect| {
-                effect.key == ambition_platformer2d::characters::smash_counter::COUNTER
+                effect.key == ambition_entity_catalog::smash_counter::COUNTER
             })
             .expect("the move holds a counter stance")
             .params
@@ -416,10 +416,10 @@ mod tests {
 
         assert_eq!(
             params.response,
-            ambition_platformer2d::characters::smash_teleport::TELEPORT,
+            ambition_entity_catalog::smash_teleport::TELEPORT,
             "his counter must answer with the teleport, not a grab"
         );
-        let teleport: ambition_platformer2d::characters::smash_teleport::TeleportParams =
+        let teleport: ambition_entity_catalog::smash_teleport::TeleportParams =
             params.response_params.hydrate().expect("teleport params hydrate");
         assert!(
             teleport.behind_nearest_foe,
@@ -475,7 +475,7 @@ mod tests {
             .expect("his up-B is in the table");
         assert_ne!(
             up.gates.recovery,
-            ambition_platformer2d::entity_catalog::RecoveryUse::None,
+            ambition_entity_catalog::RecoveryUse::None,
             "an up-B that costs nothing is flight"
         );
     }

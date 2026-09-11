@@ -70,7 +70,7 @@ pub struct TimeDilationParams {
 /// a move wants every complaint about it at once, which is the same reason
 /// `problems` returns a list rather than the first failure.
 pub fn check_time_dilation_params(
-    params: &ambition_entity_catalog::ParamValue,
+    params: &crate::ParamValue,
 ) -> Result<(), String> {
     let typed: TimeDilationParams = params.hydrate().map_err(|error| error.to_string())?;
     let problems = typed.problems();

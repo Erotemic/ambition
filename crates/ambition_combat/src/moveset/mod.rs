@@ -745,10 +745,10 @@ impl MovePlayback {
             .filter(|w| w.start_s <= self.t && self.t < w.end_s)
             .find_map(|w| {
                 let effect = w.sustain_effect.as_ref()?;
-                if effect.key != ambition_characters::smash_capture::CAPTURE_ATTEMPT {
+                if effect.key != ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT {
                     return None;
                 }
-                let params: ambition_characters::smash_capture::CaptureAttemptParams =
+                let params: ambition_entity_catalog::smash_capture::CaptureAttemptParams =
                     effect.params.hydrate().ok()?;
                 Some(ae::Vec2::new(params.reach_x(), params.reach_y()))
             })
@@ -3046,7 +3046,7 @@ pub fn trigger_moveset_moves(
     // The platform-fighter half of a hold, for the throw edge. Separate from
     // `captives` because the RELATION is generic and this is not: a ruleset
     // without a throw vocabulary carries no row here and arms nothing.
-    hold_states: Query<&ambition_characters::smash_capture::SmashHoldState>,
+    hold_states: Query<&ambition_characters::smash_hold_state::SmashHoldState>,
     // THE GUARD, and the body's own shield policy. Starting an action out of a
     // raised shield is a SPEND — see `OutOfShieldGate` — so this is taken
     // mutably and looked up by entity, the same shape the strike seam uses.

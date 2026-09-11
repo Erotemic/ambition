@@ -337,7 +337,7 @@ pub fn acquire_captures(
         // not grow because its captor pummelled — and it is why the seconds are
         // stored rather than asked for again every tick.
         commands.entity(victim).insert(
-            ambition_characters::smash_capture::SmashHoldState::lasting(
+            ambition_characters::smash_hold_state::SmashHoldState::lasting(
                 rules.grab_hold_seconds(
                     participants
                         .get(victim)
@@ -384,7 +384,7 @@ impl CaptureFacts {
         captives: &Query<(
             Entity,
             &CapturedBy,
-            Option<&ambition_characters::smash_capture::SmashHoldState>,
+            Option<&ambition_characters::smash_hold_state::SmashHoldState>,
         )>,
     ) -> Self {
         let held = captives.iter().find(|(entity, _, _)| *entity == body);
@@ -429,7 +429,7 @@ impl CaptureFacts {
 pub fn sample_capture_escape(
     mut captives: Query<
         (
-            &mut ambition_characters::smash_capture::SmashHoldState,
+            &mut ambition_characters::smash_hold_state::SmashHoldState,
             &ambition_characters::control::ActorControl,
         ),
         //  without this filter every body that has ever been captured keeps accumulating
@@ -474,7 +474,7 @@ pub fn arm_smash_throw_edge(
     captors: Query<(Entity, &ambition_characters::control::ActorControl)>,
     mut holds: Query<(
         &CapturedBy,
-        &mut ambition_characters::smash_capture::SmashHoldState,
+        &mut ambition_characters::smash_hold_state::SmashHoldState,
     )>,
 ) {
     if holds.is_empty() {
@@ -544,7 +544,7 @@ pub fn tick_capture_holds(
         // correct behaviour for a game that constrains bodies under different
         // rules, and is why the query REQUIRES it rather than treating absence
         // as zero and releasing everybody on the first tick.
-        &mut ambition_characters::smash_capture::SmashHoldState,
+        &mut ambition_characters::smash_hold_state::SmashHoldState,
         Option<&mut ae::ActorSurfaceState>,
         Option<&mut ambition_platformer2d_core::BodyGroundState>,
         Option<&mut ambition_characters::control::ControlHolds>,
@@ -672,8 +672,8 @@ mod tests {
     /// A hold built the way `acquire_captures` builds one, for a fixture that
     /// hands a body its relation directly.  NOT `SmashHoldState::default()`:
     /// that row's `escape_seconds` is `0.0`, which is a hold already over.
-    fn fresh_hold() -> ambition_characters::smash_capture::SmashHoldState {
-        ambition_characters::smash_capture::SmashHoldState::lasting(
+    fn fresh_hold() -> ambition_characters::smash_hold_state::SmashHoldState {
+        ambition_characters::smash_hold_state::SmashHoldState::lasting(
             crate::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
         )
     }
@@ -861,7 +861,7 @@ mod tests {
             );
             let held = *app
                 .world()
-                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
                 .expect("a held body carries the ruleset's hold state");
             (app, victim, held.escape_seconds)
         };
@@ -879,7 +879,7 @@ mod tests {
         app.update();
         assert_eq!(
             app.world()
-                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
                 .expect("still held")
                 .escape_seconds,
             hurt,
@@ -953,7 +953,7 @@ mod tests {
         app.update();
         let while_held = app
             .world()
-            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
             .expect("a held body carries the ruleset's hold state")
             .mash_credit;
         assert!(
@@ -968,7 +968,7 @@ mod tests {
         }
         let after_release = app
             .world()
-            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
             .expect("the state stays on the body, and that is fine")
             .mash_credit;
         assert_eq!(
@@ -1008,7 +1008,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
                 .is_some(),
             "the relation was inserted without this ruleset's half — the captive \
              has no hold clock and no escape accumulator, so the grab would last \
@@ -1625,7 +1625,7 @@ mod tests {
         assert_eq!(held.hold_offset_local, ae::Vec2::new(6.0, -18.0), "hoisted");
         assert!(
             app.world()
-                .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+                .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
                 .unwrap()
                 .carrying,
             "the hold did not become a carry"
@@ -1820,7 +1820,7 @@ mod tests {
                 // clock and nothing to mash out of.  built the way acquisition
                 // builds it — this app installs no `ResolvedCombatTuning`, so
                 // the deadline is the undeclared world's flat hold.
-                ambition_characters::smash_capture::SmashHoldState::lasting(
+                ambition_characters::smash_hold_state::SmashHoldState::lasting(
                     crate::rules::ResolvedCombatTuning::default().grab_hold_seconds(0),
                 ),
             ));
@@ -2012,7 +2012,7 @@ mod tests {
             .expect("the pummel released the grab it belongs to");
         let state = app
             .world()
-            .get::<ambition_characters::smash_capture::SmashHoldState>(victim)
+            .get::<ambition_characters::smash_hold_state::SmashHoldState>(victim)
             .expect("a held body carries this ruleset's hold state");
         assert_eq!(
             state.pummels_landed, 2,
@@ -2362,7 +2362,7 @@ pub fn finalize_new_capture_pose(
 /// that the release wins.
 pub fn apply_capture_carries(
     mut requests: MessageReader<crate::capture::CaptureCarryRequested>,
-    mut captives: Query<(&mut CapturedBy, &mut ambition_characters::smash_capture::SmashHoldState)>,
+    mut captives: Query<(&mut CapturedBy, &mut ambition_characters::smash_hold_state::SmashHoldState)>,
 ) {
     for request in requests.read() {
         for (mut held, mut hold) in &mut captives {
@@ -2378,7 +2378,7 @@ pub fn apply_capture_carries(
 pub fn restrict_captor_control(
     captives: Query<(
         &CapturedBy,
-        Option<&ambition_characters::smash_capture::SmashHoldState>,
+        Option<&ambition_characters::smash_hold_state::SmashHoldState>,
     )>,
     mut captors: Query<(Entity, &mut ambition_characters::control::ActorControl)>,
 ) {
@@ -2547,7 +2547,7 @@ pub fn apply_capture_pummels(
     mut requests: MessageReader<crate::capture::CapturePummelRequested>,
     mut captives: Query<(
         &CapturedBy,
-        &mut ambition_characters::smash_capture::SmashHoldState,
+        &mut ambition_characters::smash_hold_state::SmashHoldState,
         &mut ambition_characters::actor::BodyHealth,
     )>,
 ) {
@@ -2717,7 +2717,7 @@ pub fn apply_capture_throws(
 //     carries, captor control restriction, release, interruption, pummels:
 //     TWELVE systems, all in `crate::capture::systems`.
 //   * VOCABULARY — `CAPTURE_ATTEMPT`/`_CARRY`/`_PUMMEL`/`_THROW` and their param
-//     structs: `ambition_characters::smash_capture`, also engine-side.
+//     structs: `ambition_entity_catalog::smash_capture`, also engine-side.
 //   * TRANSLATION — one function, in the game.
 //
 // ⚠ THE OLD MODULE ARGUED FOR THE SPLIT and the argument does not survive its
@@ -2754,7 +2754,7 @@ pub fn translate_authored_capture_effects(
         // fall-through that stops recognising grabs.
         let ambition_characters::brain::action_set::SpecialActionSpec::Special(key) = spec;
         match key.as_str() {
-            ambition_characters::smash_capture::CAPTURE_ATTEMPT => {
+            ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT => {
                 // ⛔⛔ THIS COMMENT PROMISED A STARTUP CHECK THAT DOES NOT
                 // EXIST — corrected 2026-09-05 after ToothbrushAmbition counted
                 // the callers. It said a params typo "is a STARTUP error, not a
@@ -2779,7 +2779,7 @@ pub fn translate_authored_capture_effects(
                 // catalog), and the first step is smaller than it looks —
                 // something must tell the registry that anything exists at all
                 // before it can answer "`smash.teleprot` does not exist".
-                match params.hydrate::<ambition_characters::smash_capture::CaptureAttemptParams>() {
+                match params.hydrate::<ambition_entity_catalog::smash_capture::CaptureAttemptParams>() {
                     Ok(p) => attempts.write(super::CaptureAttemptRequested {
                         captor: message.actor,
                         offset: ambition_platformer2d_core::Vec2::new(p.offset.0, p.offset.1),
@@ -2792,7 +2792,7 @@ pub fn translate_authored_capture_effects(
                     }
                 };
             }
-            ambition_characters::smash_capture::CAPTURE_PUMMEL => match params.hydrate::<ambition_characters::smash_capture::CapturePummelParams>() {
+            ambition_entity_catalog::smash_capture::CAPTURE_PUMMEL => match params.hydrate::<ambition_entity_catalog::smash_capture::CapturePummelParams>() {
                 Ok(p) => {
                     pummels.write(super::CapturePummelRequested {
                         captor: message.actor,
@@ -2801,7 +2801,7 @@ pub fn translate_authored_capture_effects(
                 }
                 Err(err) => warn!("smash pummel params did not hydrate: {err}"),
             },
-            ambition_characters::smash_capture::CAPTURE_THROW => match params.hydrate::<ambition_characters::smash_capture::CaptureThrowParams>() {
+            ambition_entity_catalog::smash_capture::CAPTURE_THROW => match params.hydrate::<ambition_entity_catalog::smash_capture::CaptureThrowParams>() {
                 Ok(p) => {
                     throws.write(super::CaptureThrowRequested {
                         captor: message.actor,
@@ -2813,7 +2813,7 @@ pub fn translate_authored_capture_effects(
                 }
                 Err(err) => warn!("smash throw params did not hydrate: {err}"),
             },
-            ambition_characters::smash_capture::CAPTURE_CARRY => match params.hydrate::<ambition_characters::smash_capture::CaptureCarryParams>() {
+            ambition_entity_catalog::smash_capture::CAPTURE_CARRY => match params.hydrate::<ambition_entity_catalog::smash_capture::CaptureCarryParams>() {
                 Ok(p) => {
                     carries.write(super::CaptureCarryRequested {
                         captor: message.actor,

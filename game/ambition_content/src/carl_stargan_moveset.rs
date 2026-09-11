@@ -7,15 +7,15 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{SLASH_ARC_VFX, SLASH_POKE_VFX};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
+use ambition_entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
 use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, strike, strike_tag, tipper, vfx_at, vfx_cued, Tip,
@@ -47,7 +47,7 @@ pub fn reach_of(spec: &MoveSpec) -> f32 {
         .iter()
         .flat_map(|w| w.volumes.iter())
         .filter_map(|v| match v.shape {
-            ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+            ambition_entity_catalog::VolumeShape::Rect {
                 offset,
                 half_extents,
             } => Some(offset.0.abs() + half_extents.0),
@@ -66,7 +66,7 @@ pub fn points_forward(spec: &MoveSpec) -> bool {
         .iter()
         .flat_map(|w| w.volumes.iter())
         .any(|v| match v.shape {
-            ambition_platformer2d::entity_catalog::VolumeShape::Rect { offset, .. } => {
+            ambition_entity_catalog::VolumeShape::Rect { offset, .. } => {
                 offset.0.abs() >= 12.0
             }
             _ => false,
@@ -372,8 +372,8 @@ pub fn carl_stargan_moveset() -> MovesetContract {
             // ⭐ ROOTED, the rule every charge in the game follows: a wind-up
             // you could walk around with is a threat with no commitment.
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Special,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
+            gesture: ambition_entity_catalog::ChargeGesture::Special,
             // 1.45x at a full hold: 11 damage becomes 15, and the knockback with
             // it. Below the haymaker's 1.6 because this already covers the whole
             // page.
@@ -421,10 +421,10 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // carried through the pass and then he is not, so a whiffed slingshot leaves
     // him in the air with a fifth of a second of nothing — which is the punish
     // window the straight version also had and must not lose.
-    let side_b = ambition_characters::smash_homing::author_homing_dash(
+    let side_b = ambition_entity_catalog::smash_homing::author_homing_dash(
         side_b,
         0.18,
-        ambition_characters::smash_homing::HomingDashParams {
+        ambition_entity_catalog::smash_homing::HomingDashParams {
             // The impulse's own speed, kept.
             speed: 700.0,
             duration_s: 0.22,
@@ -751,7 +751,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::MoveEventKind;
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -840,7 +840,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// REACH IS BOUGHT WITH TIME, AS AN ASSERTION.
@@ -1038,13 +1038,13 @@ mod tests {
         let set = carl_stargan_moveset();
         let pass = find(&set, "planetary_orbit");
 
-        let homing: ambition_platformer2d::characters::smash_homing::HomingDashParams = pass
+        let homing: ambition_entity_catalog::smash_homing::HomingDashParams = pass
             .events
             .iter()
             .find_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
                     if effect.key
-                        == ambition_platformer2d::characters::smash_homing::HOMING_DASH =>
+                        == ambition_entity_catalog::smash_homing::HOMING_DASH =>
                 {
                     effect.params.hydrate().ok()
                 }

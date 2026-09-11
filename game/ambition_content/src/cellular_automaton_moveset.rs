@@ -14,15 +14,15 @@
 //! platform fighter, and the numbers say so.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{
+use ambition_entity_catalog::{
     AutolinkVolume, ClipBinding, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec,
     MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
@@ -100,7 +100,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        charge_gesture: ambition_platformer2d::entity_catalog::ChargeGesture::default(),
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         smash_charge: None,
         repeat: None,
         landing_lag_s: None,
@@ -633,7 +633,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// THE PULSE IS UNTOUCHED. Fifteen moves were written around it and the
@@ -699,12 +699,12 @@ mod tests {
             .find(|m| m.id == "generation_collapse")
             .expect("it has a grounded down special");
 
-        let holds: Vec<ambition_platformer2d::entity_catalog::AutolinkVolume> = collapse
+        let holds: Vec<ambition_entity_catalog::AutolinkVolume> = collapse
             .windows
             .iter()
             .flat_map(|w| w.volumes.iter())
             .filter_map(|v| match v.reaction {
-                Some(ambition_platformer2d::entity_catalog::VolumeReaction::Autolink(a)) => {
+                Some(ambition_entity_catalog::VolumeReaction::Autolink(a)) => {
                     Some(a)
                 }
                 _ => None,

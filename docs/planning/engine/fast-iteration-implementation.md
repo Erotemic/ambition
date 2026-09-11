@@ -122,6 +122,15 @@ inspect the corresponding import bodies. A6 supplies the field responsibility ma
    values through golden or direct structural comparison. Changes to game feel
    are not bundled with this ownership move.
 
+✅ **STEP 1 COMPLETED 2026-09-11 in two passes, and the first pass was too
+narrow.** `moveset_authoring.rs` moved first; the vocabulary shipped tables are
+actually built from did not. The second pass moved the twenty `smash_*` modules
+(captures, repertoires, counters, tethers, portals, 4,767 lines) after measuring
+that every one of them names `bevy` only inside comments, and split
+`SmashHoldState` — a rollback-registered `Component`, the single derive pinning
+the family — into `ambition_characters::smash_hold_state`. Receipt, numbers and
+the poison in [queue.md](../queue.md).
+
 **Proposed output locations:**
 `crates/ambition_entity_catalog/src/authoring.rs`;
 <!-- cite-ok: proposed file to be created by I1, not source evidence. -->

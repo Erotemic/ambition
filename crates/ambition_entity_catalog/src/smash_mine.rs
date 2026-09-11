@@ -23,7 +23,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
+use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 
 /// The authored effect key. Namespaced like every other smash technique so an
 /// unrecognised key falls through other rulesets untouched.
@@ -70,7 +70,7 @@ pub struct PlaceMineParams {
 /// ⚠ Malformed params name nothing here: whether they hydrate is
 /// `TechniqueParams::Checked`'s question, asked on the same effect by the same
 /// pass.
-pub fn mine_held_item_refs(effect: &ambition_entity_catalog::EffectRef) -> Vec<String> {
+pub fn mine_held_item_refs(effect: &crate::EffectRef) -> Vec<String> {
     effect
         .params
         .hydrate::<PlaceMineParams>()

@@ -17,7 +17,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_homing::{HomingDashParams, HOMING_DASH};
+use ambition_platformer2d::entity_catalog::smash_homing::{HomingDashParams, HOMING_DASH};
 use ambition_platformer2d::engine_core as ae;
 
 /// A fighter currently being carried at a target.

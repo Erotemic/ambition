@@ -190,7 +190,7 @@ fn presentation_census(world: &mut World) -> String {
 fn drawn_row_of(
     sheet_keys: &std::collections::HashMap<String, String>,
     worn: Option<&str>,
-    playing: Option<&ambition_platformer2d::entity_catalog::MoveSpec>,
+    playing: Option<&ambition_entity_catalog::MoveSpec>,
     on_ground: Option<bool>,
 ) -> Option<(String, u32, bool)> {
     use ambition_platformer2d::sprite_sheet::character::sheets::{
@@ -740,7 +740,7 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
 fn moveset_of(
     app: &mut App,
     character: &str,
-) -> Option<ambition_platformer2d::entity_catalog::MovesetContract> {
+) -> Option<ambition_entity_catalog::MovesetContract> {
     app.world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
@@ -753,12 +753,12 @@ fn moveset_of(
 /// ⭐ THE AUTHORING, NOT THE RECORDING. It is the only independent answer the
 /// tool has to "should this take show any offence at all", which is what makes
 /// it usable to check the recording rather than to describe it.
-fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bool {
+fn authors_offense(spec: &ambition_entity_catalog::MoveSpec) -> bool {
     spec.windows.iter().any(|w| !w.volumes.is_empty())
         || spec.events.iter().any(|e| {
             matches!(
                 e.kind,
-                ambition_platformer2d::entity_catalog::MoveEventKind::Ranged
+                ambition_entity_catalog::MoveEventKind::Ranged
             )
         })
 }

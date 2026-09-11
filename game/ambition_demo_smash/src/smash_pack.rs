@@ -4,7 +4,7 @@
 //! prepares George's platform-fighter facet. George's authored values live with
 //! the character in the sprite-authoring submodule; this demo selects them.
 
-use ambition_platformer2d::characters::smash_capture::SmashCaptureRepertoire;
+use ambition_platformer2d::entity_catalog::smash_capture::SmashCaptureRepertoire;
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
 use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
 use ambition_platformer2d::content::{CompileFailure, PreparedContentPack};

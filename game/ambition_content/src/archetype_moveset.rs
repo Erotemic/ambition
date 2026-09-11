@@ -17,7 +17,7 @@
 //! data stays the archetype's and the NAMES become the borrower's, so a fighter
 //! that later wants its own jab replaces one move rather than forking a file.
 
-use ambition_platformer2d::entity_catalog::MovesetContract;
+use ambition_entity_catalog::MovesetContract;
 
 /// The archetype's table with every move id re-prefixed for the fighter that
 /// borrows it.

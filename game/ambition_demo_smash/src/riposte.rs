@@ -44,7 +44,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+use ambition_platformer2d::entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
 use ambition_platformer2d::engine_core as ae;
 
 /// Cut in front of whoever a riposte was answered on.

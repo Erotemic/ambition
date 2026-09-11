@@ -305,7 +305,7 @@ existing seams.
 | Body contact | Fighter jostle/body pushback | movement sweep/body contact |
 | Footstool | Grounded/airborne victim reactions and phantom-footstool behavior | `combat/src/footstool.rs` |
 | Ledge | Grab, intangibility, climb/roll/attack/jump getups, trump ownership, drop-through | `ledge_grab`, `ledge_trump` |
-| Capture | Grab relationship, shield bypass, pummel, four throws, mash escape, damage-scaled hold time | `ambition_combat::capture`, `characters/smash_capture.rs` |
+| Capture | Grab relationship, shield bypass, pummel, four throws, mash escape, damage-scaled hold time | `ambition_combat::capture`, `entity_catalog/src/smash_capture.rs` |
 | Dash grab | A running grab is derived from each fighter's standing grab | `SmashCaptureRepertoire`, `grab_dash` |
 | Match | Stocks, blast zones, elimination, timer, stock/damage timeout tiebreak | `ambition_combat::stocks`, `features/stocks_match.rs` |
 | Teams | Friendly-fire policy exists in match combat rules | `DeclaredCombatRules::friendly_fire` |

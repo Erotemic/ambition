@@ -4180,7 +4180,7 @@ fn capture_context_app_in(
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState {
+            ambition_characters::smash_hold_state::SmashHoldState {
                 throw_armed: true,
                 ..Default::default()
             },
@@ -6649,7 +6649,7 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
             prior_gravity_scale: 1.0,
         },
         // As acquisition writes it. THE FIXTURE DOES NOT ARM THIS.
-        ambition_characters::smash_capture::SmashHoldState::default(),
+        ambition_characters::smash_hold_state::SmashHoldState::default(),
     ));
 
     let set_axis = |app: &mut App, axis: ae::LocalAxes| {
@@ -6740,7 +6740,7 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
             },
-            ambition_characters::smash_capture::SmashHoldState::default(),
+            ambition_characters::smash_hold_state::SmashHoldState::default(),
         ));
         app.update();
         played(&app, captor)

@@ -6,20 +6,20 @@
 //! techniques rather than hit definitions.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::MovesetContract;
+use ambition_entity_catalog::MovesetContract;
 
 use ambition_entity_catalog::authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
-use ambition_platformer2d::entity_catalog::ImpulseMode;
+use ambition_entity_catalog::ImpulseMode;
 
 /// See the module doc. Eleven moves, the genre's standard verb map.
 pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
@@ -266,7 +266,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         0.10,
         0.30,
         &["special_forward"],
-        ambition_platformer2d::entity_catalog::CancelCondition::OnHit,
+        ambition_entity_catalog::CancelCondition::OnHit,
     );
     let n_b = committed_tail(n_b, 0.62, 0.0);
     let n_b = vfx_at(n_b, 0.02, "oni_eye_flash", (0.0, -10.0), 0.8);
@@ -319,15 +319,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // not), then ask whether a guard ate it, and if so spend his own teleport.
     // The flow owns its cursor and nothing else — the teleport is the same
     // technique his own counter answers with.
-    let side_b = ambition_platformer2d::entity_catalog::MoveSpec {
-        flow: Some(ambition_platformer2d::entity_catalog::TechniqueFlow {
+    let side_b = ambition_entity_catalog::MoveSpec {
+        flow: Some(ambition_entity_catalog::TechniqueFlow {
             nodes: vec![
                 // 0 — hold until the swing touches something. ⛔ THE TIMEOUT IS
                 // PAST THE ACTIVE WINDOW (0.05 + 0.05) and short of the tail: a
                 // swing that touched nothing by then whiffed, and a whiff is
                 // supposed to be punishable.
-                ambition_platformer2d::entity_catalog::FlowNode::Wait {
-                    on: ambition_platformer2d::entity_catalog::FlowSignal::Overlapped,
+                ambition_entity_catalog::FlowNode::Wait {
+                    on: ambition_entity_catalog::FlowSignal::Overlapped,
                     timeout_s: 0.16,
                     then: 1,
                     on_timeout: 3,
@@ -335,18 +335,18 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
                 // 1 — a guard, or a body? ⛔ A BRANCH RATHER THAN A SECOND WAIT:
                 // by here the contact is resolved and the answer cannot change,
                 // which is the distinction `FlowNode::Branch`'s doc draws.
-                ambition_platformer2d::entity_catalog::FlowNode::Branch {
-                    on: ambition_platformer2d::entity_catalog::FlowSignal::Blocked,
+                ambition_entity_catalog::FlowNode::Branch {
+                    on: ambition_entity_catalog::FlowSignal::Blocked,
                     then: 2,
                     otherwise: 3,
                 },
                 // 2 — behind them, through the guard he just fed.
-                ambition_platformer2d::entity_catalog::FlowNode::Emit {
-                    effect: ambition_platformer2d::entity_catalog::EffectRef {
-                        key: ambition_platformer2d::characters::smash_teleport::TELEPORT
+                ambition_entity_catalog::FlowNode::Emit {
+                    effect: ambition_entity_catalog::EffectRef {
+                        key: ambition_entity_catalog::smash_teleport::TELEPORT
                             .to_string(),
-                        params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                            &ambition_platformer2d::characters::smash_teleport::TeleportParams {
+                        params: ambition_entity_catalog::ParamValue::from_typed(
+                            &ambition_entity_catalog::smash_teleport::TeleportParams {
                                 behind_nearest_foe: true,
                                 behind_gap: 26.0,
                                 // Whoever just blocked him is within his own
@@ -366,7 +366,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
                     },
                     then: 3,
                 },
-                ambition_platformer2d::entity_catalog::FlowNode::Finish,
+                ambition_entity_catalog::FlowNode::Finish,
             ],
         }),
         ..side_b
@@ -424,7 +424,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // by standing next to somebody while rooted for 0.6s; this is handed over by
     // a successful parry, which is already a full punish. Half her duration is
     // still a free smash and does not read as a stun-lock.
-    let down_b = ambition_characters::smash_counter::counter_move(
+    let down_b = ambition_entity_catalog::smash_counter::counter_move(
         "command_seal",
         "attack_down",
         // His original 0.06s tell, kept: *"a leader's hardest order is the one
@@ -435,15 +435,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         // and the reads it would demand are not reads, they are guesses.
         0.10,
         0.36,
-        ambition_characters::smash_counter::CounterParams {
+        ambition_entity_catalog::smash_counter::CounterParams {
             // A heartbeat, not a duration: `parry_window_timer` decays and the
             // stance re-arms it every live frame.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
-            response: ambition_characters::smash_sleep::SLEEP.to_string(),
-            response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                &ambition_characters::smash_sleep::SleepParams {
+            response: ambition_entity_catalog::smash_sleep::SLEEP.to_string(),
+            response_params: ambition_entity_catalog::ParamValue::from_typed(
+                &ambition_entity_catalog::smash_sleep::SleepParams {
                     duration_s: 0.7,
                     // Tight and centred on the seal: the smoke catches whoever
                     // was close enough to swing at him, which by construction is
@@ -644,7 +644,7 @@ mod answer_tests {
     /// version that changes the whole matchup.
     #[test]
     fn the_shadow_answer_confirms_on_a_hit_and_not_on_a_block() {
-        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        use ambition_entity_catalog::{CancelCondition, WindowTag};
         let answer = ninja_shadow_oni_leader_moveset()
             .move_by_id("shadow_answer")
             .expect("shadow_answer exists")
@@ -695,7 +695,7 @@ mod tests {
     /// nothing validates is worse than no flow.
     #[test]
     fn the_onis_iaijutsu_authors_a_flow_that_validates_and_escapes_only_on_block() {
-        use ambition_platformer2d::entity_catalog::{FlowNode, FlowSignal};
+        use ambition_entity_catalog::{FlowNode, FlowSignal};
         let set = super::ninja_shadow_oni_leader_moveset();
         let side_b = set
             .moves
@@ -746,7 +746,7 @@ mod tests {
     }
 
     use super::*;
-    use ambition_platformer2d::entity_catalog::{MoveSpec, MoveWindow, WindowTag};
+    use ambition_entity_catalog::{MoveSpec, MoveWindow, WindowTag};
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -795,7 +795,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// THE SHADOW ANSWERS: he is quicker to start than the quickest body that
@@ -909,12 +909,12 @@ mod tests {
         let set = ninja_shadow_oni_leader_moveset();
         let seal = find(&set, "command_seal");
 
-        let params: ambition_platformer2d::characters::smash_counter::CounterParams = seal
+        let params: ambition_entity_catalog::smash_counter::CounterParams = seal
             .windows
             .iter()
             .filter_map(|window| window.sustain_effect.as_ref())
             .find(|effect| {
-                effect.key == ambition_platformer2d::characters::smash_counter::COUNTER
+                effect.key == ambition_entity_catalog::smash_counter::COUNTER
             })
             .expect("the seal holds a counter stance")
             .params
@@ -938,10 +938,10 @@ mod tests {
         // reason three counters on one roster are three different moves.
         assert_eq!(
             params.response,
-            ambition_platformer2d::characters::smash_sleep::SLEEP,
+            ambition_entity_catalog::smash_sleep::SLEEP,
             "the seal must answer with the sleep pulse"
         );
-        let sleep: ambition_platformer2d::characters::smash_sleep::SleepParams =
+        let sleep: ambition_entity_catalog::smash_sleep::SleepParams =
             params.response_params.hydrate().expect("sleep params hydrate");
 
         // ⛔ SHORTER THAN THE PERFORMER'S, and the comparison is the point rather
@@ -949,7 +949,7 @@ mod tests {
         // rooted, and this is handed over by a successful parry, which is already
         // a full punish. A guaranteed sleep must not also be the longest one.
         let monologue = crate::performer_moveset::performer_moveset();
-        let hers: ambition_platformer2d::characters::smash_sleep::SleepParams = monologue
+        let hers: ambition_entity_catalog::smash_sleep::SleepParams = monologue
             .moves
             .iter()
             .find(|m| m.id == "performer_monologue")
@@ -957,8 +957,8 @@ mod tests {
             .events
             .iter()
             .find_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
-                    if effect.key == ambition_platformer2d::characters::smash_sleep::SLEEP =>
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
+                    if effect.key == ambition_entity_catalog::smash_sleep::SLEEP =>
                 {
                     effect.params.hydrate().ok()
                 }
@@ -980,7 +980,7 @@ mod tests {
             .events
             .iter()
             .filter_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Vfx { effect, .. } => {
+                ambition_entity_catalog::MoveEventKind::Vfx { effect, .. } => {
                     Some(effect.as_str())
                 }
                 _ => None,
@@ -1006,10 +1006,10 @@ mod tests {
             .events
             .iter()
             .filter_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Vfx { effect, .. } => {
+                ambition_entity_catalog::MoveEventKind::Vfx { effect, .. } => {
                     Some(effect.clone())
                 }
-                ambition_platformer2d::entity_catalog::MoveEventKind::Sfx { cue } => {
+                ambition_entity_catalog::MoveEventKind::Sfx { cue } => {
                     Some(cue.clone())
                 }
                 _ => None,

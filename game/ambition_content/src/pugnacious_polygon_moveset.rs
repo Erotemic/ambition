@@ -6,15 +6,15 @@
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::authoring::{committed_tail, gravity_modifier, impulse, strike};
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_entity_catalog::{ImpulseMode, MovesetContract};
 
 pub fn pugnacious_polygon_moveset() -> MovesetContract {
     let jab = strike(Strike {
@@ -77,7 +77,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         0.09,
         0.19,
         &["polygon_brawler_jab2"],
-        ambition_platformer2d::entity_catalog::CancelCondition::OnHit,
+        ambition_entity_catalog::CancelCondition::OnHit,
     );
     let forward_tilt = strike(Strike {
         id: "polygon_brawler_tilt_forward",
@@ -299,9 +299,9 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
             // tell the opponent is reading, and a charge you could walk around
             // with would be a threat with no commitment behind it.
             roots: true,
-            sustain: ambition_platformer2d::entity_catalog::ChargeSustain::WhileHeld,
+            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
             // The button that charges it is the SPECIAL, not a smash gesture.
-            gesture: ambition_platformer2d::entity_catalog::ChargeGesture::Special,
+            gesture: ambition_entity_catalog::ChargeGesture::Special,
             // 1.6x at a full hold — 13 damage becomes 20, and the knockback too.
             multiplier: 1.6,
         },
@@ -424,12 +424,12 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     // it is also the right move here: a directional slam that covered both sides
     // would beat a shield in front AND punish a wake-up behind, which is two
     // options on one button.
-    let grounded_down_special = ambition_characters::smash_riposte::author_cut(
+    let grounded_down_special = ambition_entity_catalog::smash_riposte::author_cut(
         grounded_down_special,
         // Just after the fists land (startup 0.13 + the tail's shift): the shock
         // is a consequence of the impact and must read as one.
         0.24,
-        ambition_characters::smash_riposte::RiposteStrikeParams {
+        ambition_entity_catalog::smash_riposte::RiposteStrikeParams {
             // Weaker than the 11 the slam itself deals: the shock is the reach,
             // not the payoff.
             damage: 6,
@@ -585,7 +585,7 @@ mod tests {
     /// tail, and the fists are the move.
     #[test]
     fn his_ground_slam_sends_a_shock_that_outreaches_the_fists_and_hits_softer() {
-        use ambition_characters::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
+        use ambition_entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
 
         let set = pugnacious_polygon_moveset();
         let slam = set
@@ -598,7 +598,7 @@ mod tests {
             .events
             .iter()
             .find_map(|event| match &event.kind {
-                ambition_platformer2d::entity_catalog::MoveEventKind::Effect(effect)
+                ambition_entity_catalog::MoveEventKind::Effect(effect)
                     if effect.key == RIPOSTE_STRIKE =>
                 {
                     effect.params.hydrate().ok()
@@ -713,7 +713,7 @@ mod tests {
             .windows
             .iter()
             .filter_map(|window| window.sustain_effect.as_ref())
-            .find(|effect| effect.key == ambition_characters::smash_capture::CAPTURE_ATTEMPT)
+            .find(|effect| effect.key == ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT)
             .and_then(|effect| effect.params.hydrate().ok())
             .unwrap_or_else(|| panic!("`{id}` carries no capture attempt"))
     }
@@ -768,7 +768,7 @@ mod tests {
     /// descent it exists to give him is over before he starts falling.
     #[test]
     fn the_uppercut_leaves_him_floating_for_longer_than_the_move_lasts() {
-        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        use ambition_entity_catalog::MoveEventKind;
         let moves = pugnacious_polygon_moveset();
         let up = moves
             .moves

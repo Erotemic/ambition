@@ -6,15 +6,15 @@
 //! cue overrides live here with the authored moves.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
+use ambition_entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
 use ambition_entity_catalog::authoring::{
     committed_tail, fixed_knockback, impulse, on_contact, strike, vfx_at, vfx_cued,
@@ -489,22 +489,22 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // not their walking, which `smash_time_dilation`'s header states.
     let down_b = {
         let mut spec = down_b;
-        spec.windows.push(ambition_platformer2d::entity_catalog::MoveWindow {
+        spec.windows.push(ambition_entity_catalog::MoveWindow {
             start_s: 0.0,
             end_s: 0.20,
-            tag: ambition_platformer2d::entity_catalog::WindowTag::Active,
+            tag: ambition_entity_catalog::WindowTag::Active,
             volumes: Vec::new(),
             motion_scale: 1.0,
-            sustain_effect: Some(ambition_platformer2d::entity_catalog::EffectRef {
-                key: ambition_platformer2d::characters::smash_counter::COUNTER.to_string(),
-                params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                    &ambition_platformer2d::characters::smash_counter::CounterParams {
+            sustain_effect: Some(ambition_entity_catalog::EffectRef {
+                key: ambition_entity_catalog::smash_counter::COUNTER.to_string(),
+                params: ambition_entity_catalog::ParamValue::from_typed(
+                    &ambition_entity_catalog::smash_counter::CounterParams {
                         window_s: 0.05,
                         answers_the_attacker: true,
-                        response: ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION
+                        response: ambition_entity_catalog::smash_time_dilation::TIME_DILATION
                             .to_string(),
-                        response_params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(
-                            &ambition_platformer2d::characters::smash_time_dilation::TimeDilationParams {
+                        response_params: ambition_entity_catalog::ParamValue::from_typed(
+                            &ambition_entity_catalog::smash_time_dilation::TimeDilationParams {
                                 scale: 0.35,
                                 seconds: 0.45,
                             },
@@ -707,8 +707,8 @@ mod tests {
     /// exists to make impossible to author by accident.
     #[test]
     fn the_clerks_windup_desyncs_the_clock_of_whoever_swings_into_it() {
-        use ambition_platformer2d::characters::smash_counter::{CounterParams, COUNTER};
-        use ambition_platformer2d::characters::smash_time_dilation::{
+        use ambition_entity_catalog::smash_counter::{CounterParams, COUNTER};
+        use ambition_entity_catalog::smash_time_dilation::{
             TimeDilationParams, TIME_DILATION,
         };
         let set = super::patent_clerk_moveset();
@@ -755,7 +755,7 @@ mod tests {
     }
 
     use super::*;
-    use ambition_platformer2d::entity_catalog::{MoveSpec, WindowTag};
+    use ambition_entity_catalog::{MoveSpec, WindowTag};
 
     fn find(set: &MovesetContract, id: &str) -> MoveSpec {
         set.moves
@@ -797,7 +797,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.

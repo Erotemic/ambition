@@ -19,15 +19,15 @@
 //! The day she gets her own art, this file is where the names change and nothing else does.
 
 use ambition_entity_catalog::authoring::Strike;
-use ambition_characters::smash_capture::{
+use ambition_entity_catalog::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{
+use ambition_entity_catalog::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
+use ambition_entity_catalog::{AutolinkVolume, ImpulseMode, MovesetContract};
 
 use ambition_entity_catalog::authoring::{
     armor, committed_tail, impulse, multihit, on_contact, sfx, strike, vfx_at, Pulse,
@@ -354,10 +354,10 @@ pub fn alice_moveset() -> MovesetContract {
     up_b.landing_lag_s = Some(0.22);
     // ⭐ THE PAIR OPENS ON THE SAME BEAT THE IMPULSE USED TO FIRE, so the
     // move's timing is untouched: the rune draws, and the way up is there.
-    let up_b = ambition_characters::smash_portal::author_portal_pair(
+    let up_b = ambition_entity_catalog::smash_portal::author_portal_pair(
         up_b,
         0.07,
-        ambition_characters::smash_portal::PortalPairParams {
+        ambition_entity_catalog::smash_portal::PortalPairParams {
             // ⛔⛔ IT WAS 320 AND THAT PUT THE EXIT ABOVE THE STAGE'S CEILING.
             // Jon, 2026-09-05, playing it: *"the second portal appears too high,
             // I want it to be placed so its above the main surface level, but in
@@ -627,7 +627,7 @@ mod tests {
     /// that move.
     #[test]
     fn her_one_time_pad_is_armoured_only_while_she_winds_up() {
-        use ambition_platformer2d::entity_catalog::WindowTag;
+        use ambition_entity_catalog::WindowTag;
         let pad = alice_moveset()
             .move_by_id("one_time_pad")
             .expect("one_time_pad exists")
@@ -669,7 +669,7 @@ mod tests {
     /// is the only way that failure is visible from here.
     #[test]
     fn her_hash_collision_holds_twice_and_launches_once() {
-        use ambition_platformer2d::entity_catalog::VolumeReaction;
+        use ambition_entity_catalog::VolumeReaction;
         let collision = alice_moveset()
             .move_by_id("hash_collision")
             .expect("hash_collision exists")
@@ -716,7 +716,7 @@ mod tests {
     // with no `Default` and no private fields, so a missing or renamed slot is a
     // COMPILE error here. What the fourteen copies stood for — that every press
     // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// Alice is not Bob with different names. The pair's split is the
@@ -733,7 +733,7 @@ mod tests {
                 .iter()
                 .flat_map(|w| w.volumes.iter())
                 .map(|v| match v.shape {
-                    ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+                    ambition_entity_catalog::VolumeShape::Rect {
                         offset,
                         half_extents,
                     } => offset.0.abs() + half_extents.0,
@@ -764,8 +764,8 @@ mod tests {
 
 #[cfg(test)]
 mod portal_recovery_tests {
-    use ambition_characters::smash_portal::{PortalPairParams, PORTAL_PAIR};
-    use ambition_platformer2d::entity_catalog::MoveEventKind;
+    use ambition_entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
+    use ambition_entity_catalog::MoveEventKind;
 
     /// Her up-B opens a portal pair, and does NOT also throw an impulse.
     ///
@@ -808,7 +808,7 @@ mod portal_recovery_tests {
         // `Effect { key: contains("impulse") }`, which cannot match anything —
         // poisoning the impulse back in left the test GREEN, and that is the
         // only reason this line is right.
-        let thrown: Vec<(f32, &ambition_platformer2d::entity_catalog::ImpulseMode)> = up_b
+        let thrown: Vec<(f32, &ambition_entity_catalog::ImpulseMode)> = up_b
             .events
             .iter()
             .filter_map(|ev| match &ev.kind {

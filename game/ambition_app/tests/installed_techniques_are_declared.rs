@@ -47,26 +47,26 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
     // declared their keys, no strict unknown-key pass could be turned on: it
     // would have refused every authored use of them.
     for expected in [
-        ambition_platformer2d::characters::smash_teleport::TELEPORT,
-        ambition_platformer2d::characters::smash_vitality::VITALITY,
-        ambition_platformer2d::characters::smash_trapdoor::TRAPDOOR,
-        ambition_platformer2d::characters::smash_flyline::FLYLINE,
-        ambition_platformer2d::characters::smash_sleep::SLEEP,
-        ambition_platformer2d::characters::smash_portal::PORTAL_PAIR,
-        ambition_platformer2d::characters::smash_bolt::STEERED_BOLT,
-        ambition_platformer2d::characters::smash_homing::HOMING_DASH,
-        ambition_platformer2d::characters::smash_riposte::RIPOSTE_STRIKE,
-        ambition_platformer2d::characters::smash_tether::TETHER_PULL,
-        ambition_platformer2d::characters::smash_spring::PLACE_SPRING,
-        ambition_platformer2d::characters::smash_mine::PLACE_MINE,
-        ambition_platformer2d::characters::smash_counter::COUNTER,
-        ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
-        ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+        ambition_platformer2d::entity_catalog::smash_teleport::TELEPORT,
+        ambition_platformer2d::entity_catalog::smash_vitality::VITALITY,
+        ambition_platformer2d::entity_catalog::smash_trapdoor::TRAPDOOR,
+        ambition_platformer2d::entity_catalog::smash_flyline::FLYLINE,
+        ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
+        ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
+        ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
+        ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
+        ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
+        ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
+        ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
+        ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
+        ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
+        ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
+        ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
         // One handler, four keys — the shape that needed `install_techniques`.
-        ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT,
-        ambition_platformer2d::characters::smash_capture::CAPTURE_CARRY,
-        ambition_platformer2d::characters::smash_capture::CAPTURE_PUMMEL,
-        ambition_platformer2d::characters::smash_capture::CAPTURE_THROW,
+        ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_ATTEMPT,
+        ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_CARRY,
+        ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_PUMMEL,
+        ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_THROW,
         // ⛔ THESE THREE WERE MISSED BY THE FIRST SWEEP, and the miss is worth
         // recording: their handlers test `if key != KEY` while the others write
         // `if key.as_str() != KEY`, so a grep keyed on one spelling found
@@ -74,9 +74,9 @@ fn the_shipped_composition_declares_the_techniques_it_installs() {
         // (`hit.effect.key`), a different shape again — and it shares its
         // registration block with the mine, which is why that block declares
         // TWO keys through `install_techniques`.
-        ambition_platformer2d::characters::smash_limit::FILL_METER,
-        ambition_platformer2d::characters::smash_mark::MARK_BODY,
-        ambition_platformer2d::characters::smash_time_dilation::TIME_DILATION,
+        ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
+        ambition_platformer2d::entity_catalog::smash_mark::MARK_BODY,
+        ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
         // ⛔⛔ THE ENGINE'S OWN TECHNIQUE, AND THE ONE THE CORPUS CAUGHT. 36
         // characters author `pogo_bounce` on `attack_air_down` and nothing
         // declared it — invisible to a `smash.`-scoped search, because it is not
@@ -120,15 +120,15 @@ fn the_techniques_that_name_other_definitions_declare_that_they_do() {
 
     for (key, expected) in [
         (
-            ambition_platformer2d::characters::smash_ride::SUMMON_RIDE,
+            ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
             "a character",
         ),
         (
-            ambition_platformer2d::characters::smash_bomb::DROP_BOMB,
+            ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
             "a held item",
         ),
         (
-            ambition_platformer2d::characters::smash_mine::PLACE_MINE,
+            ambition_platformer2d::entity_catalog::smash_mine::PLACE_MINE,
             "a held item",
         ),
     ] {
@@ -163,7 +163,7 @@ fn a_misspelled_technique_key_is_refused_by_the_shipped_composition() {
         .expect("the composition declares its techniques")
         .0;
 
-    let real = ambition_platformer2d::characters::smash_teleport::TELEPORT;
+    let real = ambition_platformer2d::entity_catalog::smash_teleport::TELEPORT;
     let typo = "smash.teleprot";
     assert!(
         installed.offer(real).is_some(),

@@ -923,7 +923,7 @@ fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
 mod nested_references {
     use super::*;
     use crate::prepared::unsupported_authored_effects;
-    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
         TechniqueParams, TechniqueSupport,
@@ -938,7 +938,7 @@ mod nested_references {
                 TechniqueOffer {
                     owner: "test::shark_ride",
                     params: TechniqueParams::Checked(
-                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                        check_hydrates::<ambition_entity_catalog::smash_ride::SummonRideParams>,
                     ),
                     references: NestedReferences::Characters(summon_ride_character_refs),
                     delivery: TechniqueDelivery::Action,
@@ -1093,7 +1093,7 @@ mod nested_references {
 mod withholding {
     use super::*;
     use crate::prepared::{admit_and_finalize_cast, CharacterCatalogGeneration};
-    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
         TechniqueParams, TechniqueSupport,
@@ -1107,7 +1107,7 @@ mod withholding {
                 TechniqueOffer {
                     owner: "test::shark_ride",
                     params: TechniqueParams::Checked(
-                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                        check_hydrates::<ambition_entity_catalog::smash_ride::SummonRideParams>,
                     ),
                     references: NestedReferences::Characters(summon_ride_character_refs),
                     delivery: TechniqueDelivery::Action,
@@ -1404,7 +1404,7 @@ mod withholding {
 // owner document says explicitly is insufficient. GPT review #9 named it.
 // ---------------------------------------------------------------------------
 mod domain_semantics {
-    use crate::smash_time_dilation::{check_time_dilation_params, TimeDilationParams};
+    use ambition_entity_catalog::smash_time_dilation::{check_time_dilation_params, TimeDilationParams};
     use ambition_entity_catalog::{check_hydrates, ParamValue};
 
     fn params(ron_text: &str) -> ParamValue {
@@ -1473,7 +1473,7 @@ mod revision_activation {
         activate_staged_revision, admit_and_finalize_cast, CharacterCatalogGeneration,
         PreparedCharacterRegistry, RevisionOutcome, StagedCastRevision,
     };
-    use crate::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+    use ambition_entity_catalog::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
         TechniqueParams, TechniqueSupport,
@@ -1487,7 +1487,7 @@ mod revision_activation {
                 TechniqueOffer {
                     owner: "test::shark_ride",
                     params: TechniqueParams::Checked(
-                        check_hydrates::<crate::smash_ride::SummonRideParams>,
+                        check_hydrates::<ambition_entity_catalog::smash_ride::SummonRideParams>,
                     ),
                     references: NestedReferences::Characters(summon_ride_character_refs),
                     delivery: TechniqueDelivery::Action,
@@ -1679,7 +1679,7 @@ mod held_item_references {
     use super::*;
     use crate::brain::action_set::{held_item_by_id, held_item_ids};
     use crate::prepared::unsupported_authored_effects;
-    use crate::smash_bomb::{bomb_held_item_refs, DropBombParams, DROP_BOMB};
+    use ambition_entity_catalog::smash_bomb::{bomb_held_item_refs, DropBombParams, DROP_BOMB};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
         TechniqueParams, TechniqueSupport,
@@ -1810,11 +1810,11 @@ mod nonfinite_params {
         let mut support = TechniqueSupport::default();
         support
             .declare(
-                crate::smash_limit::FILL_METER,
+                ambition_entity_catalog::smash_limit::FILL_METER,
                 TechniqueOffer {
                     owner: "test::limit",
                     params: TechniqueParams::Checked(
-                        check_hydrates::<crate::smash_limit::FillMeterParams>,
+                        check_hydrates::<ambition_entity_catalog::smash_limit::FillMeterParams>,
                     ),
                     references: NestedReferences::None,
                     delivery: TechniqueDelivery::Either,
@@ -1826,7 +1826,7 @@ mod nonfinite_params {
 
     fn probe(text: &str) -> Result<(), TechniqueRefusal> {
         support().admit(&EffectRef {
-            key: crate::smash_limit::FILL_METER.to_string(),
+            key: ambition_entity_catalog::smash_limit::FILL_METER.to_string(),
             params: ParamValue::parse(text).expect("the fixture params are valid RON"),
         })
     }
@@ -1908,7 +1908,7 @@ mod nonfinite_params {
 /// it: the helper asserts on it, the declaration refuses on it. That is what
 /// makes these tests worth having — they hold the two roads to the same answer.
 mod bolt_domain_rules {
-    use crate::smash_bolt::{check_steered_bolt_params, SteeredBoltParams};
+    use ambition_entity_catalog::smash_bolt::{check_steered_bolt_params, SteeredBoltParams};
     use ambition_entity_catalog::ParamValue;
 
     fn ok_params() -> SteeredBoltParams {

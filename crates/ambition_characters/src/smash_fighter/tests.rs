@@ -131,7 +131,7 @@ fn preparation_carries_every_authored_number_into_the_moves() {
         .sustain_effect
         .as_ref()
         .expect("the Active window sustains the attempt");
-    assert_eq!(effect.key, crate::smash_capture::CAPTURE_ATTEMPT);
+    assert_eq!(effect.key, ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT);
     let reach: CaptureAttemptParams = effect.params.hydrate().expect("the attempt hydrates");
     assert_eq!(reach.offset, (18.0, 0.0));
     assert_eq!(reach.half_extents, (26.0, 13.0));
@@ -140,7 +140,7 @@ fn preparation_carries_every_authored_number_into_the_moves() {
     let pummel = &repertoire.pummel;
     assert_eq!(pummel.id, "test_pummel");
     assert!((pummel.duration_s - 0.24).abs() < 1e-5);
-    let (at_s, impact) = one_effect(pummel, crate::smash_capture::CAPTURE_PUMMEL);
+    let (at_s, impact) = one_effect(pummel, ambition_entity_catalog::smash_capture::CAPTURE_PUMMEL);
     assert!((at_s - 0.11).abs() < 1e-5);
     let impact: CapturePummelParams = impact.hydrate().expect("the impact hydrates");
     assert_eq!(impact.damage, 4);
@@ -148,7 +148,7 @@ fn preparation_carries_every_authored_number_into_the_moves() {
     let throw = &repertoire.forward_throw;
     assert_eq!(throw.id, "test_fthrow");
     assert!((throw.duration_s - 0.34).abs() < 1e-5);
-    let (at_s, launch) = one_effect(throw, crate::smash_capture::CAPTURE_THROW);
+    let (at_s, launch) = one_effect(throw, ambition_entity_catalog::smash_capture::CAPTURE_THROW);
     assert!((at_s - 0.20).abs() < 1e-5);
     let launch: CaptureThrowParams = launch.hydrate().expect("the launch hydrates");
     assert_eq!(launch.damage, 11);
@@ -183,7 +183,7 @@ fn an_authored_back_throw_arrives_and_the_others_stay_absent() {
         .back_throw
         .expect("the authored back throw arrives");
     assert_eq!(back.id, "test_bthrow");
-    let (_, launch) = one_effect(&back, crate::smash_capture::CAPTURE_THROW);
+    let (_, launch) = one_effect(&back, ambition_entity_catalog::smash_capture::CAPTURE_THROW);
     let launch: CaptureThrowParams = launch.hydrate().expect("the launch hydrates");
     assert_eq!(launch.launch_dir, (-1.0, -0.6));
     assert!(repertoire.up_throw.is_none());

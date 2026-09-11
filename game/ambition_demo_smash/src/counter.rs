@@ -15,7 +15,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::characters::smash_counter::{CounterParams, COUNTER};
+use ambition_platformer2d::entity_catalog::smash_counter::{CounterParams, COUNTER};
 use ambition_platformer2d::combat::hitbox::ParriedBodyHit;
 use ambition_platformer2d::combat::moveset::MovePlayback;
 use ambition_platformer2d::engine_core as ae;
@@ -147,7 +147,7 @@ fn live_counter_stance(playback: &MovePlayback) -> Option<CounterParams> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::characters::smash_capture::CAPTURE_ATTEMPT;
+    use ambition_platformer2d::entity_catalog::smash_capture::CAPTURE_ATTEMPT;
 
     /// The riposte the shipped contract authors, not a fixture built here.
     ///
@@ -347,7 +347,7 @@ mod tests {
             .world_mut()
             .spawn(ae::BodyShieldState::default())
             .id();
-        let params = ambition_platformer2d::characters::smash_counter::CounterParams {
+        let params = ambition_platformer2d::entity_catalog::smash_counter::CounterParams {
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,

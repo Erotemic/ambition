@@ -395,6 +395,123 @@ pub(crate) fn wall_reaches_first(wall: Option<f32>, contact_time: f32) -> bool {
     wall.is_some_and(|wall| wall.total_cmp(&contact_time).is_le())
 }
 
+/// Is the surface that stopped this shot the TARGET'S OWN?
+///
+/// ⭐⭐ **A CONTRIBUTOR THAT SUPPLIES BOTH A SURFACE AND A DAMAGEABLE VOLUME IS
+/// ONE THING, AND Q96 RULES THAT IT IS.** A solid destructible publishes a
+/// collision block AND a hurt volume at the same place. Once its surface is
+/// admitted into the shot's world, `wall_reaches_first` sees a wall at or before
+/// the crate's own contact and refuses the hit — *"wall wins, therefore the crate
+/// is invulnerable"*, which the ruling rejects by name. The contact must instead
+/// COALESCE: damage once AND apply the surface response.
+///
+/// ⛔⛔ **THE COMPARISON IS THE OCCURRENCE, NOT A NAME STRING.** `world/overlay.rs`
+/// publishes a breakable's block as
+/// `GeoId::placement(PlacementId(its FeatureId), ordinal)` precisely so this can
+/// be asked of identity. Matching `Block.name` would have worked well enough to
+/// look right — the overlay writes `"ecs-breakable {display name}"` there — and
+/// the protocol forbids exactly that: a display name is not an identity, and two
+/// breakables may share one.
+///
+/// ⚠ **`index` IS DELIBERATELY IGNORED.** One occurrence may contribute several
+/// blocks (ordinals 0..n); every one of them is still ITSELF.
+pub(crate) fn wall_is_the_targets_own_surface(
+    wall: Option<&ae::Block>,
+    target_id: Option<&str>,
+) -> bool {
+    let (Some(wall), Some(target_id)) = (wall, target_id) else {
+        return false;
+    };
+    match &wall.id.source {
+        ae::GeoSource::Placement(placement) => placement.0 == target_id,
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod coalesce_tests {
+    use super::*;
+
+    fn contributed_block(placement: &str, index: u16) -> ae::Block {
+        ae::Block {
+            id: ae::GeoId::placement(ae::PlacementId::new(placement), index),
+            name: "ecs-breakable A Crate".to_string(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+            kind: ae::BlockKind::Solid,
+            velocity: ae::Vec2::ZERO,
+            art_color: None,
+        }
+    }
+
+    #[test]
+    fn a_crates_own_surface_is_recognised_as_its_own() {
+        let block = contributed_block("crate_17", 0);
+        assert!(wall_is_the_targets_own_surface(
+            Some(&block),
+            Some("crate_17")
+        ));
+    }
+
+    /// ⚠ ONE OCCURRENCE MAY CONTRIBUTE SEVERAL BLOCKS and every one is itself.
+    #[test]
+    fn a_later_ordinal_of_the_same_occurrence_is_still_its_own() {
+        let block = contributed_block("crate_17", 3);
+        assert!(wall_is_the_targets_own_surface(
+            Some(&block),
+            Some("crate_17")
+        ));
+    }
+
+    /// ⛔ THE ARM THAT MATTERS: an UNRELATED wall still blocks. Without this the
+    /// coalescing rule would make every shot reach every breakable through every
+    /// wall, which is the defect the ordering filter exists to prevent.
+    #[test]
+    fn somebody_elses_wall_is_not_the_targets_own() {
+        let block = contributed_block("a_different_crate", 0);
+        assert!(!wall_is_the_targets_own_surface(
+            Some(&block),
+            Some("crate_17")
+        ));
+    }
+
+    /// ⛔⛔ TILE TERRAIN IS NEVER ANYBODY'S OWN SURFACE, and it is the common
+    /// case: a `TileLayer` block has no occurrence to be confused with.
+    #[test]
+    fn authored_terrain_is_nobodys_own_surface() {
+        let mut block = contributed_block("crate_17", 0);
+        block.id = ae::GeoId {
+            source: ae::GeoSource::TileLayer {
+                layer: "solids".to_string(),
+            },
+            index: 4,
+        };
+        assert!(!wall_is_the_targets_own_surface(
+            Some(&block),
+            Some("crate_17")
+        ));
+    }
+
+    /// ⭐ AND A NAME MATCH IS NOT AN IDENTITY MATCH. The overlay puts the
+    /// breakable's DISPLAY name in `Block.name`; a predicate reading that would
+    /// pass this fixture and fail the moment two crates share a label.
+    #[test]
+    fn a_matching_display_name_with_a_different_occurrence_is_not_its_own() {
+        let mut block = contributed_block("some_other_id", 0);
+        block.name = "ecs-breakable crate_17".to_string();
+        assert!(!wall_is_the_targets_own_surface(
+            Some(&block),
+            Some("crate_17")
+        ));
+    }
+
+    #[test]
+    fn no_wall_and_no_target_are_both_answers_of_no() {
+        let block = contributed_block("crate_17", 0);
+        assert!(!wall_is_the_targets_own_surface(None, Some("crate_17")));
+        assert!(!wall_is_the_targets_own_surface(Some(&block), None));
+    }
+}
+
 pub(crate) fn emit_landing_splash(
     pos: ae::Vec2,
     damage: i32,
@@ -742,20 +859,27 @@ pub fn step_projectiles(
         // response. "Wall wins, therefore the crate is invulnerable" is
         // rejected by name.
         //
-        // ⇒ **This comment's own condition has been met, so what remains is
-        // engineering, in this order:**
-        //   1. contributor identity — DONE 2026-09-10. `world/overlay.rs`
-        //      publishes `GeoId::placement(PlacementId(FeatureId), ordinal)`
-        //      instead of `GeoId::anon()` plus a display-name string.
-        //   2. admit the surfaces into `solids()`.
-        //   3. coalesce: `wall_reaches_first` must stop calling a block an
-        //      INDEPENDENT blocker when `block.id.source` names the same
-        //      occurrence as the candidate hurt target, and that contact must
-        //      then damage once and apply the surface response.
+        // ⇒ **ALL THREE STEPS ARE DONE (2026-09-11).**
+        //   1. contributor identity — `world/overlay.rs` publishes
+        //      `GeoId::placement(PlacementId(FeatureId), ordinal)`.
+        //   2. the surfaces are admitted: `ProjectileCollisionWorld::solids()`
+        //      composes `overlay.blocks` through
+        //      `world_with_contributed_solids_and_carves`.
+        //   3. coalescing: `wall_is_the_targets_own_surface` stops a block being
+        //      called an INDEPENDENT blocker when it names the same occurrence as
+        //      the candidate hurt target.
         // ⚠ Step 3 is why step 1 had to be real identity: the comparison is
-        // `Placement(PlacementId(target's FeatureId))`, not a name string —
-        // which is the identity the ruling forbids by name, and which would
-        // have worked well enough to look right.
+        // `Placement(PlacementId(target's FeatureId))`, not a name string — which
+        // is the identity the ruling forbids by name, and which would have worked
+        // well enough to look right. A test pins that distinction.
+        //
+        // ⛔⛤ **AND THE OBVIOUS WITNESS FOR STEP 2 IS VACUOUS, WHICH COST AN
+        // HOUR.** "A shot damages a solid crate and does not fly past it" passes
+        // with the surfaces REMOVED, because this branch despawns the shot on any
+        // feature contact whether or not a surface exists. The discriminating
+        // case is a crate the shot CANNOT damage (`BreakableTrigger::OnStand`):
+        // with no surface a bolt sails straight through a solid object, and that
+        // is what `a_crate_no_shot_can_break_still_stops_the_shot` pins.
         //
         // ⛔ AND STEP 2 NEEDS A PREDICATE, NOT A FIFTH `Solid | BlinkWall { .. }`
         // ARM — but only at the FILTERS. Three sites in
@@ -799,6 +923,19 @@ pub fn step_projectiles(
         // protocol awards to the wall.
         let wall_reaches_first = move |contact_time: f32| {
             wall_reaches_first(blocked_at.map(|hit| hit.time_of_impact), contact_time)
+        };
+        // ⭐⭐ THE SAME QUESTION, ASKED ABOUT A TARGET THAT MAY OWN THE WALL.
+        // Now that a live object's contributed surface is in this shot's world,
+        // the wall standing at a crate's own contact IS the crate — and refusing
+        // the hit on that ground is *"wall wins, therefore the crate is
+        // invulnerable"*, which Q96 rejects by name. One contact: it damages
+        // once AND takes the surface response below.
+        let wall_blocks_reaching = move |contact_time: f32, target_id: &str| {
+            wall_reaches_first(contact_time)
+                && !wall_is_the_targets_own_surface(
+                    blocked_at.map(|hit| hit.block),
+                    Some(target_id),
+                )
         };
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
@@ -919,7 +1056,7 @@ pub fn step_projectiles(
             // solid was broken through it, and a boss behind one was damaged
             // through it. Same rule as the bodies below, same single sweep, same
             // strict comparison.
-            .filter(|contact| !wall_reaches_first(contact.time))
+            .filter(|contact| !wall_blocks_reaching(contact.time, &contact.target_id))
             .min_by(crate::features::FeatureContact::order_for_caller);
             let mut ordered: Vec<_> = victims
                 .iter()

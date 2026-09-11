@@ -96,10 +96,38 @@ leave for `ambition_projectiles` without the victim queries following. The seman
 deletion gates the owner document requires have landed, INCLUDING the finite-time
 ordering rule reopened by review #7 above.
 
-**A2b's FINITE ORDERING is closed; compound-contact acceptance was DEFERRED to
-Q96/A5, and two narrow holes stay open (review #9).** ⭐ **Q96 IS RULED 2026-09-10,
-so the deferral is now to A5's CONTRIBUTOR IDENTITY alone** — engineering work, no
-longer a pending ruling. Stated that way because
+✅ **COMPOUND CONTACT IS CLOSED 2026-09-11 — ALL THREE STEPS.** A published
+surface now participates in projectile collision and a contributor supplying both
+a surface and a damageable volume yields ONE contact, which is Q96's ruling.
+1. contributor identity (2026-09-10): `world/overlay.rs` publishes a breakable's
+   block as `GeoId::placement(PlacementId(its FeatureId), ordinal)`.
+2. admission: `ProjectileCollisionWorld::solids()` composes `overlay.blocks`
+   through a new `world_with_contributed_solids_and_carves`. ⭐ A SEPARATE SLICE
+   from `gate_solids`, because a gate solid is geometry a gate opens and closes
+   while a contributed surface belongs to a thing that can be damaged and can
+   stop existing — and only the second ever needs the coalescing rule.
+3. coalescing: `wall_is_the_targets_own_surface` stops a block being called an
+   INDEPENDENT blocker when it names the same occurrence as the candidate hurt
+   target. ⛔ The comparison is the OCCURRENCE, never `Block.name` — the overlay
+   writes a display name there, a name match would have looked right, and the
+   ruling forbids it by name. A test pins that distinction.
+⚠ **2 and 3 had to land together**: admitting the surfaces without coalescing IS
+the "invulnerable behind its own wall" outcome the ruling rejects, and the poison
+for step 3 produces exactly it.
+
+⛔⛔ **AND THE OBVIOUS WITNESS FOR STEP 2 IS VACUOUS.** *"A shot damages a solid
+crate and does not fly past it"* passes with the surfaces REMOVED, because the
+feature-contact branch despawns the shot on any breakable it reaches, surface or
+not. I wrote that test, watched its poison fail to fire, and deleted it. The
+discriminating case is a crate the shot CANNOT damage
+(`BreakableTrigger::OnStand`): with no surface a bolt sails straight through a
+solid object standing in the room.
+⇒ **A GUARD FOR A NEW CAPABILITY MUST FAIL WITHOUT IT.** Asserting the outcome
+you expect is not the same as asserting the mechanism you added.
+
+⚠ Every other projectile-vs-breakable fixture in the suite uses a NON-solid
+crate, because `Breakable::new` defaults `collision` to `None` — which is why the
+whole compound-contact road was unreachable from 1,150 green tests. Stated that way because
 this row previously read as closed and not-closed at once — it said "RE-CLOSED",
 then that the compound-solid row was not closed, and then listed compound solid
 object under acceptance anyway.

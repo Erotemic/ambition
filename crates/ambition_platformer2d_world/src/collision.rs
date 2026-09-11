@@ -224,7 +224,41 @@ pub fn world_with_gate_solids_and_carves<'w>(
     portal_carves: &[ae::Aabb],
     removed_block_names: &[String],
 ) -> Cow<'w, ae::World> {
-    if gate_solids.is_empty() && portal_carves.is_empty() && removed_block_names.is_empty() {
+    world_with_contributed_solids_and_carves(
+        world,
+        gate_solids,
+        &[],
+        portal_carves,
+        removed_block_names,
+    )
+}
+
+/// The same composition, plus the surfaces CONTRIBUTED BY LIVE OBJECTS
+/// (`FeatureEcsWorldOverlay::blocks` — a solid crate, a one-way ledge an object
+/// publishes).
+///
+/// ⭐⭐ **A SEPARATE SLICE, NOT A LONGER `gate_solids`, BECAUSE THE TWO ARE
+/// DIFFERENT KINDS OF FACT.** A gate solid is geometry a gate OPENS AND CLOSES; a
+/// contributed object surface belongs to a thing that can be damaged and can
+/// stop existing. Only the second one ever needs the coalescing rule — *"the wall
+/// that stopped this shot IS the target"* — and folding them into one argument
+/// would leave a caller unable to tell which it had.
+///
+/// ⛔ EACH CONTRIBUTED BLOCK CARRIES ITS OWNING OCCURRENCE in `GeoId`, which is
+/// what makes that rule askable at all. See the projectile contact protocol: *"a
+/// contributed object collider additionally identifies its owning occurrence."*
+pub fn world_with_contributed_solids_and_carves<'w>(
+    world: &'w ae::World,
+    gate_solids: &[ae::Block],
+    contributed_solids: &[ae::Block],
+    portal_carves: &[ae::Aabb],
+    removed_block_names: &[String],
+) -> Cow<'w, ae::World> {
+    if gate_solids.is_empty()
+        && contributed_solids.is_empty()
+        && portal_carves.is_empty()
+        && removed_block_names.is_empty()
+    {
         return Cow::Borrowed(world);
     }
     let mut composed = world.clone();
@@ -233,6 +267,7 @@ pub fn world_with_gate_solids_and_carves<'w>(
     // carve.
     remove_named_blocks(&mut composed.blocks, removed_block_names);
     composed.blocks.extend(gate_solids.iter().cloned());
+    composed.blocks.extend(contributed_solids.iter().cloned());
     if !portal_carves.is_empty() {
         carve_portal_apertures(&mut composed.blocks, portal_carves);
     }

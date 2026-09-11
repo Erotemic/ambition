@@ -2511,3 +2511,189 @@ fn stacked_unidentified_victims(identified: bool) {
     advance_time(&mut app, 0.016);
     app.update();
 }
+
+/// ⛔⛔ A SOLID DESTRUCTIBLE IS NOT IMMUNE BEHIND ITS OWN WALL.
+///
+/// Q96, ruled 2026-09-10: a published surface PARTICIPATES in projectile
+/// collision, and a contributor supplying BOTH a surface and a damageable volume
+/// at one moment of impact yields ONE contact that damages once AND applies the
+/// physical response. *"Wall wins, therefore the crate is invulnerable"* is
+/// rejected by name.
+///
+/// ⛔⛔ **EVERY OTHER PROJECTILE-VS-BREAKABLE FIXTURE IN THIS FILE USES A
+/// NON-SOLID CRATE**, because `Breakable::new` defaults `collision` to `None`.
+/// So the whole coalescing rule was unreachable from the suite: MEASURED, gutting
+/// it left 1,150 tests green. A crate that contributes no surface cannot be
+/// blocked by one.
+///
+/// ⚠ **AND THE OVERLAY REBUILD HAS TO RUN.** `projectile_test_app` initialises
+/// `FeatureEcsWorldOverlay` but never populates it, so without this system the
+/// crate publishes no block, the shot is stopped by nothing, and the test passes
+/// for the wrong reason. The control arm below is what proves it did run.
+#[test]
+fn a_shot_breaks_a_solid_crate_rather_than_stopping_on_its_own_wall() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    let broke = |solid: bool| -> bool {
+        let world = ae::World::new(
+            "solid crate",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        // The production road that lowers a live object's surface into the
+        // collision world. Without it `overlay.blocks` is empty and there is no
+        // wall to coalesce with.
+        app.add_systems(
+            Update,
+            crate::world::overlay::rebuild_feature_ecs_world_overlay
+                .before(crate::projectile::step_projectiles),
+        );
+
+        let mut breakable = ambition_interaction::Breakable::new("crate", 1);
+        breakable.collision = if solid {
+            ambition_interaction::BreakableCollision::Solid
+        } else {
+            ambition_interaction::BreakableCollision::None
+        };
+        let crate_entity = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::FeatureId::new("crate"),
+                FeatureName::new("crate"),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+                ambition_combat::components::CenteredAabb::from_center_size(
+                    ae::Vec2::new(420.0, 300.0),
+                    ae::Vec2::new(12.0, 46.0),
+                ),
+                BreakableFeature::new(breakable),
+            ))
+            .id();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        app.world()
+            .get::<BreakableFeature>(crate_entity)
+            .expect("the crate is still an entity")
+            .broken()
+    };
+
+    // ⚠ THE CONTROL FIRST: the same shot at the same crate with NO contributed
+    // surface must break it. If this fails the fixture never reached the crate
+    // and the claim below is about geometry, not about the rule.
+    assert!(
+        broke(false),
+        "the shot did not reach a crate that contributes no surface at all, so \
+         this fixture cannot say anything about a crate that contributes one"
+    );
+
+    assert!(
+        broke(true),
+        "a SOLID crate survived a shot aimed straight at it: its own contributed \
+         surface stopped the shot before its own hurt volume was reached, which \
+         is the 'invulnerable behind its own wall' outcome Q96 rejects by name"
+    );
+}
+
+/// ⛔⛔ A CRATE A SHOT CANNOT BREAK STILL STOPS IT — the case that makes
+/// admitting contributed surfaces mean anything at all.
+///
+/// ⚠ **AND FINDING IT TOOK A POISON THAT FAILED TO FIRE.** My first attempt at
+/// the "one contact damages AND applies the response" half fired a shot at a
+/// 3-hp solid crate and asserted the shot did not fly past. It passed — and it
+/// passed just as well with the contributed surfaces REMOVED from the shot's
+/// world, because the feature-contact branch despawns the shot on a hit whether
+/// or not any surface exists. That test asserted behaviour that predated the
+/// change: a vacuous guard over an inert edit.
+///
+/// ⇒ The discriminating case is a crate the shot CANNOT damage.
+/// `BreakableTrigger::OnStand` crumbles only when stood on, so no shot ever
+/// damages it — and without its surface in the shot's world, a bolt sails
+/// straight through a solid object standing in the room.
+#[test]
+fn a_crate_no_shot_can_break_still_stops_the_shot() {
+    use ambition_combat::components::{BreakableFeature, FeatureName};
+
+    let flew_past = |solid: bool| -> bool {
+        let world = ae::World::new(
+            "stand-only crate",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            Vec::new(),
+        );
+        let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
+        app.add_systems(
+            Update,
+            crate::world::overlay::rebuild_feature_ecs_world_overlay
+                .before(crate::projectile::step_projectiles),
+        );
+
+        let mut breakable = ambition_interaction::Breakable::new("crate", 3);
+        breakable.trigger = ambition_interaction::BreakableTrigger::OnStand;
+        breakable.collision = if solid {
+            ambition_interaction::BreakableCollision::Solid
+        } else {
+            ambition_interaction::BreakableCollision::None
+        };
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+            ambition_combat::components::FeatureId::new("crate"),
+            FeatureName::new("crate"),
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
+            ambition_combat::components::CenteredAabb::from_center_size(
+                ae::Vec2::new(420.0, 300.0),
+                ae::Vec2::new(12.0, 46.0),
+            ),
+            BreakableFeature::new(breakable),
+        ));
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(360.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(360.0, 300.0);
+            body.kin.vel = ae::Vec2::new(4000.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        // ⚠ THREE TICKS. One tick carries the shot 64 px, from 360 to 424 —
+        // INSIDE the crate's span (408..432) and short of the far side, so a
+        // one-tick fixture cannot tell "passed through" from "not there yet".
+        for _ in 0..3 {
+            advance_time(&mut app, 0.016);
+            app.update();
+        }
+        let w = app.world_mut();
+        let mut q = w
+            .query_filtered::<&ae::BodyKinematics, With<ambition_projectiles::LiveProjectile>>();
+        q.iter(w).any(|kin| kin.pos.x > 440.0)
+    };
+
+    // ⚠ THE CONTROL: with NO contributed surface the same shot goes straight
+    // through. Without this arm, "the solid one stopped it" could be a shot that
+    // never travelled far enough to pass the line.
+    assert!(
+        flew_past(false),
+        "the shot did not pass x=440 in three ticks with nothing in its way, \
+         so this fixture cannot tell a stopped shot from a slow one"
+    );
+
+    assert!(
+        !flew_past(true),
+        "a bolt flew straight through a SOLID crate: a published surface does \
+         not participate in projectile collision, which is what Q96 ruled it must"
+    );
+}

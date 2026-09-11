@@ -100,3 +100,36 @@ def test_one_zero_among_many_is_reported_rather_than_refused(tmp_path, monkeypat
     assert census.main() == 0
     out = capsys.readouterr().out
     assert "silent" in out and "0.00" in out
+
+
+def test_the_extents_reported_come_from_the_peak_frame_not_the_last_one():
+    """⛔⛔ THE EXTENTS MUST BE THE PEAK'S OWN. A row quoting "0.80, and it is
+    38 x 17" where the 38 x 17 came from a different frame than the 0.80 is two
+    measurements wearing one sentence — and that is exactly how a planning row
+    got a body height it had never measured.
+
+    The peak here is the FIRST frame and a smaller box follows it, so a reader
+    that tracked extents independently of the max would report the second.
+    """
+    rows = census.peaks(
+        _take([_frame((4, 4), (3, 3)), _frame((4, 4), (1, 1))])
+    )
+    ratio, strike, body = rows["someone"]
+    assert ratio == pytest.approx(36 / 64)
+    assert strike == (6.0, 6.0), "the extents came from a frame that was not the peak"
+    assert body == (8.0, 8.0)
+
+
+def test_detail_prints_the_extents_and_the_plain_form_does_not(tmp_path, monkeypatch, capsys):
+    """`--detail` is what makes a quoted extent derived rather than copied."""
+    path = tmp_path / "take.json"
+    path.write_text(json.dumps(_take([_frame((4, 4), (2, 2))])))
+
+    monkeypatch.setattr(sys, "argv", ["census", str(path)])
+    assert census.main() == 0
+    assert "against a" not in capsys.readouterr().out
+
+    monkeypatch.setattr(sys, "argv", ["census", str(path), "--detail"])
+    assert census.main() == 0
+    out = capsys.readouterr().out
+    assert "4.0 x   4.0 px against a 8 x 8 body" in out, out

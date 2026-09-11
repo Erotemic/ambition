@@ -1483,9 +1483,9 @@ derived — a spec edit needs a re-publish to take effect. Values are NOT propos
 here; Jon, 2026-09-11: *"I don't trust your spatial decision making at the moment."*
 
 ⚠ **THE MEASUREMENTS BELOW STAND. Only the global repair attempt is reverted.**
-Ten of twenty-one grid fighters swing a box smaller than their own body, the roster
-spans 75x for one verb, and the medic's forward tilt is 17.8 x 4.8 px against a
-48 px body. The repair is PER-CHARACTER authoring, and Jon's direction is to learn
+Fourteen of twenty-one grid fighters swing a box smaller than their own body, the
+roster spans 75x for one verb, and the medic's forward tilt is 14.2 x 3.9 px — four
+pixels tall against a 48 px body. The repair is PER-CHARACTER authoring, and Jon's direction is to learn
 from what GPT-6 did for the performer and apply that, not a multiplier.
 
 ---
@@ -1555,24 +1555,45 @@ lines above it in the same loop body, so there is no second order left to drift.
 Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verified.
 
 **STILL OPEN, and these are the moveset/hitbox items Jon named:**
-1. **TEN OF TWENTY-ONE swing a box smaller than their own body, and the roster
-   spans 75x for the SAME verb.** Re-measured 2026-09-11 at knob 1.25 by
-   `scripts/measure_strike_area_over_body.py` over a `moveset_takes --characters grid
-   --verbs attack_forward` recording (peak strike-volume BOUNDS area ÷ own body
-   area):
+1. **FOURTEEN OF TWENTY-ONE swing a box smaller than their own body, and the roster
+   spans 75x for the SAME verb.** RE-MEASURED 2026-09-11 AT AUTHORED SIZE (the
+   earlier table on this row was read at the since-deleted knob 1.25 and every
+   figure in it was 1.5625x too high) by
+   `scripts/measure_strike_area_over_body.py --detail` over a `moveset_takes
+   --characters grid --verbs attack_forward` recording — peak strike-volume BOUNDS
+   area ÷ own body area, with the extents the ratio was derived from:
 
-   | | | | |
-   |---|---|---|---|
-   | medic 0.14 | sanic 0.16 | npc_carl_stargan 0.18 | officer 0.39 |
-   | perfect_cellular_automaton 0.44 | projectile_polygon 0.48 | goblin 0.55 | author 0.62 |
-   | pugnacious_polygon 0.78 | npc_ninja_shadow_oni_leader 0.80 | npc_emmy_noether 1.01 | mary_o_tall 1.19 |
-   | pointed_polygon 1.25 | npc_alice 1.25 | npc_pirate_admiral 1.76 | smash_george_booul 1.91 |
-   | npc_bob 2.04 | special_patent_clerk 2.19 | npc_oiler 2.66 | performer 3.22 |
-   | **player_robot_v3 10.48** | | | |
+   | fighter | ratio | peak strike | own body |
+   |---|---:|---|---|
+   | medic | **0.09** | 14.2 x 3.9 | 13 x 48 |
+   | sanic | 0.10 | 14.3 x 11.8 | 34 x 48 |
+   | npc_carl_stargan | 0.11 | 11.7 x 10.6 | 23 x 48 |
+   | officer | 0.25 | 15.5 x 12.5 | 16 x 48 |
+   | perfect_cellular_automaton | 0.28 | 26.2 x 20.3 | 28 x 68 |
+   | projectile_polygon | 0.31 | 41.3 x 11.6 | 32 x 48 |
+   | goblin | 0.35 | 36.0 x 24.0 | 52 x 48 |
+   | author | 0.40 | 10.1 x 23.6 | 12 x 48 |
+   | pugnacious_polygon | 0.50 | 21.1 x 20.0 | 18 x 48 |
+   | npc_ninja_shadow_oni_leader | 0.51 | 40.0 x 26.0 | 42 x 48 |
+   | npc_emmy_noether | 0.65 | 28.0 x 28.2 | 26 x 48 |
+   | mary_o_tall | 0.76 | 40.0 x 26.0 | 21 x 64 |
+   | pointed_polygon | 0.80 | 20.7 x 29.3 | 16 x 48 |
+   | npc_alice | 0.80 | 38.0 x 17.2 | 17 x 48 |
+   | npc_pirate_admiral | 1.12 | 52.0 x 28.0 | 27 x 48 |
+   | smash_george_booul | 1.22 | 56.0 x 36.0 | 34 x 48 |
+   | npc_bob | 1.31 | 32.0 x 33.2 | 17 x 48 |
+   | special_patent_clerk | 1.40 | 48.0 x 32.0 | 23 x 48 |
+   | npc_oiler | 1.70 | 44.0 x 30.0 | 16 x 48 |
+   | performer | 2.06 | 34.3 x 51.1 | 18 x 48 |
+   | **player_robot_v3** | **6.71** | 99.2 x 97.6 | 30 x 48 |
 
-   ⇒ **The roster-wide knob was the SHARED cause and it is spent; the SPREAD is
-   per-character authoring.** `medic`'s forward tilt is **4.8 px tall** against a 48 px
-   body (bounds 17.8 x 4.8); `player_robot_v3`'s is 124 x 122 against a 30 x 48 body.
+   ⇒ **THE THIN AXIS IS VERTICAL, AND THAT IS WHAT THE EXTENTS ADD OVER THE RATIO.**
+   Every body on this grid is 48–68 px tall, and the bottom of the table is not a
+   roster of small boxes so much as a roster of FLAT ones: the medic's forward tilt is
+   **3.9 px tall**, `projectile_polygon`'s is 11.6 against a 41.3 reach, `npc_alice`'s
+   is 17.2 against 38.0. A swing that is long and 4 px tall passes over or under an
+   opponent standing right next to it. ⚠ `medic`'s own body is 13 px WIDE, so its 0.09
+   is measured against one of the smallest bodies here — the ratio understates nothing.
    ⚠ **It is the BOUNDS, not the shape.** Every one of these is a convex poly, so a
    sword-arc is measured by the rectangle around it and the ratio OVERSTATES a bladed
    move. Read it as *"how much of the body's own area could this swing possibly
@@ -1589,7 +1610,9 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    SAME axis moved medic 0.14 → 0.70, sanic 0.16 → 0.27, carl 0.18 → 0.32, officer
    0.39 → 0.60, and npc_alice 1.25 → 1.40 — a healthy AREA that was thin on one axis,
    the case an area floor cannot see (an area floor of 0.5 leaves the medic's tilt
-   NINE px tall against a 48 px body). Nobody above the floor moved.
+   NINE px tall). Nobody above the floor moved. ⚠ **THOSE `before` FIGURES ARE AT THE
+   SINCE-DELETED KNOB 1.25**, so they are 1.5625x the table above; what survives is
+   the SHAPE of the lever, not its endpoints.
    ⚠ **AND IT REACHED ONLY ONE OF THE TWO ROADS.** goblin and
    npc_ninja_shadow_oni_leader resolve authored `VolumeShape::Rect`s through
    `ambition_combat` and did not move at any floor value. ⇒ **Per-character authoring

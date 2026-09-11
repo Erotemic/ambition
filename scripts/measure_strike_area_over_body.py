@@ -35,14 +35,22 @@ import sys
 from pathlib import Path
 
 
-def ratios(take: dict) -> dict[str, float]:
-    """Peak (strike area / body area) per character in one take file."""
-    out: dict[str, float] = {}
+def peaks(take: dict) -> dict[str, tuple[float, tuple[float, float], tuple[float, float]]]:
+    """Per character: the peak ratio and the FULL EXTENTS it was read from.
+
+    ⭐ THE EXTENTS TRAVEL WITH THE RATIO. "0.09" is unactionable to whoever has
+    to author the repair; "14.2 x 3.8 px against a 30 x 48 body" names the axis
+    that is thin. A row quoting extents beside a ratio it did not derive them
+    from is two measurements pretending to be one.
+    """
+    out: dict[str, tuple[float, tuple[float, float], tuple[float, float]]] = {}
     for row in take.get("takes", []):
         character = row.get("character")
         if character is None:
             continue
         best = 0.0
+        best_strike = (0.0, 0.0)
+        best_body = (0.0, 0.0)
         for frame in row.get("frames", []):
             subject = next(
                 (
@@ -64,22 +72,36 @@ def ratios(take: dict) -> dict[str, float]:
                 hh = hit.get("half")
                 if not hh:
                     continue
-                best = max(best, 4.0 * hh[0] * hh[1] / body_area)
+                ratio = 4.0 * hh[0] * hh[1] / body_area
+                if ratio > best:
+                    best = ratio
+                    best_strike = (2.0 * hh[0], 2.0 * hh[1])
+                    best_body = (2.0 * bh[0], 2.0 * bh[1])
         # ⛔ A CHARACTER WITH NO LIVE BOX IS 0.0 AND IS REPORTED, not dropped: a
         # missing row reads as "not measured" and a dropped one reads as nothing
         # at all, and "this verb produced no hitbox" is the louder finding of the
         # two this file can make.
-        out[character] = best
+        out[character] = (best, best_strike, best_body)
     return out
 
 
+def ratios(take: dict) -> dict[str, float]:
+    """Peak (strike area / body area) per character — the ratio alone."""
+    return {name: row[0] for name, row in peaks(take).items()}
+
+
 def main() -> int:
-    if len(sys.argv) != 2:
+    args = [a for a in sys.argv[1:] if a != "--detail"]
+    detail_flag = "--detail" in sys.argv[1:]
+    if len(args) != 1:
         print(__doc__)
         return 2
+    sys.argv = [sys.argv[0], args[0]]
     path = Path(sys.argv[1])
     take = json.loads(path.read_text())
-    rows = ratios(take)
+    detail = detail_flag
+    rows_full = peaks(take)
+    rows = {name: row[0] for name, row in rows_full.items()}
     if not rows:
         raise SystemExit(
             f"{path} holds no takes with a subject body. ⇒ REFUSING TO REPORT: "
@@ -105,6 +127,9 @@ def main() -> int:
     print(f"{len(rows)} characters, peak strike area over own body area\n")
     for name, value in sorted(rows.items(), key=lambda kv: kv[1]):
         mark = "  <- under its own body" if value < 1.0 else ""
+        if detail:
+            _, (sw, sh), (bw, bh) = rows_full[name]
+            mark = f"  {sw:6.1f} x {sh:5.1f} px against a {bw:.0f} x {bh:.0f} body{mark}"
         print(f"  {name:<{width}}  {value:5.2f}{mark}")
     under = sum(1 for v in rows.values() if v < 1.0)
     print(f"\n{under} of {len(rows)} swing a box smaller than the body that swings it.")

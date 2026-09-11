@@ -614,14 +614,7 @@ fn support_for_the_live_cast(
 
 fn host_from_dir(root: &std::path::Path) -> (bevy::app::App, String) {
     let (_, who) = a_shipped_table(root);
-    let mut app = bevy::app::App::new();
-    crate::character_catalog::register(&mut app);
-    crate::player_robot_lineage::register_declared_cast(&mut app);
-    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
-    let support = support_for_the_live_cast(app.world());
-    app.world_mut()
-        .insert_resource(ambition_combat::technique::InstalledTechniques(support));
-    (app, who)
+    (host_with_the_shipped_cast(), who)
 }
 
 fn shipped_duration(app: &bevy::app::App, who: &str) -> f32 {
@@ -793,5 +786,318 @@ fn the_published_moveset_keeps_the_kit_moves_the_table_does_not_name() {
         "no published moveset carries a move its table does not name, so the \
          overlay rule this pins is no longer the rule — read \
          `overlay_authored_moves` before deleting this"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ⛔⛔ **CROSS-DOMAIN ATOMICITY — THE KNOWN HOLE, FILED AGAINST THIS PROTOTYPE.**
+//
+// `docs/planning/queue.md`, under *"⛔⛔ NEXT ARCHITECTURE ACTION"*: *"move
+// reload can conclude `Unchanged` for the move material and still install the
+// whole newly-loaded pack as `SelectedContentPack`. Moves identical + items
+// changed = one subsystem believing nothing changed while another observes new
+// mechanical content."* This is that sentence as an executable arm — the
+// queue's P0 *"Poison tests for … cross-domain atomicity"* row.
+//
+// ⛔ IT IS NOT CLOSED BY SPECIAL-CASING `Unchanged`, and the queue says so in
+// its own words: that hides the missing abstraction. `Unchanged` is a TRUE and
+// correct answer about the material `reload_move_tables_from` examined. The
+// defect is that a claim scoped to the MOVE section is spent as a claim about
+// the PACK, and only the complete candidate-bundle transaction can say the
+// larger thing.
+// ---------------------------------------------------------------------------
+
+/// The declared path of the non-move section this witness re-authors.
+const ITEMS_PATH: &str = "data/items.ron";
+
+/// A host whose cast is the SHIPPED roster.
+///
+/// ⚠ The synthetic `host_with_a_live_cast` cannot serve here: the subject is
+/// two compiles of the REAL pack, so the cast has to be the one that pack
+/// publishes.
+fn host_with_the_shipped_cast() -> bevy::app::App {
+    let mut app = bevy::app::App::new();
+    crate::character_catalog::register(&mut app);
+    crate::player_robot_lineage::register_declared_cast(&mut app);
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+    // ⚠ WITHOUT THIS, ADMISSION REFUSES THE SHIPPED ROSTER FOR REASONS THAT ARE
+    // NOT THE SUBJECT: an empty technique table refuses 40+ authored effects.
+    // See `support_for_the_live_cast`'s own note.
+    let support = support_for_the_live_cast(app.world());
+    app.world_mut()
+        .insert_resource(ambition_combat::technique::InstalledTechniques(support));
+    app
+}
+
+/// The shipped pack with ONE item row's mechanical wiring re-authored, and
+/// every other declared source byte-identical.
+///
+/// ⛔⛤ **EDITED THROUGH THE TYPED DOCUMENT, NOT BY TEXT SUBSTITUTION.**
+/// `items.ron` is a POSITIONAL `Vec<ItemMeta>` whose ROW COUNT is part of its
+/// schema — `content_schema.rs` refuses a short file because *"deleting one row
+/// does not remove one item, it renames twenty-three"*. A regex edit that
+/// dropped or added a line would be refused for a reason that has nothing to do
+/// with this subject.
+///
+/// ⚠ TWO IDS THE GRID ALREADY CARRIES, SWAPPED — not one invented. An unknown
+/// `held_item_id` would make this an is-the-content-valid question; swapping two
+/// real ones leaves exactly one difference, *which slot grants which held item*,
+/// and that is MECHANICAL content: `Item::from_held_item_id` is what equipping
+/// resolves through.
+///
+/// ⛔ THE FIELD MOVES, THE ROW DOES NOT. Swapping whole rows would change the
+/// positional binding, which is a different (and already-guarded) defect.
+fn pack_with_one_item_rewired() -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != ITEMS_PATH {
+            return text;
+        }
+        let mut rows: Vec<ambition_items::ItemMeta> =
+            ron::from_str(&text).expect("the shipped item grid parses as its typed document");
+        let wired: Vec<usize> = rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| row.held_item_id.is_some())
+            .map(|(index, _)| index)
+            .collect();
+        assert!(
+            wired.len() >= 2,
+            "the shipped grid wires {} equippable row(s); this edit needs two to swap",
+            wired.len()
+        );
+        let (first, second) = (wired[0], wired[1]);
+        let carried = rows[first].held_item_id.clone();
+        rows[first].held_item_id = rows[second].held_item_id.clone();
+        rows[second].held_item_id = carried;
+        edited = true;
+        ron::ser::to_string_pretty(&rows, ron::ser::PrettyConfig::default())
+            .expect("the edited grid serializes")
+    })
+    .expect("the edited pack compiles");
+    // ⛔ THE FLOOR ON THE EDIT ITSELF. A mistyped declared path would leave the
+    // closure never firing, and the "candidate" would be the shipped pack —
+    // every assertion below would then pass while testing nothing. This
+    // repository has been bitten four separate ways by a poison that silently
+    // did not apply.
+    assert!(
+        edited,
+        "no declared source is spelled `{ITEMS_PATH}`, so the candidate pack is \
+         the shipped one and this witness would pass vacuously"
+    );
+    pack
+}
+
+/// ⛔⛔ **THE FIXTURE CONTRACT FOR THE CROSS-DOMAIN ARM: ONE PACK, TWO
+/// CONTENTS, AND THE DIFFERENCE IS IN NO MOVE TABLE.**
+///
+/// The composition-level atomicity arm rests entirely on this pair existing,
+/// and on the pack's own identity NOTICING a difference the move section cannot
+/// see. Both halves are asserted here rather than assumed inside that arm,
+/// because they fail in opposite directions and each failure would make the arm
+/// green for the wrong reason:
+///
+/// * if the move sections DIFFER, the arm is about two different movesets and
+///   says nothing about atomicity;
+/// * if the FINGERPRINTS MATCH, an items-only edit is invisible to the pack's
+///   complete identity — every verdict computed from that identity would answer
+///   "no change" for a pack that plainly changed, and the arm would pass while
+///   the thing it exists to detect went unnoticed.
+///
+/// ⚠ THE FINGERPRINT IS THE `ContentFingerprint` OVER THE PACK'S CANONICAL
+/// BYTES, so this also pins that an item row's `held_item_id` reaches that
+/// canonical form. `item_catalog`'s handler puts `slot={index}` in front of each
+/// row's canonical text precisely so a positional file cannot move content
+/// without moving the fingerprint.
+#[test]
+fn the_item_edited_twin_differs_from_the_shipped_pack_in_no_move_table() {
+    let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
+    let candidate = pack_with_one_item_rewired();
+
+    let shipped_moves = ambition_characters::moveset_content_schema::lowered_movesets(&shipped)
+        .expect("the shipped pack carries a move section");
+    let candidate_moves = ambition_characters::moveset_content_schema::lowered_movesets(&candidate)
+        .expect("the candidate pack carries a move section");
+    assert_eq!(
+        shipped_moves, candidate_moves,
+        "the item edit moved a move table, so this pair cannot witness a \
+         cross-domain difference"
+    );
+    // ⛔ THE FLOOR. Two EMPTY move sections would compare equal and satisfy the
+    // line above while comparing nothing.
+    assert!(
+        shipped_moves.len() >= 10,
+        "only {} move table(s) compared; the equality above is close to vacuous",
+        shipped_moves.len()
+    );
+
+    let shipped_items = ambition_items::content_schema::lowered_item_catalog(&shipped)
+        .expect("the shipped pack carries an item catalog");
+    let candidate_items = ambition_items::content_schema::lowered_item_catalog(&candidate)
+        .expect("the candidate pack carries an item catalog");
+    assert_ne!(
+        shipped_items, candidate_items,
+        "the edit did not reach the lowered item catalog, so no subsystem could \
+         observe it"
+    );
+
+    assert_ne!(
+        shipped.fingerprint, candidate.fingerprint,
+        "an items-only edit did not move the pack's ContentFingerprint, so a \
+         verdict computed from the pack's complete identity cannot tell these \
+         two packs apart"
+    );
+}
+
+/// The `Arc` this App has actually selected — the pack its cast was built from.
+///
+/// ⛔⛤ **THE HOST BOOTS WITH A SELECTION ALREADY, AND ASSUMING OTHERWISE COST
+/// ME THE FIRST VERSION OF THE ARM BELOW.** `register_declared_cast` calls
+/// `pack::select`, whose fallback is an INSERT and not a read-through (its own
+/// doc says so). So a test that "establishes a baseline" by publishing a freshly
+/// compiled shipped pack is publishing a candidate that is mechanically
+/// identical to what is live — and gets the complete no-op, correctly, leaving
+/// the App holding the boot pack and the test comparing pointers to two
+/// different allocations of the same content.
+///
+/// ⇒ The baseline is not something a fixture installs. It is something the host
+/// already has, and the test must read it.
+fn live_pack(app: &bevy::app::App) -> std::sync::Arc<ambition_content_pack::PreparedContentPack> {
+    std::sync::Arc::clone(&app.world().resource::<crate::pack::SelectedContentPack>().0)
+}
+
+fn cast_generation(app: &bevy::app::App) -> u64 {
+    app.world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation()
+        .get()
+}
+
+/// ⛔⛔ **THE COMPOSITION-LEVEL ARM: THE REAL PACK, THE REAL CAST AND THE REAL
+/// SELECTION MOVE TOGETHER OR NOT AT ALL.**
+///
+/// `candidate_tests.rs` pins the verdict itself on a synthetic two-section pack.
+/// What a synthetic fixture cannot answer is whether the SHIPPED schemas behave
+/// the way that arithmetic assumes — so this drives the same decision through
+/// `compile_pack_with`, the shipped roster and a live `PreparedCharacterRegistry`.
+///
+/// ⭐⭐ **THE CASE THAT WAS NOT EXPRESSIBLE BEFORE.** Moves identical, items
+/// changed:
+///
+/// * the PACK really did change, so the selection SHOULD become the candidate —
+///   refusing it would be the special-casing the review forbids;
+/// * the CAST really did not, so its generation must not move.
+///
+/// Two honest answers at once. The old road could give only one, because it
+/// spent a claim about the move family as a claim about the pack.
+///
+/// ⛔⛤ **THE CONTROL RUNS FIRST, AND IT IS NOT DECORATION.** "The selection
+/// became the candidate" is also what a `publish_candidate` that installed
+/// unconditionally would print. Only the complete no-op — a candidate
+/// mechanically identical to what is live, which must touch NOTHING —
+/// distinguishes the two, and a control read after the subject is one you
+/// consult only after you have already believed the result.
+///
+/// ⚠ **THE TWIN IS A FRESH COMPILE, NOT THE LIVE `Arc`.** Reusing the live
+/// allocation would make "the selection did not move" true by pointer identity
+/// whatever the function did. A DIFFERENT allocation carrying the SAME
+/// fingerprint is the only version of this control with power — and asserting
+/// those two facts about it is simultaneously the recompile-stability control
+/// for every `assert_ne!` on fingerprints in this file: without it, a
+/// nondeterministic compile would make them all pass for no reason.
+#[test]
+fn a_candidate_that_changes_only_items_publishes_the_pack_and_leaves_the_cast() {
+    // ── the control: a complete no-op touches nothing ────────────────────────
+    {
+        let mut app = host_with_the_shipped_cast();
+        let live = live_pack(&app);
+        let twin =
+            std::sync::Arc::new(crate::pack::compile_pack().expect("the shipped pack compiles"));
+        assert_eq!(
+            twin.fingerprint, live.fingerprint,
+            "recompiling the same sources gave a different identity, so every \
+             fingerprint comparison in this file is meaningless"
+        );
+        assert!(
+            !std::sync::Arc::ptr_eq(&twin, &live),
+            "the twin is the live pack's own allocation, so the pointer assertion \
+             below cannot fail and this control has no power"
+        );
+        let generation_before = cast_generation(&app);
+
+        let outcome = publish_candidate(
+            app.world_mut(),
+            ambition_content_pack::CandidateGeneration::prepared_against(
+                std::sync::Arc::clone(&twin),
+                Some(live.fingerprint),
+            ),
+            None,
+        );
+        assert!(
+            matches!(outcome, MoveReload::Unchanged { .. }),
+            "a candidate mechanically identical to what is live is the complete \
+             no-op; got {outcome:?}"
+        );
+        assert!(
+            std::ptr::eq(
+                crate::pack::selected(app.world()).expect("a selection"),
+                std::sync::Arc::as_ref(&live)
+            ),
+            "a complete no-op installed a pack anyway — the selection moved for a \
+             candidate that changed nothing"
+        );
+        assert_eq!(
+            cast_generation(&app),
+            generation_before,
+            "a complete no-op consumed a catalog generation"
+        );
+    }
+
+    // ── the subject: items changed, moves not ────────────────────────────────
+    let mut app = host_with_the_shipped_cast();
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_one_item_rewired());
+
+    assert_eq!(
+        ambition_characters::moveset_content_schema::lowered_movesets(&live),
+        ambition_characters::moveset_content_schema::lowered_movesets(&candidate),
+        "the premise: the candidate must differ in NO move table"
+    );
+    assert_ne!(
+        live.fingerprint, candidate.fingerprint,
+        "the premise: the candidate must differ in the pack's COMPLETE identity, \
+         or the verdict can never reach `Publish`"
+    );
+    let generation_before = cast_generation(&app);
+
+    let outcome = publish_candidate(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+        None,
+    );
+
+    // ⚠ THE MOVE FAMILY'S OWN REPORT IS STILL `Unchanged`, AND THAT IS CORRECT.
+    // It is a CONSEQUENCE of the decision now rather than an input to it.
+    assert!(
+        matches!(outcome, MoveReload::Unchanged { .. }),
+        "the move material did not move, so the move family's report is \
+         `Unchanged`; got {outcome:?}"
+    );
+    assert!(
+        std::ptr::eq(
+            crate::pack::selected(app.world()).expect("a selection"),
+            std::sync::Arc::as_ref(&candidate)
+        ),
+        "the whole pack changed and the App did not adopt it: every later read of \
+         this App's items answers from content the candidate replaced"
+    );
+    assert_eq!(
+        cast_generation(&app),
+        generation_before,
+        "the cast generation moved for a candidate whose move material is \
+         identical — a republication nothing asked for"
     );
 }

@@ -243,6 +243,145 @@ The script prints these on every run:
 For "who writes this state", the sibling instrument is
 `scripts/measure_state_writers.py`, and it has its own separate blind spots.
 
+## Re-derived 2026-09-11 at `d7d8aaee4` — and the two-authority reading A6 asks for
+
+Fourth run of the same instrument. **200 sites across 27 fields: unchanged**, and
+every per-field count in the ranking above reproduces exactly — `kit` 23/7,
+`id` 14/3, `provider` 13/6, `autonomous_profile` 9/5, `death_traits` 8/4,
+`movement_tuning` 8/6, `mount` 7/4, `sheet` 5/4, `motion_model` 4/4. The nine
+dual-read fields are still the same nine.
+
+⛔ **AND THE MEMBER LIST COULD NOT BE DIFFED, BECAUSE NO RUN HAS EVER SAVED ONE.**
+`802ce659b` added this page's own instruction — *"diff the SITES against your last
+run, not the total"* — to the script's output and nothing was given to write the
+sites to. The 2026-09-10 diff was possible only because two runs happened in one
+session and one stdout was still on screen. ⇒ `--out` and `--diff` were added to
+`measure_field_readers_by_seal.py` on 2026-09-11 and the reference lives at
+`dev/prepared_definition_members.json`. **The next
+re-derivation is one `--diff` instead of a full rebuild.**
+
+### The 200 and the crate table are different populations
+
+The run is `--workspace --all-targets`, so the 200 includes tests. Split by
+`#[cfg(test)]` extent (brace-matched, not "first attribute wins"): **136
+production, 64 test.** On the production population the crate table above is
+exact for nine of its ten rows — `ambition_characters` 27, `actor_monolith` 15,
+`actor_spawn` 13, `app_tools` 11, `body_seed` 3, `combat` 3, `match` 3,
+`demo_smash` 2, `sim_harness` 1 — and **"9 consumer crates" is right.**
+
+⚠ **`ambition_content` is the row that is wrong: ONE production field, not nine.**
+Its single production read is `portrait` at `presentation/dialog.rs:973`. The other
+eight sit inside one 1,237-line `#[cfg(test)] mod tests` in `character_catalog.rs`
+— and one of those test rows is `a_character_states_its_policy_in_one_place`, the
+content guard discussed below. ⇒ The crate is in the table because of a guard
+against the condition this packet is about, which is the opposite of being a
+consumer of the definition.
+
+⚠ Two crates the table omits, `ambition_app` (8 fields, 22 sites) and
+`ambition_demo_mary_o` (4 fields, 7 sites), are test-only readers for the same
+reason. They are not missing from the production count; they are not in it.
+
+### ⛔⛔ The dual-read axis cannot answer "two authorities", and here is why
+
+**The seal measures readers of ONE struct.** Every one of the 200 sites reads the
+same `PreparedCharacterDefinition`, so *by construction* no pair of them can be
+two authorities. Reading the reader census harder cannot produce the distinction
+this packet asks for. All sixteen production runtime reads were read by hand at
+`d7d8aaee4`: every one resolves through `PreparedCharacterRegistry` or holds a
+`&PreparedCharacterDefinition` handed to it. ⇒ **On the spawn/runtime axis, all
+nine are two readers of one authority.**
+
+⚠ And the crate axis is a proxy for the road axis, 15 of 16 accurate:
+`actor_monolith/src/construction/mod.rs:1245` (`mount`) is materialization code
+living in the runtime crate. Nothing turns on it here, but a boundary drawn on
+crate membership would put it on the wrong side.
+
+⭐⭐ **THE SECOND AUTHORITY IS A DIFFERENT PAIR, AND THIS REPOSITORY ALREADY NAMES
+IT.** `character_runtime/audit.rs:106`, on `CharacterAuthorityConflict`:
+
+> A disagreement between the prepared registry and assembled character catalog.
+> **Both authorities are currently readable by different runtime paths**, so
+> shared character ids must agree on identity, art, provider, and gameplay
+> definition.
+
+So the decidable question per field is not *who reads it* but **does the fact have
+a second home in `CharacterCatalog`** — and if it does, is the disagreement
+watched.
+
+### The nine, ruled on that axis
+
+| field | second home | watched by | reading |
+|---|---|---|---|
+| `kit` | — | n/a | **two readers of one authority; nothing to do** |
+| `death_traits` | — | n/a | same |
+| `mount` | — | n/a | same |
+| `id` | the key both maps are keyed on | n/a | same |
+| `provider` | `entry.provider` + `CharacterCatalogOwners` | ✔ `ProviderDisagreement` | two authorities, **already watched** |
+| `sheet` | `entry.spritesheet` / `entry.manifest` | ✔ `SheetDisagreement` | two authorities, already watched |
+| `autonomous_profile` | `entry.default_brain` → `catalog.autonomous_profile(key)` | ⚠ a CONTENT test, not the audit | two authorities, watched by the weaker thing |
+| `movement_tuning` | `entry.axis_tuning` → `catalog.axis_tuning(id)` | ✖ **nothing** | two authorities, unwatched |
+| `motion_model` | derived from `momentum` + `axis_tuning` → `catalog.motion_model_spec(id)` | ✖ **nothing** | two authorities, unwatched |
+
+⭐ **AND THE SECTION BELOW REACHED THE SAME CONCLUSION INDEPENDENTLY, FROM THE
+OTHER DIRECTION.** *"A value read at spawn and during simulation can legitimately
+be one immutable definition; two reads do not require two authorities or two
+copies"* was written as a migration RULE in `8ac8e1e9e`, in a commit this
+measurement had not seen. The table above is that rule measured per field — and
+it also names the three the rule does not cover, because they are not one
+definition read twice.
+
+⇒ **Six of the nine are fine as they are, and that is the result, not a deferral.**
+`kit`, `death_traits` and `mount` have no second home; `id` is the key; `provider`
+and `sheet` have one and it is audited. A type move would buy none of them
+anything.
+
+⇒ **The three that are not fine are not fixed by moving a type either.** They are
+resolve-then-fall-back pairs in one function each:
+
+```rust
+// avatar/starting_character.rs:185 — movement_tuning
+match registry.and_then(|registry| registry.get(character_id)) {
+    Some(prepared) => prepared.movement_tuning,
+    None => catalog.axis_tuning(character_id),
+}
+```
+
+`motion_model` at `:151` has the identical shape, and its own comment already
+states the rule the other two do not enforce — *"A prepared character already
+folded its row in at the barrier, so falling back here for one would be the
+displaced authority getting a second vote."*
+
+⭐ And `npc_policy.rs:75` says the quiet part for `autonomous_profile`: *"a content
+guard … already forbids a character authoring a profile while its row names a
+preset, so this branch and that guard agree today. The guard is the belt; this is
+the structure — **a rule that only holds because content happens not to violate it
+is not a rule**."*
+
+### ⛔ What this page does NOT propose
+
+No generic resolver, no request bus, no new trait to unify registry and catalog —
+A6's own text and A7's standing prohibition both apply, and the count of
+authorities is not a thing to buy. **No type moves.**
+
+### The one measurement that decides the remaining three
+
+**Is the catalog fallback reachable — is any id in `CharacterCatalog` absent from
+`PreparedCharacterRegistry` in a real composition?**
+
+* If no id is, the three unwatched twins are DORMANT: the registry always wins and
+  the catalog's copy is never the answer. The repair is then to delete the
+  fallback, not to audit it.
+* If some id is, those characters take their movement feel and motion model from
+  the catalog while every other character takes it from the registry — two
+  authorities, live, and `movement_tuning`/`motion_model` should join the audit
+  beside `provider` and `sheet`.
+
+⚠ **Nothing asserts this today.** The audit walks `registry.iter()` and looks the
+id up in the catalog; the reverse direction — a catalog row no provider prepared —
+is unchecked, and `catalog.motion_model_spec` is written to answer for exactly
+that row. ⇒ It is one headless test, and it is the next A6 landing rather than any
+boundary.
+
 ## Selected uses for the independent authoring boundary
 
 This census guides I1/I2; it does not require copying PreparedCharacterDefinition

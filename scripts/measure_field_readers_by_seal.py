@@ -42,6 +42,21 @@ gated.
 
     python3 scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition
     python3 scripts/measure_field_readers_by_seal.py GroundItem --private
+
+⭐ **`--out` SAVES THE MEMBER LIST AND `--diff` COMPARES AGAINST ONE.** The last
+thing this script prints is *"diff the SITES against your last run, not the
+total"*, and until 2026-09-11 the only reference a reader could have was a
+previous run's stdout. `--diff` reports what ENTERED and LEFT a file and does not
+report a read that merely shifted line. Poison-verified the day it was added: a
+reference with one real site removed, one invented site added and one line number
+changed reported `ENTERED motion_model … prepared.rs` and `LEFT sheet …
+nowhere.rs` and no shift — **at an unchanged total of 200**, which is the case the
+warning exists for.
+
+    python3 scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition \
+        --out dev/prepared_definition_members.json
+    python3 scripts/measure_field_readers_by_seal.py PreparedCharacterDefinition \
+        --diff dev/prepared_definition_members.json
 """
 
 from __future__ import annotations
@@ -172,6 +187,23 @@ def main() -> int:
         action="store_true",
         help="VISIBILITY seal to pub(crate) -- errors, and reaches only the nearest dependent ring",
     )
+    # ⛔⛔ THE LAST THING THIS SCRIPT PRINTS IS "DIFF THE SITES AGAINST YOUR LAST
+    # RUN", AND UNTIL 2026-09-11 NOTHING COULD: no run had ever written a member
+    # list, so the only reference was a previous run's stdout and nobody kept one.
+    # The 2026-09-10 member diff on `PreparedCharacterDefinition` was done by
+    # re-running the whole seal twice in one session; a week later the same check
+    # cost a full build to reconstruct a baseline that had existed and been thrown
+    # away. ⇒ `--out` writes the member list; `--diff` makes the warning executable.
+    parser.add_argument(
+        "--out",
+        metavar="PATH",
+        help="write the (field, file, line) member list as JSON -- the reference a later --diff reads",
+    )
+    parser.add_argument(
+        "--diff",
+        metavar="PATH",
+        help="compare this run's member list against a saved one and report what entered, left and moved",
+    )
     args = parser.parse_args()
 
     path, start, end = find_struct(args.struct_name)
@@ -293,6 +325,41 @@ def main() -> int:
             print(f"          {where}:{line}")
         total += len(stray)
     print(f"\n   {total} reader site(s) across {len(fields)} field(s)")
+
+    members = {
+        name: sorted(f"{where}:{line}" for where, line in readers.get(name, set()))
+        for name in list(fields) + (["?"] if stray else [])
+    }
+    if args.out:
+        out = pathlib.Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(
+                {"struct": args.struct_name, "mode": how, "total": total, "members": members},
+                indent=1,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"\n   wrote member list -> file://{out.resolve()}")
+        print(f"   its directory     -> file://{out.resolve().parent}")
+    if args.diff:
+        ref = json.loads(pathlib.Path(args.diff).read_text(encoding="utf-8"))
+        old = {(f, s) for f, v in ref["members"].items() for s in v}
+        new = {(f, s) for f, v in members.items() for s in v}
+        # A site that only SHIFTED LINE inside one file is not a dependency
+        # change; report it apart from a read that entered or left a file.
+        def by_file(pairs):
+            return collections.Counter((f, s.rsplit(":", 1)[0]) for f, s in pairs)
+        entered, left = by_file(new - old), by_file(old - new)
+        moved = entered & left
+        print(f"\n⛔ MEMBER DIFF against {args.diff} ({ref['total']} -> {total})")
+        if not (entered - moved) and not (left - moved):
+            print(f"   no read entered or left a file; {sum(moved.values())} line shift(s) only")
+        for key, count in sorted((left - moved).items()):
+            print(f"   LEFT    {key[0]:24s} {key[1]} x{count}")
+        for key, count in sorted((entered - moved).items()):
+            print(f"   ENTERED {key[0]:24s} {key[1]} x{count}")
     print("\n⛔ WHAT THIS CANNOT SEE")
     if not by_visibility:
         print("   * A consumer carrying `#[allow(deprecated)]`.")

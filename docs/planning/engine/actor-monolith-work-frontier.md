@@ -323,11 +323,26 @@ Player-only stand eligibility is preserved until separately decided.
 
 **THE CENSUS THIS HOLD ASKS FOR IS DELIVERED:**
 [`prepared-definition-field-census.md`](prepared-definition-field-census.md)
-(2026-09-10; 200 use sites, 27 fields, 9 consumer crates).
+(200 use sites, 27 fields, 9 consumer crates; re-derived unchanged 2026-09-11 at
+`d7d8aaee4`, member list diffed and saved).
 ⇒ **And it REFUTES this packet's premise.** Nine fields are read by BOTH the
 spawn road and the runtime, so the two-way split written below does not exist to
-be finished — `autonomous_profile` alone is read by four crates at three moments.
-Any A6 proposal starts from that table, not from this paragraph.
+be finished. Any A6 proposal starts from that table, not from this paragraph.
+
+⛔⛔ **AND THE DUAL-READ AXIS IS NOT THE AUTHORITY AXIS — RULED 2026-09-11, AND IT
+LANDS ON THIS ROW'S OWN ACCEPTANCE CLAUSE.** The census seals ONE struct, so all
+200 sites read one authority and no pair of them can be two; all sixteen
+production runtime reads resolve through `PreparedCharacterRegistry`. **Six of the
+nine are two readers of one authority and need nothing** — `kit`, `death_traits`
+and `mount` have no second home, `id` is the key, and `provider` and `sheet` have
+one that `CharacterAuthorityConflict` already audits. The second authority is
+`PreparedCharacterRegistry` vs `CharacterCatalog`, and three fields sit on it
+unevenly: `autonomous_profile` is held by a content test rather than the audit,
+while **`movement_tuning` and `motion_model` are duplicate authored movement and
+tuning authority with nothing watching them — which is the acceptance line below,
+in as many words.** ⇒ The next A6 landing is one headless test asking whether the
+catalog fallback is reachable, not a boundary. ⛔ Not a resolver, not a bus, and
+no type moves; see the page for why.
 
 **HOLD (SATISFIED):** make a field/use census before moving types.
 **Source:** `ambition_characters` actor/prepared/brain/moveset/technique schemas;

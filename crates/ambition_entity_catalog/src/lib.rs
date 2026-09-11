@@ -3457,7 +3457,24 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
 /// overpowered."* Per-move tuning is a different question, asked per swing by a
 /// spec's `hitbox.inflate` or an authored rect's own extents.
-pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.6;
+/// ⛔⛤ STOOD DOWN TO `1.0` — THE PLUMBING SHIPS, THE FEEL CHANGE DOES NOT, AND
+/// WHAT STOPS IT IS A DETERMINISM DEFECT THIS CHANGE MADE REACHABLE.
+///
+/// At `1.6`, `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+/// fails with a GGRS sync-test checksum mismatch at frames 60-62. At `1.0` it
+/// passes. MEASURED both ways, 2026-09-11; nothing else differs.
+///
+/// ⇒ REASONED, NOT MEASURED, on the cause: a larger volume reaches MORE VICTIMS
+/// AT ONCE, and `queue.md`'s A2 already records that `StrikeVictim.sim_id` is
+/// `Option<&SimId>` where `None` orders FIRST and two `None`s compare equal —
+/// leaving Bevy query order to decide the tie. A resimulation need not reproduce
+/// query order. Generosity did not create that; it made it reachable.
+///
+/// ⭐ THE STRUCTURE IS WORTH KEEPING AT 1.0: both hitbox roads now read one
+/// number, a test pins them together, and raising this is a one-line change the
+/// day the tie-break is an identity rather than a sort fallback. Raising it
+/// before then buys a bigger hitbox with an intermittent desync.
+pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.0;
 
 impl VolumeShape {
     /// This shape, grown about the body's own origin by `factor`.

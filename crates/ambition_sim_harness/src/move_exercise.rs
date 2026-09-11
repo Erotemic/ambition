@@ -834,18 +834,37 @@ pub fn place_seat_relative(app: &mut App, seat: usize, offset: (f32, f32)) -> bo
     let Some(origin) = seat_pos(app, 0) else {
         return false;
     };
+    let target = ambition_platformer2d::observation::Vec2::new(origin.0 + offset.0, origin.1 + offset.1);
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_platformer2d::actor::MatchSeat,
-        &mut ambition_platformer2d::actor::BodyKinematics,
+        &mut ambition_platformer2d::actor::MotionModel,
+        ambition_platformer2d::actor::BodyClusterQueryData,
     )>();
-    for (at, mut kin) in q.iter_mut(world) {
-        if at.0 == seat {
-            kin.pos.x = origin.0 + offset.0;
-            kin.pos.y = origin.1 + offset.1;
-            kin.vel = Default::default();
-            return true;
+    for (at, mut model, mut item) in q.iter_mut(world) {
+        if at.0 != seat {
+            continue;
         }
+        let mut clusters = item.as_clusters_mut();
+        // ⛔⛤ THE DISCRETE-TRANSIT AUTHORITY, NOT A FIELD WRITE. This used to
+        // assign `kin.pos` and `kin.vel` directly and the workspace policy
+        // `engine.pose-writes-are-authority-only` refused it — correctly, and
+        // for a reason bigger than the rule: a body moved without
+        // `reconcile_transit` keeps the GROUND and WALL contacts it had where it
+        // used to be. A sandbag dropped in overhead would arrive still believing
+        // it was standing on the floor it left, and the up air this staging
+        // exists to measure would meet a body that never falls.
+        //
+        // ⚠ `Zero`, not `Keep`: the prop is being PLACED, and inheriting the
+        // velocity of wherever it stood is not a starting condition anyone asked
+        // for. Gravity supplies the fall from rest.
+        ambition_platformer2d::actor::transit_body(
+            &mut model,
+            &mut clusters,
+            target,
+            ambition_platformer2d::actor::TransitVelocity::Zero,
+        );
+        return true;
     }
     false
 }

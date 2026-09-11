@@ -171,19 +171,13 @@ fn land_the_tilt(app: &mut App, author: Entity, target: Entity) -> usize {
     app.world_mut()
         .entity_mut(author)
         .insert(MovePlayback::new(spec, facing));
-    // ⛔⛤ AND THE SPEC'S OFFSET IS NOT WHERE THIS MOVE ACTUALLY HITS. The comment
-    // above is right that a typed position would be a second answer; the offset
-    // it reads instead is a second answer TOO, because a `vfx`-tagged window
-    // resolves its volume from the SPRITE MANIFEST and falls back to the spec
-    // rect only when the sheet authors no row. The two agreed by coincidence
-    // until a manifest volume changed shape (2026-09-11,
-    // `MIN_STRIKE_EXTENT_OVER_BODY`) and this fixture failed with
-    // "the road from the move to the mark is broken" about a road that was fine.
-    //
-    // ⇒ THE LIVE BOX IS THE ONLY AUTHORITY ON WHERE IT HITS. The spec offset
-    // above still seats the target in the right REGION before the move starts;
-    // this re-parks it on the volume the engine actually spawned, once there is
-    // one to read.
+    // ⛔ THE LIVE BOX IS THE ONLY AUTHORITY ON WHERE THIS MOVE HITS. The spec's
+    // offset rect is not: a `vfx`-tagged window resolves its volume from the
+    // SPRITE MANIFEST and falls back to the spec rect only when the sheet
+    // authors no row, so seating a target by the offset alone parks it on a
+    // shape the engine may never spawn. The offset above still seats the target
+    // in the right REGION before the move starts; the loop below re-parks it on
+    // the volume the engine actually spawned, once there is one to read.
     for tick in 0..90 {
         app.update();
         let live = {

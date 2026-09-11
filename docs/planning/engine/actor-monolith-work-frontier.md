@@ -83,6 +83,12 @@ restate it**, and [the cheapest sufficient check](../../recipes/cheapest-suffici
 already carries the full argument in Jon's own words: *"local targeted reruns only,
 and then we DON'T run the entire thing again after."*
 
+⚠ **A REVIEW ASKED FOR THE "each commit is independently valid" HALF TO COME BACK
+under cheapest-sufficient wording. DECLINED.** Jon named that sentence for removal
+by its own words, and any rewording of "each commit must build" re-imposes what he
+struck. Commit hygiene that is NOT about verification breadth is already stated
+above: separate a semantic fix from an ownership move, and do not broaden a packet.
+
 ## A1. Checkpoint restoration belongs to session lifecycle
 
 **A1's acceptance matrix is complete: all seventeen rows have a witness that

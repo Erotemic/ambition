@@ -1491,12 +1491,14 @@ from what GPT-6 did for the performer and apply that, not a multiplier.
 ---
 
 
-**Owner:** `ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY` (the constant carries
-the measurements) and `ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE`.
+**Owner:** nobody, by design — there is no generosity constant left to own, and
+both hitbox roads resolve at AUTHORED size. Deleted:
+`ATTACK_VOLUME_GENEROSITY` / `VolumeShape::from_generous` / `ACTOR_ATTACK_HITBOX_SCALE` / `PLAYER_ATTACK_HITBOX_SCALE` / `MIN_STRIKE_EXTENT_OVER_BODY`. <!-- cite-ok: this row RECORDS these deletions -->
 
 Jon, 2026-09-11: attacks *"rarely ever feel like they connect"*, and *"we can
-absolutely make characters overpowered"*. Both hitbox roads now read ONE number and
-`the_two_hitbox_roads_are_equally_generous` pins them together.
+absolutely make characters overpowered"*. The generosity that ask wants is authored
+PER MOVE, in the sprite spec's `hitbox.inflate` / `hitbox.per_frame`, which the
+renderer applies in FRAME space at the right pivot — the census above.
 
 ✅ **THE DETERMINISM BLOCKER IS CLOSED (`c2a551471`).** Raising the knob reddened
 `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
@@ -1514,12 +1516,17 @@ sixteen name a per-tick cadence and the seventeenth is repaired on
 `victim_identity_key` — correct on its own merits, landed — changed the oracle not at
 all. A fix that closes a plausible mechanism is not evidence about the cause.
 
-✅ **THE KNOB IS AT 1.25 (`6b8970798`), AND THE CEILING IS THE FIGHT.** MEASURED
-against `ambition_demo_smash_app`'s acceptance suite, one run per value: 1.0 / 1.15 /
-1.25 green; at **1.30** `every_live_fighter_stays_inside_the_frame` goes red on its
+⛔ **THE KNOB IS DELETED; ITS CEILING MEASUREMENT SURVIVES AS A FACT ABOUT BIG
+BOXES.** While the roster-wide multiplier existed, MEASURED against
+`ambition_demo_smash_app`'s acceptance suite, one run per value: 1.0 / 1.15 / 1.25
+green; at **1.30** `every_live_fighter_stays_inside_the_frame` went red on its
 ANTI-VACUITY floor — *"no fighter was ever outside the room's own bounds in this match
-(0 body-frames)"* where 1.0 produces more than twenty; at **1.6** two more join it.
-⇒ Generous enough boxes make two CPUs trade constantly and nobody leaves the stage.
+(0 body-frames)"* where 1.0 produces more than twenty; at **1.6** two more joined it.
+⇒ **Generous enough boxes make two CPUs trade constantly and nobody leaves the
+stage.** That is a ceiling on the TOP of the size distribution, and per-character
+authoring that enlarges an ALREADY-generous move spends against it. It says nothing
+about raising the floor: at an area floor of 1.0 — far past anything shipped — that
+same suite was 28/28 green.
 
 ⛔⛤ **AND I WROTE THAT THIS WAS "THE SAME SYMPTOM, SAME TEST" AS HITBOX CLANKING.
 IT IS THE SAME TEST AND A DIFFERENT CAUSE — CORRECTED 2026-09-11.** That floor has
@@ -1575,28 +1582,21 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    — closest gaps 39 to 142 px. The census above is about SIZE and says nothing about
    whether these moves connect in a match; that needs `--spacing`.
 
-   ⛔ **THE "HALF-CLOSED" RECEIPT THAT WAS HERE IS REVERTED (`32e5a947d`) — the
-   floor reshaped authored polygons. What it measured is kept below; what it changed
-   is gone.** Superseded receipt, for the record:
-   `ambition_character_sprites::MIN_STRIKE_EXTENT_OVER_BODY` grows each half-extent
-   of a resolved manifest volume to at least half the body's half-extent ON THE SAME
-   AXIS. medic 0.14 → 0.70 (17.8 x 4.8 → 17.8 x 24.0 — her authored LENGTH kept),
-   sanic 0.16 → 0.27, carl 0.18 → 0.32, officer 0.39 → 0.60,
-   perfect_cellular_automaton 0.44 → 0.58, projectile_polygon 0.48 → 0.80, and
-   npc_alice 1.25 → 1.40 (a healthy AREA that was thin on one axis — the case an area
-   floor cannot see). Nobody above the floor moved.
-   ⛔ **PER-AXIS, BECAUSE AN AREA FLOOR DOES NOT REPAIR THIS.** Measured: an area
-   floor of 0.5 leaves the medic's tilt NINE px tall against a 48 px body.
-   ⭐⭐ **AND THE FLOOR IS NOT THE KNOB.** I predicted it would hit the same
-   `every_live_fighter_stays_inside_the_frame` wall the generosity knob hit at 1.30.
-   MEASURED at an AREA floor of 1.0 — far past anything shipped — that suite is 28/28
-   green. ⇒ **What breaks the CPU knockout game is making the ALREADY-GENEROUS boxes
-   bigger, not making the stingy ones adequate.** The ceiling in `6b8970798` is a
-   ceiling on the TOP of the distribution and this lever does not spend it.
-   ⚠ **STILL OPEN:** the floor reaches ONE of the two hitbox roads — goblin 0.55 and
-   npc_ninja_shadow_oni_leader 0.80 resolve authored `VolumeShape::Rect`s through
-   `ambition_combat` and do not move at any floor value. And every number here is
+   ⛔ **A PER-AXIS EXTENT FLOOR WAS TRIED AND IS REVERTED (`32e5a947d`), BECAUSE A
+   FLOOR RESHAPES AN AUTHORED POLYGON** — a volume drawn deliberately long and low is
+   the case it damages most. What it measured is worth keeping as sizing evidence for
+   the authoring work: growing each half-extent to half the body's half-extent on the
+   SAME axis moved medic 0.14 → 0.70, sanic 0.16 → 0.27, carl 0.18 → 0.32, officer
+   0.39 → 0.60, and npc_alice 1.25 → 1.40 — a healthy AREA that was thin on one axis,
+   the case an area floor cannot see (an area floor of 0.5 leaves the medic's tilt
+   NINE px tall against a 48 px body). Nobody above the floor moved.
+   ⚠ **AND IT REACHED ONLY ONE OF THE TWO ROADS.** goblin and
+   npc_ninja_shadow_oni_leader resolve authored `VolumeShape::Rect`s through
+   `ambition_combat` and did not move at any floor value. ⇒ **Per-character authoring
+   has to name its road**: sprite-manifest fighters take `hitbox.inflate`, rect-road
+   fighters take a bigger authored rect. Every number in this item is
    `attack_forward` alone; jabs, aerials and smashes are not censused.
+
 2. ✅ **CLOSED 2026-09-11 — THE PERFORMER'S TILT CANCELS ARE OBSERVED IN A MATCH,
    and `ba2f8887a`'s note said the opposite.** Both halves of *"not observed"* were
    the SCENARIO:

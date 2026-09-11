@@ -669,20 +669,13 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
 fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     let mut app = fight_app();
     register_two_providers_characters(&mut app);
-    // ⛔⛤ SANIC'S PLACEMENT DERIVES FROM `ATTACK_VOLUME_GENEROSITY`, AND IT HAS
-    // TO. The premise is "the strike reaches his BOX and not his TORSO" — a gap
-    // of a few pixels between two of his own geometries — so the moment every
-    // strike volume grew, the gap moved and the premise arm below refused.
-    //
-    // Mary-O's stomp spans x ∈ [10 g, 38 g] with `g` the knob (MEASURED: at
-    // g = 1.6 the live box read [16.000002, 60.800003]). Sanic's authored torso
-    // is ±10 and his body box ±20, so any centre in `(38 g + 10, 38 g + 20)`
-    // puts the box in reach and the torso out of it. The midpoint leaves the
-    // most room on both sides, and at g = 1.0 it is 53 — where this literal was.
-    const SANIC_TORSO_HALF_X: f32 = 10.0;
-    const SANIC_BODY_HALF_X: f32 = 20.0;
-    let strike_reach = 38.0 * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY;
-    let sanic_x = strike_reach + (SANIC_TORSO_HALF_X + SANIC_BODY_HALF_X) / 2.0;
+    // ⛔ THE PREMISE IS A GAP OF A FEW PIXELS between two of Sanic's own
+    // geometries: the strike must reach his BODY BOX and not his authored TORSO.
+    // Mary-O's stomp spans x ∈ [10, 38]; his torso is ±10 and his body box ±20,
+    // so any centre in `(48, 58)` is in reach of one and clear of the other. The
+    // midpoint leaves the most room on both sides, and the premise arm below
+    // refuses rather than going green on a hit that would then be correct.
+    let sanic_x = 53.0;
     let mary = spawn_fighter(
         &mut app,
         "mary_o",

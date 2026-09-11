@@ -131,11 +131,11 @@ pub fn manifest_attack_hitbox_local(
 // drawn deliberately long and low most of all. An undersized swing is an
 // authoring question — see `hitbox.inflate` below.
 
-// ⛔⛔ THIS ROAD HAS NO GENEROSITY KNOB, AND MUST NOT GAIN ONE THAT SCALES
-// `render_size`. `FrameToBody::point` is `anchor_local + (px - feet_px) * scale`
-// with `scale = render_size / frame`, so a factor there multiplies the
-// DISPLACEMENT FROM THE FEET PIXEL: the volume grows AND TRANSLATES away from the
-// anchor, and resolves where the animation does not draw it.
+// ⛔⛔ THIS ROAD RESOLVES AT AUTHORED SIZE AND MUST NOT GAIN A `render_size`
+// SCALE. `FrameToBody::point` is `anchor_local + (px - feet_px) * scale` with
+// `scale = render_size / frame`, so a factor there multiplies the DISPLACEMENT
+// FROM THE FEET PIXEL: the volume grows AND TRANSLATES away from the anchor, and
+// resolves where the animation does not draw it.
 //
 // ⇒ Per-swing generosity belongs in the sprite spec's `hitbox.inflate`, which the
 // renderer applies in FRAME SPACE against the art. A code-side knob here would
@@ -213,32 +213,6 @@ pub fn authored_attack_volume_resolver(
     }
 }
 
-// ⛔⛔ THE SPRITE-POLY ROAD HAS NO GENEROSITY KNOB, AND MUST NOT GET ONE THAT
-// SCALES `render_size`. Two lived here — `ACTOR_ATTACK_HITBOX_SCALE` and
-// `PLAYER_ATTACK_HITBOX_SCALE` (1.3, which predated 2026-09-11) — and both were
-// the same mistake.
-//
-// `FrameToBody::point` is `anchor_local + (px - feet_px) * scale`, and `scale` is
-// `render_size / frame`. ⇒ MULTIPLYING `render_size` MULTIPLIES THE DISPLACEMENT
-// FROM THE FEET PIXEL. The volume does not grow in place; it grows AND TRANSLATES
-// away from the anchor, so a blade authored at the character's hand resolves
-// further out and further up than the animation draws it.
-//
-// Jon, 2026-09-11: *"it makes the shapes misaligned from the animations, which
-// makes all the moves read wrong because any scaling is not centered around where
-// the attack motion really is."*
-//
-// ⇒ Polys resolve at AUTHORED SIZE, where the art is. If generosity is wanted on
-// this road it has to scale the RESOLVED volume about its own centre — a
-// different operation with a stated pivot, not a factor smuggled into the
-// sprite-to-world transform.
-
-
-/// The player's authored melee volume for `animation`, BODY-LOCAL.
-///
-/// Cheap per-frame because the file-root registry is an immutable baked-asset
-/// cache. `None` when no hitbox is authored for that animation, so the caller
-/// falls back to its `AttackSpec` volume.
 pub fn player_attack_hitbox_local(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
@@ -252,8 +226,6 @@ pub fn player_attack_hitbox_local(
     let record = authored
         .get(PLAYER_FILE_ROOT)
         .or_else(|| file_root_registry().get(PLAYER_FILE_ROOT))?;
-    // Enlarge the hitbox by scaling the render size the poly/bbox offsets derive
-    // from — grows reach + size about the feet anchor, player-only.
     let render_size = player_render_size(authored, catalog, collision)?;
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }

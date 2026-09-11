@@ -1235,13 +1235,11 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
     }
 
     // ⚠ DERIVED FROM THE KNOB, NOT RETYPED. The strike road grows an authored
-    // rect by `ATTACK_VOLUME_GENEROSITY` so both hitbox roads feel the same, and
-    // this test's subject is GRAVITY INVARIANCE — not the absolute size. Pinning
-    // the literal made it fail on a feel change it says nothing about, and the
-    // next tuning pass would break it again.
-    let generous = ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY;
-    let authored_local = ae::Vec2::new(28.0, -20.0) * generous; // facing +1
-    let authored_half = ae::Vec2::new(16.0, 12.0) * generous;
+    // ⭐ THE SUBJECT IS GRAVITY INVARIANCE, not the absolute size: the authored
+    // numbers below are the move's own and the assertions compare across gravity
+    // directions, so a geometry change moves all four arms together.
+    let authored_local = ae::Vec2::new(28.0, -20.0); // facing +1
+    let authored_half = ae::Vec2::new(16.0, 12.0);
     for dir in [
         ae::Vec2::new(0.0, 1.0),  // down (baseline)
         ae::Vec2::new(1.0, 0.0),  // right
@@ -5950,12 +5948,11 @@ fn two_spot_app(volumes: Vec<HitVolume>) -> (App, Entity) {
     app.world_mut().spawn((
         ActorFaction::Enemy,
         // ⚠ PLACED IN THE SPACE THE VOLUMES ACTUALLY OCCUPY. The strike road
-        // grows an authored rect by `ATTACK_VOLUME_GENEROSITY`, so a victim
         // standing at an AUTHORED coordinate is not where the fixture thinks it
         // is. Deriving the placement keeps the premise — this body is inside
         // these spots — true at any value of the knob.
         ae::CenteredAabb::from_center_size(
-            ae::Vec2::new(24.0 * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY, 0.0),
+            ae::Vec2::new(24.0, 0.0),
             ae::Vec2::new(20.0, 40.0),
         ),
         ambition_platformer2d_core::BodyOffense::default(),
@@ -6030,7 +6027,7 @@ fn volumes_that_do_not_both_reach_the_body_both_still_land() {
         // Same derivation as the near body: the FAR spot is authored at 400 and
         // placed at 400 * the knob.
         ae::CenteredAabb::from_center_size(
-            ae::Vec2::new(400.0 * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY, 0.0),
+            ae::Vec2::new(400.0, 0.0),
             ae::Vec2::new(20.0, 40.0),
         ),
         ambition_platformer2d_core::BodyOffense::default(),
@@ -6083,14 +6080,7 @@ fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
 
 /// The two-spot chain with the victim's position under the caller's control,
 /// and a move whose Active stretch is authored by the caller.
-/// ⚠ `victim_x` AND EVERY STATION BELOW ARE AUTHORED COORDINATES, and the
-/// helpers place in the EFFECTIVE space. The strike road grows an authored rect
-/// by `ATTACK_VOLUME_GENEROSITY`, so a victim stood at the number a volume was
-/// authored with is not inside that volume any more. Converting here, once,
-/// keeps every pulse test readable in the numbers its move actually spells and
-/// keeps them all true at any value of the knob.
 fn pulse_app(spec: MoveSpec, victim_x: f32) -> (App, Entity, Entity) {
-    let victim_x = victim_x * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY;
     let moveset = MovesetContract {
         verbs: [(ATTACK_VERB.to_string(), spec.id.clone())]
             .into_iter()
@@ -6142,11 +6132,7 @@ fn swing_across(app: &mut App, body: Entity, victim: Entity, stations: &[f32]) -
     set_frame(app, body, |f| f.melee_pressed = false);
     for x in stations {
         // Authored coordinates in, effective space out — see `pulse_app`.
-        stand_at(
-            app,
-            victim,
-            *x * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY,
-        );
+        stand_at(app, victim, *x);
         app.update();
     }
     for _ in 0..12 {

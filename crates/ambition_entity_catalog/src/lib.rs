@@ -3438,51 +3438,6 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// definition cannot name the verb its moveset binds without reaching up into
 /// the runtime crate. Re-exported from `ambition_platformer2d::combat::moveset`, so every
 /// existing path still resolves.
-/// How much more generous an authored-rect strike volume is than its authored
-/// size. `1.0` is authored size.
-///
-/// ⚠ IT GOVERNS THE AUTHORED-RECT ROAD ONLY. `place_body_local_volume` grows a
-/// rect by this about the BODY ORIGIN; the sprite-poly road has no equivalent
-/// and must not gain one that scales `render_size` — doing so moves every volume
-/// off the art it was authored against.
-///
-/// ⛔ NOT A FEEL LEVER. Raising it scales every character's every move, including
-/// the ones whose volumes were shaped deliberately, which makes those worse.
-/// Per-swing generosity is a sprite spec's `hitbox.inflate`, applied in frame
-/// space where the blade is; per-move generosity is that rect's own extents.
-///
-/// ⛔ ITS SIZE IS ROLLBACK-OBSERVABLE. Large enough volumes make two of a move's
-/// windows reach one victim on the same tick, and the winner is decided by
-/// `StrikeRank` — canonical rollback state for that reason.
-pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.0;
-
-impl VolumeShape {
-    /// This shape, grown about the body's own origin by `factor`.
-    ///
-    /// ⭐ REACH AND SIZE TOGETHER, which is what the sprite road already does by
-    /// scaling the render size the poly offsets derive from. Growing the extents
-    /// alone would make a swing fatter without letting it reach any further, and
-    /// "it does not reach" is the half a player feels first.
-    ///
-    /// ⚠ `factor` of `1.0` is the identity, so a caller that does not want the
-    /// generosity says so by passing it rather than by calling something else.
-    #[must_use]
-    pub fn from_generous(shape: &Self, factor: f32) -> Self {
-        match shape {
-            Self::Rect {
-                offset,
-                half_extents,
-            } => Self::Rect {
-                offset: (offset.0 * factor, offset.1 * factor),
-                half_extents: (half_extents.0 * factor, half_extents.1 * factor),
-            },
-            Self::Circle { offset, radius } => Self::Circle {
-                offset: (offset.0 * factor, offset.1 * factor),
-                radius: radius * factor,
-            },
-        }
-    }
-}
 
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the

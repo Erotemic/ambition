@@ -990,20 +990,3 @@ fn refresh_authored_volume_resolver(
     *resolver = authored_volume_resolver_for(&sheets);
 }
 
-// ⛔⛤ `generosity_tests` LIVED HERE AND IS DELETED (2026-09-11), because its
-// subject stopped existing. It asserted that `ambition_character_sprites`'
-// `ACTOR_ATTACK_HITBOX_SCALE` equalled `ambition_combat`'s
-// `ATTACK_VOLUME_GENEROSITY` — two constants kept in step by a test, which is
-// synchronisation rather than authority, and it could only ever see two of the
-// three copies that actually existed.
-//
-// ⇒ There is ONE constant now: the sprite road reads `ambition_combat`'s through
-// a private alias, over a dependency edge it already had. A test comparing a
-// value with itself cannot fail, and a check that cannot fail is worse than no
-// check because it reads as coverage.
-//
-// ⚠ WHAT IS STILL UNGUARDED, and it is the real remaining divergence: the two
-// roads APPLY the one number differently. `place_body_local_volume` scales an
-// authored rect about the BODY ORIGIN; this road multiplies `render_size`, so
-// `FrameToBody::planting_feet` scales the poly about the FEET ANCHOR. Equal
-// inputs, different pivots — which no equality test was ever going to catch.

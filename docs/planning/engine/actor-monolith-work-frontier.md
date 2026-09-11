@@ -347,13 +347,16 @@ disagree with it: 147 catalog rows, 58 prepared, and **zero disagreements in the
 overlap**. The read-site fall-back in `avatar/starting_character.rs` is reached
 for 89 ids per boot and the catalog authors a value for **none** of them, so it
 returns the default every time. ⇒ The residue is not a boundary and not an audit
-variant — **the fold is spelled twice**, and deleting the read-site copy leaves
-the barrier as the only place the rule lives. That deletion is behaviour-
-preserving only while every catalog row authoring feel is prepared, which is now
-asserted by `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`
-(poison-verified). ⚠ Not yet measured in the mary_o / twintrack demo
-compositions, which author `axis_tuning` of their own; a scoped zero is not a
-global zero.
+variant — **the fold is spelled twice**. ⛔ **DELETING THE SECOND SPELLING WAS
+TRIED AND REVERTED**: all five compositions measure ZERO orphans (shipped host
+147/58, mary_o 7/7, twintrack 2/2, sanic 3/3, smash 3/3 — and in the four demos
+the read-time fold is never even reached), yet removing it reddened SIX tests
+across three files, all on the wear/re-wear road the fold serves, one of them
+asserting the deleted behaviour outright. ⇒ **The open question is a ruling on
+what an UNPREPARED id should inherit at wear time**, which is design, not cleanup.
+`game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`
+(poison-verified) keeps the orphan case from arising meanwhile; it could not have
+caught the six, and the in-crate suite did.
 
 ⛔ Not a resolver, not a bus, and no type moves; see the page for why.
 

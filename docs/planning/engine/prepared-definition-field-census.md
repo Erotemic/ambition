@@ -26,6 +26,14 @@ everything downstream is never built (measured on `GroundItem`: 8 sites against
 **200 use sites across 27 fields and 9 consumer crates**, production only unless
 stated.
 
+⛔ **27 IS A CLAIM ABOUT THE INSTRUMENT, NOT ABOUT THE TYPE — `PreparedCharacterDefinition`
+HAS 32 FIELDS.** The seal tags every `pub` field, so it is structurally blind to a
+private one: `voice`, `cue_dependencies`, `vfx_dependencies`, `checked` and
+`unresolved` are retained and appear in no run. None of the nine dual-read fields
+is affected and no count below moves — but a reader who re-derives 27 and calls it
+the field count will be wrong about the type, which is why the blindness sits
+beside the number rather than only in the caveats.
+
 ## Who reads what
 
 | crate | fields | role |
@@ -433,13 +441,16 @@ is CONSTRUCTED (`demo_smash/src/lib.rs:4344`), whose own comment already files i
 a levelled stage where thirteen bodies are floatier than the fourteenth is half a
 decision … Filed for a later slice."*
 
-### The guard that makes the deletion provable, and its poison
+### The guard the deletion would have needed, and its poison
 
-Deleting the read-site fold is behaviour-preserving **only while every catalog row
-that authors feel is one the barrier prepared** — and nothing asserted that. It is
-now `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`, over the
-shipped composition, with a floor that fails if fewer than five rows author feel
-so it cannot pass by losing its subject.
+Deleting the read-site fold would be behaviour-preserving **only while every
+catalog row that authors feel is one the barrier prepared** — and nothing asserted
+that. It is now `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`,
+over the shipped composition, with a floor that fails if fewer than five rows
+author feel so it cannot pass by losing its subject. ⚠ The guard is worth keeping
+on its own terms, but the section below is the reason it was not enough: it
+constrains real compositions and says nothing about the in-crate fixtures that
+actually caught the deletion.
 
 ⭐ POISON-VERIFIED: `axis_tuning` added to `npc_busy_beaver` — a row in the 89 —
 fails the guard naming that row, and removing it passes. ⛔ **And the restore
@@ -448,12 +459,85 @@ at compile time, and cargo's mtime check saw no change and reused the POISONED
 binary. A byte-identical restore confirmed by `md5sum` and a clean `git status`
 still ran the poison. Verify a restore by RE-RUNNING, not by comparing the file.
 
-⚠ **WHAT THIS DID NOT MEASURE: the other compositions.** `ambition_demo_mary_o`
-and `ambition_demo_twintrack` author `axis_tuning` on their own catalog rows, and
-mary_o's comment says *"re-wearing re-reads `axis_tuning`"*. Their rows are
-prepared in the shipped host — that is what the 3 and 5 above are — but their own
-demo apps were not built and measured. A scoped zero is not a global zero, and the
-deletion should not land until they are.
+### Every composition measured, and the deletion tried and REVERTED
+
+The paragraph that stood here said the other compositions were unmeasured and the
+deletion waited on them. They are measured now — all of them, not the two that
+were named:
+
+| composition | catalog rows | prepared | rows authoring feel | ORPHANED |
+|---|---:|---:|---:|---:|
+| shipped host, launcher **and** direct | 147 | 58 | 5 | **0** |
+| `ambition_demo_mary_o` | 7 | 7 | 3 | **0** |
+| `ambition_demo_twintrack` | 2 | 2 | 2 | **0** |
+| `ambition_demo_sanic` | 3 | 3 | 2 | **0** |
+| `ambition_demo_smash` | 3 | 3 | 0 | **0** |
+
+Each built through its own `build_demo_app()` at default features with
+`finish()`/`cleanup()`/`update()`. ⭐ **In all four demos catalog and prepared are
+the SAME SET, so the read-time fold is not merely answer-free there — it is never
+reached.** Only the shipped host reaches it, 89 times a boot, for ids whose rows
+author nothing.
+
+⛔⛔ **AND THE DELETION STILL DOES NOT LAND. SIX TESTS WENT RED ACROSS THREE
+FILES.** Removing both fall-backs and the parameters they left dead broke
+`a_definition_authored_motion_model_beats_the_catalog_row`,
+`a_worn_body_carrying_no_moveset_is_still_given_its_persona`,
+`gameplay_derives_from_worn_identity_at_add_and_on_change`,
+`live_refresh::cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state`,
+`live_refresh::live_ability_sync_does_not_rederive_authored_movement_identity` and
+`rewearing_an_equivalent_momentum_profile_preserves_live_ride_state`.
+
+⇒ **They are not one fixture shape: they are the wear/re-wear road, which is the
+road the fold actually serves.** One of them asserts the deleted behaviour in as
+many words — *"an unauthored character stopped inheriting its catalog row"* — with
+a comment calling it *"the migration path, and the half that keeps this safe to
+put in front of every character at once."*
+
+⇒ **Re-baselining six tests to land a duplicate-spelling cleanup is the
+canary-versus-cage call going the wrong way, so it was reverted.** The production
+measurement was right about production and is not a sufficient basis for the
+change: what the deletion really decides is **what an UNPREPARED id should inherit
+at wear time**, and that is a design question, not a cleanup. ⚠ Note also that the
+app-level guard could not have caught this — it constrains real compositions, and
+these fixtures are legitimately partial. The in-crate suite is what covered it.
+
+⇒ **The open A6 question is now that ruling**, not a boundary and not an audit
+variant. Until it is made, the fold stays spelled twice and the guard keeps the
+orphan case from arising.
+
+### ⛔ One sibling keeps its reference and the other does not
+
+Found while answering whether a prepared definition can be re-staged (I2). Both
+policy fields are authored either inline or as a named reference, and
+`finalize_character` resolves both — but it retains only ONE of the references:
+
+```rust
+autonomous_profile: resolve_autonomous_profile(&id, &provider, autonomous_profile,
+                                               autonomous_profile_ref.as_ref(), profiles),
+provoked_profile:   resolve_autonomous_profile(&id, &provider, None,
+                                               provoked_profile_ref.as_ref(), profiles),
+provoked_profile_id: provoked_profile_ref.as_ref()
+                        .map(|reference| reference.resolve_in(&provider)),
+```
+
+⇒ `provoked_profile_ref` survives as `provoked_profile_id`; `autonomous_profile_ref`
+survives as nothing. **"Authored inline" and "named a profile" are distinguishable
+after preparation for the provoked policy and indistinguishable for the autonomous
+one.** That is the same asymmetry `autonomous_profile` already shows in this page's
+table — it is the one dual-read field whose second home is watched by a content
+test rather than the audit — and it is not obviously deliberate. It blocks nothing
+today; it is filed here because a re-stage, a hot revision or a save codec each
+need the distinction and none of them can recover it.
+
+### ⛔ And the census counts 27 PUB fields of 32
+
+`measure_field_readers_by_seal.py` tags every `pub` field, so it is structurally
+blind to a private one. `PreparedCharacterDefinition` has **32 fields**: the 27
+this page enumerates plus `voice`, `cue_dependencies`, `vfx_dependencies`,
+`checked` and `unresolved`, all private to `ambition_characters`. None of the nine
+dual-read fields is affected — they are all `pub` — but *"200 use sites across 27
+fields"* is a claim about the instrument's population, not about the type.
 
 ## Selected uses for the independent authoring boundary
 

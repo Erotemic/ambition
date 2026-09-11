@@ -59,7 +59,6 @@
     "ambition_combat": [
       "crates/ambition_combat/src/brain/smash/action.rs: unresolved `emit_inputs`",
       "crates/ambition_combat/src/capture/systems.rs: unresolved `BodyHurtboxesResolved`",
-      "crates/ambition_combat/src/clank.rs: unresolved `HitboxLifetime`",
       "crates/ambition_combat/src/clank.rs: unresolved `ResolvedCombatTuning::clank_damage_window`",
       "crates/ambition_combat/src/events.rs: unresolved `CombatVolume`",
       "crates/ambition_combat/src/hit_reaction.rs: unresolved `ambition_platformer2d::combat::rules::DeclaredCombatRules::crouch_cancel_scale`",

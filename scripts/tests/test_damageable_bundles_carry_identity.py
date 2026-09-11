@@ -34,17 +34,22 @@ MEASURE = (
     / "measure_damageable_bundles_without_identity.py"
 )
 
-# ⛔⛔ 2 -> 1 IS THE ONLY DIRECTION. Both leads were read by hand:
-#   * `game/ambition_content/src/bosses/cut_rope/victory.rs` — a fully damageable
-#     post-boss NPC (`CenteredAabb`, `ActorFaction::Npc`, `DamageableVolumes`, a
-#     brain) spawned bare, with `SimId` nowhere in the file. REAL.
+# ⛔⛔ ZERO, AND IT CAME DOWN BY RE-DERIVING RATHER THAN BY AN EDIT. Both former
+# leads were read by hand, and BOTH were false:
 #   * `actor_monolith/src/character_runtime/match_activation.rs` — a match
-#     fighter body. CLEARED by the runtime census: every fighter in a live match
-#     carries an identity, by a road neither the bundle nor a `SimId::` grep can
-#     see. It stays counted because the SCAN cannot tell the two apart; only the
-#     runtime could.
-# ⇒ A ratchet, never re-baselined upward to make a new bundle green.
-UNIDENTIFIED_BUNDLE_CEILING = 2
+#     fighter. Cleared by a live-match census
+#     (`ambition_demo_smash_app/tests/every_fighter_in_a_match_carries_identity.rs`,
+#     2026-09-11): 2 of 2 seated fighters identified.
+#   * `game/ambition_content/src/bosses/cut_rope/victory.rs` — a damageable
+#     post-boss NPC spawned bare. This file called it REAL; it is not.
+#     `ensure_sim_id` names it `SimId::placement(CUT_ROPE_VICTORY_NPC_ID)` from
+#     the `FeatureId` its own `FeatureRenderedBundle` carries. ⛔ Adding an
+#     explicit `SimId` there was tried and REVERTED: it is a second authority for
+#     a value the derive already computes, and the two would drift.
+# ⇒ The scan now classifies a `DERIVABLE` site separately, so a "lead" means what
+#   it says: nothing in the tree can name this body. A ratchet, never
+#   re-baselined upward to make a new bundle green.
+UNIDENTIFIED_BUNDLE_CEILING = 0
 
 # ⭐ THE FLOOR ON THE WHOLE POPULATION, not on the offenders. If this scan stops
 # matching damageable bundles at all it reports zero offenders, which reads
@@ -62,45 +67,21 @@ def _module():
 def _rows():
     """(every damageable bundle site matched, the LEADS among them).
 
-    ⛔ THE TWO LISTS ARE DIFFERENT POPULATIONS AND THE FIRST VERSION CONFLATED
-    THEM. It dropped construction-recipe sites from BOTH lists, so the floor —
-    which is about whether the SCAN still matches anything — was computed over
-    the offenders only and reported 2 where the scan matches 4. A floor measured
-    on the filtered set cannot see the filter itself going wrong.
-    """
-    module = _module()
-    matched: list[tuple[str, str, int]] = []
-    leads: list[tuple[str, str, int]] = []
+    ⛔⛔ **THIS USED TO RE-IMPLEMENT THE WALK, AND THAT IS A SECOND AUTHORITY ON
+    WHAT A LEAD IS.** The copy classified a site by `IDENTITY` and recipe-host
+    alone; when the measure script learned that `ensure_sim_id` DERIVES an
+    identity from an authored `FeatureId`, the copy did not, so this ratchet went
+    on guarding a classification its own subject had stopped using. It calls
+    `classify()` now — the module's one keeper.
 
-    for root in ("crates", "game", "tools"):
-        base = module.REPO / root
-        if not base.is_dir():
-            continue
-        for path in sorted(base.rglob("*.rs")):
-            raw = path.read_text(encoding="utf-8", errors="ignore")
-            if module.is_test_file(path, raw):
-                continue
-            if not any(token in raw for token in module.DAMAGEABLE):
-                continue
-            body = module.strip_test_mods(raw)
-            where = str(path.relative_to(module.REPO))
-            crate = module.crate_of(path)
-            recipe = crate in module.RECIPE_HOSTS or any(
-                p in where for p in module.RECIPE_PATHS
-            )
-            for line, args in module.call_bodies(body):
-                if not any(t in args for t in module.DAMAGEABLE):
-                    continue
-                if not any(t in args for t in module.FACTION):
-                    continue
-                matched.append((crate, where, line))
-                if any(t in args for t in module.IDENTITY):
-                    continue
-                if recipe:
-                    # Identity is already on the root these build into.
-                    continue
-                leads.append((crate, where, line))
-    return matched, leads
+    ⛔ THE TWO LISTS ARE DIFFERENT POPULATIONS AND AN EARLIER VERSION CONFLATED
+    THEM. It dropped construction-recipe sites from BOTH, so the floor — which is
+    about whether the SCAN still matches anything — was computed over the
+    offenders only and reported 2 where the scan matches 4. A floor measured on
+    the filtered set cannot see the filter itself going wrong.
+    """
+    rows = _module().classify()
+    return rows["matched"], rows["leads"]
 
 
 def test_no_new_damageable_bundle_is_assembled_without_an_identity() -> None:

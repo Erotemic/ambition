@@ -141,3 +141,78 @@ fn a_healthy_owner_handle_is_left_alone() {
         Some(firer)
     );
 }
+
+// ── A DAMAGEABLE BODY NOTHING CAN NAME ────────────────────────────────────
+
+/// Run `ensure_sim_id` over a world holding one body, built from the parts the
+/// caller names.
+fn ensure_over(parts: impl Bundle) -> (World, Entity) {
+    let mut world = World::new();
+    let body = world
+        .spawn((
+            ambition_platformer2d_shared_tangle::body::BodyKinematics::default(),
+            parts,
+        ))
+        .id();
+    world
+        .run_system_cached(crate::sim_identity::ensure_sim_id)
+        .expect("the identity pass runs");
+    world.flush();
+    (world, body)
+}
+
+fn damageable() -> impl Bundle {
+    (
+        ambition_combat::components::CenteredAabb::from_aabb(
+            ambition_platformer2d_core::Aabb::new(
+                ambition_platformer2d_core::Vec2::ZERO,
+                ambition_platformer2d_core::Vec2::new(8.0, 16.0),
+            ),
+        ),
+        ambition_combat::components::ActorFaction::Npc,
+    )
+}
+
+/// ⛔⛔ THE DECLINE USED TO BE A BARE `continue`, AND A DEFERRAL NOBODY CHECKS
+/// BECOMES THE REAL RULE.
+///
+/// `StrikeVictim::sim_id` is `Option` on purpose — *"a body without one still
+/// gets hit, it just cannot win the tie"* — but `victim_identity_key` documents
+/// the case below as a CONSTRUCTION FAILURE: two coincident unidentified bodies
+/// compare EQUAL on the resolver's final tie-break, so Bevy query order decides
+/// who is struck, and a resimulation does not reproduce query order.
+///
+/// ⚠ A `debug_assert`, so the guard exists exactly where a test can construct
+/// the population and cannot pause a shipped game over an ornament.
+#[test]
+#[should_panic(expected = "no identity and nothing to derive one from")]
+fn a_damageable_body_with_nothing_to_derive_an_identity_from_is_refused() {
+    ensure_over(damageable());
+}
+
+/// ⭐ THE CONTROL THAT MAKES THE ARM ABOVE A CLAIM ABOUT DAMAGEABILITY. The same
+/// unnameable body WITHOUT the victim query's two components is an ornament, and
+/// declining it silently is the right answer — a scenery prop needs no identity.
+#[test]
+fn a_body_that_is_not_a_candidate_victim_is_declined_in_silence() {
+    let (world, body) = ensure_over(());
+    assert!(
+        world.get::<SimId>(body).is_none(),
+        "an unnameable non-victim was given an identity anyway, which invents one"
+    );
+}
+
+/// ⭐ AND THE OTHER CONTROL: a damageable body that CAN be named is named, so the
+/// arm above fires on the absence of a derivable fact and not on damageability.
+#[test]
+fn a_damageable_body_with_an_authored_feature_id_is_named_from_it() {
+    let (world, body) = ensure_over((
+        damageable(),
+        ambition_combat::components::FeatureId("victory_npc".to_string()),
+    ));
+    assert_eq!(
+        world.get::<SimId>(body).map(|id| id.as_str()),
+        Some("placement:victory_npc"),
+        "a damageable body with an authored id was not named from it"
+    );
+}

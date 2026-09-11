@@ -385,12 +385,14 @@ impl Plugin for CombatSchedulePlugin {
                 // FX from the visual catalog, the `Expired` trace event, the
                 // despawn — runs on the very next line. Put this after the
                 // stepper and a beaten bolt flies for one more frame and lands.
-                ambition_platformer2d_actor_monolith::clash::arbitrate_attack_clashes
+                // ⛔ ONE NAME, and that is Prerequisite C rather than tidiness:
+                // chaining the arbiter and the rebound HERE would make this
+                // composition the authority on the relative order of two other
+                // crates' private systems. `clash_arbitration()` states that
+                // order in the crate that owns one of the two halves, so what a
+                // composition installs is the unit.
+                ambition_platformer2d_actor_monolith::clash::clash_arbitration()
                     .in_set(GameplayGated),
-                // …and what the trade costs, immediately after, so the moves it
-                // ends are gone before either damage road looks at anything they
-                // own.
-                ambition_combat::clank::rebound_from_clanks.in_set(GameplayGated),
                 // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles
                     .in_set(crate::projectile_schedule::ProjectileStepSet)

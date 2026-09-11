@@ -24,6 +24,13 @@ pub fn ensure_sim_id(
             bevy::ecs::entity::Entity,
             Option<&ambition_combat::components::FeatureId>,
             Option<&ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+            // ⛔⛤ READ ONLY TO CLASSIFY THE DECLINE, never to mint from. Together
+            // these two ARE `StrikeVictim`'s query — the pair, and nothing else,
+            // is what makes a body a candidate victim — so they are how this
+            // system tells "a body it cannot name" from "a body whose namelessness
+            // is a determinism defect".
+            Option<&ambition_combat::components::CenteredAabb>,
+            Option<&ambition_combat::components::ActorFaction>,
         ),
         (
             bevy::ecs::query::With<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
@@ -32,12 +39,40 @@ pub fn ensure_sim_id(
     >,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    for (entity, feature_id, primary) in &unidentified {
+    for (entity, feature_id, primary, aabb, faction) in &unidentified {
         let id = match (feature_id, primary) {
             (Some(id), _) => SimId::placement(&id.0),
             (None, Some(_)) => SimId::player_slot(0),
             // Not identifiable from an authored fact. Its spawn site must mint it.
-            (None, None) => continue,
+            //
+            // ⛔⛔ AND A SILENT `continue` MADE THAT DEFERRAL THE REAL RULE. For
+            // an ornament it is the right answer; for a body the STRIKE RESOLVER
+            // will consider it is a determinism defect that shows up as a desync
+            // and never as a message. `StrikeVictim::sim_id` is `Option` because
+            // *"a body without one still gets hit, it just cannot win the tie"* —
+            // and `victim_identity_key`'s own doc calls the case below what it is:
+            // *"missing required target identity is a construction failure rather
+            // than a sort fallback, so the answer lives where bodies are BUILT."*
+            // Two such bodies at one position compare EQUAL on the final
+            // tie-break, leaving Bevy query order to decide who is struck, and a
+            // resimulation does not reproduce query order.
+            //
+            // ⚠ `debug_assert` RATHER THAN A PANIC, deliberately: a fail-closed
+            // check here would pause a working game over a body that is very
+            // likely harmless, and the population this fires on is exactly the
+            // population a test can construct. The `error!` carries it in release.
+            (None, None) => {
+                if aabb.is_some() && faction.is_some() {
+                    bevy::log::error!(
+                        "{entity:?} is a candidate strike victim with no `SimId`,                          no `FeatureId` and no `PrimaryPlayer`, so nothing can                          name it: two of these at one position tie on every                          geometric key and the resolver's final tie-break compares                          them EQUAL. Its spawn site must mint one."
+                    );
+                    debug_assert!(
+                        false,
+                        "{entity:?}: a damageable body reached the sim with no identity and nothing to derive one from"
+                    );
+                }
+                continue;
+            }
         };
         // The `SimIdCounter` rides along: every identified body is a potential spawner (a boss
         // summons, a player fires), so `SimId` REQUIRES it.

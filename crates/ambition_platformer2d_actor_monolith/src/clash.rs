@@ -18,7 +18,7 @@
 //! [`ambition_combat::clank::resolve_clashes`] holds the rule — ordering,
 //! pairing, opposition, overlap, verdict — and has no world in it. This file
 //! holds only the two things that need a world: reading each family's boxes out
-//! of its own components, and mapping a [`ClashAttack`] back onto that family's
+//! of its own components, and mapping a [`ClashAttack`](ambition_combat::clank::ClashAttack) back onto that family's
 //! way of ending an attack (a move is cancelled; a shot is SPENT, and expires
 //! through the stepper's own expiry road on the very next system).
 //!
@@ -37,6 +37,30 @@ use ambition_combat::clank::{
     resolve_clashes, AttacksClanked, ClashAttack, ClashContender, ClashFamily, ClashOrder,
 };
 use ambition_platformer2d_core as ae;
+
+/// The clash unit: arbitration and what the trade COSTS, as one ordered thing a
+/// composition installs without naming either half.
+///
+/// ⛔⛤ **A COMPOSITION LAYER THAT CHAINS THESE TWO BY NAME HAS TAKEN AUTHORITY
+/// OVER TWO DOMAINS IT DOES NOT OWN**, which is Prerequisite C's rule in its own
+/// words: *"every load-bearing cross-capability ordering relationship must be
+/// expressible using public phase/set vocabulary rather than foreign system
+/// identities."* Writing the pair here costs the composition nothing and the
+/// ordering is stated by the crate that owns one of the two halves.
+///
+/// ⭐ THE ORDER IS THE WHOLE CONTENT OF THIS FUNCTION, and it is not a
+/// preference: `rebound_from_clanks` drains the `AttacksClanked` the arbiter
+/// writes, so the moves a trade ended are gone before either damage road looks
+/// at anything they own.
+pub fn clash_arbitration(
+) -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    (
+        arbitrate_attack_clashes,
+        ambition_combat::clank::rebound_from_clanks,
+    )
+        .chain()
+        .into_configs()
+}
 
 /// Arbitrate every opposed, overlapping pair of live attacks, then end the
 /// losers — before `step_projectiles` or `apply_hitbox_damage` asks any of them

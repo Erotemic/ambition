@@ -20,6 +20,7 @@
 | [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
 | [`character_sprites`](src/character_sprites/mod.rs) | Character sprite asset loading and actor/content joins. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |
+| [`clash`](src/clash.rs) | ONE CONTEST FOR EVERY ATTACK FAMILY — swings and shots arbitrated together, before either road resolves damage. |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction`](src/construction/mod.rs) | Actor construction planner for authored, provider-staged, and runtime-dynamic origins. |
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
@@ -42,7 +43,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

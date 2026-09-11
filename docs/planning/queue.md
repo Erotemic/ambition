@@ -2262,13 +2262,79 @@ hands, shrines, riders and summons** — none of those is driven here, so none i
 measured. **A road nobody drives is not covered**, and adding one is how this
 census grows. The test says so in place.
 
-**Acceptance:** the census half is MET — the population is measured at runtime and
-named, and it is empty for the roads driven. ⛔ **The second half is NOT: the
-invariant is still asserted at READ time, not where bodies are BUILT.** The row's
-own argument is that a missing target identity is a construction failure and the
-resolver can only report it, so a census in a test is a REPORTER too — a better
-one than the resolver's coincident-pair `debug_assert`, and still not the
-construction-site assertion the protocol asks for.
+✅ **THE SECOND HALF CLOSED 2026-09-11, AND THE CONSTRUCTION SITE TURNED OUT NOT
+TO BE THE RIGHT PLACE FOR IT.** The invariant is asserted at the DERIVE, which is
+the one road every construction site already passes through.
+
+`ambition_platformer2d_runtime::sim_identity::ensure_sim_id` gives any body with
+`BodyKinematics` and no `SimId` an identity derived from an authored `FeatureId`
+(`SimId::placement`) or from `PrimaryPlayer` (`SimId::player_slot`) — and for
+anything else it did `continue`, silently, with a comment deferring to the spawn
+site. **A deferral nobody checks becomes the real rule.** It now reads
+`CenteredAabb` and `ActorFaction` — `StrikeVictim`'s own query, the pair and
+nothing narrower — purely to CLASSIFY the decline, and refuses
+(`debug_assert` + `error!`) when the body it cannot name is a candidate victim.
+⚠ `debug_assert` rather than a panic on purpose: a fail-closed check here would
+pause a working game over a body that is very likely an ornament, and the
+population it fires on is exactly the population a test can construct.
+
+⇒ **ONE ASSERTION COVERS EVERY BUILD SITE, PRESENT AND FUTURE**, which a
+per-site assertion cannot — and it is the structure rather than the guard: a new
+spawn road cannot opt out of a system that runs at the head of the sim.
+
+**MEASURED, and the whole point of the arm is that nothing fired**: the guard was
+added and `ambition_platformer2d_runtime`, `ambition_platformer2d_actor_monolith`,
+`ambition_demo_smash_app` and `ambition_content` were run — 1586 tests, zero
+`error!` lines, zero assert fires. ⇒ **The residual population is empty across
+every road those suites exercise.**
+
+⭐ AND THE ROSTER IS NOW CENSUSED, WHICH IT WAS NOT.
+`every_fighter_in_a_match_carries_identity` (`ambition_demo_smash_app`) walks the
+victim query in a LIVE SEATED MATCH — a construction road
+(`character_runtime/match_activation.rs`) no arm reached before, and the largest
+damageable population the game has. First reading: **2 candidate victims, 0
+unidentified**, behind an anti-vacuity floor that asserts the match seated its
+fighters first. ⚠ That floor FIRED on the first run (0 seats) — routing to
+gameplay before the shell boots seats nobody — so the arm reported a harness
+failure instead of a finding, which is what a floor is for.
+
+⛔⛤ **AND BOTH OF THE STATIC SCAN'S "LEADS" WERE FALSE, INCLUDING THE ONE THIS
+FILE CALLED REAL.** `scripts/measure_damageable_bundles_without_identity.py` did
+not know about `ensure_sim_id`, so it reported every derive site as a body
+nobody names — and a lead list that dispatches an agent at a non-defect is worse
+than no list. It classifies a `DERIVABLE` site separately now, and the ceiling in
+`scripts/tests/test_damageable_bundles_carry_identity.py` came down **2 → 0 by
+re-deriving rather than by an edit**.
+* `match_activation.rs:90` — cleared by the live-match census above.
+* `cut_rope/victory.rs:138` — the row called this one REAL. It is not:
+  `ensure_sim_id` names it `SimId::placement(CUT_ROPE_VICTORY_NPC_ID)` from the
+  `FeatureId` its own `FeatureRenderedBundle` carries. ⛔ An explicit `SimId`
+  was added there and **REVERTED**: a second authority for a value the derive
+  already computes, free to drift from it.
+
+⚠ **AND THE RATCHET WAS GUARDING A CLASSIFICATION ITS SUBJECT HAD STOPPED
+USING.** The test re-implemented the scan's walk instead of calling it, so it
+kept its own idea of what a lead is. `classify()` is the one keeper now and the
+test reads it.
+
+**Guards, all poison-verified:**
+`a_damageable_body_with_nothing_to_derive_an_identity_from_is_refused`
+(`#[should_panic]`), plus two controls — a non-victim is still declined in
+SILENCE (so the claim is about damageability, not about namelessness) and a
+damageable body with an authored `FeatureId` is named from it (so it fires on the
+absence of a derivable fact). Poisons: the guard widened to every unnameable body
+reddens the first control; the assert removed reddens the arm; `DERIVABLE`
+emptied reddens the ratchet; `FACTION` blinded reddens the floor.
+
+**Acceptance: MET.** The population is measured at runtime, named, empty for
+every road driven, and the invariant is now asserted at the derive every
+construction road passes through rather than only at read time.
+
+⚠ **WHAT IS STILL NOT SAID.** The runtime census reaches the roads its fixtures
+drive — the sandbox cast, the enemy and boss roads, the player slot, and now a
+seated match. Giants, hands, shrines, riders and summons are still undriven, and
+a road nobody drives is not covered. The new guard covers them anyway *if they
+ever run*, which is the difference between a census and an invariant.
 
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 

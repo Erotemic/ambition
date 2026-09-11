@@ -54,6 +54,20 @@ DAMAGEABLE = (
 )
 FACTION = ("ActorFaction", "EnemyActorBundle", "PlayerIdentityBundle")
 IDENTITY = ("SimId",)
+# ⛔⛔ A SITE THAT ASSEMBLES ONE OF THESE IS NOT A LEAD, AND CALLING IT ONE
+# DISPATCHES AN AGENT AT A NON-DEFECT. `ambition_platformer2d_runtime`'s
+# `ensure_sim_id` runs at the head of every simulation host and gives any body
+# with `BodyKinematics` and no `SimId` an identity DERIVED from an authored
+# `FeatureId` (`SimId::placement`) or from `PrimaryPlayer` (`SimId::player_slot`).
+# A spawn that names a feature id has therefore already answered the question
+# this script asks — later, by a derive, but before anything reads identity.
+#
+# ⇒ MEASURED 2026-09-11: every "lead" this script reported was one of these.
+# `match_activation.rs:90` builds a `FeatureRenderedBundle` from the SEAT's
+# feature id, and a live-match census
+# (`ambition_demo_smash_app/tests/every_fighter_in_a_match_carries_identity.rs`)
+# found 2 of 2 seated fighters identified.
+DERIVABLE = ("FeatureId", "FeatureRenderedBundle", "PrimaryPlayer")
 
 SPAWN = re.compile(
     r"\.(?:spawn|spawn_batch|spawn_empty|insert|insert_if_new|try_insert)"
@@ -123,13 +137,20 @@ def crate_of(path: pathlib.Path) -> str:
     return rel.parts[1] if len(rel.parts) > 1 else "?"
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--all", action="store_true", help="also list identified bundles")
-    args = parser.parse_args()
+def classify() -> dict[str, list]:
+    """Every damageable-bundle assembly site in the tree, split by identity.
 
-    identified: list[tuple[str, str, int]] = []
-    unidentified: list[tuple[str, str, int, bool]] = []
+    ⛔⛔ **ONE KEEPER FOR "WHAT IS A LEAD".** `scripts/tests/` re-implemented this
+    walk so it could reach the same four lists, and the copy then did not learn
+    about `DERIVABLE` when this module did — a ratchet guarding a classification
+    its own subject had stopped using. The ratchet reads this function now.
+
+    Keys: `matched` (every site the scan sees at all — the FLOOR's population),
+    `identified`, `derivable`, `leads`, `recipes`.
+    """
+    out: dict[str, list] = {
+        "matched": [], "identified": [], "derivable": [], "leads": [], "recipes": []
+    }
     for root in ROOTS:
         base = REPO / root
         if not base.is_dir():
@@ -149,27 +170,49 @@ def main() -> int:
                     continue
                 if not any(t in args_text for t in FACTION):
                     continue
+                row = (crate, where, line)
+                out["matched"].append(row)
                 if any(t in args_text for t in IDENTITY):
-                    identified.append((crate, where, line))
+                    out["identified"].append(row)
+                elif any(t in args_text for t in DERIVABLE):
+                    out["derivable"].append(row)
+                elif recipe_host:
+                    out["recipes"].append(row)
                 else:
-                    unidentified.append((crate, where, line, recipe_host))
+                    out["leads"].append(row)
+    return out
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--all", action="store_true", help="also list identified bundles")
+    args = parser.parse_args()
+
+    rows = classify()
+    identified = rows["identified"]
+    derivable = rows["derivable"]
+    leads = rows["leads"]
+    recipes = rows["recipes"]
 
     print("⛔ DAMAGEABLE BUNDLES AND THEIR IDENTITY — a LOWER BOUND, never a population.\n")
     print(f"-- assembled WITH a `SimId` in the same call: {len(identified)}")
     if args.all:
         for crate, where, line in identified:
             print(f"   {where}:{line}")
-    print(f"\n-- assembled with NO `SimId` in the same call: {len(unidentified)}")
-    leads = [row for row in unidentified if not row[3]]
-    recipes = [row for row in unidentified if row[3]]
+    print(f"\n-- named later by `ensure_sim_id` from an authored fact: {len(derivable)}")
+    if args.all:
+        for crate, where, line in derivable:
+            print(f"   {where}:{line}")
+    print(f"\n-- assembled with NO `SimId` and NOTHING TO DERIVE ONE FROM: "
+          f"{len(leads) + len(recipes)}")
     print(f"   {len(leads)} outside a construction-recipe host  ⛔ THESE ARE THE LEADS")
-    for crate, where, line, _ in leads:
+    for crate, where, line in leads:
         print(f"      {where}:{line}   ({crate})")
     print(f"   {len(recipes)} inside one — identity is already on the root they build into")
-    for crate, where, line, _ in recipes:
+    for crate, where, line in recipes:
         print(f"      · {where}:{line}")
 
-    by_crate = collections.Counter(row[0] for row in leads)
+    by_crate = collections.Counter(crate for crate, _, _ in leads)
     if by_crate:
         print("\n   leads by crate:")
         for crate, n in sorted(by_crate.items(), key=lambda kv: (-kv[1], kv[0])):
@@ -183,6 +226,11 @@ def main() -> int:
     print("     DAMAGEABLE / FACTION above.")
     print("   ⇒ The completeness check is a RUNTIME census over `StrikeVictim`'s own")
     print("     query. This names sites to read; it does not bound the population.")
+    print("\n⭐ AND THE RUNTIME GUARD IS THE ONE THAT CLOSES IT. `ensure_sim_id`")
+    print("   refuses (debug_assert + error!) when it declines a body that carries")
+    print("   BOTH `CenteredAabb` and `ActorFaction` — `StrikeVictim`'s own query —")
+    print("   so a damageable body nothing can name is a construction failure a test")
+    print("   sees, rather than a silent `continue` that becomes the real rule.")
     return 0
 
 

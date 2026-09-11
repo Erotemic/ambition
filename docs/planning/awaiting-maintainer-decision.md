@@ -901,6 +901,40 @@ census is a file read now rather than an app boot.
 same command** — Q103–Q105 had landed by then, so the gap Q106 warned about is
 closed and that row's note can go when somebody next touches it.
 
+## Q108 — which capabilities may a featureless `ambition_platformer2d` link?
+
+**38 crates sit between the stated minimum and what it links today.** MEASURED
+2026-09-11 by `scripts/measure_minimum_profile_closure.py` (the feature-resolved
+tree, the same flags `the-featureless-facade-links-none-of-these` uses):
+
+| | crates |
+| --- | --- |
+| featureless `ambition_platformer2d` | **49** |
+| the minimum A9 states, priced — `core` + `shared_tangle` + `world` + `time` + `input` | **11** |
+
+A9's own words are *"a constructed body advancing against world geometry, without
+renderer, audio, inventory, encounters or game content; this is a target, not a
+passing current profile."* That target prices at 11. The 38 in between are
+`abilities, audio, body_seed, boss_encounter, character_sprites, characters,
+combat, conversation, cutscene, damage, dev_tools, dialog, encounter,
+encounter_features, game_shell, gameplay_trace, held_items, interaction, items,
+load, load_presentation, match, mount, persistence, platformer2d_actor_monolith,
+platformer2d_actor_spawn, platformer2d_host, platformer2d_provider,
+platformer2d_runtime, projectiles, sfx, sfx_bank, sim_view, sprite_sheet, ui_nav,
+vfx, world_items` (plus the facade).
+
+⛔ **THE DECISION IS A CAPABILITY LIST, NOT A CRATE LIST**, and it cannot be made
+edge by edge: each crate is held by TWO roads at once — the facade names 42 of
+the 48 directly, and the hubs (`provider` 47, `host` 45, `runtime` 44, `sim_view`
+41, `actor_monolith` 38) reach the same 42 from underneath. Cutting either road
+alone measures ZERO. Cutting `provider` + `host` + `runtime` + `actor_monolith` +
+`sim_view` together takes 49 to 44. So every capability costs a PAIR of edits —
+a facade feature gate and the matching hub gate — and a partial one is invisible.
+
+⚠ Nothing is blocked meanwhile. Run
+`python3 scripts/measure_minimum_profile_closure.py --minimum <crates...>` to
+price any capability set before ruling; it answers in seconds.
+
 ## Maintenance rule
 
 Do not add investigation transcripts beneath a question. Record enough source

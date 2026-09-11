@@ -1764,13 +1764,17 @@ mod revision_activation {
     /// ⛔⛔ **A REVISION PREPARED AGAINST A CAST THAT IS NO LONGER LIVE IS
     /// REFUSED, NOT MERGED** — fast-iteration I3a's "stale-attempt rejection".
     ///
-    /// The edit was computed from the source as it stood at STAGE time. An
-    /// activation in between — a second tool, a file watcher, a scripted reload
-    /// — moves the registry, and folding the edit on anyway applies it to a cast
-    /// it never saw while absorbing the intervening change without a word. The
-    /// two roads are far enough apart in time for this to be ordinary rather
-    /// than exotic: `revise_staged_moveset` reads live at stage,
-    /// `activate_staged_revision` folds live at activate.
+    /// The edit was computed from a cast, and an activation in between — a
+    /// second tool, a file watcher, a scripted reload — moves the registry;
+    /// folding the edit on anyway applies it to a cast it never saw while
+    /// absorbing the intervening change without a word.
+    ///
+    /// ⚠ THE FIXTURE SUPPLIES THE BASE, and that is not fixture convenience: the
+    /// generation that can disagree is the one the caller's INPUT was read from.
+    /// Reading it from the world at stage time makes the refusal unreachable,
+    /// because activation drains the transaction atomically — see
+    /// `StagedCastRevision::prepared_against`. `ambition_content::reload` is the
+    /// production caller that supplies it.
     #[test]
     fn a_revision_prepared_against_a_superseded_cast_is_refused() {
         let mut world = world_with_live_cast();
@@ -2493,7 +2497,7 @@ mod moveset_revision {
         );
         section.insert("somebody_else".to_string(), moveset_with(&[], Vec::new()));
 
-        let refusals = crate::prepared::stage_move_section(app.world_mut(), &section);
+        let refusals = crate::prepared::stage_move_section(app.world_mut(), &section, None);
         assert_eq!(
             refusals,
             vec![MovesetRevisionError::UnknownCharacter(
@@ -2531,7 +2535,7 @@ mod moveset_revision {
         );
 
         assert_eq!(
-            crate::prepared::stage_move_section(app.world_mut(), &section),
+            crate::prepared::stage_move_section(app.world_mut(), &section, None),
             Vec::new()
         );
         activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
@@ -2578,7 +2582,7 @@ mod moveset_revision {
 
         let section = decode(&payload).expect("the payload decodes");
         assert_eq!(
-            crate::prepared::stage_move_section(app.world_mut(), &section),
+            crate::prepared::stage_move_section(app.world_mut(), &section, None),
             Vec::new()
         );
         activate_staged_revision(app.world_mut(), &TechniqueSupport::default());

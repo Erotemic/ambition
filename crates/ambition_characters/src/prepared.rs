@@ -422,15 +422,25 @@ pub struct StagedCastRevision {
     ///
     /// ⭐⭐ **A CANDIDATE IS PREPARED AGAINST A GENERATION, AND FOLDING IT ONTO A
     /// DIFFERENT ONE IS A SILENT MERGE** (fast-iteration I3a, *"stale-attempt
-    /// rejection"*). `revise_staged_moveset` reads the live source at STAGE
-    /// time; `activate_staged_revision` folds onto the live registry at ACTIVATE
-    /// time. With an activation in between — a second tool, a watcher, a
-    /// scripted reload — the edit is applied to a cast it never saw, and the
-    /// intervening change is absorbed without a word.
+    /// rejection"*). `activate_staged_revision` folds onto the live registry at
+    /// ACTIVATE time; if the edit was computed from an EARLIER cast, it is
+    /// applied to one it never saw and the intervening change is absorbed
+    /// without a word.
     ///
-    /// ⚠ `None` MEANS "NO CLAIM", not "generation zero": a revision staged
-    /// before any cast was published has nothing to be stale against. Only a
-    /// stamped value can refuse.
+    /// ⛔⛤ **AND THE GENERATION THAT MATTERS IS THE CALLER'S, NOT STAGE TIME —
+    /// MEASURED 2026-09-11 AFTER GETTING IT WRONG.** My first version stamped
+    /// this from the world inside the staging road, and no sequence could reach
+    /// the refusal: activation is the only publisher past the preparation
+    /// barrier, and it DRAINS the whole transaction, so stage-time and
+    /// fold-time are the same generation by construction. A branch that cannot
+    /// fire is not a rule. ⇒ The staging roads take an `against` the caller
+    /// supplies — the cast its INPUT was read from, which is the only clock that
+    /// can disagree. A reload compiles a pack off the main thread and applies it
+    /// later; that gap is the whole exposure.
+    ///
+    /// ⚠ `None` MEANS "NO CLAIM", not "generation zero": a revision computed
+    /// from the cast as it stands right now has nothing to be stale against.
+    /// Only a stamped value can refuse.
     prepared_against: Option<CharacterCatalogGeneration>,
 }
 
@@ -795,9 +805,22 @@ pub fn revise_staged_moveset(
 /// [`ambition_entity_catalog::TechniqueSupport`], which is where a technique
 /// this build did not install refuses the pack — the question a codec cannot
 /// answer and this function deliberately does not try to.
+/// ⛔⛤ **`against` IS THE CALLER'S CLAIM, AND WITHOUT IT THE STALENESS RULE
+/// CANNOT FIRE.** MEASURED 2026-09-11, after building the rule: activation is
+/// the only road that publishes after the barrier, and it DRAINS the staged
+/// transaction atomically — so a stamp taken from the world at STAGE time always
+/// equals the generation the fold lands on, in every reachable sequence. The
+/// refusal was structurally unreachable, which a witness for
+/// `MoveReload::Stale` is what found.
+///
+/// ⇒ The generation that matters is the one the caller's INPUT was computed
+/// from, which only the caller knows. A reload that compiles a pack off the main
+/// thread reads the cast when it starts and applies minutes later; `None` means
+/// "computed from the cast as it stands right now" and makes no claim.
 pub fn stage_move_section(
     world: &mut bevy::ecs::world::World,
     section: &ambition_entity_catalog::move_section::MoveSectionData,
+    against: Option<CharacterCatalogGeneration>,
 ) -> Vec<MovesetRevisionError> {
     let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
         return vec![MovesetRevisionError::NoStagedCast];
@@ -813,6 +836,14 @@ pub fn stage_move_section(
         .collect();
     if !unknown.is_empty() {
         return unknown;
+    }
+    // ⭐ THE CLAIM IS STAMPED BEFORE THE LOOP, and `stamp` is first-wins, so the
+    // per-character road below cannot overwrite it with "now". A `None` claim
+    // falls through to that road, which stamps the live generation.
+    if against.is_some() {
+        world
+            .get_resource_or_insert_with(StagedCastRevision::default)
+            .stamp(against);
     }
     for (id, contract) in section {
         // Cannot fail: every id was checked above, and nothing has mutated the

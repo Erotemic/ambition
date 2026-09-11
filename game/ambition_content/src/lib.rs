@@ -52,6 +52,8 @@ pub mod falling_sand;
 /// feature-gated test silently stops running).
 pub mod falling_sand_sim;
 pub mod pack;
+/// The running host's move-table reload — the revision road's first customer.
+pub mod reload;
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
 pub mod provider;

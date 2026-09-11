@@ -855,6 +855,78 @@ fn move_events_capture_character_provider_presentation_sources() {
     );
 }
 
+/// ⛔⛤ THE DAMAGE BOX IS SHAPED BY THE CHARACTER THE BODY IS **WEARING**.
+///
+/// `CombatTuning::sprite_character_id`'s own doc states the rule and names the
+/// consequence of breaking it: *"`WornCharacter` OUTRANKS it (AC7.1) ... every
+/// seam that resolves a character asks `WornCharacter` first and falls back to a
+/// sprite id only for a body that wears nothing ... That precedence is what lets
+/// a body SWAP its character at runtime (Sanic's transformation) and take its new
+/// repertoire and volumes with it while this field stays put."*
+///
+/// ⛔⛔ MEASURED 2026-09-11: FIVE seams resolve this pair, and FOUR asked
+/// worn-first. The fifth was `trigger_moveset_moves`' manifest lookup — the one
+/// that decides the SHAPE OF THE DAMAGE BOX — which asked the tuning first, in
+/// the same function body, 490 lines below a `character_id` that already held the
+/// right answer. A transformed body swung the hit polygon of the character it used
+/// to be.
+///
+/// ⭐ THIS ASKS THE SEAM'S OWN QUESTION rather than comparing two polygons. The
+/// resolver is an injected closure, so recording WHICH ID IT IS ASKED FOR needs no
+/// sheet, no catalog and no art — and a test that compared shapes would pass for
+/// the wrong reason the day the two characters' blades happened to agree.
+#[test]
+fn the_strike_poly_comes_from_the_character_the_body_wears() {
+    use std::sync::{Arc, Mutex};
+
+    let asked: Arc<Mutex<Vec<Option<String>>>> = Arc::new(Mutex::new(Vec::new()));
+    let (mut app, _victim) = app_with_victim();
+    {
+        let sink = Arc::clone(&asked);
+        app.insert_resource(
+            crate::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
+                move |catalog, cid, animation, collision, clip_elapsed| {
+                    sink.lock().expect("the sink is not poisoned")
+                        .push(cid.map(str::to_string));
+                    test_blade_resolver(catalog, cid, animation, collision, clip_elapsed)
+                },
+            ),
+        );
+    }
+    let attacker = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(30.0, 48.0),
+        simple_melee(&SimpleMeleeParams::default()),
+    );
+    // ⛔ BOTH, AND THEY DISAGREE. A body carrying only one of the two cannot tell
+    // the two precedences apart — which is why the inversion survived: every
+    // shipped fighter answers both questions with the same word.
+    app.world_mut().entity_mut(attacker).insert((
+        ambition_characters::actor::WornCharacter::new("sanic"),
+        crate::components::CombatTuning {
+            sprite_character_id: Some("mary_o".to_string()),
+            ..Default::default()
+        },
+    ));
+
+    // Cross the windup into the active window, where the volume resolves.
+    run_seconds(&mut app, 0.14);
+
+    let asked = asked.lock().expect("the sink is not poisoned").clone();
+    assert!(
+        !asked.is_empty(),
+        "the manifest seam was never reached, so this fixture measures nothing: \
+         a bladed (`vfx`-tagged) Active window has to open before any id is asked for"
+    );
+    assert!(
+        asked.iter().all(|id| id.as_deref() == Some("sanic")),
+        "the strike volume resolved against the TUNING's sprite id instead of the \
+         character the body wears. A body that transformed keeps the old \
+         character's hit polygon: {asked:?}"
+    );
+}
+
 /// §7.1 + §7.2 (the bespoke-path parity restored onto the moveset):
 /// a bladed (`vfx`-tagged) swing whose clip has an AUTHORED manifest
 /// hitbox swings THAT blade — the live hitbox carries the sprite's convex

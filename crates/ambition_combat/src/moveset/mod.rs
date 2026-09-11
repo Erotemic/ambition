@@ -1819,11 +1819,26 @@ pub fn advance_move_playback(
                         // synthetic authored shape.
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
-                            let sprite_cid = config
-                                .and_then(|c| c.sprite_character_id.as_deref())
-                                .or_else(|| {
-                                    worn.map(ambition_characters::actor::WornCharacter::id)
-                                });
+                            // ⛔⛤ `character_id`, NOT A SECOND RESOLUTION — and
+                            // the second one asked in the WRONG ORDER. This read
+                            // `config.sprite_character_id` first and fell back to
+                            // `worn`, which is the documented rule inverted:
+                            // `CombatTuning::sprite_character_id`'s own doc says
+                            // *"`WornCharacter` OUTRANKS it (AC7.1) ... every seam
+                            // that resolves a character asks `WornCharacter`
+                            // first"*, and names the consequence — *"that
+                            // precedence is what lets a body SWAP its character at
+                            // runtime (Sanic's transformation) and take its new
+                            // repertoire and volumes with it"*. ⇒ A transformed
+                            // body kept swinging the hit polygon of the character
+                            // it used to be, because this seam is the one that
+                            // decides the shape of the damage box.
+                            //
+                            // ⚠ MEASURED 2026-09-11: FIVE seams resolve this pair
+                            // and four asked worn-first. The fifth was this one,
+                            // 490 lines below a `character_id` in the same loop
+                            // body that already held the right answer.
+                            let sprite_cid = character_id;
                             // The window's OWN start, not the move's clock: a
                             // hitbox track lays several Active windows end to
                             // end, and each box wants the shape drawn at the

@@ -333,8 +333,11 @@ def unresolved_commits(root: Path, docs: list[Path]) -> tuple[list, list[str]]:
     seen: dict[str, list[tuple[str, int]]] = {}
     for doc in docs:
         rel = doc.relative_to(root) if doc.is_relative_to(root) else doc
-        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
-            if MARKER in line:
+        # `marker_suppresses` is the one keeper of the marker's scope; see its
+        # docstring. Re-spelling it here is how the lanes drifted apart.
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno):
                 continue
             for m in COMMIT.finditer(line):
                 seen.setdefault(m.group(1), []).append((str(rel), lineno))
@@ -544,8 +547,15 @@ def vanished_report(docs: list[Path], since: str, defined: set[str]) -> int:
         # A doc passed by absolute path may sit outside the tree (a fixture, a
         # poison). Reporting it is more useful than raising.
         rel = doc.relative_to(REPO) if doc.is_relative_to(REPO) else doc
-        for lineno, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
-            if MARKER in line:
+        # ⛔⛔ `marker_suppresses`, NOT `MARKER in line`. This lane re-spelled the
+        # predicate and accepted the marker only on the citation's OWN line,
+        # while `marker_suppresses` documents (and `--strict` honours) the line
+        # below as well — so a marker placed exactly as the documentation says
+        # silenced `--strict` and left this lane red. That is the fourth copy
+        # the predicate's own docstring was written to end.
+        doc_lines = doc.read_text(errors="replace").splitlines()
+        for lineno, line in enumerate(doc_lines, 1):
+            if marker_suppresses(doc_lines, lineno):
                 continue
             for m in BARE.finditer(line):
                 if m.group(1) in gone:

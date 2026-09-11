@@ -19,6 +19,7 @@ checker: it teaches its reader that failures are noise.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -142,6 +143,86 @@ def test_the_marker_scope_holds_at_the_end_of_a_document():
     assert module.marker_suppresses(
         [f"a citation: `x.rs:1`  <!-- {module.MARKER} -->"], 1
     ) is True
+
+
+def _checker_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("citations_lane", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("marker_offset, reported", [(1, False), (2, True)])
+def test_the_vanished_lane_honours_the_marker_scope_the_predicate_documents(
+    tmp_path, marker_offset, reported, capsys
+):
+    """⛔⛔ THE PREDICATE HAVING ONE KEEPER IS NOT THE SAME CLAIM AS THE LANES
+    CALLING IT. `marker_suppresses` was tested directly and passed, while the
+    `--vanished` and commit lanes each re-spelled `MARKER in line` and accepted
+    the marker ONLY on the citation's own line. MEASURED 2026-09-11: a marker
+    placed exactly where the documentation says silenced the resolution lane and
+    left `--vanished` red on the same row, so an author following the docs got a
+    red from one lane and a green from the other.
+
+    ⇒ This exercises the LANE, not the predicate: the defect lived entirely in
+    whether the lane asked.
+
+    ⭐ THE VANISHED NAME IS DERIVED, never hard-coded — a name that comes back
+    would make this fixture pass while testing nothing.
+    """
+    module = _checker_module()
+    baseline = re.search(
+        r'PLANNING_VANISHED_BASELINE = "([0-9a-f]+)"',
+        (REPO / "scripts/run_tests.py").read_text(),
+    ).group(1)
+    gone = sorted(
+        module.item_names(module.source_text_at(baseline))
+        - module.item_names(module.source_text())
+        - module.crate_names()
+    )
+    assert gone, (
+        f"no name defined at {baseline} is missing at HEAD, so this fixture "
+        "cannot cite a vanished one and would certify nothing"
+    )
+    name = gone[0]
+
+    doc = tmp_path / "row.md"
+    lines = [f"A row citing `{name}` on purpose."]
+    lines += [""] * (marker_offset - 1)
+    lines.append("<!-- cite-ok: recorded deliberately -->")
+    doc.write_text("\n".join(lines) + "\n")
+
+    module.vanished_report([doc], baseline, set())
+    out = capsys.readouterr().out
+    hit = name in out
+    assert hit is reported, (
+        f"a marker {marker_offset} line(s) below its citation should "
+        f"{'not suppress' if reported else 'suppress'} it in the --vanished "
+        f"lane, but it {'reported' if hit else 'did not report'}:\n{out}"
+    )
+
+
+@pytest.mark.parametrize("marker_offset, reported", [(1, False), (2, True)])
+def test_the_commit_lane_honours_the_marker_scope(tmp_path, marker_offset, reported):
+    """The same claim for the third reader of the marker."""
+    module = _checker_module()
+    doc = tmp_path / "row.md"
+    sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+    lines = [f"A row citing commit `{sha}` on purpose."]
+    lines += [""] * (marker_offset - 1)
+    lines.append("<!-- cite-ok: recorded deliberately -->")
+    doc.write_text("\n".join(lines) + "\n")
+
+    findings, _ = module.unresolved_commits(REPO, [doc])
+    hit = any(sha in str(f) for f in findings)
+    assert hit is reported, (
+        f"a marker {marker_offset} line(s) below its citation should "
+        f"{'not suppress' if reported else 'suppress'} it in the commit lane, "
+        f"but it {'reported' if hit else 'did not report'}: {findings}"
+    )
 
 
 def test_the_live_planning_tree_has_no_ambiguous_citations():

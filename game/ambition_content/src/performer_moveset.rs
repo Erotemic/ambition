@@ -231,7 +231,7 @@ pub fn performer_moveset() -> MovesetContract {
 /// The sprite manifest supplies the swept light geometry; the table supplies
 /// active time, recovery, landing commitment, and consequences.
 fn author_normals(set: &mut MovesetContract) {
-    use ambition_platformer2d::entity_catalog::WindowTag;
+    use ambition_platformer2d::entity_catalog::{MoveWindow, WindowTag};
 
     for mv in &mut set.moves {
         let (startup_frames, active_frames, total_frames) = match mv.clip.clip.as_str() {
@@ -271,6 +271,49 @@ fn author_normals(set: &mut MovesetContract) {
         if mv.clip.clip.starts_with("air_") {
             mv.landing_lag_s = Some(if mv.clip.clip == "air_down" { 0.20 } else { 0.12 });
             mv.autocancel_after_s = Some(active_end + 0.04);
+        }
+        // ⛔⛤ A CONFIRMED TILT FLOWS; A SMASH COMMITS. This is the sequencing
+        // half of the genre and she had none of it: MEASURED 2026-09-11, the
+        // whole shipped roster authors FIVE cancel windows and her normals
+        // authored zero, so every one of them played to completion whatever it
+        // did. A tilt that connects and then stands her still through 160 ms of
+        // recovery cannot start anything, which is why her offence reads as a
+        // series of single pokes rather than a game.
+        //
+        // ⭐ `OnHit`, NOT `Always`. The roster guard already says why: *"a
+        // roster that only ever cancels on `Always` swings its second punch into
+        // a raised shield, which hands the defender a free punish and takes the
+        // read out of the exchange."* A whiffed tilt owes its recovery.
+        //
+        // ⭐⭐ AND `jump` IS THE ONE THAT MAKES IT THE GENRE. A confirmed hit
+        // that can be jump-cancelled is how a ground poke becomes an aerial
+        // follow-up. `trigger_moveset_moves`'s locomotion arm has honoured the
+        // `jump` escape since CM4 and its own comment records that NO CONTENT
+        // HAS EVER SPELLED IT. This is the first.
+        //
+        // ⚠ THE WINDOW IS THE RECOVERY, not the active frames. Cancelling out of
+        // the strike itself would let her erase her own hitbox mid-swing.
+        //
+        // ⛔⛤ AND THIS IS AUTHORED-AND-GUARDED, NOT OBSERVED IN A MATCH. See
+        // `a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery` for
+        // what IS proven, and the commit that added this for the chain probe
+        // that does not yet show the engine taking it.
+        if matches!(mv.clip.clip.as_str(), "attack_side" | "attack_up" | "attack_down") {
+            mv.windows.push(MoveWindow {
+                start_s: active_end,
+                end_s: mv.duration_s,
+                tag: WindowTag::Cancelable {
+                    into: vec![
+                        "any_attack".to_string(),
+                        "special".to_string(),
+                        "jump".to_string(),
+                    ],
+                    condition: ambition_platformer2d::entity_catalog::CancelCondition::OnHit,
+                },
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            });
         }
     }
 }
@@ -792,6 +835,68 @@ mod tests {
                 assert!((actual as f64 - expected).abs() < 1e-6,
                     "{clip}: runtime {actual}s disagrees with authored {expected}s");
             }
+        }
+    }
+
+    /// ⛔⛤ A CONFIRMED TILT FLOWS AND A SMASH COMMITS.
+    ///
+    /// ⛔⛔ MEASURED 2026-09-11: the whole shipped roster authored FIVE cancel
+    /// windows and her normals authored ZERO, so every one of them played to
+    /// completion whatever it did.
+    ///
+    /// ⭐ THE ASYMMETRY IS THE POINT, so this asserts BOTH halves. A test that
+    /// only checked the tilts would pass a change that gave the smashes the same
+    /// window — and a cancellable forward smash is not this genre.
+    ///
+    /// ⚠ THIS IS A CLAIM ABOUT THE AUTHORED DATA, and it is the only claim made.
+    /// `cancel_permits` accepts from t=0.26 with a connected contact, and the
+    /// engine's own `cancel_window_starts_the_new_move_same_frame` proves the
+    /// road works — but a chain driven through `moveset_takes` against both a
+    /// sandbag and a live CPU still ran the tilt to its full 24 ticks. What
+    /// stands between the two is NOT ISOLATED.
+    #[test]
+    fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
+        use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
+        let set = super::performer_moveset();
+        let cancels = |clip: &str| -> Vec<(Vec<String>, CancelCondition)> {
+            set.moves
+                .iter()
+                .filter(|m| m.clip.clip == clip)
+                .flat_map(|m| m.windows.iter())
+                .filter_map(|w| match &w.tag {
+                    WindowTag::Cancelable { into, condition } => Some((into.clone(), *condition)),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        for tilt in ["attack_side", "attack_up", "attack_down"] {
+            let found = cancels(tilt);
+            assert_eq!(found.len(), 1, "{tilt}: one cancel window");
+            let (into, condition) = &found[0];
+            assert_eq!(
+                *condition,
+                CancelCondition::OnHit,
+                "{tilt}: an `Always` cancel swings the follow-up into a raised \
+                 shield and takes the read out of the exchange"
+            );
+            assert!(
+                into.iter().any(|n| n == "jump"),
+                "{tilt}: without a jump escape a confirm cannot become an aerial"
+            );
+            assert!(
+                into.iter().any(|n| n == "any_attack"),
+                "{tilt}: no attack follow-up"
+            );
+        }
+
+        for smash in ["smash_forward", "smash_up", "smash_down"] {
+            assert!(
+                cancels(smash).is_empty(),
+                "{smash} can be cancelled. A smash is the commitment the rest of \
+                 the kit is balanced against; one that escapes its own recovery \
+                 is a tilt that hits harder"
+            );
         }
     }
 

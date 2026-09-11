@@ -990,41 +990,20 @@ fn refresh_authored_volume_resolver(
     *resolver = authored_volume_resolver_for(&sheets);
 }
 
-#[cfg(test)]
-mod generosity_tests {
-    /// ⛔⛤ A HITBOX HAS TWO ROADS AND A FIGHTER HAS ONE FEEL.
-    ///
-    /// A body whose sprite library publishes per-animation polys resolves
-    /// through `ambition_character_sprites`; a body whose moves carry authored
-    /// `VolumeShape::Rect`s resolves through `ambition_combat`. MEASURED
-    /// 2026-09-11 over the 21-fighter smash grid: FOURTEEN take the first road
-    /// and SEVEN take the second, and the generosity knob existed on neither
-    /// until today.
-    ///
-    /// ⚠ THE TWO CONSTANTS ARE DELIBERATELY SEPARATE. `ambition_character_sprites`
-    /// takes `ambition_entity_catalog` as a DEV-dependency on purpose — its
-    /// manifest says why, and the capability footprint reads
-    /// `cargo tree --edges normal` — so sharing one `f32` would trade a
-    /// documented boundary for a line of deduplication. This crate can see both,
-    /// so the copy is pinned HERE rather than by anyone remembering.
-    ///
-    /// ⛔⛤ AND THIS TEST'S NAME CLAIMED A REACH IT DID NOT HAVE. There were
-    /// THREE constants, not two: `ambition_character_sprites` also carried
-    /// `PLAYER_ATTACK_HITBOX_SCALE` at `1.3` for the provider's default
-    /// controllable row — the same `render_size` multiply, a different number,
-    /// selected by whether the swinging body carries a character id, and
-    /// invisible to a test that compares the other two. ⭐ It is COLLAPSED
-    /// (2026-09-11) rather than added here: one constant per crate makes the
-    /// third road impossible instead of checked, and leaves this test with the
-    /// whole population it names.
-    #[test]
-    fn the_two_hitbox_roads_are_equally_generous() {
-        assert_eq!(
-            ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE,
-            ambition_combat::ATTACK_VOLUME_GENEROSITY,
-            "the sprite-poly road and the authored-rect road disagree about how \
-             generous a strike volume is. Half the roster would play differently \
-             for a reason no player can see."
-        );
-    }
-}
+// ⛔⛤ `generosity_tests` LIVED HERE AND IS DELETED (2026-09-11), because its
+// subject stopped existing. It asserted that `ambition_character_sprites`'
+// `ACTOR_ATTACK_HITBOX_SCALE` equalled `ambition_combat`'s
+// `ATTACK_VOLUME_GENEROSITY` — two constants kept in step by a test, which is
+// synchronisation rather than authority, and it could only ever see two of the
+// three copies that actually existed.
+//
+// ⇒ There is ONE constant now: the sprite road reads `ambition_combat`'s through
+// a private alias, over a dependency edge it already had. A test comparing a
+// value with itself cannot fail, and a check that cannot fail is worse than no
+// check because it reads as coverage.
+//
+// ⚠ WHAT IS STILL UNGUARDED, and it is the real remaining divergence: the two
+// roads APPLY the one number differently. `place_body_local_volume` scales an
+// authored rect about the BODY ORIGIN; this road multiplies `render_size`, so
+// `FrameToBody::planting_feet` scales the poly about the FEET ANCHOR. Equal
+// inputs, different pivots — which no equality test was ever going to catch.

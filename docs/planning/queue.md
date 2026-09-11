@@ -13,6 +13,48 @@ questions belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-deci
 (2026-09-08 committed archive). Revalidate before changing a newer head. The
 review made no Rust execution claim; see the coverage receipt.
 
+## ⛔⛔ NEXT ARCHITECTURE ACTION — READ THIS BEFORE PICKING A ROW
+
+**Close I3: complete-generation candidate preparation and ATOMIC publication.**
+Integrate it with the canonical `PreparedContent` / `PreparedContentIdentity` /
+`ContentEpoch` authority, composition admission, A10 reconstruction and rollback
+timeline ownership. **Do not migrate another content family until this
+transaction exists.**
+
+⛔ **THE ROW BELOW THAT SAYS "Next bounded action: step 5" IS SPENT.** I2 steps 5
+and 6 landed 2026-09-11 and so did I3 step 1; a new agent reading downward would
+innocently pick already-finished work. Ranked direction, from the 2026-09-11
+architecture review:
+
+| | |
+| --- | --- |
+| **P0** | I3 complete-generation transaction — one candidate, one engine generation identity, one admission, one publication barrier, one rollback boundary |
+| **P0** | ONE bounded A10 reconstruction/publication implementation proving a prepared candidate can replace a live generation safely |
+| **P0** | Poison tests for refusal, stale candidates, no-op, cross-domain atomicity, rollback binding |
+| **P1** | Re-point the app-level edit→play witness at the engine-generation road |
+| **P1** | The SECOND mechanical content family — only after I3 closes, and as validation that the transaction absorbs it with no new authority |
+| **P2** | Package/dependency reduction, but only where an ownership change opens the seam |
+| **P2/P3** | Observability, tuning, documentation, broad content migration |
+
+⛔ **KNOWN HOLE, FILED AGAINST THE CURRENT PROTOTYPE:** move reload can conclude
+`Unchanged` for the move material and still install the whole newly-loaded pack
+as `SelectedContentPack`. Moves identical + items changed = one subsystem
+believing nothing changed while another observes new mechanical content. ⛔ **Do
+NOT fix it by special-casing `Unchanged`** — that hides the missing abstraction.
+It is closed by the complete candidate-bundle transaction above.
+
+⚠ **AND `SelectedContentPack` MUST NOT BECOME ORDINARY ROLLBACK SNAPSHOT STATE.**
+Rewinding a developer's content selection as gameplay state is the wrong model;
+the missing abstraction is above it. The waiver stands until the transaction
+replaces it.
+
+⭐ **THE STANDARD FOR PICKING THE NEXT TASK:** *if this succeeds, what
+architectural limitation disappears?* "A candidate can no longer partially
+publish", "runtime and rollback agree on which generation exists", "a rejected
+reload cannot mutate live state" are good answers. "The census is more
+complete", "another family loads through the same incomplete road", "one
+dependency edge disappeared" are not.
+
 ## P0 - characterize and repair current correctness gaps
 
 ### A2 - unify projectile contact geometry and obstruction semantics

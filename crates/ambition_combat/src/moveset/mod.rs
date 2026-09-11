@@ -1137,10 +1137,23 @@ pub struct StrikeVolume {
 /// of its 43 literals uses `..Default::default()` — a field there is 43 hand
 /// edits to carry one number that only the strike seam reads.
 ///
-/// ⚠ AND IT IS DERIVED ROLLBACK STATE, stamped at the spawn from
-/// `MovePlayback::instance`, exactly as [`StrikeRank`] is stamped from the
-/// authored `(window, volume)`. A resimulation replays the move and mints the
-/// same number; nothing has to be snapshotted.
+/// ⛔⛔ **IT IS CANONICAL ROLLBACK STATE, NOT DERIVED.** Until 2026-09-11 this
+/// component and [`StrikeRank`] were declared derived, for the reason "stamped
+/// at the spawn". That reason is correct only if the spawn occurs again. The
+/// volume entity carries [`StrikeVolume`], which is rollback-registered, so GGRS
+/// RESTORES that entity instead of the game code spawning it again. The restored
+/// entity came back WITHOUT these two components, the strike seam then read a
+/// different order, and the sync test showed a checksum mismatch at frames
+/// 60-62 as soon as volumes grew large enough for two of them to tie.
+///
+/// ⇒ **A component that only a spawn writes must go on the wire when its entity
+/// is rollback state.** "Derived" is a claim that SOME SYSTEM WRITES THE VALUE
+/// AGAIN — not a claim about where the value first came from. Sixteen of the
+/// other seventeen derived declarations name that cadence in their own reason;
+/// the seventeenth (`derived.actor_action_scheme`) does not and is sound anyway,
+/// because `reconcile_action_schemes` re-derives on `existing.is_none()`. These
+/// two had no such system at all: one write site each, inside the spawn, and the
+/// authored `(window, volume)` indices are not recoverable from anything else.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AttackerMoveInstance(pub u32);
 

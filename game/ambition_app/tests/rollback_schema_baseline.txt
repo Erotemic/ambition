@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v180
+ggrs-rollback-schema-v181
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -12,6 +12,7 @@ actor.anim_override	component-clone	ActorAnimOverride	bevy_ggrs clone snapshot; 
 actor.animation_facts	component-clone	BodyAnimFacts	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.attack_gesture_state	component-canonical	AttackGestureState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.attack_gesture_tuning	component-canonical	AttackGestureTuning	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.attacker_move_instance	component-canonical	AttackerMoveInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.authored_brain_context	component-canonical	AuthoredBrainContext	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.authored_hurtboxes	component-clone	AuthoredHurtboxes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.body_combat	component-canonical	BodyCombat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -68,6 +69,7 @@ actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot
 actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -155,7 +157,6 @@ derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities,
 derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
-derived.attacker_move_instance	derived	AttackerMoveInstance	stamped from MovePlayback::instance when the volume spawns
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
@@ -194,7 +195,6 @@ derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick f
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
-derived.strike_rank	derived	StrikeRank	stamped from the move's authored (window, volume) when the volume spawns
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

@@ -18,6 +18,28 @@ impl SnapshotState for crate::moveset::MoveOccurrence {
     }
 }
 
+impl SnapshotState for crate::moveset::AttackerMoveInstance {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self(r.u32()?))
+    }
+}
+
+impl SnapshotState for crate::moveset::StrikeRank {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.window as u32);
+        put_u32(out, self.volume as u32);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            window: r.u32()? as u16,
+            volume: r.u32()? as u16,
+        })
+    }
+}
+
 impl SnapshotState for crate::targeting::MatchTeam {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.as_str());

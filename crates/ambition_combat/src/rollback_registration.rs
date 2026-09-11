@@ -62,10 +62,9 @@ where
     // on a simulated entity that is neither registered, derived nor waived, and
     // it caught this one the run it was added — which is the whole reason that
     // test asks about components rather than about a list somebody maintains.
-    registrar.declare_rollback_derived_component::<crate::moveset::StrikeRank>(
+    registrar.rollback_component_canonical::<crate::moveset::StrikeRank>(
         OWNER,
-        "derived.strike_rank",
-        "stamped from the move's authored (window, volume) when the volume spawns",
+        "actor.strike_rank",
     );
     // Same shape, same reason: stamped once at the spawn from state the
     // resimulation replays, so a rewind mints the identical number and there is
@@ -83,10 +82,9 @@ where
         OWNER,
         "actor.move_occurrence",
     );
-    registrar.declare_rollback_derived_component::<crate::moveset::AttackerMoveInstance>(
+    registrar.rollback_component_canonical::<crate::moveset::AttackerMoveInstance>(
         OWNER,
-        "derived.attacker_move_instance",
-        "stamped from MovePlayback::instance when the volume spawns",
+        "actor.attacker_move_instance",
     );
     // ⛔ EVENT-CREATED: a chest starts falling when it is knocked loose, so it
     // exists in no boot world and the coverage census never saw it. `vel_y` is

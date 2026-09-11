@@ -377,7 +377,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// system reads, so a peer on v177 has an entry this one lacks. ⭐ The stand-in
 /// ENTITY stays: what the blast needs is a valid non-victim owner carrying no
 /// `MatchSeat`, and both are properties of the entity rather than of the label.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 180;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 181;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

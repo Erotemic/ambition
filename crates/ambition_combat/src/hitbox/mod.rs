@@ -760,7 +760,43 @@ pub fn apply_hitbox_damage(
         if let Some(source_kind) = melee_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
 
-            for victim in &victims {
+            // ⛔⛤ IN A STABLE ORDER, NOT QUERY ORDER. This was
+            // `for victim in &victims` — Bevy archetype order — and a rewind
+            // need not reproduce it. One strike reaching TWO victims on one tick
+            // then damaged them in an order the resimulation could disagree
+            // about, and the damage road writes shared state on the way through
+            // (hitstop, the attacker's own contact facts, a spent ledger), so
+            // the order is not private to each victim.
+            //
+            // ⭐ THE PROJECTILE ROAD ALREADY HAD THIS AUTHORITY and the melee
+            // road never adopted it: `victim_identity_key` is used twice in
+            // `projectile/systems.rs` and nowhere else. One rule, one key, both
+            // roads — rather than two answers to "which victim first".
+            //
+            // ⛔⛔ THIS FIXED NOTHING THAT WAS MEASURABLY BROKEN, AND SAYING SO
+            // IS THE POINT. It was written while chasing a GGRS checksum
+            // mismatch that raising `ATTACK_VOLUME_GENEROSITY` to 1.6 made
+            // reachable, on the reasoning that a bigger box reaches two victims
+            // at once. MEASURED 2026-09-11: with this sort in place the oracle
+            // STILL failed; the real cause was two rollback-derived components
+            // going missing on a restored strike volume. ⇒ A fix that closes a
+            // plausible mechanism is not evidence about the cause. It stays
+            // because query order is not a resimulation-stable order and the
+            // projectile road already said so.
+            //
+            // ⚠ TWO VICTIMS THAT BOTH LACK A `SimId` STILL COMPARE EQUAL, and
+            // `victim_identity_key`'s own doc says why that cannot be repaired
+            // here: `Entity` does not survive a rewind and every geometric key
+            // is already spent. That residue is a CONSTRUCTION question — a
+            // damageable rollback-authoritative body should carry identity by
+            // the time it reaches a resolver — and it is not made worse by
+            // ordering the rest.
+            let mut ordered: Vec<_> = victims.iter().collect();
+            ordered.sort_by(|a, b| {
+                victim_identity_key(a.sim_id.map(|id| id.as_str()))
+                    .cmp(&victim_identity_key(b.sim_id.map(|id| id.as_str())))
+            });
+            for victim in ordered {
                 // Identity beats every relationship rule. Friendly fire, match
                 // teams, and grudges can decide whether TWO bodies may fight;
                 // none of them can make one body become its own victim.

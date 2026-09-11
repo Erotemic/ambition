@@ -3457,23 +3457,29 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
 /// overpowered."* Per-move tuning is a different question, asked per swing by a
 /// spec's `hitbox.inflate` or an authored rect's own extents.
-/// ⛔⛤ STOOD DOWN TO `1.0` — THE PLUMBING SHIPS, THE FEEL CHANGE DOES NOT, AND
-/// WHAT STOPS IT IS A DETERMINISM DEFECT THIS CHANGE MADE REACHABLE.
+/// ⛔⛤ IT WAS STOOD DOWN TO `1.0` (`05450c12a`) BECAUSE RAISING IT REDDENED
+/// `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+/// — a GGRS sync-test checksum mismatch at frames 60-62, MEASURED both ways with
+/// nothing else different. **That determinism defect is repaired** (2026-09-11);
+/// what this number should BE is now an ordinary feel question, and raising it is
+/// a separate change that owes its own measurements.
 ///
-/// At `1.6`, `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
-/// fails with a GGRS sync-test checksum mismatch at frames 60-62. At `1.0` it
-/// passes. MEASURED both ways, 2026-09-11; nothing else differs.
+/// ⛔⛔ AND THE REASONED CAUSE WRITTEN HERE WAS WRONG, WHICH IS WHY IT IS KEPT.
+/// It said a larger volume reaches more victims at once and that `queue.md`'s
+/// `StrikeVictim.sim_id` tie decided the rest. `victim_identity_key` had already
+/// closed that tie at `c2188fa7a`, and ordering the melee loop through it —
+/// correct on its own merits, and done — changed the oracle not at all.
 ///
-/// ⇒ REASONED, NOT MEASURED, on the cause: a larger volume reaches MORE VICTIMS
-/// AT ONCE, and `queue.md`'s A2 already records that `StrikeVictim.sim_id` is
-/// `Option<&SimId>` where `None` orders FIRST and two `None`s compare equal —
-/// leaving Bevy query order to decide the tie. A resimulation need not reproduce
-/// query order. Generosity did not create that; it made it reachable.
+/// ⭐ THE MEASURED CAUSE: `StrikeRank` and `AttackerMoveInstance` were declared
+/// `declare_rollback_derived_component` ("stamped once at the spawn"), while the
+/// volume entity's `StrikeVolume` is rollback-REGISTERED — so GGRS restores the
+/// entity and the two components come back missing. Both are canonical rollback
+/// state now (schema 181), and the oracle passes at `1.6`.
 ///
-/// ⭐ THE STRUCTURE IS WORTH KEEPING AT 1.0: both hitbox roads now read one
-/// number, a test pins them together, and raising this is a one-line change the
-/// day the tie-break is an identity rather than a sort fallback. Raising it
-/// before then buys a bigger hitbox with an intermittent desync.
+/// ⇒ GENEROSITY WAS THE MAGNIFIER, NOT THE CAUSE. With one live volume per
+/// strike a missing `StrikeRank` is unobservable; at `1.6` two volumes reach the
+/// same victim often enough for the order to decide the outcome. A variable that
+/// makes a defect reachable looks exactly like the defect.
 pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.0;
 
 impl VolumeShape {

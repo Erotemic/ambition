@@ -1107,16 +1107,95 @@ def telemetry_envelope() -> dict:
 COST_LEDGER_TEST_WRITES_ENV = "RUN_TESTS_COST_LEDGER_ALLOW_TEST_WRITES"
 
 
+@dataclass(frozen=True)
+class RunScope:
+    """WHAT THIS RUN CERTIFIES — the single authority every reporter reads.
+
+    ⛔⛔ **IT WAS FOUR ANSWERS.** The lane string was derived from the lane
+    booleans at summary time; the coverage footer was derived from them again;
+    the cost ledger recorded them a third time; the status JSON a fourth. When
+    `--only-job` arrived it narrowed the PLAN and none of the four, so a run of
+    one selected job printed `1/1 jobs passed  [lane: --rust]`, appended a
+    one-job row to a ledger of whole-lane costs, and closed with a footer
+    explaining what `--rust` omits — a sentence about a lane that had not run.
+
+    ⇒ The scope is computed ONCE, beside the filter that narrows it, and the
+    reporters read it. A new reporter cannot get a different answer, because
+    there is no longer a second place to derive one from.
+    """
+
+    lane: str
+    planned: int
+    selected: int
+    only_job: str | None = None
+
+    @property
+    def narrowed(self) -> bool:
+        return self.only_job is not None
+
+    def label(self) -> str:
+        """The lane string a summary line carries — narrowing included."""
+        if not self.narrowed:
+            return self.lane
+        return (f"{self.lane} --only-job {self.only_job!r} "
+                f"({self.selected} of {self.planned} jobs)")
+
+    def narrowing_notice(self) -> str:
+        """The footer a narrowed run owes its reader, or `""`."""
+        if not self.narrowed:
+            return ""
+        return (
+            f"\n  ⛔⛔ THIS RUN WAS {self.selected} SELECTED JOB(S), NOT THE "
+            f"`{self.lane}` LANE.\n"
+            f"      `--only-job {self.only_job!r}` dropped "
+            f"{self.planned - self.selected} of the lane's {self.planned} "
+            f"job(s), so the pass\n"
+            f"      count below certifies the selection and says nothing about "
+            f"the rest of\n"
+            f"      the lane — let alone the repository. Re-run without "
+            f"`--only-job` before\n"
+            f"      quoting this run as a lane result."
+        )
+
+
+def lane_name(exhaustive: bool, filtered: bool, rust_only: bool,
+              tool_tests_only: bool, maintenance_only: bool,
+              rust_alone: bool) -> str:
+    """The lane's own name. One derivation, read by [`RunScope`]."""
+    return (
+        "--rust-alone" if rust_alone
+        else "--rust" if rust_only
+        else "--tool-tests" if tool_tests_only
+        else "--maintenance" if maintenance_only
+        else "-k/-p filtered" if filtered
+        else "exhaustive" if exhaustive
+        else "full gate"
+    )
+
+
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool, rust_only: bool = False,
                        tool_tests_only: bool = False,
                        maintenance_only: bool = False,
                        *, rust_alone: bool = False,
-                       job_limit: int | None = None) -> Path | None:
+                       job_limit: int | None = None,
+                       scope: "RunScope | None" = None) -> Path | None:
     """Append this run's cost so test-iteration trends can be compared.
 
     The ledger is append-only; individual runs remain available for comparison.
+
+    ⛔⛔ **A NARROWED RUN IS NOT A LANE COST SAMPLE.** Every row here is read as
+    "what this lane costs on this machine", and a `--only-job` run carries the
+    lane's own flags while having run one job of it. A reader averaging
+    `rust_only` rows would take a 150-second selection as evidence that the
+    lane got cheaper. Refused and said out loud, on the same rule as the two
+    refusals below: never fail a suite over a cost record.
     """
+    if scope is not None and scope.narrowed:
+        print(f"  (cost NOT recorded: --only-job {scope.only_job!r} ran "
+              f"{scope.selected} of the lane's {scope.planned} job(s), and a "
+              f"partial run is not a sample of `{scope.lane}`'s cost)")
+        return None
     ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
                                  measurement_paths.JOBS_LEDGER))
 
@@ -1214,6 +1293,11 @@ def coverage_notice(
     *,
     rust_alone: bool = False,
     web_check_planned: bool = True,
+    # ⛔ `run_scope`, not `scope`: this function already binds a LOCAL named
+    # `scope` for the plan-description string partway down, which silently
+    # shadows a parameter of that name — the failure surfaces as an
+    # AttributeError on a str, nowhere near the definition.
+    run_scope: "RunScope | None" = None,
 ) -> str:
     """State the intentionally omitted validation lanes out loud.
 
@@ -1308,6 +1392,12 @@ def coverage_notice(
             "    That is the right trade for a dev cycle and the wrong one before a\n"
             "    release or after touching features, an SDK surface, or the web path."
         )
+    # ⛔ FIRST, and it is first because it is the biggest omission on the page:
+    # the paragraphs above name what a LANE leaves out, and this names the fact
+    # that the lane itself did not run.
+    narrowing = run_scope.narrowing_notice() if run_scope is not None else ""
+    if narrowing:
+        notices.insert(0, narrowing)
     return "\n".join(notices)
 
 
@@ -1327,6 +1417,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # ⛔ IT REFUSES ON NO MATCH rather than running the empty plan. A filter that
     # silently selects nothing prints `0/0 jobs passed` — a clean bill from an
     # empty corpus, which is this repository's most repeated instrument failure.
+    planned_total = len(jobs)
     if only_job is not None:
         matched = [j for j in jobs if only_job.lower() in j.name.lower()]
         if not matched:
@@ -1340,6 +1431,20 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             return 1
         jobs = matched
 
+    # ⭐ THE SCOPE IS BUILT HERE, beside the only thing that narrows the plan,
+    # and every reporter below reads it rather than re-deriving from the lane
+    # booleans. `planned` is the lane's own count, captured before the filter.
+    scope = RunScope(
+        lane=lane_name(exhaustive, filtered, rust_only, tool_tests_only,
+                       maintenance_only, rust_alone),
+        planned=planned_total,
+        selected=len(jobs),
+        only_job=only_job,
+    )
+
+    if not list_only:
+        refuse_an_interpreter_that_cannot_run_the_suite(jobs)
+
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
@@ -1349,6 +1454,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
             rust_alone=rust_alone,
             web_check_planned=any("web build check" in j.name for j in jobs),
+            run_scope=scope,
         ))
         return 0
 
@@ -1481,7 +1587,14 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             "free_gb_at_start": round(free_gb, 1), "rust_only": rust_only,
             "rust_alone": rust_alone,
             "tool_tests_only": tool_tests_only,
-            "maintenance_only": maintenance_only}
+            "maintenance_only": maintenance_only,
+            # ⛔ A POLLER READS THIS FILE INSTEAD OF THE TERMINAL, so the
+            # narrowing has to be here too: `{"rust_only": true, "jobs": 1}`
+            # with no `only_job` reads as a lane that collapsed, not as a lane
+            # that was filtered.
+            "lane": scope.lane,
+            "only_job": scope.only_job,
+            "planned_jobs": scope.planned}
     write_status(status, {**base, "state": "running", "finished_jobs": 0})
     # Not a happy-path write: a suite that dies mid-run (Ctrl-C, an unhandled
     # exception) must not leave `"running"` behind, or a future reader waits on
@@ -1573,16 +1686,8 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # `--rust` had dropped the compile-cost ratchet and `check_no_warnings`, and
     # one commit pushed against a hand-picked set believed complete.
     # ⇒ A reader who quotes the number now quotes the scope with it.
-    lane = (
-        "--rust-alone" if rust_alone
-        else "--rust" if rust_only
-        else "--tool-tests" if tool_tests_only
-        else "--maintenance" if maintenance_only
-        else "-k/-p filtered" if filtered
-        else "exhaustive" if exhaustive
-        else "full gate"
-    )
-    print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s  [lane: {lane}]")
+    print(f"  {passed}/{len(results)} jobs passed in {total:.0f}s  "
+          f"[lane: {scope.label()}]")
     if failed:
         print("  FAILED jobs:")
         for n in failed:
@@ -1594,7 +1699,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     print(timing_report(results))
     notice = coverage_notice(
         exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
+        rust_alone=rust_alone,
         web_check_planned=any("web build check" in j.name for j in jobs),
+        run_scope=scope,
     )
     if notice:
         print(notice)
@@ -1608,7 +1715,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # Keep the persistent suite-cost ledger separate from the optional per-run timing export.
     ledger = append_cost_ledger(
         results, exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
-        rust_alone=rust_alone, job_limit=job_limit,
+        rust_alone=rust_alone, job_limit=job_limit, scope=scope,
     )
     if ledger:
         print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
@@ -1885,8 +1992,11 @@ def main() -> int:
               "are mid-edit, a focused test "
               "almost certainly answers your question faster and just as "
               "well.")
-    if not args.list:
-        refuse_an_interpreter_that_cannot_run_the_suite(jobs)
+    # ⛔ THE PREFLIGHT MOVED INTO `run()`, BEHIND THE SELECTION. Asked here it
+    # read the LANE's jobs, so `--only-job` on a pure-Rust job still aborted the
+    # process over Python jobs the plan no longer contained — the preflight's own
+    # docstring promises it refuses only when the PLAN holds Python jobs, and
+    # `jobs` at this point is the plan before the filter. One selection site.
     return run(jobs, args.list, timings_json=args.timings_json,
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,

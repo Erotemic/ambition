@@ -1098,7 +1098,11 @@ fn an_item_held_by_a_possessed_body_travels_with_it() {
         .world_mut()
         .spawn((
             ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
-            ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf(participant),
+            ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf {
+                custodian: participant,
+                durability:
+                    ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
+            },
         ))
         .id();
     let item = room_scoped_item(&mut app, Vec2::ZERO);

@@ -43,7 +43,7 @@ pub fn project_body_custody(
         Without<ambition_held_items::GroundItem>,
     >,
 ) {
-    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
+    use ambition_platformer2d_shared_tangle::lifecycle::{CustodyDurability, InCustodyOf};
     use std::collections::BTreeMap;
 
     // WHO SHOULD BE IN WHOSE CUSTODY THIS TICK.
@@ -97,13 +97,19 @@ pub fn project_body_custody(
     }
 
     for (entity, custody) in &held {
-        if wanted.get(&entity) != Some(&custody.0) {
+        if wanted.get(&entity) != Some(&custody.custodian) {
             commands.entity(entity).remove::<InCustodyOf>();
         }
     }
     for (subject, custodian) in wanted {
-        if held.get(subject).map(|(_, custody)| custody.0) != Ok(custodian) {
-            commands.entity(subject).try_insert(InCustodyOf(custodian));
+        if held.get(subject).map(|(_, custody)| custody.custodian) != Ok(custodian) {
+            // ⭐ SESSION ONLY: riders, limbs and possessed bodies. The loader
+            // does not put a rider back on a mount, so a durable row saying
+            // "somebody holds this body" would be a claim it cannot answer.
+            commands.entity(subject).try_insert(InCustodyOf {
+                custodian,
+                durability: CustodyDurability::SessionOnly,
+            });
         }
     }
 }

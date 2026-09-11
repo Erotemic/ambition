@@ -26,7 +26,7 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-HOME = REPO / "crates/ambition_characters/src/smash_capture.rs"
+HOME = REPO / "crates/ambition_entity_catalog/src/smash_capture.rs"
 
 # The sum, however the receiver is spelled: `attempt.offset.0 + attempt.half_extents.0`,
 # `offset.x + half.x`, `params.offset.0 + params.half_extents.0`.

@@ -567,7 +567,7 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     let _ = home;
 
     assert_eq!(
-        app.world().get::<InCustodyOf>(piloted_mount).map(|c| c.0),
+        app.world().get::<InCustodyOf>(piloted_mount).map(|c| c.custodian),
         Some(rider),
         "the mount a PILOTED rider is on is in that rider's custody, so a room change \
          cannot retire it out from under the pilot"
@@ -615,7 +615,7 @@ fn the_driven_bodys_custody_marker_is_rederived_after_a_rewind_drops_it() {
     app.update();
     app.update();
     assert_eq!(
-        app.world().get::<InCustodyOf>(actor).map(|c| c.0),
+        app.world().get::<InCustodyOf>(actor).map(|c| c.custodian),
         Some(home),
         "setup: the driven body wears the participant's custody"
     );
@@ -629,7 +629,7 @@ fn the_driven_bodys_custody_marker_is_rederived_after_a_rewind_drops_it() {
 
     app.update();
     assert_eq!(
-        app.world().get::<InCustodyOf>(actor).map(|c| c.0),
+        app.world().get::<InCustodyOf>(actor).map(|c| c.custodian),
         Some(home),
         "the projection rebuilt the marker from `PossessionState`. Without it, a \
          rewind past a possession leaves the body you are driving a `RoomResident` \
@@ -661,7 +661,13 @@ fn the_possession_projection_leaves_item_custody_alone() {
                 vec2(0.0, 0.0),
                 vec2(8.0, 8.0),
             ),
-            InCustodyOf(carrier),
+            // ⭐ `Restored`, because this is an ITEM in a hand and the item domain
+            // saves it. Picking the wrong arm here would not fail to compile — it
+            // would quietly change which save rows the fixture's subject produces.
+            InCustodyOf {
+                custodian: carrier,
+                durability: ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
+            },
         ))
         .id();
 
@@ -669,7 +675,7 @@ fn the_possession_projection_leaves_item_custody_alone() {
     app.update();
     app.update();
     assert_eq!(
-        app.world().get::<InCustodyOf>(item).map(|c| c.0),
+        app.world().get::<InCustodyOf>(item).map(|c| c.custodian),
         Some(carrier),
         "the item's custody survived a tick with no possession — the projection \
          retracts only the marker IT owns, and the item domain owns this one"

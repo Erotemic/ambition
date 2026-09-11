@@ -1294,7 +1294,7 @@ fn verify_restored_domains(
                 custodians
                     .entry(occurrence.clone())
                     .or_default()
-                    .push(named.get(&custody.0).cloned());
+                    .push(named.get(&custody.custodian).cloned());
             }
         }
         for (occurrence, custodian) in accepted.custody.rows() {

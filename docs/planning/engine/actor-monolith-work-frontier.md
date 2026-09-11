@@ -273,6 +273,18 @@ recorded without a numeric target. No live gameplay or ordering change is intend
 **THE MAP THIS HOLD ASKS FOR IS DELIVERED:**
 [`accepted-control-writer-map.md`](accepted-control-writer-map.md) (2026-09-10).
 
+✅ **AND THE ONE THING THE MAP LEFT OPEN IS CLOSED (2026-09-11).** The map found
+no *"one authority per fact"* doubt and no split to make; what it did leave was a
+warning — **durability was expressed as an ABSENCE**, so a third producer of
+`InCustodyOf` became non-durable by default and silently. `InCustodyOf` now
+carries `CustodyDurability { Restored, SessionOnly }`, which has no `Default`:
+a producer cannot construct the relation without deciding. Guard and poison on
+the map's own page.
+⇒ **What remains of A4 is the REGROUPING** — *"coherent logical actor/control
+modules in the same package first"* — and the map's last line still stands: no
+new abstraction is warranted, because no missing narrow claim/result value was
+found.
+
 **HOLD on extraction:** first map writers and select production fixtures.
 **Source regions:** `control/authority.rs`, `control/input_systems.rs`,
 `abilities/traversal/possession.rs`, `body_custody.rs`, live actor clusters,

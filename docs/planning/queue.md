@@ -915,6 +915,65 @@ plays the new move. Nothing between the payload and the fighter is a compile ste
 invoking Cargo"*): this is one process that already linked the engine. What is
 established is that the DATA path is complete and the values survive it.
 
+⛔⛔ **AND THE TOOL-TEST LANE WAS RED FOR THE SAME REASON: TEN GUARDS, ALL FROM
+THE I1 CARVE, NONE REACHABLE FROM `--rust`.** `scripts/run_tests.py --rust` is a
+LANE, and `--tool-tests` is a different one; the carve commit named the first and
+not the second. What it left:
+
+| guard | what the move did to it |
+| --- | --- |
+| `test_authoring_surface_measures_something` (x2) | `authoring_surface.py` globs `smash_*.rs` under a ROOT — the root was the old crate |
+| `test_every_smash_technique_has_a_translator` | same root, spelled again |
+| `test_every_technique_key_is_declared` | same root, spelled a third time |
+| `test_the_grab_reach_is_one_formula` | names `smash_capture.rs` by full path |
+| `test_rollback_codec_shape` | the snapshot impl's macro line changed TEXT, not bytes |
+| `test_modules_md_is_current` | three crates' generated module maps |
+| `test_sub_workspace_lockfiles_are_current` (x2) | two sentinel lockfiles, staled by one new dependency |
+| `test_the_gate_states_how_many_tests_it_skips` | 424 → 434 feature-gated tests |
+
+⭐⭐ **THE FIRST FOUR ARE THE INTERESTING ONES AND THEY DID EXACTLY WHAT THEY WERE
+BUILT FOR.** A path-rooted scanner whose root moves finds NOTHING and reports a
+clean, empty surface — this repository's most repeated instrument failure. Every
+one of those four is an ANTI-VACUITY FLOOR (*"the census still finds the
+techniques"*), so instead of a green empty report they went red and named the
+missing corpus. ⇒ **Four crates spelling one root three times is the defect the
+guards were covering for**; the roots are repointed, and collapsing them to one
+is a separate small job.
+
+⭐ **NO SCHEMA BUMP FOR THE CODEC SHAPE EITHER.** The hash moved because
+`snapshot_pod!(crate::smash_capture::SmashHoldState …)` became
+`crate::smash_hold_state::…` — the macro's TEXT, not the bytes a peer encodes.
+Re-recorded, one line, and the guard's own message asks the right question:
+*"if the bytes a peer encodes changed"*.
+
+⚠ **AND THE COUNT ROSE BY EXACTLY MY TEN.** `moveset_content_schema` is behind
+`#[cfg(feature = "content_pack")]`, so its ten guards are feature-gated. MEASURED
+that they DO run in `cargo test --workspace` — `ambition_content` enables the
+feature and cargo unifies it — but they are in the 434 the default BACKBONE plan
+names as its largest omission, and a `-p ambition_characters` run with default
+features executes none of them.
+
+⛔⛔ **A DOCUMENTED GATE THAT NO LANE RAN, FOUND 2026-09-11 BY A PEER RUNNING IT
+BY HAND.** `scripts/check_absence_contracts.py` is listed in AGENTS.md under
+*"known advisory-by-default scripts — enforce with `--check`"*, and
+`grep check_absence_contracts scripts/run_tests.py` returned NOTHING. Two REDs
+were sitting in it: a rollback wire-format entry a module move had renamed
+(`smash_capture::SmashHoldState` → `smash_hold_state::SmashHoldState`) and the
+`fixtures/minimal_game` sentinel lockfile, staled by a new workspace dependency.
+Neither is reachable from any test; both are mine.
+⇒ It runs in `--maintenance` now, `builds=True` because it shells out to
+`cargo tree` in two fixture workspaces. **39 of 39 hold** — read off the verdict
+line, because this script has already died on a `CalledProcessError` before most
+contracts ran, and a crash is indistinguishable from a pass by exit code alone.
+⭐ NO SCHEMA-VERSION BUMP for the rename, deliberately: the type and its fields
+are unchanged and only its module path moved, so no peer's snapshot can disagree.
+Bumping would have said a wire format changed when none did.
+⚠ **AND THE EXIT CODE WAS NEVER THE PROBLEM.** `--check` returns 1 on violations
+(`return 1 if args.check else 0`). My first two readings said `EXIT=0` with two
+REDs on screen because I piped the run through `tail` — the pipeline's status,
+not the script's. Redirect to a file and echo `$?` when the exit code is the
+thing being read.
+
 ⛔⛤ **AND THE ROAD STEP 4 ASKS FOR ALREADY EXISTS — I BUILT A PARALLEL ONE
 WITHOUT LOOKING. FOUND 2026-09-11 while sizing step 5.** Step 4's words are *"a
 selected-host load path through the CURRENT source/resolver policy"*, and that

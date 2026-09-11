@@ -910,6 +910,24 @@ def build_maintenance_jobs() -> list[Job]:
             "zone names (ratchet)",
             [sys.executable, "scripts/check_zone_name_ratchet.py", "--check"],
         ),
+        # ⛔⛤ **AND THIS ONE WAS DOCUMENTED AS A GATE AND RUN BY NO LANE.**
+        # `AGENTS.md` lists it under "enforce with `--check`" and nothing did:
+        # two REDs sat in it on 2026-09-11 — a rollback wire-format entry that a
+        # module move had renamed, and the `minimal_game` sentinel lockfile that
+        # a new workspace dependency had staled — found by a PEER running it by
+        # hand, not by any suite. A gate nobody runs is a guard that does not
+        # exist, whatever a doc says about it.
+        #
+        # ⚠ IT SHELLS OUT TO CARGO (`cargo tree` in two fixture workspaces), so
+        # it belongs here rather than in the default plan, and `builds=True`
+        # says so. ⛔ AND A CRASH IS NOT A FAILURE: it died on a
+        # `CalledProcessError` before most contracts ran once already. Read the
+        # trailing `N of N absence contracts hold` line, not the exit code alone.
+        Job(
+            "architecture absence contracts (dependency edges that must stay absent)",
+            [sys.executable, "scripts/check_absence_contracts.py", "--check"],
+            builds=True,
+        ),
         # ⛔ AND THIS ONE HAD NEVER BEEN AIMED AT ALL. `--vanished` reports
         # planning rows citing a name that WAS a definition at the baseline and
         # is not one now. Its unit tests exercised `vanished_report` six ways and
@@ -1381,8 +1399,8 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-09-08 at b1f42c79b by `scripts/feature_gated_tests.py`,\n"
-            "        424 tests across 27 crates, the largest single omission this\n"
+            "        2026-09-11 by `scripts/feature_gated_tests.py`, 434 tests\n"
+            "        across 27 crates, the largest single omission this\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"

@@ -687,7 +687,7 @@ pub fn project_custody_onto_residency(
     existing: Query<()>,
     residents: Query<(), ambition_platformer2d_shared_tangle::lifecycle::RoomResident>,
 ) {
-    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
+    use ambition_platformer2d_shared_tangle::lifecycle::{CustodyDurability, InCustodyOf};
     for (entity, custody, suspended) in &items {
         let holder = match *custody {
             ItemCustody::InWorld => None,
@@ -707,9 +707,16 @@ pub fn project_custody_onto_residency(
         };
         match (holder, suspended) {
             // Already says what it should say.
-            (Some(holder), Some(InCustodyOf(current))) if *current == holder => {}
+            (Some(holder), Some(InCustodyOf { custodian, .. })) if *custodian == holder => {}
             (Some(holder), _) => {
-                commands.entity(entity).insert(InCustodyOf(holder));
+                // ⭐ RESTORED: this domain SAVES `ItemCustody` and applies it
+                // again on load, so the occurrence row is one the loader can
+                // answer for. Stated here rather than inferred by the save from
+                // a marker it happens to find on the subject.
+                commands.entity(entity).insert(InCustodyOf {
+                    custodian: holder,
+                    durability: CustodyDurability::Restored,
+                });
             }
             (None, Some(_)) => {
                 commands.entity(entity).remove::<InCustodyOf>();

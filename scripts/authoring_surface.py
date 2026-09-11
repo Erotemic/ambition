@@ -24,7 +24,11 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-TECHNIQUES = REPO / "crates/ambition_characters/src"
+# ⛔⛤ THE FAMILY MOVED (fast-iteration I1, 2026-09-11). Twenty `smash_*`
+# modules — the whole authoring vocabulary — left `ambition_characters`, which
+# links Bevy, for the pure value crate. A scanner rooted at the old path finds
+# ZERO techniques and reports a clean, empty surface.
+TECHNIQUES = REPO / "crates/ambition_entity_catalog/src"
 
 PARAMS = re.compile(r"pub struct (\w*Params)\s*\{(.*?)\n\}", re.S)
 FIELD = re.compile(r"^\s*pub (\w+):", re.M)

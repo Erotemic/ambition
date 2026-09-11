@@ -131,7 +131,7 @@ pub fn live_custody_rows(
     carried
         .iter()
         .filter_map(|(occurrence, custody)| {
-            let custodian = custodians.get(custody.0).ok()?;
+            let custodian = custodians.get(custody.custodian).ok()?;
             Some((occurrence.clone(), custodian.clone()))
         })
         .collect()
@@ -187,7 +187,10 @@ mod tests {
         app.world_mut()
             .spawn((
                 SimId::placement(placement),
-                InCustodyOf(holder),
+                InCustodyOf {
+                    custodian: holder,
+                    durability: crate::lifecycle::CustodyDurability::Restored,
+                },
                 RoomScopedEntity,
             ))
             .id()

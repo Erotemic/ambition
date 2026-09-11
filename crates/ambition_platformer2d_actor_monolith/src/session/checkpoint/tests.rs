@@ -1570,7 +1570,13 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                 .collect();
         for (occurrence, custodian) in holders {
             let holder = custodian_entities[&custodian];
-            app.world_mut().spawn((occurrence, InCustodyOf(holder)));
+            app.world_mut().spawn((occurrence, InCustodyOf {
+                    custodian: holder,
+                    // ⭐ `Restored`: this fixture is about what the SAVE keeps, and a
+                    // `SessionOnly` row is filtered out before it gets there.
+                    durability:
+                        ambition_platformer2d_shared_tangle::lifecycle::CustodyDurability::Restored,
+                }));
         }
 
         let mut custody = CustodyBaseline::default();

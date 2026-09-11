@@ -244,3 +244,65 @@ fn a_load_with_nothing_remembered_asks_for_no_resume() {
         "a world already in its authored state must not be rebuilt to reach it"
     );
 }
+
+/// ⭐⭐ **DURABILITY IS THE RELATION'S OWN STATEMENT, AND A `SessionOnly` ROW
+/// NEVER REACHES THE FILE.**
+///
+/// ⛔⛤ **IT USED TO BE AN ABSENCE.** The filter asked whether the SUBJECT
+/// carried `ambition_held_items::ItemCustody` — a marker belonging to another
+/// domain — so a third producer of `InCustodyOf` became non-durable BY DEFAULT
+/// and silently. The accepted-control writer map named that risk in writing:
+/// *"anyone who adds one must decide durability on purpose, because the save
+/// filter will not ask."* It asks now, and `CustodyDurability` has no `Default`,
+/// so a producer cannot decline to answer.
+///
+/// ⛔ THE TWO SUBJECTS ARE IDENTICAL EXCEPT FOR THE FIELD. Same components, same
+/// custodian, same room scope — so a filter that dropped both, or kept both,
+/// fails here. That is the whole discrimination and it is why this is one test
+/// with two bodies rather than two tests with one each.
+#[test]
+fn only_a_restored_custody_row_crosses_the_save_boundary() {
+    let mut app = horizon_app();
+    app.world_mut().resource_mut::<SaveRestored>().0 = true;
+
+    let hand = app.world_mut().spawn(SimId::player_slot(0)).id();
+    let durable = SimId::placement("axe_in_a_hand");
+    let session = SimId::placement("rider_on_a_mount");
+    for (id, durability) in [
+        (durable.clone(), CustodyDurability::Restored),
+        (session.clone(), CustodyDurability::SessionOnly),
+    ] {
+        app.world_mut().spawn((
+            id,
+            InCustodyOf {
+                custodian: hand,
+                durability,
+            },
+            ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
+        ));
+    }
+
+    install_durable_save_horizon(&mut app);
+    app.update();
+
+    let written = app.world().resource::<AmbitionGameSave>().data().clone();
+    let held: Vec<&str> = written
+        .custody()
+        .iter()
+        .map(|row| row.occurrence.as_str())
+        .collect();
+    // ⛔ THE ANTI-VACUITY TERM FIRST. "The session row is absent" is also what an
+    // empty file says, and an empty file is the failure this arm would otherwise
+    // read as a pass.
+    assert!(
+        held.contains(&durable.as_str()),
+        "the durable custody row did not reach the file, so its absence proves \
+         nothing about the other one; file held {held:?}"
+    );
+    assert!(
+        !held.contains(&session.as_str()),
+        "a SESSION-ONLY custody row crossed the save boundary. The loader does \
+         not put a rider back on a mount, so this row is a claim the file cannot \
+         answer; file held {held:?}"
+    );
+}

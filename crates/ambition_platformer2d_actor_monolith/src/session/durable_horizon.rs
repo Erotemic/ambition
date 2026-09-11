@@ -18,7 +18,8 @@ use ambition_persistence::save_data::{
     PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    live_custody_rows, AuthoredOccurrences, CustodyBaseline, InCustodyOf, OccurrenceBaseline,
+    live_custody_rows, AuthoredOccurrences, CustodyBaseline, CustodyDurability, InCustodyOf,
+    OccurrenceBaseline,
     OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -283,9 +284,29 @@ pub fn persist_occurrence_horizon_to_save(
             )
         })
         .collect();
+    // ⭐⭐ **THE LIVE CUSTODY ROWS ASK THE RELATION, NOT THE SUBJECT'S DOMAIN.**
+    // `InCustodyOf::durability` is stated by whichever producer wrote the row —
+    // `Restored` for an item in a hand, `SessionOnly` for a rider, a limb or a
+    // possession. This was `restorable`, i.e. *"does the subject carry
+    // `ambition_held_items::ItemCustody`"*, which made a THIRD producer
+    // non-durable by default and silently: the accepted-control writer map named
+    // that risk in writing, and the field is the answer to it.
+    //
+    // ⚠ THE OCCURRENCE FILTER ABOVE STILL ASKS `restorable`, AND THE TWO
+    // POPULATIONS ARE NOT THE SAME ONE. That filter runs over
+    // `AuthoredOccurrences` ROWS, not over live entities, so an occurrence
+    // recorded `InCustody` whose entity carries no `InCustodyOf` — an
+    // inconsistent state, but one this function must not make worse — is kept by
+    // the wider marker and would be DROPPED by the field. Dropping a save row is
+    // the dangerous direction; see this parameter's own note.
+    let durable: std::collections::BTreeSet<&str> = carried
+        .iter()
+        .filter(|(_, custody)| custody.durability == CustodyDurability::Restored)
+        .map(|(sim_id, _)| sim_id.as_str())
+        .collect();
     let custody: Vec<PersistedCustody> = live_custody_rows(&carried, &custodians)
         .into_iter()
-        .filter(|(occurrence, _)| restorable.contains(occurrence.as_str()))
+        .filter(|(occurrence, _)| durable.contains(occurrence.as_str()))
         .map(|(occurrence, custodian)| {
             PersistedCustody::new(occurrence.as_str(), custodian.as_str())
         })

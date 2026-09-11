@@ -27,7 +27,8 @@ pub use horizon::{
     CheckpointRestoreInputs, LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
 };
 pub use markers::{
-    BodyCustodySettled, FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity,
+    BodyCustodySettled, CustodyDurability, FeatureSimEntity, InCustodyOf, LoadingZoneVisual,
+    ModeScopedEntity,
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };
 pub use round::{

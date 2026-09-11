@@ -714,6 +714,7 @@ dependencies = [
  "ambition_dialog",
  "ambition_encounter",
  "ambition_encounter_features",
+ "ambition_entity_catalog",
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",

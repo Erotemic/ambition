@@ -14,7 +14,7 @@ Rust guard's list still names every technique key that EXISTS. A new
 than a silent hole in a guard that keeps passing.
 
 ⚠ SCOPED BY WHERE TECHNIQUE KEYS LIVE, not by an exception list: the game's are
-`pub const`s in `crates/ambition_characters/src/smash_*.rs`, and the ENGINE's
+`pub const`s in `crates/ambition_entity_catalog/src/smash_*.rs`, and the ENGINE's
 live in that crate's `technique.rs`, whose own doc calls itself "the authored
 schemas of engine techniques". `SMASH_SELECT_EXPERIENCE = "smash.select"` is
 also a `smash.` string, and it is a SHELL ROUTE ID declared in the demo's
@@ -34,7 +34,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-KEY_HOME = REPO / "crates" / "ambition_characters" / "src"
+KEY_HOME = REPO / "crates" / "ambition_entity_catalog" / "src"
 GUARD = REPO / "game" / "ambition_app" / "tests" / "installed_techniques_are_declared.rs"
 
 #: ⛔ THE PATTERN IS PER-MODULE, and widening it to one shared regex was wrong.

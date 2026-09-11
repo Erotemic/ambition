@@ -31,7 +31,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 # Where the authored vocabulary is DECLARED.
-VOCABULARY = REPO / "crates" / "ambition_characters" / "src"
+VOCABULARY = REPO / "crates" / "ambition_entity_catalog" / "src"
 # Where a ruleset may recognise it. A key named in any of these is connected.
 RULESETS = (
     REPO / "game" / "ambition_demo_smash" / "src",

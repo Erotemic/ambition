@@ -5,7 +5,7 @@ test — *"EASE OF AUTHORING is the acceptance test"* — so the number crosses 
 document boundary and has to keep being re-derivable.
 
 ⛔⛔ THE FAILURE THIS GUARDS IS SILENT AND IT LOOKS LIKE GOOD NEWS. The script
-finds params structs by REGEX over `crates/ambition_characters/src/smash_*.rs`.
+finds params structs by REGEX over `crates/ambition_entity_catalog/src/smash_*.rs`.
 Rename the files, move the techniques, or change the struct suffix, and it finds
 NOTHING — and a census of nothing reports a small, tidy, entirely wrong answer
 rather than an error. ⇒ The floor below is not a style rule; it is the difference

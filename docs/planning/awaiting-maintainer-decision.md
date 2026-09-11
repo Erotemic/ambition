@@ -740,6 +740,93 @@ command that wrote this.** ⚠ Q103–Q105 are claimed concurrently by
 ToothbrushAmbition and are not yet in this ref, which is why this row starts at
 106 and why a reader seeing a gap should look for their push rather than assume a
 retired number. **If those three land differently, this one renumbers.**
+## Q105 — may an author place a chest that is already open?
+
+**`Chest::state` is WRITE-ONLY.** Measured 2026-09-11 during A5's census:
+`ChestState { Closed, Opening, Opened }` is constructed, mapped from
+`ChestStateSpec` at authored spawn, and serialized — and read by NOTHING in
+production. The one read in the repository is an assertion inside
+`ambition_interaction`'s own test module. The runtime's open-gate is the `Opened`
+MARKER component (five production sites, three crates), and **nothing derives the
+marker from the authored state.**
+
+⚠ **LATENT, NOT LIVE, and the population was checked before saying so.** LDtk's
+`ChestSpawn` declares exactly two fields — `name` and `reward` — in all four
+shipped worlds; `ChestSpec::new` defaults to `Closed`; and no converter anywhere
+populates `ChestStateSpec`. `Opening` and `Opened` are unreachable from content,
+so two of three spec variants are dead and both non-`Closed` arms of
+`chest_state_from_spec` are dead with them.
+
+**The question.**
+
+- **An author MAY place an opened chest**: derive the `Opened` marker from the
+  authored state at spawn. ⛔ Without that derivation a chest authored `Opened`
+  would be opened again and grant its reward TWICE — A5's own acceptance line is
+  *"no duplicate effects/rewards"*.
+- **An author MAY NOT**: delete `ChestStateSpec`'s two unreachable variants and
+  the write-only `Chest::state` field with them.
+
+⚠ Content-design, not ownership. A5 took no type and proposes none; found by
+YardratAmbition, recorded on
+[`destructible-writer-inventory.md`](engine/destructible-writer-inventory.md).
+
+## Q103 — what should an UNPREPARED character id inherit at wear time?
+
+**A6's last open item, and it is design rather than cleanup.** The character
+barrier FOLDS `movement_tuning` and `motion_model` into the prepared registry
+(`crates/ambition_characters/src/prepared.rs:1338`, `:1334`), so the registry is the
+catalog's fold and cannot disagree with it. The same fold is ALSO spelled at the
+READ site, in `avatar/starting_character.rs`.
+
+**Measured 2026-09-11, all five compositions: ZERO orphans.** Shipped host
+147 catalog rows / 58 prepared, mary_o 7/7, twintrack 2/2, sanic 3/3, smash 3/3 —
+and in the four demos the read-time fold is never reached at all. In the shipped
+host the read-site path runs for 89 ids per boot and the catalog authors a value
+for **none** of them, so it returns the default every time.
+
+⛔ **DELETING THE SECOND SPELLING WAS TRIED AND REVERTED.** It reddened SIX tests
+across three files, all on the wear/re-wear road the fold serves, one of them
+asserting the deleted behaviour outright.
+
+**The question.** When a body WEARS a character id the barrier never prepared:
+
+- **Inherit the catalog's authored tuning at wear time** — keep the read-site
+  fold, and the duplication is a deliberate restatement with a stated reason.
+- **Inherit the engine default** — delete the read-site fold, and the six tests
+  are re-authored to say so.
+- **Refuse the wear** — an unprepared id is a construction failure, and the
+  read-site fold becomes unreachable rather than redundant.
+
+⚠ Not urgent: `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`
+(poison-verified) keeps the orphan case from arising meanwhile. It could not have
+caught the six; the in-crate suite did.
+
+## Q104 — is the Rust move table or the content file the SOURCE of a moveset?
+
+The Officer's table is `game/ambition_content/assets/data/movesets/officer.ron`
+as of 2026-09-11: declared in `pack.ron`, validated by the `moveset` schema,
+applied at `character_catalog::authored_intrinsics`, and **not compiled into the
+host** — a move-timing edit costs 0.61 s against 6.30 s through the Rust table
+(`dev/measurements/m0_move_edit_loop.sh`).
+
+`game/ambition_content/src/officer_moveset.rs` still exists. It is the EXPORTER's
+input and the parity oracle's subject, and nothing the game runs reads it —
+fast-iteration I2 step 5's own allowance (*"a test-only old table may be a
+temporary parity oracle, not a runtime fallback"*).
+
+**The question, and it decides whether the other eighteen follow.**
+
+- **The Rust stays the source**: the `.ron` is build output, hand edits to it are
+  overwritten by the next export, and per-character hitbox tuning stays a Rust
+  edit with a rebuild. The parity oracle is permanent.
+- **The RON becomes the source**: `officer_moveset.rs` is deleted, per-character
+  tuning becomes a content edit with no rebuild — which is what *"attacks rarely
+  ever feel like they connect"* needs most — and ~15k lines of documented Rust
+  authoring across nineteen files go with it, along with their in-file tests.
+- **Split by family**: the values are content, the STRUCTURE stays Rust.
+
+⚠ This is a call about where authoring lives, not a refactor. The generated file
+carries a do-not-hand-edit banner meanwhile, so the trap is at least visible.
 
 ## Maintenance rule
 

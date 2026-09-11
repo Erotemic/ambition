@@ -444,7 +444,7 @@
     "ambition_characters::brain::boss_pattern::BossPatternStep",
     "ambition_characters::control::ActorControl",
     "ambition_characters::control::SlotInteractionState",
-    "ambition_characters::smash_capture::SmashHoldState",
+    "ambition_characters::smash_hold_state::SmashHoldState",
     "ambition_combat::components::ActiveCombatant",
     "ambition_combat::components::ActorDisposition",
     "ambition_combat::components::BodyEnvelope",

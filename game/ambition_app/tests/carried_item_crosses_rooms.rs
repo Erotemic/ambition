@@ -381,7 +381,7 @@ fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
         .world()
         .get::<ambition_platformer2d::platformer::lifecycle::InCustodyOf>(item)
         .expect("in custody")
-        .0;
+        .custodian;
     let mut driven = sim
         .world_mut()
         .query_filtered::<Entity, With<ambition_platformer2d::actors::features::HeldItem>>();

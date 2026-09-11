@@ -8,14 +8,51 @@ use bevy::prelude::*;
 #[derive(Component, Default)]
 pub struct RoomScopedEntity;
 
+/// Does a custody row survive a process restart?
+///
+/// ⛔⛤ **IT USED TO BE AN ABSENCE, AND THAT MADE THE DEFAULT SILENT.** The save
+/// decided durability by asking whether the SUBJECT carried
+/// `ambition_held_items::ItemCustody` — a marker belonging to another domain
+/// entirely. Both producers were correct, and the accepted-control writer map
+/// named the real risk in writing: *"a third producer therefore becomes
+/// non-durable by default, and it becomes non-durable SILENTLY. Anyone who adds
+/// one must decide durability on purpose, because the save filter will not
+/// ask."*
+///
+/// ⇒ It asks now. There is no `Default`: a writer cannot construct
+/// [`InCustodyOf`] without saying which of these it means.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CustodyDurability {
+    /// The owning domain saves this custody and applies it again on load, so the
+    /// occurrence row crosses the durable horizon. An ITEM in a hand.
+    Restored,
+    /// Session state. A grip on a mount, a limb, a possession — the loader does
+    /// not put a rider back on a mount, so a durable row saying *"somebody holds
+    /// this body"* would be a claim the loader cannot answer.
+    SessionOnly,
+}
+
 /// Suspends room residency while this entity is in another entity's custody.
 ///
 /// The entity keeps [`RoomScopedEntity`], so reset/scope queries still see it;
 /// [`RoomResident`] excludes it only from room-transition sweeps. Ending custody
 /// resumes residency in whichever room is then active. The custodian is generic
 /// body vocabulary, not an item-specific relationship.
+///
+/// ⭐⭐ **ONE FACT, TWO PRODUCERS, AND THEY DIFFER IN DURABILITY** — which is why
+/// [`Self::durability`] is a field and not a second component. The fact is
+/// *"room residency is suspended, because another entity holds this one"*;
+/// `ambition_held_items` writes it for the holder of an ITEM and
+/// `body_custody::project_body_custody` for riders, limbs and possessed BODIES.
+/// A second component would be a second spelling of one relation, and a fork
+/// drifts.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InCustodyOf(pub Entity);
+pub struct InCustodyOf {
+    pub custodian: Entity,
+    /// Whether this row crosses the save boundary. ⛔ STATED BY THE PRODUCER,
+    /// never inferred from what else the subject happens to carry.
+    pub durability: CustodyDurability,
+}
 
 /// Room-scoped entities currently resident in the room.
 ///

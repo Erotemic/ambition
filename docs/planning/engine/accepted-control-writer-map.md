@@ -99,6 +99,41 @@ EXPRESSED AS AN ABSENCE: a row is non-durable because its subject has no
 becomes non-durable silently. Anyone who adds one must decide durability on
 purpose, because the save filter will not ask.
 
+✅ **CLOSED 2026-09-11 — IT ASKS NOW, AND A PRODUCER CANNOT DECLINE TO ANSWER.**
+`InCustodyOf` was `(pub Entity)`; it is
+`{ custodian: Entity, durability: CustodyDurability }`, and
+`CustodyDurability { Restored, SessionOnly }` has **no `Default`**. A writer
+cannot construct the component without saying which it means, so the third
+producer this page warned about now makes a decision at the keyboard rather than
+inheriting one from a marker in somebody else's domain.
+
+* `ambition_held_items` writes `Restored` — it saves `ItemCustody` and applies it
+  again on load.
+* `body_custody::project_body_custody` writes `SessionOnly` — riders, limbs and
+  possessions. *"The loader does not put a rider back on a mount, so a durable
+  row saying somebody holds this body would be a claim it cannot answer."*
+
+⭐ **THE SAVE'S CUSTODY ROWS ASK THE RELATION NOW**, not
+`With<ambition_held_items::ItemCustody>`. Guard:
+`only_a_restored_custody_row_crosses_the_save_boundary`, whose two subjects are
+IDENTICAL EXCEPT FOR THE FIELD — same components, same custodian, same room
+scope — so a filter that kept both or dropped both fails it. Poison-verified:
+ignoring the field reddens it, restore re-verified by re-running.
+
+⚠ **THE OCCURRENCE-ROW FILTER STILL ASKS THE MARKER, DELIBERATELY.** It runs over
+`AuthoredOccurrences` ROWS rather than over live entities, so an occurrence
+recorded `InCustody` whose entity carries no `InCustodyOf` — inconsistent, but
+not this function's to worsen — is kept by the wider marker and would be DROPPED
+by the field. Dropping a save row is the dangerous direction, and that parameter's
+own note already said so. ⇒ The edge on `ambition_held_items` is NOT cut here;
+only the durability decision moved.
+
+⛔⛤ **AND TWO FIXTURES HAD TO CHOOSE, WHICH IS THE FEATURE WORKING.** A
+possession test spawning an ITEM in a carrier's hand and a checkpoint test about
+what the SAVE keeps both take `Restored`; picking `SessionOnly` in either would
+have compiled and quietly changed what the fixture measures. That is the cost the
+old absence hid, paid once, visibly.
+
 ⚠ **`BodyKinematics` IS NOT A CONTROL FACT AND ITS 38 SITES SHOULD NOT BE READ AS
 ONE.** Ten of the foreign rows are `mut_param` seams in `shared_tangle` —
 helpers taking `&mut BodyKinematics`, which is a borrowed road rather than a

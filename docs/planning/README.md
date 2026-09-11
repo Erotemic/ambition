@@ -56,6 +56,15 @@ A11/A12 respectively. Where the earlier broad review offered an unresolved choic
 these focused engineering decisions supersede it. They describe target behavior,
 not completed implementation or a new maintainer ruling.
 
+[Fast content iteration and extensions](engine/extension-model.md) owns the
+runtime-loaded artifact, procedural SDK and Bevy plugin boundary. Its
+[state/execution contract](engine/extension-state-and-execution.md),
+[implementation packets](engine/fast-iteration-implementation.md) and
+[evidence/experiments](engine/extension-iteration-evidence.md) separate architecture
+that can proceed now from backend, storage and timing decisions requiring local
+measurement. This supersedes older blanket deferral of runtime extensions until
+a public modding customer exists. It does not supersede domain mutation owners.
+
 A polished crate name, older campaign, author identity or repeated commentary
 provides no additional evidence of responsibility or correctness.
 
@@ -132,6 +141,8 @@ result.
 
 Current high-value owner documents include:
 
+- [`engine/extension-model.md`](engine/extension-model.md)
+  -- fast content iteration, procedural state and explicit extension tiers;
 - [`engine/actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md)
   — bounded ownership migrations;
 - [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)

@@ -181,9 +181,17 @@ Do not expose a third-party AST as permanent Ambition content ABI without a real
 customer and evidence for deterministic execution, rollback/state ownership,
 inspection and maintenance value.
 
+The extension model now supports arbitrary game-specific algorithms in a separate
+procedural tier. That does not require widening move-local flows, conditions or
+encounter programs into one language. A module can provide an existing typed
+technique or consume a different domain's published entry points. Runtime state
+and domain ownership follow the same rollback contract regardless of binding.
+
 ## Non-goals
 
-- no general-purpose scripting language;
+- this domain orchestration layer does not implement a general-purpose language;
+  procedural modules and their shared state/port contract belong to the
+  [extension model](extension-model.md);
 - no arbitrary ECS reflection/mutation from authored content;
 - no universal sequencer owned by the shared substrate;
 - no central god registry that absorbs domain mutation authority;

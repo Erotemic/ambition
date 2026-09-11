@@ -136,3 +136,17 @@ receive source-local diagnostics, prepare a revision, drive semantic actions
 through the same physical-input acceptance road, and step its resulting behavior
 without flagship-only imports. A manifest-only fixture and a screenshot do not
 prove that loop. Keep field-authority cleanup bounded to actual duplicate values.
+
+## Runtime-loaded authoring continuation
+
+This residual plan still owns its named duplicate-reader/action/causal seams.
+The [extension model](engine/extension-model.md) now owns a separate missing cost
+boundary: build content or procedural code independently, then load it without
+relinking the host. Reuse this program's existing preparation and diagnostic
+surfaces. Do not call compiled in-process packs a completed runtime-loaded format.
+
+The first acceptance is a real move edit through a small builder and the current
+installed-technique/character preparation road. Later procedural code uses the
+same state/port contract as its native reference. LDtk, sprites and audio retain
+their current domain tools; this continuation does not unify every asset compiler.
+Priority and completion are tracked only in [the queue](queue.md).

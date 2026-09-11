@@ -739,3 +739,19 @@ with a fabricated mechanism bolted on is worse than no finding.
 ⚠ **What was never proven**, and should not be quoted as if it were: that a
 shipped configuration reaches the occurrence defect in a running match. The
 fixture measured the MECHANISM.
+
+## Loaded content and procedural technique providers
+
+The [extension model](extension-model.md) and I2-I7 in its
+[packet catalog](fast-iteration-implementation.md) build on the implemented
+admission and cast-staging path. They do not reopen the flow interpreter or turn
+TechniqueFlow into a general programming language. A loaded technique provider
+must install the same parameter/reference contract as its native counterpart,
+with actual handler/port availability checked against the selected composition.
+
+A move invocation passes its original occurrence/provenance through the module
+and back to the existing request owner. A general world/quest extension instead
+uses its own domain entry point, not a fabricated move. Initial cast admission's
+withholding policy remains separate from all-or-nothing replacement of an already
+active bundle. The extension coordinator reuses candidate validation and delays
+publication until every required family and schema has been admitted.

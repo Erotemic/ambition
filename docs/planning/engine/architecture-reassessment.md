@@ -250,6 +250,12 @@ all the callee's private state, knows its scheduling internals and interprets it
 special cases, a trait or message has mostly moved the coupling. Keep a direct
 dependency when the semantics already have the correct direction.
 
+The [extension model](extension-model.md) now supplies a concrete independent
+provider customer for procedural ports and dynamically declared rollback state.
+It refines this decision without turning closed construction lanes into a
+universal execution registry. Its measured deployment choices and three semantic
+tiers supersede the former blanket two-tier/deferred-runtime interpretation below.
+
 ### Decision H: define transaction guarantees at the mutation boundary
 
 Prepared content validation is genuinely separate from world mutation. However,
@@ -273,12 +279,13 @@ explicit publication operation. The model's reasoning process is not part of
 the simulation tick. A runtime model-backed character remains a remote intent
 participant with deadlines/fallback policy, as already planned.
 
-Support two trust levels explicitly: validated authored data/programs with a
-bounded vocabulary, and trusted Rust providers with full application privileges.
-A Rust plugin is not sandboxed because its registration API is typed. Do not add
-a scripting VM merely for competitive positioning. The missing work is reliable
-end-to-end authoring, provenance, diagnostics, replayable tests and publication,
-not another language surface.
+Keep trust separate from expressiveness: data, procedural game modules and raw
+engine plugins are the three semantic tiers in the current extension model.
+A restricted portable executor may enforce permissions; trusted native code is
+not sandboxed by a typed registration API. Runtime module loading now has a
+concrete iteration customer, not merely a competitive-positioning rationale.
+Preserve source provenance, diagnostics, replayable tests and explicit publication
+while removing the ordinary author's dependency on host relinking.
 
 The source already has a TechniqueFlow interpreter and a live authored customer,
 contrary to stale authoring prose. Its parameter-validation registry has no

@@ -52,7 +52,7 @@ hardening work.
 | E6: public SDK | External game needs no internal module map; minimal profiles do useful work and can be packaged | [SDK](public-sdk-1.0.md) |
 | E7: runtime, assets and iteration | Scenario/hardware-qualified budgets, correct quality/residency, build/package measurements | [performance](performance-and-iteration.md), [assets](asset-preparation-and-residency.md), [distribution](project-build-and-distribution.md) |
 | E8: multiplayer and multiview | Participants, bodies and views stay distinct; real same/different-room customers establish instance scope and transport requirements | [multiplayer](multiplayer-and-multiview.md), [netcode](netcode.md) |
-| E9: agent-native authoring | Discover -> inspect -> plan/edit -> prepare -> test -> review -> publish; installed technique admission and bounded flow validation | [authoring](authoring-and-tools.md), [world tools](ldtk-authoring-and-world-tools.md), [extension](extension-model.md) |
+| E9: agent-native authoring | Independent data/module production -> prepare -> test -> admit -> observe; no host relink for normal edits; installed technique and explicit rollback-state contracts | [authoring](authoring-and-tools.md), [world tools](ldtk-authoring-and-world-tools.md), [extension](extension-model.md) |
 | E10: world facts and orchestration | Bounded observations and typed domain operations; move-scoped flow stays scoped; runtime model calls are remote intent production | [facts](world-facts-observations-and-memory.md), [orchestration](authored-gameplay-logic-and-orchestration.md), [agentic runtime](agentic-character-runtime.md) |
 | E11: presentation and observability | Read models, body-owned drawable geometry, per-view composition, useful structured diagnostics and replay inspection | [presentation](render-animation-and-vfx.md), [inspection](inspection-diagnostics-and-workbench.md) |
 | E12: competitive capability | Real authored game slices prove ordinary engine expressiveness and shipping, not a list of implemented nouns | [capability bar](godot-class-2d-capability.md) |
@@ -93,8 +93,11 @@ No unsupported source-only claim substitutes for GPU, P2P or platform evidence.
 
 ## Open program questions
 
-Versioned save/schema policy, runtime modding/ABI requirements, a genuine
-multi-instance-world customer and target hardware budgets remain explicit
-requirements decisions. They do not block the concrete A1/A2/A3 and A11/A12
-correctness/ownership work. Do not build a scripting VM, universal instance ID or
-backend-neutral engine rewrite before such a customer requires it.
+Public cross-version save compatibility, untrusted mod distribution, concurrent
+world scheduling and target hardware promises remain explicit product decisions.
+The present compile/iteration requirement already justifies the
+[extension architecture](extension-model.md). Its dependency-light data and
+procedural boundary does not wait for those product choices. Backend and snapshot
+storage choices use the named measurements, not a maintainer poll. Do not turn
+this into a universal world identifier, backend-neutral engine rewrite or parity
+campaign. Existing domain correctness work retains its priority.

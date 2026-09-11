@@ -7,9 +7,11 @@ of their common vocabulary.
 
 ## Prepared content
 
-The following is the target admission contract; installed-technique checks are
-not fully wired at this baseline. [Authored technique admission](authored-technique-admission.md)
-owns the checked representation, selected profile and explicit activation rule.
+[Authored technique admission](authored-technique-admission.md) owns the checked
+move representation and installed profile rules. The 2026-09-11 source inspection
+finds installed checks and staged cast retention already implemented. The
+[extension model](extension-model.md) extends that road to portable artifacts and
+coordinated code/data/schema generations; it does not create a second validator.
 
 An active simulation uses a validated immutable content revision. Source decoding,
 semantic validation, handler availability, mechanical geometry, referenced content
@@ -68,3 +70,13 @@ not wait for A10. Initially activate changed mechanical content at a supported
 session/reconstruction boundary. An inactive **prepared value** can be validated
 without building an inactive ECS world. Preserving the old world after arbitrary
 destructive native construction failure is the separate, stronger A10 guarantee.
+
+## Bundle publication is not world undo
+
+I3 in [fast iteration](fast-iteration-implementation.md) validates the whole
+candidate generation, seals its base epoch and installed profile, then activates
+at the supported lifecycle boundary. A character, module and schema do not
+publish independently. Rejection before activation preserves the old generation
+and timeline. Once destructive world commit begins, retain the failure semantics
+above unless A10 has actually delivered stronger isolation. Content publication,
+rollback replay, and durable-save migration are three different contracts.

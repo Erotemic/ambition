@@ -375,8 +375,12 @@ activation boundary, runtime projection and persistent identity. Do not split
 one value across a registry and a second runtime default that can disagree.
 Mechanical geometry must not derive from resident device texture quality.
 
-The large moveset/technique vocabulary is not proof of a scripting runtime
-boundary. A11/A12 validate actual installed techniques and bounded flow graphs
-before a prepared revision activates. Preserve one structural body road across
-player, enemy, boss and summoned materialization; shape/profile differences are
-policy, not a reason to reintroduce a player-specific actor authority.
+The maintainer's iteration cost now supplies a concrete extension-boundary
+customer, independently of moveset vocabulary size. I1-I3 in
+[fast iteration](fast-iteration-implementation.md) move the pure helper closure
+into the existing value owner, emit a portable artifact and reuse prepared cast
+admission. They do not move live actor construction into the compiler or serialize
+PreparedCharacterDefinition wholesale. A11/A12 remain the installed-technique
+and move-flow authority. Preserve one structural body road across controlled
+actors, enemies, bosses and summons; shape/profile differences are policy, not
+a reason to add a separate player actor authority.

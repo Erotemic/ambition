@@ -74,6 +74,22 @@ The combat no-plugin packaging question remains Q73. This plan recommends
 owner-controlled installation against public phases; it does not fabricate a
 maintainer ruling or require every crate to expose a Plugin type.
 
+## Procedural port installation
+
+The [extension contract](extension-state-and-execution.md) adds an executable
+consumer of published domain ports. The owning capability installs each port's
+schema, read projection or request reducer, phase guarantee and prerequisites
+together. A metadata-only declaration cannot authorize a call. The runtime
+composition root wires the host adapter to selected domain offers; the adapter
+must not depend back on the runtime crate or enumerate game algorithms.
+
+Portable modules write only their own registered state. Engine state still has
+its current owner. Native engine plugins remain normal Bevy plugins/systems.
+Resolve semantic phase dependencies at admission, reject cycles, and preserve
+current Commands flush/run-condition contracts. Begin with stable serial module
+invocation; parallel scheduling requires the declared-access and merge proof.
+This is a bounded provider seam, not a replacement for Bevy scheduling.
+
 ## Composition owns integration, not every algorithm
 
 A full host may select capabilities and order their public milestones. The

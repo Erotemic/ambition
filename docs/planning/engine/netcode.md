@@ -117,6 +117,18 @@ invisible. Negotiating an identity the repo itself keeps twice is negotiating
 which copy — one authority is a prerequisite for this row, not a tidy-up after
 it.
 
+The [extension contract](extension-state-and-execution.md) extends this same
+compatibility manifest with module code, port versions, complete extension schema
+digests and numeric/runtime execution policy. App-local epochs are stale-plan
+stamps, not peer identities. The existing content digest remains the mechanical
+root. Unknown/mismatched required inputs refuse before speculative play.
+
+Initially a remote session pins its mechanical generation. Local authoring reload
+uses the existing supported reconstruction/rebase road and preserves unhealthy
+same-session diagnostics. It does not implement coordinated mid-session online
+code migration or a second snapshot timeline. Those require N4 plus an explicit
+migration requirement; they do not block local data iteration.
+
 ### N4 — coordinated lifecycle barrier
 
 The local rollback host can commit a confirmed room transition and immediately

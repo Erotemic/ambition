@@ -150,8 +150,11 @@ they can be advertised.
 
 Do not add arithmetic, arbitrary queries, variables or a universal blackboard to
 move-scoped flow as part of this work. Prepared programs should express existing
-domain operations with explicit execution/cancellation limits. A new scripting
-runtime needs a separate deployment/modding requirement.
+domain operations with explicit execution/cancellation limits. The concrete
+compile/iteration requirement now belongs to the [extension model](extension-model.md):
+independent data artifacts first, then procedural modules through explicit state
+and domain ports. It does not wait for public mod distribution or expand this
+move-flow language into arbitrary code.
 
 ## A5 - cross-domain content preflight
 
@@ -259,3 +262,17 @@ its original revision. Initially publish mechanical changes only at an explicit
 session/reconstruction boundary. The detailed protocol includes a real provider
 fixture and stable source-path diagnostics; it does not require a universal
 execution registry, new scripting language or arbitrary ECS transaction system.
+
+## Independent iteration commands
+
+Expose prepare/validate, describe candidate differences, request activation and
+inspect activation status through the current tools. I2/I3 and I7 in the
+[iteration packets](fast-iteration-implementation.md) provide those operations
+for data and procedural modules. Report source digest, active generation,
+required ports, chosen check lane and the first observed result. A watcher and
+an agent command call the same admission road. No content-edit command silently
+runs a full workspace suite or restarts a compiler for the host.
+
+Offline scripts/models may produce artifacts. Live simulation scripts use the
+registered state and deterministic service contract; the two modes are not
+interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.

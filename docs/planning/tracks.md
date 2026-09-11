@@ -290,6 +290,16 @@ their real customer/measurement triggers.
   product requirements exist. Owner:
   [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md).
 
+### Content and procedural iteration
+
+The [extension model](engine/extension-model.md) owns the independent authoring,
+loadable artifact and procedural SDK architecture. This is current iteration work,
+not deferred editor or language parity. Its
+[packet catalog](engine/fast-iteration-implementation.md) includes code/state
+conformance, generation policy and flagship-scale stress customers. Only the
+[queue](queue.md) promotes packets. Backend/layout experiments are not a second
+backlog of maintainer decisions.
+
 ## Authoring and content reservoir
 
 - ▢ **LDtk/world tools.** Keep authoring semantics provider/domain-owned and
@@ -335,9 +345,10 @@ their real customer/measurement triggers.
 
 ## Build, platform and performance reservoir
 
-- ▢ **Project build/iteration architecture.** Decide development profile,
-  resource-aware test lanes, supported feature-combination checks and generated
-  artifact/bootstrap guarantees from measured iteration cost. Owner:
+- ▢ **Project build/iteration architecture.** Measure profile, resource-aware
+  test lanes, feature combinations and bootstrap cost. The independent content
+  and module boundary is owned by [extensions](engine/extension-model.md), not
+  gated on those tuning measurements. Build/packaging owner:
   [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md).
 - ▢ **Rendered external-consumer proof.** Headless external consumption exists;
   run the visible consumer on suitable hardware when available rather than

@@ -40,6 +40,16 @@ geometry disagreement. A5 follows the resolved-contact contract because moving
 all destructible state first would preserve an incorrect split interpretation.
 There is no requirement to split accepted control across crates to make A4 green.
 
+## Relationship to fast iteration
+
+The [extension packet catalog](fast-iteration-implementation.md) is the bounded
+continuation for pure authoring, portable artifacts and procedural state. It uses
+A6's field census, A9's resolved-closure method and A11/A12's existing admission.
+Only specific domain ports wait on A2/A4 contracts. A8 world multiplicity and
+A10 arbitrary-world retention are not blanket prerequisites. Do not expand I1's
+pure helper move into an actor SCC extraction. The extension catalog and this
+catalog both take priority from [the queue](../queue.md).
+
 ## Before any production edit
 
 Record HEAD, working tree, ownership claim, callers, state writer(s), lifetime,

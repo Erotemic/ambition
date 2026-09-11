@@ -44,6 +44,22 @@ composition, lifetime boundaries, and explicit phase ownership.
 > and must leave its owner string and short name alone, so the ledger stays
 > byte-identical while the crate tally does not.
 
+## Extension-state coverage
+
+The [extension execution contract](extension-state-and-execution.md) applies this
+page's existing identity, ordering, population, checksum and lifetime requirements
+to dynamically declared state. It does not add another rollback backend. I5 in
+the [packet catalog](fast-iteration-implementation.md) registers a concrete
+host-owned schema store through the existing registrar and proves populated
+GGRS rewind, entity recreation and reference resolution. Registry metadata alone
+is not participation; presence-only probes are not value checksums.
+
+Module scratch heaps, statics, RNG cursors and coroutine state may not remember
+authoritative futures outside that contract. Use existing state-first domain
+selection with semantic identity tie-breaks; canonical snapshot order is not a
+replacement gameplay selection rule. Code/profile/schema identity binds each
+history generation, and session retirement remains the owner of its lifetime.
+
 ## Goal
 
 A simulation result should be determined by explicit authoritative data and

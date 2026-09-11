@@ -523,7 +523,19 @@ Minimum competitive proof:
 
 One-click GUI export is not an acceptance requirement.
 
-### B7 — agent iteration budget
+### B7 - agent iteration budget
+
+The [extension architecture](extension-model.md) defines three deliberate cost
+classes: data artifact production/load, lightweight procedural module build/load,
+and engine rebuild. M0-M3 in [extension evidence](extension-iteration-evidence.md)
+define the concrete measurements and reporting schema. I1's pure boundary and
+I2/I3's last-good artifact path proceed while baseline collection runs. Backend,
+storage, linker/profile tuning and numeric speedup claims wait for their evidence.
+
+Do not count a lightweight crate followed by a heavy host link as completion.
+Trace actual host link invocations and correlate edits with admitted/observed
+behavior. Retain this plan's established profile and resource policies until a
+matched experiment justifies changing them.
 
 Track the wall-clock and resource shape of the common agent loop: inspect/edit,
 compile, targeted test, preparation/generation, representative run, and package
@@ -565,7 +577,8 @@ agents: plan/check/build/test/package with clear artifact/cache ownership.
 - which generated artifacts should be checked in versus produced/fetched;
 - web as first-class release target versus later experiment;
 - third-party capability/plugin version locking;
-- required asset hot-reload guarantees for agent iteration;
+- target-specific asset transport/readiness requirements beyond the mechanical
+  generation/reconstruction guarantee now fixed in the extension model;
 - final split between Cargo features and runtime/provider configuration.
 
 ## Distinguish dependency closure from executable footprint

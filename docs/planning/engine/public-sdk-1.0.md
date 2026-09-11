@@ -23,23 +23,11 @@ internal imports; they do not prove that every allowed namespace is coherent,
 that every selected profile works, or that an omitted capability is absent from
 Cargo's transitive closure. Do not add a blind-agent ritual to every API change.
 
-The baseline facade has 51 other workspace packages in its normal nonoptional
-internal dependency closure. In particular facade -> platformer2d_host -> render
-is mandatory even when the facade's direct render feature is off. This is a
-manifest lower bound, not a resolved feature graph or binary measurement.
-`fixtures/minimal_game/Cargo.toml` contains a comment overstating render exclusion;
-A9 must correct it with the implementation. A windowed minimal-game fixture is
-not a no-render compile-closure fixture.
-
-⚠ **RE-MEASURED 2026-09-10: it is 48, at `939d6aaa5`.** The 51 is the
-`300004d601af1e633cfaee969f079cf9bb368ca8` baseline. Three edges closed
-between the two, all on 2026-09-09: the render path through host, five dead
-dependency declarations, and the map capability. ⇒ Reproduce with
-`cargo tree -e normal --no-default-features -p ambition_platformer2d`, count the
-unique `ambition_*` names (49) and subtract the facade itself (48).
-⛔ **THE UNIT IS THE TRAP.** 49 counts the facade, 48 does not, and this page's
-51 is an *other-packages* count. A number that cannot say which it is cannot be
-quoted. See `scripts/measure_minimum_profile_parentage.py`.
+The facade's compile closure and the content author's compile closure are
+separate contracts. Current source and the explicitly limited manifest traversal
+are recorded in [extension evidence](extension-iteration-evidence.md). Use A9's
+feature-resolved external fixtures for composition claims; do not copy an older
+mandatory-render path or package count as current evidence.
 
 ## Public surface families
 
@@ -50,9 +38,13 @@ build/package integration. Expose Bevy-native extension where appropriate;
 wrapping every Bevy API adds little value.
 
 These are discoverable concept families, not a mandate to add a public module
-for every current crate. Keep one facade for common use. Advanced consumers may
-use explicitly documented lower APIs; accidental reachability through a broad
-re-export does not make those APIs supported.
+for every current crate. Keep one facade for common host/game composition. That
+facade is not the dependency of the independent content builder or portable
+procedural SDK. Those use the narrow value/port surfaces in the
+[extension model](extension-model.md). A separate static Bevy adapter preserves
+native ECS ergonomics without feature-unifying Bevy into portable authors.
+Advanced engine plugins retain normal Bevy APIs. Accidental broad reexports do
+not become a supported lightweight boundary.
 
 ## Supported-profile ladder
 
@@ -61,6 +53,8 @@ profile's actual fixture/result and limitations when implemented.
 
 | Profile | Required useful behavior | Negative requirement |
 | --- | --- | --- |
+| Data authoring | Independent builder emits an admitted portable move/content artifact | No Bevy, rendering, audio, host or named-game dependency |
+| Procedural game module | Independent code and schema run through admitted ports and real rollback | No host relink for ordinary module edits; no raw World in the portable API |
 | Headless body/world | Construct a prepared body, accept intent, collide with world geometry and expose state after ticks | No renderer/audio, named game content, inventory or encounter prerequisites |
 | Windowed body/world | Same simulation plus a view, input and prepared visual assets | Rendering observes simulation; changing quality/view does not change replay |
 | Combat | Authored action, target geometry, accepted reaction and deterministic result | No boss content, inventory, dialogue or shrine needed for ordinary combat |

@@ -605,6 +605,35 @@ nothing will make them.
 
 ## P1 - ownership and independently testable composition
 
+### Fast content iteration - independent authoring and loadable artifacts
+
+**Owner:** [extension model](engine/extension-model.md).
+**Current failure:** authored Rust move providers still compile through the broad
+engine facade; current prepared packs hold in-process values. A small crate alone
+does not remove the final host link. The user reports iteration latency as a
+present development constraint, not a future modding concern.
+
+**Next bounded action:** I1 in the
+[packet catalog](engine/fast-iteration-implementation.md): move only the pure
+move-helper closure into the existing Bevy-free value owner, migrate callers,
+and prove an independent builder's resolved dependency closure. Continue to I2
+and I3 for an actually loadable artifact and coordinated local activation. The
+first delivery is that complete data loop, not an entire scripting framework.
+
+Run I0/M0 baseline collection alongside this work on a configured developer
+machine. Missing measurements do not hold the pure boundary extraction or the
+last-good-generation contract. They do hold claims about speedup, dominant build
+cost, executable backend choice and snapshot layout. Do not add one measurement
+row per hypothesis to this queue.
+
+**Acceptance:** a semantically changed move reaches a prebuilt host without host
+compilation/linking; rejected replacements preserve the admitted generation;
+poisoning the builder with a facade dependency and forcing an old artifact each
+fails the appropriate independent witness. Existing P0 correctness work remains
+higher priority. There is no blanket dependency on completing A1-A12 or the SCC
+campaign. Later procedural work follows the linked packet prerequisites, not a
+second queue here.
+
 ### A3 - DONE; acceptance met. One cosmetic residual, not worth a commit.
 
 `ActorPlacementContext` sits in `src/world/placements.rs` rather than under
@@ -1410,13 +1439,42 @@ true`; `medic/attack_side` is `active [3,4], extend 1.08` and nothing else. **Th
 medic's 17.8 x 4.8 px tilt is a swept line with no `inflate`** — the repair is one
 authored number on that spec, not a code-side floor.
 
-⭐ **THE OTHER HALF OF GPT-6'S METHOD IS THE CLOCK, AND IT IS ALSO ONE-OF-21.**
-`performer_moveset::author_normals` reads `frame_duration_ms` and the `active` list
-off the sprite library and emits **one Active window PER AUTHORED FRAME**, contiguous
-and sharing one hit ledger, so each drawn shape is live exactly when it is drawn —
-plus `landing_lag_s` / `autocancel_after_s` derived from the active end. MEASURED
-over the grid's normals: **the performer has per-frame sampling on 11 of her 12; all
-twenty other fighters use ONE coarse Active window on all twelve.**
+⛔⛔ **THE OTHER HALF — THE CLOCK — IS NOT WHAT I WROTE HERE, AND THE CORRECTION
+CHANGES THE RECOMMENDATION.** This row claimed `performer_moveset::author_normals`
+*"reads `frame_duration_ms` and the `active` list off the sprite library"*. **It does
+not.** It HARDCODES the frame counts and the seconds-per-frame:
+
+```rust
+let (startup_frames, active_frames, total_frames) = match mv.clip.clip.as_str() {
+    "attack_side" | "attack_up" | "attack_down" => (2, 4, 10),
+    "smash_forward" => (5, 4, 17),
+    ...
+};
+let startup = startup_frames as f32 * 0.04;
+```
+
+A separate TEST (`normal_contact_windows_match_the_authored_light_and_pose_clock`)
+reads the sprite JSON and asserts the two agree. ⇒ **There are TWO independently
+authored clocks pinned together by a test, not one derived from the other** — which
+is synchronisation, the same shape as the two generosity constants.
+
+⛔ **SO COPYING THIS TO TWENTY FIGHTERS WOULD PROLIFERATE A SECOND HARDCODED COMBAT
+CLOCK THAT MERELY RESEMBLES THE ART METADATA.** It would not establish single
+authority; it would multiply the thing that has to be kept in step by hand.
+
+⚠ **AND `AnimationMetrics` DOES NOT EXPOSE THE `active` LIST AS A SEMANTIC FACT.**
+It publishes frame duration and per-frame geometry. Empty per-frame geometry cannot
+be read as "inactive" either, because the sampling path falls back to the coarse
+animation polygon.
+
+⇒ **THE OWNERSHIP QUESTION MUST BE DECIDED BEFORE ANY GENERALIZATION:** either
+(a) sprite `active` frames OWN contact timing, in which case the runtime must publish
+that as a semantic fact and moves must derive their windows from it; or
+(b) moveset authoring owns contact timing, in which case sprite `active` metadata is
+an art-generation concern and the pinning test is the boundary. **Maintaining both is
+what exists today.** Only the per-frame SAMPLING claim survives unqualified: the
+performer splits her Active window per frame and the other twenty use one coarse
+window.
 
 ⇒ **THE PER-CHARACTER WORK IS AUTHORING, IN TWO PLACES THAT ALREADY EXIST**: the
 sprite spec's `inflate`/`per_frame`, and a moveset table that samples the frames the

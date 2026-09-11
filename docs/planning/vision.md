@@ -1,8 +1,11 @@
 # THE VISION — systemic 2D worlds on a Godot/Unity-class Bevy engine
 
-Ambition is the flagship game. The engine exists to make Ambition unusually
-expressive, robust and pleasant to build while turning the capabilities Ambition
-proves into reusable Bevy-native engine surfaces.
+Ambition is the flagship game. The engine should support a systemic 2D
+platformer combining Skyrim-like world depth, Smash-like combat, Hollow
+Knight-like exploration and encounters, and the maintainer's original mechanics.
+These comparisons express the long-term scope, not a copied feature checklist.
+Current demos test capabilities; they do not limit what the engine should express.
+The engine turns those capabilities into reusable Bevy-native surfaces.
 
 The distinguishing product thesis is stronger than "a large Metroidvania":
 
@@ -145,8 +148,12 @@ explicit state and lifecycle ownership, and a discover/validate/plan/apply/verif
 authoring loop over supported semantic APIs. Each profile needs actual behavior
 and dependency-closure evidence; an SCC count or a facade import is insufficient.
 
-The current 2D focus remains deliberate. Do not trade it for speculative universal
-worlds, scripting, service discovery or editor parity. LLM authoring increases the
-value of precise rejection, bounded programs, revision-aware plans and small
-readable authorities; it does not justify runtime reflection over the entire
-engine or unreviewed mutation through a global context.
+The current 2D focus remains deliberate. Do not trade it for universal 3D
+worlds, service discovery or editor parity. Fast content and procedural iteration
+now have a concrete customer: the [extension model](engine/extension-model.md)
+separates runtime-loaded data, expressive procedural modules and raw Bevy engine
+plugins. Normal game authors should not pay engine compilation/linking costs.
+LLM authoring increases the value of precise rejection, explicit rollback state,
+revision-aware plans and readable authorities. It does not justify unrestricted
+mutation through a global context. Presentation may change without changing the
+strictly 2D simulation contract.

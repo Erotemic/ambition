@@ -87,7 +87,11 @@ public SDK surfaces form an explicit extension ladder. Optional capabilities do
 not drag unrelated domains into minimal consumers.
 
 Runtime scripting is not required merely because Godot has GDScript. The
-requirement is equivalent **behavioral expressiveness**, not syntax parity.
+maintainer's compile/iteration requirement independently justifies the
+[extension model](extension-model.md): runtime-loaded artifacts and procedural
+modules with shared rollback-visible state, alongside full Bevy engine plugins.
+The requirement is behavioral expressiveness and fast edit-to-play, not syntax
+parity or a universal editor.
 
 ### 6. Inspectability and diagnosability
 
@@ -176,7 +180,7 @@ customer demonstrates a concrete gap.
 | **UI and text** | Shell, menus, settings, dialogue, inventory UI and navigation exist | Participant/view-aware runtime UI supports controller/touch/mouse, adaptive layout, text, settings and required accessibility/localization targets using Bevy UI rather than a second widget engine | `ui-localization-and-accessibility.md`, input/UI systems |
 | **Input and control** | Keyboard/gamepad/touch, semantic actions, participants, control authority and prompts exist | N local devices/participants route predictably through one semantic action/control model; rebinding/context/prompt policy is supported and testable | `participant-action-system.md`, multiplayer/control docs |
 | **Assets and resource readiness** | Asset manager, provider preparation, generated assets, loading transactions and packaging exist | Stable semantic identity, readiness/preparation, source provenance, render materialization, residency budgets and target packaging are inspectable and bounded | `asset-preparation-and-residency.md`, asset concept |
-| **Hot reload / fast content iteration** | LDtk hot reload and generated-content workflows exist in focused areas | Content families that benefit from live iteration have one source-of-truth reload path with validation; no requirement for universal arbitrary-state hot reload | authoring/tools and system docs |
+| **Hot reload / fast content iteration** | Focused asset workflows, in-process prepared packs and cast staging exist; portable bundle/module loading remains planned | Independent data and procedural edits avoid host linking; invalid candidates retain the active generation; local mechanical changes use supported reconstruction, not arbitrary-state hot swap | [extension model](extension-model.md), [iteration packets](fast-iteration-implementation.md) |
 | **Persistence/save compatibility** | Persistence crate and provenance/reconstitution model exist | Durable domain facts are versioned intentionally and restored through canonical construction; saves do not serialize accidental ECS topology as public format | construction/open-world/persistence plans |
 | **Navigation and AI** | Platformer reachability, fighter brains and deterministic behavior machinery exist | Navigation understands body capabilities and dynamic platformer mechanics; AI consumes simulation observations/facts through typed action surfaces | `platformer-navigation-and-reachability.md`, world facts/agentic plans |
 | **Multiplayer/netcode** | Local-N foundations and GGRS rollback architecture exist | Local multiplayer is ordinary engine usage; online transport/lifecycle can be installed without a multiplayer-only ontology; deterministic state contracts remain the same | `netcode.md`, `multiplayer-and-multiview.md` |
@@ -435,7 +439,7 @@ or deployment requirement:
 - visual scene graph editing;
 - visual scripting;
 - broad 2D light/shadow feature cloning absent an actual visual target;
-- arbitrary runtime scripting;
+- language/editor parity beyond the concrete procedural iteration contract;
 - general rigid-body/joint abstraction owned by Ambition;
 - iOS/console support before a real distribution customer and prerequisites;
 - plugin marketplace/asset library infrastructure;

@@ -74,6 +74,17 @@ proof.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
+### Fast iteration - current cross-program priority
+
+The maintainer's edit-to-play latency is a current architecture requirement, not
+only the lower-priority profiling work below. After applicable correctness
+blockers, use the P1 fast-iteration row in [the queue](queue.md) and the
+[extension model](engine/extension-model.md). Start with pure move authoring and
+a runtime-loaded artifact, then add procedural modules with shared rollback state.
+Do not wait for a public mod marketplace, completion of every demo or a whole
+actor-monolith carve. Measurements choose implementation costs; single authority,
+last-good definitions and the no-host-relink content boundary are design work now.
+
 ### P2 — persistent systemic world foundation
 
 Build world residency, occurrence lifetime/provenance, item custody, body/item

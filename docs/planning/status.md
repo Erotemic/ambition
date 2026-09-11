@@ -10,6 +10,20 @@ checks were available; Rust compilation, gameplay, GPU and network execution
 were not. The [coverage receipt](engine/architecture-review-coverage.md) separates
 those evidence classes.
 
+## Fast iteration design
+
+The [extension architecture](engine/extension-model.md) was investigated against
+`d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`. It is a plan, not a landed loader or
+measured speedup. The first delivery is an independent pure move builder,
+loadable content artifact and coordinated local generation activation. Runtime
+procedural modules follow the same ownership and rollback contract.
+
+The [evidence page](engine/extension-iteration-evidence.md) records source facts
+and manifest-only traversal separately from unperformed Cargo/runtime/timing
+experiments. Measurements run alongside sound boundary work, not as a blanket
+hold. The [queue](queue.md) chooses the next packet; do not copy packet status or
+closure counts into this orientation page.
+
 ## Architecture posture
 
 The [reassessment](engine/architecture-reassessment.md) replaces the mandatory

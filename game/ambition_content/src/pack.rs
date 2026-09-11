@@ -61,23 +61,79 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 /// `crate::authored_movesets::TABLE_CHARACTERS`.
 #[cfg(feature = "static_content")]
 const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
-    ("alice", Some(include_str!("../assets/data/movesets/alice.ron"))),
-    ("author", Some(include_str!("../assets/data/movesets/author.ron"))),
+    (
+        "alice",
+        Some(include_str!("../assets/data/movesets/alice.ron")),
+    ),
+    (
+        "author",
+        Some(include_str!("../assets/data/movesets/author.ron")),
+    ),
     ("bob", Some(include_str!("../assets/data/movesets/bob.ron"))),
-    ("carl_stargan", Some(include_str!("../assets/data/movesets/carl_stargan.ron"))),
-    ("cellular_automaton", Some(include_str!("../assets/data/movesets/cellular_automaton.ron"))),
-    ("emmy_noether", Some(include_str!("../assets/data/movesets/emmy_noether.ron"))),
-    ("goblin", Some(include_str!("../assets/data/movesets/goblin.ron"))),
-    ("medic", Some(include_str!("../assets/data/movesets/medic.ron"))),
-    ("ninja_shadow_oni_leader", Some(include_str!("../assets/data/movesets/ninja_shadow_oni_leader.ron"))),
-    ("officer", Some(include_str!("../assets/data/movesets/officer.ron"))),
-    ("oiler", Some(include_str!("../assets/data/movesets/oiler.ron"))),
-    ("patent_clerk", Some(include_str!("../assets/data/movesets/patent_clerk.ron"))),
-    ("performer", Some(include_str!("../assets/data/movesets/performer.ron"))),
-    ("pirate_admiral", Some(include_str!("../assets/data/movesets/pirate_admiral.ron"))),
-    ("pointed_polygon", Some(include_str!("../assets/data/movesets/pointed_polygon.ron"))),
-    ("projectile_polygon", Some(include_str!("../assets/data/movesets/projectile_polygon.ron"))),
-    ("pugnacious_polygon", Some(include_str!("../assets/data/movesets/pugnacious_polygon.ron"))),
+    (
+        "carl_stargan",
+        Some(include_str!("../assets/data/movesets/carl_stargan.ron")),
+    ),
+    (
+        "cellular_automaton",
+        Some(include_str!(
+            "../assets/data/movesets/cellular_automaton.ron"
+        )),
+    ),
+    (
+        "emmy_noether",
+        Some(include_str!("../assets/data/movesets/emmy_noether.ron")),
+    ),
+    (
+        "goblin",
+        Some(include_str!("../assets/data/movesets/goblin.ron")),
+    ),
+    (
+        "medic",
+        Some(include_str!("../assets/data/movesets/medic.ron")),
+    ),
+    (
+        "ninja_shadow_oni_leader",
+        Some(include_str!(
+            "../assets/data/movesets/ninja_shadow_oni_leader.ron"
+        )),
+    ),
+    (
+        "officer",
+        Some(include_str!("../assets/data/movesets/officer.ron")),
+    ),
+    (
+        "oiler",
+        Some(include_str!("../assets/data/movesets/oiler.ron")),
+    ),
+    (
+        "patent_clerk",
+        Some(include_str!("../assets/data/movesets/patent_clerk.ron")),
+    ),
+    (
+        "performer",
+        Some(include_str!("../assets/data/movesets/performer.ron")),
+    ),
+    (
+        "pirate_admiral",
+        Some(include_str!("../assets/data/movesets/pirate_admiral.ron")),
+    ),
+    (
+        "pointed_polygon",
+        Some(include_str!("../assets/data/movesets/pointed_polygon.ron")),
+    ),
+    (
+        "projectile_polygon",
+        Some(include_str!(
+            "../assets/data/movesets/projectile_polygon.ron"
+        )),
+    ),
+    (
+        "pugnacious_polygon",
+        Some(include_str!(
+            "../assets/data/movesets/pugnacious_polygon.ron"
+        )),
+    ),
 ];
 #[cfg(not(feature = "static_content"))]
 const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
@@ -217,12 +273,33 @@ pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
 /// sheet would make this compiler the thing that stops the game rather than the
 /// thing that explains it. The CLI's strict mode is where art is a gate.
 pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
+    compile_pack_with(|_, text| text)
+}
+
+/// The same compile, with every source passed through `edit` first.
+///
+/// ⭐⭐ **ONE COMPILE ROAD, SO A SECOND PACK IS THE SAME PACK WITH AN EDIT.** A
+/// test that assembled its own draft would be comparing two compiles rather than
+/// two CONTENTS — a manifest or schema-registry difference would read as a
+/// content difference, which is exactly the confusion a pack-selection test must
+/// not be able to make.
+///
+/// ⚠ `edit` sees the DECLARED PATH and the source text; returning the text
+/// unchanged is the shipped pack.
+pub fn compile_pack_with(
+    edit: impl Fn(&str, String) -> String,
+) -> Result<PreparedContentPack, CompileFailure> {
     // the manifest is a DIAGNOSTIC, not a panic, since gave the compiler its own
     // embedded-pack road.
-    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(
-        PACK_MANIFEST_RON,
-        embedded_sources(),
-    )?;
+    let sources: Vec<(String, String)> = embedded_sources()
+        .into_iter()
+        .map(|(path, text)| {
+            let edited = edit(&path, text);
+            (path, edited)
+        })
+        .collect();
+    let draft =
+        ambition_content_pack::ContentPackDraft::from_manifest_ron(PACK_MANIFEST_RON, sources)?;
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),
@@ -240,10 +317,76 @@ pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
 /// a half-built start: *"a silent partial start would be worse than a loud
 /// stop"*. Content that silently lost a character or an item is exactly that.
 pub fn prepared() -> &'static PreparedContentPack {
-    static PREPARED: std::sync::OnceLock<PreparedContentPack> = std::sync::OnceLock::new();
+    boot_pack()
+}
+
+/// The process's boot pack, behind an `Arc` so an App can hold it without a
+/// second compile.
+///
+/// ⛔ PRIVATE. [`prepared`] is the read for a family that has not been migrated
+/// to App-scoped selection; [`selected`] is the read for one that has. Handing
+/// the `Arc` out generally would make "which pack is this App's" answerable from
+/// anywhere again, which is the thing step 1 removes.
+fn boot_pack() -> &'static std::sync::Arc<PreparedContentPack> {
+    static PREPARED: std::sync::OnceLock<std::sync::Arc<PreparedContentPack>> =
+        std::sync::OnceLock::new();
     PREPARED.get_or_init(|| {
-        compile_pack().unwrap_or_else(|failure| {
+        std::sync::Arc::new(compile_pack().unwrap_or_else(|failure| {
             panic!("Ambition's own content pack does not compile:\n{failure}")
-        })
+        }))
     })
 }
+
+/// THIS App's content pack — fast-iteration I3, step 1.
+///
+/// ⭐⭐ **A PROCESS-GLOBAL `OnceLock` CANNOT BE RE-SELECTED, AND THAT IS THE
+/// WHOLE OF THE PROBLEM.** The first caller compiles the pack and every later
+/// caller gets that value forever. Two Apps in one process therefore share one
+/// pack whether they agree or not, a reload has nowhere to put a new one, and a
+/// test cannot hand a composition content of its own. I3's acceptance says it in
+/// one line: *"Two Apps can select different packs without contamination."*
+///
+/// ⛔ IMMUTABLE DATA IS SHARED; ACTIVATION AUTHORITY IS NOT (step 1's own
+/// words). The `Arc` means selecting the boot pack costs no second compile —
+/// what is App-scoped is WHICH pack this App answers with, not a copy of it.
+#[derive(bevy::prelude::Resource, Clone)]
+pub struct SelectedContentPack(pub std::sync::Arc<PreparedContentPack>);
+
+impl SelectedContentPack {
+    pub fn get(&self) -> &PreparedContentPack {
+        &self.0
+    }
+}
+
+/// Give this App a pack of its own, replacing any previous selection.
+///
+/// ⚠ SELECTION IS NOT PUBLICATION. Installing a pack here changes what LATER
+/// reads answer; it does not revise a cast already published. That is
+/// [`crate::reload`]'s job, and keeping them separate is what lets a reload
+/// refuse without having already replaced the App's content.
+pub fn select_pack(app: &mut bevy::prelude::App, pack: std::sync::Arc<PreparedContentPack>) {
+    app.insert_resource(SelectedContentPack(pack));
+}
+
+/// This App's pack, selecting the process's boot pack if nothing chose one.
+///
+/// ⛔ THE FALLBACK IS AN INSERT, NOT A READ-THROUGH. A read-through would let an
+/// App answer from the boot pack forever while believing it had a selection, so
+/// every later `selected` call could give a different answer than the first.
+pub fn select(world: &mut bevy::ecs::world::World) -> &PreparedContentPack {
+    if !world.contains_resource::<SelectedContentPack>() {
+        world.insert_resource(SelectedContentPack(std::sync::Arc::clone(boot_pack())));
+    }
+    world.resource::<SelectedContentPack>().get()
+}
+
+/// This App's pack, or `None` when nothing has selected one.
+pub fn selected(world: &bevy::ecs::world::World) -> Option<&PreparedContentPack> {
+    world
+        .get_resource::<SelectedContentPack>()
+        .map(SelectedContentPack::get)
+}
+
+#[cfg(test)]
+#[path = "pack_selection_tests.rs"]
+mod pack_selection_tests;

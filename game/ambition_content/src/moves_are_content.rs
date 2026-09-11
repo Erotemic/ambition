@@ -29,8 +29,8 @@ use ambition_characters::moveset_content_schema::lowered_movesets;
 /// this repository's most repeated instrument failure.
 #[test]
 fn every_content_move_table_is_the_table_it_used_to_compile_with() {
-    let table = lowered_movesets(crate::pack::prepared())
-        .expect("the shipped pack carries a move section");
+    let table =
+        lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
     let mapped: usize = crate::authored_movesets::TABLE_CHARACTERS
         .iter()
         .map(|(_, ids)| ids.len())
@@ -96,8 +96,8 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
          cast, so the check below would certify almost anything",
         buildable.len()
     );
-    let table = lowered_movesets(crate::pack::prepared())
-        .expect("the shipped pack carries a move section");
+    let table =
+        lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
     assert!(!table.is_empty(), "the move section is empty");
     let strangers: Vec<&str> = table
         .keys()
@@ -125,8 +125,8 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
 /// checked only him would pass with the other sixteen keyed wrongly.
 #[test]
 fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
-    let table = lowered_movesets(crate::pack::prepared())
-        .expect("the shipped pack carries a move section");
+    let table =
+        lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
     let mut checked = 0usize;
     for (_, ids) in crate::authored_movesets::TABLE_CHARACTERS {
         for id in *ids {
@@ -137,6 +137,7 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
                     *id,
                     crate::AMBITION_CONTENT_PROVIDER,
                 ),
+                crate::pack::prepared(),
             );
             let moveset = definition.moveset.as_ref().unwrap_or_else(|| {
                 panic!("`{id}` is built with no moveset, so the pack did not reach it")

@@ -13,6 +13,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
         ambition_content::character_catalog::authored_intrinsics(
             id,
             CharacterDefinition::new(id, id, "ambition_content"),
+            ambition_content::pack::prepared(),
         )
         .locomotion
         .and_then(|locomotion| locomotion.baseline_free_flight)

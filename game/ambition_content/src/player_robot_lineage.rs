@@ -720,6 +720,10 @@ mod tests {
 /// to `PreparedCharacterRegistry` for match construction.
 pub fn register_declared_cast(app: &mut bevy::prelude::App) {
     let catalog = crate::character_catalog::load_catalog();
+    // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
+    // what makes "which pack did this cast come from" one fact: a selection that
+    // changed mid-loop would register half a roster from each.
+    let pack = crate::pack::select(app.world_mut()).clone();
     // The lineage registers itself above with authored bodies and hurtboxes;
     // re-registering here would be a duplicate and would also throw those away.
     let lineage: std::collections::BTreeSet<&str> =
@@ -752,7 +756,7 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
         // have taken their facts back from the archetype roster. A character
         // still awaiting migration adds nothing here and stays a bare
         // registration.
-        let definition = crate::character_catalog::authored_intrinsics(&id, definition);
+        let definition = crate::character_catalog::authored_intrinsics(&id, definition, &pack);
         // `try_`, and a SKIP rather than a panic: another provider legitimately
         // owns some of these ids in a multi-game composition, and losing a race
         // for one is not this provider's error to raise.

@@ -449,3 +449,60 @@ fn a_pack_compiled_against_the_live_cast_still_lands() {
         "an up-to-date reload was refused; got {outcome:?}"
     );
 }
+
+/// ⛔⛔ **A REPUBLISHED CAST AND THE APP'S SELECTION MOVE TOGETHER.** Two
+/// authorities for "what content is this App running" is the thing App-scoped
+/// selection exists to collapse, and a reload is the one operation that can
+/// separate them.
+#[test]
+fn an_activated_reload_becomes_the_apps_selection() {
+    let mut app = host_with_a_live_cast();
+    let fresh = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let outcome =
+        reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&fresh), None);
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "the premise: a reload that publishes; got {outcome:?}"
+    );
+    let selected = crate::pack::selected(app.world()).expect("the App has a selection");
+    assert!(
+        std::ptr::eq(selected, std::sync::Arc::as_ref(&fresh)),
+        "the cast was republished from a pack the App did not adopt"
+    );
+}
+
+/// ⛔ AND A REFUSED RELOAD LEAVES THE SELECTION WHERE IT WAS — otherwise the
+/// cast would be built from one pack while every later read answered from
+/// another.
+#[test]
+fn a_stale_reload_does_not_become_the_apps_selection() {
+    let mut app = host_with_a_live_cast();
+    let compiled_against = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+    let theirs = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    assert!(
+        matches!(
+            reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&theirs), None),
+            MoveReload::Activated { .. }
+        ),
+        "the premise: something published first"
+    );
+
+    let ours = std::sync::Arc::new(pack_of(&doc_text(0.35)).expect("compiles"));
+    let outcome = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::clone(&ours),
+        Some(compiled_against),
+    );
+    assert!(
+        matches!(outcome, MoveReload::Stale { .. }),
+        "the premise: a refused reload; got {outcome:?}"
+    );
+    let selected = crate::pack::selected(app.world()).expect("a selection");
+    assert!(
+        std::ptr::eq(selected, std::sync::Arc::as_ref(&theirs)),
+        "a refused reload became the App's content anyway"
+    );
+}

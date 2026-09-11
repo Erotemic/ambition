@@ -94,7 +94,7 @@ pub enum MoveReload {
 /// cast to revise, and [`MoveReload::NoCast`] says so rather than inventing one.
 pub fn reload_move_tables(world: &mut bevy::ecs::world::World) -> MoveReload {
     match crate::pack::compile_pack() {
-        Ok(pack) => reload_move_tables_from(world, &pack, None),
+        Ok(pack) => reload_move_tables_selecting(world, std::sync::Arc::new(pack), None),
         // ⛔ THE WHOLE DIAGNOSTIC, not a summary. A reload that says "it did not
         // compile" and drops the compiler's per-problem list makes the author
         // re-run a CLI to learn what this function already knew.
@@ -178,6 +178,33 @@ pub fn reload_move_tables_from(
         // the game down over a shape it did not expect.
         RevisionOutcome::NothingStaged => MoveReload::NoMoveSection,
     }
+}
+
+/// Republish the cast AND make the new pack this App's selection.
+///
+/// ⭐⭐ **SELECTION MOVES ONLY IF THE CAST DID.** A reload that swapped the
+/// App's pack first and revised after would leave a refused or stale reload with
+/// the cast built from pack A while every LATER read answered from pack B — two
+/// authorities for "what content is this App running", which is exactly what
+/// App-scoped selection exists to collapse. So the outcome decides: a published
+/// revision selects, and everything else leaves the selection alone.
+///
+/// ⚠ `Unchanged` SELECTS TOO, and deliberately: the bytes are identical, so the
+/// two packs say the same thing, and refusing to adopt the new one would leave
+/// the App holding a value with no advantage and an older provenance.
+pub fn reload_move_tables_selecting(
+    world: &mut bevy::ecs::world::World,
+    fresh: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
+    compiled_against: Option<CharacterCatalogGeneration>,
+) -> MoveReload {
+    let outcome = reload_move_tables_from(world, &fresh, compiled_against);
+    if matches!(
+        outcome,
+        MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
+    ) {
+        world.insert_resource(crate::pack::SelectedContentPack(fresh));
+    }
+    outcome
 }
 
 #[cfg(test)]

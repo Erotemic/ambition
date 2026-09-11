@@ -150,9 +150,15 @@ const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 /// An id in [`buildable_only_cast`] with no body/policy/moveset authoring here is
 /// suspicious: registering a bare definition does not conjure a second body
 /// authority. Author the intended character facts before making it buildable.
+/// ⛔⛤ **`pack` IS A PARAMETER BECAUSE THE MOVE TABLE IS THE MIGRATED FAMILY**
+/// (fast-iteration I3, step 1). It used to read `pack::prepared()`, a
+/// process-global `OnceLock` no App could re-select — so two Apps in one process
+/// shared one move table whether they agreed or not, and a reload had nowhere to
+/// put a new one. The caller reads its App's selection once and passes it down.
 pub fn authored_intrinsics(
     id: &str,
     definition: ambition_platformer2d::character::CharacterDefinition,
+    pack: &ambition_content_pack::PreparedContentPack,
 ) -> ambition_platformer2d::character::CharacterDefinition {
     // this is a RULE rather than nine arms, because the thing it replaces
     // was a rule too — a worse one. `hostile_brain_id_for_actor` asks whether
@@ -197,7 +203,7 @@ pub fn authored_intrinsics(
     // ⛔⛔ AND IT IS A REPLACEMENT, NOT A MERGE. A merge would need a rule for
     // which half wins per verb, and two authorities for one fighter's table is
     // the thing this move exists to remove.
-    match ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+    match ambition_characters::moveset_content_schema::lowered_movesets(pack)
         .and_then(|table| table.get(id))
     {
         Some(contract) => definition.with_moveset(contract.clone()),
@@ -256,9 +262,7 @@ mod tests {
         // question this test is not asking. The raw road is named explicitly so
         // it cannot be reached by accident; see its doc for why the implicit
         // escape was removed.
-        ambition_characters::prepared::close_preparation_barrier_without_admission(
-            app.world_mut(),
-        );
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
@@ -324,9 +328,7 @@ mod tests {
         // question this test is not asking. The raw road is named explicitly so
         // it cannot be reached by accident; see its doc for why the implicit
         // escape was removed.
-        ambition_characters::prepared::close_preparation_barrier_without_admission(
-            app.world_mut(),
-        );
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
@@ -385,6 +387,7 @@ mod tests {
                 "Puppy Slug",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert_eq!(definition.vitals.max_health, Some(2));
 
@@ -432,6 +435,7 @@ mod tests {
                 "Stochastic Parrot",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert_eq!(definition.vitals.max_health, Some(3));
         let locomotion = definition.locomotion.expect("it states how it flies");
@@ -478,6 +482,7 @@ mod tests {
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
                     ),
+                    crate::pack::prepared(),
                 );
                 // This census uses authored locomotion as the completeness signal.
                 // If preparation gains additional requirements, update the census to match.
@@ -528,6 +533,7 @@ mod tests {
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
                     ),
+                    crate::pack::prepared(),
                 )
                 .abilities
                 .is_some()
@@ -563,9 +569,7 @@ mod tests {
         // question this test is not asking. The raw road is named explicitly so
         // it cannot be reached by accident; see its doc for why the implicit
         // escape was removed.
-        ambition_characters::prepared::close_preparation_barrier_without_admission(
-            app.world_mut(),
-        );
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
@@ -612,6 +616,7 @@ mod tests {
                     id,
                     crate::AMBITION_CONTENT_PROVIDER,
                 ),
+                crate::pack::prepared(),
             ))
             // BOTH shapes count — this read only `autonomous_profile` at
             // first, and the exemption list's own rot-check caught it: the goblin
@@ -672,6 +677,7 @@ mod tests {
                 "Giant GNU",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert_eq!(definition.vitals.max_health, Some(42));
         assert_eq!(
@@ -724,6 +730,7 @@ mod tests {
                     "Rider",
                     crate::AMBITION_CONTENT_PROVIDER,
                 ),
+                crate::pack::prepared(),
             )
         };
         let light = rider("npc_pirate_raider");
@@ -782,6 +789,7 @@ mod tests {
                 "Giant GNU Hand",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert_eq!(definition.vitals.max_health, Some(42));
         assert_eq!(definition.vitals.mass, Some(2.0));
@@ -821,6 +829,7 @@ mod tests {
                 "Sandbag",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert!(definition.practice_target, "it exists to be hit");
         assert_eq!(definition.vitals.max_health, Some(6));
@@ -853,6 +862,7 @@ mod tests {
                 "Goblin",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert_eq!(definition.vitals.max_health, Some(5));
         let locomotion = definition.locomotion.expect("its own body");
@@ -947,6 +957,7 @@ mod tests {
                 "Pirate Admiral",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         let mount = definition
             .mount
@@ -998,6 +1009,7 @@ mod tests {
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
                     ),
+                    crate::pack::prepared(),
                 );
                 assert_eq!(
                     definition
@@ -1019,6 +1031,7 @@ mod tests {
                 "goblin",
                 crate::AMBITION_CONTENT_PROVIDER,
             ),
+            crate::pack::prepared(),
         );
         assert!(goblin.provoked_profile_ref.is_none());
     }
@@ -1125,7 +1138,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            let authored = authored_intrinsics(id, bare);
+            let authored = authored_intrinsics(id, bare, crate::pack::prepared());
             let traits = authored
                 .death_traits
                 .as_ref()
@@ -1164,7 +1177,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            let authored = authored_intrinsics(id, bare.clone());
+            let authored = authored_intrinsics(id, bare.clone(), crate::pack::prepared());
             let authors_a_body =
                 authored.death_traits.is_some() || authored.vitals.max_health.is_some();
             // A POLICY-ONLY REGISTRATION RETRACTS NOTHING, and this guard
@@ -1229,10 +1242,7 @@ mod tests {
         // ⚠ THE EDIT THAT MAKES THIS FALSE is putting a passing id back into
         // `KNOWN_BARE_REGISTRATIONS`, or letting an id there stop being bare
         // without the entry going with it — which is exactly what happened.
-        let listed: Vec<&str> = KNOWN_BARE_REGISTRATIONS
-            .iter()
-            .map(|(id, _)| *id)
-            .collect();
+        let listed: Vec<&str> = KNOWN_BARE_REGISTRATIONS.iter().map(|(id, _)| *id).collect();
         let unneeded: Vec<&str> = listed
             .iter()
             .copied()
@@ -1277,7 +1287,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            if authored_intrinsics(id.as_str(), bare.clone()) != bare
+            if authored_intrinsics(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
                 && !registered.contains(id.as_str())
             {
                 unregistered.push(id.clone());
@@ -1318,7 +1328,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            authored_intrinsics(id.as_str(), bare.clone()) != bare
+            authored_intrinsics(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
         });
         assert!(
             authors_someone,
@@ -1363,7 +1373,7 @@ mod tests {
             // BOTH halves, because either alone is silent. The rule must state a
             // policy, AND the id must be one registration actually visits — an
             // arm that runs for nobody is what this whole row was about.
-            let states = authored_intrinsics(id.as_str(), bare)
+            let states = authored_intrinsics(id.as_str(), bare, crate::pack::prepared())
                 .provoked_profile_ref
                 .is_some();
             if !states || !registered.contains(id.as_str()) {
@@ -1387,7 +1397,7 @@ mod tests {
             crate::AMBITION_CONTENT_PROVIDER,
         );
         assert!(
-            authored_intrinsics("npc_alice", bare)
+            authored_intrinsics("npc_alice", bare, crate::pack::prepared())
                 .provoked_profile_ref
                 .is_none(),
             "a character outside the pirate rule must state no provoked policy"
@@ -1553,6 +1563,7 @@ mod assembled_provider_tests {
                     id,
                     crate::AMBITION_CONTENT_PROVIDER,
                 ),
+                crate::pack::prepared(),
             );
             definition.autonomous_profile.is_some() || definition.autonomous_profile_ref.is_some()
         };

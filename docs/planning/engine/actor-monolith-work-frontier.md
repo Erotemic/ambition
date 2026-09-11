@@ -59,9 +59,19 @@ implicit scheduling/state dependencies. Do not call a regex search a complete
 compiler dependency graph.
 
 Separate a semantic fix from a behavior-preserving ownership move into different
-commits. Each commit must build/test at its own boundary. Avoid compatibility
-re-exports under old internal paths. Do not broaden the packet because unrelated
-lint, naming or policy work is nearby.
+commits. Avoid compatibility re-exports under old internal paths. Do not broaden
+the packet because unrelated lint, naming or policy work is nearby.
+
+⛔⛤ **A LINE HERE USED TO READ "Each commit must build/test at its own boundary",
+AND IT CONTRADICTED `AGENTS.md`.** The repository's own rule is *"`./run_tests.sh`
+is the broad repository test backbone. **Prefer narrower checks when they cover the
+touched invariant**"*, with the omission stated out loud. The sentence above was
+read as "run the whole lane per commit" and cost most of a day on 2026-09-11 —
+seven full `--rust` runs at ~25 minutes each where a `-p <crate>` run covered the
+change. **`AGENTS.md` is the authority on test scope; this document does not
+restate it**, and [the cheapest sufficient check](../../recipes/cheapest-sufficient-check.md)
+already carries the full argument in Jon's own words: *"local targeted reruns only,
+and then we DON'T run the entire thing again after."*
 
 ## A1. Checkpoint restoration belongs to session lifecycle
 

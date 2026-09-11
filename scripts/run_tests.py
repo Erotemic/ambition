@@ -1317,7 +1317,29 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         tool_tests_only: bool = False,
         maintenance_only: bool = False,
         rust_alone: bool = False,
-        job_limit: int | None = None) -> int:
+        job_limit: int | None = None,
+        only_job: str | None = None) -> int:
+    # ⭐ ONE JOB OUT OF A LANE, BY NAME. An audit that reports something is
+    # re-run after the fix; before this, the only spellings were "the whole lane"
+    # or "the underlying script by hand", and the second one is a lane you
+    # assembled yourself with no skip-list to read past.
+    #
+    # ⛔ IT REFUSES ON NO MATCH rather than running the empty plan. A filter that
+    # silently selects nothing prints `0/0 jobs passed` — a clean bill from an
+    # empty corpus, which is this repository's most repeated instrument failure.
+    if only_job is not None:
+        matched = [j for j in jobs if only_job.lower() in j.name.lower()]
+        if not matched:
+            print(
+                f"--only-job {only_job!r} matched none of the {len(jobs)} job(s) "
+                "in this lane. ⇒ REFUSING: an empty plan reports `0/0 jobs "
+                "passed`, which reads as success. The lane's jobs are:\n  "
+                + "\n  ".join(j.name for j in jobs),
+                file=sys.stderr,
+            )
+            return 1
+        jobs = matched
+
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
@@ -1746,6 +1768,11 @@ def main() -> int:
                          "leaves the rest of the cores alone. Unset means "
                          "cargo's default, which is every core.")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
+    ap.add_argument("--only-job", metavar="SUBSTR", default=None,
+                    help="run only the jobs in this lane whose NAME contains "
+                         "SUBSTR. Re-run one audit after fixing what it "
+                         "reported, without paying for its four siblings. "
+                         "Refuses when it matches nothing.")
     ap.add_argument("-k", metavar="SUBSTR", default=None,
                     help="only tests whose name contains SUBSTR (libtest filter)")
     ap.add_argument("-p", "--package", action="append", default=[],
@@ -1785,7 +1812,7 @@ def main() -> int:
         return run(
             jobs, args.list, timings_json=args.timings_json,
             status_json=args.status_json, exhaustive=False, filtered=False,
-            tool_tests_only=True, job_limit=args.jobs,
+            tool_tests_only=True, job_limit=args.jobs, only_job=args.only_job,
         )
 
     if args.maintenance:
@@ -1795,7 +1822,7 @@ def main() -> int:
         return run(
             jobs, args.list, timings_json=args.timings_json,
             status_json=args.status_json, exhaustive=False, filtered=False,
-            maintenance_only=True, job_limit=args.jobs,
+            maintenance_only=True, job_limit=args.jobs, only_job=args.only_job,
         )
 
     libtest_args = list(args.cargo_extra)
@@ -1864,7 +1891,8 @@ def main() -> int:
                status_json=args.status_json,
                exhaustive=args.run_everything or args.heavy,
                filtered=bool(args.package), rust_only=args.rust,
-               rust_alone=args.rust_alone, job_limit=args.jobs)
+               rust_alone=args.rust_alone, job_limit=args.jobs,
+               only_job=args.only_job)
 
 
 if __name__ == "__main__":

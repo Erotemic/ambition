@@ -31,6 +31,23 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 import run_tests  # noqa: E402
 
+#: ⛔⛤ NARROWED TO ONE JOB, AND THE SUBJECT SURVIVES IT. These two tests each shell
+#: out to a real nested run, and they used to take the whole `--maintenance` lane:
+#: 70s apiece, 141s of the repo-tooling job's 292s — 48% of a job that runs in
+#: EVERY lane, spent twice on the same question.
+#:
+#: ⛔ WHAT THEY NEED IS A RUN THAT ACTUALLY RUNS A JOB, which is the recorded
+#: poison: the first version used `--list`, which plans and exits and writes no
+#: status file at all, so it passed with the nesting guard deliberately disabled.
+#: ONE real job writes the status exactly as five do, so the narration question is
+#: unchanged and the price is not.
+#:
+#: ⚠ `zone names` is chosen for being pure Python and fastest, NOT for anything
+#: about zones. A cargo-backed job (`-p <crate>`) was measured too and rejected:
+#: 16s or 104s depending on build state, in a job that is deliberately
+#: Python-only and runs FIRST.
+ONE_JOB = ("--only-job", "zone names")
+
 
 
 def _ran_far_enough(proc) -> None:
@@ -77,7 +94,10 @@ def test_a_nested_invocation_leaves_the_shared_status_file_alone(tmp_path) -> No
     # what said so.
     env = {**os.environ, run_tests.NESTED_ENV: "99999"}
     proc = subprocess.run(
-        [sys.executable, str(REPO / "scripts" / "run_tests.py"), "--maintenance"],
+        [
+            sys.executable, str(REPO / "scripts" / "run_tests.py"),
+            "--maintenance", *ONE_JOB,
+        ],
         cwd=REPO, env=env, capture_output=True, text=True,
     )
     _ran_far_enough(proc)
@@ -97,10 +117,39 @@ def test_an_explicit_status_json_is_still_honoured_when_nested(tmp_path) -> None
     proc = subprocess.run(
         [
             sys.executable, str(REPO / "scripts" / "run_tests.py"),
-            "--maintenance", "--status-json", str(target),
+            "--maintenance", *ONE_JOB, "--status-json", str(target),
         ],
         cwd=REPO, env=env, capture_output=True, text=True,
     )
     _ran_far_enough(proc)
     assert target.exists(), "an explicit --status-json was not written"
     assert json.loads(target.read_text())["state"] == "done"
+
+
+def test_only_job_narrows_the_lane_to_the_named_job() -> None:
+    """⭐ THE FLAG THESE TESTS NOW DEPEND ON, guarded where they use it."""
+    proc = subprocess.run(
+        [
+            sys.executable, str(REPO / "scripts" / "run_tests.py"),
+            "--maintenance", "--only-job", "zone names", "--list",
+        ],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "Planned 1 job(s)" in proc.stdout, proc.stdout
+
+
+def test_only_job_refuses_rather_than_running_an_empty_plan() -> None:
+    """⛔⛔ A FILTER THAT SELECTS NOTHING PRINTS `0/0 jobs passed`, which reads as
+    success — this repository's most repeated instrument failure. The refusal also
+    lists the lane's job names, because a reader who mistyped one needs them."""
+    proc = subprocess.run(
+        [
+            sys.executable, str(REPO / "scripts" / "run_tests.py"),
+            "--maintenance", "--only-job", "no-job-is-called-this",
+        ],
+        cwd=REPO, capture_output=True, text=True,
+    )
+    assert proc.returncode == 1, proc.stdout
+    assert "REFUSING" in proc.stderr
+    assert "zone names" in proc.stderr, "the refusal must name what it could have run"

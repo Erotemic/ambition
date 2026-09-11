@@ -49,6 +49,7 @@ mod canonical_reconstitution;
 mod carried_item_crosses_rooms;
 mod causal_explains_the_real_app;
 mod character_containment;
+mod authored_feel_reaches_the_prepared_cast;
 mod character_provider_namespace;
 mod collision_invariant_oracle;
 mod composes_through_the_sdk;

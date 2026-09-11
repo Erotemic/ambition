@@ -319,8 +319,8 @@ watched.
 | `provider` | `entry.provider` + `CharacterCatalogOwners` | ✔ `ProviderDisagreement` | two authorities, **already watched** |
 | `sheet` | `entry.spritesheet` / `entry.manifest` | ✔ `SheetDisagreement` | two authorities, already watched |
 | `autonomous_profile` | `entry.default_brain` → `catalog.autonomous_profile(key)` | ⚠ a CONTENT test, not the audit | two authorities, watched by the weaker thing |
-| `movement_tuning` | `entry.axis_tuning` → `catalog.axis_tuning(id)` | ✖ **nothing** | two authorities, unwatched |
-| `motion_model` | derived from `momentum` + `axis_tuning` → `catalog.motion_model_spec(id)` | ✖ **nothing** | two authorities, unwatched |
+| `movement_tuning` | `entry.axis_tuning` → `catalog.axis_tuning(id)` | ✖ nothing — **and correctly so** | ⛔ **SUPERSEDED, see the measurement below: FOLDED at the barrier, one authority** |
+| `motion_model` | derived from `momentum` + `axis_tuning` → `catalog.motion_model_spec(id)` | ✖ nothing — **and correctly so** | ⛔ **SUPERSEDED, see below: FOLDED at the barrier, one authority** |
 
 ⭐ **AND THE SECTION BELOW REACHED THE SAME CONCLUSION INDEPENDENTLY, FROM THE
 OTHER DIRECTION.** *"A value read at spawn and during simulation can legitimately
@@ -336,17 +336,20 @@ and `sheet` have one and it is audited. A type move would buy none of them
 anything.
 
 ⇒ **The three that are not fine are not fixed by moving a type either.** They are
-resolve-then-fall-back pairs in one function each:
+resolve-then-fall-back pairs in one function each — and ⛔ **for two of the three
+this paragraph was WRONG, corrected by the measurement further down: the barrier
+already folds them, so the fall-back is a duplicate spelling of one rule rather
+than a second authority. `autonomous_profile` is the one that stands.**
 
 ```rust
-// avatar/starting_character.rs:185 — movement_tuning
+// avatar/starting_character.rs:185-188 — movement_tuning
 match registry.and_then(|registry| registry.get(character_id)) {
     Some(prepared) => prepared.movement_tuning,
     None => catalog.axis_tuning(character_id),
 }
 ```
 
-`motion_model` at `:151` has the identical shape, and its own comment already
+`motion_model` at `:151-157` has the identical shape, and its own comment already
 states the rule the other two do not enforce — *"A prepared character already
 folded its row in at the barrier, so falling back here for one would be the
 displaced authority getting a second vote."*
@@ -363,24 +366,94 @@ No generic resolver, no request bus, no new trait to unify registry and catalog 
 A6's own text and A7's standing prohibition both apply, and the count of
 authorities is not a thing to buy. **No type moves.**
 
-### The one measurement that decides the remaining three
+### MEASURED 2026-09-11 — and NEITHER of the two answers the question had
 
-**Is the catalog fallback reachable — is any id in `CharacterCatalog` absent from
-`PreparedCharacterRegistry` in a real composition?**
+The question was *"is the catalog fallback reachable — is any id in
+`CharacterCatalog` absent from `PreparedCharacterRegistry` in a real
+composition?"*, with a branch prepared for each answer: dormant ⇒ delete the
+fallback, live ⇒ add the two fields to the audit. **Neither branch fires**, and
+the reason corrects the two rows above.
 
-* If no id is, the three unwatched twins are DORMANT: the registry always wins and
-  the catalog's copy is never the answer. The repair is then to delete the
-  fallback, not to audit it.
-* If some id is, those characters take their movement feel and motion model from
-  the catalog while every other character takes it from the registry — two
-  authorities, live, and `movement_tuning`/`motion_model` should join the audit
-  beside `provider` and `sheet`.
+Instrument: `build_visible_app(VisibleRenderMode::NoWindow, …)` — the shipped
+host, headless, with `finish()`/`cleanup()`/`update()` in the order `App::run`
+uses, because `combat_schedule.rs` records that a guard driving `update()` by
+hand otherwise takes a different barrier road than production. **Both routes
+measured** (`shell_hosted` true, the launcher, and false, straight to gameplay);
+every number below is identical on both.
 
-⚠ **Nothing asserts this today.** The audit walks `registry.iter()` and looks the
-id up in the catalog; the reverse direction — a catalog row no provider prepared —
-is unchecked, and `catalog.motion_model_spec` is written to answer for exactly
-that row. ⇒ It is one headless test, and it is the next A6 landing rather than any
-boundary.
+```text
+catalog rows                                              147
+prepared characters                                        58
+catalog-only (ids that REACH the read-site fallback)       89
+overlap                                                    58
+
+catalog rows authoring `axis_tuning`     3   mary_o, mary_o_fire, mary_o_tall
+catalog rows, non-default motion model   5   + sanic, super_sanic
+of the 89 that reach the fallback,
+  ids the catalog authors a value for    0
+overlap: both author and DIFFER          0
+overlap: catalog authors, registry mute  0   ← the direction that would be a bug
+overlap: registry authors, catalog mute  3   smash_duelist_a/_b, smash_george_booul
+overlap: motion model differs            0
+```
+
+⭐⭐ **THE FALLBACK IS REACHED 89 TIMES PER BOOT AND ANSWERS THE DEFAULT EVERY
+TIME.** Reachable is not the same as consulted-for-an-answer, and the first
+number — 89 of 147 — reads like a finding until the control is run. Every id
+that reaches it is an id the catalog authors nothing for.
+
+⛔⛔ **AND THESE TWO FIELDS ARE NOT TWO AUTHORITIES AT ALL: THE BARRIER FOLDS
+THEM.** `crates/ambition_characters/src/prepared.rs:1338` is `movement_tuning.or_else(|| catalog?.axis_tuning(&id))`
+and `:1334` is the same shape for the motion model. The registry is the catalog's
+FOLD, which is why the overlap disagrees zero times — and it is the same
+treatment `vitals.max_health` got, with the reason written at `:1316`: *"a
+registered character's authored pool and a catalog row's authored pool were two
+authorities that never met. Folding here is what lets ONE applier serve the worn
+player and the seated fighter."* `abilities` two lines below says the converse —
+*"Carried, not folded: nothing else in the engine can state a body's verbs, so
+there is no second authority to reconcile with."*
+
+⇒ **THAT IS WHY THE AUDIT COVERS EXACTLY `display_name`, `sheet` AND `provider`.**
+Those three are carried on both sides and can disagree. `movement_tuning` and
+`motion_model` are reconciled at the barrier and cannot. ⇒ **Correct the table
+above: their row is "one authority, folded", not "two authorities, unwatched",
+and adding them to `CharacterAuthorityConflict` would be a structurally green
+variant — the machinery `AGENTS.md` says to refuse.**
+
+⇒ **The residue is real but much smaller than a boundary: THE FOLD IS SPELLED
+TWICE.** `avatar/starting_character.rs:157` and `:187` re-perform it at read time
+for the ids the registry does not hold, and the measurement says that second
+spelling changes the answer for none of them. Deleting it would leave the barrier
+as the only place the rule exists.
+
+⚠ **AND THE 3 THAT LOOK LIKE A DISAGREEMENT ARE THE AUTHORING ROAD, NOT A BUG.**
+`Some(DEFAULT_TUNING)` against a silent catalog row, written where the character
+is CONSTRUCTED (`demo_smash/src/lib.rs:4344`), whose own comment already files it:
+*"eleven of the fourteen fighters on the grid still play on the ACTOR baseline —
+a levelled stage where thirteen bodies are floatier than the fourteenth is half a
+decision … Filed for a later slice."*
+
+### The guard that makes the deletion provable, and its poison
+
+Deleting the read-site fold is behaviour-preserving **only while every catalog row
+that authors feel is one the barrier prepared** — and nothing asserted that. It is
+now `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`, over the
+shipped composition, with a floor that fails if fewer than five rows author feel
+so it cannot pass by losing its subject.
+
+⭐ POISON-VERIFIED: `axis_tuning` added to `npc_busy_beaver` — a row in the 89 —
+fails the guard naming that row, and removing it passes. ⛔ **And the restore
+needed a `touch`**: `cp -p` puts the ORIGINAL mtime back, the catalog is embedded
+at compile time, and cargo's mtime check saw no change and reused the POISONED
+binary. A byte-identical restore confirmed by `md5sum` and a clean `git status`
+still ran the poison. Verify a restore by RE-RUNNING, not by comparing the file.
+
+⚠ **WHAT THIS DID NOT MEASURE: the other compositions.** `ambition_demo_mary_o`
+and `ambition_demo_twintrack` author `axis_tuning` on their own catalog rows, and
+mary_o's comment says *"re-wearing re-reads `axis_tuning`"*. Their rows are
+prepared in the shipped host — that is what the 3 and 5 above are — but their own
+demo apps were not built and measured. A scoped zero is not a global zero, and the
+deletion should not land until they are.
 
 ## Selected uses for the independent authoring boundary
 

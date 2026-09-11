@@ -336,13 +336,26 @@ production runtime reads resolve through `PreparedCharacterRegistry`. **Six of t
 nine are two readers of one authority and need nothing** — `kit`, `death_traits`
 and `mount` have no second home, `id` is the key, and `provider` and `sheet` have
 one that `CharacterAuthorityConflict` already audits. The second authority is
-`PreparedCharacterRegistry` vs `CharacterCatalog`, and three fields sit on it
-unevenly: `autonomous_profile` is held by a content test rather than the audit,
-while **`movement_tuning` and `motion_model` are duplicate authored movement and
-tuning authority with nothing watching them — which is the acceptance line below,
-in as many words.** ⇒ The next A6 landing is one headless test asking whether the
-catalog fallback is reachable, not a boundary. ⛔ Not a resolver, not a bus, and
-no type moves; see the page for why.
+`PreparedCharacterRegistry` vs `CharacterCatalog`, and only `autonomous_profile`
+sits on it unwatched — held by a content test rather than the audit.
+
+⭐⭐ **AND `movement_tuning`/`motion_model` ARE NOT ON IT AT ALL, MEASURED
+2026-09-11 IN THE SHIPPED HOST — the acceptance line "no duplicate authored
+movement/tuning authority" IS ALREADY MET.** The barrier FOLDS both
+(`crates/ambition_characters/src/prepared.rs:1338`, `:1334`), so the registry is the catalog's fold and cannot
+disagree with it: 147 catalog rows, 58 prepared, and **zero disagreements in the
+overlap**. The read-site fall-back in `avatar/starting_character.rs` is reached
+for 89 ids per boot and the catalog authors a value for **none** of them, so it
+returns the default every time. ⇒ The residue is not a boundary and not an audit
+variant — **the fold is spelled twice**, and deleting the read-site copy leaves
+the barrier as the only place the rule lives. That deletion is behaviour-
+preserving only while every catalog row authoring feel is prepared, which is now
+asserted by `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs`
+(poison-verified). ⚠ Not yet measured in the mary_o / twintrack demo
+compositions, which author `axis_tuning` of their own; a scoped zero is not a
+global zero.
+
+⛔ Not a resolver, not a bus, and no type moves; see the page for why.
 
 **HOLD (SATISFIED):** make a field/use census before moving types.
 **Source:** `ambition_characters` actor/prepared/brain/moveset/technique schemas;

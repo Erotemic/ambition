@@ -1357,7 +1357,81 @@ before tuning anything.
 
 ## P2 — current engine/game work
 
-### D-STRIKE-GENEROSITY — the roster-wide hitbox knob, and what stops it going further
+### D-STRIKE-GENEROSITY — REVERTED 2026-09-11: a roster-wide knob is the wrong tool, and this one moved boxes off the art
+
+⛔⛔ **EVERYTHING BELOW ABOUT RAISING A GLOBAL IS REVERTED (`32e5a947d`), AND THE
+REASON IS A MECHANISM, NOT A VALUE.** Jon: *"it makes the shapes misaligned from the
+animations, which makes all the moves read wrong because any scaling is not centered
+around where the attack motion really is"*, and *"if you used a global to adjust
+everything at once that is WRONG."*
+
+`FrameToBody::point` is `anchor_local + (px - feet_px) * scale` with
+`scale = render_size / frame`, so multiplying `render_size` multiplies the
+DISPLACEMENT FROM THE FEET PIXEL. MEASURED on the performer's forward tilt: at 1.25
+the half-extent scaled exactly 1.25x **and the centre moved 9.4 px up and 4.6 px
+forward**, off the drawn blade. No value of the knob avoids that.
+
+⇒ **NOW:** `ATTACK_VOLUME_GENEROSITY = 1.0` (authored size, rect road only);
+`MIN_STRIKE_EXTENT_OVER_BODY` removed — a per-axis floor RESHAPES an authored
+polygon, so a volume drawn deliberately long and low is the case it damages most;
+the sprite-poly road's `render_size` multiply is gone from both of its entries,
+including the pre-existing `PLAYER_ATTACK_HITBOX_SCALE = 1.3`, which carried the
+identical defect.
+
+⭐ **IF GENEROSITY IS WANTED ON THE POLY ROAD it must scale the RESOLVED VOLUME
+ABOUT ITS OWN CENTRE** — a stated pivot, not a factor smuggled into the
+sprite-to-world transform. Not implemented; Jon: *"I don't trust your spatial
+decision making at the moment."*
+
+⭐⭐ **AND THE RIGHT KNOB ALREADY EXISTS, AUTHORED, AT THE RIGHT PIVOT — GPT-6 USED
+IT ON THE PERFORMER AND NOBODY ELSE USES IT.** A sprite spec's `hitbox` block takes
+`inflate` (thicken the swept blade, in FRAME PIXELS, applied by the renderer against
+the drawn art) and `per_frame` (publish a poly per animation frame instead of one
+coarse shape for the whole swing). Because the renderer applies them in frame space,
+they thicken the blade WHERE THE BLADE IS — no pivot drift, which is exactly what a
+`render_size` multiplier could not do.
+
+MEASURED 2026-09-11 across every motion library:
+
+| library | specs | `per_frame` | `inflate` |
+|---|---:|---:|---:|
+| `performer_stage_v1` | 19 | **11** | **15** |
+| `medic_triage_v1` | 18 | 0 | 5 |
+| `author_pen_v1` | 13 | 0 | 0 |
+| `fighting_brawler_v1` | 14 | 0 | 0 |
+| `fighting_polygon_v1` | 13 | 0 | 0 |
+| `officer_brawler_v1` | 15 | 0 | 0 |
+| `projectile_beast_v1` | 17 | 0 | 0 |
+
+⇒ **ALL SEVEN LIBRARIES ALREADY AUTHOR A PER-FRAME `active` FRAME LIST, and only
+one library consumes the shape knobs.** Side by side, the same clip:
+`performer/attack_side` is `active [2,3,4,5], extend 1.0, inflate 3.0, per_frame
+true`; `medic/attack_side` is `active [3,4], extend 1.08` and nothing else. **The
+medic's 17.8 x 4.8 px tilt is a swept line with no `inflate`** — the repair is one
+authored number on that spec, not a code-side floor.
+
+⭐ **THE OTHER HALF OF GPT-6'S METHOD IS THE CLOCK, AND IT IS ALSO ONE-OF-21.**
+`performer_moveset::author_normals` reads `frame_duration_ms` and the `active` list
+off the sprite library and emits **one Active window PER AUTHORED FRAME**, contiguous
+and sharing one hit ledger, so each drawn shape is live exactly when it is drawn —
+plus `landing_lag_s` / `autocancel_after_s` derived from the active end. MEASURED
+over the grid's normals: **the performer has per-frame sampling on 11 of her 12; all
+twenty other fighters use ONE coarse Active window on all twelve.**
+
+⇒ **THE PER-CHARACTER WORK IS AUTHORING, IN TWO PLACES THAT ALREADY EXIST**: the
+sprite spec's `inflate`/`per_frame`, and a moveset table that samples the frames the
+library already declares. ⛔ It is content, in a submodule, and published assets are
+derived — a spec edit needs a re-publish to take effect. Values are NOT proposed
+here; Jon, 2026-09-11: *"I don't trust your spatial decision making at the moment."*
+
+⚠ **THE MEASUREMENTS BELOW STAND. Only the global repair attempt is reverted.**
+Ten of twenty-one grid fighters swing a box smaller than their own body, the roster
+spans 75x for one verb, and the medic's forward tilt is 17.8 x 4.8 px against a
+48 px body. The repair is PER-CHARACTER authoring, and Jon's direction is to learn
+from what GPT-6 did for the performer and apply that, not a multiplier.
+
+---
+
 
 **Owner:** `ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY` (the constant carries
 the measurements) and `ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE`.
@@ -1428,7 +1502,9 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    — closest gaps 39 to 142 px. The census above is about SIZE and says nothing about
    whether these moves connect in a match; that needs `--spacing`.
 
-   ✅ **HALF-CLOSED 2026-09-11 (`d2af48ff2`): the DEGENERATE half is repaired.**
+   ⛔ **THE "HALF-CLOSED" RECEIPT THAT WAS HERE IS REVERTED (`32e5a947d`) — the
+   floor reshaped authored polygons. What it measured is kept below; what it changed
+   is gone.** Superseded receipt, for the record:
    `ambition_character_sprites::MIN_STRIKE_EXTENT_OVER_BODY` grows each half-extent
    of a resolved manifest volume to at least half the body's half-extent ON THE SAME
    AXIS. medic 0.14 → 0.70 (17.8 x 4.8 → 17.8 x 24.0 — her authored LENGTH kept),

@@ -1468,9 +1468,36 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    and hitlag freezes the move's proper time while the action tick keeps running, so
    a sweep of `--chain-at` is not a sweep of the move's own clock.
 3. `attack_air_back` connects by 0.2 px where the forward air has 17.8 to spare.
-4. **The authored clock is not Ultimate-shaped in one axis**: startup is right, ACTIVE
-   runs 10–17 frames against Ultimate's usual 2–5, and totals are SHORTER. Jon has not
-   ruled; show numbers before rebalancing.
+4. ⛔⛤ **RE-MEASURED 2026-09-11: THE ROSTER'S CLOCK IS ULTIMATE-SHAPED, AND THE
+   "10–17 FRAME ACTIVE" WAS ONE CHARACTER READ AS THE ROSTER.**
+   `scripts/measure_move_clock_shape.py` over a `moveset_export` bundle — 322 moves
+   with a live window across the 21-fighter grid, at 60 Hz, as `min median max`
+   frames:
+
+   | class | n | startup | active | endlag |
+   |---|---:|---|---|---|
+   | jab | 21 | 1.8 **3.0** 4.8 | 2.4 **3.0** 10.8 | 6.0 **7.8** 12.0 |
+   | tilt | 63 | 2.4 **4.8** 10.8 | 2.4 **4.2** 9.6 | 8.4 **10.2** 16.8 |
+   | smash | 63 | 8.4 **12.0** 24.0 | 3.0 **5.4** 14.4 | 15.6 **18.0** 27.6 |
+   | aerial | 105 | 2.4 **5.4** 13.2 | 2.4 **4.8** 16.8 | 7.8 **12.0** 19.2 |
+   | special | 70 | 0.0 **8.4** 24.0 | 2.4 **7.2** 20.4 | 2.4 **19.2** 50.4 |
+
+   ⚠ Against the commonly published Ultimate bands (RESEARCH, not measured here —
+   jab active 2–4, tilt/smash/aerial 2–5) every normal's MEDIAN is inside or one
+   tenth over. **10–17 frames is the TAIL, not the shape.**
+
+   ⭐⭐ **AND THE TAIL IS THE PERFORMER, WHOSE AUTHOR PUT IT THERE ON PURPOSE.** Her
+   three tilts are startup 4.8 / active **9.6** / endlag 9.6, her aerials 9.6–16.8
+   active, her jab a roster-ordinary 3.0. `game/ambition_content/src/authored/performer.rs`
+   says why in its own words: *"every gesture held a beat too long because a gesture
+   that is not held did not read from the back row"*, and her clips are *"the sword
+   archetype's held longer — 60ms against its own timings"*. ⇒ **A character's
+   authored identity was read as an engine-wide tuning defect.**
+
+   ⇒ **WHAT IS ACTUALLY OPEN IS NARROW AND IS JON'S:** her tilts are 2.3x the roster's
+   median active with the roster's ordinary endlag (9.6 against 10.2), which is a
+   long hitbox that costs nothing extra to throw. That is a per-character balance
+   question, not a clock rewrite, and it now has numbers.
 
 ### D-TETHER-LINE — DONE 2026-09-10; the reel publishes a fact, not a component
 

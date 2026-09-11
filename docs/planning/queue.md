@@ -1427,6 +1427,27 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    ⛔ **AND EVERY ONE OF THE 21 WAS OUT OF REACH at the take's default seat spacing**
    — closest gaps 39 to 142 px. The census above is about SIZE and says nothing about
    whether these moves connect in a match; that needs `--spacing`.
+
+   ✅ **HALF-CLOSED 2026-09-11 (`d2af48ff2`): the DEGENERATE half is repaired.**
+   `ambition_character_sprites::MIN_STRIKE_EXTENT_OVER_BODY` grows each half-extent
+   of a resolved manifest volume to at least half the body's half-extent ON THE SAME
+   AXIS. medic 0.14 → 0.70 (17.8 x 4.8 → 17.8 x 24.0 — her authored LENGTH kept),
+   sanic 0.16 → 0.27, carl 0.18 → 0.32, officer 0.39 → 0.60,
+   perfect_cellular_automaton 0.44 → 0.58, projectile_polygon 0.48 → 0.80, and
+   npc_alice 1.25 → 1.40 (a healthy AREA that was thin on one axis — the case an area
+   floor cannot see). Nobody above the floor moved.
+   ⛔ **PER-AXIS, BECAUSE AN AREA FLOOR DOES NOT REPAIR THIS.** Measured: an area
+   floor of 0.5 leaves the medic's tilt NINE px tall against a 48 px body.
+   ⭐⭐ **AND THE FLOOR IS NOT THE KNOB.** I predicted it would hit the same
+   `every_live_fighter_stays_inside_the_frame` wall the generosity knob hit at 1.30.
+   MEASURED at an AREA floor of 1.0 — far past anything shipped — that suite is 28/28
+   green. ⇒ **What breaks the CPU knockout game is making the ALREADY-GENEROUS boxes
+   bigger, not making the stingy ones adequate.** The ceiling in `6b8970798` is a
+   ceiling on the TOP of the distribution and this lever does not spend it.
+   ⚠ **STILL OPEN:** the floor reaches ONE of the two hitbox roads — goblin 0.55 and
+   npc_ninja_shadow_oni_leader 0.80 resolve authored `VolumeShape::Rect`s through
+   `ambition_combat` and do not move at any floor value. And every number here is
+   `attack_forward` alone; jabs, aerials and smashes are not censused.
 2. ✅ **CLOSED 2026-09-11 — THE PERFORMER'S TILT CANCELS ARE OBSERVED IN A MATCH,
    and `ba2f8887a`'s note said the opposite.** Both halves of *"not observed"* were
    the SCENARIO:

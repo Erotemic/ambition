@@ -204,6 +204,27 @@ pub fn authored_attack_volume_resolver(
 /// knob — TUNE LIVE.
 const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 
+/// The same generosity, for a body the catalog names — which in a match is
+/// EVERY fighter, including the one the player is driving.
+///
+/// ⛔⛤ THE KNOB ABOVE IS NAMED FOR A ROAD THE SMASH CAST DOES NOT TAKE. A seated
+/// fighter resolves through `actor_attack_hitbox_local`, which had no scale at
+/// all, so the "tune live" feel knob applied to nobody on the grid. MEASURED
+/// 2026-09-11 across all 21 grid fighters' forward tilt, as hitbox area over
+/// body area: medic 0.09, sanic 0.10, carl 0.11, officer 0.25 — a medic whose
+/// strike volume is **3.8 px tall** against a 48 px body.
+///
+/// ⭐ AUTHORED POLYS ARE SIZED TO THE VISIBLE BLADE, and the comment on the
+/// player's knob already says why that is not a hitbox: *"a move that connects
+/// only where the sprite overlaps feels stingy — so the generous part is
+/// declared rather than faked by drawing a longer sword."* The declaration
+/// belongs to every body that swings, not to one of them.
+///
+/// ⚠ DELIBERATELY GENEROUS. Jon, 2026-09-11: *"We can absolutely make characters
+/// overpowered."* This is the roster-wide feel lever; per-move tuning is the
+/// spec's `inflate`, which is a different question asked per swing.
+const ACTOR_ATTACK_HITBOX_SCALE: f32 = 1.6;
+
 /// The player's authored melee volume for `animation`, BODY-LOCAL.
 ///
 /// Cheap per-frame because the file-root registry is an immutable baked-asset
@@ -280,7 +301,12 @@ pub fn actor_attack_hitbox_local(
         collision,
     )
     .map(|b| b.render_size)
-    .unwrap_or(collision);
+    .unwrap_or(collision)
+        // ⛔ THE SAME GENEROSITY THE PLAYER ROAD ALREADY APPLIES. See
+        // `ACTOR_ATTACK_HITBOX_SCALE`: scaling the render size the poly offsets
+        // derive from grows reach AND size about the feet anchor, and touches
+        // neither the drawn sprite nor any authored collision box.
+        * ACTOR_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }
 

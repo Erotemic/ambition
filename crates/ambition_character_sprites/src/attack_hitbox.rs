@@ -233,7 +233,7 @@ const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 /// `ambition_combat`'s `the_two_hitbox_roads_are_equally_generous`. Two roads
 /// that drift apart make half the roster feel different for a reason no player
 /// can see.
-pub const ACTOR_ATTACK_HITBOX_SCALE: f32 = 1.0;
+pub const ACTOR_ATTACK_HITBOX_SCALE: f32 = 1.25;
 
 /// The player's authored melee volume for `animation`, BODY-LOCAL.
 ///

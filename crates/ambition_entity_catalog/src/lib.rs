@@ -3461,8 +3461,34 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
 /// — a GGRS sync-test checksum mismatch at frames 60-62, MEASURED both ways with
 /// nothing else different. **That determinism defect is repaired** (2026-09-11);
-/// what this number should BE is now an ordinary feel question, and raising it is
-/// a separate change that owes its own measurements.
+/// what this number should BE is now an ordinary feel question.
+///
+/// ⛔⛤ AND THE CEILING IS THE FIGHT, NOT THE ENGINE. MEASURED 2026-09-11 against
+/// `ambition_demo_smash_app`'s acceptance suite, one run per value:
+///
+/// | knob | verdict |
+/// |---|---|
+/// | 1.0 | 22/22 green |
+/// | 1.15 | green |
+/// | **1.25** | green — **this** |
+/// | 1.30 | `every_live_fighter_stays_inside_the_frame` RED: *"no fighter was ever outside the room's own bounds in this match (0 body-frames)"* |
+/// | 1.60 | that one, plus `the_camera_closes_no_faster_than_it_opened` and `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` |
+///
+/// ⇒ **The red is an ANTI-VACUITY FLOOR, and that is the product signal.** The
+/// test's claim still holds at 1.3 — VACUOUSLY, because a full CPU match produced
+/// ZERO off-stage body-frames where 1.0 produces more than twenty. Generous
+/// enough boxes make two CPUs trade constantly and nobody leaves the stage.
+/// ⚠ The same symptom, same test, is already on the board for a different lever:
+/// `docs/planning/demos/smash-parity-inventory.md` records hitbox clanking at 9
+/// damage doing exactly this. The ground game is sensitive to how cheap a trade is.
+///
+/// ⚠ MEASURED / NOT MEASURED, split. Measured: those five values and their
+/// verdicts. NOT measured: WHY a bigger box removes knockouts rather than adding
+/// them — `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock` still
+/// passes at 1.3, so launching works and the free-running match stops producing
+/// launches. And the cliff is ONE SAMPLE PER VALUE and sharp. ⇒ Read 1.25 as
+/// *"the largest value measured safe"*, not as a characterised boundary — and
+/// expect any brain, knockback or hitstop change to move it.
 ///
 /// ⛔⛔ AND THE REASONED CAUSE WRITTEN HERE WAS WRONG, WHICH IS WHY IT IS KEPT.
 /// It said a larger volume reaches more victims at once and that `queue.md`'s
@@ -3480,7 +3506,7 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// strike a missing `StrikeRank` is unobservable; at `1.6` two volumes reach the
 /// same victim often enough for the order to decide the outcome. A variable that
 /// makes a defect reachable looks exactly like the defect.
-pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.0;
+pub const ATTACK_VOLUME_GENEROSITY: f32 = 1.25;
 
 impl VolumeShape {
     /// This shape, grown about the body's own origin by `factor`.

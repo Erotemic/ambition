@@ -669,10 +669,20 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
 fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     let mut app = fight_app();
     register_two_providers_characters(&mut app);
-    // Mary-O's stomp spans x ∈ [10, 38]. Sanic stands at x = 52, so his coarse
-    // box (±20) spans [32, 72] and DOES overlap the strike, while his authored
-    // torso (±10) spans [42, 62] and does not. The two geometries disagree, which
-    // is the only way this test can mean anything.
+    // ⛔⛤ SANIC'S PLACEMENT DERIVES FROM `ATTACK_VOLUME_GENEROSITY`, AND IT HAS
+    // TO. The premise is "the strike reaches his BOX and not his TORSO" — a gap
+    // of a few pixels between two of his own geometries — so the moment every
+    // strike volume grew, the gap moved and the premise arm below refused.
+    //
+    // Mary-O's stomp spans x ∈ [10 g, 38 g] with `g` the knob (MEASURED: at
+    // g = 1.6 the live box read [16.000002, 60.800003]). Sanic's authored torso
+    // is ±10 and his body box ±20, so any centre in `(38 g + 10, 38 g + 20)`
+    // puts the box in reach and the torso out of it. The midpoint leaves the
+    // most room on both sides, and at g = 1.0 it is 53 — where this literal was.
+    const SANIC_TORSO_HALF_X: f32 = 10.0;
+    const SANIC_BODY_HALF_X: f32 = 20.0;
+    let strike_reach = 38.0 * ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY;
+    let sanic_x = strike_reach + (SANIC_TORSO_HALF_X + SANIC_BODY_HALF_X) / 2.0;
     let mary = spawn_fighter(
         &mut app,
         "mary_o",
@@ -683,7 +693,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
-        Vec2::new(52.0, 0.0),
+        Vec2::new(sanic_x, 0.0),
         -1.0,
         ambition_combat::components::ActorFaction::Npc,
     );

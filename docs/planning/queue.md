@@ -1467,7 +1467,35 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    of the engine**: `chained_frame` is a pure function of the ACTION tick by design,
    and hitlag freezes the move's proper time while the action tick keeps running, so
    a sweep of `--chain-at` is not a sweep of the move's own clock.
-3. `attack_air_back` connects by 0.2 px where the forward air has 17.8 to spare.
+3. ⛔⛤ **RE-MEASURED 2026-09-11: THE "BACK AIR REACHES ~38 px" FIGURE WAS READ OFF A
+   MOVE NO PRESS CAN PERFORM**, and the mistake is one a bundle makes easy.
+   The performer's move list holds BOTH `performer_air_back` (reach **55.0**,
+   9 damage, 116 knockback, `verbs: ["attack_air_back"]`) and a bare
+   `attack_air_back` (reach **30.8**, 1 damage, 120 knockback, **`verbs: []`**).
+   A take driven at the verb plays `performer_air_back`; a reader measuring
+   "the back air" in the exported bundle picks whichever row they see first.
+   ⇒ **Her authored back air reaches 55.0 against the forward air's 63.0 and hits
+   HARDER for it (9/116 against 8/98) — an ordinary trade, not a defect.**
+
+   ⭐⭐ **AND THE SHADOW LAYER IS A CENSUS, NOT A ONE-OFF. 112 of 661 moves on the
+   grid — 17% — BIND NO VERB**, and they are two populations:
+   * **105 = seven ids x fifteen fighters**: `attack`, `attack_up`, `attack_down`,
+     `attack_air`, `attack_air_up`, `attack_air_back`, `attack_air_down`, every one
+     of them damage 1 / knockback 120. These are `directional_attack_variants`'
+     derivations from a body's ONE authored `ActionSet.melee` swing — *"what this
+     body would swing if it had authored nothing"* — kept beside the authored set,
+     which wins the verb binding and shadows them completely.
+   * **7 legitimate**: `*_jab2`, `jab3`, `dive_stomp_uncharged`,
+     `bivalence_unmetered` — cancel-chain successors and `when_refused` fallbacks,
+     correctly absent from a fresh-press kit. `D-BRAIN-MENU` already names these.
+
+   ⚠ **NOT PROPOSED FOR DELETION HERE.** The derived layer is what a fighter who
+   authors only SOME directions falls back to, so it is doing a job for the other
+   six grid fighters. What it costs is measurable and unmeasured: `ActorMoveset` is
+   `rollback_component_clone`, so seven shadowed `MoveSpec`s ride every snapshot of
+   every one of those fifteen bodies. ⇒ **The finding is that a shadowed move is
+   indistinguishable from a live one in the bundle**, and that is what produced a
+   balance claim about a move nobody can throw.
 4. ⛔⛤ **RE-MEASURED 2026-09-11: THE ROSTER'S CLOCK IS ULTIMATE-SHAPED, AND THE
    "10–17 FRAME ACTIVE" WAS ONE CHARACTER READ AS THE ROSTER.**
    `scripts/measure_move_clock_shape.py` over a `moveset_export` bundle — 322 moves

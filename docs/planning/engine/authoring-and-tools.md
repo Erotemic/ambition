@@ -276,3 +276,16 @@ runs a full workspace suite or restarts a compiler for the host.
 Offline scripts/models may produce artifacts. Live simulation scripts use the
 registered state and deterministic service contract; the two modes are not
 interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.
+
+## Repeatable scenario and truthful activation result
+
+[Generation/reload](content-generation-and-reload.md) defines the operation and
+status fields. Pin the developer's scenario seed, input trace and accepted
+checkpoint before reconstruction. Show rebuilt/reused sections, attempted and
+active generation, refusal owner and whether the old scene was unchanged,
+recovered or stopped. Do not report 'loaded' from a build or file-read result.
+
+A stale background preparation result cannot overwrite a later edit. An identical
+mechanical generation does not clear history. Unsupported state migration refuses
+or asks for an explicit scenario restart; it never silently overwrites a durable
+save or starts a new game. Existing tools and GUI frontends call the same operation.

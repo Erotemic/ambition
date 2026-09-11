@@ -3,12 +3,16 @@
 **State:** target packet catalog, not a completed feature or a second queue.
 [The queue](../queue.md) selects execution. The [extension model](extension-model.md)
 owns decisions, the [execution contract](extension-state-and-execution.md) owns
-protocol semantics, and [evidence](extension-iteration-evidence.md) owns M0-M3.
+state semantics. [Generation/reload](content-generation-and-reload.md) and
+[domain contracts](extension-domain-contracts.md) own their protocol details.
+[Acceptance](fast-iteration-acceptance.md) defines FI1-FI10, and
+[evidence](extension-iteration-evidence.md) owns M0-M3.
 Baseline: `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`.
 
 ## Start here
 
-Read the four linked owner pages before changing a runtime seam. Re-read the
+Read the model plus the protocol and fixture sections for the selected packet
+before changing a runtime seam. Do not ingest every long plan by default. Re-read the
 named source on the actual working head. Record the active writer, installer,
 caller, lifetime, generation and cheapest existing behavioral test for that seam.
 Do not treat an old paragraph about unfinished A11 validation as current source.
@@ -26,7 +30,9 @@ Update these locators in the same commit when an implementation chooses a name.
 I0/M0 baseline and measurement helper ---------------------> report gains
     (parallel; no blanket design gate)
 
-I1 pure move authoring -> I2 loadable data artifact -> I3 generation activation
+I1 pure move authoring -> I2 loadable data artifact -> I3a candidate coordinator
+                                                      -> I3b bounded construction (A10)
+                                                      -> I3c repeatable reload
                                                         |
 I4 procedural SDK + static semantic reference -> I5 state + real rewind
                        |                         |        |
@@ -54,8 +60,8 @@ regressions must be resolved before claiming production readiness.
 | A11/A12 techniques | Preserve current installed admission, reference validation and occurrence rules when loading moves or providing techniques | Rebuilding the already implemented flow interpreter |
 | A2/contact and A4/body | Their published request/observation contracts govern corresponding ports | Completing every combat or movement feature before the data artifact |
 | A1/checkpoints | Use its durable restore/confirmed lifecycle road for required saved state | A new persistence engine inside the extension host |
-| A8/multiple worlds | Scope records so simultaneous worlds will not collide; use existing supported scopes now | Implementing concurrent-world scheduling merely to name a scope |
-| A10/isolated world publication | Required only for a stronger preserve-old-world-after-destructive-failure promise | Definition-level last-good publication or reconstruction-based reload |
+| A8/multiple worlds | Two-instance FI9 is a planned requirement; scope portable records consistently with their actual owners | Full concurrent-world execution before I1-I3 |
+| A10/bounded candidate construction | I3b needs one safe migrated reconstruction path; verify candidate materialization before retirement | Arbitrary World cloning/undo, all-plugin migration or a full streaming system |
 
 ## I0 - record real iteration costs without blocking clean boundaries
 
@@ -144,7 +150,9 @@ Read `crates/ambition_content_pack/src/lib.rs`,
 `crates/ambition_characters/src/prepared.rs`, and
 `crates/ambition_combat/src/technique.rs`.
 
-1. Define the envelope and one domain-owned move section. Version envelope and
+1. Define the envelope and one domain-owned move section under the
+   generation/reload contract. Record section dependencies, deletion semantics,
+   cache inputs and diagnostic-versus-mechanical provenance. Version envelope and
    section separately. Specify canonical numeric/key encoding, bounded lengths,
    logical references and required versus optional section rules. The first
    implementation may favor clarity over compression.
@@ -156,7 +164,8 @@ Read `crates/ambition_content_pack/src/lib.rs`,
    frontend for the same section where it fits the existing RON path. Compare
    frontend outputs at the admitted semantic value, not at source formatting.
 4. Add a selected-host load path through the current source/resolver policy.
-   Inspect actual installed technique support. Unknown keys, unavailable
+   Publish immutable objects plus a complete manifest; partial writes or watcher
+   order cannot select a mixed pack. Inspect actual installed technique support. Unknown keys, unavailable
    capabilities, invalid parameters and unresolved references refuse admission.
 5. Remove the migrated move table as a compiled authoritative input of the host.
    A test-only old table may be a temporary parity oracle, not a runtime fallback.
@@ -204,16 +213,18 @@ and [netcode](netcode.md) before claiming a transaction.
    Extend the runtime's existing digest sections for the artifact and profile
    requirements. Capture domain revisions in the bundle. Candidate hydration
    must not publish one domain while another still validates.
-3. Implement the seven-step activation sequence in the execution contract.
-   Seal the base epoch/profile. Stale candidates refuse or are re-prepared; no
+3. Implement the generation/reload state machine and the execution contract's
+   binding obligations. Seal the base epoch/profile. Stale candidates refuse or are re-prepared; no
    activation from whichever current registry happens to be readable.
 4. Expose explicit validate, describe-diff, reload-request and activation-status
    operations to developer tools. File watching calls the same request path.
    Coalesce notifications without losing the identity of the chosen candidate.
-5. Initially support local session/reconstruction activation, remote-session
-   refusal and presentation-only reload under the stated classification. Retain
-   old definitions on candidate failure. Do not promise undo after arbitrary
-   destructive native construction.
+5. Support local scenario reconstruction, remote-session refusal and
+   presentation-only reload under the stated classification. Pin the scenario
+   input/checkpoint. Implement one bounded safe candidate path with A10 before
+   closing reliable reload. Retain the active scene on supported candidate
+   refusals; classify explicit recovery separately from unchanged retention.
+   Do not promise undo after arbitrary native plugin failure.
 6. Add generation binding to any new state or cache. Ensure pending construction
    plans, handles and observers either stay with their generation or are retired
    before stepping the new one. Preserve same-session unhealthy diagnostics.
@@ -226,11 +237,22 @@ erase a previously unhealthy rollback diagnosis.
 **Poison:** publish the character registry before validating another family;
 the cross-family atomic-publication test fails. Increment epoch on refusal; the
 retention test fails. Reuse a sealed plan after an installer/profile change;
-admission fails. Replace a valid active world then simulate construction failure;
-the report must state the actual stopped-world guarantee, not retained-old-world.
+admission fails. Inject a materialization-draft failure after metadata admission;
+the supported path retains the old scene. A legacy stopped-world result is not a
+passing retained-scene witness. FI2-FI4 specify the independent assertions.
 **Cheapest checks:** extend existing character revision tests, content_identity
 unit tests and one lifecycle integration module in the shared app_it binary.
-**Not blocked by:** A10 isolated ECS-world publication.
+**Subcuts and done boundaries:**
+
+| Cut | Ordered output | Acceptance |
+| --- | --- | --- |
+| I3a | Factor nonmutating candidate hydration; implement complete-bundle seals, no-op identity and stale-attempt rejection | FI2/FI3; no full scene-retention claim |
+| I3b | Inventory the selected constructors and hooks; split typed candidate data from active mutation; validate relationships/resource deltas; connect one bounded publication path with A10 | FI4's candidate refusal and valid reconstruction, not only parser failure |
+| I3c | Add scenario pin/replay, changed-section explanation, actual activation status and generation-aware cancellation to existing tools | FI1-FI4 plus M0 measurements on the real edit loop |
+
+I3a is independently useful. I3 is complete only after all three cuts. I1/I2 and
+I4 contract work need not wait for I3b; procedural replacement does. Do not turn
+I3b into arbitrary ECS undo or all-world concurrent simulation.
 
 ## I4 - small procedural SDK and one native semantic reference
 
@@ -240,8 +262,9 @@ SimId/session ownership and RollbackRegistrar. Use one EchoFan-like technique as
 a small real migration probe. Preserve its current request/provenance semantics.
 
 1. Create the dependency-light SDK with module/entry/schema descriptors,
-   semantic handles, bounded observations, explicit own-state access and typed
-   domain request bindings. Reuse pure identity/schema primitives where they
+   semantic handles, bounded observations and explicit own-state access. Keep
+   selected domain request schemas in dependency-light domain owners, not one
+   engine-wide request enum. Reuse pure identity/schema primitives where they
    have the right owner; avoid a giant prelude reexporting the engine.
 2. Create a host executor/registration adapter with no named game algorithm.
    Keep it below the runtime composition root: it may use Bevy and the existing
@@ -250,13 +273,16 @@ a small real migration probe. Preserve its current request/provenance semantics.
    Reject any import-cycle workaround that moves game code into the host.
 3. Add only the observation/request ports needed by the fixture. The owning
    domain supplies projections, validation and lowering. Couple each port's
-   advertised support to actual installation.
+   advertised support to actual installation. Fill the domain-contract card for
+   each port, including submit/apply distinction, cancellation, grants and results.
 4. Map fixture entry points to current public phase/occurrence guarantees.
    Record input freshness, output consume barrier, Commands flush point and
    rejection behavior. Implement stable serial entry ordering first.
 5. Implement staged invocation outputs and deterministic limits. Make the
    native reference invoke the same semantic contract without copying all
-   inputs through a serialized buffer unnecessarily.
+   inputs through a serialized buffer unnecessarily. Stage only changed records;
+   batch at the declared scope and preserve the read cut. Never deep-clone the
+   complete store for each callback to simulate a transaction.
 6. Port the selected algorithm while retaining a test-only reference trace.
    Its state initially uses a narrow explicit state interface which I5 backs
    with generic registration. Do not invent a VM-wide event bus.
@@ -293,8 +319,10 @@ GGRS participation/identity probes, and
    generation metadata. Generate typed accessors from that schema for Rust;
    avoid a handwritten codec per migrated mechanic.
 2. Implement the safe host-owned state store and register its concrete type
-   using the current rollback_resource_clone_checksum method. Deep-clone mutable
-   records; share only immutable metadata. SnapshotState decoding has no schema
+   using the current rollback_resource_clone_checksum method. The reference may
+   deep-clone active records; immutable versioned chunks are another safe option.
+   Keep dormant durable state outside this active snapshot, with explicit pinned
+   inputs/handoffs where it affects simulation. Do not clone metadata each tick. SnapshotState decoding has no schema
    context, so do not route it through a global registry. Explicitly cover value checksums, live
    population, dynamic entity creation, reference mapping and session retirement.
    A metadata row or presence-only checksum is not acceptance.
@@ -322,7 +350,8 @@ world record survives a supported save/load while a transient cursor does not.
 leave one counter in a native static, or skip a dynamic population anchor; each
 has a separate failing witness. Swap same-shaped records across semantic entities;
 the checksum/reference test fails. A simple encode/decode roundtrip does not
-replace those tests. **Cheapest checks:** schema unit tests, then one populated
+replace FI6/FI7. Measure record visits and copied bytes as well as elapsed cost;
+one active write must not force a traversal of unrelated dormant records. **Cheapest checks:** schema unit tests, then one populated
 real-GGRS integration module. Schema changes also run the narrow schema baseline
 guards. Do not run all game scenarios after every codec field change.
 
@@ -392,8 +421,8 @@ which generation is active and diagnose a failed replacement without private
 World access. Current boss behavior passes its parity trace.
 **Poison:** reintroduce the old live system and detect double emission; remove a
 rewound graph edge/cursor and detect changed cycle results; add a central enum
-branch specifically for this graph mechanic and fail the fixture's extension
-independence review. **Cheapest checks:** module/schema tests, selected mechanic
+branch specifically for this graph mechanic and fail FI8's independent consumer
+requirement. Do not encode semantic expressiveness as a source-string ban. **Cheapest checks:** module/schema tests, selected mechanic
 parity, populated rewind, then M0/M1 loop. Existing demos are regression customers,
 not a reason to postpone this path until every demo is complete.
 
@@ -461,6 +490,30 @@ change a view's asset quality to alter simulation; each relevant test fails.
 **Cheapest check:** independent fixtures and selected integration/scaling cases.
 Run a broader assembly/regression checkpoint only when the accumulated changes
 warrant it under AGENTS.md, not once per scalar content edit.
+
+## Prevent incomplete migrations from becoming the default
+
+Before editing, record one small seam card with the current writer, readers,
+installer, preparation input, live scope, rollback registration, retirement owner
+and file to delete or simplify. Use the source map and the packet's actual paths.
+A field declaration location or crate name alone is not an owner.
+
+For each delivery slice, implement preparation, installation, live behavior,
+restoration and cleanup together for one customer. A loader with no consumer, a
+schema with no populated rewind, or a port descriptor without a reducer stays
+open. Keep the old implementation only as a noninstalled test oracle during the
+slice. Remove its production writers and compatibility exports before closure.
+
+Stop and amend the owner plan when a requested port needs a new domain authority,
+when construction can mutate outside its candidate, or when a state handoff has
+no single writer. Do not add a fallback, global context, extra bridge registry or
+second gameplay path to get a green test. Add the missing owned contract instead.
+
+Do not stop merely because a measurement is unavailable: implement independent
+DO work and leave that measurement's acceptance open. Conversely, a benchmark win
+does not waive single-authority or rollback requirements. [FI1-FI10](fast-iteration-acceptance.md)
+are concrete fixture specifications, not ten new compulsory binaries or a demand
+to run all ten after every edit.
 
 ## Validation routing and completion receipts
 

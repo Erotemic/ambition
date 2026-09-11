@@ -172,7 +172,9 @@ Use the [architecture reassessment](engine/architecture-reassessment.md) and
 [bounded packets](engine/actor-monolith-work-frontier.md). The old mandatory
 projectile/shrine/placement SCC chain is retired. A1 establishes checkpoint
 restoration ownership; A2 first repairs contact semantics; A3 retains the valid
-placement bridge relocation. A4-A8/A10 have explicit evidence/customer holds.
+placement bridge relocation. A4-A7 retain their packet-specific evidence gates.
+A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
+reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
 
 A11/A12 make authored technique admission and flow bounds reliable. A9 proves
 compile/runtime optionality through real external profiles. These are independently

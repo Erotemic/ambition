@@ -15,8 +15,11 @@ those evidence classes.
 The [extension architecture](engine/extension-model.md) was investigated against
 `d81a7ae1d2db1fc5caa49efc807a39ea6b1ca266`. It is a plan, not a landed loader or
 measured speedup. The first delivery is an independent pure move builder,
-loadable content artifact and coordinated local generation activation. Runtime
-procedural modules follow the same ownership and rollback contract.
+loadable content artifact and repeatable local scenario reload. The deeper design
+specifies dependency-aware candidates, stale-work seals, bounded safe construction,
+domain request outcomes and active/dormant state ownership. A8's two-instance proof
+and A10/I3b's reconstruction have concrete customers, not new completion claims.
+Runtime procedural modules follow the same ownership and rollback contract.
 
 The [evidence page](engine/extension-iteration-evidence.md) records source facts
 and manifest-only traversal separately from unperformed Cargo/runtime/timing

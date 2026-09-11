@@ -264,12 +264,13 @@ verifier detects violations after commands have mutated the world. It can preven
 publication; it cannot undo arbitrary commands. An invalid trusted recipe can
 therefore leave changed world state even when verification fails.
 
-Document this as a trusted-code, fail-closed publication protocol. If last-good
-world retention across commit failure becomes a requirement, implement an
-inactive candidate population and constrain all writes before activation; prove
-that external resources are not mutated before promising atomic replacement.
-Do not infer isolation from the name `ConstructionPlan` or solve the problem by
-cloning an arbitrary Bevy World. See F6 and the construction owner document.
+Document the existing path as trusted-code, fail-closed publication. Reliable
+development reload now supplies the bounded stronger requirement: A10/I3b prepare
+and verify typed candidate data before retiring the active scenario. The detailed
+[construction contract](construction-and-reconstitution.md) inventories hooks,
+resource writes and visibility. It does not promise recovery from arbitrary unsafe
+native code. No `ConstructionPlan` name, Pending marker or World clone establishes
+isolation by itself. F6 remains a current-source limitation until that path lands.
 
 ### Decision I: make agent authoring a control-plane contract
 
@@ -287,18 +288,14 @@ concrete iteration customer, not merely a competitive-positioning rationale.
 Preserve source provenance, diagnostics, replayable tests and explicit publication
 while removing the ordinary author's dependency on host relinking.
 
-The source already has a TechniqueFlow interpreter and a live authored customer,
-contrary to stale authoring prose. Its parameter-validation registry has no
-production caller, and flow validation does not bound usize transitions to the
-u16 runtime cursor. A11/A12 close those concrete admission gaps. Duplicate keys
-can be rejected without comparing function pointers; the current rationale for
-mandatory last-write-wins is incorrect. The
-[authored-technique protocol](authored-technique-admission.md) selects acyclic
-1-256-node flows, exhaustive installed-profile validation, private checked runtime
-values and session-boundary activation. Finish stops the flow, not move recovery;
-the normal move clock/teardown remains authoritative. See F7/F8.
+The 2026-09-11 source has installed technique support, preparation admission and
+staged revision refusal. The older disconnected-registry/unchecked-flow diagnosis
+is historical; do not reopen A11/A12 from it. The
+[authored-technique owner](authored-technique-admission.md) records the current
+closure and standing delivery/flow rules. Loaded providers must use that same
+road, not rebuild its interpreter or maintain a second validation registry.
 
-### Decision J: defer multi-instance generalization until its acceptance case
+### Decision J: implement the bounded two-instance proof before streaming
 
 The live world and several identity/query roads assume one active room. That is
 valid for the current host but is not multi-resident-world support. A room
@@ -306,11 +303,13 @@ valid for the current host but is not multi-resident-world support. A room
 a rendered view have different identities and lifetimes. Existing stable IDs do
 not automatically establish the namespace needed for two live copies of a room.
 
-Before streaming/multiview across rooms, prove two simultaneous room instances,
-repeated definition use, scoped lookup/collision, portal handoff, save ownership
-and teardown. Do not spread a new universal instance identifier through every
-crate ahead of that customer. Preserve the one-room profile as a supported,
-simpler specialization.
+The long-term game supplies the customer. A8/OW1 now proves two simultaneous
+instances of one room, scoped lookup/collision and teardown before streaming.
+The later handoff/save work consumes that same scope. Do not spread a universal
+identifier through every crate; qualify the paths the fixture proves ambiguous.
+The one-room profile remains the same implementation with one instance, not a
+preserved singleton fallback. Numeric budgets and background game policy remain
+separate questions in [open-world planning](open-world-runtime-and-residency.md).
 
 ## What not to do
 

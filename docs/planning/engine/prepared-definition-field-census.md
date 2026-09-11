@@ -1,8 +1,9 @@
 # Prepared character definitions — per-field dependency census
 
 **A6's hold, verbatim: "make a field/use census before moving types."** This page
-is that. No type has moved and no split is proposed; the frontier says the hold
-is released by the census, so the census is the deliverable.
+is that historical measurement. It does not claim a type move has landed.
+The selected I1/I2 uses at the end guide the independent authoring boundary;
+they do not authorize a wholesale character-domain split.
 
 Measured 2026-09-10 against `2418dc369`, after A11's admission work landed
 (`8dd6ea426`) so the preparation barrier is the one the census describes. The
@@ -241,3 +242,22 @@ The script prints these on every run:
 ⚠ It also does not distinguish a READ from a WRITE — a deprecation warns on both.
 For "who writes this state", the sibling instrument is
 `scripts/measure_state_writers.py`, and it has its own separate blind spots.
+
+## Selected uses for the independent authoring boundary
+
+This census guides I1/I2; it does not require copying PreparedCharacterDefinition
+wholesale into a portable schema or moving all its readers to one new crate.
+
+| Field family | Selected responsibility | Migration rule |
+| --- | --- | --- |
+| id/provider and logical references | Pure identity where already appropriate | Preserve canonical meaning; no parallel identity algebra |
+| authored moves, kit, motion model and tuning | Immutable mechanical definition with owner validation | Portable only through pure owned values; live application remains with the body/action owner |
+| body/hurtboxes/vitals | Authored facts plus typed construction input | Separate from live body health/materialization; do not serialize ECS state as content |
+| autonomous/provoked policy | Prepared controller policy and referenced identity | Preserve the same resolver at spawn, live selection and rewind; do not move brain execution into the compiler |
+| sheet/portrait/voice | Logical asset/presentation references with declared mechanical dependencies | Collision-bearing metadata is mechanical even if an art tool produced it |
+| checked/dependency inventories | Derived preparation/discovery evidence | Recompute from one validator; do not trust a serialized 'checked' bit as installed admission |
+
+For each moved field, record preparation input, runtime reader, invalidation and
+reload policy. Test a nondefault value through the consumer. A value read at spawn
+and during simulation can legitimately be one immutable definition; two reads do
+not require two authorities or two copies. Follow [generation/reload](content-generation-and-reload.md).

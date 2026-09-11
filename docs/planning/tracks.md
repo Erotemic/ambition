@@ -84,12 +84,11 @@ actual product requirement.
 ## Engine architecture reservoir
 
 The [architecture reassessment](engine/architecture-reassessment.md) supplies the
-current ownership model. The A4-A8/A10 holds in the
-[frontier](engine/actor-monolith-work-frontier.md) are conditional design work,
-not queued implementations: control writer census, complete destructible
-transitions, prepared/live character split, item lifetime matrix, repeated-room
-instance isolation and stronger publication-failure requirements. Their release
-conditions replace any inferred SCC milestone. Active A1/A2/A3/A9/A11/A12 work is
+current ownership model. The [frontier](engine/actor-monolith-work-frontier.md)
+names each packet's current evidence gate. A8's repeated-room scope proof and
+A10/I3b's bounded reload construction now have explicit customers; they are not
+indefinitely held for another demo. Control, destructible, definition and item
+work retain their own preconditions. No inferred SCC milestone replaces them. Active A1/A2/A3/A9/A11/A12 work is
 selected in the queue, not duplicated here. Unchanged product tracks below retain
 their real customer/measurement triggers.
 

@@ -133,3 +133,19 @@ input, an authored action/object, optional presentation and a lifecycle transiti
 through public docs/discovery, without reading migration plans. The same project
 has headless tests and a noninteractive release-artifact route. Each advertised
 optional capability has a tested positive case and a supported absence case.
+
+## Small portable surface, complete native engine surface
+
+The small common extension SDK does not collect every domain payload. Modules
+import selected pure domain port schemas under [domain contracts](extension-domain-contracts.md).
+The host adapter handles Bevy conversion and installed support. New procedural
+algorithms and state can use those ports without an engine dispatch edit.
+
+Raw engine plugins remain normal Bevy plugins/systems and can expose new reusable
+services. That heavy development tier is explicit, not an unrestricted mutation
+escape inside the portable ABI. Do not wrap every Bevy API, and do not advertise
+a static Bevy-dependent module as meeting no-host-relink iteration.
+
+Examples must show submitted versus applied actions, owner retirement, one
+populated rewind and a failed candidate reload. FI1/FI5/FI6/FI8 in
+[acceptance](fast-iteration-acceptance.md) are the independent-consumer tests.

@@ -453,3 +453,16 @@ An agent response based on an observation needs subject/session and revision or
 expiry checks before normal action admission. Replaying accepted intentions must
 not rerun external observation/model queries. Multi-instance scope is introduced
 through A8's concrete repeated-room witness, not by a universal world-facts bus.
+
+## Procedural callers receive the appropriate knowledge contract
+
+A portable module is not automatically omniscient. An actor controller consumes
+its granted observation/knowledge projection; an explicitly authorized world-rule
+module may consume wider authoritative facts. Diagnostic inspection is a separate
+read-only role. [Domain contracts](extension-domain-contracts.md) records that
+scope with the port, including instance, coordinate frame, phase and missing data.
+
+World truth, an observation and a belief remain different values. Do not create
+one generic WorldSnapshot that silently gives limited-knowledge brains every
+fact or makes gameplay rules read stale beliefs. Caches pin their source revision
+and read cut; restoring or clearing a derived cache cannot change the outcome.

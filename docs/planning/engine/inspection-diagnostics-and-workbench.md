@@ -164,3 +164,15 @@ combat scenario/take comparison and M3 art/geometry agreement. Its diagnostic
 frontends must consume real runtime contacts and prepared content, not a second
 combat model. A2/F2/F3 regression scenarios are useful customers of that surface,
 not a reason to require a graphical inspector for every headless contact test.
+
+## Iteration inspection is a protocol consumer
+
+Use the generation/reload status result rather than re-derive readiness from file
+mtime, a cache entry or one domain registry. Expose the dependency invalidation
+reason, candidate/base/profile identity, phase, reconstruction policy and actual
+observed generation. Distinguish submitted domain requests from applied/rejected
+outcomes by occurrence. Expose owner-scoped residency reasons and state lifetime.
+
+These are projections of the owners in [generation/reload](content-generation-and-reload.md)
+and [domain contracts](extension-domain-contracts.md), not a second mutable catalog.
+A GUI is optional; machine-readable queries and complete errors are not.

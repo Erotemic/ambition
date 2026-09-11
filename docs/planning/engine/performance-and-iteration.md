@@ -238,12 +238,26 @@ A9 separates Cargo closure, compilation fanout, linked bytes, runtime installati
 and runtime cost. A smaller SCC is none of those measurements. Report the target,
 features, cold/warm state, scenario identity and hardware with each claim.
 
-Source inspection found that the flow interpreter clones the authored flow during
-playback. A12 validates/bounds the graph first; an immutable prepared reference or
-narrower borrowing may remove the clone afterward. This is an allocation/copy
-opportunity, not a measured frame-time bottleneck. Benchmark a live flow customer
-before claiming benefit or adding an arena, cache or custom interpreter runtime.
+Recheck the current prepared flow execution before reusing an earlier authored-
+flow clone diagnosis. A12's representation changed; historical source observations
+are not current measurements. Measure a live flow customer's allocations/copies
+before adding an arena, cache or custom interpreter runtime.
 
 A residency budget, broadphase index and parallel schedule change each need their
 own measured customer. A new shared abstraction that increases rebuild reach or
 per-tick indirection has a cost even when source lines decrease.
+
+## Work-set invariants versus storage experiments
+
+Fast iteration DO work includes explicit preparation dependencies, immutable shared
+metadata, bounded invocation write sets and separation of active from unrelated
+dormant state. It excludes rebuilding every content section for a scalar edit or
+copying the whole world for every callback. Those ownership/work-set requirements
+do not depend on a timing threshold.
+
+M0-M3 in [extension evidence](extension-iteration-evidence.md) choose physical
+caches, batching, snapshot chunks/COW/deltas and executable deployment. Keep a
+full logical reference for restore/hash comparison. Record visited records,
+changed bytes, retained history and boundary crossings as well as time. A simple
+clone-backed store may remain if real costs support it; neither 'clone is always
+cheap' nor 'COW is always faster' is an architectural fact.

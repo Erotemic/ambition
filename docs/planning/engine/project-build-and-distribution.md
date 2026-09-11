@@ -610,3 +610,18 @@ The minimal external fixture must exercise supported APIs and real simulation.
 Correct its render-opt-out documentation when the implementation packet lands;
 this docs-only review does not edit that fixture. Do not use in-workspace defaults
 or test-support backdoors to make an external profile appear independent.
+
+## B7 delivery detail: measure the whole changed path
+
+M0 must attribute source generation, pure build/codegen/link, changed-section
+preparation, candidate materialization, state restore and first observed behavior.
+The no-host-relink claim is a structural assertion as well as a timing row: a fast
+unnecessary host link is still the wrong content-edit path. Artifact freshness is
+proved by the active generation and its changed behavior, not file mtime.
+
+Do not put the new producer in the host build.rs or feed its result back through
+include_str for the migrated path. Keep independent manifests/lockfiles and record
+actual feature/target units. Reuse the configured cache safely; a new cold target
+for every sample/edit measures repeated bootstrap rather than normal iteration.
+Existing target-bind/disk/profile rules still apply. M0-M3 own samples and cost
+choices; FI1-FI4/FI10 own [behavioral acceptance](fast-iteration-acceptance.md).

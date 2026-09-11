@@ -59,11 +59,16 @@ not completed implementation or a new maintainer ruling.
 [Fast content iteration and extensions](engine/extension-model.md) owns the
 runtime-loaded artifact, procedural SDK and Bevy plugin boundary. Its
 [state/execution contract](engine/extension-state-and-execution.md),
-[implementation packets](engine/fast-iteration-implementation.md) and
+[generation/reload protocol](engine/content-generation-and-reload.md),
+[domain call contracts](engine/extension-domain-contracts.md),
+[implementation packets](engine/fast-iteration-implementation.md),
+[acceptance fixtures](engine/fast-iteration-acceptance.md) and
 [evidence/experiments](engine/extension-iteration-evidence.md) separate architecture
 that can proceed now from backend, storage and timing decisions requiring local
 measurement. This supersedes older blanket deferral of runtime extensions until
-a public modding customer exists. It does not supersede domain mutation owners.
+a public modding customer exists. I3b supplies A10's bounded safe-reconstruction
+customer; the long-term game supplies A8's two-instance proof. Neither gates I1/I2.
+These contracts refine existing owners rather than create another work queue.
 
 A polished crate name, older campaign, author identity or repeated commentary
 provides no additional evidence of responsibility or correctness.

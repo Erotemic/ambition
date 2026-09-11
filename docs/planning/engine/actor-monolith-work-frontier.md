@@ -28,8 +28,8 @@ fresh source/behavior preflight for every packet
     +-- A4 accepted control/body execution (writer map DELIVERED 2026-09-10)
     +-- A6 definitions / materialization (field census DELIVERED 2026-09-10)
     +-- A9 minimal-profile baseline now; closure changes by proven owner
-    +-- A8 multi-instance world (HOLD for explicit customer/acceptance scenario)
-    +-- A10 isolated publication (HOLD for required failure guarantee)
+    +-- A8 two-instance scope proof (customer established; OW1/FI9 first)
+    +-- A10 bounded candidate construction (I3b reload customer; FI4)
     +-- A12a raw flow validation (independent)
     +-- A11a installed support -> A11b exhaustive references
             -> A12b checked runtime -> A11c explicit activation
@@ -45,8 +45,9 @@ There is no requirement to split accepted control across crates to make A4 green
 The [extension packet catalog](fast-iteration-implementation.md) is the bounded
 continuation for pure authoring, portable artifacts and procedural state. It uses
 A6's field census, A9's resolved-closure method and A11/A12's existing admission.
-Only specific domain ports wait on A2/A4 contracts. A8 world multiplicity and
-A10 arbitrary-world retention are not blanket prerequisites. Do not expand I1's
+Only specific domain ports wait on A2/A4 contracts. A8 now starts with the
+long-term world's two-instance proof; A10 supplies I3b's bounded safe reconstruction.
+Neither blocks I1/I2, and arbitrary-world undo is not the requirement. Do not expand I1's
 pure helper move into an actor SCC extraction. The extension catalog and this
 catalog both take priority from [the queue](../queue.md).
 
@@ -394,22 +395,35 @@ inventory accounting per occurrence and the explicit scope of each baseline.
 
 ## A8. Prove live world-instance isolation before generalizing residency
 
-**HOLD for a real simultaneous-room customer.** Current active-room specialization
-is not itself a defect. Source: monolith world collision/active binding, world
-RoomSet, shared SimId/lifecycle scopes, runtime room transition and portal/view
-integration. Destination: spatial instance/residency authority plus coordinator.
+**Customer established:** the persistent multi-room game and separated actors.
+Start with OW1 in [open-world planning](open-world-runtime-and-residency.md) and
+FI9 in [iteration acceptance](fast-iteration-acceptance.md). Do not wait for another
+demo, and do not build full streaming before this bounded proof.
 
-Start with two live instances of one prepared room definition. Define stable
-identity as a scoped occurrence, and keep definition revision, live instance,
-session, participant and view identities separate. Do not introduce a universal
-ID wrapper across unrelated domains. Determine save identity policy before
-letting multiple instances write the same persistent occurrence key.
+**Source:** monolith world collision/active binding, `RoomSet`, shared SimId and
+lifecycle scopes, runtime room transition and portal/view integration.
+**Destination:** spatial instance authority plus existing lifecycle coordination.
 
-**Acceptance:** no cross-instance collision, lookup, observation or despawn;
-portal/control transfer keeps body identity and ownership; unloading one instance
-does not retire the other; same-room two-view rendering does not duplicate
-simulation. Only then make required identity/query changes and budget residency.
-Retain a small single-active-room host profile.
+1. Run two instances of one prepared room with identical local placement IDs.
+   Trace construction, lookup, geometry, contacts, observations and teardown.
+2. Identify the exact values that lose instance scope. Qualify them at the owner;
+   distinguish definition, live instance, durable occurrence, construction attempt,
+   session, body, participant and view. No universal ID wrapper across all domains.
+3. Define the saved occurrence namespace before two instances can persist the same
+   local placement. Temporary candidate/reload IDs must not become save identity.
+4. Route queries and transfers through scoped owner services. Prove one body and
+   one custody writer during handoff. Do not retain a separate singleton road.
+5. Only then add residency interests, accepted population changes and measured
+   budgets. Active membership changes preserve unaffected instances when the
+   existing session timeline rebases.
+
+**Acceptance:** no cross-instance collision, observation, lookup or despawn;
+controlled/portal transfer preserves body and custody identity; unload of one
+instance leaves the other intact; two views of one instance do not duplicate
+simulation. The one-room profile is the same implementation with one instance.
+**Poison:** select geometry by the global current room, key two placements by
+only their definition, or retire both instances on one unload. Each has a runtime
+witness. Q94 sets numeric budgets later; it does not hold the identity proof.
 
 ## A9. Prove public profiles and actual compile/runtime optionality
 
@@ -481,27 +495,35 @@ consumers, then delete internal mirror re-exports. Preserve an ergonomic facade;
 no consumer must import 20 implementation crates. Measure build time and binary
 footprint separately on an available toolchain/hardware before making claims.
 
-## A10. Constrain publication failure semantics only as far as required
+## A10. Constrain candidate construction for reliable development reload
 
-**HOLD on architectural hardening; documentation correction is immediate.**
+**Customer established:** I3b's repeated scene reconstruction after a content edit.
+The current source uses raw Commands, so its post-commit verifier cannot undo
+arbitrary mutation (F6). Preserve that source fact; do not preserve its limitation
+as the finished reload design. I1/I2 and I3a do not wait for this packet.
+
 **Source:** shared construction executor/recipes, runtime prepare/commit/verify/
-publish, domain construction services. **Problem:** raw Commands permit mutation
-that the roster verifier can detect but cannot undo (F6).
+publish, domain construction services. **Destination:** one restricted typed
+candidate path under the existing lifecycle owner. Detailed steps and failure
+classes are in [construction](construction-and-reconstitution.md) and
+[generation/reload](content-generation-and-reload.md).
 
-Definition-level rejection and explicit activation are required by
-[the authored-technique contract](authored-technique-admission.md); they do not
-wait for inactive-world construction. For the stronger world guarantee, first
-add fault-injection fixtures using a trusted invalid recipe: duplicate root,
-root removal/identity mutation, undeclared occurrence and external-resource write.
-Verify the host does not publish readiness or continue normal simulation after
-failure. Preserve unchanged-world behavior on **preparation** failure.
+Inventory selected recipes, resource writes, hooks and observers. Factor typed
+inactive candidate data from active materialization. Validate the full candidate
+and pinned state mapping before retirement. The materializer cannot discover new
+fallible IO or domain requirements after that boundary. Do not add a universal
+recipe language, arbitrary World clone or second lifecycle coordinator.
 
-If preserving the old live world across **commit** failure is required, create an
-inactive candidate population and restrict writes to its scope. Stage non-entity
-state explicitly and prove activation is the sole publication point. This may
-justify a narrower construction context; it does not justify type-erased
-executable registries or arbitrary World cloning. Do not claim a Rust plugin is
-sandboxed, and do not call a unit-returning function infallible.
+**Acceptance:** FI4 exercises a nonempty scene, invalid candidate relationships,
+duplicate identity, forbidden resource mutation and successful reconstitution.
+Supported candidate refusal retains the active scene; explicit reconstruction of
+the pinned prior scene reports recovered, not unchanged. Unexpected native faults
+remain fail-stop and do not count as a successful reload.
+
+A `Pending` marker does not isolate a candidate from queries, observers or hooks.
+A same-World or separate-World strategy needs its own complete visibility/transfer
+proof. Prefer typed inactive drafts first. General unsafe-plugin recovery and
+arbitrary save/schema migration are outside this bounded packet.
 
 ## A11. Make installed technique support a preparation contract
 

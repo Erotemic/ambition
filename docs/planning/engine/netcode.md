@@ -217,3 +217,16 @@ Room publication remains outside speculative execution with a new frame-zero
 baseline. Concurrent world residency, cross-room snapshots and two independent
 live matches are separate capabilities; A8 requires a real two-instance witness
 before generalizing every identity or rollback resource.
+
+## Generation activation and active population are separate network promises
+
+[generation/reload](content-generation-and-reload.md) is initially local development
+reconstruction with a fresh timeline; active remote sessions pin their generation.
+A code/schema match alone does not authorize old history to run under new content.
+Port/execution profiles and the host compatibility policy remain part of admission.
+
+Multi-instance membership changes preserve unaffected instance state under the
+session's accepted baseline/confirmation policy. Do not invent independent room
+rollback clocks or clear remote actors to reuse the single-room reset. A future
+real-transport barrier must coordinate those decisions; local GGRS sync tests are
+necessary controls, not proof of remote lifecycle coordination.

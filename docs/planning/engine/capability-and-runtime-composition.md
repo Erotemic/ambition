@@ -235,3 +235,17 @@ rollback declaration and a resolved dependency-closure statement. Cross-owner
 composition has a reason and a phase guarantee. SDK consumers need no internal
 module map. Unsupported configurations report unsupported; they do not use a
 plausible sibling default and produce misleading benchmark results.
+
+## Port payload ownership and actual visibility
+
+[Domain contracts](extension-domain-contracts.md) keeps pure operation schemas at
+the domain owner and common wire/state primitives in the small SDK. Do not make
+the executor import every domain, use a central all-requests enum, or move runtime
+support facts into a lower schema crate to avoid passing them into preparation.
+
+An installed port includes implementation, scope/grant, observation cut, consume
+barrier and result. Bevy messages are not automatically rollback queues. Cleanup
+and acknowledgements that survive a tick have explicit registered ownership.
+The initial serial execution order preserves domain arbitration; it is not a new
+priority rule. Publication visibility also covers observers/hooks and resource
+writes, not only fixed-schedule systems.

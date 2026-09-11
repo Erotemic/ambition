@@ -750,3 +750,17 @@ indivisible to its consumers. It does not extend the raw-Commands construction
 interface into an undoable transaction. Failed construction and consumption must
 have an explicit order and regression; do not grant or spend an occurrence just
 because a construction request was made.
+
+## Procedural callers and residency handoff
+
+Modules request acquisition, transfer, cost or custody through the existing owning
+transaction; no extension-owned inventory mirrors are introduced. A submitted
+request is not a receipt of acquisition. A paid action uses the owning compound
+admission/reservation rule, not two independent requests that can disagree.
+
+[Open-world planning](open-world-runtime-and-residency.md) requires exactly one
+writer while a live occurrence becomes dormant or becomes live again. A durable
+item reference does not force a body/entity to stay resident. Preserve occurrence,
+holder and checkpoint scope; a candidate reconstruction attempt is not a new
+persistent identity. FI5/FI9 in [acceptance](fast-iteration-acceptance.md) exercise
+refused/accepted transfer and replay between submission and acknowledgement.

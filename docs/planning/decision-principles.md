@@ -84,3 +84,22 @@ Do not let TUNING block architecture (Jon, 2026-07-06). Numeric feel/quality val
 Do not choose a solution merely because it is easier to implement right now. Ease of implementation has very little weight compared with elegance, maintainability, clarity, runtime behavior, and architectural fit.
 
 Do not avoid an elegant solution merely because it is difficult to test automatically due to visual, aesthetic, or feel-based behavior. Prefer the elegant system. Visual regressions can be found and fixed later through review, playtesting, and iteration.
+
+## Implementation plans must name the transition, not only the principle
+
+For a selected slice, identify current writer, inputs, installer, scope, lifecycle,
+rollback participation, consumer and old path to remove. Specify the state
+transition and what a failure leaves unchanged. A proposed abstraction earns its
+place when a caller no longer needs the callee's private policy; a forwarding
+wrapper alone does not establish that.
+
+Separate source facts, architecture decisions, experiments and product choices.
+Unavailable timing does not block a known authority/dependency correction. A
+performance result does not authorize duplicate writers or hidden simulation
+state. When a contract is missing, complete its owner or report the packet open;
+do not invent a fallback to make the demonstration pass.
+
+Close with a nonempty behavioral witness and a deliberate defect that makes its
+intended assertion fail. Then remove the obsolete production path and compress
+the receipt. Keep unresolved questions only when they name missing evidence or a
+real product policy, rather than asking the maintainer to choose routine ownership.

@@ -223,8 +223,8 @@ constructs or advances a body is not the acceptance witness.
 ## F6. Construction verification detects invalid mutation; it cannot undo it
 
 **Owner:** typed construction and lifecycle publication.
-**Priority:** clarify guarantees now; harden only against an explicit failure/
-publication requirement in A10.
+**Priority:** source limitation remains open; A10/I3b now has the explicit
+repeated-development-reconstruction customer. I1/I2 do not depend on it.
 **Confidence:** source-established contract limitation, explicitly acknowledged
 by source comments; not a claim of a newly observed production corruption.
 
@@ -242,8 +242,9 @@ Trusted Rust can also mutate resources beyond an entity roster.
 
 The immediate contract is fail-closed publication with a stopped/recovered host
 on invalid trusted code, not continued simulation of a half-accepted revision.
-If last-good-world retention is required, build inactive candidate state,
-constrain writes to it and prove cleanup before atomic activation. Arbitrary
+For the supported reload path, build typed inactive candidate state, constrain
+writes and prove its visibility/cleanup under A10 before claiming retained-scene
+activation. Arbitrary native-plugin undo remains outside that contract. Arbitrary
 Commands cannot provide that guarantee by documentation alone. Test an invalid
 recipe that changes a root and one that writes an external resource; do not hide
 the second case by checking only entity counts.

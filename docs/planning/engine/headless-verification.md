@@ -265,3 +265,16 @@ Targeted runtime tests, source boundary guards and public API compile tests answ
 different questions. A zero-test filter is not a behavioral pass. Missing Cargo,
 targets, assets or GPU prerequisites produce an incomplete receipt with the exact
 command and reason; they do not become a successful lane.
+
+## Independent iteration evidence
+
+Use [FI1-FI10](fast-iteration-acceptance.md) for the selected extension packet. A
+behavior witness steps the actual reducer/materializer/GGRS restoration it claims
+to test. A metadata declaration, source-string match, empty App or codec roundtrip
+cannot replace that evidence. First prove the fixture reaches the intended branch;
+then mutate one obligation and require the correct assertion to fail.
+
+Keep lightweight schema/compiler tests separate from an assembled host witness.
+Add cases to existing shared integration targets. A content-only edit runs its
+admission/trace lane; a host/registry change additionally exercises that assembly
+boundary. This is not a requirement to run the full suite after each edit.

@@ -617,8 +617,10 @@ present development constraint, not a future modding concern.
 [packet catalog](engine/fast-iteration-implementation.md): move only the pure
 move-helper closure into the existing Bevy-free value owner, migrate callers,
 and prove an independent builder's resolved dependency closure. Continue to I2
-and I3 for an actually loadable artifact and coordinated local activation. The
-first delivery is that complete data loop, not an entire scripting framework.
+and I3a-I3c for an actually loadable artifact, sealed candidate and repeatable
+scenario reload. I3b uses A10's bounded construction path; a loader that destroys
+the test scene on a supported refusal does not close reliable iteration. The first
+delivery is that complete data loop, not an entire scripting framework.
 
 Run I0/M0 baseline collection alongside this work on a configured developer
 machine. Missing measurements do not hold the pure boundary extraction or the
@@ -627,8 +629,8 @@ cost, executable backend choice and snapshot layout. Do not add one measurement
 row per hypothesis to this queue.
 
 **Acceptance:** a semantically changed move reaches a prebuilt host without host
-compilation/linking; rejected replacements preserve the admitted generation;
-poisoning the builder with a facade dependency and forcing an old artifact each
+compilation/linking; rejected replacements preserve the admitted generation and
+supported candidate refusals retain the scene; stale work cannot publish; poisoning the builder with a facade dependency and forcing an old artifact each
 fails the appropriate independent witness. Existing P0 correctness work remains
 higher priority. There is no blanket dependency on completing A1-A12 or the SCC
 campaign. Later procedural work follows the linked packet prerequisites, not a

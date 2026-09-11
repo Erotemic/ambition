@@ -67,17 +67,25 @@ codec rule. Do not silently default an unknown authoritative field to zero.
 
 ### Initial physical implementation
 
-Start with one safe host-owned store type, registered through the existing
-RollbackRegistrar resource/component mechanisms. Internally it can hold
-schema-indexed bounded records keyed by scope and semantic attachment. The first
-correctness implementation may use ordered maps and owned values. The store is
-only extension-owned state; it must not mirror engine health, bodies or items.
-Its schema registry is immutable generation metadata, not copied per snapshot.
+Start with safe concrete host-owned storage registered through the existing
+RollbackRegistrar resource/component mechanisms. The initial active store can use
+schema-indexed bounded records keyed by scope and semantic attachment. It contains
+only active extension-owned state, not engine health/body/item mirrors or the
+whole durable world ledger. Schema metadata is immutable generation data, shared
+across snapshots rather than copied per tick.
 
-Use the existing rollback_resource_clone_checksum method for the first store:
-clone owned mutable records and share only immutable schema metadata. Supply a
-canonical logical-value checksum, not a presence-only probe. A shallow Arc clone
-of mutable records is not a snapshot. This method exists in the current registrar
+Ordered maps and owned values are a correctness reference, not an excuse to copy
+all records for each invocation. Stage changed records in a bounded write set.
+Queries read only their declared projection. Register or partition records by
+lifetime before adding dormant-world support. Physical pages/chunks, immutable
+sharing and copy-on-write are M2 choices; the active/durable ownership split is DO.
+
+Use the existing rollback_resource_clone_checksum method for the reference store.
+Its Clone must preserve the old logical values: deep-copy mutable values or share
+immutable versioned chunks whose writers detach before mutation. Supply a canonical
+logical-value checksum, not a presence-only probe. A shallow Arc clone of mutable
+records is not a snapshot. Do not prescribe whole-store deep copies as the final
+layout before M2. A clone-backed layout can remain when measured costs justify it. This method exists in the current registrar
 and avoids inventing a decoder with hidden access to the live World.
 
 In particular, the current SnapshotState decode function receives a Reader, not
@@ -134,6 +142,33 @@ If a backend snapshots one composite resource, partition records by lifetime and
 account for the cost; do not assume that splitting an internal map automatically
 makes snapshots incremental.
 
+### State work and complete lifetime
+
+Every schema carries a deterministic initialization rule, maximum admitted size,
+writer, attachment and retirement policy. Initial values are admitted content or
+results of deterministic code; they do not read the current camera or wall clock.
+Record keys are stable within their declared owner scope. Deleting an actor cannot
+leave entity-attached records live merely because their values still decode.
+
+Treat references as typed meanings: a live actor, a durable occurrence and a
+content definition are not interchangeable strings. Validate referential integrity
+at admission, state commit and the relevant restoration boundary. Optional missing
+references may remain explicit; required references cannot silently bind to a
+replacement with the same display name. Keep a dormant reference without forcing
+its target into live ECS.
+
+There is no cross-tick authority in unregistered inboxes, VM globals, native statics,
+retry counters or cached query cursors. A continuation that yields because of a
+work budget records its state and wake condition. A deterministic budget has an
+explicit refuse/yield/fault outcome; machine load does not decide it.
+
+Separate the full canonical reference checksum from an optimized checksum. The
+existing registrar's u64 checksum is a replay diagnostic with finite collision
+space, not a proof of identity or an artifact-authentication primitive. Test every
+future-affecting field's sensitivity and compare optimized hashes/restores to a
+full logical reference. Hash schema, ownership, attachment and values under the
+appropriate generation contract, not only the record count.
+
 ## Invocation protocol and scheduling
 
 The conceptual call is:
@@ -148,7 +183,11 @@ a static Rust call. Native adapters may borrow safe typed views. Portable calls
 use bounded linear buffers or handles with defined lifetimes. No borrowed view
 survives the invocation, state commit or world mutation barrier.
 
-Entry points declare data access and public phase requirements. Public phases
+Entry points declare batch scope, data access and public phase requirements.
+One invocation may process a bounded actor/encounter batch; do not require a VM
+reset/crossing per entity. Subdivision must preserve the specified read cut, state
+transaction and domain ordering. The host cannot change gameplay by choosing a
+different optimization batch size. Public phases
 state facts, not the names of private functions. For the first combat customer,
 map them to the already installed ordering in
 `crates/ambition_platformer2d_runtime/src/combat_schedule.rs`:
@@ -194,6 +233,12 @@ If pagination is needed, its cursor pins the observation phase/generation and
 explicit sort order; it cannot continue over a changed World silently.
 
 ### Writes, failures and domain acceptance
+
+[Domain contracts](extension-domain-contracts.md) is the detailed owner for port
+cards, grants, invocation identity, same-tick delivery and result semantics.
+A submitted request is not an applied action. Keep domain arbitration distinct
+from transport ordering, and use the domain's compound action contract where a
+cost and effect must succeed together.
 
 Invocation writes are staged until the host validates schema bounds, ownership,
 phase eligibility and output budgets. A trap or rejected invocation exposes none
@@ -293,11 +338,19 @@ schemas as codecs where appropriate. Missing persistence support rejects a
 module's required durable capability; do not silently degrade it to session-only.
 
 At scale, dormant world data lives with its existing durable/world owner.
-Simulation-affecting reads use the admitted active snapshot or confirmed events.
-Background IO cannot mutate the current speculative truth. Promote/demote state
-at existing confirmed residency/lifecycle boundaries. Measure an active region
-plus dormant records, not only a two-body arena. Do not claim persistent schemas
-alone implement a streaming open world or cross-room simulation.
+Simulation-affecting reads use a pinned admitted revision or registered active
+state. A pointer to a mutable out-of-band ledger is not such a revision. Background
+IO cannot mutate speculative truth. Promote records into active ownership at the
+accepted residency/lifecycle boundary; publish their settled disposition back only
+under that boundary's confirmation rule. Exactly one owner may write during a
+handoff. Failed preparation keeps the previous owner and state.
+
+Do not skip necessary rollback state merely because a record is large. If a dormant
+mechanism affects the current rollback horizon, its relevant state/events must join
+the deterministic input/state model. The optimization is excluding unrelated state,
+not inventing authoritative-but-unregistered data. Use immutable revisions and small
+active overlays where appropriate. [Open-world planning](open-world-runtime-and-residency.md)
+owns simulation policy; schemas alone do not implement streaming or save semantics.
 
 ## Identity, activation and retirement sequence
 
@@ -313,6 +366,10 @@ App-local ContentEpoch for stale-plan rejection; rollback timeline generation
 for history. The character catalog generation can remain a domain-local revision
 but must be captured in the selected bundle, never used as the peer identity.
 The content-pack u64 fingerprint is not the exact module/session digest.
+
+The complete activation protocol and failure matrix are owned by
+[generation and reload](content-generation-and-reload.md). This summary describes
+the binding obligations; it is not an alternate publication path.
 
 Activation algorithm:
 
@@ -331,10 +388,12 @@ Activation algorithm:
 5. Request the supported lifecycle boundary. A remote active session rejects
    replacement. A local session waits for the relevant confirmed boundary and
    cancels outstanding plans that name the retired generation.
-6. Publish through the existing lifecycle coordinator. Install new definitions,
-   schemas and baseline state as one selected generation; initialize the GGRS
-   timeline against that generation before stepping it. Keep the existing
-   failure semantics if world construction cannot be undone.
+6. Prepare and verify the supported candidate construction/state mapping before
+   retiring active state. Publish through the existing lifecycle coordinator.
+   Install definitions, schemas and baseline state as one selected generation;
+   initialize the GGRS timeline before stepping it. I3b/A10 supply the bounded safe
+   path; a legacy fail-stop path remains explicitly unsupported for retained-scene
+   reload. Unexpected native faults do not gain a general undo guarantee.
 7. Retire old executable objects only after active calls, borrowed views, tasks,
    callbacks, runtime-owned destructors and retained references are gone. Clearing
    rollback history is necessary for this policy, but not sufficient for safe

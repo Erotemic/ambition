@@ -5,7 +5,10 @@
 **Authority:** this page owns the extension architecture. The
 [execution and state contract](extension-state-and-execution.md) supplies its
 protocol details. The [packet catalog](fast-iteration-implementation.md) supplies
-implementation steps. [Evidence and experiments](extension-iteration-evidence.md)
+implementation steps. [Generation and reload](content-generation-and-reload.md)
+owns candidate publication and incremental preparation. [Domain contracts](extension-domain-contracts.md)
+owns procedural calls. [Acceptance fixtures](fast-iteration-acceptance.md) defines
+the behavioral evidence shared by packets. [Evidence and experiments](extension-iteration-evidence.md)
 separate source facts from outstanding measurements. Only [the queue](../queue.md)
 selects work. These pages do not create another queue or rollback backend.
 
@@ -84,6 +87,22 @@ edit loops distinct. Tests and tools must report the selected loop and actual
 build closure. Never call moving files a latency improvement without an
 edit-to-observable-result measurement.
 
+**D9. Make normal work proportional to the changed/active set.** Record preparation
+dependencies. Stage invocation write sets, not a full state-store copy per call.
+Do not walk dormant world records to update one active actor. Immutable generation
+metadata is not per-tick state. Exact caches, chunk sizes, COW and VM reset strategy
+remain measured implementation choices; dependency/lifetime boundaries do not.
+
+**D10. Make failure and lifetime visible.** Submitted requests are not applied
+actions. Definition retention is not world recovery. Existence, live simulation,
+residency, persistence and view visibility are separate policies. A missing policy
+refuses a capability or leaves its packet open; it is not a default no-op.
+
+**D11. Use complete vertical migrations.** A migrated mechanic has one state owner,
+one installed producer and one result path. Keep a test oracle when useful, not a
+parallel production fallback. Pre-release compatibility aliases and dual writers
+are not required to preserve current demos. Keep the richer shared actor path.
+
 ## Target data flow and dependency direction
 
 ```text
@@ -116,8 +135,9 @@ ambition_content_pack -> portable versioned artifact
 
 This is not a requirement that every domain depend on one new central crate.
 The host adapter depends on selected domain protocol adapters. Those adapters
-own lowering. The SDK contains protocol values and schema handles, not private
-domain implementation. Installing a new service extends a versioned port set;
+own lowering. The small SDK contains common wire/state primitives. Domain-owned pure port
+schemas supply the selected operation values; it is not a central enum of all
+engine requests. Neither layer imports private domain implementation. Installing a new service extends a versioned port set;
 it must not edit a central match over all game mechanics.
 
 ### Dependency map
@@ -226,12 +246,19 @@ not make old code and new code interchangeable during replay. A developer rebase
 inside the same session must preserve an existing unhealthy rollback diagnosis;
 use the existing session/timeline rules, not reload as a way to erase a desync.
 
-Last-good definitions are not an atomic-world-undo promise. The current native
-construction road does not undo arbitrary failed Commands. A10 owns that stronger
-guarantee. This project can deliver useful reload by validating an inactive
-prepared bundle and using a supported reconstruction boundary. A failure after
-destructive world commit is a stopped/failed session unless A10 has actually
-provided recovery. Never report that failure as a successful retained old world.
+Last-good definitions are not an atomic-world-undo promise. Current raw-Commands
+construction can stop after destructive failure. That is a source limit, not the
+finished development-loop target. I3/A10 now require a bounded safe reconstruction
+path for the migrated scenario. Typed candidate data is prepared and verified
+before active state retires. Arbitrary native plugin failure still has no generic
+undo guarantee. Report unchanged, recovered and stopped as distinct outcomes.
+
+[Generation and reload](content-generation-and-reload.md) specifies complete
+artifacts, dependency-aware preparation, stale-work seals, lifecycle barriers,
+state-transfer limits and failure guarantees. I3 is not complete on a restart-only
+loader that discards the developer's scenario or silently falls back to new-game.
+A narrower immutable-definition replacement may be added when its owner accounts
+for every affected live binding; it is not assumed safe from schema equality.
 
 Development uses watched loose artifacts and an explicit reload command through
 the existing asset/source resolver. Watch events are notifications, not ordered
@@ -265,8 +292,12 @@ A9 still measures minimal composition profiles. This program adds a distinct
 content/module iteration boundary; a no-render facade is not its completion.
 A6 still owns field responsibility. A11/A12 still own technique admission and
 move execution. A2/contact and A4/body rules govern corresponding request ports.
-A1/checkpoints govern durable restoration. A10/world-undo and A8/multi-instance
-world are not blanket prerequisites for pure authoring or artifact loading.
+A1/checkpoints govern durable restoration. A8 has a concrete two-instance proof
+from the long-term world/multiplayer requirement; A10 has the bounded reconstruction
+customer from I3. Neither blocks I1/I2. I3b depends only on its selected construction
+path, not arbitrary world undo. Full streaming and background simulation remain
+separate work. One-instance and multi-instance profiles must converge on one
+implementation, not retain a singleton fallback.
 
 Remove the old requirement to wait for a modding customer before designing
 runtime extensions. Retire migrated compile-time content tables as authoritative

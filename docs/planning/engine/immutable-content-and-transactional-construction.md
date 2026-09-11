@@ -42,9 +42,10 @@ promise ACID-style atomicity or generic rollback. Finding F6 and packet A10 in t
 [frontier](actor-monolith-work-frontier.md) describe hardening and its limits.
 
 A supported construction failure must be contained by the current session's
-failure/admission policy. Stronger all-or-nothing replacement needs a concrete
-customer, staged candidate ownership and a constrained set of reversible effects;
-it does not follow from renaming a function `transaction`.
+failure/admission policy. I3's repeated development reconstruction now provides
+the bounded stronger customer. A10 stages typed domain candidate data and checks
+it before retirement. This does not follow from renaming a function `transaction`,
+and it does not grant generic undo for arbitrary native effects.
 
 ## Boundaries to preserve
 
@@ -62,21 +63,26 @@ sufficient authority for domain mutation. A rollback room transition waits for a
 new frame-zero baseline. Existing snapshots do not cross room boundaries.
 
 
-## Required definition-level retention versus optional world isolation
+## Required reload guarantee and native failure limit
 
-Rejected authored edits must leave active prepared definitions, generation and
-existing playback references unchanged. This is a required A11 contract and does
-not wait for A10. Initially activate changed mechanical content at a supported
-session/reconstruction boundary. An inactive **prepared value** can be validated
-without building an inactive ECS world. Preserving the old world after arbitrary
-destructive native construction failure is the separate, stronger A10 guarantee.
+A11 already requires invalid definition replacement to retain the old prepared
+cast. I3a extends complete-bundle admission. I3b/A10 adds a safe bounded scenario
+reconstruction, not arbitrary World undo. [Generation/reload](content-generation-and-reload.md)
+owns its candidate seal, state mapping, readiness and publication sequence.
 
-## Bundle publication is not world undo
+| Failure class | Required result |
+| --- | --- |
+| Incomplete bytes, invalid section/reference, missing required support | Reject before active publication; retain definitions and scene |
+| Stale candidate/profile/checkpoint identity | Refuse or explicitly re-prepare; never bind to current globals |
+| Supported candidate draft/materialization refusal | Retain the old scene before its retirement |
+| Explicit reconstruction of the pinned old scene | Report recovered, not unchanged |
+| Unexpected native panic, unsafe external mutation or allocator fault | Fail-stop; no sandbox or generic recovery claim |
 
-I3 in [fast iteration](fast-iteration-implementation.md) validates the whole
-candidate generation, seals its base epoch and installed profile, then activates
-at the supported lifecycle boundary. A character, module and schema do not
-publish independently. Rejection before activation preserves the old generation
-and timeline. Once destructive world commit begins, retain the failure semantics
-above unless A10 has actually delivered stronger isolation. Content publication,
-rollback replay, and durable-save migration are three different contracts.
+The default is typed inactive domain data, not live candidate gameplay components
+with a marker. Hooks, observers, messages and resource deltas belong in the
+visibility proof. Do not expose half a committed generation to ordinary consumers.
+A successful data build or metadata admission is not candidate readiness.
+
+Content publication, rollback replay and durable-save migration are distinct
+contracts. Identical state shape alone permits none of them. Initial migration
+policy remains explicit local scenario reconstruction and remote generation pinning.

@@ -102,3 +102,16 @@ item-owned under A7. A8 needs two copies of one authored room as a namespace
 witness before adding instance qualification. A10 cannot infer reversible global
 mutation from a construction-attempt marker. Stale async preparation/agent
 responses must be rejected by the appropriate generation/revision owner.
+
+## Extension state uses these lifetimes, not an independent taxonomy
+
+A schema selects attachment, deterministic initialization, rewind participation,
+retirement and save eligibility separately. Reuse domain occurrence/session scope;
+do not collapse them into a module-global integer or an ECS Entity. A suspended
+world record can retain a durable reference without a live entity.
+
+Promotion/demotion transfers write ownership at the accepted lifecycle boundary.
+A mutable dormant ledger cannot be read as an unregistered simulation oracle.
+Use admitted immutable revisions or registered active state. Candidate attempts
+own cleanup, not durable namespace. See [state/execution](extension-state-and-execution.md)
+and [open-world planning](open-world-runtime-and-residency.md).

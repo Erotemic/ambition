@@ -14,7 +14,11 @@ the investigation environment. No Cargo resolution, Rust compilation, linking,
 hot reload, runtime profile or rollback acceptance test ran here.
 
 Existing timing results in Cargo comments and the build plan remain historical
-results from their stated machines. They are not new measurements. The user
+results from their stated machines. They are not new measurements. Historical
+commit receipts in other plans are inherited from their original documents, not
+newly recovered here. Missing old commits in this epoch-limited snapshot are not
+evidence of lost history; use [repository history](../repository-history.md) for
+cold-store reconstruction when a historical decision needs rechecking. The user
 reports severe iteration latency; the source establishes several coupling paths,
 but it does not identify today's dominant wall-clock cost.
 
@@ -40,6 +44,30 @@ but it does not identify today's dominant wall-clock cost.
 | E16 | `crates/ambition_platformer2d_runtime/src/session_world.rs`; `crates/ambition_platformer2d_runtime/src/rollback/authority.rs` | Prepared source is distinct from live world; rebase/session health semantics are explicit | Do not promise arbitrary world undo or clear unhealthy diagnosis during reload |
 | E17 | `crates/ambition_asset_manager/src/lib.rs`; `docs/planning/engine/asset-preparation-and-residency.md` | Asset handling and target-specific source/residency policy already exist | Load content through that source boundary, not a second asset manager |
 | E18 | `AGENTS.md`; `docs/recipes/cheapest-sufficient-check.md`; `scripts/check_absence_contracts.py` | Narrow checks and dependency/profile guards already exist | Extend these mechanisms instead of adding a competing all-tests launcher |
+
+### Deeper review: source and design deltas
+
+The follow-up review inspected the source again after applying the first planning
+overlay. It did not execute Rust, load an extension or measure runtime/compile
+latency. The following additions explain why the plans changed; they are not
+implementation receipts.
+
+| ID | Source checked | Established fact and selected response |
+| --- | --- | --- |
+| E19 | Shared `construction/mod.rs`, ConstructionExecCtx; runtime room transition | Raw Commands and post-commit verification remain the source limit. I3b/A10 now target typed candidate data for a bounded safe reload, not arbitrary undo |
+| E20 | World `rooms/room_graph.rs`, RoomSet | `active: usize` remains one live-room selection. The future-game requirement releases A8's indefinite customer hold; OW1/FI9 will prove two instances |
+| E21 | Runtime `room_transition/prefetch.rs`, PrefetchIdentity | A plan's producer carries epoch/session/source-room identity. Extend this discipline to candidate dependencies and stale asynchronous work, not new global revision guesses |
+| E22 | Actor monolith `session/checkpoint.rs`; shared `lifecycle/horizon.rs` and `continuity.rs` | AcceptedCheckpointRestore and explicit checkpoint inputs exist. Remove the stale active diagnosis that raw reset is still the selected restoration input; preserve A1's own witness limits |
+| E23 | Core snapshot trait and GGRS `registrar.rs`, rollback_resource_clone_checksum | Concrete Clone storage plus value checksum is supported. This does not prescribe whole-world/per-callback copies or make dormant mutable facts safe to omit from rewind |
+| E24 | Runtime `external_effects.rs`, record/take_confirmed | Empty speculative batches replace prior output; confirmation releases it. Module retirement and result tests must use this existing road, not add another event journal |
+| E25 | `ambition_load/src/coordinator.rs`, apply and change reporting | Plan-change emission is centralized in current source. Remove the older seven-independent-sites investigation from the active world plan |
+| E26 | Characters `prepared.rs`, PreparedCharacterDefinition and stage/activate revision | Pure definition, prepared evidence, policy and materialization remain distinct responsibilities. The field census guides selected extraction rather than wholesale serialization |
+
+The current world/construction owner pages were rewritten rather than followed by
+another layer of corrections. Historical successful repairs are short receipts;
+source facts are marked as inspected, and unbuilt behavior remains a specification.
+The new artifact graph, domain call cards and FI1-FI10 fixtures are design choices
+from the maintainer's goals, not claims that those APIs already exist.
 
 The code paths above were read, not executed. Source-backed reuse is not a
 passing acceptance report. Some old focused plans contain historical baseline
@@ -143,9 +171,10 @@ For each specimen: warm the exact command, record an unchanged no-op, make a
 small semantically visible edit, build/prepare/admit, and wait for an automated
 host acknowledgment tied to the new generation and observed behavior. Undo the
 edit and repeat paired runs. Preserve before/after bytes and raw command logs.
-Start with at least seven pairs and report median, range and sample count. Do
-not claim a stable p95 from that small set; use at least thirty samples when a
-tail-latency release gate is needed. Record competing machine load.
+Use a small paired pilot, report all samples, median and range, and record competing
+machine load. Seven pairs can be a starting pilot, not evidence of a stable tail.
+Choose further sample count from observed variation and the uncertainty needed
+for the decision. Do not certify p95 merely because a fixed sample count was met.
 
 Split elapsed time into source compile/check, builder/module link, preparation,
 transfer/load, host admission, reconstruction, first simulation result and visual
@@ -240,7 +269,7 @@ the cost of generation reset. Exercise multiple sizes until the scaling curve,
 not just one average, is visible. Select sizes from actual game populations plus
 stated stress multipliers; do not present stress values as product requirements.
 
-Default safe full-copy storage may prove too costly. That does not reopen whether
+The safe full-copy reference store may prove too costly. That does not reopen whether
 authoritative state rewinds; it selects storage/snapshot optimization. Dirty-page
 experiments must report target support and write-barrier coverage. Host-managed
 schema state remains the default unless a concrete guest-state customer proves
@@ -271,7 +300,7 @@ One unsupported product target cannot be silently omitted from the report.
 | Parallel procedural scheduling | Access patterns and merge costs unknown | Serial reference versus declared-independent batches | Parallel optimization | Stable serial execution |
 | Public untrusted mod distribution | Product trust/installation policy undecided | Maintainer decision when shipping downloadable mods | Signing, permissions UX, distribution hardening | Trusted local native code; portable imports restricted, no sandbox marketing |
 | Cross-version save/code migration promise | Compatibility horizon is a product promise | Maintainer decision plus concrete old-save fixture | Public persistence compatibility commitment | Reject unsupported schema migration; keep old save intact |
-| Seamless state-preserving live reload | No requirement for arbitrary mid-session state migration | Explicit workflow customer plus migration/rollback failure tests | Retaining old code or live migration | Supported local reconstruction; remote generations pinned |
+| Seamless state-preserving live reload | Repeated scenario reload is required; arbitrary mid-action/schema migration is not yet specified | One owner-specific live-binding policy, migration fixture and measured benefit over safe reconstruction | Optional seamless path, not reliable I3 reconstruction | Bounded safe scenario reconstruction; reject unsupported state transfer; remote generations pinned |
 
 Do not send the first six questions to the maintainer as ordinary architecture
 choices. The implementer runs the specified experiment and records a decision.
@@ -279,9 +308,11 @@ Product rows do not block local trusted authoring or the current data migration.
 
 ## External technical verification
 
-These primary sources were consulted on 2026-09-11. They verify narrow platform
-facts; the architecture decisions above are this investigation's recommendations.
-Pin actual dependency versions in each executable prototype.
+The first planning pass recorded consultation of these primary sources on
+2026-09-11. This deeper source-only review retained those references and did not
+repeat their web verification. They concern narrow platform facts, not evidence
+that the proposed engine features work. Pin and verify actual dependency versions
+in each executable prototype.
 
 - [Bevy ECS 0.19.1 ComponentDescriptor](https://docs.rs/bevy_ecs/0.19.1/bevy_ecs/component/struct.ComponentDescriptor.html): components need not correspond to a Rust type; dynamic layout construction has explicit unsafe layout, drop and thread-safety requirements. This supports a possible host implementation, not an ABI or rollback guarantee.
 - [Rust Reference: type layout](https://doc.rust-lang.org/reference/type-layout.html): layout guarantees depend on representation, and an outer representation does not stabilize arbitrary nested Rust types. The native module recommendation therefore uses an explicit boundary rather than exporting Rust containers.
@@ -289,3 +320,23 @@ Pin actual dependency versions in each executable prototype.
 - [Wasmtime: platform support](https://docs.wasmtime.dev/stability-platform-support.html): supported hosts and execution modes are runtime-specific. Check the chosen target, not just the portable module format.
 - [Lua 5.4 reference](https://www.lua.org/manual/5.4/manual.html): the language includes environments, mutable values, coroutines and garbage collection. A host-state binding must account for that mutable execution state rather than treating globals as automatically rewindable.
 - [Rhai engine options](https://rhai.rs/book/engine/options.html): operation, depth and collection limits are configurable; some restrictions are compile-time settings. A binding must apply a consistent configuration to compilation and execution and still supply its own rollback contract.
+
+## Work-set measurements for the revised design
+
+Extend M0 with changed/reused section counts and reasons, candidate peak bytes,
+scenario-restore time, stale/canceled attempts, active generation and first
+observed changed behavior. Report failures separately from successful latency.
+A no-op candidate cannot be counted as a fast changed-content result.
+
+Extend M1/M2 with invocation batch scope, boundary crossings, read projection
+bytes, changed-record count, write-set bytes, total active/dormant records,
+immutable metadata sharing, snapshot retained bytes and guest reset cost. Vary
+one population axis at a time. An unchanged dormant ledger should add no
+all-ledger traversal to a local active step; visits/allocations can prove the work
+set even when machine timing is noisy. Verify the ledger still affects its intended
+promotion/save scenario, so the measured absence of work is not absent behavior.
+
+The DO decisions are exact identity, dependency/lifetime separation, one domain
+owner and explicit visibility. M0-M3 choose encoding, caching, storage, batching
+and backend details. Safe reload/instance isolation require behavioral evidence;
+neither is waived by a faster benchmark or represented as an unmeasured success.

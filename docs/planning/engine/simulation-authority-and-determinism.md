@@ -1483,3 +1483,18 @@ Prepared metadata equality does not establish executable build equality. Pure
 relocations preserve same-build wire IDs; a schema/build change requires the
 separate compatibility policy. Do not automatically assign new wire identities
 because a Rust source path moved.
+
+## Extension read cuts, requests and active-state work
+
+[Domain contracts](extension-domain-contracts.md) defines checked invocation scope,
+read cuts, write sets and submitted/applied outcomes. Cross-tick inboxes, counters,
+acknowledgement latches and continuations are state, not transport trivia. Domain
+arbitration remains its existing authority; sorting by module name is not a new
+combat rule. Replica-equivalent output includes accepted requests and future
+behavior, not only current record bytes.
+
+[State/execution](extension-state-and-execution.md) keeps dormant durable records
+out of unrelated active snapshots without exempting future-affecting inputs from
+rollback. A pointer to mutable nonrewound state is not a pinned revision. FI6/FI7/FI9
+in [acceptance](fast-iteration-acceptance.md) cover population, retirement and
+handoff. A registered type with no populated restore witness remains incomplete.

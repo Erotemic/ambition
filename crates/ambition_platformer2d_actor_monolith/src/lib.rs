@@ -81,6 +81,8 @@ mod checkpoint_horizon;
 pub use checkpoint_horizon::ActorCheckpointHorizonPlugin;
 pub mod character_runtime;
 pub mod character_sprites;
+/// Swings and shots arbitrated in ONE contest, before either damage road runs.
+pub mod clash;
 pub mod config;
 // No facade re-export stands here on purpose: callers name the crate. The departure and what earned
 // it are in that crate's header; the short version is that its zero import edges were never the

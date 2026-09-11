@@ -371,6 +371,26 @@ impl Plugin for CombatSchedulePlugin {
                 // before a pause must not lose its side by being skipped, and
                 // stamping is not gameplay progress.
                 crate::projectile_schedule::stamp_new_projectile_allegiance,
+                // ⭐⭐ TWO ATTACKS MEETING IS RESOLVED FIRST, AND "FIRST" MEANS
+                // BEFORE BOTH DAMAGE ROADS. This used to sit down in the melee
+                // damage chain, which is before `apply_hitbox_damage` and AFTER
+                // `step_projectiles` — so a shot had already resolved its own
+                // contact by the time any contest existed, and S0.1's
+                // "projectiles bypass clank arbitration" was a scheduling fact
+                // as much as a missing query.
+                //
+                // ⛔ AND `step_projectiles` IS THE SYSTEM THE ORDER IS LOAD-
+                // BEARING AGAINST: a shot that loses is SPENT rather than
+                // despawned, and the stepper's own expiry branch — detonation
+                // FX from the visual catalog, the `Expired` trace event, the
+                // despawn — runs on the very next line. Put this after the
+                // stepper and a beaten bolt flies for one more frame and lands.
+                ambition_platformer2d_actor_monolith::clash::arbitrate_attack_clashes
+                    .in_set(GameplayGated),
+                // …and what the trade costs, immediately after, so the moves it
+                // ends are gone before either damage road looks at anything they
+                // own.
+                ambition_combat::clank::rebound_from_clanks.in_set(GameplayGated),
                 // Unified projectile step (player + enemy, faction-routed).
                 crate::projectile_schedule::step_projectiles
                     .in_set(crate::projectile_schedule::ProjectileStepSet)
@@ -614,15 +634,10 @@ impl Plugin for CombatSchedulePlugin {
                 // frame. (Inner tuple: the outer chain is at Bevy's tuple-size
                 // ceiling, and these two are one ordered unit anyway.)
                 (
-                    // ⭐ TWO ATTACKS MEETING IS RESOLVED FIRST, and it has to be:
-                    // the trade must be known for BOTH volumes before EITHER
-                    // asks about a victim, or whichever one the query yields
-                    // first lands before anybody knows it was cancelled.
-                    ambition_combat::clank::arbitrate_attack_clanks,
-                    // …and what the trade costs, immediately after, so the
-                    // moves it ends are gone before the damage sweep looks at
-                    // anything they own.
-                    ambition_combat::clank::rebound_from_clanks,
+                    // ⛔ THE CLASH ARBITRATION LEFT THIS CHAIN and now runs in
+                    // `Materialize`, ahead of `step_projectiles` — see the note
+                    // there. It is still before this sweep, which is the
+                    // property this position was defending.
                     ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
                     ambition_combat::moveset::mark_move_playback_landed_hits,
                 )

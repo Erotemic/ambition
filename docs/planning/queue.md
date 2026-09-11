@@ -1085,7 +1085,7 @@ verified in the engine's own words.**
 The duel seats two CPUs of the SAME fighter with a deterministic brain and no
 noise input, so a matchup that never breaks symmetry stays in lockstep: both
 bodies hold identical state, choose the same move on the same tick, and throw it
-at the same instant. `arbitrate_attack_clanks` then does exactly what it is for —
+at the same instant. The clash arbiter then does exactly what it is for —
 *"Close enough: both attacks are refused"*, cancelled by despawn **before**
 `apply_hitbox_damage` asks any of them about a victim — and `clank_verdict` refuses
 both whenever the damage `difference` is inside the window. **Two identical moves
@@ -1540,7 +1540,7 @@ touches the ground game next:
   every exchange in the air ended in a refusal"* — a clank ENDS BOTH MOVES, so no
   damage and no knockback resolve. The same account covers `clank_damage_window: 9.0`.
 * **THE GENEROSITY CASE CANNOT BE THAT.** Every shipped ruleset declares
-  `clank_damage_window: 0.0` (`rules.rs`, four sites) and `arbitrate_attack_clanks`
+  `clank_damage_window: 0.0` (`rules.rs`, four sites) and the clash arbiter
   returns immediately on zero. **Clanking never ran during the sweep.** Bigger boxes
   produce MORE resolved hits, not refusals, and why that removes off-stage knockouts
   is still unexplained.

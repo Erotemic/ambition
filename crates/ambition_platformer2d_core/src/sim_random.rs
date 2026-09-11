@@ -19,8 +19,8 @@
 //! sequence starts repeating where it should not.
 //!
 //! ⇒ nothing to register, nothing to rewind, no consumption to keep in step, and
-//! **schedule order cannot matter** — which is the trap `arbitrate_attack_clanks`
-//! had to sort a query to avoid, dissolved rather than guarded.
+//! **schedule order cannot matter** — which is the trap clash arbitration has
+//! to sort a contender list to avoid, dissolved rather than guarded.
 //!
 //! ⛔ THE FIGHTER BRAIN KEEPS ITS OWN STREAM, and should. Its noise must not
 //! repeat within a tick and it carries per-body state that already rewinds

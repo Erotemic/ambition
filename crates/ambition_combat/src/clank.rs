@@ -30,7 +30,6 @@
 
 use bevy::prelude::*;
 
-use crate::strike::Hitbox;
 use ambition_platformer2d_core as ae;
 
 /// Two attacks met and both were refused.
@@ -81,194 +80,199 @@ pub fn clank_verdict(a_damage: i32, b_damage: i32, window: f32) -> Option<ClankV
     })
 }
 
-/// Arbitrate every pair of opposed, overlapping strike volumes, then cancel the
-/// losers — before `apply_hitbox_damage` asks any of them about a victim.
+/// WHICH ATTACK a contender belongs to, and therefore what ending it means.
 ///
-/// ⭐ CANCELLING IS A DESPAWN, and deliberately not a new component. A strike
-/// volume's life already ends by despawn ([`HitboxLifetime`]), the whole volume
-/// entity family is already rollback-snapshotted, and a "spent" flag would be
-/// new canonical state for a fact that is exactly "this volume is over".
-pub fn arbitrate_attack_clanks(
-    mut commands: Commands,
-    // ⛔⛔ `StrikeVolume`, NOT `HitboxLifetime`. The first version filtered on the
-    // lifetime component, and `advance_move_playback` spawns authored volumes
-    // with a comment reading *"NO `HitboxLifetime` on purpose"* — the authored
-    // Active window is their despawn authority. So every Smash jab, tilt, smash
-    // and aerial was invisible to this system, and the tests that passed spawned
-    // synthetic boxes carrying exactly the component production refuses.
-    //
-    // ⛔⛔ AND THE `SimId` IS `Option`, WHICH IS NOT A CONVENIENCE. A volume takes
-    // its id from its OWNER, so a body outside the identified population spawns
-    // volumes with none — and REQUIRING the component silently excluded them,
-    // which is the same defect one layer in. Measured: a two-fighter fixture
-    // produced two strike volumes and zero ids, and the sweep saw nothing.
-    strikes: Query<(
-        &Hitbox,
-        &crate::moveset::StrikeVolume,
-        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    )>,
-    owner_pos: Query<&ae::BodyKinematics>,
-    // ⭐⭐ ONLY GROUNDED ATTACKS CLANK, and that is research rather than tuning.
-    // In this genre an aerial passes THROUGH an opposing attack — clanking is a
-    // ground-game rule, and it is what keeps the air a place where committing
-    // costs you. ⛔⛔ omitting it was measured, not argued: with aerials
-    // clanking, two CPU fighters traded so constantly that
-    // `every_live_fighter_stays_inside_the_frame` reported ZERO body-frames
-    // outside the stage in a whole match — nobody was ever launched, because
-    // nearly every exchange in the air ended in a refusal.
-    factions: Query<&crate::components::ActorFaction>,
-    teams: Query<&crate::targeting::MatchTeam>,
-    mut playing: Query<&mut crate::moveset::MovePlayback>,
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
-    mut clanked: MessageWriter<AttacksClanked>,
-) {
-    let rules = tuning.as_deref().copied().unwrap_or_default();
-    if rules.clank_damage_window <= 0.0 {
-        return;
+/// ⭐⭐ THE CONTEST IS BETWEEN ATTACKS, NOT BETWEEN RECTANGLES, and the two
+/// families disagree about what an attack IS. A melee move is one attack however
+/// many volumes it spawns — arbitrating per volume let a two-volume attack meet a
+/// two-volume attack four times and rebound the same fighters four times. A
+/// projectile is one attack PER SHOT: a fighter with three bolts in the air has
+/// thrown three, and deduping those by owner would let the first bolt's outcome
+/// decide whether the second was considered at all.
+///
+/// ⇒ The dedup key is this, not the owner. `Move` carries the owner because that
+/// is the move's identity; `Shot` carries the projectile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ClashAttack {
+    /// The move a body is playing. Ending it cancels the playback.
+    Move(Entity),
+    /// One shot in flight. Ending it expires that shot and no other.
+    Shot(Entity),
+}
+
+/// What kind of attack a contender is, for the pair rules that are not about
+/// damage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClashFamily {
+    /// A melee swing that came out with its owner on the floor.
+    GroundedMelee,
+    /// A melee swing that came out in the air. ⭐ THE GENRE'S RULE: an aerial
+    /// passes THROUGH an opposing swing, which is what keeps the air a place
+    /// where committing costs you.
+    AerialMelee,
+    /// A projectile. ⛔ NOT subject to the grounded rule in either direction: a
+    /// shot meets an aerial attack in this genre, and two shots meet each other
+    /// wherever they are. The rule is about SWINGS.
+    Shot,
+}
+
+/// The canonical order a contest is arbitrated in.
+///
+/// ⛔⛔ AN `Entity` IS AN ALLOCATOR IDENTITY. Two peers whose archetypes filled
+/// differently hand out different indices for the same volume, so a sweep
+/// ordered by it resolves the same frame's pairs in different sequences and
+/// cancels different attacks. Both variants carry a key the simulation itself
+/// minted: `SimId::strike_volume` is derived from `(owner, move, window, volume)`
+/// and `ProjectileSeq` is a rollback-registered monotonic spawn id.
+///
+/// ⭐ The derived `Ord` puts every melee volume before every shot. That is
+/// arbitrary and it is the point — it is the SAME arbitrary order on every peer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ClashOrder<'a> {
+    /// A strike volume's `SimId`, or `""` for a volume outside the identified
+    /// population (whose owner then breaks the tie).
+    Melee(&'a str),
+    /// A shot's `ProjectileSeq`.
+    Shot(u64),
+}
+
+/// One attack entered into a clash contest, whatever family produced it.
+pub struct ClashContender<'a> {
+    pub order: ClashOrder<'a>,
+    pub attack: ClashAttack,
+    /// The body whose attack this is. ⛔ Read for PAIRING, never for the
+    /// opposition test — a shot outlives its firer, so its side is the one
+    /// stamped on it at launch and carried below, not whatever its owner's
+    /// components say now (or no longer say).
+    pub owner: Entity,
+    /// Already placed in world space by the caller, because only the caller
+    /// knows where its family's boxes live.
+    pub volume: ae::CombatVolume,
+    pub family: ClashFamily,
+    pub damage: i32,
+    /// This attack's side, frozen at the moment it came out.
+    pub faction: crate::components::ActorFaction,
+    /// Its match team, when it had one. `None` outside a match — the faction
+    /// rule then decides, exactly as it does for any unseated body.
+    pub team: Option<&'a crate::targeting::MatchTeam>,
+}
+
+/// What a contest decided.
+pub struct ClashResolution {
+    /// The attacks that lost and must end, in the order they were decided.
+    pub defeated: Vec<ClashAttack>,
+    /// The owner pairs that TRADED, each ascending and appearing once.
+    pub clanked: Vec<(Entity, Entity)>,
+}
+
+/// Resolve every opposed, overlapping pair of attacks — the whole contest, with
+/// no world in it.
+///
+/// ⭐⭐ ONE CONTEST FOR EVERY ATTACK FAMILY. Melee-vs-melee was arbitrated here
+/// while projectile contact resolved in a stepper that ran EARLIER in the same
+/// tick, so a shot could never meet a swing or another shot. Two arbitration
+/// sites would have been two answers to "which attack wins"; this is the
+/// decision, and each family's system contributes contenders to it and maps
+/// [`ClashAttack`] back onto its own way of ending an attack.
+///
+/// ⭐ NO WORLD AND NO CLOSURE. Each contender carries the side it came out on,
+/// so the whole contest — ordering, pairing, opposition, overlap and verdict —
+/// is a function of its arguments. That is what lets a fixture put four attacks
+/// on a table and assert the outcome without an `App`.
+pub fn resolve_clashes(
+    contenders: &mut [ClashContender<'_>],
+    window: f32,
+    rules: crate::rules::ResolvedCombatTuning,
+) -> ClashResolution {
+    let mut resolution = ClashResolution { defeated: Vec::new(), clanked: Vec::new() };
+    if window <= 0.0 {
+        return resolution;
     }
-    // ⛔⛔ ORDERED BY `SimId`, NOT BY `Entity`. An `Entity` is an ALLOCATOR
-    // identity: two peers whose archetypes filled differently hand out different
-    // indices for the same volume, so a sweep ordered by it arbitrates the same
-    // frame's pairs in different sequences and cancels different attacks.
-    // `SimId::strike_volume` is derived from `(owner, move, window, volume)` and
-    // is the same on every peer, which is what canonical gameplay ordering means.
-    let mut live: Vec<(&Hitbox, Entity, &str, Entity)> = strikes
-        .iter()
-        .map(|(hitbox, volume, sim_id)| {
-            (
-                hitbox,
-                volume.owner,
-                sim_id.map(|id| id.as_str()).unwrap_or(""),
-                volume.owner,
-            )
-        })
-        .collect();
-    // ⭐ `(SimId, owner)`, and the second key is only reached by volumes with no
-    // id at all. Those belong to bodies outside the rollback-tracked population,
-    // so they cannot desync a peer — and ordering them by owner keeps the sweep
-    // total rather than leaving ties to the query's own order.
-    live.sort_by(|a, b| a.2.cmp(b.2).then(a.3.cmp(&b.3)));
+    // ⭐ `(order, owner)`: the second key is only reached by melee volumes with
+    // no `SimId` at all. Those belong to bodies outside the rollback-tracked
+    // population, so they cannot desync a peer — and ordering them by owner
+    // keeps the sweep total rather than leaving ties to a query's own order.
+    contenders.sort_by(|a, b| a.order.cmp(&b.order).then(a.owner.cmp(&b.owner)));
 
-    // ⭐⭐ ONE RESOLUTION PER ATTACK PAIR. Arbitrating per VOLUME let a two-volume
-    // attack meet a two-volume attack four times: four messages, and a rebound
-    // applied four times to the same two fighters. The pair of OWNERS is the
-    // contest — an attack is what clanks, not a rectangle.
-    let mut resolved: std::collections::BTreeSet<(Entity, Entity)> =
+    // ⛔⛔ `resolved` IS THE DEDUP AND NOTHING ELSE. Skipping a pair because
+    // either attack had already lost would let an EARLIER pair's outcome decide
+    // whether a LATER pair was CONSIDERED — deterministic, and not simultaneous.
+    let mut resolved: std::collections::BTreeSet<(ClashAttack, ClashAttack)> =
         std::collections::BTreeSet::new();
-    // Whose MOVE this sweep ended. Collected and applied after, so a body that
-    // loses to two attackers on one tick is ended once.
-    let mut ended: std::collections::BTreeSet<Entity> = std::collections::BTreeSet::new();
+    let mut clanked: std::collections::BTreeSet<(Entity, Entity)> =
+        std::collections::BTreeSet::new();
+    let mut defeated: std::collections::BTreeSet<ClashAttack> =
+        std::collections::BTreeSet::new();
 
-    for (index, (a, a_owner, _, _)) in live.iter().enumerate() {
-        for (b, b_owner, _, _) in live.iter().skip(index + 1) {
-            if a_owner == b_owner {
+    for (index, a) in contenders.iter().enumerate() {
+        for b in contenders.iter().skip(index + 1) {
+            if a.attack == b.attack || a.owner == b.owner {
                 continue;
             }
-            let pair = if a_owner <= b_owner {
-                (*a_owner, *b_owner)
-            } else {
-                (*b_owner, *a_owner)
-            };
-            // ⛔⛔ `resolved` IS THE DEDUP; `ended` IS NOT AN ELIGIBILITY GATE.
-            // Skipping a pair because either owner was already ended let an
-            // EARLIER pair's outcome decide whether a LATER pair was CONSIDERED
-            // at all — measured with three equal attacks on one tick: A/B
-            // resolves first by `SimId`, both end, A/C and B/C are skipped, and
-            // C survives BECAUSE OF ID ORDER. Deterministic, and not
-            // simultaneous.
-            //
-            // ⭐ `ended` is a COMMIT LEDGER, applied after the sweep, exactly as
-            // its own comment below says: a body that loses to two attackers on
-            // one tick is ended once. Reading it here made it a third thing.
-            if resolved.contains(&pair) {
-                continue;
-            }
-            if !opposed(*a_owner, *b_owner, &factions, &teams, rules) {
-                continue;
-            }
-            // ⛔⛔ BOTH WERE GROUND ATTACKS WHEN THEY CAME OUT, asked of the
-            // MOVE this system already holds. Asking `BodyGroundState` at
-            // COLLISION time meant a ground attack stopped clanking the moment
-            // its owner walked off a ledge mid-swing, and an aerial started
-            // clanking when its owner landed. "Grounded attack" is a
-            // CLASSIFICATION and it is settled when the swing comes out.
-            //
-            // ⭐ NO NEW CHANNEL: `MovePlayback::started_grounded` is the same
-            // stance the SELECTOR used to choose this variant, and the loser's
-            // playback is already in this system's hand to be cancelled.
-            let swung_from_the_floor = |owner: Entity| {
-                playing
-                    .get(owner)
-                    .map(|playback| playback.started_grounded)
-                    .unwrap_or(true)
-            };
-            if !swung_from_the_floor(*a_owner) || !swung_from_the_floor(*b_owner) {
-                continue;
-            }
-            let (Ok(a_kin), Ok(b_kin)) = (owner_pos.get(*a_owner), owner_pos.get(*b_owner)) else {
-                continue;
-            };
-            if !a
-                .world_volume(a_kin.pos)
-                .intersects(&b.world_volume(b_kin.pos))
+            // ⛔ THE GROUNDED RULE IS A RULE ABOUT SWINGS MEETING SWINGS. An
+            // aerial passes through an opposing swing; it does not pass through
+            // a bolt, and a bolt does not pass through it.
+            let both_melee = a.family != ClashFamily::Shot && b.family != ClashFamily::Shot;
+            if both_melee
+                && (a.family == ClashFamily::AerialMelee || b.family == ClashFamily::AerialMelee)
             {
                 continue;
             }
-            let Some(verdict) = clank_verdict(a.damage, b.damage, rules.clank_damage_window) else {
+            let pair = if a.attack <= b.attack {
+                (a.attack, b.attack)
+            } else {
+                (b.attack, a.attack)
+            };
+            if resolved.contains(&pair) {
+                continue;
+            }
+            if !sides_are_opposed(a, b, rules) {
+                continue;
+            }
+            if !a.volume.intersects(&b.volume) {
+                continue;
+            }
+            let Some(verdict) = clank_verdict(a.damage, b.damage, window) else {
                 continue;
             };
             resolved.insert(pair);
             match verdict {
                 ClankVerdict::BothRefused => {
-                    ended.insert(*a_owner);
-                    ended.insert(*b_owner);
-                    clanked.write(AttacksClanked { owners: pair });
+                    defeated.insert(a.attack);
+                    defeated.insert(b.attack);
+                    clanked.insert(if a.owner <= b.owner {
+                        (a.owner, b.owner)
+                    } else {
+                        (b.owner, a.owner)
+                    });
                 }
                 ClankVerdict::StrongerWins => {
-                    // ⛔ THE WEAKER ATTACK ENDS, NOT ITS RECTANGLE. Despawning
-                    // one volume left the losing MOVE playing, so its sibling
-                    // volumes and every later window carried on — a rectangle
-                    // losing a contest the mechanic describes as an attack
-                    // losing. ⭐ NOT announced: nothing happened to the winner,
-                    // and the loser's owner learns it the way it learns any whiff.
-                    ended.insert(if a.damage < b.damage {
-                        *a_owner
-                    } else {
-                        *b_owner
-                    });
+                    defeated.insert(if a.damage < b.damage { a.attack } else { b.attack });
                 }
             }
         }
     }
-
-    for owner in ended {
-        if let Ok(mut playback) = playing.get_mut(owner) {
-            crate::moveset::cancel_move_playback(&mut commands, owner, &mut playback, crate::moveset::MoveEnd::Interrupted);
-        }
-    }
+    resolution.defeated = defeated.into_iter().collect();
+    resolution.clanked = clanked.into_iter().collect();
+    resolution
 }
 
-/// May these two bodies' attacks meet at all?
+/// May these two ATTACKS meet at all?
 ///
 /// The same question the damage sweep asks about an attack and a victim, asked
-/// about two ATTACKERS — so a team-mate's swing passes through yours exactly as
-/// their hit would.
-fn opposed(
-    a: Entity,
-    b: Entity,
-    factions: &Query<&crate::components::ActorFaction>,
-    teams: &Query<&crate::targeting::MatchTeam>,
+/// about two attacks — so a team-mate's swing passes through yours exactly as
+/// their hit would, and so does their bolt.
+fn sides_are_opposed(
+    a: &ClashContender<'_>,
+    b: &ClashContender<'_>,
     rules: crate::rules::ResolvedCombatTuning,
 ) -> bool {
     // Teams outrank faction, exactly as they do for damage: two humans in a
     // match share a faction and are still opponents.
-    if let (Ok(a_team), Ok(b_team)) = (teams.get(a), teams.get(b)) {
+    if let (Some(a_team), Some(b_team)) = (a.team, b.team) {
         return a_team != b_team;
     }
-    let (Ok(a_faction), Ok(b_faction)) = (factions.get(a), factions.get(b)) else {
-        return false;
-    };
-    crate::targeting::can_damage(*a_faction, *b_faction, rules.friendly_fire())
+    crate::targeting::can_damage(a.faction, b.faction, rules.friendly_fire())
 }
 
 /// What a trade COSTS both fighters: their moves end, and both are thrown back.
@@ -347,10 +351,10 @@ pub fn rebound_from_clanks(
         };
         push(a, -axis);
         push(b, axis);
-        // ⛔ THE MOVE IS ALREADY OVER — `arbitrate_attack_clanks` ends it, so
-        // that the STRONGER-WINS case (which announces nothing) ends its
-        // loser by the same road. Cancelling again here would be a second
-        // authority on when an attack stops.
+        // ⛔ THE MOVE IS ALREADY OVER — the clash arbiter ends it, so that the
+        // STRONGER-WINS case (which announces nothing) ends its loser by the
+        // same road. Cancelling again here would be a second authority on
+        // when an attack stops.
     }
     for (body, total) in recoil {
         let Ok((mut kin, mut combat)) = bodies.get_mut(body) else {
@@ -396,128 +400,6 @@ mod tests {
         assert_eq!(clank_verdict(4, 99, 0.0), None);
     }
 
-    /// ⛔⛔ THREE EQUAL ATTACKS MEETING ON ONE TICK: ALL THREE TRADE.
-    ///
-    /// The sweep skipped a pair when either owner was already in `ended`, so an
-    /// EARLIER pair's outcome decided whether a LATER pair was CONSIDERED at
-    /// all. With A/B/C overlapping and equal: A/B resolves first by `SimId`,
-    /// both end, A/C and B/C are skipped — and **C survives because of `SimId`
-    /// order**. Deterministic, and not simultaneous.
-    ///
-    /// ⭐ `resolved` IS THE DEDUP; `ended` IS A COMMIT LEDGER, applied after the
-    /// sweep, exactly as its own comment says. Reading it as an eligibility gate
-    /// was the bug.
-    ///
-    /// ⛔ NO TEST EXERCISED `arbitrate_attack_clanks` AT ALL before this — the
-    /// only clank arm covered the pure `clank_verdict` — which is why a one-line
-    /// change to shipped arbitration was written and reverted unverified on
-    /// 2026-08-25 rather than shipped blind.
-    /// One equal swing, long enough to still be playing after the sweep.
-    fn a_swing(team: &str) -> ambition_entity_catalog::MoveSpec {
-        ambition_entity_catalog::MoveSpec {
-            display_name: None,
-            id: format!("swing_{team}"),
-            clip: ambition_entity_catalog::ClipBinding {
-                clip: "attack".to_string(),
-                fallbacks: vec![],
-            },
-            duration_s: 0.4,
-            windows: vec![],
-            events: vec![],
-            gates: Default::default(),
-            start_impulse: None,
-            smash_charge_mult: 1.0,
-            smash_charge: None,
-            charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
-            repeat: None,
-            landing_lag_s: None,
-            autocancel_after_s: None,
-            sprite_spin_hz: None,
-            equips: None,
-            flow: None,
-        }
-    }
-
-    #[test]
-    fn three_attacks_meeting_at_once_all_trade() {
-        use bevy::prelude::*;
-
-        let mut app = App::new();
-        app.add_message::<AttacksClanked>();
-        app.insert_resource(crate::rules::ResolvedCombatTuning {
-            clank_damage_window: 9.0,
-            ..Default::default()
-        });
-        app.add_systems(Update, arbitrate_attack_clanks);
-
-        // Three fighters standing on one spot, each mid-move, each on a
-        // different side so every pair is opposed.
-        let mut fighter = |team: &str| -> Entity {
-            app.world_mut()
-                .spawn((
-                    ae::BodyKinematics {
-                        pos: ae::Vec2::ZERO,
-                        vel: ae::Vec2::ZERO,
-                        size: ae::Vec2::new(16.0, 32.0),
-                        facing: 1.0,
-                    },
-                    ae::BodyGroundState {
-                        on_ground: true,
-                        ..Default::default()
-                    },
-                    crate::targeting::MatchTeam::new(team.to_string()),
-                    crate::moveset::MovePlayback::new(a_swing(team), 1.0),
-                ))
-                .id()
-        };
-        let a = fighter("a");
-        let b = fighter("b");
-        let c = fighter("c");
-
-        // One equal strike volume each, all overlapping at the origin. The ids
-        // are stated so the sweep's order is the fixture's, not the allocator's.
-        for (owner, id) in [(a, "vol_a"), (b, "vol_b"), (c, "vol_c")] {
-            app.world_mut().spawn((
-                Hitbox {
-                    strike_sfx: None,
-                    owner,
-                    source: crate::strike::HitSide::Enemy,
-                    anchor: crate::strike::HitboxAnchor::FollowOwner {
-                        local_offset: ae::Vec2::ZERO,
-                    },
-                    half_extent: ae::Vec2::new(20.0, 20.0),
-                    shape: None,
-                    facing: 1.0,
-                    damage: 10,
-                    knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
-                    launch_dir: None,
-                    frame_down: ae::Vec2::new(0.0, 1.0),
-                    reaction: None,
-                },
-                crate::moveset::StrikeVolume { owner, window: 0 },
-                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
-            ));
-        }
-
-        app.update();
-
-        let still_swinging: Vec<Entity> = [a, b, c]
-            .into_iter()
-            .filter(|e| {
-                app.world()
-                    .get::<crate::moveset::MovePlayback>(*e)
-                    .is_some()
-            })
-            .collect();
-        assert!(
-            still_swinging.is_empty(),
-            "{} of three equal attacks survived a simultaneous clank — an \
-             earlier pair's outcome is deciding whether a later pair is \
-             CONSIDERED, so the last id standing wins by allocator-independent \
-             luck rather than by the contest",
-            still_swinging.len()
-        );
-    }
 
     /// ⛔⛔ A THREE-WAY CLASH IS ONE RECOIL EACH, NOT ONE PER PAIR.
     ///
@@ -606,87 +488,4 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A GROUND SWING STAYS A GROUND SWING WHEN ITS OWNER LEAVES THE FLOOR.
-    ///
-    /// Eligibility asked `BodyGroundState::on_ground` AT COLLISION TIME, so a
-    /// ground attack stopped clanking the moment its owner walked off a ledge
-    /// mid-swing — and an aerial started clanking when its owner landed.
-    /// "Grounded attack" is a CLASSIFICATION and it is settled when the swing
-    /// comes out — `MovePlayback::started_grounded` is the stance the SELECTOR
-    /// used, and the loser's playback is already in this system's hand.
-    ///
-    /// ⭐ THE ARMS STRADDLE THE LATCH with the FEET HELD WRONG in both: the
-    /// clanking pair is airborne right now, and the refused pair is standing.
-    #[test]
-    fn the_clank_reads_the_swings_stance_not_the_owners_feet() {
-        use bevy::prelude::*;
-
-        let traded = |latched_grounded: bool, feet_on_floor: bool| -> bool {
-            let mut app = App::new();
-            app.add_message::<AttacksClanked>();
-            app.insert_resource(crate::rules::ResolvedCombatTuning {
-                clank_damage_window: 9.0,
-                ..Default::default()
-            });
-            app.add_systems(Update, arbitrate_attack_clanks);
-
-            let mut fighter = |team: &str| -> Entity {
-                app.world_mut()
-                    .spawn((
-                        ae::BodyKinematics {
-                            pos: ae::Vec2::ZERO,
-                            vel: ae::Vec2::ZERO,
-                            size: ae::Vec2::new(16.0, 32.0),
-                            facing: 1.0,
-                        },
-                        ae::BodyGroundState {
-                            on_ground: feet_on_floor,
-                            ..Default::default()
-                        },
-                        crate::targeting::MatchTeam::new(team.to_string()),
-                        crate::moveset::MovePlayback::new(a_swing(team), 1.0)
-                            .started_in_stance(latched_grounded),
-                    ))
-                    .id()
-            };
-            let a = fighter("a");
-            let b = fighter("b");
-            for (owner, id) in [(a, "vol_a"), (b, "vol_b")] {
-                app.world_mut().spawn((
-                    Hitbox {
-                        strike_sfx: None,
-                        owner,
-                        source: crate::strike::HitSide::Enemy,
-                        anchor: crate::strike::HitboxAnchor::FollowOwner {
-                            local_offset: ae::Vec2::ZERO,
-                        },
-                        half_extent: ae::Vec2::new(20.0, 20.0),
-                        shape: None,
-                        facing: 1.0,
-                        damage: 10,
-                        knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
-                        launch_dir: None,
-                        frame_down: ae::Vec2::new(0.0, 1.0),
-                        reaction: None,
-                    },
-                    crate::moveset::StrikeVolume { owner, window: 0 },
-                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
-                ));
-            }
-            app.update();
-            app.world().get::<crate::moveset::MovePlayback>(a).is_none()
-        };
-
-        assert!(
-            traded(true, false),
-            "two GROUND swings did not trade because their owners had left the \
-             floor since — walking off a ledge mid-swing turned the attack into \
-             something else"
-        );
-        assert!(
-            !traded(false, true),
-            "two AERIALS traded because their owners had landed since — the air \
-             stopped being a place where committing costs you"
-        );
-    }
 }

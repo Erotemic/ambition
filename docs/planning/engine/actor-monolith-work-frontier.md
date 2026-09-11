@@ -552,6 +552,42 @@ the renderer, so it cannot answer the question. The 49 crates that remain have
 been traced to their activating parents; what has not been established is which
 of them a minimum profile has a right to expect.
 
+✅ **THE CENSUS THIS PACKET WAS HELD FOR, MEASURED 2026-09-11 —
+`scripts/measure_minimum_profile_closure.py`.**
+
+| question | measured |
+| --- | --- |
+| featureless `ambition_platformer2d` closure | **49** `ambition*` crates |
+| the stated minimum, priced (`core` + `shared_tangle` + `world` + `time` + `input`) | **11** |
+| crates in the profile ONLY because the facade names them | **2** (`_host`, `_provider`) |
+| the other direct edges, redundant with a path from underneath | **40** |
+| `ambition_platformer2d_provider` alone | 47 of 49 (95.9%) |
+| `_host` / `_runtime` / `sim_view` / `_actor_monolith` alone | 45 / 44 / 41 / 38 |
+
+⛔⛔ **AND THE STRUCTURAL FINDING IS WHY EVERY PROPOSED CUT HAS MEASURED ZERO.**
+Each crate is held by TWO roads at once — the facade names 42 of the 48 directly,
+AND the hubs reach the same 42 from underneath — so cutting either road alone
+changes the profile not at all. MEASURED: cutting `provider`, `host`, `runtime`,
+`actor_monolith` and `sim_view` **together** takes 49 to **44**. ⇒ A census that
+asks *"what does removing X save"* reports nothing here, for every X. The
+instrument has to ask what a PROFILE COSTS (`--minimum`), not what a cut saves.
+
+⛔⛤ **I GOT THIS WRONG FIRST AND THE MEASUREMENT CORRECTED ME.** Seeing
+`provider` carry 47 of 49, I reasoned that gating that one edge would drop the
+profile to about ten. It drops it to 48. The hub's size and the cut's saving are
+different quantities, and only one of them is a decision.
+
+⛔⛤ **AND THE INSTRUMENT'S OWN FIRST ANSWER WAS UNFALSIFIABLE.** "0 crates are in
+the closure only because of the facade's edge" printed regardless of the tree,
+because the computation unioned `reachable(child) | {child}` and every child is
+in its own set. A poison that deleted every non-root edge still printed 0. The
+real answer is 2. See the script's comment.
+
+⇒ **THE RULING, FOR JON (Q108):** *38 crates sit between the stated minimum (11)
+and what a featureless facade links today (49).* Naming the capability set is the
+decision; the script prices any set in seconds. It is one manifest's feature
+gates plus the matching hub gates — a pair of edits per capability, never one.
+
 **Ready now:** record the manifest lower bound and establish a real independent
 consumer fixture. **Implementation:** staged with the owners whose dependencies
 need splitting; do not wait for every monolith region to be extracted.

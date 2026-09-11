@@ -2562,6 +2562,30 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    long hitbox that costs nothing extra to throw. That is a per-character balance
    question, not a clock rewrite, and it now has numbers.
 
+   ⭐⭐ **CORROBORATED 2026-09-11 BY A SECOND, INDEPENDENT INSTRUMENT** —
+   `scripts/measure_authored_strike_extents.py --clock`, which reads the CONTENT
+   FILES rather than a `moveset_export` bundle from a booted app. Different
+   population (343 moves over the 17 shipped tables / 19 entities, against 322
+   over the 21-fighter grid), different road, same answer: active medians
+   tilt/jab 4.5, aerial 4.8, smash 5.4, special 6.6, grab 3.0; **all 343 median
+   4.8f, and only 22% exceed six live frames.** The performer is still the tail
+   at a 9.6f median, next is oiler at 7.2.
+
+   ⚠ TWO RECORDERS OF ONE FACT, KEPT ON PURPOSE AND BOUNDED: the export road
+   answers *"what did a booted app actually play"* and the file road answers
+   *"what does the shipped content ask for"*. They agree today, which is the only
+   reason the file road is trustworthy for a tuning loop — it is the one that
+   costs milliseconds instead of an app boot.
+
+   ⛔⛤ **AND THE FILE CENSUS DROPPED A WHOLE ENTITY IN SILENCE WHILE I READ IT.**
+   Its table column was 46 wide and
+   `cellular_automaton:imperfect_cellular_automaton` is 47, so twenty rows ran
+   into the next column with no separator and a summariser split them into five
+   fields instead of six. The count line said 343 and the rows I had parsed were
+   323 — **comparing the tool's own total against the rows a reader got is what
+   caught it.** Fixed by a literal space between every column, which survives an
+   overflowing value; `{:<46}` alone does not.
+
 ### D-TETHER-LINE — DONE 2026-09-10; the reel publishes a fact, not a component
 
 **Re-derived before starting, and the row was half true.** A tether line already

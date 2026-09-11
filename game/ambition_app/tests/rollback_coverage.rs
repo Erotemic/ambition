@@ -899,6 +899,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_combat::technique::InstalledTechniques",
         "install-time declaration of which technique handlers this composition added; written once at plugin build and never by the simulation",
     ),
+    // ⛔⛔ **CONTENT SELECTION, AND REWINDING IT WOULD UNDO A RELOAD.** This
+    // names WHICH prepared pack the App answers from (fast-iteration I3 step 1).
+    // It is inserted at composition and replaced only by a developer reload —
+    // never by a tick — and a rewind restoring the previous selection would
+    // silently put the old move tables back while the published cast stayed
+    // revised: two authorities for "what content is running", which is the exact
+    // thing App-scoped selection exists to collapse.
+    //
+    // ⚠ IT CAN CHANGE MID-SESSION, unlike the three above, and that is WHY the
+    // waiver is the right classification rather than an accident of it. The
+    // change is a session-level authoring operation that republishes the cast
+    // under a NEW `CharacterCatalogGeneration`; rollback state is what a TICK
+    // writes, and nothing here is.
+    (
+        "ambition_content::pack::SelectedContentPack",
+        "content selection: which prepared pack this App answers from; replaced only by a developer reload at a session boundary, never by a tick, and rewinding it would restore old move tables under a revised cast",
+    ),
     // ⭐ THE SAME KIND OF FACT AS THE TWO ABOVE, one step over: a composition
     // DECLARING that it closes the preparation barrier with an admission check,
     // so `CharacterPreparationPlugin`'s unchecked backstop stands down. Inserted

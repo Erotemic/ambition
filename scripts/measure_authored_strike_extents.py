@@ -191,12 +191,12 @@ def main() -> int:
             return 2
         clock_rows.sort(key=lambda r: r[3])
         print(
-            f"{'table':<46}{'verb':<20}{'move':<28}{'active_s':>10}"
+            f"{'table':<46} {'verb':<20} {'move':<30} {'active_s':>9}"
             f"{'frames60':>10}{'windows':>9}"
         )
         for table, verb, move, live, n in clock_rows:
             print(
-                f"{table:<46}{verb:<20}{move:<28}{live:>10.3f}"
+                f"{table:<46} {verb:<20} {move:<30} {live:>9.3f}"
                 f"{live * 60.0:>10.1f}{n:>9}"
             )
         lo, hi = clock_rows[0][3], clock_rows[-1][3]
@@ -219,12 +219,12 @@ def main() -> int:
         per_move[(table, move)] = per_move.get((table, move), 0) + 1
     rows.sort(key=lambda r: r[5])
     print(
-        f"{'table':<46}{'verb':<20}{'move':<28}{'half_x':>8}{'half_y':>8}"
+        f"{'table':<46} {'verb':<20} {'move':<30} {'half_x':>7} {'half_y':>7}"
         f"{'area':>10}{'n':>4}"
     )
     for table, verb, move, hx, hy, area in rows:
         print(
-            f"{table:<46}{verb:<20}{move:<28}{hx:>8.1f}{hy:>8.1f}{area:>10.0f}"
+            f"{table:<46} {verb:<20} {move:<30} {hx:>7.1f} {hy:>7.1f} {area:>9.0f}"
             f"{per_move[(table, move)]:>4}"
         )
     print(f"\n{len(rows)} authored Active volume(s) across {len(files)} table(s)")

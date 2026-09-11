@@ -1401,12 +1401,32 @@ lines above it in the same loop body, so there is no second order left to drift.
 Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verified.
 
 **STILL OPEN, and these are the moveset/hitbox items Jon named:**
-1. **Seven fighters swing a box smaller than their own body.** Measured at 1.6 they
-   were medic 0.23, sanic 0.27, npc_carl_stargan 0.29, officer 0.64,
-   perfect_cellular_automaton 0.72, projectile_polygon 0.79, goblin 0.89 — so at 1.25
-   they are smaller still. The roster-wide knob was the SHARED cause and is spent;
-   these need per-character work. medic's forward tilt is 3.8 px TALL against a 48 px
-   body.
+1. **TEN OF TWENTY-ONE swing a box smaller than their own body, and the roster
+   spans 75x for the SAME verb.** Re-measured 2026-09-11 at knob 1.25 by
+   `scripts/measure_strike_area_over_body.py` over a `moveset_takes --characters grid
+   --verbs attack_forward` recording (peak strike-volume BOUNDS area ÷ own body
+   area):
+
+   | | | | |
+   |---|---|---|---|
+   | medic 0.14 | sanic 0.16 | npc_carl_stargan 0.18 | officer 0.39 |
+   | perfect_cellular_automaton 0.44 | projectile_polygon 0.48 | goblin 0.55 | author 0.62 |
+   | pugnacious_polygon 0.78 | npc_ninja_shadow_oni_leader 0.80 | npc_emmy_noether 1.01 | mary_o_tall 1.19 |
+   | pointed_polygon 1.25 | npc_alice 1.25 | npc_pirate_admiral 1.76 | smash_george_booul 1.91 |
+   | npc_bob 2.04 | special_patent_clerk 2.19 | npc_oiler 2.66 | performer 3.22 |
+   | **player_robot_v3 10.48** | | | |
+
+   ⇒ **The roster-wide knob was the SHARED cause and it is spent; the SPREAD is
+   per-character authoring.** `medic`'s forward tilt is **4.8 px tall** against a 48 px
+   body (bounds 17.8 x 4.8); `player_robot_v3`'s is 124 x 122 against a 30 x 48 body.
+   ⚠ **It is the BOUNDS, not the shape.** Every one of these is a convex poly, so a
+   sword-arc is measured by the rectangle around it and the ratio OVERSTATES a bladed
+   move. Read it as *"how much of the body's own area could this swing possibly
+   cover"* — the right question for "does it feel like it connects", the wrong one for
+   a damage budget.
+   ⛔ **AND EVERY ONE OF THE 21 WAS OUT OF REACH at the take's default seat spacing**
+   — closest gaps 39 to 142 px. The census above is about SIZE and says nothing about
+   whether these moves connect in a match; that needs `--spacing`.
 2. ✅ **CLOSED 2026-09-11 — THE PERFORMER'S TILT CANCELS ARE OBSERVED IN A MATCH,
    and `ba2f8887a`'s note said the opposite.** Both halves of *"not observed"* were
    the SCENARIO:

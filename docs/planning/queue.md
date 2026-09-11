@@ -749,8 +749,44 @@ is a decision on `prepared.rs`:
 being measured on right now, and inventing an entry point in it mid-measurement
 is how two agents produce two answers.**
 
-**Next bounded action:** decide (3) against A6's findings, then the hydration
-adapter and step 5's removal of the compiled table. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
+✅ **(3) IS DECIDED, AND THE ANSWER WAS NONE OF THE THREE.** Measured 2026-09-11
+by the A6 peer, read out of `finalize_character` and the barrier rather than off
+the structs:
+
+⭐⭐ **THE BARRIER DESTROYS THE EXACT INPUT A MOVE-ONLY REVISION WANTS, IN ONE
+LINE, FOR A REASON THAT NO LONGER APPLIES.** `StagedCharacter { inner:
+PreparedCharacterOverrides }` IS the flattened pre-fold definition — what
+`prepare_for_registration` returns and `finalize_cast` consumes — and the barrier
+does `std::mem::take(&mut staged.by_id)`. **The take is incidental, not
+load-bearing**: idempotence is owned by a separate `staged.finalized` flag, added
+precisely because the consumption made a second call republish an empty registry.
+⇒ Retaining `by_id` past the barrier costs nothing anything relies on, and a
+moveset-only revision becomes `by_id[id].inner.moveset = new; re-run
+finalize_cast` — a pure function, no new state shape, and the artifact keeps
+carrying ONE domain-owned move section.
+⚠ **A SAFEGUARD THAT OUTLIVES ITS REASON BECOMES A CONSTRAINT NOBODY CHOSE.**
+
+⛔⛔ **AND RECONSTRUCTION FROM prepared+catalog DOES NOT WORK**, which is why (3)
+is not optional. LOST OUTRIGHT: `autonomous_profile_ref` (resolved and not
+retained — ⚠ ASYMMETRIC with its own sibling, which keeps `provoked_profile_id`);
+`action_set` (the `Authored` arm cannot tell a source-authored set from one the
+catalog built). COLLAPSED — present and not the source value: `motion_model`
+(`Option` folded to non-`Option`), `movement_tuning`, `vitals.max_health` (folded
+AND clamped), `locomotion.baseline_free_flight` (`None` becomes `Some(false)`).
+
+⛔⛤ **THE ONE THAT BITES THIS PACKET SPECIFICALLY: in the `Unauthored` arm the
+stored `authored_moveset` is MUTATED — `revoke_host_owned_ranged(&mut moveset)`
+strips ranged verbs before storing.** A hydration adapter that compared a decoded
+section against the PREPARED side would be comparing an unrevoked moveset with a
+revoked one and reporting the difference as a codec defect. ⇒ **The artifact's
+parity claim is about the SOURCE tables** (`authored_movesets::tables()`), which
+is what `every_shipped_move_table_survives_the_artifact_exactly` measures, and it
+must stay that way.
+
+**Next bounded action:** retain `by_id` past the barrier and add a
+`revise_staged_moveset` entry point, sealing the claim that `staged.finalized` is
+the only post-barrier reader rather than grepping for it. Then step 5's removal
+of the compiled table, then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

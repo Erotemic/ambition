@@ -36,12 +36,31 @@ architecture review:
 | **P2** | Package/dependency reduction, but only where an ownership change opens the seam |
 | **P2/P3** | Observability, tuning, documentation, broad content migration |
 
-⛔ **KNOWN HOLE, FILED AGAINST THE CURRENT PROTOTYPE:** move reload can conclude
-`Unchanged` for the move material and still install the whole newly-loaded pack
-as `SelectedContentPack`. Moves identical + items changed = one subsystem
-believing nothing changed while another observes new mechanical content. ⛔ **Do
-NOT fix it by special-casing `Unchanged`** — that hides the missing abstraction.
-It is closed by the complete candidate-bundle transaction above.
+✅ **THE ATOMICITY HOLE IS CLOSED (`7abbc7a46`, arm at `d8608a641`).** Move
+reload used to conclude `Unchanged` for the MOVE material and install the whole
+newly-loaded pack as `SelectedContentPack` — moves identical, items changed, one
+subsystem believing nothing changed while another observes new mechanical
+content. ⛔ It was NOT closed by special-casing `Unchanged`, which would have hid
+the missing abstraction: `ambition_content_pack::CandidateGeneration` decides on
+the pack's COMPLETE `ContentFingerprint`, and the move family's outcome is a
+consequence of that decision rather than an input to it. Staleness is asked
+FIRST, so a candidate whose base disappeared is refused even when mechanically
+identical.
+
+⛔ **WHAT REMAINS OF I3 IS THE BINDING, and it is the whole of the P0 above:** the
+transaction establishes no `ContentEpoch`, no `PreparedContentIdentity` and no
+rollback timeline boundary, and it carries TWO base clocks (the pack fingerprint
+and `CharacterCatalogGeneration`) where the architecture wants one.
+`MoveReload::StaleGeneration` sits beside `Stale` as the honest report of that.
+
+⭐ **THE REFUSAL CONTRACT IS DERIVABLE, NOT INVENTABLE — MEASURED 2026-09-11.**
+`ambition_platformer2d_rollback_ggrs::session.rs:1010` already INVALIDATES a live
+GGRS timeline when the prepared content identity changes under it, and
+`RollbackTimelineStatus::carried_from` already hands an unhealthy timeline's
+reason to the timeline that replaces it. ⇒ Publishing a content generation during
+a live rollback session is already a desync diagnosis, so the road must REFUSE
+rather than publish-and-be-invalidated. Do not write a new health rule; use that
+one.
 
 ⚠ **AND `SelectedContentPack` MUST NOT BECOME ORDINARY ROLLBACK SNAPSHOT STATE.**
 Rewinding a developer's content selection as gameplay state is the wrong model;

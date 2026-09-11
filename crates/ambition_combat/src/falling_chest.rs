@@ -30,11 +30,16 @@ pub fn update_ecs_falling_chests(
             let advance = remaining.min(max_substep);
             let try_center = ae::Vec2::new(aabb.center.x, aabb.center.y + advance);
             let try_aabb = ae::Aabb::new(try_center, aabb.half_size);
+            // ⭐ THE PUBLISHED PREDICATE, AND IT IS `is_support_surface` RATHER
+            // THAN `is_full_collision_surface`: a chest asks what it can COME TO
+            // REST ON, which includes a one-way, and the other predicate answers
+            // a different question (what blocks both axes) with `OneWay` absent.
+            // Two spellings of one question lived here and in `settled_chest_center`
+            // below; collapsing them onto the WRONG one of the two published
+            // predicates would have made falling chests pass through every
+            // one-way platform in the game.
             let blocked = world.0.body_overlaps_any(try_aabb, |block| {
-                matches!(
-                    block.kind,
-                    ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-                )
+                ae::collision_semantics::is_support_surface(block.kind)
             });
             if blocked {
                 commands.entity(entity).remove::<FallingChest>();
@@ -67,11 +72,9 @@ pub fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) 
             let advance = remaining.min(max_substep);
             let try_center = ae::Vec2::new(center.x, center.y + advance);
             let try_aabb = ae::Aabb::new(try_center, half_size);
+            // The same question as the live tick above, and now the same call.
             let blocked = world.body_overlaps_any(try_aabb, |block| {
-                matches!(
-                    block.kind,
-                    ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-                )
+                ae::collision_semantics::is_support_surface(block.kind)
             });
             if blocked {
                 return center;
@@ -125,6 +128,54 @@ mod falling_chest_tests {
         assert!(
             300.0 - (settled.y + half.y) <= 13.0,
             "chest comes to rest within a substep of the floor"
+        );
+    }
+
+    /// ⛔⛤ A REWARD CHEST COMES TO REST ON A ONE-WAY PLATFORM, AND NOTHING SAID SO.
+    ///
+    /// The two sites above ask *"what can this chest come to rest on"*, and the
+    /// answer is `is_support_surface` — the predicate with `OneWay` in it. Its
+    /// sibling `is_full_collision_surface` answers a different question (what
+    /// blocks both axes) and excludes one-ways.
+    ///
+    /// ⭐ MEASURED 2026-09-11 WHILE COLLAPSING TWO INLINE COPIES ONTO THE
+    /// PUBLISHED PREDICATE: swapping in the WRONG one of the two left
+    /// `ambition_combat` (633) and the monolith (1153) entirely green. **1,786
+    /// tests and not one of them drops a chest onto a one-way.** A boss reward
+    /// spawned over a one-way platform would have fallen straight through it and
+    /// kept going — the floor below, or out of the room.
+    ///
+    /// ⇒ That is why the collapse ships with this test rather than on its own:
+    /// two spellings of one question are safe to unify only when something says
+    /// which of the two published answers is the right one.
+    #[test]
+    fn a_chest_settles_on_a_one_way_platform_not_through_it() {
+        let world = ae::World::new(
+            "t",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            vec![ae::Block::one_way(
+                "a one-way ledge",
+                ae::Vec2::new(0.0, 300.0),
+                ae::Vec2::new(400.0, 12.0),
+            )],
+        );
+        let half = ae::Vec2::new(12.0, 12.0);
+        let settled =
+            settled_chest_center(&world, ae::Vec2::new(200.0, 50.0), ae::Vec2::new(24.0, 24.0));
+
+        // ⛔ ANTI-VACUITY: a chest that never moved also "did not fall through".
+        assert!(
+            settled.y > 50.0,
+            "the chest did not fall at all, so this says nothing about what \
+             stopped it"
+        );
+        assert!(
+            settled.y + half.y <= 300.0,
+            "a reward chest fell THROUGH a one-way platform: it settled at \
+             {settled:?}, past the ledge top at 300. A chest asks what it can \
+             REST on, which includes a one-way — `is_support_surface`, not \
+             `is_full_collision_surface`"
         );
     }
 

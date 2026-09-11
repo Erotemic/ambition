@@ -1372,3 +1372,126 @@ fn a_blink_wall_stops_a_body_that_cannot_blink() {
          {unobstructed} with nothing in the way)"
     );
 }
+
+/// ⛔⛤ A ONE-WAY DOES NOT BLOCK A BODY SIDEWAYS, AND NO MOVEMENT TEST SAID SO.
+///
+/// ⭐⭐ WHAT IT GUARDS, MEASURED RATHER THAN ASSERTED — and the first three
+/// answers were wrong. It guards a CONJUNCTION of two gates in series, and no
+/// single-predicate poison reddens it:
+///
+/// ```text
+/// is_solid_for_axis(OneWay, side axis)  -> false   collision.rs:324, the sweep filter
+/// one_way_landing_from_feet(..)         -> false   collision.rs:330, the landing rule
+/// ```
+///
+/// Break ONE and a one-way still does not block: broke the first alone (green),
+/// the second alone (green), the repair's own axis gate at `:535` alone (green).
+/// Break BOTH and this test fails — a body's right edge stops at 300 against an
+/// empty-lane reach of 520.7. **That is defence in depth, and it is the reason
+/// this test is worth more than either predicate's unit assertion.**
+///
+/// ⛔⛔ IT DOES NOT GUARD `is_full_collision_surface`, AND SAYING SO WAS THIS
+/// TEST'S FIRST DOC COMMENT. That predicate has exactly one movement caller —
+/// `collision.rs:551`, a gravity-axis NESTING ESCAPE — which a sideways walk
+/// never reaches. MEASURED 2026-09-11 by making the two published predicates
+/// identical (`is_full_collision_surface` given `OneWay`, and the symbol-level
+/// assertion in `collision_semantics/tests.rs` flipped with it, as anyone
+/// collapsing them would): **`ambition_platformer2d_core` stayed green at 547
+/// tests**, and the only four reds in the workspace were projectile passthrough
+/// tests in `shared_tangle` and the monolith.
+/// ⇒ So that predicate's movement half remains UNGUARDED and this test does not
+/// close it — the gap is narrower than "blocks both axes" and is about escaping
+/// from INSIDE a surface. Its `BlinkWall` arm is separately open; see
+/// `a_blink_wall_stops_a_body_that_cannot_blink` above.
+/// ⚠ The reverse poison is not symmetric: dropping `OneWay` from
+/// `is_support_surface` reddens SIX core movement tests. One predicate of the
+/// pair is well guarded and the other is guarded only by another domain.
+///
+/// ⭐ THREE ARMS, because two cannot tell the claim from an accident. The empty
+/// lane proves the walk ARRIVES (the failure mode next door: a body that stopped
+/// at 295.7 was read as "the wall held"), and the solid arm proves this lane
+/// CAN be blocked — without it, "passed through" is also what a fixture where
+/// nothing blocks anything reports.
+#[test]
+fn a_one_way_does_not_block_a_body_walking_sideways_into_it() {
+    use crate::test_support::TEST_TUNING;
+    use crate::world::{Block, World};
+
+    let obstacle_left = 300.0;
+    let walk_into = |kind: Option<bool>| -> f32 {
+        let mut blocks = vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 560.0),
+            Vec2::new(800.0, 40.0),
+        )];
+        // `None` is the EMPTY LANE control — the absence of the subject, not a
+        // different block in its place.
+        match kind {
+            Some(true) => blocks.push(Block::solid(
+                "a wall that really does block",
+                Vec2::new(obstacle_left, 200.0),
+                Vec2::new(16.0, 360.0),
+            )),
+            Some(false) => blocks.push(Block::one_way(
+                "a one-way stood on its end",
+                Vec2::new(obstacle_left, 200.0),
+                Vec2::new(16.0, 360.0),
+            )),
+            None => {}
+        }
+        let world = World {
+            name: "sideways into a one-way".to_string(),
+            size: Vec2::new(800.0, 600.0),
+            spawn: Vec2::new(200.0, 540.0),
+            blocks,
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            chains: Vec::new(),
+            edges: Default::default(),
+        };
+        let mut scratch = scratch_with(AbilitySet::default(), world.spawn);
+        scratch.kinematics.vel = Vec2::ZERO;
+        for _ in 0..900 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState {
+                    axes: crate::LocalAxes::new(1.0, 0.0),
+                    control_dt: 1.0 / 60.0,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+                TEST_TUNING,
+            );
+        }
+        scratch.kinematics.aabb().max.x
+    };
+
+    // The control first: it decides whether the claim below is about the block
+    // or about a body that ran out of frames.
+    let unobstructed = walk_into(None);
+    assert!(
+        unobstructed > obstacle_left + 8.0,
+        "the same walk down an EMPTY lane only reached {unobstructed}, short of \
+         the {obstacle_left} line — this fixture cannot tell a body that passed \
+         through from one that never arrived"
+    );
+
+    // And the lane CAN be blocked, or "it passed through" says nothing.
+    let solid = walk_into(Some(true));
+    assert!(
+        solid <= obstacle_left + 1.0,
+        "a plain solid wall did not stop the walk (right edge {solid}, wall at \
+         {obstacle_left}) — so this fixture cannot tell blocking from passing"
+    );
+
+    let one_way = walk_into(Some(false));
+    assert!(
+        one_way > obstacle_left + 8.0,
+        "a body walking SIDEWAYS was stopped by a one-way: its right edge is \
+         {one_way}, the one-way starts at {obstacle_left}, and the same walk \
+         reaches {unobstructed} down an empty lane. A one-way blocks on the \
+         GRAVITY axis only, and two gates say so: the sweep's axis filter and \
+         the landing rule. Both are broken if you are reading this."
+    );
+}

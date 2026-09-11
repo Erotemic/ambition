@@ -2717,6 +2717,38 @@ TRANSFERABLE HALF.**
 ⇒ **A fixture's control must be the ABSENCE of the subject, not a different
 instance of it.**
 
+⛔⛔ **AND IT IS NOT ONLY THE `BlinkWall` ARM — MEASURED 2026-09-11 FROM THE
+OTHER SIDE.** Making the two published predicates IDENTICAL — giving
+`is_full_collision_surface` the `OneWay` that `is_support_surface` has, and
+flipping the symbol-level assertion in `collision_semantics/tests.rs` with it, as
+anyone collapsing them would — leaves **`ambition_platformer2d_core` green at 547
+tests**. The only four reds in the workspace are projectile passthrough tests in
+`_shared_tangle` (3) and the monolith (1).
+
+⇒ So BOTH halves of this predicate's movement role are unguarded: the `BlinkWall`
+it includes and the `OneWay` it excludes. Its entire movement surface is ONE
+caller, `movement/collision.rs:551`, and that is a **gravity-axis nesting escape**
+— a body already inside a block — which is far narrower than the doc's *"blocks
+both axes unconditionally"*. A fixture for this row has to put a body INSIDE a
+surface, which is why walking at one never reddens it.
+
+⚠ **THE REVERSE POISON IS NOT SYMMETRIC**, and that is the useful contrast:
+dropping `OneWay` from `is_support_surface` reddens SIX core movement tests
+(`one_way_platform_requires_down_plus_jump_to_drop_through`,
+`one_way_support_faces_are_gravity_relative`, the two gravity-variant siblings,
+`guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground`,
+`nothing_ever_rests_on_a_bonk_only_block`). One predicate of the pair is
+well guarded by behaviour; the other is guarded only by another domain's
+fixtures and by two `assert!(predicate(kind))` lines that restate its body and
+move with it.
+
+✅ **AND THE `OneWay` BEHAVIOUR ITSELF IS NOW GUARDED, though not through this
+predicate.** `a_one_way_does_not_block_a_body_walking_sideways_into_it`
+(`movement/tests/wall_collision.rs`) pins it, and its attribution took four
+poisons: it guards a CONJUNCTION — `is_solid_for_axis` on the side axis AND
+`one_way_landing_from_feet` — and breaking either alone leaves it green. Defence
+in depth is why no single-predicate poison reaches it.
+
 **Acceptance:** deleting `BlinkWall` from `is_full_collision_surface` reddens at
 least one test that names what a blink wall is FOR. ⚠ Check first whether a body
 is *meant* to ride one — this row assumes the arm is load-bearing because it was

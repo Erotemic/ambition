@@ -732,22 +732,26 @@ pub fn stage_for_press(app: &mut App, verb: &Verb, spacing: Option<f32>)
 /// Take off, aim, and get her to where this move can land — the airborne half of
 /// [`stage_for_press`], run after `prepare`.
 ///
-/// Returns `false` only when an ordinary aerial could not fall into range;
-/// the directional stagings place the prop instead and always succeed or leave
-/// the body where it was.
+/// Returns whether the body actually reached the position this move needs.
+///
+/// ⛔⛔ IT USED TO RETURN `true` FOR BOTH DIRECTIONAL STAGINGS AND SAY SO IN THIS
+/// COMMENT: *"the directional stagings place the prop instead and always succeed."*
+/// They do not. `place_seat_relative` returns `false` when seat 0 has no position
+/// to place the prop relative TO, and `descend_to_meet` returns `false` when the
+/// subject is missing or the descent never reaches the band. Both results were
+/// DISCARDED, and the recorder and the renderer then read this function's `true`
+/// as evidence that the setup had worked.
+///
+/// ⇒ A staging failure that reports success is the worst shape a fixture can
+/// take: the take records a move performed from the wrong place and nothing says
+/// so, and the miss reads as a hitbox fault. The results are returned.
 pub fn stage_airborne(app: &mut App, verb: &Verb) -> bool {
     if !verb.airborne {
         return true;
     }
     match staging_for(verb) {
-        Staging::Above => {
-            place_seat_relative(app, 1, (0.0, -ABOVE_DROP_PX));
-            true
-        }
-        Staging::Below => {
-            descend_to_meet(app, 1, BELOW_LEAD_PX);
-            true
-        }
+        Staging::Above => place_seat_relative(app, 1, (0.0, -ABOVE_DROP_PX)),
+        Staging::Below => descend_to_meet(app, 1, BELOW_LEAD_PX),
         _ => descend_to_meet(app, 1, AERIAL_LEAD_PX),
     }
 }
@@ -1259,5 +1263,69 @@ mod tests {
             verb_named("pummel").is_none(),
             "capture-state verbs are absent on purpose"
         );
+    }
+}
+
+#[cfg(test)]
+mod staging_failure_tests {
+    use super::*;
+
+    /// ⛔⛤ EVERY DIRECTIONAL STAGING USED TO RETURN `true` UNCONDITIONALLY, and
+    /// its own doc comment asserted it: *"the directional stagings place the prop
+    /// instead and always succeed."* `place_seat_relative` and `descend_to_meet`
+    /// each return a result and both were discarded, so the recorder and the
+    /// renderer read that `true` as evidence the setup had worked.
+    ///
+    /// ⭐ THE FAILURE IS REACHED BY REMOVING THE SUBJECT, which is the real
+    /// condition: both helpers look seat 0 up and answer `None` when nothing is
+    /// seated. A world with no bodies is exactly the case where the take would
+    /// otherwise record a move performed from wherever the body happened to be.
+    fn no_bodies() -> App {
+        App::new()
+    }
+
+    fn verb(axis_x: f32, axis_y: f32, airborne: bool) -> Verb {
+        Verb {
+            verb: "probe",
+            label: "Probe",
+            axis_x,
+            axis_y,
+            button: Button::Attack,
+            airborne,
+        }
+    }
+
+    #[test]
+    fn an_above_staging_that_cannot_place_the_prop_reports_failure() {
+        let up = verb(0.0, -1.0, true);
+        assert_eq!(staging_for(&up), Staging::Above, "the premise: this is the Above arm");
+        assert!(
+            !stage_airborne(&mut no_bodies(), &up),
+            "no seat 0 means no position to place the prop relative to, and a \
+             staging that could not run must not report success"
+        );
+    }
+
+    #[test]
+    fn a_below_staging_that_cannot_descend_reports_failure() {
+        let down = verb(0.0, 1.0, true);
+        assert_eq!(staging_for(&down), Staging::Below);
+        assert!(!stage_airborne(&mut no_bodies(), &down));
+    }
+
+    #[test]
+    fn an_ordinary_aerial_that_cannot_descend_reports_failure() {
+        let fwd = verb(1.0, 0.0, true);
+        assert_eq!(staging_for(&fwd), Staging::InFront);
+        assert!(!stage_airborne(&mut no_bodies(), &fwd));
+    }
+
+    /// ⛔ THE ANTI-VACUITY ARM. Without it the three above are satisfied by a
+    /// function that returns `false` for everything, which is the same defect
+    /// pointing the other way.
+    #[test]
+    fn a_grounded_verb_needs_no_airborne_staging_and_still_succeeds() {
+        let grounded = verb(1.0, 0.0, false);
+        assert!(stage_airborne(&mut no_bodies(), &grounded));
     }
 }

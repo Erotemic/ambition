@@ -881,14 +881,27 @@ mod causal_trace {
         Vec::new()
     }
 }
-
-/// How deep an overlap has to be before it counts as one.
+/// Whether the subject's own strikes were INSIDE the target, and how close the
+/// nearest one came.
 ///
-/// ⚠ The engine tests `strict_intersects`, so a tangent is not a hit. A shape
-/// that grazes by a fraction of a pixel is a REACH finding wearing an engine
-/// finding's clothes.
-const GRAZE_PX: f32 = 1.0;
-
+/// ⛔⛔ THE VERDICT IS THE ENGINE'S `overlaps`, NOT A BOUNDS COMPARISON. Every
+/// strike row carries `overlaps` — `CombatVolume::intersects` against the
+/// target's HURTBOXES, the same call gameplay resolves a hit with — so a convex
+/// blade, an OBB or a circle answers exactly, and two shapes whose bounding
+/// boxes overlap while the shapes do not answer NO.
+///
+/// ⛔⛤ THIS FUNCTION USED TO RE-DERIVE IT FROM AABBs AGAINST THE COARSE BODY BOX,
+/// WHICH IS THE THIRD INSTANCE OF ONE MISTAKE. `overlaps` exists because
+/// `moveset_report.py` did the same thing, and the field's own comment says the
+/// error has a DIRECTION: *"it claimed contact the engine denied, which reads as
+/// 'the strike was on the target and the engine ignored it'"* — a reader sent to
+/// the engine when the geometry never touched. The coarse box is also the wrong
+/// subject: a hit is decided against hurtboxes, and localized hurtboxes make the
+/// gap wider still.
+///
+/// ⚠ THE BOUNDS GAP IS KEPT AND RENAMED, because "how far short did it fall" is
+/// a real question this answers and `overlaps` does not. It is a BOUNDS number
+/// and its name says so.
 fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
     let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
     let mut best: Option<(f32, f32)> = None;
@@ -920,23 +933,25 @@ fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
             ) else {
                 continue;
             };
-            // ⛔⛤ SIGNED, NOT CLAMPED. This used to be `.max(0.0)`, which threw
-            // away the only thing the graze test reads: with the gap floored at
-            // zero, `gap <= -GRAZE_PX` can never be true and
-            // `boxes_overlapped_target` was ALWAYS FALSE — a check that cannot
-            // fire, on the branch whose whole job is to say the finding is in
-            // the engine. Negative is penetration depth.
+            // ⛔ SIGNED, NOT CLAMPED: negative is how far the bounds went INTO
+            // each other, positive is how far short they fell. A reader who sees
+            // only `0.0` cannot tell a graze from a solid hit.
             let gap = (
                 (hx - tx).abs() - (hhx + thx),
                 (hy - ty).abs() - (hhy + thy),
             );
-            // ⛔⛤ A HAIR-THIN OVERLAP IS NOT EVIDENCE OF AN ENGINE FAULT.
-            // MEASURED: the performer's down air overlapped the sandbag by
-            // 0.9 px on two ticks and recorded no contact — and the engine's own
-            // contact test is `strict_intersects`, for which a touch is false.
-            // Reporting that as "the shapes overlapped, so the finding is in the
-            // engine" sends a reader to the wrong half of the system.
-            if gap.0 <= -GRAZE_PX && gap.1 <= -GRAZE_PX {
+            // ⛔⛔ THE VERDICT IS THE ENGINE'S, NOT THIS ARITHMETIC. `overlaps`
+            // lists the bodies this strike is inside by
+            // `CombatVolume::intersects` against their HURTBOXES — the call
+            // gameplay decides a hit with. The gap above is a DIAGNOSTIC and
+            // cannot decide the question: a convex blade whose bounding box
+            // penetrates the target's by 40 px may not touch it at all.
+            if hit["overlaps"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|victim| victim.as_str() == target["id"].as_str())
+            {
                 overlapped = true;
             }
             // Closest by the axis that is furthest out: a box 2 px short
@@ -1558,16 +1573,22 @@ fn main() {
                 "move_starts": move_starts,
                 "rode_a_mount": rode,
                 "max_live_hitboxes": live,
-                // ⛔ THE PREMISE BEHIND A MISS. `overlapped: false` says the
-                // shapes were never in a position to connect, which is a fact
-                // about the SCENARIO; `overlapped: true` with no contact is a
-                // fact about the ENGINE. `closest_gap_px` names the axis.
+                // ⛔ THE PREMISE BEHIND A MISS. `overlapped_target: false` says
+                // the strike was never inside the target, which is a fact about
+                // the SCENARIO; `true` with no contact is a fact about the
+                // ENGINE.
                 "reach": {
-                    "boxes_overlapped_target": overlapped,
-                    // ⚠ SIGNED: negative is how deep the shapes went INTO each
-                    // other, positive is how far short they fell. A reader who
-                    // sees only `0.0` cannot tell a graze from a solid hit.
-                    "closest_gap_px": gap.map(|(x, y)| vec![x, y]),
+                    // ⛔⛔ THE ENGINE'S OWN ANSWER: `CombatVolume::intersects`
+                    // against the target's HURTBOXES, read off each strike row's
+                    // `overlaps`. Not a bounds comparison — a convex blade whose
+                    // bounding box penetrates the target's may not touch it.
+                    "overlapped_target": overlapped,
+                    // ⚠ BOUNDS, AND SIGNED, AND A DIAGNOSTIC ONLY. Negative is
+                    // how deep the bounding boxes went into each other, positive
+                    // how far short they fell. It answers "how close did it
+                    // come"; it does not decide whether it connected, and its
+                    // name says which it is.
+                    "closest_bounds_gap_px": gap.map(|(x, y)| vec![x, y]),
                     "contacted_target": landed,
                 },
                 "max_live_projectiles": shots,
@@ -1626,6 +1647,63 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One frame: a target at the origin and one subject-owned strike, with the
+    /// engine's `overlaps` verdict supplied by the caller.
+    fn frame(strike_pos: (f32, f32), strike_half: (f32, f32), overlaps: &[&str]) -> serde_json::Value {
+        serde_json::json!({
+            "bodies": [{
+                "role": "target", "id": "the_target",
+                "pos": [0.0, 0.0], "half": [10.0, 10.0],
+            }],
+            "hitboxes": [{
+                "subject_owned": true,
+                "pos": [strike_pos.0, strike_pos.1],
+                "half": [strike_half.0, strike_half.1],
+                "overlaps": overlaps,
+            }],
+        })
+    }
+
+    /// ⛔⛔ BOUNDS THAT PENETRATE DEEPLY AND SHAPES THAT DO NOT TOUCH.
+    ///
+    /// A rotated blade's bounding box can sit right over a target while the hull
+    /// misses it entirely. Before 2026-09-11 this function decided the question
+    /// by comparing those bounding boxes with a 1 px tolerance, and it would have
+    /// called this a contact the engine refused — sending a reader to the engine
+    /// over geometry that never touched. The verdict is `overlaps`, which is
+    /// `CombatVolume::intersects` against the target's hurtboxes.
+    #[test]
+    fn deeply_penetrating_bounds_are_not_a_contact_when_the_engine_says_no() {
+        // Bounds overlap by 16 px on each axis — far past any tolerance.
+        let (overlapped, gap) = target_reach(&[frame((2.0, 2.0), (12.0, 12.0), &[])]);
+        assert!(
+            !overlapped,
+            "the engine listed no overlapping victim, so this is a MISS however \
+             deep the bounding boxes sit inside each other (gap {gap:?})"
+        );
+        let gap = gap.expect("the bounds diagnostic is still reported");
+        assert!(
+            gap.0 < -1.0 && gap.1 < -1.0,
+            "the premise: the BOUNDS really do penetrate, or this test would pass \
+             for the uninteresting reason — {gap:?}"
+        );
+    }
+
+    /// ⭐ AND THE OTHER DIRECTION, so the verdict is not simply always false.
+    #[test]
+    fn the_engines_overlap_verdict_is_what_reports_a_contact() {
+        let (overlapped, _) = target_reach(&[frame((2.0, 2.0), (12.0, 12.0), &["the_target"])]);
+        assert!(overlapped, "the engine named the target as overlapped");
+    }
+
+    /// ⛔ A STRIKE INSIDE SOMEBODY ELSE IS NOT INSIDE THE TARGET. The take seats a
+    /// real opponent, so `overlaps` can name a body this question is not about.
+    #[test]
+    fn overlapping_a_different_body_is_not_overlapping_the_target() {
+        let (overlapped, _) = target_reach(&[frame((2.0, 2.0), (12.0, 12.0), &["somebody_else"])]);
+        assert!(!overlapped);
+    }
 
     #[test]
     fn repeated_character_takes_start_in_new_sessions_and_accept_attacks() {

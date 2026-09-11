@@ -838,9 +838,30 @@ carry-forward arm. ⚠ Memory: the whole cast's pre-fold overrides now stay
 resident (58 characters in the shipped host), unmeasured; if it ever matters the
 answer is to shrink what an override holds, not to destroy it again.
 
-**Next bounded action:** the hydration adapter — decode a move section and drive
-`revise_staged_moveset` per character — then step 5's removal of the compiled
-table as an authoritative input. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
+✅ **AND THE HYDRATION ADAPTER LANDED WITH IT.** `stage_move_section(world,
+&MoveSectionData)` stages a whole artifact's move section as ONE revision.
+
+⛔⛔ **ALL OR NOTHING, WHICH IS WHY IT IS A FUNCTION AND NOT A LOOP AT THE CALL
+SITE.** A pack is one thing an author shipped; staging its ids one at a time
+leaves a HALF-APPLIED PACK when the third is unknown — a cast nobody authored,
+assembled out of the readable part of a file. Every id is checked before anything
+is staged, and the guard asserts the GOOD id in a refused pack does not reach the
+live cast. ⚠ Same reason the envelope refuses a duplicate section: *"a partial
+write or a watcher firing mid-copy is exactly how a mixed pack gets selected."*
+
+✅ **THE DATA LOOP IS CLOSED, END TO END.**
+`a_move_section_payload_changes_what_the_live_cast_plays` goes from a move-section
+PAYLOAD — text the host never produced — through the codec, the all-or-nothing
+staging and the existing revision road, to the published cast, and the fighter
+plays the new move. Nothing between the payload and the fighter is a compile step.
+⚠ **It stops short of I2's full claim** (*"a PREBUILT host plays it without
+invoking Cargo"*): this is one process that already linked the engine. What is
+established is that the DATA path is complete and the values survive it.
+
+**Next bounded action:** step 5 — remove the migrated move table as a compiled
+AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,
+never a runtime fallback), and the file/watcher road that makes "prebuilt host"
+literal. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

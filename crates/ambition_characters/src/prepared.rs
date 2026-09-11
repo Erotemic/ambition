@@ -655,6 +655,53 @@ pub fn revise_staged_moveset(
     Ok(())
 }
 
+/// Stage a whole move SECTION — every character's table from one loadable
+/// artifact — as a single revision.
+///
+/// ⭐⭐ **ALL OR NOTHING, AND THAT IS THE WHOLE REASON THIS EXISTS RATHER THAN A
+/// LOOP AT THE CALL SITE.** A pack is one thing an author shipped. Staging the
+/// ids it names one at a time would leave a half-applied pack when the third one
+/// is unknown — a cast nobody authored, assembled out of the readable part of a
+/// file. The artifact envelope refuses a duplicate section for the same reason:
+/// *"a partial write or a watcher firing mid-copy is exactly how a mixed pack
+/// gets selected."*
+///
+/// ⇒ Every id is checked BEFORE anything is staged. On any refusal nothing is
+/// staged at all, and the returned list names every problem so an author fixes
+/// the pack in one pass.
+///
+/// ⚠ STAGING IS NOT ACTIVATION. The caller runs
+/// [`activate_staged_revision`] with its own composition's
+/// [`ambition_entity_catalog::TechniqueSupport`], which is where a technique
+/// this build did not install refuses the pack — the question a codec cannot
+/// answer and this function deliberately does not try to.
+pub fn stage_move_section(
+    world: &mut bevy::ecs::world::World,
+    section: &ambition_entity_catalog::move_section::MoveSectionData,
+) -> Vec<MovesetRevisionError> {
+    let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
+        return vec![MovesetRevisionError::NoStagedCast];
+    };
+    let unknown: Vec<MovesetRevisionError> = section
+        .keys()
+        .filter(|id| {
+            !overrides
+                .by_id
+                .contains_key(&ambition_entity_catalog::CharacterId::new(id.as_str()))
+        })
+        .map(|id| MovesetRevisionError::UnknownCharacter(id.clone()))
+        .collect();
+    if !unknown.is_empty() {
+        return unknown;
+    }
+    for (id, contract) in section {
+        // Cannot fail: every id was checked above, and nothing has mutated the
+        // source since.
+        let _ = revise_staged_moveset(world, id, contract.clone());
+    }
+    Vec::new()
+}
+
 /// Every authored effect the preparation barrier refused, as a published fact.
 ///
 /// ⭐ EMPTY IS THE CLAIM WORTH ASSERTING. The shipped composition must prepare a

@@ -2173,6 +2173,125 @@ mod moveset_revision {
         );
     }
 
+    /// ⛔⛔ A HALF-APPLIED PACK IS A CAST NOBODY AUTHORED.
+    ///
+    /// A loadable artifact's move section is ONE thing an author shipped.
+    /// Staging its ids one at a time would leave the readable prefix applied
+    /// when a later id turns out to be unknown — the same failure the artifact
+    /// envelope refuses a duplicate section for. `stage_move_section` checks
+    /// every id BEFORE staging any, and this is the arm that says so: the good
+    /// id in the pack must NOT reach the live cast.
+    #[test]
+    fn a_section_naming_one_unknown_character_stages_none_of_it() {
+        use ambition_entity_catalog::move_section::MoveSectionData;
+
+        let mut app = app_with_a_prepared_cast();
+        let mut section = MoveSectionData::new();
+        section.insert(
+            "brawler".to_string(),
+            moveset_with(
+                &[("attack", "uppercut")],
+                vec![crate::prepared_fixtures::slash("uppercut", "cue", "land")],
+            ),
+        );
+        section.insert("somebody_else".to_string(), moveset_with(&[], Vec::new()));
+
+        let refusals = crate::prepared::stage_move_section(app.world_mut(), &section);
+        assert_eq!(
+            refusals,
+            vec![MovesetRevisionError::UnknownCharacter("somebody_else".to_string())]
+        );
+
+        // ⚠ THE HALF THAT MATTERS: the GOOD id in the same pack is not staged,
+        // so activating now changes nothing.
+        let outcome = activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+        assert!(
+            matches!(outcome, RevisionOutcome::NothingStaged),
+            "a refused pack left something staged: {outcome:?}"
+        );
+        assert_eq!(
+            live_move_ids(&app),
+            vec!["jab".to_string()],
+            "the readable half of a refused pack reached the live cast"
+        );
+    }
+
+    /// ⭐ THE CONTROL: a section every id of which is known DOES apply, whole.
+    #[test]
+    fn a_section_whose_characters_are_all_known_applies() {
+        use ambition_entity_catalog::move_section::MoveSectionData;
+
+        let mut app = app_with_a_prepared_cast();
+        let mut section = MoveSectionData::new();
+        section.insert(
+            "brawler".to_string(),
+            moveset_with(
+                &[("attack", "uppercut")],
+                vec![crate::prepared_fixtures::slash("uppercut", "cue", "land")],
+            ),
+        );
+
+        assert_eq!(
+            crate::prepared::stage_move_section(app.world_mut(), &section),
+            Vec::new()
+        );
+        activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+        assert_eq!(live_move_ids(&app), vec!["uppercut".to_string()]);
+    }
+
+    /// ⭐⭐ THE WHOLE LOOP: ENCODED BYTES CHANGE WHAT A LIVE FIGHTER PLAYS.
+    ///
+    /// I2's point is that a move edit should not need the host recompiled. This
+    /// arm goes from a move-section PAYLOAD — the thing an out-of-workspace
+    /// builder emits, text this crate never produced — through the codec, the
+    /// all-or-nothing staging and the existing revision road, to the published
+    /// cast. Nothing between the payload and the fighter is a compile step.
+    ///
+    /// ⚠ It stops short of I2's full claim ("a PREBUILT host plays it without
+    /// invoking Cargo"): this is one process that already linked the engine.
+    /// What it establishes is that the DATA path is complete and the values
+    /// survive it.
+    #[test]
+    fn a_move_section_payload_changes_what_the_live_cast_plays() {
+        use ambition_entity_catalog::move_section::{decode, encode, MoveSectionData};
+
+        let mut app = app_with_a_prepared_cast();
+        assert_eq!(live_move_ids(&app), vec!["jab".to_string()]);
+
+        // The payload, built the way a builder builds it and then thrown away as
+        // a VALUE — only the text crosses into the host below.
+        let payload = {
+            let mut section = MoveSectionData::new();
+            section.insert(
+                "brawler".to_string(),
+                moveset_with(
+                    &[("attack", "uppercut")],
+                    vec![crate::prepared_fixtures::slash("uppercut", "cue", "land")],
+                ),
+            );
+            encode(&section).expect("the section encodes")
+        };
+        assert!(
+            payload.contains("uppercut"),
+            "the payload does not carry the edited move, so this fixture is not \
+             about the payload: {payload}"
+        );
+
+        let section = decode(&payload).expect("the payload decodes");
+        assert_eq!(
+            crate::prepared::stage_move_section(app.world_mut(), &section),
+            Vec::new()
+        );
+        activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
+
+        assert_eq!(
+            live_move_ids(&app),
+            vec!["uppercut".to_string()],
+            "text that named a new move reached the cast and the fighter still \
+             plays the compiled one"
+        );
+    }
+
     /// ⚠ AN UNRESOLVED REFERENCE IS REFUSED, NOT INVENTED. A move edit naming a
     /// character this build did not prepare must not conjure a fighter to hang
     /// it on.

@@ -31,9 +31,9 @@
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
 | [`medic_moveset`](src/medic_moveset.rs) | The Medic — the brawler archetype's normals, under her own name, and four specials that are hers. |
+| [`moves_are_content`](src/moves_are_content.rs) | Are this provider's move tables really CONTENT now — the same tables, read from files rather than compiled in? |
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`ninja_shadow_oni_leader_moveset`](src/ninja_shadow_oni_leader_moveset.rs) | Shadow Oni Leader moveset. |
-| [`officer_moves_are_content`](src/officer_moves_are_content.rs) | Is the Officer's move table really CONTENT now — the same table, read from a file rather than compiled in? |
 | [`officer_moveset`](src/officer_moveset.rs) | The Officer — the brawler archetype's table, under his own name, plus the one move that is his. |
 | [`oiler_moveset`](src/oiler_moveset.rs) | Oiler's authored Smash repertoire. |
 | [`pack`](src/pack.rs) | Ambition's own content pack — the compile that IS the load path. |

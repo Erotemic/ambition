@@ -265,7 +265,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         n_b,
         0.10,
         0.30,
-        &["special_forward"],
+        // ⛔⛤ `special` AND NOT `special_forward`, AND THE LONGER NAME WAS A DEAD
+        // STRING. MEASURED 2026-09-11 when the shipped tables first went through
+        // the content-pack validator: `trigger_moveset_moves` asks
+        // `cancel_names_for(base_verb_of(verb), ..)`, which reduces
+        // `special_forward` to `special` BEFORE the window is consulted — so
+        // nothing this engine produces ever offers the directional spelling and
+        // this confirm never fired. It reads exactly like a move whose author
+        // wrote no follow-up, which is the same failure the medic's `jab` was.
+        &["special"],
         ambition_entity_catalog::CancelCondition::OnHit,
     );
     let n_b = committed_tail(n_b, 0.62, 0.0);
@@ -667,9 +675,17 @@ mod answer_tests {
             &CancelCondition::OnHit,
             "a block-cancel stacks two escapes and makes the fastest button free"
         );
+        // ⛔⛤ THIS ASSERTED `special_forward` AND THAT NAME NEVER RESOLVED.
+        // A test that pins a dead string defends the gap instead of the rule:
+        // it passed for five days while the confirm did nothing, because it
+        // compared the authored list against ITSELF rather than against what a
+        // press offers. ⇒ It asks the RUNTIME's question now.
+        let base = ambition_entity_catalog::base_verb_of("special_forward");
+        let offered = ambition_entity_catalog::cancel_names_for(base, false);
         assert!(
-            cancel.1.iter().any(|verb| verb == "special_forward"),
-            "it confirms into the DRAW: {:?}",
+            cancel.1.iter().any(|verb| offered.contains(&verb.as_str())),
+            "it confirms into the DRAW: the window names {:?} and a \
+             `special_forward` press offers {offered:?}",
             cancel.1
         );
         assert!(

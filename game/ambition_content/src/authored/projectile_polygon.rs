@@ -73,8 +73,15 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             ranged: Some(charged_cannon()),
             move_style: MoveStyleSpec::Walk,
             ..Default::default()
-        })
-        .with_moveset(crate::projectile_polygon_moveset::projectile_polygon_moveset());
+        });
+        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
+        // The table this line compiled in is `assets/data/movesets/projectile_polygon.ron`,
+        // declared in `pack.ron`, validated by the `moveset` schema and applied
+        // in `crate::character_catalog::authored_intrinsics` — the one seam
+        // every buildable character passes through.
+        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
+        // oracle's subject. The host reads NEITHER, so editing it changes nothing
+        // until it is re-exported.
     definition.vitals.max_health = Some(5);
     definition
 }

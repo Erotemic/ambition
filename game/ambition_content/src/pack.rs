@@ -27,7 +27,6 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// rather than by silently loading an empty family.
 pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
-const OFFICER_MOVES_SOURCE_PATH: &str = "data/movesets/officer.ron";
 const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
 const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
 const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
@@ -42,19 +41,64 @@ const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron"
 /// so the CLI and the Python tooling read the same bytes).
 pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 
-/// The Officer's move table — the first one the host READS instead of compiling.
+/// Every move table this provider authors, as CONTENT rather than code.
 ///
-/// ⭐⭐ GATED THE WAY THE MUSIC REGISTRY IS, and for the same reason stated
-/// there: OFF for desktop development so a move edit costs a file write and a
-/// pack recompile rather than a Rust rebuild and a link, ON for the builds that
-/// have no filesystem to read from (web, Android) or ship without the source
-/// tree. This is the line that makes fast-iteration I2's claim literal for one
-/// character.
+/// ⭐⭐ ONE LIST, because "which tables are migrated" was three answers per table
+/// — a path const, an embedded static and a `pack.ron` line — and two of the
+/// three are derivable from the first. `pack.ron` stays its own statement (it is
+/// the PACK's manifest, not this crate's), and the compiler's *"the manifest
+/// declares X but no source was supplied for it"* refusal is what keeps the two
+/// in step, loudly, at startup.
+///
+/// ⭐ GATED THE WAY THE MUSIC REGISTRY IS: OFF for desktop development so a move
+/// edit costs a file write and a pack recompile rather than a Rust rebuild and a
+/// link, ON for builds with no filesystem to read from (web, Android). That gate
+/// is what makes fast-iteration I2's claim literal — MEASURED at 0.61 s against
+/// 6.30 s for the same edit through the Rust table
+/// (`dev/measurements/m0_move_edit_loop.sh`).
+///
+/// ⛔ THE NAME HERE IS THE TABLE's, NOT THE CHARACTER'S. See
+/// `crate::authored_movesets::TABLE_CHARACTERS`.
 #[cfg(feature = "static_content")]
-const OFFICER_MOVES_RON_STATIC: Option<&'static str> =
-    Some(include_str!("../assets/data/movesets/officer.ron"));
+const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
+    ("alice", Some(include_str!("../assets/data/movesets/alice.ron"))),
+    ("author", Some(include_str!("../assets/data/movesets/author.ron"))),
+    ("bob", Some(include_str!("../assets/data/movesets/bob.ron"))),
+    ("carl_stargan", Some(include_str!("../assets/data/movesets/carl_stargan.ron"))),
+    ("cellular_automaton", Some(include_str!("../assets/data/movesets/cellular_automaton.ron"))),
+    ("emmy_noether", Some(include_str!("../assets/data/movesets/emmy_noether.ron"))),
+    ("goblin", Some(include_str!("../assets/data/movesets/goblin.ron"))),
+    ("medic", Some(include_str!("../assets/data/movesets/medic.ron"))),
+    ("ninja_shadow_oni_leader", Some(include_str!("../assets/data/movesets/ninja_shadow_oni_leader.ron"))),
+    ("officer", Some(include_str!("../assets/data/movesets/officer.ron"))),
+    ("oiler", Some(include_str!("../assets/data/movesets/oiler.ron"))),
+    ("patent_clerk", Some(include_str!("../assets/data/movesets/patent_clerk.ron"))),
+    ("performer", Some(include_str!("../assets/data/movesets/performer.ron"))),
+    ("pirate_admiral", Some(include_str!("../assets/data/movesets/pirate_admiral.ron"))),
+    ("pointed_polygon", Some(include_str!("../assets/data/movesets/pointed_polygon.ron"))),
+    ("projectile_polygon", Some(include_str!("../assets/data/movesets/projectile_polygon.ron"))),
+    ("pugnacious_polygon", Some(include_str!("../assets/data/movesets/pugnacious_polygon.ron"))),
+];
 #[cfg(not(feature = "static_content"))]
-const OFFICER_MOVES_RON_STATIC: Option<&'static str> = None;
+const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
+    ("alice", None),
+    ("author", None),
+    ("bob", None),
+    ("carl_stargan", None),
+    ("cellular_automaton", None),
+    ("emmy_noether", None),
+    ("goblin", None),
+    ("medic", None),
+    ("ninja_shadow_oni_leader", None),
+    ("officer", None),
+    ("oiler", None),
+    ("patent_clerk", None),
+    ("performer", None),
+    ("pirate_admiral", None),
+    ("pointed_polygon", None),
+    ("projectile_polygon", None),
+    ("pugnacious_polygon", None),
+];
 
 /// The authored fighter difficulty ladder.
 ///
@@ -110,10 +154,6 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         ),
         (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
         (
-            OFFICER_MOVES_SOURCE_PATH.to_string(),
-            source_text(OFFICER_MOVES_SOURCE_PATH, OFFICER_MOVES_RON_STATIC),
-        ),
-        (
             ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
             crate::ENCOUNTER_WAVES_RON.to_string(),
         ),
@@ -145,6 +185,11 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::audio_registries::SFX_REGISTRY_RON.to_string(),
         ),
     ];
+    sources.extend(MIGRATED_MOVESETS.iter().map(|(table, embedded)| {
+        let path = format!("data/movesets/{table}.ron");
+        let text = source_text(&path, *embedded);
+        (path, text)
+    }));
     sources.extend(
         crate::bosses::BOSS_ENCOUNTERS
             .iter()

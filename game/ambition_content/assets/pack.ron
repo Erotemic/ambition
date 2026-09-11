@@ -31,13 +31,35 @@
     sources: [
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
-        // ⭐⭐ THE FIRST MOVE TABLE THAT IS CONTENT RATHER THAN CODE
-        // (fast-iteration I2, step 5). The Officer's twenty-seven moves are read
-        // from here; `authored/officer.rs` no longer compiles a table into the
-        // host. Regenerate with
-        // `cargo run -p ambition_app_tools --bin moveset_source_export -- officer`
-        // while the Rust table is still the source.
+        // ⭐⭐ EVERY MOVE TABLE THIS PROVIDER AUTHORS IS CONTENT, NOT CODE
+        // (fast-iteration I2, step 5). No `authored/*.rs` compiles a moveset
+        // into the host any more; `character_catalog::authored_intrinsics`
+        // takes each one from the pack. Regenerate after editing a Rust table:
+        //
+        //   cargo run -p ambition_app_tools --bin moveset_source_export -- <table>...
+        //
+        // ⛔ THE FILE IS NAMED FOR THE TABLE AND KEYED BY THE CHARACTER, and
+        // those are not the same string for nine of these: `alice.ron` carries
+        // the entity `npc_alice`, and `cellular_automaton.ron` carries TWO.
+        // `ambition_content::authored_movesets::TABLE_CHARACTERS` is the one
+        // place that mapping lives.
+        (path: "data/movesets/alice.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/author.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/bob.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/carl_stargan.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/cellular_automaton.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/emmy_noether.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/goblin.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/medic.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/ninja_shadow_oni_leader.ron", schema: "moveset", version: 1),
         (path: "data/movesets/officer.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/oiler.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/patent_clerk.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/performer.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/pirate_admiral.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/pointed_polygon.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/projectile_polygon.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/pugnacious_polygon.ron", schema: "moveset", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every

@@ -12,8 +12,15 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             run_speed: 230.0,
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
-        })
-        .with_moveset(crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset());
+        });
+        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
+        // The table this line compiled in is `assets/data/movesets/pugnacious_polygon.ron`,
+        // declared in `pack.ron`, validated by the `moveset` schema and applied
+        // in `crate::character_catalog::authored_intrinsics` — the one seam
+        // every buildable character passes through.
+        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
+        // oracle's subject. The host reads NEITHER, so editing it changes nothing
+        // until it is re-exported.
     definition.vitals.max_health = Some(6);
     definition
 }

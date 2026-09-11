@@ -1026,6 +1026,72 @@ pack instead of each `author()` fn calling `.with_moveset(compiled_table())`.
 ⚠ NOT "delete the Rust tables": I1 just made Rust authoring the pure road. The
 tables move OUT of the host's compile, to a builder that emits the file.
 
+✅ **AND THEN FOR THE WHOLE PROVIDER: 17 TABLES, 19 CHARACTERS, 1.9 MB OF
+CONTENT.** No `authored/*.rs` compiles a moveset into the host any more.
+`pack.ron` declares each `data/movesets/<table>.ron`, the `moveset` schema
+validates it, and `character_catalog::authored_intrinsics` applies it.
+
+⭐ **AND WHAT IT COSTS THE HOST AT BOOT IS 20 ms. MEASURED 2026-09-11**, three
+samples each, identical within resolution: `ambition_content` (the pack CLI, the
+same `compile` the game runs) takes **0.03 s with the seventeen move sources
+declared and 0.01 s with them commented out**. ⇒ 1.9 MB of authored move tables,
+parsed and validated at startup, against a 6.30 s rebuild avoided per edit. The
+`pack.ron` edit is checked with a `grep` and put back, and the restore is
+confirmed by re-reading the source count.
+
+⛔⛔ **THE MIGRATION'S REAL HAZARD WAS A KEY THAT WAS NEVER AN IDENTITY.**
+`authored_movesets::tables()` keys entries by *"the name a failure should
+print"* — the FILE's name. **NINE of nineteen disagree with the character id the
+host looks up**: eight renames (`alice`/`npc_alice`, `bob`/`npc_bob`,
+`carl_stargan`/`npc_carl_stargan`, `emmy_noether`/`npc_emmy_noether`,
+`oiler`/`npc_oiler`, `pirate_admiral`/`npc_pirate_admiral`,
+`ninja_shadow_oni_leader`/`npc_ninja_shadow_oni_leader`,
+`patent_clerk`/`special_patent_clerk`) and `cellular_automaton`, one table for
+TWO ids. A file under the wrong key is SILENT: `table.get(id)` → `None` → the
+fighter keeps whatever its own module gave it, no log and no refusal.
+⚠ **THE OFFICER COULD NOT HAVE CAUGHT IT** — his table name and character id are
+the same string, so every test about him passes under both spellings.
+⭐ **AND THE EIGHTH HID BEHIND A DIFFERENT VOCABULARY**, found by a peer
+re-deriving the list: bare `ninja_shadow_oni_leader` DOES exist in the tree, as a
+`sheet_id`. A check asking *"does this name exist"* answers YES for that one and
+NO for the other seven. ⇒ **A key two vocabularies share is not an identity**;
+the question is *"is it a CAST id"*, never *"does it resolve"*.
+⇒ `TABLE_CHARACTERS` is the one place the mapping lives, with two drift guards
+(every table mapped, every mapped id buildable) and both deliberate absences
+NAMED so a third cannot join them in silence. POISON: rename one file's entity
+to its table name and all three content witnesses go red, the first naming it —
+*"`pack.ron` carries move tables for ["alice"], which this game builds no
+character for."*
+
+⭐⭐ **AND POINTING THE EXISTING VALIDATOR AT THE SHIPPED TABLES FOR THE FIRST
+TIME FOUND TWO DEFECTS IN ONE RUN.** That is what the migration bought, and it
+paid before a single move was retuned:
+
+1. **`CANCEL_CLASS_NAMES` DISAGREED WITH THE RUNTIME, AND SHIPPED CONTENT SAT ON
+   THE GAP.** The medic's neutral special authors `into: ["smash", …]`;
+   `cancel_names_for` DOES hand a smash press `["smash", "attack", "any_attack"]`,
+   so the runtime honours it — and the const omitted `smash`, `grab` and `taunt`.
+   ⚠ THIS WAS ALREADY KNOWN AND DOCUMENTED: a guard in `authored_movesets`
+   hand-rolled its own derivation *"rather than from a list I believed"*, and the
+   medic's own doc records the false positive. Two lists of one fact, with a
+   third reader that had not been told. ⇒ `cancel_class_names()` is DERIVED from
+   `cancel_names_for` now, and both readers ask it.
+2. **THE ONI LEADER'S CONFIRM WAS A DEAD STRING.** `shadow_answer` authored
+   `into: ["special_forward"]`, and `trigger_moveset_moves` asks
+   `cancel_names_for(base_verb_of(verb), …)` — which reduces that to `special`
+   BEFORE the window is consulted. Nothing this engine produces ever offers the
+   directional spelling, so the cancel never fired. ⛔ **Its own test asserted the
+   dead string** (*"it confirms into the DRAW"*), comparing the authored list
+   against itself; it asks what a press OFFERS now.
+   ⇒ The content guard missed it because it seeded its namespace from the
+   contract's RAW bound verbs, making it WIDER than the runtime. Narrowed to
+   bases and produced names.
+
+⚠ **AND THE GENERATED FILES ARE NOT THE SOURCE YET — Q104 IS THE RULING.** The
+Rust tables remain the exporter's input and the parity oracle's subject, reached
+by nothing the game runs. `every_content_move_table_is_the_table_it_used_to_compile_with`
+compares all 19 per move, behind a floor on the mapped count.
+
 ✅ **STEPS 4 AND 5 ARE LANDED FOR ONE CHARACTER, END TO END, 2026-09-11.**
 The Officer's move table — 27 moves, 26 verbs, 95 KB — is
 `game/ambition_content/assets/data/movesets/officer.ron`, declared in `pack.ron`,
@@ -2130,6 +2196,65 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    NINE px tall). Nobody above the floor moved. ⚠ **THOSE `before` FIGURES ARE AT THE
    SINCE-DELETED KNOB 1.25**, so they are 1.5625x the table above; what survives is
    the SHAPE of the lever, not its endpoints.
+   ⭐⭐ **AND "WHAT GPT-6 DID FOR THE PERFORMER" IS MEASURABLE, AND IT IS NOT A
+   BIGGER BOX. MEASURED 2026-09-11 off the content files.** Her forward tilt's
+   volume is **27 x 14, identical to the author's and pointed_polygon's**. What
+   differs is that she authors **FOUR consecutive Active windows** where the
+   whole rest of the roster authors ONE:
+
+   | forward tilt | Active windows | live | frames @60 |
+   | --- | --- | --- | --- |
+   | ninja_shadow_oni_leader | 1 | 0.040s | 2.4 |
+   | goblin | 1 | 0.060s | 3.6 |
+   | alice / author / medic / officer / pointed_polygon / both polygons | 1 | 0.070s | 4.2 |
+   | bob / pirate_admiral / cellular_automaton | 1 | 0.080s | 4.8 |
+   | patent_clerk | 1 | 0.090s | 5.4 |
+   | carl_stargan / emmy_noether | 1 | 0.100s | 6.0 |
+   | oiler | 1 | 0.110s | 6.6 |
+   | **performer** | **4** | **0.160s** | **9.6** |
+
+   ⇒ **HER GENEROSITY IS IN TIME, NOT IN SIZE — 2.3x the live frames at the same
+   box.** That is a lever with no spatial judgement in it, which is the half of
+   Jon's *"learn from what GPT-6 did for the performer and apply that"* that can
+   be applied without ruling on anybody's geometry.
+
+   ⛔⛤ **AND IT CORRECTS ITEM 5 OF THIS SECTION.** That row says *"ACTIVE runs
+   10-17 frames against Ultimate's usual 2-5"* as a statement about the authored
+   clock. Measured across the whole roster's forward tilt, **every fighter but
+   one is 2.4-6.6 frames — Ultimate-shaped** — and the performer at 9.6 is the
+   outlier the figure was read from. The generalisation was one fighter's number
+   applied to nineteen.
+   ⚠ `attack_forward` only; jabs, aerials and smashes are not censused, and item
+   5's range may hold for those. That is the next thing this script should be
+   pointed at.
+
+   ⛔⛤ **AND THE MEDIC'S 3.8 px IS NOT HER MOVE TABLE — MEASURED 2026-09-11.**
+   Migrating the tables made this census a FILE READ rather than an app boot
+   (`scripts/measure_authored_strike_extents.py`, milliseconds). Her authored
+   `attack_forward` volume is half-extents **21 x 16 — a 42 x 32 px box, area
+   1344**, within 11% of the performer's 1512. The whole authored population for
+   that verb:
+
+   | table | half_x | half_y | area |
+   | --- | --- | --- | --- |
+   | carl_stargan | 10.0 | 14.0 | 560 |
+   | goblin | 18.0 | 12.0 | 864 |
+   | ninja_shadow_oni_leader | 20.0 | 13.0 | 1040 |
+   | medic / officer / projectile_polygon / pugnacious_polygon | 21.0 | 16.0 | 1344 |
+   | performer (the reference) | 27.0 | 14.0 | 1512 |
+   | patent_clerk | 24.0 | 16.0 | 1536 |
+
+   ⇒ **THE SEVEN ARE NOT ONE POPULATION AND THE FIX IS NOT ONE FIX.** carl is
+   genuinely small IN THE TABLE (560, the smallest authored box on the roster);
+   the medic is normal there and small on the SHEET. This row's own rule already
+   said *"per-character authoring has to name its road"* — a rect-road fighter
+   takes a bigger authored rect, a manifest-road fighter takes `hitbox.inflate` —
+   but the 3.8 px figure has been read ever since as if the medic's TABLE were at
+   fault. A content edit to it would move nothing a player feels.
+   ⚠ MEASURED for the authored extents; REASONED for the attribution — that the
+   0.23 ratio comes from the manifest road follows from the two numbers
+   disagreeing, and the ratio census itself still needs a recording.
+
    ✅ **AND FOR THE OFFICER, THE PER-CHARACTER WORK IS NOW A CONTENT EDIT.** His
    table is `assets/data/movesets/officer.ron` as of 2026-09-11, so
    `officer_tilt_forward`'s `half_extents: (21.0, 16.0)` at `offset: (27.0, -1.0)`

@@ -837,8 +837,41 @@ pub enum WindowTag {
 
 /// The cancel-target CLASS namespace (CM4): names an authored `into` entry may
 /// use besides a literal move id. Verbs + classes the trigger seam resolves.
-pub const CANCEL_CLASS_NAMES: [&str; 6] =
-    ["any_attack", "attack", "special", "ranged", "jump", "dash"];
+///
+/// ⛔⛤ **IT DISAGREED WITH THE RUNTIME AND SHIPPED CONTENT SAT ON THE GAP.**
+/// MEASURED 2026-09-11, the first time this validator was pointed at the shipped
+/// move tables: the medic's neutral special authors `into: ["smash", …]`, and
+/// [`cancel_names_for`] DOES produce `"smash"` for a smash press
+/// (`&[SMASH_VERB, ATTACK_VERB, "any_attack"]`) — so the runtime honours that
+/// cancel and this list called it an unknown target. Three of the names the
+/// trigger seam can produce were missing: `smash`, `grab`, `taunt`.
+///
+/// ⇒ **DERIVED FROM [`cancel_names_for`], NOT RESTATED BESIDE IT.** Two lists of
+/// "which names a cancel may target" is one list plus a bug, and this is the bug
+/// that pair produced. The locomotion escapes are added here because
+/// `trigger_moveset_moves` passes them directly rather than through
+/// `cancel_names_for` — that is the one genuine difference between what an
+/// author may WRITE and what a press RESOLVES to.
+pub fn cancel_class_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = [
+        ATTACK_VERB,
+        SMASH_VERB,
+        SPECIAL_VERB,
+        RANGED_VERB,
+        GRAB_VERB,
+        TAUNT_VERB,
+    ]
+    .iter()
+    .flat_map(|verb| cancel_names_for(verb, false).iter().copied())
+    .chain(cancel_names_for(ATTACK_VERB, true).iter().copied())
+    // ⛔ THE LOCOMOTION ESCAPES ARE NOT VERBS AND DO NOT COME FROM ABOVE. The
+    // trigger road asks `cancel_permits(.., &[name])` with these directly.
+    .chain(["jump", "dash"])
+    .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
 
 /// What one USE of a move has done to a body so far.
 ///
@@ -4184,7 +4217,7 @@ impl EntityCatalogDoc {
                     if let WindowTag::Cancelable { into, .. } = &w.tag {
                         for target in into {
                             if !declared.contains(target.as_str())
-                                && !CANCEL_CLASS_NAMES.contains(&target.as_str())
+                                && !cancel_class_names().contains(&target.as_str())
                             {
                                 errors.push(CatalogError::UnknownCancelTarget {
                                     entity: entity.id.clone(),

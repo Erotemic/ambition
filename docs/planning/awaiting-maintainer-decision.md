@@ -803,26 +803,59 @@ caught the six; the in-crate suite did.
 
 ## Q104 — is the Rust move table or the content file the SOURCE of a moveset?
 
-The Officer's table is `game/ambition_content/assets/data/movesets/officer.ron`
-as of 2026-09-11: declared in `pack.ron`, validated by the `moveset` schema,
-applied at `character_catalog::authored_intrinsics`, and **not compiled into the
-host** — a move-timing edit costs 0.61 s against 6.30 s through the Rust table
+**All seventeen tables — nineteen characters — are content as of 2026-09-11:**
+declared in `pack.ron`, validated by the `moveset` schema, applied at
+`character_catalog::authored_intrinsics`, and **not compiled into the host**. A
+move-timing edit costs 0.61 s against 6.30 s through the Rust table
 (`dev/measurements/m0_move_edit_loop.sh`).
 
-`game/ambition_content/src/officer_moveset.rs` still exists. It is the EXPORTER's
-input and the parity oracle's subject, and nothing the game runs reads it —
-fast-iteration I2 step 5's own allowance (*"a test-only old table may be a
-temporary parity oracle, not a runtime fallback"*).
+The nineteen `game/ambition_content/src/*_moveset.rs` files still exist — roughly
+15k lines with their own in-file tests. They are the EXPORTER's input and the
+parity oracle's subject, and nothing the game runs reads them: fast-iteration I2
+step 5's own allowance (*"a test-only old table may be a temporary parity oracle,
+not a runtime fallback"*).
 
-**The question, and it decides whether the other eighteen follow.**
+**The question.**
 
 - **The Rust stays the source**: the `.ron` is build output, hand edits to it are
   overwritten by the next export, and per-character hitbox tuning stays a Rust
   edit with a rebuild. The parity oracle is permanent.
-- **The RON becomes the source**: `officer_moveset.rs` is deleted, per-character
-  tuning becomes a content edit with no rebuild — which is what *"attacks rarely
-  ever feel like they connect"* needs most — and ~15k lines of documented Rust
-  authoring across nineteen files go with it, along with their in-file tests.
+- **The RON becomes the source**: the nineteen Rust tables are deleted and
+  per-character tuning becomes a content edit with no rebuild — which is what
+  *"attacks rarely ever feel like they connect"* needs most.
+
+⛔⛤ **AND THE OBVIOUS ARGUMENT AGAINST DELETING THEM DOES NOT SURVIVE ITS OWN
+EVIDENCE.** This row first said the in-file tests *"caught the medic's dead `jab`
+target and the oni leader's dead `special_forward` one"*, so deleting them has a
+cost. Checked, by a second reader who did not write the migration:
+* the medic's `jab` was caught by
+  `every_cancel_target_resolves_and_a_confirm_is_authored` — a CROSS-TABLE guard
+  in `authored_movesets.rs` that consumes `tables()`, so it is repointable at
+  parsed content and does not die with them;
+* the oni leader's was caught by the content-pack validator, which is the thing
+  that REPLACES them. That same cross-table guard was blind to it.
+⇒ Neither catch is evidence for the per-file tests.
+
+⭐⭐ **THE REAL TRADE IS ADJACENCY, AND IT IS A SMALLER QUESTION.** MEASURED over
+the twenty files: **18,176 lines — 11,015 authoring and 7,161 inside
+`#[cfg(test)]` (39%)**; 120 test functions across the nineteen character tables,
+of which **22 (18%) are cross-fighter RELATIONS** — `alice_reaches_further_than_bob_and_bob_hits_harder`,
+`bob_is_slower_to_start_than_alice_on_every_shared_press`,
+`his_reach_spans_further_than_anybody_elses`. A schema validator checks
+STRUCTURE: does the field exist, does the id resolve. **It cannot express "alice
+reaches further than bob"** — design intent written as numeric relations over
+authored data.
+⇒ But those tests need the PARSED DATA, not the Rust literals: they already
+consume `tables()`, exactly as the cross-table guards do. So the choice is not
+*"delete 15k lines including their tests"*; it is **"re-home 120 tests, 22 of
+them relations, and accept that the other 98 lose the file they sat next to."**
+The thing that genuinely dies is a test being beside the numbers it constrains,
+where an author editing a move sees it.
+⚠ That 18% is a SECOND number. The first matcher substring-matched fighter names
+and said 67%, because `author`, `archetype`, `medic`, `officer`, `performer` and
+`goblin` are also ordinary English words in this corpus's prose — the same
+"a name that exists in another vocabulary answers YES" failure as the migration's
+own eighth drift. The 18% requires a CODE reference.
 - **Split by family**: the values are content, the STRUCTURE stays Rust.
 
 ⚠ This is a call about where authoring lives, not a refactor. The generated file

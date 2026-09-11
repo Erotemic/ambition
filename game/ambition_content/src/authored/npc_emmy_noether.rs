@@ -24,7 +24,14 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: MoveStyleSpec::Walk,
             ..Default::default()
         })
-        .with_moveset(crate::emmy_noether_moveset::emmy_noether_moveset())
+        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
+        // The table this line compiled in is `assets/data/movesets/emmy_noether.ron`,
+        // declared in `pack.ron`, validated by the `moveset` schema and applied
+        // in `crate::character_catalog::authored_intrinsics` — the one seam
+        // every buildable character passes through.
+        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
+        // oracle's subject. The host reads NEITHER, so editing it changes nothing
+        // until it is re-exported.
         // EMMY'S ONE MECHANICAL JOKE, AND IT IS HER WHOLE SUBJECT.
         //
         // Two Emmys driven by CPUs think on the SAME deterministic cognitive

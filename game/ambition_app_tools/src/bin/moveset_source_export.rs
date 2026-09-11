@@ -46,7 +46,16 @@ fn main() {
     let tables = ambition_content::authored_movesets::tables();
     if args.iter().any(|a| a == "--list") {
         for (id, contract) in &tables {
-            println!("{id}\t{} move(s)\t{} verb(s)", contract.moves.len(), contract.verbs.len());
+            // ⭐ THE CHARACTER IDS, not just the table name — the whole reason a
+            // `--list` is useful here is to see which of the two spellings a
+            // file will be keyed by.
+            println!(
+                "{id}\t{} move(s)\t{} verb(s)\t{:?}",
+                contract.moves.len(),
+                contract.verbs.len(),
+                ambition_content::authored_movesets::characters_for(id)
+                    .unwrap_or(&[])
+            );
         }
         return;
     }
@@ -89,17 +98,39 @@ fn main() {
             );
             std::process::exit(2);
         };
+        // ⛔⛤ **THE ENTITY ID IS THE CHARACTER'S, NOT THE TABLE'S, AND SEVEN OF
+        // NINETEEN DISAGREE.** `tables()` keys by *"the name a failure should
+        // print"* — a FILE name — while the host looks a move table up by
+        // character id. `alice` is `npc_alice`; `patent_clerk` is
+        // `special_patent_clerk`. A file written under the table's name is one
+        // `authored_intrinsics` misses in silence.
+        //
+        // ⭐ AND ONE TABLE MAY BE SEVERAL CHARACTERS: the two cellular automatons
+        // are the same authored body under two names, which the cast already
+        // says with a slice. The document holds an entity per id, which is what
+        // `EntityCatalogDoc` is shaped for.
+        let Some(characters) = ambition_content::authored_movesets::characters_for(id) else {
+            eprintln!(
+                "moveset_source_export: `{id}` is a table no cast id claims, so a \
+                 content file for it would be loaded by nobody. See \
+                 `TABLE_CHARACTERS`."
+            );
+            std::process::exit(2);
+        };
         let doc = ambition_entity_catalog::EntityCatalogDoc {
             schema_version: ambition_entity_catalog::ENTITY_CATALOG_SCHEMA_VERSION,
-            entities: vec![ambition_entity_catalog::EntityDef {
-                id: (*id).clone(),
-                contracts: ambition_entity_catalog::EntityContracts {
-                    body: None,
-                    hurtboxes: None,
-                    presentation: None,
-                    moveset: Some(contract.clone()),
-                },
-            }],
+            entities: characters
+                .iter()
+                .map(|character| ambition_entity_catalog::EntityDef {
+                    id: (*character).to_string(),
+                    contracts: ambition_entity_catalog::EntityContracts {
+                        body: None,
+                        hurtboxes: None,
+                        presentation: None,
+                        moveset: Some(contract.clone()),
+                    },
+                })
+                .collect(),
         };
         let text = doc.to_ron().expect("a shipped table serializes");
         let path = std::path::Path::new(&out_dir).join(format!("{id}.ron"));
@@ -119,11 +150,12 @@ fn main() {
         drop(file);
         std::fs::rename(&tmp, &path).expect("the rename lands");
         println!(
-            "{} — {} move(s), {} verb(s), {} bytes",
+            "{} — {} move(s), {} verb(s), {} bytes, for {:?}",
             path.display(),
             contract.moves.len(),
             contract.verbs.len(),
-            text.len()
+            text.len(),
+            characters
         );
     }
 }

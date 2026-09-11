@@ -648,7 +648,7 @@ mod flow_tests {
     #[test]
     fn every_cancel_target_resolves_and_a_confirm_is_authored() {
         use ambition_entity_catalog::{
-            base_verb_of, cancel_names_for, CancelCondition, WindowTag, CANCEL_CLASS_NAMES,
+            base_verb_of, cancel_class_names, cancel_names_for, CancelCondition, WindowTag,
         };
 
         let mut dead: Vec<String> = Vec::new();
@@ -657,18 +657,24 @@ mod flow_tests {
         for (fighter, contract) in tables() {
             let ids: std::collections::BTreeSet<&str> =
                 contract.moves.iter().map(|m| m.id.as_str()).collect();
-            // ⛔⛔ THE NAMESPACE IS WIDER THAN `CANCEL_CLASS_NAMES`, and reading
-            // that const as the whole of it made this guard's first run report a
-            // FALSE POSITIVE on the medic's `smash`. The const omits `smash`,
-            // `grab` and `taunt`, but `cancel_names_for` hands them to the
-            // trigger seam — a smash press offers `["smash", "attack",
-            // "any_attack"]` — so `into: ["smash"]` resolves perfectly.
+            // ⛔⛔ THE NAMESPACE IS WIDER THAN THE OLD `CANCEL_CLASS_NAMES`
+            // CONST, and reading that const as the whole of it made this guard's
+            // first run report a FALSE POSITIVE on the medic's `smash`. The const
+            // omitted `smash`, `grab` and `taunt` while `cancel_names_for` hands
+            // them to the trigger seam. ⇒ The const is now DERIVED from that
+            // function (`cancel_class_names()`), so this guard and the catalog's
+            // own validator ask one question instead of two that disagreed.
             //
-            // ⇒ DERIVED FROM THE REAL AUTHORITY rather than from a list I
-            // believed: every verb this contract binds, its BASE, and every name
-            // a press of that base offers.
-            let mut verbs: std::collections::BTreeSet<&str> =
-                contract.verbs.keys().map(String::as_str).collect();
+            // ⛔⛤ **AND THE RAW BOUND VERB DOES NOT BELONG IN THIS SET.** It was
+            // seeded with `contract.verbs.keys()`, which made this guard WIDER
+            // than the runtime: `trigger_moveset_moves` asks
+            // `cancel_names_for(base_verb_of(verb), ..)`, so a `special_forward`
+            // press offers `["special"]` and never the directional spelling.
+            // The oni leader's `shadow_answer` authored `into:
+            // ["special_forward"]` and this guard passed it for five days while
+            // the confirm did nothing — found 2026-09-11 by the content-pack
+            // validator, which had no such hole.
+            let mut verbs: std::collections::BTreeSet<&str> = Default::default();
             for verb in contract.verbs.keys() {
                 let base = base_verb_of(verb);
                 verbs.insert(base);
@@ -689,7 +695,7 @@ mod flow_tests {
                         confirms += 1;
                     }
                     for target in into {
-                        let known = CANCEL_CLASS_NAMES.contains(&target.as_str())
+                        let known = cancel_class_names().contains(&target.as_str())
                             || verbs.contains(target.as_str())
                             || ids.contains(target.as_str());
                         if !known {
@@ -1579,5 +1585,138 @@ mod a12_projectile_credit_census {
         for row in &both {
             println!("[a12] {row}");
         }
+    }
+}
+
+/// Which CHARACTER IDS each table above is the moveset FOR.
+///
+/// ⛔⛤ **THE KEYS OF [`tables`] ARE FILE NAMES, NOT IDENTITIES, AND NINE OF
+/// NINETEEN DISAGREE.** That function keys its entries *"by the name a failure
+/// should print"*. **EIGHT are a rename** — `alice`, `bob`, `carl_stargan`,
+/// `emmy_noether`, `oiler`, `pirate_admiral`, `ninja_shadow_oni_leader`,
+/// `patent_clerk` against `npc_alice`, `npc_bob`, `npc_carl_stargan`,
+/// `npc_emmy_noether`, `npc_oiler`, `npc_pirate_admiral`,
+/// `npc_ninja_shadow_oni_leader`, `special_patent_clerk` — and the ninth,
+/// `cellular_automaton`, is one table for TWO ids. A content file written under
+/// a file name is a file `authored_intrinsics` looks up by character id, misses,
+/// and silently ignores — the fighter keeps whatever its own module gave it and
+/// nothing says so.
+///
+/// ⛔⛔ **AND ONE OF THE EIGHT HIDES BEHIND A DIFFERENT VOCABULARY.** The bare
+/// `ninja_shadow_oni_leader` DOES exist in the tree — as a SHEET id
+/// (`sprites_0_25x/ninja_shadow_oni_leader_actor.ron` carries
+/// `sheet_id: "ninja_shadow_oni_leader"`). So a check asking *"does this name
+/// exist anywhere"* answers YES for that one and NO for the other seven. ⇒ **A
+/// key two vocabularies share is not an identity**, and the only question that
+/// separates them is *"is it a CAST id"*. Found by a peer re-deriving this list
+/// independently; my own first prose said seven.
+///
+/// ⭐ **AND IT CANNOT BE DERIVED ANY MORE, WHICH IS WHY IT IS WRITTEN DOWN.**
+/// The link used to exist in the creature's own file, as
+/// `.with_moveset(crate::alice_moveset::alice_moveset())`. Migrating the table
+/// to content is exactly the act that removes it, so the mapping has to become
+/// an explicit statement at the same moment. `the_table_character_map_covers_every_table`
+/// and `every_character_the_move_section_names_is_one_this_game_builds` are what
+/// keep it from drifting.
+///
+/// ⚠ TWO IDS FOR ONE TABLE IS A REAL CASE, not a quirk: the two cellular
+/// automatons are the same authored body under two names, which
+/// `authored::AUTHORED_CAST` already says with a slice.
+///
+/// ⛔ `player_robot` AND `theorem_chain` ARE ABSENT ON PURPOSE, FOR TWO
+/// DIFFERENT REASONS, AND THE FIRST ONE I STATED WAS FALSE.
+/// * `player_robot`: **not** "no cast id" — the catalog has THREE rows
+///   (`player_robot_v3`, `player_robot_fable`, `player_robot_v2`). The true
+///   claim is that `player_robot_lineage::register` builds its definitions with
+///   `definition_from(&catalog, incarnation)` and **never calls
+///   `authored_intrinsics`**, and `register_declared_cast` skips lineage ids
+///   outright. `the_lineage_never_reaches_the_authored_intrinsics_seam` pins
+///   that, because it is the claim a future reader can check.
+/// * `theorem_chain`: an archetype table no catalog row names at all.
+pub const TABLE_CHARACTERS: &[(&str, &[&str])] = &[
+    ("alice", &["npc_alice"]),
+    ("bob", &["npc_bob"]),
+    ("carl_stargan", &["npc_carl_stargan"]),
+    (
+        "cellular_automaton",
+        &["perfect_cellular_automaton", "imperfect_cellular_automaton"],
+    ),
+    ("goblin", &["goblin"]),
+    ("ninja_shadow_oni_leader", &["npc_ninja_shadow_oni_leader"]),
+    ("emmy_noether", &["npc_emmy_noether"]),
+    ("oiler", &["npc_oiler"]),
+    ("patent_clerk", &["special_patent_clerk"]),
+    ("pirate_admiral", &["npc_pirate_admiral"]),
+    ("author", &["author"]),
+    ("medic", &["medic"]),
+    ("officer", &["officer"]),
+    ("performer", &["performer"]),
+    ("pointed_polygon", &["pointed_polygon"]),
+    ("projectile_polygon", &["projectile_polygon"]),
+    ("pugnacious_polygon", &["pugnacious_polygon"]),
+];
+
+/// The character ids this table is the moveset for, or `None` for a table no
+/// cast id claims.
+pub fn characters_for(table: &str) -> Option<&'static [&'static str]> {
+    TABLE_CHARACTERS
+        .iter()
+        .find(|(name, _)| *name == table)
+        .map(|(_, ids)| *ids)
+}
+
+#[cfg(test)]
+mod table_character_tests {
+    use super::*;
+
+    /// ⛔⛔ THE TWO LISTS CANNOT DRIFT. A table added above with no entry in
+    /// [`TABLE_CHARACTERS`] is a table nobody can migrate; an entry naming a
+    /// table that no longer exists is a mapping for nothing.
+    #[test]
+    fn the_table_character_map_covers_every_table() {
+        let tables: std::collections::BTreeSet<&str> =
+            tables().iter().map(|(name, _)| *name).collect();
+        let mapped: std::collections::BTreeSet<&str> =
+            TABLE_CHARACTERS.iter().map(|(name, _)| *name).collect();
+        assert!(tables.len() >= 10, "{} table(s) is not the roster", tables.len());
+
+        // ⛔ THE TWO DELIBERATE ABSENCES ARE NAMED, not tolerated by a filter:
+        // a third one appearing must fail this rather than join them in silence.
+        let unmapped: Vec<&str> = tables.difference(&mapped).copied().collect();
+        assert_eq!(
+            unmapped,
+            vec!["player_robot", "theorem_chain"],
+            "a table has no character mapping. Add it to `TABLE_CHARACTERS`, or \
+             say here why it has no cast id — those two do, in this module's docs"
+        );
+        let orphans: Vec<&str> = mapped.difference(&tables).copied().collect();
+        assert!(
+            orphans.is_empty(),
+            "`TABLE_CHARACTERS` maps {orphans:?}, which `tables()` no longer carries"
+        );
+    }
+
+    /// ⛔ AND EVERY MAPPED ID IS A CHARACTER THIS GAME BUILDS. Without this the
+    /// map could name a plausible id nobody registers, which is exactly the
+    /// silent miss it exists to prevent.
+    #[test]
+    fn every_mapped_character_is_one_this_game_builds() {
+        let buildable: std::collections::BTreeSet<&str> =
+            crate::character_catalog::buildable_cast().collect();
+        assert!(
+            buildable.len() >= 20,
+            "{} buildable character(s) — not the cast",
+            buildable.len()
+        );
+        let strangers: Vec<&str> = TABLE_CHARACTERS
+            .iter()
+            .flat_map(|(_, ids)| ids.iter().copied())
+            .filter(|id| !buildable.contains(id))
+            .collect();
+        assert!(
+            strangers.is_empty(),
+            "`TABLE_CHARACTERS` names {strangers:?}, which this game builds no \
+             character for"
+        );
     }
 }

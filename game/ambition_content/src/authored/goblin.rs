@@ -30,13 +30,20 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             amount: 1,
         })
         // `BrainProfileRef` resolves it against this definition's own provider.
-        .with_autonomous_profile_named("medium_striker")
+        .with_autonomous_profile_named("medium_striker");
         // AND ITS OWN MOVES. A seated fighter whose character said nothing fell
         // back to one generic swipe, and that floor's goal was DELETION, one
         // adopter at a time. The goblin was the third character to state a table
         // and the first ENEMY to; as of 2026-08-31 every id on the Smash roster
         // states one, so the fallback has no adopters left (see `select.rs`).
-        .with_moveset(crate::goblin_moveset::goblin_moveset());
+        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
+        // The table this line compiled in is `assets/data/movesets/goblin.ron`,
+        // declared in `pack.ron`, validated by the `moveset` schema and applied
+        // in `crate::character_catalog::authored_intrinsics` — the one seam
+        // every buildable character passes through.
+        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
+        // oracle's subject. The host reads NEITHER, so editing it changes nothing
+        // until it is re-exported.
     definition.vitals.max_health = Some(5);
     definition
 }

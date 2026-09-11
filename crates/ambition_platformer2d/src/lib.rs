@@ -136,6 +136,13 @@ pub mod content {
         registry
             .register(ambition_encounter::content_schema::encounter_waves_schema())
             .expect("the engine's own schemas are registered once");
+        // ⭐⭐ MOVE TABLES ARE CONTENT (fast-iteration I2, step 4). The same
+        // capability owns them as owns the catalog they key against: a move
+        // table names a character, and a composition that installs one without
+        // the other could admit a file describing a fighter it cannot build.
+        registry
+            .register(crate::characters::moveset_content_schema::moveset_schema())
+            .expect("the engine's own schemas are registered once");
         registry
     }
 }

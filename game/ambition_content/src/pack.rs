@@ -27,6 +27,7 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// rather than by silently loading an empty family.
 pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
+const OFFICER_MOVES_SOURCE_PATH: &str = "data/movesets/officer.ron";
 const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
 const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
 const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
@@ -40,6 +41,20 @@ const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron"
 /// The authored item grid (compile-time include; the loose file stays on disk
 /// so the CLI and the Python tooling read the same bytes).
 pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
+
+/// The Officer's move table — the first one the host READS instead of compiling.
+///
+/// ⭐⭐ GATED THE WAY THE MUSIC REGISTRY IS, and for the same reason stated
+/// there: OFF for desktop development so a move edit costs a file write and a
+/// pack recompile rather than a Rust rebuild and a link, ON for the builds that
+/// have no filesystem to read from (web, Android) or ship without the source
+/// tree. This is the line that makes fast-iteration I2's claim literal for one
+/// character.
+#[cfg(feature = "static_content")]
+const OFFICER_MOVES_RON_STATIC: Option<&'static str> =
+    Some(include_str!("../assets/data/movesets/officer.ron"));
+#[cfg(not(feature = "static_content"))]
+const OFFICER_MOVES_RON_STATIC: Option<&'static str> = None;
 
 /// The authored fighter difficulty ladder.
 ///
@@ -94,6 +109,10 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
         ),
         (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
+        (
+            OFFICER_MOVES_SOURCE_PATH.to_string(),
+            source_text(OFFICER_MOVES_SOURCE_PATH, OFFICER_MOVES_RON_STATIC),
+        ),
         (
             ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
             crate::ENCOUNTER_WAVES_RON.to_string(),

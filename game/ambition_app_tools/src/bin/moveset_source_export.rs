@@ -1,0 +1,129 @@
+//! Write a shipped move table out as the authored CONTENT file the host loads.
+//!
+//! ⭐⭐ **THIS IS THE BUILDER HALF OF FAST-ITERATION I2.** The host stops
+//! compiling a move table and reads one; something has to produce the file, and
+//! for a table that exists in Rust today that something is a one-way export. It
+//! is a MIGRATION tool and a REGENERATOR both: run it after editing the Rust
+//! table to refresh the content file, until the Rust table stops being the
+//! source at all.
+//!
+//! ```text
+//! cargo run -p ambition_app_tools --bin moveset_source_export -- officer
+//! ```
+//!
+//! ⛔ **IT READS `authored_movesets::tables()`, THE SOURCE, AND NOT A LIVE
+//! HOST.** The prepared registry's copy is not the authored one: the
+//! `Unauthored` arm of character preparation calls `revoke_host_owned_ranged`
+//! on the stored moveset, so a fighter's live table has had ranged verbs
+//! stripped from it. Exporting that would write a file whose reimport changes
+//! the game — which `moveset_export` (the JSON balance bundle, a different tool
+//! for a different question) says about itself from the other direction: it
+//! reads the composed host ON PURPOSE, because balance is about what the game
+//! resolves.
+//!
+//! ⛔ **NO APP, NO BEVY GRAPH, NO RENDERER.** `tables()` is a pure function, so
+//! this costs a link and a millisecond rather than a boot.
+
+use std::io::Write as _;
+
+const USAGE: &str = "\
+moveset_source_export — write a shipped move table out as an authored content file
+
+USAGE:
+    moveset_source_export <character-id>... [--out DIR]
+    moveset_source_export --list
+
+    --out DIR   where the files go (default: game/ambition_content/assets/data/movesets)
+    --list      print every character id `authored_movesets::tables()` carries
+";
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 1 || args.iter().any(|a| a == "--help" || a == "-h") {
+        print!("{USAGE}");
+        return;
+    }
+    let tables = ambition_content::authored_movesets::tables();
+    if args.iter().any(|a| a == "--list") {
+        for (id, contract) in &tables {
+            println!("{id}\t{} move(s)\t{} verb(s)", contract.moves.len(), contract.verbs.len());
+        }
+        return;
+    }
+    // ⛔ AN UNKNOWN FLAG IS A REFUSAL, not a shrug — the sibling tool's own
+    // lesson, where a typo'd flag exported the default and said nothing.
+    if let Some(bad) = args
+        .iter()
+        .skip(1)
+        .filter(|a| a.starts_with("--"))
+        .find(|a| *a != "--out")
+    {
+        eprintln!("moveset_source_export: unknown option '{bad}'\n");
+        print!("{USAGE}");
+        std::process::exit(2);
+    }
+    let out_dir = args
+        .windows(2)
+        .find(|w| w[0] == "--out")
+        .map(|w| w[1].clone())
+        .unwrap_or_else(|| "game/ambition_content/assets/data/movesets".to_string());
+    let wanted: Vec<&String> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with("--"))
+        .filter(|a| Some(*a) != args.windows(2).find(|w| w[0] == "--out").map(|w| &w[1]))
+        .collect();
+
+    std::fs::create_dir_all(&out_dir).expect("the output directory is writable");
+    for id in wanted {
+        let Some((_, contract)) = tables.iter().find(|(name, _)| name == id) else {
+            // ⛔ A NAME THAT MATCHES NOTHING IS A REFUSAL. Writing an empty file
+            // for a typo'd id is how a fighter loses its moveset silently.
+            eprintln!(
+                "moveset_source_export: no shipped table named '{id}'. Known: {}",
+                tables
+                    .iter()
+                    .map(|(name, _)| *name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            std::process::exit(2);
+        };
+        let doc = ambition_entity_catalog::EntityCatalogDoc {
+            schema_version: ambition_entity_catalog::ENTITY_CATALOG_SCHEMA_VERSION,
+            entities: vec![ambition_entity_catalog::EntityDef {
+                id: (*id).clone(),
+                contracts: ambition_entity_catalog::EntityContracts {
+                    body: None,
+                    hurtboxes: None,
+                    presentation: None,
+                    moveset: Some(contract.clone()),
+                },
+            }],
+        };
+        let text = doc.to_ron().expect("a shipped table serializes");
+        let path = std::path::Path::new(&out_dir).join(format!("{id}.ron"));
+        // ⛔ WRITE THEN RENAME. A generator interrupted mid-write leaves a
+        // truncated content file that the pack compiler reads as a malformed
+        // source — a failure whose cause is the tool rather than the content.
+        let tmp = path.with_extension("ron.tmp");
+        let mut file = std::fs::File::create(&tmp).expect("the output file is writable");
+        writeln!(
+            file,
+            "// GENERATED by `cargo run -p ambition_app_tools --bin moveset_source_export -- {id}`.\n\
+             // While the Rust table in `game/ambition_content/src/` is still the source, hand edits\n\
+             // here are overwritten by the next export. Edit the Rust, re-export, commit both."
+        )
+        .and_then(|()| file.write_all(text.as_bytes()))
+        .expect("the file writes");
+        drop(file);
+        std::fs::rename(&tmp, &path).expect("the rename lands");
+        println!(
+            "{} — {} move(s), {} verb(s), {} bytes",
+            path.display(),
+            contract.moves.len(),
+            contract.verbs.len(),
+            text.len()
+        );
+    }
+}

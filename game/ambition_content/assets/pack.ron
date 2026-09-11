@@ -31,6 +31,13 @@
     sources: [
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
+        // ⭐⭐ THE FIRST MOVE TABLE THAT IS CONTENT RATHER THAN CODE
+        // (fast-iteration I2, step 5). The Officer's twenty-seven moves are read
+        // from here; `authored/officer.rs` no longer compiles a table into the
+        // host. Regenerate with
+        // `cargo run -p ambition_app_tools --bin moveset_source_export -- officer`
+        // while the Rust table is still the source.
+        (path: "data/movesets/officer.ron", schema: "moveset", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
         // Nine difficulty rungs.  authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every

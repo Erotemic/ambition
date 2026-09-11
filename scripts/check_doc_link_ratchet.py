@@ -49,6 +49,15 @@ CRATES = [
     # coverage reads as improvement" failure this list's own comment predicts.
     "ambition_abilities",
     "ambition_encounter_features",
+    # ⛔⛤ FAST-ITERATION I1 (2026-09-11): twenty `smash_*` modules — 4,767 lines
+    # of pure move authoring — left `ambition_characters` for the pure value
+    # crate, and this list's own comment predicted exactly what happened. The
+    # run reported `ambition_characters 19 ⭐ 3 repaired (was 22)` and the three
+    # "repairs" were `smash_capture.rs` and `smash_limit.rs` DOC LINKS THAT HAD
+    # MOVED, not links anybody fixed. The total fell by one while a new broken
+    # link was added in the same commit. ⇒ Added in the carve's own window, and
+    # the three come back as this crate's baseline where they can be paid off.
+    "ambition_entity_catalog",
 ]
 
 # rustdoc's two shapes for this class.

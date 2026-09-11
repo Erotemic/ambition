@@ -12,7 +12,8 @@
 //! captive, and a hold with no `SmashHoldState` is a hold this ruleset has no
 //! opinion about.
 
-/// why this is not on [`CapturedBy`](ambition_platformer2d::combat::capture::CapturedBy) any more. That
+/// why this is not on `CapturedBy` (`ambition_combat::capture::CapturedBy`,
+/// re-exported as `ambition_platformer2d::capture::CapturedBy`) any more. That
 /// component is the RELATION: who holds whom, where, and what physical state release must give
 /// back. Every field of it is answerable without knowing what genre is being played.
 ///

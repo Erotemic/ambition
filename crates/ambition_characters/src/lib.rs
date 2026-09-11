@@ -32,6 +32,11 @@ pub mod perception;
 pub mod prepared;
 #[cfg(any(test, feature = "test-support"))]
 pub mod prepared_fixtures;
+/// The `moveset` authored-content schema, owned by the character capability.
+/// Behind `content_pack`: a game that never validates its content must not link
+/// a compiler.
+#[cfg(feature = "content_pack")]
+pub mod moveset_content_schema;
 pub mod smash_fighter;
 pub mod smash_hold_state;
 mod snapshot_impls;

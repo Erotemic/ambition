@@ -967,6 +967,101 @@ pack instead of each `author()` fn calling `.with_moveset(compiled_table())`.
 ⚠ NOT "delete the Rust tables": I1 just made Rust authoring the pure road. The
 tables move OUT of the host's compile, to a builder that emits the file.
 
+✅ **STEPS 4 AND 5 ARE LANDED FOR ONE CHARACTER, END TO END, 2026-09-11.**
+The Officer's move table — 27 moves, 26 verbs, 95 KB — is
+`game/ambition_content/assets/data/movesets/officer.ron`, declared in `pack.ron`,
+validated by a new `moveset` schema, and applied at
+`character_catalog::authored_intrinsics`. `authored/officer.rs` no longer calls
+`with_moveset`.
+
+⭐⭐ **`authored_intrinsics` IS THE ONE SEAM, WHICH IS WHY THIS NEEDED NO
+PER-CHARACTER ARM.** `register_declared_cast` has a single loop over
+`buildable_cast()` and calls it for every id. So "the pack supplies the moveset"
+is four lines at one place, applied AFTER the creature's own file so a migrated
+table is the last writer — and a character with no pack entry is untouched, which
+is what makes this a migration one character at a time rather than a flag day.
+
+⛔⛔ **NO COMPILED FALLBACK, AND THE POISON IS WHAT SAYS SO.** Comment the
+`pack.ron` line out and the Officer has NO MOVESET AT ALL: both witnesses go red,
+restore verified green by re-running them. A parity test alone could never show
+this — it compares two values and passes just as well when the host is still
+reading the compiled copy.
+
+✅ **THE RUST TABLE IS THE ORACLE AND THE EXPORTER'S SOURCE, NOT AN INPUT.**
+`officer_moveset()` is reached from
+`the_officers_content_table_is_the_table_he_used_to_compile_with` and from
+`moveset_source_export`, and by nothing the game runs — step 5's own allowance
+(*"a test-only old table may be a temporary parity oracle, not a runtime
+fallback"*). ⚠ Editing it now changes nothing until it is re-exported. That is
+correct and it is a trap for the next person, so the generated file carries a
+banner saying so.
+
+⛔ **THE SCHEMA OWNS NO CODEC AND NO VALIDATOR.** `moveset_content_schema` parses
+an `EntityCatalogDoc` and runs its `validate()` — the fifteen `CatalogError`
+variants that predate this packet, including `UnknownVerbMove`. Structure is
+refused there; whether a move's TECHNIQUES are installed stays with
+`unsupported_authored_effects` at the preparation barrier. Two questions, two
+owners, neither duplicated.
+
+⭐ **AND `schema_version` GOT ITS FIRST READER.** It was written in thirteen
+fixtures and compared by nothing — `validate()` never looked at it. A version
+nobody compares cannot refuse anything, which is the silent misread the number
+exists to prevent. It now lives as `ENTITY_CATALOG_SCHEMA_VERSION` beside the
+document (not beside a reader: a handler, an exporter and a test would each
+spell it otherwise), and a document from another version is refused.
+
+⛔⛤ **THE UNKNOWN-FIELD ARM PASSED FOR THE WRONG REASON AND I SPLIT IT.**
+`duration_sec` is refused because `duration_s` then went MISSING — not because
+anything noticed a field nobody consumes. MEASURED: exactly ONE of the forty
+`Deserialize` derives in `ambition_entity_catalog` carried
+`deny_unknown_fields`, so `nonsense_field: 3` beside a correct `duration_s`
+compiled clean. The twelve types an `EntityCatalogDoc` reaches carry it now, and
+the two claims are two arms.
+
+⛔⛤ **A POISON PASSED AND FOUND A FOURTH SECOND AUTHORITY.** My `aggregate`'s
+"two files claiming one character is a refusal, not last-wins" arm is
+UNREACHABLE: the compiler's conflict-detection stage already refuses it two
+stages earlier, naming both paths, because the handler `define`s a content id
+per entity. I poisoned `smash_fighter`'s identical arm — 19 tests, all green —
+and deleted both. ⇒ **A handler that declares an identity per entity gets the
+collision refusal for free; a second one is unreachable code that reads like the
+thing enforcing the rule.**
+
+⭐⭐ **AND HERE IS THE NUMBER THE WHOLE I-ROAD IS FOR. MEASURED 2026-09-11**,
+`dev/measurements/m0_move_edit_loop.sh`, recorded run beside it in
+`dev/measurements/m0_move_edit_loop.recorded.md`. One move-timing edit,
+same machine, `-j 4`, warm, the two roads minutes apart:
+
+| `cargo build -p ambition_app` | seconds |
+| --- | --- |
+| cold-ish no-op (absorbs the cache miss; NOT a sample) | 179.30 |
+| **edit the CONTENT FILE's move timing** | **0.61** |
+| **edit the RUST TABLE's move timing** | **6.30** |
+| undo the Rust edit — the CONTROL | 6.05 |
+
+⇒ **~10x, and the control is what makes the middle row mean something**: undoing
+the Rust edit cost 6.05 s against the 6.30 s of making it, so that number is the
+rebuild rather than noise. The content edit produces no `Compiling` line at all.
+
+⚠ **ONE SAMPLE PER ROW, AND IT IS A BUILD RATHER THAN A LOOP A PERSON LIVES IN.**
+Launching the host is not in it, and a running host still has to be restarted to
+see the change — which is exactly what I3's coordinated reload is for. On the
+narrowest lane available (`cargo test -p ambition_content --lib`) the same pair
+is 0.35 s vs 3.37 s, so the ratio holds where the rebuild is cheapest.
+
+⛔ **AND IT IS ONLY TRUE WITH `static_content` OFF.** The source is read through
+`source_text`, which resolves `CARGO_MANIFEST_DIR` at runtime — a compile-time
+STRING, not a file dependency. The shipped/web build embeds it and pays the
+rebuild, which is correct: that build has no filesystem to read from.
+
+⚠ **AND THE COMPOSITION GUARD CAUGHT A REAL DUPLICATE LIST.** Registering the
+schema reddened
+`the_tools_composition_and_the_games_composition_are_the_same_set`:
+`engine_schemas()` and `ambition_content_cli::default_registry()` are two
+hand-kept lists that must agree, and the CLI's own comment says so out loud. Line
+added to both. ⇒ The collapse — one composition both can reach without the CLI
+linking the umbrella — is its own packet and is NOT done here.
+
 **Next bounded action:** step 5 — remove the migrated move table as a compiled
 AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,
 never a runtime fallback), and the file/watcher road that makes "prebuilt host"

@@ -179,8 +179,28 @@ pub fn authored_intrinsics(
     //  `authored/` — one file per creature, beside its moveset, and ONE table
     // ([`crate::authored::AUTHORED_CAST`]) that the module list already forces
     // anybody to keep true. See its module doc.
-    match crate::authored::author_for(id) {
+    let definition = match crate::authored::author_for(id) {
         Some(author) => author(id, definition),
+        None => definition,
+    };
+    // ⭐⭐ **AND THE MOVE TABLE COMES FROM THE PACK, FOR EVERY CHARACTER THE
+    // PACK CARRIES ONE FOR** (fast-iteration I2, step 5). This is the ONE seam
+    // every buildable character passes through — `register_declared_cast`'s
+    // single loop calls it — so a migrated table needs no second place to be
+    // applied and no per-character arm.
+    //
+    // ⛔ AFTER the creature's own file, deliberately: the pack is the AUTHORITY
+    // for a migrated table, so it must be the last writer. A character whose
+    // file still calls `with_moveset` and has no pack entry is untouched here,
+    // which is what makes the migration one character at a time.
+    //
+    // ⛔⛔ AND IT IS A REPLACEMENT, NOT A MERGE. A merge would need a rule for
+    // which half wins per verb, and two authorities for one fighter's table is
+    // the thing this move exists to remove.
+    match ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+        .and_then(|table| table.get(id))
+    {
+        Some(contract) => definition.with_moveset(contract.clone()),
         None => definition,
     }
 }

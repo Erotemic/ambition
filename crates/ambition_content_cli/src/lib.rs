@@ -36,6 +36,7 @@ pub fn default_registry() -> SchemaRegistry {
         ambition_items::content_schema::item_catalog_schema(),
         ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
         ambition_characters::smash_fighter::content_schema::smash_fighter_schema(),
+        ambition_characters::moveset_content_schema::moveset_schema(),
         ambition_encounter::content_schema::encounter_waves_schema(),
         ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema(),
         ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),

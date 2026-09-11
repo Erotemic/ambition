@@ -47,10 +47,7 @@
       "crates/ambition_characters/src/brain/state_machine/mod.rs: unresolved `tick_state_machine_with_actions`",
       "crates/ambition_characters/src/prepared.rs: private `CharacterBindings -> PreparedCharacter::checked`",
       "crates/ambition_characters/src/prepared.rs: unresolved `register_character`",
-      "crates/ambition_characters/src/smash_capture.rs: unresolved `ambition_platformer2d::combat::capture::CapturedBy`",
       "crates/ambition_characters/src/smash_fighter/mod.rs: private `into_repertoire -> Self::problems`",
-      "crates/ambition_characters/src/smash_limit.rs: unresolved `dealt`",
-      "crates/ambition_characters/src/smash_limit.rs: unresolved `taken`",
       "crates/ambition_characters/src/snapshot_impls.rs: unresolved `reconcile_brain_bindings`",
       "crates/ambition_characters/src/snapshot_impls.rs: unresolved `reconcile_brain_bindings`"
     ],
@@ -72,6 +69,14 @@
     "ambition_conversation": [],
     "ambition_encounter_features": [
       "crates/ambition_encounter_features/src/systems.rs: unresolved `Ownership`"
+    ],
+    "ambition_entity_catalog": [
+      "crates/ambition_entity_catalog/src/authoring.rs: unresolved `ChargeSustain`",
+      "crates/ambition_entity_catalog/src/authoring.rs: unresolved `WindboxVolume::repeating`",
+      "crates/ambition_entity_catalog/src/lib.rs: unresolved `ambition_platformer2d_core::BodyMana`",
+      "crates/ambition_entity_catalog/src/smash_limit.rs: unresolved `dealt`",
+      "crates/ambition_entity_catalog/src/smash_limit.rs: unresolved `taken`",
+      "crates/ambition_entity_catalog/src/smash_trapdoor.rs: unresolved `ambition_platformer2d_core::player_state::BodyMode::Submerged`"
     ],
     "ambition_items": [
       "crates/ambition_items/src/lib.rs: private `ItemCatalog -> ITEM_META`",

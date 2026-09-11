@@ -78,6 +78,7 @@ pub mod items;
 /// Test-only: it owns the cross-table invariant no single fighter's module can state — that an
 /// authored burst is heard exactly once.
 pub mod authored_movesets;
+mod officer_moves_are_content;
 #[cfg(test)]
 mod moveset_sound;
 /// Test-only: can a loadable artifact carry the SHIPPED roster's move tables

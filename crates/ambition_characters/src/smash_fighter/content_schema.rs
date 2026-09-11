@@ -32,12 +32,14 @@ use super::{SmashFighterBook, SmashFighterFacet, SMASH_FIGHTER_CAPABILITY, SMASH
 /// The schema version this handler reads.
 pub const SMASH_FIGHTER_VERSION: SchemaVersion = SchemaVersion(1);
 
-/// What one facet file contributes before the merge: the facet and the path it
-/// came from, so a collision names two files rather than two ids.
+/// What one facet file contributes before the merge.
+///
+/// ⚠ JUST THE FACET. It carried its `declared_path` too, for a collision message
+/// the compiler turned out to write better and two stages earlier — see
+/// [`SmashFighterSchema::aggregate`].
 #[derive(Debug, Clone)]
 struct Fragment {
     facet: SmashFighterFacet,
-    declared_path: String,
 }
 
 struct SmashFighterSchema;
@@ -79,48 +81,38 @@ impl ContentSchemaHandler for SmashFighterSchema {
         }
 
         if !out.failed() {
-            out.lower(Fragment {
-                facet: parsed,
-                declared_path: facet.declared_path.to_string(),
-            });
+            out.lower(Fragment { facet: parsed });
         }
     }
 
+    /// ⭐⭐ **A STRAIGHT MERGE, AND ITS COLLISION REFUSAL IS DELETED AS
+    /// UNREACHABLE — MEASURED 2026-09-11 BY POISON.** This arm said *"not
+    /// last-wins. Two files claiming one fighter is a question with two answers"*
+    /// and removing it left all 19 of this schema's tests GREEN, because
+    /// [`Self::check`] `define`s a content id per character and the compiler's
+    /// own CONFLICT DETECTION stage refuses the second claim before aggregation
+    /// runs — naming both source paths, which this arm did not:
+    ///
+    /// ```text
+    /// [duplicate-identity] `ambition:smash_fighter/george` is defined twice:
+    ///     in `fighters/george.ron` and in `fighters/george_copy.ron`
+    /// ```
+    ///
+    /// ⛔ A HANDLER THAT DEFINES A CONTENT ID PER ENTITY GETS THE COLLISION
+    /// REFUSAL FOR FREE. A second one is unreachable code that reads like the
+    /// thing enforcing the rule — so the rule looks guarded here and is actually
+    /// guarded two stages earlier, and deleting `out.define` would remove it
+    /// with nothing going red at this seam.
     fn aggregate(
         &self,
         fragments: &[LoweredFragment<'_>],
         out: &mut AggregateOutcome,
     ) -> Aggregation {
         let mut book: SmashFighterBook = BTreeMap::new();
-        let mut source_of: BTreeMap<String, String> = BTreeMap::new();
         for fragment in fragments {
-            let Some(Fragment {
-                facet,
-                declared_path,
-            }) = fragment.get::<Fragment>()
-            else {
-                continue;
-            };
-            // not last-wins. Two files claiming one fighter is a question
-            // with two answers, and picking one silently is how a character
-            // quietly swings with the values somebody meant to delete.
-            if let Some(first) = source_of.get(&facet.character) {
-                out.report(
-                    AggregateOutcome::refusal(
-                        DiagnosticCode::ConflictingModuleContribution,
-                        format!(
-                            "character `{}` has a platform-fighter facet in `{first}` and in \
-                             `{declared_path}`",
-                            facet.character
-                        ),
-                    )
-                    .in_source(declared_path)
-                    .fix("one character, one facet file — the runtime looks the id up ONCE"),
-                );
-                continue;
+            if let Some(Fragment { facet }) = fragment.get::<Fragment>() {
+                book.insert(facet.character.clone(), facet.clone());
             }
-            source_of.insert(facet.character.clone(), declared_path.clone());
-            book.insert(facet.character.clone(), facet.clone());
         }
         if !out.failed() {
             out.lower(book);

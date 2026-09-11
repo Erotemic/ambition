@@ -89,8 +89,21 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             // overwrite the locomotion two lines up.
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
-        })
-        .with_moveset(crate::officer_moveset::officer_moveset());
+        });
+    // ⭐⭐ **HIS MOVE TABLE IS NOT COMPILED IN ANY MORE** (fast-iteration I2,
+    // step 5). It was `.with_moveset(crate::officer_moveset::officer_moveset())`
+    // here; it is now `assets/data/movesets/officer.ron`, declared in `pack.ron`,
+    // validated by the `moveset` schema and applied in
+    // `crate::character_catalog::authored_intrinsics` — the one seam every
+    // buildable character passes through.
+    //
+    // ⛔ THE RUST TABLE STILL EXISTS AND IS NOT AN INPUT OF THE HOST. It is the
+    // EXPORTER's source and the PARITY ORACLE's subject
+    // (`the_officers_content_table_is_the_table_he_used_to_compile_with`), which
+    // is what step 5 permits in its own words: *"a test-only old table may be a
+    // temporary parity oracle, not a runtime fallback."* ⇒ Editing it changes
+    // nothing until it is re-exported, which is the point — the file is the
+    // authority now, and a fallback would give the fighter two.
     definition.vitals.max_health = Some(6);
     definition
 }

@@ -983,6 +983,7 @@ pub enum VolumeReaction {
 /// payload. Volumes live on their window — where the timeline says they are —
 /// not in a parallel list.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HitVolume {
     pub shape: VolumeShape,
     /// Damage dealt on contact.
@@ -1427,6 +1428,7 @@ fn valid_volume_shape(shape: VolumeShape) -> bool {
 /// One span of a move's timeline. Times are seconds of the owner's proper
 /// time, relative to move start.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoveWindow {
     pub start_s: f32,
     pub end_s: f32,
@@ -1548,6 +1550,7 @@ pub enum ImpulseMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoveEvent {
     /// Seconds (owner's proper time) from move start.
     pub at_s: f32,
@@ -1559,6 +1562,7 @@ pub struct MoveEvent {
 /// visual (pack or sheet) at bind time; a missing clip degrades presentation,
 /// never simulation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ClipBinding {
     pub clip: String,
     #[serde(default)]
@@ -1680,6 +1684,7 @@ impl RecoveryRoute {
 /// Activation gates for a move. Narrow on purpose — add knobs when real
 /// moves need them.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoveGates {
     /// `Some(true)` = grounded only; `Some(false)` = airborne only;
     /// `None` = either.
@@ -2249,6 +2254,7 @@ impl TechniqueFlow {
 /// gameplay and presentation — windows advance on the owner's proper time
 /// and the bound clip is sampled by normalized move phase.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoveSpec {
     /// Stable move id (`"jab"`, `"tilt_up"`, `"sandbag_swat"`).
     pub id: String,
@@ -3281,6 +3287,7 @@ pub struct MoveFrameData {
 
 /// Physics body contract: entity-local collision half-extents.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Body2dContract {
     pub half_extents: (f32, f32),
 }
@@ -3289,6 +3296,7 @@ pub struct Body2dContract {
 /// the packer/sheet target name resolved through the sprite pack (or the
 /// per-target sheet compatibility path).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresentationContract {
     pub visual_id: String,
 }
@@ -3543,6 +3551,7 @@ pub const CAPTURE_THROW_DOWN_VERB: &str = "capture_throw_down";
 /// which move. `moves` is the composition surface — re-binding an existing
 /// move onto a different actor is a data edit here.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MovesetContract {
     /// Input verb → move id (e.g. `"attack" → "sandbag_swat"`). BTreeMap for
     /// deterministic iteration (query-order discipline).
@@ -3774,6 +3783,7 @@ impl MovesetContract {
 /// entity expose the contract this system consumes?", never "what category
 /// is it?". Narrow seed set — grow per real consumer.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EntityContracts {
     #[serde(default)]
     pub body: Option<Body2dContract>,
@@ -3789,13 +3799,30 @@ pub struct EntityContracts {
 
 /// One catalog entity: a stable id plus its contract bundle.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EntityDef {
     pub id: String,
     pub contracts: EntityContracts,
 }
 
+/// The `schema_version` an authored entity-catalog document must declare.
+///
+/// ⛔⛤ **THE FIELD EXISTED AND NOTHING COMPARED IT. MEASURED 2026-09-11:**
+/// `schema_version` was written in thirteen fixtures, `validate()` never looked
+/// at it, and no parse path checked it — a version number nobody compares cannot
+/// refuse anything, which is the silent misread a version number exists to
+/// prevent. Its first reader is `ambition_characters::moveset_content_schema`,
+/// which refuses a document from another version rather than reading its fields
+/// as the shape this build expects now.
+///
+/// ⭐ IT LIVES WITH THE DOCUMENT, not with the reader: a schema handler, an
+/// exporter and a test would otherwise each spell the number, and three copies
+/// of a version are three chances to disagree about what the bytes mean.
+pub const ENTITY_CATALOG_SCHEMA_VERSION: u32 = 1;
+
 /// An authored entity-catalog document (one or many entities).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EntityCatalogDoc {
     pub schema_version: u32,
     pub entities: Vec<EntityDef>,

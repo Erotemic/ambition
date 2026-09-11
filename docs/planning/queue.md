@@ -2875,6 +2875,37 @@ nothing across 1,483 tests"* was measured over `_actor_monolith`,
 does: also green, at 548. The conclusion held; the population had not included
 the code the predicate is read in.
 
+### The predicate's LAST caller cannot be guarded, and that is the answer
+
+`movement/collision.rs:551` was the one use of `is_full_collision_surface` the two ledge
+tests do not reach. Investigated 2026-09-11; **no guard is possible and none
+should be written.**
+
+⭐ It is NOT dead code. A probe at the site counted **10 reaches and 5 takes**
+from a single fixture (a body placed inside a thick solid), so the escape runs.
+
+⛔⛔ **BUT DISABLING IT CHANGES NOTHING OBSERVABLE.** With the condition replaced
+by `false`, the body's trajectory is identical TO THE DIGIT
+(400.625 / 401.875 / 403.75 / 406.25 / 409.375) across two deliberately opposite
+geometries — a tall body (30×48) and a wide one (120×20), chosen because
+`is_contact_range_snap` caps a snap at the body's HALF-DIAGONAL and a tall body's
+y-exit necessarily exceeds that while a wide body's need not. Core's 551 tests
+stay green either way.
+
+⇒ **THE MECHANISM, READ RATHER THAN INFERRED.** `:572` is
+`if !is_contact_range_snap(delta, aabb) { continue; }` — the no-artificial-pushout
+refusal — and a nested body's gravity-axis snap is a FAR-FACE exit, which that
+refusal already rejects. **The escape at `:550-555` is an early-out for a case
+`:572` refuses anyway**, so the difference it makes is work done, not outcome.
+
+⇒ **A behavioural test cannot distinguish a claim that was SKIPPED from one that
+was REFUSED.** That is why nothing guards this site, and it is not a coverage
+gap: there is no observable behaviour to pin. ⛔ **Nor should the condition be
+deleted.** "No input could be constructed where it matters" is not "no such input
+exists", and a cheap early-out ahead of an expensive refusal is legitimate on its
+own terms. The honest statement is *redundant wherever measured*, which is
+different from *redundant*.
+
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
 **Owner:** registry/identity owners.

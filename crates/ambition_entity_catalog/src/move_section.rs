@@ -15,9 +15,25 @@
 //! `Serialize + Deserialize` for the authored RON catalog road. What was missing
 //! was never the encoding; it was a VERSIONED, REFUSABLE envelope around it.
 //!
-//! ⚠ **A LOSSLESS ROUND TRIP IS NOT AN ADMISSIBLE MOVE.** This module carries
-//! values; whether the host can honour the techniques they reference is the
-//! host's admission question and is deliberately not asked here.
+//! ⚠ **A LOSSLESS ROUND TRIP IS NOT AN ADMISSIBLE MOVE, AND THIS MODULE MUST NOT
+//! BE THE ONE THAT SAYS SO.** Whether a host can honour the techniques a section
+//! references is already answered, in production, by
+//! `ambition_characters::prepared::unsupported_authored_effects` — it walks
+//! `MoveSpec::effect_refs`, asks `TechniqueSupport::admit_at` WITH the site, and
+//! checks nested references besides.
+//!
+//! ⛔⛤ **I WROTE A SECOND ONE HERE AND DELETED IT.** It was ~40 lines, it passed
+//! its own tests, and it was a second authority on "may this move be played" —
+//! the exact thing I2's own step 4 forbids (*"it cannot justify … adding a second
+//! validator"*). ⇒ **The artifact road admits by HYDRATING into the prepared
+//! registry and running the existing pass**, which is step 2's *"domain hydration
+//! adapter that produces the same prepared move/character values used by existing
+//! consumers"* — the adapter is what makes one validator enough.
+//!
+//! ⚠ That pass needs a `PreparedCharacterRegistry`, which lives in a Bevy-linked
+//! crate, so an OUTSIDE builder cannot run it. That is correct rather than a gap:
+//! the builder emits and the host admits, which is what lets content be built on
+//! a machine that never compiled the engine.
 
 use crate::MovesetContract;
 

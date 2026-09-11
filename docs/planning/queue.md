@@ -712,12 +712,45 @@ same day: a matcher confidently answering about a different population. Split in
 prefixes (real families) and exact names, **with the control arm it was missing**
 — a test that the classifier does NOT reject a pure value crate.
 
-**Next bounded action:** I2 steps 4-6 — a selected-host load path through the
-current source/resolver policy, then removing the migrated move table as a
-compiled authoritative input (a test-only old table may be a parity oracle, never
-a runtime fallback). The carrier is proven; what is unproven is admission against
-*installed* technique support, which is the step-4 refusal that cannot be
-answered by a codec. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
+⛔⛤ **AND STEPS 4/6 ARE SMALLER THAN THE PACKET READS, EXCEPT FOR ONE MISSING
+THING. RE-DERIVED AT HEAD 2026-09-11.** Step 4 asks for a host load path, step 6
+says *"reuse the existing character candidate path"* — and almost all of it is
+already built and tested:
+* `stage_character_revision` + `activate_staged_revision` are a TRANSACTIONAL
+  cast revision: a refused revision changes nothing and the previous registry,
+  generation included, stays published. That is the last-good retention I3 asks
+  for, shipped.
+* `unsupported_authored_effects` is step 4's *"inspect actual installed technique
+  support"*, in production, walking `MoveSpec::effect_refs` and asking
+  `TechniqueSupport::admit_at` WITH the site — plus nested references.
+* Both the activated and the refused-leaves-the-cast-intact arms are already
+  guarded in `prepared_tests.rs`.
+
+⛔⛔ **I WROTE A SECOND VALIDATOR IN `move_section` AND DELETED IT.** ~40 lines,
+passing its own tests, and a second authority on *"may this move be played"* —
+which step 4 forbids in its own words (*"cannot justify … adding a second
+validator"*). The artifact road must admit by HYDRATING into the prepared
+registry and running the existing pass; that adapter is step 2's own deliverable
+and is what makes one validator enough.
+
+⇒ **THE ACTUAL BLOCKER, and it is one sentence:
+`PreparedCharacterDefinition` does not retain the SOURCE `CharacterDefinition`.**
+The revision road takes a whole definition; an artifact carries only a move
+section; and nothing can reconstruct the rest of a live character's definition
+from the registry to apply a move-only edit to it. Three ways out, and choosing
+is a decision on `prepared.rs`:
+1. the registry retains enough of the source definition to re-stage — state
+   growth, and it is the road A6 is measuring;
+2. the artifact carries whole definitions — contradicts *"one domain-owned move
+   section"*;
+3. the staging road grows an entry point that revises only an existing
+   definition's `moveset` — the narrow one, and where I would go.
+⚠ **NOT TAKEN HERE, deliberately: `prepared.rs` is the file the A6 packet is
+being measured on right now, and inventing an entry point in it mid-measurement
+is how two agents produce two answers.**
+
+**Next bounded action:** decide (3) against A6's findings, then the hydration
+adapter and step 5's removal of the compiled table. Then I3a-I3c. I3b uses A10's bounded construction path; a loader that destroys
 the test scene on a supported refusal does not close reliable iteration. The first
 delivery is that complete data loop, not an entire scripting framework.
 

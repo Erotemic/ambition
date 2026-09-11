@@ -2468,6 +2468,40 @@ seated match. Giants, hands, shrines, riders and summons are still undriven, and
 a road nobody drives is not covered. The new guard covers them anyway *if they
 ever run*, which is the difference between a census and an invariant.
 
+### D-BLINK-WALL-UNGUARDED — one predicate's `BlinkWall` arm is still unmeasured
+
+**Owner:** `ambition_platformer2d_core::collision_semantics`.
+Opened 2026-09-11 by a poison that should have fired and did not.
+
+⛔⛔ **MEASURED: deleting `BlinkWall` from `is_full_collision_surface` breaks
+NOTHING across 1,483 tests** in `_actor_monolith`, `ambition_abilities` and
+`_shared_tangle`. That predicate answers *"does this surface block both axes
+unconditionally"* and is read at `movement/collision.rs:551` and three sites in
+`movement/surface_momentum` — rideability and contact merging. A blink wall is
+the engine's *"wall only a blink may pass"*; nothing asserts one can be RIDDEN
+or that it merges as a full surface.
+
+✅ **THE ADJACENT GAP IS CLOSED.** `a_blink_wall_stops_a_body_that_cannot_blink`
+now guards the horizontal block, and its poison is `is_solid_for_axis` — a
+DIFFERENT predicate, measured rather than assumed.
+
+⛔⛤ **AND THE FIRST TWO VERSIONS OF THAT GUARD WERE BOTH WRONG, WHICH IS THE
+TRANSFERABLE HALF.**
+1. It asserted "the body did not pass the wall" after walking 180 frames. It
+   PASSED with the wall replaced by a non-blocking kind, because the body only
+   reached x=295.7 and the line was at 300 — *"it did not pass"* was a statement
+   about a body that never arrived.
+2. The control used a `Hazard` as the "non-blocking" arm. A hazard is not inert;
+   it ACTS on the body, so the control measured a second mechanism. An empty
+   lane is the control, and down one the same walk reaches 520.7.
+⇒ **A fixture's control must be the ABSENCE of the subject, not a different
+instance of it.**
+
+**Acceptance:** deleting `BlinkWall` from `is_full_collision_surface` reddens at
+least one test that names what a blink wall is FOR. ⚠ Check first whether a body
+is *meant* to ride one — this row assumes the arm is load-bearing because it was
+written, and that is a claim nobody has tested either.
+
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 
 **Owner:** registry/identity owners.

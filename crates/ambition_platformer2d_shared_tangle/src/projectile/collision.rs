@@ -59,6 +59,23 @@ pub enum WorldHitOutcome {
 /// toward that surface's support face at all — but NOT where the shot ended up.
 /// The positional straddle ("is this really a landing, or the top face of a
 /// wall I am passing halfway down?") is each side's own, layered on top of this.
+///
+/// ⛔⛤ **THE THREE FILTERS BELOW ASK ONE QUESTION AND EACH SPELLED IT OUT** —
+/// `Solid | BlinkWall { .. }`, three times. The projectile contact protocol's
+/// next step is admitting contributed destructible surfaces and says so in these
+/// words: *"step 2 needs a PREDICATE, not a fifth `Solid | BlinkWall { .. }`
+/// arm — but only at the FILTERS."* They call
+/// `collision_semantics::is_full_collision_surface` now.
+///
+/// ⛔ **AND I WROTE A FOURTH PREDICATE BEFORE FINDING IT.** `is_full_collision_surface`
+/// has existed in `ambition_platformer2d_core::collision_semantics` the whole
+/// time, one line, with the same body. ⇒ **Grep for the QUESTION, not for the
+/// name you would give it.**
+///
+/// ⛔ NOT at `resolve_world_hit_in_frame`, whose exhaustive `match` is a
+/// compile-time obligation on the next author: *"a new kind that a shot may hit
+/// must decide its response HERE — a fall-through would silently make it a
+/// passthrough."*
 pub fn shot_policy_admits(
     policy: WorldHitPolicy,
     bounces_remaining: u8,
@@ -68,7 +85,7 @@ pub fn shot_policy_admits(
 ) -> bool {
     match policy {
         WorldHitPolicy::Bouncing => match kind {
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } => true,
+            kind if ae::collision_semantics::is_full_collision_surface(*kind) => true,
             // A fireball crosses a one-way from below BY DESIGN, and is stopped
             // by one it is DESCENDING ONTO. A shot with no bounce budget left
             // passes through rather than expiring, which is what
@@ -86,10 +103,10 @@ pub fn shot_policy_admits(
         },
         // Any solid / blink-wall / one-way contact is expiry, from any
         // direction: this shot's contract is that it dies on what it touches.
-        WorldHitPolicy::ExpireOnContact => matches!(
-            kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-        ),
+        WorldHitPolicy::ExpireOnContact => {
+            ae::collision_semantics::is_full_collision_surface(*kind)
+                || matches!(kind, ae::BlockKind::OneWay)
+        }
     }
 }
 
@@ -253,10 +270,8 @@ pub fn resolve_world_collision(
             // same frame resolves against the harder surface (matches
             // the priority used by player physics).
             let solid_hit = world.blocks.iter().find(|block| {
-                matches!(
-                    block.kind,
-                    ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-                ) && admits(block)
+                ae::collision_semantics::is_full_collision_surface(block.kind)
+                    && admits(block)
                     && block.aabb.strict_intersects(aabb)
             });
             if let Some(block) = solid_hit {

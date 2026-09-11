@@ -1271,3 +1271,104 @@ fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
     );
     assert_eq!(conflict(vec![step(), floor()]), None);
 }
+
+/// ⛔⛔ A BLINK WALL STOPS AN ORDINARY BODY, AND NOTHING SAID SO.
+///
+/// A blink wall is the engine's *"wall only a blink may pass"*. MEASURED
+/// 2026-09-11 while collapsing the projectile road's three `Solid | BlinkWall`
+/// filters onto one predicate: **no test anywhere asserted that an ordinary
+/// body is stopped by one.** The sibling arm above asks about SUPPORT, which
+/// goes through `is_support_surface` — a different predicate, with `OneWay` in
+/// it. Two questions, two predicates, one of them guarded.
+///
+/// ⭐ THE PREDICATE THIS ARM ACTUALLY REACHES IS `is_solid_for_axis`, measured
+/// rather than assumed: deleting `BlinkWall` from it reddens this test. Deleting
+/// `BlinkWall` from `is_full_collision_surface` does NOT — that one feeds
+/// rideability and contact merging (`movement/collision.rs`,
+/// `surface_momentum`), and **its `BlinkWall` arm is still unguarded**, which is
+/// a separate open finding rather than something this test covers. ⚠ Writing
+/// "this guards `is_full_collision_surface`" was my first version, and it named
+/// a mechanism the fixture never touches.
+///
+/// ⛔⛔ **IT IS SELF-CONTROLLING, AND THE FIRST VERSION WAS NOT.** That version
+/// walked a body at a blink wall and asserted it did not pass. It PASSED with
+/// the wall replaced by a `Hazard`, which must not block anything — because the
+/// body never reached x=300 in the frames it was given (it stopped at 295.7).
+/// "It did not pass the wall" was a statement about a body that never arrived.
+/// ⇒ The same walk now runs against BOTH kinds and the Hazard arm must get
+/// PAST the line the blink arm must not cross. A fixture that stops short fails
+/// the control instead of certifying the claim.
+///
+/// ⭐ WALKING, not blinking: `AbilitySet::default()` has no blink, so the
+/// traversal road cannot answer for the wall. The claim is about a body with no
+/// such road at all.
+#[test]
+fn a_blink_wall_stops_a_body_that_cannot_blink() {
+    use crate::test_support::TEST_TUNING;
+    use crate::world::{BlinkWallTier, Block, World};
+
+    let wall_left = 300.0;
+    // ⚠ THE CONTROL IS AN EMPTY LANE, NOT A DIFFERENT BLOCK KIND. The first
+    // attempt used a `Hazard` as the "non-blocking" arm; a hazard is not inert —
+    // it acts on the body — so the control measured a second mechanism rather
+    // than an unobstructed walk.
+    let walk_into = |blocking: bool| -> f32 {
+        let mut blocks = vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 560.0),
+            Vec2::new(800.0, 40.0),
+        )];
+        if blocking {
+            blocks.push(Block::blink_wall(
+                "the wall",
+                Vec2::new(wall_left, 200.0),
+                Vec2::new(16.0, 360.0),
+                BlinkWallTier::Soft,
+            ));
+        }
+        let world = World {
+            name: "blink wall in the way".to_string(),
+            size: Vec2::new(800.0, 600.0),
+            spawn: Vec2::new(200.0, 540.0),
+            blocks,
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            chains: Vec::new(),
+            edges: Default::default(),
+        };
+        let mut scratch = scratch_with(AbilitySet::default(), world.spawn);
+        scratch.kinematics.vel = Vec2::ZERO;
+        for _ in 0..900 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState {
+                    axes: crate::LocalAxes::new(1.0, 0.0),
+                    control_dt: 1.0 / 60.0,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+                TEST_TUNING,
+            );
+        }
+        scratch.kinematics.aabb().max.x
+    };
+
+    // ⚠ THE CONTROL FIRST, because it is the arm that decides whether the claim
+    // below is about the WALL or about a body that ran out of frames.
+    let unobstructed = walk_into(false);
+    assert!(
+        unobstructed > wall_left + 8.0,
+        "the same walk down an EMPTY lane only reached {unobstructed}, \
+         short of the {wall_left} line — so this fixture cannot tell a wall that \
+         stops a body from a body that never arrived"
+    );
+
+    let blocked = walk_into(true);
+    assert!(
+        blocked <= wall_left + 1.0,
+        "a body with no blink walked THROUGH a blink wall: its right edge is \
+         {blocked}, the wall starts at {wall_left} (the same walk reaches \
+         {unobstructed} with nothing in the way)"
+    );
+}

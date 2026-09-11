@@ -915,6 +915,27 @@ const AERIAL_LEAD_PX: f32 = 24.0;
 /// finding's clothes.
 const GRAZE_PX: f32 = 1.0;
 
+/// How far above her an `Above`-staged target is dropped in.
+///
+/// ⚠ HIGH ENOUGH TO BE FALLING BY THE PRESS. Placed level it would simply stand
+/// there and the take would measure an up air against a body beside her, which
+/// is the scenario this staging exists to replace.
+const ABOVE_DROP_PX: f32 = 96.0;
+
+/// How far above the target's head a spike is pressed.
+///
+/// ⚠ BIGGER THAN `AERIAL_LEAD_PX`, which puts her LEVEL with the target — and
+/// level is exactly where a spike's box is not. It hangs below her, so the press
+/// is thrown while she is still over it.
+const BELOW_LEAD_PX: f32 = 40.0;
+
+/// How close a spike's horizontal gap must get before the press.
+///
+/// ⚠ NOT ZERO. Two bodies cannot occupy one column, so a walk asked for zero
+/// never arrives and reports a failure it was always going to have. This is
+/// "standing over it" within a body's width.
+const OVERHEAD_PX: f32 = 10.0;
+
 fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
     let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
     let mut best: Option<(f32, f32)> = None;
@@ -946,9 +967,15 @@ fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
             ) else {
                 continue;
             };
+            // ⛔⛤ SIGNED, NOT CLAMPED. This used to be `.max(0.0)`, which threw
+            // away the only thing the graze test reads: with the gap floored at
+            // zero, `gap <= -GRAZE_PX` can never be true and
+            // `boxes_overlapped_target` was ALWAYS FALSE — a check that cannot
+            // fire, on the branch whose whole job is to say the finding is in
+            // the engine. Negative is penetration depth.
             let gap = (
-                ((hx - tx).abs() - (hhx + thx)).max(0.0),
-                ((hy - ty).abs() - (hhy + thy)).max(0.0),
+                (hx - tx).abs() - (hhx + thx),
+                (hy - ty).abs() - (hhy + thy),
             );
             // ⛔⛤ A HAIR-THIN OVERLAP IS NOT EVIDENCE OF AN ENGINE FAULT.
             // MEASURED: the performer's down air overlapped the sandbag by
@@ -1225,15 +1252,36 @@ fn main() {
                     verb.verb
                 );
             }
+            // ⛔⛤ THE SCENARIO IS DERIVED FROM THE MOVE, not fixed for the run.
+            // One geometry — walk toward, jump, press — cannot measure a move
+            // that points anywhere but forward, and it reports the attempt as a
+            // hitbox fault. See `move_exercise::Staging`.
+            let staging = move_exercise::staging_for(verb);
             // ⛔ SPACING BEFORE POSTURE. Walking closes the gap on the ground;
             // an aerial verb then takes off from where it arrived. Doing it the
             // other way round would walk a body that is already in the air.
-            let closed = spacing.map(|px| move_exercise::approach(&mut app, px));
+            // ⛔ THE STAGING ASKS FOR ITS OWN DISTANCE, and the warning below
+            // has to name THAT number. A spike staged over a body is asked to
+            // close to `OVERHEAD_PX`, so reporting "could not close to 48 px"
+            // would be a complaint about a distance nothing requested.
+            let asked = match staging {
+                move_exercise::Staging::Below => Some(OVERHEAD_PX),
+                _ => spacing,
+            };
+            let closed = asked.map(|px| match staging {
+                // ⭐ SHE KEEPS WALKING THE SAME WAY, so her facing does not
+                // change and only the target's side does — which is how a back
+                // air is used: you jump past somebody on the way by.
+                move_exercise::Staging::Behind => move_exercise::approach_past(&mut app, px),
+                _ => move_exercise::approach(&mut app, px),
+            });
             if closed == Some(false) {
                 println!(
-                    "[take] {character:<24} {:<16} WARNING - could not close to {} px;                      this take records the gap it reached",
+                    "[take] {character:<24} {:<16} WARNING - could not close to {} px ({} staging); \
+                     this take records the gap it reached",
                     verb.verb,
-                    spacing.unwrap_or_default()
+                    asked.unwrap_or_default(),
+                    staging.as_str()
                 );
             }
             // ⭐⭐ ONE PREPARATION, SHARED WITH THE RENDERER. This had its own
@@ -1257,12 +1305,33 @@ fn main() {
             // `move_exercise::descend_to_meet`.
             // ⚠ THE RENDERER DELIBERATELY DOES NOT DO THIS. Its job is a clean
             // photograph of the pose, and the apex is where the pose reads.
-            if prepared && verb.airborne && !move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX) {
-                println!(
-                    "[take] {character:<24} {:<16} WARNING - could not fall into range of the \
-                     target before the press; this take records the press from where she was",
-                    verb.verb
-                );
+            if prepared && verb.airborne {
+                match staging {
+                    // ⭐⭐ THE PROP IS DROPPED IN AND LEFT TO FALL. An up air
+                    // meets a body coming DOWN onto it, which is the only
+                    // scenario the move is for — and a target standing on the
+                    // floor can never be that. It keeps its mass and gravity, so
+                    // what the take records is a real descent.
+                    move_exercise::Staging::Above => {
+                        move_exercise::place_seat_relative(&mut app, 1, (0.0, -ABOVE_DROP_PX));
+                    }
+                    // ⚠ A BIGGER LEAD, ON PURPOSE. `AERIAL_LEAD_PX` puts her
+                    // level with the target, which is where a spike's box is
+                    // NOT — it hangs below her. She presses while still over it.
+                    move_exercise::Staging::Below => {
+                        move_exercise::descend_to_meet(&mut app, 1, BELOW_LEAD_PX);
+                    }
+                    _ => {
+                        if !move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX) {
+                            println!(
+                                "[take] {character:<24} {:<16} WARNING - could not fall into \
+                                 range of the target before the press; this take records the \
+                                 press from where she was",
+                                verb.verb
+                            );
+                        }
+                    }
+                }
             }
             // ⛔⛔ AFTER THE RE-SEAT AND BEFORE THE PRESS. Roles are entity
             // identities, and every re-seat spawns new bodies — resolving them
@@ -1475,7 +1544,9 @@ fn main() {
                 // "no contact" without the reason sends them to the hitbox.
                 match (live > 0, landed, overlapped, gap) {
                     (true, false, false, Some((x, y))) => format!(
-                        " OUT OF REACH: shapes never overlapped the target (closest {x:.0}x, {y:.0}y px) -- the SCENARIO, not the hitbox"
+                        " OUT OF REACH: shapes never overlapped the target (closest {:.0}x, {:.0}y px) -- the SCENARIO, not the hitbox",
+                        x.max(0.0),
+                        y.max(0.0)
                     ),
                     (true, false, true, _) =>
                         " NO CONTACT THOUGH THE SHAPES OVERLAPPED -- the engine, not the scenario".to_string(),
@@ -1518,6 +1589,11 @@ fn main() {
                 // Publish its name so reports/cache identity do not have to infer
                 // which shared move_exercise schedule produced this take.
                 "hold_policy": "move_exercise_default",
+                // ⛔ THE SCENARIO'S OWN SHAPE, RECORDED. A take compared against
+                // another staged differently is not a comparison, and a reader
+                // who cannot see which geometry produced a miss will read every
+                // miss as a hitbox.
+                "staging": staging.as_str(),
                 // ⛔ THE SPACING ASKED FOR AND THE SPACING REACHED. A move that
                 // could not close the gap is a finding; a take that reported
                 // only the request would hide it.
@@ -1545,6 +1621,9 @@ fn main() {
                 // fact about the ENGINE. `closest_gap_px` names the axis.
                 "reach": {
                     "boxes_overlapped_target": overlapped,
+                    // ⚠ SIGNED: negative is how deep the shapes went INTO each
+                    // other, positive is how far short they fell. A reader who
+                    // sees only `0.0` cannot tell a graze from a solid hit.
                     "closest_gap_px": gap.map(|(x, y)| vec![x, y]),
                     "contacted_target": landed,
                 },
@@ -1678,6 +1757,54 @@ mod tests {
             "her feet ({}) never reached the lead above the target's head ({})",
             mine.1,
             theirs.0 - AERIAL_LEAD_PX
+        );
+    }
+
+    /// ⛔⛤ A DIRECTIONAL AERIAL IS STAGED WHERE IT POINTS.
+    ///
+    /// ⛔⛔ THE DEFECT THIS FAILS ON. The observatory had ONE geometry — walk
+    /// toward, jump, press — and a back air puts its box BEHIND her. MEASURED
+    /// with her facing `+1`: the box sat 19.3 px behind while the sandbag stood
+    /// 29.5 px in front, opposite sides, and the move recorded as a miss in
+    /// every scenario that existed. The forward air was the control arm: same
+    /// harness, same spacing, same target, and it landed.
+    ///
+    /// ⭐ This asserts the STAGING REACHED ITS SHAPE, not that a lookup table
+    /// returned a name. `staging_for` agreeing with itself proves nothing; the
+    /// claim is that after staging, the target is on the side the move covers.
+    #[test]
+    fn a_back_air_is_staged_with_the_target_behind_her() {
+        let mut app = ambition_app::app::build_visible_app(
+            ambition_app::app::VisibleRenderMode::NoWindow, true,
+        );
+        ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+        for _ in 0..30 { app.update(); }
+        let verb = move_exercise::verb_named("attack_air_back").unwrap();
+        assert_eq!(
+            move_exercise::staging_for(verb),
+            move_exercise::Staging::Behind,
+            "the premise: this verb asks to be staged from behind"
+        );
+        assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
+        assert!(settle(&mut app));
+
+        let facing_before = move_exercise::facing_of(&mut app);
+        assert!(move_exercise::approach_past(&mut app, 48.0), "she never got past it");
+        let gap = move_exercise::gap_to_seat(&mut app, 1).expect("both seats are filled");
+
+        // ⭐⭐ THE TWO HALVES THAT MAKE IT A BACK AIR. The target has to be on
+        // the side her box covers, AND she has to still be facing the way she
+        // was -- a body that turned round is performing a forward air with
+        // another name, and the take would look identical.
+        assert_eq!(
+            move_exercise::facing_of(&mut app),
+            facing_before,
+            "she turned round, so the press would place its box toward the target"
+        );
+        assert_eq!(
+            gap.signum(),
+            -facing_before.signum(),
+            "the target is still in FRONT of her (gap {gap}, facing {facing_before})"
         );
     }
 }

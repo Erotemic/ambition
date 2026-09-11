@@ -675,6 +675,152 @@ pub fn approach(app: &mut App, spacing: f32) -> bool {
     false
 }
 
+/// Where the target has to BE for a move to be measurable at all.
+///
+/// ⛔⛤ A SCENARIO WITH ONE GEOMETRY CANNOT MEASURE A DIRECTIONAL MOVE, AND IT
+/// REPORTS THE ATTEMPT AS A HITBOX FAULT. The observatory had exactly one:
+/// walk toward the target, jump, press. MEASURED 2026-09-11 on the performer,
+/// facing `+1`:
+///
+/// | move | its box | the target | |
+/// |---|---|---|---|
+/// | `attack_air_back` | −19.3 x | +29.5 x | opposite sides |
+/// | `attack_air_down` | +25.8 y | +0.3 y | box below, target level |
+/// | `attack_air_forward` | +7.9 x | +11.1 x | same side — connects |
+///
+/// ⇒ The forward air is the control arm: same harness, same spacing, same
+/// target, and it lands. **Two of five aerials were structurally unmeasurable**,
+/// and both read as *"published shapes, no contact"* — the signature of a
+/// hitbox that is too small.
+///
+/// ⭐ The staging is DERIVED from the verb's own axes, so a fighter added
+/// tomorrow gets the right scenario without anyone remembering to ask for it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Staging {
+    /// Walk up to it. The default, and right for everything non-directional.
+    InFront,
+    /// Walk PAST it, so it sits behind her while she still faces forward.
+    Behind,
+    /// Stand over it: aligned horizontally, pressed from above.
+    Below,
+    /// Dropped in above her, falling, so a rising move meets a descending body.
+    Above,
+}
+
+/// The staging this verb needs, from its own axes.
+///
+/// ⚠ GROUNDED MOVES STAY IN FRONT. A down tilt pokes at the floor beside her and
+/// an up tilt covers the space over her head; both are used against a body
+/// standing next to her, and staging one above or below would be inventing a
+/// scenario the move is not for. Only an AERIAL is asked where it points.
+pub fn staging_for(verb: &Verb) -> Staging {
+    if !verb.airborne {
+        return Staging::InFront;
+    }
+    // Input convention: `axis_y` −1 is UP, +1 is DOWN.
+    match (verb.axis_x, verb.axis_y) {
+        (_, y) if y < 0.0 => Staging::Above,
+        (_, y) if y > 0.0 => Staging::Below,
+        (x, _) if x < 0.0 => Staging::Behind,
+        _ => Staging::InFront,
+    }
+}
+
+impl Staging {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Staging::InFront => "in_front",
+            Staging::Behind => "behind",
+            Staging::Below => "below",
+            Staging::Above => "above",
+        }
+    }
+}
+
+/// Put the TARGET where this move can reach, and let the world carry it from
+/// there.
+///
+/// ⭐⭐ THE SUBJECT WALKS; THE PROP IS PLACED. [`approach`] refuses to teleport
+/// seat zero on purpose — placing her would skip the movement the take is
+/// partly measuring — but the sandbag is scenery for that question, and a
+/// scenario that can only ever stand it on the floor cannot ask what an up air
+/// or a spike does. Placing it is what makes those moves measurable at all.
+///
+/// ⚠ AND IT IS LEFT TO FALL. The offset is where the target STARTS, not where
+/// it will be at the press: it keeps its mass, its gravity and its hurtbox, so
+/// an up air meets a body that is genuinely descending onto it. A target pinned
+/// in the air would be a different game.
+///
+/// Returns `false` when either seat is missing — a placement relative to a
+/// fighter who is not there is not a position.
+pub fn place_seat_relative(app: &mut App, seat: usize, offset: (f32, f32)) -> bool {
+    let Some(origin) = seat_pos(app, 0) else {
+        return false;
+    };
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &mut ambition_platformer2d::actor::BodyKinematics,
+    )>();
+    for (at, mut kin) in q.iter_mut(world) {
+        if at.0 == seat {
+            kin.pos.x = origin.0 + offset.0;
+            kin.pos.y = origin.1 + offset.1;
+            kin.vel = Default::default();
+            return true;
+        }
+    }
+    false
+}
+
+/// One seat's position.
+fn seat_pos(app: &mut App, seat: usize) -> Option<(f32, f32)> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyKinematics,
+    )>();
+    q.iter(world)
+        .find(|(at, _)| at.0 == seat)
+        .map(|(_, kin)| (kin.pos.x, kin.pos.y))
+}
+
+/// Walk seat zero PAST the target, so the target ends up BEHIND her.
+///
+/// ⛔⛤ A BACK AIR CANNOT BE MEASURED FROM IN FRONT, AND THE TAKE LOOKED LIKE A
+/// HITBOX FAULT. The volume is placed against FACING: pressed while facing
+/// right, `attack_air_back` puts its box to the LEFT. MEASURED 2026-09-11 with
+/// her facing `+1`, the box sat 19.3 px behind her while the sandbag stood
+/// 29.5 px in front — **opposite sides, ~49 px apart** — and the move recorded
+/// as a miss in every scenario the observatory had.
+///
+/// ⇒ She keeps walking the same way, so her FACING does not change; only the
+/// target's side does. That is how the move is used in a match: you jump past
+/// somebody and hit them on the way by.
+///
+/// `spacing` is how far past, measured the same way [`approach`] measures how
+/// far short.
+pub fn approach_past(app: &mut App, spacing: f32) -> bool {
+    let Some(entry) = gap_to_seat(app, 1) else {
+        return false;
+    };
+    // The side she starts on. Walking "past" means the gap's sign flips and
+    // then opens back up to `spacing`.
+    let toward = entry.signum();
+    for _ in 0..APPROACH_LIMIT {
+        let Some(gap) = gap_to_seat(app, 1) else {
+            return false;
+        };
+        if gap.signum() != toward && gap.abs() >= spacing {
+            return settle(app);
+        }
+        let mut frame = ControlFrame::default();
+        frame.axis_x = toward;
+        step(app, frame);
+    }
+    false
+}
+
 /// The longest anything will wait for the stage to go quiet before a press.
 ///
 /// ⛔⛔ A FIXED SETTLE IS NOT A SETTLE. Forty-five ticks was less than the

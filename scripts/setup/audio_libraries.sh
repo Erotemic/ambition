@@ -77,13 +77,9 @@ if [ "$show_status" -eq 1 ]; then
 fi
 
 # The sampled instrument libraries, and the sfizz/LV2 hosts that can actually
-# play them.
-#
-# ⛔ THE RENDERER IS NOT BROKEN WITHOUT THESE. `render/group.py` warns per
-# instrument and falls back to General MIDI, so a default checkout still renders
-# every cue — the GM soundfonts are in the required package list precisely so it
-# can. What the libraries buy is quality, at the cost of gigabytes, which is why
-# they are opt-in rather than part of the fast path.
+# play them. These are dependencies of the shipped music, not a quality extra:
+# the renderer refuses to render a cue whose named library is missing (see the
+# header above), so a machine without them cannot regenerate the catalogue.
 #
 # The downloader writes `$root/env.sh`, which is what `scripts/regen/music.sh` and
 # `render_music.sh` source to expose the SFZ/LV2/VST3/CLAP search paths.
@@ -107,15 +103,14 @@ ensure_audio_libraries() {
         return 0
     fi
 
-    # sfizz first: without a player, a downloaded SFZ library is inert.
+    # sfizz first: without a player, a downloaded SFZ library is inert. The
+    # renderer's setup installs it by default (apt, then the sfztools OBS repo,
+    # then a source build) and fails when it cannot.
     #
-    # INSTALL_SFIZZ_OBS defaults to 0 in the renderer's setup because it adds a
-    # third-party apt source, and Ubuntu does not package sfizz at all — so with
-    # the default the SFZ libraries below install and then nothing can play
-    # them. Asking for --audio-libraries IS asking for the SFZ path, so opt in
-    # here rather than leaving the flag half-effective.
+    # AMBITION_SKIP_AUDIO_TOOLS_DOWNLOAD: that setup also runs the downloader,
+    # but this script does it below after fixing /data ownership — once is enough.
     log "installing the native audio toolchain (sfizz, LV2/VST3 hosts)"
-    INSTALL_SFIZZ_OBS=1 "$renderer/setup.sh" \
+    AMBITION_SKIP_AUDIO_TOOLS_DOWNLOAD=1 "$renderer/setup.sh" \
         || warn "audio toolchain setup reported a failure; continuing"
 
     # /data is root-owned on a fresh box and the downloader does not escalate,

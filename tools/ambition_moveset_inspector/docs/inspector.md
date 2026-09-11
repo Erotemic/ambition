@@ -146,6 +146,9 @@ real seated match — a **fresh match per take**, because `afford_recovery` refu
 a recovery whose airtime already spent one and an instrument whose answer depends
 on what ran before it is not measuring the thing it names.
 
+The recorder and renderer wait for a new gameplay session and both requested
+fighters. A matching character name does not show that the new match is ready.
+
 Read the report line. `MISMATCH: drove <id> but the engine played {...}` means
 the press did not reach the move it is bound to, and that is a finding rather
 than noise: it is how D252 (the back air is unreachable for the whole cast) and

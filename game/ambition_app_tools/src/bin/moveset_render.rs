@@ -777,6 +777,8 @@ fn render_pair(
     let layers = req.layers;
     let adapter = req.adapter;
     let out_dir = &req.out_dir;
+    let previous_scope = app.world()
+        .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
     // ⛔⛔ THE TARGET IS A SEAT WITH A STAND-STILL BRAIN, not a frozen body. A
     // live opponent walks into the strike being photographed, so the pictures
     // stop being about the move.
@@ -813,14 +815,20 @@ fn render_pair(
             >();
             (staged, q.iter(world).count())
         };
-        // ⛔⛔ AND IT IS THE FIGHTER WE ASKED FOR. `staged > 0` is satisfied by
-        // the OUTGOING cast the instant a new roster is published — the old
-        // fighters are still standing, unheld, in a live session — so a batch
-        // could settle, press and photograph the previous match. A single-shot
-        // process never saw it because its stage starts empty.
-        if staged > 0
+        // ⛔⛤ THE SESSION IS THE IDENTITY, NOT THE NAME. `staged > 0` was
+        // satisfied by the OUTGOING cast the instant a new roster is published,
+        // so a batch could photograph the previous match; naming the character
+        // repaired that and left the harder half, because a batch that re-seats
+        // the SAME fighter gets the right name from the match that is ENDING.
+        // Wait for a scope that is present AND different, and for both seats.
+        // See the same reasoning at `moveset_takes::reseat`.
+        let scope = app.world()
+            .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+        if scope.is_some() && scope != previous_scope
+            && staged > 0
             && held == 0
             && move_exercise::seat_character(app, 0).as_deref() == Some(character)
+            && move_exercise::seat_character(app, 1).as_deref() == Some(target)
             && ambition_platformer2d::rollback::session_is_active(app.world())
         {
             live = true;

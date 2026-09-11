@@ -668,6 +668,8 @@ impl TargetBehavior {
 /// same fighter twice, told apart only by a seat index — so every recorded frame
 /// needed a seat convention to read, and a screenshot could not be read at all.
 fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior) -> bool {
+    let previous_scope = app.world()
+        .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
     let roster = match behavior {
         // ⛔ THE STAND-STILL BRAIN IS A DRIVER, NOT A MISSING ONE. A CPU seat
         // that names no brain profile is REFUSED at preparation, on purpose;
@@ -690,15 +692,32 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
     // EMPTY STAGE in that character's name. The 240 stay as a ceiling rather
     // than the answer, and the common case got faster: the loop ends the moment
     // the subject is there.
-    // ⛔⛤ AND IT IS THE FIGHTER WE ASKED FOR. `subject(app).is_some()` is
-    // satisfied by the OUTGOING cast the instant a new roster is published — the
-    // previous match's bodies are still standing in a live session — so the
-    // FIRST take of a new character could settle, press and record the previous
-    // character under this one's name. Every take re-seats, so a run that
-    // records several fighters crosses this boundary once per character.
+    // ⛔⛤ AND IT IS THE FIGHTER WE ASKED FOR — TWICE OVER, BECAUSE THE FIRST
+    // REPAIR WAS NOT ENOUGH.
+    //
+    // ⛔ FIRST: `subject(app).is_some()` is satisfied by the OUTGOING cast the
+    // instant a new roster is published — the previous match's bodies are still
+    // standing in a live session — so the first take of a new character could
+    // settle, press and record the PREVIOUS character under this one's name.
+    // That was repaired by naming the character.
+    //
+    // ⛔⛔ SECOND, AND NAMING THE CHARACTER DOES NOT CATCH IT: when a run
+    // re-seats the SAME fighter — which every take does, and a single-character
+    // batch does eleven times — the outgoing cast answers to the name being
+    // asked for. The check passes on the match that is ENDING. A batch could
+    // press into the previous take's fighter, mid-recovery, and record it.
+    //
+    // ⇒ **THE SESSION IS THE IDENTITY, NOT THE NAME.** Wait for
+    // `ActiveSessionScope` to become a scope that is BOTH present and different
+    // from the one seen on entry, and for both seats to hold the requested ids.
+    // A matching character name does not show that the new match is ready.
     for _ in 0..240 {
         app.update();
-        if move_exercise::seat_character(app, 0).as_deref() == Some(character) {
+        let scope = app.world()
+            .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+        if scope.is_some() && scope != previous_scope
+            && move_exercise::seat_character(app, 0).as_deref() == Some(character)
+            && move_exercise::seat_character(app, 1).as_deref() == Some(target) {
             return true;
         }
     }
@@ -1444,4 +1463,37 @@ fn main() {
         "[moveset-takes] {} take(s) -> {out}",
         bundle["takes"].as_array().map_or(0, Vec::len)
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_character_takes_start_in_new_sessions_and_accept_attacks() {
+        let mut app = ambition_app::app::build_visible_app(
+            ambition_app::app::VisibleRenderMode::NoWindow, true,
+        );
+        ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+        for _ in 0..30 { app.update(); }
+        let verb = move_exercise::verb_named("attack_forward").unwrap();
+        for _ in 0..3 {
+            let previous = app.world()
+                .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+            assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
+            let current = app.world()
+                .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+            assert_ne!(previous, current);
+            assert!(settle(&mut app));
+            assert!(move_exercise::prepare(&mut app, verb));
+            let facing = move_exercise::facing_of(&mut app);
+            let mut played = false;
+            for tick in 0..30 {
+                step(&mut app, move_exercise::action_frame(verb, tick, facing));
+                played |= move_exercise::playing_move(&mut app).as_deref()
+                    == Some("performer_tilt_forward");
+            }
+            assert!(played, "the new match must accept the attack");
+        }
+    }
 }

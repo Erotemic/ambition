@@ -675,6 +675,83 @@ pub fn approach(app: &mut App, spacing: f32) -> bool {
     false
 }
 
+/// How far above her an `Above`-staged target is dropped in.
+///
+/// ⚠ HIGH ENOUGH TO BE FALLING BY THE PRESS. Placed level it would stand there
+/// and the take would measure an up air against a body beside her, which is the
+/// scenario this staging exists to replace.
+pub const ABOVE_DROP_PX: f32 = 96.0;
+
+/// How far above the target's head a spike is pressed.
+///
+/// ⚠ BIGGER THAN [`AERIAL_LEAD_PX`], which puts her LEVEL with the target — and
+/// level is exactly where a spike's box is not. It hangs below her.
+pub const BELOW_LEAD_PX: f32 = 40.0;
+
+/// How close a spike's horizontal gap must get before the press.
+///
+/// ⚠ NOT ZERO. Two bodies cannot occupy one column, so a walk asked for zero
+/// never arrives and reports a failure it was always going to have.
+pub const OVERHEAD_PX: f32 = 10.0;
+
+/// How far above the target's head an ordinary aerial is pressed.
+///
+/// ⚠ IT BUYS THE MOVE'S STARTUP AS FALL TIME, so zero is wrong: a press thrown
+/// when the bodies already overlap spends its startup landing.
+pub const AERIAL_LEAD_PX: f32 = 24.0;
+
+/// Put the stage into the shape this move needs, and say what it managed.
+///
+/// ⛔⛤ ONE SCENARIO, TWO TOOLS. `moveset_render`'s own comment already said it —
+/// *"the two tools must stage ONE scenario or their pictures describe different
+/// fights"* — and staging that lived in the recorder alone broke exactly that:
+/// the take would report a back air connecting while the picture of it showed
+/// the sandbag on the wrong side. A reader trusts the picture.
+///
+/// Returns `(closed, distance_asked)`. `closed` is `None` when no spacing was
+/// requested at all, which is a different thing from a walk that failed.
+pub fn stage_for_press(app: &mut App, verb: &Verb, spacing: Option<f32>)
+    -> (Option<bool>, Option<f32>)
+{
+    let staging = staging_for(verb);
+    // ⛔ THE STAGING ASKS FOR ITS OWN DISTANCE, and a caller's warning has to
+    // name THAT number. A spike staged over a body is asked to close to
+    // `OVERHEAD_PX`, so reporting the requested 48 would complain about a
+    // distance nothing asked for.
+    let asked = match staging {
+        Staging::Below => Some(OVERHEAD_PX),
+        _ => spacing,
+    };
+    let closed = asked.map(|px| match staging {
+        Staging::Behind => approach_past(app, px),
+        _ => approach(app, px),
+    });
+    (closed, asked)
+}
+
+/// Take off, aim, and get her to where this move can land — the airborne half of
+/// [`stage_for_press`], run after `prepare`.
+///
+/// Returns `false` only when an ordinary aerial could not fall into range;
+/// the directional stagings place the prop instead and always succeed or leave
+/// the body where it was.
+pub fn stage_airborne(app: &mut App, verb: &Verb) -> bool {
+    if !verb.airborne {
+        return true;
+    }
+    match staging_for(verb) {
+        Staging::Above => {
+            place_seat_relative(app, 1, (0.0, -ABOVE_DROP_PX));
+            true
+        }
+        Staging::Below => {
+            descend_to_meet(app, 1, BELOW_LEAD_PX);
+            true
+        }
+        _ => descend_to_meet(app, 1, AERIAL_LEAD_PX),
+    }
+}
+
 /// Where the target has to BE for a move to be measurable at all.
 ///
 /// ⛔⛤ A SCENARIO WITH ONE GEOMETRY CANNOT MEASURE A DIRECTIONAL MOVE, AND IT

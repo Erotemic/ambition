@@ -868,73 +868,12 @@ mod causal_trace {
     }
 }
 
-/// Sample the world and append it to a take, reporting any body it could not
-/// identify.
-///
-/// ⛔⛔ THE CALLER MUST NOT WRITE A TAKE THAT REPORTED ONE. `SimId` is what the
-/// bundle joins and orders on, and a body without one was written as
-/// `"id": null` and sorted under the empty string — so its position in a
-/// "byte-stable, canonical" recording was query order wearing a contract's
-/// clothes. `ensure_sim_id` covers authored placements and the primary player
-/// only; its own doc says a dynamically spawned body stays unidentified unless
-/// its spawn site mints an id, so this is reachable rather than theoretical.
-///
-/// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong as
-/// a licence for the recorder: what an old file may contain does not define what
-/// a new one may emit. Measured on the admiral: 8202/8202 bodies and 166/166
-/// Did the subject's own hitboxes ever OVERLAP the target, and if not, by how
-/// much did they miss?
-///
-/// ⛔⛤ THE PREMISE A "MISS" NEEDS. A take with live hitboxes and no contact
-/// reads as *"the move's shapes are wrong"*, and that is only one of the things
-/// it can mean. The performer's aerials recorded five published shapes and zero
-/// contacts across three separate scenarios; the boxes were **69 px above the
-/// sandbag**, because the harness jumps before it presses and the target stays
-/// on the floor. ⇒ **A vertical whiff and an undersized hitbox produce the same
-/// take.**
-///
-/// ⚠ THIS IS GEOMETRY, NOT THE ENGINE'S ANSWER. It overlaps AABBs in the
-/// recorded frames and says nothing about factions, ledgers or i-frames — which
-/// is the point: when it says OVERLAPPED and the engine recorded no contact,
-/// the finding is in the engine; when it says OUT OF REACH, the finding is in
-/// the scenario and no amount of hitbox tuning will fix it.
-///
-/// Returns `(overlapped, closest_gap)`. The gap is per axis, `0.0` on an axis
-/// that overlapped, and `None` when no box was ever live or no target was seen.
-/// How far above the target's head an aerial is pressed.
-///
-/// ⚠ IT BUYS THE MOVE'S STARTUP AS FALL TIME, so zero is wrong: a press thrown
-/// when the bodies already overlap spends its startup landing. The performer's
-/// aerials start in 2–4 authored frames at 40 ms.
-const AERIAL_LEAD_PX: f32 = 24.0;
-
 /// How deep an overlap has to be before it counts as one.
 ///
 /// ⚠ The engine tests `strict_intersects`, so a tangent is not a hit. A shape
 /// that grazes by a fraction of a pixel is a REACH finding wearing an engine
 /// finding's clothes.
 const GRAZE_PX: f32 = 1.0;
-
-/// How far above her an `Above`-staged target is dropped in.
-///
-/// ⚠ HIGH ENOUGH TO BE FALLING BY THE PRESS. Placed level it would simply stand
-/// there and the take would measure an up air against a body beside her, which
-/// is the scenario this staging exists to replace.
-const ABOVE_DROP_PX: f32 = 96.0;
-
-/// How far above the target's head a spike is pressed.
-///
-/// ⚠ BIGGER THAN `AERIAL_LEAD_PX`, which puts her LEVEL with the target — and
-/// level is exactly where a spike's box is not. It hangs below her, so the press
-/// is thrown while she is still over it.
-const BELOW_LEAD_PX: f32 = 40.0;
-
-/// How close a spike's horizontal gap must get before the press.
-///
-/// ⚠ NOT ZERO. Two bodies cannot occupy one column, so a walk asked for zero
-/// never arrives and reports a failure it was always going to have. This is
-/// "standing over it" within a body's width.
-const OVERHEAD_PX: f32 = 10.0;
 
 fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
     let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
@@ -1260,21 +1199,7 @@ fn main() {
             // ⛔ SPACING BEFORE POSTURE. Walking closes the gap on the ground;
             // an aerial verb then takes off from where it arrived. Doing it the
             // other way round would walk a body that is already in the air.
-            // ⛔ THE STAGING ASKS FOR ITS OWN DISTANCE, and the warning below
-            // has to name THAT number. A spike staged over a body is asked to
-            // close to `OVERHEAD_PX`, so reporting "could not close to 48 px"
-            // would be a complaint about a distance nothing requested.
-            let asked = match staging {
-                move_exercise::Staging::Below => Some(OVERHEAD_PX),
-                _ => spacing,
-            };
-            let closed = asked.map(|px| match staging {
-                // ⭐ SHE KEEPS WALKING THE SAME WAY, so her facing does not
-                // change and only the target's side does — which is how a back
-                // air is used: you jump past somebody on the way by.
-                move_exercise::Staging::Behind => move_exercise::approach_past(&mut app, px),
-                _ => move_exercise::approach(&mut app, px),
-            });
+            let (closed, asked) = move_exercise::stage_for_press(&mut app, verb, spacing);
             if closed == Some(false) {
                 println!(
                     "[take] {character:<24} {:<16} WARNING - could not close to {} px ({} staging); \
@@ -1305,33 +1230,12 @@ fn main() {
             // `move_exercise::descend_to_meet`.
             // ⚠ THE RENDERER DELIBERATELY DOES NOT DO THIS. Its job is a clean
             // photograph of the pose, and the apex is where the pose reads.
-            if prepared && verb.airborne {
-                match staging {
-                    // ⭐⭐ THE PROP IS DROPPED IN AND LEFT TO FALL. An up air
-                    // meets a body coming DOWN onto it, which is the only
-                    // scenario the move is for — and a target standing on the
-                    // floor can never be that. It keeps its mass and gravity, so
-                    // what the take records is a real descent.
-                    move_exercise::Staging::Above => {
-                        move_exercise::place_seat_relative(&mut app, 1, (0.0, -ABOVE_DROP_PX));
-                    }
-                    // ⚠ A BIGGER LEAD, ON PURPOSE. `AERIAL_LEAD_PX` puts her
-                    // level with the target, which is where a spike's box is
-                    // NOT — it hangs below her. She presses while still over it.
-                    move_exercise::Staging::Below => {
-                        move_exercise::descend_to_meet(&mut app, 1, BELOW_LEAD_PX);
-                    }
-                    _ => {
-                        if !move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX) {
-                            println!(
-                                "[take] {character:<24} {:<16} WARNING - could not fall into \
-                                 range of the target before the press; this take records the \
-                                 press from where she was",
-                                verb.verb
-                            );
-                        }
-                    }
-                }
+            if prepared && !move_exercise::stage_airborne(&mut app, verb) {
+                println!(
+                    "[take] {character:<24} {:<16} WARNING - could not fall into range of the \
+                     target before the press; this take records the press from where she was",
+                    verb.verb
+                );
             }
             // ⛔⛔ AFTER THE RE-SEAT AND BEFORE THE PRESS. Roles are entity
             // identities, and every re-seat spawns new bodies — resolving them
@@ -1741,7 +1645,7 @@ mod tests {
         // so what follows is a claim about the descent and not about a fixture
         // that happened to start in range.
         assert!(
-            move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX),
+            move_exercise::descend_to_meet(&mut app, 1, move_exercise::AERIAL_LEAD_PX),
             "she never fell into range of a body standing on the floor"
         );
 
@@ -1753,10 +1657,10 @@ mod tests {
             .expect("both seats are filled");
         assert!(falling, "she was still RISING when the press was thrown");
         assert!(
-            mine.1 >= theirs.0 - AERIAL_LEAD_PX,
+            mine.1 >= theirs.0 - move_exercise::AERIAL_LEAD_PX,
             "her feet ({}) never reached the lead above the target's head ({})",
             mine.1,
-            theirs.0 - AERIAL_LEAD_PX
+            theirs.0 - move_exercise::AERIAL_LEAD_PX
         );
     }
 

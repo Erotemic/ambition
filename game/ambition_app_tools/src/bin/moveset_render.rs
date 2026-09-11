@@ -893,8 +893,14 @@ fn render_pair(
     // the gap on the ground, and an aerial verb takes off from where it arrived.
     // The two tools must stage ONE scenario or their pictures describe different
     // fights.
-    let closed = spacing.map(|px| move_exercise::approach(app, px));
-    let prepared = quiet && move_exercise::prepare(app, verb);
+    // ⛔⛤ THE SAME STAGING THE RECORDER USES, through the same function. A
+    // directional aerial needs the target behind, below or dropping onto her,
+    // and staging that lived in the recorder alone meant the take reported a
+    // back air CONNECTING while the picture of it showed the sandbag on the
+    // wrong side. A reader trusts the picture.
+    let (closed, _asked) = move_exercise::stage_for_press(app, verb, spacing);
+    let prepared = quiet && move_exercise::prepare(app, verb)
+        && move_exercise::stage_airborne(app, verb);
 
     // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own
     // verb binding. Without it the only question a driver can ask is "did ANY

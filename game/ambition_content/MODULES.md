@@ -52,11 +52,12 @@
 | [`pugnacious_polygon_moveset`](src/pugnacious_polygon_moveset.rs) | Pugnacious Polygon — brawler archetype repertoire. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
+| [`reload`](src/reload.rs) | Reload every move table from disk into a RUNNING host. |
 | [`special_slots`](src/special_slots.rs) | Replacing one special in a table a fighter BORROWED. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_49 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_50 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

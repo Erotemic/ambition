@@ -1232,6 +1232,59 @@ make identical sources fold differently, and that is a different transaction.
 generation did not move" is also what a mechanism that stopped activating
 anything would report.
 
+✅ **I3a's STALE-ATTEMPT REJECTION, LANDED 2026-09-11 (`9d292537a`) — AND THE
+FIRST VERSION OF IT COULD NOT FIRE (`448966cff`).**
+
+`StagedCastRevision` records `prepared_against: Option<CharacterCatalogGeneration>`,
+and `activate_staged_revision` returns `RevisionOutcome::Stale { prepared_against,
+active }` rather than folding an edit onto a cast it never saw. `None` is "NO
+CLAIM", not generation zero; the FIRST stamp wins, because a later edit
+re-stamping the transaction would erase exactly the disagreement the field
+reports; and a stale revision is SPENT, like a refused one, or it would be
+retried against an even newer base next tick.
+
+⛔⛤ **THE REFUSAL WAS STRUCTURALLY UNREACHABLE AS FIRST SHIPPED.** The stamp was
+read from the world inside the staging road. MEASURED: activation is the ONLY
+publisher past the preparation barrier and it DRAINS the staged transaction
+atomically, so stage-time and fold-time are the same generation by construction —
+no sequence reaches the branch. ⇒ **The generation that can disagree is the one
+the CALLER's input was read from, which only the caller knows.**
+`stage_move_section` and `reload_move_tables_from` take that claim now. The
+exposure is ordinary rather than exotic: compiling a pack is file I/O, a reload
+loop does it off the main thread, and anything that publishes in between moves
+the cast underneath it.
+
+⭐⭐ **AND WHAT FOUND IT WAS TRYING TO BUILD A FIXTURE THAT REACHED THE VARIANT.**
+Every arm was green, the poison for the rule fired correctly on its own test, and
+the rule was still dead in production. A poison proves a test can see a change in
+the code; it says nothing about whether the STATE the code refuses can occur.
+
+✅ **I3'S REVISION ROAD HAS A CUSTOMER — `ambition_content::reload`
+(`448966cff`).**
+
+MEASURED before writing it: `activate_staged_revision` and
+`stage_character_revision` had **zero callers** outside `prepared.rs` and its own
+tests. Pack text in, published cast out, no compile step between — I2's promise
+witnessed end to end for the first time. `MoveReload` names one state per road,
+each saying what happened to the LIVE cast, and every variant has a witness:
+`PackRefused`, `NoMoveSection`, `NoCast`, `UnknownCharacters`, `Activated`,
+`Unchanged`, `Refused`, `Stale`, `NoTechniqueSupport`. `NoCast` is split from
+`UnknownCharacters` because reporting a host that has not booted its cast as a
+CONTENT problem sends an author to edit files over a lifecycle fact about the
+caller.
+
+⚠ **A RELOAD MOVES THE CAST AND NOT THE PACK.** It deliberately does not use
+`pack::prepared()`, whose `OnceLock` keeps serving the boot-time value to every
+family not yet migrated to a generation-aware read. **I3 step 1's App-scoped
+selection is still open**, and is now the blocking item for reloading anything
+that is not a move table.
+
+⛔⛤ Two fixture defects found while writing it, both the same family as a poison
+that does not apply: substituting `"swat"` in serialized RON hit the verb binding
+AND the move's own id (so "this pack must be refused" ran against a pack that
+compiled perfectly), and a second `close_preparation_barrier` does NOT move the
+generation — caught by a premise assert, not by a green test.
+
 **Next bounded action:** step 5 — remove the migrated move table as a compiled
 AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,
 never a runtime fallback), and the file/watcher road that makes "prebuilt host"

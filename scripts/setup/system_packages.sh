@@ -72,6 +72,10 @@ install_system_packages() {
         # install. It is a required package because the instrument libraries are
         # a default part of setup.
         p7zip-full
+        # ...and the shamisen articulation recordings are RARs, which Ubuntu's
+        # 7z lists but cannot decode (no non-free codec): it writes every member
+        # as an empty file. `unar` is the free RAR v4 reader.
+        unar
         pkg-config
         python3-dev
         python3-venv

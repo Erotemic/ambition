@@ -1273,11 +1273,28 @@ each saying what happened to the LIVE cast, and every variant has a witness:
 CONTENT problem sends an author to edit files over a lifecycle fact about the
 caller.
 
-⚠ **A RELOAD MOVES THE CAST AND NOT THE PACK.** It deliberately does not use
-`pack::prepared()`, whose `OnceLock` keeps serving the boot-time value to every
-family not yet migrated to a generation-aware read. **I3 step 1's App-scoped
-selection is still open**, and is now the blocking item for reloading anything
-that is not a move table.
+✅ **I3 STEP 1 LANDED THE SAME DAY (`9eb08bd97`) — THE PACK IS APP-SCOPED.**
+
+The acceptance was one line and the answer was structurally NO: *"Two Apps can
+select different packs without contamination."* `pack::prepared()` is a
+process-wide `OnceLock`, so the first caller compiled and every later caller — in
+any App, in any test, forever — received that value. `SelectedContentPack(Arc<…>)`
+is the App's answer now; the migrated family's read (`authored_intrinsics`, the
+one seam every buildable character passes through) takes the pack as a PARAMETER,
+and it has exactly ONE production caller to thread it. Both orders are witnessed:
+the App that selects FIRST does not decide what the second one plays, which is
+precisely the failure a `OnceLock` produces.
+
+⛔ The fallback is an INSERT, not a read-through — a read-through lets an App
+answer from the boot pack forever while believing it has a selection. And
+selection moves only if the CAST did: a refused reload that swapped the pack
+first would leave the cast built from pack A while every later read answered from
+pack B, which is the second authority the change exists to remove.
+
+⚠ **SCOPE: MOVE TABLES ONLY**, which is what step 1 says ("for migrated
+families"). Items, encounters, audio and boss profiles still read the boot pack —
+they are not migrated, and migrating one is now a bounded edit rather than a
+blocked one.
 
 ⛔⛤ Two fixture defects found while writing it, both the same family as a poison
 that does not apply: substituting `"swat"` in serialized RON hit the verb binding

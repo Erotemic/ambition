@@ -1007,6 +1007,16 @@ mod generosity_tests {
     /// `cargo tree --edges normal` — so sharing one `f32` would trade a
     /// documented boundary for a line of deduplication. This crate can see both,
     /// so the copy is pinned HERE rather than by anyone remembering.
+    ///
+    /// ⛔⛤ AND THIS TEST'S NAME CLAIMED A REACH IT DID NOT HAVE. There were
+    /// THREE constants, not two: `ambition_character_sprites` also carried
+    /// `PLAYER_ATTACK_HITBOX_SCALE` at `1.3` for the provider's default
+    /// controllable row — the same `render_size` multiply, a different number,
+    /// selected by whether the swinging body carries a character id, and
+    /// invisible to a test that compares the other two. ⭐ It is COLLAPSED
+    /// (2026-09-11) rather than added here: one constant per crate makes the
+    /// third road impossible instead of checked, and leaves this test with the
+    /// whole population it names.
     #[test]
     fn the_two_hitbox_roads_are_equally_generous() {
         assert_eq!(

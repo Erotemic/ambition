@@ -198,16 +198,24 @@ pub fn authored_attack_volume_resolver(
     }
 }
 
-/// The authored polys are sized to the visual blade; this scales the player's strike reach +
-/// size about the feet anchor so the directional swings connect more forgivingly, WITHOUT
-/// touching the visual sprite or any actor's authored size. `1.0` = authored size. Pure feel
-/// knob — TUNE LIVE.
-const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
-
-/// The same generosity, for a body the catalog names — which in a match is
-/// EVERY fighter, including the one the player is driving.
+/// How much more generous a strike volume is than the art it was authored from,
+/// for EVERY body this crate resolves — the one the catalog names and the
+/// provider's default controllable row alike.
 ///
-/// ⛔⛤ THE KNOB ABOVE IS NAMED FOR A ROAD THE SMASH CAST DOES NOT TAKE. A seated
+/// The authored polys are sized to the visual blade; this scales the strike's
+/// reach + size about the feet anchor so the directional swings connect more
+/// forgivingly, WITHOUT touching the visual sprite or any authored collision
+/// box. `1.0` = authored size. Pure feel knob — TUNE LIVE.
+///
+/// ⛔⛤ IT WAS TWO CONSTANTS, AND THE GUARD THAT EXISTS TO STOP EXACTLY THAT
+/// COULD ONLY SEE ONE OF THEM. `PLAYER_ATTACK_HITBOX_SCALE` stood at `1.3`
+/// beside this one — the same question, asked of the same `render_size`
+/// multiply, answered two ways and selected by whether the swinging body carries
+/// a character id. `ambition_platformer2d_runtime`'s
+/// `the_two_hitbox_roads_are_equally_generous` names TWO roads and there were
+/// THREE. Collapsed 2026-09-11; the default row grew 1.3 -> this, deliberately.
+///
+/// ⛔⛤ AND THE KNOB WAS NAMED FOR A ROAD THE SMASH CAST DOES NOT TAKE. A seated
 /// fighter resolves through `actor_attack_hitbox_local`, which had no scale at
 /// all, so the "tune live" feel knob applied to nobody on the grid. MEASURED
 /// 2026-09-11 across all 21 grid fighters' forward tilt, as hitbox area over
@@ -256,7 +264,7 @@ pub fn player_attack_hitbox_local(
     // Enlarge the hitbox by scaling the render size the poly/bbox offsets derive
     // from — grows reach + size about the feet anchor, player-only.
     let render_size =
-        player_render_size(authored, catalog, collision)? * PLAYER_ATTACK_HITBOX_SCALE;
+        player_render_size(authored, catalog, collision)? * ACTOR_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }
 
@@ -312,10 +320,10 @@ pub fn actor_attack_hitbox_local(
     )
     .map(|b| b.render_size)
     .unwrap_or(collision)
-        // ⛔ THE SAME GENEROSITY THE PLAYER ROAD ALREADY APPLIES. See
-        // `ACTOR_ATTACK_HITBOX_SCALE`: scaling the render size the poly offsets
-        // derive from grows reach AND size about the feet anchor, and touches
-        // neither the drawn sprite nor any authored collision box.
+        // ⛔ THE SAME CONSTANT THE DEFAULT ROW ABOVE APPLIES. Scaling the
+        // render size the poly offsets derive from grows reach AND size about
+        // the feet anchor, and touches neither the drawn sprite nor any
+        // authored collision box.
         * ACTOR_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }

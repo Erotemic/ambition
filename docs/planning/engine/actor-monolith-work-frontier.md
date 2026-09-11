@@ -7,6 +7,16 @@
 **Priority is owned only by [the queue](../queue.md).** This file is a packet
 catalog, not a second queue. A packet marked HOLD is not an implementation order.
 
+⛔⛤ **A DISCHARGED HOLD IS REWRITTEN IN PLACE, NOT ANNOUNCED ABOVE ITSELF.** Four
+rows discharged a hold and four chose a different spelling for it; **two of them
+(A4, A7) added a DELIVERED banner at the top and left the `**HOLD:**` sentence
+twenty lines below stating the same condition as live.** A reader who scrolls to
+the hold — which is the sentence that decides whether to start — is told to wait
+for something the row's own first paragraph says arrived. ⇒ When a hold is
+discharged, edit the `**HOLD:**` line itself to name what discharged it and when;
+a banner is a second copy of that fact, and the second copy is the one that
+rots.
+
 The old mandatory P2/P3/P4 sequence is retired. P1 settlement and the corrected
 spawn extraction remain landed facts. A1-A12 name responsibilities, not SCC
 scores. Proposed file/test/API names below are design targets, not existing code.
@@ -23,6 +33,7 @@ fresh source/behavior preflight for every packet
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
     |                                                       -> A5 destructibles
+    |                                                          (both halves DISCHARGED 2026-09-11)
     |
     +-- A3 construction placement adapter (independent; audit shared file edits)
     +-- A4 accepted control/body execution (writer map DELIVERED 2026-09-10)
@@ -285,7 +296,13 @@ modules in the same package first"* — and the map's last line still stands: no
 new abstraction is warranted, because no missing narrow claim/result value was
 found.
 
-**HOLD on extraction:** first map writers and select production fixtures.
+**HOLD DISCHARGED 2026-09-10** by the map above, which delivers BOTH halves the
+hold asks for — the writer map and, under *"Production fixtures for A4's
+acceptance list"*, the fixture selection. ⚠ This line read *"HOLD on extraction:
+first map writers and select production fixtures"* until 2026-09-11, under a
+banner saying the map was delivered — and then under a SECOND banner saying the
+one thing it left open was closed. Three statements of this hold's status, two of
+them added above a third that still said wait.
 **Source regions:** `control/authority.rs`, `control/input_systems.rs`,
 `abilities/traversal/possession.rs`, `body_custody.rs`, live actor clusters,
 `avatar` integration and `features/ecs/actors/update.rs`, all inside the monolith.
@@ -441,8 +458,12 @@ component-construction seal is not occurrence authority and this packet's
 met. ⛔ The remedy is NOT a generic item-request bus to move the count to one;
 [`item-writer-inventory.md`](item-writer-inventory.md) holds why.
 
-**HOLD:** after A1, enumerate item occurrence, holder, inventory and checkpoint
-baseline writers. **Source:** monolith items/persistence/minted horizon,
+**HOLD DISCHARGED:** its precondition and its deliverable both landed — A1 closed
+2026-09-09, and the enumeration this hold asks for is the page linked at the top
+of this row (2026-09-10). ⚠ This line read *"HOLD: after A1, enumerate item
+occurrence, holder, inventory and checkpoint baseline writers"* until 2026-09-11,
+including through the 2026-09-11 commit that corrected this row's stale FINDING
+and left its stale HOLD untouched. **Source:** monolith items/persistence/minted horizon,
 `ambition_world_items`, `ambition_held_items`, combat held/worn state and shared
 custody/occurrence vocabulary. **Destination:** domain-owned custody/accounting
 modules plus explicit session horizon integration.

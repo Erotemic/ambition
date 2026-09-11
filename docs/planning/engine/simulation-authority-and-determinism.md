@@ -830,8 +830,12 @@ look at readers rather than at the type:
 | `smash.match_scoped` | `game/ambition_demo_smash/src/match_scope.rs:71` — the retirement sweep, `pub fn sweep_objects_from_ended_matches`. ⛔ **`crates/ambition_match/src/seating.rs:248` IS A TEST** (`fn match_scoped_identity_is_session_and_tick_together`), and `match_scoped` appears NOWHERE ELSE in `ambition_match` — that crate never reads the key in production. Verified 2026-09-10 by `--roles`. **The site list overstates by one; the `bounded` verdict is unaffected because the first site carries it.** | bounded |
 | `presentation.body_source` | `crates/ambition_combat/src/hitbox/mod.rs:378`, `crates/ambition_combat/src/moveset/mod.rs:1169`, `crates/ambition_damage/src/lib.rs:1228` — voice/SFX selection only | **presentation, correctly out** |
 
+⚠ **THE ANALYSIS BELOW IS THE CASE FOR A REMOVAL THAT HAPPENED — see `✔ REMOVED
+AT SCHEMA v178` at the end of it. Every present-tense claim about `SeatCredit`
+describes the tree BEFORE v178; the name is not defined at HEAD.** <!-- cite-ok: recording a removed name on purpose -->
+
 ⛔⛔ **AND ONE ROW HAS NO PRODUCTION READER AT ALL.** `smash.seat_credit`
-(`SeatCredit`) is written in exactly one place — `game/ambition_demo_smash/src/mark.rs:255`, on
+(`SeatCredit`) <!-- cite-ok: removed at v178, recorded here --> was written in exactly one place — `game/ambition_demo_smash/src/mark.rs:255`, on
 a stand-in entity spawned when a mark detonates for a seat that has left the
 match — and every other mention in the tree is its own checksum probe, a re-export,
 or an assertion in two tests. Nothing in `ambition_combat`, `ambition_damage` or
@@ -868,14 +872,14 @@ made a different choice about what carries credit.
 ⚠ **And the stand-in ENTITY is not dead — only the label on it.** Its job is to
 be a valid non-victim `owner` for the blast, which is exactly what
 `HitEvent::attacker` needs, and `SeatCreditStandIn` is the clock that retires it.
-`MatchScoped` is stamped on it too, and that IS read. `SeatCredit` is the one
-component of the three nothing consults.
+`MatchScoped` is stamped on it too, and that IS read. `SeatCredit` <!-- cite-ok: removed at v178, recorded here --> was the one
+component of the three nothing consulted.
 
 ⇒ So the cost was a rollback snapshot-LAYOUT entry for a fact no system reads —
 which per `rollback/registry.rs`'s v151 reasoning is what obliges a wire-format
 bump, so it was not free.
 
-✔ **REMOVED AT SCHEMA v178.** `SeatCredit` is out of the layout and the row is
+✔ **REMOVED AT SCHEMA v178.** `SeatCredit` <!-- cite-ok: removed at v178, recorded here --> is out of the layout and the row is
 gone from `rollback_schema_baseline.txt`; the reason sits in `registry.rs` beside
 v150/v151/v152. ⚠ **The stand-in ENTITY and `SeatCreditStandIn` stayed**, because
 what the blast needs is a valid non-victim owner carrying no `MatchSeat` and both

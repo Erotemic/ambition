@@ -1114,12 +1114,21 @@ STRING, not a file dependency. The shipped/web build embeds it and pays the
 rebuild, which is correct: that build has no filesystem to read from.
 
 ⚠ **AND THE COMPOSITION GUARD CAUGHT A REAL DUPLICATE LIST.** Registering the
-schema reddened
-`the_tools_composition_and_the_games_composition_are_the_same_set`:
-`engine_schemas()` and `ambition_content_cli::default_registry()` are two
-hand-kept lists that must agree, and the CLI's own comment says so out loud. Line
-added to both. ⇒ The collapse — one composition both can reach without the CLI
-linking the umbrella — is its own packet and is NOT done here.
+schema reddened a test holding `engine_schemas()` and
+`ambition_content_cli::default_registry()` equal: two hand-kept lists that must
+agree, with the CLI's own comment saying so out loud. Line added to both.
+
+✔ **COLLAPSED AT `9604a3649`.** The list moved DOWN into `ambition_engine_schemas`
+— a crate both sides reach and neither routes through the facade, which the CLI
+must not link. Measured by member: the CLI's closure went 324 → 325 and the only
+addition was that crate. The six capability crates left the CLI's manifest with
+it, because two hand-kept copies of *which crates own the schemas* is the same
+defect one level down.
+⛔ **And the guard was deleted in the same commit** — both sides now forward to
+one function, so it asserted a function equal to itself. Its name was
+`the_tools_composition_and_the_games_composition_are_the_same_set` <!-- cite-ok: deleted at 9604a3649; naming it is the point of this line -->; the
+load-bearing sibling, which compares the shipped MANIFEST against what the
+compositions install, survives and was re-poisoned after the deletion.
 
 **Next bounded action:** step 5 — remove the migrated move table as a compiled
 AUTHORITATIVE input of the host (a test-only old table may be a parity oracle,

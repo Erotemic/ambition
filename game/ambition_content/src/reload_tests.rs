@@ -506,3 +506,292 @@ fn a_stale_reload_does_not_become_the_apps_selection() {
         "a refused reload became the App's content anyway"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ⭐⭐ **I2's ACCEPTANCE: A PREBUILT HOST PLAYS AN EDITED FILE.**
+//
+// The three arms below use a directory that did not exist when this binary was
+// compiled. Nothing between the bytes on disk and the published cast is a build
+// step — that is the whole claim, and it was a plan until the content root
+// stopped being `env!("CARGO_MANIFEST_DIR")`.
+//
+// ⛔ A TEMP DIRECTORY, NEVER THE REPOSITORY. A guard whose subject MUTATES THE
+// TREE has already cost this repository a day.
+// ---------------------------------------------------------------------------
+
+/// One shipped move table's file, and the character it belongs to.
+fn a_shipped_table(root: &std::path::Path) -> (std::path::PathBuf, String) {
+    let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
+    let table = ambition_characters::moveset_content_schema::lowered_movesets(&shipped)
+        .expect("a move section");
+    let buildable: std::collections::BTreeSet<&str> =
+        crate::character_catalog::buildable_cast().collect();
+    let who = table
+        .keys()
+        .find(|id| buildable.contains(id.as_str()))
+        .expect("some shipped table names a buildable character")
+        .clone();
+    let file = crate::authored_movesets::TABLE_CHARACTERS
+        .iter()
+        .find(|(_, characters)| characters.contains(&who.as_str()))
+        .map(|(name, _)| root.join("data/movesets").join(format!("{name}.ron")))
+        .expect("the character's table is one of the declared moveset files");
+    assert!(
+        file.exists(),
+        "the export did not write {} — the arm below would edit nothing",
+        file.display()
+    );
+    (file, who)
+}
+
+/// A support table declaring every technique the SHIPPED tables reference.
+///
+/// ⛔⛤ **AND IT IS DERIVED FROM THE CONTENT ON PURPOSE, WHICH MAKES ADMISSION
+/// VACUOUS HERE — DELIBERATELY, AND ONLY HERE.** These arms are about the DISK
+/// ROAD: does a file edited after the binary was built reach the cast. Admission
+/// is a different question with its own arm
+/// (`a_refused_pack_never_reaches_the_cast`), and an empty table would make every
+/// one of these fail with a roster of technique refusals that say nothing about
+/// what is being tested. MEASURED: an empty table refused 40+ effects across the
+/// shipped roster, which is the CORRECT answer to a question this fixture is not
+/// asking.
+///
+/// ⚠ The premise asserts the reload was NOT refused, so a wrong derivation
+/// surfaces as a failure rather than as a silently skipped edit.
+fn support_for_the_live_cast(
+    world: &bevy::ecs::world::World,
+) -> ambition_entity_catalog::TechniqueSupport {
+    // ⛔⛤ **THE LIVE CAST, NOT THE PACK — AND ASSUMING THEY WERE THE SAME COST ME
+    // A FAILING FIXTURE THAT LOOKED LIKE A RELOAD BUG.** `overlay_authored_moves`
+    // is this repository's ONE stated rule for the two move sources: an authored
+    // table OVERLAYS the kit-derived one, and a derived move whose id the table
+    // does not name SURVIVES. MEASURED: `author.ron` carries 26 moves and the
+    // published `author` plays 33 — the seven extras are derived kit moves, and
+    // one of them authors `pogo_bounce`, a key no shipped move table mentions.
+    // ⇒ The pack's keys are not the cast's technique vocabulary.
+    let registry = world.resource::<PreparedCharacterRegistry>();
+    let mut support = ambition_entity_catalog::TechniqueSupport::default();
+    let mut seen = std::collections::BTreeSet::new();
+    for spec in registry
+        .iter()
+        .filter_map(|(_, character)| character.kit.projectable_moveset())
+        .flat_map(|contract| contract.moves.iter())
+    {
+        for (_, reference) in spec.effect_refs() {
+            if !seen.insert(reference.key.clone()) {
+                continue;
+            }
+            let _ = support.declare(
+                reference.key.clone(),
+                ambition_entity_catalog::TechniqueOffer {
+                    owner: "reload_fixture",
+                    // ⚠ ACCEPT WHATEVER THE CONTENT AUTHORS. `TechniqueParams::None`
+                    // REFUSES a non-empty map, and shipped effects carry params —
+                    // a fixture declaring `None` would report a params error where
+                    // the real composition reports nothing.
+                    params: ambition_entity_catalog::TechniqueParams::Checked(|_| Ok(())),
+                    // ⚠ `None` IS A CLAIM that the effect names no other authored
+                    // definition. It is the right one for a fixture that installs
+                    // no cast beyond the shipped one: a nested-reference walker
+                    // here would re-ask a question the preparation barrier already
+                    // answers for the same content.
+                    references: ambition_entity_catalog::NestedReferences::None,
+                    // ⚠ BOTH ROADS, because the shipped tables author effects at
+                    // volumes AND at events; declaring one would refuse the other
+                    // for a reason that has nothing to do with the disk road.
+                    delivery: ambition_entity_catalog::TechniqueDelivery::Either,
+                },
+            );
+        }
+    }
+    assert!(
+        seen.len() > 10,
+        "only {} technique key(s) across the live cast — the fixture is not          seeing the content it is meant to support",
+        seen.len()
+    );
+    support
+}
+
+fn host_from_dir(root: &std::path::Path) -> (bevy::app::App, String) {
+    let (_, who) = a_shipped_table(root);
+    let mut app = bevy::app::App::new();
+    crate::character_catalog::register(&mut app);
+    crate::player_robot_lineage::register_declared_cast(&mut app);
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+    let support = support_for_the_live_cast(app.world());
+    app.world_mut()
+        .insert_resource(ambition_combat::technique::InstalledTechniques(support));
+    (app, who)
+}
+
+fn shipped_duration(app: &bevy::app::App, who: &str) -> f32 {
+    app.world()
+        .resource::<PreparedCharacterRegistry>()
+        .get(who)
+        .expect("published")
+        .kit
+        .projectable_moveset()
+        .expect("a moveset")
+        .moves[0]
+        .duration_s
+}
+
+/// ⛔⛔ **A FILE EDITED AFTER THE BINARY WAS BUILT CHANGES WHAT THE CAST PLAYS.**
+#[test]
+fn a_host_plays_a_move_edited_on_disk_after_it_was_built() {
+    let dir = tempfile::tempdir().expect("a temp content root");
+    let root = dir.path();
+    let written = crate::pack::export_sources_to(root).expect("the sources export");
+    assert!(written > 10, "only {written} source(s) exported");
+
+    let (app, who) = host_from_dir(root);
+    let mut app = app;
+    let before = shipped_duration(&app, &who);
+
+    // The edit, made on DISK, through the typed document.
+    let (file, _) = a_shipped_table(root);
+    let text = std::fs::read_to_string(&file).expect("reads back");
+    let mut doc = ambition_entity_catalog::EntityCatalogDoc::parse(&text).expect("parses");
+    for entity in &mut doc.entities {
+        if let Some(moveset) = entity.contracts.moveset.as_mut() {
+            for spec in &mut moveset.moves {
+                spec.duration_s += 0.5;
+            }
+        }
+    }
+    std::fs::write(&file, doc.to_ron().expect("serializes")).expect("writes");
+
+    let outcome = reload_move_tables_from_dir(app.world_mut(), root);
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "the edited directory did not reach the cast: {outcome:?}"
+    );
+    assert!(
+        (shipped_duration(&app, &who) - before - 0.5).abs() < 1e-6,
+        "`{who}` plays {} and the file on disk says {}",
+        shipped_duration(&app, &who),
+        before + 0.5
+    );
+}
+
+/// ⛔ A ROOT MISSING A FILE IS REFUSED BY NAME, not compiled out of whatever
+/// happened to be there. A per-file fallback to the binary's own text would
+/// build a MIXED pack and nobody could say which half they played.
+#[test]
+fn a_root_that_does_not_supply_the_whole_pack_is_refused_by_name() {
+    let dir = tempfile::tempdir().expect("a temp content root");
+    let root = dir.path();
+    crate::pack::export_sources_to(root).expect("exports");
+    let (file, _) = a_shipped_table(root);
+    std::fs::remove_file(&file).expect("removes one source");
+
+    let mut app = bevy::app::App::new();
+    let outcome = reload_move_tables_from_dir(app.world_mut(), root);
+    match &outcome {
+        MoveReload::PackRefused(why) => {
+            assert!(
+                why.contains("missing"),
+                "the refusal does not say what: {why}"
+            );
+            assert!(
+                why.contains(
+                    file.file_name()
+                        .and_then(|n| n.to_str())
+                        .expect("a file name")
+                ),
+                "the refusal does not name the missing file: {why}"
+            );
+        }
+        other => panic!("expected a refusal naming the missing file; got {other:?}"),
+    }
+}
+
+/// ⭐ THE CONTROL. An UNEDITED export is the shipped pack, so reloading it must
+/// report `Unchanged` — without this, "the edit arrived" is satisfied by a road
+/// that republishes on every call.
+#[test]
+fn reloading_an_unedited_export_publishes_nothing() {
+    let dir = tempfile::tempdir().expect("a temp content root");
+    let root = dir.path();
+    crate::pack::export_sources_to(root).expect("exports");
+    let (mut app, _) = host_from_dir(root);
+    let first = reload_move_tables_from_dir(app.world_mut(), root);
+    assert!(
+        matches!(
+            first,
+            MoveReload::Unchanged { .. } | MoveReload::Activated { .. }
+        ),
+        "the first reload of the shipped bytes reported {first:?}"
+    );
+    let second = reload_move_tables_from_dir(app.world_mut(), root);
+    assert!(
+        matches!(second, MoveReload::Unchanged { .. }),
+        "re-reading the same unedited directory republished: {second:?}"
+    );
+}
+
+/// ⛔⛤ **THE PUBLISHED MOVESET IS LARGER THAN THE AUTHORED TABLE, AND THAT IS
+/// THE STATED RULE RATHER THAN A LEAK.** `overlay_authored_moves` is this
+/// repository's ONE statement of how the two move sources combine: an authored
+/// table OVERLAYS the kit-derived one, and a derived move whose id the table
+/// does not name SURVIVES — *"a character that authors none keeps whatever the
+/// kit folded."*
+///
+/// ⚠ IT IS PINNED HERE BECAUSE IT SURPRISED A READER WHO HAD EVERY REASON TO
+/// EXPECT OTHERWISE. `authored_intrinsics`' own comment says the pack's table is
+/// "A REPLACEMENT, NOT A MERGE", which is true of the CONTRACT it hands over and
+/// not of the kit that contract is folded into. A fixture built on the pack's
+/// keys alone reported a roster of technique refusals that looked like a reload
+/// defect; the extras are where `pogo_bounce` comes from, and no shipped move
+/// table mentions it.
+///
+/// ⇒ Two sentences that are both true and read as contradictory is exactly what
+/// a test is for.
+#[test]
+fn the_published_moveset_keeps_the_kit_moves_the_table_does_not_name() {
+    let mut app = bevy::app::App::new();
+    crate::character_catalog::register(&mut app);
+    crate::player_robot_lineage::register_declared_cast(&mut app);
+    ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+
+    let shipped = crate::pack::compile_pack().expect("compiles");
+    let tables = ambition_characters::moveset_content_schema::lowered_movesets(&shipped)
+        .expect("a move section");
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+
+    let mut compared = 0;
+    let mut carried_extras = 0;
+    for (who, authored) in tables {
+        let Some(published) = registry
+            .get(who)
+            .and_then(|character| character.kit.projectable_moveset())
+        else {
+            continue;
+        };
+        compared += 1;
+        let authored_ids: std::collections::BTreeSet<&str> =
+            authored.moves.iter().map(|m| m.id.as_str()).collect();
+        let published_ids: std::collections::BTreeSet<&str> =
+            published.moves.iter().map(|m| m.id.as_str()).collect();
+        assert!(
+            authored_ids.is_subset(&published_ids),
+            "`{who}` lost authored moves on the way to the cast: {:?}",
+            authored_ids.difference(&published_ids).collect::<Vec<_>>()
+        );
+        if published_ids.len() > authored_ids.len() {
+            carried_extras += 1;
+        }
+    }
+    // ⛔ THE FLOOR. An empty comparison would make the subset claim above
+    // trivially true over nothing.
+    assert!(
+        compared >= 10,
+        "only {compared} shipped table(s) reached a published character"
+    );
+    assert!(
+        carried_extras > 0,
+        "no published moveset carries a move its table does not name, so the \
+         overlay rule this pins is no longer the rule — read \
+         `overlay_authored_moves` before deleting this"
+    );
+}

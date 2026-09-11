@@ -180,6 +180,35 @@ pub fn reload_move_tables_from(
     }
 }
 
+/// Reload from a CONTENT DIRECTORY rather than from this build's own sources.
+///
+/// ⭐⭐ **THE FAST-ITERATION LOOP, END TO END, WITH NO COMPILER IN IT.** Edit a
+/// `.ron` under `root`, call this, and the running host's cast plays the edit —
+/// which is fast-iteration I2's acceptance in its own words: *"a prebuilt host
+/// plays the edited artifact without invoking Cargo or its linker."*
+///
+/// ⛔ A ROOT SUPPLIES THE WHOLE PACK OR NONE OF IT. See
+/// [`crate::pack::compile_pack_from`]: a per-file fallback to the binary's own
+/// text would compile a mixed pack out of a directory and a build, and
+/// [`crate::pack::export_sources_to`] is how a caller starts from a complete one.
+pub fn reload_move_tables_from_dir(
+    world: &mut bevy::ecs::world::World,
+    root: &std::path::Path,
+) -> MoveReload {
+    // ⚠ THE GENERATION IS READ BEFORE THE FILE I/O, not after. That is the whole
+    // reason the claim exists: reading a directory takes time, and anything that
+    // publishes while we read it moves the cast under the pack we are building.
+    let compiled_against = world
+        .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+        .map(ambition_characters::prepared::PreparedCharacterRegistry::generation);
+    match crate::pack::compile_pack_from(root) {
+        Ok(pack) => {
+            reload_move_tables_selecting(world, std::sync::Arc::new(pack), compiled_against)
+        }
+        Err(refusal) => MoveReload::PackRefused(refusal),
+    }
+}
+
 /// Republish the cast AND make the new pack this App's selection.
 ///
 /// ⭐⭐ **SELECTION MOVES ONLY IF THE CAST DID.** A reload that swapped the

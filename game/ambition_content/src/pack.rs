@@ -287,7 +287,7 @@ pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
 /// ⚠ `edit` sees the DECLARED PATH and the source text; returning the text
 /// unchanged is the shipped pack.
 pub fn compile_pack_with(
-    edit: impl Fn(&str, String) -> String,
+    mut edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
     // the manifest is a DIAGNOSTIC, not a panic, since gave the compiler its own
     // embedded-pack road.
@@ -305,6 +305,72 @@ pub fn compile_pack_with(
         &pack_schemas(),
         &ambition_content_pack::AssetsUnchecked,
     )
+}
+
+/// Compile the pack reading every declared source from `root`.
+///
+/// ⭐⭐ **THIS IS WHAT MAKES "A PREBUILT HOST PLAYS THE EDITED FILE" A FACT
+/// RATHER THAN A PLAN** (fast-iteration I2's acceptance). Where content comes
+/// from was `env!("CARGO_MANIFEST_DIR")` — a constant baked at BUILD time, so
+/// a shipped binary read a path on the machine that compiled it and a running
+/// host had no way to be pointed anywhere else. A directory is an argument now.
+///
+/// ⛔⛔ **EVERY MISSING FILE IS NAMED, AND NONE IS SILENTLY INHERITED.** Falling
+/// back to this build's own text per file would compile a MIXED pack out of a
+/// directory and a binary, and "which half did I just play" would be decided by
+/// which files happened to exist — the same failure the artifact envelope
+/// refuses a duplicate section for. A root either supplies the pack or it does
+/// not.
+pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, String> {
+    let mut missing: Vec<String> = Vec::new();
+    let mut unreadable: Vec<String> = Vec::new();
+    let compiled = compile_pack_with(|declared, _built_in| {
+        let path = root.join(declared);
+        match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                missing.push(declared.to_string());
+                String::new()
+            }
+            Err(err) => {
+                unreadable.push(format!("{declared}: {err}"));
+                String::new()
+            }
+        }
+    });
+    // ⛔ THE ROOT'S OWN PROBLEMS ARE REPORTED BEFORE THE COMPILER'S. An absent
+    // file reaches the compiler as an empty source, whose diagnostic is a parse
+    // error pointing at byte 0 — true, and useless to somebody who mistyped a
+    // directory.
+    if !missing.is_empty() || !unreadable.is_empty() {
+        let mut report = format!("{} does not supply this pack:", root.display());
+        for path in &missing {
+            report.push_str(&format!("\n  missing: {path}"));
+        }
+        for problem in &unreadable {
+            report.push_str(&format!("\n  unreadable: {problem}"));
+        }
+        return Err(report);
+    }
+    compiled.map_err(|failure| failure.to_string())
+}
+
+/// Write every source this build carries into `root`, at its declared path.
+///
+/// ⭐ THE OTHER HALF OF THE LOOP, and the reason [`compile_pack_from`] can
+/// refuse a partial root without being unusable: a developer (or a test) starts
+/// from what the binary already has, edits one file, and points the host at it.
+pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
+    let mut written = 0;
+    for (declared, text) in embedded_sources() {
+        let path = root.join(&declared);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&path, text)?;
+        written += 1;
+    }
+    Ok(written)
 }
 
 /// The prepared pack, compiled once per process.

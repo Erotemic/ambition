@@ -126,6 +126,11 @@ ambition_characters = { path = "../../crates/ambition_characters", features = ["
 # profile nothing it does not already have.
 ambition_content_cli = { path = "../../crates/ambition_content_cli" }
 insta = { version = "1", features = ["ron"] }
+# A temp content ROOT for the fast-iteration witnesses: `reload.rs`'s directory
+# road must be exercised against a directory that did not exist when this binary
+# was built, and a guard whose subject mutates the repository tree is the failure
+# this crate has already paid for once.
+tempfile = "3"
 # The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
 # `yarn_compile` guard test — compiles the authored sources the way the
 # game's asset loader would at startup.

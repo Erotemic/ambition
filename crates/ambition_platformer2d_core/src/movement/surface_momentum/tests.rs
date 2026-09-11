@@ -2090,3 +2090,174 @@ fn a_tangential_launch_overrides_the_run_even_when_it_is_slower() {
         "a booster slower than the run leaves it alone: {pad_v_t}"
     );
 }
+
+// ---- D-BLINK-WALL-UNGUARDED: the rideability and merging arms ----
+
+/// Drop a momentum body from `from` onto whatever `blocks` contains, and say
+/// whether it ended up riding.
+fn drops_onto(blocks: Vec<crate::world::Block>) -> SurfaceBody {
+    let world = world_with_blocks(blocks);
+    let params = frictionless();
+    let mut body = SurfaceBody::new(Vec2::new(200.0, 400.0), 14.0);
+    for _ in 0..60 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            SurfaceInputs::default(),
+            DT,
+            None,
+        );
+    }
+    body
+}
+
+fn blink_ledge(min: Vec2, size: Vec2) -> crate::world::Block {
+    crate::world::Block::blink_wall("blink ledge", min, size, crate::world::BlinkWallTier::Hard)
+}
+
+/// ⛔⛤ A BODY THAT CANNOT BLINK RIDES A BLINK WALL, AND NOTHING SAID SO.
+///
+/// `D-BLINK-WALL-UNGUARDED`. `is_full_collision_surface` admits `BlinkWall`, and
+/// `surface_momentum/mod.rs:295` is where that admission becomes rideability:
+/// `let rideable = is_full_collision_surface(block.kind) || OneWay`. MEASURED
+/// 2026-09-11 by deleting the `BlinkWall` arm: `ambition_platformer2d_core`
+/// stayed green at **548 tests** — and core is the crate that OWNS
+/// `surface_momentum`, so the earlier measurement over the monolith, abilities
+/// and shared_tangle had not been narrow in the right direction. There is also
+/// no symbol-level assertion for it; the predicate's unit test names `Solid` and
+/// `!OneWay` and stops.
+///
+/// ⚠ IT ASSERTS THE ARM IS LOAD-BEARING, WHICH THE ROW SAID NOBODY HAD TESTED.
+/// A blink wall is *"a wall only a blink may pass"* — so it is a WALL, and a
+/// wall's top face is a ledge. Standing on one is the behaviour; passing through
+/// it sideways is what the blink is for.
+#[test]
+fn a_body_that_cannot_blink_rides_a_blink_walls_top_face() {
+    // ⛔ THE CONTROL IS AN EMPTY WORLD — the absence of the subject, not a
+    // different block in its place. Without it "it is riding" cannot be told
+    // from a fixture that grounds a body on nothing.
+    let fell = drops_onto(Vec::new());
+    assert!(
+        !fell.riding(),
+        "a body dropped into an EMPTY world reported itself riding, so this \
+         fixture cannot tell a ledge from a phantom floor"
+    );
+
+    // And a plain solid ledge of the same geometry IS ridden, or "rides" is not
+    // a distinction this drop can make.
+    let on_solid = drops_onto(vec![floor_block(
+        Vec2::new(0.0, 500.0),
+        Vec2::new(2000.0, 100.0),
+    )]);
+    assert!(
+        on_solid.riding(),
+        "the same drop onto a SOLID ledge did not ride, so the fixture is not \
+         measuring the block kind"
+    );
+
+    let on_blink = drops_onto(vec![blink_ledge(
+        Vec2::new(0.0, 500.0),
+        Vec2::new(2000.0, 100.0),
+    )]);
+    assert!(
+        on_blink.riding(),
+        "a body with no blink fell THROUGH a blink wall's top face instead of \
+         riding it: {:?}. `is_full_collision_surface` admits `BlinkWall` and \
+         `surface_momentum` turns that into rideability",
+        on_blink.motion
+    );
+    assert!(
+        matches!(on_blink.motion, SurfaceMotion::Riding { on: SurfaceRef::Block(0), .. }),
+        "riding the blink wall itself, not a phantom chain: {:?}",
+        on_blink.motion
+    );
+}
+
+/// ⛔⛤ A BLINK WALL FLUSH AGAINST A SOLID IS ONE LEDGE, NOT TWO.
+///
+/// The other half of `D-BLINK-WALL-UNGUARDED`: contact MERGING.
+/// `surface_momentum/mod.rs:1797` decides which blocks contribute attach
+/// segments at all, and `:1840` drops any segment whose probe is buried inside
+/// another full-collision block — which is what makes two flush neighbours ride
+/// as a single span rather than presenting an interior wall at the seam.
+///
+/// ⭐ IT PINS BOTH ARMS, MEASURED RATHER THAN ASSUMED — and the first version of
+/// this sentence said it pinned only one. Deleting `BlinkWall` from the
+/// predicate makes the blink half contribute no segments and the body leaves the
+/// world at x=419, just past the seam. Separately, disabling the `:1840` burial
+/// check reddens THIS TEST AND NOTHING ELSE across core's 550 — so the merge
+/// that makes two flush neighbours one ledge had no other guard either.
+///
+/// ⛔ AND THE RUN IS BOUNDED FOR A REASON. A fixed 240 frames ran the body to
+/// x=3218 — off the right end of BOTH ledges — and the "still riding" assertion
+/// then failed on a body that had left the fixture. It stops at the seam and
+/// refuses to assert past the far edge.
+#[test]
+fn a_body_rides_across_the_seam_from_a_solid_onto_a_flush_blink_wall() {
+    let world = world_with_blocks(vec![
+        floor_block(Vec2::new(0.0, 500.0), Vec2::new(400.0, 100.0)),
+        blink_ledge(Vec2::new(400.0, 500.0), Vec2::new(400.0, 100.0)),
+    ]);
+    let params = frictionless();
+    let mut body = SurfaceBody::new(Vec2::new(200.0, 400.0), 14.0);
+    for _ in 0..60 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            SurfaceInputs::default(),
+            DT,
+            None,
+        );
+    }
+    assert!(body.riding(), "never landed on the solid half");
+    let start_x = body.pos.x;
+    assert!(start_x < 400.0, "the run must START on the solid half");
+
+    // ⛔ STOP AS SOON AS THE SEAM IS CROSSED. The first version ran a fixed 240
+    // frames and ended at x=3218 — off the right end of BOTH ledges and into the
+    // air — so the assertion below failed on a body that had left the fixture
+    // rather than on a seam. A run long enough to cross is not a run that may
+    // keep going.
+    let mut crossed = false;
+    for _ in 0..240 {
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            SurfaceInputs {
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
+                jump_pressed: false,
+            },
+            DT,
+            None,
+        );
+        if body.pos.x > 400.0 + 14.0 {
+            crossed = true;
+            break;
+        }
+    }
+    assert!(
+        crossed,
+        "the run never crossed the seam at x=400 (reached {}), so this says \
+         nothing about the far ledge",
+        body.pos.x
+    );
+    assert!(
+        body.pos.x < 800.0 - 14.0,
+        "the body is past the RIGHT END of both ledges at {}, so 'still riding' \
+         would be a claim about open air",
+        body.pos.x
+    );
+    assert!(
+        body.riding(),
+        "a body ran off the world at the seam between a solid and a flush blink \
+         wall: {:?} at x={}. Two flush full-collision neighbours are one ledge",
+        body.motion,
+        body.pos.x
+    );
+}

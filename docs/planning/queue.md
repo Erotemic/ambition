@@ -2688,7 +2688,7 @@ seated match. Giants, hands, shrines, riders and summons are still undriven, and
 a road nobody drives is not covered. The new guard covers them anyway *if they
 ever run*, which is the difference between a census and an invariant.
 
-### D-BLINK-WALL-UNGUARDED — one predicate's `BlinkWall` arm is still unmeasured
+### D-BLINK-WALL-UNGUARDED — CLOSED 2026-09-11: the arm is load-bearing and now guarded
 
 **Owner:** `ambition_platformer2d_core::collision_semantics`.
 Opened 2026-09-11 by a poison that should have fired and did not.
@@ -2749,10 +2749,36 @@ poisons: it guards a CONJUNCTION — `is_solid_for_axis` on the side axis AND
 `one_way_landing_from_feet` — and breaking either alone leaves it green. Defence
 in depth is why no single-predicate poison reaches it.
 
-**Acceptance:** deleting `BlinkWall` from `is_full_collision_surface` reddens at
-least one test that names what a blink wall is FOR. ⚠ Check first whether a body
-is *meant* to ride one — this row assumes the arm is load-bearing because it was
-written, and that is a claim nobody has tested either.
+✅ **ACCEPTANCE MET 2026-09-11. Deleting `BlinkWall` from
+`is_full_collision_surface` now reddens TWO tests that name what a blink wall is
+for**, both in `movement/surface_momentum/tests.rs`:
+
+* `a_body_that_cannot_blink_rides_a_blink_walls_top_face` — the rideability arm
+  (`surface_momentum/mod.rs:295`, where the admission becomes
+  `let rideable = is_full_collision_surface(..) || OneWay`). Under the poison the
+  body is `Airborne`: it falls through the ledge.
+* `a_body_rides_across_the_seam_from_a_solid_onto_a_flush_blink_wall` — the
+  merging arm. Under the poison the body leaves the world at x=419, just past the
+  seam at 400, because the blink half contributes no attach segments (`:1797`).
+
+⭐ **AND THE SECOND TEST PINS `:1840` TOO, WHICH ITS OWN FIRST DOC COMMENT DENIED.**
+Disabling the burial check — the rule that drops a segment buried inside another
+full-collision block, which is what makes two flush neighbours ONE ledge —
+reddens that test and nothing else across core's 550. So the merge had no other
+guard either.
+
+⚠ **THE ROW'S OWN CAUTION WAS RIGHT AND IS NOW ANSWERED.** *"Check first whether a
+body is meant to ride one."* It is: a blink wall is *"a wall only a blink may
+pass"*, so it is a WALL, its top face is a ledge, and passing through it SIDEWAYS
+is what the blink is for. The two tests assert the ledge; the horizontal stop is
+`a_blink_wall_stops_a_body_that_cannot_blink`'s.
+
+⛔ **AND THE EARLIER MEASUREMENT WAS NARROW IN THE WRONG DIRECTION.** *"Breaks
+nothing across 1,483 tests"* was measured over `_actor_monolith`,
+`ambition_abilities` and `_shared_tangle` — none of which owns
+`surface_momentum`. Re-measured over `ambition_platformer2d_core`, the crate that
+does: also green, at 548. The conclusion held; the population had not included
+the code the predicate is read in.
 
 ### D-ID-CONVENTION-DRIFT — keep shared semantic key builders single-owned
 

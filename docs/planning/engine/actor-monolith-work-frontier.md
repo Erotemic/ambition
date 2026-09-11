@@ -491,6 +491,56 @@ demo, and do not build full streaming before this bounded proof.
 lifecycle scopes, runtime room transition and portal/view integration.
 **Destination:** spatial instance authority plus existing lifecycle coordination.
 
+✅ **STEP 2's ANSWER FOR THE IDENTITY AXIS IS DELIVERED, AND IT DID NOT NEED
+STEP 1 — `scripts/measure_identity_instance_scope.py` (2026-09-11).**
+
+*"Identify the exact values that lose instance scope"* is answerable by reading
+the CONSTRUCTORS: `SimId` is a newtype over `String` whose only road in is
+`impl SimId`, so every live identity in the game is one of ten functions' output,
+and an identity that cannot EXPRESS an instance loses it by construction whatever
+the runtime does.
+
+| verdict | n | constructors |
+| --- | ---: | --- |
+| INSTANCE-SCOPED | **0** | — |
+| INHERITED (derives from another identity) | 4 | `spawned`, `death_drop`, `strike_volume`, `geometry` |
+| NOT INSTANCE-SCOPED | 6 | `placement`, `player_slot`, `encounter`, `match_spawn`, `singleton`, `from_snapshot` |
+
+⛔⛔ **NO IDENTITY CONSTRUCTOR TAKES A ROOM OR AN INSTANCE.**
+`SimId::placement(id)` is `"placement:{id}"` — the map's own iid and nothing
+else — so two instances of one prepared room mint **the same identity for every
+authored placement**. `SimId::encounter(id)` is the same shape. The four
+INHERITED ones carry whatever scope their parent had, which is none.
+
+⭐ **THE GOOD NEWS IS THAT IT REFUSES RATHER THAN CORRUPTS.** The construction
+planner's `IdentityAlreadyLive` (`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs:819`) is what a second
+instance would hit, so the failure mode today is a loud refusal — not two live
+things behind one `SimId`. That is the precondition step 1 would otherwise have
+to discover the hard way.
+
+⛔⛤ **AND ONE CLAIM OF MINE WAS WRONG UNTIL I READ THE MINTING SITE.**
+`GeoSource::TileLayer { layer: String }` looks unscoped and I wrote it up as a
+cross-room collision. It is not: `ldtk/intgrid.rs::emit_collision_blocks_from_intgrid`
+passes a LEVEL-SCOPED key, `"{level}/{layer}"`, *"because an active area can span
+multiple levels that each carry this layer"*.
+⇒ **The scope is a STRING CONVENTION inside a field named `layer`, and the type
+cannot hold anyone to it.** `GeoId::tile_layer("Collision", 0)` compiles, and
+this repository's own unit tests construct exactly that. ⇒ The A8-shaped fix is
+to make the level a FIELD, not to add a rule about the string — same head as the
+id-convention-spelled-twice class.
+
+⚠ **WHAT THIS DOES NOT ANSWER:** geometry, contacts, observations and teardown
+beyond identity; whether an instance-scoped identity is WANTED (that is the
+ruling); and whether the occurrence ledger's `outlook_for(room: &str)` — room by
+NAME — is the second place scope is a convention rather than a type.
+
+**POISON-VERIFIED**, three poisons, each firing on its own claim, restore green:
+adding a `placement_in(room, id)` moves INSTANCE-SCOPED 0 → 1; breaking the
+signature pattern trips the anti-vacuity floor (*"parsed only 0 constructors"*)
+instead of printing an empty table; renaming `GeoSource` makes the variant census
+REFUSE rather than silently report some other enum's variants — which it did do,
+once, before the scan was region-scoped: it reported `Clone` from a `#[derive]`.
+
 1. Run two instances of one prepared room with identical local placement IDs.
    Trace construction, lookup, geometry, contacts, observations and teardown.
 2. Identify the exact values that lose instance scope. Qualify them at the owner;

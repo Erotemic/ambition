@@ -557,6 +557,83 @@ pub fn gap_to_seat(app: &mut App, seat: usize) -> Option<f32> {
     Some(theirs? - mine?)
 }
 
+/// Fall until seat zero can actually MEET the body in `seat`, and say whether it
+/// did.
+///
+/// ⛔⛤ AN AERIAL PRESSED AT THE TOP OF A JUMP CANNOT REACH A GROUNDED TARGET,
+/// AND THE TAKE LOOKS LIKE A HITBOX FAULT. `prepare` jumps and then settles the
+/// aim, so the press lands near the apex; MEASURED 2026-09-11, the performer's
+/// five aerials published their shapes **19 to 59 px above** a sandbag standing
+/// on the floor, with the horizontal gap already zero for three of them. Every
+/// one recorded as a miss across three separate scenarios, and the conclusion
+/// drawn from it was that her hitboxes were too small.
+///
+/// ⭐ A SHORT-HOP AERIAL IS THE SHIPPED USE OF THE MOVE. In this genre an aerial
+/// meets a grounded opponent on the way DOWN, so the scenario that answers
+/// *"does this move connect"* is the one that falls into range before pressing.
+///
+/// `lead_px` is how far above the target's head the press is thrown, buying the
+/// move's startup as fall time. ⚠ Zero is wrong: a press thrown when the bodies
+/// already overlap spends its startup landing.
+///
+/// Returns `false` when seat zero lands, the seat is absent, or the budget runs
+/// out — each of which leaves the body where it is, so the caller records the
+/// answer it actually got rather than a staged one.
+pub fn descend_to_meet(app: &mut App, seat: usize, lead_px: f32) -> bool {
+    for _ in 0..DESCENT_LIMIT {
+        let Some((mine, theirs, falling)) = seat_spans(app, seat) else {
+            return false;
+        };
+        // ⛔⛤ FALLING, NOT MERELY LOW ENOUGH. `prepare` leaves her RISING, and
+        // on the way up she passes through the very band this waits for — so a
+        // position-only test returns on the first tick and she then climbs 60 px
+        // while the recording runs. MEASURED: the first version of this function
+        // changed nothing at all, and the take was byte-identical to the one it
+        // was meant to repair.
+        // ⇒ y grows DOWNWARD: `mine.1` is her feet, `theirs.0` the target's head.
+        if falling && mine.1 >= theirs.0 - lead_px {
+            return true;
+        }
+        if subject(app).and_then(|s| s.grounded) == Some(true) {
+            return false;
+        }
+        step(app, ControlFrame::default());
+    }
+    false
+}
+
+/// Seat zero's and another seat's vertical extents as `(top, bottom)`, plus
+/// whether seat zero is FALLING.
+///
+/// ⭐ PUBLIC because the property a caller must be able to assert is the STATE
+/// this leaves the body in, not the boolean it returns. A test that reads only
+/// the return value cannot tell a descent from a no-op that answered on the
+/// first tick — MEASURED: it passed the poison.
+pub fn seat_spans(app: &mut App, seat: usize) -> Option<((f32, f32), (f32, f32), bool)> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::actor::BodyKinematics,
+    )>();
+    let (mut mine, mut theirs, mut falling) = (None, None, false);
+    for (at, kin) in q.iter(world) {
+        let half = kin.size.y * 0.5;
+        let span = (kin.pos.y - half, kin.pos.y + half);
+        if at.0 == 0 {
+            mine = Some(span);
+            falling = kin.vel.y > 0.0;
+        } else if at.0 == seat {
+            theirs = Some(span);
+        }
+    }
+    Some((mine?, theirs?, falling))
+}
+
+/// The longest a descent will fall before giving up. A fighter falling from a
+/// full jump reaches a grounded body well inside this; a budget this size only
+/// matters when something is holding her up, which is a finding.
+pub const DESCENT_LIMIT: usize = 240;
+
 /// The longest an approach will walk before giving up.
 ///
 /// Generous, because a fighter crossing a stage at walking speed is slow and a

@@ -882,6 +882,82 @@ mod causal_trace {
 /// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong as
 /// a licence for the recorder: what an old file may contain does not define what
 /// a new one may emit. Measured on the admiral: 8202/8202 bodies and 166/166
+/// Did the subject's own hitboxes ever OVERLAP the target, and if not, by how
+/// much did they miss?
+///
+/// ⛔⛤ THE PREMISE A "MISS" NEEDS. A take with live hitboxes and no contact
+/// reads as *"the move's shapes are wrong"*, and that is only one of the things
+/// it can mean. The performer's aerials recorded five published shapes and zero
+/// contacts across three separate scenarios; the boxes were **69 px above the
+/// sandbag**, because the harness jumps before it presses and the target stays
+/// on the floor. ⇒ **A vertical whiff and an undersized hitbox produce the same
+/// take.**
+///
+/// ⚠ THIS IS GEOMETRY, NOT THE ENGINE'S ANSWER. It overlaps AABBs in the
+/// recorded frames and says nothing about factions, ledgers or i-frames — which
+/// is the point: when it says OVERLAPPED and the engine recorded no contact,
+/// the finding is in the engine; when it says OUT OF REACH, the finding is in
+/// the scenario and no amount of hitbox tuning will fix it.
+///
+/// Returns `(overlapped, closest_gap)`. The gap is per axis, `0.0` on an axis
+/// that overlapped, and `None` when no box was ever live or no target was seen.
+/// How far above the target's head an aerial is pressed.
+///
+/// ⚠ IT BUYS THE MOVE'S STARTUP AS FALL TIME, so zero is wrong: a press thrown
+/// when the bodies already overlap spends its startup landing. The performer's
+/// aerials start in 2–4 authored frames at 40 ms.
+const AERIAL_LEAD_PX: f32 = 24.0;
+
+fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
+    let num = |v: &serde_json::Value, i: usize| v[i].as_f64().map(|f| f as f32);
+    let mut best: Option<(f32, f32)> = None;
+    let mut overlapped = false;
+    for frame in frames {
+        let target = frame["bodies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|b| b["role"].as_str() == Some("target"));
+        let Some(target) = target else { continue };
+        let (Some(tx), Some(ty), Some(thx), Some(thy)) = (
+            num(&target["pos"], 0),
+            num(&target["pos"], 1),
+            num(&target["half"], 0),
+            num(&target["half"], 1),
+        ) else {
+            continue;
+        };
+        for hit in frame["hitboxes"].as_array().into_iter().flatten() {
+            if hit["subject_owned"].as_bool() != Some(true) {
+                continue;
+            }
+            let (Some(hx), Some(hy), Some(hhx), Some(hhy)) = (
+                num(&hit["pos"], 0),
+                num(&hit["pos"], 1),
+                num(&hit["half"], 0),
+                num(&hit["half"], 1),
+            ) else {
+                continue;
+            };
+            let gap = (
+                ((hx - tx).abs() - (hhx + thx)).max(0.0),
+                ((hy - ty).abs() - (hhy + thy)).max(0.0),
+            );
+            if gap.0 <= 0.0 && gap.1 <= 0.0 {
+                overlapped = true;
+            }
+            // Closest by the axis that is furthest out: a box 2 px short
+            // horizontally and 60 px short vertically missed VERTICALLY, and a
+            // reader who sees only the smaller number tunes the wrong axis.
+            let worst = |g: (f32, f32)| g.0.max(g.1);
+            if best.is_none_or(|b| worst(gap) < worst(b)) {
+                best = Some(gap);
+            }
+        }
+    }
+    (overlapped, best)
+}
+
 /// strikes already identified, so this refuses a regression rather than
 /// demanding something new.
 fn record(
@@ -1160,6 +1236,21 @@ fn main() {
                     verb.verb
                 );
             }
+            // ⛔⛤ AND THEN SHE FALLS BACK INTO RANGE. `prepare` presses near the
+            // APEX of a jump, which for a grounded target is a press thrown
+            // 19–59 px over its head — MEASURED, and every performer aerial
+            // recorded as a miss for it. A short-hop aerial meeting a grounded
+            // opponent on the way down is the shipped use of the move; see
+            // `move_exercise::descend_to_meet`.
+            // ⚠ THE RENDERER DELIBERATELY DOES NOT DO THIS. Its job is a clean
+            // photograph of the pose, and the apex is where the pose reads.
+            if prepared && verb.airborne && !move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX) {
+                println!(
+                    "[take] {character:<24} {:<16} WARNING - could not fall into range of the \
+                     target before the press; this take records the press from where she was",
+                    verb.verb
+                );
+            }
             // ⛔⛔ AFTER THE RE-SEAT AND BEFORE THE PRESS. Roles are entity
             // identities, and every re-seat spawns new bodies — resolving them
             // once per RUN would have named the previous take's corpses.
@@ -1350,10 +1441,33 @@ fn main() {
             let intended = move_exercise::intended_move(&mut app, character, verb.verb);
             let verdict = move_exercise::outcome(prepared, intended.as_deref(), &moves);
             let reached = verdict.reached();
+            // ⛔⛤ WHY A MISS MISSED. See `target_reach`: without this a take with
+            // live shapes and no contact is read as a hitbox that is too small,
+            // and the performer's aerials spent three scenarios being read that
+            // way while the boxes were 69 px above a sandbag on the floor.
+            let (overlapped, gap) = target_reach(&frames);
+            let landed = frames.iter().any(|f| {
+                f["contacts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|c| c["victim_role"].as_str() == Some("target"))
+            });
             println!(
-                "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}",
+                "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}{}",
                 verb.verb,
                 moves,
+                // ⛔ SAID ON THE LINE, NOT ONLY IN THE FILE. A reader scanning a
+                // batch decides from this line whether a move needs tuning, and
+                // "no contact" without the reason sends them to the hitbox.
+                match (live > 0, landed, overlapped, gap) {
+                    (true, false, false, Some((x, y))) => format!(
+                        " OUT OF REACH: shapes never overlapped the target (closest {x:.0}x, {y:.0}y px) -- the SCENARIO, not the hitbox"
+                    ),
+                    (true, false, true, _) =>
+                        " NO CONTACT THOUGH THE SHAPES OVERLAPPED -- the engine, not the scenario".to_string(),
+                    _ => String::new(),
+                },
                 if reached {
                     String::new()
                 } else {
@@ -1412,6 +1526,15 @@ fn main() {
                 "moves_seen": moves.iter().cloned().collect::<Vec<_>>(),
                 "rode_a_mount": rode,
                 "max_live_hitboxes": live,
+                // ⛔ THE PREMISE BEHIND A MISS. `overlapped: false` says the
+                // shapes were never in a position to connect, which is a fact
+                // about the SCENARIO; `overlapped: true` with no contact is a
+                // fact about the ENGINE. `closest_gap_px` names the axis.
+                "reach": {
+                    "boxes_overlapped_target": overlapped,
+                    "closest_gap_px": gap.map(|(x, y)| vec![x, y]),
+                    "contacted_target": landed,
+                },
                 "max_live_projectiles": shots,
                 // ⛔ THE PREMISE, RECORDED. A take with zero here could not have
                 // detected contamination however clean it looks: nothing else
@@ -1495,5 +1618,53 @@ mod tests {
             }
             assert!(played, "the new match must accept the attack");
         }
+    }
+
+    /// ⛔⛤ AN AERIAL TAKE MUST MEET A GROUNDED TARGET.
+    ///
+    /// ⛔⛔ THE DEFECT THIS FAILS ON. `prepare` jumps and presses near the apex,
+    /// so every performer aerial published its shapes 19–59 px ABOVE a sandbag
+    /// standing on the floor and recorded as a miss — across three separate
+    /// scenarios, whose conclusion was that her hitboxes were too small.
+    ///
+    /// ⭐⭐ AND THE FIRST REPAIR WAS A NO-OP THAT LOOKED LIKE A REPAIR. Waiting
+    /// for her to be "low enough" returns on the FIRST tick, because she passes
+    /// through that band on the way UP; the re-recorded take was byte-identical
+    /// to the one it was meant to fix. `descend_to_meet` requires her to be
+    /// FALLING, and this test is the arm that tells those two apart.
+    #[test]
+    fn an_aerial_take_falls_into_range_of_a_grounded_target() {
+        let mut app = ambition_app::app::build_visible_app(
+            ambition_app::app::VisibleRenderMode::NoWindow, true,
+        );
+        ambition_platformer2d::sim::enable_manual_stepping(&mut app);
+        for _ in 0..30 { app.update(); }
+        let verb = move_exercise::verb_named("attack_air_down").unwrap();
+        assert!(verb.airborne, "the premise: this verb is an aerial");
+        assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
+        assert!(settle(&mut app));
+        move_exercise::approach(&mut app, 32.0);
+        assert!(move_exercise::prepare(&mut app, verb));
+        // ⚠ THE PREMISE: she is ABOVE the target's head when `prepare` is done,
+        // so what follows is a claim about the descent and not about a fixture
+        // that happened to start in range.
+        assert!(
+            move_exercise::descend_to_meet(&mut app, 1, AERIAL_LEAD_PX),
+            "she never fell into range of a body standing on the floor"
+        );
+
+        // ⛔⛤ ASSERT THE STATE, NOT THE RETURN VALUE. The boolean is true for a
+        // descent AND for a no-op that answered on its first tick while she was
+        // still rising — MEASURED, the earlier version of this test passed the
+        // poison that removed the falling requirement.
+        let (mine, theirs, falling) = move_exercise::seat_spans(&mut app, 1)
+            .expect("both seats are filled");
+        assert!(falling, "she was still RISING when the press was thrown");
+        assert!(
+            mine.1 >= theirs.0 - AERIAL_LEAD_PX,
+            "her feet ({}) never reached the lead above the target's head ({})",
+            mine.1,
+            theirs.0 - AERIAL_LEAD_PX
+        );
     }
 }

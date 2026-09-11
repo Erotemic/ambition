@@ -19,14 +19,14 @@ fresh source/behavior preflight for every packet
     +-- A1a checkpoint admission characterization/repair (DONE 2026-09-08)
     |       -> A1b checkpoint restoration ownership (DONE 2026-09-08)
     |           -> A1c selected checkpoint through common commit (DONE; matrix closed 2026-09-08)
-    |               -> A7 item horizon/custody separation (after writer inventory)
+    |               -> A7 item horizon/custody separation (inventory DELIVERED 2026-09-10)
     |
     +-- A2a shared boss geometry -> A2b world obstruction -> A2c contact seam
     |                                                       -> A5 destructibles
     |
     +-- A3 construction placement adapter (independent; audit shared file edits)
-    +-- A4 accepted control/body execution (HOLD until writer map and fixtures)
-    +-- A6 definitions / materialization (HOLD until per-field dependency census)
+    +-- A4 accepted control/body execution (writer map DELIVERED 2026-09-10)
+    +-- A6 definitions / materialization (field census DELIVERED 2026-09-10)
     +-- A9 minimal-profile baseline now; closure changes by proven owner
     +-- A8 multi-instance world (HOLD for explicit customer/acceptance scenario)
     +-- A10 isolated publication (HOLD for required failure guarantee)
@@ -294,7 +294,15 @@ Player-only stand eligibility is preserved until separately decided.
 
 ## A6. Separate prepared character definitions from live materialization/policy
 
-**HOLD:** make a field/use census before moving types.
+**THE CENSUS THIS HOLD ASKS FOR IS DELIVERED:**
+[`prepared-definition-field-census.md`](prepared-definition-field-census.md)
+(2026-09-10; 200 use sites, 27 fields, 9 consumer crates).
+⇒ **And it REFUTES this packet's premise.** Nine fields are read by BOTH the
+spawn road and the runtime, so the two-way split written below does not exist to
+be finished — `autonomous_profile` alone is read by four crates at three moments.
+Any A6 proposal starts from that table, not from this paragraph.
+
+**HOLD (SATISFIED):** make a field/use census before moving types.
 **Source:** `ambition_characters` actor/prepared/brain/moveset/technique schemas;
 `ambition_combat` action/brain runtime; monolith `character_runtime` and
 `avatar/starting_character.rs`; body-seed/spawn consumers.

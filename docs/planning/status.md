@@ -104,6 +104,35 @@ Stated per packet instead:
   runs, whose default cannot fail, was red and nothing would have said so.**
   ⚠ Wiring it into a lane is a gate change and is **not made here**.
 
+  ⛔⛤ **RE-DERIVED 2026-09-11 AND THE SECOND HALF OF THAT SENTENCE IS FALSE.**
+  *"Zero invocations outside its own tests"* is literally true and its implication
+  is not: **its own tests ARE a lane.**
+  `scripts/tests/test_absence_contracts.py` parametrises all three pattern
+  families over the LIVE tree (`test_every_contract_holds_against_the_live_tree`,
+  `test_every_dependency_contract_holds_against_the_live_workspace`,
+  `test_every_module_allowlist_holds_against_the_live_tree`) and carries separate
+  live-tree tests for both baseline-backed contracts and for the footprint
+  ratchet — and `scripts/tests` IS the `repo tooling (scripts/tests; repo-coupled)`
+  job, which the default lane and `--rust` both run.
+  ⭐ **The specific red is gated too.**
+  `test_the_footprint_ratchet_holds_against_the_live_tree` calls
+  `capability_footprint_violations`, which reaches `sentinel_linked_closure`,
+  which RAISES `SentinelLockfileStale` on a stale sentinel lockfile — an uncaught
+  raise, so the test errors and the job is red. **That test and that raise were
+  both present at `43059a46d`** (checked with `git show`), so the pytest lane
+  would have reddened there.
+  ⇒ **The true sentence is narrower: the CLI's `--check` EXIT CODE runs in no lane;
+  the CONTRACTS run in two.** What made `43059a46d` look clean is that the run
+  stamping it green was a workspace CARGO lane, which executes no pytest at all —
+  the lane-population lesson, not a missing gate.
+  ⚠ **So the four questions above measure a gate that mostly exists.** Wiring the
+  CLI is still open and still a gate change; MEASURED 2026-09-11, it would buy the
+  **two** verdicts the CLI computes that no pytest test asserts —
+  `the-featureless-facade-links-none-of-these` against the live tree (its three
+  tests patch either the forbidden set or the closure) and
+  `capability-footprint-baseline-is-stale` (the DEPARTURE direction) — not the
+  39-contract surface.
+
 ⭐⭐ **MEASURED FOR WHOEVER DECIDES (`d398bcafc`), FOUR QUESTIONS, NO
 RECOMMENDATION:**
 

@@ -1357,6 +1357,70 @@ before tuning anything.
 
 ## P2 — current engine/game work
 
+### D-STRIKE-GENEROSITY — the roster-wide hitbox knob, and what stops it going further
+
+**Owner:** `ambition_entity_catalog::ATTACK_VOLUME_GENEROSITY` (the constant carries
+the measurements) and `ambition_character_sprites::ACTOR_ATTACK_HITBOX_SCALE`.
+
+Jon, 2026-09-11: attacks *"rarely ever feel like they connect"*, and *"we can
+absolutely make characters overpowered"*. Both hitbox roads now read ONE number and
+`the_two_hitbox_roads_are_equally_generous` pins them together.
+
+✅ **THE DETERMINISM BLOCKER IS CLOSED (`c2a551471`).** Raising the knob reddened
+`rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+on a GGRS checksum mismatch. Cause, MEASURED: `StrikeRank` and
+`AttackerMoveInstance` were declared `declare_rollback_derived_component` — *"stamped
+once at the spawn"* — while the volume entity's `StrikeVolume` is
+rollback-REGISTERED, so GGRS RESTORES the entity and the two components come back
+missing. Both are canonical rollback state now; schema 180 → 181.
+⇒ **"Derived" is a claim that some system writes the value AGAIN**, not a claim about
+where the value first came from. The other seventeen derived declarations were read:
+sixteen name a per-tick cadence and the seventeenth is repaired on
+`existing.is_none()`, so the population needing a guard is zero.
+⛔ **The REASONED cause first written on the constant was wrong** (the
+`StrikeVictim.sim_id` tie), and ordering the melee victim loop through
+`victim_identity_key` — correct on its own merits, landed — changed the oracle not at
+all. A fix that closes a plausible mechanism is not evidence about the cause.
+
+✅ **THE KNOB IS AT 1.25 (`6b8970798`), AND THE CEILING IS THE FIGHT.** MEASURED
+against `ambition_demo_smash_app`'s acceptance suite, one run per value: 1.0 / 1.15 /
+1.25 green; at **1.30** `every_live_fighter_stays_inside_the_frame` goes red on its
+ANTI-VACUITY floor — *"no fighter was ever outside the room's own bounds in this match
+(0 body-frames)"* where 1.0 produces more than twenty; at **1.6** two more join it.
+⇒ Generous enough boxes make two CPUs trade constantly and nobody leaves the stage.
+⚠ The same symptom, same test, is already recorded for hitbox clanking at 9 damage in
+[the parity inventory](demos/smash-parity-inventory.md). ⚠ The MECHANISM is NOT
+measured, and the cliff is one sample per value.
+
+✅ **AND THE SEAM THAT SHAPES THE BOX ASKED THE WRONG QUESTION (`0536c537e`).**
+`CombatTuning::sprite_character_id` documents that `WornCharacter` OUTRANKS it and
+names the consequence — a body that transforms takes its new volumes with it. FIVE
+seams resolve that pair; four asked worn-first, and the fifth was the manifest lookup
+that decides the authored hit POLYGON. It now reuses the `character_id` computed 490
+lines above it in the same loop body, so there is no second order left to drift.
+Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verified.
+
+**STILL OPEN, and these are the moveset/hitbox items Jon named:**
+1. **Seven fighters swing a box smaller than their own body.** Measured at 1.6 they
+   were medic 0.23, sanic 0.27, npc_carl_stargan 0.29, officer 0.64,
+   perfect_cellular_automaton 0.72, projectile_polygon 0.79, goblin 0.89 — so at 1.25
+   they are smaller still. The roster-wide knob was the SHARED cause and is spent;
+   these need per-character work. medic's forward tilt is 3.8 px TALL against a 48 px
+   body.
+2. **The performer's tilt cancels are authored and guarded but NOT OBSERVED in a
+   match** (`ba2f8887a`). `cancel_permits` accepts through the whole recovery with a
+   CONNECTED contact, and the engine's own unit test proves the road works, yet a
+   chain through `moveset_takes --chain-at 20` ran the tilt to its full 24 ticks
+   against both a sandbag and a live CPU. ⭐ **The first thing to measure is whether
+   the tilt CONNECTS at all**: the window is `OnHit`, `verdict_belongs_to` refuses a
+   `None` provenance since Q101 (2026-09-10), and the take already records
+   `reach.contacted_target`. A window that permits and a press that arrives are both
+   established; a contact is not.
+3. `attack_air_back` connects by 0.2 px where the forward air has 17.8 to spare.
+4. **The authored clock is not Ultimate-shaped in one axis**: startup is right, ACTIVE
+   runs 10–17 frames against Ultimate's usual 2–5, and totals are SHORTER. Jon has not
+   ruled; show numbers before rebalancing.
+
 ### D-TETHER-LINE — DONE 2026-09-10; the reel publishes a fact, not a component
 
 **Re-derived before starting, and the row was half true.** A tether line already

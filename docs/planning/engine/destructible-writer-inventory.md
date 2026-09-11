@@ -204,3 +204,93 @@ first three find the FILE and stop: `breakables.rs` appears through its query at
 `:23`, `damage/mod.rs` through its query at `:397`, and neither hit is a write.
 **A recipe that finds the right file is not a recipe that finds the right line** —
 that is how a system with two transitions got recorded with one, twice.
+
+## Re-derived 2026-09-11, and the transition-authority census A5 asks for
+
+**BOTH HALVES OF THE HOLD ARE SATISFIED.** A2's contact contract closed at
+`0157476ba`; this inventory is the other half and it reproduces at HEAD — all six
+production mutation sites, at the same lines, with `0157476ba` adding none
+(it added fixtures and a publisher comment). The `breakables.rs:128` row is still
+a `#[cfg(test)]` helper and still correctly excluded. ⚠ The frontier's A5 row
+still reads *"HOLD until … writer inventory is complete"* and links neither page;
+that is the third time a frontier summary has outlived the page it summarises
+(see A7 and A6).
+
+### Falling chests, chests and breakables do NOT share a transition authority
+
+The packet says *"Falling chests and switches are separate mechanisms unless they
+demonstrably share the same transition authority."* Measured, they are three
+different mechanisms and no two of them share one:
+
+| family | where the transition lives | what it writes |
+|---|---|---|
+| **Breakable** | `Breakable::apply_damage`, a `#[must_use]` DOMAIN method | `BreakableState` on the domain struct |
+| **Chest** | `commands.entity(e).insert(Opened)` — an ECS MARKER COMPONENT | no domain state at all |
+| **FallingChest** | nothing — it is a position tick | `CenteredAabb.center`, then removes its own marker |
+
+⇒ A destructible owner would inherit **one** of these. There is no consolidation
+available because there is nothing duplicated to consolidate: the three do not
+disagree about a transition, they do not have the same kind of transition.
+
+⛔⛔ **AND THE CHEST FINDING IS THE ONE WORTH THE SPACE: `Chest::state` IS
+WRITE-ONLY.** `ChestState { Closed, Opening, Opened }` is constructed, mapped from
+`ChestStateSpec` at authored spawn (`spawn_static.rs:106`), serialized — and read
+by **nothing in production**. The only read in the repository is an assertion
+inside `ambition_interaction`'s own test module. The runtime's open-gate is the
+`Opened` marker, written at **five production sites across three crates**:
+`features/ecs/chests.rs:98`, `features/ecs/encounter_rewards.rs:74` and `:101`,
+`ambition_boss_encounter/src/rewards.rs:73` and `:106`.
+
+⇒ **Nothing derives the marker from the authored state.** A chest authored
+`Opened` would be constructed with `ChestState::Opened`, carry no `Opened`
+marker, and be opened again by `open_ecs_chests` — granting its reward a second
+time, which is A5's own acceptance line *"no duplicate effects/rewards"*.
+
+⚠ **IT IS LATENT, NOT LIVE, AND THE DIFFERENCE IS THE POPULATION.** Nothing can
+author an open chest: LDtk's `ChestSpawn` entity declares exactly two fields —
+`name` and `reward` — in all four shipped worlds; `ChestSpec::new` defaults
+`state: ChestStateSpec::Closed`; and **no converter anywhere populates
+`ChestStateSpec`**. So `Opening` and `Opened` are unreachable from content, two of
+the three spec variants are dead, and both non-`Closed` arms of
+`chest_state_from_spec` are dead with them. ⇒ The honest statement is *a
+write-only field whose two unreachable variants would be a duplicate-reward bug
+the day something authors one* — not *a bug*.
+
+### Geometry agreement: the WHERE agrees by construction, the WHETHER does not
+
+A5's acceptance names *"melee/projectile geometry agreement"*. Both publishers
+read the SAME `CenteredAabb`, so a breakable's hurt volume and its contributed
+surface are the same rectangle for structural reasons rather than by coincidence
+— and that is exactly the kind of agreement that stays true until somebody
+offsets one, silently and asymmetrically. ⇒ Guarded now, and poison-verified by a
+3px offset:
+`world/overlay.rs::breakable_geometry_agreement`.
+
+⚠ **THE ELIGIBILITY PREDICATES DELIBERATELY DIVERGE, AND THE GUARD DOES NOT TOUCH
+THAT.** The two systems answer different questions:
+
+| breakable | damageable volume (`trigger.allows_hit() \|\| pogo_refresh`) | contributed surface (`collision != None && !pogo_refresh`) |
+|---|---|---|
+| `OnHit`, `Solid` | ✔ | ✔ |
+| `OnStand`, `Solid` | ✖ | ✔ — a surface with no hurt volume, on purpose |
+| `OnHit`, `None` | ✔ | ✖ |
+| `pogo_refresh` | ✔ | ✖ — it contributes through `PogoTargetContributor` instead |
+
+Row two is the discriminating case `0157476ba` found: with no surface a bolt flies
+through a solid crate it cannot damage. Row four is why the overlay skips
+pogo-refresh breakables, documented at the site.
+
+### What this adds to A5's premise
+
+The inventory already found no scattered authority to consolidate. This adds the
+neighbouring families and finds the same: **three mechanisms, three different
+kinds of transition, nothing duplicated between them.** ⇒ *"Falling chests and
+switches are separate mechanisms"* is not a caveat A5 has to work around — it is
+the measured answer, and the packet should say so plainly rather than leave it
+conditional. ⛔ **No type moved and none is proposed.**
+
+⇒ What A5 could still land, smallest first: derive the `Opened` marker from the
+authored state at spawn (or delete the two unreachable `ChestStateSpec` variants
+and the write-only field with them) — a decision about whether an author should
+ever be able to place an already-opened chest, which is content design rather than
+ownership.

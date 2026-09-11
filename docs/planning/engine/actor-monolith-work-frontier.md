@@ -299,7 +299,30 @@ that makes the invariant easier to inspect; do not require it to disappear.
 
 ## A5. Give destructible world objects their full transition authority
 
-**HOLD until A2's contact contract is established and writer inventory is complete.**
+**BOTH HALVES OF THE HOLD ARE SATISFIED — the enumeration is DELIVERED:**
+[`destructible-writer-inventory.md`](destructible-writer-inventory.md) (six
+production mutation sites, three crates; re-derived unchanged 2026-09-11). A2's
+contact contract closed at `0157476ba`. ⚠ This row read *"HOLD until … writer
+inventory is complete"* and linked neither page until 2026-09-11, which is the
+third frontier summary to outlive its own enumeration.
+
+⇒ **AND THE CENSUS ANSWERS THIS ROW'S OWN CONDITIONAL.** *"Falling chests and
+switches are separate mechanisms unless they demonstrably share the same
+transition authority"* — measured, they demonstrably do not: a breakable
+transitions through a `#[must_use]` DOMAIN method, a chest through an ECS MARKER
+COMPONENT (`Opened`, five sites, three crates), and a falling chest not at all —
+it is a position tick. **There is nothing duplicated to consolidate.** ⛔ So the
+destination below is not a move this packet has earned; see the page.
+
+⇒ **What it did find:** `Chest::state` is WRITE-ONLY — authored, serialized, and
+read by nothing in production, while the runtime gate is the marker. An authored
+`Opened` chest would grant its reward twice; it is LATENT because LDtk's
+`ChestSpawn` declares only `name` and `reward`, so no author can express one.
+And *"melee/projectile geometry agreement"* now has a guard
+(`world/overlay.rs::breakable_geometry_agreement`, poison-verified): both
+publishers read one `CenteredAabb`, and their ELIGIBILITY predicates diverge on
+purpose.
+
 **Source:** `ambition_interaction` breakable definition,
 `crates/ambition_combat/src/breakables.rs`, monolith feature bundles/spawn/target
 publication/damage, world placement and simulation-view adapters.

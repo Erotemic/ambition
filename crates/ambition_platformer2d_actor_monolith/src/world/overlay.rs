@@ -182,3 +182,110 @@ mod overlay_set_membership {
         );
     }
 }
+
+#[cfg(test)]
+mod breakable_geometry_agreement {
+    use ambition_combat::components::{
+        BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureName,
+    };
+    use ambition_combat::FeatureSimEntity;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    use bevy::prelude::*;
+
+    /// ⭐⭐ A5 ACCEPTANCE, "melee/projectile geometry agreement": THE HURT VOLUME AND
+    /// THE CONTRIBUTED SURFACE MUST DESCRIBE THE SAME RECTANGLE.
+    ///
+    /// A solid breakable is published twice, by two systems in two modules that
+    /// never reference each other: `refresh_breakable_damageable_volumes`
+    /// (`features/ecs/target_volumes.rs`) writes the volume a hit is tested
+    /// against, and `rebuild_feature_ecs_world_overlay` above writes the block a
+    /// projectile and a body collide with. They agree today because both read the
+    /// same `CenteredAabb` — which is agreement by construction and therefore
+    /// exactly the kind that is true by accident until somebody offsets one.
+    ///
+    /// ⛔ THE FAILURE IS SILENT AND ASYMMETRIC. A surface wider than the hurt
+    /// volume is a crate that stops a shot in a band where it cannot be damaged;
+    /// narrower, and a shot damages it through its own corner. Neither raises
+    /// anything — both roads are individually correct.
+    ///
+    /// ⚠ IT PINS WHERE, NOT WHETHER. The two systems deliberately disagree about
+    /// ELIGIBILITY — the volume needs `trigger.allows_hit() || pogo_refresh`, the
+    /// block needs `collision != None && !pogo_refresh` — so an `OnStand` solid
+    /// crate is a surface with no hurt volume ON PURPOSE. That divergence is
+    /// documented at both sites; this test asserts only that when both publish,
+    /// they publish the same rectangle.
+    #[test]
+    fn a_breakables_hurt_volume_and_its_contributed_surface_are_the_same_rectangle() {
+        let mut app = App::new();
+        app.init_resource::<FeatureEcsWorldOverlay>();
+
+        // Deliberately not centred on the origin and not square: a zero-centred
+        // unit box makes an offset bug and a correct build agree.
+        let centre = ae::Vec2::new(137.0, -64.5);
+        let half = ae::Vec2::new(19.0, 7.5);
+        let mut breakable = ambition_interaction::Breakable::new("crate", 3);
+        breakable.collision = ambition_interaction::BreakableCollision::Solid;
+        breakable.trigger = ambition_interaction::BreakableTrigger::OnHit;
+
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("crate_17"),
+            FeatureName("A Crate".to_string()),
+            CenteredAabb {
+                center: centre,
+                half_size: half,
+            },
+            BreakableFeature::new(breakable),
+            DamageableVolumes::default(),
+        ));
+
+        app.add_systems(
+            Update,
+            (
+                crate::features::ecs::refresh_breakable_damageable_volumes,
+                super::rebuild_feature_ecs_world_overlay,
+            ),
+        );
+        app.update();
+
+        let blocks: Vec<ae::Aabb> = app
+            .world()
+            .resource::<FeatureEcsWorldOverlay>()
+            .blocks
+            .iter()
+            .filter(|b| b.name.starts_with("ecs-breakable"))
+            .map(|b| b.aabb)
+            .collect();
+        let mut volumes = app.world_mut().query::<&DamageableVolumes>();
+        let published: Vec<ae::Aabb> = volumes
+            .iter(app.world())
+            .flat_map(|v| v.volumes.iter().map(|volume| volume.bounds()))
+            .collect();
+
+        // ⛔ ANTI-VACUITY, AND IT IS THE WHOLE TEST. "Both empty" satisfies any
+        // equality check, and both roads are one predicate away from publishing
+        // nothing — `collision: None` silences the block, `OnStand` silences the
+        // volume, and `Breakable::new` defaults `collision` to `None`, which is
+        // why every other projectile-vs-breakable fixture in this repository
+        // uses a crate that contributes no surface at all.
+        assert_eq!(
+            blocks.len(),
+            1,
+            "the solid breakable contributed no surface, so this compares nothing"
+        );
+        assert_eq!(
+            published.len(),
+            1,
+            "the hittable breakable published no damageable volume, so this \
+             compares nothing"
+        );
+
+        assert_eq!(
+            blocks[0], published[0],
+            "a breakable's contributed collision surface and its damageable \
+             volume describe different rectangles: a shot would stop where it \
+             cannot damage, or damage where it does not stop"
+        );
+    }
+}

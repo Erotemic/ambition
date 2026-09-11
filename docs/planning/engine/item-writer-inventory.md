@@ -70,7 +70,10 @@ struct literal:
 so the seven above are two roads and no crate outside `ambition_held_items` can
 assemble one. `rustc` then enumerated 13 further assembly sites in test code
 across six crates — exactly the upper bound this page said a text scan could not
-give. The production count of 7 was correct as written.
+give. The production count of 7 was correct as written. ⭐ **POISON-VERIFIED
+2026-09-11 at `8ce24653d`** — the seal had only ever been reported green: putting
+the struct literal back at `damage_drops.rs:332` fails
+`cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]` in 2s.
 
 A7's acceptance says *"reward policy receives accepted outcomes; it does not
 become an alternative item minting path."* `damage_drops.rs:332` is a drop

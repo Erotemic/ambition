@@ -356,10 +356,23 @@ revisions. Record current unsupported combinations instead of defaulting them.
 [`item-writer-inventory.md`](item-writer-inventory.md) (2026-09-10, 60 sites).
 ⇒ It reports the shape as the INVERSE of this packet's framing: the checkpoint
 baseline family is 9 of 9 inside the monolith, while `OwnedItems` is written from
-four crates with 3 of 16 sites in the crate that defines it. And `GroundItem` has
-no constructor, so seven struct-literal sites across three crates each mint an
-occurrence — including the death-drop path this packet's acceptance says must not
-become an alternative minting road.
+four crates with 3 of 16 sites in the crate that defines it.
+
+⛔ **`GroundItem`'s SEVEN MINTING SITES ARE CLOSED; DO NOT RE-OPEN THE JOB.**
+This paragraph said *"has no constructor, so seven struct-literal sites"* in the
+PRESENT TENSE until 2026-09-11, fourteen lines above the linked page's own
+`✔ SEALED`, and sent an agent at work that had landed in `7108a57b1`
+(2026-09-10). The type is `#[non_exhaustive]` with `at_rest` and `released` and
+those are the only two roads. POISON-VERIFIED at `8ce24653d`: reintroducing the
+struct literal at the death-drop site (`damage_drops.rs:332`) fails
+`cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]`.
+
+⇒ **WHAT IS STILL OPEN IS NOT THE CONSTRUCTOR.** `drop_held_weapon` mints the
+occurrence's identity, room scope, provenance and attempt state itself, so a
+component-construction seal is not occurrence authority and this packet's
+*"reward policy … does not become an alternative item minting path"* is not yet
+met. ⛔ The remedy is NOT a generic item-request bus to move the count to one;
+[`item-writer-inventory.md`](item-writer-inventory.md) holds why.
 
 **HOLD:** after A1, enumerate item occurrence, holder, inventory and checkpoint
 baseline writers. **Source:** monolith items/persistence/minted horizon,

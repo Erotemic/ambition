@@ -118,6 +118,33 @@ fn pack_of(text: &str) -> Result<ambition_content_pack::PreparedContentPack, Str
         .map_err(|failure| failure.to_string())
 }
 
+/// The same probe pack with NO moveset source declared at all.
+///
+/// ⛔⛤ **THE REMOVED-SECTION TRANSITION CANNOT BE AUTHORED INTO THE SHIPPED
+/// PACK, WHICH IS WHY THIS EXISTS.** MEASURED 2026-09-12: emptying a table is
+/// refused (`data/movesets/author.ron` declares the `moveset` schema and carries
+/// no move contract for any of its 0 entities), and so is removing a table's only
+/// entity — the compiler closes both. What it does NOT close is a manifest that
+/// stops declaring the family, and `game/ambition_demo_smash/assets/pack.ron`
+/// ships exactly that shape. So the transition is real, reachable by editing a
+/// manifest, and unreachable through `compile_pack_with` — which edits source
+/// TEXT and never the declaration list.
+fn pack_with_no_moveset_section() -> ambition_content_pack::PreparedContentPack {
+    let draft = ContentPackDraft::from_sources(
+        ContentPackManifest {
+            id: PackId("reload_probe".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("probe".into()),
+            requires: Vec::new(),
+            sources: Vec::new(),
+        },
+        std::iter::empty::<(String, String)>(),
+    )
+    .expect("a manifest declaring nothing is a legitimate pack");
+    compile(&draft, &crate::pack::pack_schemas(), &AssetsUnchecked)
+        .expect("a pack that declares no source compiles")
+}
+
 /// A world whose cast has been through the real preparation barrier, with one
 /// character the probe pack can revise.
 fn host_with_a_live_cast() -> bevy::app::App {
@@ -920,6 +947,74 @@ fn host_with_the_shipped_cast() -> bevy::app::App {
 ///
 /// ⛔ THE FIELD MOVES, THE ROW DOES NOT. Swapping whole rows would change the
 /// positional binding, which is a different (and already-guarded) defect.
+/// The shipped pack with ONE entity removed from its moveset table.
+///
+/// ⛔⛤ **EDITED THROUGH THE TYPED DOCUMENT, and the reason is the same one the
+/// items fixture gives.** A text substitution on an entity id would hit the
+/// table's verb bindings and every move id that carries the same prefix,
+/// producing a document that is either still internally consistent or refused
+/// for a reason that has nothing to do with this subject.
+fn pack_without_entity(victim: &str) -> ambition_content_pack::PreparedContentPack {
+    let mut removed = false;
+    let pack = crate::pack::compile_pack_with(|_declared, text| {
+        let Ok(mut doc) = ambition_entity_catalog::EntityCatalogDoc::parse(&text) else {
+            return text;
+        };
+        let before = doc.entities.len();
+        doc.entities.retain(|entity| entity.id != victim);
+        if doc.entities.len() == before {
+            return text;
+        }
+        removed = true;
+        doc.to_ron().expect("the edited table serializes")
+    })
+    .expect("the edited pack compiles");
+    // ⛔ THE FLOOR ON THE EDIT. A victim no table names would leave the closure
+    // returning every source untouched, and the "candidate" would be the shipped
+    // pack — the arm would pass while testing nothing.
+    assert!(
+        removed,
+        "no declared source names entity `{victim}`, so the candidate is the \
+         shipped pack and the witness would pass vacuously"
+    );
+    pack
+}
+
+/// The shipped pack with every authored move half a second longer.
+///
+/// ⚠ THE NAMES ARE UNTOUCHED ON PURPOSE: this is the control for the dropped-
+/// entity refusal, so it has to change the pack WITHOUT changing which
+/// characters are authored.
+fn pack_with_every_move_retimed() -> ambition_content_pack::PreparedContentPack {
+    let mut retimed = 0usize;
+    let pack = crate::pack::compile_pack_with(|_declared, text| {
+        let Ok(mut doc) = ambition_entity_catalog::EntityCatalogDoc::parse(&text) else {
+            return text;
+        };
+        let mut touched = false;
+        for entity in &mut doc.entities {
+            if let Some(moveset) = entity.contracts.moveset.as_mut() {
+                for spec in &mut moveset.moves {
+                    spec.duration_s += 0.5;
+                    retimed += 1;
+                    touched = true;
+                }
+            }
+        }
+        if !touched {
+            return text;
+        }
+        doc.to_ron().expect("the edited table serializes")
+    })
+    .expect("the retimed pack compiles");
+    assert!(
+        retimed > 10,
+        "only {retimed} move(s) were retimed, so the control barely differs from \
+         the shipped pack"
+    );
+    pack
+}
+
 fn pack_with_one_item_rewired() -> ambition_content_pack::PreparedContentPack {
     let mut edited = false;
     let pack = crate::pack::compile_pack_with(|declared, text| {
@@ -1735,6 +1830,172 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
         live_duration(&app),
         before,
         "the route activated and the staged cast revision did not publish"
+    );
+}
+
+/// ⛔⛔ **A CANDIDATE THAT STOPS NAMING A CHARACTER IS REFUSED, NOT MERGED.**
+///
+/// ⛤ **THE SILENT MERGE THIS CLOSES IS ONE LEVEL BELOW THE ONE THE STALENESS
+/// RULE CLOSES, AND IT IS REACHABLE BY DELETING ONE ENTITY.** `stage_move_section`
+/// iterates the CANDIDATE's keys, so a character the candidate stops naming is
+/// never visited; the fold is `active.clone()` plus the staged set, so its OLD
+/// moveset survives untouched and is RE-PUBLISHED under the new generation. The
+/// pack then says the family has no such entity while the cast plays its moves.
+/// Nothing at any layer could represent that: `MovesetRevisionError` has two
+/// variants and both are about the candidate NAMING something.
+///
+/// ⚠ `cellular_automaton.ron` CARRIES TWO ENTITIES, so this does not even need a
+/// deleted file — which is why the fixture drops ONE entity rather than a whole
+/// table.
+#[test]
+fn a_candidate_that_stops_naming_a_character_is_refused() {
+    let mut app = host_with_the_shipped_cast();
+    shell_active_on(&mut app, true);
+    let live = live_pack(&app);
+    let table = ambition_characters::moveset_content_schema::lowered_movesets(&live)
+        .expect("the shipped pack authors movesets");
+    // ⛔⛤ **THE VICTIM MUST HAVE A SIBLING IN ITS OWN FILE, AND MY FIRST FIXTURE
+    // DID NOT KNOW THAT.** Removing a table's ONLY entity leaves a source that
+    // declares the `moveset` schema and carries no move contract, and the
+    // compiler refuses it by name — so that transition is already closed and
+    // cannot reach this rule. `cellular_automaton.ron` carries TWO entities,
+    // which is what makes the hole reachable without deleting a file.
+    let victim = crate::authored_movesets::TABLE_CHARACTERS
+        .iter()
+        .find(|(_, characters)| characters.len() > 1)
+        .and_then(|(_, characters)| {
+            characters
+                .iter()
+                .find(|id| table.contains_key(**id))
+                .map(|id| (*id).to_string())
+        })
+        .expect(
+            "no shipped moveset table carries two entities, so a per-entity \
+             removal cannot be authored and this arm has no subject",
+        );
+
+    // The candidate: the shipped pack with ONE entity removed from its table.
+    let candidate = std::sync::Arc::new(pack_without_entity(&victim));
+    let dropped = ambition_characters::moveset_content_schema::lowered_movesets(&candidate)
+        .expect("the candidate still authors a moveset section");
+    // ⛔ THE PREMISE, BOTH HALVES: exactly this one entity is gone, and the rest
+    // are still there — a candidate that lost the whole section would exercise a
+    // different row of the table.
+    assert!(
+        !dropped.contains_key(&victim),
+        "the fixture did not actually remove `{victim}`"
+    );
+    assert_eq!(
+        dropped.len() + 1,
+        table.len(),
+        "the fixture removed more than the one entity it names"
+    );
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    match &outcome {
+        ReloadRequest::Refused(MoveReload::RefusedDroppedMovesetEntities(names)) => assert_eq!(
+            names.as_slice(),
+            [victim.clone()],
+            "the refusal does not name exactly the character that was dropped"
+        ),
+        other => panic!(
+            "a candidate that stops naming `{victim}` must be refused until the \
+             moveset participant can represent a removal; got {other:?}"
+        ),
+    }
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a refused request reached the shell anyway"
+    );
+    assert!(
+        crate::reload::pending_pack(app.world()).is_none(),
+        "a refused request staged the candidate as pending"
+    );
+}
+
+/// ⛔⛔ **AND A CANDIDATE THAT DROPS THE WHOLE FAMILY NAMES EVERY CHARACTER IT
+/// STOPS CARRYING.**
+///
+/// ⛤ THE SIBLING ABOVE CANNOT WITNESS THIS BRANCH, AND A POISON PROVED IT:
+/// making the no-section case return an empty list left every arm green. The
+/// transition is authored in a MANIFEST rather than in a source, so
+/// `compile_pack_with` — which rewrites source text — can never produce it, and
+/// `game/ambition_demo_smash/assets/pack.ron` ships a pack of exactly this shape.
+#[test]
+fn a_candidate_that_drops_the_moveset_family_names_everyone_it_drops() {
+    let base = pack_of(&doc_text(0.2)).expect("the probe pack compiles");
+    let named: Vec<String> = ambition_characters::moveset_content_schema::lowered_movesets(&base)
+        .expect("the probe pack authors a moveset section")
+        .keys()
+        .cloned()
+        .collect();
+    // ⛔ THE PREMISE: the base must author somebody, or "every character it drops"
+    // is the empty list and the arm is satisfied by a predicate that never fires.
+    assert!(!named.is_empty(), "the probe pack authors nobody");
+
+    let candidate = pack_with_no_moveset_section();
+    assert!(
+        ambition_characters::moveset_content_schema::lowered_movesets(&candidate).is_none(),
+        "the fixture still carries a moveset section, so it is not the \
+         removed-family transition"
+    );
+
+    assert_eq!(
+        crate::reload::dropped_moveset_entities(&base, &candidate),
+        named,
+        "a candidate that drops the whole family reported a different set than \
+         the characters the base was playing"
+    );
+
+    // ⭐ AND THE MIRROR: a base that authored NONE loses nothing, so a first
+    // publication of the family is not a removal.
+    assert!(
+        crate::reload::dropped_moveset_entities(&candidate, &base).is_empty(),
+        "publishing the family for the first time was reported as dropping it"
+    );
+}
+
+/// ⭐ THE CONTROL, AND WITHOUT IT THE RULE ABOVE IS SATISFIED BY REFUSING EVERY
+/// MOVESET EDIT. A candidate that RETIMES a move while naming every character
+/// the live cast plays is the ordinary reload, and it must still be requested.
+#[test]
+fn a_candidate_that_renames_nobody_is_still_requested() {
+    let mut app = host_with_the_shipped_cast();
+    shell_active_on(&mut app, true);
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_every_move_retimed());
+    let before =
+        ambition_characters::moveset_content_schema::lowered_movesets(&live).expect("a section");
+    let after = ambition_characters::moveset_content_schema::lowered_movesets(&candidate)
+        .expect("a section");
+    // ⛔ THE PREMISE: same names, different content. A control that changed the
+    // names would pass the containment test for the wrong reason.
+    assert_eq!(
+        before.keys().collect::<Vec<_>>(),
+        after.keys().collect::<Vec<_>>(),
+        "the control changed WHICH characters are authored"
+    );
+    assert_ne!(
+        live.fingerprint, candidate.fingerprint,
+        "the control did not actually change the pack"
+    );
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "an ordinary retime was refused: {outcome:?}"
     );
 }
 

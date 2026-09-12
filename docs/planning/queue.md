@@ -38,6 +38,17 @@ fails DETERMINISTICALLY (identical numbers on consecutive runs):
 *"seat 0 took 45% of its pool per minute of duel … the CPUs are not fighting"*
 (`smash_cpus_damage_each_other.rs:736`).
 
+⛔⛤ **AND IT IS TWO TESTS IN TWO CRATES, NOT ONE — the second found by a
+workspace sweep the post-merge run did not cover.**
+`ambition_demo_smash_app --test smash_it ::
+the_repertoire_gets_used::every_authored_route_gets_pressed`: *"seat 1 carries 1
+authored route(s) home … spent 231 ticks off the stage, and pressed none across
+3600 ticks — the shape of a CPU that recovers on legacy drift-and-jump while
+holding a real recovery."* Same probe, same answer: 1.0 passes, 1.5 fails.
+⇒ **A bigger launch sends fighters further offstage, and BOTH victims are
+about what the CPUs do with the distance** — one measures duel density, the
+other whether a recovery route is ever pressed.
+
 ⇒ **CAUSE MEASURED BY PROBE, NOT REASONED FROM THE MECHANISM.**
 `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` 1.5 → 1.0, rebuild, rerun → **passes**;
 restored to 1.5 (md5-verified) → **fails**. The constant arrived with

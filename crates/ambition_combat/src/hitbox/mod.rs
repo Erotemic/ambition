@@ -972,14 +972,25 @@ pub fn apply_hitbox_damage(
                 // substantially the whole launch, a fully stale move at the
                 // authored floor of 0.55 threw away nearly half of everything.
                 //
-                // ⭐ MEASURED, before this split: a fully stale jab on a 700%
-                // George Booul, thrown from stage centre by a FRESH attacker (so
-                // rage is exactly 1.0 and the percent curve is carrying the
-                // knockout alone), peaked at 569.5px/s and carried the victim
-                // 152px of the 720px the stage's own side blast line requires.
-                // Every fighter alive, no stock ever spent, and the match cannot
-                // finish — see `ring_out` in `smash_in_the_host`, which is that
-                // reading as a regression test.
+                // ⭐ MEASURED with this split in place but the percent curve
+                // left unrepaired (`victim_percent_knockback_scale` at 1.0): a
+                // fully stale jab on a 700% George Booul, thrown from stage
+                // centre by an attacker whose rage meter is PINNED to zero,
+                // resolves to 520.9px/s and carries the victim 246.4px. THE
+                // STOCK DOES NOT END. Every fighter alive, no stock ever spent,
+                // and the match cannot finish — see `ring_out` in
+                // `smash_in_the_host`, which is that reading as a regression
+                // test. That is why the split alone is not the whole repair.
+                //
+                // ⛔ THE LAUNCH IS READ OFF THE EMITTED `HitEvent`, AND THE
+                // WITNESS IS `left_the_world`. An earlier note here cited
+                // "peaked at 569.5px/s, 152px of the 720px the side blast line
+                // requires", and BOTH of those metrics were refuted: peak body
+                // speed maxes over the whole post-hit window with gravity
+                // included, so a jab that resolves to exactly 50.0px/s read as
+                // 446.4 — and a stock can END with the side line never crossed,
+                // which it does at the declared scale. Do not reintroduce
+                // either as a knockback witness.
                 //
                 // ⇒ So staling reaches the launch through the PERCENT TERM at a
                 // declared influence, and rage keeps multiplying the whole thing

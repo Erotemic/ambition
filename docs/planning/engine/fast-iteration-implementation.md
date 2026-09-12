@@ -264,10 +264,37 @@ re-preparing a LIVE world is a route-level operation, which is exactly I3 step
 lifecycle, and the old generation stays authoritative until the activation
 publishes the new one.
 
-⚠ **WHAT IS NOT YET MEASURED:** whether a route can be requested TO ITSELF, and
-what the shell does with a pending route whose predecessor is the same route.
-That is the next question, and it decides whether the bounded A10 proof is
-"re-request the current route" or "a new route kind". Do not design past it.
+✅ **A ROUTE CAN BE REQUESTED TO ITSELF WHILE ACTIVE — MEASURED, `f470b18c3`.**
+`start_route` has no same-route guard: the request mints a fresh `LoadId` and the
+preparation lifecycle runs again, with the old generation authoritative until the
+new one activates. ⇒ **The bounded A10 proof is "re-request the current route",
+not a new route kind.** `ambition_content::reload::request_reload` issues it
+(`e627a4399`), as `ReplaceWith` rather than `GoTo` so a reload does not push
+history.
+
+⛔⛔ **BUT RE-PREPARING IS NOT SUFFICIENT, AND THIS IS THE TRAP IN THE OBVIOUS
+READING.** MEASURED 2026-09-11: `register_declared_cast` and
+`character_catalog::register` run in `AmbitionContentPlugin::build` — ONCE, at App
+construction. A session re-preparation reads registries that were built then, so
+it moves the `ContentEpoch`, the content fingerprint and the rollback contract
+**and does not change a single move table the live cast plays.**
+
+⇒ **THE COMPLETE TRANSACTION IS BOTH ROADS, PUBLISHED AT ONE BOUNDARY:**
+
+| what | which road | what it moves |
+| --- | --- | --- |
+| the engine's generation | `PreparationRequested` → `prepare_platformer_content` | `ContentEpoch`, content fingerprint, rollback contract |
+| the live cast's moves | `stage_move_section` → `activate_staged_revision` | `CharacterCatalogGeneration`, what bodies play |
+
+They are different mechanisms **by necessity** — you cannot re-run `Plugin::build`
+— so "route the reload through the existing preparation" is necessary and NOT
+sufficient. Anything that does only the first publishes a new generation of the
+same moves; anything that does only the second (today's
+`publish_candidate`) changes the moves under an unchanged engine generation.
+
+**⇒ WHAT CLOSES I3:** make the activation boundary apply the staged cast revision,
+so the two move together or not at all. That is the remaining P0, and it is where
+A10's Prepare/Admit/Draft/Verify/Publish/Retire stages earn their keep.
 
 **Acceptance:** valid generation N+1 becomes visible at one boundary; no system
 observes N's definitions with N+1's code/schema. Invalid N+1 leaves N's digest,

@@ -2332,3 +2332,161 @@ fn a_pre_existing_presentation_only_entity_is_not_a_lost_baseline_identity() {
         "nothing changed, so nothing should be reported"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A10: the stronger last-good-world guarantee.
+//
+// A candidate is built BESIDE the running world and published only on success.
+// The property under test is VISIBILITY, and its failure mode is silent in the
+// dangerous direction: an isolation that does not isolate looks exactly like one
+// that does, until a candidate participates in a match.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Build every row of `plan` as an inactive candidate in a world that has the
+/// filter installed.
+fn candidate_world(plan: &ConstructionPlan<Toy>) -> (World, ConstructionReceipt) {
+    let services = Services::default();
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let receipt = plan
+        .commit_inactive(
+            &mut world,
+            crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            &services,
+        )
+        .expect("the filter is installed, so the commit is not refused");
+    (world, receipt)
+}
+
+/// How many `Built` bodies an ORDINARY query can see — the reading every
+/// gameplay system in the engine gets.
+fn ordinary_visible(world: &mut World) -> usize {
+    world.query::<&Built>().iter(world).count()
+}
+
+/// **A COMMITTED CANDIDATE IS INVISIBLE TO ORDINARY QUERIES, AND STILL EXISTS.**
+///
+/// ⛔ BOTH HALVES, because either alone is satisfied by a bug. "Invisible" alone
+/// is satisfied by never having built anything; "exists" alone is satisfied by an
+/// isolation that does nothing.
+#[test]
+fn an_inactive_candidate_is_built_and_unseen() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let (mut world, receipt) = candidate_world(&plan);
+
+    assert_eq!(receipt.len(), 2, "both rows were constructed");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        0,
+        "an ordinary query saw a candidate — the running world is not isolated \
+         from a scene that has not been published"
+    );
+    // ...and they are really there, reachable by a query that NAMES the filter.
+    let present = world
+        .query_filtered::<&Built, bevy::ecs::query::Allow<super::InactiveCandidate>>()
+        .iter(&world)
+        .count();
+    assert_eq!(present, 2, "the candidate must EXIST while unseen");
+}
+
+/// **PUBLICATION IS THE ONE BOUNDARY, AND IT IS A REMOVAL.**
+#[test]
+fn publishing_a_candidate_makes_exactly_its_own_roots_visible() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let (mut world, receipt) = candidate_world(&plan);
+    let transaction = plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+
+    assert_eq!(ordinary_visible(&mut world), 0);
+    let published = super::publish_candidate(&mut world, &transaction);
+    assert_eq!(
+        published,
+        receipt.len(),
+        "publication must admit the whole transaction it built, not a subset"
+    );
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "after publication the scene is ordinary — nothing else had to change"
+    );
+}
+
+/// **A REFUSED CANDIDATE LEAVES THE LIVE WORLD EXACTLY AS IT WAS.**
+///
+/// ⭐ THIS IS THE WHOLE POINT OF THE STRONGER GUARANTEE, so the live world here
+/// is NONEMPTY and published first: retiring a candidate beside it must not
+/// disturb it. A test whose "live world" was empty could not tell "retired the
+/// candidate" from "retired everything".
+#[test]
+fn retiring_a_candidate_does_not_disturb_the_published_world() {
+    let registry = registry();
+    let live_plan = feuding_pair(&registry);
+    let (mut world, _) = candidate_world(&live_plan);
+    let live_transaction = live_plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+    super::publish_candidate(&mut world, &live_transaction);
+    assert_eq!(ordinary_visible(&mut world), 2, "the live world is nonempty");
+
+    // A second generation, built beside it in its own lane.
+    let candidate_plan = ConstructionPlan::prepare_in_lane(
+        scope(),
+        ConstructionLane::named("candidate"),
+        vec![request("ghost_a"), request("ghost_b")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the candidate plan prepares");
+    let services = Services::default();
+    let candidate_receipt = candidate_plan
+        .commit_inactive(
+            &mut world,
+            crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            &services,
+        )
+        .expect("filter installed");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "building a candidate must not change what the live world shows"
+    );
+
+    let candidate_transaction =
+        candidate_plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+    let retired = super::retire_candidate(&mut world, &candidate_transaction);
+    assert_eq!(retired, candidate_receipt.len(), "the candidate was retired whole");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "retiring a candidate took the LIVE world with it"
+    );
+}
+
+/// **AN UNREGISTERED FILTER REFUSES THE COMMIT RATHER THAN BUILDING A LIVE
+/// "CANDIDATE".**
+///
+/// ⛔⛤ THE FAILURE DIRECTION IS THE ENTIRE REASON THIS ARM EXISTS. Without the
+/// registration `InactiveCandidate` is an ordinary inert component: every root
+/// would be stamped and every root would be VISIBLE, so the isolation would
+/// silently do nothing and a candidate would participate in the running world.
+/// Refusing is loud; the alternative cannot be seen.
+#[test]
+fn an_inactive_commit_is_refused_when_the_filter_was_never_installed() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let services = Services::default();
+    let mut world = World::new();
+    // deliberately NOT registering the disabling component
+
+    let refused = plan.commit_inactive(
+        &mut world,
+        crate::lifecycle::SessionSpawnScope::UNSCOPED,
+        &services,
+    );
+    assert_eq!(refused, Err(super::InactiveCommitRefused::FilterNotInstalled));
+    assert_eq!(
+        ordinary_visible(&mut world),
+        0,
+        "a refused inactive commit must build NOTHING — a refusal that still \
+         spawned the roster would be the live-candidate defect wearing an error"
+    );
+}

@@ -865,6 +865,57 @@ the validation between construction and publication, and make retirement of the
 old world explicit. **The visibility proof the packet demands is enumerable now
 rather than open-ended.**
 
+### ✅ STEP 2 LANDED: THE CANDIDATE LIFECYCLE EXISTS, 2026-09-12
+
+`ambition_platformer2d_shared_tangle::construction` now carries the three
+operations the ruling names, and the guarantee is structural rather than
+procedural:
+
+```text
+last-good world N
+    ├── commit_inactive   → candidate N+1 exists, unseen by every ordinary query
+    ├── validate          → refuse → retire_candidate, and N never knew
+    └── publish_candidate → N+1 visible; retiring N is then a separate, explicit act
+```
+
+* **`InactiveCandidate`** — registered through `register_inactive_candidate_filter`
+  as a bevy DISABLING component, so `DefaultQueryFilters` hides it from every
+  query that does not NAME it. The candidate keeps its `SimId`, provenance,
+  `TransactionId` and relations while invisible, **which is what makes
+  publication a component REMOVAL rather than a transfer** — nothing is copied,
+  moved or re-identified at the boundary, so it cannot half-happen.
+* **`ConstructionPlan::commit_inactive`** — REFUSES with
+  `InactiveCommitRefused::FilterNotInstalled` when the filter was never
+  registered. ⛔ That direction is the point: an unregistered `InactiveCandidate`
+  is an ordinary inert component, so every root would be stamped and every root
+  would be LIVE — the isolation silently doing nothing is the one failure nobody
+  would see.
+* **`publish_candidate` / `retire_candidate`** — both keyed on `TransactionId`,
+  both returning how many roots they touched so a caller can assert it moved the
+  transaction it built rather than an empty set.
+
+⭐ **ONE EXECUTOR STILL, AND RECIPES CANNOT TELL.** The roots are stamped AFTER
+the rows are built, so a recipe runs against the context it always did. There is
+no candidate-aware fork of nine recipes.
+
+⚠ **GUARDS AND WHAT THEIR POISONS PROVED.** Four arms — built-and-unseen (both
+halves: invisible AND present), publication admits the whole transaction,
+retirement leaves a NONEMPTY published world untouched, and the unregistered-filter
+refusal building nothing. ⛔⛤ **AND ONE POISON PASSED, WHICH CORRECTED A CLAIM
+RATHER THAN THE CODE:** I wrote `Allow<InactiveCandidate>` beside the `With` and
+called it load-bearing; removing it left all four green. `DefaultQueryFilters`
+excludes a disabling component only from queries that do not MENTION it, and
+`With` mentions it — so `Allow` was redundant. The real hazard is one step over
+and is poison-confirmed: a query that does not name the component at all returns
+ZERO roots, and `publish_candidate` then reports success having admitted nothing.
+
+⇒ **WHAT REMAINS OF A10:** wire this to a real reload customer (I3b's scene
+reconstruction), decide where validation sits between construction and
+publication, and make retirement of the OLD world explicit rather than implied.
+`AuthoritativeScope::gather` uses an ordinary query and therefore does NOT see
+candidates — correct today, since a candidate is not authoritative, and the first
+thing to revisit when candidate verification needs it.
+
 ## A11. Make installed technique support a preparation contract
 
 **Ready:** A11a support/handler and preparation tests, independent of A1-A10.

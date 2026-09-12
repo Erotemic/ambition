@@ -410,6 +410,57 @@ impl Default for ConstructionLane {
     }
 }
 
+/// A root that has been CONSTRUCTED but not PUBLISHED: it exists, it is wired,
+/// and **no ordinary query can see it.**
+///
+/// ⭐⭐ **THIS IS A10's LAST-GOOD-WORLD GUARANTEE IN ONE COMPONENT, AND IT IS NOT
+/// A MARKER.** A10's own text warns that *"a `Pending` marker does not isolate a
+/// candidate from queries, observers or hooks"* — true, and the reason is that a
+/// marker asks every reader to remember it. This is registered with
+/// [`register_inactive_candidate_filter`] as a bevy DISABLING component, so
+/// `DefaultQueryFilters` excludes it from **every query that does not name it**.
+/// The isolation is the engine's, not a convention.
+///
+/// ⛔ WHAT IT DOES NOT DO, stated so nobody assumes the rest: it does not stop
+/// component HOOKS or lifecycle OBSERVERS from firing as the candidate is built.
+/// Measured 2026-09-12: this workspace declares ZERO component hooks and THREE
+/// lifecycle observers, exactly one of which is an `Add` (a touch surface, not on
+/// the construction road). So the residual surface is enumerable and currently
+/// empty for construction — but it is a POPULATION FACT, not a boundary, and it
+/// is the thing to re-measure before trusting this in a new domain.
+///
+/// ⇒ The candidate keeps its `SimId`, its `SpawnOrigin`, its [`TransactionId`]
+/// and its relationships while invisible, which is what makes publication a
+/// component REMOVAL rather than a transfer.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct InactiveCandidate;
+
+/// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
+/// queries.
+///
+/// ⛔⛔ **WITHOUT THIS CALL THE COMPONENT IS INERT AND EVERY CANDIDATE IS LIVE.**
+/// That is the dangerous failure direction — the isolation silently does
+/// nothing and the candidate participates in the running world — so
+/// [`ConstructionPlan::commit_inactive`] REFUSES rather than committing when the
+/// filter is not installed. A composition that builds candidates calls this
+/// once, at build.
+pub fn register_inactive_candidate_filter(world: &mut World) {
+    world.register_disabling_component::<InactiveCandidate>();
+}
+
+/// Is the disabling filter installed in this world?
+///
+/// Asked by `commit_inactive` before it stamps anything, because a candidate
+/// that is not actually hidden is worse than no candidate at all.
+pub fn inactive_candidate_filter_installed(world: &mut World) -> bool {
+    let Some(id) = world.components().component_id::<InactiveCandidate>() else {
+        return false;
+    };
+    world
+        .get_resource::<bevy::ecs::entity_disabling::DefaultQueryFilters>()
+        .is_some_and(|filters| filters.disabling_ids().any(|disabling| disabling == id))
+}
+
 /// Which construction transaction owns an authoritative root.
 ///
 /// Stamped by the executor, on every root it allocates. This is what lets
@@ -1026,6 +1077,61 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                  so it cannot be refused: {error}"
             )
         })
+    }
+
+    /// Commit every row as an INACTIVE CANDIDATE: constructed, wired, and
+    /// invisible to ordinary queries until [`publish_candidate`] admits it.
+    ///
+    /// ⭐⭐ **THIS IS THE STRONGER LAST-GOOD-WORLD GUARANTEE (`Q113`, ruled
+    /// 2026-09-12).** The running world is not disturbed to make room for a
+    /// candidate: the candidate is built beside it and only becomes visible when
+    /// construction has already SUCCEEDED. A candidate that turns out invalid is
+    /// retired with [`retire_candidate`] and the live world never knew about it.
+    ///
+    /// ```text
+    /// last-good world N
+    ///     ├── commit_inactive  → candidate N+1 exists, unseen
+    ///     ├── validate         → refuse → retire_candidate, N untouched
+    ///     └── publish_candidate → N+1 visible, then retire N
+    /// ```
+    ///
+    /// ⛔ **IT REFUSES RATHER THAN COMMITTING WHEN THE FILTER IS NOT INSTALLED**,
+    /// and that direction is deliberate. An unregistered [`InactiveCandidate`] is
+    /// an ordinary inert component: every root would be stamped and every root
+    /// would be LIVE, so the failure would be a candidate silently participating
+    /// in the running world — the exact outcome this method exists to prevent.
+    /// A refusal is loud and costs nothing; the alternative is invisible.
+    ///
+    /// ⚠ THE ROOTS ARE STAMPED AFTER THE ROWS ARE BUILT, not during. A recipe
+    /// runs against the same context it always does and cannot tell whether it
+    /// is building a candidate — which is what keeps ONE executor rather than a
+    /// candidate-aware fork of every recipe.
+    pub fn commit_inactive(
+        &self,
+        world: &mut World,
+        session: crate::lifecycle::SessionSpawnScope,
+        services: &D::Services,
+    ) -> Result<ConstructionReceipt, InactiveCommitRefused> {
+        if !inactive_candidate_filter_installed(world) {
+            return Err(InactiveCommitRefused::FilterNotInstalled);
+        }
+        let receipt = {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let mut commands = Commands::new(&mut queue, world);
+            let mut ctx = ConstructionExecCtx {
+                commands: &mut commands,
+                scope: &self.scope,
+                session,
+                services,
+            };
+            let receipt = self.commit(&mut ctx);
+            queue.apply(world);
+            receipt
+        };
+        for entity in receipt.committed.values() {
+            world.entity_mut(*entity).insert(InactiveCandidate);
+        }
+        Ok(receipt)
     }
 
     /// Construct the named rows, and wire exactly the relations that lie wholly
@@ -1863,6 +1969,75 @@ pub struct ScopeMember {
 pub struct AuthoritativeScope {
     transaction: TransactionId,
     members: Vec<ScopeMember>,
+}
+
+/// Why an inactive commit was refused before it built anything.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InactiveCommitRefused {
+    /// [`register_inactive_candidate_filter`] was never called in this world, so
+    /// [`InactiveCandidate`] would not hide anything and every "candidate" root
+    /// would be live. Refused rather than committed — see
+    /// [`ConstructionPlan::commit_inactive`].
+    FilterNotInstalled,
+}
+
+/// Admit a candidate into the running world: the ONE publication boundary.
+///
+/// ⭐ PUBLICATION IS A COMPONENT REMOVAL, WHICH IS WHY IT CANNOT HALF-HAPPEN.
+/// The candidate already holds its `SimId`, its provenance, its
+/// [`TransactionId`] and every relation it was built with — nothing is copied,
+/// moved or re-identified here. What changes is whether ordinary queries can see
+/// it, and that flips for the whole transaction in one pass.
+///
+/// Returns how many roots were admitted, so a caller can assert it published the
+/// transaction it built rather than an empty set.
+pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usize {
+    let roots = candidate_roots(world, transaction);
+    for entity in &roots {
+        world.entity_mut(*entity).remove::<InactiveCandidate>();
+    }
+    roots.len()
+}
+
+/// Discard a candidate without disturbing the live world.
+///
+/// ⛔ THE REFUSAL PATH, AND IT IS WHY THE GUARANTEE IS "LAST-GOOD" RATHER THAN
+/// "FAIL-CLOSED". Nothing was retired to make room for this candidate, so
+/// dropping it needs no recovery and makes no claim about the running world —
+/// which is the whole difference from destroying N and then discovering N+1 is
+/// invalid.
+pub fn retire_candidate(world: &mut World, transaction: &TransactionId) -> usize {
+    let roots = candidate_roots(world, transaction);
+    for entity in &roots {
+        world.entity_mut(*entity).despawn();
+    }
+    roots.len()
+}
+
+/// Every still-inactive root belonging to `transaction`.
+///
+/// ⛔ **`With<InactiveCandidate>` IS WHAT LETS THIS SEE THEM AT ALL**, and it is
+/// doing two jobs: selecting the candidates, and OPTING THIS QUERY OUT of the
+/// default filter that hides them. `DefaultQueryFilters` excludes a disabling
+/// component only from queries that do not MENTION it, and `With` mentions it.
+///
+/// ⚠ **I FIRST WROTE `Allow<InactiveCandidate>` BESIDE THE `With` AND CALLED IT
+/// LOAD-BEARING. IT WAS REDUNDANT, AND THE POISON IS HOW I KNOW** — removing it
+/// left all four guards green, which is a finding about the CLAIM rather than
+/// about the code. `Allow` is for a query that wants entities with AND without
+/// the component; this one wants only the candidates. ⇒ A reader changing
+/// `With` to anything that does not name `InactiveCandidate` silently gets zero
+/// roots, `publish_candidate` reports zero, and the candidate stays invisible
+/// forever while every call looks like it succeeded — that hazard is real, and
+/// it lives on the `With`, not on an extra filter beside it.
+fn candidate_roots(world: &mut World, transaction: &TransactionId) -> Vec<Entity> {
+    let mut query =
+        world.query_filtered::<(Entity, &TransactionId), bevy::prelude::With<InactiveCandidate>>();
+    query
+        .iter(world)
+        .filter(|(_, owner)| *owner == transaction)
+        .map(|(entity, _)| entity)
+        .collect()
 }
 
 impl AuthoritativeScope {

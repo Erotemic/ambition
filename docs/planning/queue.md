@@ -2437,7 +2437,11 @@ AUTHORED GEOMETRY.** MEASURED 2026-09-12 against a recording: `medic_jab` author
 frames; `medic_tilt_forward` authors `Active 0.07–0.14` (4.2 f) and is live for 4.
 ⇒ So every clock census on this page stands even for the ten fighters whose
 EXTENTS are overridden by a sprite spec (see the bone-derived rows below). The
-sprite's `hitbox.active` names frames too, and it does not win. **Timing is
+sprite spec's `hitbox` block carries an `active` frame list too, and it does not
+win. ⚠ Written that way deliberately: a dotted id in backticks is read as a
+published CONDITION by
+`no_planning_doc_names_a_condition_the_engine_does_not_publish`, and I tripped
+that guard writing this very sentence. **Timing is
 authored in the move table; geometry, for those ten, is not.**
 
 ⚠ **AND "THE OTHER TWENTY USE ONE COARSE WINDOW" IS NEARLY RIGHT:** 18 moves
@@ -3913,6 +3917,31 @@ has already recorded *"a flake with no message is a"* dead end.
 
 ⛔ NOT FIXED. The production ordering/state source is not isolated, and per this
 row's own acceptance that is the work — not an ignore and not a retry.
+
+⛔ **AND THE COMPILE-COST RATCHET IS RED ON THE DEFAULT LANE, PRE-EXISTING,
+MEASURED 2026-09-12.** `largest_unit_lines 106,710 ambition_platformer2d_actor_monolith
+[frozen 100,742, +5,968, budget ±2,014 OUTSIDE budget]`. The baseline is frozen at
+`b3bd00a4a` (2026-09-05) with 2% headroom, and the growth is a week of work by
+several hands. ⇒ A full-lane run comes back 11/13 with this and nothing else; do
+NOT read it as a regression in whatever you just changed, and do NOT re-freeze the
+baseline to make it green — a ratchet you re-freeze on contact is a number, not a
+guard.
+
+⚠ **AND THE BASELINE REPORTS DISAGREEING WITH ITSELF, THREE TIMES**, which is a
+finding about the instrument rather than the tree: *"worst_edit_cost holds 540,227
+lines for `ambition_geometry`, its own `crates` table says 592,091 … +51,864 of
+that gap predates this baseline"*, and the same for
+`ambition_platformer2d_actor_monolith` (+9,114) and `ambition_platformer2d_core`
+(+51,385). Findings are compared against the STORED value, so part of every
+overage above is baked into the frozen file. Worth resolving before anyone sizes
+work from these numbers.
+
+⭐ **WHY THIS ROW EXISTS AT ALL: `--rust` DOES NOT RUN EITHER JOB.** It runs 6 of
+the default lane's 13 and KEEPS both heavyweights; what it drops is COVERAGE — the
+no-warnings check, clippy, doc links, planning citations and this ratchet. A lane
+named for the language reads as the narrow one and is not. ⇒ Going faster means
+going NARROWER (`--only-job`, `-p <crate>`), not sideways to another lane.
+(NamekAmbition, 2026-09-12.)
 
 **The first half landed 2026-09-09, from a run that produced the defect.** A
 `--rust` lane reported `5/6 jobs passed` with `workspace doctests` FAILED, and

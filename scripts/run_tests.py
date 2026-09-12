@@ -21,7 +21,10 @@ Useful forms::
 Every run writes `target/run_tests_status.json` (or `--status-json PATH`) with a
 state of `running`, `done`, `aborted` (stopped early on the disk floor),
 `incomplete` (a lane could not run at all) or `crashed`, plus its pid and final
-tally. ⛔ ONLY `done` MEANS THE PLAN RAN: the other terminal states also carry
+tally. A FAILED job's row also carries `failure_evidence`: the panic locations
+and their messages, assertion text and failure roster that identify what broke
+— see [`FailureEvidence`], which exists so a rare failure records itself rather
+than depending on somebody having watched the run. ⛔ ONLY `done` MEANS THE PLAN RAN: the other terminal states also carry
 `exit_code`, `aborted` names the job it refused to start in `aborted_on_disk`
 with a `never_ran` count, and `incomplete` names each blocked lane and its
 remedy in `unrunnable`. External
@@ -290,6 +293,11 @@ class JobResult:
     #: rather than having run and failed. See [`UNRUNNABLE_SIGNATURES`]: it is
     #: still not a pass, but it is not evidence about the code either.
     unrunnable: str | None = None
+    #: The lines that IDENTIFY this job's failure — panic locations and their
+    #: messages, assertion text, the `failures:` roster. Empty for a job that
+    #: passed. See [`FailureEvidence`]: this exists so a rare failure records
+    #: itself instead of depending on somebody having watched the run.
+    failure_evidence: list[str] = field(default_factory=list)
 
 
 def wall_time_split(results: list[JobResult]) -> dict:
@@ -1147,7 +1155,73 @@ def unrunnable_reason(output: str) -> str | None:
     return None
 
 
-def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | None]:
+class FailureEvidence:
+    """The lines that IDENTIFY a failure, collected as a job streams.
+
+    ⛔⛤ **THIS EXISTS BECAUSE THE P0 FLAKY-`workspace` ROW KEPT LOSING THE ONE
+    LINE THAT WOULD HAVE DIAGNOSED ITS FAILURES.** That row records three test
+    NAMES and, for one of them, no message at all — and that victim
+    (`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`)
+    contains no assertion, so it can only fail by PANICKING and **the panic text
+    is the entire diagnosis.** The row's standing instruction was *"read every
+    future gate failure and record its message"*, which is a human remembering
+    to do something once in N runs.
+
+    ⇒ **MADE STRUCTURAL INSTEAD OF INSTRUCTED.** The runner already held the last
+    200 lines of every job to classify *unrunnable* and then threw them away;
+    this keeps the evidence and puts it in the status file, so a failure records
+    itself whether or not anybody was watching.
+
+    ⚠ **IT COLLECTS AS THE JOB STREAMS, NOT FROM THE TAIL.** A panic is printed
+    where it happens, which for a long suite is thousands of lines before the
+    end — a tail-only scan sees the summary and misses the cause. Bounded, so a
+    job that fails ten thousand times still costs a fixed amount.
+    """
+
+    #: A panic's message is on the line AFTER its location, so the location line
+    #: arms a one-line carry rather than being reported alone.
+    PANIC = re.compile(r"panicked at ")
+    #: ⛔⛤ **BOTH RUNNERS, AND THE FIRST VERSION OF THIS ONLY KNEW ONE.** The
+    #: patterns were written from libtest output and the collector recorded
+    #: NOTHING for a failing pytest job — caught by running the runner against a
+    #: deliberately failing test and reading the status file, not by the unit
+    #: tests, which passed throughout. Roughly half this gate's jobs are Python.
+    #: ⇒ `E   AssertionError: ...` and `FAILED path::test - ...` are pytest's
+    #: equivalents of libtest's assertion line and `failures:` roster.
+    OTHER = re.compile(
+        r"^\s*(?:assertion|Error:|error\[|error:)"
+        r"|^failures:"
+        r"|^test result: FAILED"
+        r"|^E\s{2,}\S"
+        r"|^(?:FAILED|ERROR)\s+\S"
+    )
+
+    def __init__(self, limit: int = 60) -> None:
+        self._lines: collections.deque[str] = collections.deque(maxlen=limit)
+        self._carry = 0
+
+    def feed(self, line: str) -> None:
+        text = line.rstrip("\n")
+        if not text.strip():
+            self._carry = 0
+            return
+        if self.PANIC.search(text):
+            self._lines.append(text)
+            # The message follows the location; take it too.
+            self._carry = 1
+            return
+        if self._carry:
+            self._lines.append(text)
+            self._carry -= 1
+            return
+        if self.OTHER.search(text):
+            self._lines.append(text)
+
+    def lines(self) -> list[str]:
+        return list(self._lines)
+
+
+def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | None, list[str]]:
     """Run one job, echoing its output live, and total libtest's own runtime.
 
     The third element is a PRECONDITION remedy when the job could not run at all
@@ -1168,6 +1242,11 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
     # A bounded ring of the most recent lines, so the signature scan costs a
     # fixed amount however long the job talks for.
     tail: collections.deque[str] = collections.deque(maxlen=200)
+    # ⭐ SEPARATE FROM `tail`, and see `FailureEvidence` for why: the tail answers
+    # "could this job run at all", which is a question about the END of the
+    # output; the evidence answers "what failed", which is printed where it
+    # happened.
+    evidence = FailureEvidence()
     # ⭐ EVERY CHILD LEARNS IT IS INSIDE A RUN. A `run_tests.py` started by a job
     # reads this and writes its status somewhere private instead of over ours.
     env = {**env, NESTED_ENV: str(os.getpid())}
@@ -1183,12 +1262,18 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
     for line in proc.stdout:
         sys.stdout.write(line)
         tail.append(line)
+        evidence.feed(line)
         match = LIBTEST_DURATION.search(line) or NEXTEST_DURATION.search(line)
         if match:
             executed = (executed or 0.0) + float(match.group(1))
     sys.stdout.flush()
     code = proc.wait()
-    return code, executed, (unrunnable_reason("".join(tail)) if code != 0 else None)
+    return (
+        code,
+        executed,
+        (unrunnable_reason("".join(tail)) if code != 0 else None),
+        evidence.lines() if code != 0 else [],
+    )
 
 
 def completed_rows(results: list[JobResult]) -> list[dict]:
@@ -1200,7 +1285,12 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
          ),
          # Present only when the job could not run; absent is the ordinary case
          # and keeps the row the same shape every reader already parses.
-         **({"unrunnable": r.unrunnable} if r.unrunnable else {})}
+         **({"unrunnable": r.unrunnable} if r.unrunnable else {}),
+         # ⭐ Present only on a FAILED job, for the same reason: the row keeps
+         # the shape every existing reader parses, and gains the one thing the
+         # P0 flaky-`workspace` row has spent weeks not having — see
+         # `FailureEvidence`.
+         **({"failure_evidence": r.failure_evidence} if r.failure_evidence else {})}
         for r in results
     ]
 
@@ -1798,10 +1888,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                                   "current_job": j.name,
                                   "current_started": time.time(),
                                   "completed": completed_rows(results)})
-            rc, executed, blocked = run_job_streaming(j, env)
+            rc, executed, blocked, evidence = run_job_streaming(j, env)
             results.append(
                 JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,
-                          executed, blocked))
+                          executed, blocked, evidence))
             if blocked:
                 print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
             elif rc != 0:

@@ -50,6 +50,16 @@ fn doc_text(recover_s: f32) -> String {
 /// compiled perfectly. A fixture edit that lands in two places is the same
 /// family as a poison that does not apply.
 fn doc_text_bound_to(recover_s: f32, verb_target: &str) -> String {
+    doc_text_naming(recover_s, verb_target, None)
+}
+
+/// The same document whose strike lands `on_hit` technique `technique`.
+///
+/// ⛔⛤ **A PARAMETER, BECAUSE THE TEXT SUBSTITUTION I TRIED FIRST DID NOT
+/// MATCH.** `to_ron` pretty-prints `on_hit: None` with a space and I wrote
+/// `on_hit:None`, so the edit applied to nothing. The premise assert caught it —
+/// which is the whole reason a fixture edit gets one.
+fn doc_text_naming(recover_s: f32, verb_target: &str, technique: Option<&str>) -> String {
     let mut verbs = std::collections::BTreeMap::new();
     verbs.insert("attack".to_string(), verb_target.to_string());
     EntityCatalogDoc {
@@ -74,7 +84,7 @@ fn doc_text_bound_to(recover_s: f32, verb_target: &str) -> String {
                         knockback: 40.0,
                         knockback_growth: 0.5,
                         launch_dir: None,
-                        on_hit: None,
+                        on_hit: technique.map(ambition_entity_catalog::EffectRef::new),
                     })],
                 }),
             },
@@ -1264,4 +1274,89 @@ fn a_stood_down_timeline_does_not_refuse() {
         "a stood-down timeline refused a publication: {outcome:?}"
     );
     assert_ne!(live_duration(&app), before);
+}
+
+/// ⛔⛔ **A CANDIDATE THAT COMPILES AND THEN FAILS ADMISSION CHANGES NOTHING** —
+/// the architecture review's "Admission refusal" acceptance, and the half that a
+/// compile-time refusal cannot stand in for.
+///
+/// ⚠ THE TWO REFUSALS ARE DIFFERENT LAYERS AND ONLY ONE OF THEM IS THIS ONE.
+/// `a_refused_pack_never_reaches_the_cast` refuses at COMPILE: the document is
+/// structurally wrong and no world is involved. This one is a mechanically VALID
+/// candidate whose authored effect names a technique this composition did not
+/// install — the question only a host can answer — and it must leave the
+/// selection, the engine's content identity, the cast generation and what the
+/// cast plays all exactly as they were.
+#[test]
+fn a_candidate_refused_at_admission_leaves_every_published_fact_alone() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    let selection = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    let identity = app
+        .world()
+        .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+        .clone();
+    let generation = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+    let timing = live_duration(&app);
+
+    // A move naming a technique this fixture installed nothing for. It compiles:
+    // the content compiler does not know what a host installed, and deliberately
+    // does not try to.
+    let named = doc_text_naming(0.35, "swat", Some("nothing.installed"));
+    assert!(
+        named.contains("nothing.installed"),
+        "the fixture does not name the uninstalled technique, so the arm below \
+         would be about an ordinary edit"
+    );
+    let pack = pack_of(&named).expect("a candidate naming an uninstalled technique still COMPILES");
+    let outcome = publish_candidate(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::new(pack),
+            None,
+        ),
+        None,
+    );
+    match &outcome {
+        MoveReload::Refused(refusals) => assert!(
+            refusals.iter().any(|r| r.contains("nothing.installed")),
+            "the refusal does not name the uninstalled technique: {refusals:?}"
+        ),
+        other => panic!("expected an admission refusal; got {other:?}"),
+    }
+
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selection,
+        "a refused candidate became the App's content selection"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>(),
+        &identity,
+        "a refused candidate moved the engine's content identity"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .generation(),
+        generation,
+        "a refused candidate moved the cast generation"
+    );
+    assert_eq!(
+        live_duration(&app),
+        timing,
+        "a refused candidate changed what the cast plays"
+    );
 }

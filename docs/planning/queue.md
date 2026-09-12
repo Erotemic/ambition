@@ -56,13 +56,37 @@ is neither open nor abandoned:
    the ladder rig rather than a coordinator's judgement;
    `D-DAMAGEABLE-BODY-IDENTITY`'s invariant is enforced at the DERIVE, so widening
    its census would only re-confirm what the structure already guarantees.
-   ⚠ **NOT EXAMINED, so treat their stated status as unverified:**
-   `D-POTATO-ASPECT` (repaired two generation defects 2026-09-09 and defers to
-   `Q69` for the interim fallback policy — skimmed, not traced), `D129`, `D72`,
-   `D-SCENARIO-IDENTITY`, `D-RUNG9-NOISE`, `D-LANE-UNRUNNABLE / D-APPIT-FLAKE`,
-   `POST-CARVE-DOC-SWEEP`, and the untitled *"The predicate's LAST caller cannot
-   be guarded"* row. **A survey that does not name what it skipped reads as
-   exhaustive**, and the next reader would inherit that.
+   ⭐ **THE SURVEY IS COMPLETE NOW — 18 of 18, finished the same day it was
+   published as partial.** The eight it had left unexamined:
+   · `D-RUNG9-NOISE` → **held, `Q116`** (rung 9's press jitter is identically
+     zero; the fix is one constant and waking it invalidates every measurement
+     ever taken at that rung);
+   · `D-BRAIN-MENU` → **held, `Q117`** (the fix runs behind a feature flag and
+     the rig said no);
+   · *"The predicate's LAST caller cannot be guarded"* → **CLOSED with a verdict**,
+     and a strong one: the escape runs (10 reaches, 5 takes) but disabling it
+     leaves the trajectory identical TO THE DIGIT across two deliberately opposite
+     body geometries, so no guard is possible and none should be written;
+   · `D-SCENARIO-IDENTITY` → **subject not locatable**; six queries recorded in
+     the row rather than a conclusion, and `git log --grep` finds no commit ever
+     naming it;
+   · `POST-CARVE-DOC-SWEEP` → **a process rule, not a work item** (and its own
+     body already carries the sharp part: `--vanished HEAD` is REF→working tree
+     and stays green after every commit, so only the `A..B` range form sees a
+     carve);
+   · `D-POTATO-ASPECT` → two generation defects repaired 2026-09-09, interim
+     policy deferred to `Q69`;
+   · `D129` → **open, and it needs a measurement first** — "work from the current
+     measured clipped-sheet population, not historical counts";
+   · `D72` → **THE ONE GENUINELY OPEN IMPLEMENTATION ROW IN P2.** It is a pointer:
+     choose the highest-priority remaining parity row from
+     [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md) *"whose
+     primitive is not blocked by a maintainer decision"* — so picking it starts
+     by re-deriving which primitives `Q110`–`Q117` now block.
+   ⚠ **A SURVEY THAT DOES NOT NAME WHAT IT SKIPPED READS AS EXHAUSTIVE**, which is
+   why the partial version listed these by name. Finishing it changed two
+   answers — two of the eight turned out to be HELD rather than open, and neither
+   hold was in the decision ledger until the census went looking.
 5. **THE P0 FLAKY `workspace` JOB IS STILL OPEN AND STILL UNEXPLAINED** — twelve
    consecutive greens, three consecutive reds before them, eight targeted
    reproductions that each ruled something out. Its standing instruction is the

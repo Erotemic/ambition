@@ -54,6 +54,15 @@ pub mod falling_sand_sim;
 pub mod pack;
 /// The running host's move-table reload — the revision road's first customer.
 pub mod reload;
+/// The candidate a reload is about.
+///
+/// ⛔ RE-EXPORTED BECAUSE [`reload::request_reload`] TAKES IT AND NOTHING ELSE
+/// HERE HANDS IT OVER. A public function whose parameter type a caller cannot
+/// name from the same crate is a public function nobody outside the workspace's
+/// own dependency graph can call — measured by trying to write the app-level
+/// edit→play witness, which had to reach past `ambition_content` for a type
+/// `ambition_content`'s own signature demands.
+pub use ambition_content_pack::CandidateGeneration;
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
 pub mod provider;

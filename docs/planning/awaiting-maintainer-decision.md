@@ -265,6 +265,168 @@ budget once the budget exists. Report source, decoded CPU, prepared simulation
 content and device residency separately. A8 instance isolation and A9 dependency
 closure do not supply a hardware budget.
 
+## Q110 — may a provider-keyed fragment registry gain a NAMED hot-reload replacement operation?
+
+All five provider-keyed fragment registries — `AudioCatalogRegistry`, `SfxBankRegistry`,
+`BossCatalogRegistry`, `CharacterCatalogRegistry`, `AdaptiveMusicCatalogRegistry` — accept an
+identical re-registration, REFUSE a changed one, expose no remove/replace/clear, and panic at the
+App seam. Re-derive rather than trust the counts:
+
+    git grep -hoE "pub fn [a-z_]+" -- \
+      crates/ambition_audio/src/catalog.rs \
+      crates/ambition_boss_encounter/src/catalog.rs \
+      crates/ambition_characters/src/actor/character_catalog/registry.rs \
+      crates/ambition_audio/src/music/catalog.rs
+    git grep -nE "unwrap_or_else\(\|error\| panic!" -- <the same four files>
+
+The first prints each registry's whole `pub fn` surface, so the absence of remove/replace/clear is
+visible by inspection rather than by an empty result. The second returns 5, one per `*AppExt` trait.
+
+That refusal is protocol, not oversight: `ambition_registry_core::classify` answers
+New/Idempotent/Conflict and states there is deliberately no fourth answer, *"so a silent overwrite
+cannot be the accidental default"*. The alternative is already contemplated in
+[the registry triage](triage/ambition-registry-core.md): *"a separate explicitly named replacement
+operation may be appropriate for a hot-reload boundary; it should not be the accidental semantics of
+ordinary registration"*, with `PreparedCharacterRegistry`'s stage/admit/publish split as the worked
+precedent.
+
+**The question.** May a fragment registry gain such an operation, so a content generation can
+re-publish one provider's fragment — and if so, does it belong on all five or only where a reload
+boundary exists? `engine.audio-authority-is-app-local` and `engine.shell-audio-authority-is-explicit`
+(both severity `error`) constrain the audio half; the latter names *"an optional audio registry"* as
+the thing it prevents.
+
+Measured 2026-09-12 by NamekAmbition at `4d486ef20`. The consequence for content families is in
+[the queue](queue.md)'s second-family row.
+
+## Q111 — may `BossCatalog` and `CharacterCatalog` ever be absent, and is that one ruling or two?
+
+`engine.character-authority-is-app-local` (severity `error`) states production code may not
+*"reinstall process-global authority, silently substitute an empty catalog, make those resources
+optional, or use retired implicit lookup wrappers"*. The two catalogs are NOT in the same state
+against that rule:
+
+- `CharacterCatalog` ALREADY has one optional production reader with a written floor.
+  `speak_conversation_cut_barks` takes `Option<bevy::prelude::Res<CharacterCatalog>>`
+  (`crates/ambition_platformer2d_actor_monolith/src/features/npcs.rs:497`), is registered into the
+  sim schedule at `crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:1375`, and its doc
+  states the reason — *"a composition with no catalog (a demo, a headless fixture) must still break
+  conversations, and losing an unwritten line is not worth failing over."*
+- `BossCatalog` has none. Every reader is required, and
+  `crates/ambition_platformer2d/src/game_assets.rs:102` panics naming that policy id.
+
+Re-derive both with patterns that do not depend on how `Res` is qualified:
+
+    git grep -nE "Option<[A-Za-z_:]*Res<(BossCatalog|CharacterCatalog)>>" -- '*.rs'
+    git grep -nE "remove_resource\s*::\s*<\s*(BossCatalog|CharacterCatalog)\s*>" -- '*.rs'
+
+The first returns one production reader and one comment; the second returns nothing, while the same
+pattern finds `AuthoredFighterLadder` in `game/ambition_content/src/reload.rs` — the family that CAN
+publish its own removal.
+
+⚠ Do not read the policy's green as evidence the optional reader is sanctioned — it never
+objected, for TWO independent reasons. (a) Position: line 497 sat past the file's first
+`#[cfg(test)]` (line 211), inside a region the scan did not reach; that truncation defect and its
+repair are recorded in [the queue](queue.md). (b) Spelling, which that repair does NOT touch: no
+needle in this policy's `forbid` list matches the real text of line 497. The list enumerates
+`Option<Res<CharacterCatalog>>` and a fully-qualified variant, and the code reads
+`Option<bevy::prelude::Res<CharacterCatalog>>`, matched by raw substring with `whole_ident` unset.
+⇒ The guard written to forbid exactly this reader still cannot see it, so the question below has
+never actually been put to the policy.
+
+**The question.** (1) Is the existing optional reader sanctioned, or a violation to close?
+(2) Is a floor one ruling for both catalogs or two — for `CharacterCatalog` it extends something that
+already exists, while for `BossCatalog` it would be a new exception against a panic that names its
+own policy id.
+
+Measured 2026-09-12 by NamekAmbition at `4d486ef20`.
+
+## Q112 — ranged recoil writes velocity directly while the kernel documents a seam for exactly this reaction; should it move, and if not, where is that recorded?
+
+`spawn_projectiles_from_brain_actions` applies recoil by writing the firing body's velocity itself:
+
+    crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs:381
+        kin.vel += kick; // policy: ranged recoil, authority unresolved
+
+(inside `pub fn spawn_projectiles_from_brain_actions`, declared at `:93`; the line was `:354` before
+`8bd1d884d` added the block comment that now stands above it.)
+
+The movement kernel documents a different road for exactly this kind of write, and says why
+(`crates/ambition_platformer2d_core/src/movement/kernel.rs:157`):
+
+> An external reaction (knockback, a fling) writes a world-space launch into
+> `BodyFlightState::pending_launch` and cannot apply it itself: it holds a `&mut Vec2`, not the
+> model, and only the model knows what a launch MEANS to it. Writing `kinematics.vel` directly is
+> authoritative for an axis-swept body and a LIE for a riding surface-momentum one, whose `vel` is
+> derived from `v_t` and republished every step — which is why Sanic took knockback with every
+> number non-zero and never moved.
+
+The seam is `BodyFlightState::pending_launch` (`crates/ambition_platformer2d_core/src/body_clusters.rs:429`),
+staged by `stage_launch` (`:473`) and drained in one place at the top of `step_motion`
+(`crates/ambition_platformer2d_core/src/movement/kernel.rs:183`). The field doc at `:444` names the
+sanctioned call: *"STAGE THE PAIR WITH `stage_launch` AND DRAIN IT WITH `take_launch`. A caller that
+writes `pending_launch` directly gets `false`."*
+
+⚠ The road is paved but barely travelled — re-derive rather than trust the count:
+
+    git grep -nE "stage_launch|pending_launch\s*=" -- '*.rs'
+    git grep -nE "kin\.vel \+=|kinematics\.vel \+=" -- '*.rs'
+
+The first shows ONE production stager, `crates/ambition_combat/src/hit_reaction.rs:326`
+(`flight.stage_launch(launch, knockback.is_windbox());`, production — that file's first
+`#[cfg(test)]` is at 472), against 21 test and fixture stagers, whose own comment gives the recoil
+site's situation word for word: *"Written here rather than applied here for the same reason: this
+function has a `&mut Vec2` and no world and no `MotionModel`."*
+
+[ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md) §8 names both reactions in ONE
+sentence: *"Knockback, recoil, explosions, and scripted pushes are typed world-space
+impulses/accelerations accumulated before the one kernel call."* Its status is *"Accepted;
+implemented"*. So knockback takes the documented road and recoil does not, and the ADR does not
+distinguish them.
+
+⭐ MEASURED: the documented road is also the policy-clean one. Against
+`engine.velocity-writes-are-authority-only`'s forbid list, `flight.stage_launch(kick, false);` is
+CLEAN and `kin.vel += kick;` trips the needle `kin.vel += `. The guard is not asking for an
+exception; it is pointing at the seam. The site is reachable from that layer —
+`crates/ambition_platformer2d_actor_monolith/src/actor_clusters.rs:64` exposes
+`pub flight: &'a mut BodyFlightState` — though
+`crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs` does not hold it
+today (its `flight` names are `ProjectileFlight`, the projectile's own envelope, not
+`BodyFlightState`).
+
+⛔ NOT MEASURED, and it decides how much this matters: whether a body that fires can ride surface
+momentum, which is what would make the direct write silently do nothing rather than merely bypass the
+seam. `SurfaceMomentum` is opted into by a character catalog field
+(`crates/ambition_characters/src/actor/character_catalog/entry.rs:100`), not by demo, so any authored
+character can take that model — but no current ranged producer is known to. "No current content does
+this" is a fact about the roster, not the code.
+
+**The question.** (1) Should ranged recoil move to `stage_launch`, as knockback already has?
+(2) If this site genuinely differs — a recoil kick is the shooter's own action rather than something
+done TO it, which may be a real distinction the ADR's one sentence flattens — then what records that,
+and where? ⚠ As of `8bd1d884d` the site is EXEMPTED IN PLACE, which is not the same as resolved: the
+write carries the marker `// policy: ranged recoil, authority unresolved`, and
+`tests/ambition_workspace_policy/policies/engine.toml` carries a single `allow_lines` entry of
+exactly that text. Measured on that commit, the waiver string matches exactly ONE line across the
+1850 `.rs` files under `crates` and `game`, so it exempts the authored site and nothing else. The
+link runs both ways on purpose — `git grep -n "policy: ranged recoil" -- '*.rs'` finds the write from
+the waiver, and the waiver's own text names this question — so a reader who arrives at either end can
+reach the other. ⛔ A provisional marker becomes permanent by default, which is how the optional
+catalog reader in Q111 reached today: nobody ruled, so the absence of a ruling became the rule. That
+is why the question is filed here rather than left to the marker.
+
+⛔ No authored value has been changed, and none should be on a scanner's account: whether recoil
+routes through the kernel changes game feel, and a scanner repair is the wrong provenance for that.
+The surviving finding that surfaced this is `production_slice`'s one-line fallout, recorded in
+[the queue](queue.md).
+
+⚠ THIS ROW IS THE AUTHORITY; THE BLOCK COMMENT ABOVE THE WRITE IS A POINTER TO IT. The duplication is
+deliberate — the write is where somebody stands when they wonder — but two full statements of one
+open question rot apart, so the comment carries the case and this row carries the decision. If they
+ever disagree, this row is what was decided and the comment is what went stale.
+
+Measured 2026-09-12 by NamekAmbition at `8bd1d884d`.
+
 ## Assets, presentation and content policy
 
 ## Q69 — at `potato`, should character sprites fall back to the `0_25x` tier?

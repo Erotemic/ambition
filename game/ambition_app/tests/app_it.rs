@@ -15,6 +15,7 @@ mod common;
 // Guard: this aggregate must stay in sync with the tests/ directory (see the
 // module for why `autotests = false` makes that a real hazard).
 mod app_it_sync;
+mod an_edit_reaches_the_shipped_game;
 
 mod a_dropped_item_falls;
 mod one_body_two_tickers;

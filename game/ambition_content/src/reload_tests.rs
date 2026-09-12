@@ -1865,7 +1865,7 @@ fn a_candidate_that_drops_the_moveset_family_names_everyone_it_drops() {
     );
 
     assert_eq!(
-        crate::reload::dropped_moveset_entities(&base, &candidate),
+        ambition_characters::moveset_content_schema::dropped_moveset_entities(&base, &candidate),
         named,
         "a candidate that drops the whole family reported a different set than \
          the characters the base was playing"
@@ -1874,7 +1874,7 @@ fn a_candidate_that_drops_the_moveset_family_names_everyone_it_drops() {
     // ⭐ AND THE MIRROR: a base that authored NONE loses nothing, so a first
     // publication of the family is not a removal.
     assert!(
-        crate::reload::dropped_moveset_entities(&candidate, &base).is_empty(),
+        ambition_characters::moveset_content_schema::dropped_moveset_entities(&candidate, &base).is_empty(),
         "publishing the family for the first time was reported as dropping it"
     );
 }

@@ -336,7 +336,16 @@ fn admit_candidate(
     // iterates the candidate's keys, so a dropped entity is not a thing it fails
     // to do — it is a thing it is never asked to do.
     if let Some(active) = crate::pack::selected(world) {
-        let dropped = dropped_moveset_entities(active, candidate.pack());
+        // ⭐ ONE AUTHORITY, AND IT IS NOT THIS CRATE'S. The predicate lives beside
+        // the section it reads (`ambition_characters::moveset_content_schema`),
+        // published by YardratAmbition at `c7a895c41`; the copy that used to sit
+        // in this file was a second definition of one fact. Verified at
+        // `origin/main` before deleting mine, not taken from the handoff message.
+        let dropped =
+            ambition_characters::moveset_content_schema::dropped_moveset_entities(
+                active,
+                candidate.pack(),
+            );
         if !dropped.is_empty() {
             return CandidateAdmission::Refused(MoveReload::RefusedDroppedMovesetEntities(dropped));
         }
@@ -558,55 +567,6 @@ fn publish_participant_families(
     }
 }
 
-/// Characters whose authored moveset the live cast is playing that the candidate
-/// STOPS NAMING.
-///
-/// ⛔⛤ **"SUPPORTED DOMAIN" MEANT "THIS SCHEMA ID IS ON THE ALLOW-LIST", AND IT
-/// HAS TO MEAN "THIS PARTICIPANT CAN APPLY THIS TRANSITION COMPLETELY."**
-/// `moveset` is the participating domain, so ANY moveset change was let through
-/// — including three that leave the pack and the cast disagreeing. MEASURED
-/// 2026-09-12 by reading the road end to end:
-///
-/// | transition | what happens today |
-/// |---|---|
-/// | the moveset section is REMOVED | `lowered_movesets` returns `None`, `request_reload` skips the whole staging block, the pack promotes and every character keeps generation N's moves |
-/// | the section is EMPTIED | `Some({})`, `stage_move_section` runs and its unknown-character check passes VACUOUSLY over nothing, same result |
-/// | an ENTITY is dropped from the candidate | `stage_move_section` iterates the CANDIDATE's keys, so that character is never visited; the fold is `active.clone()` plus the staged set, so its OLD moveset is RE-PUBLISHED under the new generation |
-///
-/// ⚠ THE THIRD IS THE ONE NO ALLOW-LIST ROW CAN SEE, and it is reachable by
-/// ordinary authoring: `cellular_automaton.ron` carries two entities, so removing
-/// one does not even require deleting a file. Nothing at any layer can represent
-/// *"this entity's authored moveset is gone"* — `MovesetRevisionError` has two
-/// variants and both are about the candidate NAMING something.
-///
-/// ⇒ **CONTAINMENT, NOT EQUALITY.** Every entity whose authored moveset the live
-/// cast is playing must still be named by the candidate. Adding an entity stays
-/// legal — that is a different question, and `MovesetRevisionError::UnknownCharacter`
-/// already refuses the build that cannot host it.
-///
-/// ⚠ AND THIS IS NOT THE PER-SOURCE DIGEST INSTRUMENT. `changed_domains` answers
-/// *"did this domain change"*; this answers *"can the change be applied"*. Same
-/// family, different question, and collapsing them would make an ordinary retime
-/// unpublishable.
-pub(crate) fn dropped_moveset_entities(
-    base: &ambition_content_pack::PreparedContentPack,
-    candidate: &ambition_content_pack::PreparedContentPack,
-) -> Vec<String> {
-    use ambition_characters::moveset_content_schema::lowered_movesets;
-    let Some(base) = lowered_movesets(base) else {
-        // ⚠ THE BASE AUTHORED NONE, so there is nothing to lose. A first
-        // publication of the family is not a removal.
-        return Vec::new();
-    };
-    match lowered_movesets(candidate) {
-        None => base.keys().cloned().collect(),
-        Some(candidate) => base
-            .keys()
-            .filter(|id| !candidate.contains_key(*id))
-            .cloned()
-            .collect(),
-    }
-}
 
 /// Does this candidate change the family the STAGED road publishes?
 ///

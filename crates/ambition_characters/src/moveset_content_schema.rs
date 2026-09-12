@@ -246,6 +246,18 @@ pub fn lowered_movesets(
 /// `pack_generation` / `cast_generation` / `profile_generation` family is the
 /// thing the architecture review warned against.
 ///
+/// ⛔⛤ **AND THE MIDDLE CASE NEEDS NO ARM BECAUSE THE COMPILER FORBIDS THE STATE
+/// — MEASURED at `8e1e4fb4d` by hitting it with a fixture, and recorded here so
+/// the next reader does not spend the attempt.** A source that declares the
+/// `moveset` schema and carries NO entities is refused by name: *"declares the
+/// `moveset` schema and carries no move contract for any of its 0 entities"*, and
+/// removing a table's only entity is refused the same way. So a pack whose
+/// section lowers to `Some({})` cannot be built, and a fixture written with
+/// `entities: []` panics in its own setup rather than exercising this branch. The
+/// `None` road below is reachable only through a MANIFEST that declares no
+/// source, which `compile_pack_with` — a source-text rewriter — can never
+/// produce.
+///
 /// The three cases, and the middle one needs no arm of its own:
 ///
 /// * `base` authored no section — nothing is playing an authored moveset, so

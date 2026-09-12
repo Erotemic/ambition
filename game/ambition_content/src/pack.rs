@@ -424,105 +424,10 @@ impl SelectedContentPack {
     }
 }
 
-/// The candidate a requested re-preparation will be built from — **not** this
-/// App's answer to "what content am I running".
-///
-/// ⛔⛤ **ONE RESOURCE WAS CARRYING TWO CONCEPTS AND THE FAILURE WAS SILENT AND
-/// PERMANENT.** `request_reload` used to install the candidate as the SELECTION
-/// before asking the shell to re-prepare, because preparation must read it. If
-/// the preparation then failed, nothing put the selection back:
-///
-/// ```text
-/// N is live
-/// request N+1   -> SelectedContentPack becomes N+1
-/// preparation fails -> cast and session stay N, selection stays N+1
-/// save N+1 again -> the verdict compares against the SELECTION, reports
-///                   Unchanged, and requests nothing
-/// ```
-///
-/// The game stays split for the rest of the session while the reload machinery
-/// tells the developer nothing changed. ⇒ **The incoming candidate must never
-/// become the active selection merely because preparation needs to read it.**
-///
-/// ⭐ ACTIVE AND PENDING ARE DIFFERENT FACTS, not one fact in two states: "what
-/// is running" and "what is being prepared" have different readers, different
-/// lifetimes, and only one of them survives a failed preparation.
-#[derive(bevy::prelude::Resource, Clone)]
-pub struct PendingContentPack(pub std::sync::Arc<PreparedContentPack>);
-
-impl PendingContentPack {
-    pub fn get(&self) -> &PreparedContentPack {
-        &self.0
-    }
-}
-
-/// Record the candidate a re-preparation is about, WITHOUT selecting it.
-///
-/// ⚠ The engine's `SelectedContentIdentity` is written here too, because
-/// `prepare_platformer_content` reads it to fingerprint the generation it is
-/// PREPARING — which is the candidate, not the active pack. The active
-/// `SelectedContentPack` is untouched, so every pack reader keeps answering with
-/// the content the live cast was actually built from.
-pub fn stage_pending_pack(
-    world: &mut bevy::ecs::world::World,
-    pack: std::sync::Arc<PreparedContentPack>,
-) {
-    world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
-        identity_line(&pack),
-    ));
-    world.insert_resource(PendingContentPack(pack));
-}
-
-/// The candidate awaiting a re-preparation, if one is.
-pub fn pending(world: &bevy::ecs::world::World) -> Option<&PreparedContentPack> {
-    world
-        .get_resource::<PendingContentPack>()
-        .map(PendingContentPack::get)
-}
-
-/// Promote the pending candidate to this App's selection.
-///
-/// ⛔ THE ONLY ROAD FROM PENDING TO ACTIVE, so "the candidate became live" has
-/// one place it can happen and one place to look when it did not.
-pub fn promote_pending(world: &mut bevy::ecs::world::World) -> bool {
-    let Some(pending) = world.remove_resource::<PendingContentPack>() else {
-        return false;
-    };
-    install_selection(world, pending.0);
-    true
-}
-
-/// Throw the pending candidate away and put the engine's identity back to the
-/// pack that is actually live.
-///
-/// ⛔⛤ **RESTORING THE IDENTITY IS THE HALF THAT WAS MISSING.** Dropping the
-/// candidate and leaving `SelectedContentIdentity` naming it would leave the
-/// engine fingerprinting future generations against a pack this App does not
-/// have — the same split one level down.
-pub fn discard_pending(world: &mut bevy::ecs::world::World) -> bool {
-    if world.remove_resource::<PendingContentPack>().is_none() {
-        return false;
-    }
-    let restored = world
-        .get_resource::<SelectedContentPack>()
-        .map(|selected| identity_line(selected.get()));
-    match restored {
-        Some(line) => {
-            world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(line));
-        }
-        // ⚠ NO ACTIVE PACK TO RESTORE TO: this App never selected one, so the
-        // honest state is "no identity", not the candidate's.
-        None => {
-            world.remove_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>();
-        }
-    }
-    true
-}
-
 /// ⚠ THE CANONICAL IDENTITY LINE, not the fingerprint alone. A hex digest is
 /// unreadable in a desync report, and the pack's id and version are what a human
 /// needs to see beside it.
-fn identity_line(pack: &PreparedContentPack) -> String {
+pub(crate) fn identity_line(pack: &PreparedContentPack) -> String {
     format!("{} {} {}", pack.id, pack.version, pack.fingerprint)
 }
 

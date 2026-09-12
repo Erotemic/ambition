@@ -575,17 +575,7 @@ pub fn activate_staged_revision(
     // `admit_and_finalize_cast`.
     support: &ambition_entity_catalog::TechniqueSupport,
 ) -> RevisionOutcome {
-    let admission = admit_staged_revision(world, support);
-    // ⛔⛤ **THE TRANSACTION IS SPENT ON EVERY VERDICT BUT `NothingStaged`.** A
-    // refused or stale revision that stayed staged would be retried against an
-    // even newer base on the next activation — the same defect one tick later,
-    // and now invisible because nobody staged it.
-    if !matches!(admission, RevisionAdmission::NothingStaged) {
-        if let Some(mut revision) = world.get_resource_mut::<StagedCastRevision>() {
-            revision.by_id.clear();
-            revision.prepared_against = None;
-        }
-    }
+    let admission = take_admitted_revision(world, support);
     match admission {
         RevisionAdmission::NothingStaged => RevisionOutcome::NothingStaged,
         RevisionAdmission::Stale {
@@ -619,6 +609,37 @@ pub fn activate_staged_revision(
         }
         RevisionAdmission::Admitted(admitted) => publish_admitted_revision(world, admitted),
     }
+}
+
+/// Admit the staged revision AND SPEND IT, handing the verdict to the caller.
+///
+/// ⭐⭐ **THIS IS HOW A CALLER KEEPS THE ADMITTED VALUE INSTEAD OF RE-ASKING FOR
+/// IT.** [`admit_staged_revision`] deliberately mutates nothing, which means it
+/// also leaves the edits staged for whoever activates next. A coordinator that
+/// wants to hold an [`AdmittedRevision`] across a lifecycle boundary must take
+/// them out of the world at the same moment, or a second publication in between
+/// silently ABSORBS the edit — measured 2026-09-11: a reload's staged revision
+/// was drained by an unrelated publication and the reload's own boundary then
+/// found `NothingStaged` and published nothing.
+///
+/// ⛔⛤ **THE TRANSACTION IS SPENT ON EVERY VERDICT BUT `NothingStaged`.** A
+/// refused or stale revision that stayed staged would be retried against an even
+/// newer base on the next activation — the same defect one tick later, and now
+/// invisible because nobody staged it. That rule lives HERE, once:
+/// [`activate_staged_revision`] used to spell it out itself, which made this
+/// function impossible to add without a second copy of it.
+pub fn take_admitted_revision(
+    world: &mut bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+) -> RevisionAdmission {
+    let admission = admit_staged_revision(world, support);
+    if !matches!(admission, RevisionAdmission::NothingStaged) {
+        if let Some(mut revision) = world.get_resource_mut::<StagedCastRevision>() {
+            revision.by_id.clear();
+            revision.prepared_against = None;
+        }
+    }
+    admission
 }
 
 /// A cast revision, hydrated and ADMITTED, and not yet published.

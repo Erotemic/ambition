@@ -25,9 +25,13 @@
 //! still whatever the boot-time compile produced, and asking this function to
 //! reload one of them would be asking it to lie.
 
-use ambition_characters::prepared::{
-    activate_staged_revision, stage_move_section, MovesetRevisionError, RevisionOutcome,
-};
+use ambition_characters::prepared::{stage_move_section, MovesetRevisionError};
+// ⚠ THE FIXTURE ROAD PUBLISHES DIRECTLY; THE PRODUCTION ROAD NEVER DOES. The
+// transaction's commit path holds an already-admitted value and calls
+// `publish_admitted_revision`, which has no refusal in it — so the combined
+// admit-and-publish entry point is reachable from tests only.
+#[cfg(test)]
+use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
 // ⚠ ONLY THE FIXTURE ROAD TAKES A CAST BASE AS A PARAMETER. `request_reload`
 // reads the live generation itself, at the moment it stages, which is the only
 // moment the claim can be true.
@@ -524,6 +528,19 @@ pub enum ReloadRequest {
     /// A rollback timeline is speculating, or its authority is unhealthy. See
     /// [`MoveReload::RefusedDuringLiveTimeline`].
     Refused(MoveReload),
+    /// A generation is ALREADY in flight, so this one was refused.
+    ///
+    /// ⛔⛤ **AN EXPLICIT REFUSAL RATHER THAN ACCIDENTAL LAST-WRITE-WINS.** The
+    /// three resources this replaced were singletons: a second request
+    /// overwrote the first's pack and its (still unadopted) transaction, so when
+    /// the router announced the FIRST request's `LoadId` the SECOND generation
+    /// adopted it — two generations coordinating by overwriting each other, and
+    /// a file watcher makes closely spaced saves entirely ordinary.
+    ///
+    /// ⚠ REFUSING IS NOT THE ONLY DEFENSIBLE POLICY — supersession through a
+    /// real cancellation transaction is better — but it is the only one that is
+    /// STATED. An accidental coalescing nobody chose is not a policy.
+    AlreadyPending { route: String },
     /// The request was issued. **Nothing is published yet** — the new generation
     /// appears when the shell activates it, and the current one is authoritative
     /// until then.
@@ -550,6 +567,15 @@ pub fn request_reload(
     candidate: ambition_content_pack::CandidateGeneration,
 ) -> ReloadRequest {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
+
+    // ⛔ ONE GENERATION IN FLIGHT AT A TIME, and this is asked FIRST. A second
+    // request that got as far as staging would have overwritten the first's
+    // candidate before anything noticed.
+    if let Some(pending) = world.get_resource::<PendingGeneration>() {
+        return ReloadRequest::AlreadyPending {
+            route: pending.route.clone(),
+        };
+    }
 
     // ⛔ ONE PREFLIGHT, SHARED. See [`admit_candidate`] — this was spelled out
     // here a second time, in the same order, and two copies of a rule make each
@@ -638,69 +664,168 @@ pub fn request_reload(
         discard_staged_reload(world);
         return ReloadRequest::Refused(MoveReload::NoTechniqueSupport);
     };
+    // ⛔⛤ **THE ADMITTED VALUE IS KEPT, AND THROWING IT AWAY WAS THE DEFECT.**
+    // This used to admit, discard the `AdmittedRevision`, and let the ACTIVATION
+    // admit all over again against whatever the world held by then — so
+    // "admission finishes before activation is authorized" was really only
+    // "admission succeeded once before activation was requested". Those are
+    // different sentences, and the gap between them is a commit path that can
+    // still refuse.
+    //
+    // ⚠ AND IT IS *TAKEN*, NOT BORROWED. `admit_staged_revision` deliberately
+    // mutates nothing, which also leaves the edits staged for whoever activates
+    // next: measured 2026-09-11, an unrelated publication DRAINED a pending
+    // reload's staged revision and the reload's own boundary then found
+    // `NothingStaged`. A generation that owns its edit cannot have it absorbed.
+    let admitted_cast = match ambition_characters::prepared::take_admitted_revision(world, &support)
     {
-        match ambition_characters::prepared::admit_staged_revision(world, &support) {
-            ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {
-                discard_staged_reload(world);
-                return ReloadRequest::Refused(MoveReload::Refused(
-                    refusals.iter().map(|r| r.detail.clone()).collect(),
-                ));
-            }
-            ambition_characters::prepared::RevisionAdmission::Stale {
-                prepared_against,
-                active,
-            } => {
-                discard_staged_reload(world);
-                return ReloadRequest::Refused(MoveReload::Stale {
-                    prepared_against: prepared_against.get(),
-                    active: active.get(),
-                });
-            }
-            _ => {}
+        ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::Refused(
+                refusals.iter().map(|r| r.detail.clone()).collect(),
+            ));
         }
-    }
-    crate::pack::stage_pending_pack(world, pack);
+        ambition_characters::prepared::RevisionAdmission::Stale {
+            prepared_against,
+            active,
+        } => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::Stale {
+                prepared_against: prepared_against.get(),
+                active: active.get(),
+            });
+        }
+        ambition_characters::prepared::RevisionAdmission::Admitted(admitted) => Some(admitted),
+        // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL. The move
+        // material being identical does not mean the pack is, and the engine's
+        // generation still has to move.
+        ambition_characters::prepared::RevisionAdmission::NothingStaged
+        | ambition_characters::prepared::RevisionAdmission::Unchanged { .. } => None,
+    };
+    stage_pending_generation(
+        world,
+        PendingGeneration {
+            load_id: None,
+            route: route.as_str().to_string(),
+            pack,
+            admitted_cast,
+        },
+    );
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
     // otherwise walk back through three copies of the room they are standing in.
-    world.insert_resource(PendingReloadTransaction {
-        load_id: None,
-        route: route.as_str().to_string(),
-    });
     world.write_message(ShellCommand::ReplaceWith(route.clone()));
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
     }
 }
 
-/// Which shell transaction a pending reload belongs to.
+/// **ONE PENDING GENERATION: the transaction, the candidate, and the ADMITTED
+/// cast.**
 ///
-/// ⛔⛤ **`RouteActivated(_)` WAS A WILDCARD, SO ANY ACTIVATION PUBLISHED A
-/// PENDING RELOAD AND ANY FAILURE DISCARDED ONE.** An unrelated navigation or a
-/// retry of something else could land, or bin, a generation it had nothing to do
-/// with. The two halves were said to share a boundary with no identity proving
-/// they belonged to the same transaction.
+/// ⛔⛤ **THIS WAS THREE COOPERATING RESOURCES AND THE COOPERATION WAS THE BUG.**
+/// `PendingContentPack`, `StagedCastRevision` and `PendingReloadTransaction`
+/// were separate world state expected to stay mutually coherent, and four
+/// distinct defects came out of that expectation:
 ///
-/// ⛔ **AND A ROUTE NAME IS NOT THAT IDENTITY**, because two generations can
-/// target one route — which is exactly what a reload does.
+/// 1. The admitted value was computed at request time and THROWN AWAY, so the
+///    commit boundary re-admitted against whatever the world held by then — and
+///    could still refuse after the engine's half was committed.
+/// 2. A world with no `InstalledTechniques` let the request through and then
+///    found no answer at the boundary, stranding all three.
+/// 3. A SECOND request overwrote the first's pack and transaction singletons
+///    while the first was still in flight, so the second could adopt the first's
+///    `LoadId` — accidental last-write-wins coordination between two generations.
+/// 4. An unrelated publication DRAINED the shared `StagedCastRevision`, silently
+///    absorbing the reload's edit; the boundary then found `NothingStaged`.
 ///
-/// ⭐⭐ **THE KEY IS THE BARRIER'S `LoadId`, AND IT IS THE ONLY THING PRESENT AT
-/// BOTH ENDS.** MEASURED 2026-09-11: the router mints it inside `start_route` as
-/// `shell.{route}.{counter}`, so it distinguishes two generations of one route;
-/// `next_load_transaction` is PRIVATE and the mint happens in a later system
-/// than the request, so a requester can neither read nor predict it. ⇒ This is a
-/// CORRELATION adopted from `PreparationRequested` — the first moment the
-/// identity exists and is observable — not a stamp taken at request time.
+/// ⇒ **ALL FOUR ARE THE SAME MISSING VALUE.** A generation that OWNS what was
+/// admitted cannot have it re-derived, stranded, overwritten or absorbed.
 ///
-/// ⚠ `ShellActivationId` IS NOT A CANDIDATE: it is minted inside `activate`,
-/// strictly after everything, and is only ever an output.
-#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
-pub struct PendingReloadTransaction {
+/// ⛔ **AND THE COMMIT PATH IS THEREFORE INFALLIBLE BY CONSTRUCTION.** Publishing
+/// one of these is [`publish_admitted_revision`] plus an install; neither can
+/// say no. The only branch left at the boundary is "is this my transaction",
+/// which is a question about identity, not about content.
+///
+/// ⚠ `load_id` IS `None` UNTIL THE ROUTER MINTS IT. MEASURED 2026-09-11:
+/// `ShellRouter::next_load_transaction` is private, the id is minted in a LATER
+/// system than the request, and `ShellCommand::ReplaceWith` carries no slot for a
+/// correlator — so the requester can neither read nor predict its own
+/// transaction. It is ADOPTED from `ShellEvent::PreparationRequested`, the first
+/// moment the identity exists and is observable. A route name is not that
+/// identity: two generations can target one route, which is exactly what a
+/// reload does.
+#[derive(bevy::prelude::Resource)]
+pub struct PendingGeneration {
     /// `None` until the router mints the transaction this reload asked for.
-    pub load_id: Option<ambition_platformer2d::load::LoadId>,
-    /// The route the request named, for the diagnostic and for adopting the
-    /// right `PreparationRequested` when several are in flight.
-    pub route: String,
+    load_id: Option<ambition_platformer2d::load::LoadId>,
+    /// The route the request named, for adopting the right
+    /// `PreparationRequested` when several are in flight.
+    route: String,
+    /// The candidate pack. **Not the App's selection** — it becomes that only at
+    /// the activation, and a failed preparation must leave every reader
+    /// answering with the content the live cast was actually built from.
+    pack: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
+    /// ⭐⭐ **THE VALUE ADMISSION ALREADY COMPUTED.** `None` means the candidate
+    /// changed no move material — a legitimate pending generation, since the
+    /// participating domain can change in a character no buildable cast member
+    /// wears and the engine's generation still has to move.
+    admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
+}
+
+/// The candidate a re-preparation is about, if one is in flight.
+pub fn pending_pack(
+    world: &bevy::ecs::world::World,
+) -> Option<&ambition_content_pack::PreparedContentPack> {
+    world
+        .get_resource::<PendingGeneration>()
+        .map(|generation| generation.pack.as_ref())
+}
+
+/// Stage a pending generation and tell the engine which identity to prepare
+/// against.
+///
+/// ⛔ **THE REMAINING HOLE, NAMED RATHER THAN HIDDEN** (2026-09-11 review item
+/// 3). `prepare_platformer_content` reads the GLOBAL `SelectedContentIdentity`
+/// to fingerprint the generation it is preparing, so a pending generation has to
+/// write it — which means an UNRELATED route preparation running in the same
+/// window is fingerprinted with a candidate identity it has nothing to do with.
+/// The census says the fix is reachable: `PlatformerPreparation::prepare` already
+/// takes the `ProviderLoadTransaction` as a parameter at the exact line that
+/// reads this global, and the function that fingerprints already takes the
+/// identity as an opaque argument. ⇒ The candidate identity becomes a
+/// per-transaction lookup keyed on the same `LoadId` this value already adopts.
+/// Not done here.
+fn stage_pending_generation(world: &mut bevy::ecs::world::World, generation: PendingGeneration) {
+    world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
+        crate::pack::identity_line(&generation.pack),
+    ));
+    world.insert_resource(generation);
+}
+
+/// Take the pending generation away and put the engine's identity back to the
+/// pack that is actually live.
+///
+/// ⛔⛤ **RESTORING THE IDENTITY IS THE HALF THAT WAS MISSING.** Dropping the
+/// candidate and leaving `SelectedContentIdentity` naming it would leave the
+/// engine fingerprinting future generations against a pack this App does not
+/// have — the same split one level down.
+fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<PendingGeneration> {
+    let generation = world.remove_resource::<PendingGeneration>()?;
+    let restored = world
+        .get_resource::<crate::pack::SelectedContentPack>()
+        .map(|selected| crate::pack::identity_line(selected.get()));
+    match restored {
+        Some(line) => {
+            world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(line));
+        }
+        // ⚠ NO ACTIVE PACK TO RESTORE TO: this App never selected one, so the
+        // honest state is "no identity", not the candidate's.
+        None => {
+            world.remove_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>();
+        }
+    }
+    Some(generation)
 }
 
 /// Install the reload transaction's publication half.
@@ -777,8 +902,7 @@ pub fn publish_staged_reload_on_activation(
                 let route = transaction.route_id.as_str().to_string();
                 let load_id = transaction.barrier.load_id.clone();
                 commands.queue(move |world: &mut bevy::ecs::world::World| {
-                    if let Some(mut pending) = world.get_resource_mut::<PendingReloadTransaction>()
-                    {
+                    if let Some(mut pending) = world.get_resource_mut::<PendingGeneration>() {
                         if pending.load_id.is_none() && pending.route == route {
                             pending.load_id = Some(load_id);
                         }
@@ -798,73 +922,30 @@ pub fn publish_staged_reload_on_activation(
                     if !reload_owns(world, authorized.as_ref()) {
                         return;
                     }
-                    world.remove_resource::<PendingReloadTransaction>();
-
-                    // ⛔⛤ **THE CAST'S HALF GOES FIRST, AND THE OTHER ORDER WAS A
-                    // HALF-TRANSACTION WRITTEN DOWN AS ACCEPTABLE.** This used to
-                    // `promote_pending` and THEN revise the cast, so a refusal at
-                    // this boundary left the App selecting the new pack while
-                    // playing the old cast — and the error message said "the
-                    // previous cast is still published" without mentioning that
-                    // the pack was not. The cast's half is the only one that can
-                    // refuse, so it is the one that must run before anything is
-                    // committed. Nothing observes the order INSIDE this closure:
-                    // no system runs between the two lines. What matters is that
-                    // both halves land or neither does.
-                    let support = world
-                        .get_resource::<ambition_combat::technique::InstalledTechniques>()
-                        .map(|installed| installed.0.clone());
-                    let Some(support) = support else {
-                        // ⛔ AND THIS USED TO LEAK THE WHOLE GENERATION. An early
-                        // return here left the pending pack staged forever: the
-                        // engine's half had activated, the App's selection was
-                        // still the old pack, and the next save compared against
-                        // that selection, reported `Unchanged` and requested
-                        // nothing. The game stayed split for the session.
-                        //
-                        // ⚠ `request_reload` refuses this composition up front,
-                        // so reaching it means the technique table was REMOVED
-                        // between the request and the activation.
-                        bevy::log::error!(
-                            "a reload activated into a composition that installs no technique \
-                             table, so its cast revision cannot be admitted; BOTH halves are \
-                             discarded and the previous generation stays live"
-                        );
-                        discard_staged_reload(world);
+                    // ⭐⭐ **THE COMMIT PATH, AND THERE IS NOTHING IN IT THAT CAN
+                    // SAY NO.** Every question that could refuse — the verdict,
+                    // the changed domains, the rollback boundary, the authored
+                    // effects, the cast base — was asked and answered at request
+                    // time, and the ANSWERS are what this value carries.
+                    //
+                    // ⛔ IT USED TO RE-ADMIT HERE, against whatever the world
+                    // held by then, with the pack PROMOTED FIRST. A composition
+                    // that changed in flight therefore left the App selecting
+                    // N+1, the engine prepared at N+1 and the cast at N — the
+                    // exact half-transaction this whole road exists to prevent,
+                    // written down as a logged error.
+                    let Some(generation) = take_pending_generation(world) else {
                         return;
                     };
-                    match activate_staged_revision(world, &support) {
-                        // ⛔⛤ **REACHABLE ONLY IF THE COMPOSITION CHANGED IN
-                        // FLIGHT.** `request_reload` admits the revision before
-                        // it issues the request, so ordinary authored invalidity
-                        // cannot arrive here. What can is an installed-technique
-                        // table that moved between the request and the
-                        // activation — which is a composition change, not an
-                        // author's mistake.
-                        //
-                        // ⛔ BOTH HALVES REFUSE TOGETHER. The cast kept its
-                        // previous generation; the pack must keep its previous
-                        // selection, or the refusal creates the exact split the
-                        // transaction exists to prevent.
-                        outcome @ (RevisionOutcome::Refused { .. }
-                        | RevisionOutcome::Stale { .. }) => {
-                            bevy::log::error!(
-                                "a reloaded cast was REFUSED at the ACTIVATION boundary, which \
-                                 request-time admission should have made impossible: the \
-                                 composition's installed techniques must have changed in \
-                                 flight. NEITHER half published — the previous cast and the \
-                                 previous content selection are both still live: {outcome:?}"
-                            );
-                            crate::pack::discard_pending(world);
-                        }
-                        // ⛔ THE PENDING CANDIDATE BECOMES THE SELECTION HERE, at
-                        // the same boundary the cast's half published and the
-                        // shell's activation published the engine's.
-                        outcome => {
-                            crate::pack::promote_pending(world);
-                            bevy::log::info!("a reloaded cast was published: {outcome:?}");
-                        }
+                    if let Some(admitted) = generation.admitted_cast {
+                        let outcome = ambition_characters::prepared::publish_admitted_revision(
+                            world, admitted,
+                        );
+                        bevy::log::info!("a reloaded cast was published: {outcome:?}");
                     }
+                    // ⛔ AND THE PACK LANDS AT THE SAME BOUNDARY, unconditionally,
+                    // because nothing above it could have failed.
+                    crate::pack::install_selection(world, generation.pack);
                 });
             }
             // ⛔ EVERY WAY THE REQUEST CAN END WITHOUT ACTIVATING, and they are
@@ -898,7 +979,6 @@ pub fn publish_staged_reload_on_activation(
                     if failing.is_some() && !reload_owns(world, failing.as_ref()) {
                         return;
                     }
-                    world.remove_resource::<PendingReloadTransaction>();
                     discard_staged_reload(world);
                 });
             }
@@ -923,7 +1003,7 @@ fn reload_owns(
     world: &bevy::ecs::world::World,
     load_id: Option<&ambition_platformer2d::load::LoadId>,
 ) -> bool {
-    let Some(pending) = world.get_resource::<PendingReloadTransaction>() else {
+    let Some(pending) = world.get_resource::<PendingGeneration>() else {
         return false;
     };
     match (&pending.load_id, load_id) {
@@ -939,7 +1019,7 @@ fn discard_staged_reload(world: &mut bevy::ecs::world::World) {
     // never built, and the next identical save then compared against that
     // selection, reported `Unchanged` and requested nothing — the game split for
     // the rest of the session while the reload said all was well.
-    let had_pending = crate::pack::discard_pending(world);
+    let had_pending = take_pending_generation(world).is_some();
     if world
         .remove_resource::<ambition_characters::prepared::StagedCastRevision>()
         .is_some()

@@ -427,6 +427,67 @@ ever disagree, this row is what was decided and the comment is what went stale.
 
 Measured 2026-09-12 by NamekAmbition at `8bd1d884d`.
 
+## Q113 — is the STRONGER last-good-world guarantee wanted, given its only known implementation is A10 itself?
+
+⛔ **A10 HAS BEEN HELD ON THIS AND THE HOLD WAS NOT IN THIS FILE** — found
+2026-09-12 by re-deriving the blocker rather than trusting the note I was
+carrying, which said "A10 needs a stated failure guarantee". It does not: the
+guarantee for the WEAKER form is already written.
+
+`docs/planning/engine/checkpoint-restoration-protocol.md`: *"After destructive
+application begins, this contract promises fail-closed publication, **not rollback
+of arbitrary Commands**. The stronger last-good-world guarantee remains A10 and
+requires constrained inactive construction."*
+
+⇒ So the question is not what to promise; it is **whether the stronger promise is
+worth its only known implementation**, which is A10's own deliverable —
+constrained typed inactive construction over the shared construction
+executor/recipes. That is circular by construction, which is why the packet
+cannot start itself, and the same document explicitly forbids doing it
+opportunistically (*"Do not implement that larger project as an undocumented
+prerequisite to A1"*).
+
+**What each answer unblocks.** *Fail-closed is enough* → A10 shrinks to the
+already-written contract plus its acceptance arms, and the P0 queue row that reads
+as an implementation task can be re-scoped or closed. *The stronger guarantee is
+wanted* → A10 becomes a real packet and needs sizing against the construction
+executor, and F6's conditional-recovery language becomes load-bearing.
+
+⚠ **THE CONTENT TRANSACTION'S RECEIPTS ARE NOT PROGRESS ON THIS.** A10 is the
+SCENE half — recipes, resource writes, hooks, observers — and its acceptance list
+(invalid candidate relationships, duplicate identity, forbidden resource mutation,
+`recovered` rather than `unchanged`) names none of the content work that landed in
+September.
+
+## Q114 — for a `NoWindow` / `backends: None` profile, should the render-sync hooks be absent, served, or tolerant?
+
+The queue row `D-HEADLESS-DESPAWN` ends *"NOT DECIDED. Whether the fix is to
+install the resource in the headless profile, keep those systems out of it, or
+make the hook tolerate a missing world is a maintainer's call. This row is the
+report."* ⛔ That call was not in this file either, so a packet named as held for a
+maintainer was waiting in a document maintainers do not read for decisions.
+
+MEASURED (see the row for the backtrace and the four dead candidates):
+`SyncToRenderWorld`'s **remove** hook needs `bevy_render::sync_world::PendingSyncEntity`,
+which the headless profile does not hold, while that same profile installs **104
+`ambition_render` systems in `Update`**. ⇒ Spawning a render-synced entity
+headless is fine; DESPAWNING one is fatal. A duel runs 2.4 seconds first, which is
+why it reads as a character bug.
+
+**Why it is not merely curious:** any change that makes another fighter despawn a
+render-synced entity makes that fighter's row UNMEASURABLE too, and the sweep
+would report a narrower population and read as healthy.
+
+**The three options, as the row states them:** install the resource in the
+headless profile; keep those Update systems out of it; or make the hook tolerate a
+missing render world. The second is the only one that also answers why a profile
+with `backends: None` installs the presentation half at all.
+
+⚠ SCOPE, because an earlier version of this got it wrong: the subject is the
+PROFILE, not the machine. An agent box with no discrete GPU still reports a
+working software adapter, and `VisibleRenderMode::OffscreenGpu` composes a render
+app there.
+
 ## Assets, presentation and content policy
 
 ## Q69 — at `potato`, should character sprites fall back to the `0_25x` tier?
@@ -716,6 +777,63 @@ not the consumers.
 **The question for Jon** is only the eventual one: should a solid breakable get its
 own `BlockKind`, or is the borrow the intended vocabulary? ⛔ Nothing is blocked on
 the answer — Q96's work proceeds either way, under the constraint above.
+
+## Q115 — which per-move `hitbox.inflate` values should the 97 untuned bone-derived specs carry?
+
+⛔ **THIS IS THE ONE JON ASKED FOR BY NAME AND IT HAS BEEN MEASURED TO ITS
+DECISION POINT SINCE 2026-09-11, WITHOUT BEING IN THIS FILE.** The engineering is
+finished; what remains is authoring values, which is not mine to choose — Jon,
+2026-09-10: *"I don't trust your spatial decision making at the moment."*
+
+WHAT IS SETTLED (all in `queue.md`'s moveset/hitbox section, with the scripts):
+· **WHERE** the values go — `.spec.json`'s `hitbox.inflate` / `hitbox.per_frame`,
+  not the move table. A roster-wide multiplier is REVERTED and cannot come back:
+  `FrameToBody::point` scales the DISPLACEMENT FROM THE FEET PIXEL, so on the
+  performer's forward tilt a 1.25 knob scaled the half-extent 1.25x **and moved
+  the centre 9.4 px up and 4.6 px forward, off the drawn blade.** No value avoids
+  that.
+· **WHICH moves — AND THE UNIT MATTERS, BECAUSE THE QUEUE ROW CARRIES THREE
+  COUNTS FOR THIS ONE POPULATION.** The number with a committed instrument behind
+  it is `scripts/measure_hitbox_authoring_coverage.py` over a complete grid take:
+  **97 recorded MOVES are bone-derived AND carry no `inflate`, and 64 of them play
+  thin** — recorded (character, move) pairs, so one `.spec.json` shared by several
+  characters is counted once per character. Each is listed with the exact
+  `.spec.json` that decides it
+  (thinnest: `npc_carl_stargan air_neutral` 0.06, `smash_down` 0.07, `medic
+  air_up` 0.08, `medic tilt_forward` 0.09, `officer jab` 0.10).
+· **WHAT "apply what GPT-6 did" MEANS AS A NUMBER** — coverage predicts thinness:
+  `performer_stage_v1` has 15 of 19 specs inflated and is the best bone-derived
+  stage at 29% thin; `medic_triage_v1` has 5 of 18 and is 10/13 thin; and
+  `fighting_brawler_v1`, `officer_brawler_v1` and `projectile_beast_v1` have **0
+  of 14, 0 of 15 and 0 of 17** between them, at 41–93% thin.
+
+⛔⛤ **AND TWO OTHER SPEC-LEVEL COUNTS IN THAT ROW DISAGREE WITH EACH OTHER, WHICH
+IS WORTH KNOWING BEFORE ANY OF THEM IS USED TO SIZE THE JOB.** The row's own
+per-stage table implies **63** uninflated bone-derived specs (19−15, 18−5, 14−0,
+15−0, 17−0 = 4+13+14+15+17), while its prose says **46 bone-derived specs with no
+inflate at all**. Neither is the 97, which is a different granularity and fine.
+⇒ **The 46 agrees with nothing and is WITHDRAWN pending a re-run**; the table is
+self-consistent and 63 is derivable from it; the 97/64 is the one with a script.
+Do not price the work off the 46. (Not re-run here: the coverage join needs a
+complete grid take, which is a machine measurement and belongs on the authoring
+box.)
+
+⚠ RE-DERIVE ON THE AUTHORING MACHINE BEFORE TUNING, and say which publish state a
+number was taken under: published assets are gitignored and DERIVED, so reverting
+a spec with git does NOT undo a publish. An abandoned `inflate: 40` probe stayed
+live in the officer's sheet and its numbers were reported as an unexplained 4.3x
+anomaly.
+⚠ AND DO NOT COMPARE AGAINST `scripts/measure_authored_strike_extents.py`: it
+reads `half_extents` from the move tables, the value the game IGNORES for any
+character with a sprite stage. Its rows are still right for the six without one.
+
+**Two other moveset items are also waiting on a ruling rather than on work**, and
+both have numbers: `attack_air_back` connects by 0.2 px where the forward air has
+17.8 to spare (~38 px of reach behind her against the 48 px the forward takes ask
+for); and the authored clock is not Ultimate-shaped in ONE axis — startup is right
+(tilts ~5 f, smashes ~12 at 60 fps equivalent) but ACTIVE runs 10–17 f against
+Ultimate's usual 2–5, with SHORTER totals, so generous boxes plus fast recovery
+makes her moves very safe.
 
 ## Human measurements, not design answers
 

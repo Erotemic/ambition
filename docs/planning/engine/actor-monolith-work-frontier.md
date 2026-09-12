@@ -391,6 +391,38 @@ one that `CharacterAuthorityConflict` already audits. The second authority is
 `PreparedCharacterRegistry` vs `CharacterCatalog`, and only `autonomous_profile`
 sits on it unwatched — held by a content test rather than the audit.
 
+⛔⛤ **AND THAT LAST SENTENCE IS IMPRECISE — RE-DERIVED 2026-09-12 BEFORE SIZING
+ANY WORK FROM IT, WHICH IS WHY IT DID NOT BECOME A PACKET.** The audit's four
+variants cover display-name ambiguity, display-name disagreement, sheet and
+provider (`character_runtime/audit.rs:111`); `autonomous_profile` is indeed not
+among them. But the two sides are NOT two recorders of one fact:
+`CharacterCatalogData.autonomous_profiles` is a per-provider-namespaced
+NAME→profile LIBRARY — the resolution target for `AutonomousPolicy::Named`, not a
+character→policy map — while `CharacterCatalogEntry.default_brain` names a
+`BrainPreset`, **a different vocabulary the page already explains** (presets
+author ABSOLUTE speeds, profiles author normalized effort against the body's own
+`run_speed`). And the precedence between them is already ruled in code:
+`character_catalog/mod.rs:145` says *"A character that names no preset has no
+default brain to build — its definition's autonomous profile is the answer, and
+this road is not it."*
+
+⇒ So there is no unwatched authority split here; there is one resolution, in
+`crates/ambition_characters/src/prepared.rs`'s `resolve_autonomous_profile` call. A fifth audit variant would be guarding a disagreement the
+types do not allow. **What the re-derivation DID turn up is small and is NOT
+worth a packet:** `CharacterCatalog::build_default_brain` has ZERO
+readers anywhere, while its sibling `build_brain_from_preset` (both in
+`crates/ambition_characters/src/actor/character_catalog/mod.rs`) is
+production-live via `features/brain_command.rs:210`. A dead METHOD beside a live
+one, not a dead road — and deleting twelve lines is the cleanup pattern this
+project's own standing rules name as avoidance.
+
+⚠ THE INSTRUMENT NOTE IS THE PART WORTH CARRYING: my first grep found zero
+readers of `build_default_brain` and I was one step from reporting "the road was
+built and the traffic never arrived" — this repository's own most-used template.
+Widening to `default_brain` and `brain_from_preset` found the live sibling
+immediately. **A finding that fits your template gets less scrutiny, and a
+negative grep is a claim about the query.**
+
 ⭐⭐ **AND `movement_tuning`/`motion_model` ARE NOT ON IT AT ALL, MEASURED
 2026-09-11 IN THE SHIPPED HOST — the acceptance line "no duplicate authored
 movement/tuning authority" IS ALREADY MET.** The barrier FOLDS both

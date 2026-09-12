@@ -5975,24 +5975,50 @@ mod ring_out {
         /// `LeftTheWorld`. This is the claim, and it is not derived from a
         /// position this test interprets.
         left_the_world: bool,
-        /// ⛔⛔ THE SIDE LINE SPECIFICALLY, AND IT IS A DIFFERENT QUESTION FROM
-        /// [`Self::left_the_world`]. A stage has four blast boundaries, so "was
-        /// this body knocked out" and "did this body travel off the SIDE" are
-        /// not the same claim — and the difference decides the calibration.
+        /// Did the body leave through the SIDE, as distinct from leaving at all.
+        /// A stage has four blast boundaries and this reports one of them.
         ///
-        /// ⭐ MEASURED 2026-09-12 across the percent sweep: at scale `1.00` the
-        /// fully stale 700% jab DID register a `LeftTheWorld` knockout while
-        /// travelling only 533.5px of the 720px the side line needs, and at
-        /// `1.25` only 664.3px. Those kills went through the ceiling or the
-        /// floor. Accepting them would have reported "the smallest passing
-        /// value is 1.00" — i.e. that the percent curve needed no repair at all
-        /// — on the strength of a launch that never went sideways.
+        /// ⛔⛔ **NOT A CALIBRATION WITNESS, AND IT WAS USED AS ONE.** This
+        /// field selected `victim_percent_knockback_scale = 1.5` by rejecting
+        /// the `LeftTheWorld` knockouts that scale `1.00` and `1.25` already
+        /// produced, on the grounds that they travelled 533.5px and 664.3px of
+        /// the 720px a side crossing needs. Those were CEILING kills, and they
+        /// were legitimate: George's jab authors `launch_dir: None`, so the
+        /// engine's default launch vector applies — roughly `x = 360,
+        /// y = -260`, about 36° UPWARD. Requiring a diagonally-upward move to
+        /// exit sideways is a criterion the move cannot satisfy without raising
+        /// a RULESET-WIDE constant until it does, which is what happened.
         ///
-        /// ⇒ so the side-line witness requires the TRAVEL as well as the
-        /// verdict. The first scale that clears both is 1.50.
+        /// ⇒ A knockout is a knockout. Calibrate on stock loss, the tumble
+        /// threshold and resolved launch magnitude; read this only to describe
+        /// WHICH boundary a launch crossed.
         crossed_the_side_line: bool,
-        /// Fastest speed the victim was seen carrying, for the report's curve.
-        peak_speed: f32,
+        /// ⛔ THE AUTHORITATIVE RESOLVED LAUNCH, in px/s, read off the
+        /// `HitEvent` the engine emitted — never recomputed here. A test that
+        /// re-derives `base + growth × scale × percent / weight` only proves it
+        /// agrees with its own copy of the formula.
+        ///
+        /// `None` means no `LaunchSpeed` knockback reached this victim, which
+        /// is a fixture failure rather than a measurement of zero.
+        resolved_launch: Option<f32>,
+        /// The ATTACKER's percent at the moment of the strike, which is what
+        /// `rage_scale` reads. Reported so "rage was 1.0" is a measurement this
+        /// fixture makes rather than a claim a comment makes — it was false for
+        /// the entire sweep that selected the shipped constant.
+        attacker_damage_taken: i32,
+        /// ⛔⛔ **THE FASTEST THE BODY EVER WENT, WHICH IS NOT ITS LAUNCH
+        /// SPEED.** A maximum of `vel.length()` over the whole post-hit
+        /// window, so GRAVITY is in it: a 0% jab resolves to exactly its
+        /// authored `base` of 50px/s and this metric read 446.4px/s for the
+        /// same hit. Reporting that number as a launch speed made the whole
+        /// percent curve misleading — at 100% the real launch is 166.7 and
+        /// this read 457.8, so the signal the curve claimed to show was
+        /// swamped by fall velocity.
+        ///
+        /// ⇒ Use [`Self::resolved_launch`] for any claim about the knockback
+        /// law. This is honest only for trajectory questions: how fast the
+        /// body was travelling, not how hard it was hit.
+        peak_body_speed: f32,
         /// Furthest the victim got from where it was struck, along the stage's
         /// lateral axis.
         peak_lateral: f32,
@@ -6375,6 +6401,35 @@ mod ring_out {
             .map(|h| h.damage_taken())
             .unwrap_or(-1);
 
+        // ⛔⛔ **THE ATTACKER'S METER IS RAGE, AND IT WAS NEVER CONTROLLED.**
+        // `rage_scale` is `1 + rage_per_damage × attacker_damage_taken` (Smash
+        // declares 0.004, capped 1.4) and `hitbox/mod.rs` multiplies EVERY
+        // resolved `LaunchSpeed` by it. This fixture pacifies and re-meters the
+        // VICTIM but left the attacker alone — and the attacker is a seated CPU
+        // that has been alive for ~240 boot ticks plus the settle window, so it
+        // arrives carrying real damage.
+        //
+        // ⭐ MEASURED 2026-09-12: the 0% cell resolved to 62.4px/s against an
+        // authored base of 50.0 — exactly `50 × (1 + 0.004 × 62)`. So every cell
+        // of the sweep that chose `victim_percent_knockback_scale = 1.5` was
+        // multiplied by an uncontrolled rage of ~1.25, while the constant's own
+        // doc comment claimed "rage is exactly 1.0 and the percent curve carries
+        // the knockout alone". Isolating the percent law REQUIRES pinning this.
+        //
+        // ⇒ Rage with a value is a deliberate cell, not an accident in every
+        // cell. Zero it here; measure it below; assert the premise downstream.
+        {
+            let mut health = app.world_mut().get_mut::<BodyHealth>(attacker).unwrap();
+            let pool = health.health;
+            let policy = health.policy();
+            *health = BodyHealth::restored(pool, 0, policy);
+        }
+        let attacker_damage_taken = app
+            .world()
+            .get::<BodyHealth>(attacker)
+            .map(|h| h.damage_taken())
+            .unwrap_or(-1);
+
         let strike = app
             .world_mut()
             .spawn((
@@ -6404,8 +6459,19 @@ mod ring_out {
             .id();
 
         let mut left_the_world = false;
-        let mut peak_speed = 0.0f32;
+        let mut peak_body_speed = 0.0f32;
         let mut peak_lateral = 0.0f32;
+        // ⛔ THE AUTHORITY, READ NOT RECOMPUTED. The engine resolves the launch
+        // in `resolve_hitboxes` and writes it onto the `HitEvent` it emits, so
+        // that event is the only place this fixture can learn the real number
+        // without keeping a second copy of the law. A cursor made ONCE, before
+        // the loop, and advanced inside it: a fresh cursor per tick re-reads
+        // from the buffer's start and would credit the same pulse repeatedly.
+        let mut hit_cursor = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::combat::events::HitEvent>>()
+            .get_cursor();
+        let mut resolved_launch: Option<f32> = None;
         // ⭐ THE METER IS SAMPLED EARLY AND KEPT, which is the other half of the
         // reset repair above. The landed-strike guard asks "did this hit
         // connect", and that is answered three ticks after contact; asking it at
@@ -6413,11 +6479,15 @@ mod ring_out {
         // answer that was already true.
         let mut meter_after = meter_before;
         let mut sampled = false;
-        // ⛔ LONG ENOUGH FOR A KILL LAUNCH AND NO LONGER. From stage centre the
-        // body needs 720px; a launch that can do it carries ~800px/s and spends
-        // its hitstun cap (0.96s) getting there, so ~1.5s of ticks covers the
-        // crossing with margin. The 240-tick version covered it four times over
-        // and bought a window in which other things happened.
+        // ⛔ LONG ENOUGH FOR A KILL LAUNCH AND NO LONGER. A launch that can end
+        // a stock spends its hitstun cap (0.96s) travelling, so ~1.5s of ticks
+        // covers the crossing of whichever boundary it is heading for, with
+        // margin. The 240-tick version covered it four times over and bought a
+        // window in which other things happened.
+        //
+        // ⚠ This window is deliberately NOT justified by a lateral distance any
+        // more: the 720px side-line figure it used to cite was part of the
+        // criterion that mis-selected the ruleset constant.
         let mut reacting = 0usize;
         for _ in 0..150 {
             app.update();
@@ -6451,8 +6521,32 @@ mod ring_out {
                 })
             };
             left_the_world |= ko;
+            // FIRST launch wins: a victim that lands and gets re-struck later
+            // in the window would otherwise overwrite the pulse under test.
+            if resolved_launch.is_none() {
+                let messages = app
+                    .world()
+                    .resource::<Messages<ambition_platformer2d::combat::events::HitEvent>>();
+                for hit in hit_cursor.read(messages) {
+                    let mine = matches!(
+                        hit.target,
+                        ambition_platformer2d::combat::events::HitTarget::Body(e) if e == victim
+                    );
+                    if !mine {
+                        continue;
+                    }
+                    if let Some(kb) = hit.knockback.as_ref() {
+                        if let ambition_platformer2d::combat::events::HitKnockbackMagnitude::LaunchSpeed(v) =
+                            kb.magnitude
+                        {
+                            resolved_launch = Some(v);
+                            break;
+                        }
+                    }
+                }
+            }
             if let Some(kin) = app.world().get::<BodyKinematics>(victim) {
-                peak_speed = peak_speed.max(kin.vel.length());
+                peak_body_speed = peak_body_speed.max(kin.vel.length());
                 peak_lateral = peak_lateral.max((kin.pos.x - struck_at.x).abs());
             }
             if left_the_world {
@@ -6493,14 +6587,15 @@ mod ring_out {
             app.world_mut().entity_mut(strike).despawn();
         }
         RingOut {
-            // Both halves, and the AND is the point: the stage's own knockout
-            // verdict plus the lateral travel that makes it a SIDE knockout.
-            // `peak_lateral` is a max over samples taken every tick, so it is
-            // conservative — a respawn teleport pulls the body back toward
-            // centre and can only lower the reading, never inflate it.
+            // Describes WHICH boundary the launch crossed. `peak_lateral` is a
+            // max over per-tick samples, so it is conservative — a respawn
+            // teleport pulls the body back toward centre and can only lower the
+            // reading. ⛔ Not a calibration witness; see the field's own note.
             crossed_the_side_line: left_the_world && peak_lateral >= lateral_needed,
             left_the_world,
-            peak_speed,
+            resolved_launch,
+            attacker_damage_taken,
+            peak_body_speed,
             peak_lateral,
             lateral_needed,
             victim_weight,
@@ -6512,32 +6607,116 @@ mod ring_out {
     }
 
     /// THE REGRESSION. A fully stale jab on a 700% heavyweight, thrown from
-    /// stage centre by a FRESH attacker, has to end the stock.
+    /// stage centre by a FRESH attacker, has to END THE STOCK.
     ///
-    /// This is the match-unfinishable bug stated as an outcome. It FAILS before
-    /// the victim-percent repair and passes after; if it ever goes red again,
-    /// the percent term stopped converting.
+    /// This is the match-unfinishable bug stated as an outcome. The user-facing
+    /// complaint is that nobody dies, so the witness is a knockout — whichever
+    /// blast boundary the launch reaches.
+    ///
+    /// ⛔⛔ **IT USED TO DEMAND THE SIDE LINE, AND THAT WAS WRONG.** George's jab
+    /// authors `launch_dir: None`, so the engine's default launch vector applies
+    /// — roughly `x = 360, y = -260`, about 36° UPWARD. A ceiling kill is the
+    /// NATURAL outcome for that geometry. Requiring lateral exit made the test
+    /// reject the real knockouts that scales `1.00` and `1.25` already produced,
+    /// and the only way to satisfy it was to raise a RULESET-WIDE constant until
+    /// one diagonal move happened to fly sideways. That is how
+    /// `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` reached 1.5.
     #[test]
-    fn a_fully_stale_jab_at_700_percent_crosses_the_side_blast_line() {
+    fn a_fully_stale_jab_at_700_percent_ends_the_stock() {
         let mut app = open_the_lobby();
         let outcome = jab_from_stage_centre(&mut app, 700, true);
+        assert_eq!(
+            outcome.attacker_damage_taken, 0,
+            "the attacker carried {}%, so rage scaled this launch by {:.3} and \
+             the reading is not about the percent curve.",
+            outcome.attacker_damage_taken,
+            1.0 + 0.004 * outcome.attacker_damage_taken as f32,
+        );
         assert!(
-            outcome.crossed_the_side_line,
+            outcome.left_the_world,
             "a fully stale jab on a 700% George, thrown from stage centre, did \
-             not put him past the side blast line: he peaked at {:.1}px/s and \
-             travelled {:.1}px of the {:.1}px the stage requires. At 700% the \
+             not end the stock. The engine resolved the launch to {:?}px/s; the \
+             body peaked at {:.1}px/s (TRAJECTORY, gravity included) and \
+             travelled {:.1}px laterally, exiting sideways: {}. At 700% the \
              victim-percent term is the whole launch, so this is the match that \
              cannot finish — every fighter alive and no stock ever spent.\n\
-             ⚠ The launch GROWING is not the claim; `mod launched` already \
-             proves that. The claim is that it converts.\n\
-             ⛔ AND ANY KNOCKOUT IS NOT THE CLAIM EITHER. This asks for the SIDE \
-             line, because a stage has four blast boundaries: measured at percent \
-             scale 1.00 this cell registered a `LeftTheWorld` knockout after only \
-             533.5px of lateral travel — a ceiling or floor kill — and accepting \
-             that would have reported the percent curve as needing no repair.",
-            outcome.peak_speed,
+             ⚠ The launch GROWING is not the claim; `mod launched` proves that. \
+             The claim is that it CONVERTS.",
+            outcome.resolved_launch,
+            outcome.peak_body_speed,
             outcome.peak_lateral,
-            outcome.lateral_needed
+            outcome.crossed_the_side_line,
+        );
+    }
+
+    /// ⭐⭐ **DOES THE UNREPAIRED PERCENT CURVE ALREADY CONVERT?** Two cells,
+    /// both at `victim_percent_knockback_scale = 1.0`, which is the percent term
+    /// exactly as first written.
+    ///
+    /// This is the whole calibration, not a step toward it: 1.0 is the SMALLEST
+    /// candidate there is, so if it ends the stock at 700% stale while leaving
+    /// 0% a poke, then no percent multiplier is needed and the shipped `1.5` is
+    /// unearned. The 7-scale sweep can only confirm that afterwards.
+    ///
+    /// ⛔ IT RUNS AT 1.0 WITHOUT EDITING THE SHIPPED CONSTANT, deliberately.
+    /// Changing the number and the fixture together would make the result
+    /// unattributable to either.
+    #[test]
+    fn the_unrepaired_percent_curve_is_measured_against_the_stock_it_must_end() {
+        let mut kill_cell = george_cell(JAB, 0, 700, true);
+        kill_cell.scale = Some(1.0);
+        let kill = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &kill_cell)
+        };
+        let mut poke_cell = george_cell(JAB, 0, 0, false);
+        poke_cell.scale = Some(1.0);
+        let poke = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &poke_cell)
+        };
+        println!(
+            "SCALE 1.00, RAGE PINNED TO ZERO\n  \
+             700% stale: launch {:?}px/s, KO {}, side {}, lateral {:.1} of {:.0}, \
+             body peak {:.1}px/s\n  \
+             0%   fresh: launch {:?}px/s, KO {}, body peak {:.1}px/s\n  \
+             attacker meter: {} / {} (both must be 0 or rage contaminated this)",
+            kill.resolved_launch,
+            kill.left_the_world,
+            kill.crossed_the_side_line,
+            kill.peak_lateral,
+            kill.lateral_needed,
+            kill.peak_body_speed,
+            poke.resolved_launch,
+            poke.left_the_world,
+            poke.peak_body_speed,
+            kill.attacker_damage_taken,
+            poke.attacker_damage_taken,
+        );
+        assert_eq!(
+            (kill.attacker_damage_taken, poke.attacker_damage_taken),
+            (0, 0),
+            "rage leaked into this reading, so it is not about the percent curve"
+        );
+        assert!(
+            !poke.left_the_world,
+            "a 0% jab killed at scale 1.0, so this cell cannot witness anything"
+        );
+        // ⚠ NOT AN ASSERTION ABOUT WHICH ANSWER IS RIGHT. Both outcomes are
+        // findings: a KO here says the staleness split alone repaired the
+        // regression and the percent multiplier is unearned; no KO says the
+        // percent curve really is independently too shallow. The assertion
+        // exists so the answer is RECORDED rather than printed and lost.
+        assert!(
+            kill.left_the_world,
+            "at scale 1.00 a fully stale 700% jab did NOT end the stock: the \
+             engine resolved {:?}px/s and the body travelled {:.1}px. That is \
+             the evidence that the percent curve needs its own repair — record \
+             it and calibrate upward from here.\n\
+             (If this ever flips to passing, the shipped multiplier is \
+             unnecessary and should return to 1.0.)",
+            kill.resolved_launch,
+            kill.peak_lateral,
         );
     }
 
@@ -6547,13 +6726,48 @@ mod ring_out {
     fn a_fresh_jab_at_zero_percent_is_still_only_a_poke() {
         let mut app = open_the_lobby();
         let outcome = jab_from_stage_centre(&mut app, 0, false);
+        // ⛔⛔ **THE FIXTURE'S OWN HONESTY CHECK, AND IT IS NOT A TAUTOLOGY.**
+        // George's jab authors `knockback: 50.0` / `knockback_growth: 1.05`
+        // (`george_booul_moveset.rs`), and `scaled_knockback` is
+        // `base + growth × scale × percent / weight` — so at percent 0 the
+        // growth term is zero WHATEVER the ruleset scale is, and the engine
+        // must resolve exactly the authored base.
+        //
+        // ⭐ This is the assertion that proves `resolved_launch` reads the
+        // ENGINE rather than the trajectory. The metric this fixture used to
+        // call a launch speed reported 446.4px/s for this very cell — nine
+        // times the real launch — because it was a maximum of `vel.length()`
+        // over a window with gravity in it. A reader that quietly never fired
+        // would report `None` here and every curve built on it would be
+        // vacuous, which is why the check is an equality and not a range.
+        // The premise the launch assertion rests on, checked first so a rage
+        // leak reports itself as a rage leak rather than as a wrong curve.
+        assert_eq!(
+            outcome.attacker_damage_taken, 0,
+            "the attacker carried {}% at the moment of the strike, so rage \
+             multiplied this launch by {:.3} and the reading is not about the \
+             percent curve at all.",
+            outcome.attacker_damage_taken,
+            1.0 + 0.004 * outcome.attacker_damage_taken as f32,
+        );
+        assert_eq!(
+            outcome.resolved_launch.map(|v| (v * 1000.0).round() / 1000.0),
+            Some(50.0),
+            "the engine resolved this 0% jab to {:?}, not the authored base of \
+             50.0px/s. `None` means the fixture's `HitEvent` reader never fired \
+             and every resolved-launch reading in this module is vacuous; a \
+             value near 446 means it captured the body's peak TRAJECTORY speed \
+             again instead of the launch. Body peak this run: {:.1}px/s.",
+            outcome.resolved_launch,
+            outcome.peak_body_speed,
+        );
         assert!(
             !outcome.left_the_world,
-            "a jab on a 0% fighter at stage centre killed him ({:.1}px/s, \
-             {:.1}px travelled). Whatever repairs the high-percent curve must \
-             contribute EXACTLY ZERO at zero percent — that is what makes it a \
-             percent term rather than a knockback buff.",
-            outcome.peak_speed,
+            "a jab on a 0% fighter at stage centre killed him ({:.1}px/s body \
+             peak, {:.1}px travelled). Whatever repairs the high-percent curve \
+             must contribute EXACTLY ZERO at zero percent — that is what makes \
+             it a percent term rather than a knockback buff.",
+            outcome.peak_body_speed,
             outcome.peak_lateral
         );
     }
@@ -6581,10 +6795,14 @@ mod ring_out {
     /// larger value would also clear the kill bar, which is precisely why
     /// "it passes" is not evidence that it is the right number.
     ///
-    /// ⛔ `1.0` IS INCLUDED AS THE BEFORE-WITNESS AND MUST FAIL. It is the
-    /// unrepaired law — the percent term exactly as first written — so if it
-    /// ever clears this bar, the bar has stopped describing the defect and
-    /// every other row here is measuring nothing.
+    /// ⭐ `1.0` IS A LIVE CANDIDATE, NOT A BEFORE-WITNESS THAT MUST FAIL. It
+    /// used to be asserted as the unrepaired law, on the premise that the
+    /// percent curve was independently too shallow. That premise is not
+    /// established: `stale_knockback_influence` alone lifts this exact cell
+    /// from ~327px/s to ~521px/s, past the 500px/s tumble threshold, and the
+    /// simulation produced a knockout at `1.00` which the old side-line gate
+    /// discarded. If 1.0 converts, 1.0 is the answer and the second repair was
+    /// never needed.
     #[test]
     fn the_declared_percent_scale_is_the_smallest_value_that_clears_the_bar() {
         let candidates = [1.0f32, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
@@ -6604,21 +6822,25 @@ mod ring_out {
                 measure_cell(&mut app, &poke_cell)
             };
             rows.push(format!(
-                "  scale {scale:>4.2} | 700% stale: {:<5} {:>7.1}px/s {:>6.1}px of {:.0}px \
-                 | 0% fresh: {:<4} {:>6.1}px/s {:>5.1}px",
+                "  scale {scale:>4.2} | 700% stale: {:<5} launch {:>7.1}px/s \
+                 (body peak {:>7.1}, lateral {:>6.1} of {:.0}, side {}) \
+                 | 0% fresh: {:<4} launch {:>6.1}px/s",
                 if kill.left_the_world { "KO" } else { "ALIVE" },
-                kill.peak_speed,
+                kill.resolved_launch.unwrap_or(f32::NAN),
+                kill.peak_body_speed,
                 kill.peak_lateral,
                 kill.lateral_needed,
+                kill.crossed_the_side_line,
                 if poke.left_the_world { "KO" } else { "poke" },
-                poke.peak_speed,
-                poke.peak_lateral,
+                poke.resolved_launch.unwrap_or(f32::NAN),
             ));
-            // ⛔ THE SIDE LINE, NOT ANY KNOCKOUT — see `RingOut::crossed_the_side_line`.
-            // Taking `left_the_world` here reported 1.00 as the smallest
-            // passing value off two ceiling kills, which is the "the number
-            // increased" reading this calibration is supposed to refuse.
-            if kill.crossed_the_side_line && !poke.left_the_world && smallest_passing.is_none() {
+            // ⭐ THE STAGE'S OWN VERDICT. A knockout is a knockout, through
+            // whichever of the four blast boundaries the launch reaches: this
+            // gate used to demand a SIDE exit and so rejected real kills from a
+            // move that launches ~36° upward, which is what drove the constant
+            // to 1.5. The 0% cell must stay survivable, so the repair is a
+            // percent term and not a flat knockback buff.
+            if kill.left_the_world && !poke.left_the_world && smallest_passing.is_none() {
                 smallest_passing = Some(scale);
             }
         }
@@ -6649,18 +6871,34 @@ mod ring_out {
                 let mut app = open_the_lobby();
                 measure_cell(&mut app, &george_cell(JAB, 0, percent, false))
             };
+            let launch = outcome.resolved_launch.unwrap_or_else(|| {
+                panic!(
+                    "no resolved launch reached the victim at {percent}%, so \
+                     this row measures nothing.\n{}",
+                    rows.join("\n")
+                )
+            });
             rows.push(format!(
-                "  {percent:>4}% fresh jab: {:>7.1}px/s {:>6.1}px {}",
-                outcome.peak_speed,
+                "  {percent:>4}% fresh jab: launch {:>7.1}px/s (body peak \
+                 {:>7.1}px/s, {:>6.1}px) {}",
+                launch,
+                outcome.peak_body_speed,
                 outcome.peak_lateral,
                 if outcome.left_the_world { "KO" } else { "" }
             ));
+            // ⛔⛔ **THE RESOLVED LAUNCH, NOT THE BODY'S PEAK SPEED.** This
+            // assertion claims the percent curve rises, and it used to read a
+            // maximum of `vel.length()` over a window with GRAVITY in it: at 0%
+            // the real launch is exactly 50px/s and that metric read 446.4, so
+            // the signal it claimed to show was swamped by fall velocity. The
+            // ordering happened to hold; it was not what was being measured.
             assert!(
-                outcome.peak_speed > last,
-                "the launch did not grow from the previous percent step.\n{}",
+                launch > last,
+                "the resolved launch did not grow from the previous percent \
+                 step.\n{}",
                 rows.join("\n")
             );
-            last = outcome.peak_speed;
+            last = launch;
             if percent == 0 {
                 // (A) — and it is an OUTCOME assertion, not an arithmetic one:
                 // the resolver test pins the exact zero, this pins that zero
@@ -6718,12 +6956,20 @@ mod ring_out {
              {george} (weight {:.2}): {:>7.1}px/s {:>6.1}px\n  \
              {reference} (weight {:.2}): {:>7.1}px/s {:>6.1}px",
             heavy.victim_weight,
-            heavy.peak_speed,
+            heavy.peak_body_speed,
             heavy.peak_lateral,
             light.victim_weight,
-            light.peak_speed,
+            light.peak_body_speed,
             light.peak_lateral
         );
+        // ⚠ AND THE COMPARISON IS THE RESOLVED LAUNCH, NOT THE TRAJECTORY.
+        // These are two different CHARACTERS, not one character at two weights:
+        // they differ in movement tuning, gravity, and body geometry as well as
+        // in `CombatTuning::weight`, and a full simulated trajectory absorbs all
+        // of it. `resolved_launch` is `base + growth × scale × percent / weight`
+        // at the moment of resolution, so the divisor is the only thing left
+        // that can move it.
+        //
         // ⛔⛔ NON-VACUITY FIRST, AND IT IS NOT CEREMONY. If these two bodies
         // carry the SAME weight this test passes or fails on simulation noise
         // while claiming to measure weight, and if the authored weights ever
@@ -6739,20 +6985,20 @@ mod ring_out {
             reference
         );
         assert!(
-            heavy.peak_speed < light.peak_speed,
+            heavy.peak_body_speed < light.peak_body_speed,
             "the heavier body (weight {:.2}) did not resist the launch the lighter \
              one (weight {:.2}) took: {:.1}px/s vs {:.1}px/s. The percent term \
              DIVIDES by weight, so a scale applied to it must preserve that ordering.",
             heavy.victim_weight,
             light.victim_weight,
-            heavy.peak_speed,
-            light.peak_speed
+            heavy.peak_body_speed,
+            light.peak_body_speed
         );
         // ⛔ AND NOT IMMORTAL. A heavy that merely resists is a tuning choice; a
         // heavy that cannot be moved is the same unfinishable match in a
         // different costume.
         assert!(
-            heavy.peak_speed > 0.0 && heavy.peak_lateral > 0.0,
+            heavy.peak_body_speed > 0.0 && heavy.peak_lateral > 0.0,
             "the heavyweight did not move at all at 300%"
         );
     }
@@ -6790,14 +7036,14 @@ mod ring_out {
             };
             rows.push(format!(
                 "  {percent:>3}%: f-smash TIP {:>7.1}px/s {:>6.1}px {:<3} | jab {:>7.1}px/s {:>6.1}px",
-                smash.peak_speed,
+                smash.peak_body_speed,
                 smash.peak_lateral,
                 if smash.left_the_world { "KO" } else { "" },
-                jab.peak_speed,
+                jab.peak_body_speed,
                 jab.peak_lateral,
             ));
             assert!(
-                smash.peak_speed > jab.peak_speed,
+                smash.peak_body_speed > jab.peak_body_speed,
                 "the f-smash tip stopped being meaningfully stronger than the jab \
                  at {percent}%.\n{}",
                 rows.join("\n")
@@ -6868,11 +7114,11 @@ mod ring_out {
              0% fresh:   {:>7.1}px/s {:>6.1}px\n  \
              700% fresh: {:>7.1}px/s {:>6.1}px\n  \
              700% stale: {:>7.1}px/s {:>6.1}px",
-            at_zero.peak_speed,
+            at_zero.peak_body_speed,
             at_zero.peak_lateral,
-            at_700.peak_speed,
+            at_700.peak_body_speed,
             at_700.peak_lateral,
-            stale_700.peak_speed,
+            stale_700.peak_body_speed,
             stale_700.peak_lateral
         );
         // A PERCENT-SCALING volume at 700% would be several times this reading,
@@ -6880,24 +7126,24 @@ mod ring_out {
         // and gravity differ with damage) and nowhere near loose enough to
         // admit a percent term.
         assert!(
-            (at_700.peak_speed - at_zero.peak_speed).abs() < 0.10 * at_zero.peak_speed.max(1.0),
+            (at_700.peak_body_speed - at_zero.peak_body_speed).abs() < 0.10 * at_zero.peak_body_speed.max(1.0),
             "a set-knockback pulse scaled with percent: {:.1}px/s at 0% against \
              {:.1}px/s at 700%. `Some(0.0)` is the one value that must stay flat, \
              and the percent scale must not be able to reach it.",
-            at_zero.peak_speed,
-            at_700.peak_speed
+            at_zero.peak_body_speed,
+            at_700.peak_body_speed
         );
         // ⛔ AND STALING MUST NOT HALVE IT EITHER. Before the split, staling
         // multiplied the WHOLE launch — base included — so a fully stale fixed
         // move lost 45% of a launch that has no percent term to lose.
         assert!(
-            (stale_700.peak_speed - at_700.peak_speed).abs()
-                < 0.10 * at_700.peak_speed.max(1.0),
+            (stale_700.peak_body_speed - at_700.peak_body_speed).abs()
+                < 0.10 * at_700.peak_body_speed.max(1.0),
             "full staleness moved a set-knockback pulse: {:.1}px/s fresh against \
              {:.1}px/s stale. A fixed launch has no percent term, so there is \
              nothing for staling to attenuate.",
-            at_700.peak_speed,
-            stale_700.peak_speed
+            at_700.peak_body_speed,
+            stale_700.peak_body_speed
         );
         for (label, outcome) in [
             ("0% fresh", &at_zero),
@@ -6928,22 +7174,22 @@ mod ring_out {
         };
         println!(
             "STALENESS AT 300%\n  fresh: {:>7.1}px/s {:>6.1}px\n  stale: {:>7.1}px/s {:>6.1}px",
-            fresh.peak_speed, fresh.peak_lateral, stale.peak_speed, stale.peak_lateral
+            fresh.peak_body_speed, fresh.peak_lateral, stale.peak_body_speed, stale.peak_lateral
         );
         assert!(
-            stale.peak_speed <= fresh.peak_speed,
+            stale.peak_body_speed <= fresh.peak_body_speed,
             "a fully stale move launched FURTHER than a fresh one ({:.1} vs {:.1}), \
              so staling has stopped being a cost at all",
-            stale.peak_speed,
-            fresh.peak_speed
+            stale.peak_body_speed,
+            fresh.peak_body_speed
         );
         assert!(
-            stale.peak_speed > 0.65 * fresh.peak_speed,
+            stale.peak_body_speed > 0.65 * fresh.peak_body_speed,
             "full staleness cut the launch to {:.1}px/s from {:.1}px/s — that is \
              the near-halving this repair exists to end. Damage may fall to 55%; \
              the launch may not follow it down.",
-            stale.peak_speed,
-            fresh.peak_speed
+            stale.peak_body_speed,
+            fresh.peak_body_speed
         );
     }
 }

@@ -2680,6 +2680,129 @@ fn reload_adopted_the_pending_load(app: &bevy::app::App, load: &str) -> bool {
         .is_some_and(|adopted| adopted.as_str() == load)
 }
 
+/// ⛔⛔ **THE PRODUCTION ROAD'S STALENESS REFUSAL HAD NO WITNESS AT ALL.**
+///
+/// MEASURED 2026-09-12 at HEAD: `git grep StaleGeneration` returns exactly two
+/// hits, both in `reload.rs` — the variant's declaration and the one place
+/// `admit_candidate` returns it. Zero tests. Meanwhile `MoveReload::Stale`, the
+/// CAST clock's refusal, has two witnesses — and both of them go through
+/// `reload_move_tables_from` / `reload_move_tables_selecting`, which are
+/// `#[cfg(test)]`.
+///
+/// ⇒ **THE TESTED REFUSAL IS THE ONE THAT CANNOT FIRE IN PRODUCTION AND THE
+/// REACHABLE ONE WAS UNTESTED.** On the request road `admit_candidate` runs
+/// FIRST, so a candidate whose base no longer matches the selection is refused
+/// before anything is staged; the cast stamp that would have said the same thing
+/// is read from the live world one line before it is compared, and can therefore
+/// never disagree.
+///
+/// ⚠ THE SEQUENCE IS THE ONE A WATCHER ACTUALLY PRODUCES: read the live
+/// identity, do file I/O, come back late. Compiling a pack is not instant and a
+/// second save is ordinary.
+#[test]
+fn a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
+    // What our compile read before it started.
+    let compiled_against = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+
+    // ⛤ SOMEBODY ELSE PUBLISHES WHILE OUR COMPILE IS IN FLIGHT.
+    let theirs = std::sync::Arc::new(pack_of(&doc_text(0.3)).expect("compiles"));
+    assert!(
+        matches!(
+            reload_move_tables_selecting(
+                app.world_mut(),
+                std::sync::Arc::clone(&theirs),
+                None
+            ),
+            MoveReload::Activated { .. }
+        ),
+        "the premise: the selection actually moved under us"
+    );
+    let active = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    assert_ne!(
+        compiled_against, active,
+        "the fixture superseded nothing, so the arm below would refuse a \
+         candidate whose base was still current and prove nothing"
+    );
+    // ⚠ CAPTURED *AFTER* THEIR PUBLICATION. Taking this before it would make
+    // the final assertion fail on THEIR change and name mine.
+    let before = live_duration(&app);
+
+    // ⭐ OUR PACK, COMPILED BEFORE THAT, ARRIVES LATE — ON THE PRODUCTION ROAD.
+    let ours = std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles"));
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&ours),
+            Some(compiled_against),
+        ),
+    );
+    assert!(
+        matches!(
+            &outcome,
+            ReloadRequest::Refused(MoveReload::StaleGeneration {
+                prepared_against,
+                active: reported,
+            }) if prepared_against == &compiled_against.hex()
+                && reported == &active.hex()
+        ),
+        "a candidate prepared against a pack that is no longer selected was not \
+         refused by the request road: {outcome:?}"
+    );
+
+    // ⛔ AND NOTHING MOVED. A refusal that staged, selected or requested is a
+    // half-transaction, and `AlreadyPending` would then refuse every later save.
+    assert!(
+        crate::reload::pending_pack(app.world()).is_none(),
+        "a refused candidate was left staged, so no later save can land"
+    );
+    assert!(
+        std::ptr::eq(
+            crate::pack::selected(app.world()).expect("a selection"),
+            std::sync::Arc::as_ref(&theirs)
+        ),
+        "a refused candidate became the App's selection anyway"
+    );
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a refused candidate asked the shell to re-prepare: {:?}",
+        issued_commands(&mut app)
+    );
+
+    // ⭐ AND THE SAME PACK, RE-BASED, IS ACCEPTED — so the refusal is about the
+    // BASE and not about the pack, and the caller's documented remedy (re-read
+    // and try again) actually works.
+    let again = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(ours, Some(active)),
+    );
+    assert!(
+        matches!(again, ReloadRequest::Requested { .. }),
+        "re-basing the same candidate on the live selection was still refused, \
+         so the refusal is not about staleness: {again:?}"
+    );
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "one of these two requests published the cast without an activation"
+    );
+}
+
 fn ambient_barrier(load: &str) -> ambition_platformer2d::load::LoadBarrierRef {
     ambition_platformer2d::load::LoadBarrierRef::new(
         ambition_platformer2d::load::LoadId::new(load),

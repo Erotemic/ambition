@@ -420,7 +420,16 @@ def wasm_target_installed() -> bool:
 
 
 def repo_coupled_python_job() -> Job:
-    """The FIRST class of repo-coupled job: ~44s of pytest, dropped only by `--rust-alone`.
+    """The FIRST class of repo-coupled job, dropped only by `--rust-alone`.
+
+    ⛔⛔ NO WALL-CLOCK FIGURE LIVES HERE ANY MORE, AND THAT IS THE FIX. This
+    docstring and four other sites each carried "~44s" — one fact copied five
+    times, stale in the direction that makes the job look cheap. Measured on one
+    commit on 2026-09-11: 158s on one box, 346s on another whose sprite assets
+    were never published. A lane's cost is per-machine and per-build-state, so
+    quoting one is how a reader gets misled about which lane to run.
+    ⇒ Ask the plan (`--list`) and the ledger
+    (`dev/ambition_dev_measurements/run_tests_cost.jsonl`).
 
     ⛔⛔ A FUNCTION FOR THE SAME REASON ITS SIBLING IS ONE. `--rust-alone` is the
     lane that drops the MOST — this job AND every slow checker — and its notice
@@ -535,8 +544,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     post_rust_repo_jobs: list[Job] = []
     if not only and include_python_tooling:
         jobs.append(repo_coupled_python_job())
-    # ⭐ TWO CLASSES, NOT ONE. The pytest guard set above is ~44s MEASURED and is
-    # what catches a rollback ratchet, a codec-shape baseline or a stale
+    # ⭐ TWO CLASSES, NOT ONE. The pytest guard set above is the one that
+    # catches a rollback ratchet, a codec-shape baseline or a stale
     # MODULES.md drifting. The ones below are slower (no-warnings is a whole
     # `cargo check --all-targets`) or documentation-shaped. `--rust` keeps the
     # first class and drops this one; `--rust-alone` drops both.
@@ -1482,7 +1491,7 @@ def coverage_notice(
             "\n      The first of those carries the rollback stable-name ratchet, "
             "the\n      codec-shape baseline, per-crate MODULES.md currency and the\n"
             "      capability-ships and absence contracts — each has gone red "
-            "unnoticed\n      before. ~44s buys that job back:\n"
+            "unnoticed\n      before. One lane buys that job back:\n"
             "      ./run_tests.sh --rust"
         )
     if not exhaustive:
@@ -2078,8 +2087,8 @@ def main() -> int:
         # the omission in BOTH places, which is what one-fact-several-writers
         # looks like when you fix the writer you were looking at.
         dropped = ", ".join(job.name for job in slow_python_checker_jobs())
-        print("run_tests: RUST/CARGO lane + the repo-coupled pytest guard set "
-              f"(~44s). Omitted here: {dropped}. "
+        print("run_tests: RUST/CARGO lane + the repo-coupled pytest guard set. "
+              f"Omitted here: {dropped}. "
               "Run `./run_tests.sh` for those.")
     if args.rust_alone:
         # ⛔⛔ THE SECOND WRITER FOR THIS LANE, and the `--rust` fix on
@@ -2090,7 +2099,7 @@ def main() -> int:
         print("run_tests: ⛔ --rust-alone: NOTHING but Rust/Cargo. Omitted here: "
               f"{dropped}. Rollback ratchets, codec shape and schema baselines "
               "can go red without this run noticing. "
-              "Run `./run_tests.sh --rust` (adds ~44s) unless you have a reason.")
+              "Run `./run_tests.sh --rust` unless you have a reason.")
     if args.run_everything or args.heavy:
         print("run_tests: EXHAUSTIVE plan requested. "
               f"{len(jobs)} jobs planned today; MEASURED END TO END "

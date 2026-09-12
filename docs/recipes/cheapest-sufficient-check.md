@@ -67,6 +67,27 @@ adding safety.
   | generated assets or a regen script | the regen script, then the guard it feeds | ⚠ another session may be regenerating the same tree |
   | Python tooling / a guard | `python3 -m pytest scripts/tests/ -q` | everything Rust |
   | a runner or workspace-wide change | `./run_tests.sh` | feature-gated tests, the consumer fixtures, the wasm check |
+  | ONE job in a lane reported something, and you have now fixed it | `./run_tests.sh <lane> --only-job "<substring of the job name>"` | every sibling job in that lane — it runs exactly one, and refuses rather than planning nothing |
+
+⚠ **`--rust` IS NOT THE CHEAPER LANE, AND ITS NAME READS LIKE ONE.** Read off
+both plans on 2026-09-11: it runs 6 jobs against the default lane's 10, and it
+KEEPS both heavyweights — `workspace (default features)` and the `capture_scene`
+acceptance run — which are most of the wall clock either way. What it drops is
+the coverage: the no-warnings check (itself a whole `cargo check --all-targets`,
+and the only thing that sees a `-D warnings` break), doc links, planning
+citations, and the compile-cost ratchet. ⇒ **To go faster, go NARROWER — a row in
+the table above — not to another lane.** `--rust` is the lane for "I need the
+Rust verdict and will take the doc gates later", never for "this will be quicker".
+
+⛔ Do not quote a wall-clock figure for a lane here. Lane costs are per-machine
+and per-build-state, they rot silently, and `run_tests.py` carried a "~44s" for
+this job in five places while it measured far more. Ask the plan
+(`--list`) and the ledger (`dev/ambition_dev_measurements/run_tests_cost.jsonl`).
+
+⭐ **`--only-job` is what re-runs an audit you just fixed.** Before it, the only
+spellings were "the whole lane" or "the underlying script by hand", and a lane you
+assemble yourself has no skip-list to read past. `--list` accepts it too, so
+`--only-job` + `--list` shows exactly what a filtered plan will run.
 
 ## Why each caveat is there
 

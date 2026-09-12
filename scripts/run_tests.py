@@ -488,6 +488,17 @@ def slow_python_checker_jobs() -> list[Job]:
             "doc links (active KB)",
             [sys.executable, "scripts/check_doc_links.py"],
         ),
+        # ⛔⛤ **IT LIVES HERE AND NOT ONLY IN `--maintenance`, AND PUTTING IT
+        # THERE FIRST WAS THE MISTAKE.** I registered this in
+        # `build_maintenance_jobs`, saw `--maintenance` go 8/8, and read that as
+        # "it is in the gate". It was not: the bare gate is a different plan and
+        # the job never ran in it. ⇒ A LANE'S GREEN IS A CLAIM ABOUT THAT LANE.
+        # The churn it guards arrives in a shared tree between commits, so the
+        # gate is where it has to be.
+        Job(
+            "LDtk worlds: no uid allocated and discarded",
+            [sys.executable, "scripts/check_ldtk_uid_leak.py"],
+        ),
         Job(
             # ⚠ NON-STRICT ON PURPOSE: it reports, it does not fail. This is
             # a linter for PROSE, so a false positive is a matter of a name

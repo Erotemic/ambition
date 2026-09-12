@@ -4107,6 +4107,22 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// | 1.50  | KO             | 627.7px | poke     |
 /// | 1.75+ | KO             | 722px+  | poke     |
 ///
+/// ⛔⛔ **`1.50` IS A CEILING, AND THE TABLE ABOVE CANNOT SEE IT.** Every value
+/// from `1.25` up ends the stock, so read alone this says "higher is safe". It
+/// is not: TWO CPU floors, in two crates, are RED at `1.50` and PASS at `1.25` —
+/// `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+/// (duel density) and `the_repertoire_gets_used::every_authored_route_gets_pressed`
+/// (a held recovery route never pressed). Measured by ToothbrushAmbition as a
+/// controlled flip at `bb90f1370`, on a tree where the constant is the only
+/// non-test change. A steeper curve separates the CPUs further, so they exchange
+/// less and land where their recovery is never asked for.
+/// ⇒ **`1.25` is the only value BOTH instruments accept**, and this sweep is
+/// only one of them. Raising this number means re-running those two floors, not
+/// just this table — see the CLOSED section in `docs/planning/queue.md`.
+/// ⚠ Those floors were GREEN at `1.00`. They bound this number's MAGNITUDE and
+/// were never evidence against the repair itself; `1.00` leaves a 700% victim
+/// alive, which is the defect this constant exists to fix.
+///
 /// ⛔ WHAT THE FIRST SWEEP GOT WRONG, since the same traps are still there:
 /// 1. **It demanded a SIDE exit.** This jab authors `launch_dir: None`, so the
 ///    default launch vector is ~36° UPWARD and its natural knockout is through

@@ -2160,6 +2160,72 @@ mod tests {
         );
     }
 
+    /// THE RULESET'S PERCENT SCALE REACHES A THROW, AND MOVES ONLY THE PERCENT
+    /// TERM.
+    ///
+    /// `apply_capture_throws` calls `scaled_knockback` ITSELF rather than going
+    /// through the hitbox resolver, so a ruleset knob wired only into the
+    /// resolver would silently leave throws on the old curve — and "a throw at
+    /// high percent is a kill move" is the sentence that system's own doc
+    /// comment leads with. Two readings pin both halves of the law.
+    ///
+    /// ⛔ THE ZERO-PERCENT READING NEEDS A `damage: 0` THROW. A throw banks its
+    /// own damage BEFORE the launch reads the meter, so the ordinary fixture's
+    /// victim is already at 9 when `scaled_knockback` runs and the percent term
+    /// is not zero there. Asserting invariance on the ordinary throw would be
+    /// asserting something false that happens to be nearly true.
+    #[test]
+    fn the_ruleset_percent_scale_reaches_a_throw_and_moves_only_the_percent_term() {
+        // ⛔ THE REQUEST IS BUILT INSIDE, FROM THIS APP'S OWN CAPTOR. Carrying an
+        // `Entity` in from another `App` relies on both worlds handing out the
+        // same id, and when they stop doing so `apply_capture_throws` finds no
+        // captor, skips the request, and BOTH launches read 0.0 — which passes
+        // the equality below vacuously rather than failing.
+        let launch = |scale: f32, damage: i32| {
+            let (mut app, captor, victim) = throw_app();
+            app.insert_resource(crate::rules::ResolvedCombatTuning {
+                victim_percent_knockback_scale: scale,
+                ..Default::default()
+            });
+            app.world_mut()
+                .write_message(crate::capture::CaptureThrowRequested {
+                    damage,
+                    ..throw(captor, 4.0)
+                });
+            app.update();
+            app.world()
+                .get::<ae::BodyKinematics>(victim)
+                .unwrap()
+                .vel
+                .length()
+        };
+
+        // A body with NO accumulated percent: the term the scale multiplies is
+        // already zero, so no ruleset can make this throw stronger.
+        let flat_at_zero = launch(1.0, 0);
+        let steep_at_zero = launch(3.0, 0);
+        assert!(
+            flat_at_zero > 0.0,
+            "the fixture threw nobody, so the equality below would hold for the \
+             wrong reason"
+        );
+        assert_eq!(
+            flat_at_zero, steep_at_zero,
+            "a percent scale moved a 0% throw — it is scaling the BASE, not the \
+             percent term, which makes every poke in the game lethal"
+        );
+
+        // The same throw on a body the throw's own damage has put on the meter:
+        // now there is a percent term for the scale to ride.
+        let flat_when_hurt = launch(1.0, 9);
+        let steep_when_hurt = launch(3.0, 9);
+        assert!(
+            steep_when_hurt > flat_when_hurt,
+            "the ruleset's percent scale never reached the throw path: flat \
+             {flat_when_hurt}, steep {steep_when_hurt}"
+        );
+    }
+
     /// A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.
     ///
     /// Half of the "one captor, one captive" invariant. Without it a grab whose

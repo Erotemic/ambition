@@ -66,11 +66,30 @@ fn file_root_registry() -> &'static SheetRegistry {
 /// Tracy priced that call at **189,032,871 ns against a 21us mean** over 10,078
 /// calls, inside the 23.9s frame-spike cluster (a 198.3ms frame).
 ///
-/// ⚠ THE TWO LINES ARE TWO DIFFERENT REGISTRIES, which is why nothing caught
-/// this: `init_sheet_registry` fills the Bevy resource keyed by `record.target`,
-/// while this one is keyed by FILE ROOT so `player_robot_v3` stays distinct from
-/// `robot`. Both walk the same 870-entry baked table. ▢ Sharing one index would
-/// remove the duplicated build AND its memory; warming is the cheap half.
+/// ⛔⛤ **THIS PARAGRAPH USED TO SAY THE TWO LINES WERE TWO DIFFERENT REGISTRIES
+/// — "`init_sheet_registry` fills the Bevy resource keyed by `record.target`,
+/// while this one is keyed by FILE ROOT" — AND IT HAS GONE FALSE SINCE.**
+/// MEASURED 2026-09-12 by
+/// `the_registry_and_the_record_index_are_one_map_built_twice` (in
+/// `ambition_sprite_sheet::character::sheets::tests`): over the shipped
+/// 870-entry table, the two indices agree on EVERY key in both directions and on
+/// EVERY record. They are one map built twice. Both roads now go through
+/// `index_baked_table`, which holds the single keying rule, and
+/// `record_index`'s own doc already said that disagreement was PAST tense.
+///
+/// ⇒ **A JUSTIFICATION WRITTEN IN THE PRESENT TENSE IS A CLAIM WITH A DATE ON
+/// IT, AND NOTHING CHECKS THE DATE.** A stale sentence kept a second 870-entry
+/// parse alive, and the repository had already priced what believing it cost:
+/// the 189ms frame above.
+///
+/// ▢ **SHARING ONE INDEX IS STILL NOT DONE, AND IT IS A DESIGN DECISION RATHER
+/// THAN A DELETION.** Three callers hold this data: the App-scoped
+/// `SheetRegistry` RESOURCE, this `OnceLock`, and `character::sheets`'s
+/// `record_index` `OnceLock`. Collapsing toward the RESOURCE removes a
+/// process-global; collapsing toward either `OnceLock` deletes the same amount
+/// of code and keeps one. Those are different changes and only the first is the
+/// direction the content-pack work has been going. The test above is what makes
+/// either one safe to attempt.
 pub fn warm_file_root_registry() {
     let _ = file_root_registry();
 }

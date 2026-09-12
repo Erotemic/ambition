@@ -548,3 +548,212 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
         );
     }
 }
+
+/// The Bevy resource's index and this module's `record_index` are THE SAME MAP,
+/// built twice over the same 870-entry baked table.
+///
+/// ⛔⛤ **THIS EXISTS BECAUSE A COMMENT DEFENDING THE DUPLICATION HAS GONE
+/// FALSE.** `attack_hitbox::warm_file_root_registry` still says, in the present
+/// tense, *"THE TWO LINES ARE TWO DIFFERENT REGISTRIES ... `init_sheet_registry`
+/// fills the Bevy resource keyed by `record.target`, while this one is keyed by
+/// FILE ROOT"*. [`record_index`]'s own doc says that disagreement is PAST tense
+/// and that it now calls [`crate::index_baked_table`] precisely so the two
+/// agree. Both cannot be current. The repository already priced the cost of
+/// believing the stale one: Tracy, 2026-08-29, **189,032,871 ns against a 21us
+/// mean** the first time a punch asked for the second index, inside a 198.3ms
+/// frame.
+///
+/// ⇒ A JUSTIFICATION WRITTEN IN THE PRESENT TENSE IS A CLAIM WITH A DATE ON IT,
+/// and nothing here checks the date. This test checks it: if the two indices
+/// ever genuinely diverge, this goes red and the comment becomes true again; so
+/// long as it passes, the second parse is buying nothing.
+///
+/// ⚠ Records are compared through `{:?}` because [`crate::SheetRecord`] derives
+/// `Debug, Clone, Deserialize` and NOT `PartialEq`.
+///
+/// ⛔⛤ **THAT COMPARISON REPORTED 519 OF ~870 KEYS AS DIFFERING WHEN NOTHING
+/// DIFFERED, AND THE FIX WAS NOT IN THIS FILE.** MEASURED 2026-09-12.
+/// `BodyMetrics::animations` and `FrameRect::anchors` were `HashMap`s, `Debug`
+/// prints a map in ITERATION order, and two `HashMap`s built in one process do
+/// not share one — so `absurd_general.potato` read `{"hit": …}` against
+/// `{"idle": …}`: the same entries, reordered. ⇒ A NEGATIVE RESULT IS A CLAIM
+/// ABOUT THE INSTRUMENT FIRST.
+///
+/// ⛔⛔ **AND A CANONICALISER THAT SORTED "THE MAP" WAS THE WRONG FIX — I WROTE
+/// ONE AND IT WAS FALSIFIED IN FIVE MINUTES.** It sorted `animations`, carried
+/// the comment *"`SheetRecord` reaches exactly ONE `HashMap`"*, and the count
+/// went 519 → 121 because `FrameRect::anchors` is a second one. A comparator
+/// that hand-enumerates a POPULATION is the same defect this repository keeps
+/// finding everywhere else, one layer down. ⇒ Both maps are `BTreeMap`s now, so
+/// `Debug` is order-stable BY CONSTRUCTION and this comparison needs to know
+/// nothing about how many maps a record reaches — including the ones added
+/// after this was written.
+///
+/// ⚠ ONE HOLE REMAINS AND IT IS SAFE HERE: NaN. Floats reach a record
+/// (`SheetTuningSpec::collision_scale`, `SheetRow::duration_secs`,
+/// `AnimationMetrics::frame_duration_secs`, `NamedPixelRect::poly`,
+/// `PixelPoint::{x,y}`, `NormPoint::{x,y}`) and `{:?}` prints `NaN`, so two
+/// NaNs compare EQUAL as strings where `PartialEq` would call them unequal. The
+/// proxy is therefore MORE LENIENT than `PartialEq`, not stricter — and that
+/// direction is the safe one: a false EQUAL needs both sides NaN in the SAME
+/// field, which means both indices parsed the same broken RON, which is
+/// agreement, and agreement is what this test establishes.
+#[test]
+fn the_registry_and_the_record_index_are_one_map_built_twice() {
+    let index = record_index();
+    let registry =
+        crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS);
+
+    // ⛔ THE ANTI-VACUITY FLOOR, FIRST AND BEFORE ANY COMPARISON. Two empty maps
+    // are equal, and an empty corpus is the most common way a check in this
+    // crate passes while measuring nothing.
+    //
+    // ⛔⛤ 800 AGAINST A SHIPPED 870, AND THE TIGHTNESS IS THE POINT. This
+    // population is GENERATED — `build.rs` globs `assets/sprites{,_0_5x,_0_25x,
+    // _potato}` for `*_spritesheet.ron`, which is gitignored publish output — so
+    // the failure mode is not "drifts down by a few". It is "the glob matched a
+    // different tree and half the sheets vanished", and a loose floor waves
+    // exactly that through. A floor on a derived population is a floor on its
+    // GENERATOR: if somebody legitimately halves the sheet count they should
+    // have to come here and say so in the commit message. That is the tax
+    // working, not the tax hurting.
+    assert!(
+        index.len() > 800,
+        "the baked record index holds {} sheet(s), below the floor of 800 — \
+         either the baked table did not compile in (so every comparison below \
+         would pass vacuously), or the publish glob matched a different tree",
+        index.len(),
+    );
+    assert!(
+        registry.len() > 800,
+        "the registry holds {} sheet(s), below the floor of 800 — same vacuity, \
+         other side",
+        registry.len(),
+    );
+
+    // ⛔ BOTH DIRECTIONS. A subset test passes when one side silently drops keys.
+    let missing: Vec<&str> = index
+        .keys()
+        .filter(|key| registry.get(key).is_none())
+        .map(String::as_str)
+        .collect();
+    let extra: Vec<&str> = registry
+        .iter()
+        .map(|(key, _)| key)
+        .filter(|key| !index.contains_key(*key))
+        .collect();
+    assert!(
+        missing.is_empty() && extra.is_empty(),
+        "the two indices over one baked table disagree on WHICH sheets exist.\n  \
+         {} key(s) only in record_index: {:?}\n  \
+         {} key(s) only in the registry: {:?}\n  \
+         ⇒ they are not the same map, and whichever caller holds the smaller one \
+         is answering lookups it should not.",
+        missing.len(),
+        missing.iter().take(8).collect::<Vec<_>>(),
+        extra.len(),
+        extra.iter().take(8).collect::<Vec<_>>(),
+    );
+
+    // ⛔ AND THE RECORDS, NOT ONLY THE KEYS. Two maps of 870 entries can agree on
+    // every key and disagree on what each key ANSWERS — which is the shape of the
+    // bug `record_index`'s doc says already happened once, when one index handed
+    // back `tech_bro_disruptor`'s page for sheet `robot`.
+    let mut differing: Vec<String> = Vec::new();
+    for (key, mine) in index.iter() {
+        let theirs = registry.get(key).expect("key sets agreed above");
+        if format!("{mine:?}") != format!("{theirs:?}") {
+            differing.push(key.clone());
+        }
+    }
+    assert!(
+        differing.is_empty(),
+        "{} key(s) resolve to DIFFERENT records in the two indices (first {:?}) \
+         — same keys, different answers, which is worse than a missing key \
+         because every caller believes it looked the sheet up correctly",
+        differing.len(),
+        differing.iter().take(8).collect::<Vec<_>>(),
+    );
+}
+
+/// The comparison BELOW the floor is live code, exercised on a synthetic table.
+///
+/// ⛔⛤ WITHOUT THIS, `the_registry_and_the_record_index_are_one_map_built_twice`
+/// is unfalsifiable ON A CHECKOUT THAT PUBLISHES NO SHEETS: its floor trips
+/// first and the key/record comparisons are never reached, so "the guard works"
+/// would rest on a branch nobody took. A synthetic two-record table reaches them
+/// without needing the 870-entry baked table to exist.
+#[test]
+fn the_index_comparison_can_tell_two_tables_apart() {
+    // ⛔⛔ **THE SYNTHETIC RECORD CARRIES A POPULATED `animations` MAP, AND THAT
+    // IS NOT DECORATION.** The first version of this control built records with
+    // `rows: []` and NO `body_metrics`, so every map in it was EMPTY — and an
+    // empty map prints identically under any hasher. It therefore could not have
+    // caught the `HashMap`-iteration-order artifact that made its sibling report
+    // 519 false differences, which is the exact part of the comparator that
+    // broke. ⇒ A CONTROL THAT EXERCISES EVERYTHING EXCEPT THE PART THAT FAILS IS
+    // A CONTROL THAT CERTIFIES THE WRONG THING. Several entries, deliberately
+    // NOT in sorted order in the source text, so a container that did not sort
+    // would surface here.
+    fn one(target: &str, image: &str) -> String {
+        format!(
+            "[(target: \"{target}\", image: \"{image}\", label_width: 0, \
+              frame_width: 64, frame_height: 64, rows: [], \
+              body_metrics: Some((animations: {{ \
+                \"side_sweep\": (), \"rest\": (), \"floor_slam\": (), \"idle\": (), \
+                \"hit\": () }})))]"
+        )
+    }
+    let a_text = one("alpha", "alpha.png");
+    let b_text = one("beta", "beta.png");
+    let same = crate::SheetRegistry::from_baked_table(&[
+        ("alpha", a_text.as_str()),
+        ("beta", b_text.as_str()),
+    ]);
+    let twin = crate::SheetRegistry::from_baked_table(&[
+        ("alpha", a_text.as_str()),
+        ("beta", b_text.as_str()),
+    ]);
+    assert_eq!(same.len(), 2, "premise: the synthetic table indexes");
+    // ⛔ THE FLOOR ON THE FIXTURE ITSELF. A `body_metrics` field the parser
+    // ignored would leave every record's maps empty and this control would go
+    // back to certifying nothing, silently.
+    assert!(
+        same.get("alpha")
+            .and_then(|r| r.body_metrics.as_ref())
+            .is_some_and(|m| m.animations.len() >= 5),
+        "the synthetic record did not parse its `animations` map, so this \
+         control is back to comparing empty maps — which is what it exists to \
+         stop doing"
+    );
+
+    // ⭐ SAME INPUTS AGREE — the comparison does not report spurious differences.
+    for (key, record) in same.iter() {
+        assert_eq!(
+            format!("{record:?}"),
+            format!("{:?}", twin.get(key).expect("the twin holds every key")),
+            "{key}: identical tables must produce identical records"
+        );
+    }
+
+    // ⛔ AND DIFFERENT INPUTS DISAGREE — the comparison can actually FAIL, which
+    // is the half a green test never demonstrates.
+    let changed = one("alpha", "DIFFERENT.png");
+    let other = crate::SheetRegistry::from_baked_table(&[("alpha", changed.as_str())]);
+    assert_ne!(
+        format!("{:?}", same.get("alpha").expect("premise")),
+        format!("{:?}", other.get("alpha").expect("premise")),
+        "a record whose image differs must compare UNEQUAL, or the {{:?}} proxy \
+         is blind and the sibling test proves nothing"
+    );
+    let missing: Vec<&str> = same
+        .iter()
+        .map(|(key, _)| key)
+        .filter(|k| other.get(k).is_none())
+        .collect();
+    assert_eq!(
+        missing,
+        ["beta"],
+        "the key-set comparison must notice a key the other side lacks"
+    );
+}

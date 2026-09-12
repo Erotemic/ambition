@@ -277,7 +277,7 @@ impl SpritePackCatalog {
                     h: f.h,
                     page: f.page,
                     off: f.off,
-                    anchors: std::collections::HashMap::new(),
+                    anchors: std::collections::BTreeMap::new(),
                 })
                 .collect::<Vec<_>>();
             rows.push(crate::SheetRow {

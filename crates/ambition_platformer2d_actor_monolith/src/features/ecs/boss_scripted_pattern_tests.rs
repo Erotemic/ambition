@@ -46,7 +46,7 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
 /// `derive_boss_sprite_metrics`.
 fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     let head_rest = NamedPixelRect {
         name: "head".to_string(),
         x: 301,
@@ -96,7 +96,7 @@ fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics
         }),
         frame_duration_secs: None,
     };
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert("rest".to_string(), rest_entry);
     animations.insert("gnu_head_descent".to_string(), descent_entry);
     ambition_sprite_sheet::ActorSpriteMetrics {

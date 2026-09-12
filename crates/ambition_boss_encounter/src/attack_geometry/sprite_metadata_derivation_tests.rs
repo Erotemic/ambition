@@ -192,13 +192,13 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     // Build a sprite-metrics snapshot with a distinct
     // `side_sweep` hurtbox (much wider than the static body
     // bbox) so we can prove the consumer picked the
     // per-animation one.
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "side_sweep".to_string(),
         AnimationMetrics {
@@ -282,9 +282,9 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "gnu_head_descent".to_string(),
         AnimationMetrics {
@@ -375,9 +375,9 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "gnu_head_descent".to_string(),
         AnimationMetrics {
@@ -463,9 +463,9 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "rest".to_string(),
         AnimationMetrics {
@@ -564,9 +564,9 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
     };
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "head_down".to_string(),
         AnimationMetrics {
@@ -684,7 +684,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     use ambition_characters::brain::BossAttackState;
     use ambition_platformer2d_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     let bbox = PixelRect {
         x: 8,
@@ -704,7 +704,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         // (the pre-fix behavior).
         sprite_render_size: ae::Vec2::ZERO,
         combat_offset: ae::Vec2::ZERO,
-        animations: HashMap::new(),
+        animations: BTreeMap::new(),
     };
     let render_metrics = ActorSpriteMetrics {
         frame_width: 128,
@@ -713,7 +713,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         body_pixel_parts: Vec::new(),
         sprite_render_size: ae::Vec2::new(256.0, 256.0),
         combat_offset: ae::Vec2::ZERO,
-        animations: HashMap::new(),
+        animations: BTreeMap::new(),
     };
 
     let legacy_ctx = BossVolumeContext {
@@ -877,7 +877,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::BossAttackState;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     let behavior = BossBehaviorProfile::clockwork_warden();
     let attack_state = BossAttackState::default();
@@ -919,7 +919,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         body_pixel_parts: Vec::new(),
         sprite_render_size: ae::Vec2::new(576.0, 216.0),
         combat_offset: ae::Vec2::ZERO,
-        animations: HashMap::new(),
+        animations: BTreeMap::new(),
     };
     let ctx_authored = BossVolumeContext {
         boss_catalog: crate::test_boss_catalog(),
@@ -980,9 +980,9 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
     use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "gnu_head_descent".to_string(),
         AnimationMetrics {
@@ -1085,9 +1085,9 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
     use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "gnu_head_descent".to_string(),
         AnimationMetrics {
@@ -1187,9 +1187,9 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     use crate::behavior::BossBehaviorProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     // The REST row. `hurtbox_selection` passes `&["rest"]` as its rest keys when
     // no profile is active, so that — not "idle" — is the name to author.
     for key in ["rest"] {
@@ -1333,9 +1333,9 @@ fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
     use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
-    let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
+    let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "head_down".to_string(),
         AnimationMetrics {

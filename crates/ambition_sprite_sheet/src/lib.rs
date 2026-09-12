@@ -282,7 +282,15 @@ pub struct BodyMetrics {
     /// entry per animation in the sheet; consumers look up by the
     /// boss's currently-playing animation name.
     #[serde(default)]
-    pub animations: std::collections::HashMap<String, AnimationMetrics>,
+    /// ⛔⛔ **A `BTreeMap`, AND THE ORDER IS A SIMULATION FACT.** This map feeds
+    /// [`BodyMetrics::pose_body_bbox`], whose result BECOMES A COLLISION BOX —
+    /// and several authored row names alias to one `CharacterAnim`, so a sheet
+    /// can offer two candidate rectangles for one pose. Under a `HashMap` the
+    /// winner was whichever the hasher yielded first, which is per-process
+    /// state in a rollback game; the tie-break was patched at that ONE call
+    /// site. A sorted container answers it for every reader instead, including
+    /// the ones nobody has written yet.
+    pub animations: std::collections::BTreeMap<String, AnimationMetrics>,
     #[serde(default)]
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
@@ -405,12 +413,21 @@ impl BodyMetrics {
     /// a generator that renames `boxed_idle` cannot silently desync the
     /// hurtbox from the row it belongs to without also losing the row.
     ///
-    /// AMBITION_REVIEW(determinism): several row names can alias to one
-    /// `CharacterAnim` (`rest` / `front_idle` / `side_idle` all mean `Idle`), so
-    /// a sheet carrying two of them offers two candidate rectangles. This is
-    /// SIM state — it becomes a collision box — so the winner is the
-    /// lexicographically first key rather than whichever the `HashMap` happens
-    /// to yield first.
+    /// ⛔⛔ **THE TIE-BREAK IS SIM STATE AND IT IS NOW GUARANTEED BY THE
+    /// CONTAINER.** Several row names alias to one `CharacterAnim` (`rest` /
+    /// `front_idle` / `side_idle` all mean `Idle`), so a sheet carrying two of
+    /// them offers two candidate rectangles — and this result BECOMES A
+    /// COLLISION BOX. While `animations` was a `HashMap` the winner was
+    /// whichever the hasher yielded first, which is per-process state in a
+    /// rollback game, and the defence was this one `min_by` at this one call
+    /// site. `animations` is a `BTreeMap` now, so iteration IS lexicographic for
+    /// every reader, including ones nobody has written yet.
+    ///
+    /// ⚠ THE `min_by` STAYS, AND DELETING IT WOULD BE A REGRESSION IN MEANING
+    /// RATHER THAN A SIMPLIFICATION. "The lexicographically first key wins" is a
+    /// RULING about aliased poses; leaving it implicit in the container makes a
+    /// future reader infer it from `BTreeMap` rather than read it, and makes a
+    /// container change silently change the answer.
     pub fn pose_body_bbox(&self, anim: character::CharacterAnim) -> Option<PixelRect> {
         self.animations
             .iter()
@@ -556,7 +573,10 @@ pub struct FrameRect {
     /// `hand_anchor`, `muzzle_anchor`). Generators that don't use
     /// `frame_meta_fn` leave this empty.
     #[serde(default)]
-    pub anchors: HashMap<String, NormPoint>,
+    /// ⚠ A `BTreeMap` for the same reason as [`BodyMetrics::animations`], even
+    /// though every production read today is a keyed `.get`. The cost is nil at
+    /// these sizes and the property is one a future iterator gets for free.
+    pub anchors: std::collections::BTreeMap<String, NormPoint>,
 }
 
 /// Resource looked up by sprite target id. Populated at startup by

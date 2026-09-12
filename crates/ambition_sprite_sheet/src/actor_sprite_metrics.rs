@@ -62,7 +62,11 @@ pub struct ActorSpriteMetrics {
     /// Consumers (`damageable_volumes`, `volumes_for_profile`)
     /// look up by current animation name to scale hurtboxes /
     /// hitboxes with the on-screen sprite pose.
-    pub animations: std::collections::HashMap<String, crate::AnimationMetrics>,
+    /// ⛔ A `BTreeMap`, MIRRORING [`crate::BodyMetrics::animations`] — this
+    /// snapshot is `.clone()`d straight out of that map, so a different
+    /// container here would be a second answer to "what order do these come
+    /// in" for one set of values.
+    pub animations: std::collections::BTreeMap<String, crate::AnimationMetrics>,
 }
 
 // ⛔ THE INHERENT IMPL HAD TO COME TOO, and the ORPHAN RULE is why: only the

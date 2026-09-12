@@ -287,7 +287,7 @@ mod boss_combat_rebuild_contract {
             // A sleep a MOVE applied. Reaction history like the locks above it,
             // and the boss sync has no opinion about it either.
             sleep_timer: _,
-            armored: _,
+            armor: _,
             training_dummy: _,
         } = combat;
     }

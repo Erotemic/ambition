@@ -170,6 +170,11 @@ fn window_json(
         WindowTag::Recovery => ("recovery".to_string(), Vec::new()),
         WindowTag::Invuln => ("invuln".to_string(), Vec::new()),
         WindowTag::Armor => ("armor".to_string(), Vec::new()),
+        // ⭐ THE THRESHOLD IS IN THE TAG STRING, not dropped. An export that
+        // called this plain `"armor"` would tell every downstream reader — the
+        // inspector, the clock census — that a move with threshold armor has
+        // SUPER armor, which is the one distinction this tag exists to make.
+        WindowTag::ArmorUnder { damage } => (format!("armor_under:{damage}"), Vec::new()),
         WindowTag::Cancelable { into, condition } => (
             format!("cancelable:{condition:?}").to_lowercase(),
             into.clone(),

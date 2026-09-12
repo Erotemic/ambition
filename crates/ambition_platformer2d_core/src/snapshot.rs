@@ -165,6 +165,21 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// Read a nested [`SnapshotState`] value.
+    ///
+    /// ⭐⭐ **GENERIC ON PURPOSE, SO THIS CRATE LEARNS NOTHING ABOUT ITS
+    /// CALLERS.** `snapshot_pod!` decodes each field with `r.<accessor>()`, and
+    /// before this the accessors were a fixed list of primitives — so a struct
+    /// with one non-primitive field had to hand-roll its WHOLE codec, which for a
+    /// twenty-field rollback component is where a field-order bug hides and a
+    /// field-order bug in a rollback codec is a desync.
+    ///
+    /// ⇒ `armor: state` in a `snapshot_pod!` list now works for any type that
+    /// implements [`SnapshotState`], resolved by inference from the field.
+    pub fn state<T: SnapshotState>(&mut self) -> Option<T> {
+        T::decode(self)
+    }
+
     pub fn u8(&mut self) -> Option<u8> {
         Some(*self.take(1)?.first()?)
     }

@@ -2307,7 +2307,7 @@ mod body_combat_rebuild_contract {
             // `project_move_defense_windows`, which is the ONE writer. This
             // sync must never touch it: a second writer would fight the
             // projection for the same field on alternating frames.
-            armored: _,
+            armor: _,
             // ── Authored at construction (AC3.1.D), not re-derived per frame.
             training_dummy: _,
         } = combat;

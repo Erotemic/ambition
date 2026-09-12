@@ -306,12 +306,20 @@ pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
 
 /// SUPER ARMOR: through this window the body IS hit and does not answer for it.
 ///
-/// ⭐⭐ THE OTHER HALF OF [`invuln`]'S STORY, one variant over and still missing.
+/// ⭐⭐ THE OTHER HALF OF [`invuln`]'S STORY, and it is REACHED NOW.
 /// `WindowTag::Armor` is consumed end to end — `MovePlayback` republishes
 /// `BodyCombat::armored` from the live window every tick, and `hit_reaction`
-/// gates the launch on `!combat.armored` with tests either side of it — and
-/// **no authored move in the tree has ever opened one.** Measured 2026-09-05.
-/// The engine has had super armor for a while and the roster had no way to ask.
+/// gates the launch on `!combat.armored` with tests either side of it.
+///
+/// ⛔⛤ **THIS COMMENT SAID *"no authored move in the tree has ever opened one"*
+/// AND THAT IS NO LONGER TRUE — re-derived 2026-09-12.** THREE production moves
+/// open an armor window: `alice_moveset.rs:294` (`n_b`),
+/// `patent_clerk_moveset.rs:388` (`side_b`) and `player_robot_moveset.rs:408`
+/// (`down_b`). ⇒ The dated measurement (2026-09-05) was right when written and
+/// became a claim about the present by sitting in the present tense. **It
+/// matters because it is the difference between a mechanic with no customer —
+/// where widening the vocabulary is building road for no traffic — and one with
+/// three, where the next question is what those three cannot yet SAY.**
 ///
 /// ⛔ NOT INVULNERABILITY, AND THE DIFFERENCE IS THE WHOLE MOVE. An armoured
 /// body takes the damage; what it does not take is the launch, the hitstun and
@@ -330,6 +338,41 @@ pub fn armor(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
         start_s,
         end_s,
         tag: WindowTag::Armor,
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    });
+    m
+}
+
+/// THRESHOLD ARMOR: through this window the body is held through SMALL hits and
+/// answers normally for a big one.
+///
+/// ⭐⭐ **THE VARIANT SUPER ARMOR COULD NOT EXPRESS.** [`armor`] above is all or
+/// nothing: a move that should eat a jab and still be launched by a smash had to
+/// choose between eating both and eating neither. `breaks_at` is the damage at
+/// which a hit gets through — `>=` breaks, so a move meant to survive a 9 and
+/// answer for a 10 authors `10`.
+///
+/// ⛔ NOTHING ACCUMULATES. Each hit is judged alone, so two 6s never add up to a
+/// break. That is the platform-fighter reading and it is also the only one that
+/// survives rollback without a second authority for how much armor is left.
+///
+/// ⚠ ARMOR STILL DOES NOT TOUCH THE PERCENT — under the threshold or over it,
+/// the body takes the damage. What the threshold decides is who keeps their
+/// trajectory and their control.
+pub fn armor_under(mut m: MoveSpec, start_s: f32, end_s: f32, breaks_at: i32) -> MoveSpec {
+    refuse_a_window_that_never_opens(
+        &m.id,
+        start_s,
+        end_s,
+        "a threshold-armour window",
+        "the move simply loses trades it looked like it should win",
+    );
+    m.windows.push(MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::ArmorUnder { damage: breaks_at },
         volumes: Vec::new(),
         motion_scale: 1.0,
         sustain_effect: None,

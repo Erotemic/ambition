@@ -1046,9 +1046,31 @@ impl MovePlayback {
     /// armoured body is HIT, takes the damage, and simply does not answer for it
     /// — no launch and no hitstun. Two different questions, so two different
     /// facts.
-    pub fn armored_now(&self) -> bool {
+    pub fn armor_now(&self) -> ambition_characters::actor::ArmorPolicy {
+        use ambition_characters::actor::ArmorPolicy;
+        // ⭐ THE AUTHORED WINDOW CARRIES ITS OWN POLICY, and a plain
+        // `WindowTag::Armor` still means SUPER — which is the compatibility path
+        // S0.5's contract asks for by name, and is what all three shipped
+        // armored moves get without being edited.
         self.spec
-            .tagged_window_covers(self.t, |tag| matches!(tag, WindowTag::Armor))
+            .tagged_windows_covering(self.t)
+            .filter_map(|tag| match tag {
+                WindowTag::Armor => Some(ArmorPolicy::Super),
+                WindowTag::ArmorUnder { damage } => {
+                    Some(ArmorPolicy::Damage { breaks_at: *damage })
+                }
+                _ => None,
+            })
+            // ⛔ THE STRONGEST WINS WHEN WINDOWS OVERLAP, rather than the first
+            // authored one: two armor windows overlapping is an authoring
+            // accident, and resolving it by ORDER would make the same pair of
+            // windows behave differently depending on which was written first.
+            .max_by_key(|policy| match policy {
+                ArmorPolicy::Super => 2,
+                ArmorPolicy::Damage { .. } => 1,
+                ArmorPolicy::None => 0,
+            })
+            .unwrap_or(ArmorPolicy::None)
     }
 
     /// The damage/knockback scale every hit of this use lands with.
@@ -4043,11 +4065,14 @@ pub fn project_move_defense_windows(
         let submerged = body_mode.is_some_and(|m| {
             m.body_mode == ambition_platformer2d_core::player_state::BodyMode::Submerged
         });
-        let armored = playback.is_some_and(MovePlayback::armored_now);
+        let armor = playback.map_or(
+            ambition_characters::actor::ArmorPolicy::None,
+            MovePlayback::armor_now,
+        );
         // Compared before writing: these run for every combat body every tick,
         // and an unconditional write would mark both components changed forever.
-        if combat.armored != armored {
-            combat.armored = armored;
+        if combat.armor != armor {
+            combat.armor = armor;
         }
         if let Some(mut health) = health {
             if health

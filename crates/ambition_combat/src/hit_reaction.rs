@@ -216,7 +216,11 @@ pub fn apply_body_hit_reaction(
     //
     // ⇒ the velocity is not written at all rather than written as zero. A body
     // nothing launched is still going wherever it was going.
-    let Some(knockback) = knockback.filter(|_| !combat.armored) else {
+    // ⭐ THE POLICY DECIDES, NOT A BIT. `ArmorPolicy::Super` is the old
+    // `armored: true` exactly; a `Damage` threshold absorbs a small hit and lets
+    // a big one through, which is the whole of S0.5's damage half. The percent
+    // is already paid either way — armor is about AUTHORITY, not damage.
+    let Some(knockback) = knockback.filter(|_| !combat.armor.absorbs(damage)) else {
         #[cfg(feature = "causal")]
         return BodyReaction {
             velocity: *vel,
@@ -471,6 +475,7 @@ pub fn hit_response_tuning(
 
 #[cfg(test)]
 mod super_armor_tests {
+    use ambition_characters::actor::ArmorPolicy;
     use super::*;
 
     fn feel() -> Platformer2dFeelTuningMonolith {
@@ -489,11 +494,22 @@ mod super_armor_tests {
         }
     }
 
-    fn react(armored: bool) -> (ae::Vec2, ae::BodyFlightState, BodyCombat) {
+    fn react(
+        armor: ambition_characters::actor::ArmorPolicy,
+    ) -> (ae::Vec2, ae::BodyFlightState, BodyCombat) {
+        react_dealing(armor, 12)
+    }
+
+    /// The same fixture with the hit's DAMAGE as a knob — which is the only
+    /// input a threshold policy reads.
+    fn react_dealing(
+        armor: ambition_characters::actor::ArmorPolicy,
+        damage: i32,
+    ) -> (ae::Vec2, ae::BodyFlightState, BodyCombat) {
         let mut vel = ae::Vec2::new(120.0, 0.0);
         let mut flight = ae::BodyFlightState::default();
         let mut combat = BodyCombat {
-            armored,
+            armor,
             ..Default::default()
         };
         apply_body_hit_reaction(
@@ -505,7 +521,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
-            12,
+            damage,
             ae::Vec2::ZERO,
             VictimStance::default(),
             // No budget and no ledge: this fixture is about the launch and
@@ -523,7 +539,7 @@ mod super_armor_tests {
     /// its trajectory and its control.
     #[test]
     fn an_armoured_body_is_neither_launched_nor_stunned() {
-        let (plain_vel, plain_flight, plain_combat) = react(false);
+        let (plain_vel, plain_flight, plain_combat) = react(ArmorPolicy::None);
         assert_ne!(
             plain_vel,
             ae::Vec2::new(120.0, 0.0),
@@ -532,7 +548,7 @@ mod super_armor_tests {
         );
         assert!(plain_combat.hitstun_timer > 0.0);
 
-        let (vel, flight, combat) = react(true);
+        let (vel, flight, combat) = react(ArmorPolicy::Super);
         assert_eq!(
             vel,
             ae::Vec2::new(120.0, 0.0),
@@ -550,6 +566,62 @@ mod super_armor_tests {
         );
         // ... and the launch the plain body took is exactly what was refused.
         let _ = (plain_flight, plain_combat);
+    }
+
+    /// **S0.5: threshold armor holds through a SMALL hit and breaks on a big
+    /// one** — the distinction the `bool` this replaced could not make.
+    ///
+    /// ⭐ THE SAME FIXTURE AND THE SAME KNOCKBACK IN BOTH ARMS, with only the
+    /// DAMAGE differing, so what is measured is the threshold and not two
+    /// different hits. `breaks_at: 10` means 9 is absorbed and 10 is not — `>=`
+    /// breaks, which is the reading `armor_under`'s doc states.
+    ///
+    /// ⛔ AND THE CONTROL IS THE POLICY'S ABSENCE, NOT ANOTHER POLICY: the
+    /// `None` arm above already proves this fixture's knockback moves an
+    /// unarmoured body, so an absorbed launch here cannot be a fixture that
+    /// never launches anything.
+    #[test]
+    fn threshold_armour_eats_the_small_hit_and_answers_for_the_big_one() {
+        let under = ArmorPolicy::Damage { breaks_at: 10 };
+
+        let (vel, flight, combat) = react_dealing(under, 9);
+        assert_eq!(
+            vel,
+            ae::Vec2::new(120.0, 0.0),
+            "a 9 is under the threshold, so the body keeps its trajectory"
+        );
+        assert_eq!(flight.pending_launch, ae::Vec2::ZERO);
+        assert_eq!(combat.hitstun_timer, 0.0, "an absorbed hit leaves no stun");
+
+        let (vel, flight, combat) = react_dealing(under, 10);
+        assert_ne!(
+            vel,
+            ae::Vec2::new(120.0, 0.0),
+            "a 10 is AT the threshold and must break through — `>=` breaks, so              a move authored to survive a 9 answers for a 10"
+        );
+        assert!(
+            combat.hitstun_timer > 0.0,
+            "a hit that broke through is an ordinary hit: it stuns"
+        );
+        let _ = flight;
+
+        // ⭐ AND THE BROKEN-THROUGH HIT IS THE ORDINARY ONE, not merely
+        // "different from absorbed": it must match what an UNARMOURED body takes
+        // from the same hit, or threshold armor would be leaving a trace of
+        // itself on the hits it failed to stop.
+        let (plain_vel, _, plain_combat) = react_dealing(ArmorPolicy::None, 10);
+        let (armed_vel, _, armed_combat) = react_dealing(under, 10);
+        assert_eq!(armed_vel, plain_vel);
+        assert_eq!(armed_combat.hitstun_timer, plain_combat.hitstun_timer);
+    }
+
+    /// SUPER ARMOR IS UNCONDITIONAL, which is what makes it the compatibility
+    /// path: the same big hit that breaks a threshold is still absorbed.
+    #[test]
+    fn super_armour_does_not_acquire_a_threshold_by_accident() {
+        let (vel, _, combat) = react_dealing(ArmorPolicy::Super, 999);
+        assert_eq!(vel, ae::Vec2::new(120.0, 0.0));
+        assert_eq!(combat.hitstun_timer, 0.0);
     }
 
     /// ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL.
@@ -795,7 +867,7 @@ mod super_armor_tests {
 
         // ⛔ THE CONTROL FIRST: an ordinary hit must still charge the lock, or
         // the arms below would pass on a rule that stopped locking anything.
-        let (_, _, struck) = react(false);
+        let (_, _, struck) = react(ArmorPolicy::None);
         assert!(
             struck.recoil_lock_timer > 0.0,
             "an ordinary knockback charged no control lock, so this fixture \
@@ -920,12 +992,12 @@ mod super_armor_tests {
         /// looked like afterwards.
         fn spent_fighter_after(
             knockback: Option<ae::hit_response::HitKnockback>,
-            armored: bool,
+            armor: ambition_characters::actor::ArmorPolicy,
         ) -> ae::BodyJumpState {
             let mut vel = ae::Vec2::new(120.0, 0.0);
             let mut flight = ae::BodyFlightState::default();
             let mut combat = BodyCombat {
-                armored,
+                armor,
                 ..Default::default()
             };
             let mut dodge = ae::BodyDodgeState {
@@ -960,7 +1032,7 @@ mod super_armor_tests {
 
         // A DAMAGE-ONLY TICK — a hazard, a poison, a chip. It authors no
         // knockback, so nothing throws the body and nothing flinches it.
-        let poison = spent_fighter_after(None, false);
+        let poison = spent_fighter_after(None, ArmorPolicy::None);
         assert_eq!(
             poison.recovery_charges, 0,
             "a damage-only tick handed a helpless fighter its recovery back"
@@ -972,7 +1044,7 @@ mod super_armor_tests {
         );
 
         // SUPER ARMOR — the hit landed and the body did not answer for it.
-        let armored = spent_fighter_after(Some(hard_knockback()), true);
+        let armored = spent_fighter_after(Some(hard_knockback()), ArmorPolicy::Super);
         assert_eq!(
             armored.recovery_charges, 0,
             "a hit the body's own armour ate refreshed its recovery"
@@ -983,7 +1055,7 @@ mod super_armor_tests {
         // and must still be refused, which is why `!gust` survives beside it.
         let mut wind = hard_knockback();
         wind.reaction = ae::hit_response::HitReaction::Windbox;
-        let blown = spent_fighter_after(Some(wind), false);
+        let blown = spent_fighter_after(Some(wind), ArmorPolicy::None);
         assert_eq!(
             blown.recovery_charges, 0,
             "wind refreshed a recovery — a windbox would be the best rescue \

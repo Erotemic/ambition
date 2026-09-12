@@ -14,7 +14,7 @@ pub use population_cap::{ActorAdmission, AuthoredPopulationCap};
 pub mod ai;
 pub mod body;
 pub use body::{
-    advance_body_anim_overlays, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
+    advance_body_anim_overlays, ArmorPolicy, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
     BodyWalletShield, DeathPolicy,
 };
 pub mod body_step;

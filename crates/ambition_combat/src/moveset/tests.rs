@@ -5420,7 +5420,19 @@ fn defense_app() -> (App, Entity) {
     (app, body)
 }
 
-fn defense_of(app: &App, body: Entity) -> (bool, bool) {
+/// ⛔⛤ **THE ARMOR HALF RETURNS THE POLICY, NOT `is_armed()`.** When
+/// `BodyCombat::armored: bool` became `ArmorPolicy`, the obvious migration of
+/// this helper was `.armor.is_armed()` — and that is WEAKER than what it
+/// replaced: `is_armed()` is true for a THRESHOLD policy too, so an authored
+/// `Armor` window that lowered to `Damage { .. }` would read as correct here.
+/// A bool-shaped fact became a three-valued one and the assertion has to follow
+/// it. ⇒ Returning the policy is what lets
+/// `the_authored_defensive_windows_answer_for_exactly_their_own_spans` still say
+/// SUPER and the threshold test say `Damage`.
+fn defense_of(
+    app: &App,
+    body: Entity,
+) -> (bool, ambition_characters::actor::ArmorPolicy) {
     let world = app.world();
     (
         world
@@ -5432,8 +5444,75 @@ fn defense_of(app: &App, body: Entity) -> (bool, bool) {
         world
             .get::<ambition_characters::actor::BodyCombat>(body)
             .unwrap()
-            .armored,
+            .armor,
     )
+}
+
+fn defense_window(start_s: f32, end_s: f32, tag: WindowTag) -> MoveWindow {
+    MoveWindow {
+        start_s,
+        end_s,
+        tag,
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    }
+}
+
+/// **S0.5: an authored THRESHOLD window reaches the body as a threshold, with
+/// its number.**
+///
+/// ⛔⛤ THE HALF THAT MATTERS IS THE NUMBER. A projection that carried the KIND
+/// and dropped the threshold would pass any "is it armoured" check and then
+/// absorb — or fail to absorb — every hit, because `absorbs` reads the number
+/// and nothing else. So this asserts the whole policy, not that armor is armed.
+///
+/// ⚠ AND IT GOES THROUGH `project_move_defense_windows`, the production system,
+/// rather than calling `MovePlayback::armor_now` — the authoring vocabulary
+/// existing is not the same fact as the runtime reading it.
+#[test]
+fn an_authored_threshold_window_reaches_the_body_with_its_number() {
+    use ambition_characters::actor::ArmorPolicy;
+    let mut spec = defended_move();
+    spec.id = "threshold_defended".to_string();
+    spec.windows = vec![defense_window(0.1, 0.2, WindowTag::ArmorUnder { damage: 10 })];
+
+    let (mut app, body) = defense_app();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new_at(spec, 1.0, 0.15));
+    app.update();
+    assert_eq!(
+        defense_of(&app, body),
+        (false, ArmorPolicy::Damage { breaks_at: 10 }),
+        "the authored threshold did not reach the body intact"
+    );
+}
+
+/// ⛔ WHEN TWO ARMOR WINDOWS OVERLAP, THE STRONGER WINS — not the first
+/// authored one.
+///
+/// Overlapping armor windows are an authoring accident, and resolving one by
+/// ORDER would make the same pair behave differently depending on which was
+/// written first, which is not a rule anybody could author against.
+#[test]
+fn overlapping_armour_windows_resolve_to_the_stronger_one() {
+    use ambition_characters::actor::ArmorPolicy;
+    let mut spec = defended_move();
+    spec.id = "doubly_defended".to_string();
+    // Threshold FIRST in authored order, so "the stronger wins" and "the first
+    // wins" cannot both explain a pass.
+    spec.windows = vec![
+        defense_window(0.1, 0.2, WindowTag::ArmorUnder { damage: 10 }),
+        defense_window(0.1, 0.2, WindowTag::Armor),
+    ];
+
+    let (mut app, body) = defense_app();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new_at(spec, 1.0, 0.15));
+    app.update();
+    assert_eq!(defense_of(&app, body), (false, ArmorPolicy::Super));
 }
 
 /// Each authored window is in force for exactly its own span, and the body is
@@ -5442,10 +5521,14 @@ fn defense_of(app: &App, body: Entity) -> (bool, bool) {
 #[test]
 fn the_authored_defensive_windows_answer_for_exactly_their_own_spans() {
     let (mut app, body) = defense_app();
+    use ambition_characters::actor::ArmorPolicy;
     for (t, expected) in [
-        (0.05, (true, false)),
-        (0.15, (false, true)),
-        (0.25, (false, false)),
+        (0.05, (true, ArmorPolicy::None)),
+        // ⭐ SUPER, not merely "armed": a plain authored `Armor` window is the
+        // compatibility path S0.5's contract preserves by name, and the three
+        // shipped armoured moves depend on it meaning exactly what it did.
+        (0.15, (false, ArmorPolicy::Super)),
+        (0.25, (false, ArmorPolicy::None)),
     ] {
         app.world_mut()
             .entity_mut(body)
@@ -5471,7 +5554,10 @@ fn a_move_that_ends_takes_its_grants_with_it() {
         .entity_mut(body)
         .insert(MovePlayback::new_at(defended_move(), 1.0, 0.05));
     app.update();
-    assert_eq!(defense_of(&app, body), (true, false));
+    assert_eq!(
+        defense_of(&app, body),
+        (true, ambition_characters::actor::ArmorPolicy::None)
+    );
 
     // The move is over — the component is gone, exactly as
     // `advance_move_playback` leaves it.
@@ -5479,7 +5565,7 @@ fn a_move_that_ends_takes_its_grants_with_it() {
     app.update();
     assert_eq!(
         defense_of(&app, body),
-        (false, false),
+        (false, ambition_characters::actor::ArmorPolicy::None),
         "a body with no move at all is still holding the last one's \
          intangibility"
     );
@@ -5494,7 +5580,10 @@ fn an_ordinary_move_grants_neither() {
         .entity_mut(body)
         .insert(MovePlayback::new(uncancelable("plain"), 1.0));
     app.update();
-    assert_eq!(defense_of(&app, body), (false, false));
+    assert_eq!(
+        defense_of(&app, body),
+        (false, ambition_characters::actor::ArmorPolicy::None)
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

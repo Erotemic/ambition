@@ -377,7 +377,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// system reads, so a peer on v177 has an entry this one lacks. ⭐ The stand-in
 /// ENTITY stays: what the blast needs is a valid non-victim owner carrying no
 /// `MatchSeat`, and both are properties of the entity rather than of the label.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 181;
+/// ⭐ 181 -> 182 (2026-09-12): `BodyCombat`'s armor stopped being a `bool` and
+/// became `ArmorPolicy`, so the component's canonical encoding changed shape —
+/// one authored tag byte, plus the threshold for the variant that carries one.
+/// A `bool` peer and a policy peer cannot agree about a restore: the old wire
+/// has no way to say *"armored against hits under 10"*, and reading its single
+/// byte as a tag would decode `true` as `Super` by luck and `false` as `None` by
+/// luck while every threshold policy became unreadable. ⛔ THE VARIANT CODES ARE
+/// AUTHORED (`None`=0, `Super`=1, `Damage`=2, and 3 RESERVED for the knockback
+/// threshold that `ArmorPolicy` explains it does not have yet) so that adding
+/// the reserved one later does not renumber anything already written.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 182;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -818,8 +818,27 @@ pub enum WindowTag {
     Recovery,
     /// The owner cannot be hit.
     Invuln,
-    /// The owner takes hits without hitstun.
+    /// The owner takes hits without hitstun. SUPER armor: every hit, whatever
+    /// it carries.
     Armor,
+    /// THRESHOLD ARMOR: the owner takes hits DEALING LESS THAN `damage` without
+    /// hitstun; one at or above it breaks through and lands normally.
+    ///
+    /// ⭐⭐ **A SEPARATE TAG RATHER THAN A FIELD ON [`Self::Armor`], and that is
+    /// what keeps every shipped move working unedited.** `Armor` means super
+    /// armor and always did; three production moves author it
+    /// (`alice_moveset.rs` `n_b`, `patent_clerk_moveset.rs` `side_b`,
+    /// `player_robot_moveset.rs` `down_b`). Adding a threshold field to `Armor`
+    /// would have made every one of those author a number they never chose, and
+    /// `serde(default)` would have picked it for them.
+    ///
+    /// ⚠ `>=` BREAKS, so a move meant to eat a 9 and answer for a 10 authors
+    /// `damage: 10`. Nothing accumulates: each hit is judged alone, so two
+    /// small hits never add up to a break.
+    ArmorUnder {
+        /// The damage at which a hit breaks through.
+        damage: i32,
+    },
     /// The move may be canceled into the named moves (CM4). `into` entries
     /// share one namespace: literal move ids (`"jab2"`), verbs (`"special"`,
     /// `"attack"`), and classes (`"any_attack"`, `"jump"`, `"dash"`). The
@@ -2778,6 +2797,19 @@ impl MoveSpec {
     /// A follow-up press inside that window takes the nomination instead of
     /// restarting the move that is playing, which is the whole of a jab chain
     /// and needs no successor field of its own.
+    /// Every window tag in force at proper-time `t`, in authored order.
+    ///
+    /// ⭐ [`Self::tagged_window_covers`] answers a yes/no about one predicate,
+    /// which is all a `bool`-shaped fact ever needed. A tag that CARRIES a value
+    /// — `ArmorUnder`'s threshold — needs the tag itself, not a verdict about
+    /// it, so this returns them and the caller decides.
+    pub fn tagged_windows_covering(&self, t: f32) -> impl Iterator<Item = &WindowTag> {
+        self.windows
+            .iter()
+            .filter(move |w| w.start_s <= t && t < w.end_s)
+            .map(|w| &w.tag)
+    }
+
     pub fn cancel_successors(&self, t: f32, contact: MoveContact) -> impl Iterator<Item = &str> {
         self.windows
             .iter()

@@ -309,8 +309,8 @@ pub struct BodyCombat {
     /// `0.0` for every body nothing has put to sleep, which is all of them
     /// until a move says otherwise.
     pub sleep_timer: f32,
-    /// SUPER ARMOR: an authored `WindowTag::Armor` window on the move this body
-    /// is playing is holding it through hits.
+    /// ARMOR: what an authored `WindowTag::Armor` window on the move this body
+    /// is playing does to a hit that lands inside it. See [`ArmorPolicy`].
     ///
     /// Not invulnerability, and deliberately not carried as one: an armoured
     /// body IS hit and takes the damage, it simply does not answer for it — no
@@ -324,9 +324,102 @@ pub struct BodyCombat {
     /// `ambition_platformer2d::combat::moveset::project_move_defense_windows` — so a move
     /// ending retracts it by being rewritten rather than by anyone remembering
     /// to clear it. Never write it from anywhere else.
-    pub armored: bool,
+    ///
+    /// ⛔⛤ **THIS WAS A `bool` AND A BOOLEAN CANNOT SAY WHAT S0.5 ASKS.**
+    /// *"Suppress the reaction"* and *"suppress the reaction for hits under
+    /// this size"* are the same bit in that encoding, so threshold armor was not
+    /// a feature the type could hold badly — it was one the type could not hold
+    /// at all. [`ArmorPolicy::Super`] is exactly the old `true` and
+    /// [`ArmorPolicy::None`] exactly the old `false`.
+    pub armor: ArmorPolicy,
     // ── Actor status / attack-timeline presentation ──
     pub training_dummy: bool,
+}
+
+/// What a move's armor window does to a hit that lands inside it.
+///
+/// ⭐⭐ **ARMOR IS ABOUT AUTHORITY, NOT DAMAGE, AND EVERY VARIANT KEEPS THAT.**
+/// An armoured body IS hit and pays the percent in full; what it keeps is its
+/// trajectory and its control — no launch, no carry, no hitstun, no recoil lock.
+/// A variant that reduced damage would be a different mechanic wearing this
+/// name.
+///
+/// ⛔ THE THRESHOLD IS THE HIT'S SIZE, NOT A POOL THAT DEPLETES. Nothing here
+/// accumulates: each hit is judged alone, so two small hits never add up to a
+/// break. That is the platform-fighter reading of "armor with a threshold" and
+/// it is also the only one that survives rollback without a second authority
+/// for how much armor is left.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum ArmorPolicy {
+    /// No armor window is open. Exactly the old `armored: false`.
+    #[default]
+    None,
+    /// SUPER ARMOR: every hit is absorbed, whatever it carries. Exactly the old
+    /// `armored: true`, and the compatibility path the S0.5 contract preserves —
+    /// `WindowTag::Armor` still lowers to this unless a move says otherwise.
+    Super,
+    /// Absorbs a hit that deals LESS than `breaks_at` damage; one at or above it
+    /// breaks through and the body answers for it normally.
+    ///
+    /// ⚠ `>=` BREAKS, not `>`: an authored threshold reads as *"this much gets
+    /// through"*, so a move authored to survive 9 damage and break on 10 is
+    /// written `breaks_at: 10`.
+    Damage { breaks_at: i32 },
+}
+
+// ⛔⛤ **THERE IS NO `Knockback { breaks_at }` VARIANT, AND ITS ABSENCE IS A
+// MEASUREMENT RATHER THAN AN OMISSION (2026-09-12).** S0.5's contract asks for
+// damage- AND knockback-threshold armor. The damage half is above. The knockback
+// half cannot be written honestly against the code as it stands, for two
+// reasons found by trying:
+//
+// 1. ⛔ **THE AUTHORED MAGNITUDE HAS TWO UNITS.**
+//    `ae::hit_response::HitKnockbackMagnitude` is `FeelScale(f32)` — a
+//    dimensionless multiplier over the VICTIM's own feel vector — or
+//    `LaunchSpeed(f32)` in px/s, and its own doc says the split exists so that
+//    *"an authored value such as `120.0 px/s` is not misread as a `120x` feel
+//    multiplier."* A bare `breaks_at: f32` here would reintroduce exactly the
+//    untyped scalar that type forbids, and a threshold that silently compares
+//    against whichever unit arrived is a defect wearing a feature's name.
+//
+// 2. ⛔ **THE COMPARABLE QUANTITY EXISTS ONLY BELOW THIS GATE.** The one number
+//    both units resolve to is the launch velocity, and
+//    `ae::hit_response::knockback_velocity` is called AFTER the armor decision
+//    in `apply_body_hit_reaction` — because the early return there also serves
+//    the `knockback: None` case, which is D203's subject (*"no knockback is not
+//    zero knockback"*: writing a zero launch erases the velocity a body already
+//    had). Judging a knockback threshold means resolving first and deciding
+//    second, which is a restructure of that function's control flow, not a new
+//    variant.
+//
+// ⇒ **Whoever takes it decides which of those two roads to walk**, and it is a
+// real choice: (a) split the early return so the `None` path leaves first and
+// armor is judged on the RESOLVED launch in px/s, or (b) give the threshold the
+// unit-bearing type and refuse a mismatch — which needs a ruling on what an
+// author writes. Filed rather than guessed.
+
+impl ArmorPolicy {
+    /// Does this policy hold the body through a hit of this size?
+    ///
+    /// `damage` is what the hit dealt, which the caller has already paid out —
+    /// armor never touches the percent.
+    pub fn absorbs(self, damage: i32) -> bool {
+        match self {
+            Self::None => false,
+            Self::Super => true,
+            Self::Damage { breaks_at } => damage < breaks_at,
+        }
+    }
+
+    /// Is any armor window open at all?
+    ///
+    /// ⚠ NOT "does it absorb this hit" — a threshold policy is ARMED and still
+    /// lets a big hit through. Readers that only want to know whether the move
+    /// declared armor (presentation, traces) want this; the damage road wants
+    /// [`Self::absorbs`].
+    pub fn is_armed(self) -> bool {
+        !matches!(self, Self::None)
+    }
 }
 
 impl BodyCombat {
@@ -525,7 +618,7 @@ mod hard_lock_tests {
 
             // Not a timer: it is a WINDOW the live move republishes every tick,
             // so it expires by being rewritten rather than by counting down.
-            armored: _,
+            armor: _,
 
             // Not a timer: a LATCH, banked while the freeze runs and spent by
             // the body step on the far side of it. Decaying it would spend the
@@ -557,7 +650,7 @@ mod hard_lock_tests {
             // republishes it from the live move every tick, so clearing it here
             // would be undone inside the frame and would read as a rule this
             // function does not own.
-            armored: _,
+            armor: _,
 
             // Cleared by `reset()`: a body put back to spawn owes nothing from
             // a freeze that is no longer happening.

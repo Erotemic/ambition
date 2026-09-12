@@ -61,12 +61,70 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     // tick, so a restore converges — but the tick a rewind lands ON reads it
     // before the projection runs again, and a peer that decided a launch from a
     // stale armor bit has already diverged.
-    armored: bool,
+    //
+    // ⭐ `state` RATHER THAN A PRIMITIVE ACCESSOR: this is an `ArmorPolicy`
+    // enum now, not a bool, because a threshold has a NUMBER in it and a peer
+    // that restored the kind without the number would disagree about which hits
+    // break through — the same divergence the paragraph above is about, one
+    // field deeper. `Reader::state` decodes any nested `SnapshotState` by
+    // inference, so this field costs one word here instead of a hand-rolled
+    // codec for the whole component.
+    armor: state,
     training_dummy: bool,
 });
 
 // Actor-side mutable state. An attack cooldown that survives a rollback is an
 // attack the enemy did not pay for.
+// ⛔⛔ **THE VARIANT CODES ARE AUTHORED AND THE PAYLOAD RIDES BEHIND THE TAG.**
+// Hand-written rather than a macro because no macro here encodes a payload enum,
+// and the shape matters: one byte names the variant, then the variant's own
+// number if it has one. A code inserted in the middle would silently renumber
+// everything after it and a snapshot decoded across that change would be WRONG
+// rather than absent — which is the same reason `snapshot_unit_enum!` authors
+// its codes.
+//
+// ⚠ AND A TRAILING PAYLOAD IS NOT OPTIONAL FOR `None`/`Super`. Every variant
+// writes the SAME number of bytes for its own code path, and the decoder reads
+// exactly what that code wrote — a variable-length record is fine, a
+// variable-length record whose length the reader has to GUESS is not.
+impl ambition_platformer2d_core::snapshot::SnapshotState for crate::actor::ArmorPolicy {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::actor::ArmorPolicy as P;
+        use ambition_platformer2d_core::snapshot::{put_i32, put_u8};
+        match self {
+            P::None => put_u8(out, 0),
+            P::Super => put_u8(out, 1),
+            P::Damage { breaks_at } => {
+                put_u8(out, 2);
+                put_i32(out, *breaks_at);
+            }
+        }
+    }
+
+    fn decode(
+        r: &mut ambition_platformer2d_core::snapshot::Reader<'_>,
+    ) -> Option<Self> {
+        use crate::actor::ArmorPolicy as P;
+        match r.u8()? {
+            0 => Some(P::None),
+            1 => Some(P::Super),
+            2 => Some(P::Damage { breaks_at: r.i32()? }),
+            // ⭐ CODE 3 IS RESERVED for the knockback threshold that
+            // `ArmorPolicy` explains it does not have yet — so adding it later
+            // cannot renumber anything already written to a snapshot.
+            // ⛔ NOT a default: an unknown code is a snapshot this build cannot
+            // read, and guessing `None` would silently un-armor a fighter.
+            _ => None,
+        }
+    }
+}
+
+impl ambition_platformer2d_core::snapshot::PasteEncode for crate::actor::ArmorPolicy {
+    fn put(self, out: &mut Vec<u8>) {
+        ambition_platformer2d_core::snapshot::SnapshotState::encode(&self, out);
+    }
+}
+
 snapshot_pod!(crate::actor::pose::ActorPose {
     center: vec2,
     feet: vec2,
@@ -1182,5 +1240,65 @@ impl SnapshotState for crate::actor::ai::ActorStatus {
             respawn_timer: r.f32()?,
             ai_mode: crate::actor::ai::CharacterAiMode::decode(r)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod armor_policy_codec_tests {
+    use crate::actor::ArmorPolicy;
+    use ambition_platformer2d_core::snapshot::{decode_state, encode_state};
+
+    /// ⛔⛔ **A HAND-WRITTEN ROLLBACK CODEC IS A DESYNC WAITING FOR A TYPO, AND
+    /// THIS ONE CARRIES A PAYLOAD BEHIND A TAG.** Every variant must survive the
+    /// round trip — including the number, which is the whole reason this stopped
+    /// being a `bool`: a peer that restored the KIND without the THRESHOLD would
+    /// disagree about which hits break through and resimulate a different match.
+    #[test]
+    fn every_armor_policy_survives_the_round_trip() {
+        for policy in [
+            ArmorPolicy::None,
+            ArmorPolicy::Super,
+            ArmorPolicy::Damage { breaks_at: 10 },
+            // Boundaries, because a tag byte and an i32 are exactly where a
+            // truncation would hide.
+            ArmorPolicy::Damage { breaks_at: 0 },
+            ArmorPolicy::Damage { breaks_at: -1 },
+            ArmorPolicy::Damage { breaks_at: i32::MAX },
+        ] {
+            let bytes = encode_state(&policy);
+            let back = decode_state::<ArmorPolicy>(&bytes)
+                .unwrap_or_else(|| panic!("{policy:?} did not decode at all"));
+            assert_eq!(back, policy, "{policy:?} did not round-trip");
+        }
+    }
+
+    /// ⭐ THE VARIANTS ARE DISTINGUISHABLE ON THE WIRE, which "it round-trips"
+    /// does not prove on its own: a codec that wrote the same bytes for `None`
+    /// and `Super` would round-trip whichever one it decoded to, every time.
+    #[test]
+    fn the_variants_do_not_share_an_encoding() {
+        let encodings = [
+            encode_state(&ArmorPolicy::None),
+            encode_state(&ArmorPolicy::Super),
+            encode_state(&ArmorPolicy::Damage { breaks_at: 10 }),
+            encode_state(&ArmorPolicy::Damage { breaks_at: 11 }),
+        ];
+        for (i, a) in encodings.iter().enumerate() {
+            for (j, b) in encodings.iter().enumerate() {
+                if i != j {
+                    assert_ne!(a, b, "encodings {i} and {j} are the same bytes");
+                }
+            }
+        }
+    }
+
+    /// ⛔ AN UNKNOWN TAG IS A REFUSAL, NOT A DEFAULT. Code 3 is RESERVED for the
+    /// knockback threshold `ArmorPolicy` explains it does not have yet; a build
+    /// that meets it must say it cannot read the snapshot rather than silently
+    /// un-armouring a fighter.
+    #[test]
+    fn a_reserved_or_unknown_tag_refuses_rather_than_defaulting() {
+        assert_eq!(decode_state::<ArmorPolicy>(&[3]), None);
+        assert_eq!(decode_state::<ArmorPolicy>(&[7]), None);
     }
 }

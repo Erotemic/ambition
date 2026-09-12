@@ -69,6 +69,13 @@ ambition_demo_smash_app = { path = "../ambition_demo_smash_app" }
 serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 
+# ⛔⛤ **`test = false` ON A TARGET WITH `#[test]` ARMS IS A GUARD THAT DOES NOT
+# EXIST.** MEASURED 2026-09-12: four bins here carried it while holding 23 live
+# arms between them, and `--rust` compiled every one of them (their clippy
+# warnings are in the lane log) without executing a single arm. One of the
+# silenced arms was a bounds-vs-hull contact regression this recorder is tuned
+# against. ⇒ If a target has tests, it runs them; if it genuinely has none,
+# `test = false` is a build-time saving and not a decision about coverage.
 [[bin]]
 name = "shark_ride_probe"
 path = "src/bin/shark_ride_probe.rs"
@@ -91,7 +98,6 @@ test = false
 [[bin]]
 name = "capture_scene"
 path = "src/bin/capture_scene.rs"
-test = false
 bench = false
 
 [[bin]]
@@ -120,7 +126,6 @@ bench = false
 [[bin]]
 name = "trace_replay"
 path = "src/bin/trace_replay.rs"
-test = false
 bench = false
 
 [[bin]]
@@ -135,7 +140,6 @@ bench = false
 [[bin]]
 name = "moveset_export"
 path = "src/bin/moveset_export.rs"
-test = false
 bench = false
 
 # The engine-take recorder. A frame-data table reports what a move DECLARES; a

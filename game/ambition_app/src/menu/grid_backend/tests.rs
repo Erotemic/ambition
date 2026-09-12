@@ -14,50 +14,20 @@ fn equipped_in_hand(app: &mut App) -> Option<Item> {
     crate::menu::effects::hand_of_primary_player(app.world_mut())
 }
 
-/// Switching the inventory frontend mid-session lands you on the SAME page in the
-/// new frontend (not back on Inventory). The cube stores the page in
-/// `ActiveMenuPages.active`, the Grid in `GridMenuTabState.active_tab`;
-/// `sync_menu_page_across_backend_switch` carries it across either way.
-#[test]
-fn backend_switch_carries_the_active_page() {
-    let mut app = grid_app();
-    app.add_systems(Update, sync_menu_page_across_backend_switch);
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
-        .visible = true;
-
-    // Open on the cube, System page; the first update snapshots the current page.
-    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
-    app.world_mut()
-        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
-        .active = Some(MenuPage::System);
-    app.update();
-
-    // Cube → Grid: the grid tab carries the cube's page (System), not Inventory.
-    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Grid;
-    app.update();
-    assert_eq!(
-        tab_page(app.world().resource::<GridMenuTabState>().active_tab),
-        MenuPage::System,
-        "cube→grid lands on the same page (System), not Inventory"
-    );
-
-    // Navigate the grid to Map and let it settle one frame (the snapshot), then
-    // switch back to the cube: the cube page carries it.
-    app.world_mut()
-        .resource_mut::<GridMenuTabState>()
-        .active_tab = tab_index_of(MenuPage::Map);
-    app.update();
-    *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
-    app.update();
-    assert_eq!(
-        app.world()
-            .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
-            .active,
-        Some(MenuPage::Map),
-        "grid→cube lands on the same page (Map)"
-    );
-}
+// ⛔⛤ **`backend_switch_carries_the_active_page` WAS DELETED WITH THE SYSTEM IT
+// TESTED (2026-09-12), AND IT WAS THE SAME WRONG-PARTY SHAPE AS THE PARITY ARM
+// BELOW IT.** It did `app.add_systems(Update, sync_menu_page_across_backend_switch)`
+// and asserted THE BRIDGE WORKED — not that a person switching backend lands on
+// the page they were on. With `ActiveMenuPages.active` as the sole owner there is
+// no bridge: both backends read the field the other wrote, so the landing is true
+// by construction and the deletion IS the guard.
+//
+// ⚠ THE BEHAVIOUR IS STILL WITNESSED, which is the only thing that makes deleting
+// a guard honest — by the arms that assert WHICH TAB THE USER SEES AFTER INPUT
+// (`open_shows_inventory_then_bumper_cycles_tabs_with_wraparound`,
+// `bumper_reaches_system_tab`, `system_tab_left_right_never_turns_the_page`,
+// `arrow_keys_navigate_to_and_activate_tabs`). None of them names a field, so all
+// four moved to the surviving authority for free.
 
 /// A minimal app wired with the Grid backend systems + every resource the
 /// shared cursor/dispatch path touches. Mirrors the cube test harness so the
@@ -116,8 +86,14 @@ fn set_frame(app: &mut App, f: impl FnOnce(&mut MenuControlFrame)) {
     f(&mut frame);
 }
 
+/// ⭐ ONE LINE, AND NINETEEN CALL SITES NEVER NOTICED THE FACT MOVED. That is
+/// what made the collapse safe: the behaviour arms ask which tab the user sees,
+/// not which field holds it.
 fn active_tab(app: &App) -> MenuPage {
-    tab_page(app.world().resource::<GridMenuTabState>().active_tab)
+    app.world()
+        .resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active
+        .unwrap_or(MenuPage::Items)
 }
 
 fn is_open(app: &App) -> bool {
@@ -414,47 +390,18 @@ fn back_closes_and_respects_opened_from_pause() {
     );
 }
 
-/// CROSS-BACKEND CONTENT PARITY: the active tab's `MenuPageModel` is built from the SAME
-/// backend-agnostic builders regardless of which backend renders it.
-#[test]
-fn cross_backend_model_parity_inventory_and_system() {
-    let owned = OwnedItems::starter();
-    let equipped = None;
-    let settings = UserSettings::default();
-    let build = || {
-        build_inventory_pages(
-            &owned,
-            equipped,
-            MenuFocus::Item(0),
-            &settings,
-            &Default::default(),
-            &Default::default(),
-            0,
-            None,
-        )
-    };
-    let cube_pages = build();
-    let grid_pages = build();
-    for page in [MenuPage::Items, MenuPage::System] {
-        let cube = cube_pages.iter().find(|p| p.id == page).unwrap();
-        let grid = grid_pages.iter().find(|p| p.id == page).unwrap();
-        // The action vocabulary on each page must match exactly (the parity net).
-        let cube_actions: Vec<_> = cube
-            .nodes
-            .iter()
-            .filter_map(|n| n.action().cloned())
-            .collect();
-        let grid_actions: Vec<_> = grid
-            .nodes
-            .iter()
-            .filter_map(|n| n.action().cloned())
-            .collect();
-        assert_eq!(
-            cube_actions, grid_actions,
-            "{page:?} tab: grid and cube render the same actions"
-        );
-    }
-}
+// ⛔⛤ **`cross_backend_model_parity_inventory_and_system` WAS DELETED ON
+// 2026-09-12 RATHER THAN REWRITTEN, and `D-PARITY-SELF` in `queue.md` is the
+// receipt.** It built BOTH sides from ONE closure — `let cube_pages = build();
+// let grid_pages = build();`, no backend argument anywhere — so it asserted that
+// one function is deterministic and reported it as cross-backend parity. The
+// thing it claimed to check was the thing it did to construct its subject.
+//
+// ⇒ Measured before deleting: both backends DO share the builder, so on model
+// CONTENT the arm really was a tautology — but one of the builder's nine
+// arguments, `window_start`, was gated on a DIFFERENT FIELD per backend, and that
+// axis was the one it could never see. With one owner the axis is gone. **A
+// guard that cannot fail is worse than no guard, because somebody trusts it.**
 
 /// NAV ↔ RENDER agreement: the cursor focus key we compute (and hand the
 /// renderer as `view.focused`) equals the `focus` the renderer tags on the
@@ -721,8 +668,8 @@ fn switch_to_tab(app: &mut App, page: MenuPage) {
     // the menu while we settle the tab (the real app rebuilds the frame each tick).
     set_frame(app, |_| {});
     app.world_mut()
-        .resource_mut::<GridMenuTabState>()
-        .active_tab = tab_index_of(page);
+        .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+        .active = Some(page);
     // republish builds the tree via `commands.queue`, so it materializes one
     // update later; two updates guarantees the spawn applied.
     app.update();
@@ -1018,9 +965,12 @@ fn scroll_grid_app() -> App {
         .resource_mut::<ambition_platformer2d::inventory_ui::InventoryUiState>()
         .visible = true;
     {
-        let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();
-        ts.active_tab = tab_index_of(MenuPage::System);
-        ts.system_window_start = None;
+        app.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::System);
+        app.world_mut()
+            .resource_mut::<GridMenuTabState>()
+            .system_window_start = None;
     }
     app.world_mut()
         .resource_mut::<KaleidoscopeSystemNav>()

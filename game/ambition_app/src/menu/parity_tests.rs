@@ -649,11 +649,13 @@ mod dispatch_parity {
     /// - the CUBE turns pages via the baked `ChangePage` edge controls, so its
     ///   release honors `ChangePage(page)` and leaves `pages.active = Some(page)`;
     /// - the GRID turns pages via its TAB BAR (it STRIPS the `ChangePage` edge
-    ///   controls — see `flat_renderer_skips_page_turn_edge_controls` + the content-
-    ///   parity test), and its release re-pins `pages.active` to the GRID's own
-    ///   active tab AFTER dispatch (`grid_backend.rs`: `pages.active =
-    ///   Some(tab_page(active_tab))`). So a synthetic `ChangePage` does NOT move the
-    ///   grid's page — the tab is the grid's source of truth.
+    ///   controls — see `flat_renderer_skips_page_turn_edge_controls`), and its
+    ///   dispatcher REFUSES `ChangePage` outright. ⛔⛤ It used to express that
+    ///   refusal by re-pinning `pages.active` from its own copy of the active tab
+    ///   AFTER dispatch — "whatever that did, overwrite it from my shadow value" —
+    ///   which stopped being expressible when the two copies collapsed to one owner
+    ///   on 2026-09-12. The rule was always "the grid does not change pages this
+    ///   way"; it is stated that way now.
     ///
     /// This is intentional (two different page-change UIs over the same model), not
     /// a dispatcher drift: both still route through the one dispatcher; only the
@@ -678,10 +680,23 @@ mod dispatch_parity {
             "the cube honors ChangePage (its page-turn affordance)"
         );
 
-        // Grid: a synthetic ChangePage is overridden by the grid's tab source of
-        // truth, so the active page stays on the grid's tab (Items by default). The
-        // grid never emits ChangePage controls in practice (it strips them).
+        // Grid: a synthetic ChangePage is REFUSED, so the active page is exactly
+        // what it was before. The grid never emits ChangePage controls in practice
+        // (it strips them); this drives one anyway to pin the refusal.
+        //
+        // ⛔⛤ **THE STARTING PAGE IS SET EXPLICITLY, AND IT DID NOT USED TO BE.**
+        // This arm asserted `Some(Items)` while the fixture published no pages at
+        // all, so `active` was `None` — the value it observed came from the grid's
+        // old post-dispatch RE-PIN, which wrote `Some(tab_page(active_tab))`
+        // unconditionally and thereby INITIALISED the field as a side effect. ⇒ The
+        // arm was reading an initialisation, not a refusal, and it would have passed
+        // against a dispatcher that honoured `ChangePage` and was then overwritten.
+        // Seeding the page first makes it assert a genuine NO-OP: the value is
+        // unchanged because nothing touched it.
         let mut grid = menu_app(InventoryUiBackend::Grid);
+        grid.world_mut()
+            .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
+            .active = Some(MenuPage::Items);
         activate(
             &mut grid,
             InventoryUiBackend::Grid,
@@ -694,8 +709,8 @@ mod dispatch_parity {
         assert_eq!(
             grid_page,
             Some(MenuPage::Items),
-            "the grid re-pins pages.active to its own tab; ChangePage is a no-op for it \
-             (page changes come from the tab bar, and ChangePage controls are stripped)"
+            "the grid dispatched a ChangePage it is supposed to refuse: page changes \
+             come from the tab bar, and the flat renderer strips ChangePage controls"
         );
     }
 

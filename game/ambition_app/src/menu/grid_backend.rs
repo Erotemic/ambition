@@ -64,12 +64,26 @@ pub(crate) fn grid_backend_active(backend: Res<InventoryUiBackend>) -> bool {
     BEVY_UI_MENU_BACKEND_ENABLED && backend.effective() == InventoryUiBackend::Grid
 }
 
-/// Grid-only state: remembered tab plus republish bookkeeping. Shared cursor and
-/// drill state stay on [`KaleidoscopeCursor`] / [`KaleidoscopeSystemNav`].
+/// Grid-only state: republish bookkeeping and the flat menu's own focus zone.
+/// Shared cursor and drill state stay on [`KaleidoscopeCursor`] /
+/// [`KaleidoscopeSystemNav`].
+///
+/// ⛔⛤ **IT NO LONGER REMEMBERS THE TAB, AND THAT WAS A SECOND AUTHORITY.** This
+/// held `active_tab: usize` — an index into [`MenuPage::ALL`] — while
+/// `ActiveMenuPages.active` held the same fact as a [`MenuPage`], and the two were
+/// kept in step by hand: `grid_menu_nav` assigned the index and mirrored it into
+/// `pages.active` three lines later, and a whole system
+/// (`sync_menu_page_across_backend_switch`) existed to bridge them across a
+/// backend switch, carrying a THIRD copy in a `Local` *"so a switch can carry it
+/// even after `grid_menu_nav` clobbers the live `pages.active`"*.
+///
+/// ⇒ `ActiveMenuPages.active` is the sole owner now, and the index is DERIVED at
+/// the two places that need one. Nothing can disagree, so the bridge, its
+/// `Local`s and its ordering edge are gone — and the cross-backend parity test
+/// that could never see the disagreement is gone with them. MAKE IT IMPOSSIBLE,
+/// NOT CHECKED.
 #[derive(Resource)]
 pub(crate) struct GridMenuTabState {
-    /// Index into [`MenuPage::ALL`] of the active tab. Remembered across opens.
-    pub active_tab: usize,
     /// True last frame (so we detect the rising edge of an open to seed the tab).
     was_open: bool,
     /// The last-rendered view key; a change re-spawns the bevy_ui tree.
@@ -109,8 +123,6 @@ pub(crate) enum GridFocusZone {
 impl Default for GridMenuTabState {
     fn default() -> Self {
         Self {
-            // Default tab on open: Inventory (= `MenuPage::Items`, index 0).
-            active_tab: 0,
             was_open: false,
             last_key: None,
             focus_zone: GridFocusZone::Body,
@@ -170,6 +182,22 @@ mod grid_sfx {
 }
 
 /// The active tab's [`MenuPage`].
+/// The page `ActiveMenuPages` names, or the landing tab before anything published.
+///
+/// ⭐ `Items` IS THE OLD DEFAULT, NOT A NEW CHOICE: `MenuPage::ALL[0]` is
+/// `MenuPage::Items`, so this agrees exactly with the `active_tab: 0` initializer
+/// it replaces. `active` is only `None` before the first `replace_pages`, which
+/// always assigns `Some`.
+fn active_page(pages: &ActiveMenuPages<MenuPage, MenuPageAction>) -> MenuPage {
+    pages.active.unwrap_or(MenuPage::Items)
+}
+
+/// The active page as an index, for the two places that need to do arithmetic on
+/// it (bumper/arrow tab cycling, and the republish view key).
+fn active_tab_index(pages: &ActiveMenuPages<MenuPage, MenuPageAction>) -> usize {
+    tab_index_of(active_page(pages))
+}
+
 fn tab_page(active_tab: usize) -> MenuPage {
     MenuPage::ALL[active_tab.min(MenuPage::ALL.len() - 1)]
 }
@@ -206,47 +234,25 @@ fn tab_index_of(page: MenuPage) -> usize {
     MenuPage::ALL.iter().position(|p| *p == page).unwrap_or(0)
 }
 
-/// Carry the active PAGE across an inventory-backend switch (the `\` hotkey or the
-/// in-menu "Menu Backend" row) so you land on the SAME screen in the new frontend
-/// instead of being dumped back on Inventory. The cube keeps the page in
-/// `ActiveMenuPages.active`; the Grid keeps it in `GridMenuTabState.active_tab` (it
-/// renders its OWN tab, not the shared `pages.active`). The shared cursor + drill
-/// state already carry the within-page position, so only the page/tab needs syncing.
-/// Ordered before BOTH republish systems so the arriving backend draws the carried
-/// page on the switch frame (no Inventory flash).
-pub(crate) fn sync_menu_page_across_backend_switch(
-    backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut tab_state: ResMut<GridMenuTabState>,
-    mut last: Local<Option<InventoryUiBackend>>,
-    // The page the user is on, snapshotted each stable frame so a switch can carry it
-    // even after `grid_menu_nav` clobbers the live `pages.active`.
-    mut carried: Local<Option<MenuPage>>,
-) {
-    let now = backend.effective();
-    // A genuine switch WHILE THE MENU IS OPEN carries the page across; a switch while
-    // closed is irrelevant (the next open's entry key sets the landing page). The very
-    // first run has no prior backend to carry from.
-    if *last != Some(now) && last.is_some() && overlay.visible {
-        // The snapshot below is taken on stable frames, so it is reliable.
-        if let Some(page) = *carried {
-            match now {
-                InventoryUiBackend::Grid => tab_state.active_tab = tab_index_of(page),
-                InventoryUiBackend::LunexKaleidoscope => pages.active = Some(page),
-            }
-        }
-    }
-    *last = Some(now);
-    // Snapshot the page the user is currently on, from the ACTIVE backend's own source
-    // of truth, for the NEXT switch.
-    if overlay.visible {
-        *carried = match now {
-            InventoryUiBackend::LunexKaleidoscope => pages.active,
-            InventoryUiBackend::Grid => Some(tab_page(tab_state.active_tab)),
-        };
-    }
-}
+// ⛔⛤ **`sync_menu_page_across_backend_switch` WAS DELETED HERE ON 2026-09-12,
+// AND EVERY LINE OF IT WAS A CONSEQUENCE OF ONE FACT BEING STORED TWICE.** It
+// carried the active page across an inventory-backend switch, because the cube
+// kept it in `ActiveMenuPages.active` and the grid kept it in
+// `GridMenuTabState.active_tab`. To do that it needed a `Local` SNAPSHOT of the
+// page — a THIRD copy — re-taken every stable frame, *"so a switch can carry it
+// even after `grid_menu_nav` clobbers the live `pages.active`"*; a second `Local`
+// to detect the switch edge; a `match` to write into whichever encoding the
+// ARRIVING backend treated as authoritative; and an ordering constraint placing
+// it before BOTH republish systems.
+//
+// ⇒ With `ActiveMenuPages.active` as the sole owner there is nothing to carry:
+// both backends read the field the other wrote, so the page survives a switch BY
+// CONSTRUCTION. Its test went too — `backend_switch_carries_the_active_page` added
+// this very system and asserted the BRIDGE worked, not that a user lands on the
+// same page, so it could not outlive the bridge. The behaviour is still guarded,
+// by the arms that assert which tab the user sees after input
+// (`bumper_reaches_system_tab`, `arrow_keys_navigate_to_and_activate_tabs`,
+// `system_tab_left_right_never_turns_the_page`), none of which names a field.
 
 /// The tab specs (page id + label) drawn left→right, matching [`MenuPage::ALL`].
 fn tab_specs() -> Vec<BevyUiMenuTabSpec<MenuPage>> {
@@ -322,6 +328,9 @@ fn cursor_focus_key(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
+    // ⭐ THE OWNER OF THE ACTIVE PAGE. This system chooses the landing tab, which
+    // used to mean writing the grid's own index; the page is one fact now.
+    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
@@ -357,10 +366,10 @@ pub(crate) fn grid_menu_open_routing(
             // Esc/Start opens on the System face (the shared entry→tab mapping),
             // NOT the remembered tab — the pause button targets System.
             play_ui(&mut sfx, grid_sfx::OPEN);
-            tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Pause));
+            pages.active = Some(pause_entry_target(PauseEntrySource::Pause));
             tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
-                tab_state.active_tab,
+                active_tab_index(&pages),
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -378,10 +387,10 @@ pub(crate) fn grid_menu_open_routing(
             close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
         } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
             play_ui(&mut sfx, grid_sfx::OPEN);
-            tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Inventory));
+            pages.active = Some(pause_entry_target(PauseEntrySource::Inventory));
             tab_state.focus_zone = GridFocusZone::Body;
             open_grid_unified_menu(
-                tab_state.active_tab,
+                active_tab_index(&pages),
                 &mut overlay,
                 mode.get(),
                 &mut next_mode,
@@ -395,10 +404,10 @@ pub(crate) fn grid_menu_open_routing(
     // Map key: open on the Map tab (the shared entry→tab mapping).
     if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) && !overlay.visible {
         play_ui(&mut sfx, grid_sfx::OPEN);
-        tab_state.active_tab = tab_index_of(pause_entry_target(PauseEntrySource::Map));
+        pages.active = Some(pause_entry_target(PauseEntrySource::Map));
         tab_state.focus_zone = GridFocusZone::Body;
         open_grid_unified_menu(
-            tab_state.active_tab,
+            active_tab_index(&pages),
             &mut overlay,
             mode.get(),
             &mut next_mode,
@@ -509,17 +518,17 @@ pub(crate) fn grid_menu_nav(
     let bump = (menu.page_right as i32) - (menu.page_left as i32);
     if bump != 0 {
         let n = MenuPage::ALL.len() as i32;
-        tab_state.active_tab = ((tab_state.active_tab as i32 + bump).rem_euclid(n)) as usize;
+        let next = ((active_tab_index(&pages) as i32 + bump).rem_euclid(n)) as usize;
         system_nav.open_entry = None;
         tab_state.system_window_start = None;
-        seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+        seed_cursor_for_tab(next, &mut cursor);
         tab_state.focus_zone = GridFocusZone::Body;
-        pages.active = Some(tab_page(tab_state.active_tab));
+        pages.active = Some(tab_page(next));
         play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
         return;
     }
 
-    let active_page = tab_page(tab_state.active_tab);
+    let active_page = active_page(&pages);
     // Keep the shared pages pointer aligned with the active tab so the republished
     // model (built by `republish_kaleidoscope_pages`) is the tab we render.
     pages.active = Some(active_page);
@@ -534,12 +543,12 @@ pub(crate) fn grid_menu_nav(
     if tab_state.focus_zone == GridFocusZone::Tabs {
         if dx != 0 {
             let n = MenuPage::ALL.len() as i32;
-            tab_state.active_tab = ((tab_state.active_tab as i32 + dx).rem_euclid(n)) as usize;
+            let next = ((active_tab_index(&pages) as i32 + dx).rem_euclid(n)) as usize;
             fx.quality_confirm.cancel();
             system_nav.open_entry = None;
             tab_state.system_window_start = None;
-            seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
-            pages.active = Some(tab_page(tab_state.active_tab));
+            seed_cursor_for_tab(next, &mut cursor);
+            pages.active = Some(tab_page(next));
             play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
             return;
         }
@@ -547,7 +556,7 @@ pub(crate) fn grid_menu_nav(
             // Activate: focus is already the live tab; just drop into the body (the
             // cursor was seeded for this tab when we switched onto it).
             tab_state.focus_zone = GridFocusZone::Body;
-            seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+            seed_cursor_for_tab(active_tab_index(&pages), &mut cursor);
             play_ui(&mut fx.sfx, grid_sfx::ACCEPT);
             return;
         }
@@ -724,7 +733,7 @@ pub(crate) fn grid_menu_republish_view(
     // (instead of fishing the cube's `pages.pages` out by id) makes the grid
     // self-sufficient: it does not depend on the cube's republish ordering/gating,
     // which was why the body could lag a tab behind / always read Items.
-    let active_page = tab_page(tab_state.active_tab);
+    let active_page = active_page(&pages);
     let model = system.model(&settings);
     // The EFFECTIVE System window start: an explicit wheel/drag override wins
     // (Features C/D), otherwise it follows the cursor — exactly the cube's rule via
@@ -745,7 +754,7 @@ pub(crate) fn grid_menu_republish_view(
         0
     };
     let key = ViewKey {
-        tab: tab_state.active_tab,
+        tab: active_tab_index(&pages),
         open_entry: system_nav.open_entry,
         focus: cursor.focus(),
         version: pages.version,
@@ -814,12 +823,12 @@ pub(crate) fn grid_menu_republish_view(
     // Fix 4: when focus is on the tab bar, tell the renderer which tab to ring; when
     // in the body, no tab is focused (only the active tab is highlighted).
     let focused_tab = match tab_state.focus_zone {
-        GridFocusZone::Tabs => Some(tab_state.active_tab),
+        GridFocusZone::Tabs => Some(active_tab_index(&pages)),
         GridFocusZone::Body => None,
     };
     let view = BevyUiMenuView {
         tabs: &tabs,
-        active_tab: tab_state.active_tab,
+        active_tab: active_tab_index(&pages),
         page: &page,
         focused,
         focused_tab,
@@ -866,6 +875,7 @@ fn grid_system_row_count(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -894,7 +904,7 @@ pub(crate) fn grid_menu_scroll_wheel(
     if steps == 0 {
         return;
     }
-    let active_page = tab_page(tab_state.active_tab);
+    let active_page = active_page(&pages);
     let model = system.model(&settings);
     let total = grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
     if total <= SYSTEM_VISIBLE_ROWS {
@@ -922,6 +932,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -939,7 +950,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     let Some(fraction) = dragged.read().last().map(|d| d.fraction.clamp(0.0, 1.0)) else {
         return;
     };
-    let active_page = tab_page(tab_state.active_tab);
+    let active_page = active_page(&pages);
     let model = system.model(&settings);
     let total = grid_system_row_count(active_page, &system_nav, &model, quality_confirm.pending());
     let result = scroll_fraction_to_window_start(total, fraction);
@@ -971,6 +982,22 @@ pub(crate) fn grid_menu_action_activated(
         return;
     }
     for activation in activated.read() {
+        // ⛔⛤ **THE GRID REFUSES `ChangePage` EXPLICITLY NOW, AND IT USED TO SAY SO
+        // BY OVERWRITING.** Page changes here come from the TAB BAR; the flat
+        // renderer STRIPS the `ChangePage` edge controls
+        // (`flat_renderer_skips_page_turn_edge_controls`), so this action cannot be
+        // raised by the shipped UI at all. The old code let it through the
+        // dispatcher and then re-pinned `pages.active` from the grid's OWN copy of
+        // the active tab — a refusal expressed as "whatever that did, overwrite it
+        // from my shadow value".
+        //
+        // ⇒ With one owner there is no shadow to overwrite from, so the intent has
+        // to be stated rather than implied. That is strictly better: the rule was
+        // always "the grid does not change pages this way", and it now reads that
+        // way instead of depending on a second field existing.
+        if matches!(activation.action, MenuPageAction::ChangePage(_)) {
+            continue;
+        }
         let mut close_menu = false;
         crate::menu::dispatch::dispatch_menu_action(
             activation.action,
@@ -989,7 +1016,6 @@ pub(crate) fn grid_menu_action_activated(
             &mut fx.sfx,
             &mut fx.system,
         );
-        pages.active = Some(tab_page(tab_state.active_tab));
         // Force the next republish so a pointer/touch-dispatched state change
         // (equip, setting toggle, radio song) refreshes immediately.
         tab_state.last_key = None;
@@ -1019,15 +1045,15 @@ pub(crate) fn grid_menu_tab_activated(
         return;
     }
     for activation in activated.read() {
-        tab_state.active_tab = activation.index.min(MenuPage::ALL.len() - 1);
+        let next = activation.index.min(MenuPage::ALL.len() - 1);
         quality_confirm.cancel();
         system_nav.open_entry = None;
         tab_state.system_window_start = None;
-        seed_cursor_for_tab(tab_state.active_tab, &mut cursor);
+        seed_cursor_for_tab(next, &mut cursor);
         // Pointer/touch tab activation lands focus in the body. Only explicit
         // keyboard navigation parks focus on the tab bar.
         tab_state.focus_zone = GridFocusZone::Body;
-        pages.active = Some(tab_page(tab_state.active_tab));
+        pages.active = Some(tab_page(next));
         tab_state.last_key = None;
         play_ui(&mut sfx, grid_sfx::TAB_CHANGE);
     }
@@ -1043,13 +1069,17 @@ pub(crate) fn grid_menu_tab_activated(
 /// independent of this hover ownership gate.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
     devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
-    tab_state: Res<GridMenuTabState>,
+    // ⭐ `GridMenuTabState` IS GONE FROM THIS SIGNATURE, not renamed away: the
+    // hover handler took it for the active tab alone, and the tab is derived from
+    // `pages` now. A collapse that leaves the old resource threaded through
+    // unused has not finished.
     system_nav: Res<KaleidoscopeSystemNav>,
     mut cursor: ResMut<KaleidoscopeCursor>,
 ) {
@@ -1069,7 +1099,7 @@ pub(crate) fn grid_menu_pointer_hover(
     let Some(action) = ctrl.action else {
         return;
     };
-    let active_page = tab_page(tab_state.active_tab);
+    let active_page = active_page(&pages);
     let model = system.model(&settings);
     let rows =
         system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
@@ -1137,17 +1167,11 @@ pub fn install_grid_unified_menu(app: &mut App) {
         Update,
         grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
     );
-    // Carry the active page across a backend switch BEFORE the Grid republishes its
-    // body, so you land on the same screen you were on (not Inventory). Ordered AFTER
-    // `MenuNavConsume` (both backends' nav live there) so an in-menu "Menu Backend"
-    // flip is seen on the SAME frame. The cube direction (grid→cube) settles via the
-    // cube's own republish next frame, hidden by the cube's fold-in animation.
-    app.add_systems(
-        Update,
-        sync_menu_page_across_backend_switch
-            .after(ambition_platformer2d::actors::schedule::MenuNavConsume)
-            .before(grid_menu_republish_view),
-    );
+    // ⛔ NOTHING IS REGISTERED HERE ANY MORE, and the ordering edge that used to
+    // be went with it. Carrying the active page across a backend switch needed a
+    // system only while the two backends kept that page in two different fields;
+    // they now read one, so the carry is an identity and the `MenuNavConsume`
+    // edge it needed for same-frame settling is moot.
     // Features C/D: the wheel + scrollbar-drag scroll appliers run BEFORE republish so
     // a scroll set this frame rebuilds the windowed rows the same frame. The drag
     // signal comes from the engine's `bevy_ui` scrollbar observers
@@ -1172,8 +1196,7 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 // this the two sets are unordered siblings in `Update`, so a
                 // controller submit would be dispatched a frame late — breaking the
                 // `InputSet` contract that an edge produced this frame is consumed
-                // this frame. `sync_menu_page_across_backend_switch` already pins
-                // itself here for the same same-frame reason.
+                // this frame.
                 .after(ambition_platformer2d::actors::schedule::MenuNavConsume)
                 .before(grid_menu_republish_view),
         );

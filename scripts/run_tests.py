@@ -1194,6 +1194,15 @@ class FailureEvidence:
         r"|^test result: FAILED"
         r"|^E\s{2,}\S"
         r"|^(?:FAILED|ERROR)\s+\S"
+        # ⛔ THE REPO'S OWN CHECKERS ARE A THIRD PRODUCER, and the compile-cost
+        # ratchet proved it: its gate failure recorded NOTHING here until this
+        # line, because its verdicts are neither libtest's nor pytest's — they
+        # are `REGRESSED  <metric> (<crate>): a -> b`. ⚠ THIS LIST IS A CENSUS
+        # OF PRODUCERS, NOT A RULE: a checker that invents a new verdict word is
+        # invisible until its word is added, and the way that surfaces is a
+        # failed job whose `failure_evidence` is empty. **An empty evidence list
+        # on a FAILED job is itself a finding — about this regex, not the job.**
+        r"|^\s*REGRESSED\b"
     )
 
     def __init__(self, limit: int = 60) -> None:

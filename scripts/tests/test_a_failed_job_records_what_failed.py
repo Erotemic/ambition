@@ -147,3 +147,19 @@ def test_the_real_p0_failure_would_have_been_recorded():
     assert "smash_cpu_cognition.rs:171:5" in joined
     assert "only 48 frames had two seated bodies" in joined
     assert "test result: FAILED" in joined
+
+
+def test_the_repos_own_ratchet_verdicts_are_recorded():
+    # ⛔ THE THIRD PRODUCER, found by running the full gate and reading the
+    # status file: the compile-cost ratchet FAILED and recorded nothing, because
+    # its verdicts are neither libtest's nor pytest's. Verbatim from the
+    # 2026-09-12 gate run.
+    got = collect([
+        "  baseline frozen at b3bd00a4a (2026-09-05T17:07:31-0400), headroom 2%\n",
+        "  REGRESSED  largest_unit_lines (ambition_platformer2d_actor_monolith):"
+        " 100,742 -> 106,714 (+5,972, budget +2,014).\n",
+    ])
+    assert any("largest_unit_lines" in line for line in got), got
+    # ...and the context line above it is NOT evidence; a collector that keeps
+    # the whole report is one nobody reads.
+    assert not any("baseline frozen" in line for line in got), got

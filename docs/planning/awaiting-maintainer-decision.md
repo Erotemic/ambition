@@ -358,6 +358,50 @@ Measured 2026-09-12 by NamekAmbition at `4d486ef20`.
 
 ## Q112 — ranged recoil writes velocity directly while the kernel documents a seam for exactly this reaction; should it move, and if not, where is that recorded?
 
+✅ **RULED AND DONE 2026-09-12 — AND IT SHOULD NOT HAVE BEEN FILED HERE.** The
+answer: **route it through the seam.** Recoil now stages through
+`BodyFlightState::stage_launch`, the same gateway `hit_reaction.rs` uses for
+knockback, and **the authored magnitude is unchanged.**
+
+⛔⛤ **WHY THIS WAS NOT A MAINTAINER QUESTION.** It was filed on the grounds that
+moving the write *"changes game feel"*. The question it actually asks is **who
+may interpret an externally authored world-space impulse for a body whose
+movement model owns its velocity semantics** — and the motion architecture has
+already answered that: the movement model does. A question is not a maintainer's
+merely because more than one implementation is conceivable; the test is whether
+the project's existing ownership model already determines which is structurally
+correct. Here it did.
+
+⚠ **AND THE "FEEL" FRAMING HID A DEFECT.** A `vel` write is authoritative for an
+axis-swept body and **INERT for a surface-momentum one**, whose `vel` is derived
+from `v_t` and republished every step — the same shape as *"Sanic took knockback
+with every number non-zero and never moved"*. ⇒ The waived line **did nothing at
+all** for that entire motion model. What was filed as a tuning preference was a
+mechanic that did not work for part of the roster.
+
+⇒ **DECIDED EXPLICITLY, not defaulted:** `flinchless: true`, because
+`PendingLaunch::flinchless` means *"a push, not a hit: it moves the body and
+leaves it in control"* — a gun's kick is exactly that, and recoil that tumbled
+its own shooter would be a new mechanic rather than a relocation. And the staging
+**ADDS to a launch already waiting** rather than replacing it, keeping
+`flinchless` FALSE when a real hit is pending: `stage_launch` overwrites, so the
+one-line version would have deleted a knockback that arrived on the same frame
+the body fired.
+
+✔ **THE WAIVER IS DELETED, NOT LEFT MATCHING NOTHING.** `engine.toml`'s
+`allow_lines = ["policy: ranged recoil, authority unresolved"]` was this policy's
+only exemption; an `allow_lines` needle that no longer matches is an amnesty row
+that silently re-arms the day somebody writes that comment again, and its
+emptiness is invisible to a green suite. `engine.velocity-writes-are-authority-only`
+now has ZERO waivers and zero violations; `cargo test -p ambition_workspace_policy`
+is 36/36 including `velocity_write_guard_reacts`.
+
+Guards: `ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity`
+(asserts the exact authored vector, so a relocation that rescaled it fails) and
+`recoil_adds_to_a_waiting_launch_instead_of_erasing_it`. Both poison-verified by
+restoring the direct write — both fail, and the restore is md5-confirmed.
+
+
 `spawn_projectiles_from_brain_actions` applies recoil by writing the firing body's velocity itself:
 
     crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs:381
@@ -443,6 +487,39 @@ ever disagree, this row is what was decided and the comment is what went stale.
 Measured 2026-09-12 by NamekAmbition at `8bd1d884d`.
 
 ## Q113 — is the STRONGER last-good-world guarantee wanted, given its only known implementation is A10 itself?
+
+✅ **RULED 2026-09-12: YES — TAKE THE STRONGER GUARANTEE. A10 IS THE NEXT MAJOR
+ARCHITECTURE PACKET.** Recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md). ⚠ Provenance stated because
+it is not a separate instruction: this was ruled in the architecture review Jon
+forwarded on 2026-09-12.
+
+⇒ **THE SHAPE, and the boundary matters as much as the answer:**
+
+```text
+last-good playable world N
+        ├── build candidate N+1 off to the side
+        ├── reject it safely if invalid
+        └── publish N+1 only when construction succeeds
+```
+
+rather than destroy/mutate N, construct N+1, discover something invalid, and
+recover afterward.
+
+⛔ **NOT ARBITRARY TRANSACTIONAL ROLLBACK OF ARBITRARY ECS COMMANDS** — the ruling
+says so explicitly, and it is the failure mode this packet has always been one
+step from. A10 stays bounded to: typed construction recipes; constrained candidate
+construction; validation of relationships and resources; ONE controlled
+publication boundary; explicit retirement of the old world. **One supported
+scene/reconstruction path, strong end to end** — not a universal recipe language,
+not a World clone, not a second lifecycle coordinator.
+
+⭐ **WHY IT IS WORTH ITS IMPLEMENTATION, which is the question this row actually
+asked:** I3 delivered the CONTENT half of the same architecture — prepare a
+generation, admit it, verify it, publish atomically. A10 is the SCENE half of that
+identical shape, and the pairing is what makes fast, safe edit→play iteration real
+rather than a property of one resource family.
+
 
 ⛔ **A10 HAS BEEN HELD ON THIS AND THE HOLD WAS NOT IN THIS FILE** — found
 2026-09-12 by re-deriving the blocker rather than trusting the note I was

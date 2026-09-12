@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use bevy::prelude::{Component, Entity, World};
 
 use super::*;
+#[allow(unused_imports)]
+use super::ConstructionRootCtx;
 use crate::lifecycle::SessionSpawnScope;
 use crate::sim_id::SimId;
 
@@ -81,18 +83,15 @@ enum ToyRelation {
 
 fn build(
     parameters: &Params,
-    root: ConstructionRoot,
-    ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+    ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>,
 ) {
     ctx.services
         .ordinary_runs
         .set(ctx.services.ordinary_runs.get() + 1);
-    ctx.commands
-        .entity(root.entity())
-        .insert(Built(parameters.label.clone()));
+    ctx.insert(Built(parameters.label.clone()));
     // Adversarial behaviour for the roster-verification tests. `Sabotage::None`
     // is the ordinary path every other test runs on.
-    apply_sabotage(root, ctx);
+    apply_sabotage(ctx);
 }
 
 fn wire_grudge(
@@ -1323,19 +1322,11 @@ mod drifting {
         RecipeId::new("drift.b")
     }
 
-    fn construct_a(
-        _: &(),
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
-    ) {
-        ctx.commands.entity(root.entity()).insert(BuiltByA);
+    fn construct_a(_: &(), ctx: &mut ConstructionRootCtx<'_, '_, '_, Self_>) {
+        ctx.insert(BuiltByA);
     }
-    fn construct_b(
-        _: &(),
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
-    ) {
-        ctx.commands.entity(root.entity()).insert(BuiltByB);
+    fn construct_b(_: &(), ctx: &mut ConstructionRootCtx<'_, '_, '_, Self_>) {
+        ctx.insert(BuiltByB);
     }
     type Self_ = Drifting;
 
@@ -1619,53 +1610,56 @@ thread_local! {
         const { std::cell::Cell::new(RelationSabotage::None) };
 }
 
-fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
+    // Bound before any mutable escape: `commands_escape` borrows the context.
+    let root = ctx.root();
+    let transaction = ctx.scope.transaction(ctx.session);
     match SABOTAGE.with(|s| s.get()) {
         Sabotage::None => {}
         Sabotage::StripIdentity => {
-            ctx.commands.entity(root.entity()).remove::<SimId>();
+            ctx.commands_escape().entity(root).remove::<SimId>();
         }
         Sabotage::OverwriteProvenance => {
-            ctx.commands
-                .entity(root.entity())
+            ctx.commands_escape()
+                .entity(root)
                 .insert(SpawnOrigin::Dynamic {
                     parent: SimId::placement("nobody"),
                     sequence: 99,
                 });
         }
         Sabotage::DespawnRoot => {
-            ctx.commands.entity(root.entity()).despawn();
+            ctx.commands_escape().entity(root).despawn();
         }
         Sabotage::DuplicateIdentity => {
             // A second body answering to the SAME planned identity. A
             // `BTreeSet<SimId>` comparison cannot see this at all.
-            ctx.commands.spawn(SimId::placement("a"));
+            ctx.commands_escape().spawn(SimId::placement("a"));
         }
         Sabotage::SpawnExtraAuthoritativeRoot => {
             // A root wearing THIS transaction's ownership that no plan row
             // named. The caller never lists it, which is exactly why the scope
             // is read from the world instead of from the caller.
-            ctx.commands.spawn((
+            ctx.commands_escape().spawn((
                 SimId::placement("uninvited"),
-                ctx.scope.transaction(ctx.session),
+                transaction.clone(),
             ));
         }
         Sabotage::SpawnUnownedIdentity => {
             // A real identity, minted outside the planner, classified by
             // nothing. Indistinguishable from a recipe inventing a root, which
             // is why it is fatal.
-            ctx.commands.spawn(SimId::placement("mystery_body"));
+            ctx.commands_escape().spawn(SimId::placement("mystery_body"));
         }
         Sabotage::RemoveTransactionId => {
-            ctx.commands.entity(root.entity()).remove::<TransactionId>();
+            ctx.commands_escape().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
             let elsewhere = ConstructionScope {
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands
-                .entity(root.entity())
+            ctx.commands_escape()
+                .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
         }
         Sabotage::SpawnForeignScopedRoot => {
@@ -1675,7 +1669,7 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands.spawn((
+            ctx.commands_escape().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
             ));
@@ -1684,7 +1678,7 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             // Legal: identity-bearing, but explicitly declared non-authoritative.
             // It must carry an identity for this to prove anything — an entity
             // with no `SimId` was never in scope to begin with.
-            ctx.commands
+            ctx.commands_escape()
                 .spawn((SimId::placement("a/visual"), PresentationOnly));
         }
     }
@@ -2330,5 +2324,322 @@ fn a_pre_existing_presentation_only_entity_is_not_a_lost_baseline_identity() {
         ),
         Ok(()),
         "nothing changed, so nothing should be reported"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A10: the stronger last-good-world guarantee.
+//
+// A candidate is built BESIDE the running world and published only on success.
+// The property under test is VISIBILITY, and its failure mode is silent in the
+// dangerous direction: an isolation that does not isolate looks exactly like one
+// that does, until a candidate participates in a match.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Build every row of `plan` as an inactive candidate in a world that has the
+/// filter installed.
+fn candidate_world(plan: &ConstructionPlan<Toy>) -> (World, ConstructionReceipt) {
+    let services = Services::default();
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let receipt = plan
+        .commit_inactive(
+            &mut world,
+            crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            &services,
+        )
+        .expect("the filter is installed, so the commit is not refused");
+    (world, receipt)
+}
+
+/// How many `Built` bodies an ORDINARY query can see — the reading every
+/// gameplay system in the engine gets.
+fn ordinary_visible(world: &mut World) -> usize {
+    world.query::<&Built>().iter(world).count()
+}
+
+/// **A COMMITTED CANDIDATE IS INVISIBLE TO ORDINARY QUERIES, AND STILL EXISTS.**
+///
+/// ⛔ BOTH HALVES, because either alone is satisfied by a bug. "Invisible" alone
+/// is satisfied by never having built anything; "exists" alone is satisfied by an
+/// isolation that does nothing.
+#[test]
+fn an_inactive_candidate_is_built_and_unseen() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let (mut world, receipt) = candidate_world(&plan);
+
+    assert_eq!(receipt.len(), 2, "both rows were constructed");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        0,
+        "an ordinary query saw a candidate — the running world is not isolated \
+         from a scene that has not been published"
+    );
+    // ...and they are really there, reachable by a query that NAMES the filter.
+    let present = world
+        .query_filtered::<&Built, bevy::ecs::query::Allow<super::InactiveCandidate>>()
+        .iter(&world)
+        .count();
+    assert_eq!(present, 2, "the candidate must EXIST while unseen");
+}
+
+/// **PUBLICATION IS THE ONE BOUNDARY, AND IT IS A REMOVAL.**
+#[test]
+fn publishing_a_candidate_makes_exactly_its_own_roots_visible() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let (mut world, receipt) = candidate_world(&plan);
+    let transaction = plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+
+    assert_eq!(ordinary_visible(&mut world), 0);
+    let published = super::publish_candidate(&mut world, &transaction);
+    assert_eq!(
+        published,
+        receipt.len(),
+        "publication must admit the whole transaction it built, not a subset"
+    );
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "after publication the scene is ordinary — nothing else had to change"
+    );
+}
+
+/// **A REFUSED CANDIDATE LEAVES THE LIVE WORLD EXACTLY AS IT WAS.**
+///
+/// ⭐ THIS IS THE WHOLE POINT OF THE STRONGER GUARANTEE, so the live world here
+/// is NONEMPTY and published first: retiring a candidate beside it must not
+/// disturb it. A test whose "live world" was empty could not tell "retired the
+/// candidate" from "retired everything".
+#[test]
+fn retiring_a_candidate_does_not_disturb_the_published_world() {
+    let registry = registry();
+    let live_plan = feuding_pair(&registry);
+    let (mut world, _) = candidate_world(&live_plan);
+    let live_transaction = live_plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+    super::publish_candidate(&mut world, &live_transaction);
+    assert_eq!(ordinary_visible(&mut world), 2, "the live world is nonempty");
+
+    // A second generation, built beside it in its own lane.
+    let candidate_plan = ConstructionPlan::prepare_in_lane(
+        scope(),
+        ConstructionLane::named("candidate"),
+        vec![request("ghost_a"), request("ghost_b")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the candidate plan prepares");
+    let services = Services::default();
+    let candidate_receipt = candidate_plan
+        .commit_inactive(
+            &mut world,
+            crate::lifecycle::SessionSpawnScope::UNSCOPED,
+            &services,
+        )
+        .expect("filter installed");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "building a candidate must not change what the live world shows"
+    );
+
+    let candidate_transaction =
+        candidate_plan.transaction(crate::lifecycle::SessionSpawnScope::UNSCOPED);
+    let retired = super::retire_candidate(&mut world, &candidate_transaction);
+    assert_eq!(retired, candidate_receipt.len(), "the candidate was retired whole");
+    assert_eq!(
+        ordinary_visible(&mut world),
+        2,
+        "retiring a candidate took the LIVE world with it"
+    );
+}
+
+/// **AN UNREGISTERED FILTER REFUSES THE COMMIT RATHER THAN BUILDING A LIVE
+/// "CANDIDATE".**
+///
+/// ⛔⛤ THE FAILURE DIRECTION IS THE ENTIRE REASON THIS ARM EXISTS. Without the
+/// registration `InactiveCandidate` is an ordinary inert component: every root
+/// would be stamped and every root would be VISIBLE, so the isolation would
+/// silently do nothing and a candidate would participate in the running world.
+/// Refusing is loud; the alternative cannot be seen.
+#[test]
+fn an_inactive_commit_is_refused_when_the_filter_was_never_installed() {
+    let registry = registry();
+    let plan = feuding_pair(&registry);
+    let services = Services::default();
+    let mut world = World::new();
+    // deliberately NOT registering the disabling component
+
+    let refused = plan.commit_inactive(
+        &mut world,
+        crate::lifecycle::SessionSpawnScope::UNSCOPED,
+        &services,
+    );
+    assert_eq!(refused, Err(super::InactiveCommitRefused::FilterNotInstalled));
+    assert_eq!(
+        ordinary_visible(&mut world),
+        0,
+        "a refused inactive commit must build NOTHING — a refusal that still \
+         spawned the roster would be the live-candidate defect wearing an error"
+    );
+}
+
+/// **THE WHOLE A10 LOOP: a candidate that FAILS verification is detected while
+/// invisible, retired, and the live world is untouched throughout.**
+///
+/// ⛔⛤ THIS IS THE ARM THAT MAKES THE STRONGER GUARANTEE MEAN SOMETHING. The
+/// verifier's own doc used to say a violation *"cannot be undone — it can only
+/// stop the transaction being PUBLISHED, and leaves the world in whatever state
+/// the offending recipe produced"*. That is still true of a LIVE commit. Against
+/// a candidate it is false, and the difference is the whole packet: the offending
+/// state is invisible, so retiring it is not recovery, it is a drop.
+///
+/// ⚠ THE LIVE WORLD HERE IS NONEMPTY AND PUBLISHED FIRST. A test whose live world
+/// was empty could not tell "retired the bad candidate" from "retired
+/// everything", which is the failure this arm is most worth catching.
+#[test]
+fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_the_live_world() {
+    let registry = registry();
+
+    // ⛔⛤ THE LIVE WORLD USES DIFFERENT IDENTITIES ON PURPOSE, AND THE FIRST
+    // VERSION OF THIS TEST DID NOT — THE POISON IS HOW I KNOW. `feuding_pair`
+    // builds `a` and `b`, which are the candidate's ids too, so the sabotage's
+    // duplicate `a` collided with the PUBLISHED `a` and was detected without the
+    // verifier ever seeing inside the candidate. The arm passed for the wrong
+    // reason and the poison on `Allow` stayed green. ⇒ Distinct ids make the
+    // duplication purely candidate-internal, so detecting it REQUIRES seeing the
+    // candidate. A fixture that never reaches its subject reads exactly like one
+    // that does.
+    let live_plan = ConstructionPlan::prepare(
+        scope(),
+        vec![request("live_x"), request("live_y")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the live plan prepares");
+    let (mut world, _) = candidate_world(&live_plan);
+    let live_transaction = live_plan.transaction(SessionSpawnScope::UNSCOPED);
+    super::publish_candidate(&mut world, &live_transaction);
+    assert_eq!(ordinary_visible(&mut world), 2, "the live world is nonempty");
+    let baseline_live = ordinary_visible(&mut world);
+
+    // ── a candidate built beside it, sabotaged to duplicate a planned identity ──
+    let candidate_plan = ConstructionPlan::prepare_in_lane(
+        scope(),
+        ConstructionLane::named("bad-candidate"),
+        vec![request("a"), request("b")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the candidate plan prepares");
+    let baseline = TransactionBaseline::capture(&mut world).expect("baseline captures");
+    let services = Services::default();
+    // ⛔⛤ `OverwriteProvenance`, NOT `DuplicateIdentity`, AND THE POISON IS WHY.
+    // `DuplicateIdentity` spawns a bare extra entity per root — it is NOT stamped
+    // as a candidate, so it is LIVE — and the sabotage runs once per row, which
+    // means two visible entities answer to `a` and the duplication is detectable
+    // without ever seeing inside the candidate. MEASURED: with the verifier's
+    // `Allow` removed the arm still passed, because it was reading a violation
+    // between two live entities. ⇒ `ProvenanceChanged` is a statement ABOUT A
+    // CANDIDATE ROOT, so detecting it REQUIRES seeing one, and the poison bites.
+    SABOTAGE.with(|s| s.set(Sabotage::OverwriteProvenance));
+    let receipt = candidate_plan
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .expect("filter installed");
+    SABOTAGE.with(|s| s.set(Sabotage::None));
+
+    // Building it changed nothing anybody can see.
+    assert_eq!(
+        ordinary_visible(&mut world),
+        baseline_live,
+        "constructing a candidate altered the live world's visible roster"
+    );
+
+    // ── verification SEES the candidate, which is the half `Allow` buys ──
+    let candidate_transaction = candidate_plan.transaction(SessionSpawnScope::UNSCOPED);
+    let scope = AuthoritativeScope::gather(&mut world, &candidate_transaction);
+    let violations = verify_committed_roster(
+        &candidate_plan,
+        &receipt,
+        &baseline,
+        &scope,
+        &world,
+    )
+    .expect_err("a rewritten provenance inside a candidate must still be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::ProvenanceChanged { .. })),
+        "the violation found was not about a CANDIDATE ROOT, so this arm would \
+         pass with the verifier blind to candidates: {violations:?}"
+    );
+
+    // ── and the refusal is a DROP, not a recovery ──
+    super::retire_candidate(&mut world, &candidate_transaction);
+    assert_eq!(
+        ordinary_visible(&mut world),
+        baseline_live,
+        "retiring a failed candidate disturbed the last-good world"
+    );
+}
+
+
+/// ⛔⛤ **THE ISOLATION COVERS PLANNED ROOTS AND NOTHING ELSE — MEASURED, AND
+/// THIS ARM EXISTS SO THE LIMIT CANNOT BE FORGOTTEN.**
+///
+/// `commit_inactive` stamps [`super::InactiveCandidate`] on the roots the
+/// EXECUTOR minted, which is every row of the plan. A recipe also receives raw
+/// `Commands` and may spawn authoritative entities of its own — the giant hand's
+/// limbs really do this — and those are not in the receipt, so nothing stamps
+/// them. **They stay visible while the rest of the candidate is hidden.**
+///
+/// ⇒ That would be a HALF-VISIBLE candidate, which is exactly what A10's
+/// *"complete visibility proof"* is about.
+///
+/// ⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE DOES THIS.** Measured 2026-09-12
+/// across the whole tree — every `ctx.commands_escape().spawn` is TEST code, and the one
+/// case the verifier's doc used to name (the giant hand limbs) has been PLAN ROWS
+/// since `giant_hand_plans` fed `giant_cluster_rows`. ⇒ With no recipe minting
+/// its own roots, stamping every PLANNED root isolates every candidate this
+/// engine actually builds. This arm pins the SHAPE so the day a recipe starts
+/// spawning, the gap is a failing test rather than a half-visible scene.
+#[test]
+fn a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation() {
+    let registry = registry();
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![request("a")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("plan prepares");
+
+    let services = Services::default();
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    SABOTAGE.with(|s| s.set(Sabotage::SpawnExtraAuthoritativeRoot));
+    let receipt = plan
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .expect("filter installed");
+    SABOTAGE.with(|s| s.set(Sabotage::None));
+
+    let stamped = world
+        .query_filtered::<&SimId, bevy::prelude::With<super::InactiveCandidate>>()
+        .iter(&world)
+        .count();
+    let visible = world.query::<&SimId>().iter(&world).count();
+
+    assert_eq!(
+        stamped,
+        receipt.len(),
+        "the planned roots are the ones that get hidden"
+    );
+    assert!(
+        visible > 0,
+        "MEASURED LIMIT: a recipe-spawned authoritative entity is NOT stamped and \
+         therefore NOT hidden, so a candidate containing one is half-visible to \
+         the running world. If this ever reads 0 the isolation became complete \
+         and this arm should become the opposite assertion."
     );
 }

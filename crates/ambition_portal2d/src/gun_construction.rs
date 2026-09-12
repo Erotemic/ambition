@@ -13,11 +13,10 @@
 use bevy::prelude::{Name, Vec2};
 
 use ambition_platformer2d_shared_tangle::construction::{
-    ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
-    ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
+    ConstructionDomain, ConstructionPlan, ConstructionRegistrationError,
+    ConstructionRegistry, ConstructionRequest, RecipeDispatch, RecipeId,
     RelationDispatch,
-};
-use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
+    ConstructionRootCtx,};
 
 use crate::PortalGunPickup;
 
@@ -82,7 +81,8 @@ pub type PortalGunConstructionRegistry = ConstructionRegistry<PortalGunConstruct
 pub type PortalGunConstructionPlan = ConstructionPlan<PortalGunConstruction>;
 pub type PortalGunConstructionRequest = ConstructionRequest<PortalGunConstruction>;
 
-type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, PortalGunConstruction>;
+/// The root-bound surface a RECIPE gets — no `Commands`, so it cannot spawn.
+type RootCtx<'w, 's, 'a> = ConstructionRootCtx<'w, 's, 'a, PortalGunConstruction>;
 
 pub fn recipe_authored_portal_gun() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_PORTAL_GUN)
@@ -109,13 +109,9 @@ pub fn install_portal_gun_construction_recipes(
 
 fn construct_portal_gun_pickup(
     parameters: &PortalGunConstructionParams,
-    root: ConstructionRoot,
-    ctx: &mut Ctx<'_, '_, '_>,
+    ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    ctx.commands.insert_room_in_session(
-        ctx.session,
-        root.entity(),
-        (
+    ctx.insert_in_session((
             Name::new(format!("Portal gun pickup: {}", parameters.name)),
             PortalGunPickup {
                 pos: parameters.pos,
@@ -126,8 +122,7 @@ fn construct_portal_gun_pickup(
                 arm_timer: 0.0,
                 pair: parameters.pair,
             },
-        ),
-    );
+    ));
 }
 
 #[cfg(test)]

@@ -467,3 +467,140 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
         "the gun-sword's discharge did not play the gun-sword's cue"
     );
 }
+
+/// **RANGED RECOIL IS STAGED AT THE LAUNCH GATEWAY, NOT WRITTEN ONTO `vel`.**
+///
+/// ⛔⛤ THE DEFECT THIS CLOSES IS SILENT FOR A WHOLE MOTION MODEL. `kin.vel +=
+/// kick` is authoritative for an axis-swept body and INERT for a
+/// surface-momentum one, whose `vel` is derived from its internal `v_t` and
+/// republished every step — the same shape as "Sanic took knockback with every
+/// number non-zero and never moved". So the old line did nothing at all for a
+/// surface-momentum shooter, which makes it a defect rather than the tuning
+/// question it was filed as.
+///
+/// ⚠ THE AUTHORED MAGNITUDE IS UNCHANGED — this asserts the recoil vector, so a
+/// relocation that quietly rescaled it would fail here.
+#[test]
+fn ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity() {
+    let mut app = build_app();
+    let actor_pos = ae::Vec2::new(300.0, 300.0);
+    let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+    let seed = ActorClusterSeed::new(
+        "skitter_a",
+        "Skitter",
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+        &[],
+    );
+    let actor = app.world_mut().spawn(enemy_actor(seed)).id();
+
+    // PREMISE: the body has a launch gateway and nothing is waiting at it. A
+    // fixture without one would skip recoil entirely and this test would pass
+    // by measuring nothing.
+    let staged_before = app
+        .world()
+        .get::<ae::BodyFlightState>(actor)
+        .expect("the actor bundle carries a launch gateway")
+        .pending_launch_state();
+    assert!(staged_before.is_empty(), "nothing should be waiting yet");
+
+    let spec = RangedActionSpec::rock(300.0, 1);
+    // The recoil the SPEC carries, read the same way the system reads it, so a
+    // spec whose discharge is absent falls to the same default.
+    let recoil = spec.discharge.clone().unwrap_or_default().recoil;
+    assert!(recoil > 0.0, "this spec must AUTHOR recoil or nothing is proved");
+
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+        .write(ActorActionMessage {
+            actor,
+            request: ActionRequest::Ranged {
+                spec,
+                origin: actor_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                commitment: RangedCommitment::Attempt,
+            },
+            move_instance: None,
+        });
+    app.update();
+
+    let staged = app
+        .world()
+        .get::<ae::BodyFlightState>(actor)
+        .expect("the actor still has its gateway")
+        .pending_launch_state();
+    assert_eq!(
+        staged.velocity,
+        ae::Vec2::new(-recoil, 0.0),
+        "firing to the right must stage a leftward push of exactly the AUTHORED \
+         recoil — the magnitude is not the thing being changed here"
+    );
+    assert!(
+        staged.flinchless,
+        "a gun's kick is a PUSH, not a hit: it must not pin a prone body or start \
+         a tumble, which is what a non-flinchless launch means"
+    );
+}
+
+/// A launch already waiting at the gateway is ADDED TO, not replaced.
+///
+/// ⛔ `stage_launch` overwrites, so the obvious one-line relocation would DELETE
+/// a knockback that arrived on the same frame the body fired. And `flinchless`
+/// must stay FALSE in that case, because the hit still hit.
+#[test]
+fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
+    let mut app = build_app();
+    let actor_pos = ae::Vec2::new(300.0, 300.0);
+    let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+    let seed = ActorClusterSeed::new(
+        "skitter_a",
+        "Skitter",
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+        &[],
+    );
+    let actor = app.world_mut().spawn(enemy_actor(seed)).id();
+
+    // A hostile knockback, staged the way `hit_reaction` stages one.
+    let hit = ae::Vec2::new(0.0, -400.0);
+    app.world_mut()
+        .get_mut::<ae::BodyFlightState>(actor)
+        .expect("gateway")
+        .stage_launch(hit, false);
+
+    let spec = RangedActionSpec::rock(300.0, 1);
+    // The recoil the SPEC carries, read the same way the system reads it, so a
+    // spec whose discharge is absent falls to the same default.
+    let recoil = spec.discharge.clone().unwrap_or_default().recoil;
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+        .write(ActorActionMessage {
+            actor,
+            request: ActionRequest::Ranged {
+                spec,
+                origin: actor_pos,
+                dir: ae::Vec2::new(1.0, 0.0),
+                dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                commitment: RangedCommitment::Attempt,
+            },
+            move_instance: None,
+        });
+    app.update();
+
+    let staged = app
+        .world()
+        .get::<ae::BodyFlightState>(actor)
+        .expect("gateway")
+        .pending_launch_state();
+    assert_eq!(
+        staged.velocity,
+        hit + ae::Vec2::new(-recoil, 0.0),
+        "the waiting knockback was erased by the recoil instead of composed with it"
+    );
+    assert!(
+        !staged.flinchless,
+        "a frame carrying a real hit must stay non-flinchless — the recoil is the \
+         push, the hit is still a hit"
+    );
+}

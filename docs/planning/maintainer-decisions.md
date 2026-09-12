@@ -119,6 +119,7 @@ belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 | 2026-08-22 | **THE MARY-O RESTART REPORT IS CLOSED — it was Mary-O, and it is believed RESOLVED.** | Medium |
 | 2026-08-22 | **ADVANCE THE `dev/ambition_dev_measurements` POINTER PERIODICALLY — the cadence does not matter.** | Low |
 | 2026-09-10 | **A PUBLISHED COLLISION SURFACE PARTICIPATES IN PROJECTILE COLLISION, AND A DESTRUCTIBLE'S SURFACE PLUS ITS HURT VOLUME ARE ONE COMPOUND CONTACT** — damage once AND apply the surface response. (Q96) | High |
+| 2026-09-12 | **TAKE THE STRONGER LAST-GOOD-WORLD GUARANTEE — A10 IS THE NEXT MAJOR ARCHITECTURE PACKET.** A candidate scene is constructed and validated OFF TO THE SIDE and published only on success; a rejected candidate leaves the running world untouched. NOT arbitrary transactional rollback of arbitrary ECS commands — A10 stays bounded to typed construction recipes, constrained candidate construction, relationship/resource validation, one controlled publication boundary and explicit retirement of the old world. (Q113) ⚠ Provenance: ruled in the architecture review Jon forwarded 2026-09-12, not from a separate instruction. | High |
 
 
 ## Supplemental rulings that were previously stored as long-form sections

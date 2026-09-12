@@ -2671,6 +2671,42 @@ skip_paths = [
 # sanctioned velocity authority, and any divergence between the two lists would be
 # a claim that a site may move a body but not change how it is moving, which the
 # ADR does not say about anything.
+# ─────────────────────────────────────────────────────────────────────────────
+# A10: a construction RECIPE may not spawn.
+#
+# `ConstructionRootCtx` is the surface a recipe gets and it holds no `Commands`,
+# so for the two fully-migrated domains (gravity, portal2d) a recipe spawning an
+# authoritative root is UNEXPRESSIBLE rather than merely unused — which is what
+# makes `commit_inactive`'s candidate isolation complete for them: the executor
+# hides every root it minted, and there is no other way to mint one.
+#
+# `commands_escape()` is the remaining hole, and this policy is what keeps it
+# from growing quietly. The monolith's nine recipes still need it because they
+# delegate to helpers taking `&mut Commands`; every one of those uses is a row in
+# the migration that deletes this waiver, and nothing OUTSIDE that file may add a
+# tenth.
+# ─────────────────────────────────────────────────────────────────────────────
+[[policy]]
+id = "engine.construction-recipes-do-not-spawn"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates", "game"]
+rationale = "A10's candidate isolation hides every root the construction EXECUTOR minted. A recipe that minted one of its own would leave it VISIBLE while the rest of the candidate is hidden — a half-visible scene, which is exactly what A10's 'complete visibility proof' is about. `ConstructionRootCtx` removes `Commands` from the recipe surface so this is unexpressible; `commands_escape()` is the one remaining door and exists only because the monolith's recipes delegate to helpers taking `&mut Commands`. KNOWN SCOPE: this matches the escape by NAME, so it counts doors rather than proving nothing walks through one — the structural half is the absent `Commands` field, and this rule exists to keep the exception list from growing while that migration finishes."
+source_doc = "docs/planning/engine/actor-monolith-work-frontier.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = ["commands_escape()"]
+skip_paths = [
+    # The nine recipes still mid-migration. Deleting this line is what finishing
+    # the migration looks like.
+    "ambition_platformer2d_actor_monolith/src/construction/mod.rs",
+    # The type that DEFINES the escape.
+    "ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+]
+
 [[policy]]
 id = "engine.velocity-writes-are-authority-only"
 scope = "engine"
@@ -2704,17 +2740,29 @@ forbid = [
 # lives on that line, so the waiver is readable where the write happens rather
 # than only here.
 #
-# ⛔⛤ AND THE REASON IS NOT THAT THE ENGINE PAVES NO ROAD — IT PAVES ONE, AND MY
-# FIRST VERSION OF THIS COMMENT SAID OTHERWISE. `BodyFlightState::stage_launch`
-# is the seam for an external reaction, drained once at the top of `step_motion`,
-# and `ambition_combat/src/hit_reaction.rs` already stages KNOCKBACK through it.
-# `flight.stage_launch(kick, false)` is also clean against the forbid list above,
-# so this guard is pointing AT the seam rather than asking for an exception.
-# ⇒ What is unresolved is whether recoil should take it: routing it changes how a
-# surface-momentum shooter is pushed, which is game feel, and a scanner repair is
-# the wrong provenance for that decision. Filed rather than left here — see
-# queue.md and awaiting-maintainer-decision.md.
-allow_lines = ["policy: ranged recoil, authority unresolved"]
+# ✅ AND THE ONE WAIVER THIS POLICY EVER CARRIED IS GONE (2026-09-12), BECAUSE
+# THE LINE IT EXEMPTED IS GONE. `allow_lines = ["policy: ranged recoil, authority
+# unresolved"]` exempted the single workspace violation — `kin.vel += kick` in
+# `spawn_projectiles_from_brain_actions` — on the grounds that routing recoil
+# through the seam "changes game feel" and a scanner repair was the wrong
+# provenance for that call.
+#
+# ⇒ RULED: it is not primarily a feel question. WHO MAY INTERPRET AN EXTERNALLY
+# AUTHORED WORLD-SPACE IMPULSE for a body whose movement model owns its velocity
+# semantics is already answered by the motion architecture — the movement model
+# does — and the authored magnitude did not change. Recoil now stages through
+# `BodyFlightState::stage_launch`, the same seam `hit_reaction.rs` uses for
+# knockback.
+#
+# ⛔ AND THE DIRECT WRITE WAS NOT MERELY IRREGULAR: a `vel` write is INERT for a
+# surface-momentum body, whose `vel` is derived from `v_t` and republished every
+# step. So the waived line did nothing at all for that whole motion model — a
+# defect wearing a tuning question's clothes.
+#
+# ⚠ THE WAIVER IS DELETED RATHER THAN LEFT MATCHING NOTHING. An `allow_lines`
+# entry whose needle no longer exists is an amnesty row that silently re-arms the
+# day somebody writes that comment again, and its emptiness is invisible to a
+# green suite.
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.
     "ambition_platformer2d_core/src/movement/",

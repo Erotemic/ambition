@@ -810,6 +810,194 @@ A same-World or separate-World strategy needs its own complete visibility/transf
 proof. Prefer typed inactive drafts first. General unsafe-plugin recovery and
 arbitrary save/schema migration are outside this bounded packet.
 
+### ✅ UNBLOCKED (`Q113` RULED YES) — AND STEP 1'S INVENTORY IS DELIVERED, 2026-09-12
+
+**The isolation problem is MUCH smaller than the paragraph above implies, and the
+difference is four measurements rather than an argument.**
+
+**1. ⭐⭐ THE ENGINE SHIPS THE QUERY-ISOLATION PRIMITIVE AND THIS REPO DOES NOT USE
+IT.** `bevy_ecs 0.19.1` has `entity_disabling`: `World::register_disabling_component::<T>()`
+installs `T` into a global `DefaultQueryFilters`, and **every query that does not
+NAME `T` stops seeing those entities** — engine-enforced, not a convention.
+Bevy's own doc example calls the custom component `Prefab`. Entities keep their
+place in the `World` and *"their relationships remain intact"*, and
+`EntityCommands::insert_recursive` disables a whole tree at once. ⇒ *"A `Pending`
+marker does not isolate a candidate from queries"* is true of a MARKER and false
+of a **registered disabling component**, which is a different mechanism with the
+same shape. Measured: zero uses in this workspace (the `Disabled` hits are
+`ambition_asset_manager`'s unrelated asset-location enum).
+
+**2. ✅ COMPONENT HOOKS: ZERO IN THE WORKSPACE.** No `on_add`/`on_insert`/
+`on_remove`/`on_replace` component hook is declared anywhere. The packet's hook
+warning is, at HEAD, a warning about an empty set.
+
+**3. ✅ LIFECYCLE OBSERVERS: THREE, AND ONLY ONE IS AN `Add`.**
+`ambition_combat/src/stocks.rs:101` (`Remove, RespawnGrace`),
+`actor_monolith/src/features/empowerment.rs:311` (`Remove`), and
+`ambition_touch_input/src/placement.rs:161` (`Add`) — the last is a touch surface
+and is not on the construction road. The other 81 observer registrations are
+keyed on pointer, dialog and custom domain events, which construction does not
+emit. ⛔ **THE QUERY THAT FOUND THESE IS RECORDED BECAUSE MY FIRST ONE MISSED A
+THIRD OF THEM**: `On<Remove` matches nothing when the trigger is written
+`On<bevy::ecs::lifecycle::Remove, …>`. Use
+`On<[a-z:]*\(Add\|Insert\|Remove\|Replace\|Despawn\)\b`.
+
+**4. ✅ RECIPES CANNOT WRITE RESOURCES, STRUCTURALLY AND IN FACT.**
+`ConstructionExecCtx` hands a recipe `{ commands, scope, session, services }` —
+no `World`, no `ResMut` — and measured across all NINE recipes
+(`authored-ground-item`, `staged-actor`, `summoned-minion`, `giant-host`,
+`giant-hand`, `authored-enemy`, `authored-placement`, `authored-shrine`,
+`authored-boss`) there is not one `insert_resource`/`init_resource`. ⚠ `Commands`
+COULD carry one, so this is a population fact rather than a boundary — if A10
+wants it to be a boundary, that is a small, nameable guard.
+
+⭐ **AND THE EXECUTOR IS ALREADY CONSTRAINED IN THE DIRECTION THE PACKET WANTS.**
+`ConstructFn` *"cannot choose the entity, return a different one, or hand back
+something that was already alive"* — the executor mints the `ConstructionRoot` —
+and **it cannot fail: it returns nothing.** So "the materializer cannot discover
+new fallible IO or domain requirements after that boundary" is already true of
+the recipe half; what is unproven is the PLAN half above it.
+
+⇒ **WHAT THIS LEAVES AS THE REAL WORK**, which is now a design rather than a
+discovery: mint candidate roots carrying a registered disabling component, prove
+the three lifecycle observers are either unreached or explicitly tolerant, keep
+the validation between construction and publication, and make retirement of the
+old world explicit. **The visibility proof the packet demands is enumerable now
+rather than open-ended.**
+
+### ✅ STEP 2 LANDED: THE CANDIDATE LIFECYCLE EXISTS, 2026-09-12
+
+`ambition_platformer2d_shared_tangle::construction` now carries the three
+operations the ruling names, and the guarantee is structural rather than
+procedural:
+
+```text
+last-good world N
+    ├── commit_inactive   → candidate N+1 exists, unseen by every ordinary query
+    ├── validate          → refuse → retire_candidate, and N never knew
+    └── publish_candidate → N+1 visible; retiring N is then a separate, explicit act
+```
+
+* **`InactiveCandidate`** — registered through `register_inactive_candidate_filter`
+  as a bevy DISABLING component, so `DefaultQueryFilters` hides it from every
+  query that does not NAME it. The candidate keeps its `SimId`, provenance,
+  `TransactionId` and relations while invisible, **which is what makes
+  publication a component REMOVAL rather than a transfer** — nothing is copied,
+  moved or re-identified at the boundary, so it cannot half-happen.
+* **`ConstructionPlan::commit_inactive`** — REFUSES with
+  `InactiveCommitRefused::FilterNotInstalled` when the filter was never
+  registered. ⛔ That direction is the point: an unregistered `InactiveCandidate`
+  is an ordinary inert component, so every root would be stamped and every root
+  would be LIVE — the isolation silently doing nothing is the one failure nobody
+  would see.
+* **`publish_candidate` / `retire_candidate`** — both keyed on `TransactionId`,
+  both returning how many roots they touched so a caller can assert it moved the
+  transaction it built rather than an empty set.
+
+⭐ **ONE EXECUTOR STILL, AND RECIPES CANNOT TELL.** The roots are stamped AFTER
+the rows are built, so a recipe runs against the context it always did. There is
+no candidate-aware fork of nine recipes.
+
+⚠ **GUARDS AND WHAT THEIR POISONS PROVED.** Four arms — built-and-unseen (both
+halves: invisible AND present), publication admits the whole transaction,
+retirement leaves a NONEMPTY published world untouched, and the unregistered-filter
+refusal building nothing. ⛔⛤ **AND ONE POISON PASSED, WHICH CORRECTED A CLAIM
+RATHER THAN THE CODE:** I wrote `Allow<InactiveCandidate>` beside the `With` and
+called it load-bearing; removing it left all four green. `DefaultQueryFilters`
+excludes a disabling component only from queries that do not MENTION it, and
+`With` mentions it — so `Allow` was redundant. The real hazard is one step over
+and is poison-confirmed: a query that does not name the component at all returns
+ZERO roots, and `publish_candidate` then reports success having admitted nothing.
+
+### ✅ STEP 3: VALIDATION SITS BETWEEN CONSTRUCTION AND PUBLICATION — AND ONE OF THE VERIFIER'S OWN LIMITATIONS IS NOW FALSE
+
+`AuthoritativeScope::gather` sees candidates (`Allow<InactiveCandidate>`), so the
+EXISTING `verify_committed_roster` validates a candidate without a second
+verifier being written. ⭐ **AND IT MAKES A SENTENCE IN THAT FUNCTION'S OWN DOC
+FALSE, WHICH IS THE CLEAREST STATEMENT OF WHAT A10 BUYS:** it read *"a violation
+here cannot be undone — it can only stop the transaction being PUBLISHED, and
+leaves the world in whatever state the offending recipe produced."* True of a
+LIVE commit, and false of a candidate: the offending state is invisible, so
+retiring it is a DROP rather than a recovery. **The difference between the two
+commits is exactly whether a detector's findings are actionable.** Guarded by
+`a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_the_live_world`.
+
+⛔⛤ **AND THE ISOLATION IS NOT COMPLETE — MEASURED, GUARDED, AND STATED HERE
+RATHER THAN DISCOVERED LATER.** `commit_inactive` stamps the roots the EXECUTOR
+minted, which is every PLAN ROW. A recipe also holds raw `Commands` and may spawn
+authoritative entities of its own — the giant hand's limbs do — and those are not
+in the receipt, so nothing stamps them and **they stay visible while the rest of
+the candidate is hidden.** That is a HALF-VISIBLE candidate, and it is precisely
+the *"complete visibility/transfer proof"* this packet demands of a same-World
+strategy. Pinned by
+`a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`, written so
+that the day the isolation becomes complete the arm inverts rather than rots.
+⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE SPAWNS ITS OWN AUTHORITATIVE ROOT
+(measured 2026-09-12).** Every `ctx.commands.spawn` in the tree is TEST code, and
+the single case the verifier's own doc named — *"the giant hand limbs already do
+the last of these"* — is STALE: the hands are plan rows (`giant_hand_plans` feeds
+`giant_cluster_rows`). ⇒ **With no recipe minting its own roots, stamping every
+PLANNED root isolates every candidate this engine actually builds**, so the
+structural fix the verifier names — every authoritative root an explicit plan row
+— is already TRUE of production and the remaining work is to make it
+unexpressible rather than merely unused. The guard pins the shape so the day a
+recipe starts spawning, the gap is a failing test rather than a half-visible
+scene.
+
+⚠ **THREE POISONS FAILED TO BITE `Allow`, SO ITS NECESSITY IS LABELLED REASONED
+RATHER THAN MEASURED.** The reason is worth more than the filter:
+`verify_committed_roster` reads most of what it checks DIRECTLY BY `Entity` from
+the receipt, and direct `World` access is not filtered by `DefaultQueryFilters`
+at all. ⇒ Receipt-driven checks see a candidate either way; only the
+query-driven half (strays, duplicates, unowned identities) could need it, and a
+stray is currently unstamped and therefore visible anyway. Kept because a scope
+that cannot see what it is scoping is wrong on its face, and documented as
+unproven rather than asserted.
+
+### ✅ STEP 4: A RECIPE CANNOT SPAWN — THE SURFACE NO LONGER HAS `Commands`
+
+**`ConstructionRootCtx` is what a recipe now receives, and it holds no
+`Commands` at all.** Its whole API is `root()`, `insert(bundle)` and
+`insert_in_session(bundle)` — all three bound to the row's own root. ⇒ For the
+two fully-migrated domains (`gravity`, `portal2d`) a recipe minting an
+authoritative entity is **unexpressible rather than unused**, which is what makes
+`commit_inactive`'s isolation complete there: the executor hides every root it
+minted, and there is no other way to mint one.
+
+⚠ **NARROWED TO WHAT RECIPES ALREADY DID, MEASURED FIRST.** Across all four files
+implementing a recipe, the entire production surface was
+`entity(root).insert(..)` and `insert_room_in_session(session, root, ..)`. Both
+are root-bound and both are on the new type. Two `type Ctx = ConstructionExecCtx`
+aliases fell out DEAD in the process — those domains had only ever used the
+executor's context for recipes.
+
+⛔ **THE MONOLITH IS NOT DONE AND SAYS SO: `commands_escape()`.** Its nine recipes
+delegate to helpers taking `&mut Commands` (`spawn_staged_actor_into`, …), and
+changing those signatures is its own packet. **The escape is guarded by a new
+policy** `engine.construction-recipes-do-not-spawn`, whose `skip_paths` is the
+migration's remaining rows — so nothing outside that one file can add a tenth
+use, and deleting the waiver is what finishing looks like. Poison-verified: a
+migrated recipe reaching for the escape is refused by file and line.
+
+⛔⛤ **AND MY EARLIER "NO PRODUCTION RECIPE SPAWNS" WAS MEASURED AT THE WRONG
+LEVEL.** I grepped the recipe BODIES for `ctx.commands.spawn`, found none, and
+concluded it — but a recipe hands `ctx.commands` to helpers, so the spawning
+would happen one call down. Re-measured: `spawn_staged_actor_into` and its
+siblings call `spawn_into`, which POPULATES a root the executor allocated; the
+`spawn()` helpers beside them that really do `commands.spawn_empty()` belong to
+roads NOT on the construction planner (`spawn_encounter_mob`, and one
+`#[allow(dead_code)]`). ⇒ **The conclusion survived and its evidence did not**,
+and the new surface makes the question structural instead of a grep.
+
+⚠ **A10's SCOPE NOW HAS A NAMED EDGE:** there are production spawn roads that are
+not on the construction planner at all. They are outside the candidate mechanism
+entirely, and "one supported reconstruction path" means they either migrate or
+are declared out of scope — not that they are silently covered.
+
+⇒ **WHAT REMAINS OF A10:** finish the monolith migration (delete the escape);
+wire this to a real reload customer (I3b's scene reconstruction); and make
+retirement of the OLD world explicit rather than implied.
+
 ## A11. Make installed technique support a preparation contract
 
 **Ready:** A11a support/handler and preparation tests, independent of A1-A10.

@@ -213,6 +213,92 @@ pub struct RecipeDispatch<D: ConstructionDomain> {
     pub construct: ConstructFn<D>,
 }
 
+/// The ONLY surface a recipe gets: its own root, and the two ways to put
+/// components on it.
+///
+/// ⭐⭐ **A10: THIS IS WHY A CANDIDATE IS COMPLETELY ISOLATED RATHER THAN MOSTLY
+/// ISOLATED.** `commit_inactive` hides every root the EXECUTOR minted. A recipe
+/// that minted one of its own would leave it visible while the rest of the
+/// candidate is hidden — a half-visible scene, and exactly what A10's *"complete
+/// visibility proof"* is about. **There is no `Commands` in this type, so a
+/// recipe cannot spawn anything at all.** The gap is not guarded; it is
+/// unexpressible.
+///
+/// ⚠ MEASURED BEFORE IT WAS NARROWED, across all four files that implement a
+/// recipe (`actor_monolith`, `gravity`, `portal2d`, and the toy domain): the
+/// entire production surface is `entity(root).insert(..)` and
+/// `insert_room_in_session(session, root, ..)`. Both are root-bound, both are
+/// here, and **not one production recipe spawns.** So this narrows the type to
+/// what recipes already do rather than to what I would like them to do.
+///
+/// ⇒ `ConstructionExecCtx` still exists and still carries raw `Commands` —
+/// RELATION wiring legitimately needs to touch two arbitrary entities and to
+/// queue a deferred edit. The two roads are different jobs and now have
+/// different surfaces.
+pub struct ConstructionRootCtx<'w, 's, 'a, D: ConstructionDomain> {
+    root: Entity,
+    commands: &'a mut Commands<'w, 's>,
+    /// What the plan describes — content generation and room.
+    pub scope: &'a ConstructionScope,
+    /// Gameplay-session ownership, captured when this commit was requested.
+    pub session: crate::lifecycle::SessionSpawnScope,
+    pub services: &'a D::Services,
+}
+
+impl<'w, 's, 'a, D: ConstructionDomain> ConstructionRootCtx<'w, 's, 'a, D> {
+    /// This row's authoritative entity. Readable because a recipe legitimately
+    /// needs to name it inside its own components; it is not a licence to reach
+    /// for `Commands`, which this type does not have.
+    pub fn root(&self) -> Entity {
+        self.root
+    }
+
+    /// Put components on this row's root.
+    pub fn insert(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        self.commands.entity(self.root).insert(bundle);
+        self
+    }
+
+    /// ⛔⛤ **THE REMAINING ESCAPE, NAMED SO IT CAN BE COUNTED.**
+    ///
+    /// Two of the three production domains (`gravity`, `portal2d`) are fully
+    /// migrated and hold NO `Commands` at all — for them a recipe spawning an
+    /// authoritative root is unexpressible, which is the goal. The monolith's
+    /// nine recipes are not, because they delegate to helpers that take
+    /// `&mut Commands` (`spawn_staged_actor_into`, `spawn_runtime_minion_into`,
+    /// …) and changing those signatures is a separate packet.
+    ///
+    /// ⚠ MEASURED 2026-09-12, and the distinction is finer than it looks: those
+    /// helpers call `spawn_into`, which POPULATES a root the executor allocated.
+    /// The `spawn()` siblings beside them — which really do
+    /// `commands.spawn_empty()` — belong to roads that are NOT on the
+    /// construction planner (`spawn_encounter_mob`, and one marked
+    /// `#[allow(dead_code)]`). So the escape is not currently a hole; it is a
+    /// hole-shaped API with no production user that walks through it.
+    ///
+    /// ⛔ I REACHED THAT CONCLUSION BY THE WRONG ROUTE FIRST. I measured
+    /// `ctx.commands.spawn` in the recipe BODIES, found none, and concluded no
+    /// recipe spawns — a claim about the wrong population, since the spawning
+    /// would happen inside what the recipe CALLS. The conclusion survived; the
+    /// evidence for it did not, and this comment records the evidence that
+    /// actually holds.
+    ///
+    /// ⇒ Every use of this is a row in the migration that removes it.
+    pub fn commands_escape(&mut self) -> &mut Commands<'w, 's> {
+        self.commands
+    }
+
+    /// Put components on this row's root, scoped to the gameplay session that
+    /// requested the commit — the room-retirement lifetime every placed body
+    /// wants.
+    pub fn insert_in_session(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        use crate::lifecycle::SpawnSessionScopedExt as _;
+        self.commands
+            .insert_room_in_session(self.session, self.root, bundle);
+        self
+    }
+}
+
 /// Populates one planned row's already-allocated root.
 ///
 /// A recipe cannot choose the entity, return a different one, or hand back
@@ -220,8 +306,7 @@ pub struct RecipeDispatch<D: ConstructionDomain> {
 /// executor minted. It also cannot fail: it returns nothing.
 pub type ConstructFn<D> = for<'w, 's, 'a> fn(
     &<D as ConstructionDomain>::Parameters,
-    ConstructionRoot,
-    &mut ConstructionExecCtx<'w, 's, 'a, D>,
+    &mut ConstructionRootCtx<'w, 's, 'a, D>,
 );
 
 /// The authoritative entity the executor allocated for one planned row.
@@ -408,6 +493,57 @@ impl Default for ConstructionLane {
     fn default() -> Self {
         Self::primary()
     }
+}
+
+/// A root that has been CONSTRUCTED but not PUBLISHED: it exists, it is wired,
+/// and **no ordinary query can see it.**
+///
+/// ⭐⭐ **THIS IS A10's LAST-GOOD-WORLD GUARANTEE IN ONE COMPONENT, AND IT IS NOT
+/// A MARKER.** A10's own text warns that *"a `Pending` marker does not isolate a
+/// candidate from queries, observers or hooks"* — true, and the reason is that a
+/// marker asks every reader to remember it. This is registered with
+/// [`register_inactive_candidate_filter`] as a bevy DISABLING component, so
+/// `DefaultQueryFilters` excludes it from **every query that does not name it**.
+/// The isolation is the engine's, not a convention.
+///
+/// ⛔ WHAT IT DOES NOT DO, stated so nobody assumes the rest: it does not stop
+/// component HOOKS or lifecycle OBSERVERS from firing as the candidate is built.
+/// Measured 2026-09-12: this workspace declares ZERO component hooks and THREE
+/// lifecycle observers, exactly one of which is an `Add` (a touch surface, not on
+/// the construction road). So the residual surface is enumerable and currently
+/// empty for construction — but it is a POPULATION FACT, not a boundary, and it
+/// is the thing to re-measure before trusting this in a new domain.
+///
+/// ⇒ The candidate keeps its `SimId`, its `SpawnOrigin`, its [`TransactionId`]
+/// and its relationships while invisible, which is what makes publication a
+/// component REMOVAL rather than a transfer.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct InactiveCandidate;
+
+/// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
+/// queries.
+///
+/// ⛔⛔ **WITHOUT THIS CALL THE COMPONENT IS INERT AND EVERY CANDIDATE IS LIVE.**
+/// That is the dangerous failure direction — the isolation silently does
+/// nothing and the candidate participates in the running world — so
+/// [`ConstructionPlan::commit_inactive`] REFUSES rather than committing when the
+/// filter is not installed. A composition that builds candidates calls this
+/// once, at build.
+pub fn register_inactive_candidate_filter(world: &mut World) {
+    world.register_disabling_component::<InactiveCandidate>();
+}
+
+/// Is the disabling filter installed in this world?
+///
+/// Asked by `commit_inactive` before it stamps anything, because a candidate
+/// that is not actually hidden is worse than no candidate at all.
+pub fn inactive_candidate_filter_installed(world: &mut World) -> bool {
+    let Some(id) = world.components().component_id::<InactiveCandidate>() else {
+        return false;
+    };
+    world
+        .get_resource::<bevy::ecs::entity_disabling::DefaultQueryFilters>()
+        .is_some_and(|filters| filters.disabling_ids().any(|disabling| disabling == id))
 }
 
 /// Which construction transaction owns an authoritative root.
@@ -1028,6 +1164,61 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         })
     }
 
+    /// Commit every row as an INACTIVE CANDIDATE: constructed, wired, and
+    /// invisible to ordinary queries until [`publish_candidate`] admits it.
+    ///
+    /// ⭐⭐ **THIS IS THE STRONGER LAST-GOOD-WORLD GUARANTEE (`Q113`, ruled
+    /// 2026-09-12).** The running world is not disturbed to make room for a
+    /// candidate: the candidate is built beside it and only becomes visible when
+    /// construction has already SUCCEEDED. A candidate that turns out invalid is
+    /// retired with [`retire_candidate`] and the live world never knew about it.
+    ///
+    /// ```text
+    /// last-good world N
+    ///     ├── commit_inactive  → candidate N+1 exists, unseen
+    ///     ├── validate         → refuse → retire_candidate, N untouched
+    ///     └── publish_candidate → N+1 visible, then retire N
+    /// ```
+    ///
+    /// ⛔ **IT REFUSES RATHER THAN COMMITTING WHEN THE FILTER IS NOT INSTALLED**,
+    /// and that direction is deliberate. An unregistered [`InactiveCandidate`] is
+    /// an ordinary inert component: every root would be stamped and every root
+    /// would be LIVE, so the failure would be a candidate silently participating
+    /// in the running world — the exact outcome this method exists to prevent.
+    /// A refusal is loud and costs nothing; the alternative is invisible.
+    ///
+    /// ⚠ THE ROOTS ARE STAMPED AFTER THE ROWS ARE BUILT, not during. A recipe
+    /// runs against the same context it always does and cannot tell whether it
+    /// is building a candidate — which is what keeps ONE executor rather than a
+    /// candidate-aware fork of every recipe.
+    pub fn commit_inactive(
+        &self,
+        world: &mut World,
+        session: crate::lifecycle::SessionSpawnScope,
+        services: &D::Services,
+    ) -> Result<ConstructionReceipt, InactiveCommitRefused> {
+        if !inactive_candidate_filter_installed(world) {
+            return Err(InactiveCommitRefused::FilterNotInstalled);
+        }
+        let receipt = {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let mut commands = Commands::new(&mut queue, world);
+            let mut ctx = ConstructionExecCtx {
+                commands: &mut commands,
+                scope: &self.scope,
+                session,
+                services,
+            };
+            let receipt = self.commit(&mut ctx);
+            queue.apply(world);
+            receipt
+        };
+        for entity in receipt.committed.values() {
+            world.entity_mut(*entity).insert(InactiveCandidate);
+        }
+        Ok(receipt)
+    }
+
     /// Construct the named rows, and wire exactly the relations that lie wholly
     /// within them.
     ///
@@ -1145,7 +1336,18 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
         // different constructor than the one the plan validated and dumped.
-        (planned.construct)(&planned.parameters, ConstructionRoot(root), ctx);
+        // ⭐ THE RECIPE GETS A ROOT-BOUND SURFACE, NOT THE EXECUTOR'S CONTEXT.
+        // See `ConstructionRootCtx`: there is no `Commands` in it, so a recipe
+        // cannot spawn an authoritative entity the candidate isolation would
+        // miss.
+        let mut root_ctx = ConstructionRootCtx {
+            root,
+            commands: ctx.commands,
+            scope: ctx.scope,
+            session: ctx.session,
+            services: ctx.services,
+        };
+        (planned.construct)(&planned.parameters, &mut root_ctx);
         root
     }
 
@@ -1193,17 +1395,38 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// point of having it. The executor allocates each row's root, but a recipe
 /// receives raw `Commands` and the root `Entity`, so it can despawn that root,
 /// strip or rewrite its `SimId`/`SpawnOrigin`, stamp a second entity with a
-/// planned identity, or spawn further authoritative entities of its own — the
-/// giant hand limbs already do the last of these. None of that is structurally
-/// prevented today, so a transaction that intends to publish a room must ask.
+/// planned identity, or spawn further authoritative entities of its own. None of
+/// that is structurally prevented today, so a transaction that intends to
+/// publish a room must ask.
+///
+/// ⛔⛤ **THIS USED TO ADD *"the giant hand limbs already do the last of these"*
+/// AND THAT IS NO LONGER TRUE — re-derived 2026-09-12.** The hands are PLAN ROWS
+/// now (`giant_hand_plans` feeds `giant_cluster_rows`), and measured across the
+/// whole tree there is **not one `ctx.commands.spawn` in a production recipe** —
+/// every occurrence is test code. ⇒ The recipe-spawned authoritative root is a
+/// shape this function must still detect, and it currently has **no production
+/// instance**. That distinction matters for A10: with no recipe minting its own
+/// roots, `commit_inactive` stamping every PLANNED root isolates every candidate
+/// this engine actually builds.
 ///
 /// Bevy commands do not roll back. By the time this can run, the
-/// construction commands have applied. A violation here therefore cannot be
-/// undone — it can only stop the transaction being PUBLISHED as successful, and
-/// leaves the world in whatever state the offending recipe produced. That is
-/// strictly better than publishing a room nobody can describe, and strictly
-/// worse than the structural fix (every authoritative root an explicit plan
-/// row), which is Phase-4 work.
+/// construction commands have applied.
+///
+/// ⭐⭐ **AND THAT USED TO MEAN A VIOLATION COULD NOT BE UNDONE — IT DOES NOT ANY
+/// MORE FOR A CANDIDATE (A10, 2026-09-12).** This paragraph read *"a violation
+/// here cannot be undone … and leaves the world in whatever state the offending
+/// recipe produced"*, which is still exactly true of
+/// [`ConstructionPlan::commit`] against the live world. It is NOT true of
+/// [`ConstructionPlan::commit_inactive`]: the offending state is a candidate no
+/// ordinary query can see, so [`retire_candidate`] removes it and the running
+/// world never knew. ⇒ **The limitation this comment described is what the
+/// stronger last-good-world guarantee exists to dissolve**, and the difference
+/// between the two commits is exactly whether a detector's findings are
+/// actionable.
+///
+/// ⚠ Against a LIVE commit the old sentence stands: better than publishing a room
+/// nobody can describe, worse than the structural fix (every authoritative root
+/// an explicit plan row).
 ///
 /// The scope is read from the world, not supplied. An earlier version took
 /// a caller-curated `&[(SimId, Entity)]`, which made the check exactly as
@@ -1865,6 +2088,75 @@ pub struct AuthoritativeScope {
     members: Vec<ScopeMember>,
 }
 
+/// Why an inactive commit was refused before it built anything.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InactiveCommitRefused {
+    /// [`register_inactive_candidate_filter`] was never called in this world, so
+    /// [`InactiveCandidate`] would not hide anything and every "candidate" root
+    /// would be live. Refused rather than committed — see
+    /// [`ConstructionPlan::commit_inactive`].
+    FilterNotInstalled,
+}
+
+/// Admit a candidate into the running world: the ONE publication boundary.
+///
+/// ⭐ PUBLICATION IS A COMPONENT REMOVAL, WHICH IS WHY IT CANNOT HALF-HAPPEN.
+/// The candidate already holds its `SimId`, its provenance, its
+/// [`TransactionId`] and every relation it was built with — nothing is copied,
+/// moved or re-identified here. What changes is whether ordinary queries can see
+/// it, and that flips for the whole transaction in one pass.
+///
+/// Returns how many roots were admitted, so a caller can assert it published the
+/// transaction it built rather than an empty set.
+pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usize {
+    let roots = candidate_roots(world, transaction);
+    for entity in &roots {
+        world.entity_mut(*entity).remove::<InactiveCandidate>();
+    }
+    roots.len()
+}
+
+/// Discard a candidate without disturbing the live world.
+///
+/// ⛔ THE REFUSAL PATH, AND IT IS WHY THE GUARANTEE IS "LAST-GOOD" RATHER THAN
+/// "FAIL-CLOSED". Nothing was retired to make room for this candidate, so
+/// dropping it needs no recovery and makes no claim about the running world —
+/// which is the whole difference from destroying N and then discovering N+1 is
+/// invalid.
+pub fn retire_candidate(world: &mut World, transaction: &TransactionId) -> usize {
+    let roots = candidate_roots(world, transaction);
+    for entity in &roots {
+        world.entity_mut(*entity).despawn();
+    }
+    roots.len()
+}
+
+/// Every still-inactive root belonging to `transaction`.
+///
+/// ⛔ **`With<InactiveCandidate>` IS WHAT LETS THIS SEE THEM AT ALL**, and it is
+/// doing two jobs: selecting the candidates, and OPTING THIS QUERY OUT of the
+/// default filter that hides them. `DefaultQueryFilters` excludes a disabling
+/// component only from queries that do not MENTION it, and `With` mentions it.
+///
+/// ⚠ **I FIRST WROTE `Allow<InactiveCandidate>` BESIDE THE `With` AND CALLED IT
+/// LOAD-BEARING. IT WAS REDUNDANT, AND THE POISON IS HOW I KNOW** — removing it
+/// left all four guards green, which is a finding about the CLAIM rather than
+/// about the code. `Allow` is for a query that wants entities with AND without
+/// the component; this one wants only the candidates. ⇒ A reader changing
+/// `With` to anything that does not name `InactiveCandidate` silently gets zero
+/// roots, `publish_candidate` reports zero, and the candidate stays invisible
+/// forever while every call looks like it succeeded — that hazard is real, and
+/// it lives on the `With`, not on an extra filter beside it.
+fn candidate_roots(world: &mut World, transaction: &TransactionId) -> Vec<Entity> {
+    let mut query =
+        world.query_filtered::<(Entity, &TransactionId), bevy::prelude::With<InactiveCandidate>>();
+    query
+        .iter(world)
+        .filter(|(_, owner)| *owner == transaction)
+        .map(|(entity, _)| entity)
+        .collect()
+}
+
 impl AuthoritativeScope {
     /// Query the world for every entity carrying a [`SimId`] and classify each
     /// against `transaction`.
@@ -1875,12 +2167,36 @@ impl AuthoritativeScope {
     /// starts with one prefix or another.
     pub fn gather(world: &mut World, transaction: &TransactionId) -> Self {
         let mut members = Vec::new();
-        let mut query = world.query::<(
+        // `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the
+        // component"*, which is what a scope gather wants: the live world AND any
+        // candidate being validated. Without it `DefaultQueryFilters` would hide
+        // every candidate from the function whose job is to find violations in
+        // one.
+        //
+        // ⛔⛤ **AND I CANNOT CALL IT LOAD-BEARING, BECAUSE THREE POISONS FAILED
+        // TO MAKE IT BITE — the honest label is REASONED, not MEASURED.**
+        // Removing it left every candidate arm green, and the reason is worth
+        // more than the filter: **`verify_committed_roster` reads most of what it
+        // checks DIRECTLY BY `Entity` from the receipt**, and bevy's own doc says
+        // *"entities with disabling components are still present in the World and
+        // can be accessed directly"* — direct access is not filtered at all. So
+        // the receipt-driven checks (provenance, identity, liveness of a planned
+        // root) see a candidate with or without this.
+        //
+        // ⇒ What it can only matter for is the half that is NOT receipt-driven:
+        // strays, duplicates and unowned identities found by QUERYING the world
+        // — *"the roots most worth catching are the ones nobody thought to
+        // list"*. I could not build a candidate-internal case of that, because a
+        // recipe-spawned stray is not stamped and so is visible anyway (see
+        // `a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`).
+        // ⚠ It stays because a scope that cannot see what it is scoping is wrong
+        // on its face; it is documented as unproven rather than asserted.
+        let mut query = world.query_filtered::<(
             Entity,
             &SimId,
             Option<&TransactionId>,
             Option<&PresentationOnly>,
-        )>();
+        ), bevy::ecs::query::Allow<InactiveCandidate>>();
         for (entity, sim_id, owner, presentation) in query.iter(world) {
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly

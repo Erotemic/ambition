@@ -95,19 +95,32 @@ pub fn spawn_projectiles_from_brain_actions(
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: SfxWriter,
     mut actors: Query<(
-        &mut ae::BodyKinematics,
+        // ⭐ READ-ONLY NOW, AND THAT IS A CONSEQUENCE OF THE RECOIL MOVE. This was
+        // `&mut BodyKinematics` and the aim-assist comment below justified it as
+        // *"borrows kinematics mutably for the recoil"* — the recoil no longer
+        // writes here, so a mutable borrow would be an access this system claims
+        // and does not use, which constrains the scheduler for nothing.
+        &ae::BodyKinematics,
         &mut ambition_combat::BodyMelee,
         Option<&super::ActorSurfaceState>,
         Option<&ambition_combat::actor_tuning::ActorConfig>,
         Option<&ambition_characters::actor::BodyHealth>,
+        // ⭐ THE LAUNCH GATEWAY, so recoil is STAGED like every other external
+        // push instead of written onto `vel` — see the recoil site below.
+        // `Option` because a body with no flight state (a bare fixture, a
+        // non-kinematic shooter) still fires; what it does not get is recoil,
+        // which is honest, where a direct write would have moved it in a way its
+        // motion model does not agree with.
+        Option<&mut ae::BodyFlightState>,
     )>,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
-    // "at the one opponent over there". Read-only and disjoint from `actors`,
-    // which borrows kinematics mutably for the recoil.
+    // "at the one opponent over there". Read-only, and so is `actors`' view of
+    // kinematics now that recoil stages at the launch gateway instead of writing
+    // velocity here.
     relations: Option<Res<ambition_combat::targeting::FactionRelations>>,
     shooters: Query<(
         &ambition_characters::actor::ActorFaction,
@@ -160,7 +173,12 @@ pub fn spawn_projectiles_from_brain_actions(
         else {
             continue;
         };
-        let Ok((mut kin, mut melee, surface, config, health)) = actors.get_mut(msg.actor) else {
+        // ⛔ `body_flight`, NOT `flight`: this scope already binds `flight` to
+        // `ProjectileFlight`, the projectile's own envelope. Two different things
+        // called the same word one block apart is how the wrong one gets staged.
+        let Ok((kin, mut melee, surface, config, health, body_flight)) =
+            actors.get_mut(msg.actor)
+        else {
             // Message references a body that no longer exists
             // (despawned this frame). Skip silently.
             continue;
@@ -351,34 +369,47 @@ pub fn spawn_projectiles_from_brain_actions(
         let kick = world_dir * -discharge.recoil;
         #[cfg(feature = "causal")]
         let before = kin.vel;
-        // ⛔⛤ **UNRESOLVED AGAINST `engine.velocity-writes-are-authority-only`,
-        // AND IT HAD BEEN INVISIBLE TO IT.** That policy is `production_only`,
-        // and `production_slice` used to truncate a file at its first
-        // `#[cfg(test)]` — line 26 here — so this whole function was outside the
-        // scan. Repairing the slice surfaced exactly ONE violation workspace-wide
-        // and it is this line.
+        // ⭐⭐ **RECOIL IS STAGED AT THE LAUNCH GATEWAY, NOT WRITTEN ONTO
+        // `vel` — RULED 2026-09-12 AND THE AUTHORED MAGNITUDE IS UNCHANGED.**
+        // This was `kin.vel += kick`, the ONE workspace violation of
+        // `engine.velocity-writes-are-authority-only`, and it was filed as a
+        // maintainer question because moving it "changes game feel". The ruling
+        // is that it is not primarily a feel question: **who may interpret an
+        // externally authored world-space impulse for a body whose movement
+        // model owns its velocity semantics** is already answered by the motion
+        // architecture — the movement model does.
         //
-        // ⛔ **THE KERNEL PAVES A ROAD FOR EXACTLY THIS AND KNOCKBACK ALREADY
-        // TAKES IT.** `BodyFlightState::stage_launch` is staged by an external
-        // reaction and drained once at the top of `step_motion`, and the
-        // kernel's own doc says why a direct write is wrong: it *"is
+        // ⛔ **AND A DIRECT WRITE IS NOT MERELY IRREGULAR, IT IS INERT FOR A
+        // WHOLE MOTION MODEL.** The kernel's own doc: a `vel` write *"is
         // authoritative for an axis-swept body and a LIE for a riding
         // surface-momentum one, whose `vel` is derived from `v_t` and
         // republished every step — which is why Sanic took knockback with every
-        // number non-zero and never moved."* `hit_reaction.rs` stages its
-        // knockback there for the identical stated reason.
+        // number non-zero and never moved."* So this line did nothing at all for
+        // a surface-momentum shooter, which is a DEFECT wearing a tuning
+        // question's clothes. `hit_reaction` stages knockback here for the
+        // identical stated reason, and ADR 0024 §8 names knockback and recoil in
+        // one sentence.
         //
-        // ⇒ **SO THE EXEMPTION IS NOT "NO ROAD EXISTS" — IT IS THAT MOVING THIS
-        // ONE CHANGES GAME FEEL, AND A SCANNER REPAIR IS THE WRONG PROVENANCE
-        // FOR THAT.** This system holds `&mut BodyKinematics` and no
-        // `BodyFlightState` (its `flight` names are `ProjectileFlight`, the
-        // projectile's own envelope), so routing recoil means widening what it
-        // touches AND changing how a surface-momentum shooter is pushed. ADR
-        // 0024 §8 names knockback and recoil in ONE sentence, which makes the
-        // asymmetry the question rather than the answer. ⚠ A PROVISIONAL MARKER
-        // BECOMES PERMANENT BY DEFAULT, so the question is filed rather than
-        // left here: see queue.md and the awaiting-maintainer-decision row.
-        kin.vel += kick; // policy: ranged recoil, authority unresolved
+        // ⭐ `flinchless: true` IS THE METADATA DECISION, stated rather than
+        // defaulted: `PendingLaunch::flinchless` means *"a push, not a hit: it
+        // moves the body and leaves it in control, so it neither pins a prone
+        // body nor starts a tumble."* A gun's kick is exactly that. Recoil that
+        // tumbled its own shooter would be a new mechanic, not a relocation.
+        //
+        // ⛔⛤ **AND IT ADDS TO A WAITING LAUNCH RATHER THAN REPLACING IT**, which
+        // `stage_launch` alone would do. A shooter struck on the frame it fires
+        // has a knockback already at this gateway; overwriting it would delete
+        // the hit, and `flinchless` must stay FALSE in that case because the hit
+        // still hit. That pair is why this is not a one-line call.
+        if let Some(mut body_flight) = body_flight {
+            let waiting = body_flight.pending_launch_state();
+            if waiting.is_empty() {
+                body_flight.stage_launch(kick, true);
+            } else {
+                body_flight.stage_launch(waiting.velocity + kick, waiting.flinchless);
+            }
+        }
+
 
         // The authorship fact: this site NAMES itself as the writer, with the
         // velocity either side of its own write. An explanation of the tick now

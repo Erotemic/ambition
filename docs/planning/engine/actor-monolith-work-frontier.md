@@ -319,6 +319,43 @@ to its actual simulation/presentation semantics and phase. Do not replace the ca
 with an event without preserving visibility and timing. Determine whether its
 output affects simulation geometry before classifying it as cosmetic rendering.
 
+⭐⭐ **THAT LAST SENTENCE IS ANSWERED, MEASURED 2026-09-12 — AND THE ANSWER IS
+THE OPPOSITE OF WHAT THE SENTENCE INVITES. `advance_body_anim_overlays` IS NOT
+COSMETIC RENDERING.** Three findings, and the second is the one a reader would
+get wrong:
+
+1. ⛔ **IT MUTATES ROLLBACK STATE.** Everything it writes lives in
+   `BodyAnimFacts`, registered as `actor.animation_facts`
+   (`ambition_characters/src/rollback_registration.rs:94`) — canonical sim state
+   cloned and restored on every rewind. **Anything that writes it must run in the
+   deterministic simulation**, so *"move it to presentation"* is not an available
+   reading of this row no matter how the timers are named.
+
+2. ✔ **BUT IT DOES NOT AFFECT SIMULATION GEOMETRY, WHICH IS THE NARROWER QUESTION
+   THE ROW ACTUALLY ASKS — and the road is worth naming because it LOOKS like it
+   should.** Authored attack volumes resolve against an ANIMATION ROW, so overlay
+   timers that pick animations would reach hitbox geometry. They do not:
+   `attack_support::player_attack_hitbox` takes its row from
+   `attack_intent_animation(intent)` — a `match` on the attack INTENT — and never
+   consults `BodyAnimFacts`. ⇒ *"Affects simulation geometry"* is specifically
+   **false**, and it is false for a structural reason rather than by luck.
+
+3. ⚠ **ONE TIMER IT DECAYS IS A SIM CLOCK WITH A SECOND WRITER.**
+   `death_anim_timer` is armed every frame by
+   `ambition_combat::death_rules::tick_death_interlude` while the death window is
+   open (`anim.death_anim_timer = window.remaining.max(dt)`), and the anim view
+   derives `v.dead` from it — so *"dead"* and *"out of play with a window open"*
+   are the same fact. This function's decay governs it only AFTER the window
+   closes. Two writers with a clear precedence, not a conflict, but not cosmetic
+   either.
+
+⇒ **SO THE MOVE THIS ROW WANTS IS A DIRECTION, NOT A PHASE.** The coupling to cut
+is the `control -> features` import (`control/input_systems.rs:334` reaching
+`crate::features::advance_body_anim_overlays`); both ends are inside the monolith,
+so this is an intra-crate module edge a census counted, not a crate edge. **The
+phase must not move.** ⛔ Do not reclassify `BodyAnimFacts` as presentation on the
+strength of its field names — that is the trap this row's own wording sets, and
+the rollback registration is the fact that settles it.
 **Acceptance:** human -> possession -> brain -> human handoff on the same body;
 competing claims, mount/dismount, removal of a controlled body, two participants,
 rollback over handoff, action continuity and no double body tick. Distinguish

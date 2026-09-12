@@ -2490,3 +2490,155 @@ fn an_inactive_commit_is_refused_when_the_filter_was_never_installed() {
          spawned the roster would be the live-candidate defect wearing an error"
     );
 }
+
+/// **THE WHOLE A10 LOOP: a candidate that FAILS verification is detected while
+/// invisible, retired, and the live world is untouched throughout.**
+///
+/// ⛔⛤ THIS IS THE ARM THAT MAKES THE STRONGER GUARANTEE MEAN SOMETHING. The
+/// verifier's own doc used to say a violation *"cannot be undone — it can only
+/// stop the transaction being PUBLISHED, and leaves the world in whatever state
+/// the offending recipe produced"*. That is still true of a LIVE commit. Against
+/// a candidate it is false, and the difference is the whole packet: the offending
+/// state is invisible, so retiring it is not recovery, it is a drop.
+///
+/// ⚠ THE LIVE WORLD HERE IS NONEMPTY AND PUBLISHED FIRST. A test whose live world
+/// was empty could not tell "retired the bad candidate" from "retired
+/// everything", which is the failure this arm is most worth catching.
+#[test]
+fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_the_live_world() {
+    let registry = registry();
+
+    // ⛔⛤ THE LIVE WORLD USES DIFFERENT IDENTITIES ON PURPOSE, AND THE FIRST
+    // VERSION OF THIS TEST DID NOT — THE POISON IS HOW I KNOW. `feuding_pair`
+    // builds `a` and `b`, which are the candidate's ids too, so the sabotage's
+    // duplicate `a` collided with the PUBLISHED `a` and was detected without the
+    // verifier ever seeing inside the candidate. The arm passed for the wrong
+    // reason and the poison on `Allow` stayed green. ⇒ Distinct ids make the
+    // duplication purely candidate-internal, so detecting it REQUIRES seeing the
+    // candidate. A fixture that never reaches its subject reads exactly like one
+    // that does.
+    let live_plan = ConstructionPlan::prepare(
+        scope(),
+        vec![request("live_x"), request("live_y")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the live plan prepares");
+    let (mut world, _) = candidate_world(&live_plan);
+    let live_transaction = live_plan.transaction(SessionSpawnScope::UNSCOPED);
+    super::publish_candidate(&mut world, &live_transaction);
+    assert_eq!(ordinary_visible(&mut world), 2, "the live world is nonempty");
+    let baseline_live = ordinary_visible(&mut world);
+
+    // ── a candidate built beside it, sabotaged to duplicate a planned identity ──
+    let candidate_plan = ConstructionPlan::prepare_in_lane(
+        scope(),
+        ConstructionLane::named("bad-candidate"),
+        vec![request("a"), request("b")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("the candidate plan prepares");
+    let baseline = TransactionBaseline::capture(&mut world).expect("baseline captures");
+    let services = Services::default();
+    // ⛔⛤ `OverwriteProvenance`, NOT `DuplicateIdentity`, AND THE POISON IS WHY.
+    // `DuplicateIdentity` spawns a bare extra entity per root — it is NOT stamped
+    // as a candidate, so it is LIVE — and the sabotage runs once per row, which
+    // means two visible entities answer to `a` and the duplication is detectable
+    // without ever seeing inside the candidate. MEASURED: with the verifier's
+    // `Allow` removed the arm still passed, because it was reading a violation
+    // between two live entities. ⇒ `ProvenanceChanged` is a statement ABOUT A
+    // CANDIDATE ROOT, so detecting it REQUIRES seeing one, and the poison bites.
+    SABOTAGE.with(|s| s.set(Sabotage::OverwriteProvenance));
+    let receipt = candidate_plan
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .expect("filter installed");
+    SABOTAGE.with(|s| s.set(Sabotage::None));
+
+    // Building it changed nothing anybody can see.
+    assert_eq!(
+        ordinary_visible(&mut world),
+        baseline_live,
+        "constructing a candidate altered the live world's visible roster"
+    );
+
+    // ── verification SEES the candidate, which is the half `Allow` buys ──
+    let candidate_transaction = candidate_plan.transaction(SessionSpawnScope::UNSCOPED);
+    let scope = AuthoritativeScope::gather(&mut world, &candidate_transaction);
+    let violations = verify_committed_roster(
+        &candidate_plan,
+        &receipt,
+        &baseline,
+        &scope,
+        &world,
+    )
+    .expect_err("a rewritten provenance inside a candidate must still be detected");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::ProvenanceChanged { .. })),
+        "the violation found was not about a CANDIDATE ROOT, so this arm would \
+         pass with the verifier blind to candidates: {violations:?}"
+    );
+
+    // ── and the refusal is a DROP, not a recovery ──
+    super::retire_candidate(&mut world, &candidate_transaction);
+    assert_eq!(
+        ordinary_visible(&mut world),
+        baseline_live,
+        "retiring a failed candidate disturbed the last-good world"
+    );
+}
+
+
+/// ⛔⛤ **THE ISOLATION COVERS PLANNED ROOTS AND NOTHING ELSE — MEASURED, AND
+/// THIS ARM EXISTS SO THE LIMIT CANNOT BE FORGOTTEN.**
+///
+/// `commit_inactive` stamps [`super::InactiveCandidate`] on the roots the
+/// EXECUTOR minted, which is every row of the plan. A recipe also receives raw
+/// `Commands` and may spawn authoritative entities of its own — the giant hand's
+/// limbs really do this — and those are not in the receipt, so nothing stamps
+/// them. **They stay visible while the rest of the candidate is hidden.**
+///
+/// ⇒ That is a HALF-VISIBLE candidate, and it is exactly the *"complete
+/// visibility proof"* A10's own text demands of any same-World strategy. The
+/// number below is the proof's current state: not zero, and known.
+#[test]
+fn a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation() {
+    let registry = registry();
+    let plan = ConstructionPlan::prepare(
+        scope(),
+        vec![request("a")],
+        &nothing_live(),
+        &registry,
+    )
+    .expect("plan prepares");
+
+    let services = Services::default();
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    SABOTAGE.with(|s| s.set(Sabotage::SpawnExtraAuthoritativeRoot));
+    let receipt = plan
+        .commit_inactive(&mut world, SessionSpawnScope::UNSCOPED, &services)
+        .expect("filter installed");
+    SABOTAGE.with(|s| s.set(Sabotage::None));
+
+    let stamped = world
+        .query_filtered::<&SimId, bevy::prelude::With<super::InactiveCandidate>>()
+        .iter(&world)
+        .count();
+    let visible = world.query::<&SimId>().iter(&world).count();
+
+    assert_eq!(
+        stamped,
+        receipt.len(),
+        "the planned roots are the ones that get hidden"
+    );
+    assert!(
+        visible > 0,
+        "MEASURED LIMIT: a recipe-spawned authoritative entity is NOT stamped and \
+         therefore NOT hidden, so a candidate containing one is half-visible to \
+         the running world. If this ever reads 0 the isolation became complete \
+         and this arm should become the opposite assertion."
+    );
+}

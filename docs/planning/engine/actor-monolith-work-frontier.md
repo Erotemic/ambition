@@ -909,12 +909,47 @@ excludes a disabling component only from queries that do not MENTION it, and
 and is poison-confirmed: a query that does not name the component at all returns
 ZERO roots, and `publish_candidate` then reports success having admitted nothing.
 
-⇒ **WHAT REMAINS OF A10:** wire this to a real reload customer (I3b's scene
-reconstruction), decide where validation sits between construction and
-publication, and make retirement of the OLD world explicit rather than implied.
-`AuthoritativeScope::gather` uses an ordinary query and therefore does NOT see
-candidates — correct today, since a candidate is not authoritative, and the first
-thing to revisit when candidate verification needs it.
+### ✅ STEP 3: VALIDATION SITS BETWEEN CONSTRUCTION AND PUBLICATION — AND ONE OF THE VERIFIER'S OWN LIMITATIONS IS NOW FALSE
+
+`AuthoritativeScope::gather` sees candidates (`Allow<InactiveCandidate>`), so the
+EXISTING `verify_committed_roster` validates a candidate without a second
+verifier being written. ⭐ **AND IT MAKES A SENTENCE IN THAT FUNCTION'S OWN DOC
+FALSE, WHICH IS THE CLEAREST STATEMENT OF WHAT A10 BUYS:** it read *"a violation
+here cannot be undone — it can only stop the transaction being PUBLISHED, and
+leaves the world in whatever state the offending recipe produced."* True of a
+LIVE commit, and false of a candidate: the offending state is invisible, so
+retiring it is a DROP rather than a recovery. **The difference between the two
+commits is exactly whether a detector's findings are actionable.** Guarded by
+`a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_the_live_world`.
+
+⛔⛤ **AND THE ISOLATION IS NOT COMPLETE — MEASURED, GUARDED, AND STATED HERE
+RATHER THAN DISCOVERED LATER.** `commit_inactive` stamps the roots the EXECUTOR
+minted, which is every PLAN ROW. A recipe also holds raw `Commands` and may spawn
+authoritative entities of its own — the giant hand's limbs do — and those are not
+in the receipt, so nothing stamps them and **they stay visible while the rest of
+the candidate is hidden.** That is a HALF-VISIBLE candidate, and it is precisely
+the *"complete visibility/transfer proof"* this packet demands of a same-World
+strategy. Pinned by
+`a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`, written so
+that the day the isolation becomes complete the arm inverts rather than rots.
+⇒ **The structural fix is the one the verifier already names — every
+authoritative root an explicit plan row — and it is the next A10 step**, not a
+new mechanism.
+
+⚠ **THREE POISONS FAILED TO BITE `Allow`, SO ITS NECESSITY IS LABELLED REASONED
+RATHER THAN MEASURED.** The reason is worth more than the filter:
+`verify_committed_roster` reads most of what it checks DIRECTLY BY `Entity` from
+the receipt, and direct `World` access is not filtered by `DefaultQueryFilters`
+at all. ⇒ Receipt-driven checks see a candidate either way; only the
+query-driven half (strays, duplicates, unowned identities) could need it, and a
+stray is currently unstamped and therefore visible anyway. Kept because a scope
+that cannot see what it is scoping is wrong on its face, and documented as
+unproven rather than asserted.
+
+⇒ **WHAT REMAINS OF A10:** make every authoritative root an explicit plan row so
+the isolation is complete; wire this to a real reload customer (I3b's scene
+reconstruction); and make retirement of the OLD world explicit rather than
+implied.
 
 ## A11. Make installed technique support a preparation contract
 

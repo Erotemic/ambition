@@ -1304,12 +1304,23 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// prevented today, so a transaction that intends to publish a room must ask.
 ///
 /// Bevy commands do not roll back. By the time this can run, the
-/// construction commands have applied. A violation here therefore cannot be
-/// undone — it can only stop the transaction being PUBLISHED as successful, and
-/// leaves the world in whatever state the offending recipe produced. That is
-/// strictly better than publishing a room nobody can describe, and strictly
-/// worse than the structural fix (every authoritative root an explicit plan
-/// row), which is Phase-4 work.
+/// construction commands have applied.
+///
+/// ⭐⭐ **AND THAT USED TO MEAN A VIOLATION COULD NOT BE UNDONE — IT DOES NOT ANY
+/// MORE FOR A CANDIDATE (A10, 2026-09-12).** This paragraph read *"a violation
+/// here cannot be undone … and leaves the world in whatever state the offending
+/// recipe produced"*, which is still exactly true of
+/// [`ConstructionPlan::commit`] against the live world. It is NOT true of
+/// [`ConstructionPlan::commit_inactive`]: the offending state is a candidate no
+/// ordinary query can see, so [`retire_candidate`] removes it and the running
+/// world never knew. ⇒ **The limitation this comment described is what the
+/// stronger last-good-world guarantee exists to dissolve**, and the difference
+/// between the two commits is exactly whether a detector's findings are
+/// actionable.
+///
+/// ⚠ Against a LIVE commit the old sentence stands: better than publishing a room
+/// nobody can describe, worse than the structural fix (every authoritative root
+/// an explicit plan row).
 ///
 /// The scope is read from the world, not supplied. An earlier version took
 /// a caller-curated `&[(SimId, Entity)]`, which made the check exactly as
@@ -2050,12 +2061,36 @@ impl AuthoritativeScope {
     /// starts with one prefix or another.
     pub fn gather(world: &mut World, transaction: &TransactionId) -> Self {
         let mut members = Vec::new();
-        let mut query = world.query::<(
+        // `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the
+        // component"*, which is what a scope gather wants: the live world AND any
+        // candidate being validated. Without it `DefaultQueryFilters` would hide
+        // every candidate from the function whose job is to find violations in
+        // one.
+        //
+        // ⛔⛤ **AND I CANNOT CALL IT LOAD-BEARING, BECAUSE THREE POISONS FAILED
+        // TO MAKE IT BITE — the honest label is REASONED, not MEASURED.**
+        // Removing it left every candidate arm green, and the reason is worth
+        // more than the filter: **`verify_committed_roster` reads most of what it
+        // checks DIRECTLY BY `Entity` from the receipt**, and bevy's own doc says
+        // *"entities with disabling components are still present in the World and
+        // can be accessed directly"* — direct access is not filtered at all. So
+        // the receipt-driven checks (provenance, identity, liveness of a planned
+        // root) see a candidate with or without this.
+        //
+        // ⇒ What it can only matter for is the half that is NOT receipt-driven:
+        // strays, duplicates and unowned identities found by QUERYING the world
+        // — *"the roots most worth catching are the ones nobody thought to
+        // list"*. I could not build a candidate-internal case of that, because a
+        // recipe-spawned stray is not stamped and so is visible anyway (see
+        // `a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`).
+        // ⚠ It stays because a scope that cannot see what it is scoping is wrong
+        // on its face; it is documented as unproven rather than asserted.
+        let mut query = world.query_filtered::<(
             Entity,
             &SimId,
             Option<&TransactionId>,
             Option<&PresentationOnly>,
-        )>();
+        ), bevy::ecs::query::Allow<InactiveCandidate>>();
         for (entity, sim_id, owner, presentation) in query.iter(world) {
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly

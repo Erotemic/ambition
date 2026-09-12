@@ -425,6 +425,55 @@ pub struct BodyAnimFacts {
     pub death_anim_timer: f32,
 }
 
+/// Advance a body's presentation overlay timers one frame.
+///
+/// ⭐⭐ **IT LIVES WITH THE COMPONENT IT TICKS, AND THAT MOVE IS A4's LAST NAMED
+/// TASK (2026-09-12).** This was
+/// `ambition_platformer2d_actor_monolith::features::movement_fx`, which meant the
+/// monolith's `control/input_systems.rs` reached across into `crate::features`
+/// for a function that touches **nothing but [`BodyAnimFacts`] fields and one
+/// local constant**. Two callers, one import edge, and no reason for either.
+///
+/// ⛔⛤ **IT IS NOT COSMETIC, WHICH IS THE TRAP A4's OWN WORDING SET.** Measured
+/// before the move: [`BodyAnimFacts`] is rollback-registered as
+/// `actor.animation_facts`, so everything here writes **canonical simulation
+/// state restored on every rewind** — this must run in the deterministic sim, and
+/// must not be reclassified as presentation on the strength of the field names.
+/// ⇒ What it does NOT do is affect simulation GEOMETRY: authored attack volumes
+/// resolve against an animation row chosen by `attack_intent_animation(intent)`,
+/// a match on the attack INTENT, which never consults these timers.
+///
+/// ⚠ **ARMING LIVES ELSEWHERE ON PURPOSE.** `arm_movement_anim_overlays` and
+/// `arm_ground_contact_anim_overlay` stay in the monolith because they read
+/// engine events; this only DECAYS what they armed, and detects the dash rising
+/// edge. ⚠ `death_anim_timer` additionally has a second writer that WINS while it
+/// is armed: `ambition_combat::death_rules::tick_death_interlude` re-arms it every
+/// frame the death window is open, so this decay governs it only afterward.
+pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame_dt: f32) {
+    /// Brief pre-roll for the dash startup pose (below the dash's own duration so
+    /// the streaking dash row still gets airtime).
+    const DASH_STARTUP_SECS: f32 = 0.05;
+
+    // Op-armed poses just decay here (armed by attack / projectile / movement ops).
+    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
+    anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
+    anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
+    anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
+    anim.death_anim_timer = (anim.death_anim_timer - frame_dt).max(0.0);
+
+    anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
+
+    // Dash rising edge: no dash last frame, a dash this frame.
+    if dashing && !anim.anim_prev_dashing {
+        anim.dash_startup_timer = DASH_STARTUP_SECS;
+    } else {
+        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
+    }
+
+    anim.anim_prev_dashing = dashing;
+}
+
+
 impl BodyAnimFacts {
     pub fn reset(&mut self) {
         *self = Self::default();

@@ -67,8 +67,8 @@ pub mod movement_fx;
 pub mod swim;
 pub mod transform_beat;
 pub use movement_fx::{
-    advance_body_anim_overlays, arm_ground_contact_anim_overlay, arm_movement_anim_overlays,
-    emit_movement_fx, handle_player_events,
+    arm_ground_contact_anim_overlay, arm_movement_anim_overlays, emit_movement_fx,
+    handle_player_events,
 };
 
 // ⛔⛔ SIX RE-EXPORT FACADES DELETED 2026-08-26, and FOUR of them had no

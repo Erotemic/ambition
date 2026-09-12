@@ -331,7 +331,7 @@ pub fn cleanup_timers_system(
     // also runs (fable review §A9).
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    crate::features::advance_body_anim_overlays(motion_facts.dashing, &mut anim, frame_dt);
+    ambition_characters::actor::advance_body_anim_overlays(motion_facts.dashing, &mut anim, frame_dt);
 }
 
 #[cfg(test)]

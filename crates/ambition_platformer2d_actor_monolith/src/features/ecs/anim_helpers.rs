@@ -22,7 +22,7 @@ pub fn advance_actor_anim_overlays(
 ) {
     let dt = world_time.sim_dt();
     for (facts, mut anim) in &mut actors {
-        crate::features::advance_body_anim_overlays(facts.dashing, &mut anim, dt);
+        ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt);
     }
 }
 

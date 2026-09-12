@@ -13,7 +13,10 @@ pub mod population_cap;
 pub use population_cap::{ActorAdmission, AuthoredPopulationCap};
 pub mod ai;
 pub mod body;
-pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet, BodyWalletShield, DeathPolicy};
+pub use body::{
+    advance_body_anim_overlays, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
+    BodyWalletShield, DeathPolicy,
+};
 pub mod body_step;
 pub use body_step::step_body;
 pub mod attack_gesture;

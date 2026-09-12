@@ -349,7 +349,22 @@ get wrong:
    closes. Two writers with a clear precedence, not a conflict, but not cosmetic
    either.
 
-⇒ **SO THE MOVE THIS ROW WANTS IS A DIRECTION, NOT A PHASE.** The coupling to cut
+✅ **AND THE MOVE IS DONE, 2026-09-12 — A4's LAST NAMED TASK IS CLOSED.**
+`advance_body_anim_overlays` now lives at
+`ambition_characters::actor::advance_body_anim_overlays`, beside `BodyAnimFacts`,
+which is the component it ticks. Both callers
+(`control/input_systems.rs`, `features/ecs/anim_helpers.rs`) name the owning
+crate instead of reaching into `crate::features`, and the monolith's
+`features::movement_fx` re-export is gone. ⇒ **The function touched nothing from
+the module it lived in** — only `BodyAnimFacts` fields and one local constant —
+so the import edge existed for no reason at all. ⚠ **THE ARM/DECAY PAIR IS NOW
+SPLIT ACROSS CRATES, AND BOTH ENDS SAY SO.** `arm_movement_anim_overlays` and
+`arm_ground_contact_anim_overlay` stay in the monolith because they read engine
+events (`ae::FrameEvents`, ground contact); the decay reads nothing but the
+component. **Arming is engine-specific, decaying is a property of the data**, and
+that is the line the split follows rather than convenience.
+
+⇒ **THE MOVE THIS ROW WANTED WAS A DIRECTION, NOT A PHASE.** The coupling to cut
 is the `control -> features` import (`control/input_systems.rs:334` reaching
 `crate::features::advance_body_anim_overlays`); both ends are inside the monolith,
 so this is an intra-crate module edge a census counted, not a crate edge. **The

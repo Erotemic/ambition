@@ -35,33 +35,18 @@ const BLINK_IN_ANIM_TIME: f32 = 0.34;
 /// picks back up; long enough that the kick reads at typical playback rates.
 const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 
-/// Advance a body's presentation overlay timers one frame. Semantic ground
-/// transitions arm/clear the landing overlay through
-/// [`arm_ground_contact_anim_overlay`]; this function only decays active poses
-/// and detects the dash rising edge.
-pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame_dt: f32) {
-    /// Brief pre-roll for the dash startup pose (below the dash's own duration so
-    /// the streaking dash row still gets airtime).
-    const DASH_STARTUP_SECS: f32 = 0.05;
-
-    // Op-armed poses just decay here (armed by attack / projectile / movement ops).
-    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
-    anim.shoot_anim_timer = (anim.shoot_anim_timer - frame_dt).max(0.0);
-    anim.wall_jump_anim_timer = (anim.wall_jump_anim_timer - frame_dt).max(0.0);
-    anim.interact_anim_timer = (anim.interact_anim_timer - frame_dt).max(0.0);
-    anim.death_anim_timer = (anim.death_anim_timer - frame_dt).max(0.0);
-
-    anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
-
-    // Dash rising edge: no dash last frame, a dash this frame.
-    if dashing && !anim.anim_prev_dashing {
-        anim.dash_startup_timer = DASH_STARTUP_SECS;
-    } else {
-        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
-    }
-
-    anim.anim_prev_dashing = dashing;
-}
+// ⛔⛤ **`advance_body_anim_overlays` LIVES WITH THE COMPONENT IT TICKS NOW**
+// (`ambition_characters::actor::advance_body_anim_overlays`, beside
+// `BodyAnimFacts`), which closed A4's last named task: `control/input_systems.rs`
+// reached across into `crate::features` for it, and the function touched nothing
+// from this module — only `BodyAnimFacts` fields and one local constant.
+//
+// ⚠ **THE ARM/DECAY PAIR IS NOW SPLIT ACROSS CRATES, SAID OUT LOUD SO IT IS NOT
+// DISCOVERED.** `arm_movement_anim_overlays` and `arm_ground_contact_anim_overlay`
+// below ARM these timers and stay here, because they read engine events
+// (`ae::FrameEvents`, ground contact) that are this crate's business. The DECAY
+// reads nothing but the component. ⇒ Arming is engine-specific; decaying is a
+// property of the data, and that is the line the split follows.
 
 /// The impact speed at which the engine already calls a landing HARD.
 ///

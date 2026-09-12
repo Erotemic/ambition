@@ -126,7 +126,6 @@ fn play_mirror_match(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
 
-    let mut streams: Vec<(usize, u64)> = Vec::new();
     let mut frames: Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = Vec::new();
     let mut grabbing: Vec<bool> = Vec::new();
 
@@ -168,8 +167,11 @@ fn play_mirror_match(
 
     // The streams as CONSTRUCTED, read on the first frame both bodies exist —
     // before either has consumed a sample, so this is the seed the composition
-    // chose rather than a position in the walk.
-    streams = fighter_streams(&mut app);
+    // chose rather than a position in the walk. ⭐ It is an unconditional `let`
+    // now rather than an empty vec filled in a loop: waiting for the premise
+    // means this frame is guaranteed to exist, so there is no "not seated yet"
+    // state left for an `is_empty()` check to stand for.
+    let streams = fighter_streams(&mut app);
     let held_now = |app: &mut App| {
         let world = app.world_mut();
         let mut q = world.query::<&ambition_platformer2d::combat::capture::CapturedBy>();

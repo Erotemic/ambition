@@ -143,7 +143,11 @@ bench = false
 [[bin]]
 name = "moveset_takes"
 path = "src/bin/moveset_takes.rs"
-test = false
+# ⛔⛤ `test = false` USED TO BE HERE, AND IT MEANT AN ENTIRE TEST MODULE RAN IN
+# NO LANE. MEASURED 2026-09-12: `--rust` compiled this bin (its clippy warnings
+# are in the log) and executed NONE of its arms, including the bounds-vs-hull
+# contact regression that predates this line. A recorder this file is tuned
+# against is exactly the thing whose guards have to run.
 bench = false
 
 [[bin]]

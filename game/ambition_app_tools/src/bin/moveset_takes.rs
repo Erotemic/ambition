@@ -680,8 +680,10 @@ impl TargetBehavior {
 /// same fighter twice, told apart only by a seat index — so every recorded frame
 /// needed a seat convention to read, and a screenshot could not be read at all.
 fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior) -> bool {
-    let previous_scope = app.world()
-        .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+    let previous_scope = app
+        .world()
+        .resource::<ambition_platformer2d::actor::ActiveSessionScope>()
+        .current();
     let roster = match behavior {
         // ⛔ THE STAND-STILL BRAIN IS A DRIVER, NOT A MISSING ONE. A CPU seat
         // that names no brain profile is REFUSED at preparation, on purpose;
@@ -725,11 +727,15 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
     // A matching character name does not show that the new match is ready.
     for _ in 0..240 {
         app.update();
-        let scope = app.world()
-            .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
-        if scope.is_some() && scope != previous_scope
+        let scope = app
+            .world()
+            .resource::<ambition_platformer2d::actor::ActiveSessionScope>()
+            .current();
+        if scope.is_some()
+            && scope != previous_scope
             && move_exercise::seat_character(app, 0).as_deref() == Some(character)
-            && move_exercise::seat_character(app, 1).as_deref() == Some(target) {
+            && move_exercise::seat_character(app, 1).as_deref() == Some(target)
+        {
             return true;
         }
     }
@@ -737,10 +743,7 @@ fn reseat(app: &mut App, character: &str, target: &str, behavior: TargetBehavior
 }
 
 /// This fighter's repertoire, as the host prepared it.
-fn moveset_of(
-    app: &mut App,
-    character: &str,
-) -> Option<ambition_entity_catalog::MovesetContract> {
+fn moveset_of(app: &mut App, character: &str) -> Option<ambition_entity_catalog::MovesetContract> {
     app.world()
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
@@ -753,12 +756,31 @@ fn moveset_of(
 /// ⭐ THE AUTHORING, NOT THE RECORDING. It is the only independent answer the
 /// tool has to "should this take show any offence at all", which is what makes
 /// it usable to check the recording rather than to describe it.
+///
+/// ⛔⛤ **`Ranged` ALONE WAS THE WRONG SCOPE AND IT KILLED A ROSTER-WIDE TAKE.**
+/// A move fires through `MoveEventKind::Effect` just as often — a technique key
+/// with its params, which is how `smash.steered_bolt` and every throw in the
+/// pack are authored. MEASURED 2026-09-12 over the shipped tables: of 470
+/// authored moves, **161 author no volume and no `Ranged` event, and 98 of those
+/// DO carry an `Effect` event** — every one of them classified "fires nothing".
+/// `author`'s `author_train_of_thought` is one; the grid take refused on it, with
+/// the engine's own log reading `bolt fired: seat=0 speed=300 turn=220deg/s` four
+/// lines above the panic.
+///
+/// ⛔ SO THE PREDICATE ABSTAINS ON AN `Effect` RATHER THAN CLAIMING INNOCENCE,
+/// and the direction of that trade is the point. The refusal it feeds asserts
+/// the move **cannot** produce offence; a technique this tool cannot interpret
+/// makes that claim unprovable. `TechniqueOffer` says WHERE a technique is
+/// delivered (`TechniqueDelivery`), never whether it deals damage, so there is
+/// no table to consult. ⇒ The guard keeps its full power over the 63 moves that
+/// truly author nothing and stops refusing takes it cannot adjudicate.
 fn authors_offense(spec: &ambition_entity_catalog::MoveSpec) -> bool {
     spec.windows.iter().any(|w| !w.volumes.is_empty())
         || spec.events.iter().any(|e| {
             matches!(
                 e.kind,
                 ambition_entity_catalog::MoveEventKind::Ranged
+                    | ambition_entity_catalog::MoveEventKind::Effect(_)
             )
         })
 }
@@ -929,10 +951,7 @@ fn target_reach(frames: &[serde_json::Value]) -> (bool, Option<(f32, f32)>) {
             // ⛔ SIGNED, NOT CLAMPED: negative is how far the bounds went INTO
             // each other, positive is how far short they fell. A reader who sees
             // only `0.0` cannot tell a graze from a solid hit.
-            let gap = (
-                (hx - tx).abs() - (hhx + thx),
-                (hy - ty).abs() - (hhy + thy),
-            );
+            let gap = ((hx - tx).abs() - (hhx + thx), (hy - ty).abs() - (hhy + thy));
             // ⛔⛔ THE VERDICT IS THE ENGINE'S, NOT THIS ARITHMETIC. `overlaps`
             // lists the bodies this strike is inside by
             // `CombatVolume::intersects` against their HURTBOXES — the call
@@ -1181,10 +1200,10 @@ fn main() {
         // `authors_offense`.
         let repertoire = moveset_of(&mut app, character);
 
-        for verb in VERBS
-            .iter()
-            .filter(|verb| only.as_ref().is_none_or(|only| only.iter().any(|v| v == verb.verb)))
-        {
+        for verb in VERBS.iter().filter(|verb| {
+            only.as_ref()
+                .is_none_or(|only| only.iter().any(|v| v == verb.verb))
+        }) {
             // ⛔⛔ A FRESH MATCH FOR EVERY TAKE, not only when the settle fails.
             // Re-seating on failure alone left every take depending on the one
             // before it, and the up-B is where that shows: `afford_recovery`
@@ -1287,9 +1306,7 @@ fn main() {
             // `chained_frame` is `action_frame` before the hand-off, so a chain
             // presses exactly what a single take presses up to that tick.
             let frame_at = |tick: usize| match chain {
-                Some(second) => {
-                    move_exercise::chained_frame(verb, second, chain_at, tick, facing)
-                }
+                Some(second) => move_exercise::chained_frame(verb, second, chain_at, tick, facing),
                 None => move_exercise::action_frame(verb, tick, facing),
             };
             step(&mut app, frame_at(0));
@@ -1639,7 +1656,11 @@ mod tests {
 
     /// One frame: a target at the origin and one subject-owned strike, with the
     /// engine's `overlaps` verdict supplied by the caller.
-    fn frame(strike_pos: (f32, f32), strike_half: (f32, f32), overlaps: &[&str]) -> serde_json::Value {
+    fn frame(
+        strike_pos: (f32, f32),
+        strike_half: (f32, f32),
+        overlaps: &[&str],
+    ) -> serde_json::Value {
         serde_json::json!({
             "bodies": [{
                 "role": "target", "id": "the_target",
@@ -1652,6 +1673,112 @@ mod tests {
                 "overlaps": overlaps,
             }],
         })
+    }
+
+    /// The SHIPPED author table, parsed the way the pack parses it.
+    ///
+    /// ⚠ REAL CONTENT RATHER THAN A HAND-BUILT `MoveSpec`, and not only because
+    /// the type has no `Default`: the predicate is a claim about the authored
+    /// population, and a fixture I write is a claim about my own idea of it. This
+    /// is the file the refusal actually fired on.
+    fn shipped_author_moves() -> Vec<ambition_entity_catalog::MoveSpec> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ambition_content/assets/data/movesets/author.ron"
+        );
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|why| panic!("the shipped author table is readable ({path}): {why}"));
+        let doc = ambition_entity_catalog::EntityCatalogDoc::parse(&text)
+            .expect("the shipped author table parses");
+        doc.entities
+            .into_iter()
+            .filter_map(|entity| entity.contracts.moveset)
+            .flat_map(|moveset| moveset.moves)
+            .collect()
+    }
+
+    fn shipped(id: &str) -> ambition_entity_catalog::MoveSpec {
+        shipped_author_moves()
+            .into_iter()
+            .find(|spec| spec.id == id)
+            .unwrap_or_else(|| panic!("the shipped author table no longer authors `{id}`"))
+    }
+
+    /// ⛔⛔ **A MOVE THAT FIRES THROUGH A TECHNIQUE AUTHORS OFFENCE.**
+    ///
+    /// ⛤ `authors_offense` used to match only `MoveEventKind::Ranged`, and that
+    /// scope killed a roster-wide recording: `author_train_of_thought` carries no
+    /// volumes and one `Effect("smash.steered_bolt")`, so the hitless refusal
+    /// fired on a move the engine had just logged `bolt fired: seat=0 speed=300
+    /// turn=220deg/s` for, four lines above the panic. MEASURED over the shipped
+    /// tables: 161 of 470 authored moves carry no volume and no `Ranged` event,
+    /// and **98 of those DO carry an `Effect`** — every one mis-classified.
+    #[test]
+    fn a_move_that_fires_a_technique_effect_authors_offense() {
+        let spec = shipped("author_train_of_thought");
+        // ⛔ THE PREMISE, or this arm is about a move that authors a volume and
+        // proves nothing about the `Effect` road.
+        assert!(
+            spec.windows.iter().all(|w| w.volumes.is_empty()),
+            "`author_train_of_thought` now authors a strike volume, so it no \
+             longer exercises the effect-only case this arm exists for"
+        );
+        assert!(
+            !spec
+                .events
+                .iter()
+                .any(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Ranged)),
+            "`author_train_of_thought` now carries a `Ranged` event, so the OLD \
+             predicate would already classify it and this arm is vacuous"
+        );
+        assert!(
+            spec.events
+                .iter()
+                .any(|e| matches!(e.kind, ambition_entity_catalog::MoveEventKind::Effect(_))),
+            "`author_train_of_thought` no longer fires a technique effect"
+        );
+
+        assert!(
+            authors_offense(&spec),
+            "a move whose only output is a technique effect was called hitless, \
+             which makes the recorder refuse a take it cannot adjudicate"
+        );
+    }
+
+    /// ⭐ THE CONTROLS, AND THEY ARE THE HALF THE WIDENING COULD HAVE DESTROYED.
+    /// The refusal that depends on this predicate asserts a move CANNOT produce
+    /// offence; if everything now authors offence the refusal is dead.
+    #[test]
+    fn the_widened_predicate_still_separates_the_population() {
+        let moves = shipped_author_moves();
+        assert!(moves.len() > 10, "only {} author moves", moves.len());
+
+        let with_volume = moves
+            .iter()
+            .find(|spec| spec.windows.iter().any(|w| !w.volumes.is_empty()))
+            .expect("some author move authors a strike volume");
+        assert!(authors_offense(with_volume), "{}", with_volume.id);
+
+        let silent = moves.iter().find(|spec| {
+            spec.windows.iter().all(|w| w.volumes.is_empty()) && spec.events.is_empty()
+        });
+        match silent {
+            Some(spec) => assert!(
+                !authors_offense(spec),
+                "`{}` authors no volume and no event at all and was still called \
+                 offensive — the predicate now says yes to everything and the \
+                 refusal it feeds can never fire",
+                spec.id
+            ),
+            // ⚠ A NEGATIVE ABOUT THE CORPUS, STATED RATHER THAN PASSED OVER: if
+            // no author move is silent, this control certifies nothing and the
+            // reader should know that rather than read a green tick.
+            None => panic!(
+                "no move in the shipped author table authors nothing at all, so \
+                 this control has no subject — point it at a table that does, or \
+                 the widened predicate has no witnessed negative case"
+            ),
+        }
     }
 
     /// The regression: a rotated blade's bounding box sits over the target while
@@ -1692,17 +1819,29 @@ mod tests {
     #[test]
     fn repeated_character_takes_start_in_new_sessions_and_accept_attacks() {
         let mut app = ambition_app::app::build_visible_app(
-            ambition_app::app::VisibleRenderMode::NoWindow, true,
+            ambition_app::app::VisibleRenderMode::NoWindow,
+            true,
         );
         ambition_platformer2d::sim::enable_manual_stepping(&mut app);
-        for _ in 0..30 { app.update(); }
+        for _ in 0..30 {
+            app.update();
+        }
         let verb = move_exercise::verb_named("attack_forward").unwrap();
         for _ in 0..3 {
-            let previous = app.world()
-                .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
-            assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
-            let current = app.world()
-                .resource::<ambition_platformer2d::actor::ActiveSessionScope>().current();
+            let previous = app
+                .world()
+                .resource::<ambition_platformer2d::actor::ActiveSessionScope>()
+                .current();
+            assert!(reseat(
+                &mut app,
+                "performer",
+                "sandbag_infinite",
+                TargetBehavior::Passive
+            ));
+            let current = app
+                .world()
+                .resource::<ambition_platformer2d::actor::ActiveSessionScope>()
+                .current();
             assert_ne!(previous, current);
             assert!(settle(&mut app));
             assert!(move_exercise::prepare(&mut app, verb));
@@ -1732,13 +1871,21 @@ mod tests {
     #[test]
     fn an_aerial_take_falls_into_range_of_a_grounded_target() {
         let mut app = ambition_app::app::build_visible_app(
-            ambition_app::app::VisibleRenderMode::NoWindow, true,
+            ambition_app::app::VisibleRenderMode::NoWindow,
+            true,
         );
         ambition_platformer2d::sim::enable_manual_stepping(&mut app);
-        for _ in 0..30 { app.update(); }
+        for _ in 0..30 {
+            app.update();
+        }
         let verb = move_exercise::verb_named("attack_air_down").unwrap();
         assert!(verb.airborne, "the premise: this verb is an aerial");
-        assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
+        assert!(reseat(
+            &mut app,
+            "performer",
+            "sandbag_infinite",
+            TargetBehavior::Passive
+        ));
         assert!(settle(&mut app));
         move_exercise::approach(&mut app, 32.0);
         assert!(move_exercise::prepare(&mut app, verb));
@@ -1754,8 +1901,8 @@ mod tests {
         // descent AND for a no-op that answered on its first tick while she was
         // still rising — MEASURED, the earlier version of this test passed the
         // poison that removed the falling requirement.
-        let (mine, theirs, falling) = move_exercise::seat_spans(&mut app, 1)
-            .expect("both seats are filled");
+        let (mine, theirs, falling) =
+            move_exercise::seat_spans(&mut app, 1).expect("both seats are filled");
         assert!(falling, "she was still RISING when the press was thrown");
         assert!(
             mine.1 >= theirs.0 - move_exercise::AERIAL_LEAD_PX,
@@ -1780,21 +1927,32 @@ mod tests {
     #[test]
     fn a_back_air_is_staged_with_the_target_behind_her() {
         let mut app = ambition_app::app::build_visible_app(
-            ambition_app::app::VisibleRenderMode::NoWindow, true,
+            ambition_app::app::VisibleRenderMode::NoWindow,
+            true,
         );
         ambition_platformer2d::sim::enable_manual_stepping(&mut app);
-        for _ in 0..30 { app.update(); }
+        for _ in 0..30 {
+            app.update();
+        }
         let verb = move_exercise::verb_named("attack_air_back").unwrap();
         assert_eq!(
             move_exercise::staging_for(verb),
             move_exercise::Staging::Behind,
             "the premise: this verb asks to be staged from behind"
         );
-        assert!(reseat(&mut app, "performer", "sandbag_infinite", TargetBehavior::Passive));
+        assert!(reseat(
+            &mut app,
+            "performer",
+            "sandbag_infinite",
+            TargetBehavior::Passive
+        ));
         assert!(settle(&mut app));
 
         let facing_before = move_exercise::facing_of(&mut app);
-        assert!(move_exercise::approach_past(&mut app, 48.0), "she never got past it");
+        assert!(
+            move_exercise::approach_past(&mut app, 48.0),
+            "she never got past it"
+        );
         let gap = move_exercise::gap_to_seat(&mut app, 1).expect("both seats are filled");
 
         // ⭐⭐ THE TWO HALVES THAT MAKE IT A BACK AIR. The target has to be on

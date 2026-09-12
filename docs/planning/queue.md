@@ -2655,12 +2655,44 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
   pugnacious_polygon polygon_brawler_tilt_up            0.19      9.9 x  15.7 px against a 18 x 48 body 
 ```
 
-   THIN MOVES PER FIGHTER (of 10 verbs recorded): goblin 10, ninja_shadow_oni
-   9, perfect_cellular_automaton 9, emmy_noether 9, carl_stargan 9, sanic 8,
-   projectile_polygon 8, officer 7, medic 7, pugnacious_polygon 6, author 6,
-   mary_o_tall 4, alice 3, bob 2, pointed_polygon 2, george_booul 1/8,
-   player_robot_v3 1, pirate_admiral 1, patent_clerk 1, **performer 1**,
-   oiler 0.
+   ⭐ **AND THE COMPLETE GRID SAYS THE SAME THING — 399 takes, EVERY verb, after
+   the recorder's own classifier was repaired (see below): 170 of 330 moves.**
+   The ten-verb subset said 104 of 208. Both are ~52%, which is the number to
+   quote.
+
+   THIN MOVES PER FIGHTER, complete grid (thin / recorded):
+
+```text
+  goblin                       17/17 (100%)   npc_alice              7/17 (41%)
+  npc_emmy_noether             14/15  (93%)   pointed_polygon        5/16 (31%)
+  sanic                        15/17  (88%)   mary_o_tall            5/17 (29%)
+  perfect_cellular_automaton   15/17  (88%)   performer              4/14 (29%)
+  projectile_polygon           12/14  (86%)   smash_george_booul     4/16 (25%)
+  medic                        10/13  (77%)   npc_bob                4/17 (24%)
+  npc_carl_stargan             13/17  (76%)   player_robot_v3        3/15 (20%)
+  npc_ninja_shadow_oni_leader  12/16  (75%)   npc_pirate_admiral     2/14 (14%)
+  officer                      10/15  (67%)   special_patent_clerk   1/17  (6%)
+  author                        8/14  (57%)   npc_oiler              0/16  (0%)
+  pugnacious_polygon            9/16  (56%)
+```
+
+   ⛔⛤ **AND RUNNING THE COMPLETE GRID REQUIRED FIXING THE RECORDER'S OWN
+   CLASSIFIER, WHICH WAS WRONG ABOUT 98 MOVES.** `moveset_takes` refuses a take
+   whose move *"authors no strike volume and fires nothing"* yet shows
+   subject-owned output — a good guard, because the alternative is crediting the
+   sandbag's offence to the subject. But `authors_offense` recognised only
+   `MoveEventKind::Ranged` as "an event that fires", and a move fires through
+   `MoveEventKind::Effect` just as often: that is how every throw and every bolt
+   in the pack is authored. MEASURED over the shipped tables: **161 of 470
+   authored moves carry no volume and no `Ranged` event, and 98 of those DO carry
+   an `Effect`.** The grid died on the first one it reached —
+   `author_train_of_thought`, with the engine's own `bolt fired: seat=0 speed=300
+   turn=220deg/s` four lines above the panic.
+   ⚠ THE PREDICATE NOW ABSTAINS ON AN `Effect` RATHER THAN CLAIMING INNOCENCE,
+   and that direction is deliberate: the refusal asserts a move CANNOT produce
+   offence, and `TechniqueOffer` says WHERE a technique is delivered, never
+   whether it damages — so there is no table to consult. The guard keeps full
+   power over the 63 moves that truly author nothing.
 
    ⭐ **THE PERFORMER IS NEAR THE TOP OF THAT LIST AND THAT IS THE POINT.** Jon's
    direction was *"learn from what GPT-6 did for the performer and apply that"*;

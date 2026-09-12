@@ -1622,29 +1622,13 @@ mod revision_activation {
 
     fn stage(world: &mut bevy::ecs::world::World, definition: CharacterDefinition) {
         // ⛔ AGAINST THE LIVE GENERATION, which is what a real staging road reads.
-        // A fixture that stamped `None` would stage revisions the staleness rule
-        // can never refuse, so every test built on it would be exempt from the
-        // rule it exists to exercise.
-        let against = world
-            .get_resource::<PreparedCharacterRegistry>()
-            .map(PreparedCharacterRegistry::generation);
-        stage_against(world, definition, against);
-    }
-
-    /// Stage claiming a DIFFERENT base than the live one — the only way to build
-    /// the state `RevisionOutcome::Stale` refuses.
-    fn stage_against(
-        world: &mut bevy::ecs::world::World,
-        definition: CharacterDefinition,
-        against: Option<crate::prepared::CharacterCatalogGeneration>,
-    ) {
         let staged =
             crate::prepared::prepare_for_registration(definition, &CharacterBindings::default())
                 .staged;
         let id = ambition_entity_catalog::CharacterId::new(staged.id());
         world
             .get_resource_or_insert_with(StagedCastRevision::default)
-            .insert_for_test(id, staged, against);
+            .insert_for_test(id, staged);
     }
 
     /// ⭐ THE PREMISE ARM. Without a revision that DOES activate, "refused leaves
@@ -1804,173 +1788,22 @@ mod revision_activation {
         );
     }
 
-    /// ⛔⛔ **A REVISION PREPARED AGAINST A CAST THAT IS NO LONGER LIVE IS
-    /// REFUSED, NOT MERGED** — fast-iteration I3a's "stale-attempt rejection".
-    ///
-    /// The edit was computed from a cast, and an activation in between — a
-    /// second tool, a file watcher, a scripted reload — moves the registry;
-    /// folding the edit on anyway applies it to a cast it never saw while
-    /// absorbing the intervening change without a word.
-    ///
-    /// ⚠ THE FIXTURE SUPPLIES THE BASE, and that is not fixture convenience: the
-    /// generation that can disagree is the one the caller's INPUT was read from.
-    /// Reading it from the world at stage time makes the refusal unreachable,
-    /// because activation drains the transaction atomically — see
-    /// `StagedCastRevision::prepared_against`. `ambition_content::reload` is the
-    /// production caller that supplies it.
-    #[test]
-    fn a_revision_prepared_against_a_superseded_cast_is_refused() {
-        let mut world = world_with_live_cast();
-        let base = world.resource::<PreparedCharacterRegistry>().generation();
-
-        // Somebody else publishes first.
-        let mut theirs = authoring("rider", SUMMON_RIDE);
-        theirs.display_name = "Rider, theirs".to_string();
-        stage(&mut world, theirs);
-        let first = activate_staged_revision(&mut world, &supporting_summons());
-        assert!(
-            matches!(first, RevisionOutcome::Activated { .. }),
-            "the premise: the cast actually moved under us; got {first:?}"
-        );
-        let active = world.resource::<PreparedCharacterRegistry>().generation();
-        assert_ne!(
-            base, active,
-            "the fixture never superseded anything, so the arm below would pass \
-             against a generation that never changed"
-        );
-
-        // Our edit, prepared before that, arrives late.
-        let mut ours = authoring("rider", SUMMON_RIDE);
-        ours.display_name = "Rider, ours".to_string();
-        stage_against(&mut world, ours, Some(base));
-        let outcome = activate_staged_revision(&mut world, &supporting_summons());
-
-        assert_eq!(
-            outcome,
-            RevisionOutcome::Stale {
-                prepared_against: base,
-                active,
-            },
-            "a stale revision was not refused: {outcome:?}"
-        );
-        let registry = world.resource::<PreparedCharacterRegistry>();
-        assert_eq!(
-            registry.generation(),
-            active,
-            "a refused-as-stale revision moved the generation"
-        );
-        assert_eq!(
-            registry.get("rider").map(|r| r.display_name.as_str()),
-            Some("Rider, theirs"),
-            "the stale edit was folded on anyway and silently overwrote the \
-             publication it never saw"
-        );
-    }
-
-    /// ⭐ THE CONTROL THAT MAKES THE ARM ABOVE MEAN SOMETHING. "Refused as
-    /// stale" is also what a rule that refuses EVERY stamped revision reports.
-    /// A revision staged against the CURRENT generation still publishes.
-    #[test]
-    fn a_revision_prepared_against_the_live_cast_still_publishes() {
-        let mut world = world_with_live_cast();
-        let live = world.resource::<PreparedCharacterRegistry>().generation();
-
-        let mut ours = authoring("rider", SUMMON_RIDE);
-        ours.display_name = "Rider, current".to_string();
-        stage_against(&mut world, ours, Some(live));
-        let outcome = activate_staged_revision(&mut world, &supporting_summons());
-
-        assert!(
-            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
-            "an up-to-date revision was refused; got {outcome:?}"
-        );
-    }
-
-    /// ⚠ `None` IS "NO CLAIM", NOT "GENERATION ZERO". A revision staged before
-    /// any cast was published has nothing to be stale against, and treating its
-    /// missing stamp as zero would refuse every one of them the moment the
-    /// registry moved past zero.
-    #[test]
-    fn a_revision_with_no_recorded_base_is_not_treated_as_stale() {
-        let mut world = world_with_live_cast();
-        let mut theirs = authoring("rider", SUMMON_RIDE);
-        theirs.display_name = "Rider, theirs".to_string();
-        stage(&mut world, theirs);
-        assert!(
-            matches!(
-                activate_staged_revision(&mut world, &supporting_summons()),
-                RevisionOutcome::Activated { .. }
-            ),
-            "the premise: the generation is past zero"
-        );
-
-        let mut ours = authoring("rider", SUMMON_RIDE);
-        ours.display_name = "Rider, unstamped".to_string();
-        stage_against(&mut world, ours, None);
-        let outcome = activate_staged_revision(&mut world, &supporting_summons());
-        assert!(
-            matches!(outcome, RevisionOutcome::Activated { changed: 1, .. }),
-            "an unstamped revision was refused as stale; got {outcome:?}"
-        );
-    }
-
-    /// ⛔ A STALE REVISION IS SPENT, like a refused one. Left staged, it would
-    /// be retried against an even newer base on the next activation — the same
-    /// defect one tick later, and now invisible because nothing staged it.
-    #[test]
-    fn a_stale_revision_does_not_linger_for_the_next_activation() {
-        let mut world = world_with_live_cast();
-        let base = world.resource::<PreparedCharacterRegistry>().generation();
-        let mut theirs = authoring("rider", SUMMON_RIDE);
-        theirs.display_name = "Rider, theirs".to_string();
-        stage(&mut world, theirs);
-        let _ = activate_staged_revision(&mut world, &supporting_summons());
-
-        let mut ours = authoring("rider", SUMMON_RIDE);
-        ours.display_name = "Rider, ours".to_string();
-        stage_against(&mut world, ours, Some(base));
-        let _ = activate_staged_revision(&mut world, &supporting_summons());
-
-        assert_eq!(
-            activate_staged_revision(&mut world, &supporting_summons()),
-            RevisionOutcome::NothingStaged,
-            "a stale edit was still staged and would have been retried silently"
-        );
-    }
-
-    /// ⛔ THE FIRST STAMP WINS. A revision is one transaction over one base; a
-    /// second edit re-stamping it to the current generation would erase exactly
-    /// the disagreement the field exists to report — and that is not a
-    /// hypothetical shape, it is what `get_resource_or_insert_with(..).stamp()`
-    /// would do on every call if `stamp` overwrote.
-    #[test]
-    fn a_second_edit_does_not_re_stamp_the_revisions_base() {
-        let mut world = world_with_live_cast();
-        let base = world.resource::<PreparedCharacterRegistry>().generation();
-        let mut theirs = authoring("rider", SUMMON_RIDE);
-        theirs.display_name = "Rider, theirs".to_string();
-        stage(&mut world, theirs);
-        let _ = activate_staged_revision(&mut world, &supporting_summons());
-        let active = world.resource::<PreparedCharacterRegistry>().generation();
-
-        // Two edits in one transaction: the first claims the old base, the
-        // second is staged by the ordinary road, which reads the CURRENT one.
-        let mut ours = authoring("rider", SUMMON_RIDE);
-        ours.display_name = "Rider, ours".to_string();
-        stage_against(&mut world, ours, Some(base));
-        let mut also = authoring("mount", SUMMON_RIDE);
-        also.display_name = "Mount, ours".to_string();
-        stage(&mut world, also);
-
-        assert_eq!(
-            activate_staged_revision(&mut world, &supporting_summons()),
-            RevisionOutcome::Stale {
-                prepared_against: base,
-                active,
-            },
-            "the later edit re-stamped the transaction and hid the staleness"
-        );
-    }
+    // ⛔⛤ **FIVE ARMS THAT EXERCISED THE CAST STALENESS CLOCK WERE DELETED HERE
+    // ON 2026-09-12, NOT MOVED.** They were thorough and they were honest about
+    // the mechanism; the mechanism could not fire. MEASURED: the one production
+    // road (`ambition_content::reload::request_reload`) read the live generation
+    // one line before passing it as the base, in the same synchronous call, and
+    // `admit_candidate` had already refused a stale base on the pack fingerprint
+    // before anything reached staging. Every one of these five reached the rule
+    // only through `stage_against`, a fixture helper supplying a base no
+    // production caller supplies.
+    //
+    // ⇒ The scenario they protected — somebody published between a caller's read
+    // and its apply — is carried by
+    // `ambition_content::reload::reload_tests::a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused`,
+    // which drives it through `request_reload` in pack-fingerprint units. That
+    // witness landed FIRST (`cbc92fa38`), before this deletion, because leaning
+    // on an untested guarantee is how a deletion becomes a regression.
 
     /// ⭐ CONTROL. A refused revision must not leave its edits staged to be
     /// applied by the NEXT activation — a transaction that fails is spent.
@@ -2540,7 +2373,7 @@ mod moveset_revision {
         );
         section.insert("somebody_else".to_string(), moveset_with(&[], Vec::new()));
 
-        let refusals = crate::prepared::stage_move_section(app.world_mut(), &section, None);
+        let refusals = crate::prepared::stage_move_section(app.world_mut(), &section);
         assert_eq!(
             refusals,
             vec![MovesetRevisionError::UnknownCharacter(
@@ -2578,7 +2411,7 @@ mod moveset_revision {
         );
 
         assert_eq!(
-            crate::prepared::stage_move_section(app.world_mut(), &section, None),
+            crate::prepared::stage_move_section(app.world_mut(), &section),
             Vec::new()
         );
         activate_staged_revision(app.world_mut(), &TechniqueSupport::default());
@@ -2625,7 +2458,7 @@ mod moveset_revision {
 
         let section = decode(&payload).expect("the payload decodes");
         assert_eq!(
-            crate::prepared::stage_move_section(app.world_mut(), &section, None),
+            crate::prepared::stage_move_section(app.world_mut(), &section),
             Vec::new()
         );
         activate_staged_revision(app.world_mut(), &TechniqueSupport::default());

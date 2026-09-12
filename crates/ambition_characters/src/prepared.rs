@@ -417,43 +417,6 @@ pub fn unsupported_authored_effects(
 #[derive(bevy::prelude::Resource, Default)]
 pub struct StagedCastRevision {
     by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
-    /// Which published cast this revision was built ON TOP OF.
-    ///
-    /// ⭐⭐ **A CANDIDATE IS PREPARED AGAINST A GENERATION, AND FOLDING IT ONTO A
-    /// DIFFERENT ONE IS A SILENT MERGE** (fast-iteration I3a, *"stale-attempt
-    /// rejection"*). `activate_staged_revision` folds onto the live registry at
-    /// ACTIVATE time; if the edit was computed from an EARLIER cast, it is
-    /// applied to one it never saw and the intervening change is absorbed
-    /// without a word.
-    ///
-    /// ⛔⛤ **AND THE GENERATION THAT MATTERS IS THE CALLER'S, NOT STAGE TIME —
-    /// MEASURED 2026-09-11 AFTER GETTING IT WRONG.** My first version stamped
-    /// this from the world inside the staging road, and no sequence could reach
-    /// the refusal: activation is the only publisher past the preparation
-    /// barrier, and it DRAINS the whole transaction, so stage-time and
-    /// fold-time are the same generation by construction. A branch that cannot
-    /// fire is not a rule. ⇒ The staging roads take an `against` the caller
-    /// supplies — the cast its INPUT was read from, which is the only clock that
-    /// can disagree. A reload compiles a pack off the main thread and applies it
-    /// later; that gap is the whole exposure.
-    ///
-    /// ⚠ `None` MEANS "NO CLAIM", not "generation zero": a revision computed
-    /// from the cast as it stands right now has nothing to be stale against.
-    /// Only a stamped value can refuse.
-    prepared_against: Option<CharacterCatalogGeneration>,
-}
-
-impl StagedCastRevision {
-    /// Record which cast an edit is being built on top of, once per revision.
-    ///
-    /// ⛔ THE FIRST STAMP WINS. A revision is one transaction over one base; a
-    /// later edit re-stamping it to the current generation would erase exactly
-    /// the disagreement this field exists to report.
-    fn stamp(&mut self, against: Option<CharacterCatalogGeneration>) {
-        if self.prepared_against.is_none() {
-            self.prepared_against = against;
-        }
-    }
 }
 
 // ⚠ `cfg(test)` ALONE, unlike every other `test-support` item in this file.
@@ -470,12 +433,7 @@ impl StagedCastRevision {
         &mut self,
         id: ambition_entity_catalog::CharacterId,
         staged: StagedCharacter,
-        against: Option<CharacterCatalogGeneration>,
     ) {
-        // ⛔ THE FIXTURE STAMPS TOO. A test helper that skipped this would stage
-        // revisions no staleness rule could ever refuse, so every fixture built
-        // on it would be exempt from the rule it is meant to exercise.
-        self.stamp(against);
         self.by_id.insert(id, staged);
     }
 }
@@ -513,15 +471,6 @@ pub enum RevisionOutcome {
     Unchanged {
         generation: CharacterCatalogGeneration,
     },
-    /// The revision was built on top of a cast that is no longer the live one.
-    /// **Nothing was published and the edits are SPENT** — a stale transaction
-    /// is not retried silently against a base it never saw.
-    Stale {
-        /// The generation the edit was prepared against.
-        prepared_against: CharacterCatalogGeneration,
-        /// The generation that is actually live.
-        active: CharacterCatalogGeneration,
-    },
 }
 
 /// Stage a character edit for a later explicit activation.
@@ -541,15 +490,10 @@ pub fn stage_character_revision(
     }
     let staged = prepare_for_registration(definition, bindings).staged;
     let id = ambition_entity_catalog::CharacterId::new(staged.id());
-    let against = app
-        .world()
-        .get_resource::<PreparedCharacterRegistry>()
-        .map(PreparedCharacterRegistry::generation);
-    let mut revision = app
-        .world_mut()
-        .get_resource_or_insert_with(StagedCastRevision::default);
-    revision.stamp(against);
-    revision.by_id.insert(id, staged);
+    app.world_mut()
+        .get_resource_or_insert_with(StagedCastRevision::default)
+        .by_id
+        .insert(id, staged);
     Ok(())
 }
 
@@ -577,20 +521,6 @@ pub fn activate_staged_revision(
     let admission = take_admitted_revision(world, support);
     match admission {
         RevisionAdmission::NothingStaged => RevisionOutcome::NothingStaged,
-        RevisionAdmission::Stale {
-            prepared_against,
-            active,
-        } => {
-            bevy::prelude::error!(
-                "a staged cast revision was prepared against generation \
-                 {prepared_against} and the live cast is {active}; it is REFUSED \
-                 rather than folded onto a cast it never saw"
-            );
-            RevisionOutcome::Stale {
-                prepared_against,
-                active,
-            }
-        }
         RevisionAdmission::Unchanged { generation } => RevisionOutcome::Unchanged { generation },
         RevisionAdmission::Refused { refusals, previous } => {
             bevy::prelude::error!(
@@ -635,7 +565,6 @@ pub fn take_admitted_revision(
     if !matches!(admission, RevisionAdmission::NothingStaged) {
         if let Some(mut revision) = world.get_resource_mut::<StagedCastRevision>() {
             revision.by_id.clear();
-            revision.prepared_against = None;
         }
     }
     admission
@@ -680,10 +609,6 @@ impl AdmittedRevision {
 /// and the cast's does not.
 pub enum RevisionAdmission {
     NothingStaged,
-    Stale {
-        prepared_against: CharacterCatalogGeneration,
-        active: CharacterCatalogGeneration,
-    },
     Unchanged {
         generation: CharacterCatalogGeneration,
     },
@@ -702,14 +627,12 @@ pub fn admit_staged_revision(
     world: &bevy::ecs::world::World,
     support: &ambition_entity_catalog::TechniqueSupport,
 ) -> RevisionAdmission {
-    let (staged, prepared_against): (Vec<StagedCharacter>, Option<CharacterCatalogGeneration>) =
-        match world.get_resource::<StagedCastRevision>() {
-            Some(revision) if !revision.by_id.is_empty() => (
-                revision.by_id.values().cloned().collect(),
-                revision.prepared_against,
-            ),
-            _ => return RevisionAdmission::NothingStaged,
-        };
+    let staged: Vec<StagedCharacter> = match world.get_resource::<StagedCastRevision>() {
+        Some(revision) if !revision.by_id.is_empty() => {
+            revision.by_id.values().cloned().collect()
+        }
+        _ => return RevisionAdmission::NothingStaged,
+    };
     let Some(active) = world.get_resource::<PreparedCharacterRegistry>() else {
         // No cast has been published, so there is nothing to revise and nothing
         // to protect; the barrier has not run.
@@ -717,19 +640,22 @@ pub fn admit_staged_revision(
     };
     let previous = active.generation();
 
-    // ⛔⛔ **A REVISION PREPARED AGAINST A CAST THAT IS NO LONGER LIVE IS
-    // REFUSED, NOT MERGED** (fast-iteration I3a, "stale-attempt rejection").
-    // The edit was computed from the source as it stood at STAGE time; folding
-    // it onto a registry that has since moved applies it to a cast it never saw
-    // and absorbs the intervening change without a word.
-    if let Some(prepared_against) = prepared_against {
-        if prepared_against != previous {
-            return RevisionAdmission::Stale {
-                prepared_against,
-                active: previous,
-            };
-        }
-    }
+    // ⛔⛔ **THERE IS NO CAST-LEVEL STALENESS CHECK HERE, AND ITS REMOVAL IS
+    // THE POINT** (see queue.md's two-base-clocks row). The fact *"which
+    // generation was this prepared against"* has ONE recorder:
+    // `CandidateGeneration.base`, in pack-fingerprint units, refused by
+    // `admit_candidate` before anything is staged. A second recorder in
+    // cast-generation units could only ever agree with it — MEASURED
+    // 2026-09-12: exactly two production writers of `PreparedCharacterRegistry`
+    // (the boot barrier and this transaction's own commit, which also installs
+    // the selection), so the cast cannot move without the pack.
+    //
+    // ⛔⛤ AND IT COULD NOT REFUSE ANYWAY. The stamp was read out of the live
+    // world one line before it was compared, in the same synchronous call, so
+    // it always equalled what it was checked against. The parameter that was
+    // added to fix that was then fed from the live world by its only caller.
+    // **A knob nobody supplies honestly is worse than no knob**, because it
+    // reads as protection.
 
     // ⭐⭐ **A REVISION THAT PROPOSES NOTHING NEW DOES NOT MOVE THE GENERATION**
     // (fast-iteration I3a, "no-op identity"). Asked of the SOURCE the live
@@ -894,12 +820,10 @@ pub fn revise_staged_moveset(
     };
     let mut revised = staged.clone();
     revised.inner.moveset = Some(moveset);
-    let against = world
-        .get_resource::<PreparedCharacterRegistry>()
-        .map(PreparedCharacterRegistry::generation);
-    let mut revision = world.get_resource_or_insert_with(StagedCastRevision::default);
-    revision.stamp(against);
-    revision.by_id.insert(key, revised);
+    world
+        .get_resource_or_insert_with(StagedCastRevision::default)
+        .by_id
+        .insert(key, revised);
     Ok(())
 }
 
@@ -923,22 +847,26 @@ pub fn revise_staged_moveset(
 /// [`ambition_entity_catalog::TechniqueSupport`], which is where a technique
 /// this build did not install refuses the pack — the question a codec cannot
 /// answer and this function deliberately does not try to.
-/// ⛔⛤ **`against` IS THE CALLER'S CLAIM, AND WITHOUT IT THE STALENESS RULE
-/// CANNOT FIRE.** MEASURED 2026-09-11, after building the rule: activation is
-/// the only road that publishes after the barrier, and it DRAINS the staged
-/// transaction atomically — so a stamp taken from the world at STAGE time always
-/// equals the generation the fold lands on, in every reachable sequence. The
-/// refusal was structurally unreachable, which a witness for
-/// `MoveReload::Stale` is what found.
+/// ⛔⛤ **IT TAKES NO BASE, AND IT USED TO — THE PARAMETER WAS PROTECTION THAT
+/// COULD NOT FIRE.** MEASURED 2026-09-11: with the stamp read from the world
+/// inside this function, activation was the only road that published after the
+/// barrier and it DRAINED the staged transaction atomically, so stage-time and
+/// fold-time were the same generation in every reachable sequence. The rule was
+/// structurally unreachable. The fix taken then was to make the base a CALLER
+/// parameter — and MEASURED 2026-09-12, the one production caller
+/// (`request_reload`) read the live generation one line before passing it, in
+/// the same synchronous call, which restored the unreachability exactly.
 ///
-/// ⇒ The generation that matters is the one the caller's INPUT was computed
-/// from, which only the caller knows. A reload that compiles a pack off the main
-/// thread reads the cast when it starts and applies minutes later; `None` means
-/// "computed from the cast as it stands right now" and makes no claim.
+/// ⇒ **A KNOB NOBODY SUPPLIES HONESTLY IS WORSE THAN NO KNOB**, because it reads
+/// as protection. The fact *"which generation was this prepared against"* now
+/// has ONE recorder — `ambition_content_pack::CandidateGeneration::base`, in
+/// pack-fingerprint units, refused by `admit_candidate` BEFORE anything reaches
+/// here. That check covers this one's whole scenario ("somebody published
+/// between my read and my apply") and the cast cannot move without the pack in
+/// production.
 pub fn stage_move_section(
     world: &mut bevy::ecs::world::World,
     section: &ambition_entity_catalog::move_section::MoveSectionData,
-    against: Option<CharacterCatalogGeneration>,
 ) -> Vec<MovesetRevisionError> {
     let Some(overrides) = world.get_resource::<StagedCharacterOverrides>() else {
         return vec![MovesetRevisionError::NoStagedCast];
@@ -954,14 +882,6 @@ pub fn stage_move_section(
         .collect();
     if !unknown.is_empty() {
         return unknown;
-    }
-    // ⭐ THE CLAIM IS STAMPED BEFORE THE LOOP, and `stamp` is first-wins, so the
-    // per-character road below cannot overwrite it with "now". A `None` claim
-    // falls through to that road, which stamps the live generation.
-    if against.is_some() {
-        world
-            .get_resource_or_insert_with(StagedCastRevision::default)
-            .stamp(against);
     }
     for (id, contract) in section {
         // Cannot fail: every id was checked above, and nothing has mutated the

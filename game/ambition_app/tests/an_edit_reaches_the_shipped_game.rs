@@ -39,6 +39,51 @@ fn live_first_rung(app: &bevy::prelude::App) -> f32 {
         .reaction_ms
 }
 
+/// The second goblin wave's second mob delay, as the LIVE composition holds it.
+///
+/// ⭐ THE THIRD FAMILY, READ THE SAME WAY THE SHIPPED READERS DO.
+/// `EncounterWaveBook` is the App-owned resource `systems.rs` takes as
+/// `Option<Res<..>>`; the reload republishes it, and it is a DIFFERENT family
+/// from the ladder with a different source file.
+fn live_second_goblin_delay(app: &bevy::prelude::App) -> f32 {
+    app.world()
+        .resource::<ambition_platformer2d::encounter::EncounterWaveBook>()
+        .waves("goblin_encounter")
+        .expect("the shipped book authors the goblin encounter")[1]
+        .mobs[1]
+        .delay
+}
+
+/// The epoch of the ONE prepared session in this world.
+///
+/// ⛔ NOT "THE FIRST `PreparedContentIdentity` FOUND", which
+/// `ambition_platformer2d_rollback_ggrs` already records as a defect: a world with
+/// two sessions would give a global read the wrong one. This asserts there is
+/// exactly one and then reads it, so a second session makes the arm fail rather
+/// than answer about a session it did not mean.
+fn the_only_prepared_epoch(app: &mut bevy::prelude::App) -> u64 {
+    // ⚠ THE STATE IS BUILT FIRST, THEN THE WORLD IS READ. Chaining
+    // `.query(..).iter(app.world())` holds the mutable borrow across the
+    // immutable one and does not compile.
+    let mut state = app
+        .world_mut()
+        .query::<&ambition_platformer2d::runtime::PreparedContentIdentity>();
+    // ⛔ EVERY MATCH, NOT EVERY DISTINCT EPOCH. Two sessions that happen to
+    // share an epoch are still two sessions, and deduplicating would hide
+    // exactly the case this assertion exists for.
+    let found: Vec<u64> = state
+        .iter(app.world())
+        .map(|identity| identity.epoch.0)
+        .collect();
+    assert_eq!(
+        found.len(),
+        1,
+        "expected exactly one prepared session to read an epoch from, found \
+         {found:?}"
+    );
+    found[0]
+}
+
 /// The shell's activation counter — a NEW id means the route re-activated.
 fn activation_id(app: &bevy::prelude::App) -> Option<u64> {
     app.world()
@@ -115,33 +160,62 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          below is about a reload"
     );
 
-    // ── the premise: the live ladder is the shipped one ──────────────────────
+    // ── the premise: both live families are the shipped ones ────────────────
     let before = live_first_rung(&app);
     assert_eq!(
         before, 500.0,
         "the premise: this composition installed the shipped ladder"
     );
+    let waves_before = live_second_goblin_delay(&app);
+    assert_eq!(
+        waves_before, 0.70,
+        "the premise: this composition installed the shipped encounter waves"
+    );
+    let cast_before = app
+        .world()
+        .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+        .generation();
+    let epoch_before = the_only_prepared_epoch(&mut app);
 
-    // ── an edit, in memory ───────────────────────────────────────────────────
-    let mut edited = false;
+    // ── an edit, in memory, TOUCHING TWO FAMILIES AT ONCE ───────────────────
+    // ⭐⭐ **TWO FAMILIES IN ONE CANDIDATE IS THE POINT, AND IT IS THE 2026-09-12
+    // REVIEW'S FINDING 4.** The crate-level arms proved each family publishes,
+    // but they INJECTED `ShellEvent::RouteActivated` — so "the transaction is
+    // atomic across families" was asserted about a boundary the test itself
+    // fired. Here one edit moves the ladder AND the wave book, nothing but
+    // `update()` drives the shell, and both must land on the SAME frame as the
+    // activation. A transaction that published one family and deferred the other
+    // would build a world half of generation N and half of N+1.
+    let mut edited_ladder = false;
+    let mut edited_waves = false;
     let candidate = std::sync::Arc::new(
-        ambition_content::pack::compile_pack_with(|declared, text| {
-            if declared != "data/fighter_brain_ladder.ron" {
-                return text;
+        ambition_content::pack::compile_pack_with(|declared, text| match declared {
+            "data/fighter_brain_ladder.ron" => {
+                let out = text.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1);
+                edited_ladder = out != text;
+                out
             }
-            let out = text.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1);
-            edited = out != text;
-            out
+            "data/encounters/goblin_encounter.ron" => {
+                let out = text.replacen("delay: 0.70", "delay: 0.75", 1);
+                edited_waves = out != text;
+                out
+            }
+            _ => text,
         })
         .expect("the edited pack compiles"),
     );
-    // ⛔ THE FLOOR ON THE EDIT. A retuned level 1 or a renamed source would leave
-    // the closure a no-op and every assertion below would pass on the SHIPPED
-    // pack while testing nothing.
+    // ⛔ A FLOOR ON EACH EDIT SEPARATELY. A retuned value or a renamed source
+    // leaves one closure arm a no-op, and a single combined flag would let the
+    // family that still changed carry the arm for the one that did not.
     assert!(
-        edited,
+        edited_ladder,
         "`data/fighter_brain_ladder.ron` no longer carries `reaction_ms: 500.0`, \
-         so the candidate is the shipped pack and this witness is vacuous"
+         so the ladder half of this witness is vacuous"
+    );
+    assert!(
+        edited_waves,
+        "`data/encounters/goblin_encounter.ron` no longer carries `delay: 0.70`, \
+         so the encounter-wave half of this witness is vacuous"
     );
     let base = ambition_content::pack::selected(app.world())
         .expect("the composition selected a pack")
@@ -171,6 +245,19 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         500.0,
         "the REQUEST published on the spot instead of staging — the old \
          generation must stay authoritative until the new one activates"
+    );
+    assert_eq!(
+        live_second_goblin_delay(&app),
+        0.70,
+        "the REQUEST published the wave book on the spot instead of staging"
+    );
+    assert_eq!(
+        ambition_content::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        base,
+        "the REQUEST installed the candidate as the App's selection, so the \
+         engine would fingerprint against a pack that is not live"
     );
 
     // ── and the shell's own lifecycle carries it the rest of the way ─────────
@@ -214,5 +301,72 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          from content the transaction had not published yet — the N/N+1 split \
          this road exists to prevent. ⇒ A commit that arrives on frame+1 makes \
          this assertion fail while a 'publishes eventually' one would pass."
+    );
+
+    // ⛔⛔ **AND THE SECOND FAMILY ON THE SAME FRAME — ATOMICITY, NOT ORDER.**
+    // Review finding 4 asked whether families #2 and #3 are actually atomic in
+    // production; one commit, one frame, both values is the answer. A publisher
+    // loop that broke after the first family would redden here and NOWHERE else.
+    assert_eq!(
+        live_second_goblin_delay(&app),
+        0.75,
+        "the ladder moved to generation N+1 on frame {activated_on} and the \
+         encounter waves did not, so the world was built half from N and half \
+         from N+1 — the transaction is not atomic across its families"
+    );
+
+    // ⛔⛔ **AND EVERY IDENTITY THE ENGINE CARRIES NAMES N+1 TOO.** The families
+    // are the visible half; these four are what the rollback boundary, the
+    // fingerprint comparison and the next candidate's staleness check read. A
+    // reload that moved the content and left any of them naming N is a split
+    // nobody would see until a peer disagreed about the world.
+    assert_eq!(
+        ambition_content::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        candidate.fingerprint,
+        "the families published but the App's SELECTION still names the old \
+         pack, so the next candidate compares against a base that is not live"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::runtime::SelectedContentIdentity>()
+            .0,
+        format!(
+            "{} {} {}",
+            candidate.id, candidate.version, candidate.fingerprint
+        ),
+        "the ENGINE is still fingerprinting against generation N's pack"
+    );
+    // ⛔⛔ **AND THE CAST GENERATION MUST *NOT* MOVE, WHICH IS THE OPPOSITE OF
+    // WHAT I FIRST ASSERTED HERE — THE TEST FOUND IT.** This candidate edits the
+    // fighter ladder and the encounter waves and no move table, so
+    // `moveset_changed` is false, `request_reload` stages no cast, and
+    // `publish_admitted_revision` never runs. MEASURED: the arm asserting the
+    // generation MOVED failed with `CharacterCatalogGeneration(1)` on both sides.
+    //
+    // ⇒ That is the 2026-09-12 review's item 5 holding in production: the
+    // transaction is no longer moveset-centric, so a family that did not change
+    // is not re-published and does not consume a cast generation. An arm that
+    // demanded the cast clock advance would be demanding the defect back.
+    let cast_after = app
+        .world()
+        .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+        .generation();
+    assert_eq!(
+        cast_after, cast_before,
+        "a generation that changes NO move table still moved the cast, so every \
+         ladder or waves edit re-publishes the whole cast and the transaction is \
+         still moveset-centric"
+    );
+    // ⚠ THE EPOCH IS THE PREPARED WORLD'S, NOT THE PACK'S — it advances because
+    // the session was re-prepared, which is what a rollback timeline contract
+    // compares. Asserting it MOVED is the checkable claim; asserting a value
+    // would pin an allocator's counter.
+    let epoch_after = the_only_prepared_epoch(&mut app);
+    assert_ne!(
+        epoch_after, epoch_before,
+        "the prepared session kept generation N's content epoch, so a rollback \
+         timeline would accept N's snapshots into N+1's world"
     );
 }

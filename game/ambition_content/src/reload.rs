@@ -32,11 +32,6 @@ use ambition_characters::prepared::{stage_move_section, MovesetRevisionError};
 // admit-and-publish entry point is reachable from tests only.
 #[cfg(test)]
 use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
-// ⚠ ONLY THE FIXTURE ROAD TAKES A CAST BASE AS A PARAMETER. `request_reload`
-// reads the live generation itself, at the moment it stages, which is the only
-// moment the claim can be true.
-#[cfg(test)]
-use ambition_characters::prepared::CharacterCatalogGeneration;
 
 /// What a reload attempt did.
 ///
@@ -96,17 +91,20 @@ pub enum MoveReload {
     /// technique this composition did not install. The previous cast is still
     /// the published one.
     Refused(Vec<String>),
-    /// The revision was prepared against a cast that is no longer live —
-    /// another reload, or a tool, published in between. **Nothing was
-    /// published**; the caller re-reads and tries again.
-    Stale { prepared_against: u64, active: u64 },
     /// The CANDIDATE was prepared against a content generation that is no longer
     /// selected. **Nothing was published** — not the cast, not the selection.
     ///
-    /// ⛔ SEPARATE FROM `Stale`, WHICH IS THE CAST'S CLOCK. That these are two
-    /// variants is the honest report of a real defect in the architecture, not a
-    /// design: I3 wants ONE generation identity, and until the epoch binding
-    /// lands a caller can be stale against either clock independently.
+    /// ⭐⭐ **THE ONLY STALENESS REFUSAL, AS OF 2026-09-12.** There used to be a
+    /// second one — `Stale`, in cast-generation units — and the two variants were
+    /// described here as "the honest report of a real defect in the
+    /// architecture". MEASURED before deleting it: it could not fire on this
+    /// road. `admit_candidate` refuses on the pack fingerprint BEFORE anything is
+    /// staged, and the cast stamp was read out of the live world one line before
+    /// it was compared, in the same synchronous call.
+    ///
+    /// ⇒ ONE RECORDER FOR ONE FACT. The scenario is unchanged — somebody
+    /// published between the caller's read and its apply — and this variant is
+    /// where it is reported.
     StaleGeneration {
         prepared_against: String,
         active: String,
@@ -194,30 +192,16 @@ pub enum MoveReload {
 /// `game/ambition_content/assets` and put it back — a guard whose subject
 /// MUTATES THE TREE, which this repository has already been bitten by. A caller
 /// that can build a pack can build an EDITED one.
-/// ⛔⛤ **`compiled_against` IS WHAT MAKES [`MoveReload::Stale`] REACHABLE, AND
-/// FINDING THAT OUT COST A WITNESS.** My first version read the live generation
-/// inside the staging road. Activation is the only thing that publishes after
-/// the preparation barrier and it DRAINS the staged transaction atomically, so
-/// a stamp taken at stage time always equalled the generation the fold landed
-/// on — a refusal branch that could not fire, which is this repository's most
-/// repeated instrument failure wearing a different hat.
-///
-/// ⇒ The generation that can disagree is the one the CALLER's pack was read
-/// against, which only the caller knows: compiling a pack is file I/O, a reload
-/// loop does it off the main thread, and the cast can move in between. `None`
-/// makes no claim and is right for a caller that compiled and applied without
-/// yielding.
 #[cfg(test)]
 pub(crate) fn reload_move_tables_from(
     world: &mut bevy::ecs::world::World,
     fresh: &ambition_content_pack::PreparedContentPack,
-    compiled_against: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
     let Some(section) = ambition_characters::moveset_content_schema::lowered_movesets(fresh) else {
         return MoveReload::NoMoveSection;
     };
 
-    let problems = stage_move_section(world, section, compiled_against);
+    let problems = stage_move_section(world, section);
     if problems
         .iter()
         .any(|p| matches!(p, MovesetRevisionError::NoStagedCast))
@@ -250,13 +234,6 @@ pub(crate) fn reload_move_tables_from(
         RevisionOutcome::Refused { refusals } => {
             MoveReload::Refused(refusals.iter().map(|r| r.detail.clone()).collect())
         }
-        RevisionOutcome::Stale {
-            prepared_against,
-            active,
-        } => MoveReload::Stale {
-            prepared_against: prepared_against.get(),
-            active: active.get(),
-        },
         // ⚠ UNREACHABLE BY CONSTRUCTION rather than by assertion: the section is
         // non-empty (it lowered) and staging reported no problem, so something
         // is staged. Reported rather than panicked — a reload loop must not take
@@ -281,16 +258,13 @@ pub(crate) fn reload_move_tables_from_dir(
     world: &mut bevy::ecs::world::World,
     root: &std::path::Path,
 ) -> MoveReload {
-    // ⚠ THE GENERATION IS READ BEFORE THE FILE I/O, not after. That is the whole
-    // reason the claim exists: reading a directory takes time, and anything that
-    // publishes while we read it moves the cast under the pack we are building.
-    let compiled_against = world
-        .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
-        .map(ambition_characters::prepared::PreparedCharacterRegistry::generation);
+    // ⚠ IT MAKES NO BASE CLAIM, AND THAT IS NOW THE HONEST SHAPE. A caller that
+    // reads a directory and applies minutes later needs one — but the base is
+    // the PACK FINGERPRINT, and this convenience form cannot know it before the
+    // compile that produces it. A caller that needs staleness protection builds
+    // its own `CandidateGeneration::prepared_against(pack, Some(base))`.
     match crate::pack::compile_pack_from(root) {
-        Ok(pack) => {
-            reload_move_tables_selecting(world, std::sync::Arc::new(pack), compiled_against)
-        }
+        Ok(pack) => reload_move_tables_selecting(world, std::sync::Arc::new(pack)),
         Err(refusal) => MoveReload::PackRefused(refusal),
     }
 }
@@ -409,15 +383,14 @@ fn admit_candidate(
 ///
 /// ⛔ **WHAT THIS STILL DOES NOT DO** (fast-iteration I3's remaining half): it
 /// establishes no `ContentEpoch`, no `PreparedContentIdentity` and no rollback
-/// timeline boundary, and it carries TWO base clocks — the pack fingerprint and
-/// [`CharacterCatalogGeneration`] — where the architecture wants one. Both are
-/// additions at this one seam rather than rewrites, which is why the decision
-/// was moved here first.
+/// timeline boundary. ⭐ IT NO LONGER CARRIES TWO BASE CLOCKS: the cast
+/// generation stopped being a staleness authority on 2026-09-12 and the pack
+/// fingerprint is the only one, so the remaining additions are the epoch and the
+/// rollback boundary at this one seam rather than a rewrite.
 #[cfg(test)]
 pub(crate) fn publish_candidate(
     world: &mut bevy::ecs::world::World,
     candidate: ambition_content_pack::CandidateGeneration,
-    cast_base: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
     match admit_candidate(world, &candidate) {
         CandidateAdmission::Refused(answer) => return answer,
@@ -432,7 +405,7 @@ pub(crate) fn publish_candidate(
         CandidateAdmission::Proceed => {}
     }
     let pack = candidate.into_pack();
-    let outcome = reload_move_tables_from(world, &pack, cast_base);
+    let outcome = reload_move_tables_from(world, &pack);
     // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A refused
     // or stale revision must leave the App reading the pack its cast was
     // actually built from.
@@ -736,15 +709,15 @@ fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary 
 ///
 /// ⚠ THE CONVENIENCE FORM, for a caller that compiled and published without
 /// yielding. A caller that did file I/O in between must build the candidate
-/// itself with the identity it READ, or its base claim is a fiction.
+/// itself with the identity it READ, or its base claim is a fiction — and that
+/// identity is the PACK FINGERPRINT, which is the only base clock there is.
 #[cfg(test)]
 pub(crate) fn reload_move_tables_selecting(
     world: &mut bevy::ecs::world::World,
     fresh: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
-    compiled_against: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
     let candidate = ambition_content_pack::CandidateGeneration::prepared_against(fresh, None);
-    publish_candidate(world, candidate, compiled_against)
+    publish_candidate(world, candidate)
 }
 
 /// What a reload REQUEST did — the road that reuses the engine's own lifecycle.
@@ -892,10 +865,11 @@ pub fn request_reload(
         .then(|| ambition_characters::moveset_content_schema::lowered_movesets(&pack))
         .flatten();
     if let Some(section) = section {
-        let cast_base = world
-            .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
-            .map(ambition_characters::prepared::PreparedCharacterRegistry::generation);
-        let problems = stage_move_section(world, section, cast_base);
+        // ⚠ NO BASE IS PASSED, AND THERE IS NOTHING TO PASS. `admit_candidate`
+        // above already refused a candidate whose base is no longer the
+        // selection; a cast-generation stamp read from the world HERE could only
+        // agree with it. See `MoveReload::StaleGeneration`.
+        let problems = stage_move_section(world, section);
         if problems
             .iter()
             .any(|p| matches!(p, MovesetRevisionError::NoStagedCast))
@@ -976,16 +950,6 @@ pub fn request_reload(
             return ReloadRequest::Refused(MoveReload::Refused(
                 refusals.iter().map(|r| r.detail.clone()).collect(),
             ));
-        }
-        ambition_characters::prepared::RevisionAdmission::Stale {
-            prepared_against,
-            active,
-        } => {
-            discard_staged_reload(world);
-            return ReloadRequest::Refused(MoveReload::Stale {
-                prepared_against: prepared_against.get(),
-                active: active.get(),
-            });
         }
         ambition_characters::prepared::RevisionAdmission::Admitted(admitted) => Some(admitted),
         // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL. The move

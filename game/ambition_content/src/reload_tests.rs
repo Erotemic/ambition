@@ -200,7 +200,7 @@ fn a_reloaded_pack_republishes_the_cast() {
         .generation();
 
     let pack = pack_of(&doc_text(0.2)).expect("the probe pack compiles");
-    let outcome = reload_move_tables_from(app.world_mut(), &pack, None);
+    let outcome = reload_move_tables_from(app.world_mut(), &pack);
     assert!(
         matches!(outcome, MoveReload::Activated { changed: 1, .. }),
         "the reload did not republish: {outcome:?}"
@@ -229,16 +229,12 @@ fn the_edited_timing_is_the_one_the_cast_ends_up_with() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_from(
         app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        None,
-    );
+        &pack_of(&doc_text(0.2)).expect("compiles"));
     let first = live_duration(&app);
 
     let outcome = reload_move_tables_from(
         app.world_mut(),
-        &pack_of(&doc_text(0.35)).expect("compiles"),
-        None,
-    );
+        &pack_of(&doc_text(0.35)).expect("compiles"));
     assert!(
         matches!(outcome, MoveReload::Activated { .. }),
         "the second reload did not republish: {outcome:?}"
@@ -265,13 +261,13 @@ fn the_edited_timing_is_the_one_the_cast_ends_up_with() {
 fn reloading_an_unchanged_pack_publishes_nothing() {
     let mut app = host_with_a_live_cast();
     let pack = pack_of(&doc_text(0.2)).expect("compiles");
-    let _ = reload_move_tables_from(app.world_mut(), &pack, None);
+    let _ = reload_move_tables_from(app.world_mut(), &pack);
     let published = app
         .world()
         .resource::<PreparedCharacterRegistry>()
         .generation();
 
-    let outcome = reload_move_tables_from(app.world_mut(), &pack, None);
+    let outcome = reload_move_tables_from(app.world_mut(), &pack);
     assert_eq!(
         outcome,
         MoveReload::Unchanged {
@@ -292,9 +288,7 @@ fn a_refused_pack_never_reaches_the_cast() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_from(
         app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        None,
-    );
+        &pack_of(&doc_text(0.2)).expect("compiles"));
     let published = app
         .world()
         .resource::<PreparedCharacterRegistry>()
@@ -338,9 +332,7 @@ fn a_host_with_no_cast_is_reported_as_such() {
         .insert_resource(ambition_combat::technique::InstalledTechniques::default());
     let outcome = reload_move_tables_from(
         app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        None,
-    );
+        &pack_of(&doc_text(0.2)).expect("compiles"));
     assert_eq!(outcome, MoveReload::NoCast, "got {outcome:?}");
 }
 
@@ -356,7 +348,7 @@ fn a_section_for_an_unknown_character_stages_nothing() {
 
     let foreign = doc_text(0.2).replace(RELOAD_ID, "nobody_prepared_this");
     let outcome =
-        reload_move_tables_from(app.world_mut(), &pack_of(&foreign).expect("compiles"), None);
+        reload_move_tables_from(app.world_mut(), &pack_of(&foreign).expect("compiles"));
     match &outcome {
         MoveReload::UnknownCharacters(who) => assert!(
             who.iter().any(|w| w.contains("nobody_prepared_this")),
@@ -390,103 +382,25 @@ fn a_host_that_installed_no_technique_table_is_reported_rather_than_defaulted() 
     // ⛔ AND NO `InstalledTechniques`, which is the whole point.
     let outcome = reload_move_tables_from(
         app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        None,
-    );
+        &pack_of(&doc_text(0.2)).expect("compiles"));
     assert_eq!(outcome, MoveReload::NoTechniqueSupport, "got {outcome:?}");
 }
 
-/// ⛔⛔ **A RELOAD APPLYING A PACK IT COMPILED AGAINST AN OLDER CAST IS REFUSED,
-/// NOT FOLDED** — the I3a staleness rule reaching this road, and the reason
-/// `MoveReload::Stale` is a variant rather than a comment.
-///
-/// ⛔⛤ **AND WRITING THIS ARM IS WHAT FOUND THE RULE COULD NOT FIRE.** With the
-/// stamp read from the world inside the staging road, no sequence reached it:
-/// activation is the only publisher after the barrier and it drains the staged
-/// transaction atomically, so stage-time and fold-time are the same generation
-/// by construction. The claim had to come from the CALLER — see
-/// `reload_move_tables_from`.
-///
-/// ⚠ THE SEQUENCE IS THE ONE A RELOAD LOOP ACTUALLY PRODUCES. Compiling a pack
-/// is file I/O; a watcher reads the cast when the change arrives and applies
-/// when the compile finishes. Anything that publishes in between — a second
-/// watcher, an inspector, a scripted edit — moves the cast under it.
-#[test]
-fn a_pack_compiled_against_an_older_cast_is_refused() {
-    let mut app = host_with_a_live_cast();
-    let compiled_against = app
-        .world()
-        .resource::<PreparedCharacterRegistry>()
-        .generation();
-
-    // Somebody else publishes while our compile is in flight.
-    let theirs = reload_move_tables_from(
-        app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        None,
-    );
-    assert!(
-        matches!(theirs, MoveReload::Activated { .. }),
-        "the premise: the cast actually moved under us; got {theirs:?}"
-    );
-    let active = app
-        .world()
-        .resource::<PreparedCharacterRegistry>()
-        .generation();
-    assert_ne!(
-        compiled_against, active,
-        "the fixture never superseded anything, so the arm below would pass \
-         against a generation that never moved"
-    );
-    let published = live_duration(&app);
-
-    // Our pack, compiled before that, arrives late.
-    let ours = reload_move_tables_from(
-        app.world_mut(),
-        &pack_of(&doc_text(0.35)).expect("compiles"),
-        Some(compiled_against),
-    );
-    assert_eq!(
-        ours,
-        MoveReload::Stale {
-            prepared_against: compiled_against.get(),
-            active: active.get(),
-        },
-        "a reload folded a pack onto a cast it never saw: {ours:?}"
-    );
-    assert_eq!(
-        app.world()
-            .resource::<PreparedCharacterRegistry>()
-            .generation(),
-        active,
-        "a stale reload moved the generation"
-    );
-    assert_eq!(
-        live_duration(&app),
-        published,
-        "the stale pack silently overwrote the publication it never saw"
-    );
-}
-
-/// ⭐ THE CONTROL. "Refused as stale" is also what a road that refuses every
-/// stamped reload reports. A pack compiled against the CURRENT cast still lands.
-#[test]
-fn a_pack_compiled_against_the_live_cast_still_lands() {
-    let mut app = host_with_a_live_cast();
-    let live = app
-        .world()
-        .resource::<PreparedCharacterRegistry>()
-        .generation();
-    let outcome = reload_move_tables_from(
-        app.world_mut(),
-        &pack_of(&doc_text(0.2)).expect("compiles"),
-        Some(live),
-    );
-    assert!(
-        matches!(outcome, MoveReload::Activated { changed: 1, .. }),
-        "an up-to-date reload was refused; got {outcome:?}"
-    );
-}
+// ⛔⛤ **THREE ARMS THAT WITNESSED THE CAST STALENESS CLOCK WERE DELETED ON
+// 2026-09-12** — `a_pack_compiled_against_an_older_cast_is_refused`, its control
+// `a_pack_compiled_against_the_live_cast_still_lands`, and
+// `a_stale_reload_does_not_become_the_apps_selection`. All three entered through
+// `reload_move_tables_from` / `reload_move_tables_selecting`, which are
+// `#[cfg(test)]`, and all three supplied a cast base by hand. MEASURED: no
+// production caller supplies one, and on the request road `admit_candidate`
+// refuses a stale base on the PACK fingerprint before anything is staged.
+//
+// ⇒ All three guarantees are carried by
+// `a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused`,
+// on the production road: it asserts the refusal names both fingerprints,
+// nothing was staged, THE SELECTION IS STILL THE OTHER PUBLICATION'S PACK, no
+// shell command was issued, and the same candidate re-based on the live
+// selection is accepted. It landed FIRST (`cbc92fa38`), before this deletion.
 
 /// ⛔⛔ **A REPUBLISHED CAST AND THE APP'S SELECTION MOVE TOGETHER.** Two
 /// authorities for "what content is this App running" is the thing App-scoped
@@ -497,7 +411,7 @@ fn an_activated_reload_becomes_the_apps_selection() {
     let mut app = host_with_a_live_cast();
     let fresh = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
     let outcome =
-        reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&fresh), None);
+        reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&fresh));
     assert!(
         matches!(outcome, MoveReload::Activated { .. }),
         "the premise: a reload that publishes; got {outcome:?}"
@@ -506,42 +420,6 @@ fn an_activated_reload_becomes_the_apps_selection() {
     assert!(
         std::ptr::eq(selected, std::sync::Arc::as_ref(&fresh)),
         "the cast was republished from a pack the App did not adopt"
-    );
-}
-
-/// ⛔ AND A REFUSED RELOAD LEAVES THE SELECTION WHERE IT WAS — otherwise the
-/// cast would be built from one pack while every later read answered from
-/// another.
-#[test]
-fn a_stale_reload_does_not_become_the_apps_selection() {
-    let mut app = host_with_a_live_cast();
-    let compiled_against = app
-        .world()
-        .resource::<PreparedCharacterRegistry>()
-        .generation();
-    let theirs = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
-    assert!(
-        matches!(
-            reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&theirs), None),
-            MoveReload::Activated { .. }
-        ),
-        "the premise: something published first"
-    );
-
-    let ours = std::sync::Arc::new(pack_of(&doc_text(0.35)).expect("compiles"));
-    let outcome = reload_move_tables_selecting(
-        app.world_mut(),
-        std::sync::Arc::clone(&ours),
-        Some(compiled_against),
-    );
-    assert!(
-        matches!(outcome, MoveReload::Stale { .. }),
-        "the premise: a refused reload; got {outcome:?}"
-    );
-    let selected = crate::pack::selected(app.world()).expect("a selection");
-    assert!(
-        std::ptr::eq(selected, std::sync::Arc::as_ref(&theirs)),
-        "a refused reload became the App's content anyway"
     );
 }
 
@@ -1229,9 +1107,7 @@ fn a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain() {
             ambition_content_pack::CandidateGeneration::prepared_against(
                 std::sync::Arc::clone(&twin),
                 Some(live.fingerprint),
-            ),
-            None,
-        );
+            ));
         assert!(
             matches!(outcome, MoveReload::Unchanged { .. }),
             "a candidate mechanically identical to what is live is the complete \
@@ -1274,9 +1150,7 @@ fn a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain() {
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::clone(&candidate),
             Some(live.fingerprint),
-        ),
-        None,
-    );
+        ));
 
     match &outcome {
         MoveReload::RefusedUnsupportedChangedDomain(domains) => assert!(
@@ -1347,9 +1221,7 @@ fn a_candidate_that_changes_only_moves_still_publishes() {
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::clone(&candidate),
             Some(live.fingerprint),
-        ),
-        None,
-    );
+        ));
     assert!(
         matches!(outcome, MoveReload::Activated { .. }),
         "a moves-only candidate was not published; got {outcome:?}"
@@ -1393,9 +1265,7 @@ fn host_with_authority(authority: Option<ActiveRollbackAuthority>) -> (bevy::app
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     let published = live_duration(&app);
     if let Some(authority) = authority {
         app.world_mut().insert_resource(authority);
@@ -1418,7 +1288,7 @@ fn a_publishable_candidate() -> ambition_content_pack::CandidateGeneration {
 #[test]
 fn with_no_rollback_authority_the_same_candidate_publishes() {
     let (mut app, before) = host_with_authority(None);
-    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate());
     assert!(
         matches!(outcome, MoveReload::Activated { .. }),
         "the control did not publish: {outcome:?}"
@@ -1438,7 +1308,7 @@ fn a_candidate_is_refused_while_a_rollback_timeline_is_live() {
         .resource::<PreparedCharacterRegistry>()
         .generation();
 
-    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate());
     assert_eq!(
         outcome,
         MoveReload::RefusedDuringLiveTimeline,
@@ -1485,7 +1355,7 @@ fn publishing_does_not_heal_an_unhealthy_rollback_authority() {
         "the premise: the authority starts UNHEALTHY"
     );
 
-    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate());
     match &outcome {
         MoveReload::RefusedWhileRollbackUnhealthy(why) => assert!(
             why.contains("deliberate desync"),
@@ -1516,7 +1386,7 @@ fn a_stood_down_timeline_does_not_refuse() {
     let mut authority = live_authority();
     authority.stand_down_timeline();
     let (mut app, before) = host_with_authority(Some(authority));
-    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate(), None);
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate());
     assert!(
         matches!(outcome, MoveReload::Activated { .. }),
         "a stood-down timeline refused a publication: {outcome:?}"
@@ -1540,9 +1410,7 @@ fn a_candidate_refused_at_admission_leaves_every_published_fact_alone() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     let selection = crate::pack::selected(app.world())
         .expect("a selection")
         .fingerprint;
@@ -1571,9 +1439,7 @@ fn a_candidate_refused_at_admission_leaves_every_published_fact_alone() {
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::new(pack),
             None,
-        ),
-        None,
-    );
+        ));
     match &outcome {
         MoveReload::Refused(refusals) => assert!(
             refusals.iter().any(|r| r.contains("nothing.installed")),
@@ -1733,9 +1599,7 @@ fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     let generation = app
         .world()
@@ -1785,7 +1649,7 @@ fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
 fn an_unchanged_candidate_requests_nothing() {
     let mut app = host_with_a_live_cast();
     let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
-    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack));
     shell_active_on(&mut app, true);
 
     let outcome = request_reload(
@@ -1855,9 +1719,7 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2152,9 +2014,7 @@ fn no_change_to_the_technique_table_after_the_request_can_refuse_the_commit() {
         let mut app = host_with_a_live_cast();
         let _ = reload_move_tables_selecting(
             app.world_mut(),
-            std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-            None,
-        );
+            std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
         shell_active_on(&mut app, true);
         app.add_systems(
         bevy::app::Update,
@@ -2230,9 +2090,7 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2332,9 +2190,7 @@ fn a_second_request_is_refused_while_a_generation_is_pending() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     assert!(matches!(
         request_reload(app.world_mut(), a_publishable_candidate()),
@@ -2379,9 +2235,7 @@ fn a_composition_with_no_technique_table_refuses_the_request() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.world_mut()
         .remove_resource::<ambition_combat::technique::InstalledTechniques>();
@@ -2415,9 +2269,7 @@ fn an_activation_of_another_transaction_cannot_publish_a_pending_reload() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2473,9 +2325,7 @@ fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2550,9 +2400,7 @@ fn an_unrelated_rejection_while_our_own_load_is_pending_keeps_the_reload() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2623,9 +2471,7 @@ fn a_superseded_reload_is_told_and_stops_refusing_later_requests() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2682,19 +2528,22 @@ fn reload_adopted_the_pending_load(app: &bevy::app::App, load: &str) -> bool {
 
 /// ⛔⛔ **THE PRODUCTION ROAD'S STALENESS REFUSAL HAD NO WITNESS AT ALL.**
 ///
-/// MEASURED 2026-09-12 at HEAD: `git grep StaleGeneration` returns exactly two
-/// hits, both in `reload.rs` — the variant's declaration and the one place
-/// `admit_candidate` returns it. Zero tests. Meanwhile `MoveReload::Stale`, the
-/// CAST clock's refusal, has two witnesses — and both of them go through
-/// `reload_move_tables_from` / `reload_move_tables_selecting`, which are
+/// MEASURED 2026-09-12 at `647971bf1`: `git grep StaleGeneration` returned
+/// exactly two hits, both in `reload.rs` — the variant's declaration and the one
+/// place `admit_candidate` returns it. **Zero tests.** Meanwhile the CAST
+/// clock's refusal (`MoveReload::Stale`, since DELETED) had two witnesses here
+/// and two more in `ambition_characters::prepared_tests`, and every one of them
+/// entered through `reload_move_tables_from` /
+/// `reload_move_tables_selecting` / `activate_staged_revision` — all
 /// `#[cfg(test)]`.
 ///
-/// ⇒ **THE TESTED REFUSAL IS THE ONE THAT CANNOT FIRE IN PRODUCTION AND THE
+/// ⇒ **THE TESTED REFUSAL WAS THE ONE THAT COULD NOT FIRE IN PRODUCTION AND THE
 /// REACHABLE ONE WAS UNTESTED.** On the request road `admit_candidate` runs
 /// FIRST, so a candidate whose base no longer matches the selection is refused
 /// before anything is staged; the cast stamp that would have said the same thing
-/// is read from the live world one line before it is compared, and can therefore
-/// never disagree.
+/// was read from the live world one line before it was compared, and could
+/// therefore never disagree. **This arm is what the cast clock's deletion rests
+/// on, and it landed first for that reason.**
 ///
 /// ⚠ THE SEQUENCE IS THE ONE A WATCHER ACTUALLY PRODUCES: read the live
 /// identity, do file I/O, come back late. Compiling a pack is not instant and a
@@ -2704,9 +2553,7 @@ fn a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2724,9 +2571,7 @@ fn a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused() {
         matches!(
             reload_move_tables_selecting(
                 app.world_mut(),
-                std::sync::Arc::clone(&theirs),
-                None
-            ),
+                std::sync::Arc::clone(&theirs)),
             MoveReload::Activated { .. }
         ),
         "the premise: the selection actually moved under us"
@@ -2819,9 +2664,7 @@ fn a_request_that_fails_discards_its_staged_revision() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -2918,9 +2761,7 @@ fn the_same_registration_runs_once_the_shell_is_present() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     crate::reload::register(&mut app);
     let before = live_duration(&app);
@@ -2952,7 +2793,7 @@ fn the_same_registration_runs_once_the_shell_is_present() {
 fn a_complete_no_op_under_a_live_timeline_is_unchanged_not_refused() {
     let mut app = host_with_a_live_cast();
     let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
-    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack));
     app.world_mut().insert_resource(live_authority());
     let generation = app
         .world()
@@ -2964,9 +2805,7 @@ fn a_complete_no_op_under_a_live_timeline_is_unchanged_not_refused() {
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::clone(&pack),
             None,
-        ),
-        None,
-    );
+        ));
     assert!(
         matches!(outcome, MoveReload::Unchanged { .. }),
         "a no-op was refused for a timeline it could not have disturbed: {outcome:?}"
@@ -2987,9 +2826,7 @@ fn a_complete_no_op_under_a_live_timeline_is_unchanged_not_refused() {
         ambition_content_pack::CandidateGeneration::prepared_against(
             std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles")),
             None,
-        ),
-        None,
-    );
+        ));
     assert_eq!(
         changed,
         MoveReload::RefusedDuringLiveTimeline,
@@ -3002,7 +2839,7 @@ fn a_complete_no_op_under_a_live_timeline_is_unchanged_not_refused() {
 fn a_complete_no_op_under_a_live_timeline_requests_nothing_rather_than_refusing() {
     let mut app = host_with_a_live_cast();
     let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
-    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack));
     shell_active_on(&mut app, true);
     app.world_mut().insert_resource(live_authority());
 
@@ -3037,7 +2874,7 @@ fn a_complete_no_op_under_a_live_timeline_requests_nothing_rather_than_refusing(
 fn a_failed_preparation_does_not_leave_the_candidate_selected_or_silently_unchanged() {
     let mut app = host_with_a_live_cast();
     let live = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
-    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&live), None);
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&live));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -3119,9 +2956,7 @@ fn a_successful_activation_promotes_the_pending_candidate() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -3172,9 +3007,7 @@ fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     let selection = crate::pack::selected(app.world())
         .expect("a selection")
@@ -3744,9 +3577,7 @@ fn a_same_route_transaction_from_another_caller_is_not_adopted() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
@@ -3839,9 +3670,7 @@ fn an_uncorrelated_transaction_is_not_adopted_either() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
-        None,
-    );
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,

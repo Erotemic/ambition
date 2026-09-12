@@ -282,16 +282,18 @@ pub fn publish_candidate(
     candidate: ambition_content_pack::CandidateGeneration,
     cast_base: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
-    // ⛔ THE BOUNDARY IS ASKED BEFORE ANYTHING IS READ OR STAGED. A publication
-    // that is not legal now must leave the world exactly as it found it, and the
-    // cheapest way to guarantee that is to answer the question first.
-    match publication_boundary(world) {
-        PublicationBoundary::Legal => {}
-        PublicationBoundary::LiveTimeline => return MoveReload::RefusedDuringLiveTimeline,
-        PublicationBoundary::Unhealthy(reason) => {
-            return MoveReload::RefusedWhileRollbackUnhealthy(reason)
-        }
-    }
+    // ⛔⛤ **THE VERDICT COMES FIRST, AND THE OTHER ORDER WAS A DEFECT.** I asked
+    // the publication boundary before asking whether there was anything to
+    // publish, so a mechanically identical candidate arriving during a HEALTHY
+    // live rollback timeline reported `RefusedDuringLiveTimeline` instead of
+    // `Unchanged`. A complete no-op publishes nothing, allocates nothing,
+    // reconstructs nothing and cannot invalidate a timeline — refusing it says
+    // the reload failed when in truth there was nothing to do, and a watcher
+    // firing on every SAVE makes that the common case.
+    //
+    // ⇒ Only `Publish` needs the boundary's permission. `Stale` does not either:
+    // it is a refusal about the candidate's own base, true whatever the timeline
+    // is doing.
     let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
     match candidate.verdict(active) {
         ambition_content_pack::CandidateVerdict::Stale {
@@ -312,6 +314,13 @@ pub fn publish_candidate(
             MoveReload::Unchanged { generation }
         }
         ambition_content_pack::CandidateVerdict::Publish { .. } => {
+            match publication_boundary(world) {
+                PublicationBoundary::Legal => {}
+                PublicationBoundary::LiveTimeline => return MoveReload::RefusedDuringLiveTimeline,
+                PublicationBoundary::Unhealthy(reason) => {
+                    return MoveReload::RefusedWhileRollbackUnhealthy(reason)
+                }
+            }
             let pack = candidate.into_pack();
             let outcome = reload_move_tables_from(world, &pack, cast_base);
             // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A
@@ -446,16 +455,10 @@ pub fn request_reload(
 ) -> ReloadRequest {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
 
-    match publication_boundary(world) {
-        PublicationBoundary::Legal => {}
-        PublicationBoundary::LiveTimeline => {
-            return ReloadRequest::Refused(MoveReload::RefusedDuringLiveTimeline)
-        }
-        PublicationBoundary::Unhealthy(reason) => {
-            return ReloadRequest::Refused(MoveReload::RefusedWhileRollbackUnhealthy(reason))
-        }
-    }
-
+    // ⛔⛤ **THE VERDICT COMES FIRST — see `publish_candidate` for why.** Asking the
+    // publication boundary before asking whether anything changed reported a
+    // complete no-op as a rollback refusal, and a watcher firing on every SAVE
+    // makes the no-op the common case.
     let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
     match candidate.verdict(active) {
         ambition_content_pack::CandidateVerdict::Stale {
@@ -471,6 +474,16 @@ pub fn request_reload(
             return ReloadRequest::Unchanged
         }
         ambition_content_pack::CandidateVerdict::Publish { .. } => {}
+    }
+
+    match publication_boundary(world) {
+        PublicationBoundary::Legal => {}
+        PublicationBoundary::LiveTimeline => {
+            return ReloadRequest::Refused(MoveReload::RefusedDuringLiveTimeline)
+        }
+        PublicationBoundary::Unhealthy(reason) => {
+            return ReloadRequest::Refused(MoveReload::RefusedWhileRollbackUnhealthy(reason))
+        }
     }
 
     let Some(route) = world
@@ -516,7 +529,12 @@ pub fn request_reload(
             ));
         }
     }
-    crate::pack::install_selection(world, pack);
+    // ⛔⛤ **STAGED AS PENDING, NOT INSTALLED AS THE SELECTION.** Installing it
+    // here is what let a FAILED preparation leave the App selecting a pack whose
+    // cast it never built — after which the next save of the same file compared
+    // against that selection, reported `Unchanged`, and requested nothing. The
+    // game stayed split for the session while the reload said all was well.
+    crate::pack::stage_pending_pack(world, pack);
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
     // otherwise walk back through three copies of the room they are standing in.
@@ -583,6 +601,10 @@ pub fn publish_staged_reload_on_activation(
                     else {
                         return;
                     };
+                    // ⛔ THE PENDING CANDIDATE BECOMES THE SELECTION HERE, at
+                    // the same boundary the cast's half publishes and the shell's
+                    // activation publishes the engine's.
+                    crate::pack::promote_pending(world);
                     match activate_staged_revision(world, &support) {
                         RevisionOutcome::NothingStaged => {}
                         RevisionOutcome::Refused { refusals } => {
@@ -613,9 +635,16 @@ pub fn publish_staged_reload_on_activation(
 
 /// Throw away a staged cast revision whose preparation never activated.
 fn discard_staged_reload(world: &mut bevy::ecs::world::World) {
+    // ⛔⛤ **THE PENDING PACK GOES WITH IT, AND THAT HALF WAS MISSING.** Discarding
+    // only the cast revision left the App selecting a candidate whose cast it
+    // never built, and the next identical save then compared against that
+    // selection, reported `Unchanged` and requested nothing — the game split for
+    // the rest of the session while the reload said all was well.
+    let had_pending = crate::pack::discard_pending(world);
     if world
         .remove_resource::<ambition_characters::prepared::StagedCastRevision>()
         .is_some()
+        || had_pending
     {
         bevy::log::warn!(
             "a requested reload did not activate, so its staged cast revision was \

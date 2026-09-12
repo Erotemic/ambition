@@ -1684,3 +1684,212 @@ fn the_same_registration_runs_once_the_shell_is_present() {
         "the gated registration never let the system run"
     );
 }
+
+/// ⛔⛤ **A COMPLETE NO-OP UNDER A HEALTHY LIVE ROLLBACK TIMELINE IS `Unchanged`,
+/// NOT A ROLLBACK REFUSAL — AND IT WAS THE REFUSAL.**
+///
+/// I asked the publication boundary before asking whether there was anything to
+/// publish. A mechanically identical candidate publishes nothing, allocates
+/// nothing, reconstructs nothing and CANNOT invalidate a timeline; reporting it
+/// as `RefusedDuringLiveTimeline` says the reload failed when in truth there was
+/// nothing to do. A watcher fires on every SAVE, so that was the common case.
+#[test]
+fn a_complete_no_op_under_a_live_timeline_is_unchanged_not_refused() {
+    let mut app = host_with_a_live_cast();
+    let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    app.world_mut().insert_resource(live_authority());
+    let generation = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+
+    let outcome = publish_candidate(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&pack),
+            None,
+        ),
+        None,
+    );
+    assert!(
+        matches!(outcome, MoveReload::Unchanged { .. }),
+        "a no-op was refused for a timeline it could not have disturbed: {outcome:?}"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .generation(),
+        generation,
+        "the no-op moved the cast generation"
+    );
+
+    // ⭐ THE CONTROL: a CHANGED candidate under the same timeline is still
+    // refused, so this is about the verdict's ORDER and not about the boundary
+    // being gone.
+    let changed = publish_candidate(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles")),
+            None,
+        ),
+        None,
+    );
+    assert_eq!(
+        changed,
+        MoveReload::RefusedDuringLiveTimeline,
+        "got {changed:?}"
+    );
+}
+
+/// ⛔ AND THE SAME ON THE REQUEST ROAD.
+#[test]
+fn a_complete_no_op_under_a_live_timeline_requests_nothing_rather_than_refusing() {
+    let mut app = host_with_a_live_cast();
+    let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    shell_active_on(&mut app, true);
+    app.world_mut().insert_resource(live_authority());
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(pack, None),
+    );
+    assert_eq!(outcome, ReloadRequest::Unchanged, "got {outcome:?}");
+    assert!(issued_commands(&mut app).is_empty());
+}
+
+/// ⛔⛔ **A FAILED PREPARATION MUST NOT LEAVE THE CANDIDATE SELECTED — AND IT DID,
+/// WITH A SILENT PERMANENT SPLIT AS THE CONSEQUENCE.**
+///
+/// ```text
+/// N is live
+/// request N+1        -> SelectedContentPack became N+1
+/// preparation fails  -> cast and session stay N, selection stays N+1
+/// save N+1 again     -> the verdict compares against the SELECTION, reports
+///                       Unchanged, and requests nothing
+/// ```
+///
+/// The game stayed split for the rest of the session while the reload machinery
+/// told the developer nothing had changed. ⇒ The candidate is PENDING until the
+/// activation promotes it; a failure discards it and puts the engine's identity
+/// back to the pack that is actually live.
+///
+/// ⚠ THE FOURTH ASSERTION IS THE ONE THAT MATTERS. The first three would all hold
+/// under a fix that merely restored the selection; only re-submitting the SAME
+/// candidate proves the machinery has not been taught to lie about it.
+#[test]
+fn a_failed_preparation_does_not_leave_the_candidate_selected_or_silently_unchanged() {
+    let mut app = host_with_a_live_cast();
+    let live = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&live), None);
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let selected = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+
+    let candidate = std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles"));
+    assert_ne!(candidate.fingerprint, selected, "the premise: it differs");
+    assert!(matches!(
+        request_reload(
+            app.world_mut(),
+            ambition_content_pack::CandidateGeneration::prepared_against(
+                std::sync::Arc::clone(&candidate),
+                None
+            ),
+        ),
+        ReloadRequest::Requested { .. }
+    ));
+    // ⛔ NOT SELECTED YET, even though preparation must be able to read it.
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selected,
+        "the request installed the candidate as the App's selection"
+    );
+
+    // The preparation fails instead of activating.
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::ExperienceFailed {
+            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
+            message: "the fixture's preparation failed".to_string(),
+        },
+    );
+    app.update();
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selected,
+        "a failed preparation left the candidate selected"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "a failed preparation left the candidate pending"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+            .0,
+        format!("{} {} {}", live.id, live.version, live.fingerprint),
+        "a failed preparation left the ENGINE fingerprinting against a pack this \
+         App does not have"
+    );
+
+    // ⛔⛔ THE ASSERTION THE WHOLE TEST IS FOR: the same candidate, submitted
+    // again, must still be a change.
+    let again = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(candidate, None),
+    );
+    assert!(
+        matches!(again, ReloadRequest::Requested { .. }),
+        "re-submitting the candidate after a failed preparation reported \
+         {again:?} — the developer is told nothing changed while the game is split"
+    );
+}
+
+/// ⭐ THE CONTROL: a SUCCESSFUL activation does promote the pending candidate, or
+/// "not selected yet" is satisfied by a road that never selects anything.
+#[test]
+fn a_successful_activation_promotes_the_pending_candidate() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let before = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("active");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_ne!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        before,
+        "the activation did not promote the pending candidate"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "the candidate is still pending after it was promoted"
+    );
+}

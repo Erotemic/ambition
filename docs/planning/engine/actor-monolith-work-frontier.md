@@ -810,6 +810,61 @@ A same-World or separate-World strategy needs its own complete visibility/transf
 proof. Prefer typed inactive drafts first. General unsafe-plugin recovery and
 arbitrary save/schema migration are outside this bounded packet.
 
+### ✅ UNBLOCKED (`Q113` RULED YES) — AND STEP 1'S INVENTORY IS DELIVERED, 2026-09-12
+
+**The isolation problem is MUCH smaller than the paragraph above implies, and the
+difference is four measurements rather than an argument.**
+
+**1. ⭐⭐ THE ENGINE SHIPS THE QUERY-ISOLATION PRIMITIVE AND THIS REPO DOES NOT USE
+IT.** `bevy_ecs 0.19.1` has `entity_disabling`: `World::register_disabling_component::<T>()`
+installs `T` into a global `DefaultQueryFilters`, and **every query that does not
+NAME `T` stops seeing those entities** — engine-enforced, not a convention.
+Bevy's own doc example calls the custom component `Prefab`. Entities keep their
+place in the `World` and *"their relationships remain intact"*, and
+`EntityCommands::insert_recursive` disables a whole tree at once. ⇒ *"A `Pending`
+marker does not isolate a candidate from queries"* is true of a MARKER and false
+of a **registered disabling component**, which is a different mechanism with the
+same shape. Measured: zero uses in this workspace (the `Disabled` hits are
+`ambition_asset_manager`'s unrelated asset-location enum).
+
+**2. ✅ COMPONENT HOOKS: ZERO IN THE WORKSPACE.** No `on_add`/`on_insert`/
+`on_remove`/`on_replace` component hook is declared anywhere. The packet's hook
+warning is, at HEAD, a warning about an empty set.
+
+**3. ✅ LIFECYCLE OBSERVERS: THREE, AND ONLY ONE IS AN `Add`.**
+`ambition_combat/src/stocks.rs:101` (`Remove, RespawnGrace`),
+`actor_monolith/src/features/empowerment.rs:311` (`Remove`), and
+`ambition_touch_input/src/placement.rs:161` (`Add`) — the last is a touch surface
+and is not on the construction road. The other 81 observer registrations are
+keyed on pointer, dialog and custom domain events, which construction does not
+emit. ⛔ **THE QUERY THAT FOUND THESE IS RECORDED BECAUSE MY FIRST ONE MISSED A
+THIRD OF THEM**: `On<Remove` matches nothing when the trigger is written
+`On<bevy::ecs::lifecycle::Remove, …>`. Use
+`On<[a-z:]*\(Add\|Insert\|Remove\|Replace\|Despawn\)\b`.
+
+**4. ✅ RECIPES CANNOT WRITE RESOURCES, STRUCTURALLY AND IN FACT.**
+`ConstructionExecCtx` hands a recipe `{ commands, scope, session, services }` —
+no `World`, no `ResMut` — and measured across all NINE recipes
+(`authored-ground-item`, `staged-actor`, `summoned-minion`, `giant-host`,
+`giant-hand`, `authored-enemy`, `authored-placement`, `authored-shrine`,
+`authored-boss`) there is not one `insert_resource`/`init_resource`. ⚠ `Commands`
+COULD carry one, so this is a population fact rather than a boundary — if A10
+wants it to be a boundary, that is a small, nameable guard.
+
+⭐ **AND THE EXECUTOR IS ALREADY CONSTRAINED IN THE DIRECTION THE PACKET WANTS.**
+`ConstructFn` *"cannot choose the entity, return a different one, or hand back
+something that was already alive"* — the executor mints the `ConstructionRoot` —
+and **it cannot fail: it returns nothing.** So "the materializer cannot discover
+new fallible IO or domain requirements after that boundary" is already true of
+the recipe half; what is unproven is the PLAN half above it.
+
+⇒ **WHAT THIS LEAVES AS THE REAL WORK**, which is now a design rather than a
+discovery: mint candidate roots carrying a registered disabling component, prove
+the three lifecycle observers are either unreached or explicitly tolerant, keep
+the validation between construction and publication, and make retirement of the
+old world explicit. **The visibility proof the packet demands is enumerable now
+rather than open-ended.**
+
 ## A11. Make installed technique support a preparation contract
 
 **Ready:** A11a support/handler and preparation tests, independent of A1-A10.

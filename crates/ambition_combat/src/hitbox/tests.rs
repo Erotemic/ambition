@@ -1596,6 +1596,73 @@ mod ruleset_knockback_growth {
         assert_eq!(launch(Some(2.0), 0.01, 100), 120.0 + 200.0);
     }
 
+    /// ⭐⭐ RAGE MOVES A 0% VICTIM. THE PERCENT SCALE AND STALING CANNOT.
+    ///
+    /// This is the whole shape of the split this seam introduced, and it is the
+    /// one property no other test pins: `rage` multiplies the RESOLVED launch —
+    /// `base + growth` together — while `victim_percent_knockback_scale` and
+    /// `knockback_stale_scale` are folded into the growth term alone, where a
+    /// fresh victim's zero already annihilates them.
+    ///
+    /// ⛔ IT IS ASSERTED AT 0% ON PURPOSE. At any other percent all three
+    /// multipliers move the number in the same direction and a test cannot tell
+    /// which one it is reading. Zero is the only place the question has a
+    /// distinct answer: whatever still moves the launch there is touching the
+    /// base, and nothing that rides the percent term is allowed to.
+    #[test]
+    fn rage_rides_the_whole_launch_where_percent_and_staling_ride_only_its_growth() {
+        // A fresh victim under a ruleset that DOES declare growth: the term is
+        // zero because the victim's percent is, not because nothing is declared.
+        assert_eq!(launch_at_scale(None, 0.01, 0, 1.0), 120.0);
+
+        // ⇒ No percent scale can move it. If one ever does, it is scaling the
+        // base and every poke in the game becomes lethal.
+        for scale in [0.0, 0.5, 4.0, 100.0] {
+            assert_eq!(
+                launch_at_scale(None, 0.01, 0, scale),
+                120.0,
+                "a percent scale of {scale} moved a 0% launch"
+            );
+        }
+
+        // ⇒ Nor can staling, which reaches the launch through that same term.
+        let stale = crate::rules::ResolvedCombatTuning {
+            stale_knockback_influence: 0.30,
+            ..Default::default()
+        };
+        let stale_growth_scale = stale.knockback_stale_scale(0.55);
+        assert!(
+            (stale_growth_scale - 0.865).abs() < 1e-6,
+            "the worked example in `knockback_stale_scale` moved: {stale_growth_scale}"
+        );
+        assert_eq!(
+            launch_at_scale(None, 0.01, 0, stale_growth_scale),
+            120.0,
+            "a fully stale move lost base launch against a FRESH victim — that is \
+             the bug this split exists to fix, reappearing"
+        );
+
+        // ⛔ AND RAGE IS THE EXCEPTION, DELIBERATELY. A hurt attacker hits harder
+        // with the base as well; the mechanic was never a percent decomposition.
+        let raging = crate::rules::ResolvedCombatTuning {
+            rage_per_damage: 0.01,
+            rage_max_scale: 2.0,
+            ..Default::default()
+        };
+        let rage = raging.rage_scale(50);
+        assert_eq!(rage, 1.5, "the rage fixture itself drifted");
+        match HitKnockbackMagnitude::LaunchSpeed(launch_at_scale(None, 0.01, 0, 1.0))
+            .scaled(rage)
+        {
+            HitKnockbackMagnitude::LaunchSpeed(speed) => assert_eq!(
+                speed, 180.0,
+                "rage did not reach the BASE of a 0% launch — if it is folded into \
+                 the percent term it silently stops existing against fresh victims"
+            ),
+            other => panic!("a launch speed must resolve to one: {other:?}"),
+        }
+    }
+
     /// weight still divides, and it must keep doing so through the new path —
     /// a heavy body is the reason growth is per-victim rather than per-hit.
     #[test]

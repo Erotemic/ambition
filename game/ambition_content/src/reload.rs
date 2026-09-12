@@ -647,10 +647,44 @@ pub fn request_reload(
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
     // otherwise walk back through three copies of the room they are standing in.
+    world.insert_resource(PendingReloadTransaction {
+        load_id: None,
+        route: route.as_str().to_string(),
+    });
     world.write_message(ShellCommand::ReplaceWith(route.clone()));
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
     }
+}
+
+/// Which shell transaction a pending reload belongs to.
+///
+/// ⛔⛤ **`RouteActivated(_)` WAS A WILDCARD, SO ANY ACTIVATION PUBLISHED A
+/// PENDING RELOAD AND ANY FAILURE DISCARDED ONE.** An unrelated navigation or a
+/// retry of something else could land, or bin, a generation it had nothing to do
+/// with. The two halves were said to share a boundary with no identity proving
+/// they belonged to the same transaction.
+///
+/// ⛔ **AND A ROUTE NAME IS NOT THAT IDENTITY**, because two generations can
+/// target one route — which is exactly what a reload does.
+///
+/// ⭐⭐ **THE KEY IS THE BARRIER'S `LoadId`, AND IT IS THE ONLY THING PRESENT AT
+/// BOTH ENDS.** MEASURED 2026-09-11: the router mints it inside `start_route` as
+/// `shell.{route}.{counter}`, so it distinguishes two generations of one route;
+/// `next_load_transaction` is PRIVATE and the mint happens in a later system
+/// than the request, so a requester can neither read nor predict it. ⇒ This is a
+/// CORRELATION adopted from `PreparationRequested` — the first moment the
+/// identity exists and is observable — not a stamp taken at request time.
+///
+/// ⚠ `ShellActivationId` IS NOT A CANDIDATE: it is minted inside `activate`,
+/// strictly after everything, and is only ever an output.
+#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
+pub struct PendingReloadTransaction {
+    /// `None` until the router mints the transaction this reload asked for.
+    pub load_id: Option<ambition_platformer2d::load::LoadId>,
+    /// The route the request named, for the diagnostic and for adopting the
+    /// right `PreparationRequested` when several are in flight.
+    pub route: String,
 }
 
 /// Install the reload transaction's publication half.
@@ -702,8 +736,36 @@ pub fn publish_staged_reload_on_activation(
     use ambition_platformer2d::game_shell::ShellEvent;
     for event in events.read() {
         match event {
-            ShellEvent::RouteActivated(_) => {
-                commands.queue(|world: &mut bevy::ecs::world::World| {
+            // ⭐⭐ **ADOPT THE TRANSACTION THE ROUTER JUST MINTED.** This is the
+            // first moment the identity exists and is observable, and the only
+            // one before the activation that carries it. A pending reload with
+            // no adopted id yet takes the first request for ITS route.
+            ShellEvent::PreparationRequested(transaction) => {
+                let route = transaction.route_id.as_str().to_string();
+                let load_id = transaction.barrier.load_id.clone();
+                commands.queue(move |world: &mut bevy::ecs::world::World| {
+                    if let Some(mut pending) = world.get_resource_mut::<PendingReloadTransaction>()
+                    {
+                        if pending.load_id.is_none() && pending.route == route {
+                            pending.load_id = Some(load_id);
+                        }
+                    }
+                });
+            }
+            ShellEvent::RouteActivated(active) => {
+                // ⛔ ONLY THE ACTIVATION OF THE TRANSACTION THIS RELOAD ASKED
+                // FOR. `load_authorization` is the barrier the router authorized
+                // this activation against; an unrelated route's activation
+                // carries a different one (or none) and must be irrelevant here.
+                let authorized = active
+                    .load_authorization
+                    .as_ref()
+                    .map(|barrier| barrier.load_id.clone());
+                commands.queue(move |world: &mut bevy::ecs::world::World| {
+                    if !reload_owns(world, authorized.as_ref()) {
+                        return;
+                    }
+                    world.remove_resource::<PendingReloadTransaction>();
                     let Some(support) = world
                         .get_resource::<ambition_combat::technique::InstalledTechniques>()
                         .map(|installed| installed.0.clone())
@@ -741,14 +803,65 @@ pub fn publish_staged_reload_on_activation(
             // ⛔ EVERY WAY THE REQUEST CAN END WITHOUT ACTIVATING, and they are
             // listed rather than caught by a wildcard: a new terminal event must
             // be a compile error here, not a staged revision nobody discards.
+            //
+            // ⛔⛤ **AND THIS HALF CANNOT BE CORRELATED THE WAY THE OTHER ONE IS,
+            // WHICH IS A FACT ABOUT THE SHELL'S EVENTS AND NOT A SHORTCUT.**
+            // MEASURED 2026-09-11: `CommandRejected::LoadFailed` and
+            // `LoadCommitRejected` carry NO barrier at all, and
+            // `ExperienceFailed` carries an activation id rather than one — so a
+            // `load_id`-stamped reload has nothing to match on for the two most
+            // likely REAL failures. Requiring a match would leak the pending
+            // generation forever, staged, with the next save comparing against
+            // it.
+            //
+            // ⇒ The router's own `pending` is the correlator instead: on a
+            // terminal barrier it sets `terminal_reported` and KEEPS the pending
+            // route, so at the moment a rejection is observed its `barrier` still
+            // names the load that failed. A reload discards only when that load
+            // is ITS load, or when nothing is pending at all.
             ShellEvent::ExperienceFailed { .. } | ShellEvent::CommandRejected(_) => {
-                commands.queue(discard_staged_reload);
+                commands.queue(|world: &mut bevy::ecs::world::World| {
+                    let failing = world
+                        .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
+                        .and_then(|router| router.pending.as_ref())
+                        .map(|pending| pending.barrier.load_id.clone());
+                    // ⚠ NOTHING PENDING means the shell is not waiting on any
+                    // transaction, so a reload waiting on one will never see it
+                    // activate — discard rather than leak.
+                    if failing.is_some() && !reload_owns(world, failing.as_ref()) {
+                        return;
+                    }
+                    world.remove_resource::<PendingReloadTransaction>();
+                    discard_staged_reload(world);
+                });
             }
-            ShellEvent::PreparationRequested(_)
-            | ShellEvent::WaitingForLoad { .. }
+            ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
             | ShellEvent::ExitRequested => {}
         }
+    }
+}
+
+/// Does the pending reload own the transaction `load_id` names?
+///
+/// ⚠ **AN UNADOPTED PENDING RELOAD OWNS NOTHING YET.** Between the request and
+/// the router's `PreparationRequested`, a reload has no id to compare — so an
+/// activation arriving in that window belongs to something else and must be
+/// ignored rather than allowed to publish it.
+///
+/// ⚠ AND A WORLD WITH NO PENDING RELOAD OWNS NOTHING EITHER, which is what makes
+/// `publish_candidate`'s direct road and this one able to share a system without
+/// stealing each other's boundaries.
+fn reload_owns(
+    world: &bevy::ecs::world::World,
+    load_id: Option<&ambition_platformer2d::load::LoadId>,
+) -> bool {
+    let Some(pending) = world.get_resource::<PendingReloadTransaction>() else {
+        return false;
+    };
+    match (&pending.load_id, load_id) {
+        (Some(mine), Some(theirs)) => mine == theirs,
+        _ => false,
     }
 }
 

@@ -1446,8 +1446,8 @@ fn a_candidate_refused_at_admission_leaves_every_published_fact_alone() {
 // ---------------------------------------------------------------------------
 
 use ambition_platformer2d::game_shell::{
-    ProviderPreparationPlan, ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouteSpec,
-    ShellRouter,
+    ActiveShellExperience, ProviderPreparationPlan, ShellCommand, ShellRouteCatalog, ShellRouteId,
+    ShellRouteSpec, ShellRouter,
 };
 
 fn shell_active_on(app: &mut bevy::app::App, prepares: bool) {
@@ -1474,6 +1474,41 @@ fn shell_active_on(app: &mut bevy::app::App, prepares: bool) {
     app.world_mut().insert_resource(router);
     app.add_message::<ShellCommand>();
     app.add_message::<ambition_platformer2d::game_shell::ShellEvent>();
+}
+
+/// Play the two shell events ONE re-preparation produces, and hand back the
+/// activation that transaction authorizes.
+///
+/// ⛔⛤ **THE FIXTURE HAS TO MINT THE LOAD BECAUSE THE REQUESTER CANNOT.**
+/// MEASURED 2026-09-11: `ShellRouter::next_load_transaction` is private, the id
+/// is minted in a LATER system, and `ShellCommand::ReplaceWith` carries no slot
+/// to put a correlator in — so a reload learns which transaction is its own only
+/// by ADOPTING the one the router announces. A fixture that skipped
+/// `PreparationRequested` and re-used the already-active experience was testing
+/// "any activation publishes", which is exactly the defect.
+fn a_preparation_for(app: &mut bevy::app::App, load: &str) -> ActiveShellExperience {
+    let barrier = ambition_platformer2d::load::LoadBarrierRef::new(
+        ambition_platformer2d::load::LoadId::new(load),
+        ambition_platformer2d::load::LoadBarrierId::new("publish"),
+    );
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::PreparationRequested(
+            ambition_platformer2d::game_shell::ProviderLoadTransaction {
+                route_id: ShellRouteId::new("game"),
+                experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new("fixture"),
+                barrier: barrier.clone(),
+            },
+        ),
+    );
+    app.update();
+    let mut active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("the fixture is active on a route");
+    active.load_authorization = Some(barrier);
+    active
 }
 
 fn issued_commands(app: &mut bevy::app::App) -> Vec<ShellCommand> {
@@ -1627,13 +1662,8 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
         "the request published the cast on the spot instead of staging it"
     );
 
-    // The shell activates the route the request asked for.
-    let active = app
-        .world()
-        .resource::<ShellRouter>()
-        .active
-        .clone()
-        .expect("the fixture is active on a route");
+    // The shell announces the transaction, then activates it.
+    let active = a_preparation_for(&mut app, "shell.game.1");
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
     app.update();
@@ -1643,6 +1673,123 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
         before,
         "the route activated and the staged cast revision did not publish"
     );
+}
+
+/// ⛔⛔ **AN ACTIVATION THIS RELOAD DID NOT ASK FOR CANNOT PUBLISH IT.**
+///
+/// ⛤ **AND BOTH TRANSACTIONS TARGET THE SAME ROUTE, WHICH IS THE WHOLE POINT.**
+/// A route name cannot separate them — `ReplaceWith("game")` issued twice, a
+/// retry after a failure, a navigation back to a route a reload is waiting on:
+/// every one of those produces a second `game` activation, and under a
+/// name comparison the FIRST of them publishes content that was staged for the
+/// second. The load id the router minted is the only thing that differs.
+#[test]
+fn an_activation_of_another_transaction_cannot_publish_a_pending_reload() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    // The reload adopts the transaction the router announces for it.
+    let mine = a_preparation_for(&mut app, "shell.game.7");
+
+    // ⛔ A DIFFERENT TRANSACTION, SAME ROUTE, ACTIVATES FIRST.
+    let mut theirs = mine.clone();
+    theirs.load_authorization = Some(ambition_platformer2d::load::LoadBarrierRef::new(
+        ambition_platformer2d::load::LoadId::new("shell.game.8"),
+        ambition_platformer2d::load::LoadBarrierId::new("publish"),
+    ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(theirs));
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "another transaction's activation published a reload it did not own"
+    );
+
+    // ⭐ THE CONTROL: the reload's OWN activation still publishes, so the
+    // refusal above is a correlation and not a reload that simply never works.
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the reload's own activation did not publish it"
+    );
+}
+
+/// ⛔⛔ **AND A FAILURE OF ANOTHER TRANSACTION CANNOT DISCARD IT EITHER.**
+///
+/// ⚠ THIS HALF CORRELATES THROUGH THE ROUTER, NOT THE EVENT: measured
+/// 2026-09-11, `CommandRejected` carries no barrier at all. What it does have is
+/// a router still holding the `pending` route whose barrier failed, and that
+/// names the load.
+#[test]
+fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let mine = a_preparation_for(&mut app, "shell.game.7");
+
+    // ⛔ SOMEONE ELSE'S TRANSACTION IS THE ONE THE ROUTER IS WAITING ON, AND IT
+    // FAILS.
+    app.world_mut().resource_mut::<ShellRouter>().pending =
+        Some(ambition_platformer2d::game_shell::PendingShellRoute {
+            route_id: ShellRouteId::new("game"),
+            push_history: false,
+            barrier: ambient_barrier("shell.game.8"),
+            requires_prepared_session: true,
+            terminal_reported: true,
+        });
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::CommandRejected(
+            ambition_platformer2d::game_shell::ShellCommandRejection::LoadFailed {
+                readiness: ambition_platformer2d::load::BarrierReadiness::Failed,
+                failures: Vec::new(),
+            },
+        ),
+    );
+    app.update();
+
+    // ⭐ THE STAGED REVISION SURVIVED, and the proof is that its own activation
+    // still publishes it.
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "another transaction's failure discarded a reload it did not own"
+    );
+}
+
+fn ambient_barrier(load: &str) -> ambition_platformer2d::load::LoadBarrierRef {
+    ambition_platformer2d::load::LoadBarrierRef::new(
+        ambition_platformer2d::load::LoadId::new(load),
+        ambition_platformer2d::load::LoadBarrierId::new("publish"),
+    )
 }
 
 /// ⛔⛔ **A REQUEST THAT NEVER ACTIVATES DISCARDS ITS STAGED REVISION.** Left
@@ -1743,12 +1890,7 @@ fn the_same_registration_runs_once_the_shell_is_present() {
         request_reload(app.world_mut(), a_publishable_candidate()),
         ReloadRequest::Requested { .. }
     ));
-    let active = app
-        .world()
-        .resource::<ShellRouter>()
-        .active
-        .clone()
-        .expect("active");
+    let active = a_preparation_for(&mut app, "shell.game.1");
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
     app.update();
@@ -1945,12 +2087,7 @@ fn a_successful_activation_promotes_the_pending_candidate() {
         request_reload(app.world_mut(), a_publishable_candidate()),
         ReloadRequest::Requested { .. }
     ));
-    let active = app
-        .world()
-        .resource::<ShellRouter>()
-        .active
-        .clone()
-        .expect("active");
+    let active = a_preparation_for(&mut app, "shell.game.1");
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
     app.update();

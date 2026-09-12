@@ -2850,6 +2850,33 @@ while their clip DOES have a bone spec. Four exact matches to 0.05 px is not
 coincidence, so there is a third rule here I have not found. Stated rather than
 smoothed over.
 
+⛔⛔ **AND CHASING THOSE FOUR FOUND THE CAVEAT THAT QUALIFIES EVERY GEOMETRY
+NUMBER ON THIS PAGE. THE SHEETS THE BINARY CARRIES ARE MACHINE-LOCAL.**
+MEASURED 2026-09-12: `crates/ambition_sprite_sheet/build.rs` bakes every
+`*_spritesheet.ron` it finds under
+`crates/ambition_platformer2d_actor_monolith/assets/sprites{,_0_5x,_0_25x,_potato}`
+into the binary with `include_str!`. Those four directories hold **3,433 files, of
+which SEVEN are tracked** — `.gitignore:158` and its siblings ignore the rest.
+They are DERIVED PUBLISH OUTPUT.
+
+⇒ **Which characters have sprite geometry at runtime — and therefore which
+fighters play a bone-derived box instead of their move table's `half_extents` — is
+decided by what has been published on the machine that built the binary.** The
+alice/bob puzzle needs no third rule: it tracks which sheets happen to exist here.
+
+⚠ **WHAT THIS DOES AND DOES NOT INVALIDATE.**
+· The MECHANISM stands: bone-derived strike boxes, `hitbox.inflate` as the
+  generosity knob, its 15-of-19 / 5-of-18 / 0-of-14 coverage. Those come from the
+  `.spec.json` files, which ARE tracked.
+· The POPULATION FIGURES ARE LOCAL — "ten of sixteen fighters", "170 of 330 moves
+  thin", the exact-match split. On a checkout with nothing published, more
+  fighters would fall back to the move table and the table would read differently.
+⇒ **RE-DERIVE ON YOUR OWN MACHINE BEFORE TUNING FROM THESE ROWS**, and say which
+publish state a number was taken under. This repository already knew the shape of
+this — *"reverting a spec with git does NOT undo a publish"*, from an abandoned
+`inflate: 40` probe that stayed live in the officer's sheet — and I did not apply
+it to my own census until a loose end forced me to.
+
 ⭐⭐ **AND THIS IS EXACTLY WHAT JON MEANT BY "LEARN FROM WHAT GPT-6 DID FOR THE
 PERFORMER".** The surface that makes a bone-derived box generous is
 `hitbox.inflate`, and its coverage is almost entirely one character's:

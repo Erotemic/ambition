@@ -1622,3 +1622,65 @@ fn a_request_that_fails_discards_its_staged_revision() {
         "a discarded revision was applied by a LATER activation"
     );
 }
+
+/// ⛔⛔ **A COMPOSITION WITH NO GAME SHELL MUST NOT PANIC, AND IT DID.**
+///
+/// A `MessageReader` for an unregistered message does not read nothing — it
+/// FAILS PARAMETER VALIDATION and panics the schedule. Every other arm in this
+/// file registers `ShellEvent` itself, so the entire crate was green while the
+/// shipped default-feature workspace run panicked in
+/// `publish_staged_reload_on_activation`. The `--rust` lane found it; no test
+/// here could have.
+///
+/// ⚠ IT GOES THROUGH `reload::register`, NOT `add_systems`, deliberately: the run
+/// condition is HALF of how this system is installed, and a test that spelled it
+/// again would stay green if the real registration dropped it.
+#[test]
+fn a_composition_with_no_game_shell_does_not_panic() {
+    let mut app = bevy::app::App::new();
+    crate::reload::register(&mut app);
+    assert!(
+        app.world()
+            .get_resource::<bevy::ecs::message::Messages<
+                ambition_platformer2d::game_shell::ShellEvent,
+            >>()
+            .is_none(),
+        "the fixture registered ShellEvent, so it is not the shell-less case"
+    );
+    app.update();
+    app.update();
+}
+
+/// ⭐ THE CONTROL. With the shell present the same registration DOES run — or
+/// "does not panic" would be satisfied by a condition that never lets it through.
+#[test]
+fn the_same_registration_runs_once_the_shell_is_present() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    crate::reload::register(&mut app);
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("active");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the gated registration never let the system run"
+    );
+}

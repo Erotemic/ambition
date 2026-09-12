@@ -37,10 +37,10 @@ impl Plugin for AmbitionContentPlugin {
         // revision through when the route activates, and what DISCARDS it when
         // the preparation fails instead. Without the registration the request
         // road would stage edits that nothing ever published or threw away.
-        app.add_systems(
-            bevy::prelude::Update,
-            super::reload::publish_staged_reload_on_activation,
-        );
+        // The reload transaction's publication half. `reload::register` owns
+        // HOW it is installed — the run condition is half of that, and spelling
+        // it here would make this a second place to keep it true.
+        super::reload::register(app);
 
         // App-local world manifest shared by runtime and presentation readers.
         app.insert_resource(super::worlds::world_manifest());

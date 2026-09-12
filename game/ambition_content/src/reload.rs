@@ -526,6 +526,34 @@ pub fn request_reload(
     }
 }
 
+/// Install the reload transaction's publication half.
+///
+/// ⭐⭐ **ONE STATEMENT OF HOW THIS SYSTEM IS INSTALLED, because the condition is
+/// half of the installation.** A composition without a game shell never registers
+/// `ShellEvent`, and a `MessageReader` for an unregistered message does not read
+/// nothing — it FAILS PARAMETER VALIDATION and panics the schedule. If the
+/// plugin spelled the condition and a test spelled it again, the plugin could
+/// drop it and the test would stay green.
+///
+/// ⛔⛤ **THE WORKSPACE LANE IS WHAT TAUGHT ME THAT, one commit after registering
+/// the system.** Every test in this crate registers `ShellEvent` itself, so the
+/// whole crate was green while the shipped default-feature run panicked.
+///
+/// ⇒ A RUN CONDITION RATHER THAN AN `Option` PARAMETER: a host with no shell has
+/// no activation boundary, so the right behaviour is NOT TO RUN — not to run and
+/// find nothing.
+pub fn register(app: &mut bevy::prelude::App) {
+    use bevy::prelude::IntoScheduleConfigs;
+    app.add_systems(
+        bevy::prelude::Update,
+        publish_staged_reload_on_activation.run_if(
+            bevy::prelude::resource_exists::<
+                bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
+            >,
+        ),
+    );
+}
+
 /// Publish the staged cast revision when the shell activates the route it was
 /// requested for — and discard it if the route failed instead.
 ///

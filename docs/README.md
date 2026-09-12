@@ -88,6 +88,15 @@ migration ledger, future plan, or dated audit, DELETE it.
 - [`recipes/index.md`](recipes/index.md) — commands and repeatable workflows.
 - [`tools/index.md`](tools/index.md) — author-time generators, validators, and
   reports.
+- **Generated assets** — spritesheets, portraits, backgrounds, quality tiers,
+  music and the SFX bank are OUTPUT built from small authored sources that git
+  does carry, which is why the outputs are ignored. One command rebuilds them
+  all: `scripts/setup/generated_content.sh`. See
+  [`tools/generated-visual-tools.md`](tools/generated-visual-tools.md),
+  [`tools/generated-audio-tools.md`](tools/generated-audio-tools.md) and
+  [`../scripts/regen/README.md`](../scripts/regen/README.md) — the last one
+  lists the failure signatures of an assetless tree, which fail in crates you
+  never touched.
 - [`concepts/agent-native-authoring.md`](concepts/agent-native-authoring.md) — cross-tool contract for LLM-native content discovery, inspection, mutation, validation, provenance, and review.
 - [`mechanics/index.md`](mechanics/index.md) — stable gameplay-mechanic contracts
   and expressibility tests.

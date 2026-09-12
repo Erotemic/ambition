@@ -120,6 +120,15 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 # Generated sprite metadata. Existing tracked files require `git rm --cached`
 # before this ignore rule can prevent diffs; keep source-of-truth edits in
 # tools/ambition_sprite2d_renderer targets/configs instead.
+#
+# ⇒ REBUILD THESE, DO NOT HUNT FOR THEM: `./scripts/regen/sprites.sh` (one
+# target: `--target <name>`; `--list` names them), or
+# `scripts/setup/generated_content.sh` for every generated asset at once.
+# These are OUTPUT of small authored sources that git DOES carry, which is the
+# whole reason they are ignored — see AGENTS.md "Generated assets".
+# ⛔ An empty `assets/sprites` compiles an EMPTY baked sheet table
+# (`ambition_sprite_sheet/build.rs` scans it at build time), which fails tests
+# in crates you never touched. The tell is breadth: EVERY effect name at once.
 crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron
 crates/ambition_platformer2d_actor_monolith/assets/sprites/**/*.ron
 
@@ -152,6 +161,16 @@ crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
 # escape: `scripts/mirror_assets_for_worktree.py` mirrors these trees FILE BY
 # FILE on purpose, because "directory links would send that write straight into
 # main's assets, which is exactly the accident this exists to prevent."
+#
+# ⇒ REBUILD, per tree: fonts `python3 scripts/grab_font_assets.py`; audio and
+# art `./scripts/regen/assets.sh`; everything including fonts
+# `scripts/setup/generated_content.sh`.
+# ⛔ `assets/fonts/bundled` is a COMPILE-TIME dependency, not a loaded asset:
+# `ambition_render`'s typography test `include_bytes!`s three files from it, so
+# an absent directory is a BUILD error (`couldn't read …InterDisplay-Regular.otf`)
+# rather than a missing-art symptom. ⚠ `regen/assets.sh` does NOT fetch fonts.
+# ⚠ `mirror_assets_for_worktree.py` above assumes a MAIN checkout that already
+# has these; if the main checkout is itself assetless, generate instead of mirror.
 crates/ambition_platformer2d_actor_monolith/assets/audio
 crates/ambition_platformer2d_actor_monolith/assets/fonts
 crates/ambition_platformer2d_actor_monolith/assets/sprite_packs

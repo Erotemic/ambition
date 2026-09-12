@@ -2399,7 +2399,7 @@ largest contributor:          performer, 7 of its 18 moves
 
 ⛔ **"ACTIVE RUNS 10-17 FRAMES AGAINST ULTIMATE'S USUAL 2-5" IS FALSE AS A ROSTER
 STATEMENT, AND MORE CLEANLY THAN THE DOUBLE-COUNTED VERSION SHOWED.** The median
-is 4.8 frames — the *"Ultimate's usual"* end of that sentence — and **ten of the
+is 4.8 frames — the *"Ultimate's usual"* end of that sentence — and **NINE of the
 twenty verbs contain no move at 10 frames or more**: `attack_forward`,
 `attack_up`, `attack_down`, `attack_air_back`, `smash_forward`, `attack_dash`,
 `special_air_down`, `grab` and `grab_dash`. Across the ground normals and grabs
@@ -2409,6 +2409,36 @@ nine other verbs.
 
 ⇒ The band is real, it is 5% of the corpus, and the performer is its largest
 single contributor at 7 moves. An idiom, not a roster property.
+
+⛔ **THE COUNT ABOVE SAID TEN AND THE LIST IT NAMES IS NINE** (NamekAmbition,
+2026-09-12; I counted the list to confirm). Two independent derivations agree:
+the per-verb maximum is under 10 f for exactly those nine, and the 18 long moves
+fall in ELEVEN verbs (`special` 5, `special_down` 4, one each in nine others), so
+20 − 11 = 9. ⚠ DO NOT FOLD IT INTO THE OTHER NINE four lines up — *"entities with
+no such move: 9 of 18"* counts ENTITIES and is correct.
+
+⛔⛤ **AND THE CENSUS IS BLIND TO FOUR SEATABLE FIGHTERS, TWO OF WHICH AUTHOR
+MOVES IN THE BAND.** `measure_authored_strike_extents.py --clock` reads
+`assets/data/movesets/*.ron` — 17 files, 18 entities — and the smash grid seats
+**21**: `mary_o_tall`, `player_robot_v3`, `sanic` and `smash_george_booul` have no
+RON table at all. Over the grid the figure is **20 of 402 (5%), not 18 of 343**;
+the three extra are `bubble_shield` (player_robot_v3, 14.4 f) and
+`reductio_ad_absurdum` / `reductio` (smash_george_booul, 14.4 f each). ⭐ The
+conclusion does not move — 5% either way, performer still the largest at 7 — but
+*"343 authored moves"* describes 18 entities, not the roster you fight.
+⚠ CROSS-CHECKED against a `moveset_export` bundle read by
+`measure_move_clock_shape.py`, which uses the app's own DERIVED clock rather than
+the RON: across the 17 long moves both instruments see they agree to 0.1 f, and
+nothing is seen only by the RON reader. The difference is entirely SCOPE.
+
+⭐⭐ **AND THE AUTHORED CLOCK IS THE ONE THE GAME PLAYS, WHICH IS NOT TRUE OF THE
+AUTHORED GEOMETRY.** MEASURED 2026-09-12 against a recording: `medic_jab` authors
+`Active 0.04–0.09` (3 frames at 60 Hz) and its box is live for exactly 3 recorded
+frames; `medic_tilt_forward` authors `Active 0.07–0.14` (4.2 f) and is live for 4.
+⇒ So every clock census on this page stands even for the ten fighters whose
+EXTENTS are overridden by a sprite spec (see the bone-derived rows below). The
+sprite's `hitbox.active` names frames too, and it does not win. **Timing is
+authored in the move table; geometry, for those ten, is not.**
 
 ⚠ **AND "THE OTHER TWENTY USE ONE COARSE WINDOW" IS NEARLY RIGHT:** 18 moves
 author three or more Active windows and **eleven are the performer's**; the rest
@@ -2606,9 +2636,27 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    one is 2.4-6.6 frames — Ultimate-shaped** — and the performer at 9.6 is the
    outlier the figure was read from. The generalisation was one fighter's number
    applied to nineteen.
-   ⚠ `attack_forward` only; jabs, aerials and smashes are not censused, and item
-   5's range may hold for those. That is the next thing this script should be
-   pointed at.
+   ⛔ **THIS WARNING IS SPENT — MEASURED 2026-09-12, AND ITS OWN ANCESTRY SAYS SO**
+   (`b3219a6df` is an ancestor of `ec11f1de2`, so this is the older text and the
+   twenty-verb census replaces it). Item 5's range holds for **NO** class. Over
+   the grid, 402 moves with a live window, banded 2–5 f / 6–9 f / 10 f+:
+
+```text
+   jab      21   86%  10%   5%
+   tilt     63   76%  24%   0%
+   smash    63   48%  49%   3%
+   aerial  105   54%  42%   4%
+   special  87   13%  72%  15%
+   grab     42   95%   5%   0%
+   dash     21    0% 100%   0%
+```
+
+   ⇒ Tilt, grab and dash are flatly 0%; only `special` reaches 15%, and every dash
+   attack sits in 6–9 f. Named outliers across all classes: `officer_disperse`
+   20.4 f, `synchronize_clocks` 19.8 f, `conservation_law` 18.0 f,
+   `performer_air_neutral` 16.8 f, then `performer_smash_down`, `bubble_shield`,
+   `polygon_rising_edge`, `reductio_ad_absurdum` and `reductio` at 14.4 f.
+   (NamekAmbition, 2026-09-12.)
 
    ⛔⛤ **RE-DERIVED 2026-09-12 OVER TEN VERBS, AND THE CENSUS SCRIPT WAS WRONG.**
    `measure_strike_area_over_body.py` computed a per-TAKE best and then

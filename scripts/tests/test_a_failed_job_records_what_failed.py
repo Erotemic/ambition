@@ -163,3 +163,56 @@ def test_the_repos_own_ratchet_verdicts_are_recorded():
     # ...and the context line above it is NOT evidence; a collector that keeps
     # the whole report is one nobody reads.
     assert not any("baseline frozen" in line for line in got), got
+
+
+# ── The STREAM, not just the wording ────────────────────────────────────────
+#
+# ⛔⛤ Everything above tests the LINE MATCHER. None of it could catch a whole
+# STREAM going unread, which is what actually happened: `run_job_streaming`
+# piped stdout and left stderr attached to the terminal, so every cargo/rustc
+# diagnostic — which is where Rust writes ALL of them — reached the screen and
+# nothing else. A failed job returned `(1, None, None, [])`.
+
+
+def _run(argv):
+    import os as _os
+    job = run_tests.Job("probe", argv)
+    return run_tests.run_job_streaming(job, dict(_os.environ))
+
+
+def test_a_diagnostic_printed_only_on_stderr_is_recorded():
+    code, _executed, _blocked, evidence = _run([
+        sys.executable, "-c",
+        "import sys; print('ordinary progress'); "
+        "sys.stderr.write('error: COMPILE FAILURE ON STDERR\\n'); sys.exit(1)",
+    ])
+    assert code == 1
+    assert any("COMPILE FAILURE ON STDERR" in line for line in evidence), evidence
+
+
+def test_an_unrunnable_signature_on_stderr_is_classified():
+    # THE SECOND HALF OF THE SAME BLIND SPOT, and the worse one: the first entry
+    # in UNRUNNABLE_SIGNATURES is `^error: extern location for ... does not
+    # exist:`, which is a RUSTC message. Scanning stdout alone, the `incomplete`
+    # state this runner reports for a job that could not RUN was unreachable by
+    # its own main signature.
+    code, _executed, blocked, _evidence = _run([
+        sys.executable, "-c",
+        "import sys; sys.stderr.write("
+        "'error: extern location for ambition_x does not exist: /x.rlib\\n'); "
+        "sys.exit(1)",
+    ])
+    assert code == 1
+    assert blocked is not None, "a stale-artifact job must classify as UNRUNNABLE"
+    assert "stale build artifact" in blocked, blocked
+
+
+def test_a_passing_job_records_no_evidence_from_either_stream():
+    # The control: chatter on both streams must not make a green job look failed.
+    code, _executed, blocked, evidence = _run([
+        sys.executable, "-c",
+        "import sys; print('ok'); sys.stderr.write('warning: chatter\\n')",
+    ])
+    assert code == 0
+    assert blocked is None
+    assert evidence == [], evidence

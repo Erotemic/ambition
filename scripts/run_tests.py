@@ -41,6 +41,7 @@ import collections
 import re
 import subprocess
 import sys
+import threading
 import time
 import tomllib
 from dataclasses import dataclass, field
@@ -1239,8 +1240,27 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
 
     ⚠ **live output is not negotiable**, which is why this streams rather than
     capturing: somebody watching a suite needs to see the failure as it happens.
-    stdout is piped only so the duration lines can be counted on the way past;
-    stderr (where cargo writes progress) stays attached to the terminal.
+    Both streams are piped and written straight back out, line by line, so the
+    run still narrates itself while the bytes are also read.
+
+    ⛔⛤ **STDERR IS PIPED NOW, AND IT USED NOT TO BE — WHICH MADE TWO SEPARATE
+    MECHANISMS BLIND TO EVERY RUST DIAGNOSTIC.** This said *"stderr (where cargo
+    writes progress) stays attached to the terminal"*, and that was true of
+    progress and also true of **every error cargo and rustc emit, because they
+    write diagnostics to stderr as well.** Reproduced 2026-09-12 against a job
+    whose only output was `error: COMPILE FAILURE ON STDERR`: the runner returned
+    `(1, None, None, [])` — a failed job with NO recorded evidence at all.
+
+    ⚠ **AND THE SAME BLIND SPOT SAT UNDER [`UNRUNNABLE_SIGNATURES`], WHERE IT IS
+    WORSE.** Its first signature is `^error: extern location for … does not
+    exist:` — a RUSTC message. Scanning only stdout, that pattern could never
+    match, so the `incomplete` state this runner reports for a job that could not
+    RUN has been unreachable by its own main signature. Both now read the tee.
+
+    ⚠ **THE COST, STATED RATHER THAN DISCOVERED:** cargo checks whether stderr is
+    a tty, so piping it means the ANIMATED progress bar becomes plain progress
+    LINES. Output stays live and complete; it just stops redrawing in place. A
+    diagnostic that reaches the status file is worth more than a bar that redraws.
 
     ⛔ BOTH RUNNERS ARE READ, and a job never mixes them: libtest prints one
     `finished in Xs` per binary and nextest prints one `Summary [ Xs ]` per run.
@@ -1256,6 +1276,10 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
     # output; the evidence answers "what failed", which is printed where it
     # happened.
     evidence = FailureEvidence()
+    # ⭐ A SECOND COLLECTOR RATHER THAN ONE SHARED ONE, so a noisy stderr cannot
+    # crowd a panic off the bounded stdout ring, and vice versa.
+    stderr_evidence = FailureEvidence()
+    stderr_tail: collections.deque[str] = collections.deque(maxlen=200)
     # ⭐ EVERY CHILD LEARNS IT IS INSIDE A RUN. A `run_tests.py` started by a job
     # reads this and writes its status somewhere private instead of over ours.
     env = {**env, NESTED_ENV: str(os.getpid())}
@@ -1264,10 +1288,26 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
         cwd=job.cwd or REPO,
         env=env,
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
     )
     assert proc.stdout is not None
+    assert proc.stderr is not None
+
+    # ⛔ A THREAD, NOT AN INTERLEAVED READ. Reading the two pipes in one loop
+    # means blocking on whichever is quiet while the other fills its 64K buffer
+    # and the child stops — a deadlock that only appears when a job is noisy on
+    # one stream, which is exactly what a failing build is.
+    def pump_stderr() -> None:
+        for line in proc.stderr:  # type: ignore[union-attr]
+            sys.stderr.write(line)
+            stderr_tail.append(line)
+            stderr_evidence.feed(line)
+        sys.stderr.flush()
+
+    stderr_pump = threading.Thread(target=pump_stderr, daemon=True)
+    stderr_pump.start()
     for line in proc.stdout:
         sys.stdout.write(line)
         tail.append(line)
@@ -1277,11 +1317,20 @@ def run_job_streaming(job: "Job", env: dict) -> tuple[int, float | None, str | N
             executed = (executed or 0.0) + float(match.group(1))
     sys.stdout.flush()
     code = proc.wait()
+    # The child has exited, so its stderr is at EOF and this returns promptly;
+    # the timeout is a belt against a grandchild holding the pipe open.
+    stderr_pump.join(timeout=30)
     return (
         code,
         executed,
-        (unrunnable_reason("".join(tail)) if code != 0 else None),
-        evidence.lines() if code != 0 else [],
+        # BOTH streams: the rustc/cargo diagnostics these signatures describe are
+        # written to stderr, so scanning stdout alone matched none of them.
+        (
+            unrunnable_reason("".join(tail) + "".join(stderr_tail))
+            if code != 0
+            else None
+        ),
+        (evidence.lines() + stderr_evidence.lines()) if code != 0 else [],
     )
 
 
@@ -1299,7 +1348,17 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
          # the shape every existing reader parses, and gains the one thing the
          # P0 flaky-`workspace` row has spent weeks not having — see
          # `FailureEvidence`.
-         **({"failure_evidence": r.failure_evidence} if r.failure_evidence else {})}
+         **({"failure_evidence": r.failure_evidence} if r.failure_evidence else {}),
+         # ⛔⛤ SAY SO WHEN THERE IS NOTHING, rather than letting a reader infer
+         # from an absent key that the job failed quietly. A FAILED job with no
+         # captured evidence is a finding ABOUT THIS RUNNER — a producer whose
+         # verdict wording `FailureEvidence` does not know yet — and it is the
+         # only way that gap ever surfaces. It is how the stderr blind spot was
+         # found: a failed job recorded `[]` while its whole diagnostic sat on a
+         # stream nothing was reading.
+         **({"failure_evidence_missing": True}
+            if not r.ok and not r.unrunnable and not r.failure_evidence
+            else {})}
         for r in results
     ]
 

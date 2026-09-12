@@ -545,6 +545,32 @@ What belongs where:
 
 **Always push to GitHub when credentials exist.** Committing is not the durable step.
 
+* ⛔⛔ **RECONCILE WITH `git merge`, NOT `git rebase`.** Jon's rule, and the
+  reason is mechanical rather than aesthetic: **the per-commit resource tally is
+  keyed to the commit SHA.** A post-commit hook records the token and model cost
+  of each commit under `.llm_resource_tally/local/`, and every row carries the
+  commit id in its `c` field. A rebase REWRITES every SHA it touches, so each
+  rewritten commit's cost row is left pointing at an object no other clone can
+  resolve — the work is published, its measured cost is not.
+  ⇒ Measured 2026-09-12, after four rebases in one session: **17 of 18 local
+  rows named commits unreachable from `HEAD` or `origin/main`** — 11 of the 12
+  distinct commit ids the ledger carries. Only one row still addressed a commit
+  another clone could resolve.
+  ⛔ TEST REACHABILITY, NOT EXISTENCE, or you will refute this rule by accident.
+  `git cat-file -e <sha>^{commit}` answers YES for an ORPHANED commit whose
+  object simply has not been gc'd yet, so it reports this same ledger as
+  perfectly healthy. It measures your local object store, not what anyone else
+  can see. The check that asks the question another clone will ask is
+  `git merge-base --is-ancestor <sha> origin/main`.
+  ⚠ ACCEPT THE TRADE-OFF THIS CARRIES. A merge does not drop a commit whose
+  content is already upstream under a rewritten SHA, so a `git patch-id
+  --stable` twin survives as a visible near-duplicate. Run the check so you can
+  NAME it — `git show <mine> | git patch-id --stable` against the candidate —
+  but do not reach for a rebase to tidy it away. A duplicate-looking commit is
+  cheaper than an unattributable cost row.
+  ⇒ The same rule covers anything else that cites a SHA: a queue receipt, a
+  planning citation, a doc link. **A SHA is a shared address only once it is
+  pushed and reachable**, and rewriting one orphans every record keyed to it.
 * Push every ahead submodule before the superproject commit that records its pointer:
 
   ```bash

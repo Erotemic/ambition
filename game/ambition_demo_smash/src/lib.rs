@@ -4095,42 +4095,44 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// re-deriving one global decision, with 38 chances to disagree. The percent
 /// curve is one decision and belongs in one number.
 ///
-/// ⭐⭐ `1.5` IS THE SMALLEST SWEPT VALUE THAT CONVERTS, and it was chosen by
-/// measurement rather than by taste. Swept 2026-09-12 through the authoritative
-/// simulation — authored volume → combat hit resolution → victim hit reaction →
-/// carried launch → the stage's own blast boundary — with a FRESH attacker, so
-/// rage is exactly `1.0` and the percent curve carries the knockout alone.
-/// Every row is a fully stale jab on a 700% George Booul from stage centre
-/// under neutral input, beside a fresh 0% jab on the same body:
+/// ⭐⭐ `1.25` IS THE SMALLEST SWEPT VALUE THAT ENDS THE STOCK. Re-measured
+/// 2026-09-12 after the first calibration was found unsound on three counts —
+/// each is now a guard in `smash_in_the_host::ring_out`, so none can return
+/// silently:
 ///
-/// | scale | 700% stale, lateral travel | side line at 720px | 0% fresh |
-/// |-------|---------------------------|--------------------|----------|
-/// | 1.00  | 533.5px                   | ✗                  | poke     |
-/// | 1.25  | 664.3px                   | ✗                  | poke     |
-/// | **1.50** | **727.0px**            | **✓**              | **poke** |
-/// | 1.75  | 722.3px                   | ✓                  | poke     |
-/// | 2.00  | 735.9px                   | ✓                  | poke     |
-/// | 2.25  | 729.7px                   | ✓                  | poke     |
-/// | 2.50  | 724.4px                   | ✓                  | poke     |
+/// | scale | 700% stale jab | lateral | 0% fresh |
+/// |-------|----------------|---------|----------|
+/// | 1.00  | ALIVE          | 246.4px | poke     |
+/// | **1.25** | **KO**      | 523.4px | **poke** |
+/// | 1.50  | KO             | 627.7px | poke     |
+/// | 1.75+ | KO             | 722px+  | poke     |
 ///
-/// ⛔⛔ AND THE WITNESS IS THE SIDE LINE, NOT "A KNOCKOUT HAPPENED" — the two
-/// disagree here and the difference chose this number. A stage has four blast
-/// boundaries, so at `1.00` and `1.25` the victim WAS knocked out while
-/// travelling only 533.5px and 664.3px of the 720px the side line needs: those
-/// were ceiling or floor kills. A sweep that accepted any knockout reported
-/// "the smallest passing value is 1.00" — i.e. that the percent curve needed no
-/// repair at all — on the strength of a launch that never went sideways.
+/// ⛔ WHAT THE FIRST SWEEP GOT WRONG, since the same traps are still there:
+/// 1. **It demanded a SIDE exit.** This jab authors `launch_dir: None`, so the
+///    default launch vector is ~36° UPWARD and its natural knockout is through
+///    the ceiling. Rejecting real kills for leaving by the wrong boundary is
+///    what pushed this constant to 1.5.
+/// 2. **Its "launch speeds" were trajectory maxima.** A max of `vel.length()`
+///    over a window with gravity in it: at 0% the engine resolves exactly the
+///    authored 50px/s and that metric read 446.4.
+/// 3. **Rage was NOT 1.0**, though the comment here claimed it. The fixture
+///    never pinned the attacker's meter and the attacker is a seated CPU that
+///    had accumulated 62% — multiplying every cell by `1 + 0.004 × 62 = 1.248`.
+///    ⇒ THIS IS WHAT HID THE ANSWER. Under that borrowed rage, scale 1.00
+///    produced a knockout; with rage pinned it leaves the victim ALIVE at
+///    246px. The claim that the staleness split alone repairs the regression is
+///    false, and only controlling rage could tell the two apart.
 ///
-/// ⚠ NOTHING ABOVE 1.5 EARNS ITS EXTRA. Every larger value also clears the bar,
-/// which is exactly why "it passes" is not evidence that a value is right; and
-/// the 0% column is IDENTICAL at every scale (446.4px/s, 5.0px travelled),
-/// because the term this scales is zero there by construction.
+/// ⚠ A LAUNCH PAST THE TUMBLE THRESHOLD IS NOT A RING-OUT. At scale 1.00 the
+/// resolved launch clears 500px/s and the stock still does not end — which is
+/// why this is calibrated on the stage's own knockout verdict rather than on a
+/// speed that looks sufficient.
 ///
 /// ⇒ the companion half of this repair is
 /// `DeclaredCombatRules::stale_knockback_influence`, and the two are not
 /// interchangeable: the staleness split is what makes a WORN move still
 /// convert, and this is what makes percent itself convert.
-pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.5;
+pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.25;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";

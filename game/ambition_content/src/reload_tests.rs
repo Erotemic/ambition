@@ -1828,6 +1828,110 @@ fn no_change_to_the_technique_table_after_the_request_can_refuse_the_commit() {
     }
 }
 
+/// ⛔⛔ **A PENDING GENERATION NO LONGER OVERWRITES THE APP'S CONTENT IDENTITY.**
+///
+/// ⛤ IT DID, AND THAT HANDED THE CANDIDATE'S STAMP TO STRANGERS. Preparation
+/// fingerprints against an identity, and the only road to it was the App-wide
+/// `SelectedContentIdentity` — so a reload in flight reported
+/// `SelectedContentPack = N` alongside `SelectedContentIdentity = N+1`, and an
+/// UNRELATED route preparation in that window inherited a generation stamp for
+/// content it never prepared. That identity is exactly what the rollback
+/// timeline contract compares.
+///
+/// ⚠ AND NOTHING IS CLAIMED BEFORE THE ROUTER NAMES THE TRANSACTION, which is
+/// correct rather than a gap: a preparation nobody has correlated to this
+/// generation must not use it.
+#[test]
+fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let live_identity = app
+        .world()
+        .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+        .0
+        .clone();
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+            .0,
+        live_identity,
+        "staging a candidate moved the APP's content identity, so every \
+         preparation in flight now fingerprints against a pack this App has not \
+         selected"
+    );
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+            .is_none(),
+        "a claim was staked before the router named the transaction, so it names \
+         no transaction at all"
+    );
+
+    // The router announces the transaction; the claim appears, bound to it.
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    let claim = app
+        .world()
+        .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+        .cloned()
+        .expect("adopting the transaction stakes the claim");
+    let candidate_identity = crate::pack::identity_line(
+        crate::reload::pending_pack(app.world()).expect("a pending generation"),
+    );
+    assert_eq!(
+        claim.identity, candidate_identity,
+        "the claim is not the candidate's identity"
+    );
+    assert_eq!(
+        claim.identity_for("shell.game.1"),
+        Some(candidate_identity.as_str()),
+        "the owning transaction cannot read its own claim"
+    );
+    // ⛔ THE ASSERTION THE WHOLE ARM IS FOR.
+    assert_eq!(
+        claim.identity_for("shell.menu.4"),
+        None,
+        "an unrelated transaction reads the candidate's identity, which is the \
+         defect this value exists to remove"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+            .0,
+        live_identity,
+        "adopting the transaction moved the APP's identity"
+    );
+
+    // ⭐ AND THE CLAIM DOES NOT OUTLIVE ITS GENERATION: a claim naming a spent
+    // `LoadId` would fingerprint a retry against a candidate this App discarded.
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+            .is_none(),
+        "the claim outlived the generation that staked it"
+    );
+    assert_ne!(
+        app.world()
+            .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+            .0,
+        live_identity,
+        "the activation published the pack without moving the App's identity"
+    );
+}
+
 /// ⛔⛔ **AND A SECOND REQUEST IS REFUSED WHILE ONE IS IN FLIGHT.**
 ///
 /// ⛤ THE THREE SINGLETONS THIS REPLACED COORDINATED BY OVERWRITING EACH OTHER.

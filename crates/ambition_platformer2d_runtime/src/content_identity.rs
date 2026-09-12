@@ -173,6 +173,43 @@ impl PreparedContentSection {
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct SelectedContentIdentity(pub String);
 
+/// The candidate identity ONE preparation transaction must fingerprint against.
+///
+/// ⛔⛤ **A PENDING GENERATION USED TO OVERWRITE `SelectedContentIdentity`, AND
+/// THAT MADE IT EVERY TRANSACTION'S ANSWER.** A hot reload has to tell the
+/// preparation it is asking for which content to fingerprint, and the only road
+/// was the App-wide selection — so while a reload was in flight the App reported
+/// `SelectedContentPack = N` and `SelectedContentIdentity = N+1`, and any
+/// UNRELATED route preparation running in that window was fingerprinted with a
+/// candidate identity it had nothing to do with. The identity is what the
+/// rollback timeline contract compares, so a stranger's transaction inherited a
+/// generation stamp for content it never prepared.
+///
+/// ⭐ **THE CLAIM IS THE LOAD ID, BECAUSE THAT IS WHAT BOTH ENDS HAVE.** The
+/// router mints `shell.{route}.{counter}` per transaction, and
+/// `PlatformerPreparation::prepare` already receives the
+/// `ProviderLoadTransaction` at the line that reads the identity. A preparation
+/// uses this value iff the claim names ITS load; every other preparation keeps
+/// reading the App's active selection.
+///
+/// ⚠ ONE AT A TIME, DELIBERATELY. The coordinator upstream refuses a second
+/// generation while one is pending, so a single claim is the whole truth rather
+/// than a first-past-the-post over a map.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+pub struct PendingContentIdentity {
+    /// The `LoadId` of the transaction this identity belongs to.
+    pub load_id: String,
+    /// The identity line that transaction must fingerprint against.
+    pub identity: String,
+}
+
+impl PendingContentIdentity {
+    /// The identity for `load_id`, or `None` when this claim is a stranger's.
+    pub fn identity_for(&self, load_id: &str) -> Option<&str> {
+        (self.load_id == load_id).then_some(self.identity.as_str())
+    }
+}
+
 /// Canonical, order-independent input builder. Duplicate section names are a
 /// structured assembly error, not last-registration-wins behavior.
 #[derive(Default)]

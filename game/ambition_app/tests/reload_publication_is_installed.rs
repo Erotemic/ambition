@@ -121,4 +121,31 @@ fn the_publication_precedes_provider_session_construction() {
          `GameplaySessionSet::Providers`, so a route activation may construct \
          the new session from the PREVIOUS cast"
     );
+
+    // ⛔⛔ **AND BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.** The
+    // ADOPTION half of the same system stakes `PendingContentIdentity` from
+    // `ShellEvent::PreparationRequested`, and `prepare_requested_sessions` reads
+    // the SAME message and fingerprints against that claim. A preparation that
+    // ran first would MISS the claim and fall back to the App's active identity
+    // — stamping generation N+1's session with N's content, which is a wrong
+    // answer rather than a missing one.
+    let preparation = graph
+        .system_sets
+        .get_key(bevy::ecs::schedule::SystemSet::intern(
+            &ambition_platformer2d::provider::PlatformerPreparationSet,
+        ))
+        .expect(
+            "`PlatformerPreparationSet` is a set in the shipped Update schedule \
+             — if it is not, the provider stopped preparing sessions there and \
+             this ordering names nothing",
+        );
+    assert!(
+        graph
+            .dependency()
+            .graph()
+            .contains_edge(NodeId::System(publication), NodeId::Set(preparation)),
+        "the reload's identity claim has no ordering edge to \
+         `PlatformerPreparationSet`, so a preparation may fingerprint the new \
+         generation against the PREVIOUS content identity"
+    );
 }

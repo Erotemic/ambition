@@ -258,6 +258,12 @@ pub(crate) struct PlatformerPreparation<'w> {
             Res<'w, ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
         >,
         Option<Res<'w, ambition_platformer2d_runtime::SelectedContentIdentity>>,
+        // ⛔ THE CANDIDATE IDENTITY OF ONE TRANSACTION, not of this App. See
+        // `PendingContentIdentity`: a pending generation used to overwrite the
+        // App-wide selection to make preparation see it, which handed the
+        // candidate's stamp to every UNRELATED preparation running in the same
+        // window.
+        Option<Res<'w, ambition_platformer2d_runtime::PendingContentIdentity>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -277,6 +283,24 @@ pub(crate) struct PlatformerPreparation<'w> {
 }
 
 impl PlatformerPreparation<'_> {
+    /// This transaction's content identity — see [`content_identity_for`].
+    ///
+    /// ⛔⛤ **A METHOD RATHER THAN THREE ARGUMENTS AT THE CALL SITE, AND A POISON
+    /// IS WHY.** Poisoning the free function fails its arm; poisoning the CALL
+    /// SITE — passing `None` for the claim and `""` for the load — stayed green
+    /// across 429 tests, because witnessing that hop means running a real
+    /// preparation and comparing the resulting fingerprint. Nothing here can
+    /// witness it, so the honest fix is to leave nothing to get wrong: the
+    /// inputs are no longer spellable at the call site, and the only remaining
+    /// mistake is not calling this at all.
+    fn content_identity_for(&self, transaction: &ProviderLoadTransaction) -> Option<String> {
+        content_identity_for(
+            self.content_inputs.1.as_deref(),
+            self.content_inputs.2.as_deref(),
+            transaction.barrier.load_id.as_str(),
+        )
+    }
+
     pub(crate) fn prepare(
         &mut self,
         transaction: &ProviderLoadTransaction,
@@ -546,10 +570,7 @@ impl PlatformerPreparation<'_> {
                 .0
                 .as_deref()
                 .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
-            self.content_inputs
-                .1
-                .as_deref()
-                .map(|identity| identity.0.clone()),
+            self.content_identity_for(transaction),
             snapshot_schema,
             &mut self.epochs,
         ) {
@@ -819,6 +840,35 @@ pub fn prepare_platformer_content_for_app(
         snapshot_schema,
         &mut epochs,
     )
+}
+
+/// Which content identity does THIS preparation fingerprint against?
+///
+/// ⛔⛤ **THE APP'S SELECTION WAS THE ONLY ANSWER, AND A HOT RELOAD HAD TO
+/// OVERWRITE IT.** A pending generation needs preparation to see the CANDIDATE,
+/// so it replaced `SelectedContentIdentity` App-wide — and every UNRELATED route
+/// preparation running in that window inherited a stamp for content it never
+/// prepared. The identity is exactly what the rollback timeline contract
+/// compares, so a stranger's session carried a generation identity that was not
+/// its own.
+///
+/// ⛔ THE CLAIM MUST NAME A TRANSACTION, and a claim naming a DIFFERENT one is
+/// not a fallback — it is a stranger's, and the active selection is the right
+/// answer. Returning the pending identity whenever one exists would restore the
+/// defect with an extra step.
+///
+/// ⚠ FACTORED OUT SO IT HAS A WITNESS. Inline, this resolution was reachable
+/// only by running a real preparation, and 868 tests stayed green with the claim
+/// ignored entirely — the consumer half of the fix had no arm at all.
+pub(crate) fn content_identity_for(
+    active: Option<&ambition_platformer2d_runtime::SelectedContentIdentity>,
+    pending: Option<&ambition_platformer2d_runtime::PendingContentIdentity>,
+    load_id: &str,
+) -> Option<String> {
+    pending
+        .and_then(|claim| claim.identity_for(load_id))
+        .map(str::to_string)
+        .or_else(|| active.map(|identity| identity.0.clone()))
 }
 
 pub fn prepare_platformer_content(
@@ -1403,6 +1453,70 @@ impl PlatformerSessionBuilder<'_, '_> {
 mod tests {
     use super::*;
     use crate::authoring::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+
+    fn active(line: &str) -> ambition_platformer2d_runtime::SelectedContentIdentity {
+        ambition_platformer2d_runtime::SelectedContentIdentity(line.to_string())
+    }
+
+    fn claim(load: &str, line: &str) -> ambition_platformer2d_runtime::PendingContentIdentity {
+        ambition_platformer2d_runtime::PendingContentIdentity {
+            load_id: load.to_string(),
+            identity: line.to_string(),
+        }
+    }
+
+    /// ⛔⛔ **A CANDIDATE IDENTITY BELONGS TO ONE TRANSACTION AND NOBODY ELSE.**
+    ///
+    /// ⛤ THIS ARM EXISTS BECAUSE ITS ABSENCE WAS MEASURED. Poisoning the
+    /// resolution to ignore the claim entirely left 868 tests green across this
+    /// crate and `ambition_app`: the consumer half of the per-transaction
+    /// identity had no witness anywhere in the tree.
+    #[test]
+    fn a_pending_identity_is_read_only_by_the_transaction_that_claimed_it() {
+        // ⭐ THE CONTROL FIRST: with no claim at all, the App's selection is the
+        // answer — or "a stranger reads the active identity" is satisfied by a
+        // resolution that never returns a candidate.
+        assert_eq!(
+            content_identity_for(Some(&active("pack 1 cfp1:aa")), None, "shell.game.1"),
+            Some("pack 1 cfp1:aa".to_string()),
+            "with no pending claim the active selection must be the answer"
+        );
+        // The owner reads the candidate.
+        assert_eq!(
+            content_identity_for(
+                Some(&active("pack 1 cfp1:aa")),
+                Some(&claim("shell.game.7", "pack 2 cfp1:bb")),
+                "shell.game.7",
+            ),
+            Some("pack 2 cfp1:bb".to_string()),
+            "the claiming transaction did not read its own candidate identity"
+        );
+        // ⛔ THE ASSERTION THE WHOLE ARM IS FOR — and both loads name the SAME
+        // ROUTE, because two generations can target one route and a route
+        // comparison would pass this.
+        assert_eq!(
+            content_identity_for(
+                Some(&active("pack 1 cfp1:aa")),
+                Some(&claim("shell.game.7", "pack 2 cfp1:bb")),
+                "shell.game.8",
+            ),
+            Some("pack 1 cfp1:aa".to_string()),
+            "an unrelated transaction was fingerprinted against a candidate it \
+             never prepared — the rollback timeline contract compares exactly \
+             this identity"
+        );
+        // ⚠ ABSENT IS A REAL ANSWER: a composition with no content pack selects
+        // none, and a stranger's claim must not invent one for it.
+        assert_eq!(
+            content_identity_for(
+                None,
+                Some(&claim("shell.game.7", "pack 2 cfp1:bb")),
+                "shell.game.8"
+            ),
+            None,
+            "a stranger's claim became the answer for an App that selected no pack"
+        );
+    }
 
     #[test]
     fn authoring_installation_registers_preparation_resources_synchronously() {

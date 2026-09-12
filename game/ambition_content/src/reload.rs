@@ -782,49 +782,34 @@ pub fn pending_pack(
         .map(|generation| generation.pack.as_ref())
 }
 
-/// Stage a pending generation and tell the engine which identity to prepare
-/// against.
+/// Stage a pending generation. **The App's selection is untouched.**
 ///
-/// ⛔ **THE REMAINING HOLE, NAMED RATHER THAN HIDDEN** (2026-09-11 review item
-/// 3). `prepare_platformer_content` reads the GLOBAL `SelectedContentIdentity`
-/// to fingerprint the generation it is preparing, so a pending generation has to
-/// write it — which means an UNRELATED route preparation running in the same
-/// window is fingerprinted with a candidate identity it has nothing to do with.
-/// The census says the fix is reachable: `PlatformerPreparation::prepare` already
-/// takes the `ProviderLoadTransaction` as a parameter at the exact line that
-/// reads this global, and the function that fingerprints already takes the
-/// identity as an opaque argument. ⇒ The candidate identity becomes a
-/// per-transaction lookup keyed on the same `LoadId` this value already adopts.
-/// Not done here.
+/// ⛔⛤ **THIS USED TO OVERWRITE `SelectedContentIdentity` AND THAT WAS A CRITICAL
+/// SCOPE ERROR** (2026-09-11 review item 3). `prepare_platformer_content` reads
+/// an identity to fingerprint the generation it is preparing, and the only road
+/// to it was the App-wide selection — so a pending generation reported
+/// `SelectedContentPack = N` with `SelectedContentIdentity = N+1`, and every
+/// UNRELATED route preparation running in that window inherited a candidate
+/// stamp for content it never prepared. The identity is exactly what the
+/// rollback timeline contract compares.
+///
+/// ⇒ The claim is made at ADOPTION instead, keyed on the `LoadId`, because that
+/// is the first moment the transaction has a name. Between the request and the
+/// router's announcement there is no claim at all — and that is correct: a
+/// preparation nobody has correlated to this generation must not use it.
 fn stage_pending_generation(world: &mut bevy::ecs::world::World, generation: PendingGeneration) {
-    world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
-        crate::pack::identity_line(&generation.pack),
-    ));
     world.insert_resource(generation);
 }
 
-/// Take the pending generation away and put the engine's identity back to the
-/// pack that is actually live.
+/// Take the pending generation away, and its identity claim with it.
 ///
-/// ⛔⛤ **RESTORING THE IDENTITY IS THE HALF THAT WAS MISSING.** Dropping the
-/// candidate and leaving `SelectedContentIdentity` naming it would leave the
-/// engine fingerprinting future generations against a pack this App does not
-/// have — the same split one level down.
+/// ⛔ THE CLAIM GOES TOO, ALWAYS. A claim left behind names a `LoadId` whose
+/// generation no longer exists, and the next transaction to reuse that id —
+/// or a retry of the same one — would be fingerprinted against a candidate this
+/// App threw away.
 fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<PendingGeneration> {
     let generation = world.remove_resource::<PendingGeneration>()?;
-    let restored = world
-        .get_resource::<crate::pack::SelectedContentPack>()
-        .map(|selected| crate::pack::identity_line(selected.get()));
-    match restored {
-        Some(line) => {
-            world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(line));
-        }
-        // ⚠ NO ACTIVE PACK TO RESTORE TO: this App never selected one, so the
-        // honest state is "no identity", not the candidate's.
-        None => {
-            world.remove_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>();
-        }
-    }
+    world.remove_resource::<ambition_platformer2d_runtime::PendingContentIdentity>();
     Some(generation)
 }
 
@@ -865,6 +850,16 @@ pub fn register(app: &mut bevy::prelude::App) {
             // inserts the sync point, so the queued publication has applied
             // before any provider constructs anything.
             .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
+            // ⛔⛔ **AND BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.**
+            // The ADOPTION half of this system stakes the claim from
+            // `ShellEvent::PreparationRequested`; `prepare_requested_sessions`
+            // reads the SAME message and fingerprints against that claim. With
+            // no edge between them the claim could arrive a frame late — and a
+            // preparation that missed it silently falls back to the App's active
+            // identity, stamping generation N+1's session with N's content.
+            // That is a wrong answer, not a missing one, which is why it is an
+            // edge and not a retry.
+            .before(ambition_platformer2d::provider::PlatformerPreparationSet)
             .run_if(
                 bevy::prelude::resource_exists::<
                     bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
@@ -902,11 +897,23 @@ pub fn publish_staged_reload_on_activation(
                 let route = transaction.route_id.as_str().to_string();
                 let load_id = transaction.barrier.load_id.clone();
                 commands.queue(move |world: &mut bevy::ecs::world::World| {
-                    if let Some(mut pending) = world.get_resource_mut::<PendingGeneration>() {
-                        if pending.load_id.is_none() && pending.route == route {
-                            pending.load_id = Some(load_id);
+                    let claim = {
+                        let Some(mut pending) = world.get_resource_mut::<PendingGeneration>()
+                        else {
+                            return;
+                        };
+                        if pending.load_id.is_some() || pending.route != route {
+                            return;
                         }
-                    }
+                        pending.load_id = Some(load_id.clone());
+                        crate::pack::identity_line(&pending.pack)
+                    };
+                    // ⭐ THE CLAIM IS MADE HERE AND NOWHERE ELSE, because this is
+                    // the first moment the transaction has a name to claim.
+                    world.insert_resource(ambition_platformer2d_runtime::PendingContentIdentity {
+                        load_id: load_id.to_string(),
+                        identity: claim,
+                    });
                 });
             }
             ShellEvent::RouteActivated(active) => {

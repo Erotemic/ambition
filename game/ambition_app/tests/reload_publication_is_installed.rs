@@ -14,7 +14,7 @@
 //! nothing. My first attempt at this test did the same thing one layer up and
 //! was therefore vacuous; only the real `Update` schedule can answer it.
 
-use bevy::ecs::schedule::{ScheduleGraph, Schedules};
+use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey};
 use bevy::prelude::*;
 
 /// ⛔ BY TYPE, NOT BY NAME: system names ride `bevy_utils/debug`, which only an
@@ -27,6 +27,16 @@ fn is_registered<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> usi
         .iter()
         .filter(|(_, system, _)| system.system_type() == wanted)
         .count()
+}
+
+fn key_of<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> SystemKey {
+    let wanted = IntoSystem::into_system(f).system_type();
+    graph
+        .systems
+        .iter()
+        .find(|(_, system, _)| system.system_type() == wanted)
+        .map(|(key, _, _)| key)
+        .expect("the system is registered in this schedule")
 }
 
 #[test]
@@ -60,5 +70,55 @@ fn the_shipped_app_installs_the_reload_publication_system() {
          the shipped Update schedule; it must be exactly once, or a requested \
          reload stages a cast revision that nothing publishes and nothing \
          discards"
+    );
+}
+
+/// ⛔⛔ **AND IT RUNS BEFORE THE WORLD IS BUILT FROM THE CAST IT PUBLISHES.**
+///
+/// `activate_prepared_platformer_sessions` sits in `GameplaySessionSet::
+/// Providers` on this same schedule and builds the session's actors through
+/// `PlatformerSessionBuilder`, which reads `PreparedCharacterRegistry`. The
+/// shell's `RouteActivated` and the bridge's `GameplaySessionEvent::Activated`
+/// are the same frame, so with no edge between them the activation that
+/// AUTHORIZED a reload could construct generation N+1's world out of generation
+/// N's moves — a half-transaction that no assertion on either side can see,
+/// because each half is individually correct.
+///
+/// ⚠ ASKED OF THE GRAPH, BY KEY. The provider's system is private to its crate,
+/// so the edge is asserted against the SET it belongs to — which is also the
+/// seam the ordering is actually written against.
+#[test]
+fn the_publication_precedes_provider_session_construction() {
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(Update)
+        .expect("the Update schedule exists")
+        .graph();
+
+    let publication = key_of(
+        graph,
+        ambition_content::reload::publish_staged_reload_on_activation,
+    );
+    let providers = graph
+        .system_sets
+        .get_key(bevy::ecs::schedule::SystemSet::intern(
+            &ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
+        ))
+        .expect(
+            "`GameplaySessionSet::Providers` is a set in the shipped Update \
+             schedule — if it is not, the provider stopped constructing sessions \
+             there and this ordering names nothing",
+        );
+
+    assert!(
+        graph
+            .dependency()
+            .graph()
+            .contains_edge(NodeId::System(publication), NodeId::Set(providers)),
+        "the reload publication has no ordering edge to \
+         `GameplaySessionSet::Providers`, so a route activation may construct \
+         the new session from the PREVIOUS cast"
     );
 }

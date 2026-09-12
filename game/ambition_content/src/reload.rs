@@ -707,11 +707,28 @@ pub fn register(app: &mut bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs;
     app.add_systems(
         bevy::prelude::Update,
-        publish_staged_reload_on_activation.run_if(
-            bevy::prelude::resource_exists::<
-                bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
-            >,
-        ),
+        publish_staged_reload_on_activation
+            // ⛔⛔ **BEFORE THE WORLD IS BUILT FROM THE CAST, OR GENERATION N+1's
+            // SESSION IS CONSTRUCTED FROM GENERATION N's MOVES.**
+            //
+            // `activate_prepared_platformer_sessions` is `in_set(
+            // GameplaySessionSet::Providers)` on this same schedule, and its
+            // `PlatformerSessionBuilder` reads `PreparedCharacterRegistry`. The
+            // shell's `RouteActivated` and the session bridge's
+            // `GameplaySessionEvent::Activated` are the SAME frame, so without
+            // this edge the two systems raced: the activation that authorized
+            // the reload could construct the new world's actors out of the cast
+            // the reload was replacing, and nothing in either half would say so.
+            //
+            // ⚠ THE EDGE IS WHAT MAKES IT IMPOSSIBLE RATHER THAN CHECKED. Bevy
+            // inserts the sync point, so the queued publication has applied
+            // before any provider constructs anything.
+            .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
+            .run_if(
+                bevy::prelude::resource_exists::<
+                    bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
+                >,
+            ),
     );
 }
 

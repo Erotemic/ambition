@@ -670,6 +670,99 @@ mod composed {
     }
 }
 
+/// ⭐⭐ **RE-ENTERING THE ROUTE YOU ARE ALREADY *ACTIVE ON* REQUESTS A FRESH
+/// PREPARATION, AND THAT IS THE ROAD A CONTENT RELOAD SHOULD TAKE** (fast-
+/// iteration I3, step 4's *"file watching calls the same request path"*).
+///
+/// ⛔⛤ **TWO SIBLINGS LOOK LIKE THEY ALREADY PROVE THIS AND NEITHER DOES.**
+/// `provider_retry_supersedes_the_failed_transaction…` re-requests after the
+/// first transaction FAILED, so it pins retry-after-failure.
+/// `same_provider_relaunch_mints_a_fresh_load_transaction` runs a full round
+/// trip and then **`QuitToHome` before relaunching** — it pins relaunch-after-
+/// leaving. A reload leaves nothing: the route is ACTIVE, the session is
+/// published, and the request arrives anyway. That branch had no witness.
+///
+/// ⇒ **SO A RELOAD NEEDS NO NEW PUBLICATION ROAD AND NO NEW ROUTE KIND.** Select
+/// the new pack, re-request the route already running, and the existing
+/// preparation lifecycle allocates the epoch, fingerprints the content and
+/// publishes at the activation boundary — with the old generation authoritative
+/// until it does.
+#[test]
+fn re_requesting_the_route_already_active_starts_a_new_transaction() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    // The same round trip the relaunch sibling runs — request, publish, complete,
+    // close discovery, advance to activation — so the ONLY difference between
+    // that test and this one is the `QuitToHome` it does and this does not.
+    let mut launch = |router: &mut ShellRouter,
+                      loads: &mut LoadCoordinator,
+                      prepared: &mut PreparedSessionRegistry| {
+        let transaction = router
+            .apply(
+                ShellCommand::GoTo(ShellRouteId::new("game")),
+                &catalog,
+                &host,
+                loads,
+                prepared,
+            )
+            .iter()
+            .find_map(|event| match event {
+                ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+                _ => None,
+            })
+            .expect(
+                "a request for this route produced no preparation, so a content \
+                 reload cannot reach the existing lifecycle this way",
+            );
+        assert!(prepared.publish(&transaction).is_some());
+        loads.apply(LoadCommand::SetWorkState {
+            load_id: transaction.barrier.load_id.clone(),
+            work_id: ambition_load::LoadWorkId::new("publish"),
+            state: ambition_load::LoadWorkState::Complete,
+        });
+        loads.apply(LoadCommand::SetDiscovery {
+            load_id: transaction.barrier.load_id.clone(),
+            barrier_id: transaction.barrier.barrier_id.clone(),
+            open: false,
+            forecast: None,
+        });
+        let holds = ShellRouteHolds::default();
+        assert!(
+            matches!(
+                router
+                    .advance_pending(&catalog, loads, prepared, &holds)
+                    .last(),
+                Some(ShellEvent::RouteActivated(_))
+            ),
+            "the route did not activate, so the arm below is not about a LIVE route"
+        );
+        transaction
+    };
+
+    let first = launch(&mut router, &mut loads, &mut prepared);
+    // ⛔ NO `QuitToHome`. The route stays active across this line, which is the
+    // entire point.
+    let second = launch(&mut router, &mut loads, &mut prepared);
+    assert_ne!(
+        first.barrier.load_id, second.barrier.load_id,
+        "re-requesting the ACTIVE route reused its transaction, so a reload \
+         would be indistinguishable from the preparation already done"
+    );
+    assert_eq!(
+        (first.route_id.clone(), first.experience_id.clone()),
+        (second.route_id.clone(), second.experience_id.clone()),
+        "the two requests are not for the same route, so this is navigation \
+         rather than re-preparation"
+    );
+}
+
 #[test]
 fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publication() {
     let mut loads = LoadCoordinator::default();

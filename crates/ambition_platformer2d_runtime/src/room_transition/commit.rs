@@ -350,16 +350,18 @@ impl RoomTransitionApplication<'_, '_> {
 
         debug_assert_eq!(plan.target_index(), target_room);
         let player_size = clusters.as_ref().map(|c| c.kinematics.size);
-        plan.retire_outgoing(
+        // ⚠ ONE CALL, because the retire/commit ORDER is not this site's fact to
+        // keep — see `replace_live_world`, which also names the destructive
+        // window the `Nothing below may fail` discipline above is protecting.
+        // A transition walks within the room set it already has, so no swap.
+        plan.replace_live_world(
             &mut self.commands,
             self.room_visuals
                 .iter()
                 .map(|(entity, physics)| (entity, physics.is_some())),
             carry_body,
-        );
-        plan.commit_deferred(
-            &mut self.commands,
             &mut room_set,
+            None,
             &mut geometry,
             &mut self.moving_platforms.0,
         );

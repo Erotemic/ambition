@@ -302,7 +302,11 @@ impl RoomConstructionPlan {
 
     /// Retire the outgoing room's scoped entities. The transiting possessed
     /// body may be carried across the boundary instead of being retired.
-    pub fn retire_outgoing<'a>(
+    ///
+    /// ⚠ THE OUTGOING HALF OF [`Self::replace_live_world`], and callers outside
+    /// this module should want that instead: this half alone leaves the session
+    /// with no room at all.
+    pub(crate) fn retire_outgoing<'a>(
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
@@ -332,9 +336,59 @@ impl RoomConstructionPlan {
         }
     }
 
+    /// Replace the live world with this prepared room: retire the outgoing
+    /// room, then commit the incoming one.
+    ///
+    /// ⛔⛤ **THE ORDER IS THE WHOLE POINT, AND IT USED TO BE A FACT RECORDED IN
+    /// THREE PLACES.** Room transition, session reset and the dev hot reload
+    /// each called [`Self::retire_outgoing`] and then [`Self::commit_deferred`],
+    /// in that order, because committing first would leave the outgoing room's
+    /// bodies alive BESIDE the incoming room's — two rooms' worth of entities
+    /// answering to one live world, with duplicate authored identities — and
+    /// skipping the retire leaks a whole room. Nothing said so; three call sites
+    /// agreed, and a fourth would have been free to disagree.
+    ///
+    /// ⚠ **THIS IS THE DESTRUCTIVE WINDOW, NAMED.** Between the retire and the
+    /// commit the session has no room, and `room_transition::commit` says the
+    /// consequence out loud: *"A transition that fails after `retire_outgoing`
+    /// has despawned the source room and has nowhere to put the body, which is
+    /// not a failure a caller can handle."* Every caller handles that today by
+    /// discipline — a `// Nothing below may fail` comment over straight-line
+    /// code. ⇒ **Collapsing the pair here does NOT remove the window; it gives
+    /// it one address.** A10's stronger last-good-world guarantee is the fix
+    /// (build the incoming room as an inactive candidate, validate it, publish,
+    /// and only then retire the outgoing one), and when it lands it lands HERE
+    /// rather than in three call sites that have to be found first.
+    ///
+    /// `next_rooms` is `Some` when the caller is replacing the ROOM SET as well
+    /// as the active room — a hot reload rebuilds the set from re-read content;
+    /// a transition walks within the set it already has. It is applied between
+    /// the two halves because `commit_deferred` calls `set_active` with an index
+    /// into the NEW set.
+    pub fn replace_live_world<'a>(
+        &self,
+        commands: &mut Commands,
+        outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
+        carry_body: Option<Entity>,
+        rooms: &mut RoomSet,
+        next_rooms: Option<RoomSet>,
+        geometry: &mut ambition_platformer2d_core::RoomGeometry,
+        moving_platforms: &mut Vec<MovingPlatformState>,
+    ) {
+        self.retire_outgoing(commands, outgoing, carry_body);
+        if let Some(next) = next_rooms {
+            *rooms = next;
+        }
+        self.commit_deferred(commands, rooms, geometry, moving_platforms);
+    }
+
     /// Publish target geometry/platform state and enqueue the exact frozen room
     /// contents. Call only after every preflight has succeeded.
-    pub fn commit_deferred(
+    ///
+    /// ⚠ THE INCOMING HALF OF [`Self::replace_live_world`], and callers outside
+    /// this module should want that instead: this half alone commits a room
+    /// without retiring the one it replaces.
+    pub(crate) fn commit_deferred(
         &self,
         commands: &mut Commands,
         rooms: &mut RoomSet,

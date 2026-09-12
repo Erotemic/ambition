@@ -424,16 +424,14 @@ pub fn process_new_game_reset_request(
     }
 
     // 3-5. The same artifact drives transition, hot reload, and restore.
-    room_plan.retire_outgoing(
+    room_plan.replace_live_world(
         &mut commands,
         room_visuals
             .iter()
             .map(|(entity, physics_entity)| (entity, physics_entity.is_some())),
         None,
-    );
-    room_plan.commit_deferred(
-        &mut commands,
         &mut room_set,
+        None,
         &mut world,
         &mut play_state.moving_platforms.0,
     );

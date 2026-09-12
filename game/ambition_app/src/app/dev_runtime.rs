@@ -472,11 +472,20 @@ pub(super) fn reload_ldtk_world_from_disk(
     let outgoing = room_visuals
         .iter()
         .map(|(entity, physics_entity)| (entity, physics_entity.is_some()));
-    construction_plan.retire_outgoing(commands, outgoing, None);
-
     let active_room = construction_plan.room_id().to_string();
-    *room_set = transaction.next_room_set;
-    construction_plan.commit_deferred(commands, room_set, world, moving_platforms);
+    // ⚠ A hot reload replaces the room SET as well as the active room, which is
+    // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
+    // callers. It is applied BETWEEN the retire and the commit because
+    // `commit_deferred` calls `set_active` with an index into the new set.
+    construction_plan.replace_live_world(
+        commands,
+        outgoing,
+        None,
+        room_set,
+        Some(transaction.next_room_set),
+        world,
+        moving_platforms,
+    );
     // The session's live content binding follows the COMMITTED content. Queued
     // after `commit_deferred`, so this transaction still verifies against the
     // binding it was prepared under (the epoch that existed at preflight);

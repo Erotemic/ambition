@@ -635,6 +635,41 @@ pub(crate) fn dropped_moveset_entities(
     }
 }
 
+/// Does this candidate change the family the STAGED road publishes?
+///
+/// ⛔⛤ **THE TRANSACTION USED TO REQUIRE MOVESET ADMISSION WHATEVER CHANGED,
+/// AND THAT MADE IT A MOVE RELOAD WITH OTHER FAMILIES PUBLISHED BESIDE IT.**
+/// `request_reload` staged the move section, demanded `InstalledTechniques` and
+/// admitted a revision even when `changed_domains` was exactly
+/// `{"fighter_brain_ladder"}` or `{"encounter_waves"}`. Two consequences, both
+/// wrong:
+///
+/// * a composition with legitimate encounter-wave content and NO combat
+///   capability could not reload its own family — it was refused
+///   `NoTechniqueSupport` for a family that has nothing to do with techniques;
+/// * an unrelated family's edit re-staged and re-admitted every unchanged move
+///   table, so the cost and the refusal surface of a waves edit were the
+///   moveset's.
+///
+/// ⇒ **ONLY PARTICIPANTS THAT CHANGED PREPARE.** This is the read that decides
+/// it, and it is the same `changed_domains` the unsupported-domain diff already
+/// asks — so the generation plan has ONE source for "what moved".
+///
+/// ⚠ NO ACTIVE PACK MEANS CHANGED. A first publication has no generation to
+/// diff against, and declining to stage there would silently skip the cast on
+/// the one road that has never published it.
+fn moveset_changed(
+    world: &bevy::ecs::world::World,
+    candidate: &ambition_content_pack::PreparedContentPack,
+) -> bool {
+    let Some(active) = crate::pack::selected(world) else {
+        return true;
+    };
+    ambition_content_pack::changed_domains(active, candidate)
+        .iter()
+        .any(|schema| schema.0 == ambition_characters::moveset_content_schema::MOVESET_SCHEMA)
+}
+
 /// Domains this candidate changes that nothing can publish.
 ///
 /// ⚠ READ AGAINST THE ACTIVE PACK, WHICH IS WHY IT MUST RUN BEFORE ANYTHING IS
@@ -839,8 +874,16 @@ pub fn request_reload(
     //
     // ⇒ So the transaction stages one and requests the other, and
     // [`publish_staged_reload_on_activation`] lands them together.
+    // ⛔⛔ **ONLY PARTICIPANTS THAT CHANGED PREPARE.** See [`moveset_changed`]: a
+    // ladder-only or waves-only generation must not require the combat
+    // capability, and must not re-stage every unchanged move table to publish
+    // somebody else's family.
     let pack = candidate.into_pack();
-    if let Some(section) = ambition_characters::moveset_content_schema::lowered_movesets(&pack) {
+    let stages_cast = moveset_changed(world, &pack);
+    let section = stages_cast
+        .then(|| ambition_characters::moveset_content_schema::lowered_movesets(&pack))
+        .flatten();
+    if let Some(section) = section {
         let cast_base = world
             .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
             .map(ambition_characters::prepared::PreparedCharacterRegistry::generation);
@@ -885,12 +928,23 @@ pub fn request_reload(
     // nothing here can admit the revision at all. Letting the request through
     // meant the activation reached a branch with no answer, returned, and left
     // the pending pack staged forever while the engine's half had moved.
-    let support = world
-        .get_resource::<ambition_combat::technique::InstalledTechniques>()
-        .map(|installed| installed.0.clone());
-    let Some(support) = support else {
-        discard_staged_reload(world);
-        return ReloadRequest::Refused(MoveReload::NoTechniqueSupport);
+    // ⚠ AND THE TECHNIQUE TABLE IS ONLY REQUIRED BY THE FAMILY THAT USES IT.
+    // A generation that stages no cast asks the combat capability nothing, so
+    // demanding it would refuse a waves edit for the absence of something it
+    // never consults.
+    let support = if stages_cast {
+        match world
+            .get_resource::<ambition_combat::technique::InstalledTechniques>()
+            .map(|installed| installed.0.clone())
+        {
+            Some(support) => Some(support),
+            None => {
+                discard_staged_reload(world);
+                return ReloadRequest::Refused(MoveReload::NoTechniqueSupport);
+            }
+        }
+    } else {
+        None
     };
     // ⛔⛤ **THE ADMITTED VALUE IS KEPT, AND THROWING IT AWAY WAS THE DEFECT.**
     // This used to admit, discard the `AdmittedRevision`, and let the ACTIVATION
@@ -905,7 +959,9 @@ pub fn request_reload(
     // next: measured 2026-09-11, an unrelated publication DRAINED a pending
     // reload's staged revision and the reload's own boundary then found
     // `NothingStaged`. A generation that owns its edit cannot have it absorbed.
-    let admitted_cast = match ambition_characters::prepared::take_admitted_revision(world, &support)
+    let admitted_cast = match support
+        .map(|support| ambition_characters::prepared::take_admitted_revision(world, &support))
+        .unwrap_or(ambition_characters::prepared::RevisionAdmission::NothingStaged)
     {
         ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {
             discard_staged_reload(world);
@@ -927,6 +983,9 @@ pub fn request_reload(
         // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL. The move
         // material being identical does not mean the pack is, and the engine's
         // generation still has to move.
+        // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL, and it is
+        // now reached two ways: the move material was identical, OR this
+        // generation changes no moveset at all and never staged one.
         ambition_characters::prepared::RevisionAdmission::NothingStaged
         | ambition_characters::prepared::RevisionAdmission::Unchanged { .. } => None,
     };
@@ -1282,9 +1341,6 @@ pub fn commit_content_generation(
                     discard_staged_reload(world);
                 });
             }
-            ShellEvent::WaitingForLoad { .. }
-            | ShellEvent::RouteDeactivated(_)
-            | ShellEvent::ExitRequested => {}
             ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
             | ShellEvent::ExitRequested => {}

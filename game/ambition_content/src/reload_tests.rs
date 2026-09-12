@@ -3270,3 +3270,118 @@ fn publishing_a_generation_installs_every_pack_derived_family() {
          pack lowers it, but publishing a generation did not install it"
     );
 }
+
+/// ⛔⛔ **A GENERATION THAT CHANGES NO MOVESET DOES NOT ASK THE COMBAT
+/// CAPABILITY FOR PERMISSION.**
+///
+/// ⛔⛤ **THE TRANSACTION USED TO BE A MOVE RELOAD WITH OTHER FAMILIES PUBLISHED
+/// BESIDE IT**, and this arm is the difference. `request_reload` staged the move
+/// section, demanded `InstalledTechniques` and admitted a revision even when
+/// `changed_domains` was exactly `{"fighter_brain_ladder"}` — so a composition
+/// with legitimate ladder or wave content and no combat capability was refused
+/// `NoTechniqueSupport` for the absence of something its family never consults,
+/// and an unrelated edit re-staged every unchanged move table to publish
+/// somebody else's content.
+///
+/// ⚠ **THE HOST HERE DELIBERATELY INSTALLS NO `InstalledTechniques`**, which is
+/// the whole subject: `host_with_the_shipped_cast` inserts one because admission
+/// refuses 40+ authored effects without it. Removing it is what makes this arm
+/// about the coupling rather than about the ladder.
+#[test]
+fn a_ladder_only_generation_needs_no_technique_table() {
+    let mut app = host_with_the_shipped_cast();
+    // ⛔ THE PREMISE. Without this removal the request would succeed for the
+    // ordinary reason and the arm would certify nothing.
+    assert!(
+        app.world_mut()
+            .remove_resource::<ambition_combat::technique::InstalledTechniques>()
+            .is_some(),
+        "the fixture did not install a technique table, so removing it proves \
+         nothing about a generation that does not need one"
+    );
+    app.world_mut()
+        .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
+            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+                crate::pack::prepared(),
+            )
+            .cloned()
+            .expect("the shipped pack lowers its ladder"),
+        ));
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_a_faster_first_rung());
+    assert_eq!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .map(|s| s.0.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fighter_brain_ladder"],
+        "the premise: this generation changes NO moveset, so nothing on it \
+         should consult the technique table"
+    );
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "a ladder-only generation was refused by the combat capability's \
+         absence: {outcome:?}"
+    );
+
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(
+        live_first_rung(&app),
+        499.0,
+        "the generation was requested and then published nothing"
+    );
+}
+
+/// ⛔ AND THE MOVESET FAMILY STILL DOES REQUIRE IT — the control, without which
+/// the arm above is satisfied by a road that simply stopped asking.
+#[test]
+fn a_moveset_generation_still_needs_a_technique_table() {
+    let mut app = host_with_the_shipped_cast();
+    assert!(
+        app.world_mut()
+            .remove_resource::<ambition_combat::technique::InstalledTechniques>()
+            .is_some(),
+        "the premise: the fixture installed one"
+    );
+    shell_active_on(&mut app, true);
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_every_move_retimed());
+    assert!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .any(|s| s.0 == "moveset"),
+        "the premise: this generation DOES change the moveset"
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            candidate,
+            Some(live.fingerprint),
+        ),
+    );
+    assert!(
+        matches!(
+            outcome,
+            ReloadRequest::Refused(MoveReload::NoTechniqueSupport)
+        ),
+        "a moveset generation was let through without a technique table to \
+         admit its authored effects against: {outcome:?}"
+    );
+}

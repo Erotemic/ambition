@@ -95,7 +95,12 @@ pub fn spawn_projectiles_from_brain_actions(
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
     mut sfx: SfxWriter,
     mut actors: Query<(
-        &mut ae::BodyKinematics,
+        // ⭐ READ-ONLY NOW, AND THAT IS A CONSEQUENCE OF THE RECOIL MOVE. This was
+        // `&mut BodyKinematics` and the aim-assist comment below justified it as
+        // *"borrows kinematics mutably for the recoil"* — the recoil no longer
+        // writes here, so a mutable borrow would be an access this system claims
+        // and does not use, which constrains the scheduler for nothing.
+        &ae::BodyKinematics,
         &mut ambition_combat::BodyMelee,
         Option<&super::ActorSurfaceState>,
         Option<&ambition_combat::actor_tuning::ActorConfig>,
@@ -113,8 +118,9 @@ pub fn spawn_projectiles_from_brain_actions(
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
-    // "at the one opponent over there". Read-only and disjoint from `actors`,
-    // which borrows kinematics mutably for the recoil.
+    // "at the one opponent over there". Read-only, and so is `actors`' view of
+    // kinematics now that recoil stages at the launch gateway instead of writing
+    // velocity here.
     relations: Option<Res<ambition_combat::targeting::FactionRelations>>,
     shooters: Query<(
         &ambition_characters::actor::ActorFaction,
@@ -170,7 +176,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // ⛔ `body_flight`, NOT `flight`: this scope already binds `flight` to
         // `ProjectileFlight`, the projectile's own envelope. Two different things
         // called the same word one block apart is how the wrong one gets staged.
-        let Ok((mut kin, mut melee, surface, config, health, body_flight)) =
+        let Ok((kin, mut melee, surface, config, health, body_flight)) =
             actors.get_mut(msg.actor)
         else {
             // Message references a body that no longer exists

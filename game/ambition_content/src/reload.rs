@@ -19,11 +19,19 @@
 //! assumptions from the OnceLock content route for migrated families with
 //! App-scoped selection"*, and is NOT done here.
 //!
-//! ⚠ **SO A RELOAD MOVES THE CAST AND NOT THE PACK.** Move tables reach the
-//! running game through the character registry, which this republishes. Every
-//! other family in that pack — items, encounters, audio, boss profiles — is
-//! still whatever the boot-time compile produced, and asking this function to
-//! reload one of them would be asking it to lie.
+//! ⚠ **A RELOAD MOVES THE PARTICIPATING DOMAINS AND THE SELECTION — AND THIS
+//! PARAGRAPH USED TO SAY *"a reload moves the cast and not the pack"*, which was
+//! true when written and is not now (re-derived 2026-09-12).** [`participates`]
+//! is the authority: the moveset schema plus every [`PACK_DERIVED_FAMILIES`]
+//! domain, which today is `fighter_brain_ladder` and `encounter_waves`. The
+//! transaction publishes those together with the selected pack, atomically.
+//!
+//! ⛔ EVERY OTHER DOMAIN IS REFUSED, NOT SILENTLY SKIPPED — items, audio, boss
+//! profiles, the character catalog. A candidate that changes one of them is
+//! turned away by [`ReloadRequest`] rather than published, because publishing it
+//! would leave the canonical identity naming generation N+1 while the live
+//! catalog served N. **The rule fails safe: a family added later is refused by
+//! DEFAULT rather than forgotten into silent falsity.**
 
 use ambition_characters::prepared::{stage_move_section, MovesetRevisionError};
 // ⚠ THE FIXTURE ROAD PUBLISHES DIRECTLY; THE PRODUCTION ROAD NEVER DOES. The
@@ -136,14 +144,19 @@ pub enum MoveReload {
     /// the generation transaction, so publishing it would make the engine's
     /// content identity a lie.
     ///
-    /// ⛔⛤ **MEASURED 2026-09-11: ELEVEN OF TWELVE DOMAINS DO NOT PARTICIPATE.**
-    /// `item_catalog`, `encounter_waves`, `fighter_brain_ladder`,
-    /// `character_catalog`, the two audio registries and the four boss families
-    /// are all installed in `AmbitionContentPlugin::build` or a registration
-    /// function from the process-global `pack::prepared()`, and no reload road
-    /// replaces any of them. `moveset` is the only domain whose reader takes a
-    /// pack PARAMETER and the only one with a revision road — and those are the
-    /// same fact, not two.
+    /// ⛔⛤ **THIS CENSUS SAID "ELEVEN OF TWELVE DO NOT PARTICIPATE" AND IS
+    /// SUPERSEDED (re-derived 2026-09-12): THREE PARTICIPATE NOW.** `moveset`,
+    /// plus `fighter_brain_ladder` and `encounter_waves` as
+    /// [`PACK_DERIVED_FAMILIES`] — the second and third families joined after
+    /// that count was taken. ⚠ **DO NOT RE-COUNT FROM THIS COMMENT.**
+    /// [`participates`] is the authority and is one `match` precisely so a prose
+    /// list cannot drift from it again; this paragraph exists to say the drift
+    /// happened, not to be the list.
+    ///
+    /// ⇒ What still does NOT participate is everything installed in
+    /// `AmbitionContentPlugin::build` from the process-global `pack::prepared()`
+    /// — `item_catalog`, `character_catalog`, the two audio registries, the four
+    /// boss families — because no reload road replaces any of them.
     ///
     /// ⇒ Publishing an items-only candidate would leave
     /// `PreparedContentIdentity` and the selected pack naming generation N+1
@@ -760,12 +773,17 @@ pub enum ReloadRequest {
 /// (`PendingContentIdentity`, staked at adoption) rather than from the App-wide
 /// selection, which is why the selection no longer has to move first.
 ///
-/// ⛔ WHAT IS STILL OPEN is the request's own identity: the reload writes
-/// `ShellCommand::ReplaceWith` with no correlator and then ADOPTS the first
-/// `PreparationRequested` for its route, so a second command for the same route
-/// queued in the same frame can hand it a transaction it did not issue. A route
-/// name is not a transaction identity, and this road still uses one for the
-/// window before adoption.
+/// ✅ **AND THE REQUEST'S OWN IDENTITY IS CLOSED — this paragraph described the
+/// defect as OPEN and it is fixed (re-derived 2026-09-12).** It said
+/// `ShellCommand::ReplaceWith` carries no correlator and that the reload adopts
+/// the first `PreparationRequested` for its route, so a second command for the
+/// same route in one frame could hand it a transaction it did not issue.
+///
+/// ⇒ `ShellCommand::ReplaceWith { route, request: Option<ShellRequestId> }` now
+/// carries the slot, the CALLER mints the id before issuing the command, and it
+/// threads through `PendingShellRoute` → `ProviderLoadTransaction` →
+/// `ShellEvent::TransactionEnded`. **A route name is not a transaction identity,
+/// and this road no longer uses one.**
 pub fn request_reload(
     world: &mut bevy::ecs::world::World,
     candidate: ambition_content_pack::CandidateGeneration,
@@ -983,14 +1001,20 @@ pub fn request_reload(
 /// say no. The only branch left at the boundary is "is this my transaction",
 /// which is a question about identity, not about content.
 ///
-/// ⚠ `load_id` IS `None` UNTIL THE ROUTER MINTS IT. MEASURED 2026-09-11:
-/// `ShellRouter::next_load_transaction` is private, the id is minted in a LATER
-/// system than the request, and `ShellCommand::ReplaceWith` carries no slot for a
-/// correlator — so the requester can neither read nor predict its own
-/// transaction. It is ADOPTED from `ShellEvent::PreparationRequested`, the first
-/// moment the identity exists and is observable. A route name is not that
-/// identity: two generations can target one route, which is exactly what a
-/// reload does.
+/// ⚠ `load_id` IS STILL `None` UNTIL THE ROUTER MINTS IT — that half stands.
+/// `ShellRouter::next_load_transaction` is private and the id is minted in a
+/// LATER system than the request, so the requester cannot predict it and adopts
+/// it from `ShellEvent::PreparationRequested`.
+///
+/// ⛔⛤ **BUT THE REASON THIS COMMENT GAVE IS NO LONGER TRUE, AND THE STRUCT
+/// THREE LINES DOWN CONTRADICTS IT.** It said `ShellCommand::ReplaceWith`
+/// *"carries no slot for a correlator"*. It carries one —
+/// `request: Option<ShellRequestId>` — and `request` below is the caller-minted
+/// id that fills it. ⇒ **A route name is not a transaction identity, and the
+/// window before adoption is covered by the request id rather than by the route**
+/// — which is exactly why `ShellRequestId` exists. `load_id` is the ROUTER's name
+/// for the same transaction, adopted later; two names, one transaction, and only
+/// one of them is knowable at request time.
 #[derive(bevy::prelude::Resource)]
 pub struct PendingGeneration {
     /// `None` until the router mints the transaction this reload asked for.

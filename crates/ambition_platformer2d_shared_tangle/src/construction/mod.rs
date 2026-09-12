@@ -259,32 +259,42 @@ impl<'w, 's, 'a, D: ConstructionDomain> ConstructionRootCtx<'w, 's, 'a, D> {
         self
     }
 
-    /// ⛔⛤ **THE REMAINING ESCAPE, NAMED SO IT CAN BE COUNTED.**
+    /// Hand this row's root to a helper that populates it.
     ///
-    /// Two of the three production domains (`gravity`, `portal2d`) are fully
-    /// migrated and hold NO `Commands` at all — for them a recipe spawning an
-    /// authoritative root is unexpressible, which is the goal. The monolith's
-    /// nine recipes are not, because they delegate to helpers that take
-    /// `&mut Commands` (`spawn_staged_actor_into`, `spawn_runtime_minion_into`,
-    /// …) and changing those signatures is a separate packet.
+    /// ⭐⭐ **THIS REPLACED `commands_escape`, AND THE DIFFERENCE IS THE WHOLE
+    /// PACKET.** The escape returned `&mut Commands`, so a recipe that reached
+    /// for it could `spawn()` an authoritative entity the executor never
+    /// allocated and `commit_inactive` therefore never hides — a candidate scene
+    /// visible in half. [`RootScope`] has no `spawn` of any kind, so the same
+    /// nine monolith recipes now delegate through a surface that **cannot**
+    /// mint. The hole is closed by TYPE rather than by the
+    /// `engine.construction-recipes-do-not-spawn` waiver that used to name its
+    /// nine rows.
     ///
-    /// ⚠ MEASURED 2026-09-12, and the distinction is finer than it looks: those
-    /// helpers call `spawn_into`, which POPULATES a root the executor allocated.
-    /// The `spawn()` siblings beside them — which really do
-    /// `commands.spawn_empty()` — belong to roads that are NOT on the
-    /// construction planner (`spawn_encounter_mob`, and one marked
-    /// `#[allow(dead_code)]`). So the escape is not currently a hole; it is a
-    /// hole-shaped API with no production user that walks through it.
+    /// ⚠ The scope can still write only to THIS root. A recipe that needs a
+    /// deliberate child entity has never had a way to make one here and still
+    /// does not; that is relation work, and `ConstructionExecCtx` is where it
+    /// lives.
+    pub fn root_scope(&mut self) -> crate::construction::RootScope<'w, 's, '_> {
+        crate::construction::RootScope::new(self.commands, self.session, self.root)
+    }
+
+    /// ⛔⛤ **TEST-ONLY RAW `Commands`, AND ITS ABSENCE IN PRODUCTION IS THE
+    /// POINT.**
     ///
-    /// ⛔ I REACHED THAT CONCLUSION BY THE WRONG ROUTE FIRST. I measured
-    /// `ctx.commands.spawn` in the recipe BODIES, found none, and concluded no
-    /// recipe spawns — a claim about the wrong population, since the spawning
-    /// would happen inside what the recipe CALLS. The conclusion survived; the
-    /// evidence for it did not, and this comment records the evidence that
-    /// actually holds.
+    /// The boundary roster verification has to be poisoned by violations a
+    /// recipe COULD commit if it held `Commands` — a second body answering to a
+    /// planned identity, a root wearing this transaction's ownership that no
+    /// plan row named, a despawned root. Production can no longer express any of
+    /// them ([`Self::root_scope`] is the whole surface), so the adversarial toy
+    /// recipes need a door the shipped code does not have.
     ///
-    /// ⇒ Every use of this is a row in the migration that removes it.
-    pub fn commands_escape(&mut self) -> &mut Commands<'w, 's> {
+    /// ⚠ **THIS IS A SABOTAGE HOOK, NOT AN ESCAPE HATCH.** It is `cfg(test)` and
+    /// `pub(crate)`: it cannot be reached from another crate at all, and it
+    /// cannot be reached from a non-test build of this one. If it ever needs to
+    /// be, the verification it feeds is what has to change.
+    #[cfg(test)]
+    pub(crate) fn commands_for_sabotage(&mut self) -> &mut Commands<'w, 's> {
         self.commands
     }
 
@@ -296,6 +306,202 @@ impl<'w, 's, 'a, D: ConstructionDomain> ConstructionRootCtx<'w, 's, 'a, D> {
         self.commands
             .insert_room_in_session(self.session, self.root, bundle);
         self
+    }
+}
+
+/// A writer bound to ONE already-allocated entity.
+///
+/// ⭐⭐ **THIS IS HALF OF WHAT DELETES `commands_escape`.** The escape existed
+/// because the monolith's recipes delegate to `spawn_*_into` helpers that took
+/// `&mut Commands`, and a recipe holding raw `Commands` can mint an
+/// authoritative root that `commit_inactive` never hides — a half-visible
+/// candidate scene, which is exactly the property A10 is about. Handing those
+/// helpers a scope instead makes the mint **unexpressible** rather than
+/// policy-checked: there is no `spawn`, no `spawn_empty`, and no way to name any
+/// entity other than the one the scope was built around.
+///
+/// ⚠ **IT IS NOT A CAPABILITY TOKEN AND MUST NOT BE READ AS ONE.** Anyone
+/// holding `&mut Commands` can build one for any entity — [`EntityScope::new`]
+/// is public because the non-planner spawn roads legitimately allocate their own
+/// entity and then populate it. What the type guarantees is about the CALLEE,
+/// not the caller: a function that accepts a scope cannot create an entity,
+/// however it was handed one.
+///
+/// ⇒ This is the SESSION-LESS half. Use it for a helper that finishes an entity
+/// whose ownership was settled by whoever allocated it — the re-template pass
+/// and the match-seat materializer both do exactly that. A helper that needs to
+/// STAMP ownership wants [`RootScope`] instead, and the split is the point:
+/// `EntityScope` cannot claim an ownership it was never told.
+pub struct EntityScope<'w, 's, 'a> {
+    entity: Entity,
+    commands: &'a mut Commands<'w, 's>,
+}
+
+impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
+    /// Bind a writer to an entity that ALREADY EXISTS.
+    ///
+    /// ⛔ The caller is asserting the entity is allocated; this does not create
+    /// it and cannot.
+    pub fn new(commands: &'a mut Commands<'w, 's>, entity: Entity) -> Self {
+        Self { entity, commands }
+    }
+
+    /// The entity every write on this scope lands on.
+    pub fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    /// Put components on it.
+    pub fn insert(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        self.commands.entity(self.entity).insert(bundle);
+        self
+    }
+
+    /// Take components off it.
+    ///
+    /// Present because a grant that cannot be RETRACTED is a grant no second
+    /// writer can stand down from, and the re-template road retracts exactly
+    /// what it granted.
+    pub fn remove<B: bevy::prelude::Bundle>(&mut self) -> &mut Self {
+        self.commands.entity(self.entity).remove::<B>();
+        self
+    }
+
+    /// Queue a mutation of ONE component on this entity, applied when the
+    /// command queue flushes and SKIPPED if the component is absent.
+    ///
+    /// ⭐⭐ **THIS EXISTS SO THE SCOPE DOES NOT NEED `Commands::queue`.** A
+    /// queued `&mut World` closure is a complete escape — it can spawn — so
+    /// exposing one would give back everything the scope takes away. The only
+    /// production use is a deferred component edit on the scope's own entity
+    /// (`switch_motion_model`, which must preserve shared body facts rather than
+    /// replace the component), and that is exactly what this expresses.
+    ///
+    /// ⚠ ABSENT IS A NO-OP, deliberately: the caller is asking to adjust a
+    /// component it did not insert, and a body that never had one is not a
+    /// fault.
+    pub fn queue_component_mut<C>(&mut self, edit: impl FnOnce(&mut C) + Send + 'static) -> &mut Self
+    where
+        C: bevy::prelude::Component<Mutability = bevy::ecs::component::Mutable>,
+    {
+        let entity = self.entity;
+        self.commands.queue(move |world: &mut World| {
+            if let Some(mut component) = world.get_mut::<C>(entity) {
+                edit(&mut component);
+            }
+        });
+        self
+    }
+
+    /// Hand this scope to a callee without giving up ownership of it.
+    pub fn reborrow(&mut self) -> EntityScope<'w, 's, '_> {
+        EntityScope {
+            entity: self.entity,
+            commands: self.commands,
+        }
+    }
+
+    /// Bind a SECOND scope to a different entity, borrowing the same
+    /// `Commands`.
+    ///
+    /// ⛔ Also not a mint: the entity must already exist. This is for the roads
+    /// that populate a cluster whose members were allocated together (a boss and
+    /// its parts), where one function writes to each in turn.
+    pub fn rebind(&mut self, other: Entity) -> EntityScope<'w, 's, '_> {
+        EntityScope {
+            entity: other,
+            commands: self.commands,
+        }
+    }
+}
+
+/// An [`EntityScope`] that also knows the gameplay session owning its entity,
+/// so it can STAMP that ownership as it writes.
+///
+/// ⚠ **THE THREE INSERTS ARE THE THREE OWNERSHIP FLAVOURS, NAMED AS THE
+/// `SpawnSessionScopedExt` TRAIT NAMES THEM** — `insert`,
+/// `insert_session_scoped`, `insert_room_in_session`. They are deliberately NOT
+/// collapsed to one defaulted call: a body that is room-scoped when it should be
+/// session-scoped survives a room change it should not, and that distinction has
+/// no test that can see it, so it is spelled at every site.
+pub struct RootScope<'w, 's, 'a> {
+    entity: EntityScope<'w, 's, 'a>,
+    session: crate::lifecycle::SessionSpawnScope,
+}
+
+impl<'w, 's, 'a> RootScope<'w, 's, 'a> {
+    /// Bind a writer to an allocated entity and the session that owns it.
+    ///
+    /// ⛔ A construction recipe never calls this — it receives a scope from
+    /// [`ConstructionRootCtx::root_scope`], built around the root the executor
+    /// minted.
+    pub fn new(
+        commands: &'a mut Commands<'w, 's>,
+        session: crate::lifecycle::SessionSpawnScope,
+        root: Entity,
+    ) -> Self {
+        Self {
+            entity: EntityScope::new(commands, root),
+            session,
+        }
+    }
+
+    /// The entity every write on this scope lands on.
+    pub fn root(&self) -> Entity {
+        self.entity.entity()
+    }
+
+    /// The gameplay session that owns this root.
+    pub fn session(&self) -> crate::lifecycle::SessionSpawnScope {
+        self.session
+    }
+
+    /// Put components on the root, with no ownership stamp of their own.
+    pub fn insert(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        self.entity.insert(bundle);
+        self
+    }
+
+    /// Put components on the root and stamp it as owned by this scope's
+    /// gameplay session.
+    pub fn insert_session_scoped(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        use crate::lifecycle::SpawnSessionScopedExt as _;
+        let (entity, commands) = (self.entity.entity, &mut *self.entity.commands);
+        commands.insert_session_scoped(self.session, entity, bundle);
+        self
+    }
+
+    /// Put components on the root and stamp it as owned by BOTH the active
+    /// authored room and this scope's gameplay session — the retirement
+    /// lifetime a placed body wants.
+    pub fn insert_room_in_session(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        use crate::lifecycle::SpawnSessionScopedExt as _;
+        let (entity, commands) = (self.entity.entity, &mut *self.entity.commands);
+        commands.insert_room_in_session(self.session, entity, bundle);
+        self
+    }
+
+    /// Drop to the session-less scope, for a helper that finishes an entity
+    /// without claiming to own it.
+    pub fn entity_scope(&mut self) -> EntityScope<'w, 's, '_> {
+        self.entity.reborrow()
+    }
+
+    /// Hand this scope to a callee without giving up ownership of it.
+    pub fn reborrow(&mut self) -> RootScope<'w, 's, '_> {
+        RootScope {
+            entity: self.entity.reborrow(),
+            session: self.session,
+        }
+    }
+
+    /// Bind a SECOND scope, same session, to a different already-allocated
+    /// entity.
+    pub fn rebind(&mut self, other: Entity) -> RootScope<'w, 's, '_> {
+        RootScope {
+            entity: self.entity.rebind(other),
+            session: self.session,
+        }
     }
 }
 

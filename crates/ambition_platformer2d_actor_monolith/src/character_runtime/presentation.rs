@@ -9,6 +9,7 @@ use bevy::prelude::*;
 use std::collections::BTreeSet;
 
 use ambition_characters::actor::character_catalog::CharacterCatalogOwners;
+use ambition_platformer2d_shared_tangle::construction::EntityScope;
 
 use super::CharacterLoadStates;
 use ambition_platformer2d_actor_spawn::character_body::{
@@ -295,7 +296,7 @@ pub fn project_prepared_character_definitions(
         // the component as a query column and replaces its value wholesale for worn bodies.
         // the same tick this runs.
         if let Some(previous) = projected {
-            previous.granted.retract(entity, &mut commands);
+            previous.granted.retract(&mut EntityScope::new(&mut commands, entity));
         }
         let Some(prepared) = resolved.and_then(|id| registry.get(id)) else {
             if projected.is_some() {
@@ -312,8 +313,7 @@ pub fn project_prepared_character_definitions(
         // after IT applies the baseline. One writer, one record. This one covers
         // the authored silhouette, the movement feel and the motion model below.
         grant_prepared_character_body(
-            &mut commands,
-            entity,
+            &mut EntityScope::new(&mut commands, entity),
             prepared,
             registry.generation(),
             if persona_bodies.contains(entity) {

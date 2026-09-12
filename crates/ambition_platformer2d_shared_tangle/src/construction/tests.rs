@@ -1569,10 +1569,16 @@ fn empty_relation_metadata_fields_are_rejected() {
 
 // ── Boundary roster verification ─────────────────────────────────────────────
 //
-// A recipe holds raw `Commands` and the root `Entity`, so every violation below
-// is expressible TODAY. These are not hypotheticals guarded by
-// `ConstructionRoot` — that type only stops a recipe NOMINATING a pre-existing
-// entity as a row's root.
+// ⛔⛤ **THIS COMMENT USED TO SAY THE VIOLATIONS BELOW WERE EXPRESSIBLE TODAY,
+// AND THAT IS NO LONGER TRUE OF PRODUCTION.** A recipe's whole surface is
+// `RootScope` — root, three inserts, one entity-bound deferred edit — so it can
+// neither spawn nor name another entity. These toys reach `commands_for_sabotage`,
+// a `cfg(test)` door the shipped code does not have.
+//
+// ⚠ THAT DOES NOT MAKE THE VERIFICATION REDUNDANT, and the distinction matters:
+// the boundary checks the WORLD, not the recipes. Any system running in the same
+// frame can mint an identity-bearing root, and a roster verification that only
+// covered recipes would be a check on the one road that can no longer fail.
 
 /// What each adversarial toy recipe should do to its root.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1611,16 +1617,16 @@ thread_local! {
 }
 
 fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
-    // Bound before any mutable escape: `commands_escape` borrows the context.
+    // Bound before the sabotage door: it borrows the whole context.
     let root = ctx.root();
     let transaction = ctx.scope.transaction(ctx.session);
     match SABOTAGE.with(|s| s.get()) {
         Sabotage::None => {}
         Sabotage::StripIdentity => {
-            ctx.commands_escape().entity(root).remove::<SimId>();
+            ctx.commands_for_sabotage().entity(root).remove::<SimId>();
         }
         Sabotage::OverwriteProvenance => {
-            ctx.commands_escape()
+            ctx.commands_for_sabotage()
                 .entity(root)
                 .insert(SpawnOrigin::Dynamic {
                     parent: SimId::placement("nobody"),
@@ -1628,18 +1634,18 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
                 });
         }
         Sabotage::DespawnRoot => {
-            ctx.commands_escape().entity(root).despawn();
+            ctx.commands_for_sabotage().entity(root).despawn();
         }
         Sabotage::DuplicateIdentity => {
             // A second body answering to the SAME planned identity. A
             // `BTreeSet<SimId>` comparison cannot see this at all.
-            ctx.commands_escape().spawn(SimId::placement("a"));
+            ctx.commands_for_sabotage().spawn(SimId::placement("a"));
         }
         Sabotage::SpawnExtraAuthoritativeRoot => {
             // A root wearing THIS transaction's ownership that no plan row
             // named. The caller never lists it, which is exactly why the scope
             // is read from the world instead of from the caller.
-            ctx.commands_escape().spawn((
+            ctx.commands_for_sabotage().spawn((
                 SimId::placement("uninvited"),
                 transaction.clone(),
             ));
@@ -1648,17 +1654,17 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
             // A real identity, minted outside the planner, classified by
             // nothing. Indistinguishable from a recipe inventing a root, which
             // is why it is fatal.
-            ctx.commands_escape().spawn(SimId::placement("mystery_body"));
+            ctx.commands_for_sabotage().spawn(SimId::placement("mystery_body"));
         }
         Sabotage::RemoveTransactionId => {
-            ctx.commands_escape().entity(root).remove::<TransactionId>();
+            ctx.commands_for_sabotage().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
             let elsewhere = ConstructionScope {
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands_escape()
+            ctx.commands_for_sabotage()
                 .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
         }
@@ -1669,7 +1675,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands_escape().spawn((
+            ctx.commands_for_sabotage().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
             ));
@@ -1678,7 +1684,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
             // Legal: identity-bearing, but explicitly declared non-authoritative.
             // It must carry an identity for this to prove anything — an entity
             // with no `SimId` was never in scope to begin with.
-            ctx.commands_escape()
+            ctx.commands_for_sabotage()
                 .spawn((SimId::placement("a/visual"), PresentationOnly));
         }
     }
@@ -2589,23 +2595,28 @@ fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_th
 /// THIS ARM EXISTS SO THE LIMIT CANNOT BE FORGOTTEN.**
 ///
 /// `commit_inactive` stamps [`super::InactiveCandidate`] on the roots the
-/// EXECUTOR minted, which is every row of the plan. A recipe also receives raw
-/// `Commands` and may spawn authoritative entities of its own — the giant hand's
-/// limbs really do this — and those are not in the receipt, so nothing stamps
-/// them. **They stay visible while the rest of the candidate is hidden.**
+/// EXECUTOR minted, which is every row of the plan. An authoritative entity
+/// minted by anything else is not in the receipt, so nothing stamps it: **it
+/// stays visible while the rest of the candidate is hidden**, which is a
+/// half-visible candidate and exactly what A10's *"complete visibility proof"*
+/// is about.
 ///
-/// ⇒ That would be a HALF-VISIBLE candidate, which is exactly what A10's
-/// *"complete visibility proof"* is about.
+/// ⛔⛤ **THIS DOC USED TO SAY "A RECIPE ALSO RECEIVES RAW `Commands` AND MAY
+/// SPAWN AUTHORITATIVE ENTITIES OF ITS OWN — THE GIANT HAND'S LIMBS REALLY DO
+/// THIS". BOTH HALVES ARE NOW FALSE AND THE SECOND WAS ALREADY FALSE WHEN IT WAS
+/// WRITTEN.** The giant hand's limbs have been PLAN ROWS since `giant_hand_plans`
+/// fed `giant_cluster_rows`; and a recipe's surface is now `RootScope`, which has
+/// no `spawn` and cannot name any entity but its own root. The door this test
+/// uses is `commands_for_sabotage`, which is `cfg(test)`.
 ///
-/// ⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE DOES THIS.** Measured 2026-09-12
-/// across the whole tree — every `ctx.commands_escape().spawn` is TEST code, and the one
-/// case the verifier's doc used to name (the giant hand limbs) has been PLAN ROWS
-/// since `giant_hand_plans` fed `giant_cluster_rows`. ⇒ With no recipe minting
-/// its own roots, stamping every PLANNED root isolates every candidate this
-/// engine actually builds. This arm pins the SHAPE so the day a recipe starts
-/// spawning, the gap is a failing test rather than a half-visible scene.
+/// ⇒ **SO THE POPULATION THIS ARM SPEAKS FOR IS NO LONGER "RECIPES" — IT IS
+/// EVERY OTHER SYSTEM RUNNING IN THE SAME FRAME.** That is why it was not
+/// deleted along with the escape: a verification narrowed to the one road that
+/// can no longer fail would be a check that cannot fail, and an ordinary system
+/// spawning an identity-bearing body during a commit is still entirely
+/// expressible.
 #[test]
-fn a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation() {
+fn an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation() {
     let registry = registry();
     let plan = ConstructionPlan::prepare(
         scope(),
@@ -2637,9 +2648,10 @@ fn a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation() {
     );
     assert!(
         visible > 0,
-        "MEASURED LIMIT: a recipe-spawned authoritative entity is NOT stamped and \
-         therefore NOT hidden, so a candidate containing one is half-visible to \
-         the running world. If this ever reads 0 the isolation became complete \
-         and this arm should become the opposite assertion."
+        "MEASURED LIMIT: an authoritative entity minted outside the plan is NOT \
+         stamped and therefore NOT hidden, so a candidate containing one is \
+         half-visible to the running world. Production RECIPES can no longer \
+         reach this state — `RootScope` has no spawn — so what this arm now \
+         speaks for is every other system running in the same frame."
     );
 }

@@ -565,17 +565,15 @@ fn construct_staged_actor(
     let ActorConstructionParams::StagedActor(request) = parameters else {
         unreachable!("dispatch pairs this fn with StagedActor parameters")
     };
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     ambition_platformer2d_actor_spawn::spawn_staged_actor_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
         //  the cast this construction context has carried all along — the
         // staged path simply never asked for it.
         &services.context.prepared,
         &services.boss_catalog,
-        session,
-        root,
         request,
     );
 }
@@ -587,14 +585,12 @@ fn construct_summoned_minion(
     let ActorConstructionParams::SummonedMinion(minion) = parameters else {
         unreachable!("dispatch pairs this fn with SummonedMinion parameters")
     };
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     ambition_platformer2d_actor_spawn::spawn_runtime_minion_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
-        session,
-        root,
         minion.feature_id.clone(),
         minion.name.clone(),
         minion.pos,
@@ -612,7 +608,7 @@ fn construct_giant_host(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     let ActorConstructionParams::GiantHost {
         authored,
         faction,
@@ -629,13 +625,11 @@ fn construct_giant_host(
     // what is gone is a name crossing the boundary to say something only
     // construction cares about.
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
-        session,
-        root,
         authored,
         paths,
         *faction,
@@ -650,7 +644,7 @@ fn construct_giant_hand(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     let ActorConstructionParams::GiantHand { authored } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
     };
@@ -661,13 +655,11 @@ fn construct_giant_hand(
     // only driver, and targeting must ignore it. The `Limb` component and the
     // host's rig entry come from the `ambition.limb` relation, not from here.
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
-        session,
-        root,
         authored,
         &[],
         ambition_combat::components::ActorFaction::Enemy,
@@ -678,18 +670,16 @@ fn construct_authored_enemy(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     let ActorConstructionParams::AuthoredEnemy { authored, paths } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredEnemy parameters")
     };
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
-        session,
-        root,
         authored,
         paths,
         ambition_combat::components::ActorFaction::Enemy,
@@ -700,15 +690,13 @@ fn construct_authored_boss(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     let ActorConstructionParams::AuthoredBoss { authored } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
     ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(
-        ctx.commands_escape(),
+        &mut ctx.root_scope(),
         &services.boss_catalog,
-        session,
-        root,
         authored,
         &ambition_boss_encounter::BossOverrides::default(),
     );
@@ -737,7 +725,7 @@ fn construct_placement(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let (session, services, root) = (ctx.session, ctx.services, ctx.root());
+    let services = ctx.services;
     let ActorConstructionParams::Placement {
         record,
         paths,
@@ -746,15 +734,12 @@ fn construct_placement(
     else {
         unreachable!("dispatch pairs this fn with Placement parameters")
     };
-    // Every read is bound BEFORE the mutable escape, because
-    // `commands_escape` borrows the whole context.
+    // Every read is bound BEFORE `root_scope`, which borrows the whole context.
     let room_id = ctx.scope.room.as_deref().unwrap_or("").to_string();
     let mut lowering = crate::world::placements::LoweringCtx {
-        commands: ctx.commands_escape(),
+        scope: ctx.root_scope(),
         room_id: &room_id,
         paths,
-        session_scope: session,
-        root,
         context: &services.context,
     };
     lower(record, &mut lowering);

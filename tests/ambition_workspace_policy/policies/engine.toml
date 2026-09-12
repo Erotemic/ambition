@@ -2687,27 +2687,6 @@ skip_paths = [
 # tenth.
 # ─────────────────────────────────────────────────────────────────────────────
 [[policy]]
-id = "engine.construction-recipes-do-not-spawn"
-scope = "engine"
-kind = "forbidden-source-reference"
-owners = ["ambition_platformer2d_shared_tangle"]
-watch_paths = ["crates", "game"]
-rationale = "A10's candidate isolation hides every root the construction EXECUTOR minted. A recipe that minted one of its own would leave it VISIBLE while the rest of the candidate is hidden — a half-visible scene, which is exactly what A10's 'complete visibility proof' is about. `ConstructionRootCtx` removes `Commands` from the recipe surface so this is unexpressible; `commands_escape()` is the one remaining door and exists only because the monolith's recipes delegate to helpers taking `&mut Commands`. KNOWN SCOPE: this matches the escape by NAME, so it counts doors rather than proving nothing walks through one — the structural half is the absent `Commands` field, and this rule exists to keep the exception list from growing while that migration finishes."
-source_doc = "docs/planning/engine/actor-monolith-work-frontier.md"
-severity = "error"
-production_only = true
-skip_tests = true
-roots = ["crates", "game"]
-forbid = ["commands_escape()"]
-skip_paths = [
-    # The nine recipes still mid-migration. Deleting this line is what finishing
-    # the migration looks like.
-    "ambition_platformer2d_actor_monolith/src/construction/mod.rs",
-    # The type that DEFINES the escape.
-    "ambition_platformer2d_shared_tangle/src/construction/mod.rs",
-]
-
-[[policy]]
 id = "engine.velocity-writes-are-authority-only"
 scope = "engine"
 kind = "forbidden-source-reference"

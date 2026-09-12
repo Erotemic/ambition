@@ -7,6 +7,8 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer2d_shared_tangle::construction::EntityScope;
+
 /// Character definition currently projected onto a body, including the catalog
 /// generation that produced it so stale projections can be detected.
 ///
@@ -59,7 +61,7 @@ impl GrantedBodyFacts {
     /// Removing only what THIS system granted is what keeps it from fighting the
     /// worn path, which owns the movement-feel marker for a body whose feel came
     /// from the CATALOG — a case this system cannot see and must not overwrite.
-    pub fn retract(self, entity: Entity, commands: &mut Commands) {
+    pub fn retract(self, scope: &mut EntityScope) {
         // Exhaustive on purpose: a new fact does not compile until it is handled.
         let Self {
             hurtboxes,
@@ -67,19 +69,13 @@ impl GrantedBodyFacts {
             posed_body,
         } = self;
         if hurtboxes {
-            commands
-                .entity(entity)
-                .remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
+            scope.remove::<ambition_combat::hurtbox_resolution::AuthoredHurtboxes>();
         }
         if movement_tuning {
-            commands
-                .entity(entity)
-                .remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
+            scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
         }
         if posed_body {
-            commands
-                .entity(entity)
-                .remove::<ambition_sprite_sheet::character::SpritePosedBody>();
+            scope.remove::<ambition_sprite_sheet::character::SpritePosedBody>();
         }
     }
 }
@@ -138,8 +134,7 @@ pub enum KitOwnership {
 /// investigation kept circling: a save taken between the two restores a world claiming to be
 /// projected and missing what the projection grants. One batch, one archetype move, one tick.
 pub fn grant_prepared_character_body(
-    commands: &mut Commands,
-    entity: Entity,
+    scope: &mut EntityScope,
     prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
     generation: ambition_characters::prepared::CharacterCatalogGeneration,
     kit: KitOwnership,
@@ -161,22 +156,18 @@ pub fn grant_prepared_character_body(
         // `PlayerVisual`, which only the exploration player's avatar ever
         // receives, so no match fighter had one and a headless diagnostic could
         // not say what the engine intended to DRAW.
-        commands
-            .entity(entity)
-            .insert(ambition_platformer2d_shared_tangle::lifecycle::PosedBody);
+        scope.insert(ambition_platformer2d_shared_tangle::lifecycle::PosedBody);
         // Construction writes the gameplay baseline unless persona derivation will
         // do so. A newly constructed body displaced nothing, so its baseline has
         // an empty `displaced` set even when the caller resolved its kit.
         if kit != KitOwnership::PersonaDerive {
-            commands
-                .entity(entity)
-                .insert(ambition_body_seed::PersonaBaseline {
+            scope.insert(ambition_body_seed::PersonaBaseline {
                     id: prepared.id.as_str().to_string(),
                     generation,
                     displaced: Default::default(),
                 });
         }
-        commands.entity(entity).insert(ProjectedCharacterKit {
+        scope.insert(ProjectedCharacterKit {
             id: prepared.id.as_str().to_string(),
             generation,
             granted: GrantedBodyFacts::of(prepared, movement_tuning),
@@ -198,21 +189,19 @@ pub fn grant_prepared_character_body(
                 // live `ActorMoveset` by `reconcile_moveset_routing_markers` —
                 // deriving them is what makes them right for the persona path too,
                 // which replaces the moveset and never knew the markers existed.
-                commands
-                    .entity(entity)
-                    .insert(ambition_combat::moveset::ActorMoveset(moveset));
+                scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
             if let Some(action_set) = prepared.kit.action_set().cloned() {
                 let combat_kit =
                     ambition_combat::components::CombatKit::from_action_set(&action_set);
-                commands.entity(entity).insert((action_set, combat_kit));
+                scope.insert((action_set, combat_kit));
             }
         }
         // The rest is what the persona derive does not own on ANY path: the
         // authored silhouette, the movement feel, and the motion model — body
         // facts rather than kit facts, each with a matching retraction above.
         if let Some(hurtboxes) = prepared.hurtboxes.clone() {
-            commands.entity(entity).insert((
+            scope.insert((
                 ambition_combat::hurtbox_resolution::AuthoredHurtboxes(hurtboxes),
                 ambition_combat::hurtbox_resolution::ResolvedHurtboxes::default(),
                 ambition_combat::components::DamageableVolumes::default(),
@@ -232,7 +221,7 @@ pub fn grant_prepared_character_body(
         // geometry was still declared through a second seam, which is the problem
         // `register_character` exists to delete.
         if let Some(posed) = posed_body_for(prepared) {
-            commands.entity(entity).insert(posed);
+            scope.insert(posed);
         }
         // The MOTION MODEL, on the same path and for the X9 reason.
         //
@@ -258,20 +247,15 @@ pub fn grant_prepared_character_body(
         // broke three fixtures that deliberately run character demand with NO
         // catalog, which is a state another test exists to name.
         if let Some(tuning) = movement_tuning {
-            commands
-                .entity(entity)
-                .insert(ambition_platformer2d_core::AuthoredMovementTuning(tuning));
+            scope.insert(ambition_platformer2d_core::AuthoredMovementTuning(tuning));
         }
         {
             let spec = prepared.motion_model;
-            commands.queue(move |world: &mut World| {
-                let Some(mut model) =
-                    world.get_mut::<ambition_platformer2d_core::movement::MotionModel>(entity)
-                else {
-                    return;
-                };
-                ambition_platformer2d_core::switch_motion_model(&mut model, spec);
-            });
+            scope.queue_component_mut(
+                move |model: &mut ambition_platformer2d_core::movement::MotionModel| {
+                    ambition_platformer2d_core::switch_motion_model(model, spec);
+                },
+            );
         }
     }
 }

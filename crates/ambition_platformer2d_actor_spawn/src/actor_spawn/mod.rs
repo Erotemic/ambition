@@ -58,6 +58,7 @@ use crate::actor_bundles::{EnemyActorBundle, FeatureRenderedBundle};
 use ambition_platformer2d_core as ae;
 // The platformer-strict AABB semantics (edge-touching boxes do not overlap).
 use ae::AabbExt as _;
+use ambition_platformer2d_shared_tangle::construction::{EntityScope, RootScope};
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use bevy::prelude::{warn, Commands, Entity};
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
@@ -72,7 +73,7 @@ use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, SessionSpawnScope,
 };
 use bevy::prelude::{Message, Name};
 
@@ -297,13 +298,11 @@ pub(crate) fn spawn_staged_actor(
     }
     let root = commands.spawn_empty().id();
     spawn_staged_actor_into(
-        commands,
+        &mut RootScope::new(commands, session_scope, root),
         character_catalog,
         authored_sheets,
         prepared,
         boss_catalog,
-        session_scope,
-        root,
         req,
     );
     Some(root)
@@ -312,13 +311,11 @@ pub(crate) fn spawn_staged_actor(
 /// Populate a staged actor onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_staged_actor_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
     req: &SpawnActorRequest,
 ) {
     let aabb = ae::Aabb::new(req.pos, req.half_size);
@@ -331,10 +328,8 @@ pub fn spawn_staged_actor_into(
                 brain.clone(),
             );
             spawn_boss_with_overrides_into(
-                commands,
+                &mut scope.reborrow(),
                 boss_catalog,
-                session_scope,
-                root,
                 &authored,
                 overrides,
             );
@@ -369,7 +364,7 @@ pub fn spawn_staged_actor_into(
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
             spawn_enemy_with_faction_into(
-                commands,
+                &mut scope.reborrow(),
                 character_catalog,
                 authored_sheets,
                 prepared,
@@ -379,15 +374,11 @@ pub fn spawn_staged_actor_into(
                 // empty registry is the honest value here rather than a
                 // borrowed one, and nothing can name into it.
                 &ambition_characters::actor::character_catalog::BrainProfileRegistry::default(),
-                session_scope,
-                root,
                 &authored,
                 &[],
                 req.faction,
             );
-            commands
-                .entity(root)
-                .insert(ambition_combat::components::RuntimeStagedActor);
+            scope.insert(ambition_combat::components::RuntimeStagedActor);
         }
     }
 }
@@ -513,27 +504,21 @@ impl EnemyActorSpawnPlan {
     /// not moved onto the construction planner yet.
     pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
         let root = commands.spawn_empty().id();
-        self.spawn_into(commands, session_scope, root);
+        self.spawn_into(&mut RootScope::new(commands, session_scope, root));
         root
     }
 
     /// Populate a root someone else allocated — the shape the construction
     /// executor needs, since it owns authoritative-root allocation.
-    pub(super) fn spawn_into(
-        self,
-        commands: &mut Commands,
-        session_scope: SessionSpawnScope,
-        entity: Entity,
-    ) {
+    ///
+    /// ⭐ The root arrives inside the scope, so this can no longer be handed a
+    /// `Commands` and asked to make its own.
+    pub(super) fn spawn_into(self, scope: &mut RootScope) {
         let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
         let (identity, disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
-        let entity = commands
-            .insert_session_scoped(
-                session_scope,
-                entity,
-                (
+        scope.insert_session_scoped((
                     Name::new(self.entity_name),
                     EnemyActorBundle::new(
                         FeatureRenderedBundle::new(
@@ -558,11 +543,9 @@ impl EnemyActorSpawnPlan {
                     self.brain,
                     self.action_set,
                     ambition_characters::control::ActorControl::default(),
-                ),
-            )
-            .id();
+        ));
         if let Some(item) = self.held_item {
-            commands.entity(entity).insert(HeldItem::new(item));
+            scope.insert(HeldItem::new(item));
         }
         // Data-driven signature moves: the body carries its authored repertoire as
         // an `ActorMoveset`; `trigger_moveset_moves` starts a move on a control verb
@@ -580,18 +563,12 @@ impl EnemyActorSpawnPlan {
             let has_ranged = moveset
                 .verbs
                 .contains_key(ambition_combat::moveset::RANGED_VERB);
-            commands
-                .entity(entity)
-                .insert(ambition_combat::moveset::ActorMoveset(moveset));
+            scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             if has_attack {
-                commands
-                    .entity(entity)
-                    .insert(ambition_combat::moveset::MovesetMelee);
+                scope.insert(ambition_combat::moveset::MovesetMelee);
             }
             if has_ranged {
-                commands
-                    .entity(entity)
-                    .insert(ambition_characters::brain::MovesetRanged);
+                scope.insert(ambition_characters::brain::MovesetRanged);
             }
         }
     }
@@ -774,7 +751,7 @@ impl NpcActorSpawnPlan {
     #[allow(dead_code)]
     pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
         let root = commands.spawn_empty().id();
-        self.spawn_into(commands, session_scope, root);
+        self.spawn_into(&mut RootScope::new(commands, session_scope, root));
         root
     }
 
@@ -782,9 +759,7 @@ impl NpcActorSpawnPlan {
     /// executor's shape, mirroring `EnemyActorSpawnPlan::spawn_into`.
     pub(super) fn spawn_into(
         self,
-        commands: &mut Commands,
-        session_scope: SessionSpawnScope,
-        root: Entity,
+        scope: &mut RootScope,
     ) -> Entity {
         let facing = self.seed.kin.facing;
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
@@ -814,10 +789,7 @@ impl NpcActorSpawnPlan {
         );
         let motion_model = self.seed.config.tuning.motion_model();
         let cluster_bundle = self.seed.into_components();
-        let mut entity = commands.insert_session_scoped(
-            session_scope,
-            root,
-            (
+        scope.insert_session_scoped((
                 Name::new(self.entity_name),
                 EnemyActorBundle::new(
                     FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
@@ -838,10 +810,9 @@ impl NpcActorSpawnPlan {
                 self.brain,
                 self.action_set,
                 ambition_characters::control::ActorControl::default(),
-            ),
-        );
+        ));
         let worn = npc_character_id(&interaction.interactable).map(str::to_string);
-        entity.insert(interaction);
+        scope.insert(interaction);
         //  A CATALOG-BACKED NPC WEARS ITS CHARACTER.
         //
         //  it did not, and that is what made provocation read the SPRITE id
@@ -857,7 +828,7 @@ impl NpcActorSpawnPlan {
         // Absence stays the honest answer, and the legacy name-matcher still
         // covers it.
         if let Some(character) = worn {
-            entity.insert(ambition_characters::actor::WornCharacter::new(character));
+            scope.insert(ambition_characters::actor::WornCharacter::new(character));
         }
         // The explicit brain binding + authored context travel with the actor so
         // runtime brain switches (`BrainCommand`), authored-home rebuilds
@@ -867,7 +838,7 @@ impl NpcActorSpawnPlan {
             // The autonomous body also carries its temporary-control state (starts
             // `Autonomous`): possession / mount record their controller here by
             // stable id, so a snapshot restores the control mode across a rewind.
-            entity.insert((
+            scope.insert((
                 binding,
                 authored_context,
                 ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
@@ -880,18 +851,18 @@ impl NpcActorSpawnPlan {
             let has_ranged = moveset
                 .verbs
                 .contains_key(ambition_combat::moveset::RANGED_VERB);
-            entity.insert(ambition_combat::moveset::ActorMoveset(moveset));
+            scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
             if has_attack {
-                entity.insert(ambition_combat::moveset::MovesetMelee);
+                scope.insert(ambition_combat::moveset::MovesetMelee);
             }
             if has_ranged {
-                entity.insert(ambition_characters::brain::MovesetRanged);
+                scope.insert(ambition_characters::brain::MovesetRanged);
             }
         }
         if let Some(size) = render_size {
-            entity.insert(ambition_combat::components::ActorRenderSize(size));
+            scope.insert(ambition_combat::components::ActorRenderSize(size));
         }
-        entity.id()
+        scope.root()
     }
 }
 
@@ -1033,10 +1004,8 @@ fn boss_actor_cluster(
 
 /// Populate a boss onto a root the construction executor allocated.
 pub fn spawn_boss_with_overrides_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     boss_catalog: &BossCatalog,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_entity_catalog::placements::BossBrain,
     >,
@@ -1156,10 +1125,7 @@ pub fn spawn_boss_with_overrides_into(
     let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin);
     let boss_render_envelope = ambition_combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
-    let mut entity = commands.insert_session_scoped(
-        session_scope,
-        root,
-        (
+    scope.insert_session_scoped((
             Name::new(format!("Feature boss: {}", authored.name)),
             FeatureSimEntity,
             RoomVisual,
@@ -1183,9 +1149,8 @@ pub fn spawn_boss_with_overrides_into(
                 PogoTargetVolumes::default(),
                 boss_components,
             ),
-        ),
-    );
-    entity.insert((
+    ));
+    scope.insert((
         // Shared actor combat read models. Boss-specific encounter
         // phase / music / rewards stay on BossFeature + boss
         // encounter systems, but generic combat/targeting code can
@@ -1207,7 +1172,7 @@ pub fn spawn_boss_with_overrides_into(
         boss_attack_combat_size,
         &boss_telegraph_windows,
     );
-    entity.insert((
+    scope.insert((
         // The brain bundle stays grouped because each piece is required
         // for the boss tick chain.
         brain,
@@ -1220,18 +1185,18 @@ pub fn spawn_boss_with_overrides_into(
         boss_capability,
     ));
     if let Some(moveset) = boss_attack_moves {
-        entity.insert(moveset);
+        scope.insert(moveset);
     }
-    entity.insert(boss_actor_cluster);
+    scope.insert(boss_actor_cluster);
     // The coarse render footprint the shared integrator publishes the CenteredAabb
     // from (R1.1). Required by `integrate_boss_bodies`' query, so a boss without it
     // simply would not move — a loud failure the boss suites catch, not a silent
     // footprint shrink.
-    entity.insert(boss_render_envelope);
+    scope.insert(boss_render_envelope);
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
     // (encounter opt-out). Default for room-authored bosses  no-op.
-    entity.insert(overrides.clone());
+    scope.insert(overrides.clone());
     // ADR 0020: a boss authored as a would-be RIDER (non-empty
     // `pilotable_mount_classes`) becomes a `CanPilot` — the SAME mount-role tag
     // the enemy path attaches in `attach_mount_role`, so `spawn_boss` and
@@ -1240,7 +1205,7 @@ pub fn spawn_boss_with_overrides_into(
     // The `RidingOn`/`MountSlot` link is installed later by
     // the planned `ambition.mount` relation from the room's authored `mounted_on` refs.
     if !boss_attack_behavior.pilotable_mount_classes.is_empty() {
-        entity.insert(ambition_mount::CanPilot {
+        scope.insert(ambition_mount::CanPilot {
             classes: boss_attack_behavior
                 .pilotable_mount_classes
                 .iter()
@@ -1292,12 +1257,10 @@ pub fn spawn_runtime_minion(
 ) -> bevy::ecs::entity::Entity {
     let root = commands.spawn_empty().id();
     spawn_runtime_minion_into(
-        commands,
+        &mut RootScope::new(commands, session_scope, root),
         catalog,
         authored_sheets,
         prepared,
-        session_scope,
-        root,
         id,
         name,
         world_pos,
@@ -1316,12 +1279,10 @@ pub fn spawn_runtime_minion(
 /// Populate a summoned minion onto a root the construction executor allocated.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_runtime_minion_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
-    session_scope: SessionSpawnScope,
-    entity: bevy::ecs::entity::Entity,
     id: impl Into<String>,
     name: impl Into<String>,
     world_pos: ae::Vec2,
@@ -1441,15 +1402,12 @@ pub fn spawn_runtime_minion_into(
     )
     .with_faction(faction)
     .with_aggression(aggression)
-    .spawn_into(commands, session_scope, entity);
-    commands
-        .entity(entity)
-        .insert(ambition_combat::components::EncounterMob::new(encounter_id));
+    .spawn_into(&mut scope.reborrow());
+    scope.insert(ambition_combat::components::EncounterMob::new(encounter_id));
     // The authored mount role captured above, on the body that now exists.
     if let Some(mount) = mount_role.as_ref() {
         attach_mount_role_from(
-            commands,
-            entity,
+            &mut scope.entity_scope(),
             mount.class.as_deref(),
             Some(aabb.half_size() * 2.0),
             mount.death_splash,
@@ -1463,9 +1421,7 @@ pub fn spawn_runtime_minion_into(
         &name,
         aabb.half_size() * 2.0,
     ) {
-        commands
-            .entity(entity)
-            .insert(ambition_combat::components::ActorRenderSize(rs));
+        scope.insert(ambition_combat::components::ActorRenderSize(rs));
     }
 }
 
@@ -1478,15 +1434,13 @@ pub const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::Respawn
     ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
 
 pub fn spawn_enemy_with_faction_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     // The published controller policies, so this PLACEMENT may name one.
     // See `EnemySpawnSpec::brain_profile`.
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
@@ -1603,11 +1557,9 @@ pub fn spawn_enemy_with_faction_into(
         );
         let body_size = enemy.kin.size;
         spawn_solo_enemy_into(
-            commands,
+            &mut scope.reborrow(),
             catalog,
             authored_sheets,
-            session_scope,
-            root,
             enemy,
             authored,
             faction,
@@ -1616,11 +1568,9 @@ pub fn spawn_enemy_with_faction_into(
         // worn body's action set, moveset and identity baseline — the same one
         // that serves a match seat — so a migrated enemy's kit comes from its
         // character rather than from `enemy.spec.melee`.
-        commands
-            .entity(root)
-            .insert(ambition_characters::actor::WornCharacter::new(
-                definition.id.as_str(),
-            ));
+        scope.insert(ambition_characters::actor::WornCharacter::new(
+            definition.id.as_str(),
+        ));
         // The body was built partial here, `WornCharacter` was attached, and
         // `project_prepared_character_definitions` noticed it a tick later and inserted the
         // action set, the moveset, the hurtboxes and the posed body onto a body that had
@@ -1631,8 +1581,7 @@ pub fn spawn_enemy_with_faction_into(
         // body as current and never touches it. That pass is now what it was
         // always for: a cast hot reload, or a deliberate runtime re-wear.
         crate::character_body::grant_prepared_character_body(
-            commands,
-            root,
+            &mut scope.entity_scope(),
             definition,
             prepared.generation(),
             crate::character_body::KitOwnership::Grant,
@@ -1653,7 +1602,7 @@ pub fn spawn_enemy_with_faction_into(
         if let Some(id) = definition.held_item.as_deref() {
             match ambition_characters::brain::held_item_by_id(id) {
                 Some(spec) => {
-                    commands.entity(root).insert(HeldItem::new(spec));
+                    scope.insert(HeldItem::new(spec));
                 }
                 None => bevy::log::warn!(
                     "character `{}` holds `{id}`, which is not a registered held item",
@@ -1668,8 +1617,7 @@ pub fn spawn_enemy_with_faction_into(
         // answering "nothing" by the longest available route.
         if let Some(mount) = definition.mount.as_ref() {
             attach_mount_role_from(
-                commands,
-                root,
+                &mut scope.entity_scope(),
                 mount.class.as_deref(),
                 Some(body_size),
                 mount.death_splash,
@@ -1806,8 +1754,7 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 /// thing that produces a `Mountable` ( group A: the shark family).
 #[allow(clippy::too_many_arguments)]
 fn attach_mount_role_from(
-    commands: &mut Commands,
-    entity: bevy::ecs::entity::Entity,
+    scope: &mut EntityScope,
     mount_class: Option<&str>,
     default_size: Option<ae::Vec2>,
     death_splash: Option<i32>,
@@ -1819,7 +1766,7 @@ fn attach_mount_role_from(
         // Feel-tunable; a mount that wants a precise saddle can grow a field.
         let mount_size = default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
         let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
-        commands.entity(entity).insert((
+        scope.insert((
             ambition_mount::Mountable {
                 rider_offset,
                 class: ambition_mount::MountClass(class.to_string()),
@@ -1835,7 +1782,7 @@ fn attach_mount_role_from(
         ));
     }
     if !pilotable.is_empty() {
-        commands.entity(entity).insert((
+        scope.insert((
             ambition_mount::CanPilot {
                 classes: pilotable
                     .iter()
@@ -1852,11 +1799,9 @@ fn attach_mount_role_from(
 /// mount/rider fan-out has been handled. Returns the spawned body entity.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_solo_enemy_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    session_scope: SessionSpawnScope,
-    entity: bevy::ecs::entity::Entity,
     enemy: ambition_body_seed::ActorClusterSeed,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
@@ -1872,7 +1817,7 @@ pub(super) fn spawn_solo_enemy_into(
         enemy,
     )
     .with_faction(faction)
-    .spawn_into(commands, session_scope, entity);
+    .spawn_into(&mut scope.reborrow());
     // A named catalog character carries its authored sprite render size on the
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
@@ -1883,9 +1828,7 @@ pub(super) fn spawn_solo_enemy_into(
         &authored.name,
         authored.aabb.half_size() * 2.0,
     ) {
-        commands
-            .entity(entity)
-            .insert(ambition_combat::components::ActorRenderSize(rs));
+        scope.insert(ambition_combat::components::ActorRenderSize(rs));
     }
 }
 /// Human label for an authored NPC: the catalog `display_name` for the
@@ -1925,12 +1868,10 @@ fn npc_display_label(
 }
 
 pub fn spawn_interactable_into(
-    commands: &mut Commands,
+    scope: &mut RootScope,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
     // ⭐⭐ THE RUNTIME COMPONENT AND ITS AUTHORED NAME, NOT THE AUTHORED SPEC.
     // This took `Authored<InteractableSpec>` and converted it here with
     // `features::ecs::spawn_static::interactable_from_authored` — an
@@ -1975,13 +1916,10 @@ pub fn spawn_interactable_into(
             paths,
             forced_brains,
         )
-        .spawn_into(commands, session_scope, root);
+        .spawn_into(&mut scope.reborrow());
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = ambition_encounter::SwitchActivation::parse_custom(payload) {
-            commands.insert_session_scoped(
-                session_scope,
-                root,
-                (
+            scope.insert_session_scoped((
                     Name::new(format!("Feature switch: {authored_name}")),
                     FeatureSimEntity,
                     RoomVisual,
@@ -1990,8 +1928,7 @@ pub fn spawn_interactable_into(
                     feature_aabb,
                     SwitchFeature::new(activation),
                     SwitchOn(false),
-                ),
-            );
+            ));
         } else {
             bevy::log::error!(
                 target: "ambition_platformer2d::construction",

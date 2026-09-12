@@ -971,32 +971,80 @@ are root-bound and both are on the new type. Two `type Ctx = ConstructionExecCtx
 aliases fell out DEAD in the process — those domains had only ever used the
 executor's context for recipes.
 
-⛔ **THE MONOLITH IS NOT DONE AND SAYS SO: `commands_escape()`.** Its nine recipes
-delegate to helpers taking `&mut Commands` (`spawn_staged_actor_into`, …), and
-changing those signatures is its own packet. **The escape is guarded by a new
-policy** `engine.construction-recipes-do-not-spawn`, whose `skip_paths` is the
-migration's remaining rows — so nothing outside that one file can add a tenth
-use, and deleting the waiver is what finishing looks like. Poison-verified: a
-migrated recipe reaching for the escape is refused by file and line.
+✅ **A10 STEP 5, 2026-09-12: THE ESCAPE IS DELETED AND THE MINT IS NOW
+UNEXPRESSIBLE IN EVERY RECIPE, INCLUDING THE MONOLITH'S.**
+`ConstructionRootCtx::commands_escape()` is gone; `root_scope()` replaces it and
+hands out a [`RootScope`] — root, three ownership-flavoured inserts, one
+entity-bound deferred edit, and **no `spawn` of any kind**. The nine monolith
+recipes go through it, and so does the placement-lowering road: `LoweringCtx`'s
+three fields `commands` / `session_scope` / `root` collapsed into one
+`scope: RootScope`, which is what closed the last one.
 
-⛔⛤ **AND MY EARLIER "NO PRODUCTION RECIPE SPAWNS" WAS MEASURED AT THE WRONG
-LEVEL.** I grepped the recipe BODIES for `ctx.commands.spawn`, found none, and
-concluded it — but a recipe hands `ctx.commands` to helpers, so the spawning
-would happen one call down. Re-measured: `spawn_staged_actor_into` and its
-siblings call `spawn_into`, which POPULATES a root the executor allocated; the
-`spawn()` helpers beside them that really do `commands.spawn_empty()` belong to
-roads NOT on the construction planner (`spawn_encounter_mob`, and one
-`#[allow(dead_code)]`). ⇒ **The conclusion survived and its evidence did not**,
-and the new surface makes the question structural instead of a grep.
+⭐⭐ **THE RECORDED BLOCKER WAS MUCH SMALLER THAN THE PACKET SAID, AND
+RE-DERIVING IS WHAT FOUND THAT.** The hold read *"they delegate to helpers taking
+`&mut Commands` … and changing those signatures is a separate packet"*, which
+carried an unstated premise: that those helpers have other callers. **MEASURED at
+HEAD:** of the five `spawn_*_into` entry points, FOUR have exactly ONE production
+caller each and it is the construction recipe itself; every other reference is a
+test. Only `spawn_interactable_into` has a second production caller
+(`spawn_static.rs`), and it was already populating a root it had allocated. ⇒ The
+signature change rippled to 11 functions across 3 crates and 9 test sites, not to
+a second packet's worth of roads.
 
-⚠ **A10's SCOPE NOW HAS A NAMED EDGE:** there are production spawn roads that are
-not on the construction planner at all. They are outside the candidate mechanism
-entirely, and "one supported reconstruction path" means they either migrate or
-are declared out of scope — not that they are silently covered.
+⭐⭐ **TWO TYPES, BECAUSE ONE OF THEM WOULD HAVE HAD TO LIE.** `RootScope` knows
+the gameplay session that owns its root and can stamp it; `EntityScope` is the
+session-less half, for a helper that FINISHES an entity whose ownership someone
+else settled — `grant_prepared_character_body` and `GrantedBodyFacts::retract`,
+whose other callers are the re-template pass and the match-seat materializer.
+Collapsing them would have meant handing those callers a
+`SessionSpawnScope::UNSCOPED` they never meant, i.e. **inventing an ownership to
+satisfy a signature.**
 
-⇒ **WHAT REMAINS OF A10:** finish the monolith migration (delete the escape);
-wire this to a real reload customer (I3b's scene reconstruction); and make
-retirement of the OLD world explicit rather than implied.
+⭐ **`queue_component_mut` IS WHAT KEPT `Commands::queue` OUT.** One production
+site needed a DEFERRED edit (`switch_motion_model`, which must preserve shared
+body facts rather than replace the component). A queued `&mut World` closure can
+spawn, so exposing one would have given back everything the scope takes away;
+the narrow form edits one component on the scope's own entity and skips if
+absent.
+
+⛔⛤ **POISON-VERIFIED AT THE COMPILER, THREE WAYS, ALL IN A REAL MONOLITH
+RECIPE** (applied, checked, reverted, md5-verified):
+1. `ctx.root_scope().spawn(SimId::placement("uninvited"))` →
+   *no method named `spawn` found for struct `RootScope`*
+2. `ctx.commands_for_sabotage()` from production →
+   *no method named `commands_for_sabotage` found* (it is `cfg(test)`)
+3. `ctx.root_scope().commands.entity(other).despawn()` →
+   *no field `commands` on type `RootScope`*
+
+⛔ **THE POLICY `engine.construction-recipes-do-not-spawn` IS DELETED, NOT
+RETARGETED.** Its own rationale admitted it *"matches the escape by NAME, so it
+counts doors rather than proving nothing walks through one — the structural half
+is the absent `Commands` field"*. The structural half is now complete, and the
+string it forbids exists nowhere in the tree: keeping it would be a **check that
+cannot fail**. What regression looks like is a new accessor returning
+`&mut Commands` from the construction surface, and that is recorded on
+`root_scope`'s own doc where someone adding one would read it.
+
+⭐ **AND A SECOND GUARD SPENT ITS ALLOWANCE RATHER THAN ROTTING.**
+`engine.room-feature-spawns` allows `features/ecs/spawn/tests.rs` an EXACT count
+of raw `commands.spawn`; the test lowering that used its 1 now inserts on the
+row's own root, and the exact-count check went RED at 0 against a reviewed 1.
+Lowered to 0 with the reason. A one-directional ratchet would have left that row
+at 1 forever.
+
+⚠ **WHAT THIS DOES NOT CLAIM.** The isolation still covers PLANNED roots and
+nothing else, and the arm that pins it was renamed from
+`a_recipe_that_spawns_its_own_entity_…` to
+`an_authoritative_root_minted_outside_the_plan_…` because its population changed:
+recipes can no longer reach that state, **every other system running in the same
+frame still can.** Its doc used to assert *"a recipe also receives raw `Commands`
+… the giant hand's limbs really do this"* — the second half was already false
+when written (those limbs have been plan rows since `giant_hand_plans` fed
+`giant_cluster_rows`), and both halves are corrected in place.
+
+⇒ **WHAT REMAINS OF A10:** wire this to a real reload customer (I3b's scene
+reconstruction), and make retirement of the OLD world explicit rather than
+implied. The monolith migration is DONE (step 5 above).
 
 ## A11. Make installed technique support a preparation contract
 

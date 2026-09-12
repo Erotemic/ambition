@@ -40,8 +40,9 @@ features/ecs/spawn/capability_lanes.rs=0
 features/ecs/spawn/content_staging.rs=0
 features/ecs/spawn/gravity_construction.rs=0
 features/ecs/spawn/portal_construction.rs=0
-# The one raw spawn under this directory, and it is TEST scaffolding: the module
-# builds a bare entity to drive the gate's own subject. Reviewed and allowed at
-# 1 rather than routed through SpawnScopedExt, because a scoped helper here
-# would test the helper instead of the thing under test.
-features/ecs/spawn/tests.rs=1
+# Was 1, and the allowance is SPENT rather than waived: that raw spawn was a
+# test lowering minting its own marker entity, and a lowering's whole surface is
+# now RootScope (no spawn of any kind), so the marker goes on the row's own root.
+# The exact-count check is what noticed the allowance had gone unused -- a
+# one-directional ratchet would have let this row rot at 1 forever.
+features/ecs/spawn/tests.rs=0

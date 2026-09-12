@@ -7,6 +7,7 @@
 
 use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::placements::{PlacementKind, PlacementSchema};
+use ambition_platformer2d_shared_tangle::construction::RootScope;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy_app::App;
 use bevy_ecs::prelude::{Commands, Resource};
@@ -53,15 +54,21 @@ impl PlacementRecord {
 /// Room-load context handed to placement interpreters. It wraps exactly the
 /// facts a lowering function needs today and can grow by explicit need.
 pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
-    pub commands: &'a mut Commands<'w, 's>,
+    /// The entity this placement POPULATES, the session that owns it, and the
+    /// only way to write to either. Allocated by the caller — the construction
+    /// executor for planned rows — so identity, provenance, and transaction
+    /// ownership are stamped on the same body the interpreter builds.
+    ///
+    /// ⭐⭐ **THIS WAS THREE FIELDS — `commands`, `session_scope`, `root` — AND
+    /// COLLAPSING THEM IS WHAT CLOSES THE LAST RECIPE HOLE.** A lowering holding
+    /// raw `Commands` can mint an authoritative entity the construction executor
+    /// never allocated and `commit_inactive` therefore never hides. A
+    /// [`RootScope`] cannot: it has no `spawn` of any kind, and it cannot name
+    /// an entity other than this row's root. ⇒ The placement road is now the
+    /// same shape as every other recipe.
+    pub scope: RootScope<'w, 's, 'a>,
     pub room_id: &'a str,
     pub paths: &'a [(String, ae::KinematicPath)],
-    /// Gameplay-session ownership captured when room staging was requested.
-    pub session_scope: SessionSpawnScope,
-    /// The entity this placement POPULATES. Allocated by the caller — the construction executor
-    /// for planned rows — so identity, provenance, and transaction ownership are stamped on the
-    /// same body the interpreter builds.
-    pub root: bevy_ecs::entity::Entity,
     /// Runtime context supplied by the simulation layer. The world IR remains
     /// generic and content-free; callers choose the context type needed by
     /// their lowering interpreters.
@@ -116,11 +123,9 @@ impl<C: Send + Sync + 'static> PlacementLoweringPlan<C> {
         for planned in &self.placements {
             let root = commands.spawn_empty().id();
             let mut ctx = LoweringCtx {
-                commands,
+                scope: RootScope::new(commands, session_scope, root),
                 room_id: &self.room_id,
                 paths: &self.paths,
-                session_scope,
-                root,
                 context,
             };
             (planned.lower)(&planned.record, &mut ctx);

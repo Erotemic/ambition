@@ -122,7 +122,10 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     // A stand-in interpreter that leaves an observable trace only the passed
     // registry could produce.
     fn marker_hazard_lowering(_record: &PlacementRecord, ctx: &mut LoweringCtx<'_, '_, '_>) {
-        ctx.commands.spawn(TestLoweredMarker);
+        // ⚠ ON THE ROW'S ROOT, not a fresh entity: a lowering's whole surface
+        // is now `RootScope`, which cannot spawn. The assertion counts
+        // `TestLoweredMarker` bodies and is still exactly one.
+        ctx.scope.insert(TestLoweredMarker);
     }
 
     let mut registry = PlacementLoweringRegistry::default();
@@ -280,10 +283,12 @@ fn boss_spawn_attaches_brain_components() {
         };
         let root = commands.spawn_empty().id();
         spawn_boss_with_overrides_into(
-            &mut commands,
+            &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                &mut commands,
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                root,
+            ),
             &ambition_boss_encounter::test_boss_catalog(),
-            ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
-            root,
             &authored,
             &ambition_boss_encounter::BossOverrides::default(),
         );
@@ -553,14 +558,16 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     >| {
         let root = commands.spawn_empty().id();
         ambition_platformer2d_actor_spawn::spawn_interactable_into(
-            &mut commands,
+            &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                &mut commands,
+                SessionSpawnScope::UNSCOPED,
+                root,
+            ),
             &catalog,
             &Default::default(),
             // No prepared cast in this fixture: the catalog default stands,
             // which is what this test is about.
             &Default::default(),
-            SessionSpawnScope::UNSCOPED,
-            root,
             // The fixture converts, exactly as the production caller does now.
             &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
             &authored.name,
@@ -681,13 +688,15 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -757,13 +766,15 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -882,13 +893,15 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     &profiles,
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -1028,15 +1041,17 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -1169,15 +1184,17 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -1232,15 +1249,17 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,
@@ -1287,15 +1306,17 @@ mod authored_enemy_reads_its_character {
             >| {
                 let root = commands.spawn_empty().id();
                 ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(
-                    &mut commands,
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
                     &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
                     &Default::default(),
-                    SessionSpawnScope::UNSCOPED,
-                    root,
                     &authored,
                     &[],
                     ambition_combat::components::ActorFaction::Enemy,

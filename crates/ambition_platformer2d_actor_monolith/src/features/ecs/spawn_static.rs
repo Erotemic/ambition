@@ -13,7 +13,8 @@ use ambition_combat::components::{
 };
 use ambition_combat::hazard_runtime::HazardRuntime;
 use ambition_entity_catalog::placements::PlacementSchema;
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::construction::RootScope;
+use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Name;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
@@ -261,9 +262,7 @@ fn portal_color_from_spec(
 /// Populate one authored hazard onto a root the construction executor
 /// allocated (the placement plan-row shape).
 pub(crate) fn spawn_hazard_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
+    scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::HazardVolumeSpec,
     >,
@@ -276,10 +275,7 @@ pub(crate) fn spawn_hazard_into(
         damage_volume_from_authored(authored),
         paths,
     );
-    commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
+    scope.insert_room_in_session((
             Name::new(format!("Feature hazard: {}", authored.name)),
             FeatureSimEntity,
             RoomVisual,
@@ -287,8 +283,7 @@ pub(crate) fn spawn_hazard_into(
             FeatureName::new(authored.name.clone()),
             CenteredAabb::from_center_size(hazard.pos, hazard.size),
             HazardFeature::new(hazard),
-        ),
-    );
+    ));
 }
 
 pub(crate) fn lower_hazard_placement(
@@ -314,13 +309,7 @@ pub(crate) fn lower_hazard_placement(
             enabled: true,
         },
     };
-    spawn_hazard_into(
-        ctx.commands,
-        ctx.session_scope,
-        ctx.root,
-        &authored,
-        ctx.paths,
-    );
+    spawn_hazard_into(&mut ctx.scope.reborrow(), &authored, ctx.paths);
 }
 
 /// Whether a placement counts against the measurement actor cap.
@@ -366,12 +355,10 @@ pub(crate) fn lower_interactable_placement(
         payload: spec.clone(),
     };
     ambition_platformer2d_actor_spawn::spawn_interactable_into(
-        ctx.commands,
+        &mut ctx.scope.reborrow(),
         &ctx.context.characters,
         &ctx.context.sheets,
         &ctx.context.prepared,
-        ctx.session_scope,
-        ctx.root,
         // ⭐ THE CONVERSION HAPPENS HERE NOW, where it always belonged: this file
         // both defines `interactable_from_authored` and calls the primitive, so
         // the primitive was reaching up for a function sitting beside its own
@@ -397,7 +384,7 @@ pub(crate) fn lower_pickup_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_pickup_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
+    spawn_pickup_into(&mut ctx.scope.reborrow(), &authored);
 }
 
 /// Spawn ONE live pickup.
@@ -425,24 +412,19 @@ pub fn spawn_pickup(
     // so insert through the session-only helper — `insert_room_in_session` would
     // prepend a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
     let root = commands.spawn_empty().id();
-    spawn_pickup_into(commands, session_scope, root, authored);
+    spawn_pickup_into(&mut RootScope::new(commands, session_scope, root), authored);
     root
 }
 
 /// Populate one pickup onto a root the construction executor allocated.
 pub(crate) fn spawn_pickup_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
+    scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::PickupSpec,
     >,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    commands.insert_session_scoped(
-        session_scope,
-        root,
-        (
+    scope.insert_session_scoped((
             Name::new(format!("Feature pickup: {}", authored.name)),
             PickupBundle::new(
                 &authored.id,
@@ -450,14 +432,11 @@ pub(crate) fn spawn_pickup_into(
                 feature_aabb,
                 pickup_from_authored(authored),
             ),
-        ),
-    );
+    ));
     // Carry the authored art id onto the entity so a pickup spawned at RUNTIME
     // (with no room spec behind it) can still be drawn — see `PickupArt`.
     if let Some(sprite) = authored.payload.sprite.clone() {
-        commands
-            .entity(root)
-            .insert(crate::features::ecs::pickups::PickupArt(sprite));
+        scope.insert(crate::features::ecs::pickups::PickupArt(sprite));
     }
 }
 
@@ -485,24 +464,19 @@ pub(crate) fn lower_portal_placement(
         link: schema.link.clone(),
         half_length: schema.half_length,
     };
-    spawn_portal_into(ctx.commands, ctx.session_scope, ctx.root, &spec);
+    spawn_portal_into(&mut ctx.scope.reborrow(), &spec);
 }
 
 #[cfg(feature = "portal")]
 pub(crate) fn spawn_portal_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
+    scope: &mut RootScope,
     spec: &ambition_platformer2d_world::rooms::PortalSpec,
 ) {
     let half_extent = match spec.half_length {
         Some(h) => ambition_portal2d::portal_half_extent_with_length(spec.normal, h),
         None => ambition_portal2d::portal_half_extent(spec.normal),
     };
-    let mut entity = commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
+    scope.insert_room_in_session((
             Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
             ambition_portal2d::PlacedPortal::fixed(
                 portal_color_from_spec(spec.color).channel(),
@@ -510,10 +484,9 @@ pub(crate) fn spawn_portal_into(
                 spec.normal,
                 half_extent,
             ),
-        ),
-    );
+    ));
     if let Some(link) = &spec.link {
-        entity.insert(ambition_portal2d::PortalLink(ambition_portal2d::link_hash(
+        scope.insert(ambition_portal2d::PortalLink(ambition_portal2d::link_hash(
             link,
         )));
     }
@@ -532,14 +505,12 @@ pub(crate) fn lower_chest_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_chest_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
+    spawn_chest_into(&mut ctx.scope.reborrow(), &authored);
 }
 
 /// Populate one chest onto a root the construction executor allocated.
 pub(crate) fn spawn_chest_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
+    scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::ChestSpec,
     >,
@@ -547,10 +518,7 @@ pub(crate) fn spawn_chest_into(
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // `ChestBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
     // so insert through the session-only helper — see the note in `spawn_pickup`.
-    commands.insert_session_scoped(
-        session_scope,
-        root,
-        (
+    scope.insert_session_scoped((
             Name::new(format!("Feature chest: {}", authored.name)),
             ChestBundle::new(
                 &authored.id,
@@ -558,8 +526,7 @@ pub(crate) fn spawn_chest_into(
                 feature_aabb,
                 chest_from_authored(authored),
             ),
-        ),
-    );
+    ));
 }
 
 pub(crate) fn lower_breakable_placement(
@@ -575,14 +542,12 @@ pub(crate) fn lower_breakable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_breakable_into(ctx.commands, ctx.session_scope, ctx.root, &authored);
+    spawn_breakable_into(&mut ctx.scope.reborrow(), &authored);
 }
 
 /// Populate one breakable onto a root the construction executor allocated.
 pub(crate) fn spawn_breakable_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
+    scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::BreakableSpec,
     >,
@@ -590,10 +555,7 @@ pub(crate) fn spawn_breakable_into(
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = breakable_from_authored(authored);
     let breakable = &breakable;
-    let mut entity = commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
+    scope.insert_room_in_session((
             Name::new(format!("Feature breakable: {}", authored.name)),
             FeatureSimEntity,
             RoomVisual,
@@ -605,13 +567,12 @@ pub(crate) fn spawn_breakable_into(
             PogoPolicy::FromDamageable,
             PogoTargetVolumes::default(),
             StandTimer(0.0),
-        ),
-    );
+    ));
     if breakable.pogo_refresh
         || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
     {
         // This feature explicitly contributes WORLD rebound geometry.
-        entity.insert(PogoTargetContributor);
+        scope.insert(PogoTargetContributor);
     }
 }
 

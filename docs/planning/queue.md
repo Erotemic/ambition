@@ -2767,6 +2767,55 @@ rows are still right for the six without one. ⇒ Do not compare its output to a
 take's recorded extents; they are answers to different questions, and I nearly
 reported the difference as an 8x shrink.
 
+⭐⭐ **AND HERE IS THE JOIN THAT MAKES IT ACTIONABLE — 62 THIN MOVES, EACH WITH THE
+FILE THAT DECIDES IT.** Joining the per-move ratios to the specs: **93 recorded
+moves are bone-derived AND carry no `inflate`, and 62 of them play thin.** The
+thinnest, with the exact file:
+
+```text
+0.06  npc_carl_stargan air_neutral    fighting_brawler_v1/specs/air_neutral.spec.json
+0.07  npc_carl_stargan smash_down     fighting_brawler_v1/specs/smash_down.spec.json
+0.08  medic  medic_air_up             medic_triage_v1/specs/air_up.spec.json
+0.09  medic  medic_tilt_forward       medic_triage_v1/specs/attack_side.spec.json
+0.10  officer officer_jab             officer_brawler_v1/specs/jab.spec.json
+0.11  officer officer_tilt_up         officer_brawler_v1/specs/attack_up.spec.json
+0.12  npc_carl_stargan air_back       fighting_brawler_v1/specs/air_back.spec.json
+0.12  npc_carl_stargan tilt_down      fighting_brawler_v1/specs/attack_down.spec.json
+0.14  projectile_polygon jab          projectile_beast_v1/specs/jab.spec.json
+0.16  npc_emmy_noether jab            fighting_brawler_v1/specs/jab.spec.json
+```
+
+⛔⛔ **BUT A SPEC IS NOT A MOVE, AND 17 OF THE 46 SERVE MORE THAN ONE.**
+`fighting_brawler_v1` is shared by alice, bob, carl_stargan and emmy_noether, so
+one edit moves up to EIGHT recorded moves at once — and they are not in the same
+place:
+
+```text
+fighting_brawler_v1/air_neutral   carl_stargan 0.06 · emmy 0.43 · bob 2.30 · alice 2.70
+fighting_brawler_v1/smash_down    carl_stargan 0.07 · emmy 0.33 · alice 2.36 · bob 2.43
+fighting_brawler_v1/attack_up     carl_stargan 0.19 · emmy 0.27 · bob 1.24 · alice 1.33
+```
+
+⇒ **A SHARED SPEC IS A SHARED RULE, NOT A SHARED BOX** — it names which bones and
+how much to extend, applied to each character's own skeleton — so a 45x spread on
+one file is ordinary rather than a contradiction. But it does mean carl_stargan's
+0.06 cannot be fixed there without also inflating alice's 2.70. Whether the four
+should share a stage at all is a question for Jon, and it is the one this table
+raises.
+
+⚠ **`inflate` IS ABSOLUTE PIXELS, NOT A MULTIPLIER** — `_grow_hull` pushes every
+vertex `inflate` px from the hull's centre (`swing_effects.py`), which is why the
+same value helps a thin box far more than a fat one. `extend` (1.02–1.4) IS a
+multiplier, on the bone's length.
+
+⛔ **AND AN EDIT TO A `.spec.json` DOES NOT REACH THE GAME UNTIL THE SPRITE IS
+RE-PUBLISHED.** The runtime reads `AnimationBox` (`parts`/`bbox`/polygon, in
+sprite-frame pixels) out of published sheet metadata; the spec is the renderer's
+INPUT. ⇒ REASONED from the types and the producer, not measured end to end — but
+this repository has already been bitten the other way, by an abandoned
+`inflate: 40` probe that stayed live in the officer's published sheet after the
+spec was reverted with git.
+
    ⛔⛤ **AND THE MEDIC'S 3.8 px IS NOT HER MOVE TABLE — MEASURED 2026-09-11.**
    Migrating the tables made this census a FILE READ rather than an app boot
    (`scripts/measure_authored_strike_extents.py`, milliseconds). Her authored

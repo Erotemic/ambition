@@ -76,8 +76,14 @@ is neither open nor abandoned:
      carve);
    · `D-POTATO-ASPECT` → two generation defects repaired 2026-09-09, interim
      policy deferred to `Q69`;
-   · `D129` → **open, and it needs a measurement first** — "work from the current
-     measured clipped-sheet population, not historical counts";
+   · `D129` → **open, and RE-DERIVED 2026-09-12: it needs a measurement first
+     AND ITS ACCEPTANCE NAMES AN INSTRUMENT THAT DOES NOT EXIST.** There is no
+     render-time clipping warning anywhere in the tree — seven queries in the row,
+     including the refuted hypothesis that it was bevy's own. The lead is that
+     `scripts/measure_sheet_occupancy.py` already parses every baked manifest's
+     rects and every page's dimensions, so the clipped population is answerable
+     from data it already reads. `Q65` no longer gates it (absent from
+     `docs/planning/` entirely);
    · `D72` → **THE ONE GENUINELY OPEN IMPLEMENTATION ROW IN P2.** It is a pointer:
      choose the highest-priority remaining parity row from
      [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md) *"whose
@@ -3393,6 +3399,44 @@ global scale heuristic to erase asset mistakes.
 
 **Acceptance:** render-time clipping warning population decreases for intentional
 repairs and unchanged composited/tiling cases stay classified rather than hidden.
+
+⛔⛤ **THIS ROW'S ACCEPTANCE NAMES AN INSTRUMENT THAT DOES NOT EXIST IN THE TREE
+(measured 2026-09-12), SO IT CANNOT BE CLOSED AS WRITTEN.** *"Render-time
+clipping warning population"* presumes a runtime warning about authored geometry
+being clipped. **There is none**, and the queries are recorded rather than the
+conclusion — a negative result is a claim about the instrument:
+
+1. every `warn!`/`error!`/`info!` in the tree whose text contains `clip` → none;
+2. `git log --grep=D129` → three commits, all about the SUBMODULE POINTER and
+   none about a warning;
+3. `clipped` anywhere in `.rs` → ten hits, all unrelated (portal pieces, UI
+   scroll windows, HUD bars, a tunnelling trace string);
+4. `exceeds the sheet|outside the sheet|beyond the sheet` → none;
+5. every `warn!` mentioning a sheet/frame/atlas/geometry → three, all about
+   FAILING TO PARSE a baked manifest;
+6. the hypothesis that the warning is **bevy's own**, not ours — refuted:
+   `bevy_image`'s `texture_atlas.rs` and `bevy_sprite`'s sources emit no
+   out-of-bounds rect diagnostic in 0.19.1;
+7. `git log -S` for a warning that LEFT the tree → the only commit naming
+   "clipping" is `ebf455473`, which is inspector CAMERA framing (a 320x240 view
+   cutting off a vertical pair), not sprite geometry.
+
+⭐ **THE ONE REAL LEAD, AND IT MAKES THE MEASUREMENT CHEAP IF SOMEBODY WANTS IT.**
+[`scripts/measure_sheet_occupancy.py`](../../scripts/measure_sheet_occupancy.py)
+already parses every baked manifest's `(x, y, w, h, page)` rects AND reads each
+PNG page's dimensions, over exactly the population `ambition_sprite_sheet`'s
+`build.rs` bakes. ⇒ **A frame rect extending past its page is answerable from
+that data alone, with no runtime and no new corpus** — the script simply never
+asks. That is a measurement, not a repair, and it is the *"current measured
+clipped-sheet population"* this row demands before any fix.
+
+⚠ **AND `Q65` IS NOT A BLOCKER ANY MORE: it appears NOWHERE in `docs/planning/`
+at HEAD** (`d1c73ea12` had it gating every player-visible art repair). ⇒ The row's
+live blocker is its own missing subject, plus the submodule-pointer divergence
+`89f94d9cf` records — three distinct shas, and a branch this box cannot fetch.
+⇒ **Next person: either define the clipped population from the manifest data
+above and rewrite this acceptance in terms of it, or retire the row and say so
+out loud — do not start from the sentence about a warning.**
 
 ### D-BRAIN-MENU — make the fighter brain able to order from its authored move menu
 

@@ -2750,6 +2750,44 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    direction was *"learn from what GPT-6 did for the performer and apply that"*;
    1 of 10 thin, against goblin's 10 of 10, is what "that" measures out to.
 
+   ⛔⛤ **AND DOES THE ROSTER PAY FOR REACH IN TIME INSTEAD OF SIZE? NO — AND THE
+   POOLED NUMBER SAYS THE OPPOSITE OF WHAT IT LOOKS LIKE.** (NamekAmbition,
+   2026-09-12, joining the clock census to the specs through this script's own
+   parsers.) 7 of the 9 long-active (≥10 f) bone-derived moves carry an `inflate`,
+   against 4 of 53 in the 2–5 f band and 8 of 63 in 6–9 f. Read pooled, that says
+   the long moves are also the generous ones. **ALL SEVEN ARE THE PERFORMER'S.**
+   The other two long-active moves both sit at `inflate: 0.0` — `officer_disperse`
+   at 20.4 f and `npc_emmy_noether jab` at 10.8 f.
+
+```text
+   WITH THE PERFORMER EXCLUDED the correlation does not weaken, it VANISHES:
+     2-5f  n=52  median extend 1.060  with inflate: 3
+     6-9f  n=55  median extend 1.060  with inflate: 2
+     10f+  n=2   median extend 1.060  with inflate: 0
+   WITHIN THE PERFORMER ALONE it is real and monotonic:
+     2-5f  n=1, 1 inflated · 6-9f  n=8, 6 inflated · 10f+  n=7, 7 inflated
+```
+
+   ⇒ The performer is generous on BOTH axes at once. The pooled statistic is one
+   character leaking into a roster claim — **the same shape as "343 authored moves"
+   describing 18 entities, and the third time in one day a statistic here has
+   described a subpopulation.** That is the house failure mode on this page.
+   ⚠ LABELLED HONESTLY BY ITS AUTHOR: the performer-excluded 10 f+ cell is n=2.
+   Enough to say the pooled claim is UNSUPPORTED; NOT enough to say the roster has
+   no such relationship. Anyone quoting "0 of 2" as a roster property repeats the
+   error exactly.
+
+   ⭐ **AND `extend` TRACKS ACTIVE NOT AT ALL, in any slice** — median 1.060 in
+   every band, pooled or not; across the long moves the values are 1.0 and 1.06
+   with a single 1.2. It is not a generosity dial anyone has turned with time in
+   mind.
+
+   ⚠ **TWO STAGES ARE NOT ON THIS SURFACE AT ALL.** `author_pen_v1` and
+   `fighting_polygon_v1` report 0 bone-derived of 13 specs each, so author,
+   pointed_polygon and pugnacious_polygon have no `strike` block and the `inflate`
+   knob does not reach them. Whatever the generosity answer is for those three, it
+   is not here — worth knowing before anyone plans a roster-wide `inflate` pass.
+
    ⚠ **AND THE PLAYER IS NOT IN THIS PROBLEM AT ALL:** `player_robot_v3` peaks at
    6.71 — a 99 x 98 px box over a 30 x 48 body, the most generous on the roster —
    because its moves are DERIVED KIT moves, not authored ones. See the

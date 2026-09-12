@@ -3067,3 +3067,157 @@ fn a_candidate_that_declares_no_ladder_removes_the_live_one() {
          carries"
     );
 }
+
+const WAVES_PATH: &str = "data/encounters/goblin_encounter.ron";
+
+/// The shipped pack with ONE mob's spawn delay 50ms later.
+///
+/// ⛔ ONE FIELD ON ONE MOB, AND IT IS THE MECHANICAL KIND. A wave's `delay` is
+/// when the body appears, which is what the encounter director acts on — not a
+/// label, not a comment. Changing a `label` would leave the schema's lowered
+/// artifact different and the FIGHT identical, which is a weaker subject.
+fn pack_with_a_later_second_goblin() -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != WAVES_PATH {
+            return text;
+        }
+        let out = text.replacen("delay: 0.70", "delay: 0.75", 1);
+        edited = out != text;
+        out
+    })
+    .expect("the edited pack compiles");
+    assert!(
+        edited,
+        "`{WAVES_PATH}` no longer carries `delay: 0.70`, so the candidate is the \
+         shipped pack and this witness would pass vacuously"
+    );
+    pack
+}
+
+fn live_second_goblin_delay(app: &bevy::app::App) -> f32 {
+    app.world()
+        .resource::<ambition_encounter::EncounterWaveBook>()
+        .waves("goblin_encounter")
+        .expect("the shipped book authors the goblin encounter")[1]
+        .mobs[1]
+        .delay
+}
+
+/// ⛔⛔ **THE THIRD FAMILY, AND IT COST NO NEW AUTHORITY EITHER — WHICH IS THE
+/// CLAIM THE REVIEW'S GATE ACTUALLY ASKED TO VALIDATE.**
+///
+/// The ladder proved a second family could join. One family is a special case
+/// and two is a pattern only if the SECOND one needed nothing the first one
+/// invented — so this arm exists to fail if `PACK_DERIVED_FAMILIES` had to grow
+/// a resource, a system or a refusal to accept `encounter_waves`. It did not:
+/// one row in the table, one publisher, and the boundary this system already
+/// had.
+///
+/// ⚠ **THE HOST INSTALLS THE BOOK THE WAY `AmbitionContentPlugin::build` DOES**,
+/// for the same reason the ladder arm does: a running game's resource was cloned
+/// out of the boot pack once and nothing has replaced it. Starting from an
+/// absent resource would make "the reload installed it" true of a road that only
+/// ever inserts.
+#[test]
+fn the_encounter_wave_book_is_the_third_family_the_transaction_carries() {
+    let mut app = host_with_the_shipped_cast();
+    app.world_mut()
+        .insert_resource(ambition_encounter::EncounterWaveBook(
+            ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+                .cloned()
+                .expect("the shipped pack lowers its wave book"),
+        ));
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_a_later_second_goblin());
+    assert_eq!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .map(|s| s.0.as_str())
+            .collect::<Vec<_>>(),
+        vec!["encounter_waves"],
+        "the premise: ONLY the wave book changed"
+    );
+    assert_eq!(
+        live_second_goblin_delay(&app),
+        0.70,
+        "the premise: the live book is the shipped one"
+    );
+
+    assert!(
+        matches!(
+            request_reload(
+                app.world_mut(),
+                ambition_content_pack::CandidateGeneration::prepared_against(
+                    std::sync::Arc::clone(&candidate),
+                    Some(live.fingerprint),
+                ),
+            ),
+            ReloadRequest::Requested { .. }
+        ),
+        "a waves-only candidate was not accepted as a request"
+    );
+    assert_eq!(
+        live_second_goblin_delay(&app),
+        0.70,
+        "the REQUEST published the wave book instead of staging it"
+    );
+
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+
+    assert_eq!(
+        live_second_goblin_delay(&app),
+        0.75,
+        "the route activated and the wave book stayed at generation N — the pack \
+         promoted while the family it declares did not"
+    );
+}
+
+/// ⛔⛔ **EVERY ROW OF `PACK_DERIVED_FAMILIES` IS REACHED BY ONE PUBLICATION.**
+///
+/// ⛔⛤ THE DEFECT THIS REFUSES IS A TABLE THAT NAMES A FAMILY IT DOES NOT
+/// PUBLISH. The two arms above each drive ONE family end to end, and both would
+/// stay green if the OTHER family's publisher were dropped — a per-family
+/// witness cannot see a per-family omission in a sibling. This one asks the
+/// question about the table: publish into a world holding NEITHER resource from
+/// the shipped pack, and require that every declared family arrived.
+///
+/// ⚠ ASKED OF THE FUNCTION, NOT THROUGH THE SHELL, because the subject is the
+/// TABLE rather than the boundary — and the boundary already has two witnesses.
+#[test]
+fn publishing_a_generation_installs_every_pack_derived_family() {
+    let mut world = bevy::ecs::world::World::new();
+    assert!(
+        world
+            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
+            .is_none()
+            && world
+                .get_resource::<ambition_encounter::EncounterWaveBook>()
+                .is_none(),
+        "the premise: this world holds no family yet, so an arrival is this \
+         function's doing and not a leftover"
+    );
+
+    crate::reload::publish_participant_families(&mut world, crate::pack::prepared());
+
+    assert!(
+        world
+            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
+            .is_some(),
+        "`fighter_brain_ladder` is declared in PACK_DERIVED_FAMILIES and the \
+         shipped pack lowers it, but publishing a generation did not install it"
+    );
+    assert!(
+        world
+            .get_resource::<ambition_encounter::EncounterWaveBook>()
+            .is_some(),
+        "`encounter_waves` is declared in PACK_DERIVED_FAMILIES and the shipped \
+         pack lowers it, but publishing a generation did not install it"
+    );
+}

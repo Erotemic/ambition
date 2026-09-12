@@ -466,15 +466,88 @@ pub(crate) fn publish_candidate(
 /// generation forever — the signature cannot express N+1, so no ordering can
 /// make it participate.
 fn participates(domain: &str) -> bool {
-    matches!(
-        domain,
-        ambition_characters::moveset_content_schema::MOVESET_SCHEMA
-            | ambition_combat::brain::fighter::content_schema::FIGHTER_BRAIN_LADDER_SCHEMA
-    )
+    domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
+        || PACK_DERIVED_FAMILIES
+            .iter()
+            .any(|family| family.domain == domain)
+}
+
+/// One mechanical family whose whole publication is a function of the candidate
+/// pack.
+///
+/// ⛔⛔ **THE SCHEMA ID AND THE PUBLICATION ARE ONE DECLARATION, AND THAT IS THE
+/// POINT.** [`PARTICIPATING_DOMAIN`] was a bare const, and the shape it would
+/// have grown into — a LIST of permitted ids, with the publications somewhere
+/// else — is the drift this type exists to make impossible. A family named on a
+/// list of ids but missing from the publication is a family whose domain passes
+/// [`unsupported_changed_domains`], whose pack promotes, and which then stays at
+/// generation N forever: the first row of `dropped_moveset_entities`'s own
+/// transition table, reintroduced for a new family.
+///
+/// ⇒ A row cannot name a domain it cannot publish, because the publisher IS the
+/// row. And a family added to NEITHER is refused rather than silently dropped:
+/// [`participates`] scans this table, so an unlisted domain is an unsupported
+/// changed domain and the reload says no.
+struct PackDerivedFamily {
+    domain: &'static str,
+    publish: fn(&mut bevy::ecs::world::World, &ambition_content_pack::PreparedContentPack),
+}
+
+/// Every family the transaction publishes from the pack alone.
+///
+/// ⚠ `moveset` IS DELIBERATELY ABSENT. Its publication is not a function of the
+/// pack: the cast revision is ADMITTED against world state — the installed
+/// technique table and the live cast generation — and [`PendingGeneration`]
+/// carries that admitted value precisely because an answer computed against the
+/// world goes stale when the world moves. A row here would have to re-derive it
+/// at the boundary, which is the defect the review's item 1 named.
+const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
+    PackDerivedFamily {
+        domain: ambition_combat::brain::fighter::content_schema::FIGHTER_BRAIN_LADDER_SCHEMA,
+        publish: publish_fighter_ladder,
+    },
+    PackDerivedFamily {
+        domain: ambition_encounter::content_schema::ENCOUNTER_WAVES_SCHEMA,
+        publish: publish_encounter_waves,
+    },
+];
+
+/// ⛔ ABSENT IN THE CANDIDATE MEANS REMOVE, NOT KEEP — see
+/// [`publish_participant_families`]. `profile_for_level` reads an `Option` and
+/// states that absent means the engine floor.
+fn publish_fighter_ladder(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_characters::brain::fighter::AuthoredFighterLadder;
+    match ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack) {
+        Some(ladder) => world.insert_resource(AuthoredFighterLadder(ladder.clone())),
+        None => {
+            world.remove_resource::<AuthoredFighterLadder>();
+        }
+    }
+}
+
+/// ⛔ SAME RULE, AND THE RUNTIME ALREADY STATES IT: `authored_encounter_waves`
+/// takes `Option<&EncounterWaveBook>` and says *"`None` means the adapter should
+/// fall back to one wave assembled from the level's own spawn markers"*. A
+/// candidate that declares no waves is asking for that fallback, so keeping
+/// generation N's book would answer a question the candidate stopped asking.
+fn publish_encounter_waves(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_encounter::EncounterWaveBook;
+    match ambition_encounter::content_schema::lowered_encounter_waves(pack) {
+        Some(timelines) => world.insert_resource(EncounterWaveBook(timelines.clone())),
+        None => {
+            world.remove_resource::<EncounterWaveBook>();
+        }
+    }
 }
 
 /// Publish every participating family that is a pure function of the candidate
-/// pack.
+/// pack — the whole of [`PACK_DERIVED_FAMILIES`], in one act.
 ///
 /// ⭐⭐ **DERIVED AT THE BOUNDARY RATHER THAN CARRIED, AND THE DIFFERENCE FROM
 /// `admitted_cast` IS THE WHOLE ARGUMENT.** [`PendingGeneration`] carries the
@@ -507,12 +580,8 @@ fn publish_participant_families(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
-    use ambition_characters::brain::fighter::AuthoredFighterLadder;
-    match ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack) {
-        Some(ladder) => world.insert_resource(AuthoredFighterLadder(ladder.clone())),
-        None => {
-            world.remove_resource::<AuthoredFighterLadder>();
-        }
+    for family in PACK_DERIVED_FAMILIES {
+        (family.publish)(world, pack);
     }
 }
 

@@ -39,13 +39,21 @@ pub const ENCOUNTER_WAVES_VERSION: SchemaVersion = SchemaVersion(1);
 const CHARACTER_SCHEMA: &str = "character";
 
 /// What a prepared pack lowers a validated wave book to.
-pub type EncounterWaveBook = HashMap<String, Vec<EncounterWaveSpec>>;
+/// The RAW authored timelines a `waves.ron` deserializes to, keyed by trigger id.
+///
+/// ⛔⛤ **THIS WAS ALSO CALLED `EncounterWaveBook`, AND SO IS THE RESOURCE.** Two
+/// different types, one name, one crate: [`crate::EncounterWaveBook`] is the
+/// Bevy `Resource` newtype an App owns, and this is the bare map the schema
+/// lowers. `lowered_encounter_waves(..) -> Option<&EncounterWaveBook>` therefore
+/// READ as if it handed back the resource and did not, which a caller only
+/// discovers from a type error. Named apart so the signature says which one.
+pub type AuthoredWaveTimelines = HashMap<String, Vec<EncounterWaveSpec>>;
 
 struct EncounterWavesSchema;
 
 impl ContentSchemaHandler for EncounterWavesSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let book: EncounterWaveBook = match ron::from_str(facet.text) {
+        let book: AuthoredWaveTimelines = match ron::from_str(facet.text) {
             Ok(book) => book,
             Err(error) => {
                 // Match the ron VARIANT, not the message text — the message is a
@@ -70,7 +78,7 @@ impl ContentSchemaHandler for EncounterWavesSchema {
     }
 }
 
-fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOutcome) {
+fn declare(facet: &FacetSource<'_>, book: &AuthoredWaveTimelines, out: &mut FacetOutcome) {
     //  iterate SORTED. A `HashMap`'s order is not defined, and a diagnostic list
     // whose order changes between runs is one nobody can diff.
     let mut ids: Vec<&String> = book.keys().collect();
@@ -173,8 +181,8 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
 /// load path, replacing `ron::from_str(include_str!(…))` at the call site.
 pub fn lowered_encounter_waves(
     pack: &ambition_content_pack::PreparedContentPack,
-) -> Option<&EncounterWaveBook> {
-    pack.lowered::<EncounterWaveBook>(&SchemaId::new(ENCOUNTER_WAVES_SCHEMA))
+) -> Option<&AuthoredWaveTimelines> {
+    pack.lowered::<AuthoredWaveTimelines>(&SchemaId::new(ENCOUNTER_WAVES_SCHEMA))
 }
 
 /// The encounter capability's registration, for a composition to install.

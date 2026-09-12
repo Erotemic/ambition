@@ -3402,7 +3402,8 @@ move than the one the press produces, so every scoring term downstream (startup,
 reach, damage, frame advantage) reads the wrong move.
 
 ⛔ **THE FIX IS BEHIND `--features truthful_attack_kit` ON
-`ambition_platformer2d_actor_monolith`, DEFAULT OFF — runnable, not landed.**
+`ambition_platformer2d_actor_monolith`, DEFAULT OFF — runnable, not landed, and
+the decision is `Q117` in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).**
 ⭐ ONE code path, not a `#[cfg]` split: with the feature off `running_now` is a
 compile-time `false` and `move_for_attack(verb, dir, grounded, false)` falls
 through to `move_for_directional_verb`, so the shipped behaviour is today's BY
@@ -3749,6 +3750,24 @@ Flat data under a different scenario name.
 
 **Acceptance:** two scenario geometries with the same benchmark knobs do not
 share a cache/result identity; unsupported geometry exits as unsupported.
+
+⚠ **I COULD NOT LOCATE THIS ROW'S SUBJECT (2026-09-12), AND THE QUERIES ARE
+RECORDED RATHER THAN A CONCLUSION — a negative result is a claim about the
+instrument.** Searched: `scenario` + cache/identity/key across
+`crates/ambition_sim_harness`; `geometry` and `Flat` across `scripts/` and
+`tools/`; `benchmark`, `scenario_id`, `bench_cache`, `scenario cache` tree-wide;
+`Flat`/`geometry`/`scenario`/`cache` in `game/ambition_app/examples/hall_bench.rs`;
+and `git log --grep=SCENARIO-IDENTITY -i`, **which returns no commit at all.**
+⇒ The nearest live thing is `tools/ambition_moveset_inspector`'s `CombatScenario`,
+which DOES have `identity()` (sha256 over subject/target/behavior/verb/spacing/
+chain/hold_policy) and `cache_name()`, and whose cache validation checks both the
+id AND the document. But it has no geometry knob and no `Flat` — "geometry" there
+means hitbox/hurtbox shape, not stage geometry — so it does not match this row's
+acceptance either.
+⇒ **Either the subject was renamed, or it left the tree, or my six queries all
+missed the spelling.** The next person should start from those six rather than
+repeat them, and if the subject is genuinely gone the row should be retired with
+that said out loud — not silently.
 
 ### D-DAMAGEABLE-BODY-IDENTITY — is every damageable body identified where it is BUILT?
 
@@ -4315,7 +4334,7 @@ a ladder retuned to a genuinely small jitter reddens the second while the first
 stays green. Both poisoned (interval 1 → only the first fires; interval 4 → only
 the whisker fires).
 
-⛔ **OPEN — MAINTAINER'S CALL, deliberately not written into the guard.** Whether
+⛔ **OPEN — `Q116` IN [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), deliberately not written into the guard.** Whether
 the hardest CPU shipping with execution noise disabled is a defect or an accepted
 cost is Jon's. If it is a defect the fix is one constant, but **waking it re-tunes
 every rung-9 CPU in the game**, and every measurement taken at rung 9 — including

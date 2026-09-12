@@ -6,6 +6,21 @@ Engineering work that can proceed without a ruling belongs in
 from this live ledger; Git history preserves the discussion.
 
 Use one unique `Q<number>` per live question. Do not reuse a retired number.
+
+⛔⛤ **AND A ROW THAT SAYS "A MAINTAINER'S CALL" MUST HAVE A `Q` HERE. FIVE DID
+NOT, FOUND 2026-09-12 BY CENSUS RATHER THAN ONE AT A TIME.** `queue.md` declared
+maintainer holds in five sections; `A10`'s guarantee choice, the headless
+render-sync choice, the per-move `hitbox.inflate` values, the rung-9 execution
+noise and the truthful attack kit were all absent from this file — two of them for
+days, and one of them (`Q115`) is the item Jon asked for BY NAME, measured to its
+decision point and then waiting where he would never see it.
+
+⇒ **A packet held on a decision that is not in the decision ledger waits forever
+without anyone declining it**, and from the maintainer's side that is
+indistinguishable from work nobody did. The cheap check is one command:
+`grep -nE "maintainer'?s call|is Jon's|needs a ruling" docs/planning/queue.md`,
+then confirm each hit has a `Q` here. ⚠ **The queue row must also name the `Q`**,
+or the disconnect simply recurs in the other direction.
 When a question is answered, record the durable ruling in
 [`maintainer-decisions.md`](maintainer-decisions.md), update the owning plan/source,
 and delete the question here.
@@ -487,6 +502,91 @@ with `backends: None` installs the presentation half at all.
 PROFILE, not the machine. An agent box with no discrete GPU still reports a
 working software adapter, and `VisibleRenderMode::OffscreenGpu` composes a render
 app there.
+
+## Q116 — is the hardest CPU shipping with execution noise DISABLED a defect, or an accepted cost?
+
+MEASURED and guarded at `359c8be69`; the row is `D-RUNG9-NOISE` in
+[`queue.md`](queue.md). **At rung 9 the fighter press jitter is identically zero
+for every possible sample**, so the top rung presses exactly on its decision ticks
+forever. Not arithmetic — a measurement: two seats on DIFFERENT seeds pressed on
+IDENTICAL ticks across 600 ticks and 24 presses.
+
+The arithmetic explains it. `execution_noise = 0.45 - t*0.35` with
+`t = (level-1)/8`, `interval()` is 5, and `|sample|` reaches exactly 1.0, so the
+rung-9 ceiling is `0.4999999701976776` in f32 — **under the rounding tie by 3e-8**
+— and `round()` returns 0 for every sample including the maximum. Rungs 1–8 keep a
+reachable jitter (rung 8's ceiling is 0.719, P(jitter>0) = 0.30).
+
+⛔ THE FIGHTER-BRAIN DOC §1.3 SAYS level 9 is *"small numbers, never zero — a
+frame-perfect CPU is not a hard opponent, it is a different game."* For this term
+it is zero.
+
+⛔⛤ **AND IT SILENTLY VOIDS A SEPARATE FIX.** That decision site is the per-seat
+cognition stream's ONLY consumer in the tree, so at rung 9 the per-seat seed has
+no observable effect at all: `medic` and `special_patent_clerk` hold distinct
+seeds and their mirror duels drift 0.0000 px and 0.0022 px over 3613 ticks — the
+reflection `two_participants_of_one_character_do_not_share_a_stream` exists to
+prevent, unreachable at the shipped rung.
+
+**What each answer costs.** *Defect* → the fix is ONE CONSTANT, and waking it
+re-tunes every rung-9 CPU in the game; **every measurement ever taken at rung 9
+becomes a measurement of a different opponent**, including all twenty rows of
+D-CPU-INERT. *Accepted cost* → record it, and §1.3's sentence needs amending so
+the next reader does not file this again.
+
+⚠ THE GUARD PINS THE GAP, NOT THE FIX, deliberately: rungs 1–8 must keep a
+reachable jitter AND rung 9's ceiling must stay just under the boundary, so a
+ladder retuned to a genuinely small jitter reddens the second while the first
+stays green. The ladder cannot drift into or out of a zero-jitter rung unnoticed
+whichever way this is ruled.
+
+## Q117 — should the truthful attack kit land, given it re-prices every CPU matchup?
+
+The row is `D-BRAIN-MENU`. **The fix EXISTS and runs** behind
+`--features truthful_attack_kit` on `ambition_platformer2d_actor_monolith`,
+default off, as ONE code path rather than a `#[cfg]` split — with the feature off
+`running_now` is a compile-time `false`, so today's behaviour is the shipped one
+BY CONSTRUCTION rather than by a second arm somebody has to keep in step.
+
+**The defect it fixes is real and is a mislabel, not an absence.** `attack_kit_of`
+resolves presses with `move_for_directional_verb` while the press road calls
+`move_for_attack(base, dir, grounded, RUNNING)` — the same function with the
+running branch skipped — so while the body runs, **the brain scores `jab`'s frame
+data and the press produces `{base}_dash`**. Every scoring term downstream
+(startup, reach, damage, frame advantage) reads the wrong move. Eighteen of
+eighteen shipped fighters author a dash attack no press in the kit reaches.
+⚠ The CPU DOES perform dash attacks today — the press road resolves the stance
+itself — so anything reading as *"the CPU cannot dash attack"* is wrong.
+
+⛔ **WHY IT IS NOT LANDED: IT RE-PRICES THE FIGHT, AND THE RIG SAID SO.** Measured
+on the duel harness (pirate admiral, rung 9, 3613 ticks, neither match decided
+early — the "a fight good enough to end fast reads as less damage" artefact was
+checked first and is not what happened):
+
+| kit | seat 0 | seat 1 | hitstun ticks |
+|---|---:|---:|---|
+| HEAD — mislabeled | 1.26 | 1.07 | [525, 324] |
+| truthful | **0.47** | **0.86** | [81, 191] |
+
+Damage per minute roughly halves; hitstun collapses ~85% on seat 0. Traced rather
+than argued: making the dash attack reachable roughly DOUBLES the running fraction
+(14–19% → 30–39% of grounded time) and cuts grounded time by a third — a feedback
+loop, not "the CPU never stops running", which was measured false.
+
+⇒ Two acceptance tests redden
+(`smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+and `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`),
+both green at HEAD, both failing reproducibly in isolation, neither flaky. The
+owner document rules that a change re-pricing matchups *"needs the ladder rig, not
+a coordinator's judgement"* — **two acceptance tests reporting a worse fight IS
+the rig speaking**, so landing it anyway would be exactly the judgement the doc
+forbids.
+
+⚠ AND THE GATE IT FAILS IS NOT CALIBRATED ACROSS FIGHTERS: `npc_emmy_noether` at
+rung 9 scores 0.28 / 0.44 at HEAD with nothing changed, which already FAILS the
+same 0.5 threshold. So *"the fix fails the gate"* is weaker evidence than it
+looks. ⭐ Note this question interacts with `Q116`: the duel numbers above were
+taken at rung 9, where execution noise is identically zero.
 
 ## Assets, presentation and content policy
 

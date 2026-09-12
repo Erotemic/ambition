@@ -31,6 +31,44 @@ rollback timeline ownership (`cb8eac09f`: publication refused while a timeline
 speculates or its authority is unhealthy). **A10 reconstruction is the SCENE half
 and was never needed for any of it** — see `Q113`.
 
+## ⛔⛔ MAIN IS RED AS OF `a595b0a2c`, AND THE CAUSE IS MEASURED
+
+`smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+fails DETERMINISTICALLY (identical numbers on consecutive runs):
+*"seat 0 took 45% of its pool per minute of duel … the CPUs are not fighting"*
+(`smash_cpus_damage_each_other.rs:736`).
+
+⇒ **CAUSE MEASURED BY PROBE, NOT REASONED FROM THE MECHANISM.**
+`SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` 1.5 → 1.0, rebuild, rerun → **passes**;
+restored to 1.5 (md5-verified) → **fails**. The constant arrived with
+NamekAmbition's `cc03d5893`. Nothing else in the merge moves it, and the armor
+change is a no-op for these two fighters because neither authors an armor window.
+
+⚠ **THE CPUs ARE STILL HITTING EACH OTHER** — 74 and 66 damage across 7 and 4
+moves, closest approach 1px. What fell is the RATE, which is what a bigger launch
+does: more separation per exchange, fewer exchanges per minute.
+
+⛔ **THE VALUE IS NOT MINE TO CHANGE AND HAS NOT BEEN CHANGED.** It was picked as
+the smallest value in a 1.0–2.5 sweep that cleared an acceptance bar whose
+contents I do not have; lowering it to green a floor would silently undo a
+measurement. Two readings, and only its author can separate them: **(a)** this
+floor encodes the OLD knockback and should move with the change, or **(b)** 1.5
+over-separates the CPUs and the sweep's bar never measured duel density. Reported
+to NamekAmbition with the probe.
+
+⭐⭐ **THE TRANSFERABLE PART IS THE LANE, NOT THE VALUE.** The verification was
+real and its POPULATION was wrong: `--test app_it -- smash_in_the_host` is a
+FILTER, and this test lives in the same binary outside it. The full
+`-p ambition_app --test app_it -- --test-threads=1` (~926s) shows it. **A green
+result names its lane; that one named a filter.**
+
+## ⚠ DISK IS AT THE FLOOR — THE NEXT FULL SUITE RUN WILL REFUSE
+
+40 GB free against a 40 GB floor, 2026-09-12 on `aivm-2404`. The bind IS present
+(`target` → `/dev/vda1`, 356 GB of real build artifacts) and the fixture dirs are
+EMPTY, so there is no cheap reclaim — per `AGENTS.md` this is reported rather than
+reclaimed, and it is Jon's call.
+
 ## ⭐ WHAT IS ACTUALLY ACTIONABLE TODAY, surveyed 2026-09-12
 
 Read this before picking a row, because the answer is short and most of the board

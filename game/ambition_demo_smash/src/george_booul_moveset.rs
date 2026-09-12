@@ -13,9 +13,7 @@ use ambition_entity_catalog::smash_repertoire::{
 use ambition_entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
 use crate::moveset::{feel, Feel};
-use ambition_entity_catalog::authoring::{
-    cancelable, committed_tail, impulse, on_hit, strike,
-};
+use ambition_entity_catalog::authoring::{cancelable, committed_tail, impulse, on_hit, strike};
 
 /// The rise George's Up-B commands, engine units per second against gravity.
 ///
@@ -245,29 +243,26 @@ pub fn george_booul_moveset() -> MovesetContract {
     // same. Spacing it is a skill on the move now without the move becoming
     // two. ⛔ the ORDER in this list is the priority — writing the base first
     // would make every forward smash a base hit and nothing would warn you.
-    for window in f_smash.windows.iter_mut().filter(|w| {
-        matches!(
-            w.tag,
-            ambition_entity_catalog::WindowTag::Active
-        )
-    }) {
+    for window in f_smash
+        .windows
+        .iter_mut()
+        .filter(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+    {
         let tip = window.volumes[0].clone();
-        window
-            .volumes
-            .push(ambition_entity_catalog::HitVolume {
-                shape: ambition_entity_catalog::VolumeShape::Rect {
-                    // Inboard of the tip and overlapping it, so a body between
-                    // the two is genuinely reached by both.
-                    offset: (16.0, -4.0),
-                    half_extents: (18.0, 24.0),
-                },
-                damage: 11,
-                knockback: 82.0,
-                knockback_growth: Some(82.0 * crate::SMASH_KNOCKBACK_GROWTH),
-                // Flatter and weaker: a base hit puts them beside you, not away.
-                launch_dir: Some((1.0, -0.16)),
-                ..tip
-            });
+        window.volumes.push(ambition_entity_catalog::HitVolume {
+            shape: ambition_entity_catalog::VolumeShape::Rect {
+                // Inboard of the tip and overlapping it, so a body between
+                // the two is genuinely reached by both.
+                offset: (16.0, -4.0),
+                half_extents: (18.0, 24.0),
+            },
+            damage: 11,
+            knockback: 82.0,
+            knockback_growth: Some(82.0 * crate::SMASH_KNOCKBACK_GROWTH),
+            // Flatter and weaker: a base hit puts them beside you, not away.
+            launch_dir: Some((1.0, -0.16)),
+            ..tip
+        });
     }
     let f_smash = feel(f_smash, Feel::Heavy);
 
@@ -464,30 +459,28 @@ pub fn george_booul_moveset() -> MovesetContract {
     // press, same clock, harder answer.
     {
         let end = bivalence.duration_s;
-        bivalence
-            .windows
-            .push(ambition_entity_catalog::MoveWindow {
-                start_s: 0.42,
-                end_s: 0.50,
-                tag: ambition_entity_catalog::WindowTag::Active,
-                volumes: vec![ambition_entity_catalog::HitVolume {
-                    // An ordinary hit, not a gust.
-                    shape: ambition_entity_catalog::VolumeShape::Circle {
-                        offset: (0.0, -4.0),
-                        radius: 46.0,
-                    },
-                    damage: 21,
-                    knockback: 272.0,
-                    knockback_growth: Some(3.40),
-                    launch_dir: Some((0.85, -0.55)),
-                    on_hit: None,
-                    vfx: Some("slash_arc".to_string()),
-                    hit_sfx: None,
-                    reaction: None,
-                }],
-                motion_scale: 0.25,
-                sustain_effect: None,
-            });
+        bivalence.windows.push(ambition_entity_catalog::MoveWindow {
+            start_s: 0.42,
+            end_s: 0.50,
+            tag: ambition_entity_catalog::WindowTag::Active,
+            volumes: vec![ambition_entity_catalog::HitVolume {
+                // An ordinary hit, not a gust.
+                shape: ambition_entity_catalog::VolumeShape::Circle {
+                    offset: (0.0, -4.0),
+                    radius: 46.0,
+                },
+                damage: 21,
+                knockback: 272.0,
+                knockback_growth: Some(3.40),
+                launch_dir: Some((0.85, -0.55)),
+                on_hit: None,
+                vfx: Some("slash_arc".to_string()),
+                hit_sfx: None,
+                reaction: None,
+            }],
+            motion_scale: 0.25,
+            sustain_effect: None,
+        });
         debug_assert!(end >= 0.50, "the second window must fit inside the move");
     }
     let bivalence = feel(bivalence, Feel::Special);
@@ -717,10 +710,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
-        taunt: ambition_entity_catalog::authoring::taunt(
-            "george_booul_taunt",
-            0.9,
-        ),
+        taunt: ambition_entity_catalog::authoring::taunt("george_booul_taunt", 0.9),
 
         // GEORGE'S DASH ATTACK IS A COMMITMENT, and his own law decided
         // that. `no_move_lives_between_the_pokes_and_the_commitments` splits
@@ -785,12 +775,7 @@ pub fn george_booul_moveset() -> MovesetContract {
             let startup = m
                 .windows
                 .iter()
-                .find(|w| {
-                    matches!(
-                        w.tag,
-                        ambition_entity_catalog::WindowTag::Active
-                    )
-                })
+                .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
                 .map_or(0.0, |w| w.start_s);
             startup <= POKE_MAX_STARTUP_S || startup >= COMMIT_MIN_STARTUP_S
         }),
@@ -1199,12 +1184,20 @@ mod tests {
         let set = george_booul_moveset();
         let mut effects = std::collections::BTreeSet::new();
         let mut cues = std::collections::BTreeSet::new();
+        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
+        // per-move form this replaced was MEASURED to buy nothing.
+        // `presentation_problems` returns a `Vec` because it accumulates, and a
+        // `panic!` inside a loop over it reported the FIRST problem only. But
+        // asserting per move is no better here: with the oracle rejecting every
+        // effect, all four of these tests still reported exactly ONE problem,
+        // because the first offending move names exactly one effect. The report
+        // an author actually needs — every move that references a renamed effect,
+        // in one run — exists only if the list outlives the loop.
+        let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
-            for problem in
-                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
-            {
-                panic!("{problem}");
-            }
+            problems.extend(m.presentation_problems(
+                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+            ));
             for ev in &m.events {
                 match &ev.kind {
                     MoveEventKind::Vfx { effect, .. } => {
@@ -1217,6 +1210,9 @@ mod tests {
                 }
             }
         }
+        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
+        // too, with a message about breadth rather than the rename.
+        assert!(problems.is_empty(), "{problems:?}");
         assert!(
             effects.len() >= 4,
             "a jab, a smash, a launcher, a special and a recovery cannot all \
@@ -1378,8 +1374,7 @@ mod tests {
         // SPECIAL press, ten of each. If a special ever falls silent here, the
         // sentence "the special gap is the stand-ins', not the roster's" has
         // stopped being true and the maintainer decision changes shape.
-        let non_smash: Vec<&String> =
-            silent.iter().filter(|p| !p.starts_with("smash_")).collect();
+        let non_smash: Vec<&String> = silent.iter().filter(|p| !p.starts_with("smash_")).collect();
         assert!(
             non_smash.is_empty(),
             "George stopped answering a non-`smash` press: {non_smash:?}. The roster question in `awaiting-maintainer-decision.md` rests on George answering all ten specials while the stand-ins answer two."

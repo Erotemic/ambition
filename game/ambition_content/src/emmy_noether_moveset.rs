@@ -1070,18 +1070,29 @@ mod tests {
     fn the_kit_looks_like_emmy_and_the_art_all_ships() {
         let set = emmy_noether_moveset();
         let mut effects = std::collections::BTreeSet::new();
+        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
+        // per-move form this replaced was MEASURED to buy nothing.
+        // `presentation_problems` returns a `Vec` because it accumulates, and a
+        // `panic!` inside a loop over it reported the FIRST problem only. But
+        // asserting per move is no better here: with the oracle rejecting every
+        // effect, all four of these tests still reported exactly ONE problem,
+        // because the first offending move names exactly one effect. The report
+        // an author actually needs — every move that references a renamed effect,
+        // in one run — exists only if the list outlives the loop.
+        let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
-            for problem in
-                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
-            {
-                panic!("{problem}");
-            }
+            problems.extend(m.presentation_problems(
+                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+            ));
             for ev in &m.events {
                 if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
                     effects.insert(effect.clone());
                 }
             }
         }
+        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
+        // too, with a message about breadth rather than the rename.
+        assert!(problems.is_empty(), "{problems:?}");
         assert_eq!(
             effects.len(),
             12,
@@ -1151,8 +1162,10 @@ mod tests {
             ambition_entity_catalog::smash_vitality::VITALITY,
             "she must answer by keeping the energy, not by grabbing or leaving"
         );
-        let gain: ambition_entity_catalog::smash_vitality::VitalityParams =
-            params.response_params.hydrate().expect("vitality params hydrate");
+        let gain: ambition_entity_catalog::smash_vitality::VitalityParams = params
+            .response_params
+            .hydrate()
+            .expect("vitality params hydrate");
         assert!(
             gain.change > 0,
             "a conservation law that COSTS her health is the opposite of the move: {}",
@@ -1160,7 +1173,11 @@ mod tests {
         );
         // ⛔ SMALL. A parry is already a full punish window; this is a reason to
         // take the read, not a reason to turtle.
-        assert!(gain.change <= 5, "the heal is worth turtling for: {}", gain.change);
+        assert!(
+            gain.change <= 5,
+            "the heal is worth turtling for: {}",
+            gain.change
+        );
 
         // ⭐ SHE ABSORBS RATHER THAN REFLECTS — the same conservation idea, not a
         // second one. Returning the shot is conservation of MOMENTUM and is

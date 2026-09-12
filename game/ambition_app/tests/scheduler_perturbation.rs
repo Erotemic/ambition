@@ -119,7 +119,13 @@ fn perturb(sim: &mut Platformer2dSimHarness) {
             // Touch the values so the read cannot be optimised into nothing.
             seen = seen.wrapping_add((kin.pos.x.to_bits() ^ health.current() as u32) as u64);
         }
-        runs.early = runs.early.wrapping_add(1).wrapping_add(seen & 0);
+        // ⛔ `black_box`, NOT `& 0`. The intent above is that the read cannot be
+        // optimised away, and `seen & 0` is precisely what LETS it be: the
+        // compiler folds it to zero, `seen` becomes dead, and the loop that
+        // built it can go with it. `black_box` is the barrier that actually
+        // consumes the value, and the counter still moves by exactly one.
+        std::hint::black_box(seen);
+        runs.early = runs.early.wrapping_add(1);
     }
 
     fn read_combat_state(bodies: Query<&BodyCombat>, mut runs: ResMut<ProbeRuns>) {
@@ -127,7 +133,13 @@ fn perturb(sim: &mut Platformer2dSimHarness) {
         for combat in &bodies {
             seen = seen.wrapping_add(combat.hitstop_timer.to_bits() as u64);
         }
-        runs.combat = runs.combat.wrapping_add(1).wrapping_add(seen & 0);
+        // ⛔ `black_box`, NOT `& 0`. The intent above is that the read cannot be
+        // optimised away, and `seen & 0` is precisely what LETS it be: the
+        // compiler folds it to zero, `seen` becomes dead, and the loop that
+        // built it can go with it. `black_box` is the barrier that actually
+        // consumes the value, and the counter still moves by exactly one.
+        std::hint::black_box(seen);
+        runs.combat = runs.combat.wrapping_add(1);
     }
 
     fn read_time_late(
@@ -135,7 +147,13 @@ fn perturb(sim: &mut Platformer2dSimHarness) {
         mut runs: ResMut<ProbeRuns>,
     ) {
         let seen = time.scaled_dt.to_bits() as u64;
-        runs.late = runs.late.wrapping_add(1).wrapping_add(seen & 0);
+        // ⛔ `black_box`, NOT `& 0`. The intent above is that the read cannot be
+        // optimised away, and `seen & 0` is precisely what LETS it be: the
+        // compiler folds it to zero, `seen` becomes dead, and the loop that
+        // built it can go with it. `black_box` is the barrier that actually
+        // consumes the value, and the counter still moves by exactly one.
+        std::hint::black_box(seen);
+        runs.late = runs.late.wrapping_add(1);
     }
 
     app.add_systems(schedule, read_bodies_early.in_set(Phase::PlayerSimulation));
@@ -204,9 +222,7 @@ fn the_comparison_can_actually_see_a_divergence() {
         let schedule = app.sim_schedule();
         // A real conflicting writer: it nudges every body's velocity. This is
         // precisely what the benign probes must never do.
-        fn shove_every_body(
-            mut bodies: Query<&mut ambition_platformer2d::actor::BodyKinematics>,
-        ) {
+        fn shove_every_body(mut bodies: Query<&mut ambition_platformer2d::actor::BodyKinematics>) {
             for mut kin in &mut bodies {
                 kin.vel.x += 0.001;
             }

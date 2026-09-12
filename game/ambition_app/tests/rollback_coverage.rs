@@ -1875,14 +1875,16 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
         }
         panic!("{report}");
     }
-    // Keep the ceiling exact so classifications cannot make this guard slack.
-    assert!(
-        unaccounted.len() >= UNACCOUNTED_CEILING,
-        "the ceiling is stale: only {} unaccounted now, so lower \
-         UNACCOUNTED_CEILING to {} and keep the ratchet tight",
-        unaccounted.len(),
-        unaccounted.len(),
-    );
+    // ⛔⛤ THE STALENESS CHECK IS GONE BECAUSE THE RATCHET IS AT ITS FLOOR, AND
+    // IT HAD BECOME `len() >= 0` — ALWAYS TRUE FOR A `usize`. It read
+    // `unaccounted.len() >= UNACCOUNTED_CEILING` and existed to refuse a ceiling
+    // left slack above the real count; at a ceiling of ZERO nothing can be
+    // slack, so it asserted a tautology while reading like a guard. The `if`
+    // above is already exact at this ceiling.
+    //
+    // ⚠ IF UNACCOUNTED_CEILING EVER RISES ABOVE 0, PUT IT BACK — a non-zero
+    // ceiling can go stale, and that is the only condition under which the
+    // assertion says anything.
 }
 
 #[test]

@@ -250,26 +250,44 @@ fn author_normals(set: &mut MovesetContract) {
         mv.duration_s = total_frames as f32 * 0.04;
         for window in &mut mv.windows {
             match window.tag {
-                WindowTag::Startup => { window.start_s = 0.0; window.end_s = startup; }
-                WindowTag::Active => { window.start_s = startup; window.end_s = active_end; }
-                WindowTag::Recovery => { window.start_s = active_end; window.end_s = mv.duration_s; }
+                WindowTag::Startup => {
+                    window.start_s = 0.0;
+                    window.end_s = startup;
+                }
+                WindowTag::Active => {
+                    window.start_s = startup;
+                    window.end_s = active_end;
+                }
+                WindowTag::Recovery => {
+                    window.start_s = active_end;
+                    window.end_s = mv.duration_s;
+                }
                 _ => {}
             }
         }
         // Contiguous windows sample each authored shape and share one hit ledger.
-        mv.windows = std::mem::take(&mut mv.windows).into_iter().flat_map(|window| {
-            if window.tag != WindowTag::Active {
-                return vec![window];
-            }
-            (startup_frames..startup_frames + active_frames).map(|frame| {
-                let mut sample = window.clone();
-                sample.start_s = frame as f32 * 0.04;
-                sample.end_s = (frame + 1) as f32 * 0.04;
-                sample
-            }).collect()
-        }).collect();
+        mv.windows = std::mem::take(&mut mv.windows)
+            .into_iter()
+            .flat_map(|window| {
+                if window.tag != WindowTag::Active {
+                    return vec![window];
+                }
+                (startup_frames..startup_frames + active_frames)
+                    .map(|frame| {
+                        let mut sample = window.clone();
+                        sample.start_s = frame as f32 * 0.04;
+                        sample.end_s = (frame + 1) as f32 * 0.04;
+                        sample
+                    })
+                    .collect()
+            })
+            .collect();
         if mv.clip.clip.starts_with("air_") {
-            mv.landing_lag_s = Some(if mv.clip.clip == "air_down" { 0.20 } else { 0.12 });
+            mv.landing_lag_s = Some(if mv.clip.clip == "air_down" {
+                0.20
+            } else {
+                0.12
+            });
             mv.autocancel_after_s = Some(active_end + 0.04);
         }
         // ⛔⛤ A CONFIRMED TILT FLOWS; A SMASH COMMITS. This is the sequencing
@@ -297,7 +315,10 @@ fn author_normals(set: &mut MovesetContract) {
         // ⭐ OBSERVABLE WITH `moveset_takes --chain attack_up --spacing 40`,
         // which cuts this tilt short. A chain probe staged out of reach cannot
         // open an `OnHit` window and records a fresh press instead.
-        if matches!(mv.clip.clip.as_str(), "attack_side" | "attack_up" | "attack_down") {
+        if matches!(
+            mv.clip.clip.as_str(),
+            "attack_side" | "attack_up" | "attack_down"
+        ) {
             mv.windows.push(MoveWindow {
                 start_s: active_end,
                 end_s: mv.duration_s,
@@ -659,11 +680,8 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // hole with nobody out of it yet — which is the tell that something is
     // coming.
     let spec = ambition_entity_catalog::authoring::vfx(spec, EXIT_DOOR_OPENS_S, TRAPDOOR_VFX);
-    let spec = ambition_entity_catalog::authoring::sfx(
-        spec,
-        EXIT_DOOR_OPENS_S,
-        "world.door.heavy_open",
-    );
+    let spec =
+        ambition_entity_catalog::authoring::sfx(spec, EXIT_DOOR_OPENS_S, "world.door.heavy_open");
     // ⭐⭐ STAGE FIVE: SHE LEAPS OUT, and the leap is now part of the SURFACING
     // rather than a second event racing it.
     //
@@ -704,8 +722,7 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // [`SMOKE_VFX`].
     let spec = ambition_entity_catalog::authoring::vfx(spec, 0.0, SMOKE_VFX);
     let spec = ambition_entity_catalog::authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
-    let spec =
-        ambition_entity_catalog::authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
+    let spec = ambition_entity_catalog::authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
     let spec =
         ambition_entity_catalog::authoring::sfx(spec, TRAP_ENDS_S - 0.06, "world.door.close");
     ambition_entity_catalog::authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
@@ -808,9 +825,20 @@ mod tests {
         };
         for mv in super::performer_moveset().moves {
             let clip = mv.clip.clip.as_str();
-            if !matches!(clip, "attack_side" | "attack_up" | "attack_down"
-                | "smash_forward" | "smash_up" | "smash_down"
-                | "air_neutral" | "air_forward" | "air_back" | "air_up" | "air_down") {
+            if !matches!(
+                clip,
+                "attack_side"
+                    | "attack_up"
+                    | "attack_down"
+                    | "smash_forward"
+                    | "smash_up"
+                    | "smash_down"
+                    | "air_neutral"
+                    | "air_forward"
+                    | "air_back"
+                    | "air_up"
+                    | "air_down"
+            ) {
                 continue;
             }
             let animation = read("clips", clip, "clip");
@@ -819,8 +847,16 @@ mod tests {
             let active = effect["hitbox"]["active"].as_array().unwrap();
             let first = active.first().unwrap().as_u64().unwrap();
             let end = active.last().unwrap().as_u64().unwrap() + 1;
-            let contacts: Vec<_> = mv.windows.iter().filter(|w| w.tag == WindowTag::Active).collect();
-            assert_eq!(contacts.len(), active.len(), "{clip}: one shape per active pose");
+            let contacts: Vec<_> = mv
+                .windows
+                .iter()
+                .filter(|w| w.tag == WindowTag::Active)
+                .collect();
+            assert_eq!(
+                contacts.len(),
+                active.len(),
+                "{clip}: one shape per active pose"
+            );
             for (window, frame) in contacts.iter().zip(active) {
                 let frame = frame.as_u64().unwrap();
                 assert!((window.start_s as f64 - frame as f64 * frame_s).abs() < 1e-6);
@@ -831,8 +867,10 @@ mod tests {
                 (contacts.last().unwrap().end_s, end as f64 * frame_s),
                 (mv.duration_s, animation["duration_s"].as_f64().unwrap()),
             ] {
-                assert!((actual as f64 - expected).abs() < 1e-6,
-                    "{clip}: runtime {actual}s disagrees with authored {expected}s");
+                assert!(
+                    (actual as f64 - expected).abs() < 1e-6,
+                    "{clip}: runtime {actual}s disagrees with authored {expected}s"
+                );
             }
         }
     }
@@ -999,7 +1037,10 @@ mod tests {
             firework.start_s,
         );
         let volume = firework.volumes.first().expect("the strike has a volume");
-        assert!(volume.damage > 0, "a firework that hits for nothing is a puff");
+        assert!(
+            volume.damage > 0,
+            "a firework that hits for nothing is a puff"
+        );
         let ambition_entity_catalog::VolumeShape::Rect {
             offset,
             half_extents,
@@ -1019,7 +1060,12 @@ mod tests {
         ] {
             let hit = (point.0 - offset.0).abs() <= half_extents.0
                 && (point.1 - offset.1).abs() <= half_extents.1;
-            assert_eq!(hit, inside, "a body {what} is {}inside the firework", if hit { "" } else { "not " });
+            assert_eq!(
+                hit,
+                inside,
+                "a body {what} is {}inside the firework",
+                if hit { "" } else { "not " }
+            );
         }
     }
 
@@ -1096,7 +1142,10 @@ mod tests {
         // on her; the strike is offset out in front. Comparing half-extents
         // would have called a box that pokes out of the bottom "smaller".
         let (sx, sy) = sleep.half_extents;
-        let ambition_entity_catalog::VolumeShape::Rect { offset, half_extents } = volume.shape
+        let ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents,
+        } = volume.shape
         else {
             panic!("her speech is a rect");
         };
@@ -1421,13 +1470,24 @@ mod tests {
     #[test]
     fn every_effect_she_names_is_a_row_that_ships() {
         let set = performer_moveset();
+        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
+        // per-move form this replaced was MEASURED to buy nothing.
+        // `presentation_problems` returns a `Vec` because it accumulates, and a
+        // `panic!` inside a loop over it reported the FIRST problem only. But
+        // asserting per move is no better here: with the oracle rejecting every
+        // effect, all four of these tests still reported exactly ONE problem,
+        // because the first offending move names exactly one effect. The report
+        // an author actually needs — every move that references a renamed effect,
+        // in one run — exists only if the list outlives the loop.
+        let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
-            for problem in
-                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
-            {
-                panic!("{problem}");
-            }
+            problems.extend(m.presentation_problems(
+                ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
+            ));
         }
+        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
+        // too, with a message about breadth rather than the rename.
+        assert!(problems.is_empty(), "{problems:?}");
     }
 
     /// ⛔⛔ AND HER UP-B NAMES NO PART OF HER DOWN-B. Jon, 2026-08-29: *"her up-b

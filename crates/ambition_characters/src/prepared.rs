@@ -51,11 +51,10 @@ struct PreparedCharacterOverrides {
     locomotion: Option<crate::actor::CharacterLocomotion>,
     /// See [`CharacterDefinition::contact_damage`]. Carried; no counterpart.
     contact_damage: Option<crate::actor::ContactDamage>,
-    /// See [`CharacterDefinition::autonomous_profile`]. Carried.
-    autonomous_profile: Option<crate::brain::BrainProfile>,
-    /// See [`CharacterDefinition::autonomous_profile_ref`]. RESOLVED at
-    /// preparation, so nothing downstream ever sees the name.
-    autonomous_profile_ref: Option<crate::brain::BrainProfileRef>,
+    /// See [`CharacterDefinition::autonomous_policy`]. Carried as authored; the
+    /// NAMED form is RESOLVED at preparation, so nothing downstream ever sees a
+    /// name.
+    autonomous_policy: Option<crate::actor::AutonomousPolicy>,
     /// See [`CharacterDefinition::ranged_vfx`]. Carried.
     ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::ranged_execution`]. Carried.
@@ -1570,8 +1569,7 @@ fn prepare_character(
         abilities: definition.abilities,
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
-        autonomous_profile: definition.autonomous_profile,
-        autonomous_profile_ref: definition.autonomous_profile_ref.clone(),
+        autonomous_policy: definition.autonomous_policy.clone(),
         ranged_vfx: definition.ranged_vfx.clone(),
         ranged_execution: definition.ranged_execution,
         provoked_profile_ref: definition.provoked_profile_ref.clone(),
@@ -1630,7 +1628,7 @@ fn finalize_character(
         abilities,
         locomotion,
         contact_damage,
-        autonomous_profile,
+        autonomous_policy,
         dream_seed,
         preserves_mirror_symmetry,
         mount,
@@ -1644,7 +1642,6 @@ fn finalize_character(
         unresolved,
         held_item,
         practice_target,
-        autonomous_profile_ref,
         ranged_vfx,
         ranged_execution,
         provoked_profile_ref,
@@ -1782,19 +1779,19 @@ fn finalize_character(
         autonomous_profile: resolve_autonomous_profile(
             &id,
             &provider,
-            autonomous_profile,
-            autonomous_profile_ref.as_ref(),
+            autonomous_policy.as_ref(),
             profiles,
         ),
         ranged_vfx,
         ranged_execution,
-        provoked_profile: resolve_autonomous_profile(
-            &id,
-            &provider,
-            None,
-            provoked_profile_ref.as_ref(),
-            profiles,
-        ),
+        // ⛔ NAMED ONLY, AND IT CALLS THE NAMED HALF DIRECTLY. This used to go
+        // through `resolve_autonomous_profile` with a literal `None` inline
+        // argument — a caller passing a constant into a parameter that exists
+        // for somebody else, which is the shape that made the impossible
+        // combination look reachable. There is no inline provoked policy.
+        provoked_profile: provoked_profile_ref
+            .as_ref()
+            .map(|named| resolve_named_profile(&id, &provider, named, profiles)),
         provoked_profile_id: provoked_profile_ref
             .as_ref()
             .map(|reference| reference.resolve_in(&provider)),
@@ -1831,51 +1828,61 @@ fn finalize_character(
 fn resolve_autonomous_profile(
     id: &str,
     provider: &str,
-    inline: Option<crate::brain::BrainProfile>,
-    named: Option<&crate::brain::BrainProfileRef>,
+    policy: Option<&crate::actor::AutonomousPolicy>,
     // Autonomous policy resolves from the profile registry, not the character
     // catalog; sharing a provider fragment does not merge those authorities.
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
 ) -> Option<crate::brain::BrainProfile> {
-    match (inline, named) {
-        (Some(_), Some(named)) => panic!(
-            "character `{id}` authors an inline autonomous profile AND names the \
-             shared profile `{named}`. Those do not merge — one would silently \
-             replace the other — so authoring both is refused. State one, or ask \
-             for a real patch type"
-        ),
-        (Some(inline), None) => Some(inline),
-        (None, None) => None,
-        (None, Some(named)) => {
-            // An explicitly named profile must resolve. No registry is valid only
-            // for characters that name no shared profile; treating an unresolved
-            // reference as absence would contradict the authored definition.
-            let profiles = profiles.filter(|profiles| !profiles.is_empty());
-            let Some(profiles) = profiles else {
-                panic!(
-                    "character `{id}` (provider `{provider}`) names the shared \
-                     autonomous profile `{named}`, and this composition published no \
-                     profile registry for it to live in. An explicitly named policy \
-                     needs an authority to resolve it — resolving it to nothing \
-                     would leave this body on its archetype while the definition \
-                     says otherwise. Publish the provider's `BrainProfileRegistry`, \
-                     or author the profile inline"
-                )
-            };
-            let resolved = named.resolve_in(provider);
-            match profiles.get(&resolved) {
-                Some(profile) => Some(*profile),
-                None => panic!(
-                    "character `{id}` (provider `{provider}`) names the autonomous \
-                     profile `{named}`, which resolves to `{resolved}` and is not \
-                     published. An explicitly named policy that does not exist is a \
-                     content error, not an absence — resolving it to nothing would \
-                     leave this body on its archetype while the definition says \
-                     otherwise. Published: [{}]",
-                    profiles.ids().collect::<Vec<_>>().join(", ")
-                ),
-            }
+    // ⛔⛤ **THERE USED TO BE A FOURTH ARM HERE AND IT WAS A `panic!`.** Inline
+    // and named arrived as two separate `Option`s, so `(Some(_), Some(_))` was
+    // reachable and the only thing standing between it and a silent merge was a
+    // crash at preparation, in a shipped build, for a state the TYPE handed the
+    // author. `AutonomousPolicy` spells three cases and no more, so the refusal
+    // has nothing left to refuse and this function has no way to fail on shape.
+    match policy {
+        None => None,
+        Some(crate::actor::AutonomousPolicy::Inline(inline)) => Some(*inline),
+        Some(crate::actor::AutonomousPolicy::Named(named)) => {
+            Some(resolve_named_profile(id, provider, named, profiles))
         }
+    }
+}
+
+/// Resolve a NAMED shared policy, or refuse.
+///
+/// ⛔ AN UNRESOLVED NAME IS AN ERROR, NOT AN ABSENCE. Resolving it to nothing
+/// would leave the body on its archetype while the definition says otherwise.
+fn resolve_named_profile(
+    id: &str,
+    provider: &str,
+    named: &crate::brain::BrainProfileRef,
+    profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
+) -> crate::brain::BrainProfile {
+    // An explicitly named profile must resolve. No registry is valid only for
+    // characters that name no shared profile; treating an unresolved reference
+    // as absence would contradict the authored definition.
+    let profiles = profiles.filter(|profiles| !profiles.is_empty());
+    let Some(profiles) = profiles else {
+        panic!(
+            "character `{id}` (provider `{provider}`) names the shared autonomous \
+             profile `{named}`, and this composition published no profile registry \
+             for it to live in. An explicitly named policy needs an authority to \
+             resolve it — resolving it to nothing would leave this body on its \
+             archetype while the definition says otherwise. Publish the provider's \
+             `BrainProfileRegistry`, or author the profile inline"
+        )
+    };
+    let resolved = named.resolve_in(provider);
+    match profiles.get(&resolved) {
+        Some(profile) => *profile,
+        None => panic!(
+            "character `{id}` (provider `{provider}`) names the autonomous profile \
+             `{named}`, which resolves to `{resolved}` and is not published. An \
+             explicitly named policy that does not exist is a content error, not an \
+             absence — resolving it to nothing would leave this body on its \
+             archetype while the definition says otherwise. Published: [{}]",
+            profiles.ids().collect::<Vec<_>>().join(", ")
+        ),
     }
 }
 

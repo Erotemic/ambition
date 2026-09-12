@@ -26,6 +26,9 @@ pub use death_traits::CharacterDeathTraits;
 /// The pool an undescribed body gets — surfaced flat because its two consumers
 /// are the character blueprint and the NPC spawn seed, in another crate.
 pub use definition::DEFAULT_UNAUTHORED_BODY_HEALTH;
+/// One character's own autonomous policy — inline or named, never both. Surfaced
+/// flat beside the blueprint it is a field of.
+pub use definition::AutonomousPolicy;
 pub mod limb;
 pub use limb::{fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot};
 pub mod intrinsics;

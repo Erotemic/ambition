@@ -405,7 +405,9 @@ mod tests {
         assert_eq!(contact.amount, 1);
 
         let profile = definition
-            .autonomous_profile
+            .autonomous_policy
+            .as_ref()
+            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
             .expect("ambient wildlife still has a policy: it wanders");
         assert_eq!(profile.template, CharacterBrainTemplate::Wanderer);
         assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
@@ -442,7 +444,9 @@ mod tests {
         assert_eq!(locomotion.run_speed, 240.0);
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Float));
         let profile = definition
-            .autonomous_profile
+            .autonomous_policy
+            .as_ref()
+            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
             .expect("the dive-bomber policy");
         assert_eq!(profile.template, CharacterBrainTemplate::Aerial);
         assert_eq!(profile.aggro_radius, 620.0);
@@ -623,10 +627,7 @@ mod tests {
             // and the lab raider state their policy by NAME
             // (`autonomous_profile_ref` → the shared `medium_striker` entry),
             // which is just as much an authority as an inlined one.
-            .map(|definition| {
-                definition.autonomous_profile.is_some()
-                    || definition.autonomous_profile_ref.is_some()
-            })
+            .map(|definition| definition.autonomous_policy.is_some())
             .unwrap_or(false);
             let Some(entry) = catalog.get(id) else {
                 continue;
@@ -698,7 +699,11 @@ mod tests {
             mount.pilotable_classes.is_empty(),
             "the giant rides nothing"
         );
-        let profile = definition.autonomous_profile.expect("its policy");
+        let profile = definition
+            .autonomous_policy
+            .as_ref()
+            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
+            .expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
         assert_eq!(
             profile.aggro_radius, 0.0,
@@ -756,7 +761,11 @@ mod tests {
         ));
 
         for (definition, effort) in [(&light, 0.4783), (&heavy, 0.5116)] {
-            let profile = definition.autonomous_profile.expect("the standoff policy");
+            let profile = definition
+                .autonomous_policy
+                .as_ref()
+                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
+                .expect("the standoff policy");
             assert_eq!(profile.template, CharacterBrainTemplate::Skirmisher);
             assert_eq!(profile.aggro_radius, 1200.0);
             assert_eq!(
@@ -801,7 +810,11 @@ mod tests {
             definition.mount.is_none(),
             "a hand is neither ridden nor rides"
         );
-        let profile = definition.autonomous_profile.expect("its policy");
+        let profile = definition
+                .autonomous_policy
+                .as_ref()
+                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
+                .expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
         assert_eq!(
             profile.aggro_radius, 0.0,
@@ -837,7 +850,11 @@ mod tests {
             definition.contact_damage.is_none(),
             "walking into a dummy does not hurt, whatever the old row's comment said"
         );
-        let profile = definition.autonomous_profile.expect("its policy");
+        let profile = definition
+                .autonomous_policy
+                .as_ref()
+                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
+                .expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
         assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
     }
@@ -870,16 +887,31 @@ mod tests {
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk));
         assert_eq!(
             definition
-                .autonomous_profile_ref
+                .autonomous_policy
                 .as_ref()
+                .and_then(ambition_characters::actor::AutonomousPolicy::named)
                 .map(ambition_characters::brain::BrainProfileRef::as_str),
             Some("medium_striker"),
             "it NAMES the shared policy, provider-relative; carrying one inline \
              would make it unshareable, which is the whole point"
         );
+        // ⛔⛤ **THIS ARM USED TO READ `autonomous_profile.is_none()` — "it names
+        // a policy and does not ALSO carry one inline" — AND THE STATE IT
+        // GUARDED IS NOW UNSPELLABLE.** `CharacterDefinition` carried two
+        // `Option`s and a `panic!` reconciling them; it carries one
+        // `Option<AutonomousPolicy>`, which has an `Inline` arm and a `Named`
+        // arm and no way to be both. The assertion survives as a question about
+        // WHICH arm, because that is the part still worth pinning: a definition
+        // that switched to inline would stop being shareable, which is what the
+        // arm above is about.
         assert!(
-            definition.autonomous_profile.is_none(),
-            "and does not also carry one — two authorities for one decision"
+            definition
+                .autonomous_policy
+                .as_ref()
+                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
+                .is_none(),
+            "the goblin carries an INLINE policy, so the shared `medium_striker` \
+             entry is not what decides how it fights"
         );
     }
 
@@ -1565,7 +1597,7 @@ mod assembled_provider_tests {
                 ),
                 crate::pack::prepared(),
             );
-            definition.autonomous_profile.is_some() || definition.autonomous_profile_ref.is_some()
+            definition.autonomous_policy.is_some()
         };
         let stranded: Vec<_> = redirected
             .iter()

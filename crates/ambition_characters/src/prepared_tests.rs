@@ -190,11 +190,10 @@ fn a_definition_carries_no_controller_binding() {
         // test survives rather than being deleted. What it guards is that the CURRENT
         // controller is nowhere on this type: a character may say what it does when nobody is
         // driving it, and may not say who is driving it now.
-        autonomous_profile: _,
+        autonomous_policy: _,
         // The same authority by NAME instead of by value — a shared policy
         // several characters point at. Still a character fact: it says what this
         // creature does when nobody drives it, not who is driving it.
-        autonomous_profile_ref: _,
         ranged_vfx: _,
         // The default is the ordinary moveset verb. Characters opt into alternate
         // ranged execution explicitly; absence of an override must not grant one.
@@ -729,26 +728,70 @@ fn two_characters_can_name_one_shared_policy() {
     );
 }
 
-/// An author who writes both wants a patch type that does not exist, and telling them so is
-/// cheaper than silently answering half their question.
+/// ⛔⛤ **THIS TEST USED TO ASSERT A `panic!`, AND THE PANIC IS GONE BECAUSE THE
+/// STATE IT REFUSED IS NO LONGER SPELLABLE.**
+///
+/// It read `#[should_panic(expected = "authors an inline autonomous profile AND
+/// names")]`, and the thing it defended was real: inline and named policies do
+/// not MERGE, so answering half an author's question silently is worse than
+/// failing. But the refusal lived at preparation, in a shipped build, for a
+/// state `CharacterDefinition` handed the author — two `Option` fields spell
+/// FOUR combinations where the contract wants THREE.
+///
+/// ⇒ `AutonomousPolicy` spells three. Authoring "both" is now calling two
+/// setters on one field, and the last one wins, exactly as every other `with_*`
+/// on this builder behaves.
+///
+/// ⭐ **SO THIS ARM SURVIVES AS THE THING THE PANIC ACTUALLY GUARDED: NOTHING IS
+/// MERGED.** "The last setter wins" and "the two are combined" are different
+/// answers, and only one of them is correct — a future `AutonomousPolicy` that
+/// grew a `Both` variant, or a resolver that fell back to the inline profile
+/// when a name failed to resolve, would reintroduce the silent half-answer while
+/// every type-level property above still held.
 #[test]
-#[should_panic(expected = "authors an inline autonomous profile AND names")]
-fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
+fn authoring_a_policy_twice_keeps_the_last_one_whole_rather_than_merging() {
     use crate::actor::character_catalog::CharacterCatalog;
     use crate::brain::CharacterBrainTemplate;
 
     let catalog = CharacterCatalog::from_data(crate::actor::character_catalog::parse_catalog(
         SHARED_POLICY_CATALOG,
     ));
-    let _ = prepare_and_finalize_against_for_test(
+    let inline = crate::brain::BrainProfile {
+        template: CharacterBrainTemplate::StandStill,
+        ..Default::default()
+    };
+    let finalized = prepare_and_finalize_against_for_test(
         CharacterDefinition::new("statue", "Statue", "test")
             .with_autonomous_profile_named("striker")
-            .with_autonomous_profile(crate::brain::BrainProfile {
-                template: CharacterBrainTemplate::StandStill,
-                ..Default::default()
-            }),
+            .with_autonomous_profile(inline),
         &CharacterBindings::default(),
         Some(&catalog),
+    );
+    let resolved = finalized
+        .prepared
+        .autonomous_profile
+        .expect("the character authored a policy");
+    assert_eq!(
+        resolved.template,
+        CharacterBrainTemplate::StandStill,
+        "the LAST setter did not win"
+    );
+    // ⛔ THE PREMISE THAT MAKES THE ASSERTION ABOVE MEAN ANYTHING. If the shared
+    // `striker` policy also stood still, "the inline one won" and "they were
+    // merged" would look identical here.
+    let shared = catalog
+        .autonomous_profile("test::striker")
+        .expect("the fixture catalog publishes `striker`");
+    assert_ne!(
+        shared.template, resolved.template,
+        "the named policy this fixture discards has the SAME template as the \
+         inline one, so this arm cannot tell a win from a merge"
+    );
+    assert_eq!(
+        resolved, inline,
+        "the resolved policy is not the inline one WHOLE — some field came from \
+         the named policy, which is the silent merge the old panic existed to \
+         prevent"
     );
 }
 

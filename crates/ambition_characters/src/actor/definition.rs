@@ -16,6 +16,56 @@ pub struct Lineage {
 pub const DEFAULT_UNAUTHORED_BODY_HEALTH: i32 = 4;
 
 /// Optional authored physical limits; `None` leaves construction-time state authoritative.
+/// A character's OWN autonomous policy: written out here, or named for lookup.
+///
+/// ⛔⛔ **AN ENUM RATHER THAN TWO `Option`s, AND THAT IS THE WHOLE POINT.** The
+/// contract has always been *"inline and named are mutually exclusive"*. Two
+/// optional fields can spell FOUR combinations; the contract wants THREE, and
+/// the fourth was refused by a `panic!` inside `resolve_autonomous_profile`
+/// whose own message read *"those do not merge — one would silently replace the
+/// other — so authoring both is refused"*. That is a correct rule enforced at
+/// the wrong layer: a crash, at preparation, in a shipped build, for a state the
+/// type handed the author. This spells three and no more.
+///
+/// ⚠ AUTHORING BOTH IS NOW "CALLING TWO SETTERS", AND THE LAST ONE WINS — the
+/// same as every other `with_*` on [`CharacterDefinition`]. Nothing is silently
+/// MERGED, which is what the panic actually guarded against; a builder's last
+/// call winning is ordinary and visible at the call site.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AutonomousPolicy {
+    /// Written out on this character.
+    Inline(crate::brain::BrainProfile),
+    /// Provider-relative name of a shared policy, RESOLVED during preparation.
+    /// An unresolved name is a preparation error, not an absence: resolving it
+    /// to nothing would leave the body on its archetype while the definition
+    /// says otherwise.
+    Named(crate::brain::BrainProfileRef),
+}
+
+impl AutonomousPolicy {
+    /// The profile written out here, or `None` when this policy is a NAME.
+    ///
+    /// ⚠ `None` FROM A `Named` IS NOT "NO POLICY" — the policy exists and lives
+    /// in the provider's registry. A caller asking "what does this character
+    /// actually do" wants the resolved value on
+    /// `PreparedCharacter::autonomous_profile`, after preparation; this is for
+    /// callers reading the AUTHORED form.
+    pub fn inline(&self) -> Option<&crate::brain::BrainProfile> {
+        match self {
+            Self::Inline(profile) => Some(profile),
+            Self::Named(_) => None,
+        }
+    }
+
+    /// The shared policy this character names, or `None` when it is inline.
+    pub fn named(&self) -> Option<&crate::brain::BrainProfileRef> {
+        match self {
+            Self::Named(reference) => Some(reference),
+            Self::Inline(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Vitals {
     /// Authored health pool. `None` leaves the construction-time pool authoritative.
@@ -108,12 +158,19 @@ pub struct CharacterDefinition {
     /// Whether touching this body hurts, and how much. `None` = it does
     /// not, which is most characters.
     pub contact_damage: Option<crate::actor::ContactDamage>,
-    /// Inline autonomous policy for this character.
+    /// This character's own autonomous policy, inline or by name.
+    ///
     /// `None` leaves the catalog/archetype projection authoritative.
-    pub autonomous_profile: Option<crate::brain::BrainProfile>,
-    /// Provider-relative name of a shared autonomous policy resolved during preparation.
-    /// Inline and named policies are mutually exclusive; an unresolved name is a preparation error.
-    pub autonomous_profile_ref: Option<crate::brain::BrainProfileRef>,
+    ///
+    /// ⛔⛤ **THIS WAS TWO `Option` FIELDS AND A `panic!`.** `autonomous_profile`
+    /// and `autonomous_profile_ref` were separate, the doc said *"inline and
+    /// named policies are mutually exclusive"*, and the rule was enforced by
+    /// `resolve_autonomous_profile` panicking at preparation on
+    /// `(Some(_), Some(_))` — a CRASH in a shipped game for a state the type
+    /// invited. Two optionals can spell four combinations and the contract wants
+    /// three. ⇒ One `Option<AutonomousPolicy>` spells exactly three, so the
+    /// refusal has nothing left to refuse.
+    pub autonomous_policy: Option<AutonomousPolicy>,
     /// Provider-relative autonomous policy adopted by the same body when provoked.
     /// `None` leaves the existing fallback behavior in charge.
     pub provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
@@ -162,8 +219,7 @@ impl CharacterDefinition {
             abilities: None,
             locomotion: None,
             contact_damage: None,
-            autonomous_profile: None,
-            autonomous_profile_ref: None,
+            autonomous_policy: None,
             provoked_profile_ref: None,
             ranged_vfx: None,
             ranged_execution: crate::brain::RangedExecution::MovesetVerb,
@@ -220,7 +276,9 @@ impl CharacterDefinition {
 
     /// Name a shared provider-relative policy by its local key.
     pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
-        self.autonomous_profile_ref = Some(crate::brain::BrainProfileRef::new(key));
+        self.autonomous_policy = Some(AutonomousPolicy::Named(crate::brain::BrainProfileRef::new(
+            key,
+        )));
         self
     }
 
@@ -246,7 +304,7 @@ impl CharacterDefinition {
     /// Author the policy this character runs by default. See
     /// [`Self::autonomous_profile`].
     pub fn with_autonomous_profile(mut self, profile: crate::brain::BrainProfile) -> Self {
-        self.autonomous_profile = Some(profile);
+        self.autonomous_policy = Some(AutonomousPolicy::Inline(profile));
         self
     }
 
@@ -374,8 +432,7 @@ mod authority_tests {
             // A policy this character COMES WITH, by name or inline. Not the
             // controller itself, and never a reason for a body fact to live in
             // a profile or the reverse.
-            autonomous_profile: _,
-            autonomous_profile_ref: _,
+            autonomous_policy: _,
             provoked_profile_ref: _,
             //  filed HERE and not under BODY, and the group's own  is the
             // reason: it states something about this character's AUTONOMOUS

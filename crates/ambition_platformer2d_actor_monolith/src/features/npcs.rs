@@ -613,8 +613,9 @@ mod default_profile_tests {
             "Puppy Slug",
             PROVIDER,
         );
-        definition.autonomous_profile =
-            profile.map(ambition_characters::brain::BrainProfile::from_template);
+        definition.autonomous_policy = profile
+            .map(ambition_characters::brain::BrainProfile::from_template)
+            .map(ambition_characters::actor::AutonomousPolicy::Inline);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
             &ambition_characters::prepared::CharacterBindings::default(),

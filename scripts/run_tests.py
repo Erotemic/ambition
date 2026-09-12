@@ -609,13 +609,32 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # deny-by-default today. The gap is structural and currently unrealised;
         # do not delete this paragraph on the grounds that nothing is in it.
         #
-        # ⚠ COST, STATED AS ITS EXPENSIVE CASE: 173s of a 2323s `--rust` lane
-        # (7.4%) on a CLEANED tree — what CI, a fresh clone, or a machine that
-        # has not built today pays. Jobs run sequentially here, so that is added
-        # wall clock, not overlap. Re-run in isolation it is 1.7-2.2s, and that
-        # number is a trap: it holds only for clippy twice with nothing between,
-        # which a lane never produces (~70s was observed for the first re-run
-        # after a full lane).
+        # ⚠ COST, STATED AS ITS EXPENSIVE CASE FIRST. Jobs run SEQUENTIALLY in
+        # this runner (see the note above `build_jobs`), so clippy's duration is
+        # added wall clock with no overlap to discount. Three measured points,
+        # 2026-09-11:
+        #
+        #   173.0s  of a 2323s 8-job `--rust` on a freshly `cargo clean`ed tree
+        #    44.1s  of a  596s 9-job `--rust` on a warm tree with rebuilds behind
+        #           it (another host, which HAS nextest — see below)
+        #   1.7-2.2s  re-run in isolation
+        #
+        # ⛔ THE ISOLATED NUMBER IS A TRAP AND IS RECORDED ONLY SO NOBODY QUOTES
+        # IT: it holds for clippy twice with nothing in between, a configuration
+        # a lane never produces. The cold figure is what CI, a fresh clone, or a
+        # machine that has not built today pays, and it is the one to plan
+        # against; ~7% of the lane either way. (~70s was also seen for the first
+        # re-run after a full lane, and the cause is NOT `cargo test
+        # --workspace` — that was interleaved deliberately and clippy after it
+        # cost ~4s. Unattributed on purpose rather than guessed.)
+        #
+        # ⚠ THE TWO LANES ABOVE ARE DIFFERENT JOB SETS, WHICH IS WHY BOTH ARE
+        # CITED. `NEXTEST` (line ~112) is derived from whether
+        # `~/.cargo/bin/cargo-nextest` exists, so `workspace doctests` is in the
+        # plan on some hosts and absent on others: 8 jobs where it is missing, 9
+        # where it is not. A lane's NAME is not its CONTENT when the hosts
+        # differ, and a `--rust` verdict quoted between machines is not
+        # comparable without saying which.
         #
         # ⚠ NO `--fresh` COUNTERPART, unlike `check_no_warnings.py`, and that is
         # measured rather than assumed: cargo replays a cached unit's clippy

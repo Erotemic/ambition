@@ -498,22 +498,34 @@ What belongs where:
   git -C <submodule> rev-list --count origin/main..HEAD
   ```
 * ⛔ **Push commits, never somebody else's uncommitted submodule work.**
-* ⛔⛔ **AND AN APPEND-ONLY LEDGER INSIDE A SUBMODULE IS PER-MACHINE STATE THAT
-  LOOKS LIKE SHARED STATE.** `dev/ambition_dev_measurements/run_tests_cost.jsonl`
-  gets a row from every `./run_tests.sh`, so each box accumulates its OWN
-  uncommitted set and neither can see the other's. ⇒ Bumping the pointer from
-  one box moves it for everyone, and the next box's `git submodule update` —
-  the routine step after a pointer bump — silently discards whatever it had not
-  committed. **Near-miss 2026-09-03: one box committed twelve rows while
-  another held eighteen different ones, uncommitted since the previous day,
-  including the `--rust` gate evidence the handoff cited.** Both sets survived
-  only because the second box was told before it updated.
-  ⇒ Before bumping a shared-ledger submodule, ASK the other active boxes
-  whether they hold uncommitted rows; append rather than assume. And when you
-  prune such a file, prune only the lines appended past `HEAD`'s copy and
-  assert the committed prefix is byte-identical first — a whole-file filter
-  will quietly delete older rows that match the same shape, and
-  `git diff --numstat` showing any deletions on an append-only file is the tell.
+* ⛔⛔ **AN APPEND-ONLY LEDGER INSIDE A SUBMODULE IS SHARED STATE THAT EVERY BOX
+  APPENDS TO, AND THE MERGE IS A GIT RULE RATHER THAN A CONVERSATION.**
+  `dev/ambition_dev_measurements/run_tests_cost.jsonl` gets a row from every
+  `./run_tests.sh`, so each box accumulates its own rows — and all of them
+  belong upstream. Two declarations make that automatic, and neither is
+  optional:
+  * the submodule's `.gitattributes` declares `*.jsonl merge=union`, so two
+    independent appends combine instead of conflicting;
+  * `.gitmodules` declares `update = merge` for it, because **a detached
+    checkout never consults a merge driver.** Measured 2026-09-12: under the
+    default checkout mode, `git submodule update` after a pointer bump left
+    this box's *committed* row unreachable from the new HEAD; with the key, the
+    same command reports `Auto-merging` and keeps both boxes' rows with no
+    conflict markers. It needs no per-box setup — it applies straight from
+    `.gitmodules`, and `git submodule init` seeds it for an already-initialised
+    clone.
+  ⇒ So the standing instruction is **commit your rows** (uncommitted work is
+  still what a checkout throws away, and it is the one thing no merge rule can
+  rescue) and let the update merge them. **Near-miss 2026-09-03, before the
+  rule existed: one box committed twelve rows while another held eighteen
+  different ones, uncommitted since the previous day, including the `--rust`
+  gate evidence the handoff cited.** Both sets survived only because the second
+  box was told before it updated.
+  ⇒ And when you prune such a file, prune only the lines appended past
+  `HEAD`'s copy and assert the committed prefix is byte-identical first — a
+  whole-file filter will quietly delete older rows that match the same shape,
+  and `git diff --numstat` showing any deletions on an append-only file is the
+  tell.
 
 
 ## Coordinating subagents and worktrees

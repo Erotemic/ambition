@@ -10,6 +10,20 @@
 [submodule "dev/ambition_dev_measurements"]
 	path = dev/ambition_dev_measurements
 	url = https://github.com/Erotemic/ambition_dev_measurements.git
+	# ⛔ MERGE, NOT CHECKOUT, AND IT IS THE WHOLE REASON THE LEDGERS SURVIVE.
+	# These are append-only JSONL ledgers several boxes write concurrently, and
+	# the submodule's own `.gitattributes` already declares `*.jsonl
+	# merge=union` — but a DETACHED CHECKOUT never consults a merge driver, so
+	# the routine `git submodule update` after a pointer bump resolved the
+	# other box's rows by discarding them. Measured 2026-09-12: with the
+	# default checkout mode our committed row was unreachable from the new
+	# HEAD; with this key, the same command reports `Auto-merging led.jsonl`
+	# and both boxes' rows are present with no conflict markers.
+	#
+	# ⚠ The cost of this key is that a conflict in a NON-union file here leaves
+	# the submodule with a conflicted worktree instead of a clean checkout.
+	# That is the correct trade for a ledger: loud beats silent deletion.
+	update = merge
 [submodule "game/ambition_map_assets"]
 	path = game/ambition_map_assets
 	url = https://github.com/Erotemic/ambition_map_assets.git

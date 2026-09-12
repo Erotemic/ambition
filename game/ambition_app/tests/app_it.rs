@@ -193,3 +193,4 @@ mod damageable_bodies_carry_identity;
 // rollback-canonical state is normalised so the desync check cannot see it.
 mod canonical_state_is_finite;
 
+mod edit_to_play_through_the_shell;

@@ -28,6 +28,7 @@ fn active(route: &str, experience: &str) -> ActiveShellExperience {
 
 fn pending(route: &str) -> PendingShellRoute {
     PendingShellRoute {
+        request: None,
         route_id: ShellRouteId::new(route),
         push_history: true,
         barrier: ambition_load::LoadBarrierRef::new(

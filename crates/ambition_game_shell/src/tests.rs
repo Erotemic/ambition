@@ -901,6 +901,210 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
     );
 }
 
+/// ⭐⭐ **A LOAD THAT FAILS WHILE THE SHELL WAITS NAMES THE REQUEST THAT ASKED
+/// FOR IT.** This is the road a production transaction actually dies on and it
+/// named nothing: `start_route`'s terminal check only fires for a barrier that is
+/// ALREADY terminal when the command arrives, which never happens for a load the
+/// router just minted. Every real failure arrives HERE, one `advance_pending` at
+/// a time, and `CommandRejected(LoadFailed { .. })` carries a readiness and a
+/// failure list and no identity at all.
+///
+/// ⇒ So a caller correlating on its own request — the content reload, whose
+/// staged generation is refused while one is in flight — could only infer
+/// ownership from `ShellRouter.pending`, and an unrelated rejection while its own
+/// load was pending discarded the edit.
+/// ⭐⭐ **A SUPERSEDED TRANSACTION NAMES THE REQUEST IT CANCELLED**, and before
+/// `TransactionEnded` it named nothing whatsoever. `start_route` took
+/// `self.pending`, called `prepared.cancel(&previous.barrier)` — a `records`
+/// removal returning `bool`, a state mutation and not an observable event — and
+/// returned events describing the NEW route only. The caller waiting on the old
+/// one was left waiting on a load that would never activate, with no signal it
+/// could ever receive.
+///
+/// ⛔ NOT DERIVABLE FROM THE OTHER EVENTS. The two that do carry a barrier,
+/// `PreparationRequested` and `WaitingForLoad`, both name the SUPERSEDING
+/// transaction; inferring the cancelled one from `ShellRouter.pending` reads the
+/// very field that was just overwritten.
+#[test]
+fn a_superseded_transaction_names_the_request_it_cancelled() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let first_request = ShellRequestId::new("reload.game.1");
+    let second_request = ShellRequestId::new("reload.game.2");
+    let first = router
+        .apply(
+            ShellCommand::ReplaceWith {
+                route: ShellRouteId::new("game"),
+                request: Some(first_request.clone()),
+            },
+            &catalog,
+            &host,
+            &mut loads,
+            &mut prepared,
+        )
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("the first request creates a transaction");
+
+    // ⛔ THE PREMISE: the first transaction is STILL PENDING, neither ready nor
+    // terminal. A supersession of nothing would emit nothing correctly.
+    let holds = ShellRouteHolds::default();
+    assert!(
+        router
+            .advance_pending(&catalog, &mut loads, &mut prepared, &holds)
+            .is_empty(),
+        "the fixture's first transaction already resolved, so nothing is being          superseded",
+    );
+
+    // ⭐ A SECOND SAVE ARRIVES BEFORE THE FIRST FINISHED — what a file watcher
+    // makes ordinary.
+    let events = router.apply(
+        ShellCommand::ReplaceWith {
+            route: ShellRouteId::new("game"),
+            request: Some(second_request.clone()),
+        },
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    let ended = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::TransactionEnded {
+                barrier,
+                request,
+                reason,
+                ..
+            } => Some((barrier.clone(), request.clone(), reason.clone())),
+            _ => None,
+        })
+        .expect("supersession emitted no event naming the transaction it cancelled");
+    assert_eq!(
+        ended.0, first.barrier,
+        "it named the SUPERSEDING barrier, which the caller already knew about",
+    );
+    assert_eq!(
+        ended.1.as_ref(),
+        Some(&first_request),
+        "it named the superseding request rather than the cancelled one",
+    );
+    assert_eq!(ended.2, TransactionEnd::Superseded);
+    // ⚠ AND NOT AS A FAILURE. Nothing went wrong; the caller asked for something
+    // else. A caller that retried on `Failed` would loop forever here.
+    assert_ne!(ended.2, TransactionEnd::Failed);
+
+    let second = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("the superseding request creates its own transaction");
+    assert_eq!(
+        second.request.as_ref(),
+        Some(&second_request),
+        "the new transaction carries the new caller's identity",
+    );
+    assert_ne!(first.barrier.load_id, second.barrier.load_id);
+}
+
+#[test]
+fn a_load_that_fails_while_the_shell_waits_names_the_request_that_asked_for_it() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let mine = ShellRequestId::new("reload.game.1");
+    let events = router.apply(
+        ShellCommand::ReplaceWith {
+            route: ShellRouteId::new("game"),
+            request: Some(mine.clone()),
+        },
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    let transaction = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("a ReplaceWith on a preparing route requests a preparation");
+    // ⛔ THE PREMISE: the request reached the transaction. Without it the arm
+    // below would be asserting that `None` equals `None`.
+    assert_eq!(
+        transaction.request.as_ref(),
+        Some(&mine),
+        "the caller's request id did not reach the preparation transaction",
+    );
+
+    loads.apply(LoadCommand::SetWorkState {
+        load_id: transaction.barrier.load_id.clone(),
+        work_id: ambition_load::LoadWorkId::new("publish"),
+        state: ambition_load::LoadWorkState::Failed(ambition_load::LoadFailure::new(
+            "This world could not be prepared.",
+            "the fixture's provider refused",
+        )),
+    });
+
+    let holds = ShellRouteHolds::default();
+    let events = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
+    let ended = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::TransactionEnded {
+                barrier,
+                request,
+                reason,
+                ..
+            } => Some((barrier.clone(), request.clone(), reason.clone())),
+            _ => None,
+        })
+        .expect(
+            "a load that failed while the shell waited emitted no event naming              the transaction it ended",
+        );
+    assert_eq!(ended.0, transaction.barrier, "it named a different barrier");
+    assert_eq!(ended.1.as_ref(), Some(&mine), "it named a different request");
+    assert_eq!(ended.2, TransactionEnd::Failed);
+    // ⚠ AND THE DETAILED REPORT IS STILL THERE. The identity event carries no
+    // failure list, so collapsing the two would cost every existing reader the
+    // provider's reason.
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            ShellEvent::CommandRejected(ShellCommandRejection::LoadFailed { .. })
+        )),
+        "the identity event replaced the failure report instead of joining it",
+    );
+
+    // ⛔ ONCE, NOT EVERY FRAME — the `terminal_reported` latch covers both.
+    let repeat = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
+    assert!(
+        !repeat
+            .iter()
+            .any(|event| matches!(event, ShellEvent::TransactionEnded { .. })),
+        "the transaction's end was re-emitted every frame the route stayed pending",
+    );
+}
+
 #[test]
 fn same_provider_relaunch_mints_a_fresh_load_transaction() {
     let mut loads = LoadCoordinator::default();

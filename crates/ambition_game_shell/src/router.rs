@@ -129,6 +129,9 @@ pub struct PendingShellRoute {
     pub barrier: LoadBarrierRef,
     pub requires_prepared_session: bool,
     pub terminal_reported: bool,
+    /// Whose request started this route, so a transaction that ends WITHOUT
+    /// activating can name its owner. See [`ShellEvent::TransactionEnded`].
+    pub request: Option<ShellRequestId>,
 }
 
 #[derive(Resource, Default)]
@@ -281,6 +284,48 @@ pub enum ShellEvent {
     },
     ExitRequested,
     CommandRejected(ShellCommandRejection),
+    /// ⭐⭐ **A TRANSACTION ENDED WITHOUT ACTIVATING, AND THIS IS THE WORD THE
+    /// VOCABULARY DID NOT HAVE.**
+    ///
+    /// ⛔⛤ **BEFORE THIS, SUPERSESSION EMITTED NOTHING ABOUT THE LOAD IT
+    /// CANCELLED.** `start_route` takes `self.pending`, calls
+    /// `prepared.cancel(&previous.barrier)` and returns events about the NEW
+    /// route only; `PreparedSessionRegistry::cancel` is a `records.remove`
+    /// returning `bool` — a state mutation, not an observable event. And of the
+    /// seven other variants only `PreparationRequested` and `WaitingForLoad`
+    /// carry a barrier, both naming the NEW one; `CommandRejected(LoadFailed
+    /// {..})` carries a readiness and a failure list but no load id, and
+    /// `ExperienceFailed` carries an activation id.
+    ///
+    /// ⇒ So a caller waiting on its own transaction had NOTHING to match on for
+    /// the one terminal state that produces no error at all, and had to infer
+    /// ownership from `ShellRouter.pending` — which by then names the SUPERSEDING
+    /// route. A pending generation could be stranded with no signal, and every
+    /// later save answered `AlreadyPending`.
+    ///
+    /// ⚠ IT NAMES BOTH IDENTITIES ON PURPOSE: the `barrier` for anything
+    /// correlating on the router's load, and `request` for the caller that minted
+    /// the command. Neither is derivable from the other.
+    TransactionEnded {
+        route_id: ShellRouteId,
+        barrier: LoadBarrierRef,
+        request: Option<ShellRequestId>,
+        reason: TransactionEnd,
+    },
+}
+
+/// Why a transaction ended without activating.
+///
+/// ⛔ SUPERSEDED IS NOT A FAILURE, and conflating them is what made the old
+/// silence defensible: nothing went wrong, the caller simply asked for something
+/// else first. A caller still has to hear about it, because its own generation is
+/// waiting on a load that will never activate.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TransactionEnd {
+    /// Another `start_route` began while this one was still pending.
+    Superseded,
+    /// Its barrier reached a terminal non-ready state.
+    Failed,
 }
 
 impl ShellRouter {
@@ -490,12 +535,34 @@ impl ShellRouter {
                     let failures = snapshot
                         .map(|snapshot| snapshot.failures)
                         .unwrap_or_default();
-                    vec![ShellEvent::CommandRejected(
-                        ShellCommandRejection::LoadFailed {
-                            readiness: state,
-                            failures,
+                    // ⭐⭐ **THIS IS THE ROAD A PRODUCTION LOAD ACTUALLY DIES
+                    // ON**, and until now it named nothing. `start_route`'s
+                    // terminal check only fires for a barrier that is ALREADY
+                    // terminal when the command arrives; a load that fails while
+                    // the shell waits arrives here, one frame at a time. A
+                    // correlating caller that watched only `start_route` would
+                    // wait forever on the normal failure.
+                    //
+                    // ⛔ BOTH EVENTS, NOT ONE. `CommandRejected(LoadFailed)` is
+                    // what the shell's own readers already handle and carries the
+                    // per-failure list; `TransactionEnded` carries the identity
+                    // and no detail. Collapsing them would either strand those
+                    // readers or bloat the identity event into a second copy of
+                    // the failure report.
+                    vec![
+                        ShellEvent::TransactionEnded {
+                            route_id: pending.route_id.clone(),
+                            barrier: pending.barrier.clone(),
+                            request: pending.request.clone(),
+                            reason: TransactionEnd::Failed,
                         },
-                    )]
+                        ShellEvent::CommandRejected(
+                            ShellCommandRejection::LoadFailed {
+                                readiness: state,
+                                failures,
+                            },
+                        ),
+                    ]
                 }
             }
             Some(BarrierReadiness::Preparing) | None => Vec::new(),
@@ -514,6 +581,8 @@ impl ShellRouter {
         prepared: &mut PreparedSessionRegistry,
     ) -> Vec<ShellEvent> {
         let Some(route) = catalog.get(&route_id) else {
+            // ⚠ BEFORE `self.pending` IS TAKEN, so there is nothing superseded
+            // to report: an unknown route cancels nothing.
             return vec![ShellEvent::CommandRejected(
                 ShellCommandRejection::UnknownRoute(route_id),
             )];
@@ -523,8 +592,18 @@ impl ShellRouter {
         let supersedes = previous_pending
             .as_ref()
             .map(|pending| pending.barrier.load_id.clone());
+        // ⛔⛔ **SAY SO. THE CANCELLED TRANSACTION USED TO VANISH IN SILENCE.**
+        // A caller waiting on it has a generation staged against a load that will
+        // never activate, and no other variant names a cancelled barrier.
+        let mut events: Vec<ShellEvent> = Vec::new();
         if let Some(previous) = previous_pending.as_ref() {
             prepared.cancel(&previous.barrier);
+            events.push(ShellEvent::TransactionEnded {
+                route_id: previous.route_id.clone(),
+                barrier: previous.barrier.clone(),
+                request: previous.request.clone(),
+                reason: TransactionEnd::Superseded,
+            });
         }
 
         if let Some(plan) = route.preparation.as_ref() {
@@ -549,16 +628,18 @@ impl ShellRouter {
             };
             prepared.request(transaction.clone());
             self.pending = Some(PendingShellRoute {
+                request: request.clone(),
                 route_id: route_id.clone(),
                 push_history,
                 barrier: barrier.clone(),
                 requires_prepared_session: true,
                 terminal_reported: false,
             });
-            return vec![
+            events.extend([
                 ShellEvent::PreparationRequested(transaction),
                 ShellEvent::WaitingForLoad { route_id, barrier },
-            ];
+            ]);
+            return events;
         }
 
         if let Some(previous) = previous_pending {
@@ -575,11 +656,19 @@ impl ShellRouter {
                 Some(BarrierReadiness::Ready) => {
                     if let Err(reason) = loads.request_commit(&barrier.load_id, &barrier.barrier_id)
                     {
-                        return vec![ShellEvent::CommandRejected(
+                        events.push(ShellEvent::CommandRejected(
                             ShellCommandRejection::LoadCommitRejected(reason),
-                        )];
+                        ));
+                        return events;
                     }
-                    return self.activate(route_id, push_history, catalog, Some(barrier), None);
+                    events.extend(self.activate(
+                        route_id,
+                        push_history,
+                        catalog,
+                        Some(barrier),
+                        None,
+                    ));
+                    return events;
                 }
                 Some(
                     state @ (BarrierReadiness::Failed
@@ -587,6 +676,7 @@ impl ShellRouter {
                     | BarrierReadiness::Superseded),
                 ) => {
                     self.pending = Some(PendingShellRoute {
+                        request: request.clone(),
                         route_id: route_id.clone(),
                         push_history,
                         barrier: barrier.clone(),
@@ -596,27 +686,44 @@ impl ShellRouter {
                     let failures = snapshot
                         .map(|snapshot| snapshot.failures)
                         .unwrap_or_default();
-                    return vec![
-                        ShellEvent::WaitingForLoad { route_id, barrier },
+                    // ⛔ AND THE NEW TRANSACTION'S OWN TERMINAL STATE NAMES
+                    // ITSELF TOO. `CommandRejected(LoadFailed { .. })` carries a
+                    // readiness and a failure list and NO load id, so a caller
+                    // correlating on its own request had nothing to match.
+                    events.extend([
+                        ShellEvent::WaitingForLoad {
+                            route_id: route_id.clone(),
+                            barrier: barrier.clone(),
+                        },
+                        ShellEvent::TransactionEnded {
+                            route_id,
+                            barrier,
+                            request,
+                            reason: TransactionEnd::Failed,
+                        },
                         ShellEvent::CommandRejected(ShellCommandRejection::LoadFailed {
                             readiness: state,
                             failures,
                         }),
-                    ];
+                    ]);
+                    return events;
                 }
                 Some(BarrierReadiness::Preparing) | None => {
                     self.pending = Some(PendingShellRoute {
+                        request: request.clone(),
                         route_id: route_id.clone(),
                         push_history,
                         barrier: barrier.clone(),
                         requires_prepared_session: false,
                         terminal_reported: false,
                     });
-                    return vec![ShellEvent::WaitingForLoad { route_id, barrier }];
+                    events.push(ShellEvent::WaitingForLoad { route_id, barrier });
+                    return events;
                 }
             }
         }
-        self.activate(route_id, push_history, catalog, None, None)
+        events.extend(self.activate(route_id, push_history, catalog, None, None));
+        events
     }
 
     fn activate(

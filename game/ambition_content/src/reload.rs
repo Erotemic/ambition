@@ -799,7 +799,15 @@ pub enum ReloadRequest {
     /// The request was issued. **Nothing is published yet** — the new generation
     /// appears when the shell activates it, and the current one is authoritative
     /// until then.
-    Requested { route: String },
+    Requested {
+        route: String,
+        /// ⭐ **THE IDENTITY THIS CALL MINTED**, handed back so the caller can
+        /// correlate the transaction it just started. Without it the caller owns
+        /// an identity it cannot see, and correlating means guessing the ordinal
+        /// or reading a private resource — which is the inference
+        /// `ShellRequestId` exists to remove, one layer up.
+        request: ambition_platformer2d::game_shell::ShellRequestId,
+    },
 }
 
 /// Ask the running host to re-prepare its session against `candidate`.
@@ -1016,10 +1024,11 @@ pub fn request_reload(
     // otherwise walk back through three copies of the room they are standing in.
     world.write_message(ShellCommand::ReplaceWith {
         route: route.clone(),
-        request: Some(request),
+        request: Some(request.clone()),
     });
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
+        request,
     }
 }
 
@@ -1258,6 +1267,7 @@ pub fn adopt_preparation_transaction(
             ShellEvent::RouteActivated(_)
             | ShellEvent::ExperienceFailed { .. }
             | ShellEvent::CommandRejected(_)
+            | ShellEvent::TransactionEnded { .. }
             | ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
             | ShellEvent::ExitRequested => {}
@@ -1371,21 +1381,62 @@ pub fn commit_content_generation(
             // route, so at the moment a rejection is observed its `barrier` still
             // names the load that failed. A reload discards only when that load
             // is ITS load, or when nothing is pending at all.
-            ShellEvent::ExperienceFailed { .. } | ShellEvent::CommandRejected(_) => {
-                commands.queue(|world: &mut bevy::ecs::world::World| {
-                    let failing = world
-                        .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
-                        .and_then(|router| router.pending.as_ref())
-                        .map(|pending| pending.barrier.load_id.clone());
-                    // ⚠ NOTHING PENDING means the shell is not waiting on any
-                    // transaction, so a reload waiting on one will never see it
-                    // activate — discard rather than leak.
-                    if failing.is_some() && !reload_owns(world, failing.as_ref()) {
+            // ⭐⭐ **THE TERMINAL SIGNAL THAT NAMES ITS OWNER**, which is the one
+            // the vocabulary did not have. A superseded transaction used to emit
+            // nothing at all, so a pending generation was stranded with no
+            // signal and every later save answered `AlreadyPending`.
+            ShellEvent::TransactionEnded {
+                barrier, request, ..
+            } => {
+                let load_id = barrier.load_id.clone();
+                let request = request.clone();
+                commands.queue(move |world: &mut bevy::ecs::world::World| {
+                    // ⛔ EITHER IDENTITY IS PROOF, AND NEITHER IS INFERRED.
+                    // `request` matches a transaction this reload ISSUED even
+                    // before the router announced a load for it; `load_id`
+                    // matches one it has already adopted. A transaction carrying
+                    // neither belongs to somebody else.
+                    if !reload_issued(world, request.as_ref())
+                        && !reload_owns(world, Some(&load_id))
+                    {
                         return;
                     }
                     discard_staged_reload(world);
                 });
             }
+            // ⭐ **THE ONE REJECTION THAT NAMES A BARRIER.** The barrier went
+            // Ready and the commit succeeded, but no prepared session existed to
+            // consume — so this transaction will never activate, and it says
+            // exactly which transaction.
+            ShellEvent::CommandRejected(
+                ambition_platformer2d::game_shell::ShellCommandRejection::PreparedSessionUnavailable(
+                    barrier,
+                ),
+            ) => {
+                let load_id = barrier.load_id.clone();
+                commands.queue(move |world: &mut bevy::ecs::world::World| {
+                    if !reload_owns(world, Some(&load_id)) {
+                        return;
+                    }
+                    discard_staged_reload(world);
+                });
+            }
+            // ⛔⛔ **IGNORED, AND THE OLD CODE HERE WAS THE REVIEW'S FINDING 3.**
+            // It asked `ShellRouter.pending` which load was failing and
+            // discarded the staged generation whenever that load was ours —
+            // which makes an UNRELATED rejection (`HostNotConfigured`,
+            // `UnknownRoute`, a stale activation, a commit rejection) throw away
+            // an edit it has nothing to do with, purely because our load
+            // happened to be the one in flight. `LoadFailed` carries no load id
+            // and `ExperienceFailed` carries an activation id, so neither can be
+            // correlated from the event.
+            //
+            // ⇒ AND NEITHER NEEDS TO BE: every way this transaction actually
+            // dies now emits `TransactionEnded` above — supersession and an
+            // already-terminal barrier from `start_route`, a barrier that goes
+            // terminal while the shell waits from `advance_pending`. An
+            // uncorrelatable rejection is somebody else's.
+            ShellEvent::ExperienceFailed { .. } | ShellEvent::CommandRejected(_) => {}
             ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
             | ShellEvent::ExitRequested => {}
@@ -1393,6 +1444,26 @@ pub fn commit_content_generation(
     }
 }
 
+
+/// Did this reload ISSUE the request `request` names?
+///
+/// ⭐ **ANSWERABLE BEFORE THE ROUTER HAS MINTED A LOAD**, which is what
+/// [`reload_owns`] cannot do: between the command and the announcement a reload
+/// has no `LoadId` to compare, and that window is exactly where a superseding
+/// command lands.
+///
+/// ⚠ `None` IS NOT A MATCH. A transaction carrying no request id belongs to
+/// nobody who is correlating, and treating it as ours is the inference
+/// `ShellRequestId` exists to remove.
+fn reload_issued(
+    world: &bevy::ecs::world::World,
+    request: Option<&ambition_platformer2d::game_shell::ShellRequestId>,
+) -> bool {
+    let Some(pending) = world.get_resource::<PendingGeneration>() else {
+        return false;
+    };
+    request.is_some_and(|request| &pending.request == request)
+}
 
 /// Does the pending reload own the transaction `load_id` names?
 ///

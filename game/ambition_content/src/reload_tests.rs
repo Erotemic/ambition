@@ -1744,11 +1744,12 @@ fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
     let played = live_duration(&app);
 
     let outcome = request_reload(app.world_mut(), a_publishable_candidate());
-    assert_eq!(
-        outcome,
-        ReloadRequest::Requested {
-            route: "game".to_string()
-        },
+    assert!(
+        matches!(
+            &outcome,
+            ReloadRequest::Requested { route, request }
+                if route == "game" && request.as_str().starts_with("reload.game.")
+        ),
         "got {outcome:?}"
     );
     assert!(
@@ -2461,10 +2462,12 @@ fn an_activation_of_another_transaction_cannot_publish_a_pending_reload() {
 
 /// ⛔⛔ **AND A FAILURE OF ANOTHER TRANSACTION CANNOT DISCARD IT EITHER.**
 ///
-/// ⚠ THIS HALF CORRELATES THROUGH THE ROUTER, NOT THE EVENT: measured
-/// 2026-09-11, `CommandRejected` carries no barrier at all. What it does have is
-/// a router still holding the `pending` route whose barrier failed, and that
-/// names the load.
+/// ⭐⭐ THIS ARM CORRELATES THROUGH THE EVENT, WHICH IS THE WHOLE POINT OF
+/// `TransactionEnded`. Its earlier form wrote a bare
+/// `CommandRejected(LoadFailed { .. })` and relied on the router still holding a
+/// foreign `pending` — a correlation through state the router had already
+/// overwritten in the case that mattered. The failing transaction now names
+/// itself, by request AND by barrier, and neither is ours.
 #[test]
 fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
     let mut app = host_with_a_live_cast();
@@ -2496,14 +2499,26 @@ fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
             barrier: ambient_barrier("shell.game.8"),
             requires_prepared_session: true,
             terminal_reported: true,
+            // ⛔ A FOREIGN REQUEST ID, NOT `None`. `None` would leave the
+            // fixture agnostic about correlation; a name that is not ours makes
+            // the transaction demonstrably somebody else's.
+            request: Some(
+                ambition_platformer2d::game_shell::ShellRequestId::new(
+                    "someone.else.1",
+                ),
+            ),
         });
     app.world_mut().write_message(
-        ambition_platformer2d::game_shell::ShellEvent::CommandRejected(
-            ambition_platformer2d::game_shell::ShellCommandRejection::LoadFailed {
-                readiness: ambition_platformer2d::load::BarrierReadiness::Failed,
-                failures: Vec::new(),
-            },
-        ),
+        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
+            route_id: ShellRouteId::new("game"),
+            barrier: ambient_barrier("shell.game.8"),
+            request: Some(
+                ambition_platformer2d::game_shell::ShellRequestId::new(
+                    "someone.else.1",
+                ),
+            ),
+            reason: ambition_platformer2d::game_shell::TransactionEnd::Failed,
+        },
     );
     app.update();
 
@@ -2517,6 +2532,152 @@ fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
         before,
         "another transaction's failure discarded a reload it did not own"
     );
+}
+
+/// ⛔⛔ **AN UNRELATED REJECTION ARRIVING WHILE OUR OWN LOAD IS THE PENDING ONE
+/// MUST NOT DISCARD THE RELOAD.** This is the review's finding 3 stated as an
+/// arm: the old handler read `ShellRouter.pending` to decide whose failure it
+/// was, so ANY `CommandRejected` — a host that is not configured, a route nobody
+/// knows, a stale activation — threw away a staged edit for the sole reason that
+/// the reload's load happened to be the one in flight. Nothing about the event
+/// said so.
+///
+/// ⚠ THE PREMISE IS ASSERTED FIRST. A fixture where the router is NOT waiting on
+/// our barrier would pass this under the old code too, and would be testing
+/// nothing.
+#[test]
+fn an_unrelated_rejection_while_our_own_load_is_pending_keeps_the_reload() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
+    let before = live_duration(&app);
+
+    let ReloadRequest::Requested { request, .. } =
+        request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the reload was not requested");
+    };
+    let mine = a_preparation_carrying(
+        &mut app,
+        ambient_barrier("shell.game.7"),
+        Some(request.clone()),
+    );
+    app.update();
+
+    // ⛔ THE PREMISE: OUR OWN transaction is the one the router is waiting on.
+    app.world_mut().resource_mut::<ShellRouter>().pending =
+        Some(ambition_platformer2d::game_shell::PendingShellRoute {
+            route_id: ShellRouteId::new("game"),
+            push_history: false,
+            barrier: ambient_barrier("shell.game.7"),
+            requires_prepared_session: true,
+            terminal_reported: false,
+            request: Some(request),
+        });
+    assert!(
+        reload_adopted_the_pending_load(&app, "shell.game.7"),
+        "the fixture never reached the state it is testing: the reload had not \
+         adopted the load the router is waiting on"
+    );
+
+    // ⛤ SOMETHING ENTIRELY ELSE IS REJECTED.
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::CommandRejected(
+            ambition_platformer2d::game_shell::ShellCommandRejection::HostNotConfigured,
+        ),
+    );
+    app.update();
+
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "an unrelated rejection discarded a reload it says nothing about"
+    );
+}
+
+/// ⛔⛔ **A SUPERSEDED RELOAD IS TOLD, AND THE PROOF IS THAT THE NEXT REQUEST IS
+/// ACCEPTED.** Before `TransactionEnded`, supersession emitted no event at all:
+/// `start_route` took `self.pending`, cancelled its prepared record and returned
+/// events about the NEW route only. The staged generation waited on a load that
+/// would never activate, and because [`ReloadRequest::AlreadyPending`] refuses
+/// while one is in flight, every later save was refused FOREVER — a file watcher
+/// makes that the ordinary case, not the exotic one.
+///
+/// ⚠ `Unchanged` WOULD MASK THIS. The second request must carry a candidate that
+/// differs from the SELECTED pack, or `request_reload` short-circuits before it
+/// ever reaches the pending check and the arm passes for the wrong reason.
+#[test]
+fn a_superseded_reload_is_told_and_stops_refusing_later_requests() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
+
+    let ReloadRequest::Requested { request, .. } =
+        request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the reload was not requested");
+    };
+    // ⛔ THE PREMISE, AND IT IS THE OLD BUG: while one is pending, a second is
+    // refused.
+    assert!(
+        matches!(
+            request_reload(app.world_mut(), a_publishable_candidate()),
+            ReloadRequest::AlreadyPending { .. }
+        ),
+        "the fixture cannot show a release: nothing was being refused"
+    );
+
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
+            route_id: ShellRouteId::new("game"),
+            barrier: ambient_barrier("shell.game.superseding"),
+            request: Some(request),
+            reason: ambition_platformer2d::game_shell::TransactionEnd::Superseded,
+        },
+    );
+    app.update();
+
+    // ⭐ THE SLOT IS FREE.
+    let again = request_reload(app.world_mut(), a_publishable_candidate());
+    assert!(
+        matches!(again, ReloadRequest::Requested { .. }),
+        "a superseded reload still holds the slot, so no later save can land: \
+         {again:?}"
+    );
+}
+
+/// Has the pending reload ADOPTED the load `load` names?
+///
+/// ⭐ THE PREMISE CHECK FOR EVERY CORRELATION ARM. An arm that means to say "the
+/// router is waiting on OUR load" is testing nothing unless the reload actually
+/// took that id — and adoption is a system, not an assignment, so it can be
+/// missed by one frame or one missing schedule edge.
+fn reload_adopted_the_pending_load(app: &bevy::app::App, load: &str) -> bool {
+    app.world()
+        .get_resource::<PendingGeneration>()
+        .and_then(|pending| pending.load_id.clone())
+        .is_some_and(|adopted| adopted.as_str() == load)
 }
 
 fn ambient_barrier(load: &str) -> ambition_platformer2d::load::LoadBarrierRef {
@@ -2546,15 +2707,21 @@ fn a_request_that_fails_discards_its_staged_revision() {
     );
     let before = live_duration(&app);
 
-    assert!(matches!(
-        request_reload(app.world_mut(), a_publishable_candidate()),
-        ReloadRequest::Requested { .. }
-    ));
-    // The preparation fails instead of activating.
+    let ReloadRequest::Requested { request, .. } =
+        request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the reload was not requested");
+    };
+    // ⭐⭐ THE TRANSACTION FAILS BEFORE ANY PREPARATION EXISTS, which is the
+    // window `reload_owns` cannot see into: `PendingGeneration.load_id` is still
+    // `None`, so the ONLY thing that can correlate this failure to this reload is
+    // the request id the caller minted.
     app.world_mut().write_message(
-        ambition_platformer2d::game_shell::ShellEvent::ExperienceFailed {
-            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
-            message: "the fixture's preparation failed".to_string(),
+        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
+            route_id: ShellRouteId::new("game"),
+            barrier: ambient_barrier("shell.game.never"),
+            request: Some(request),
+            reason: ambition_platformer2d::game_shell::TransactionEnd::Failed,
         },
     );
     app.update();
@@ -2562,6 +2729,17 @@ fn a_request_that_fails_discards_its_staged_revision() {
         live_duration(&app),
         before,
         "a failed preparation published the cast anyway"
+    );
+    // ⛔⛔ **THE DIRECT ASSERTION, AND A POISON IS WHY IT IS HERE.** With the
+    // terminal handler made inert, the two assertions around this one both
+    // STAYED GREEN: the pending generation had adopted no load, so the later
+    // activation carried no authorization matching it and published nothing for
+    // reasons that have nothing to do with discarding. Only asking whether the
+    // generation is GONE distinguishes "discarded" from "stranded".
+    assert!(
+        crate::reload::pending_pack(app.world()).is_none(),
+        "a failed transaction left its generation pending, so every later save \
+         is refused as AlreadyPending"
     );
 
     // ⛔ AND THE NEXT ACTIVATION MUST NOT APPLY IT EITHER — that is the whole
@@ -2749,16 +2927,15 @@ fn a_failed_preparation_does_not_leave_the_candidate_selected_or_silently_unchan
 
     let candidate = std::sync::Arc::new(pack_of(&doc_text(0.45)).expect("compiles"));
     assert_ne!(candidate.fingerprint, selected, "the premise: it differs");
-    assert!(matches!(
-        request_reload(
-            app.world_mut(),
-            ambition_content_pack::CandidateGeneration::prepared_against(
-                std::sync::Arc::clone(&candidate),
-                None
-            ),
+    let ReloadRequest::Requested { request, .. } = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            None,
         ),
-        ReloadRequest::Requested { .. }
-    ));
+    ) else {
+        panic!("the reload was not requested");
+    };
     // ⛔ NOT SELECTED YET, even though preparation must be able to read it.
     assert_eq!(
         crate::pack::selected(app.world())
@@ -2768,11 +2945,14 @@ fn a_failed_preparation_does_not_leave_the_candidate_selected_or_silently_unchan
         "the request installed the candidate as the App's selection"
     );
 
-    // The preparation fails instead of activating.
+    // The preparation fails instead of activating, NAMING THIS transaction —
+    // a bare `ExperienceFailed` carries only an activation id and is nobody's.
     app.world_mut().write_message(
-        ambition_platformer2d::game_shell::ShellEvent::ExperienceFailed {
-            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
-            message: "the fixture's preparation failed".to_string(),
+        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
+            route_id: ShellRouteId::new("game"),
+            barrier: ambient_barrier("shell.game.never"),
+            request: Some(request),
+            reason: ambition_platformer2d::game_shell::TransactionEnd::Failed,
         },
     );
     app.update();

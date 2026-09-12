@@ -1163,16 +1163,27 @@ fn cast_generation(app: &bevy::app::App) -> u64 {
 /// That is WORSE than not supporting item reload: the canonical engine identity
 /// would claim mechanical content is active when it is not.
 ///
-/// ⭐⭐ MEASURED, AND ITEMS IS AN INSTANCE RATHER THAN THE CASE: **eleven of the
-/// twelve domains in `pack.ron` read the process-global `pack::prepared()`** at
-/// plugin build or registration. `moveset` is the only one whose reader takes a
-/// pack PARAMETER and the only one with a revision road — the same fact twice.
+/// ⭐⭐ MEASURED 2026-09-12, AND ITEMS IS THE WORST INSTANCE RATHER THAN A
+/// TYPICAL ONE. The axis is not "does the reader call `pack::prepared()`" —
+/// almost everything does — it is what the reader DOES with the borrow.
+/// `pack::prepared()` is `-> &'static PreparedContentPack`, so a domain that
+/// re-exports that borrow is making a structural claim that there is exactly one
+/// generation forever; a domain that `.clone()`s into an App-owned value is not.
+/// Items re-export it (`display_name`/`description`/`dialog_id` return
+/// `&'static str` across ~80 external uses) AND add a second process-global on
+/// top (`ITEM_CATALOG_OVERRIDE`, a `OnceLock` whose own comment reports that a
+/// different second catalog "was IGNORED").
+///
+/// ⇒ **SO THE SECOND FAMILY IS `fighter_brain_ladder`, NOT ITEMS** — see
+/// `the_fighter_ladder_is_the_second_family_the_transaction_carries` at the
+/// bottom of this file. It clones into a plain resource, so it needed no new
+/// authority, no new ordering edge and no signature change.
 ///
 /// ⇒ **WHEN ITEMS JOIN THE TRANSACTION, THIS TEST FLIPS BACK**: refusal becomes
-/// publication, the assertions below become the ones this file used to carry,
-/// and the flip is a far stronger validation of the participant abstraction than
-/// either arm alone. Leave the old expectations in this comment for whoever does
-/// it.
+/// publication, the assertions below become the ones this file used to carry.
+/// Leave the old expectations in this comment for whoever does it — and note
+/// that the work it waits on is making `ambition_items`' read side return an
+/// owned value, not wiring a road.
 ///
 /// ⛔⛤ **THE CONTROL RUNS FIRST, AND IT IS NOT DECORATION.** "The selection
 /// became the candidate" is also what a `publish_candidate` that installed
@@ -2863,5 +2874,196 @@ fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued
         live_duration(&app),
         played,
         "an unrelated activation published the candidate that was refused"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ⭐⭐ **THE SECOND MECHANICAL CONTENT FAMILY.**
+//
+// The architecture review's gate was *"the SECOND mechanical content family —
+// only after I3 closes, and as validation that the transaction absorbs it with
+// no new authority."* These arms are that validation.
+//
+// ⛔⛤ **AND THE FAMILY IS NOT THE ONE THE REST OF THIS FILE ASSUMES.**
+// `a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain`
+// says of itself that it "flips back" when items join. It does not flip yet, and
+// the census that picked the second family says why: MEASURED 2026-09-12,
+// `install_item_catalog` writes a SECOND process-global `OnceLock` — its own
+// comment reports that a different second catalog "was IGNORED" — and the read
+// side returns `&'static str` across ~80 external uses. A borrow whose lifetime
+// IS the `OnceLock` is a structural claim that there is exactly one generation
+// forever; no ordering makes that family participate, only a signature change.
+//
+// ⇒ `fighter_brain_ladder` is the family that was already ready: one declared
+// source, one lowering call site, and a publication that is
+// `app.insert_resource(AuthoredFighterLadder(..))` — a plain newtype resource
+// rather than a provider-keyed fragment registry.
+// ---------------------------------------------------------------------------
+
+const LADDER_PATH: &str = "data/fighter_brain_ladder.ron";
+
+/// The shipped pack with LEVEL ONE's reaction latency one millisecond faster.
+///
+/// ⛔ ONE FIELD ON ONE RUNG, AND THE VALUE IS CHOSEN BY THE SCHEMA'S OWN RULES.
+/// `FighterBrainLadder::problems` refuses a ladder that is not monotone in
+/// reaction and refuses a rung that reacts instantly. 500 → 499 stays above
+/// level 2's 450 and above zero, so the candidate is refused for nothing except
+/// being different — which is the only property this witness needs.
+fn pack_with_a_faster_first_rung() -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != LADDER_PATH {
+            return text;
+        }
+        let out = text.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1);
+        edited = out != text;
+        out
+    })
+    .expect("the edited pack compiles");
+    // ⛔ THE FLOOR ON THE EDIT. A renamed source or a retuned level 1 would leave
+    // the closure a no-op, and every assertion below would pass on the SHIPPED
+    // pack while testing nothing. This file already carries three of these for
+    // exactly that reason.
+    assert!(
+        edited,
+        "`{LADDER_PATH}` no longer carries `reaction_ms: 500.0`, so the candidate \
+         is the shipped pack and this witness would pass vacuously"
+    );
+    pack
+}
+
+fn live_first_rung(app: &bevy::app::App) -> f32 {
+    app.world()
+        .resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
+        .0
+        .level(1)
+        .expect("the shipped ladder has a level 1")
+        .reaction_ms
+}
+
+/// ⛔⛔ **THE LADDER IS NOT AN UNSUPPORTED DOMAIN ANY MORE, AND IT LANDS AT THE
+/// SAME BOUNDARY AS THE CAST.**
+///
+/// ⚠ **THE HOST INSTALLS THE LADDER THE WAY `AmbitionContentPlugin::build`
+/// DOES**, because that is the state a running game is in: the resource was
+/// cloned out of the boot pack once and nothing has replaced it since. Starting
+/// from an absent resource would make "the reload installed it" true of a road
+/// that only ever inserts, which is the weaker claim.
+#[test]
+fn the_fighter_ladder_is_the_second_family_the_transaction_carries() {
+    let mut app = host_with_the_shipped_cast();
+    app.world_mut()
+        .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
+            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+                crate::pack::prepared(),
+            )
+            .cloned()
+            .expect("the shipped pack lowers its ladder"),
+        ));
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_a_faster_first_rung());
+    assert_eq!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .map(|s| s.0.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fighter_brain_ladder"],
+        "the premise: ONLY the ladder changed, so a refusal or a publication is \
+         about this family and nothing else"
+    );
+    assert_eq!(
+        live_first_rung(&app),
+        500.0,
+        "the premise: the live ladder is the shipped one"
+    );
+
+    // ⛔ BEFORE THIS COMMIT THIS WAS `Refused(RefusedUnsupportedDomains)`: the
+    // ladder was not a participant, so a ladder-only edit could not even be
+    // requested.
+    assert!(
+        matches!(
+            request_reload(
+                app.world_mut(),
+                ambition_content_pack::CandidateGeneration::prepared_against(
+                    std::sync::Arc::clone(&candidate),
+                    Some(live.fingerprint),
+                ),
+            ),
+            ReloadRequest::Requested { .. }
+        ),
+        "a ladder-only candidate was not accepted as a request"
+    );
+    assert_eq!(
+        live_first_rung(&app),
+        500.0,
+        "the REQUEST published the ladder on the spot instead of staging it — the \
+         old generation must stay authoritative until the new one activates"
+    );
+
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+
+    assert_eq!(
+        live_first_rung(&app),
+        499.0,
+        "the route activated and the ladder stayed at generation N — the pack \
+         promoted while the family it declares did not, which is the \
+         half-transaction this road exists to prevent"
+    );
+    assert!(
+        std::ptr::eq(
+            crate::pack::selected(app.world()).expect("a selection"),
+            std::sync::Arc::as_ref(&candidate)
+        ),
+        "the candidate did not become the selection"
+    );
+}
+
+/// ⛔⛔ **A CANDIDATE THAT DECLARES NO LADDER REMOVES THE RESOURCE RATHER THAN
+/// LEAVING GENERATION N's.**
+///
+/// ⭐ THIS IS THE ARM THE MOVESET FAMILY CANNOT HAVE, and it is why the ladder
+/// was the clean second family to take. `dropped_moveset_entities`'s own
+/// transition table records that a candidate which stops naming a character
+/// re-publishes that character's OLD moveset under the new generation, because
+/// nothing at any layer can represent "this entity's authored moveset is gone".
+/// The ladder's absence IS representable: `profile_for_level` takes an `Option`
+/// and states that absent means the engine floor.
+///
+/// ⚠ ASKED OF THE FUNCTION DIRECTLY, because the SHIPPED corpus cannot reach it:
+/// `pack.ron` always declares the ladder source and the schema refuses a file
+/// with anything other than nine rungs, so no `compile_pack_with` edit produces
+/// a ladder-less pack. A synthetic moveset-only pack does.
+#[test]
+fn a_candidate_that_declares_no_ladder_removes_the_live_one() {
+    let mut world = bevy::ecs::world::World::new();
+    world.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
+        ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+            crate::pack::prepared(),
+        )
+        .cloned()
+        .expect("the shipped pack lowers its ladder"),
+    ));
+    let ladderless = pack_of(&doc_text(0.2)).expect("the synthetic pack compiles");
+    assert!(
+        ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&ladderless)
+            .is_none(),
+        "the premise: this candidate declares no ladder"
+    );
+
+    crate::reload::publish_participant_families(&mut world, &ladderless);
+
+    assert!(
+        world
+            .get_resource::<ambition_characters::brain::fighter::AuthoredFighterLadder>()
+            .is_none(),
+        "the candidate declares no ladder and generation N's rungs are still live, \
+         so `profile_for_level` reports authored difficulty the pack no longer \
+         carries"
     );
 }

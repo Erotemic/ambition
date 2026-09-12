@@ -445,12 +445,76 @@ pub(crate) fn publish_candidate(
     outcome
 }
 
-/// The one mechanical domain that participates in the generation transaction.
+/// Does this schema id name a family the generation transaction can carry?
 ///
-/// ⛔ ONE ID RATHER THAN A PARTICIPATION TABLE. A table lists what participates
-/// and is therefore wrong the moment somebody adds a family and forgets the row;
-/// naming the participant refuses everything else by construction.
-const PARTICIPATING_DOMAIN: &str = ambition_characters::moveset_content_schema::MOVESET_SCHEMA;
+/// ⛔ A `match`, NOT A TABLE. A table of participating ids is wrong the moment
+/// somebody adds a family and forgets the row; this refuses everything it does
+/// not name, so the failure of forgetting is a REFUSED reload rather than a
+/// family that promotes and never lands.
+///
+/// ⭐⭐ **TWO FAMILIES, AND THE SECOND ONE IS THE POINT.** The architecture
+/// review's gate was *"the SECOND mechanical content family — as validation that
+/// the transaction absorbs it with no new authority"*. `fighter_brain_ladder` is
+/// what the census picked, and it absorbed with NO new resource, NO new ordering
+/// edge and NO new refusal: see [`publish_participant_families`].
+///
+/// ⚠ AND IT IS NOT ITEMS, which is what the fixtures assume. MEASURED
+/// 2026-09-12: `install_item_catalog` writes a second process-global `OnceLock`
+/// whose own comment reports that a different second catalog *"was IGNORED"*,
+/// and the read side returns `&'static str` across ~80 external uses. A borrow
+/// whose lifetime is the `OnceLock` is a structural claim that there is one
+/// generation forever — the signature cannot express N+1, so no ordering can
+/// make it participate.
+fn participates(domain: &str) -> bool {
+    matches!(
+        domain,
+        ambition_characters::moveset_content_schema::MOVESET_SCHEMA
+            | ambition_combat::brain::fighter::content_schema::FIGHTER_BRAIN_LADDER_SCHEMA
+    )
+}
+
+/// Publish every participating family that is a pure function of the candidate
+/// pack.
+///
+/// ⭐⭐ **DERIVED AT THE BOUNDARY RATHER THAN CARRIED, AND THE DIFFERENCE FROM
+/// `admitted_cast` IS THE WHOLE ARGUMENT.** [`PendingGeneration`] carries the
+/// admitted cast because admission asked the WORLD a question — which techniques
+/// this composition installed, which generation the cast is on — and an answer
+/// computed against world state goes stale when the world moves. The fighter
+/// ladder asks the world nothing: it is `lowered_fighter_brain_ladder(pack)`, a
+/// total function of a value this generation already owns. Re-deriving it here
+/// cannot disagree with anything, so carrying a second copy would be a second
+/// authority for one fact.
+///
+/// ⛔ **ABSENT IN THE CANDIDATE MEANS REMOVE, NOT KEEP.** A candidate that drops
+/// the `fighter_brain_ladder` section is asking for the engine floor —
+/// `profile_for_level` states that rule and reads `Option` for exactly this
+/// reason. Leaving generation N's resource behind is the defect the moveset
+/// family's own transition table records in its first row: the pack promotes and
+/// the family silently stays at N. The ladder can express its own removal, and
+/// that is why it was the clean second family to take.
+///
+/// ⛔ NOTHING HERE CAN SAY NO. The commit path is infallible by construction and
+/// this does not change that: a resource write and a resource removal are both
+/// unconditional.
+///
+/// ⚠ **AND NO NEW ORDERING EDGE.** The projection that puts a rung onto a brain
+/// (`project_authored_fighter_ladder`) runs on `Added<Brain>`, and a reload
+/// reconstructs the session — so the fighters that read this are spawned by
+/// `GameplaySessionSet::Providers`, which [`register`] already orders this
+/// system before, for the cast's sake.
+fn publish_participant_families(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    use ambition_characters::brain::fighter::AuthoredFighterLadder;
+    match ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(pack) {
+        Some(ladder) => world.insert_resource(AuthoredFighterLadder(ladder.clone())),
+        None => {
+            world.remove_resource::<AuthoredFighterLadder>();
+        }
+    }
+}
 
 /// Characters whose authored moveset the live cast is playing that the candidate
 /// STOPS NAMING.
@@ -518,7 +582,7 @@ fn unsupported_changed_domains(
     };
     ambition_content_pack::changed_domains(active, candidate)
         .into_iter()
-        .filter(|schema| schema.0 != PARTICIPATING_DOMAIN)
+        .filter(|schema| !participates(&schema.0))
         .map(|schema| schema.0)
         .collect()
 }
@@ -1037,6 +1101,11 @@ pub fn publish_staged_reload_on_activation(
                         );
                         bevy::log::info!("a reloaded cast was published: {outcome:?}");
                     }
+                    // ⛔ EVERY OTHER PARTICIPATING FAMILY LANDS HERE TOO, from the
+                    // SAME pack value, in the same queued command. A family
+                    // published one boundary later is a half-transaction wearing
+                    // a different hat.
+                    publish_participant_families(world, &generation.pack);
                     // ⛔ AND THE PACK LANDS AT THE SAME BOUNDARY, unconditionally,
                     // because nothing above it could have failed.
                     crate::pack::install_selection(world, generation.pack);

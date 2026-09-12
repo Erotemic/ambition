@@ -1695,20 +1695,31 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::block_nudge::",
         "a struck block's flinch is a drawn offset: one render-plugin reader on          the wall clock, writing only presentation components, over geometry          that is authoritative and static by design",
     ),
-    //  AUTHORED CONTENT, written once and never by a system. The game's
-    // fighter difficulty rungs, lowered from the compiled content pack and
-    // inserted at plugin build. No system mutates it; there is no tick at which
-    // its value differs from the tick before, so there is nothing for a rewind to
-    // restore. What a rewind DOES restore is the brains built from it, and those
-    // are ordinary rollback state.
+    //  AUTHORED CONTENT. The game's fighter difficulty rungs, lowered from
+    // the compiled content pack. What a rewind restores is the brains built from
+    // it, and those are ordinary rollback state.
     //
     //  the question this answers is not "is it important" — it is very
     // important, and a fighter reads it on the frame it spawns. It is whether a
-    // REWIND can observe it changing, and it cannot: the only writer is
-    // `AmbitionContentPlugin`, before any frame runs.
+    // REWIND can observe it changing.
+    //
+    // ⛔⛤ **AND THE REASON THIS ROW USED TO GIVE IS NOW FALSE.** It said "the
+    // only writer is `AmbitionContentPlugin`, before any frame runs", and that
+    // stopped being true when `fighter_brain_ladder` became the generation
+    // transaction's SECOND participating family: `reload::publish_participant_families`
+    // writes this resource at runtime, at a route activation.
+    //
+    // ⇒ **THE EXCLUSION SURVIVES ON A DIFFERENT AND STRONGER REASON: THE
+    // PUBLICATION BOUNDARY.** A reload is admitted through
+    // `reload::admit_candidate`, which refuses while a rollback timeline is
+    // speculating (`PublicationBoundary`). So the one writer that exists cannot
+    // run inside a window a rewind can cross — not "nobody writes it", but "no
+    // tick a rewind can reach is a tick it changed on". A row whose justification
+    // is a census of writers rots the moment somebody adds one; a row whose
+    // justification is a boundary does not.
     (
         "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
-        "authored difficulty rungs, lowered from the content pack at plugin build          and never written by a system: no tick changes it, so a rewind has          nothing to restore",
+        "authored difficulty rungs, lowered from the content pack; the one runtime          writer is the reload transaction, which the publication boundary refuses          while a timeline is live, so no tick a rewind can reach changed it",
     ),
     // THE LIMIT METER'S AUTHORED RULES: its cap, its slow idle tick, and how
     // much a damage instance adds on each side of the exchange. Jon's baseline

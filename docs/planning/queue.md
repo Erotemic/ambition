@@ -3699,6 +3699,33 @@ instead of increasing retries.
 **Acceptance:** missing Cargo/target/GPU prerequisites are explicit receipt states;
 known deterministic fixtures do not depend on wall-clock or entity order.
 
+⛔ **AN ORDER-DEPENDENT FLAKE IN `app_it`, RECORDED 2026-09-12 SO THE NEXT AGENT
+DOES NOT REDISCOVER IT AS A CRATE BUG.**
+`smash_cpu_cognition::two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream`
+failed one `--rust` run with *"never seated two CPU FIGHTERS — got []"*.
+MEASURED by YardratAmbition, whose evidence is what makes this a row rather than
+folklore:
+
+| | |
+|---|---|
+| alone | PASSES, 2.13s |
+| inside the shared `app_it` process | FAILED, in a 466s run |
+| re-run at `53800e633` | 628 passed / 0 failed / 23 ignored, 315s — did NOT reproduce |
+
+⇒ **Intermittent and order-dependent INSIDE the single `[[test]]` target**, not
+caused by the crate under test. Every former `tests/<name>.rs` is a `mod` of one
+`app_it` binary (see its own header), so ~650 arms share a process and anything
+one of them leaves behind is visible to the next — which is the mechanism to look
+for, not a retry count.
+
+⚠ **A LANE THAT COMES BACK 7/8 WITH THIS AS THE ONE RED JOB IS NOT A REGRESSION
+IN WHATEVER YOU JUST CHANGED.** Re-run it before you bisect. The reverse is also
+true and is the trap: a green run does not clear the flake, and this repository
+has already recorded *"a flake with no message is a"* dead end.
+
+⛔ NOT FIXED. The production ordering/state source is not isolated, and per this
+row's own acceptance that is the work — not an ignore and not a retry.
+
 **The first half landed 2026-09-09, from a run that produced the defect.** A
 `--rust` lane reported `5/6 jobs passed` with `workspace doctests` FAILED, and
 the whole content of that failure was `error: extern location for bevy does not

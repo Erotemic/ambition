@@ -178,10 +178,32 @@ impl PickupSpec {
 }
 
 
-/// Authored chest state, optional reward, and persistence policy.
+/// An authored chest's optional reward and persistence policy.
+///
+/// ⛔⛤ **THERE IS NO AUTHORED `state`, AND ITS ABSENCE IS THE FIX FOR A LATENT
+/// DEFECT rather than a gap.** `ChestSpec` carried `state: ChestStateSpec`
+/// (`Closed` / `Opening` / `Opened`), lowered at spawn into `Chest::state` —
+/// **a component field that NO production code read.** The live authority for
+/// *"is this chest opened"* is the `ambition_combat::Opened` MARKER, written by
+/// `boss_encounter::rewards` and rollback-registered as `feature.opened`.
+///
+/// ⚠ **SO AN AUTHORED `Opened` CHEST SPAWNED WITH THE RUNTIME TREATING IT AS
+/// CLOSED — ITS REWARD WAS GRANTABLE AGAIN.** It was unreachable only because
+/// the one authoring surface that builds chests, LDtk's `ChestSpawn`, declares
+/// just `name` and `reward`, and `ChestSpec::new` hard-coded `Closed`. Measured
+/// 2026-09-12 across every `.ron`/`.json`/`.ldtk` in the tree including the map
+/// submodule: no authored file set a chest state, and `Chest` is not in the save
+/// format.
+///
+/// ⇒ **DELETED RATHER THAN GUARDED.** A warning on the non-`Closed` case would
+/// have been a check on a state that no authoring surface can reach; removing
+/// the field means the state cannot be EXPRESSED, so the second recorder cannot
+/// come back by accident. What an authored opened chest *should* do — spawn with
+/// the marker, or be refused — is a real product question, and whoever wants it
+/// adds the field and the lowering TOGETHER. A field without a lowering is the
+/// trap this removes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
-    pub state: ChestStateSpec,
     pub reward: Option<PickupKind>,
     pub persistent: bool,
 }
@@ -189,18 +211,10 @@ pub struct ChestSpec {
 impl ChestSpec {
     pub fn new(reward: Option<PickupKind>) -> Self {
         Self {
-            state: ChestStateSpec::Closed,
             reward,
             persistent: true,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ChestStateSpec {
-    Closed,
-    Opening,
-    Opened,
 }
 
 /// When a breakable's break is triggered (on hit, on being stood on, or either).

@@ -1122,9 +1122,38 @@ ToothbrushAmbition and are not yet in this ref, which is why this row starts at
 retired number. **If those three land differently, this one renumbers.**
 ## Q105 — may an author place a chest that is already open?
 
+⭐⭐ **STILL OPEN AS A DESIGN QUESTION, BUT ITS BROKEN HALF-IMPLEMENTATION IS GONE
+(2026-09-12) AND THE QUESTION IS NOW CHEAPER TO ANSWER EITHER WAY.** The two
+options below were *"derive the marker from the authored state"* and *"delete the
+unreachable variants and the write-only field"*. **The deletion was taken**:
+`ChestSpec.state`, `ChestStateSpec` and `Chest::state` are removed. <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
+
+⛔ **THAT IS NOT A RULING ON THE DESIGN QUESTION, AND IT MUST NOT BE READ AS ONE.**
+What was removed was never a capability: `Opening`/`Opened` were unreachable from
+every authoring surface, so **no author could place an open chest before the
+deletion either.** What the field did do was LIE — it recorded an "is it open"
+fact that the runtime, which gates on the `Opened` marker, never consulted, so an
+authored `Opened` chest would have granted its reward TWICE the day anything
+could express one.
+
+⇒ **The choice made was between two ways of NOT shipping the feature:** leave a
+lying field in place while the question waits, or remove it so the question waits
+against a truthful type. ⚠ **If the answer is YES, an author may** — the work is
+unchanged in size and clearer in shape: add the authored field **and its
+lowering to the `Opened` marker TOGETHER**, in one change. A field without a
+lowering is precisely the trap that was removed, and re-adding one is a
+deliberate act rather than an accident.
+
+⇒ **What Jon still decides:** whether an author may place an already-opened
+chest at all, and — if so — what `Opening` would even mean, since it names a
+transient animation state rather than a persistent one. That ambiguity is
+untouched by the deletion.
+
+**The original finding, kept because it is the evidence:**
+
 **`Chest::state` is WRITE-ONLY.** Measured 2026-09-11 during A5's census:
 `ChestState { Closed, Opening, Opened }` is constructed, mapped from
-`ChestStateSpec` at authored spawn, and serialized — and read by NOTHING in
+`ChestStateSpec` at authored spawn, and serialized — and read by NOTHING in <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 production. The one read in the repository is an assertion inside
 `ambition_interaction`'s own test module. The runtime's open-gate is the `Opened`
 MARKER component (five production sites, three crates), and **nothing derives the
@@ -1133,9 +1162,9 @@ marker from the authored state.**
 ⚠ **LATENT, NOT LIVE, and the population was checked before saying so.** LDtk's
 `ChestSpawn` declares exactly two fields — `name` and `reward` — in all four
 shipped worlds; `ChestSpec::new` defaults to `Closed`; and no converter anywhere
-populates `ChestStateSpec`. `Opening` and `Opened` are unreachable from content,
+populates `ChestStateSpec`. `Opening` and `Opened` are unreachable from content, <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 so two of three spec variants are dead and both non-`Closed` arms of
-`chest_state_from_spec` are dead with them.
+`chest_state_from_spec` are dead with them. <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 
 **The question.**
 
@@ -1143,8 +1172,10 @@ so two of three spec variants are dead and both non-`Closed` arms of
   authored state at spawn. ⛔ Without that derivation a chest authored `Opened`
   would be opened again and grant its reward TWICE — A5's own acceptance line is
   *"no duplicate effects/rewards"*.
-- **An author MAY NOT**: delete `ChestStateSpec`'s two unreachable variants and
-  the write-only `Chest::state` field with them.
+- **An author MAY NOT**: delete `ChestStateSpec`'s two unreachable variants and <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
+  the write-only `Chest::state` field with them. ⇐ **THE FIELD REMOVAL HALF OF
+  THIS WAS TAKEN 2026-09-12** (the whole field, not two variants); see the header
+  above for why that is not the same as ruling the question.
 
 ⚠ Content-design, not ownership. A5 took no type and proposes none; found by
 YardratAmbition, recorded on

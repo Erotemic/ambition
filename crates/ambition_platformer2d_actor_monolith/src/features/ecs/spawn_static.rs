@@ -80,30 +80,20 @@ fn pickup_from_authored(
     }
 }
 
-fn chest_state_from_spec(
-    state: ambition_platformer2d_world::rooms::ChestStateSpec,
-) -> ambition_interaction::ChestState {
-    match state {
-        ambition_platformer2d_world::rooms::ChestStateSpec::Closed => {
-            ambition_interaction::ChestState::Closed
-        }
-        ambition_platformer2d_world::rooms::ChestStateSpec::Opening => {
-            ambition_interaction::ChestState::Opening
-        }
-        ambition_platformer2d_world::rooms::ChestStateSpec::Opened => {
-            ambition_interaction::ChestState::Opened
-        }
-    }
-}
-
 fn chest_from_authored(
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::ChestSpec,
     >,
 ) -> ambition_interaction::Chest {
+    // ⛔ NO STATE IS LOWERED BECAUSE NONE IS AUTHORED. `ChestSpec.state` was
+    // deleted 2026-09-12 along with `Chest::state`: the component field was read
+    // by nothing, so an authored `Opened` chest spawned with the runtime — which
+    // gates on the `ambition_combat::Opened` marker — treating it as CLOSED, and
+    // **its reward was grantable again.** See `ChestSpec`'s own doc comment for
+    // the census and for why the state was made inexpressible rather than
+    // warned about.
     ambition_interaction::Chest {
         id: authored.id.clone(),
-        state: chest_state_from_spec(authored.payload.state),
         reward: authored.payload.reward.as_ref().map(pickup_kind_from_spec),
         persistent: authored.payload.persistent,
     }

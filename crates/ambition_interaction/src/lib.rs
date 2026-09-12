@@ -132,11 +132,30 @@ impl Pickup {
 /// interaction and character domains avoids a dependency cycle.
 pub use ambition_entity_catalog::PickupKind;
 
-/// Treasure chest state and reward. Chests are interactables plus persistence.
+/// Treasure chest reward and persistence policy. Chests are interactables plus
+/// persistence.
+///
+/// ⛔⛤ **IT NO LONGER CARRIES A `state`, AND THAT FIELD WAS A SECOND RECORDER
+/// NOTHING READ.** `Chest::state: ChestState` was authored (`ChestStateSpec`),
+/// lowered at spawn (`chest_state_from_spec`), stored here — and read by NOTHING
+/// in production. MEASURED 2026-09-12 tree-wide: its only two reads were
+/// assertions in this crate's own tests.
+///
+/// ⇒ The live authority for *"is this chest opened"* is the
+/// `ambition_combat::Opened` MARKER COMPONENT — inserted and removed by
+/// `ambition_boss_encounter::rewards`, rollback-registered as `feature.opened`,
+/// and read by `ambition_sim_view`'s proximity affordance. One fact, and now one
+/// recorder.
+///
+/// ⚠ THE LATENT DEFECT THIS REMOVES, from packet A5's census: an authored
+/// `ChestStateSpec::Opened` produced a `Chest` whose `state` said `Opened` while
+/// the runtime, which gates on the marker, treated it as closed — **so its reward
+/// was grantable again.** It was unreachable only because LDtk's `ChestSpawn`
+/// declares just `name` and `reward`; nothing about the code prevented it. See
+/// the trip-wire in `chest_from_authored`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Chest {
     pub id: String,
-    pub state: ChestState,
     pub reward: Option<PickupKind>,
     pub persistent: bool,
 }
@@ -145,19 +164,12 @@ impl Chest {
     pub fn new(id: impl Into<String>, reward: Option<PickupKind>) -> Self {
         Self {
             id: id.into(),
-            state: ChestState::Closed,
             reward,
             persistent: true,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum ChestState {
-    Closed,
-    Opening,
-    Opened,
-}
 
 /// What causes a breakable to break.
 ///
@@ -316,9 +328,19 @@ mod tests {
     }
 
     #[test]
-    fn chest_default_state_is_closed_and_persistent() {
-        // Chests default to Closed, and `reward` is propagated as given (None
-        // for empty chests / triggers).
+    fn a_chest_carries_its_reward_and_defaults_to_persistent() {
+        // `reward` is propagated as given (None for empty chests / triggers).
+        //
+        // ⛔⛤ **AND `persistent` IS THE SECOND WRITE-ONLY FIELD IN THIS STRUCT —
+        // THE FIRST, `state`, WAS DELETED 2026-09-12 AND THIS ONE WAS NOT.** The
+        // difference is the justification, not the shape: `state` had a LATENT
+        // DEFECT attached (an authored `Opened` chest would grant its reward
+        // twice, because the runtime gates on the `Opened` marker), and deleting
+        // it removed a bug. `persistent` is merely dead — measured 2026-09-05 and
+        // unchanged since — so removing it is a product-surface change with no
+        // correctness argument behind it, and doing both in one breath would have
+        // been arbitrary. ⇒ Recorded rather than done; it is the same shape and
+        // wants the same answer eventually.
         //
         // ⛔ THE `persistent` FLAG IS NOT READ BY ANYTHING, and this comment
         // used to say it was — *"so the save system records them
@@ -334,12 +356,16 @@ mod tests {
         // read this test as evidence that per-chest persistence works: setting
         // `persistent: false` on an authored chest changes nothing today.
         let chest = Chest::new("hub_chest", Some(PickupKind::Health { amount: 2 }));
-        assert_eq!(chest.state, ChestState::Closed);
+        // ⛔ THE REWARD IS THE FACT THIS TYPE CARRIES, AND IT IS ASSERTED ONCE.
+        // "Is it open" lives on the `Opened` marker; the `state` assertions that
+        // used to stand here were this struct's only readers of a field nothing
+        // in production read, so they went with it rather than being repointed —
+        // a repointed assertion would have restated `reward`, which the next
+        // line already pins.
         assert!(chest.persistent);
         assert_eq!(chest.reward, Some(PickupKind::Health { amount: 2 }));
 
         let empty = Chest::new("decoration", None);
-        assert_eq!(empty.state, ChestState::Closed);
         assert!(empty.reward.is_none());
     }
 }

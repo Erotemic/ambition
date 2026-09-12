@@ -457,7 +457,7 @@ pub use ambition_entity_catalog::PickupKind;
 
 /// Tier-0 authored chest payload, re-exported here to keep the room
 /// authoring/lowering path stable.
-pub use ambition_entity_catalog::placements::{ChestSpec, ChestStateSpec};
+pub use ambition_entity_catalog::placements::ChestSpec;
 
 /// Tier-0 authored breakable payload and related enums, re-exported here to
 /// keep the room authoring/lowering path stable.

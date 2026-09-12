@@ -234,7 +234,7 @@ disagree about a transition, they do not have the same kind of transition.
 
 ⛔⛔ **AND THE CHEST FINDING IS THE ONE WORTH THE SPACE: `Chest::state` IS
 WRITE-ONLY.** `ChestState { Closed, Opening, Opened }` is constructed, mapped from
-`ChestStateSpec` at authored spawn (`spawn_static.rs:106`), serialized — and read
+`ChestStateSpec` at authored spawn (`spawn_static.rs:106`), serialized — and read <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 by **nothing in production**. The only read in the repository is an assertion
 inside `ambition_interaction`'s own test module. The runtime's open-gate is the
 `Opened` marker, written at **five production sites across three crates**:
@@ -250,9 +250,9 @@ time, which is A5's own acceptance line *"no duplicate effects/rewards"*.
 author an open chest: LDtk's `ChestSpawn` entity declares exactly two fields —
 `name` and `reward` — in all four shipped worlds; `ChestSpec::new` defaults
 `state: ChestStateSpec::Closed`; and **no converter anywhere populates
-`ChestStateSpec`**. So `Opening` and `Opened` are unreachable from content, two of
+`ChestStateSpec`**. So `Opening` and `Opened` are unreachable from content, two of <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 the three spec variants are dead, and both non-`Closed` arms of
-`chest_state_from_spec` are dead with them. ⇒ The honest statement is *a
+`chest_state_from_spec` are dead with them. ⇒ The honest statement is *a <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 write-only field whose two unreachable variants would be a duplicate-reward bug
 the day something authors one* — not *a bug*.
 
@@ -316,7 +316,7 @@ the measured answer, and the packet should say so plainly rather than leave it
 conditional. ⛔ **No type moved and none is proposed.**
 
 ⇒ What A5 could still land, smallest first: derive the `Opened` marker from the
-authored state at spawn (or delete the two unreachable `ChestStateSpec` variants
+authored state at spawn (or delete the two unreachable `ChestStateSpec` variants <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
 and the write-only field with them) — a decision about whether an author should
 ever be able to place an already-opened chest, which is content design rather than
 ownership.

@@ -343,10 +343,38 @@ COMPONENT (`Opened`, five sites, three crates), and a falling chest not at all �
 it is a position tick. **There is nothing duplicated to consolidate.** ⛔ So the
 destination below is not a move this packet has earned; see the page.
 
-⇒ **What it did find:** `Chest::state` is WRITE-ONLY — authored, serialized, and
-read by nothing in production, while the runtime gate is the marker. An authored
-`Opened` chest would grant its reward twice; it is LATENT because LDtk's
-`ChestSpawn` declares only `name` and `reward`, so no author can express one.
+⇒ **What it did find — AND IT IS FIXED, 2026-09-12.** `Chest::state` was
+WRITE-ONLY: authored as `ChestSpec.state`, lowered at spawn, and read by nothing
+in production, while the runtime gate is the `ambition_combat::Opened` marker. An
+authored `Opened` chest would therefore spawn with the runtime treating it as
+CLOSED — **its reward grantable a second time.** Latent because LDtk's
+`ChestSpawn`, the only producer of a `ChestSpec`, declares just `name` and
+`reward`.
+
+⭐⭐ **THE FIELD WAS DELETED, NOT GUARDED, AND THE CHOICE IS THE POINT.** The first
+fix I built was a `warn!` trip-wire on a non-`Closed` authored state — a check on
+a state no authoring surface can reach, which is the weak half of *make it
+impossible, not checked*. Removing `ChestSpec.state`, `ChestStateSpec` and <!-- cite-ok: the DELETED chest-state vocabulary, named on purpose. These rows are the CENSUS that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. See Q105. -->
+`Chest::state` outright means the second recorder **cannot be expressed**, so it
+cannot return by accident. `ChestSpec::new(reward)` is the only constructor and
+there is no struct-literal site.
+
+⚠ **THE CENSUS, RE-MEASURED AT HEAD RATHER THAN QUOTED:** no `.ron`, `.json` or
+`.ldtk` in the tree — the `game/ambition_map_assets` submodule included — authors
+a chest state (the only `Opening` token in any data file is a music comment in
+`pulse_voyage_drift.ron`); `Chest` appears nowhere in `ambition_persistence`, so
+it is not in the save format. ⛔ The first version of that census was a LINE-BASED
+grep (`state:` on a line also matching `chest`) which cannot see a multi-line
+spec, and it was widened before anything was deleted.
+
+⇒ **What is NOT decided and was deliberately not guessed:** whether an authored
+opened chest should spawn with the marker or be refused. Whoever wants it adds
+the field and its lowering TOGETHER — a field without a lowering is exactly the
+trap this removed. **Second write-only field RECORDED, not removed:**
+`Chest::persistent` has the same shape (real authority:
+`encounter_reward_looted_flag`) but no defect attached, so deleting it would be a
+product-surface change with no correctness argument; the note is in
+`ambition_interaction`'s own test.
 And *"melee/projectile geometry agreement"* now has a guard
 (`world/overlay.rs::breakable_geometry_agreement`, poison-verified): both
 publishers read one `CenteredAabb`, and their ELIGIBILITY predicates diverge on

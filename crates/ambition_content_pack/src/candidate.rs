@@ -116,6 +116,60 @@ impl CandidateGeneration {
     }
 }
 
+/// Which mechanical DOMAINS differ between two packs.
+///
+/// ⭐⭐ **THE FILE SCHEMA, NOT THE IDENTITY KIND IT MINTS, AND THAT DISTINCTION IS
+/// THE WHOLE CORRECTNESS OF THIS FUNCTION.** A source declares `item_catalog`
+/// and its handler mints content ids under `item`; a diff taken over
+/// [`PreparedContentPack::content`] would therefore report the domain as `item`
+/// and need a reverse map to get back to the family anybody owns.
+/// [`PreparedSource::schema`] IS the family, directly.
+///
+/// ⭐ AND THE DIGEST IT FOLDS ALREADY EXISTS.
+/// [`PreparedSource::content_fingerprint`] is computed per source from that
+/// source's own canonical text, semantically rather than byte-wise —
+/// *"reflowing a comment must not move it; changing a value must"* — so a domain
+/// diff is a group-and-fold over a field the compiler already fills. Nothing
+/// here asks the compiler to store anything new.
+///
+/// ⚠ **LIVE PER DOMAIN, POSSIBLY BLIND PER FIELD.** The compiler refuses a schema
+/// that lowers a runtime artifact and defines no content, so every domain's
+/// digest does move when its values do. What no compiler check can see is a
+/// handler defining a row whose canonical string omits a field it lowered. ⇒ A
+/// refusal built on this is sound about DOMAINS and must not be read as a claim
+/// about fields.
+///
+/// ⛔ A DOMAIN PRESENT IN ONE PACK AND ABSENT FROM THE OTHER IS CHANGED. Adding
+/// or removing a whole family is the largest change a pack can make, and a diff
+/// that only compared shared keys would report it as nothing.
+pub fn changed_domains(
+    base: &PreparedContentPack,
+    candidate: &PreparedContentPack,
+) -> std::collections::BTreeSet<crate::SchemaId> {
+    fn by_domain(
+        pack: &PreparedContentPack,
+    ) -> std::collections::BTreeMap<crate::SchemaId, Vec<u64>> {
+        let mut out: std::collections::BTreeMap<crate::SchemaId, Vec<u64>> = Default::default();
+        for source in &pack.sources {
+            out.entry(source.schema.clone())
+                .or_default()
+                .push(source.content_fingerprint);
+        }
+        // ⛔ SORTED, so two packs that declare one family's sources in a
+        // different manifest order are not reported as differing.
+        for digests in out.values_mut() {
+            digests.sort_unstable();
+        }
+        out
+    }
+    let (base, candidate) = (by_domain(base), by_domain(candidate));
+    base.keys()
+        .chain(candidate.keys())
+        .filter(|schema| base.get(*schema) != candidate.get(*schema))
+        .cloned()
+        .collect()
+}
+
 /// The three answers a complete candidate can have.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CandidateVerdict {

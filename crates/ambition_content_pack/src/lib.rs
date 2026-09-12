@@ -17,7 +17,7 @@ mod prepared;
 mod refs;
 mod schema;
 
-pub use candidate::{CandidateGeneration, CandidateVerdict};
+pub use candidate::{changed_domains, CandidateGeneration, CandidateVerdict};
 pub use diagnostic::{CompileFailure, CompileStage, Diagnostic, DiagnosticCode, Severity};
 pub use draft::{ContentPackDraft, ContentPackManifest, SourceDeclaration, SourceFile};
 pub use identity::{

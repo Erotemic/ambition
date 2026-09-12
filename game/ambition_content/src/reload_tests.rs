@@ -991,15 +991,30 @@ fn cast_generation(app: &bevy::app::App) -> u64 {
 /// the way that arithmetic assumes — so this drives the same decision through
 /// `compile_pack_with`, the shipped roster and a live `PreparedCharacterRegistry`.
 ///
-/// ⭐⭐ **THE CASE THAT WAS NOT EXPRESSIBLE BEFORE.** Moves identical, items
-/// changed:
+/// ⛔⛤ **THIS ARM ASSERTED THE WRONG ANSWER AND A REVIEW CAUGHT IT.** It used to
+/// require an items-only candidate to PUBLISH — moves unchanged, pack adopted —
+/// on the reasoning that the pack really did change and refusing it would be
+/// special-casing. The reasoning was right about the pack and wrong about the
+/// world:
 ///
-/// * the PACK really did change, so the selection SHOULD become the candidate —
-///   refusing it would be the special-casing the review forbids;
-/// * the CAST really did not, so its generation must not move.
+/// * the live item catalog is installed in `AmbitionContentPlugin::build` from
+///   `pack::prepared()`, and no reload road replaces it;
+/// * so publishing left `PreparedContentIdentity` and the selected pack naming
+///   generation N+1 while the live items served N.
 ///
-/// Two honest answers at once. The old road could give only one, because it
-/// spent a claim about the move family as a claim about the pack.
+/// That is WORSE than not supporting item reload: the canonical engine identity
+/// would claim mechanical content is active when it is not.
+///
+/// ⭐⭐ MEASURED, AND ITEMS IS AN INSTANCE RATHER THAN THE CASE: **eleven of the
+/// twelve domains in `pack.ron` read the process-global `pack::prepared()`** at
+/// plugin build or registration. `moveset` is the only one whose reader takes a
+/// pack PARAMETER and the only one with a revision road — the same fact twice.
+///
+/// ⇒ **WHEN ITEMS JOIN THE TRANSACTION, THIS TEST FLIPS BACK**: refusal becomes
+/// publication, the assertions below become the ones this file used to carry,
+/// and the flip is a far stronger validation of the participant abstraction than
+/// either arm alone. Leave the old expectations in this comment for whoever does
+/// it.
 ///
 /// ⛔⛤ **THE CONTROL RUNS FIRST, AND IT IS NOT DECORATION.** "The selection
 /// became the candidate" is also what a `publish_candidate` that installed
@@ -1016,7 +1031,7 @@ fn cast_generation(app: &bevy::app::App) -> u64 {
 /// for every `assert_ne!` on fingerprints in this file: without it, a
 /// nondeterministic compile would make them all pass for no reason.
 #[test]
-fn a_candidate_that_changes_only_items_publishes_the_pack_and_leaves_the_cast() {
+fn a_candidate_that_changes_only_items_is_refused_as_an_unsupported_domain() {
     // ── the control: a complete no-op touches nothing ────────────────────────
     {
         let mut app = host_with_the_shipped_cast();
@@ -1089,27 +1104,86 @@ fn a_candidate_that_changes_only_items_publishes_the_pack_and_leaves_the_cast() 
         None,
     );
 
-    // ⚠ THE MOVE FAMILY'S OWN REPORT IS STILL `Unchanged`, AND THAT IS CORRECT.
-    // It is a CONSEQUENCE of the decision now rather than an input to it.
-    assert!(
-        matches!(outcome, MoveReload::Unchanged { .. }),
-        "the move material did not move, so the move family's report is \
-         `Unchanged`; got {outcome:?}"
-    );
+    match &outcome {
+        MoveReload::RefusedUnsupportedChangedDomain(domains) => assert!(
+            domains.iter().any(|d| d == "item_catalog"),
+            "the refusal does not name the domain that changed: {domains:?}"
+        ),
+        other => panic!(
+            "an items-only candidate must be refused until items participate in \
+             the generation transaction; got {other:?}"
+        ),
+    }
     assert!(
         std::ptr::eq(
             crate::pack::selected(app.world()).expect("a selection"),
-            std::sync::Arc::as_ref(&candidate)
+            std::sync::Arc::as_ref(&live)
         ),
-        "the whole pack changed and the App did not adopt it: every later read of \
-         this App's items answers from content the candidate replaced"
+        "a refused candidate became the App's selection, so the engine's content \
+         identity now claims item content is active that is not"
     );
     assert_eq!(
         cast_generation(&app),
         generation_before,
-        "the cast generation moved for a candidate whose move material is \
-         identical — a republication nothing asked for"
+        "a refused candidate moved the cast generation"
     );
+}
+
+/// ⭐ THE CONTROL FOR THE REFUSAL: a MOVES-only candidate — the one participating
+/// domain — still publishes. Without it, "unsupported domains are refused" is
+/// satisfied by a road that refuses every change.
+#[test]
+fn a_candidate_that_changes_only_moves_still_publishes() {
+    let mut app = host_with_the_shipped_cast();
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(
+        crate::pack::compile_pack_with(|path, text| {
+            if path.starts_with("data/movesets/") {
+                let mut doc = ambition_entity_catalog::EntityCatalogDoc::parse(&text)
+                    .expect("a shipped move table parses");
+                for entity in &mut doc.entities {
+                    if let Some(moveset) = entity.contracts.moveset.as_mut() {
+                        for spec in &mut moveset.moves {
+                            spec.duration_s += 0.5;
+                        }
+                    }
+                }
+                doc.to_ron().expect("and serializes")
+            } else {
+                text
+            }
+        })
+        .expect("the edited pack compiles"),
+    );
+    assert_ne!(
+        live.fingerprint, candidate.fingerprint,
+        "the premise: the candidate differs"
+    );
+    assert_eq!(
+        ambition_content_pack::changed_domains(&live, &candidate)
+            .iter()
+            .map(|s| s.0.as_str())
+            .collect::<Vec<_>>(),
+        vec!["moveset"],
+        "the premise: ONLY the participating domain changed"
+    );
+
+    let outcome = publish_candidate(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+        None,
+    );
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "a moves-only candidate was not published; got {outcome:?}"
+    );
+    assert!(std::ptr::eq(
+        crate::pack::selected(app.world()).expect("a selection"),
+        std::sync::Arc::as_ref(&candidate)
+    ));
 }
 
 // ---------------------------------------------------------------------------

@@ -88,6 +88,26 @@ fn pack_of(alpha: &str, beta: &str) -> Arc<PreparedContentPack> {
     Arc::new(compile(&draft, &registry(), &AssetsUnchecked).expect("the probe pack compiles"))
 }
 
+/// A pack declaring ONLY the alpha source — a whole family absent.
+fn alpha_only(alpha: &str) -> Arc<PreparedContentPack> {
+    let draft = ContentPackDraft::from_sources(
+        ContentPackManifest {
+            id: PackId("candidate_probe".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("probe".into()),
+            requires: Vec::new(),
+            sources: vec![SourceDeclaration {
+                path: "alpha.ron".into(),
+                schema: SchemaId::new("alpha"),
+                version: SchemaVersion(1),
+            }],
+        },
+        [("alpha.ron".to_string(), alpha.to_string())],
+    )
+    .expect("the probe draft assembles");
+    Arc::new(compile(&draft, &registry(), &AssetsUnchecked).expect("the probe pack compiles"))
+}
+
 const A: &str = "alpha-one";
 const A2: &str = "alpha-two";
 const B: &str = "beta-one";
@@ -178,4 +198,69 @@ fn a_candidate_against_no_active_generation_publishes() {
         candidate.verdict(None),
         CandidateVerdict::Publish { .. }
     ));
+}
+
+/// ⭐ THE PREMISE FOR EVERY DOMAIN ARM: editing one family's source moves ONLY
+/// that family.
+#[test]
+fn editing_one_domain_changes_only_that_domain() {
+    let base = pack_of(A, B);
+    let changed = changed_domains(&base, &pack_of(A2, B));
+    assert_eq!(
+        changed.iter().map(|s| s.0.as_str()).collect::<Vec<_>>(),
+        vec!["alpha"],
+        "editing alpha reported {changed:?}"
+    );
+    let changed = changed_domains(&base, &pack_of(A, B2));
+    assert_eq!(
+        changed.iter().map(|s| s.0.as_str()).collect::<Vec<_>>(),
+        vec!["beta"]
+    );
+}
+
+/// ⛔ AND AN IDENTICAL PACK CHANGES NO DOMAIN — without this, "only that domain"
+/// is satisfied by a diff that reports everything.
+#[test]
+fn an_identical_pack_changes_no_domain() {
+    assert!(changed_domains(&pack_of(A, B), &pack_of(A, B)).is_empty());
+}
+
+/// ⛔ BOTH AT ONCE, because a diff that stopped at the first difference would
+/// pass both arms above and refuse for the wrong reason.
+#[test]
+fn editing_two_domains_reports_both() {
+    let changed = changed_domains(&pack_of(A, B), &pack_of(A2, B2));
+    assert_eq!(
+        changed.iter().map(|s| s.0.as_str()).collect::<Vec<_>>(),
+        vec!["alpha", "beta"]
+    );
+}
+
+/// ⛔⛤ **A DOMAIN PRESENT IN ONE PACK AND ABSENT FROM THE OTHER IS CHANGED, AND
+/// A POISON FOUND THAT NOTHING CHECKED IT.** Dropping `.chain(candidate.keys())`
+/// — so only domains the BASE declares are compared — left every arm in this
+/// file and every arm in `ambition_content` green. Adding or removing a whole
+/// family is the LARGEST change a pack can make, and a diff that compares only
+/// shared keys reports it as nothing.
+///
+/// ⚠ Both directions, because the two are different bugs: iterating only the
+/// base misses an ADDED family, iterating only the candidate misses a REMOVED
+/// one, and either alone passes half of this.
+#[test]
+fn a_domain_added_or_removed_is_a_changed_domain() {
+    let two = pack_of(A, B);
+    let one = alpha_only(A);
+
+    let removed = changed_domains(&two, &one);
+    assert_eq!(
+        removed.iter().map(|s| s.0.as_str()).collect::<Vec<_>>(),
+        vec!["beta"],
+        "a REMOVED family was not reported as changed"
+    );
+    let added = changed_domains(&one, &two);
+    assert_eq!(
+        added.iter().map(|s| s.0.as_str()).collect::<Vec<_>>(),
+        vec!["beta"],
+        "an ADDED family was not reported as changed"
+    );
 }

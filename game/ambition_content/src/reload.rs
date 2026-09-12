@@ -109,6 +109,37 @@ pub enum MoveReload {
     /// content publication that established a fresh timeline would otherwise
     /// launder a desync into health by a side door.
     RefusedWhileRollbackUnhealthy(String),
+    /// The candidate changes a mechanical domain that does NOT participate in
+    /// the generation transaction, so publishing it would make the engine's
+    /// content identity a lie.
+    ///
+    /// ⛔⛤ **MEASURED 2026-09-11: ELEVEN OF TWELVE DOMAINS DO NOT PARTICIPATE.**
+    /// `item_catalog`, `encounter_waves`, `fighter_brain_ladder`,
+    /// `character_catalog`, the two audio registries and the four boss families
+    /// are all installed in `AmbitionContentPlugin::build` or a registration
+    /// function from the process-global `pack::prepared()`, and no reload road
+    /// replaces any of them. `moveset` is the only domain whose reader takes a
+    /// pack PARAMETER and the only one with a revision road — and those are the
+    /// same fact, not two.
+    ///
+    /// ⇒ Publishing an items-only candidate would leave
+    /// `PreparedContentIdentity` and the selected pack naming generation N+1
+    /// while the live item catalog served N. That is WORSE than not supporting
+    /// item reload: the canonical identity would claim mechanical content is
+    /// active when it is not.
+    ///
+    /// ⭐ THE RULE FAILS SAFE. Everything except the participating domain is
+    /// refused, so a family added later is refused by DEFAULT rather than
+    /// forgotten into silent falsity. When a domain joins the transaction, the
+    /// test that pins its refusal flips to pinning its publication — which is a
+    /// much stronger validation of the abstraction than either arm alone.
+    ///
+    /// ⚠ SOUND ABOUT DOMAINS, NOT ABOUT FIELDS. The per-source digest this is
+    /// built on is live for every domain (the compiler refuses a schema that
+    /// lowers and defines nothing), but a handler can still define a row whose
+    /// canonical string omits a field it lowered, and no compiler check sees
+    /// that.
+    RefusedUnsupportedChangedDomain(Vec<String>),
     /// This world installs no technique table at all.
     ///
     /// ⛔⛤ **ABSENT IS NOT EMPTY, AND MY FIRST VERSION CONFLATED THEM.** An
@@ -314,6 +345,12 @@ pub fn publish_candidate(
             MoveReload::Unchanged { generation }
         }
         ambition_content_pack::CandidateVerdict::Publish { .. } => {
+            // ⛔ BEFORE THE BOUNDARY AND BEFORE ANYTHING IS STAGED: read against
+            // the ACTIVE pack, or the diff is the candidate against itself.
+            let unsupported = unsupported_changed_domains(world, candidate.pack());
+            if !unsupported.is_empty() {
+                return MoveReload::RefusedUnsupportedChangedDomain(unsupported);
+            }
             match publication_boundary(world) {
                 PublicationBoundary::Legal => {}
                 PublicationBoundary::LiveTimeline => return MoveReload::RefusedDuringLiveTimeline,
@@ -335,6 +372,34 @@ pub fn publish_candidate(
             outcome
         }
     }
+}
+
+/// The one mechanical domain that participates in the generation transaction.
+///
+/// ⛔ ONE ID RATHER THAN A PARTICIPATION TABLE. A table lists what participates
+/// and is therefore wrong the moment somebody adds a family and forgets the row;
+/// naming the participant refuses everything else by construction.
+const PARTICIPATING_DOMAIN: &str = ambition_characters::moveset_content_schema::MOVESET_SCHEMA;
+
+/// Domains this candidate changes that nothing can publish.
+///
+/// ⚠ READ AGAINST THE ACTIVE PACK, WHICH IS WHY IT MUST RUN BEFORE ANYTHING IS
+/// STAGED OR SELECTED. Diffing after the candidate became the selection would be
+/// diffing it against itself.
+fn unsupported_changed_domains(
+    world: &bevy::ecs::world::World,
+    candidate: &ambition_content_pack::PreparedContentPack,
+) -> Vec<String> {
+    let Some(active) = crate::pack::selected(world) else {
+        // ⚠ NO ACTIVE PACK IS A FIRST PUBLICATION, not a change: there is no
+        // generation for a domain to disagree with.
+        return Vec::new();
+    };
+    ambition_content_pack::changed_domains(active, candidate)
+        .into_iter()
+        .filter(|schema| schema.0 != PARTICIPATING_DOMAIN)
+        .map(|schema| schema.0)
+        .collect()
 }
 
 /// May a content generation be published into this world right now?
@@ -474,6 +539,12 @@ pub fn request_reload(
             return ReloadRequest::Unchanged
         }
         ambition_content_pack::CandidateVerdict::Publish { .. } => {}
+    }
+
+    // ⛔ BEFORE `stage_pending_pack`, for the same reason.
+    let unsupported = unsupported_changed_domains(world, candidate.pack());
+    if !unsupported.is_empty() {
+        return ReloadRequest::Refused(MoveReload::RefusedUnsupportedChangedDomain(unsupported));
     }
 
     match publication_boundary(world) {

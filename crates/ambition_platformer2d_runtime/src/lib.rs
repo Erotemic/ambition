@@ -63,7 +63,7 @@ pub use combat_schedule::{install_technique, install_techniques};
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
     ContentFingerprintSchemaVersion, ContentOwner, PreparedContent, PreparedContentBuildError,
-    PreparedContentBuilder, PreparedContentIdentity, PreparedContentSection,
+    PreparedContentBuilder, PreparedContentIdentity, PreparedContentSection, SelectedContentIdentity,
     SnapshotSchemaFingerprint,
 };
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.

@@ -431,7 +431,34 @@ impl SelectedContentPack {
 /// [`crate::reload`]'s job, and keeping them separate is what lets a reload
 /// refuse without having already replaced the App's content.
 pub fn select_pack(app: &mut bevy::prelude::App, pack: std::sync::Arc<PreparedContentPack>) {
-    app.insert_resource(SelectedContentPack(pack));
+    install_selection(app.world_mut(), pack);
+}
+
+/// Install a selection and publish its identity to the engine.
+///
+/// ⭐⭐ **THE ENGINE IS TOLD WHICH PACK, NOT GIVEN THE PACK.** Content-pack
+/// compilation lives here and must stay here; what
+/// `ambition_platformer2d_provider` needs in order to fingerprint a prepared
+/// session is the pack's IDENTITY, so the two travel together and nothing
+/// downstream has to reach back up for it.
+///
+/// ⛔⛤ **AND THEY DID NOT TRAVEL TOGETHER UNTIL NOW.** Every section of a
+/// `PreparedContent` was an App REGISTRY, so the authored pack reached the game
+/// without reaching the engine's content fingerprint: two sessions prepared
+/// under different move tables shared one `PreparedContentIdentity`, and the
+/// rollback timeline contract that refuses *"prepared content changed while the
+/// session was active"* compares exactly that identity.
+pub(crate) fn install_selection(
+    world: &mut bevy::ecs::world::World,
+    pack: std::sync::Arc<PreparedContentPack>,
+) {
+    world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
+        // ⚠ THE CANONICAL IDENTITY LINE, not the fingerprint alone. A hex digest
+        // is unreadable in a desync report, and the pack's id and version are
+        // what a human needs to see beside it.
+        format!("{} {} {}", pack.id, pack.version, pack.fingerprint),
+    ));
+    world.insert_resource(SelectedContentPack(pack));
 }
 
 /// This App's pack, selecting the process's boot pack if nothing chose one.
@@ -441,7 +468,7 @@ pub fn select_pack(app: &mut bevy::prelude::App, pack: std::sync::Arc<PreparedCo
 /// every later `selected` call could give a different answer than the first.
 pub fn select(world: &mut bevy::ecs::world::World) -> &PreparedContentPack {
     if !world.contains_resource::<SelectedContentPack>() {
-        world.insert_resource(SelectedContentPack(std::sync::Arc::clone(boot_pack())));
+        install_selection(world, std::sync::Arc::clone(boot_pack()));
     }
     world.resource::<SelectedContentPack>().get()
 }

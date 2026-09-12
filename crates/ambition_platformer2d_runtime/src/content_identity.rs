@@ -152,6 +152,27 @@ impl PreparedContentSection {
     }
 }
 
+/// The identity of the authored content PACK this App selected, if it selected one.
+///
+/// ⭐⭐ **THE COMPOSITION'S ANSWER TO "WHICH AUTHORED CONTENT IS THIS", HANDED TO
+/// THE ENGINE AS AN OPAQUE STRING.** Content-pack compilation lives far above this
+/// crate and must stay there; what the engine needs is not the pack but its
+/// IDENTITY, so that a session prepared under one pack and a session prepared
+/// under another are different content generations.
+///
+/// ⛔⛤ **WITHOUT IT THEY WERE NOT.** Every section of a `PreparedContent` was an
+/// App REGISTRY, so the authored pack — move tables, item catalog, encounter
+/// waves — reached the game without reaching this fingerprint. Two sessions
+/// prepared under different packs shared one `PreparedContentIdentity`, and the
+/// rollback timeline contract that exists to refuse *"prepared content changed
+/// while the session was active"* compares exactly that identity. The guard
+/// could not see the content most likely to change during development.
+///
+/// ⚠ ABSENT IS A REAL ANSWER, not a missing value: a composition with no content
+/// pack (a demo, a fixture) selects none, and its prepared content says so.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+pub struct SelectedContentIdentity(pub String);
+
 /// Canonical, order-independent input builder. Duplicate section names are a
 /// structured assembly error, not last-registration-wins behavior.
 #[derive(Default)]

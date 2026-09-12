@@ -247,9 +247,18 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
     //  This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
     // The next field added here must bundle something first.
-    construction_schema_catalog: Option<
-        Res<'w, ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
-    >,
+    //
+    // ⭐ AND THE NEXT FIELD DID ARRIVE, so this is the bundle that comment asked
+    // for: the construction schema catalog, and the identity of the authored
+    // content PACK this composition selected. Both are inputs to one thing — the
+    // prepared content's fingerprint — so pairing them is not an arbitrary
+    // grouping made to fit a ceiling.
+    content_inputs: (
+        Option<
+            Res<'w, ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>,
+        >,
+        Option<Res<'w, ambition_platformer2d_runtime::SelectedContentIdentity>>,
+    ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
@@ -533,9 +542,14 @@ impl PlatformerPreparation<'_> {
             self.character_catalog_registry.as_deref(),
             self.placement_lowering.as_deref(),
             self.content_staging.as_deref(),
-            self.construction_schema_catalog
+            self.content_inputs
+                .0
                 .as_deref()
                 .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
+            self.content_inputs
+                .1
+                .as_deref()
+                .map(|identity| identity.0.clone()),
             snapshot_schema,
             &mut self.epochs,
         ) {
@@ -780,6 +794,10 @@ pub fn prepare_platformer_content_for_app(
         .world()
         .get_resource::<ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog>()
         .map(|catalog| catalog.deterministic_dump());
+    let content_pack = app
+        .world()
+        .get_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+        .map(|identity| identity.0.clone());
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
@@ -797,6 +815,7 @@ pub fn prepare_platformer_content_for_app(
         placement_lowering.as_ref(),
         content_staging.as_ref(),
         construction_recipes,
+        content_pack,
         snapshot_schema,
         &mut epochs,
     )
@@ -818,6 +837,22 @@ pub fn prepare_platformer_content(
     // Executable recipe dispatch remains typed and closed inside each domain;
     // the fingerprint needs only stable schema metadata, never function pointers.
     construction_recipes: Option<String>,
+    // ⛔⛤ **THE SELECTED CONTENT PACK'S IDENTITY, AND ITS ABSENCE WAS A HOLE.**
+    // Every other section here is an App REGISTRY. The authored content PACK —
+    // the move tables, the item catalog, the encounter waves — reached the game
+    // without reaching this fingerprint, so two sessions prepared under
+    // different packs shared one `PreparedContentIdentity`. The rollback
+    // timeline's contract compares exactly that identity, which means the guard
+    // that exists to refuse "prepared content changed while the session was
+    // active" could not see the content most likely to change during
+    // development.
+    //
+    // ⚠ AN OPAQUE STRING, like `construction_recipes` beside it, and for the
+    // same reason: this crate must not name `ambition_content_pack`. The
+    // composition that selected the pack passes its canonical identity down.
+    // `None` means "this composition selected no pack", which is a real state
+    // (a demo with no pack at all) and not a missing value.
+    content_pack: Option<String>,
     snapshot_schema: ambition_platformer2d_runtime::SnapshotSchemaFingerprint,
     epochs: &mut ContentEpochSequence,
 ) -> Result<PreparedContent, ContentDiagnostic> {
@@ -1029,6 +1064,13 @@ pub fn prepare_platformer_content(
             construction_recipes.map_or_else(Vec::new, |dump| dump.into_bytes()),
         )
         .map_err(|error| ContentDiagnostic::new("construction.recipes", error.to_string()))?;
+
+    builder
+        .add_section(
+            "content.pack",
+            content_pack.map_or_else(Vec::new, String::into_bytes),
+        )
+        .map_err(|error| ContentDiagnostic::new("content.pack", error.to_string()))?;
 
     // Epoch allocation is the final non-fallible step: a rejected candidate
     // never consumes or publishes an activation generation.
@@ -1583,6 +1625,7 @@ mod tests {
             None,
             Some(staging),
             construction_recipes,
+            None,
             snapshot_schema,
             &mut epochs,
         )
@@ -1625,6 +1668,7 @@ mod tests {
                 Some(&characters),
                 None,
                 Some(&staging),
+                None,
                 None,
                 snapshot_schema,
                 &mut epochs,
@@ -1803,6 +1847,89 @@ mod tests {
         registry.deterministic_dump()
     }
 
+    /// ⛔⛤ **TWO SESSIONS PREPARED UNDER DIFFERENT CONTENT PACKS ARE DIFFERENT
+    /// CONTENT GENERATIONS, AND UNTIL 2026-09-11 THEY WERE NOT.**
+    ///
+    /// Every other section of a `PreparedContent` is an App REGISTRY, so the
+    /// authored content PACK — move tables, item catalog, encounter waves —
+    /// reached the game without reaching this fingerprint. The consequence is
+    /// not academic: `RollbackTimelineContract` stores a `PreparedContentIdentity`
+    /// and the GGRS session refuses *"prepared content changed while the session
+    /// was active"* by comparing exactly that, so the guard could not see the
+    /// content most likely to change during development.
+    ///
+    /// ⚠ THE SIBLING ARM BELOW IS WHAT MAKES THIS ONE MEAN SOMETHING: two
+    /// preparations that agree on everything INCLUDING the pack still share a
+    /// fingerprint, so this is not "any two preparations differ".
+    #[test]
+    fn two_preparations_under_different_content_packs_are_different_generations() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
+        let mut epochs = ContentEpochSequence::default();
+        let prepare = |pack: Option<&str>, epochs: &mut ContentEpochSequence| {
+            prepare_platformer_content(
+                fixture_source(128.0),
+                &authored,
+                Some(&characters),
+                None,
+                Some(&staging),
+                None,
+                pack.map(str::to_string),
+                snapshot_schema,
+                epochs,
+            )
+            .unwrap()
+        };
+
+        let first = prepare(Some("ambition 1.0.0 aaaaaaaaaaaaaaaa"), &mut epochs);
+        let second = prepare(Some("ambition 1.0.0 bbbbbbbbbbbbbbbb"), &mut epochs);
+        assert_ne!(
+            first.fingerprint(),
+            second.fingerprint(),
+            "a different content pack did not reach the prepared content's identity"
+        );
+
+        // ⛔ AND ABSENT IS ITS OWN ANSWER, distinct from either pack: a
+        // composition that selected no pack is not the same generation as one
+        // that selected one.
+        let none = prepare(None, &mut epochs);
+        assert_ne!(none.fingerprint(), first.fingerprint());
+        assert_ne!(none.fingerprint(), second.fingerprint());
+    }
+
+    /// ⭐ THE CONTROL. The same pack twice is the same definition, so the arm
+    /// above is about the PACK and not about preparation being nondeterministic.
+    #[test]
+    fn two_preparations_under_one_content_pack_share_a_definition_identity() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
+        let mut epochs = ContentEpochSequence::default();
+        let prepare = |epochs: &mut ContentEpochSequence| {
+            prepare_platformer_content(
+                fixture_source(128.0),
+                &authored,
+                Some(&characters),
+                None,
+                Some(&staging),
+                None,
+                Some("ambition 1.0.0 aaaaaaaaaaaaaaaa".to_string()),
+                snapshot_schema,
+                epochs,
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            prepare(&mut epochs).fingerprint(),
+            prepare(&mut epochs).fingerprint()
+        );
+    }
+
     #[test]
     fn sequential_preparations_share_definition_identity_but_not_epoch() {
         let characters = character_registry(false, CHARACTER_B);
@@ -1818,6 +1945,7 @@ mod tests {
             None,
             Some(&staging),
             None,
+            None,
             snapshot_schema,
             &mut epochs,
         )
@@ -1828,6 +1956,7 @@ mod tests {
             Some(&characters),
             None,
             Some(&staging),
+            None,
             None,
             snapshot_schema,
             &mut epochs,

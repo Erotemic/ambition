@@ -321,7 +321,7 @@ pub fn publish_candidate(
                 outcome,
                 MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
             ) {
-                world.insert_resource(crate::pack::SelectedContentPack(pack));
+                crate::pack::install_selection(world, pack);
             }
             outcome
         }

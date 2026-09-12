@@ -165,3 +165,57 @@ fn an_app_that_selects_nothing_reads_the_boot_pack() {
         "an App that selected nothing did not get the shipped pack"
     );
 }
+
+/// ⛔⛤ **THE APP TELLS THE ENGINE *WHICH* PACK, AND A POISON CAUGHT THAT NOTHING
+/// CHECKED IT.** `install_selection` publishes an
+/// `ambition_platformer2d_runtime::SelectedContentIdentity` beside the pack, and
+/// `prepare_platformer_content` folds it into the prepared content's
+/// fingerprint — which is what makes two sessions prepared under different move
+/// tables different content generations.
+///
+/// ⚠ The provider-side arm proves the SECTION reaches the fingerprint, using
+/// hand-written identity strings. It therefore cannot see whether this crate
+/// puts anything distinguishing INTO one: dropping `pack.fingerprint` from the
+/// format string left every provider arm green. This is the half that catches
+/// it, and it is why the poison for that line lives here.
+#[test]
+fn two_different_packs_publish_two_different_content_identities() {
+    use ambition_platformer2d_runtime::SelectedContentIdentity;
+
+    let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
+    let edited = std::sync::Arc::new(compile_pack_with(half_a_second_longer).expect("compiles"));
+    assert_ne!(
+        shipped.fingerprint, edited.fingerprint,
+        "the premise: the two packs differ"
+    );
+    assert_eq!(
+        (shipped.id.clone(), shipped.version.clone()),
+        (edited.id.clone(), edited.version.clone()),
+        "the two packs differ in id or version, so this arm would pass without \
+         the fingerprint reaching the identity at all"
+    );
+
+    let identity_of = |pack: std::sync::Arc<PreparedContentPack>| {
+        let mut app = bevy::prelude::App::new();
+        select_pack(&mut app, pack);
+        app.world().resource::<SelectedContentIdentity>().0.clone()
+    };
+    assert_ne!(
+        identity_of(shipped),
+        identity_of(edited),
+        "two packs that differ only in their CONTENT publish the same identity, \
+         so the engine cannot tell one generation from the other"
+    );
+}
+
+/// ⚠ AND AN APP THAT SELECTS NOTHING PUBLISHES NOTHING — `None` is a real answer
+/// ("this composition has no content pack"), not a missing value, and the
+/// provider's own arm asserts it is a THIRD distinct generation.
+#[test]
+fn an_app_that_selects_nothing_publishes_no_content_identity() {
+    let app = bevy::prelude::App::new();
+    assert!(app
+        .world()
+        .get_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
+        .is_none());
+}

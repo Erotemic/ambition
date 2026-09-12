@@ -1299,9 +1299,19 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 /// point of having it. The executor allocates each row's root, but a recipe
 /// receives raw `Commands` and the root `Entity`, so it can despawn that root,
 /// strip or rewrite its `SimId`/`SpawnOrigin`, stamp a second entity with a
-/// planned identity, or spawn further authoritative entities of its own — the
-/// giant hand limbs already do the last of these. None of that is structurally
-/// prevented today, so a transaction that intends to publish a room must ask.
+/// planned identity, or spawn further authoritative entities of its own. None of
+/// that is structurally prevented today, so a transaction that intends to
+/// publish a room must ask.
+///
+/// ⛔⛤ **THIS USED TO ADD *"the giant hand limbs already do the last of these"*
+/// AND THAT IS NO LONGER TRUE — re-derived 2026-09-12.** The hands are PLAN ROWS
+/// now (`giant_hand_plans` feeds `giant_cluster_rows`), and measured across the
+/// whole tree there is **not one `ctx.commands.spawn` in a production recipe** —
+/// every occurrence is test code. ⇒ The recipe-spawned authoritative root is a
+/// shape this function must still detect, and it currently has **no production
+/// instance**. That distinction matters for A10: with no recipe minting its own
+/// roots, `commit_inactive` stamping every PLANNED root isolates every candidate
+/// this engine actually builds.
 ///
 /// Bevy commands do not roll back. By the time this can run, the
 /// construction commands have applied.

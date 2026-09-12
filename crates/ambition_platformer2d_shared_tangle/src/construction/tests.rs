@@ -2600,9 +2600,16 @@ fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_th
 /// limbs really do this — and those are not in the receipt, so nothing stamps
 /// them. **They stay visible while the rest of the candidate is hidden.**
 ///
-/// ⇒ That is a HALF-VISIBLE candidate, and it is exactly the *"complete
-/// visibility proof"* A10's own text demands of any same-World strategy. The
-/// number below is the proof's current state: not zero, and known.
+/// ⇒ That would be a HALF-VISIBLE candidate, which is exactly what A10's
+/// *"complete visibility proof"* is about.
+///
+/// ⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE DOES THIS.** Measured 2026-09-12
+/// across the whole tree — every `ctx.commands.spawn` is TEST code, and the one
+/// case the verifier's doc used to name (the giant hand limbs) has been PLAN ROWS
+/// since `giant_hand_plans` fed `giant_cluster_rows`. ⇒ With no recipe minting
+/// its own roots, stamping every PLANNED root isolates every candidate this
+/// engine actually builds. This arm pins the SHAPE so the day a recipe starts
+/// spawning, the gap is a failing test rather than a half-visible scene.
 #[test]
 fn a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation() {
     let registry = registry();

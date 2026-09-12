@@ -932,9 +932,17 @@ the *"complete visibility/transfer proof"* this packet demands of a same-World
 strategy. Pinned by
 `a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`, written so
 that the day the isolation becomes complete the arm inverts rather than rots.
-⇒ **The structural fix is the one the verifier already names — every
-authoritative root an explicit plan row — and it is the next A10 step**, not a
-new mechanism.
+⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE SPAWNS ITS OWN AUTHORITATIVE ROOT
+(measured 2026-09-12).** Every `ctx.commands.spawn` in the tree is TEST code, and
+the single case the verifier's own doc named — *"the giant hand limbs already do
+the last of these"* — is STALE: the hands are plan rows (`giant_hand_plans` feeds
+`giant_cluster_rows`). ⇒ **With no recipe minting its own roots, stamping every
+PLANNED root isolates every candidate this engine actually builds**, so the
+structural fix the verifier names — every authoritative root an explicit plan row
+— is already TRUE of production and the remaining work is to make it
+unexpressible rather than merely unused. The guard pins the shape so the day a
+recipe starts spawning, the gap is a failing test rather than a half-visible
+scene.
 
 ⚠ **THREE POISONS FAILED TO BITE `Allow`, SO ITS NECESSITY IS LABELLED REASONED
 RATHER THAN MEASURED.** The reason is worth more than the filter:

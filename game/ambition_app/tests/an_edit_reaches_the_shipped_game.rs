@@ -93,7 +93,13 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          refusal instead of a publication"
     );
     app.world_mut()
-        .write_message(ShellCommand::ReplaceWith(gameplay));
+        .write_message(ShellCommand::ReplaceWith {
+            route: gameplay,
+            // ⚠ PLAIN NAVIGATION: this test drives the shell to a route that
+            // prepares, and nothing here has to recognise the transaction. The
+            // RELOAD's own correlator is minted inside `request_reload`.
+            request: None,
+        });
     let mut settled = None;
     for _ in 0..240 {
         app.update();

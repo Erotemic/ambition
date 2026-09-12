@@ -177,7 +177,12 @@ fn process_shell_presentation_events(
                     .get(&active.route_id)
                     .is_some_and(|route| route.preparation.is_some())
                 {
-                    shell.write(ShellCommand::ReplaceWith(active.route_id.clone()));
+                    shell.write(ShellCommand::ReplaceWith {
+                        route: active.route_id.clone(),
+                        // ⚠ NAVIGATION, NOT A CORRELATED REQUEST: nothing here
+                        // needs to recognise the transaction it produced.
+                        request: None,
+                    });
                 }
             }
             LoadPresentationEvent::CancelRequested { .. } => {

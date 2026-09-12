@@ -189,7 +189,10 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
 
     // Switch to the silent game: authority REPLACED, not inherited.
     app.world_mut()
-        .write_message(ShellCommand::ReplaceWith(SILENT_ROUTE.into()));
+        .write_message(ShellCommand::ReplaceWith {
+            route: SILENT_ROUTE.into(),
+            request: None,
+        });
     settle(&mut app);
     let selection = app.world().resource::<ActiveAudioSelection>();
     assert_eq!(selection.provider_id(), Some(SILENT_GAME));

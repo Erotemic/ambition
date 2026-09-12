@@ -180,11 +180,60 @@ pub struct ShellScopedEntity {
     pub activation_id: ShellActivationId,
 }
 
+/// **WHICH CALLER REQUEST CAUSED THIS TRANSACTION** — minted by the caller,
+/// before it writes the command.
+///
+/// ⛔⛤ **THE ROUTER'S `LoadId` ANSWERS A DIFFERENT QUESTION, AND A CALLER THAT
+/// NEEDED THIS ONE WAS INFERRING IT FROM A ROUTE NAME.** `LoadId` is minted
+/// INSIDE `start_route`, in a later system than the request, and
+/// `ShellCommand::ReplaceWith` carried no slot for a correlator — so
+/// `ambition_content::reload` adopted the first `PreparationRequested` whose
+/// ROUTE matched its own, and its own comment said *"a route name is not a
+/// transaction identity"* while using one.
+///
+/// ⇒ TWO `ReplaceWith("game")` QUEUED IN ONE FRAME mint `shell.game.N` and
+/// `shell.game.N+1`, and the second SUPERSEDES the first. A caller adopting by
+/// route can therefore take a transaction it did not issue, or one already
+/// cancelled in the same frame — and then wait forever for an activation that
+/// cannot come.
+///
+/// ⭐ **THIS IS GENERIC ON PURPOSE.** It answers "whose request was this" for any
+/// caller; `LoadId` stays router-owned and answers "which load is this". Two
+/// questions, two identities, neither inferring the other.
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct ShellRequestId(String);
+
+impl ShellRequestId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for ShellRequestId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 #[derive(Message, Clone, Debug, Eq, PartialEq)]
 pub enum ShellCommand {
     Initialize,
     GoTo(ShellRouteId),
-    ReplaceWith(ShellRouteId),
+    /// Replace the active route. `request` is the CALLER's own correlation id,
+    /// carried through to [`crate::ProviderLoadTransaction`] so the caller can
+    /// recognise the transaction its own command produced.
+    ///
+    /// ⚠ `None` MEANS NOBODY IS CORRELATING, which is the right answer for
+    /// ordinary navigation and the wrong one for a caller that must publish at
+    /// the activation of ITS transaction. See [`ShellRequestId`].
+    ReplaceWith {
+        route: ShellRouteId,
+        request: Option<ShellRequestId>,
+    },
     Return,
     QuitToHome,
     ExitProcess,
@@ -258,16 +307,25 @@ impl ShellRouter {
                         )];
                     }
                     self.initialized = true;
-                    self.start_route(spec.initial_route.clone(), false, catalog, loads, prepared)
+                    self.start_route(
+                        spec.initial_route.clone(),
+                        false,
+                        None,
+                        catalog,
+                        loads,
+                        prepared,
+                    )
                 } else {
                     vec![ShellEvent::CommandRejected(
                         ShellCommandRejection::HostNotConfigured,
                     )]
                 }
             }
-            ShellCommand::GoTo(route) => self.start_route(route, true, catalog, loads, prepared),
-            ShellCommand::ReplaceWith(route) => {
-                self.start_route(route, false, catalog, loads, prepared)
+            ShellCommand::GoTo(route) => {
+                self.start_route(route, true, None, catalog, loads, prepared)
+            }
+            ShellCommand::ReplaceWith { route, request } => {
+                self.start_route(route, false, request, catalog, loads, prepared)
             }
             ShellCommand::Return => {
                 let route = self
@@ -275,7 +333,7 @@ impl ShellRouter {
                     .pop()
                     .or_else(|| host.spec.as_ref().map(|spec| spec.home_route.clone()));
                 match route {
-                    Some(route) => self.start_route(route, false, catalog, loads, prepared),
+                    Some(route) => self.start_route(route, false, None, catalog, loads, prepared),
                     None => vec![ShellEvent::CommandRejected(
                         ShellCommandRejection::HostNotConfigured,
                     )],
@@ -284,7 +342,14 @@ impl ShellRouter {
             ShellCommand::QuitToHome => match host.spec.as_ref() {
                 Some(spec) => {
                     self.history.clear();
-                    self.start_route(spec.home_route.clone(), false, catalog, loads, prepared)
+                    self.start_route(
+                        spec.home_route.clone(),
+                        false,
+                        None,
+                        catalog,
+                        loads,
+                        prepared,
+                    )
                 }
                 None => vec![ShellEvent::CommandRejected(
                     ShellCommandRejection::HostNotConfigured,
@@ -312,7 +377,7 @@ impl ShellRouter {
                 match policy {
                     ShellCompletionPolicy::Stay => Vec::new(),
                     ShellCompletionPolicy::GoTo(route) => {
-                        self.start_route(route, false, catalog, loads, prepared)
+                        self.start_route(route, false, None, catalog, loads, prepared)
                     }
                     ShellCompletionPolicy::ReturnHome => {
                         self.apply(ShellCommand::QuitToHome, catalog, host, loads, prepared)
@@ -441,6 +506,9 @@ impl ShellRouter {
         &mut self,
         route_id: ShellRouteId,
         push_history: bool,
+        // ⛔ THREADED, NOT INVENTED HERE. The router cannot know whose request
+        // this was; only the caller that wrote the command does.
+        request: Option<ShellRequestId>,
         catalog: &ShellRouteCatalog,
         loads: &mut LoadCoordinator,
         prepared: &mut PreparedSessionRegistry,
@@ -474,6 +542,7 @@ impl ShellRouter {
             }
             let barrier = LoadBarrierRef::new(load_id, plan.barrier.id.clone());
             let transaction = ProviderLoadTransaction {
+                request: request.clone(),
                 route_id: route.id.clone(),
                 experience_id: route.experience.clone(),
                 barrier: barrier.clone(),

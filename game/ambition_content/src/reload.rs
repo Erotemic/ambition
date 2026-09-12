@@ -989,11 +989,24 @@ pub fn request_reload(
         ambition_characters::prepared::RevisionAdmission::NothingStaged
         | ambition_characters::prepared::RevisionAdmission::Unchanged { .. } => None,
     };
+    // ⭐⭐ **THE IDENTITY IS MINTED BEFORE THE COMMAND IS WRITTEN**, which is the
+    // whole point: the generation owns it from birth rather than adopting
+    // whatever the router announces for its route.
+    //
+    // ⚠ SEEDED FROM THE ROUTE AND A PROCESS-UNIQUE COUNTER. The route makes it
+    // readable in a log; the counter is what makes it an identity, because the
+    // route alone is exactly the thing that was not unique.
+    let request = ambition_platformer2d::game_shell::ShellRequestId::new(format!(
+        "reload.{}.{}",
+        route.as_str(),
+        next_request_ordinal()
+    ));
     stage_pending_generation(
         world,
         PendingGeneration {
             load_id: None,
             route: route.as_str().to_string(),
+            request: request.clone(),
             pack,
             admitted_cast,
         },
@@ -1001,7 +1014,10 @@ pub fn request_reload(
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
     // otherwise walk back through three copies of the room they are standing in.
-    world.write_message(ShellCommand::ReplaceWith(route.clone()));
+    world.write_message(ShellCommand::ReplaceWith {
+        route: route.clone(),
+        request: Some(request),
+    });
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
     }
@@ -1046,9 +1062,21 @@ pub fn request_reload(
 pub struct PendingGeneration {
     /// `None` until the router mints the transaction this reload asked for.
     load_id: Option<ambition_platformer2d::load::LoadId>,
-    /// The route the request named, for adopting the right
-    /// `PreparationRequested` when several are in flight.
+    /// The route the request named — for reporting, and for
+    /// `ReloadRequest::AlreadyPending`. **Not the correlator any more.**
     route: String,
+    /// ⭐⭐ **THIS GENERATION'S OWN REQUEST IDENTITY, MINTED BEFORE THE COMMAND
+    /// WAS WRITTEN.** See [`ambition_platformer2d::game_shell::ShellRequestId`].
+    ///
+    /// ⛔⛤ **ADOPTION USED TO MATCH ON THE ROUTE NAME, AND THE COMMENT BESIDE IT
+    /// SAID THAT WAS WRONG.** It read *"a route name is not that identity: two
+    /// generations can target one route, which is exactly what a reload does"* —
+    /// and then matched on the route. Two `ReplaceWith("game")` queued in one
+    /// frame mint `shell.game.N` and `shell.game.N+1`, the second SUPERSEDING
+    /// the first, so a route-matching reload could adopt a transaction it did
+    /// not issue or one already cancelled, and then wait forever for an
+    /// activation that cannot come.
+    request: ambition_platformer2d::game_shell::ShellRequestId,
     /// The candidate pack. **Not the App's selection** — it becomes that only at
     /// the activation, and a failed preparation must leave every reader
     /// answering with the content the live cast was actually built from.
@@ -1058,6 +1086,17 @@ pub struct PendingGeneration {
     /// participating domain can change in a character no buildable cast member
     /// wears and the engine's generation still has to move.
     admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
+}
+
+/// A process-unique ordinal for a reload's request identity.
+///
+/// ⛔ NOT A ROUTE NAME AND NOT A CLOCK. The route is what was ambiguous; a clock
+/// can repeat under a coarse timer and is not reproducible in a test. A counter
+/// is unique for the life of the process, which is exactly as long as a pending
+/// generation can live.
+fn next_request_ordinal() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
 /// The candidate a re-preparation is about, if one is in flight.
@@ -1184,7 +1223,13 @@ pub fn adopt_preparation_transaction(
             // one before the activation that carries it. A pending reload with
             // no adopted id yet takes the first request for ITS route.
             ShellEvent::PreparationRequested(transaction) => {
-                let route = transaction.route_id.as_str().to_string();
+                // ⛔⛔ **MATCHED ON THE REQUEST IDENTITY, NOT ON THE ROUTE.** A
+                // transaction carrying no request id belongs to nobody who is
+                // correlating, and `None` is NOT a wildcard — treating it as one
+                // is the inference this field exists to remove.
+                let Some(requested_by) = transaction.request.clone() else {
+                    continue;
+                };
                 let load_id = transaction.barrier.load_id.clone();
                 commands.queue(move |world: &mut bevy::ecs::world::World| {
                     let claim = {
@@ -1192,7 +1237,7 @@ pub fn adopt_preparation_transaction(
                         else {
                             return;
                         };
-                        if pending.load_id.is_some() || pending.route != route {
+                        if pending.load_id.is_some() || pending.request != requested_by {
                             return;
                         }
                         pending.load_id = Some(load_id.clone());

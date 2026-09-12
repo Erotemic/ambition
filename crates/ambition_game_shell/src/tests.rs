@@ -797,7 +797,10 @@ fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publicatio
     });
 
     let retry_events = router.apply(
-        ShellCommand::ReplaceWith(ShellRouteId::new("game")),
+        ShellCommand::ReplaceWith {
+            route: ShellRouteId::new("game"),
+            request: None,
+        },
         &catalog,
         &host,
         &mut loads,

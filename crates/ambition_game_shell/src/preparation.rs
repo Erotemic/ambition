@@ -187,6 +187,21 @@ pub struct ProviderLoadTransaction {
     pub route_id: ShellRouteId,
     pub experience_id: ShellExperienceId,
     pub barrier: LoadBarrierRef,
+    /// ⭐⭐ **WHOSE REQUEST THIS TRANSACTION CAME FROM**, carried through from the
+    /// `ShellCommand` the caller wrote.
+    ///
+    /// ⛔⛤ **WITHOUT IT A CALLER HAD TO INFER OWNERSHIP FROM THE ROUTE NAME.**
+    /// `barrier.load_id` is minted HERE, inside the router, in a later system
+    /// than the request — so a caller that must act on ITS OWN transaction could
+    /// only match on `route_id`, and two `ReplaceWith` for one route in a single
+    /// frame mint two loads where the second SUPERSEDES the first. Adopting by
+    /// route can take a transaction the caller did not issue, or one already
+    /// cancelled.
+    ///
+    /// ⚠ `None` MEANS NOBODY IS CORRELATING and is correct for ordinary
+    /// navigation. It is NOT a wildcard: a caller comparing against `None` must
+    /// treat it as "not mine", or it is back to inferring.
+    pub request: Option<crate::ShellRequestId>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

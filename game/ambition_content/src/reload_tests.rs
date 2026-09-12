@@ -1653,24 +1653,59 @@ fn shell_active_on(app: &mut bevy::app::App, prepares: bool) {
 /// Play the two shell events ONE re-preparation produces, and hand back the
 /// activation that transaction authorizes.
 ///
-/// ⛔⛤ **THE FIXTURE HAS TO MINT THE LOAD BECAUSE THE REQUESTER CANNOT.**
-/// MEASURED 2026-09-11: `ShellRouter::next_load_transaction` is private, the id
-/// is minted in a LATER system, and `ShellCommand::ReplaceWith` carries no slot
-/// to put a correlator in — so a reload learns which transaction is its own only
-/// by ADOPTING the one the router announces. A fixture that skipped
+/// ⛔⛤ **THE FIXTURE MINTS THE LOAD BECAUSE ONLY THE ROUTER CAN.**
+/// MEASURED 2026-09-11: `ShellRouter::next_load_transaction` is private and the
+/// id is minted in a LATER system than the request, so a reload learns its
+/// `LoadId` only from the announcement. A fixture that skipped
 /// `PreparationRequested` and re-used the already-active experience was testing
 /// "any activation publishes", which is exactly the defect.
+///
+/// ⭐⭐ **AND IT ECHOES THE REQUEST ID OFF THE COMMAND THE CALLER WROTE, WHICH IS
+/// THE ROUTER'S ACTUAL JOB.** `ShellCommand::ReplaceWith` now carries a
+/// caller-minted `ShellRequestId` and `start_route` copies it onto the
+/// transaction. ⛔ THE FIXTURE MUST NOT INVENT ONE: a hand-picked id tests
+/// whether the fixture and the subject agree about a constant, where reading the
+/// caller's own command tests PROPAGATION. This repository has the lesson
+/// already — a fixture that chose 7 and 3 certified nothing, because the runtime
+/// gives 0 and 0.
 fn a_preparation_for(app: &mut bevy::app::App, load: &str) -> ActiveShellExperience {
     let barrier = ambition_platformer2d::load::LoadBarrierRef::new(
         ambition_platformer2d::load::LoadId::new(load),
         ambition_platformer2d::load::LoadBarrierId::new("publish"),
     );
+    // ⛔ READ, NOT CONSTRUCTED. `None` here means the caller wrote no correlator,
+    // and the adoption must then refuse — so passing `None` through is part of
+    // what this fixture is for rather than a gap in it.
+    let requested = issued_commands(app).into_iter().find_map(|command| match command {
+        ShellCommand::ReplaceWith { request, .. } => request,
+        _ => None,
+    });
+    a_preparation_carrying(app, barrier, requested)
+}
+
+/// [`a_preparation_for`] with the caller's correlator supplied explicitly.
+///
+/// ⛔⛤ **`issued_commands` ONLY SEES THE CURRENT UPDATE'S MESSAGES**, so a test
+/// that calls `update()` between the request and the announcement cannot read the
+/// id off the command any more — and a fixture that silently passed `None` there
+/// would look like a correlation defect in the subject. Found exactly that way:
+/// the arm asserting a reload still publishes on its OWN transaction failed
+/// because the FIXTURE had lost the id, not because the reload had.
+///
+/// ⚠ THE CALLER STILL READS IT FROM THE COMMAND — it just reads it earlier. This
+/// is not a hand-picked constant.
+fn a_preparation_carrying(
+    app: &mut bevy::app::App,
+    barrier: ambition_platformer2d::load::LoadBarrierRef,
+    request: Option<ambition_platformer2d::game_shell::ShellRequestId>,
+) -> ActiveShellExperience {
     app.world_mut().write_message(
         ambition_platformer2d::game_shell::ShellEvent::PreparationRequested(
             ambition_platformer2d::game_shell::ProviderLoadTransaction {
                 route_id: ShellRouteId::new("game"),
                 experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new("fixture"),
                 barrier: barrier.clone(),
+                request,
             },
         ),
     );
@@ -1719,7 +1754,7 @@ fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
     assert!(
         matches!(
             issued_commands(&mut app).as_slice(),
-            [ShellCommand::ReplaceWith(route)] if route.as_str() == "game"
+            [ShellCommand::ReplaceWith { route, .. }] if route.as_str() == "game"
         ),
         "the request did not reach the shell as a ReplaceWith on the active route: {:?}",
         issued_commands(&mut app)
@@ -3383,5 +3418,166 @@ fn a_moveset_generation_still_needs_a_technique_table() {
         ),
         "a moveset generation was let through without a technique table to \
          admit its authored effects against: {outcome:?}"
+    );
+}
+
+/// ⛔⛔ **A TRANSACTION FOR THE RELOAD'S OWN ROUTE THAT THE RELOAD DID NOT ISSUE
+/// IS NOT ADOPTED.**
+///
+/// ⛔⛤ **THIS WAS REACHABLE AND THE CODE'S OWN COMMENT SAID SO WHILE DOING IT.**
+/// Adoption matched `pending.route == transaction.route_id` beside a paragraph
+/// reading *"a route name is not that identity: two generations can target one
+/// route, which is exactly what a reload does."* Two `ReplaceWith("game")`
+/// queued in one frame mint `shell.game.N` and `shell.game.N+1`, and
+/// `start_route` CANCELS the first when the second begins — so a route-matching
+/// reload could adopt a load already dead, then wait forever for an activation
+/// that cannot come, leaving `AlreadyPending` on every later save.
+///
+/// ⇒ `ShellCommand::ReplaceWith` carries a caller-minted `ShellRequestId` now,
+/// and this arm plays the hostile case directly: a `PreparationRequested` for
+/// the SAME route, carrying somebody ELSE's request id.
+#[test]
+fn a_same_route_transaction_from_another_caller_is_not_adopted() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let before = live_duration(&app);
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    // ⛔ THE PREMISE: the reload really did mint a correlator, and this
+    // transaction carries a DIFFERENT one. Without both halves the arm could
+    // pass because nothing was pending or because nothing correlates at all.
+    let mine = issued_commands(&mut app)
+        .into_iter()
+        .find_map(|command| match command {
+            ShellCommand::ReplaceWith { request, .. } => request,
+            _ => None,
+        })
+        .expect("the reload minted a request id and put it on its command");
+    let theirs = ambition_platformer2d::game_shell::ShellRequestId::new("someone.else.1");
+    assert_ne!(mine, theirs, "the premise: two different callers");
+
+    let barrier = ambition_platformer2d::load::LoadBarrierRef::new(
+        ambition_platformer2d::load::LoadId::new("shell.game.7"),
+        ambition_platformer2d::load::LoadBarrierId::new("publish"),
+    );
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::PreparationRequested(
+            ambition_platformer2d::game_shell::ProviderLoadTransaction {
+                route_id: ShellRouteId::new("game"),
+                experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new("other"),
+                barrier: barrier.clone(),
+                request: Some(theirs),
+            },
+        ),
+    );
+    app.update();
+
+    // Now that stranger's transaction activates. Under the old route-matching
+    // adoption the reload would have adopted it above and published here.
+    let mut active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("active on a route");
+    active.load_authorization = Some(barrier);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "the reload adopted a transaction for its route that it did not issue, \
+         and published its generation on somebody else's activation"
+    );
+
+    // ⭐ AND IT IS STILL WAITING FOR ITS OWN, which is the half that says the arm
+    // above is about correlation rather than about the generation being gone.
+    let mine_now = a_preparation_carrying(
+        &mut app,
+        ambition_platformer2d::load::LoadBarrierRef::new(
+            ambition_platformer2d::load::LoadId::new("shell.game.1"),
+            ambition_platformer2d::load::LoadBarrierId::new("publish"),
+        ),
+        Some(mine),
+    );
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine_now));
+    app.update();
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the reload refused a stranger's transaction and then failed to publish \
+         on its OWN — so the refusal above discarded the generation instead of \
+         declining to adopt"
+    );
+}
+
+/// ⛔ AND A TRANSACTION CARRYING NO CORRELATOR IS NOT A WILDCARD.
+///
+/// `None` means "nobody is correlating", which is the right answer for ordinary
+/// navigation — and treating it as a match would restore the inference the
+/// request id exists to remove, since every navigation command in the workspace
+/// writes `None`.
+#[test]
+fn an_uncorrelated_transaction_is_not_adopted_either() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let before = live_duration(&app);
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    let barrier = ambition_platformer2d::load::LoadBarrierRef::new(
+        ambition_platformer2d::load::LoadId::new("shell.game.9"),
+        ambition_platformer2d::load::LoadBarrierId::new("publish"),
+    );
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::PreparationRequested(
+            ambition_platformer2d::game_shell::ProviderLoadTransaction {
+                route_id: ShellRouteId::new("game"),
+                experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new("nav"),
+                barrier: barrier.clone(),
+                request: None,
+            },
+        ),
+    );
+    app.update();
+    let mut active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("active on a route");
+    active.load_authorization = Some(barrier);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "an uncorrelated navigation transaction was adopted as the reload's own"
     );
 }

@@ -2706,6 +2706,67 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    ⛔ NO VALUES CHANGED. Jon's spatial rulings are his; this is the table he asked
    to see before any rebalancing.
 
+⛔⛤ **AND THE WHY, MEASURED 2026-09-12: FOR TEN OF SIXTEEN FIGHTERS THE MOVE
+TABLE'S `half_extents` ARE DEAD, AND THE HITBOX IS A BONE.**
+
+I set out to compare authored extents to played ones and found medic's jab
+playing at `(0.48, 0.34)` of its authored box — which looked like a sprite-to-
+world SCALE. ⛔ That story was coherent and WRONG: the prediction it makes is that
+the ratio is CONSTANT per character, and testing that across the roster refuted
+it. Six fighters play their authored box EXACTLY (1.00–1.00, no spread at all);
+ten do not, with per-move spreads as wide as medic's `x 0.08–0.76`.
+
+⇒ **The split is whether the character has a rendered sprite stage.** There are
+seven, under `tools/ambition_sprite2d_renderer/.../data/motion/humanoid/`, and
+they map one-to-one onto the ten: `author_pen_v1`, `fighting_brawler_v1`
+(alice/bob/carl_stargan/emmy_noether), `fighting_polygon_v1`, `medic_triage_v1`,
+`officer_brawler_v1`, `performer_stage_v1`, `projectile_beast_v1`. The six with no
+stage — goblin, ninja_shadow_oni, oiler, pirate_admiral, patent_clerk — play the
+move table exactly.
+
+**83 of 109 specs DERIVE THE HITBOX FROM A BONE SEGMENT.** medic's forward tilt:
+
+```json
+"strike": { "base": "near_arm_l", "tip": "near_arm_hand" },
+"hitbox": { "extend": 1.08, "active": [3, 4] }
+```
+
+⇒ Her tilt's hitbox is **her forearm, extended 8%**. The `3.8 px TALL against a 48
+px body` this file has recorded since 2026-09-11 is not a stingy box — **it is the
+thickness of her arm**, and no edit to `data/movesets/medic.ron` can change it.
+
+⭐⭐ **AND THIS IS EXACTLY WHAT JON MEANT BY "LEARN FROM WHAT GPT-6 DID FOR THE
+PERFORMER".** The surface that makes a bone-derived box generous is
+`hitbox.inflate`, and its coverage is almost entirely one character's:
+
+```text
+stage                  specs  bone-derived  with inflate   inflate values
+performer_stage_v1        19            19            15   3 x10, 6, 7, 8, 14, 17
+medic_triage_v1           18            18             5   3, 5, 6, 6, 8
+fighting_brawler_v1       14            14             0   —
+officer_brawler_v1        15            15             0   —
+projectile_beast_v1       17            17             0   —
+author_pen_v1             13             0             0   — (not bone-derived)
+fighting_polygon_v1       13             0             0   — (not bone-derived)
+```
+
+⇒ **THE COVERAGE PREDICTS THE THINNESS.** performer 4/14 moves thin (29%, the best
+of the bone-derived stages) with 15 of 19 inflated; medic 10/13 thin with 5 of 18;
+officer 10/15, projectile_polygon 12/14 and the brawler four 41–93% thin, with
+**zero** inflated between them. *"Apply what GPT-6 did"* is a number now: three
+stages have 0 of 14, 0 of 15 and 0 of 17.
+
+⛔ **THE VALUES REMAIN JON'S.** What is settled is WHERE to author them
+(`.spec.json`'s `hitbox.inflate`, not the move table) and WHICH moves have never
+been tuned (46 bone-derived specs with no inflate at all).
+
+⚠ **AND A COMMITTED INSTRUMENT IS REPORTING DEAD NUMBERS FOR THOSE TEN.**
+`scripts/measure_authored_strike_extents.py` reads `half_extents` out of the move
+tables — the value the game ignores for every character with a sprite stage. Its
+rows are still right for the six without one. ⇒ Do not compare its output to a
+take's recorded extents; they are answers to different questions, and I nearly
+reported the difference as an 8x shrink.
+
    ⛔⛤ **AND THE MEDIC'S 3.8 px IS NOT HER MOVE TABLE — MEASURED 2026-09-11.**
    Migrating the tables made this census a FILE READ rather than an app boot
    (`scripts/measure_authored_strike_extents.py`, milliseconds). Her authored

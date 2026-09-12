@@ -47,11 +47,37 @@ consequence of that decision rather than an input to it. Staleness is asked
 FIRST, so a candidate whose base disappeared is refused even when mechanically
 identical.
 
-⛔ **WHAT REMAINS OF I3 IS THE BINDING, and it is the whole of the P0 above:** the
-transaction establishes no `ContentEpoch`, no `PreparedContentIdentity` and no
-rollback timeline boundary, and it carries TWO base clocks (the pack fingerprint
-and `CharacterCatalogGeneration`) where the architecture wants one.
+✅ **HALF THE BINDING LANDED (`672936d4a`): THE AUTHORED PACK NOW REACHES THE
+ENGINE'S CONTENT IDENTITY, AND IT DID NOT BEFORE.**
+
+⛔⛤ Every section of a `PreparedContent` was an App REGISTRY — world rooms,
+character fragments, placement lowering, content staging, construction recipes —
+so the authored content PACK reached the game without reaching the engine's
+fingerprint. **Two sessions prepared under different move tables were the same
+content generation.** `RollbackTimelineContract` stores a
+`PreparedContentIdentity` and the GGRS session refuses *"prepared content changed
+while the session was active"* by comparing exactly that ⇒ the guard written to
+catch a mid-session content change could not see the content most likely to
+change during development.
+
+⇒ A `content.pack` section, contributed the way `construction.recipes` already
+is, fed by `ambition_platformer2d_runtime::SelectedContentIdentity` which
+`ambition_content::pack::install_selection` publishes beside EVERY selection.
+`None` is a real answer — a composition with no pack — and it is a third distinct
+generation, not a missing value.
+
+⛔ **WHAT REMAINS OF THE BINDING, and it is the whole of the P0 above:** a reload
+does not RE-PREPARE the session, so a new identity is folded in at the next
+preparation rather than at the publication. Routing publication through
+`prepare_platformer_content` — which already allocates the epoch as *"the final
+non-fallible step"*, so a rejected candidate consumes no generation — is the A10
+integration. The transaction also still carries TWO base clocks (the pack
+fingerprint and `CharacterCatalogGeneration`) where the architecture wants one;
 `MoveReload::StaleGeneration` sits beside `Stale` as the honest report of that.
+
+⭐ **AND THE REFUSAL CONTRACT IS IN (`cb8eac09f`):** publication is refused while
+a rollback timeline is speculating, and while the authority is UNHEALTHY with its
+diagnosis carried verbatim. Derived from what already existed, not invented.
 
 ⭐ **THE REFUSAL CONTRACT IS DERIVABLE, NOT INVENTABLE — MEASURED 2026-09-11.**
 `ambition_platformer2d_rollback_ggrs::session.rs:1010` already INVALIDATES a live

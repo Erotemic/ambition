@@ -81,7 +81,75 @@ def peaks(take: dict) -> dict[str, tuple[float, tuple[float, float], tuple[float
         # missing row reads as "not measured" and a dropped one reads as nothing
         # at all, and "this verb produced no hitbox" is the louder finding of the
         # two this file can make.
-        out[character] = (best, best_strike, best_body)
+        #
+        # ⛔⛤ **ACROSS EVERY TAKE FOR THE CHARACTER, AND A PLAIN ASSIGNMENT HERE
+        # WAS A DEFECT.** `best` is per-ROW, and `out[character] = ...` overwrote,
+        # so the printed number was the peak inside whichever take happened to be
+        # recorded LAST rather than the peak across the moveset. With one verb per
+        # character — how this was first used — the two are the same number, which
+        # is why it survived. With a ten-verb grid take it reported
+        # `smash_george_booul 0.00, 0 x 0 body` for a fighter whose F-tilt is a
+        # 56 x 36 box over a 34 x 48 body (1.23), because its LAST verb produced
+        # no live box. A table that says a fighter swings at nothing is a
+        # devastating finding, and it was an artifact of the verb order.
+        prior = out.get(character)
+        if prior is None or best > prior[0]:
+            out[character] = (best, best_strike, best_body)
+    return out
+
+
+def per_move(take: dict) -> dict[tuple[str, str], tuple[float, tuple[float, float], tuple[float, float]]]:
+    """Per (character, MOVE): the peak ratio and the extents it was read from.
+
+    ⛔⛤ **THE PER-CHARACTER PEAK ANSWERS A DIFFERENT QUESTION AND HIDES THIS ONE.**
+    "Does this fighter have at least one generous move" is what the peak says. "Which
+    of this fighter's moves feels dead" is what an author is asking when attacks do
+    not seem to connect, and a roster where every fighter has one enormous smash
+    reads as healthy under the peak while half its tilts whiff.
+
+    ⚠ KEYED ON THE MOVE THE ENGINE ACCEPTED, not on the verb requested: a verb can
+    resolve to a different move per character, and two characters' `attack_forward`
+    are not the same row.
+    """
+    out: dict[tuple[str, str], tuple[float, tuple[float, float], tuple[float, float]]] = {}
+    for row in take.get("takes", []):
+        character = row.get("character")
+        if character is None:
+            continue
+        for frame in row.get("frames", []):
+            subject = next(
+                (b for b in frame.get("bodies", []) if b.get("role") == "subject"),
+                None,
+            )
+            if subject is None:
+                continue
+            bh = subject.get("half")
+            if not bh or bh[0] <= 0 or bh[1] <= 0:
+                continue
+            body_area = 4.0 * bh[0] * bh[1]
+            # ⚠ THE MOVE PLAYING ON THIS FRAME, not the take's intent: a take that
+            # fell back to another move must not have its boxes filed under the
+            # move it was asked for.
+            move = frame.get("move")
+            if isinstance(move, dict):
+                move = move.get("id") or move.get("move")
+            if not move:
+                continue
+            for hit in frame.get("hitboxes", []):
+                if not hit.get("subject_owned"):
+                    continue
+                hh = hit.get("half")
+                if not hh:
+                    continue
+                ratio = 4.0 * hh[0] * hh[1] / body_area
+                key = (character, str(move))
+                prior = out.get(key)
+                if prior is None or ratio > prior[0]:
+                    out[key] = (
+                        ratio,
+                        (2.0 * hh[0], 2.0 * hh[1]),
+                        (2.0 * bh[0], 2.0 * bh[1]),
+                    )
     return out
 
 
@@ -91,8 +159,10 @@ def ratios(take: dict) -> dict[str, float]:
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if a != "--detail"]
+    flags = {"--detail", "--per-move"}
+    args = [a for a in sys.argv[1:] if a not in flags]
     detail_flag = "--detail" in sys.argv[1:]
+    per_move_flag = "--per-move" in sys.argv[1:]
     if len(args) != 1:
         print(__doc__)
         return 2
@@ -123,6 +193,30 @@ def main() -> int:
             "never reached a move'. Check the takes' own `outcome` and "
             "`max_live_hitboxes` first."
         )
+    if per_move_flag:
+        moves = per_move(take)
+        if not moves:
+            raise SystemExit(
+                f"{path} holds {len(rows)} character(s) and NOT ONE frame naming "
+                "the move its boxes belong to. ⇒ REFUSING TO REPORT: an empty "
+                "per-move table reads as 'no move has a box' rather than 'this "
+                "recording does not say which move'."
+            )
+        width = max(len(f"{c} {m}") for c, m in moves)
+        print(f"{len(moves)} (character, move) pairs, peak strike area over own body area\n")
+        for (character, move), (value, (sw, sh), (bw, bh)) in sorted(
+            moves.items(), key=lambda kv: kv[1][0]
+        ):
+            label = f"{character} {move}"
+            mark = "  <- under its own body" if value < 1.0 else ""
+            print(
+                f"  {label:<{width}}  {value:5.2f}   {sw:6.1f} x {sh:5.1f} px "
+                f"against a {bw:.0f} x {bh:.0f} body{mark}"
+            )
+        under = sum(1 for row in moves.values() if row[0] < 1.0)
+        print(f"\n{under} of {len(moves)} moves swing a box smaller than the body that swings it.")
+        return 0
+
     width = max(len(name) for name in rows)
     print(f"{len(rows)} characters, peak strike area over own body area\n")
     for name, value in sorted(rows.items(), key=lambda kv: kv[1]):

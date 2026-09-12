@@ -2610,6 +2610,70 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    5's range may hold for those. That is the next thing this script should be
    pointed at.
 
+   ⛔⛤ **RE-DERIVED 2026-09-12 OVER TEN VERBS, AND THE CENSUS SCRIPT WAS WRONG.**
+   `measure_strike_area_over_body.py` computed a per-TAKE best and then
+   `out[character] = ...`, overwriting — so it printed the peak inside whichever
+   take was recorded LAST. With one verb per character (how it was first used)
+   those are the same number. Over a ten-verb grid take it printed
+   `smash_george_booul 0.00, 0.0 x 0.0 px against a 0 x 0 body` for a fighter
+   whose F-tilt is a 56 x 36 box over a 34 x 48 body. The roster verdict moved
+   with the defect: **11 of 21 "under its own body" before the fix, 1 of 21
+   after.** Fixed, with `scripts/tests/test_strike_area_peaks_across_every_take.py`
+   and two poisons; a fixture whose FIRST take is generous and whose LAST is
+   empty is the only order that can see it.
+
+   ⛔⛔ **AND THE PER-CHARACTER PEAK HIDES THE THING JON IS ASKING ABOUT.** Under
+   it, one fighter of 21 is thin. Per MOVE — the new `--per-move` mode, same
+   recording — **104 of 208 moves swing a box smaller than the body swinging
+   it.** A roster where everybody owns one enormous smash reads as healthy while
+   half its tilts whiff, and *"attacks rarely ever feel like they connect"* is a
+   sentence about moves, not about fighters.
+
+   THE TWENTY THINNEST (peak strike area / own body area, over `attack_*` and
+   `smash_*`, 21 fighters, 210 takes, 2026-09-12):
+
+```text
+  npc_carl_stargan air_neutral                          0.06     11.3 x   6.1 px against a 23 x 48 body 
+  npc_carl_stargan smash_down                           0.07     11.6 x   6.9 px against a 23 x 48 body 
+  medic medic_air_up                                    0.08      3.4 x  13.4 px against a 13 x 48 body 
+  sanic skid                                            0.08     15.2 x   8.4 px against a 34 x 48 body 
+  medic medic_tilt_forward                              0.09     14.2 x   3.9 px against a 13 x 48 body 
+  sanic trailing_heel                                   0.09     13.5 x  10.9 px against a 34 x 48 body 
+  medic medic_tilt_down                                 0.10      9.8 x   6.3 px against a 13 x 48 body 
+  sanic run_up_kick                                     0.10     14.3 x  11.8 px against a 34 x 48 body 
+  sanic corkscrew                                       0.11     12.6 x  13.5 px against a 34 x 48 body 
+  officer officer_tilt_up                               0.11      6.4 x  12.9 px against a 16 x 48 body 
+  npc_carl_stargan tilt_forward                         0.11     11.7 x  10.6 px against a 23 x 48 body 
+  sanic heel_flick                                      0.12     12.6 x  15.2 px against a 34 x 48 body 
+  npc_carl_stargan air_back                             0.12     10.8 x  12.1 px against a 23 x 48 body 
+  npc_carl_stargan tilt_down                            0.12     12.1 x  11.3 px against a 23 x 48 body 
+  npc_carl_stargan smash_up                             0.12     14.1 x   9.8 px against a 23 x 48 body 
+  officer officer_air_neutral                           0.14     13.9 x   7.6 px against a 16 x 48 body 
+  pugnacious_polygon polygon_brawler_air_neutral        0.17     17.5 x   8.4 px against a 18 x 48 body 
+  sanic air_spin                                        0.18     16.8 x  16.8 px against a 34 x 48 body 
+  sanic drill_dive                                      0.18     16.0 x  18.5 px against a 34 x 48 body 
+  pugnacious_polygon polygon_brawler_tilt_up            0.19      9.9 x  15.7 px against a 18 x 48 body 
+```
+
+   THIN MOVES PER FIGHTER (of 10 verbs recorded): goblin 10, ninja_shadow_oni
+   9, perfect_cellular_automaton 9, emmy_noether 9, carl_stargan 9, sanic 8,
+   projectile_polygon 8, officer 7, medic 7, pugnacious_polygon 6, author 6,
+   mary_o_tall 4, alice 3, bob 2, pointed_polygon 2, george_booul 1/8,
+   player_robot_v3 1, pirate_admiral 1, patent_clerk 1, **performer 1**,
+   oiler 0.
+
+   ⭐ **THE PERFORMER IS NEAR THE TOP OF THAT LIST AND THAT IS THE POINT.** Jon's
+   direction was *"learn from what GPT-6 did for the performer and apply that"*;
+   1 of 10 thin, against goblin's 10 of 10, is what "that" measures out to.
+
+   ⚠ **AND THE PLAYER IS NOT IN THIS PROBLEM AT ALL:** `player_robot_v3` peaks at
+   6.71 — a 99 x 98 px box over a 30 x 48 body, the most generous on the roster —
+   because its moves are DERIVED KIT moves, not authored ones. See the
+   participating-domain row in the dispatch banner.
+
+   ⛔ NO VALUES CHANGED. Jon's spatial rulings are his; this is the table he asked
+   to see before any rebalancing.
+
    ⛔⛤ **AND THE MEDIC'S 3.8 px IS NOT HER MOVE TABLE — MEASURED 2026-09-11.**
    Migrating the tables made this census a FILE READ rather than an app boot
    (`scripts/measure_authored_strike_extents.py`, milliseconds). Her authored

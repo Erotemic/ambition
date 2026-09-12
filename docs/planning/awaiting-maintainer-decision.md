@@ -488,6 +488,39 @@ Measured 2026-09-12 by NamekAmbition at `8bd1d884d`.
 
 ## Q113 — is the STRONGER last-good-world guarantee wanted, given its only known implementation is A10 itself?
 
+✅ **RULED 2026-09-12: YES — TAKE THE STRONGER GUARANTEE. A10 IS THE NEXT MAJOR
+ARCHITECTURE PACKET.** Recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md). ⚠ Provenance stated because
+it is not a separate instruction: this was ruled in the architecture review Jon
+forwarded on 2026-09-12.
+
+⇒ **THE SHAPE, and the boundary matters as much as the answer:**
+
+```text
+last-good playable world N
+        ├── build candidate N+1 off to the side
+        ├── reject it safely if invalid
+        └── publish N+1 only when construction succeeds
+```
+
+rather than destroy/mutate N, construct N+1, discover something invalid, and
+recover afterward.
+
+⛔ **NOT ARBITRARY TRANSACTIONAL ROLLBACK OF ARBITRARY ECS COMMANDS** — the ruling
+says so explicitly, and it is the failure mode this packet has always been one
+step from. A10 stays bounded to: typed construction recipes; constrained candidate
+construction; validation of relationships and resources; ONE controlled
+publication boundary; explicit retirement of the old world. **One supported
+scene/reconstruction path, strong end to end** — not a universal recipe language,
+not a World clone, not a second lifecycle coordinator.
+
+⭐ **WHY IT IS WORTH ITS IMPLEMENTATION, which is the question this row actually
+asked:** I3 delivered the CONTENT half of the same architecture — prepare a
+generation, admit it, verify it, publish atomically. A10 is the SCENE half of that
+identical shape, and the pairing is what makes fast, safe edit→play iteration real
+rather than a property of one resource family.
+
+
 ⛔ **A10 HAS BEEN HELD ON THIS AND THE HOLD WAS NOT IN THIS FILE** — found
 2026-09-12 by re-deriving the blocker rather than trusting the note I was
 carrying, which said "A10 needs a stated failure guarantee". It does not: the

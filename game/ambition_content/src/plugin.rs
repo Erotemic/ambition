@@ -31,6 +31,17 @@ impl Plugin for AmbitionContentPlugin {
         // Ensure every character offered by this provider is constructible.
         super::player_robot_lineage::register_declared_cast(app);
 
+        // ⭐⭐ **THE RELOAD TRANSACTION'S PUBLICATION HALF, REGISTERED SO IT IS
+        // NOT A ROAD NOTHING CALLS.** `reload::request_reload` stages a cast
+        // revision and asks the shell to re-prepare; this is what lets the
+        // revision through when the route activates, and what DISCARDS it when
+        // the preparation fails instead. Without the registration the request
+        // road would stage edits that nothing ever published or threw away.
+        app.add_systems(
+            bevy::prelude::Update,
+            super::reload::publish_staged_reload_on_activation,
+        );
+
         // App-local world manifest shared by runtime and presentation readers.
         app.insert_resource(super::worlds::world_manifest());
 

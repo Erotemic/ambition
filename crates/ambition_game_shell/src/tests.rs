@@ -701,9 +701,9 @@ fn re_requesting_the_route_already_active_starts_a_new_transaction() {
     // The same round trip the relaunch sibling runs — request, publish, complete,
     // close discovery, advance to activation — so the ONLY difference between
     // that test and this one is the `QuitToHome` it does and this does not.
-    let mut launch = |router: &mut ShellRouter,
-                      loads: &mut LoadCoordinator,
-                      prepared: &mut PreparedSessionRegistry| {
+    let launch = |router: &mut ShellRouter,
+                  loads: &mut LoadCoordinator,
+                  prepared: &mut PreparedSessionRegistry| {
         let transaction = router
             .apply(
                 ShellCommand::GoTo(ShellRouteId::new("game")),

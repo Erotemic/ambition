@@ -3959,7 +3959,7 @@ row's own acceptance that is the work — not an ignore and not a retry.
 ⛔ **AND THE COMPILE-COST RATCHET IS RED ON THE DEFAULT LANE, PRE-EXISTING,
 MEASURED 2026-09-12.** `largest_unit_lines 106,710 ambition_platformer2d_actor_monolith
 [frozen 100,742, +5,968, budget ±2,014 OUTSIDE budget]`. The baseline is frozen at
-`b3bd00a4a` (2026-09-05) with 2% headroom, and the growth is a week of work by
+`b3bd00a4a` (2026-09-05) with 2% headroom <!-- cite-ok: the ratchet's own STORED baseline label, printed verbatim by `scripts/compile_ratchet.py`. It names a commit this truncated history no longer holds, and that is a fact about the frozen file rather than a citation I am making -->, and the growth is a week of work by
 several hands. ⇒ A full-lane run comes back 11/13 with this and nothing else; do
 NOT read it as a regression in whatever you just changed, and do NOT re-freeze the
 baseline to make it green — a ratchet you re-freeze on contact is a number, not a

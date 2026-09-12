@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use bevy::prelude::{Component, Entity, World};
 
 use super::*;
+#[allow(unused_imports)]
+use super::ConstructionRootCtx;
 use crate::lifecycle::SessionSpawnScope;
 use crate::sim_id::SimId;
 
@@ -81,18 +83,15 @@ enum ToyRelation {
 
 fn build(
     parameters: &Params,
-    root: ConstructionRoot,
-    ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+    ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>,
 ) {
     ctx.services
         .ordinary_runs
         .set(ctx.services.ordinary_runs.get() + 1);
-    ctx.commands
-        .entity(root.entity())
-        .insert(Built(parameters.label.clone()));
+    ctx.insert(Built(parameters.label.clone()));
     // Adversarial behaviour for the roster-verification tests. `Sabotage::None`
     // is the ordinary path every other test runs on.
-    apply_sabotage(root, ctx);
+    apply_sabotage(ctx);
 }
 
 fn wire_grudge(
@@ -1323,19 +1322,11 @@ mod drifting {
         RecipeId::new("drift.b")
     }
 
-    fn construct_a(
-        _: &(),
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
-    ) {
-        ctx.commands.entity(root.entity()).insert(BuiltByA);
+    fn construct_a(_: &(), ctx: &mut ConstructionRootCtx<'_, '_, '_, Self_>) {
+        ctx.insert(BuiltByA);
     }
-    fn construct_b(
-        _: &(),
-        root: ConstructionRoot,
-        ctx: &mut ConstructionExecCtx<'_, '_, '_, Self_>,
-    ) {
-        ctx.commands.entity(root.entity()).insert(BuiltByB);
+    fn construct_b(_: &(), ctx: &mut ConstructionRootCtx<'_, '_, '_, Self_>) {
+        ctx.insert(BuiltByB);
     }
     type Self_ = Drifting;
 
@@ -1619,53 +1610,56 @@ thread_local! {
         const { std::cell::Cell::new(RelationSabotage::None) };
 }
 
-fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>) {
+fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
+    // Bound before any mutable escape: `commands_escape` borrows the context.
+    let root = ctx.root();
+    let transaction = ctx.scope.transaction(ctx.session);
     match SABOTAGE.with(|s| s.get()) {
         Sabotage::None => {}
         Sabotage::StripIdentity => {
-            ctx.commands.entity(root.entity()).remove::<SimId>();
+            ctx.commands_escape().entity(root).remove::<SimId>();
         }
         Sabotage::OverwriteProvenance => {
-            ctx.commands
-                .entity(root.entity())
+            ctx.commands_escape()
+                .entity(root)
                 .insert(SpawnOrigin::Dynamic {
                     parent: SimId::placement("nobody"),
                     sequence: 99,
                 });
         }
         Sabotage::DespawnRoot => {
-            ctx.commands.entity(root.entity()).despawn();
+            ctx.commands_escape().entity(root).despawn();
         }
         Sabotage::DuplicateIdentity => {
             // A second body answering to the SAME planned identity. A
             // `BTreeSet<SimId>` comparison cannot see this at all.
-            ctx.commands.spawn(SimId::placement("a"));
+            ctx.commands_escape().spawn(SimId::placement("a"));
         }
         Sabotage::SpawnExtraAuthoritativeRoot => {
             // A root wearing THIS transaction's ownership that no plan row
             // named. The caller never lists it, which is exactly why the scope
             // is read from the world instead of from the caller.
-            ctx.commands.spawn((
+            ctx.commands_escape().spawn((
                 SimId::placement("uninvited"),
-                ctx.scope.transaction(ctx.session),
+                transaction.clone(),
             ));
         }
         Sabotage::SpawnUnownedIdentity => {
             // A real identity, minted outside the planner, classified by
             // nothing. Indistinguishable from a recipe inventing a root, which
             // is why it is fatal.
-            ctx.commands.spawn(SimId::placement("mystery_body"));
+            ctx.commands_escape().spawn(SimId::placement("mystery_body"));
         }
         Sabotage::RemoveTransactionId => {
-            ctx.commands.entity(root.entity()).remove::<TransactionId>();
+            ctx.commands_escape().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
             let elsewhere = ConstructionScope {
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands
-                .entity(root.entity())
+            ctx.commands_escape()
+                .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
         }
         Sabotage::SpawnForeignScopedRoot => {
@@ -1675,7 +1669,7 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
                 binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
                 room: Some("some_other_room".into()),
             };
-            ctx.commands.spawn((
+            ctx.commands_escape().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
             ));
@@ -1684,7 +1678,7 @@ fn apply_sabotage(root: ConstructionRoot, ctx: &mut ConstructionExecCtx<'_, '_, 
             // Legal: identity-bearing, but explicitly declared non-authoritative.
             // It must carry an identity for this to prove anything — an entity
             // with no `SimId` was never in scope to begin with.
-            ctx.commands
+            ctx.commands_escape()
                 .spawn((SimId::placement("a/visual"), PresentationOnly));
         }
     }
@@ -2604,7 +2598,7 @@ fn a_candidate_that_fails_verification_is_caught_and_dropped_without_touching_th
 /// *"complete visibility proof"* is about.
 ///
 /// ⭐⭐ **AND IT IS LATENT: NO PRODUCTION RECIPE DOES THIS.** Measured 2026-09-12
-/// across the whole tree — every `ctx.commands.spawn` is TEST code, and the one
+/// across the whole tree — every `ctx.commands_escape().spawn` is TEST code, and the one
 /// case the verifier's doc used to name (the giant hand limbs) has been PLAN ROWS
 /// since `giant_hand_plans` fed `giant_cluster_rows`. ⇒ With no recipe minting
 /// its own roots, stamping every PLANNED root isolates every candidate this

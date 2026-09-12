@@ -2671,6 +2671,42 @@ skip_paths = [
 # sanctioned velocity authority, and any divergence between the two lists would be
 # a claim that a site may move a body but not change how it is moving, which the
 # ADR does not say about anything.
+# ─────────────────────────────────────────────────────────────────────────────
+# A10: a construction RECIPE may not spawn.
+#
+# `ConstructionRootCtx` is the surface a recipe gets and it holds no `Commands`,
+# so for the two fully-migrated domains (gravity, portal2d) a recipe spawning an
+# authoritative root is UNEXPRESSIBLE rather than merely unused — which is what
+# makes `commit_inactive`'s candidate isolation complete for them: the executor
+# hides every root it minted, and there is no other way to mint one.
+#
+# `commands_escape()` is the remaining hole, and this policy is what keeps it
+# from growing quietly. The monolith's nine recipes still need it because they
+# delegate to helpers taking `&mut Commands`; every one of those uses is a row in
+# the migration that deletes this waiver, and nothing OUTSIDE that file may add a
+# tenth.
+# ─────────────────────────────────────────────────────────────────────────────
+[[policy]]
+id = "engine.construction-recipes-do-not-spawn"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_shared_tangle"]
+watch_paths = ["crates", "game"]
+rationale = "A10's candidate isolation hides every root the construction EXECUTOR minted. A recipe that minted one of its own would leave it VISIBLE while the rest of the candidate is hidden — a half-visible scene, which is exactly what A10's 'complete visibility proof' is about. `ConstructionRootCtx` removes `Commands` from the recipe surface so this is unexpressible; `commands_escape()` is the one remaining door and exists only because the monolith's recipes delegate to helpers taking `&mut Commands`. KNOWN SCOPE: this matches the escape by NAME, so it counts doors rather than proving nothing walks through one — the structural half is the absent `Commands` field, and this rule exists to keep the exception list from growing while that migration finishes."
+source_doc = "docs/planning/engine/actor-monolith-work-frontier.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = ["commands_escape()"]
+skip_paths = [
+    # The nine recipes still mid-migration. Deleting this line is what finishing
+    # the migration looks like.
+    "ambition_platformer2d_actor_monolith/src/construction/mod.rs",
+    # The type that DEFINES the escape.
+    "ambition_platformer2d_shared_tangle/src/construction/mod.rs",
+]
+
 [[policy]]
 id = "engine.velocity-writes-are-authority-only"
 scope = "engine"

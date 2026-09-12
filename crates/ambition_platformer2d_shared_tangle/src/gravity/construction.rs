@@ -20,11 +20,10 @@ use bevy::prelude::{Name, Vec2};
 
 use super::{GravityZone, OscillatingZone};
 use crate::construction::{
-    ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
-    ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
+    ConstructionDomain, ConstructionPlan, ConstructionRegistrationError,
+    ConstructionRegistry, ConstructionRequest, RecipeDispatch, RecipeId,
     RelationDispatch,
-};
-use crate::lifecycle::SpawnSessionScopedExt;
+    ConstructionRootCtx,};
 
 pub const GRAVITY_ZONE_CONSTRUCTION_DOMAIN: &str = "gravity-zone";
 pub const RECIPE_AUTHORED_GRAVITY_ZONE: &str = "ambition.authored-gravity-zone";
@@ -101,7 +100,8 @@ pub type GravityZoneConstructionRegistry = ConstructionRegistry<GravityZoneConst
 pub type GravityZoneConstructionPlan = ConstructionPlan<GravityZoneConstruction>;
 pub type GravityZoneConstructionRequest = ConstructionRequest<GravityZoneConstruction>;
 
-type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, GravityZoneConstruction>;
+/// The root-bound surface a RECIPE gets — no `Commands`, so it cannot spawn.
+type RootCtx<'w, 's, 'a> = ConstructionRootCtx<'w, 's, 'a, GravityZoneConstruction>;
 
 pub fn recipe_authored_gravity_zone() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_GRAVITY_ZONE)
@@ -128,28 +128,23 @@ pub fn install_gravity_zone_construction_recipes(
 
 fn construct_gravity_zone(
     parameters: &GravityZoneConstructionParams,
-    root: ConstructionRoot,
-    ctx: &mut Ctx<'_, '_, '_>,
+    ctx: &mut RootCtx<'_, '_, '_>,
 ) {
-    let mut entity = ctx.commands.insert_room_in_session(
-        ctx.session,
-        root.entity(),
-        (
-            Name::new(format!("Gravity zone: {}", parameters.name)),
-            GravityZone {
-                aabb: ambition_platformer2d_core::Aabb::new(
-                    parameters.center,
-                    parameters.half_extent,
-                ),
-                dir: parameters.dir,
-            },
-        ),
-    );
+    ctx.insert_in_session((
+        Name::new(format!("Gravity zone: {}", parameters.name)),
+        GravityZone {
+            aabb: ambition_platformer2d_core::Aabb::new(
+                parameters.center,
+                parameters.half_extent,
+            ),
+            dir: parameters.dir,
+        },
+    ));
     // A non-zero amplitude makes the column slide horizontally (the sliding
     // gravity demo); a static column omits the OscillatingZone entirely, so
     // `collect_gravity_zones` sees a region that never moves.
     if parameters.oscillate_amplitude > 0.0 {
-        entity.insert(OscillatingZone {
+        ctx.insert(OscillatingZone {
             base_center: parameters.center,
             half: parameters.half_extent,
             amplitude_x: parameters.oscillate_amplitude,

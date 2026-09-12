@@ -213,6 +213,92 @@ pub struct RecipeDispatch<D: ConstructionDomain> {
     pub construct: ConstructFn<D>,
 }
 
+/// The ONLY surface a recipe gets: its own root, and the two ways to put
+/// components on it.
+///
+/// ⭐⭐ **A10: THIS IS WHY A CANDIDATE IS COMPLETELY ISOLATED RATHER THAN MOSTLY
+/// ISOLATED.** `commit_inactive` hides every root the EXECUTOR minted. A recipe
+/// that minted one of its own would leave it visible while the rest of the
+/// candidate is hidden — a half-visible scene, and exactly what A10's *"complete
+/// visibility proof"* is about. **There is no `Commands` in this type, so a
+/// recipe cannot spawn anything at all.** The gap is not guarded; it is
+/// unexpressible.
+///
+/// ⚠ MEASURED BEFORE IT WAS NARROWED, across all four files that implement a
+/// recipe (`actor_monolith`, `gravity`, `portal2d`, and the toy domain): the
+/// entire production surface is `entity(root).insert(..)` and
+/// `insert_room_in_session(session, root, ..)`. Both are root-bound, both are
+/// here, and **not one production recipe spawns.** So this narrows the type to
+/// what recipes already do rather than to what I would like them to do.
+///
+/// ⇒ `ConstructionExecCtx` still exists and still carries raw `Commands` —
+/// RELATION wiring legitimately needs to touch two arbitrary entities and to
+/// queue a deferred edit. The two roads are different jobs and now have
+/// different surfaces.
+pub struct ConstructionRootCtx<'w, 's, 'a, D: ConstructionDomain> {
+    root: Entity,
+    commands: &'a mut Commands<'w, 's>,
+    /// What the plan describes — content generation and room.
+    pub scope: &'a ConstructionScope,
+    /// Gameplay-session ownership, captured when this commit was requested.
+    pub session: crate::lifecycle::SessionSpawnScope,
+    pub services: &'a D::Services,
+}
+
+impl<'w, 's, 'a, D: ConstructionDomain> ConstructionRootCtx<'w, 's, 'a, D> {
+    /// This row's authoritative entity. Readable because a recipe legitimately
+    /// needs to name it inside its own components; it is not a licence to reach
+    /// for `Commands`, which this type does not have.
+    pub fn root(&self) -> Entity {
+        self.root
+    }
+
+    /// Put components on this row's root.
+    pub fn insert(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        self.commands.entity(self.root).insert(bundle);
+        self
+    }
+
+    /// ⛔⛤ **THE REMAINING ESCAPE, NAMED SO IT CAN BE COUNTED.**
+    ///
+    /// Two of the three production domains (`gravity`, `portal2d`) are fully
+    /// migrated and hold NO `Commands` at all — for them a recipe spawning an
+    /// authoritative root is unexpressible, which is the goal. The monolith's
+    /// nine recipes are not, because they delegate to helpers that take
+    /// `&mut Commands` (`spawn_staged_actor_into`, `spawn_runtime_minion_into`,
+    /// …) and changing those signatures is a separate packet.
+    ///
+    /// ⚠ MEASURED 2026-09-12, and the distinction is finer than it looks: those
+    /// helpers call `spawn_into`, which POPULATES a root the executor allocated.
+    /// The `spawn()` siblings beside them — which really do
+    /// `commands.spawn_empty()` — belong to roads that are NOT on the
+    /// construction planner (`spawn_encounter_mob`, and one marked
+    /// `#[allow(dead_code)]`). So the escape is not currently a hole; it is a
+    /// hole-shaped API with no production user that walks through it.
+    ///
+    /// ⛔ I REACHED THAT CONCLUSION BY THE WRONG ROUTE FIRST. I measured
+    /// `ctx.commands.spawn` in the recipe BODIES, found none, and concluded no
+    /// recipe spawns — a claim about the wrong population, since the spawning
+    /// would happen inside what the recipe CALLS. The conclusion survived; the
+    /// evidence for it did not, and this comment records the evidence that
+    /// actually holds.
+    ///
+    /// ⇒ Every use of this is a row in the migration that removes it.
+    pub fn commands_escape(&mut self) -> &mut Commands<'w, 's> {
+        self.commands
+    }
+
+    /// Put components on this row's root, scoped to the gameplay session that
+    /// requested the commit — the room-retirement lifetime every placed body
+    /// wants.
+    pub fn insert_in_session(&mut self, bundle: impl bevy::prelude::Bundle) -> &mut Self {
+        use crate::lifecycle::SpawnSessionScopedExt as _;
+        self.commands
+            .insert_room_in_session(self.session, self.root, bundle);
+        self
+    }
+}
+
 /// Populates one planned row's already-allocated root.
 ///
 /// A recipe cannot choose the entity, return a different one, or hand back
@@ -220,8 +306,7 @@ pub struct RecipeDispatch<D: ConstructionDomain> {
 /// executor minted. It also cannot fail: it returns nothing.
 pub type ConstructFn<D> = for<'w, 's, 'a> fn(
     &<D as ConstructionDomain>::Parameters,
-    ConstructionRoot,
-    &mut ConstructionExecCtx<'w, 's, 'a, D>,
+    &mut ConstructionRootCtx<'w, 's, 'a, D>,
 );
 
 /// The authoritative entity the executor allocated for one planned row.
@@ -1251,7 +1336,18 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
         // different constructor than the one the plan validated and dumped.
-        (planned.construct)(&planned.parameters, ConstructionRoot(root), ctx);
+        // ⭐ THE RECIPE GETS A ROOT-BOUND SURFACE, NOT THE EXECUTOR'S CONTEXT.
+        // See `ConstructionRootCtx`: there is no `Commands` in it, so a recipe
+        // cannot spawn an authoritative entity the candidate isolation would
+        // miss.
+        let mut root_ctx = ConstructionRootCtx {
+            root,
+            commands: ctx.commands,
+            scope: ctx.scope,
+            session: ctx.session,
+            services: ctx.services,
+        };
+        (planned.construct)(&planned.parameters, &mut root_ctx);
         root
     }
 

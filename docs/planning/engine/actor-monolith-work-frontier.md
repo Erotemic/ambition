@@ -954,10 +954,49 @@ stray is currently unstamped and therefore visible anyway. Kept because a scope
 that cannot see what it is scoping is wrong on its face, and documented as
 unproven rather than asserted.
 
-⇒ **WHAT REMAINS OF A10:** make every authoritative root an explicit plan row so
-the isolation is complete; wire this to a real reload customer (I3b's scene
-reconstruction); and make retirement of the OLD world explicit rather than
-implied.
+### ✅ STEP 4: A RECIPE CANNOT SPAWN — THE SURFACE NO LONGER HAS `Commands`
+
+**`ConstructionRootCtx` is what a recipe now receives, and it holds no
+`Commands` at all.** Its whole API is `root()`, `insert(bundle)` and
+`insert_in_session(bundle)` — all three bound to the row's own root. ⇒ For the
+two fully-migrated domains (`gravity`, `portal2d`) a recipe minting an
+authoritative entity is **unexpressible rather than unused**, which is what makes
+`commit_inactive`'s isolation complete there: the executor hides every root it
+minted, and there is no other way to mint one.
+
+⚠ **NARROWED TO WHAT RECIPES ALREADY DID, MEASURED FIRST.** Across all four files
+implementing a recipe, the entire production surface was
+`entity(root).insert(..)` and `insert_room_in_session(session, root, ..)`. Both
+are root-bound and both are on the new type. Two `type Ctx = ConstructionExecCtx`
+aliases fell out DEAD in the process — those domains had only ever used the
+executor's context for recipes.
+
+⛔ **THE MONOLITH IS NOT DONE AND SAYS SO: `commands_escape()`.** Its nine recipes
+delegate to helpers taking `&mut Commands` (`spawn_staged_actor_into`, …), and
+changing those signatures is its own packet. **The escape is guarded by a new
+policy** `engine.construction-recipes-do-not-spawn`, whose `skip_paths` is the
+migration's remaining rows — so nothing outside that one file can add a tenth
+use, and deleting the waiver is what finishing looks like. Poison-verified: a
+migrated recipe reaching for the escape is refused by file and line.
+
+⛔⛤ **AND MY EARLIER "NO PRODUCTION RECIPE SPAWNS" WAS MEASURED AT THE WRONG
+LEVEL.** I grepped the recipe BODIES for `ctx.commands.spawn`, found none, and
+concluded it — but a recipe hands `ctx.commands` to helpers, so the spawning
+would happen one call down. Re-measured: `spawn_staged_actor_into` and its
+siblings call `spawn_into`, which POPULATES a root the executor allocated; the
+`spawn()` helpers beside them that really do `commands.spawn_empty()` belong to
+roads NOT on the construction planner (`spawn_encounter_mob`, and one
+`#[allow(dead_code)]`). ⇒ **The conclusion survived and its evidence did not**,
+and the new surface makes the question structural instead of a grep.
+
+⚠ **A10's SCOPE NOW HAS A NAMED EDGE:** there are production spawn roads that are
+not on the construction planner at all. They are outside the candidate mechanism
+entirely, and "one supported reconstruction path" means they either migrate or
+are declared out of scope — not that they are silently covered.
+
+⇒ **WHAT REMAINS OF A10:** finish the monolith migration (delete the escape);
+wire this to a real reload customer (I3b's scene reconstruction); and make
+retirement of the OLD world explicit rather than implied.
 
 ## A11. Make installed technique support a preparation contract
 

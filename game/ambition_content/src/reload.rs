@@ -45,10 +45,24 @@ use ambition_characters::prepared::CharacterCatalogGeneration;
 /// reload failed" and "the reload failed and took the running game's fighters
 /// with it" are the two outcomes a caller has to tell apart.
 #[derive(Debug, Clone, PartialEq)]
+/// ⛔⛤ **FOUR OF THESE ARE `#[cfg(test)]`, WHICH IS A STATEMENT ABOUT PRODUCTION
+/// RATHER THAN ABOUT TESTS.** `PackRefused`, `NoMoveSection`, `Activated` and
+/// `Unchanged` are produced ONLY by the fixture road — `publish_candidate` and
+/// the `reload_move_tables*` helpers — which became `#[cfg(test)]` when the
+/// direct publication road stopped being a production authority. Left visible in
+/// a shipped build they would hand every production consumer four states it can
+/// never be given, and the consumer that matters is
+/// [`ReloadRequest::Refused`]: it would be able to spell `Refused(Activated)`,
+/// which is not a refusal at all.
+///
+/// ⚠ THE REST ARE ALL REACHABLE FROM `request_reload`, several of them through
+/// the shared [`admit_candidate`] rather than from its own body — a variant's
+/// producer being one call away is not the same as it being unreachable.
 pub enum MoveReload {
     /// The pack on disk does not compile. **Nothing was staged and the live cast
     /// is untouched** — the refusal carries the content compiler's own
     /// diagnostic, which names every problem rather than the first.
+    #[cfg(test)]
     PackRefused(String),
     /// The pack compiled and carries no move section at all.
     ///
@@ -56,6 +70,7 @@ pub enum MoveReload {
     /// removed is a legitimate edit, and replacing the live cast's movesets with
     /// nothing is not what it asks for. It is reported so a caller can tell it
     /// from a successful reload of zero changes.
+    #[cfg(test)]
     NoMoveSection,
     /// The preparation barrier has not run, so there is no cast to revise.
     ///
@@ -69,11 +84,13 @@ pub enum MoveReload {
     /// staged — `stage_move_section` is all-or-nothing.
     UnknownCharacters(Vec<String>),
     /// The cast was revised.
+    #[cfg(test)]
     Activated { generation: u64, changed: usize },
     /// Every table on disk is what the live cast was already built from.
     ///
     /// ⭐ A FILE WATCHER FIRES ON A SAVE, NOT ON A CHANGE, so this is the
     /// COMMON case in the loop this exists for, not an edge one.
+    #[cfg(test)]
     Unchanged { generation: u64 },
     /// The revision was refused at admission: an authored effect names a
     /// technique this composition did not install. The previous cast is still

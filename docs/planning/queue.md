@@ -4475,7 +4475,7 @@ a zero-jitter rung unnoticed.
 `scripts/measure_floorless_equality_tests.py` while screening for a different
 defect; the emptiness shape found it, but emptiness is not what is wrong with it.
 
-⛔⛔ **`cross_backend_model_parity_inventory_and_system`
+⛔⛔ **`cross_backend_model_parity_inventory_and_system` <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 (`game/ambition_app/src/menu/grid_backend/tests.rs`) BUILDS BOTH SIDES FROM ONE
 CLOSURE.**
 
@@ -4545,7 +4545,7 @@ exists.
 BEFORE IT LANDED.** I wrote *"derive `ActiveMenuPages::active` from the active tab"* and
 counted five write sites. MEASURED across the menu subtree:
 · **SEVEN writes, in THREE files** — one in `menu/dispatch.rs`, three in
-  `menu/grid_backend.rs` (`sync_menu_page_across_backend_switch`,
+  `menu/grid_backend.rs` (`sync_menu_page_across_backend_switch`, <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
   `grid_menu_nav`, `grid_menu_action_activated`), and three in
   `menu/kaleidoscope_app.rs`. Three of them are the CUBE writing its own state
   and one is shared dispatch; they are not the grid's to derive.
@@ -4566,7 +4566,7 @@ fact held in TWO ENCODINGS — a `MenuPage` in the generic cross-backend
 `GridMenuTabState.active_tab` — and either is derivable from the other.
 
 ⛔⛔ **WHICH MEANS THE SYNC IS NOT JUST HAND-WRITTEN AT SEVEN SITES; THERE IS A
-SYSTEM WHOSE ENTIRE JOB IS THE BRIDGE.** `sync_menu_page_across_backend_switch`'s own doc comment: *"Carry the
+SYSTEM WHOSE ENTIRE JOB IS THE BRIDGE.** `sync_menu_page_across_backend_switch`'s own doc comment: *"Carry the <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 active PAGE across an inventory-backend switch (the `\` hotkey or the in-menu
 'Menu Backend' row) so you land on the SAME screen in the new frontend instead of
 being dumped back on Inventory. The cube keeps the page in `ActiveMenuPages.active`;
@@ -4575,7 +4575,7 @@ syncing. Ordered before BOTH republish systems…"* ⇒ **That system, its order
 constraint, and the stored field all disappear if one encoding owns the fact.**
 
 ⛔⛔ **AND IT IS THREE COPIES, NOT TWO — THE BRIDGE SYSTEM CARRIES ITS OWN.** Read
-in full at `grid_backend.rs`'s `sync_menu_page_across_backend_switch`: `sync_menu_page_across_backend_switch` holds a
+in full at `grid_backend.rs`'s `sync_menu_page_across_backend_switch`: `sync_menu_page_across_backend_switch` holds a <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 `Local<Option<MenuPage>>` called `carried`, re-snapshotted every stable frame,
 whose comment says exactly why it exists — *"so a switch can carry it even after
 `grid_menu_nav` clobbers the live `ActiveMenuPages::active`"*. It also holds a
@@ -4587,7 +4587,7 @@ clobber of the first by a system that should not be clobbering it.** Every line 
 that function, both `Local`s, and its *"Ordered before BOTH republish systems"*
 constraint are consequences of the duplication rather than of any requirement.
 The two backends are alternatives (`InventoryUiBackend` branches at
-`sync_menu_page_across_backend_switch`), so exactly one drives at a time and
+`sync_menu_page_across_backend_switch`), so exactly one drives at a time and <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 `ActiveMenuPages.active` — already read ~20 times, already the generic resource —
 is the owner; `active_tab` becomes `tab_index_of(pages.active)` at the point of
 use. ⚠ AND THAT DOES NOT CONTRADICT the grid's *"render its OWN tab"* comment:
@@ -4619,7 +4619,7 @@ described** (derived 2026-09-12 by attributing every non-comment `active_tab` si
 to its enclosing `fn` and asking whether that `fn` already has the owning
 resource):
 · **ALREADY HOLD `pages`, 18 sites — no signature change:**
-  `sync_menu_page_across_backend_switch` (2, and the whole system goes),
+  `sync_menu_page_across_backend_switch` (2, and the whole system goes), <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
   `grid_menu_nav` (8, including the assign-then-mirror pair),
   `grid_menu_republish_view` (4), `grid_menu_action_activated` (1),
   `grid_menu_tab_activated` (3).
@@ -4668,8 +4668,8 @@ AFTER INPUT. None of them names the field, so none of them cares which field hol
 the fact.
 
 ⛔⛔ **TWO TESTS GO, AND THE SECOND IS THE SAME WRONG-PARTY SHAPE AS THE FIRST.**
-Besides `cross_backend_model_parity_inventory_and_system`,
-`backend_switch_carries_the_active_page` does
+Besides `cross_backend_model_parity_inventory_and_system`, <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
+`backend_switch_carries_the_active_page` does <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 `app.add_systems(Update, sync_menu_page_across_backend_switch)` and asserts that
 THE BRIDGE SYSTEM WORKS — not that a user switching backend lands on the same
 page. ⇒ With one owner there is no bridge to test and the landing is true by
@@ -4716,12 +4716,12 @@ uses, or the test is deleted as a tautology with the reason recorded.
 
 ⇒ **CLOSED `4f69cc835`. `GridMenuTabState.active_tab` IS DELETED,
 `ActiveMenuPages::active` IS THE SOLE OWNER, AND THE BRIDGE SYSTEM WENT WITH IT.**
-`sync_menu_page_across_backend_switch` — two `Local`s, a per-frame snapshot, a
+`sync_menu_page_across_backend_switch` — two `Local`s, a per-frame snapshot, a <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 `match` on the arriving backend, and an ordering edge — existed ONLY because one
 fact was stored twice; with one owner the page survives a switch by construction.
 Both wrong-party tests are deleted rather than rewritten
-(`cross_backend_model_parity_inventory_and_system` and
-`backend_switch_carries_the_active_page`, which added the bridge system and
+(`cross_backend_model_parity_inventory_and_system` and <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
+`backend_switch_carries_the_active_page`, which added the bridge system and <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 asserted THE BRIDGE worked). **The deletion is the guard.**
 
 ⭐ THE DELETIONS ARE HONEST BECAUSE THE BEHAVIOUR IS STILL WITNESSED, and a poison

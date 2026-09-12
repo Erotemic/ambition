@@ -836,7 +836,7 @@ back empty it would differ from the constant and fail. Read the survivors; do
 not report the count.
 
 ⛔ **The other survivor shows the shape's worse cousin, where emptiness is the
-lesser half.** `cross_backend_model_parity_inventory_and_system` reads:
+lesser half.** `cross_backend_model_parity_inventory_and_system` reads: <!-- cite-ok: the DELETED cross-backend menu-parity vocabulary, named on purpose. These rows ARE the analysis that justified removing it (2026-09-12); a resolvable citation here would mean the deletion did not happen. -->
 
 ```rust
 let cube_pages = build();

@@ -574,6 +574,57 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         if NEXTEST:
             jobs.append(Job("workspace doctests",
                             [CARGO, "test", "--workspace", "--doc"]))
+        # ⛔⛔ PLAIN CLIPPY, AND `-D warnings` IS DELIBERATELY ABSENT.
+        # This gate fails on clippy's DENY-BY-DEFAULT lints only — the
+        # `correctness` category, where the lint is a claim about what the code
+        # DOES rather than how it reads. MEASURED 2026-09-11 over 80 members /
+        # 122 targets: 9 such sites in 3 lints, all real, all fixed
+        # (`never_loop` x5 discarded every problem after the first;
+        # `erasing_op` x3 was a `seen & 0` "consume this value" idiom that is
+        # exactly what lets the optimiser delete the read it protected;
+        # `absurd_extreme_comparisons` x1 was a ratchet staleness assert that
+        # had become `len() >= 0`).
+        #
+        # ⛔ `-D warnings` WOULD BE A DIFFERENT GATE AND IS NOT THIS ONE'S TO
+        # TAKE: 1145 unique sites across 60 of 80 crates, 702 needing a human
+        # decision, and 53% of the total is `type_complexity` +
+        # `too_many_arguments` + `field_reassign_with_default` — architectural
+        # objections a pre-release engine may rationally decline. Adding it is a
+        # maintainer call, not a lane edit.
+        #
+        # ⚠ `--cap-lints warn` BELONGS TO A CENSUS, NOT HERE. Measuring "how red
+        # is clippy" with the denying flag ABORTS at the first failing unit and
+        # silently under-counts everything behind it — which is exactly how the
+        # 9 sites above were first reported as 5, the other 4 sitting behind the
+        # `never_loop` abort. The lane WANTS that abort; a measurement must not
+        # inherit it.
+        #
+        # ⛔⛤ AND THIS DOES NOT COVER OPT-IN FEATURES — `--all-targets` IS NOT
+        # `--all-features`, AND "clippy is green" WILL BE READ AS IF IT WERE.
+        # A deny-by-default error inside a `#[cfg(feature = "...")]` block is
+        # invisible to this job, and the backbone already omits 434
+        # feature-gated tests across 27 crates. MEASURED rather than left as a
+        # worry: `--all-features` reports 1934 warning sites against this job's
+        # 1886, so 48 sites do exist only behind features — and ZERO of them are
+        # deny-by-default today. The gap is structural and currently unrealised;
+        # do not delete this paragraph on the grounds that nothing is in it.
+        #
+        # ⚠ COST, STATED AS ITS EXPENSIVE CASE: 173s of a 2323s `--rust` lane
+        # (7.4%) on a CLEANED tree — what CI, a fresh clone, or a machine that
+        # has not built today pays. Jobs run sequentially here, so that is added
+        # wall clock, not overlap. Re-run in isolation it is 1.7-2.2s, and that
+        # number is a trap: it holds only for clippy twice with nothing between,
+        # which a lane never produces (~70s was observed for the first re-run
+        # after a full lane).
+        #
+        # ⚠ NO `--fresh` COUNTERPART, unlike `check_no_warnings.py`, and that is
+        # measured rather than assumed: cargo replays a cached unit's clippy
+        # diagnostics AND its failing exit status. With a `never_loop`
+        # reintroduced and nothing else changed, two consecutive runs both
+        # reported the error and both exited 101 — a warm tree cannot pass where
+        # a cold one fails.
+        jobs.append(Job("clippy (workspace, all targets, deny-by-default lints)",
+                        [CARGO, "clippy", "--workspace", "--all-targets"]))
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.

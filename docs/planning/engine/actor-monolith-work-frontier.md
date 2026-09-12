@@ -1042,9 +1042,33 @@ frame still can.** Its doc used to assert *"a recipe also receives raw `Commands
 when written (those limbs have been plan rows since `giant_hand_plans` fed
 `giant_cluster_rows`), and both halves are corrected in place.
 
-⇒ **WHAT REMAINS OF A10:** wire this to a real reload customer (I3b's scene
-reconstruction), and make retirement of the OLD world explicit rather than
-implied. The monolith migration is DONE (step 5 above).
+✅ **A10 STEP 6, 2026-09-12: RETIREMENT OF THE OLD WORLD IS EXPLICIT — `8fc339b16`.**
+The order *"retire the outgoing room, THEN commit the incoming one"* was a fact
+kept in THREE call sites (room transition, session reset, dev hot reload), each
+calling `retire_outgoing` then `commit_deferred` and none saying why the order
+matters. Committing first leaves two rooms' worth of entities in one live world
+with duplicate authored identities; skipping the retire leaks a room.
+`RoomConstructionPlan::replace_live_world` is the one road and **both halves are
+`pub(crate)`** — poison-verified: a bare `commit_deferred` from `ambition_app`
+fails with *"method `commit_deferred` is private"*.
+
+⚠ **THE DESTRUCTIVE WINDOW IS NAMED, NOT REMOVED.** Between the two halves the
+session has no room, and `room_transition/commit.rs` already said the
+consequence: *"A transition that fails after `retire_outgoing` has despawned the
+source room and has nowhere to put the body, which is not a failure a caller can
+handle."* Callers handle it by discipline — a `// Nothing below may fail` comment
+over straight-line code. ⇒ Collapsing the pair means the candidate-based fix
+lands in ONE place instead of three that have to be found first.
+
+⇒ **WHAT REMAINS OF A10 — ONE STEP, AND ITS BLOCKER IS MEASURED.** Wire the
+candidate lifecycle to a real reload customer (I3b's scene reconstruction).
+**MEASURED 2026-09-12: `commit_inactive` / `publish_candidate` /
+`retire_candidate` have ZERO production callers** — the road is built and the
+traffic has not arrived, the same shape `reload.rs`'s own header warns about. The
+blocker is a seam, not a decision: the room road builds through DEFERRED
+`Commands` (`spawn_contents` → `Commands`), while the candidate lifecycle takes
+`&mut World`. ⇒ **Wiring I3b means the room commit becomes exclusive-world**, and
+after step 6 that is a single-site change.
 
 ## A11. Make installed technique support a preparation contract
 

@@ -2692,6 +2692,29 @@ forbid = [
     " body.vel = ", " body.vel += ", " body.vel -= ",
     " body.vel.x = ", " body.vel.y = ",
 ]
+# ⛔⛤ THE ONE SITE REPAIRING `production_slice` SURFACED, EXEMPTED IN PLACE AND
+# PROVISIONALLY. This policy is `production_only`, and the slice used to truncate
+# a file at its first `#[cfg(test)]`, so `brain_effects.rs`'s ranged-recoil write
+# at :354 sat in a function invisible to the scan. Fixing the slice surfaced
+# exactly ONE violation across all eight `production_only` policies, and this is
+# it — measured two ways independently, by running the repaired rule and by an
+# outside replication of it.
+#
+# ⚠ THE EXEMPTION IS THE SITE'S OWN SENTENCE, not a path or a pattern: the marker
+# lives on that line, so the waiver is readable where the write happens rather
+# than only here.
+#
+# ⛔⛤ AND THE REASON IS NOT THAT THE ENGINE PAVES NO ROAD — IT PAVES ONE, AND MY
+# FIRST VERSION OF THIS COMMENT SAID OTHERWISE. `BodyFlightState::stage_launch`
+# is the seam for an external reaction, drained once at the top of `step_motion`,
+# and `ambition_combat/src/hit_reaction.rs` already stages KNOCKBACK through it.
+# `flight.stage_launch(kick, false)` is also clean against the forbid list above,
+# so this guard is pointing AT the seam rather than asking for an exception.
+# ⇒ What is unresolved is whether recoil should take it: routing it changes how a
+# surface-momentum shooter is pushed, which is game feel, and a scanner repair is
+# the wrong provenance for that decision. Filed rather than left here — see
+# queue.md and awaiting-maintainer-decision.md.
+allow_lines = ["policy: ranged recoil, authority unresolved"]
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.
     "ambition_platformer2d_core/src/movement/",

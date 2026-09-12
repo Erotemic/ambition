@@ -640,7 +640,7 @@ fn app_layer_does_not_bind_the_selected_character_sprite() {
     for path in ws.rust_sources("game/ambition_app/src") {
         let text = std::fs::read_to_string(&path).unwrap_or_default();
         // Only production code — a future app-level TEST may legitimately name it.
-        if workspace::contains_ident(workspace::production_slice(&text), needle) {
+        if workspace::contains_ident(&workspace::production_slice(&text), needle) {
             offenders.push(path.display().to_string());
         }
     }

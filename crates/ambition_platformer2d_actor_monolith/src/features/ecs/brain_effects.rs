@@ -351,7 +351,35 @@ pub fn spawn_projectiles_from_brain_actions(
         let kick = world_dir * -discharge.recoil;
         #[cfg(feature = "causal")]
         let before = kin.vel;
-        kin.vel += kick;
+        // ⛔⛤ **UNRESOLVED AGAINST `engine.velocity-writes-are-authority-only`,
+        // AND IT HAD BEEN INVISIBLE TO IT.** That policy is `production_only`,
+        // and `production_slice` used to truncate a file at its first
+        // `#[cfg(test)]` — line 26 here — so this whole function was outside the
+        // scan. Repairing the slice surfaced exactly ONE violation workspace-wide
+        // and it is this line.
+        //
+        // ⛔ **THE KERNEL PAVES A ROAD FOR EXACTLY THIS AND KNOCKBACK ALREADY
+        // TAKES IT.** `BodyFlightState::stage_launch` is staged by an external
+        // reaction and drained once at the top of `step_motion`, and the
+        // kernel's own doc says why a direct write is wrong: it *"is
+        // authoritative for an axis-swept body and a LIE for a riding
+        // surface-momentum one, whose `vel` is derived from `v_t` and
+        // republished every step — which is why Sanic took knockback with every
+        // number non-zero and never moved."* `hit_reaction.rs` stages its
+        // knockback there for the identical stated reason.
+        //
+        // ⇒ **SO THE EXEMPTION IS NOT "NO ROAD EXISTS" — IT IS THAT MOVING THIS
+        // ONE CHANGES GAME FEEL, AND A SCANNER REPAIR IS THE WRONG PROVENANCE
+        // FOR THAT.** This system holds `&mut BodyKinematics` and no
+        // `BodyFlightState` (its `flight` names are `ProjectileFlight`, the
+        // projectile's own envelope), so routing recoil means widening what it
+        // touches AND changing how a surface-momentum shooter is pushed. ADR
+        // 0024 §8 names knockback and recoil in ONE sentence, which makes the
+        // asymmetry the question rather than the answer. ⚠ A PROVISIONAL MARKER
+        // BECOMES PERMANENT BY DEFAULT, so the question is filed rather than
+        // left here: see queue.md and the awaiting-maintainer-decision row.
+        kin.vel += kick; // policy: ranged recoil, authority unresolved
+
         // The authorship fact: this site NAMES itself as the writer, with the
         // velocity either side of its own write. An explanation of the tick now
         // says who moved the body instead of only that it moved.

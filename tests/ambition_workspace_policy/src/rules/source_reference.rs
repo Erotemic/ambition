@@ -46,7 +46,7 @@ pub fn check(ws: &Workspace, policy: &Policy, report: &mut Report) {
             }
             let text = workspace::read_selected_source(&file);
             let scan: &str = if policy.production_only {
-                workspace::production_slice(&text)
+                &workspace::production_slice(&text)
             } else {
                 &text
             };

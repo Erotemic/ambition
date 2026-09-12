@@ -290,11 +290,72 @@ pub fn code_only(line: &str) -> &str {
     }
 }
 
-/// The production half of a file: everything before the first `#[cfg(test)]`.
-pub fn production_slice(text: &str) -> &str {
-    text.split("#[cfg(test)]")
-        .next()
-        .expect("split yields at least one piece")
+/// The production lines of a file: everything OUTSIDE a `#[cfg(test)]` item.
+///
+/// ⛔⛤ **THIS USED TO BE `text.split("#[cfg(test)]").next()` — IT TRUNCATED AT
+/// THE FIRST TEST MODULE AND NEVER RESUMED.** A file that interleaves production
+/// → tests → MORE production had everything after its first `#[cfg(test)]`
+/// invisible to every `production_only` policy, and to the S3 ownership guard in
+/// `tests/policy.rs`. MEASURED 2026-09-12: 106 of 1850 files under `crates/` and
+/// `game/` declare a column-0 item after their first `#[cfg(test)]`.
+///
+/// ⭐ POISON-DEMONSTRATED BEFORE IT WAS FIXED (NamekAmbition, 2026-09-12): the
+/// same forbidden string, in the same file, under the same policy — caught at
+/// line 211 and NOT caught at line 777. Only the position changed, and the
+/// caught arm is what proved the instrument was capable of seeing it.
+///
+/// ⛔ **LINE NUMBERS ARE PRESERVED, AND THAT IS NOT A DETAIL.** Both callers
+/// report `lines().enumerate()` as a source line. Removing test lines would
+/// renumber every violation after the first test module, so test lines are
+/// BLANKED rather than dropped and the returned text has the same line count as
+/// the input.
+///
+/// ⚠ **A LINE SCANNER, NOT A PARSER, AND IT SAYS SO.** A `#[cfg(test)]` item
+/// ends at the first later line whose indentation is no deeper and which closes a
+/// brace, or at the `;` of a brace-less item. That is exact for every shape this
+/// workspace writes — `#[cfg(test)] mod tests { .. }` at column 0, and nested
+/// ones — and it can be fooled by a closing brace inside a raw string at lower
+/// indentation than its own item. The failure direction is SAFE: a mis-ended
+/// span reopens scanning early, so the scanner reports MORE, never less.
+pub fn production_slice(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut keep = vec![true; lines.len()];
+    let mut i = 0usize;
+    while i < lines.len() {
+        let line = lines[i];
+        if !line.trim_start().starts_with("#[cfg(test)]") {
+            i += 1;
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        keep[i] = false;
+        let mut j = i + 1;
+        let mut opened = false;
+        while j < lines.len() {
+            keep[j] = false;
+            let body = lines[j].trim_start();
+            let body_indent = lines[j].len() - body.len();
+            if body.contains('{') {
+                opened = true;
+            }
+            if opened {
+                if body_indent <= indent && body.starts_with('}') {
+                    break;
+                }
+            } else if body.ends_with(';') {
+                // A brace-less item: `#[cfg(test)] use ..;`
+                break;
+            }
+            j += 1;
+        }
+        i = j + 1;
+    }
+    lines
+        .iter()
+        .zip(keep)
+        .map(|(line, keep)| if keep { *line } else { "" })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn is_ident_char(c: u8) -> bool {

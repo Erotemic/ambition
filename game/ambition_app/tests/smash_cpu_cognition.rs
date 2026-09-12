@@ -129,25 +129,80 @@ fn play_mirror_match(
     let mut streams: Vec<(usize, u64)> = Vec::new();
     let mut frames: Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = Vec::new();
     let mut grabbing: Vec<bool> = Vec::new();
-    for _ in 0..(countdown + ticks) {
+
+    // ⛔⛤ **WAIT FOR THE PREMISE, THEN MEASURE — THIS USED TO SPEND A FIXED
+    // BUDGET AND COUNT WHATEVER LANDED IN IT, AND THAT IS A MEMBER OF THE P0
+    // FLAKY-BINARY FAMILY.** The loop ran `countdown + ticks` updates and kept
+    // only those with two seated bodies, so **anything that delayed SEATING ate
+    // the observation window silently** and the failure read *"only N frames had
+    // two seated bodies, so the match did not really run"* — which names the
+    // wrong cause: the match ran fine, it just started late.
+    //
+    // ⭐ MEASURED 2026-09-12, ten runs of ONE binary with no code change between
+    // them: the first two-seated tick was `5, 5, 5, 5, 37, 35, 5, 32, 5, 45` —
+    // **bimodal, and varying by forty frames** — while the LAST two-seated tick
+    // was 137 in all ten. ⇒ **Nothing ends early; the budget is eaten at the
+    // START.** A run observed in the gate lane at `4e9d34bee` got 48 frames,
+    // which on this evidence is the same mechanism further out, not a KO.
+    //
+    // ⇒ So the seating is the PREMISE and is waited for, and `ticks` is the
+    // MATCH window measured after it holds. A fixture that never reaches its
+    // subject must say so rather than quietly measure less.
+    const SEATING_BUDGET: usize = 600;
+    let mut warmup = 0usize;
+    let first_two_seated = loop {
+        app.update();
+        warmup += 1;
+        let seated = seat_positions(&mut app);
+        if seated.len() == 2 {
+            break seated;
+        }
+        assert!(
+            warmup < SEATING_BUDGET,
+            "`{character}` never seated two bodies within {SEATING_BUDGET} updates \
+             (the opening countdown is {countdown}), so the match never started and \
+             nothing below would be measuring it. This is the PREMISE failing, not \
+             the match ending early — see the seating trace."
+        );
+    };
+
+    // The streams as CONSTRUCTED, read on the first frame both bodies exist —
+    // before either has consumed a sample, so this is the seed the composition
+    // chose rather than a position in the walk.
+    streams = fighter_streams(&mut app);
+    let held_now = |app: &mut App| {
+        let world = app.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::combat::capture::CapturedBy>();
+        q.iter(world).next().is_some()
+    };
+    grabbing.push(held_now(&mut app));
+    frames.push(first_two_seated);
+
+    // ⚠ STILL CONDITIONAL ON TWO SEATS, because a body LEAVING mid-window (a KO,
+    // a despawn) is a real gameplay outcome this must not paper over. The
+    // difference is that a short `frames` now means exactly that, instead of
+    // meaning the match started late.
+    let mut left_mid_window: Option<usize> = None;
+    for tick in 1..ticks {
         app.update();
         let seated = seat_positions(&mut app);
         if seated.len() == 2 {
-            if streams.is_empty() {
-                // The streams as CONSTRUCTED, read on the first frame both bodies
-                // exist — before either has consumed a sample, so this is the
-                // seed the composition chose rather than a position in the walk.
-                streams = fighter_streams(&mut app);
-            }
-            let held = {
-                let world = app.world_mut();
-                let mut q = world.query::<&ambition_platformer2d::combat::capture::CapturedBy>();
-                q.iter(world).next().is_some()
-            };
+            grabbing.push(held_now(&mut app));
             frames.push(seated);
-            grabbing.push(held);
+        } else if left_mid_window.is_none() {
+            left_mid_window = Some(tick);
         }
     }
+
+    // ⚠ EVERY FIELD ANSWERS A DIFFERENT QUESTION, and `warmup` is the one that
+    // was invisible before: how many updates the world needed before the match
+    // existed at all. `left_mid_window` is now the ONLY way `observed` can fall
+    // short of `ticks`, which is what makes a short window mean one thing.
+    eprintln!(
+        "[mirror-match] character={character} ticks={ticks} countdown={countdown} \
+         warmup={warmup} observed={} left_mid_window={left_mid_window:?}",
+        frames.len(),
+    );
     (streams, frames, grabbing)
 }
 

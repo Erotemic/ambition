@@ -15,11 +15,67 @@ review made no Rust execution claim; see the coverage receipt.
 
 ## ⛔⛔ NEXT ARCHITECTURE ACTION — READ THIS BEFORE PICKING A ROW
 
-**Close I3: complete-generation candidate preparation and ATOMIC publication.**
-Integrate it with the canonical `PreparedContent` / `PreparedContentIdentity` /
-`ContentEpoch` authority, composition admission, A10 reconstruction and rollback
-timeline ownership. **Do not migrate another content family until this
-transaction exists.**
+⛔⛤ **I3 IS CLOSED, AND THIS HEADER POINTED AT FINISHED WORK — WHICH IS THE MOST
+EXPENSIVE KIND OF STALE ROW, BECAUSE IT IS THE FIRST THING ANYONE READS.** It said
+*"Close I3: complete-generation candidate preparation and ATOMIC publication …
+**Do not migrate another content family until this transaction exists.**"*
+**The transaction exists.** Verified 2026-09-12 by tracing every clause of that
+sentence rather than by trusting the row: candidate preparation
+(`CandidateGeneration`), atomic publication (one commit, families and selection
+together, asserted frame-exactly at app level), the canonical
+`PreparedContentIdentity` and `ContentEpoch` (staked at adoption as
+`PendingContentIdentity`, resolved by load id in `content_identity_for`, folded
+into the `content.pack` fingerprint section, epoch allocated as the final
+non-fallible step), composition admission (`admit_candidate`, one preflight), and
+rollback timeline ownership (`cb8eac09f`: publication refused while a timeline
+speculates or its authority is unhealthy). **A10 reconstruction is the SCENE half
+and was never needed for any of it** — see `Q113`.
+
+## ⭐ WHAT IS ACTUALLY ACTIONABLE TODAY, surveyed 2026-09-12
+
+Read this before picking a row, because the answer is short and most of the board
+is neither open nor abandoned:
+
+1. **NOTHING IN THE CONTENT TRANSACTION.** All four of its "still open" findings
+   were stale (below); the lane is complete to its blockers.
+2. **CONTENT FAMILY #4 IS UNBLOCKED BY THIS ROW AND BLOCKED BY THE CENSUS.** The
+   three-gate census says no remaining family clears all three against the code as
+   it stands, and the two gates that could move are `Q110` (may a provider-keyed
+   fragment registry gain a named hot-reload replacement?) and `Q111` (may
+   `BossCatalog`/`CharacterCatalog` ever be absent?). **Those are rulings, not
+   work.**
+3. **THE MOVESET/HITBOX HALF IS MEASURED TO ITS DECISION POINT** — `Q115` carries
+   the numbers, the files, and where the values go. The values are Jon's.
+4. **P2: TEN OF EIGHTEEN ROWS EXAMINED, AND THE EIGHT I DID NOT OPEN ARE NAMED
+   BELOW SO THE UNSURVEYED SPACE IS VISIBLE RATHER THAN IMPLIED.** Of the ten: `D-STRIKE-GENEROSITY`,
+   `D-TETHER-LINE`, `D-BLINK-WALL-UNGUARDED`, `D-VFX-ID-ADMISSION` and
+   `D-PARITY-SELF` are closed; `D-ID-CONVENTION-DRIFT` and `D166` censused to
+   EMPTY (no candidate — do not re-census without a new reason); `D-HEADLESS-DESPAWN`
+   is `Q114`; `D-BRAIN-MENU`'s fix EXISTS behind `--features truthful_attack_kit`
+   and is held because it re-prices matchups and its owner doc rules that needs
+   the ladder rig rather than a coordinator's judgement;
+   `D-DAMAGEABLE-BODY-IDENTITY`'s invariant is enforced at the DERIVE, so widening
+   its census would only re-confirm what the structure already guarantees.
+   ⚠ **NOT EXAMINED, so treat their stated status as unverified:**
+   `D-POTATO-ASPECT` (repaired two generation defects 2026-09-09 and defers to
+   `Q69` for the interim fallback policy — skimmed, not traced), `D129`, `D72`,
+   `D-SCENARIO-IDENTITY`, `D-RUNG9-NOISE`, `D-LANE-UNRUNNABLE / D-APPIT-FLAKE`,
+   `POST-CARVE-DOC-SWEEP`, and the untitled *"The predicate's LAST caller cannot
+   be guarded"* row. **A survey that does not name what it skipped reads as
+   exhaustive**, and the next reader would inherit that.
+5. **THE P0 FLAKY `workspace` JOB IS STILL OPEN AND STILL UNEXPLAINED** — twelve
+   consecutive greens, three consecutive reds before them, eight targeted
+   reproductions that each ruled something out. Its standing instruction is the
+   cheapest evidence available: read every future gate failure and record its test
+   name, its assertion, **its SHA and its machine.**
+
+⚠ **AND THE REASON THIS SURVEY IS HERE RATHER THAN IN A REPORT:** four of the
+board's rows described defects that were fixed days earlier, one held packet's
+blocker was mis-stated in a way that made it look startable, and three
+"maintainer's call" holds were absent from the maintainer's decision file. **A
+board that is wrong in the direction of looking actionable costs a day per
+reader.** Re-derive a row before sizing work from it; if it is stale, say so IN
+THE ROW.
 
 ⛔ **THE ROW BELOW THAT SAYS "Next bounded action: step 5" IS SPENT.** I2 steps 5
 and 6 landed 2026-09-11 and so did I3 step 1; a new agent reading downward would
@@ -4268,7 +4324,7 @@ all twenty rows of D-CPU-INERT — becomes a measurement of a different opponent
 **Acceptance:** the ruling is recorded, and the ladder cannot drift into or out of
 a zero-jitter rung unnoticed.
 
-### D-PARITY-SELF — a cross-backend parity guard compares one backend to itself
+### D-PARITY-SELF — ✅ **DONE `4f69cc835`**: it compared one backend to itself, and the duplication it could not see is collapsed
 
 **Owner:** menu composition. Found 2026-09-10 by
 `scripts/measure_floorless_equality_tests.py` while screening for a different
@@ -4319,10 +4375,10 @@ much, the fixture's `build() == build()` really is a tautology.
 ⛔⛔ **BUT ONE OF THOSE NINE ARGUMENTS IS DERIVED FROM A DIFFERENT FIELD ON EACH
 SIDE.** `window_start` is non-zero only on the System page, and the two backends
 ask DIFFERENT questions about which page that is:
-· the cube gates on the SHARED `pages.active` (in `kaleidoscope_app/cache.rs`);
+· the cube gates on the SHARED `ActiveMenuPages::active` (in `kaleidoscope_app/cache.rs`);
 · the grid gates on its OWN `tab_state.active_tab` (in `grid_menu_republish_view`), and its
   comment says so deliberately — *"RENDER THE GRID'S TAB, not the shared
-  `pages.active` (which the cube drives) … Building here … makes the grid
+  `ActiveMenuPages::active` (which the cube drives) … Building here … makes the grid
   self-sufficient: it does not depend on the cube's republish ordering/gating,
   **which was why the body could lag a tab behind / always read Items**."*
 ⇒ So when those two fields disagree, the same builder is called with a DIFFERENT
@@ -4333,15 +4389,15 @@ structurally incapable of seeing the one axis on which the two backends can
 disagree.
 
 ⛔ **AND UNDERNEATH IT IS A SECOND AUTHORITY: "WHICH TAB IS SHOWING" HAS TWO
-RECORDERS.** `tab_state.active_tab` is the GRID's, `pages.active` is the CUBE's,
+RECORDERS.** `tab_state.active_tab` is the GRID's, `ActiveMenuPages::active` is the CUBE's,
 and the grid assigns the second from the first so the cube's readers do not lag —
 one of those assignments annotated *"even after `grid_menu_nav` clobbers the live
-`pages.active`"*. A hand-sync between two fields is where a missed site becomes a
+`ActiveMenuPages::active`"*. A hand-sync between two fields is where a missed site becomes a
 tab that reads `Items` forever, and it is invisible to the parity guard that
 exists.
 
 ⛔⛤ **AND MY FIRST WRITE-UP OF THE FIX WAS WRONG; SIZING IT IS WHAT CAUGHT THAT,
-BEFORE IT LANDED.** I wrote *"derive `pages.active` from the active tab"* and
+BEFORE IT LANDED.** I wrote *"derive `ActiveMenuPages::active` from the active tab"* and
 counted five write sites. MEASURED across the menu subtree:
 · **SEVEN writes, in THREE files** — one in `menu/dispatch.rs`, three in
   `menu/grid_backend.rs` (`sync_menu_page_across_backend_switch`,
@@ -4350,7 +4406,7 @@ counted five write sites. MEASURED across the menu subtree:
   and one is shared dispatch; they are not the grid's to derive.
 · **~20 reads, almost all in the kaleidoscope subtree** — `pointer.rs`,
   `cache.rs`, `scroll.rs` and a dozen in `kaleidoscope_app.rs`.
-⇒ **`pages.active` IS THE CUBE'S OWN STATE, and `tab_state` does not exist in the
+⇒ **`ActiveMenuPages::active` IS THE CUBE'S OWN STATE, and `tab_state` does not exist in the
 cube's road at all — so it CANNOT be derived from the active tab.** The collapse
 that would work is a single owner both backends read, which is a different and
 larger change than the sentence I first wrote.
@@ -4377,7 +4433,7 @@ constraint, and the stored field all disappear if one encoding owns the fact.**
 in full at `grid_backend.rs`'s `sync_menu_page_across_backend_switch`: `sync_menu_page_across_backend_switch` holds a
 `Local<Option<MenuPage>>` called `carried`, re-snapshotted every stable frame,
 whose comment says exactly why it exists — *"so a switch can carry it even after
-`grid_menu_nav` clobbers the live `pages.active`"*. It also holds a
+`grid_menu_nav` clobbers the live `ActiveMenuPages::active`"*. It also holds a
 `Local<Option<InventoryUiBackend>>` to detect the switch, and a `match` writing
 into whichever encoding the ARRIVING backend treats as authoritative.
 ⇒ The census is `ActiveMenuPages.active`, `GridMenuTabState.active_tab`, and
@@ -4407,7 +4463,7 @@ populations that cost three different amounts — produced by
 Of the 35 production code sites the script classifies: **18 in systems that
 ALREADY hold `pages`** (no signature change), **9 in 4 systems that would need it
 added**, and the rest are the field's own declaration plus helpers that take the
-index as a PARAMETER and never learn the fact moved. Plus the ~20 `pages.active`
+index as a PARAMETER and never learn the fact moved. Plus the ~20 `ActiveMenuPages::active`
 reads, which do not change at all: that field becomes the sole owner, so its
 readers are already correct.
 ⛔⛤ AND "ALL OF THEM IN ONE FILE" WAS MY THIRD WRONG NUMBER HERE — production is
@@ -4437,7 +4493,7 @@ the next person does not re-derive them — and because the `Option`/`usize`
 mismatch is the obvious way this collapse could be WRONG:**
 1. **The encodings convert both ways, totally.** `tab_page` clamps with
    `min(len-1)`, `tab_index_of` falls back with `unwrap_or(0)`. Neither can fail.
-2. **NOTHING CLEARS `pages.active` WHEN THE MENU CLOSES.** `active: None` appears
+2. **NOTHING CLEARS `ActiveMenuPages::active` WHEN THE MENU CLOSES.** `active: None` appears
    exactly ONCE in `ambition_menu`, in the constructor, and `replace_pages` always
    assigns `Some(active)`. ⇒ Deriving the tab preserves the remembered page across
    a close/open exactly as the stored `usize` does. **This was the real risk: an
@@ -4446,7 +4502,7 @@ mismatch is the obvious way this collapse could be WRONG:**
 3. **THE `None` FALLBACK IS THE CURRENT DEFAULT, EXACTLY.** `MenuPage::ALL[0]` IS
    `MenuPage::Items`, so today's `active_tab: 0` initializer and a derived
    `tab_index_of(pages.active.unwrap_or(MenuPage::Items))` agree on the only state
-   where `pages.active` is `None`.
+   where `ActiveMenuPages::active` is `None`.
 4. **EXACTLY ONE BACKEND DRIVES.** `InventoryUiBackend` is an either/or that both
    republish roads branch on, so a single owner has a single writer at any time.
 ⇒ All four hold, so this is mechanical rather than a design question — which is a
@@ -4483,7 +4539,7 @@ round-trip is already visible in the source — `grid_menu_nav` assigns the inde
 immediately writes `pages.active = Some(tab_page(tab_state.active_tab))`, and again in its arrow-key branch. **Two encodings, written one after the other, three lines apart.**
 
 ⛔⛤ **AND THE HONEST RECORD IS THAT I SIZED THIS THREE TIMES AND WAS WRONG TWICE.**
-First: *"derive `pages.active` from the active tab"* — backwards, and counted 5
+First: *"derive `ActiveMenuPages::active` from the active tab"* — backwards, and counted 5
 write sites. Second: 7 writes across 3 files, *"not implementable as stated"* —
 the count was right and the conclusion too pessimistic, because I had not yet
 looked for an inverse mapping. Third: isomorphic, with a bridge system to delete.
@@ -4512,6 +4568,53 @@ call site"*, and that is an AST job, not a regex one.
 
 **Acceptance:** each compared side is obtained through the road its own party
 uses, or the test is deleted as a tautology with the reason recorded.
+
+⇒ **CLOSED `4f69cc835`. `GridMenuTabState.active_tab` IS DELETED,
+`ActiveMenuPages::active` IS THE SOLE OWNER, AND THE BRIDGE SYSTEM WENT WITH IT.**
+`sync_menu_page_across_backend_switch` — two `Local`s, a per-frame snapshot, a
+`match` on the arriving backend, and an ordering edge — existed ONLY because one
+fact was stored twice; with one owner the page survives a switch by construction.
+Both wrong-party tests are deleted rather than rewritten
+(`cross_backend_model_parity_inventory_and_system` and
+`backend_switch_carries_the_active_page`, which added the bridge system and
+asserted THE BRIDGE worked). **The deletion is the guard.**
+
+⭐ THE DELETIONS ARE HONEST BECAUSE THE BEHAVIOUR IS STILL WITNESSED, and a poison
+proves it rather than an argument: making the derivation always answer `Items`
+reddens **ten arms**, including all four that assert which tab the user sees after
+input. Nineteen of the twenty-six test sites went through one helper, so they
+moved to the surviving authority by changing one line and never noticed.
+
+⛔⛤ **AND THE COLLAPSE SURFACED THREE THINGS I HAD NOT PREDICTED, each found by a
+test rather than by reading:**
+1. **The post-dispatch re-pin was LOAD-BEARING as a refusal.**
+   `grid_menu_action_activated` ended with `pages.active = Some(tab_page(active_tab))`,
+   which is how the grid expressed *"I do not honour `ChangePage`"* — as *"whatever
+   that did, overwrite it from my shadow value"*. With no shadow the refusal had to
+   become explicit (`continue` on `ChangePage(_)`), which is strictly better: the
+   rule was always *"the grid does not change pages this way"* and it now reads
+   that way instead of depending on a second field existing.
+2. **The arm pinning that asymmetry was reading an INITIALISATION, not a refusal.**
+   `change_page_is_a_deliberate_per_backend_asymmetry` asserted `Some(Items)` while
+   its fixture published no pages at all — so `active` was `None`, and the value it
+   observed came from the unconditional re-pin INITIALISING the field. ⇒ It would
+   have passed against a dispatcher that honoured `ChangePage` and was overwritten
+   afterwards. It seeds the page explicitly now, so it asserts a genuine no-op.
+3. **`pages.active` in prose trips a guard I did not know existed.**
+   `no_planning_doc_names_a_condition_the_engine_does_not_publish` reads a
+   lowercase dotted token in backticks as an engine CONDITION ID, and it is right
+   to: `quest.active` is one. Eleven occurrences in this row are
+   `ActiveMenuPages::active` now — Rust path syntax, unambiguous to the scanner and
+   to a reader.
+
+⚠ THE PRODUCTION CODE SHRANK AND THE FILE GREW, measured rather than asserted:
+`grid_backend.rs` went **810 → 788 non-comment lines (−22)** while the file grew 23
+lines overall, so roughly forty-five lines of explanation replaced twenty-two lines
+of mechanism. That is deliberate — a system, a field, an ordering edge and two
+tests are gone, and what remains in their place is WHY the duplication existed.
+The next person tempted to add a second copy of "which tab is showing" reads it
+first. **A line count that improves while the file grows is the shape to expect
+from a collapse; measure the code lines, not the diff.**
 
 ### D-HEADLESS-DESPAWN — a headless composition can SPAWN render-synced entities but not DESPAWN them
 

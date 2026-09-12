@@ -1503,15 +1503,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             ambition_platformer2d::combat::ledge_trump::resolve_ledge_trumps
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // A capture ends in `Settle`, where post-damage bookkeeping belongs.
-        // Hitstun and the recoil lock are written by damage resolution in
-        // `Resolve`, so a release that ran earlier would read last tick's answer
-        // and let a grab survive by one frame the hit that should have broken it.
-        app.add_systems(
-            sim,
-            ambition_platformer2d::combat::capture::systems::release_interrupted_captures
-                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
-        );
+        // ⛔ THE INTERRUPTION RELEASE MOVED TO THE ENGINE COMPOSITION 2026-09-12,
+        // AND THIS DEMO WAS THE ONLY PLACE IT HAD EVER BEEN INSTALLED. Its
+        // reasoning — `Settle`, because `Resolve` writes the hitstun a release
+        // must read — travelled with it into `CombatSchedulePlugin`. Smash was
+        // never the right owner of "a hit breaks a grab": 17 shipped movesets
+        // outside this demo author `smash.capture_attempt`, and in every one of
+        // their hosts the hold was unbreakable by damage for as long as this
+        // line lived here. ⇒ Re-adding it here would run the release twice.
         // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
         // there, and placing a body before it has been spent would put the
         // fighter back on the stage for a knockout that had not been counted.

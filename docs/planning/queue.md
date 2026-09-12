@@ -3754,6 +3754,46 @@ class is reusable; demo-only policy stays in Smash.
 **Acceptance:** update the inventory row and add production-path acceptance. Do
 not append another chronology to a retired expressive-moves campaign.
 
+⭐⭐ **RECEIPT 2026-09-12 — `S0.2`'s first half, and it was a LIVE PRODUCTION
+DEFECT rather than a missing feature.** `S0.1`'s remaining work is Jon's playtest
+call (`clank_damage_window: 0.0` in every shipped ruleset), so `S0.2` is the next
+packet under the gate. Re-deriving its HEAD evidence found something the row did
+not claim: **a hit could not break a grab in any host but the Smash demo.**
+`release_interrupted_captures` is the ONE capture system the engine compositions
+never installed — its only production installer was `ambition_demo_smash`'s
+`SmashRulesPlugin` — while **17 movesets under
+`game/ambition_content/assets/data/movesets/` author `smash.capture_attempt`**.
+Everywhere else a hold ended only on the escape timer, a throw, or a despawned
+captor. Nothing in the tree said that was deliberate.
+
+⇒ **Fixed by moving the rule to the engine**, under the newly published
+`ambition_combat::capture::GrabInterruptionApplied` set in `CombatSet::Settle`,
+with the demo's install retired so it runs once. Commit: see below. Guard:
+`the_shipped_engine_installs_the_grab_interruption_exactly_once`
+(`combat_schedule.rs`), poison-verified in BOTH directions — 0 installs fail, 2
+installs fail.
+
+⛔⛤ **AND THE FIRST GUARD I WROTE COULD NOT FAIL.** It filtered the schedule's
+systems by NAME; `System::name()` returns `"<Enable the debug feature to see the
+name>"` in this workspace's build, so it counted zero with the install present
+and would have counted zero forever. ⇒ **A published SET is a node
+`ScheduleGraph::systems_in_set` can be asked about**; a name is not an instrument
+here. This is the third member of the *ask the schedule, not the source* family.
+
+⚠ **IT RE-TUNES THE GROUND GAME AND JON HAS NOT PLAYED IT.** Grabs in the main
+game were effectively damage-proof and now are not. Recorded rather than tuned.
+
+⛔ **`S0.2`'s SECOND HALF IS NOT DONE AND IS BLOCKED ON A FILE HOLD.** Mutual-grab
+cancellation and an explicit hitbox-vs-grab arbitration both live in
+`crates/ambition_combat/src/capture/systems.rs` and `hitbox/mod.rs`, which
+NamekAmbition holds until it has push credentials. ⇒ What is MEASURED for
+whoever takes it: there is no same-frame arbitration at all. `acquire_captures`
+runs in `Materialize` and `apply_hitbox_damage` in `Resolve`, with no capture
+filter on the victim query (`With<BodyOffense, BodyMotionFacts, BodyShieldState,
+BodyCombat>`), so **both land**, and the grab then breaks in `Settle` if the hit
+produced hitstun or a recoil lock. That emergent rule is recorded in three places
+and named as a policy in none.
+
 ### D166 — make character authoring boundaries load-bearing
 
 **Owner:** [`engine/character-authoring-package.md`](engine/character-authoring-package.md).

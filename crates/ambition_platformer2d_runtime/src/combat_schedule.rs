@@ -613,6 +613,40 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Materialize),
         );
 
+        // ⛔⛤ **A HIT BREAKS A GRAB, AND FOR 17 SHIPPED CHARACTERS IT DID NOT —
+        // THIS IS THE ONE CAPTURE SYSTEM THE ENGINE COMPOSITION NEVER INSTALLED.**
+        // Measured 2026-09-12: of the capture module's systems, this composition
+        // and the monolith/player schedules install every one EXCEPT this — the
+        // sole production installer was `ambition_demo_smash`'s own
+        // `SmashRulesPlugin`. ⇒ In every other host a hold ended only by escape
+        // timer, throw, or the captor being despawned; **no amount of damage to
+        // either fighter freed the captive**, while 17 movesets under
+        // `game/ambition_content/assets/data/movesets/` author
+        // `smash.capture_attempt`.
+        //
+        // ⚠ NOTHING IN THE TREE CLAIMED THAT WAS DELIBERATE — no doc, no comment,
+        // no test. It is a composition that installed a mechanic's acquisition,
+        // pummel, throw, carry, pose, tick and escape while leaving out its
+        // interruption rule, which is the shape of an omission rather than a
+        // policy. The demo's own install carried the correct reasoning in a
+        // comment; the rule now lives with the rest of the mechanic and the demo
+        // no longer states it.
+        //
+        // ⭐ `Settle` IS LOAD-BEARING AND IS THE DEMO'S OWN FINDING, KEPT:
+        // hitstun and the recoil lock are written by damage resolution in
+        // `Resolve`, so a release scheduled any earlier reads LAST tick's answer
+        // and lets a grab survive by one frame the hit that should have broken
+        // it.
+        app.add_systems(
+            sim,
+            ambition_combat::capture::systems::release_interrupted_captures
+                // ⭐ THE SET IS WHAT MAKES THE INSTALL CHECKABLE — see
+                // `GrabInterruptionApplied`. System NAMES are unavailable in this
+                // build, so the guard below asks the graph about this node.
+                .in_set(ambition_combat::capture::GrabInterruptionApplied)
+                .in_set(CombatSet::Settle),
+        );
+
         install_technique(
             app,
             ambition_characters::technique::POGO_BOUNCE_KEY,
@@ -963,6 +997,65 @@ mod tests {
                  quarantine then judges on that frame's fate. Restore the \
                  `.after(MatchOutcomeDecided)` on the reader rather than relying \
                  on the executor's stable-but-arbitrary order."
+            );
+        });
+    }
+
+    /// **A HIT MUST BE ABLE TO BREAK A GRAB IN THE SHIPPED ENGINE — and for 17
+    /// shipped characters it could not.**
+    ///
+    /// ⛔⛤ THE DEFECT WAS A MISSING REGISTRATION, NOT A WRONG FUNCTION, WHICH IS
+    /// WHY THIS ASKS THE SCHEDULE. `release_interrupted_captures` was correct,
+    /// unit-tested in `ambition_combat::capture::systems`, and installed by
+    /// `ambition_demo_smash` ALONE. Every other host composed the capture
+    /// mechanic's acquisition, pummel, throw, carry, pose, tick and escape and
+    /// left out its interruption rule, so a hold ended only by escape timer,
+    /// throw, or a despawned captor — **no amount of damage to either fighter
+    /// freed the captive.** An `impl` is intent; only `add_systems` is evidence.
+    ///
+    /// ⭐ IT FAILS IN BOTH DIRECTIONS, which is why this counts rather than
+    /// asserting presence. **Zero** is the defect this closes. **Two** is the one
+    /// it could have introduced: the demo's own install was retired in the same
+    /// change, and a well-meant restoration there would run the release twice in
+    /// the one schedule both compositions write into.
+    ///
+    /// ⚠ THE SHIPPED GROUP, NOT `CombatSchedulePlugin` ALONE — a smaller app is
+    /// the very composition the defect lived in, so a guard built on one would
+    /// assert about an app nobody ships.
+    ///
+    /// ⇒ Behaviour is NOT re-tested here. `capture::systems`' own tests prove a
+    /// captive or captor in hitstun is released; this proves the shipped game
+    /// runs that code at all, which is the half that was missing.
+    #[test]
+    fn the_shipped_engine_installs_the_grab_interruption_exactly_once() {
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.add_plugins(crate::PlatformerEnginePlugins::fixed_tick());
+        let sim = app.sim_schedule();
+
+        let world = app.world_mut();
+        world.resource_scope::<Schedules, _>(|world, mut schedules| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            schedule.initialize(world).expect("the sim schedule builds");
+            let installed = schedule
+                .graph()
+                .systems_in_set(
+                    bevy::ecs::schedule::SystemSet::intern(
+                        &ambition_combat::capture::GrabInterruptionApplied,
+                    ),
+                )
+                .map(|systems| systems.len())
+                .unwrap_or(0);
+            assert_eq!(
+                installed, 1,
+                "the shipped sim schedule installs `release_interrupted_captures` \
+                 {installed} time(s), not once. Zero means a grab cannot be broken \
+                 by damage in any host — the hold ends only on the escape timer, a \
+                 throw, or a despawned captor, while 17 shipped movesets author \
+                 `smash.capture_attempt`. Two means a composition re-added it \
+                 alongside `CombatSchedulePlugin`'s install; the engine owns this \
+                 rule now, so remove the other one rather than this assertion."
             );
         });
     }

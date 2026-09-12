@@ -7,6 +7,28 @@
 
 pub mod systems;
 
+/// **A HIT BREAKS A GRAB — the composition slot that says a host runs that rule.**
+///
+/// ⛔⛤ PUBLISHED BECAUSE ITS ABSENCE WAS INVISIBLE. Measured 2026-09-12: every
+/// host except `ambition_demo_smash` installed this mechanic's acquisition,
+/// pummel, throw, carry, pose, tick and escape and **left out
+/// [`systems::release_interrupted_captures`]**, so a hold ended only on the
+/// escape timer, a throw, or a despawned captor — no damage to either fighter
+/// freed the captive, for the 17 shipped movesets that author
+/// `smash.capture_attempt`.
+///
+/// ⚠ A NAME CANNOT BE THE INSTRUMENT HERE. `System::name()` reports
+/// `"<Enable the debug feature to see the name>"` in this workspace's build, so
+/// a guard that filtered the schedule by system name would count ZERO forever
+/// and pass as a green check that had tested nothing. A published set is a node
+/// the graph can be ASKED about, and `ScheduleGraph::systems_in_set` answers
+/// both *"is the rule installed"* and *"is it installed twice"*.
+///
+/// ⇒ It lives beside the relation rather than in a composition because the rule
+/// is combat's fact; a composition supplies only the schedule and the phase.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GrabInterruptionApplied;
+
 use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;

@@ -639,7 +639,22 @@ fn shipped_duration(app: &bevy::app::App, who: &str) -> f32 {
         .duration_s
 }
 
-/// ⛔⛔ **A FILE EDITED AFTER THE BINARY WAS BUILT CHANGES WHAT THE CAST PLAYS.**
+/// ⛔⛔ **A FILE EDITED AFTER THE BINARY WAS BUILT CHANGES WHAT THE CAST PLAYS —
+/// THROUGH THE ROAD PRODUCTION TAKES.**
+///
+/// ⛤ **IT USED TO GO THROUGH `reload_move_tables_from_dir`, AND THAT MADE THE
+/// ACCEPTANCE WITNESS TESTIFY ABOUT A ROAD THE GAME CANNOT TAKE.** That helper
+/// publishes the cast and installs the selection on the spot, with no shell
+/// transaction, no content epoch, no prepared-content identity and no rollback
+/// boundary — it is `#[cfg(test)]` for exactly that reason. The sentence this
+/// arm exists to prove is *"a prebuilt host plays the edited artifact"*, and a
+/// host proves it by doing what a host does: request a re-preparation and let
+/// the activation land it.
+///
+/// ⇒ So the edit now travels: disk → `compile_pack_from` → `request_reload` →
+/// `ShellCommand::ReplaceWith` → the router's `PreparationRequested` → the
+/// activation. Every refusal and every correlation on that road has to let it
+/// through for this assert to pass.
 #[test]
 fn a_host_plays_a_move_edited_on_disk_after_it_was_built() {
     let dir = tempfile::tempdir().expect("a temp content root");
@@ -649,6 +664,8 @@ fn a_host_plays_a_move_edited_on_disk_after_it_was_built() {
 
     let (app, who) = host_from_dir(root);
     let mut app = app;
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
     let before = shipped_duration(&app, &who);
 
     // The edit, made on DISK, through the typed document.
@@ -664,11 +681,33 @@ fn a_host_plays_a_move_edited_on_disk_after_it_was_built() {
     }
     std::fs::write(&file, doc.to_ron().expect("serializes")).expect("writes");
 
-    let outcome = reload_move_tables_from_dir(app.world_mut(), root);
-    assert!(
-        matches!(outcome, MoveReload::Activated { .. }),
-        "the edited directory did not reach the cast: {outcome:?}"
+    // ⚠ THE CAST BASE IS READ BEFORE THE FILE I/O, not after — reading a
+    // directory takes time, and anything that publishes while we read it moves
+    // the cast under the pack we are building.
+    let compiled = crate::pack::compile_pack_from(root).expect("the edited root compiles");
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::new(compiled),
+            None,
+        ),
     );
+    assert!(
+        matches!(outcome, ReloadRequest::Requested { .. }),
+        "the edited directory was not even requested: {outcome:?}"
+    );
+    assert_eq!(
+        shipped_duration(&app, &who),
+        before,
+        "the request published on the spot instead of staging for the activation"
+    );
+
+    // The shell announces the transaction and then activates it.
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+
     assert!(
         (shipped_duration(&app, &who) - before - 0.5).abs() < 1e-6,
         "`{who}` plays {} and the file on disk says {}",
@@ -709,27 +748,51 @@ fn a_root_that_does_not_supply_the_whole_pack_is_refused_by_name() {
     }
 }
 
-/// ⭐ THE CONTROL. An UNEDITED export is the shipped pack, so reloading it must
-/// report `Unchanged` — without this, "the edit arrived" is satisfied by a road
-/// that republishes on every call.
+/// ⭐ THE CONTROL, ON THE SAME ROAD AS THE SUBJECT. An UNEDITED export is the
+/// shipped pack, so requesting a reload of it must report `Unchanged` and ask
+/// the shell for NOTHING — without this, "the edit arrived" is satisfied by a
+/// road that re-prepares on every call, which would spend an epoch, a
+/// publication and a world reconstruction on every save.
+///
+/// ⛤ A WATCHER FIRES ON A SAVE, NOT ON A CHANGE, so this is the common case in
+/// the loop the whole road exists for.
 #[test]
-fn reloading_an_unedited_export_publishes_nothing() {
+fn requesting_a_reload_of_an_unedited_export_asks_the_shell_for_nothing() {
     let dir = tempfile::tempdir().expect("a temp content root");
     let root = dir.path();
     crate::pack::export_sources_to(root).expect("exports");
     let (mut app, _) = host_from_dir(root);
-    let first = reload_move_tables_from_dir(app.world_mut(), root);
-    assert!(
-        matches!(
-            first,
-            MoveReload::Unchanged { .. } | MoveReload::Activated { .. }
-        ),
-        "the first reload of the shipped bytes reported {first:?}"
+    shell_active_on(&mut app, true);
+
+    let compiled = crate::pack::compile_pack_from(root).expect("the exported root compiles");
+    assert_eq!(
+        compiled.fingerprint,
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        "the premise: an unedited export must recompile to the SHIPPED identity, \
+         or this control is about a pack that really did change"
     );
-    let second = reload_move_tables_from_dir(app.world_mut(), root);
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::new(compiled),
+            None,
+        ),
+    );
+    assert_eq!(
+        outcome,
+        ReloadRequest::Unchanged,
+        "requesting a reload of the shipped bytes reported {outcome:?}"
+    );
     assert!(
-        matches!(second, MoveReload::Unchanged { .. }),
-        "re-reading the same unedited directory republished: {second:?}"
+        issued_commands(&mut app).is_empty(),
+        "a complete no-op asked the shell to re-prepare the route"
+    );
+    assert!(
+        crate::reload::pending_pack(app.world()).is_none(),
+        "a complete no-op staged a pending generation"
     );
 }
 

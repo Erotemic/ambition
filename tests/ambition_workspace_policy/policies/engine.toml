@@ -2704,17 +2704,29 @@ forbid = [
 # lives on that line, so the waiver is readable where the write happens rather
 # than only here.
 #
-# ⛔⛤ AND THE REASON IS NOT THAT THE ENGINE PAVES NO ROAD — IT PAVES ONE, AND MY
-# FIRST VERSION OF THIS COMMENT SAID OTHERWISE. `BodyFlightState::stage_launch`
-# is the seam for an external reaction, drained once at the top of `step_motion`,
-# and `ambition_combat/src/hit_reaction.rs` already stages KNOCKBACK through it.
-# `flight.stage_launch(kick, false)` is also clean against the forbid list above,
-# so this guard is pointing AT the seam rather than asking for an exception.
-# ⇒ What is unresolved is whether recoil should take it: routing it changes how a
-# surface-momentum shooter is pushed, which is game feel, and a scanner repair is
-# the wrong provenance for that decision. Filed rather than left here — see
-# queue.md and awaiting-maintainer-decision.md.
-allow_lines = ["policy: ranged recoil, authority unresolved"]
+# ✅ AND THE ONE WAIVER THIS POLICY EVER CARRIED IS GONE (2026-09-12), BECAUSE
+# THE LINE IT EXEMPTED IS GONE. `allow_lines = ["policy: ranged recoil, authority
+# unresolved"]` exempted the single workspace violation — `kin.vel += kick` in
+# `spawn_projectiles_from_brain_actions` — on the grounds that routing recoil
+# through the seam "changes game feel" and a scanner repair was the wrong
+# provenance for that call.
+#
+# ⇒ RULED: it is not primarily a feel question. WHO MAY INTERPRET AN EXTERNALLY
+# AUTHORED WORLD-SPACE IMPULSE for a body whose movement model owns its velocity
+# semantics is already answered by the motion architecture — the movement model
+# does — and the authored magnitude did not change. Recoil now stages through
+# `BodyFlightState::stage_launch`, the same seam `hit_reaction.rs` uses for
+# knockback.
+#
+# ⛔ AND THE DIRECT WRITE WAS NOT MERELY IRREGULAR: a `vel` write is INERT for a
+# surface-momentum body, whose `vel` is derived from `v_t` and republished every
+# step. So the waived line did nothing at all for that whole motion model — a
+# defect wearing a tuning question's clothes.
+#
+# ⚠ THE WAIVER IS DELETED RATHER THAN LEFT MATCHING NOTHING. An `allow_lines`
+# entry whose needle no longer exists is an amnesty row that silently re-arms the
+# day somebody writes that comment again, and its emptiness is invisible to a
+# green suite.
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.
     "ambition_platformer2d_core/src/movement/",

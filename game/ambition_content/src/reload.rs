@@ -26,9 +26,13 @@
 //! reload one of them would be asking it to lie.
 
 use ambition_characters::prepared::{
-    activate_staged_revision, stage_move_section, CharacterCatalogGeneration, MovesetRevisionError,
-    RevisionOutcome,
+    activate_staged_revision, stage_move_section, MovesetRevisionError, RevisionOutcome,
 };
+// ⚠ ONLY THE FIXTURE ROAD TAKES A CAST BASE AS A PARAMETER. `request_reload`
+// reads the live generation itself, at the moment it stages, which is the only
+// moment the claim can be true.
+#[cfg(test)]
+use ambition_characters::prepared::CharacterCatalogGeneration;
 
 /// What a reload attempt did.
 ///
@@ -152,21 +156,6 @@ pub enum MoveReload {
     NoTechniqueSupport,
 }
 
-/// Recompile this provider's pack from disk and republish the cast's move
-/// tables.
-///
-/// ⛔ THE HOST MUST HAVE RUN ITS PREPARATION BARRIER. Before that there is no
-/// cast to revise, and [`MoveReload::NoCast`] says so rather than inventing one.
-pub fn reload_move_tables(world: &mut bevy::ecs::world::World) -> MoveReload {
-    match crate::pack::compile_pack() {
-        Ok(pack) => reload_move_tables_selecting(world, std::sync::Arc::new(pack), None),
-        // ⛔ THE WHOLE DIAGNOSTIC, not a summary. A reload that says "it did not
-        // compile" and drops the compiler's per-problem list makes the author
-        // re-run a CLI to learn what this function already knew.
-        Err(failure) => MoveReload::PackRefused(failure.to_string()),
-    }
-}
-
 /// Republish the cast's move tables from an ALREADY-COMPILED pack.
 ///
 /// ⭐⭐ **SPLIT OUT SO THE WITNESS DOES NOT HAVE TO EDIT THE REPOSITORY.**
@@ -188,7 +177,8 @@ pub fn reload_move_tables(world: &mut bevy::ecs::world::World) -> MoveReload {
 /// loop does it off the main thread, and the cast can move in between. `None`
 /// makes no claim and is right for a caller that compiled and applied without
 /// yielding.
-pub fn reload_move_tables_from(
+#[cfg(test)]
+pub(crate) fn reload_move_tables_from(
     world: &mut bevy::ecs::world::World,
     fresh: &ambition_content_pack::PreparedContentPack,
     compiled_against: Option<CharacterCatalogGeneration>,
@@ -256,7 +246,8 @@ pub fn reload_move_tables_from(
 /// [`crate::pack::compile_pack_from`]: a per-file fallback to the binary's own
 /// text would compile a mixed pack out of a directory and a build, and
 /// [`crate::pack::export_sources_to`] is how a caller starts from a complete one.
-pub fn reload_move_tables_from_dir(
+#[cfg(test)]
+pub(crate) fn reload_move_tables_from_dir(
     world: &mut bevy::ecs::world::World,
     root: &std::path::Path,
 ) -> MoveReload {
@@ -271,6 +262,79 @@ pub fn reload_move_tables_from_dir(
             reload_move_tables_selecting(world, std::sync::Arc::new(pack), compiled_against)
         }
         Err(refusal) => MoveReload::PackRefused(refusal),
+    }
+}
+
+/// **May this candidate generation proceed at all?** — asked ONCE, for both
+/// roads.
+///
+/// ⛔⛤ **THIS WAS SPELLED TWICE AND THAT WAS THE SECOND AUTHORITY.** The verdict,
+/// the unsupported-domain diff and the publication boundary were written out in
+/// `publish_candidate` and again in `request_reload`, in the same order, with
+/// two different wrappers around the same answers. Two copies of a rule make
+/// each other untestable: a change to one leaves the other green, and the road a
+/// test takes decides which rule it certifies.
+///
+/// ⛔ **THE ORDER IS THE CONTRACT, AND IT IS THE HALF THAT WAS A DEFECT.** The
+/// VERDICT comes first: a mechanically identical candidate publishes nothing,
+/// allocates nothing and reconstructs nothing, so it cannot invalidate a
+/// timeline — asking the boundary first reported a no-op as
+/// `RefusedDuringLiveTimeline`, and a watcher fires on every SAVE, which makes
+/// the no-op the common case. `Stale` does not need the boundary either: it is a
+/// refusal about the candidate's own base, true whatever the timeline is doing.
+/// Only `Publish` needs permission.
+enum CandidateAdmission {
+    /// It may not, and this is the answer BOTH roads report.
+    Refused(MoveReload),
+    /// There is nothing to do. Not a refusal — a real mechanical no-op.
+    ///
+    /// ⚠ IT CARRIES NOTHING. The cast generation a no-op reports is the DIRECT
+    /// road's answer, read from the registry there; a request road that returns
+    /// `Unchanged` requested nothing and has no generation to name.
+    Unchanged,
+    /// It may.
+    Proceed,
+}
+
+fn admit_candidate(
+    world: &bevy::ecs::world::World,
+    candidate: &ambition_content_pack::CandidateGeneration,
+) -> CandidateAdmission {
+    let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
+    match candidate.verdict(active) {
+        ambition_content_pack::CandidateVerdict::Stale {
+            prepared_against,
+            active,
+        } => {
+            return CandidateAdmission::Refused(MoveReload::StaleGeneration {
+                prepared_against: prepared_against.hex(),
+                active: active.hex(),
+            })
+        }
+        ambition_content_pack::CandidateVerdict::Unchanged { .. } => {
+            return CandidateAdmission::Unchanged
+        }
+        ambition_content_pack::CandidateVerdict::Publish { .. } => {}
+    }
+
+    // ⛔ READ AGAINST THE ACTIVE PACK, WHICH IS WHY IT RUNS BEFORE ANYTHING IS
+    // STAGED OR SELECTED: diffing after the candidate became the selection would
+    // be diffing it against itself.
+    let unsupported = unsupported_changed_domains(world, candidate.pack());
+    if !unsupported.is_empty() {
+        return CandidateAdmission::Refused(MoveReload::RefusedUnsupportedChangedDomain(
+            unsupported,
+        ));
+    }
+
+    match publication_boundary(world) {
+        PublicationBoundary::Legal => CandidateAdmission::Proceed,
+        PublicationBoundary::LiveTimeline => {
+            CandidateAdmission::Refused(MoveReload::RefusedDuringLiveTimeline)
+        }
+        PublicationBoundary::Unhealthy(reason) => {
+            CandidateAdmission::Refused(MoveReload::RefusedWhileRollbackUnhealthy(reason))
+        }
     }
 }
 
@@ -308,70 +372,36 @@ pub fn reload_move_tables_from_dir(
 /// [`CharacterCatalogGeneration`] — where the architecture wants one. Both are
 /// additions at this one seam rather than rewrites, which is why the decision
 /// was moved here first.
-pub fn publish_candidate(
+#[cfg(test)]
+pub(crate) fn publish_candidate(
     world: &mut bevy::ecs::world::World,
     candidate: ambition_content_pack::CandidateGeneration,
     cast_base: Option<CharacterCatalogGeneration>,
 ) -> MoveReload {
-    // ⛔⛤ **THE VERDICT COMES FIRST, AND THE OTHER ORDER WAS A DEFECT.** I asked
-    // the publication boundary before asking whether there was anything to
-    // publish, so a mechanically identical candidate arriving during a HEALTHY
-    // live rollback timeline reported `RefusedDuringLiveTimeline` instead of
-    // `Unchanged`. A complete no-op publishes nothing, allocates nothing,
-    // reconstructs nothing and cannot invalidate a timeline — refusing it says
-    // the reload failed when in truth there was nothing to do, and a watcher
-    // firing on every SAVE makes that the common case.
-    //
-    // ⇒ Only `Publish` needs the boundary's permission. `Stale` does not either:
-    // it is a refusal about the candidate's own base, true whatever the timeline
-    // is doing.
-    let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
-    match candidate.verdict(active) {
-        ambition_content_pack::CandidateVerdict::Stale {
-            prepared_against,
-            active,
-        } => MoveReload::StaleGeneration {
-            prepared_against: prepared_against.hex(),
-            active: active.hex(),
-        },
-        // ⛔ A COMPLETE NO-OP TOUCHES NOTHING — not the cast, not the selection.
-        // A file watcher fires on a SAVE, not on a CHANGE, so this is the common
-        // case in the loop this exists for.
-        ambition_content_pack::CandidateVerdict::Unchanged { .. } => {
-            let generation = world
-                .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
-                .map(|registry| registry.generation().get())
-                .unwrap_or_default();
-            MoveReload::Unchanged { generation }
+    match admit_candidate(world, &candidate) {
+        CandidateAdmission::Refused(answer) => return answer,
+        CandidateAdmission::Unchanged => {
+            return MoveReload::Unchanged {
+                generation: world
+                    .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+                    .map(|registry| registry.generation().get())
+                    .unwrap_or_default(),
+            }
         }
-        ambition_content_pack::CandidateVerdict::Publish { .. } => {
-            // ⛔ BEFORE THE BOUNDARY AND BEFORE ANYTHING IS STAGED: read against
-            // the ACTIVE pack, or the diff is the candidate against itself.
-            let unsupported = unsupported_changed_domains(world, candidate.pack());
-            if !unsupported.is_empty() {
-                return MoveReload::RefusedUnsupportedChangedDomain(unsupported);
-            }
-            match publication_boundary(world) {
-                PublicationBoundary::Legal => {}
-                PublicationBoundary::LiveTimeline => return MoveReload::RefusedDuringLiveTimeline,
-                PublicationBoundary::Unhealthy(reason) => {
-                    return MoveReload::RefusedWhileRollbackUnhealthy(reason)
-                }
-            }
-            let pack = candidate.into_pack();
-            let outcome = reload_move_tables_from(world, &pack, cast_base);
-            // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A
-            // refused or stale revision must leave the App reading the pack its
-            // cast was actually built from.
-            if matches!(
-                outcome,
-                MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
-            ) {
-                crate::pack::install_selection(world, pack);
-            }
-            outcome
-        }
+        CandidateAdmission::Proceed => {}
     }
+    let pack = candidate.into_pack();
+    let outcome = reload_move_tables_from(world, &pack, cast_base);
+    // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A refused
+    // or stale revision must leave the App reading the pack its cast was
+    // actually built from.
+    if matches!(
+        outcome,
+        MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
+    ) {
+        crate::pack::install_selection(world, pack);
+    }
+    outcome
 }
 
 /// The one mechanical domain that participates in the generation transaction.
@@ -448,7 +478,8 @@ fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary 
 /// ⚠ THE CONVENIENCE FORM, for a caller that compiled and published without
 /// yielding. A caller that did file I/O in between must build the candidate
 /// itself with the identity it READ, or its base claim is a fiction.
-pub fn reload_move_tables_selecting(
+#[cfg(test)]
+pub(crate) fn reload_move_tables_selecting(
     world: &mut bevy::ecs::world::World,
     fresh: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
     compiled_against: Option<CharacterCatalogGeneration>,
@@ -520,41 +551,13 @@ pub fn request_reload(
 ) -> ReloadRequest {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
 
-    // ⛔⛤ **THE VERDICT COMES FIRST — see `publish_candidate` for why.** Asking the
-    // publication boundary before asking whether anything changed reported a
-    // complete no-op as a rollback refusal, and a watcher firing on every SAVE
-    // makes the no-op the common case.
-    let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
-    match candidate.verdict(active) {
-        ambition_content_pack::CandidateVerdict::Stale {
-            prepared_against,
-            active,
-        } => {
-            return ReloadRequest::Refused(MoveReload::StaleGeneration {
-                prepared_against: prepared_against.hex(),
-                active: active.hex(),
-            })
-        }
-        ambition_content_pack::CandidateVerdict::Unchanged { .. } => {
-            return ReloadRequest::Unchanged
-        }
-        ambition_content_pack::CandidateVerdict::Publish { .. } => {}
-    }
-
-    // ⛔ BEFORE `stage_pending_pack`, for the same reason.
-    let unsupported = unsupported_changed_domains(world, candidate.pack());
-    if !unsupported.is_empty() {
-        return ReloadRequest::Refused(MoveReload::RefusedUnsupportedChangedDomain(unsupported));
-    }
-
-    match publication_boundary(world) {
-        PublicationBoundary::Legal => {}
-        PublicationBoundary::LiveTimeline => {
-            return ReloadRequest::Refused(MoveReload::RefusedDuringLiveTimeline)
-        }
-        PublicationBoundary::Unhealthy(reason) => {
-            return ReloadRequest::Refused(MoveReload::RefusedWhileRollbackUnhealthy(reason))
-        }
+    // ⛔ ONE PREFLIGHT, SHARED. See [`admit_candidate`] — this was spelled out
+    // here a second time, in the same order, and two copies of a rule make each
+    // other untestable.
+    match admit_candidate(world, &candidate) {
+        CandidateAdmission::Refused(answer) => return ReloadRequest::Refused(answer),
+        CandidateAdmission::Unchanged => return ReloadRequest::Unchanged,
+        CandidateAdmission::Proceed => {}
     }
 
     let Some(route) = world

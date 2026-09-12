@@ -1675,6 +1675,63 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
     );
 }
 
+/// ⛔⛔ **AND THE PRODUCTION ROAD REFUSES IT TOO, WHICH THE SIBLING ABOVE
+/// CANNOT WITNESS.**
+///
+/// ⛤ MEASURED, NOT ASSUMED: poisoning the shared preflight's domain check
+/// failed exactly ONE arm — the direct road's. The rule that keeps a
+/// non-participating family from riding a move reload into the game was
+/// certified only on a road the game does not take.
+///
+/// ⚠ WHEN ITEMS JOIN THE GENERATION TRANSACTION THIS ARM FLIPS rather than being
+/// deleted: the expected answer becomes `Requested`, and the assertion that no
+/// shell command was issued becomes the assertion that one was.
+#[test]
+fn the_request_road_refuses_an_items_only_candidate_too() {
+    let mut app = host_with_the_shipped_cast();
+    shell_active_on(&mut app, true);
+    let live = live_pack(&app);
+    let candidate = std::sync::Arc::new(pack_with_one_item_rewired());
+    assert_eq!(
+        ambition_characters::moveset_content_schema::lowered_movesets(&live),
+        ambition_characters::moveset_content_schema::lowered_movesets(&candidate),
+        "the premise: the candidate must differ in NO move table"
+    );
+    assert_ne!(
+        live.fingerprint, candidate.fingerprint,
+        "the premise: the candidate must differ in the pack's COMPLETE identity"
+    );
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::clone(&candidate),
+            Some(live.fingerprint),
+        ),
+    );
+    match &outcome {
+        ReloadRequest::Refused(MoveReload::RefusedUnsupportedChangedDomain(domains)) => assert!(
+            domains.iter().any(|d| d == "item_catalog"),
+            "the refusal does not name the domain that changed: {domains:?}"
+        ),
+        other => panic!(
+            "an items-only candidate must be refused on the REQUEST road until \
+             items participate in the generation transaction; got {other:?}"
+        ),
+    }
+    // ⛔ AND IT COSTS THE SHELL NOTHING. A refusal that still asked for a
+    // re-preparation would spend an epoch, a publication and a world
+    // reconstruction on content the transaction cannot carry.
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a refused request reached the shell anyway"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "a refused request staged the candidate as pending"
+    );
+}
+
 /// ⛔⛔ **AN ACTIVATION THIS RELOAD DID NOT ASK FOR CANNOT PUBLISH IT.**
 ///
 /// ⛤ **AND BOTH TRANSACTIONS TARGET THE SAME ROUTE, WHICH IS THE WHOLE POINT.**

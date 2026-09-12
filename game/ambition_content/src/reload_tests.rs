@@ -1732,6 +1732,209 @@ fn the_request_road_refuses_an_items_only_candidate_too() {
     );
 }
 
+/// ⛔⛔ **A REFUSAL AT THE ACTIVATION BOUNDARY LEAVES *BOTH* HALVES ON THE
+/// PREVIOUS GENERATION.**
+///
+/// ⛤ THE OTHER ORDER WAS A HALF-TRANSACTION WRITTEN DOWN AS ACCEPTABLE: the
+/// boundary promoted the pending pack and THEN revised the cast, so a refusal
+/// here left the App selecting the new pack while playing the old cast — and the
+/// error message said "the previous cast is still published" without mentioning
+/// that the pack was not.
+///
+/// ⚠ THE COMPOSITION IS CHANGED IN FLIGHT ON PURPOSE. Request-time admission
+/// makes ordinary authored invalidity unreachable at this boundary, so the only
+/// way to reach it is the way it is actually reachable in production: the
+/// technique table moving between the request and the activation. This arm
+/// takes the table AWAY; its sibling below reaches the other refusal branch.
+#[test]
+fn a_boundary_with_no_technique_table_publishes_neither_half() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let cast_before = live_duration(&app);
+    let selection_before = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    assert!(
+        crate::pack::pending(app.world()).is_some(),
+        "the premise: the request staged a pending pack for the boundary to \
+         promote, or this arm cannot witness it being kept back"
+    );
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+
+    // ⛔ THE COMPOSITION LOSES ITS TECHNIQUE TABLE BETWEEN THE REQUEST AND THE
+    // ACTIVATION. Nothing here can admit the revision any more.
+    app.world_mut()
+        .remove_resource::<ambition_combat::technique::InstalledTechniques>();
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+
+    assert_eq!(
+        live_duration(&app),
+        cast_before,
+        "a refused activation published the cast anyway"
+    );
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selection_before,
+        "a refused activation promoted the pending pack anyway — the App selects \
+         a generation whose cast it never built"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "a refused activation left the candidate PENDING, so the next save \
+         compares against a generation nothing published"
+    );
+}
+
+/// ⛔⛔ **AND SO DOES A REFUSAL FROM `activate_staged_revision` ITSELF.**
+///
+/// ⛤ ITS SIBLING ABOVE CANNOT WITNESS THIS ONE. That arm leaves the world with
+/// no technique table, which returns before `activate_staged_revision` is ever
+/// called; this one reaches the boundary's OTHER refusal branch — the one where
+/// the cast half ran, refused, and kept the previous generation. The pack half
+/// must keep its previous selection for the same reason, or the refusal creates
+/// the exact split the transaction exists to prevent.
+///
+/// ⚠ THE TABLE SHRINKS RATHER THAN VANISHING, and it has to: a world with NO
+/// table returns before `activate_staged_revision` is ever called, which is the
+/// sibling arm's branch. Here the candidate's strike names a technique the
+/// composition offered at REQUEST time and has stopped offering by ACTIVATION
+/// time — the real in-flight composition change, and the only way ordinary
+/// admission can fail this late.
+///
+/// ⛤ MY FIRST VERSION OF THIS ARM USED STALENESS AND WAS WRONG IN A WAY WORTH
+/// RECORDING: publishing a second generation through the fixture road DRAINS the
+/// staged cast revision, so the boundary found `NothingStaged` and promoted. The
+/// interloper had silently absorbed the reload's edit — a real finding about the
+/// direct road, and not this branch.
+#[test]
+fn a_cast_refused_at_the_boundary_leaves_the_pack_selection_alone() {
+    const KEY: &str = "reload.fixture.technique";
+    fn table_with(keys: &[&str]) -> ambition_combat::technique::InstalledTechniques {
+        let mut support = ambition_entity_catalog::TechniqueSupport::default();
+        for key in keys {
+            support
+                .declare(
+                    (*key).to_string(),
+                    ambition_entity_catalog::TechniqueOffer {
+                        owner: "reload_fixture",
+                        params: ambition_entity_catalog::TechniqueParams::Checked(|_| Ok(())),
+                        references: ambition_entity_catalog::NestedReferences::None,
+                        delivery: ambition_entity_catalog::TechniqueDelivery::Either,
+                    },
+                )
+                .expect("one declaration per key");
+        }
+        ambition_combat::technique::InstalledTechniques(support)
+    }
+
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.world_mut().insert_resource(table_with(&[KEY]));
+
+    let candidate = ambition_content_pack::CandidateGeneration::prepared_against(
+        std::sync::Arc::new(pack_of(&doc_text_naming(0.45, "swat", Some(KEY))).expect("compiles")),
+        None,
+    );
+    let requested = request_reload(app.world_mut(), candidate);
+    assert!(
+        matches!(requested, ReloadRequest::Requested { .. }),
+        "the premise: the candidate must be ADMITTED at request time, or this arm \
+         never reaches the boundary; got {requested:?}"
+    );
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+
+    let cast_before = live_duration(&app);
+    let selection_before = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    assert!(
+        crate::pack::pending(app.world()).is_some(),
+        "the premise: the reload's candidate is still pending at the boundary"
+    );
+
+    // ⛔ THE COMPOSITION STOPS OFFERING THE TECHNIQUE THE CANDIDATE NAMES.
+    app.world_mut().insert_resource(table_with(&[]));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+
+    assert_eq!(
+        live_duration(&app),
+        cast_before,
+        "a cast refused at the boundary was published anyway"
+    );
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selection_before,
+        "the cast half refused and the pack half promoted anyway — the App \
+         selects a generation whose cast it never built"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "a refused activation left the candidate PENDING"
+    );
+}
+
+/// ⛔⛔ **AND THE REQUEST ROAD REFUSES THAT COMPOSITION UP FRONT.**
+///
+/// ⛤ ABSENT IS NOT EMPTY. An empty `InstalledTechniques` is a legitimate value
+/// meaning "this host installs nothing", and admitting against it correctly
+/// refuses every authored effect. An ABSENT resource means the composition never
+/// installed the combat capability, so nothing can admit the revision at all —
+/// and letting the request through meant the activation reached a branch with no
+/// answer, returned, and left the pending pack staged forever while the engine's
+/// half had already moved.
+#[test]
+fn a_composition_with_no_technique_table_refuses_the_request() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.world_mut()
+        .remove_resource::<ambition_combat::technique::InstalledTechniques>();
+
+    let outcome = request_reload(app.world_mut(), a_publishable_candidate());
+    assert_eq!(
+        outcome,
+        ReloadRequest::Refused(MoveReload::NoTechniqueSupport),
+        "got {outcome:?}"
+    );
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a refused request reached the shell anyway"
+    );
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "a refused request staged the candidate as pending"
+    );
+}
+
 /// ⛔⛔ **AN ACTIVATION THIS RELOAD DID NOT ASK FOR CANNOT PUBLISH IT.**
 ///
 /// ⛤ **AND BOTH TRANSACTIONS TARGET THE SAME ROUTE, WHICH IS THE WHOLE POINT.**

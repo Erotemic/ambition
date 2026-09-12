@@ -622,9 +622,22 @@ pub fn request_reload(
     // identical does not mean the pack is: the participating domain can change in
     // a character no buildable cast member wears, and the engine's generation
     // still has to move.
-    if let Some(support) = world
+    //
+    // ⛔⛤ **AND A COMPOSITION WITH NO TECHNIQUE TABLE REFUSES HERE RATHER THAN AT
+    // THE BOUNDARY.** `InstalledTechniques` ABSENT is not an empty table — an
+    // empty one is a legitimate value meaning "this host installs nothing", and
+    // admitting against it correctly refuses every authored effect. An absent
+    // resource means the composition never installed the combat capability, so
+    // nothing here can admit the revision at all. Letting the request through
+    // meant the activation reached a branch with no answer, returned, and left
+    // the pending pack staged forever while the engine's half had moved.
+    let support = world
         .get_resource::<ambition_combat::technique::InstalledTechniques>()
-        .map(|installed| installed.0.clone())
+        .map(|installed| installed.0.clone());
+    let Some(support) = support else {
+        discard_staged_reload(world);
+        return ReloadRequest::Refused(MoveReload::NoTechniqueSupport);
+    };
     {
         match ambition_characters::prepared::admit_staged_revision(world, &support) {
             ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {
@@ -786,36 +799,70 @@ pub fn publish_staged_reload_on_activation(
                         return;
                     }
                     world.remove_resource::<PendingReloadTransaction>();
-                    let Some(support) = world
+
+                    // ⛔⛤ **THE CAST'S HALF GOES FIRST, AND THE OTHER ORDER WAS A
+                    // HALF-TRANSACTION WRITTEN DOWN AS ACCEPTABLE.** This used to
+                    // `promote_pending` and THEN revise the cast, so a refusal at
+                    // this boundary left the App selecting the new pack while
+                    // playing the old cast — and the error message said "the
+                    // previous cast is still published" without mentioning that
+                    // the pack was not. The cast's half is the only one that can
+                    // refuse, so it is the one that must run before anything is
+                    // committed. Nothing observes the order INSIDE this closure:
+                    // no system runs between the two lines. What matters is that
+                    // both halves land or neither does.
+                    let support = world
                         .get_resource::<ambition_combat::technique::InstalledTechniques>()
-                        .map(|installed| installed.0.clone())
-                    else {
+                        .map(|installed| installed.0.clone());
+                    let Some(support) = support else {
+                        // ⛔ AND THIS USED TO LEAK THE WHOLE GENERATION. An early
+                        // return here left the pending pack staged forever: the
+                        // engine's half had activated, the App's selection was
+                        // still the old pack, and the next save compared against
+                        // that selection, reported `Unchanged` and requested
+                        // nothing. The game stayed split for the session.
+                        //
+                        // ⚠ `request_reload` refuses this composition up front,
+                        // so reaching it means the technique table was REMOVED
+                        // between the request and the activation.
+                        bevy::log::error!(
+                            "a reload activated into a composition that installs no technique \
+                             table, so its cast revision cannot be admitted; BOTH halves are \
+                             discarded and the previous generation stays live"
+                        );
+                        discard_staged_reload(world);
                         return;
                     };
-                    // ⛔ THE PENDING CANDIDATE BECOMES THE SELECTION HERE, at
-                    // the same boundary the cast's half publishes and the shell's
-                    // activation publishes the engine's.
-                    crate::pack::promote_pending(world);
                     match activate_staged_revision(world, &support) {
-                        RevisionOutcome::NothingStaged => {}
                         // ⛔⛤ **REACHABLE ONLY IF THE COMPOSITION CHANGED IN
                         // FLIGHT.** `request_reload` admits the revision before
                         // it issues the request, so ordinary authored invalidity
                         // cannot arrive here. What can is an installed-technique
                         // table that moved between the request and the
                         // activation — which is a composition change, not an
-                        // author's mistake, and it is worth saying so loudly
-                        // rather than logging it as content.
-                        RevisionOutcome::Refused { refusals } => {
+                        // author's mistake.
+                        //
+                        // ⛔ BOTH HALVES REFUSE TOGETHER. The cast kept its
+                        // previous generation; the pack must keep its previous
+                        // selection, or the refusal creates the exact split the
+                        // transaction exists to prevent.
+                        outcome @ (RevisionOutcome::Refused { .. }
+                        | RevisionOutcome::Stale { .. }) => {
                             bevy::log::error!(
                                 "a reloaded cast was REFUSED at the ACTIVATION boundary, which \
                                  request-time admission should have made impossible: the \
                                  composition's installed techniques must have changed in \
-                                 flight. The previous cast is still published: {refusals:?}"
+                                 flight. NEITHER half published — the previous cast and the \
+                                 previous content selection are both still live: {outcome:?}"
                             );
+                            crate::pack::discard_pending(world);
                         }
-                        other => {
-                            bevy::log::info!("a reloaded cast was published: {other:?}");
+                        // ⛔ THE PENDING CANDIDATE BECOMES THE SELECTION HERE, at
+                        // the same boundary the cast's half published and the
+                        // shell's activation published the engine's.
+                        outcome => {
+                            crate::pack::promote_pending(world);
+                            bevy::log::info!("a reloaded cast was published: {outcome:?}");
                         }
                     }
                 });

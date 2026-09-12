@@ -28,7 +28,10 @@ architecture review:
 
 | | |
 | --- | --- |
-| **P0** | I3 complete-generation transaction — one candidate, one engine generation identity, one admission, one publication barrier, one rollback boundary |
+| **P0** | **ADMISSION MUST FINISH BEFORE ACTIVATION IS AUTHORIZED.** The commit path must contain no branch that discovers ordinary author/content invalidity — if publication can still refuse, preparation is incomplete. This is where A10's Prepare/Admit/Draft/Verify/Publish/Retire stops being prose. |
+| **P0** | **BIND THE PENDING GENERATION TO ONE EXACT SHELL TRANSACTION.** No `RouteActivated(_)` wildcard; an unrelated activation must be irrelevant, and a route-name comparison is NOT enough because two generations can target one route. |
+| **P0** | **N+1 WORLD CONSTRUCTION MUST CONSUME N+1's CAST.** Make the candidate carry the prepared cast rather than letting construction query a global registry and hope it was swapped earlier in the frame. |
+| **P0** | **DELETE THE DIRECT PUBLICATION ROAD.** `publish_candidate` must stop being a production authority once the transaction works — one answer to "how does content become live". |
 | **P0** | ONE bounded A10 reconstruction/publication implementation proving a prepared candidate can replace a live generation safely |
 | **P0** | Poison tests for refusal, stale candidates, no-op, cross-domain atomicity, rollback binding |
 | **P1** | Re-point the app-level edit→play witness at the engine-generation road |
@@ -87,14 +90,48 @@ crate-level arms were green because each adds the system itself.
 `reload_publication_is_installed` asks the SHIPPED `Update` schedule graph by
 system TYPE (names are empty in this build) and asserts exactly one registration.
 
-⛔ **WHAT IS STILL OPEN:** the selection is installed BEFORE the request, because
-`prepare_platformer_content` reads `SelectedContentIdentity` to fingerprint and
-`authored_intrinsics` reads `SelectedContentPack` at cast registration — both
-inside the preparation being asked for. So between the request and the
-activation, `pack::selected` answers with the incoming pack while the live cast
-is still the old one. **Nothing PUBLISHED has changed**; closing the window means
-making selection part of the activation transaction. The doc on `request_reload`
-names it rather than hiding it. Routing publication through
+✅ **AND A SECOND ARCHITECTURE REVIEW (2026-09-11) FOUND FOUR REAL DEFECTS IN
+THAT WORK. THREE ARE CLOSED.**
+
+1. ✅ **ACTIVE AND PENDING WERE ONE RESOURCE, AND THE FAILURE WAS SILENT AND
+   PERMANENT** (`693e46198`). The request installed the candidate as the
+   SELECTION; a failed preparation left it there; the next save of the same file
+   compared against that selection, reported `Unchanged`, and requested nothing.
+   The game stayed split for the session while the reload said all was well.
+   `PendingContentPack` / `promote_pending` / `discard_pending` now separate
+   "what is running" from "what is being prepared", and a discard restores the
+   engine's identity too.
+2. ✅ **A COMPLETE NO-OP WAS REPORTED AS A ROLLBACK REFUSAL** (`693e46198`). Both
+   roads asked the publication boundary before asking whether anything changed.
+   A no-op publishes, allocates and reconstructs nothing and cannot invalidate a
+   timeline — and a watcher fires on every SAVE, so it was the COMMON case. The
+   verdict comes first; only `Publish` needs the boundary.
+3. ✅ **A CANDIDATE CHANGING A DOMAIN NOTHING CAN PUBLISH IS REFUSED**
+   (`2f24c728b`). MEASURED: **eleven of twelve domains** in `pack.ron` read the
+   process-global `pack::prepared()` at plugin build or registration, so
+   publishing an items-only candidate left the identity claiming N+1 while the
+   live items served N. `moveset` is the only domain whose reader takes a pack
+   PARAMETER and the only one with a revision road. The rule names the ONE
+   participant and refuses the rest, so a family added later fails safe.
+
+⛔ **STILL OPEN, IN THE REVIEW'S OWN ORDER OF IMPORTANCE:**
+- **Admission can still fail AFTER the engine half commits.** `RouteActivated`
+  calls `activate_staged_revision`, which can still return `Refused` — at which
+  point the engine identity is N+1 and the cast is N. A commit path must not be
+  where a candidate discovers it is invalid; admission belongs before activation
+  is authorized. **This is where A10 has to stop being prose.**
+- **Staged content is not bound to the transaction that requested it.**
+  `RouteActivated(_)` is a wildcard: any activation publishes a pending reload,
+  any failure discards one. ⛔ A route-name comparison is NOT sufficient — two
+  generations can target one route.
+- **Two production reload roads.** `publish_candidate` still mutates the live
+  cast and selection directly without establishing a `ContentEpoch`. The request
+  road must REPLACE it, not sit beside it.
+- **N+1 world construction may read N's cast.** `PlatformerSessionBuilder` takes
+  `Option<Res<PreparedCharacterRegistry>>`; nothing orders the staged publication
+  against `activate_prepared_platformer_sessions`.
+- **The candidate seals only the PACK.** Not the base content epoch, identity, or
+  composition profile. Routing publication through
 `prepare_platformer_content` — which already allocates the epoch as *"the final
 non-fallible step"*, so a rejected candidate consumes no generation — is the A10
 integration. The transaction also still carries TWO base clocks (the pack

@@ -394,11 +394,16 @@ pub fn emit_hit_feedback(
 /// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
 /// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
 /// exactly, so every un-authored volume is byte-identical to today.
+///
+/// `growth_scale` is a dimensionless multiplier on the PERCENT TERM ALONE —
+/// the ruleset's [`ResolvedCombatTuning::victim_percent_knockback_scale`] folded
+/// with its staling influence. `1.0` is the law as first written.
 pub fn scaled_knockback(
     base: f32,
     growth: f32,
     victim_damage_taken: i32,
     victim_weight: f32,
+    growth_scale: f32,
 ) -> f32 {
     if growth == 0.0 {
         return base;
@@ -408,7 +413,21 @@ pub fn scaled_knockback(
     } else {
         1.0
     };
-    base + growth * victim_damage_taken.max(0) as f32 / weight
+    // ⭐⭐ THE SCALE RIDES THE PERCENT TERM AND NOTHING ELSE, which is the whole
+    // shape of this law. `base` is what a move is worth against a FRESH
+    // opponent, and a ruleset asking for a steeper percent curve is not asking
+    // for a stronger jab — it is asking for the DIFFERENCE between a fresh
+    // opponent and a worn one to be larger. Folding the scale over the sum
+    // instead would inflate every launch in the game by the same factor and
+    // make a 0% poke lethal, which is precisely what a percent mechanic exists
+    // not to do.
+    //
+    // ⛔ AND 0% STILL CONTRIBUTES EXACTLY ZERO, AT EVERY SCALE: the
+    // `victim_damage_taken` factor zeroes the term before the scale can touch
+    // it, so no value of `growth_scale` can move a 0% hit. That is what keeps
+    // this a percent term rather than a knockback buff, and it is asserted
+    // rather than merely described.
+    base + growth * growth_scale.max(0.0) * victim_damage_taken.max(0) as f32 / weight
 }
 
 #[cfg(test)]

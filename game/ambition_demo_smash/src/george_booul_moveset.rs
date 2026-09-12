@@ -1212,7 +1212,33 @@ mod tests {
         }
         // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
         // too, with a message about breadth rather than the rename.
-        assert!(problems.is_empty(), "{problems:?}");
+        //
+        // ⭐⭐ AND THE MESSAGE NAMES THE OTHER CAUSE, because the two look
+        // identical and only one is a content bug. The oracle
+        // (`fx::is_authored_effect`) reads a table `ambition_sprite_sheet`'s
+        // `build.rs` bakes AT COMPILE TIME from `assets/sprites`, and those
+        // sheets are GENERATED and gitignored — so a tree where they were never
+        // rendered bakes an EMPTY table and every effect name is unknown at
+        // once. Measured 2026-09-12: this fired with all 22 of George's moves
+        // listed, and the reading was "the assets are not built here", not "the
+        // moveset names a renamed effect".
+        //
+        // ⇒ the count IS the diagnosis, so the message states it rather than
+        // leaving the next reader to notice.
+        assert!(
+            problems.is_empty(),
+            "{} move(s) name an unknown cosmetic effect.\n{problems:?}\n\
+             ⇒ IF NEARLY EVERY MOVE IS LISTED, the baked FX sheet table is EMPTY \
+             and this is not a content bug: the sheets are generated and \
+             gitignored. Rebuild them, then re-run:\n\
+             \x20   ./scripts/regen/sprites.sh          # or one target: --target george_booul_vfx\n\
+             \x20   scripts/setup/generated_content.sh  # everything, fonts included\n\
+             \x20   find crates/ambition_platformer2d_actor_monolith/assets/sprites \\\n\
+             \x20        -name '*_spritesheet.ron' | wc -l   # 0 means the bake is empty\n\
+             ⇒ IF ONLY ONE OR TWO ARE LISTED, a sheet row really was renamed or \
+             removed and this moveset still names the old row.",
+            problems.len()
+        );
         assert!(
             effects.len() >= 4,
             "a jab, a smash, a launcher, a special and a recovery cannot all \

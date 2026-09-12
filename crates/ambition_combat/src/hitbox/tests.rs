@@ -10,7 +10,7 @@ fn dummy_entity() -> Entity {
 #[test]
 fn hitbox_knockback_units_remain_distinct() {
     assert_eq!(
-        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0, 0.0),
+        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0, 0.0, 1.0),
         HitKnockbackMagnitude::FeelScale(1.6),
         "world damage-box feel scales do not become engine-unit speeds"
     );
@@ -23,6 +23,7 @@ fn hitbox_knockback_units_remain_distinct() {
             30,
             2.0,
             0.0,
+            1.0,
         ),
         HitKnockbackMagnitude::LaunchSpeed(150.0),
         "melee launch speed growth resolves in engine units"
@@ -1539,6 +1540,15 @@ mod ruleset_knockback_growth {
     use super::*;
 
     fn launch(growth: Option<f32>, ruleset_growth: f32, victim_damage: i32) -> f32 {
+        launch_at_scale(growth, ruleset_growth, victim_damage, 1.0)
+    }
+
+    fn launch_at_scale(
+        growth: Option<f32>,
+        ruleset_growth: f32,
+        victim_damage: i32,
+        percent_scale: f32,
+    ) -> f32 {
         match resolved_hitbox_knockback_magnitude(
             crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
@@ -1547,6 +1557,7 @@ mod ruleset_knockback_growth {
             victim_damage,
             1.0,
             ruleset_growth,
+            percent_scale,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),
@@ -1597,11 +1608,50 @@ mod ruleset_knockback_growth {
             100,
             2.0,
             0.01,
+            1.0,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),
         };
         assert_eq!(heavy, 180.0, "twice the weight takes half the growth");
+    }
+
+    /// THE PERCENT SCALE REACHES BOTH ROADS, and that is not a formality —
+    /// the roster is genuinely split between them.
+    ///
+    /// ⛔ Measured 2026-09-12 over the smash demo: 40 authored knockback
+    /// volumes, 38 with a POSITIVE authored growth that never consults the
+    /// ruleset, while every fighter's prefab-derived swings author `None` and
+    /// are governed only by the fallback. A scale wired into one road would
+    /// have moved half of every fighter's kit and left the other half flat,
+    /// which is a worse bug than the one it set out to fix because it is
+    /// invisible in a single move's numbers.
+    #[test]
+    fn the_percent_scale_reaches_the_authored_road_and_the_fallback_alike() {
+        // The FALLBACK road: a ruleset growth of 0.01 on a 120 base is
+        // 1.2/point, so 100 damage doubles the launch — and the scale acts on
+        // that term alone.
+        assert_eq!(launch_at_scale(None, 0.01, 100, 1.0), 240.0);
+        assert_eq!(launch_at_scale(None, 0.01, 100, 2.0), 360.0);
+        // The AUTHORED road: 2.0/point stated by the volume itself, which
+        // outranks the ruleset's growth and must still take the scale.
+        assert_eq!(launch_at_scale(Some(2.0), 0.01, 100, 1.0), 320.0);
+        assert_eq!(launch_at_scale(Some(2.0), 0.01, 100, 2.0), 520.0);
+        // ⛔ AND NEITHER ROAD MOVES AT 0%, at any scale. This is acceptance
+        // item (A) at the resolver, and it is what distinguishes a percent
+        // curve from a global launch buff.
+        for scale in [0.0, 1.0, 1.5, 2.0, 2.5] {
+            assert_eq!(
+                launch_at_scale(None, 0.01, 0, scale),
+                120.0,
+                "the fallback road moved a 0% hit at scale {scale}"
+            );
+            assert_eq!(
+                launch_at_scale(Some(2.0), 0.01, 0, scale),
+                120.0,
+                "the authored road moved a 0% hit at scale {scale}"
+            );
+        }
     }
 
     /// FIXED knockback: a stated zero is a statement, not a silence.

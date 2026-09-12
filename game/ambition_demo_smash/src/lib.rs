@@ -1703,6 +1703,26 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // barely half. Vary and the old one recovers — the ring forgets.
         stale_step: 0.05,
         stale_floor: 0.55,
+        // ⛔⛔ STALING WEARS THE DAMAGE DOWN IN FULL AND THE LAUNCH DOWN A
+        // LITTLE, because it is ONE number with TWO jobs and it used to be
+        // spent as though it had one.
+        //
+        // The floor above is a DAMAGE statement: nine landings of a move and it
+        // is worth barely half, which is the anti-spam rule working as
+        // designed. But the same 0.55 was multiplying the whole LAUNCH, and at
+        // high percent the launch is substantially the percent term — so a
+        // fighter's best kill move became the one least able to kill precisely
+        // when killing was the only thing left to do. That is a double
+        // punishment in a mechanic where launch, not damage, ends a stock.
+        //
+        // ⭐ At 0.30 a fully stale move keeps `1 - 0.30 * (1 - 0.55)` = 86.5%
+        // of its reach while still dealing 55% of its damage. Staling remains
+        // a real cost — vary or lose tempo — without being the reason a match
+        // cannot end.
+        stale_knockback_influence: Some(0.30),
+        // ⭐⭐ THE PERCENT CURVE'S STEEPNESS, and the one number this whole
+        // repair turns on. See `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
+        victim_percent_knockback_scale: Some(SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
         // CROUCH CANCEL, 0.85x. Ducking is a defensive read, not just a
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.
@@ -4062,6 +4082,55 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// game rule; the shared PvE movement baseline does not scale knockback this way.
 /// Public so roster-wide validation can check every authored fighter moveset.
 pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
+
+/// How steep the victim-percent curve is, as a dimensionless multiplier on the
+/// percent term alone. `1.0` is the law as first written.
+///
+/// ⛔⛔ THE ALTERNATIVE TO THIS CONSTANT IS EDITING EVERY FIGHTER, and that is
+/// why it exists. Measured over this demo: 40 authored knockback volumes, 38
+/// of them stating their own `knockback_growth` at a median ratio of exactly
+/// 0.0200 of base — i.e. the roster already AGREES with
+/// [`SMASH_KNOCKBACK_GROWTH`] to four decimal places. A roster that agrees with
+/// itself is not mistuned, so a roster-wide retune would have been 38 edits
+/// re-deriving one global decision, with 38 chances to disagree. The percent
+/// curve is one decision and belongs in one number.
+///
+/// ⭐⭐ `1.5` IS THE SMALLEST SWEPT VALUE THAT CONVERTS, and it was chosen by
+/// measurement rather than by taste. Swept 2026-09-12 through the authoritative
+/// simulation — authored volume → combat hit resolution → victim hit reaction →
+/// carried launch → the stage's own blast boundary — with a FRESH attacker, so
+/// rage is exactly `1.0` and the percent curve carries the knockout alone.
+/// Every row is a fully stale jab on a 700% George Booul from stage centre
+/// under neutral input, beside a fresh 0% jab on the same body:
+///
+/// | scale | 700% stale, lateral travel | side line at 720px | 0% fresh |
+/// |-------|---------------------------|--------------------|----------|
+/// | 1.00  | 533.5px                   | ✗                  | poke     |
+/// | 1.25  | 664.3px                   | ✗                  | poke     |
+/// | **1.50** | **727.0px**            | **✓**              | **poke** |
+/// | 1.75  | 722.3px                   | ✓                  | poke     |
+/// | 2.00  | 735.9px                   | ✓                  | poke     |
+/// | 2.25  | 729.7px                   | ✓                  | poke     |
+/// | 2.50  | 724.4px                   | ✓                  | poke     |
+///
+/// ⛔⛔ AND THE WITNESS IS THE SIDE LINE, NOT "A KNOCKOUT HAPPENED" — the two
+/// disagree here and the difference chose this number. A stage has four blast
+/// boundaries, so at `1.00` and `1.25` the victim WAS knocked out while
+/// travelling only 533.5px and 664.3px of the 720px the side line needs: those
+/// were ceiling or floor kills. A sweep that accepted any knockout reported
+/// "the smallest passing value is 1.00" — i.e. that the percent curve needed no
+/// repair at all — on the strength of a launch that never went sideways.
+///
+/// ⚠ NOTHING ABOVE 1.5 EARNS ITS EXTRA. Every larger value also clears the bar,
+/// which is exactly why "it passes" is not evidence that a value is right; and
+/// the 0% column is IDENTICAL at every scale (446.4px/s, 5.0px travelled),
+/// because the term this scales is zero there by construction.
+///
+/// ⇒ the companion half of this repair is
+/// `DeclaredCombatRules::stale_knockback_influence`, and the two are not
+/// interchangeable: the staleness split is what makes a WORN move still
+/// convert, and this is what makes percent itself convert.
+pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.5;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";

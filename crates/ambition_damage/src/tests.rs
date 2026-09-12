@@ -506,7 +506,33 @@ fn scaled_knockback_is_parity_at_zero_growth() {
     // byte-parity pin that keeps every un-authored volume unchanged.
     for dmg in [0, 5, 50, 999] {
         for w in [0.5, 1.0, 4.0] {
-            assert_eq!(scaled_knockback(7.5, 0.0, dmg, w), 7.5);
+            assert_eq!(scaled_knockback(7.5, 0.0, dmg, w, 1.0), 7.5);
+        }
+    }
+}
+
+/// FIXED KNOCKBACK IS FIXED AT EVERY PERCENT SCALE, and a stale fixed move is
+/// not weakened either.
+///
+/// ⛔ `Some(0.0)` growth is the documented way to author a move whose launch
+/// does not care about percent — jab-lock finishers and set-knockback throws
+/// depend on it. A percent-curve knob is exactly the kind of change that
+/// quietly turns those into percent-scaling moves, so the pin sweeps the SCALE
+/// as well as the damage: no value of either may move the answer off `base`.
+#[test]
+fn fixed_knockback_ignores_the_percent_scale_and_staleness_alike() {
+    for dmg in [0, 5, 50, 700, 999] {
+        for w in [0.5, 1.0, 4.0] {
+            // the sweep range Jon asked for, plus a fully-stale knockback scale
+            // (`0.865`) and an absurd value, so the claim is about the whole
+            // knob and not about the value we happened to choose.
+            for scale in [0.0, 0.865, 1.0, 1.5, 2.0, 2.5, 100.0] {
+                assert_eq!(
+                    scaled_knockback(46.0, 0.0, dmg, w, scale),
+                    46.0,
+                    "a fixed-knockback move moved at {dmg}% / weight {w} / scale {scale}"
+                );
+            }
         }
     }
 }
@@ -514,14 +540,46 @@ fn scaled_knockback_is_parity_at_zero_growth() {
 #[test]
 fn scaled_knockback_grows_with_damage_and_divides_by_weight() {
     // base + growth * damage / weight.
-    assert_eq!(scaled_knockback(10.0, 2.0, 0, 1.0), 10.0);
-    assert_eq!(scaled_knockback(10.0, 2.0, 30, 1.0), 70.0);
+    assert_eq!(scaled_knockback(10.0, 2.0, 0, 1.0, 1.0), 10.0);
+    assert_eq!(scaled_knockback(10.0, 2.0, 30, 1.0, 1.0), 70.0);
     // Twice the weight -> half the growth contribution.
-    assert_eq!(scaled_knockback(10.0, 2.0, 30, 2.0), 40.0);
+    assert_eq!(scaled_knockback(10.0, 2.0, 30, 2.0, 1.0), 40.0);
     // Monotonic in accumulated damage.
-    assert!(scaled_knockback(10.0, 2.0, 60, 1.0) > scaled_knockback(10.0, 2.0, 30, 1.0));
+    assert!(scaled_knockback(10.0, 2.0, 60, 1.0, 1.0) > scaled_knockback(10.0, 2.0, 30, 1.0, 1.0));
     // Degenerate weight falls back to the reference body (never divides by 0).
-    assert_eq!(scaled_knockback(10.0, 2.0, 10, 0.0), 30.0);
+    assert_eq!(scaled_knockback(10.0, 2.0, 10, 0.0, 1.0), 30.0);
+}
+
+/// THE PERCENT SCALE MOVES THE PERCENT TERM AND NEVER THE BASE.
+///
+/// ⭐ The distinction is the entire design, and it is the one a "just multiply
+/// the knockback" fix gets wrong: a 0% hit must be untouched at ANY scale,
+/// while a high-percent hit moves by the full factor. Asserting both ends in
+/// one test is what stops the knob degenerating into a global launch buff.
+#[test]
+fn the_percent_scale_scales_the_percent_term_alone() {
+    // At 0% the term is already zero, so no scale can reach it. This is
+    // acceptance item (A), and it is an EQUALITY, not a tolerance.
+    for scale in [0.0, 1.0, 1.5, 2.0, 2.5] {
+        assert_eq!(
+            scaled_knockback(50.0, 1.05, 0, 1.0, scale),
+            50.0,
+            "a 0% hit changed under percent scale {scale}"
+        );
+    }
+    // At 100% on a reference body the whole percent term is `growth * 100`, so
+    // doubling the scale doubles that term and leaves the base alone:
+    // 50 + 1.05*100 = 155 fresh, 50 + 2*1.05*100 = 260 at 2x.
+    assert_eq!(scaled_knockback(50.0, 1.05, 100, 1.0, 1.0), 155.0);
+    assert_eq!(scaled_knockback(50.0, 1.05, 100, 1.0, 2.0), 260.0);
+    // ⛔ AND THE GAP IS THE PERCENT TERM, NOT THE LAUNCH: 260 is not 2x155.
+    // If it ever were, the scale would have swallowed the base too.
+    assert!(
+        scaled_knockback(50.0, 1.05, 100, 1.0, 2.0) < 2.0 * scaled_knockback(50.0, 1.05, 100, 1.0, 1.0),
+        "the scale reached the base"
+    );
+    // A negative scale is clamped rather than inverting the launch.
+    assert_eq!(scaled_knockback(50.0, 1.05, 700, 1.0, -3.0), 50.0);
 }
 
 #[test]
@@ -530,7 +588,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     // conjugated trajectory. The speed remains an engine-unit magnitude; only
     // the local launch direction rotates with gravity.
     let feel = Platformer2dFeelTuningMonolith::default();
-    let launch_speed = scaled_knockback(100.0, 2.0, 30, 2.0); // == 130 px/s
+    let launch_speed = scaled_knockback(100.0, 2.0, 30, 2.0, 1.0); // == 130 px/s
     let default_dir = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y).normalize();
     let local_expected = default_dir * launch_speed;
     let victim_pos = ae::Vec2::new(100.0, 200.0);

@@ -5638,6 +5638,38 @@ mod launched {
                 .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
                 .is_some_and(|c| c.is_in_hitlag())
         };
+        // ⛔⛤ THE HIGHEST METER READING SEEN, NOT THE LAST ONE — and the fourth
+        // instance of this fixture's own lesson, arriving from the opposite
+        // direction. The three recorded below are all "the strike never landed
+        // and the message blamed the meter". This one is the strike landing
+        // PERFECTLY and the meter being erased afterwards.
+        //
+        // ⭐ MEASURED 2026-09-12, under the victim-percent repair: the
+        // end-of-loop read saw the victim's meter go `1427 -> 0` and the guard
+        // reported a MISS — in the same breath as reporting a 449.5px rise,
+        // where this fixture's own recorded figure for 1427% was 398px. A miss
+        // cannot lift a body 449.5px. So the strike landed, the launch grew the
+        // way the repair intended, and something erased the meter afterwards.
+        //
+        // ⚠ THE ERASING MECHANISM IS NOT ESTABLISHED, AND THE RESPAWN PATH IS
+        // NOT IT. Checked 2026-09-12, because the obvious story — "it was
+        // knocked out and respawned, and a respawn resets damage" — is wrong:
+        // `BodyHealth` is NOT a member of `BodyClusterQueryData` and
+        // `reset_body_clusters` touches no health, so the cluster reset a
+        // respawn performs cannot zero a meter. Neither
+        // `respawn_when_the_interlude_closes` nor `place_respawning_fighters`
+        // writes health, and outside test code the only `set_damage_taken`
+        // caller is sudden-death-only (`open_the_sudden_death_round`). The
+        // sibling `ring_out` module records the same reading at `700 -> 0` and
+        // likewise declines to name a cause.
+        //
+        // ⇒ AND THE GUARD DOES NOT NEED THE CAUSE, which is what makes this a
+        // fix rather than a workaround. "Did this hit connect" is answered the
+        // moment the meter first moves, and NO later event can make that
+        // answer false. A maximum cannot be un-set by a reset at any tick,
+        // which a single sample — early or late — can. Whatever erases the
+        // meter is worth finding; this fixture no longer depends on it.
+        let mut meter_after = meter_before;
         let mut reacting_ticks = 0usize;
         for _ in 0..240 {
             if reacting_ticks >= 8 {
@@ -5647,6 +5679,13 @@ mod launched {
             app.update();
             if !in_hitlag(app) {
                 reacting_ticks += 1;
+            }
+            if let Some(seen) = app
+                .world()
+                .get::<BodyHealth>(victim)
+                .map(|h| h.damage_taken())
+            {
+                meter_after = meter_after.max(seen);
             }
             let pos = app.world().get::<BodyKinematics>(victim).unwrap().pos;
             // A blast-zone respawn TELEPORTS; past that the displacement is
@@ -5664,11 +5703,9 @@ mod launched {
                 left_the_ground = true;
             }
         }
-        let meter_after = app
-            .world()
-            .get::<BodyHealth>(victim)
-            .map(|h| h.damage_taken())
-            .unwrap_or(-1);
+        // `meter_after` was accumulated INSIDE the loop above, deliberately: see
+        // the note there. Reading it here instead would re-introduce the exact
+        // 1427 -> 0 misreport that note exists to describe.
         // ⛔⛔⛔ THE FIXTURE'S OWN STRIKE HAS TO LAND BEFORE ITS RISE MEANS
         // ANYTHING, AND FOR THREE YEARS OF THIS FIXTURE'S LIFE NOTHING CHECKED.
         //
@@ -5794,6 +5831,1119 @@ mod launched {
              {:.1}px at 1427% — the percent meter is not reaching the launch",
             fresh.peak_rise,
             cooked.peak_rise
+        );
+    }
+}
+
+/// ⛔⛔ THE PERCENT CURVE HAS TO CONVERT, AND AT 700% IT DOES NOT.
+///
+/// Jon, playing: characters reach ~700% and go on jabbing each other without
+/// dying, so a stock never ends and the match cannot finish. `mod launched`
+/// above already proves a launch GROWS with percent — it lifts a 1427% victim
+/// more than ten times as far as a fresh one — and that is a different claim
+/// from *the launch is big enough to end a stock*. A curve can grow and still
+/// arrive nowhere.
+///
+/// ⭐ SO THIS MEASURES THE OUTCOME, NOT THE NUMBER. The witness is the stage's
+/// own side blast line reached through the authoritative chain: George's
+/// AUTHORED jab volume → the combat hit resolution → `HitKnockback` → the
+/// victim's hit reaction → the carried launch → the movement kernel's blast
+/// margin → `BodyKnockedOut`. Nothing here recomputes the knockback law, so a
+/// test that passes cannot be passing on its own arithmetic.
+///
+/// ⛔ THE ATTACKER IS FRESH ON PURPOSE, AND IT IS THE LOAD-BEARING CHOICE IN
+/// THIS FIXTURE. Rage multiplies a launch by up to 1.4x off the ATTACKER's own
+/// damage, so a mirror where both fighters sit at 700% would have rage doing
+/// roughly a third of the work of clearing this bar. Ambition's rage cap is
+/// deliberately out of scope for the percent-curve repair, and a bar cleared
+/// with rage's help would hide whether the curve itself was fixed. A fresh
+/// attacker means `rage_scale == 1.0` and the victim-percent term alone has to
+/// carry the knockout.
+///
+/// ⚠ AND THE MOVE IS FULLY STALE, which is the honest worst case rather than a
+/// rare one: at 700% the jab is exactly the move that has been thrown all
+/// match. Nine recent landings put `stale_scale` on its floor (0.55).
+mod ring_out {
+    use super::*;
+    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    use ambition_platformer2d::combat::stale::{stale_move_hash, BodyStaleMoves};
+    use ambition_platformer2d::combat::stocks::BodyKnockedOut;
+    use ambition_platformer2d::engine_core::BodyGroundState;
+    use ambition_platformer2d::engine_core::Vec2 as EVec2;
+    use ambition_platformer2d::entity_catalog::WindowTag;
+    use ambition_platformer2d::platformer::body::BodyKinematics;
+
+    /// The move under test, by the id its own table authors it under.
+    const JAB: &str = "jab";
+
+    /// Nine recent landings of the same move — the genre's queue length, and
+    /// what puts `stale_scale` on its authored floor.
+    const FULLY_STALE: usize = 9;
+
+    /// Which authored table a cell's move is read from.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Table {
+        George,
+        /// The shared stand-in table both robots wear — the REFERENCE body's
+        /// kit, whose jab is the matrix's reference-weight arm.
+        Reference,
+    }
+
+    impl Table {
+        fn contract(self) -> ambition_platformer2d::entity_catalog::MovesetContract {
+            match self {
+                Table::George => george_booul_table(),
+                Table::Reference => ambition_demo_smash::moveset::fighter_moveset(),
+            }
+        }
+    }
+
+    /// ONE CELL OF THE ACCEPTANCE MATRIX, spelled so the matrix reads as data.
+    ///
+    /// ⭐ Every axis Jon's matrix varies is a field here — percent, freshness,
+    /// which body takes the hit, which move, and which VOLUME of that move —
+    /// so a cell is a row of the report rather than a bespoke fixture. The
+    /// alternative is one test per cell, each free to differ from its
+    /// neighbours in ways the report cannot see.
+    #[derive(Clone, Debug)]
+    struct Cell {
+        /// Roster id worn by the fighter throwing the move.
+        attacker: &'static str,
+        /// Roster id worn by the fighter taking it.
+        victim: &'static str,
+        table: Table,
+        move_id: &'static str,
+        /// Index into the move's Active volumes IN AUTHORED ORDER. `0` is the
+        /// first-authored volume, and for a spaced smash that is the TIP —
+        /// George's f-smash authors the tip first precisely because order IS
+        /// priority, then pushes the weaker base in behind it.
+        volume: usize,
+        percent: i32,
+        stale: bool,
+        /// Re-declare the ruleset's percent scale for this cell, or `None` to
+        /// measure whatever the demo itself declares.
+        scale: Option<f32>,
+    }
+
+    /// Re-declare the percent scale on the LIVE ruleset, and CONFIRM IT LANDED.
+    ///
+    /// ⭐⭐ THIS IS WHAT MAKES THE SWEEP ONE BUILD INSTEAD OF FIVE.
+    /// `ResolvedCombatTuning` is re-derived from `DeclaredCombatRules` every
+    /// tick, so writing the RESOLVED resource would be overwritten before the
+    /// next hit — the declaration is the only writable end of that fold.
+    ///
+    /// ⛔ AND THE OVERRIDE IS NOT TRUSTED. A sweep whose lever silently failed
+    /// would report five identical readings and look like a curve that does
+    /// not respond to its own knob — the most expensive possible false
+    /// negative, because every value would then appear to "fail" and the
+    /// honest conclusion would be to keep raising it. So the write is read
+    /// back THROUGH the fold, off the resolved resource the combat road
+    /// actually consults.
+    fn declare_percent_scale(app: &mut App, scale: f32) {
+        {
+            let mut declared = app
+                .world_mut()
+                .get_resource_mut::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
+                .expect(
+                    "the smash experience declares combat rules on entry; without that \
+                     resource there is no percent curve to sweep and this fixture is \
+                     measuring an undeclared world",
+                );
+            declared.victim_percent_knockback_scale = Some(scale);
+        }
+        // One tick for `project_combat_rules` to re-fold the declaration.
+        app.update();
+        let live = app
+            .world()
+            .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
+            .victim_percent_knockback_scale;
+        assert!(
+            (live - scale).abs() < 1e-6,
+            "the percent-scale override did not reach the resolved rules: asked \
+             for {scale}, the combat road reads {live}. Every reading in this \
+             sweep would be the demo's own declared value wearing another \
+             value's label."
+        );
+    }
+
+    /// What one strike did, in the terms the acceptance matrix is written in.
+    #[derive(Debug)]
+    struct RingOut {
+        /// The stage's own verdict: a `BodyKnockedOut` naming this victim with
+        /// `LeftTheWorld`. This is the claim, and it is not derived from a
+        /// position this test interprets.
+        left_the_world: bool,
+        /// ⛔⛔ THE SIDE LINE SPECIFICALLY, AND IT IS A DIFFERENT QUESTION FROM
+        /// [`Self::left_the_world`]. A stage has four blast boundaries, so "was
+        /// this body knocked out" and "did this body travel off the SIDE" are
+        /// not the same claim — and the difference decides the calibration.
+        ///
+        /// ⭐ MEASURED 2026-09-12 across the percent sweep: at scale `1.00` the
+        /// fully stale 700% jab DID register a `LeftTheWorld` knockout while
+        /// travelling only 533.5px of the 720px the side line needs, and at
+        /// `1.25` only 664.3px. Those kills went through the ceiling or the
+        /// floor. Accepting them would have reported "the smallest passing
+        /// value is 1.00" — i.e. that the percent curve needed no repair at all
+        /// — on the strength of a launch that never went sideways.
+        ///
+        /// ⇒ so the side-line witness requires the TRAVEL as well as the
+        /// verdict. The first scale that clears both is 1.50.
+        crossed_the_side_line: bool,
+        /// Fastest speed the victim was seen carrying, for the report's curve.
+        peak_speed: f32,
+        /// Furthest the victim got from where it was struck, along the stage's
+        /// lateral axis.
+        peak_lateral: f32,
+        /// How far it had to get. Read off the REAL stage rather than restated.
+        lateral_needed: f32,
+        /// The weight the knockback law actually DIVIDED by, read off the
+        /// seated body's `CombatTuning` rather than restated from a catalog.
+        ///
+        /// ⭐ It is here so the weight arm of the matrix can assert its own
+        /// premise. "The heavier victim travels less" is a claim about two
+        /// bodies, and a fixture that hardcodes which one is heavier passes
+        /// just as happily when the two are equal — or when the authored
+        /// weights swap and the assertion is then backwards.
+        victim_weight: f32,
+    }
+
+    /// Centre of the fighting platform and the lateral distance from there to
+    /// the side blast line, both read off the authored stage.
+    ///
+    /// ⛔ NOT RESTATED AS LITERALS. `PLATFORM_WIDTH`, `STAGE_SIZE` and the blast
+    /// margins are private constants of the demo, and a copy of them here would
+    /// be a second stage that silently stops matching the first.
+    fn stage_centre_and_reach() -> (f32, f32) {
+        let room = ambition_demo_smash::smash_stage();
+        let side = room
+            .world
+            .edges
+            .side
+            .expect("the smash stage authors side blast lines");
+        let centre = room.world.size.x / 2.0;
+        // The blast line sits `side` beyond the room edge, so from the centre
+        // the body must travel half the room plus the margin.
+        (centre, centre + side)
+    }
+
+    /// George's authored jab volume, taken from his own table.
+    ///
+    /// ⭐ SOURCED, NOT COPIED. `mod launched` above carries `UP_TILT_KNOCKBACK`
+    /// and friends as literals, and a literal is a claim about authored content
+    /// that stops being true the moment the table is retuned. Reading the volume
+    /// means this fixture strikes with whatever George actually authors.
+    fn authored_volume(
+        moveset: &ambition_platformer2d::entity_catalog::MovesetContract,
+        move_id: &str,
+        index: usize,
+    ) -> ambition_platformer2d::entity_catalog::HitVolume {
+        let spec = moveset
+            .moves
+            .iter()
+            .find(|spec| spec.id == move_id)
+            .unwrap_or_else(|| {
+                let ids: Vec<&str> = moveset.moves.iter().map(|m| m.id.as_str()).collect();
+                panic!("no move `{move_id}` in this table; it authors {ids:?}")
+            });
+        let volumes: Vec<ambition_platformer2d::entity_catalog::HitVolume> = spec
+            .windows
+            .iter()
+            .filter(|window| window.tag == WindowTag::Active)
+            .flat_map(|window| window.volumes.iter())
+            .cloned()
+            .collect();
+        // ⛔ AN OUT-OF-RANGE INDEX IS A SILENT WRONG-VOLUME READING OTHERWISE,
+        // and the tip/base distinction is exactly where that would bite: ask
+        // for volume 1 of a move that authors one volume and a `.get().unwrap_or`
+        // would hand back the tip while the report says "base".
+        assert!(
+            index < volumes.len(),
+            "`{move_id}` authors {} Active volume(s), so there is no volume {index} \
+             to measure. Authored knockback, in order: {:?}",
+            volumes.len(),
+            volumes
+                .iter()
+                .map(|v| (v.damage, v.knockback))
+                .collect::<Vec<_>>()
+        );
+        volumes[index].clone()
+    }
+
+    /// Seat a GEORGE MIRROR and hand back two distinct bodies.
+    ///
+    /// A mirror is the right subject for a weight claim: both sides divide the
+    /// growth term by the same 1.35, so the reading is about the curve rather
+    /// than about a matchup. Mirrors are valid here — see
+    /// `two_players_two_seats`'s own note that character ids may match.
+    fn two_seated_fighters_of(
+        app: &mut App,
+        attacker_id: &'static str,
+        victim_id: &'static str,
+    ) -> (Entity, Entity) {
+        // Twice each: the first press takes a source, the second cycles to CPU.
+        cycle_role(app, 0, 2);
+        cycle_role(app, 1, 2);
+        pick_fighter(app, 0, attacker_id);
+        pick_fighter(app, 1, victim_id);
+        let layout = screen(app);
+        click(app, layout.start_button());
+        // ⛔⛔ THE BLIND COUNTDOWN WAIT IS DELIBERATE, AND `wait_for_the_round_to_go_live`
+        // IS THE WRONG TOOL HERE. That helper returns as soon as no `MatchSeat`
+        // holds `ScriptedControl` — which is vacuously true when there are ZERO
+        // seats, i.e. before the match has been built at all. Measured
+        // 2026-09-12: it returned instantly, this fixture queried a world with
+        // no cast, and both arms died on the mirror assertion below in 3.1s
+        // having never paid for a boot. A readiness check whose "ready" and
+        // "nothing exists yet" answers are the same value cannot gate a
+        // fixture that is waiting for something to be CREATED.
+        //
+        // ⇒ Spend the opening hold the way `two_seated_fighters` does, then use
+        // the readiness helper for what it is good for: seats now exist, so
+        // "nobody is held" means what it says.
+        for _ in 0..240 {
+            app.update();
+        }
+        wait_for_the_round_to_go_live(app);
+        // The whole cast, kept for the diagnostic: a count alone cannot say
+        // whether the mirror failed to seat or seated somebody else.
+        let cast: Vec<(String, Entity)> = {
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &WornCharacter)>();
+            q.iter(world)
+                .map(|(e, worn)| (worn.id().to_string(), e))
+                .collect()
+        };
+        // EXACT id, like `bodies_wearing` — a substring match would also accept
+        // a character whose id merely contains this one.
+        let wearing = |want: &str| -> Vec<Entity> {
+            cast.iter()
+                .filter(|(id, _)| id == want)
+                .map(|(_, e)| *e)
+                .collect()
+        };
+        // ⛔ A MIRROR AND A MIXED MATCHUP ARE DIFFERENT QUESTIONS, and asking
+        // the mirror's question of a mixed cell is how a weight comparison
+        // silently becomes a mirror: `wearing(a)[0]` and `wearing(a)[1]` would
+        // hand back two bodies of the SAME fighter and the "heavier victim"
+        // arm would measure George hitting George while reporting otherwise.
+        let (attacker, victim) = if attacker_id == victim_id {
+            let both = wearing(attacker_id);
+            assert!(
+                both.len() >= 2,
+                "a mirror of `{attacker_id}` seated {} bodies wearing it, so there \
+                 is no mirror to measure. The cast that DID take the stage: {cast:?}",
+                both.len()
+            );
+            (both[0], both[1])
+        } else {
+            let a = *wearing(attacker_id).first().unwrap_or_else(|| {
+                panic!(
+                    "no body wearing the attacker `{attacker_id}` took the stage. \
+                     The cast that did: {cast:?}"
+                )
+            });
+            let v = *wearing(victim_id).first().unwrap_or_else(|| {
+                panic!(
+                    "no body wearing the victim `{victim_id}` took the stage. \
+                     The cast that did: {cast:?}"
+                )
+            });
+            assert_ne!(
+                a, v,
+                "the attacker and victim resolved to ONE body, so the fixture \
+                 would have a fighter hitting itself"
+            );
+            (a, v)
+        };
+
+        // ⛔⛔ NEUTRAL INPUT IS A REQUIREMENT OF THE READING, NOT A CONVENIENCE,
+        // and a LIVE CPU victim is what broke the first version of this fixture.
+        //
+        // Measured 2026-09-12: with both seats left on their duelist brains, a
+        // 240-tick window let the victim act for ~3.5s after its hitstun ended.
+        // The meter read 700 going in and 0 coming out — not a miss (that reads
+        // 700 -> 700) but a RESET, so the landed-strike guard fired and the
+        // ring-out claim was never evaluated. ⚠ The mechanism is still
+        // unexplained: every production `set_damage_taken` caller is test-only
+        // or sudden-death-only, and `respawn_when_the_interlude_closes` never
+        // touches health. This removes the exposure rather than claiming a cause.
+        //
+        // ⭐ `Brain::stand_still()` IS THIS CODEBASE'S OWN ANSWER for a seat
+        // nobody drives — `realize_seat` hands exactly this to a `LocalInput`
+        // seat — so it is the idiomatic lever rather than a test-only trick. It
+        // holds because that choice is made ONCE: activation is one-shot and
+        // "never rebinds", so an insert here is not re-derived away.
+        //
+        // ⛔ AND NOT A CONTROL HOLD, though one would also stop a body walking
+        // (`blank_scripted_control_frames` blanks an `ActorControl` under
+        // `ScriptedControl`). Every `ControlHold` bit is owned by an authority
+        // that releases only its own — and `Interlude` belongs to the KO path
+        // this test exists to provoke. A fixture claiming that bit impersonates
+        // an authority and can have its hold released by the event under test.
+        for body in [attacker, victim] {
+            app.world_mut().entity_mut(body).insert(Brain::stand_still());
+        }
+        app.update();
+        // ⚠ AND THE INSERT IS NOT TRUSTED — but it is checked BY BEHAVIOUR, in
+        // `jab_from_stage_centre` below, not by reading the component back.
+        //
+        // ⛔ A STRUCTURAL CHECK HERE WOULD BE THE WEAKER TEST, and writing one
+        // is what exposed that: `Brain` has a single variant and derives no
+        // `PartialEq`, so the assertion can only be spelled by naming
+        // `StateMachine(StateMachineCfg::StandStill)` — a spelling that drifts
+        // the moment the enum grows, and one that rules out exactly ONE reason
+        // this body might act. An insert re-fires `Added<Brain>` (the fighter
+        // ladder reads `Query<&mut Brain, Added<Brain>>` and re-tunes a
+        // newly-added brain), the control frame may or may not be blanked, and a
+        // seat may be driven by something else entirely. ⇒ Asserting "it does
+        // not move" covers all of those at once and cannot go stale.
+        (attacker, victim)
+    }
+
+    /// Strike a parked, grounded victim at stage centre with one authored
+    /// volume and watch whether the stage throws it out.
+    fn jab_from_stage_centre(app: &mut App, percent: i32, stale: bool) -> RingOut {
+        measure_cell(
+            app,
+            &Cell {
+                attacker: ambition_demo_smash::SMASH_GEORGE_BOOUL,
+                victim: ambition_demo_smash::SMASH_GEORGE_BOOUL,
+                table: Table::George,
+                move_id: JAB,
+                volume: 0,
+                percent,
+                stale,
+                scale: None,
+            },
+        )
+    }
+
+    fn measure_cell(app: &mut App, cell: &Cell) -> RingOut {
+        let (percent, stale) = (cell.percent, cell.stale);
+        let (attacker, victim) = two_seated_fighters_of(app, cell.attacker, cell.victim);
+        if let Some(scale) = cell.scale {
+            declare_percent_scale(app, scale);
+        }
+        let (centre, lateral_needed) = stage_centre_and_reach();
+        let volume = authored_volume(&cell.table.contract(), cell.move_id, cell.volume);
+        // ⭐ THE DIVISOR ITSELF, not a number copied out of the catalog.
+        // `CombatTuning::weight` is what `scaled_knockback` divides the percent
+        // term by, and `prepared.rs` only writes it when a character authors a
+        // weight — so a fighter that has never thought about it arrives at the
+        // reference `1.0` and this read reports that rather than guessing it.
+        let victim_weight = app
+            .world()
+            .get::<ambition_platformer2d::combat::components::CombatTuning>(victim)
+            .map(|tuning| tuning.weight)
+            .unwrap_or(1.0);
+
+        // The attacker is parked well away and re-parked every pass so its own
+        // CPU cannot walk into the reading — the same discipline `mod launched`
+        // arrived at the hard way.
+        let park = |app: &mut App, e: Entity, x: f32| {
+            if let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(e) {
+                kin.pos = EVec2::new(x, 200.0);
+                kin.vel = EVec2::ZERO;
+            }
+        };
+        park(app, victim, centre);
+        let mut settled = false;
+        for _ in 0..200 {
+            park(app, attacker, centre - 240.0);
+            app.update();
+            let standing = app
+                .world()
+                .get::<BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground);
+            let thawed = app
+                .world()
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
+                .is_some_and(|c| !c.is_in_hitlag() && c.hitstun_timer <= 0.0);
+            if standing && thawed {
+                settled = true;
+                break;
+            }
+        }
+        assert!(
+            settled,
+            "the victim never came to rest at stage centre, so nothing measured \
+             after this is about one jab"
+        );
+
+        // ⭐⭐ THE PACIFICATION, ASSERTED AS THE PROPERTY IT IS FOR: an unstruck
+        // victim does not move. This is what `Brain::stand_still()` was inserted
+        // to buy, and checking the BEHAVIOUR rather than the component covers
+        // every reason a body might act — a re-tuned brain, an unblanked control
+        // frame, another driver — with one assertion that cannot go stale.
+        //
+        // ⛔ IT IS ALSO THE GUARD THAT WOULD HAVE CAUGHT THE FIRST FAILURE. A
+        // live CPU victim walked during a 240-tick window, something reset its
+        // meter from 700 to 0, and the fixture reported "the strike never
+        // landed" — an accusation against the percent curve that was really a
+        // statement about the victim doing other things. A still victim makes
+        // the next such reading impossible rather than merely unlikely.
+        let before_still = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+        for _ in 0..30 {
+            app.update();
+        }
+        let drift = {
+            let now = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+            (now - before_still).length()
+        };
+        assert!(
+            drift < 8.0,
+            "the victim drifted {drift:.1}px in 30 unstruck ticks, so it is \
+             still acting. Everything measured after a jab would then be the \
+             launch PLUS whatever this body decided to do, and a ring-out could \
+             be its own walk off the ledge"
+        );
+
+        // THE VICTIM'S PERCENT. `SMASH_PERCENT_REFERENCE` is 100, so 700% is 700
+        // points of accumulated damage.
+        {
+            let mut health = app.world_mut().get_mut::<BodyHealth>(victim).unwrap();
+            let pool = health.health;
+            let policy = health.policy();
+            *health = BodyHealth::restored(pool, percent, policy);
+        }
+
+        // THE ATTACKER'S STALE QUEUE. `staleness()` reads the hash of the move
+        // in the attacker's live playback against its queue, so BOTH have to be
+        // present or the road answers zero and this arm silently measures a
+        // fresh jab.
+        if stale {
+            let move_id = cell.move_id;
+            let spec = std::sync::Arc::new(
+                cell.table
+                    .contract()
+                    .moves
+                    .iter()
+                    .find(|spec| spec.id == move_id)
+                    .unwrap_or_else(|| panic!("this table authors no `{move_id}`"))
+                    .clone(),
+            );
+            let mut queue = BodyStaleMoves::default();
+            for _ in 0..FULLY_STALE {
+                queue.record(stale_move_hash(move_id));
+            }
+            app.world_mut()
+                .entity_mut(attacker)
+                .insert((MovePlayback::new(spec, 1.0), queue));
+            let planted = app
+                .world()
+                .get::<BodyStaleMoves>(attacker)
+                .map(|q| q.occurrences(stale_move_hash(move_id)))
+                .unwrap_or(0);
+            assert_eq!(
+                planted, FULLY_STALE as u32,
+                "the stale queue did not take, so this arm would measure a FRESH \
+                 jab while claiming to measure a stale one"
+            );
+        }
+
+        park(app, victim, centre);
+        // ⛔⛔ THE OVERRIDE IS RE-CHECKED HERE, NOT ONLY WHERE IT WAS WRITTEN,
+        // and the gap between those two points is why. `declare_percent_scale`
+        // confirms the declaration reached the resolved rules — and then this
+        // fixture spends ~200 settle ticks before the strike. The smash
+        // experience INSERTS `DeclaredCombatRules` on entry
+        // (`demo_smash/src/lib.rs`), so anything that re-runs that insert
+        // inside the settle window would revert the override silently and
+        // every row of the sweep would report the demo's own declared value
+        // wearing another value's label — five identical readings that look
+        // like a curve ignoring its own knob, whose honest reading would be
+        // "keep raising it". A verification that happens before the thing it
+        // protects is not a verification.
+        if let Some(scale) = cell.scale {
+            let live = app
+                .world()
+                .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
+                .victim_percent_knockback_scale;
+            assert!(
+                (live - scale).abs() < 1e-6,
+                "the percent scale was {scale} when declared and is {live} at the \
+                 moment of the strike, so something re-declared the ruleset during \
+                 the settle window and this reading is not about {scale}"
+            );
+        }
+        let struck_at = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+        let meter_before = app
+            .world()
+            .get::<BodyHealth>(victim)
+            .map(|h| h.damage_taken())
+            .unwrap_or(-1);
+
+        let strike = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::combat::strike::Hitbox {
+                    owner: attacker,
+                    source: ambition_platformer2d::combat::strike::HitSide::Enemy,
+                    anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                        center: struck_at,
+                    },
+                    half_extent: EVec2::new(48.0, 48.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: volume.damage,
+                    knockback:
+                        ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
+                            base: volume.knockback,
+                            growth: volume.knockback_growth,
+                        },
+                    launch_dir: volume.launch_dir.map(|(x, y)| EVec2::new(x, y)),
+                    frame_down: EVec2::new(0.0, 1.0),
+                    strike_sfx: None,
+                    reaction: None,
+                },
+                ambition_platformer2d::combat::strike::HitboxHits::default(),
+                ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
+            ))
+            .id();
+
+        let mut left_the_world = false;
+        let mut peak_speed = 0.0f32;
+        let mut peak_lateral = 0.0f32;
+        // ⭐ THE METER IS SAMPLED EARLY AND KEPT, which is the other half of the
+        // reset repair above. The landed-strike guard asks "did this hit
+        // connect", and that is answered three ticks after contact; asking it at
+        // the END of the window lets anything that happens later invalidate an
+        // answer that was already true.
+        let mut meter_after = meter_before;
+        let mut sampled = false;
+        // ⛔ LONG ENOUGH FOR A KILL LAUNCH AND NO LONGER. From stage centre the
+        // body needs 720px; a launch that can do it carries ~800px/s and spends
+        // its hitstun cap (0.96s) getting there, so ~1.5s of ticks covers the
+        // crossing with margin. The 240-tick version covered it four times over
+        // and bought a window in which other things happened.
+        let mut reacting = 0usize;
+        for _ in 0..150 {
+            app.update();
+            let in_hitlag = app
+                .world()
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
+                .is_some_and(|c| c.is_in_hitlag());
+            if !in_hitlag {
+                reacting += 1;
+            }
+            if reacting >= 3 && !sampled {
+                meter_after = app
+                    .world()
+                    .get::<BodyHealth>(victim)
+                    .map(|h| h.damage_taken())
+                    .unwrap_or(-1);
+                sampled = true;
+            }
+            // The stage's own verdict, accumulated rather than sampled once: a
+            // ring-out TELEPORTS the body to its respawn point, so a position
+            // read after the fact cannot see the crossing — only the message can.
+            let ko = {
+                let messages = app.world().resource::<Messages<BodyKnockedOut>>();
+                let mut cursor = messages.get_cursor();
+                cursor.read(messages).any(|ko| {
+                    ko.body == victim
+                        && matches!(
+                            ko.cause,
+                            ambition_platformer2d::combat::HitSource::LeftTheWorld
+                        )
+                })
+            };
+            left_the_world |= ko;
+            if let Some(kin) = app.world().get::<BodyKinematics>(victim) {
+                peak_speed = peak_speed.max(kin.vel.length());
+                peak_lateral = peak_lateral.max((kin.pos.x - struck_at.x).abs());
+            }
+            if left_the_world {
+                break;
+            }
+            // Come to rest ON the stage: the launch is spent and no crossing is
+            // coming, so the remaining ticks would only add unrelated history.
+            let at_rest = app
+                .world()
+                .get::<BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground)
+                && app
+                    .world()
+                    .get::<BodyKinematics>(victim)
+                    .is_some_and(|k| k.vel.length() < 5.0);
+            if sampled && at_rest && reacting > 12 {
+                break;
+            }
+        }
+        assert!(
+            sampled,
+            "the victim never left hitlag for three ticks, so the fixture never \
+             sampled whether its own strike landed"
+        );
+        // The fixture's own strike has to land before its outcome means
+        // anything — `mod launched` confused a miss for a dead percent meter
+        // three separate times, and every input here is likewise supplied by
+        // this fixture.
+        assert!(
+            meter_after > meter_before,
+            "the fixture's own {}-damage jab never landed at percent={percent}: \
+             the victim's meter read {meter_before} before and {meter_after} \
+             after. A ring-out that did not happen says nothing about the \
+             percent curve when the hit never connected.",
+            volume.damage
+        );
+        if app.world().get_entity(strike).is_ok() {
+            app.world_mut().entity_mut(strike).despawn();
+        }
+        RingOut {
+            // Both halves, and the AND is the point: the stage's own knockout
+            // verdict plus the lateral travel that makes it a SIDE knockout.
+            // `peak_lateral` is a max over samples taken every tick, so it is
+            // conservative — a respawn teleport pulls the body back toward
+            // centre and can only lower the reading, never inflate it.
+            crossed_the_side_line: left_the_world && peak_lateral >= lateral_needed,
+            left_the_world,
+            peak_speed,
+            peak_lateral,
+            lateral_needed,
+            victim_weight,
+        }
+    }
+
+    fn george_booul_table() -> ambition_platformer2d::entity_catalog::MovesetContract {
+        ambition_demo_smash::george_booul_moveset::george_booul_moveset()
+    }
+
+    /// THE REGRESSION. A fully stale jab on a 700% heavyweight, thrown from
+    /// stage centre by a FRESH attacker, has to end the stock.
+    ///
+    /// This is the match-unfinishable bug stated as an outcome. It FAILS before
+    /// the victim-percent repair and passes after; if it ever goes red again,
+    /// the percent term stopped converting.
+    #[test]
+    fn a_fully_stale_jab_at_700_percent_crosses_the_side_blast_line() {
+        let mut app = open_the_lobby();
+        let outcome = jab_from_stage_centre(&mut app, 700, true);
+        assert!(
+            outcome.crossed_the_side_line,
+            "a fully stale jab on a 700% George, thrown from stage centre, did \
+             not put him past the side blast line: he peaked at {:.1}px/s and \
+             travelled {:.1}px of the {:.1}px the stage requires. At 700% the \
+             victim-percent term is the whole launch, so this is the match that \
+             cannot finish — every fighter alive and no stock ever spent.\n\
+             ⚠ The launch GROWING is not the claim; `mod launched` already \
+             proves that. The claim is that it converts.\n\
+             ⛔ AND ANY KNOCKOUT IS NOT THE CLAIM EITHER. This asks for the SIDE \
+             line, because a stage has four blast boundaries: measured at percent \
+             scale 1.00 this cell registered a `LeftTheWorld` knockout after only \
+             533.5px of lateral travel — a ceiling or floor kill — and accepting \
+             that would have reported the percent curve as needing no repair.",
+            outcome.peak_speed,
+            outcome.peak_lateral,
+            outcome.lateral_needed
+        );
+    }
+
+    /// THE OTHER END OF THE SAME CURVE, and the guard against paying for the
+    /// test above with low-percent lethality: a jab at 0% is a poke.
+    #[test]
+    fn a_fresh_jab_at_zero_percent_is_still_only_a_poke() {
+        let mut app = open_the_lobby();
+        let outcome = jab_from_stage_centre(&mut app, 0, false);
+        assert!(
+            !outcome.left_the_world,
+            "a jab on a 0% fighter at stage centre killed him ({:.1}px/s, \
+             {:.1}px travelled). Whatever repairs the high-percent curve must \
+             contribute EXACTLY ZERO at zero percent — that is what makes it a \
+             percent term rather than a knockback buff.",
+            outcome.peak_speed,
+            outcome.peak_lateral
+        );
+    }
+
+    /// A George mirror cell, since most of the matrix is one.
+    fn george_cell(move_id: &'static str, volume: usize, percent: i32, stale: bool) -> Cell {
+        Cell {
+            attacker: ambition_demo_smash::SMASH_GEORGE_BOOUL,
+            victim: ambition_demo_smash::SMASH_GEORGE_BOOUL,
+            table: Table::George,
+            move_id,
+            volume,
+            percent,
+            stale,
+            scale: None,
+        }
+    }
+
+    /// THE SWEEP, AND THE PIN ON ITS RESULT.
+    ///
+    /// ⭐⭐ THE SMALLEST PASSING VALUE, NOT A VALUE THAT PASSES. Jon's
+    /// instruction was explicit that `2x` is "the right region to investigate"
+    /// and NOT an acceptance criterion, so this walks the range upward and
+    /// takes the FIRST value that clears both ends of the curve at once. Any
+    /// larger value would also clear the kill bar, which is precisely why
+    /// "it passes" is not evidence that it is the right number.
+    ///
+    /// ⛔ `1.0` IS INCLUDED AS THE BEFORE-WITNESS AND MUST FAIL. It is the
+    /// unrepaired law — the percent term exactly as first written — so if it
+    /// ever clears this bar, the bar has stopped describing the defect and
+    /// every other row here is measuring nothing.
+    #[test]
+    fn the_declared_percent_scale_is_the_smallest_value_that_clears_the_bar() {
+        let candidates = [1.0f32, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5];
+        let mut rows: Vec<String> = Vec::new();
+        let mut smallest_passing: Option<f32> = None;
+        for scale in candidates {
+            let mut kill_cell = george_cell(JAB, 0, 700, true);
+            kill_cell.scale = Some(scale);
+            let kill = {
+                let mut app = open_the_lobby();
+                measure_cell(&mut app, &kill_cell)
+            };
+            let mut poke_cell = george_cell(JAB, 0, 0, false);
+            poke_cell.scale = Some(scale);
+            let poke = {
+                let mut app = open_the_lobby();
+                measure_cell(&mut app, &poke_cell)
+            };
+            rows.push(format!(
+                "  scale {scale:>4.2} | 700% stale: {:<5} {:>7.1}px/s {:>6.1}px of {:.0}px \
+                 | 0% fresh: {:<4} {:>6.1}px/s {:>5.1}px",
+                if kill.left_the_world { "KO" } else { "ALIVE" },
+                kill.peak_speed,
+                kill.peak_lateral,
+                kill.lateral_needed,
+                if poke.left_the_world { "KO" } else { "poke" },
+                poke.peak_speed,
+                poke.peak_lateral,
+            ));
+            // ⛔ THE SIDE LINE, NOT ANY KNOCKOUT — see `RingOut::crossed_the_side_line`.
+            // Taking `left_the_world` here reported 1.00 as the smallest
+            // passing value off two ceiling kills, which is the "the number
+            // increased" reading this calibration is supposed to refuse.
+            if kill.crossed_the_side_line && !poke.left_the_world && smallest_passing.is_none() {
+                smallest_passing = Some(scale);
+            }
+        }
+        let table = rows.join("\n");
+        println!("PERCENT-SCALE SWEEP (fresh attacker, stage centre, neutral input)\n{table}");
+        assert_eq!(
+            smallest_passing,
+            Some(ambition_demo_smash::SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
+            "the DECLARED percent scale is not the smallest swept value that both \
+             converts at 700% and stays a poke at 0%.\n{table}\n\
+             ⇒ Set `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` to the smallest passing \
+             value above. If nothing passed, the percent curve is not the whole \
+             defect and raising this knob further is the wrong repair."
+        );
+    }
+
+    /// THE CURVE, END TO END: a jab is a poke at 0% and a kill threat at 300%.
+    ///
+    /// ⭐ MONOTONE FIRST, MAGNITUDES SECOND. The ordering is the claim that
+    /// makes this a percent curve at all; the individual speeds are the
+    /// report's numbers. Acceptance items (A) and (B).
+    #[test]
+    fn the_percent_curve_rises_monotonically_and_starts_at_a_poke() {
+        let mut rows = Vec::new();
+        let mut last = -1.0f32;
+        for percent in [0, 100, 200, 300] {
+            let outcome = {
+                let mut app = open_the_lobby();
+                measure_cell(&mut app, &george_cell(JAB, 0, percent, false))
+            };
+            rows.push(format!(
+                "  {percent:>4}% fresh jab: {:>7.1}px/s {:>6.1}px {}",
+                outcome.peak_speed,
+                outcome.peak_lateral,
+                if outcome.left_the_world { "KO" } else { "" }
+            ));
+            assert!(
+                outcome.peak_speed > last,
+                "the launch did not grow from the previous percent step.\n{}",
+                rows.join("\n")
+            );
+            last = outcome.peak_speed;
+            if percent == 0 {
+                // (A) — and it is an OUTCOME assertion, not an arithmetic one:
+                // the resolver test pins the exact zero, this pins that zero
+                // percent is survivable in the real simulation.
+                assert!(
+                    !outcome.left_the_world,
+                    "a 0% jab killed from stage centre.\n{}",
+                    rows.join("\n")
+                );
+            }
+        }
+        println!("FRESH JAB PERCENT CURVE (George mirror)\n{}", rows.join("\n"));
+    }
+
+    /// A HEAVYWEIGHT TRAVELS LESS UNDER THE SAME HIT — item (F).
+    ///
+    /// ⛔ THE ONLY DIFFERENCE BETWEEN THESE TWO CELLS IS THE VICTIM. Same
+    /// attacker, same authored volume, same percent, same freshness, same
+    /// stage position — so a difference in the reading is the weight divisor
+    /// and cannot be a matchup or a move.
+    #[test]
+    fn the_heavier_victim_travels_less_under_the_same_jab() {
+        let george = ambition_demo_smash::SMASH_GEORGE_BOOUL;
+        // ⛔ THE SHIPPED HOST DROPS THE STAND-IN. `SmashRoster::assemble` removes
+        // a stand-in "as soon as the character it stands in for is in the
+        // composition", and `STAND_INS` pairs `smash_duelist_a` with
+        // `player_robot_v3` — so the stand-in's id is absent here and
+        // `pick_fighter` panicked on it (measured 2026-09-12:
+        // "smash_duelist_a is not in this host's smash roster"). The real
+        // character is the one the roster carries.
+        let reference = PREPARED_FIGHTER;
+        let cell_for = |victim: &'static str| Cell {
+            attacker: george,
+            victim,
+            table: Table::George,
+            move_id: JAB,
+            volume: 0,
+            percent: 300,
+            stale: false,
+            scale: None,
+        };
+        let heavy = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &cell_for(george))
+        };
+        let light = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &cell_for(reference))
+        };
+        // ⭐ THE WEIGHTS PRINTED ARE THE ONES MEASURED. Labelling these rows
+        // `1.35` and `1.0` from memory is how a report goes on describing an
+        // authored value the tree no longer holds.
+        println!(
+            "WEIGHT AT 300% (same George jab, same volume, same percent)\n  \
+             {george} (weight {:.2}): {:>7.1}px/s {:>6.1}px\n  \
+             {reference} (weight {:.2}): {:>7.1}px/s {:>6.1}px",
+            heavy.victim_weight,
+            heavy.peak_speed,
+            heavy.peak_lateral,
+            light.victim_weight,
+            light.peak_speed,
+            light.peak_lateral
+        );
+        // ⛔⛔ NON-VACUITY FIRST, AND IT IS NOT CEREMONY. If these two bodies
+        // carry the SAME weight this test passes or fails on simulation noise
+        // while claiming to measure weight, and if the authored weights ever
+        // swap the assertion below is silently backwards. So the premise is
+        // read off the bodies and asserted before the conclusion.
+        assert!(
+            heavy.victim_weight > light.victim_weight,
+            "this test needs a heavier victim and a lighter one, and the seated \
+             bodies carry {:.2} (George) against {:.2} ({}). With those equal or \
+             inverted, the travel comparison below is not about weight.",
+            heavy.victim_weight,
+            light.victim_weight,
+            reference
+        );
+        assert!(
+            heavy.peak_speed < light.peak_speed,
+            "the heavier body (weight {:.2}) did not resist the launch the lighter \
+             one (weight {:.2}) took: {:.1}px/s vs {:.1}px/s. The percent term \
+             DIVIDES by weight, so a scale applied to it must preserve that ordering.",
+            heavy.victim_weight,
+            light.victim_weight,
+            heavy.peak_speed,
+            light.peak_speed
+        );
+        // ⛔ AND NOT IMMORTAL. A heavy that merely resists is a tuning choice; a
+        // heavy that cannot be moved is the same unfinishable match in a
+        // different costume.
+        assert!(
+            heavy.peak_speed > 0.0 && heavy.peak_lateral > 0.0,
+            "the heavyweight did not move at all at 300%"
+        );
+    }
+
+    /// THE SMASH IS STILL THE SMASH — item (D).
+    ///
+    /// ⭐ THE TIP IS VOLUME 0 BECAUSE AUTHORED ORDER IS PRIORITY, and George's
+    /// f-smash states the tip first for exactly that reason, then pushes the
+    /// weaker base in behind it. Asserting the two volumes' authored knockback
+    /// here is what stops this test silently measuring the base if that order
+    /// is ever reversed.
+    #[test]
+    fn the_forward_smash_tip_outranks_the_jab_at_every_percent() {
+        const F_SMASH: &str = "smash_forward";
+        let table = george_booul_table();
+        let tip = authored_volume(&table, F_SMASH, 0);
+        let base = authored_volume(&table, F_SMASH, 1);
+        assert!(
+            tip.knockback > base.knockback,
+            "volume 0 of `{F_SMASH}` is not the tip: it authors {}kb against the \
+             other volume's {}kb, so this fixture is about to measure the base \
+             while calling it the tip",
+            tip.knockback,
+            base.knockback
+        );
+        let mut rows = Vec::new();
+        for percent in [0, 50, 100, 150] {
+            let smash = {
+                let mut app = open_the_lobby();
+                measure_cell(&mut app, &george_cell(F_SMASH, 0, percent, false))
+            };
+            let jab = {
+                let mut app = open_the_lobby();
+                measure_cell(&mut app, &george_cell(JAB, 0, percent, false))
+            };
+            rows.push(format!(
+                "  {percent:>3}%: f-smash TIP {:>7.1}px/s {:>6.1}px {:<3} | jab {:>7.1}px/s {:>6.1}px",
+                smash.peak_speed,
+                smash.peak_lateral,
+                if smash.left_the_world { "KO" } else { "" },
+                jab.peak_speed,
+                jab.peak_lateral,
+            ));
+            assert!(
+                smash.peak_speed > jab.peak_speed,
+                "the f-smash tip stopped being meaningfully stronger than the jab \
+                 at {percent}%.\n{}",
+                rows.join("\n")
+            );
+            if percent == 0 {
+                // ⛔ WITHOUT ABSURD LOW-PERCENT LETHALITY. A committed smash at
+                // 0% from stage CENTRE must not end a stock, or the repair has
+                // been paid for at the wrong end of the curve.
+                assert!(
+                    !smash.left_the_world,
+                    "a 0% forward smash killed from stage centre.\n{}",
+                    rows.join("\n")
+                );
+            }
+        }
+        println!("F-SMASH TIP vs JAB (George mirror, fresh)\n{}", rows.join("\n"));
+    }
+
+    /// FIXED KNOCKBACK IS FIXED THROUGH THE WHOLE SIMULATION — item (G).
+    ///
+    /// ⭐ THE UNIT TEST PINS THE ARITHMETIC; THIS PINS THE ROAD. `Some(0.0)`
+    /// growth is the documented way to author a launch that does not care
+    /// about percent, and the shared table's jab3 flurry is the game's own
+    /// customer for it: a 46px/s, 1-damage pulse. Its Active volumes run
+    /// `[pulse, pulse, finisher]`, so volume 0 IS the set-knockback one — and
+    /// that ordering is asserted rather than assumed, because measuring the
+    /// finisher here would quietly turn this into a percent-scaling test that
+    /// passes for the wrong reason.
+    #[test]
+    fn a_set_knockback_pulse_ignores_percent_and_staleness_in_the_host() {
+        const JAB3: &str = "jab3";
+        let table = Table::Reference.contract();
+        let pulse = authored_volume(&table, JAB3, 0);
+        assert_eq!(
+            pulse.knockback_growth,
+            Some(0.0),
+            "volume 0 of `{JAB3}` authors growth {:?}, so it is not the \
+             set-knockback pulse and this fixture would be measuring an \
+             ordinary percent-scaling volume while reporting item (G)",
+            pulse.knockback_growth
+        );
+        // ⛔ THE SHIPPED HOST'S ROSTER, NOT THE STAND-IN'S ID. `SmashRoster::assemble`
+        // drops a stand-in "as soon as the character it stands in for is in the
+        // composition", so `SMASH_CHARACTER_ID` is absent from the shipped
+        // host and `pick_fighter` panics on it — measured 2026-09-12 as
+        // "smash_duelist_a is not in this host's smash roster". `PREPARED_FIGHTER`
+        // is this file's own name for a fighter the host has REGISTERED.
+        let reference = PREPARED_FIGHTER;
+        let cell_for = |percent: i32, stale: bool| Cell {
+            attacker: reference,
+            victim: reference,
+            table: Table::Reference,
+            move_id: JAB3,
+            volume: 0,
+            percent,
+            stale,
+            scale: None,
+        };
+        let measure = |cell: &Cell| {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, cell)
+        };
+        let at_zero = measure(&cell_for(0, false));
+        let at_700 = measure(&cell_for(700, false));
+        let stale_700 = measure(&cell_for(700, true));
+        println!(
+            "SET-KNOCKBACK PULSE (growth Some(0.0), reference mirror)\n  \
+             0% fresh:   {:>7.1}px/s {:>6.1}px\n  \
+             700% fresh: {:>7.1}px/s {:>6.1}px\n  \
+             700% stale: {:>7.1}px/s {:>6.1}px",
+            at_zero.peak_speed,
+            at_zero.peak_lateral,
+            at_700.peak_speed,
+            at_700.peak_lateral,
+            stale_700.peak_speed,
+            stale_700.peak_lateral
+        );
+        // A PERCENT-SCALING volume at 700% would be several times this reading,
+        // so a 10% band is loose enough for simulation noise (hitstun length
+        // and gravity differ with damage) and nowhere near loose enough to
+        // admit a percent term.
+        assert!(
+            (at_700.peak_speed - at_zero.peak_speed).abs() < 0.10 * at_zero.peak_speed.max(1.0),
+            "a set-knockback pulse scaled with percent: {:.1}px/s at 0% against \
+             {:.1}px/s at 700%. `Some(0.0)` is the one value that must stay flat, \
+             and the percent scale must not be able to reach it.",
+            at_zero.peak_speed,
+            at_700.peak_speed
+        );
+        // ⛔ AND STALING MUST NOT HALVE IT EITHER. Before the split, staling
+        // multiplied the WHOLE launch — base included — so a fully stale fixed
+        // move lost 45% of a launch that has no percent term to lose.
+        assert!(
+            (stale_700.peak_speed - at_700.peak_speed).abs()
+                < 0.10 * at_700.peak_speed.max(1.0),
+            "full staleness moved a set-knockback pulse: {:.1}px/s fresh against \
+             {:.1}px/s stale. A fixed launch has no percent term, so there is \
+             nothing for staling to attenuate.",
+            at_700.peak_speed,
+            stale_700.peak_speed
+        );
+        for (label, outcome) in [
+            ("0% fresh", &at_zero),
+            ("700% fresh", &at_700),
+            ("700% stale", &stale_700),
+        ] {
+            assert!(
+                !outcome.left_the_world,
+                "the 46px/s set-knockback pulse killed from stage centre at {label}"
+            );
+        }
+    }
+
+    /// FULL STALENESS WEAKENS AND DOES NOT GUT — item (E).
+    ///
+    /// The same cell twice, fresh and fully stale, at a percent where the
+    /// percent term dominates. The repaired law says the stale launch keeps
+    /// most of its reach; the defect said it kept barely half.
+    #[test]
+    fn full_staleness_weakens_the_launch_without_nearly_halving_it() {
+        let fresh = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &george_cell(JAB, 0, 300, false))
+        };
+        let stale = {
+            let mut app = open_the_lobby();
+            measure_cell(&mut app, &george_cell(JAB, 0, 300, true))
+        };
+        println!(
+            "STALENESS AT 300%\n  fresh: {:>7.1}px/s {:>6.1}px\n  stale: {:>7.1}px/s {:>6.1}px",
+            fresh.peak_speed, fresh.peak_lateral, stale.peak_speed, stale.peak_lateral
+        );
+        assert!(
+            stale.peak_speed <= fresh.peak_speed,
+            "a fully stale move launched FURTHER than a fresh one ({:.1} vs {:.1}), \
+             so staling has stopped being a cost at all",
+            stale.peak_speed,
+            fresh.peak_speed
+        );
+        assert!(
+            stale.peak_speed > 0.65 * fresh.peak_speed,
+            "full staleness cut the launch to {:.1}px/s from {:.1}px/s — that is \
+             the near-halving this repair exists to end. Damage may fall to 55%; \
+             the launch may not follow it down.",
+            stale.peak_speed,
+            fresh.peak_speed
         );
     }
 }

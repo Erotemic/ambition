@@ -288,6 +288,59 @@ Use the narrowest command that actually covers the change. Full matrix:
   python3 scripts/check_quality_variants_are_fresh.py
   ```
 
+### Generated assets
+
+⭐⭐ **THE BIG ASSETS ARE GENERATED FROM SMALL AUTHORED SOURCES, AND THAT IS WHY
+THEY ARE GITIGNORED.** Spritesheets, portraits, backgrounds, quality tiers,
+music cues and the packed SFX bank are all OUTPUT. What git carries is the
+small, reviewable, mergeable INPUT — a renderer target under
+`tools/ambition_sprite2d_renderer/.../targets/`, a `.music.yaml` score, a
+config — and the megabytes are rebuilt on demand. So a missing asset is never
+"lost"; it is "not built here yet", and the answer is to build it.
+
+⇒ **ONE COMMAND REBUILDS EVERYTHING, FONTS INCLUDED:**
+
+```bash
+scripts/setup/generated_content.sh   # every generated runtime asset + the .agent/ index
+```
+
+Narrower, when you know the category:
+
+```bash
+./scripts/regen/assets.sh                              # backgrounds sprites variants music sfx
+./scripts/regen/sprites.sh --list                      # which targets exist
+./scripts/regen/sprites.sh --target george_booul_vfx   # one target (repeatable)
+./scripts/regen/sprites.sh --check-toolchain           # can this machine render at all?
+python3 scripts/grab_font_assets.py                    # the three bundled UI fonts
+```
+
+⛔⛔ **AN ASSETLESS TREE FAILS TESTS THAT NAME NEITHER ASSETS NOR YOUR CHANGE,
+AND THE TELL IS BREADTH.** `crates/ambition_sprite_sheet/build.rs` bakes the
+sheet-record table AT COMPILE TIME by scanning `assets/sprites`, so when that
+directory holds no `*_spritesheet.ron` the table compiles EMPTY, every effect
+name is unknown at once, and the failure arrives as one giant list. A real
+content bug names one move or two. Measured 2026-09-12 on a main checkout whose
+assets had never been generated:
+
+| symptom | what it actually means | fix |
+|---|---|---|
+| one list naming EVERY move — *"unknown cosmetic effect … no shipped FX spritesheet has a row by that name"* | the baked sheet table is empty | `./scripts/regen/sprites.sh` |
+| `error: couldn't read …/assets/fonts/bundled/InterDisplay-Regular.otf` | three fonts are a COMPILE-time `include_bytes!`, not an asset the game loads | `python3 scripts/grab_font_assets.py` |
+| `expect("its manifest is baked")` on a portrait | the baked PORTRAIT table is empty (`*_portraits.ron`) | `./scripts/regen/sprites.sh` |
+| art draws, but at a stale tier | quality variants are stale | `./scripts/regen/quality_variants.sh` |
+
+⚠ **`regen/assets.sh` DOES NOT FETCH FONTS** — its categories are art and audio
+only, so it leaves a red `ambition_render` behind. Only
+`scripts/setup/generated_content.sh` does both.
+
+⚠ `build.rs` declares `cargo:rerun-if-changed` on the asset dirs, so cargo
+re-bakes by itself after a regen — no forced rebuild needed. ⛔ But never run a
+regen CONCURRENTLY with a cargo build: one writes the files the other is baking.
+
+⇒ Details: [`scripts/regen/README.md`](scripts/regen/README.md),
+[`docs/tools/generated-visual-tools.md`](docs/tools/generated-visual-tools.md),
+[`docs/tools/generated-audio-tools.md`](docs/tools/generated-audio-tools.md).
+
 ### Authored data
 
 A changed Rust type does not typecheck authored RON embedded inside `&str` literals.

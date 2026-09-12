@@ -219,17 +219,43 @@ fn resolved_hitbox_knockback_magnitude(
     victim_damage_taken: i32,
     victim_weight: f32,
     ruleset_growth: f32,
+    growth_scale: f32,
 ) -> HitKnockbackMagnitude {
     match knockback {
+        // ⛔ A FEEL SCALE TAKES NO GROWTH SCALE, because it has no percent term
+        // to scale. It is a dimensionless multiplier over the victim's own feel
+        // tuning — there is no `base + growth * percent` to decompose — so the
+        // ruleset's percent knob has nothing to act on here. Its staling is
+        // applied whole by the caller, which is what it has always been.
         HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
             // ⭐ `Some(0.0)` is FIXED knockback and `None` is "the volume did not
             // decide". Reading a bare `0.0` as unspecified made the documented
             // fixed-knockback case the one value you could not author.
             let growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
-            let launch_speed =
-                crate::util::scaled_knockback(base, growth, victim_damage_taken, victim_weight)
-                    .max(0.0);
+            // ⭐⭐ BOTH ROADS, ONE SCALE — and that is why the scale is applied
+            // HERE and not at either author. The line above has already
+            // collapsed the two ways a volume can state its growth (an
+            // explicitly authored `Some(g)`, or the ruleset's `base *
+            // ruleset_growth` fallback) into one number, so a scale applied
+            // after it reaches both without being restated in two places that
+            // could drift apart.
+            //
+            // ⛔ AND THE ROSTER IS GENUINELY SPLIT BETWEEN THEM, so "both" is a
+            // requirement rather than belt-and-braces. Measured 2026-09-12 over
+            // the smash demo: 40 authored knockback volumes, 38 of them with a
+            // POSITIVE authored growth that never consults the ruleset at all.
+            // Scaling only the fallback would have moved almost nothing;
+            // scaling only the authored road would have left every
+            // prefab-derived swing flat.
+            let launch_speed = crate::util::scaled_knockback(
+                base,
+                growth,
+                victim_damage_taken,
+                victim_weight,
+                growth_scale,
+            )
+            .max(0.0);
             HitKnockbackMagnitude::LaunchSpeed(launch_speed)
         }
     }
@@ -927,23 +953,57 @@ pub fn apply_hitbox_damage(
                     -1.0
                 };
                 let (victim_damage_taken, victim_weight) = victim.knockback_growth_inputs();
+                // RAGE, and it is the mirror of the percent mechanic. The
+                // victim's damage already scaled that launch; without this the
+                // fighter behind is punished twice — easier to launch and no
+                // harder to launch with. `1.0` in a game that declares no rage.
+                let rage = rules.rage_scale(attacker.damage_taken(hitbox.owner));
+                // STALING, which is ONE number with TWO jobs and used to be
+                // applied as though it had one. It still scales the DAMAGE this
+                // hit deals, further down this same loop, unchanged.
+                let stale = rules.stale_scale(attacker.staleness(hitbox.owner));
+                // ⛔⛔ RAGE AND STALING ARE NO LONGER ONE MULTIPLIER, and the
+                // comment that said they were is the bug, written down.
+                //
+                // `magnitude.scaled(rage * stale)` multiplied the WHOLE resolved
+                // launch — `base + percent_term` together — by the stale factor.
+                // So a worn-out move lost its base launch as well as its percent
+                // growth, and at high percent, where the percent term IS
+                // substantially the whole launch, a fully stale move at the
+                // authored floor of 0.55 threw away nearly half of everything.
+                //
+                // ⭐ MEASURED, before this split: a fully stale jab on a 700%
+                // George Booul, thrown from stage centre by a FRESH attacker (so
+                // rage is exactly 1.0 and the percent curve is carrying the
+                // knockout alone), peaked at 569.5px/s and carried the victim
+                // 152px of the 720px the stage's own side blast line requires.
+                // Every fighter alive, no stock ever spent, and the match cannot
+                // finish — see `ring_out` in `smash_in_the_host`, which is that
+                // reading as a regression test.
+                //
+                // ⇒ So staling reaches the launch through the PERCENT TERM at a
+                // declared influence, and rage keeps multiplying the whole thing
+                // (a hurt attacker hits harder with the base too — the mechanic
+                // was never about a percent decomposition).
+                let growth_scale =
+                    rules.victim_percent_knockback_scale * rules.knockback_stale_scale(stale);
                 let magnitude = resolved_hitbox_knockback_magnitude(
                     hitbox.knockback,
                     victim_damage_taken,
                     victim_weight,
                     ruleset_growth,
+                    growth_scale,
                 );
-                // RAGE, and it is the mirror of the percent mechanic. The
-                // victim's damage already scaled that launch; without this the
-                // fighter behind is punished twice — easier to launch and no
-                // harder to launch with. `1.0` in a game that declares no rage.
-                // RAGE and STALING are one multiplier, applied once. They
-                // pull opposite ways on purpose — a hurt fighter hits harder, a
-                // repeated move hits softer — and a game that declares neither
-                // gets exactly `1.0` from both.
-                let rage = rules.rage_scale(attacker.damage_taken(hitbox.owner));
-                let stale = rules.stale_scale(attacker.staleness(hitbox.owner));
-                let magnitude = magnitude.scaled(rage * stale);
+                // ⛔ A FEEL SCALE KEEPS TAKING STALING WHOLE. It carries no
+                // `base + growth` to split, so there is no percent term for the
+                // influence above to ride — and every hazard, dive and
+                // projectile in Ambition's PvE is a `FeelScale`. Dropping the
+                // stale multiply for them would have been a silent PvE change
+                // smuggled in behind a platform-fighter repair.
+                let magnitude = match magnitude {
+                    HitKnockbackMagnitude::FeelScale(_) => magnitude.scaled(rage * stale),
+                    HitKnockbackMagnitude::LaunchSpeed(_) => magnitude.scaled(rage),
+                };
                 let knockback = Some(HitKnockback {
                     // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength
                     // and direction above are the volume's ordinary authoring —

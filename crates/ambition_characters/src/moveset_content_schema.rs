@@ -212,6 +212,68 @@ pub fn lowered_movesets(
     pack.lowered::<MoveSectionData>(&SchemaId::new(MOVESET_SCHEMA))
 }
 
+/// Every entity whose authored moveset the live cast is playing that `candidate`
+/// stops naming.
+///
+/// ⭐⭐ **"IS THIS DOMAIN SUPPORTED" AND "CAN THIS TRANSITION BE APPLIED" ARE
+/// DIFFERENT QUESTIONS, AND ONLY THE FIRST WAS BEING ASKED.** A reload refuses a
+/// candidate that changes a domain nothing can publish, by asking whether the
+/// changed schema is the participating one. `moveset` IS the participating one —
+/// and the participant stages PER ENTITY, over the CANDIDATE's keys. An entity
+/// the candidate stops naming is never visited, so nothing removes its authored
+/// moveset: the fold is `active.clone()` with the staged entities overwritten,
+/// which means the dropped entity's OLD table survives and is REPUBLISHED under
+/// the new generation. The pack says one thing and the cast plays another, with
+/// no diagnostic anywhere.
+///
+/// ⇒ This is the containment test that sees it: *every entity whose authored
+/// moveset the live cast is currently playing must still be named by the
+/// candidate.*
+///
+/// ⛔ CONTAINMENT, NOT EQUALITY. Adding an entity is legal authoring, and a build
+/// that cannot host a new one is already refused by
+/// [`crate::prepared::MovesetRevisionError::UnknownCharacter`] — a separate,
+/// working refusal this must not duplicate.
+///
+/// ⛔⛤ **AND IT IS NOT A DIGEST COMPARISON.** `ambition_content_pack::changed_domains`
+/// answers "did this domain change" by folding per-source fingerprints; this
+/// answers "can the change be applied" and must read the KEYS of the lowered
+/// section. Implementing it over digests would report a drop and a retiming
+/// identically, which is exactly the collapse that hid this defect.
+///
+/// ⚠ NO STORED FIELD AND NO PER-DOMAIN COUNTER: both packs already carry the
+/// lowered `BTreeMap`, so this is a read, not a new authority. A
+/// `pack_generation` / `cast_generation` / `profile_generation` family is the
+/// thing the architecture review warned against.
+///
+/// The three cases, and the middle one needs no arm of its own:
+///
+/// * `base` authored no section — nothing is playing an authored moveset, so
+///   nothing can be lost;
+/// * `candidate` authored none — every entity `base` named is dropped;
+/// * both authored one — the keys `base` names and `candidate` does not.
+///
+/// ⚠ Sorted and unique because [`MoveSectionData`] is a `BTreeMap`, so a refusal
+/// reads the same twice. `the_report_is_sorted_and_unique` pins that as a
+/// PROPERTY rather than trusting the container, so swapping the map type cannot
+/// quietly make a diagnostic reorder between runs.
+pub fn dropped_moveset_entities(
+    base: &ambition_content_pack::PreparedContentPack,
+    candidate: &ambition_content_pack::PreparedContentPack,
+) -> Vec<String> {
+    let Some(base_section) = lowered_movesets(base) else {
+        return Vec::new();
+    };
+    match lowered_movesets(candidate) {
+        None => base_section.keys().cloned().collect(),
+        Some(candidate_section) => base_section
+            .keys()
+            .filter(|id| !candidate_section.contains_key(*id))
+            .cloned()
+            .collect(),
+    }
+}
+
 /// The character capability's move-table registration, for a composition to
 /// install.
 pub fn moveset_schema() -> SchemaRegistration {

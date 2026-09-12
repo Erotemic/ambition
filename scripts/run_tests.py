@@ -622,8 +622,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # ⛔⛤ AND THIS DOES NOT COVER OPT-IN FEATURES — `--all-targets` IS NOT
         # `--all-features`, AND "clippy is green" WILL BE READ AS IF IT WERE.
         # A deny-by-default error inside a `#[cfg(feature = "...")]` block is
-        # invisible to this job, and the backbone already omits 434
-        # feature-gated tests across 27 crates. MEASURED rather than left as a
+        # invisible to this job, and the scanner counts 441 feature-gated tests
+        # across 27 crates (not all of which the backbone truly omits — see the
+        # unification note in `coverage_notice`). MEASURED rather than left as a
         # worry: `--all-features` reports 1934 warning sites against this job's
         # 1886, so 48 sites do exist only behind features — and ZERO of them are
         # deny-by-default today. The gap is structural and currently unrealised;
@@ -1510,8 +1511,13 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-09-11 by `scripts/feature_gated_tests.py`, 434 tests\n"
+            "        2026-09-12 by `scripts/feature_gated_tests.py`, 441 tests\n"
             "        across 27 crates, the largest single omission this\n"
+            "        footer names — though the scanner counts `#[cfg(feature)]`\n"
+            "        STATICALLY, and a feature another workspace member turns on\n"
+            "        IS unified into `--workspace`, so some of the 441 do run\n"
+            "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
+            "        content_pack arms execute, via `game/ambition_content`).\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
             "        the current figure per crate (it says itself that the count is\n"
             "        approximate); `--verify <crate>` asks cargo for the exact pair.\n"

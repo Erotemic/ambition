@@ -260,3 +260,256 @@ fn an_unknown_field_that_displaces_nothing_is_refused() {
         "the refusal does not name the field nobody consumes:\n{rendered}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ⭐⭐ **CAN THIS TRANSITION BE APPLIED COMPLETELY?** — `dropped_moveset_entities`
+//
+// One arm per row of the transition table these were derived from. The row that
+// matters is the ENTITY DROP: no allow-list row can see it, because `moveset` IS
+// the participating domain, and it is reachable by ordinary authoring.
+//
+// ⛔ A SINGLE FILE CARRYING TWO ENTITIES IS THE SHAPE THAT MATTERS, which is why
+// the fixtures below are built that way rather than one-entity-per-file. The
+// shipped `cellular_automaton.ron` holds TWO entities, so dropping one does not
+// require deleting a file — a fixture whose only drop road was "remove a source"
+// would miss the reachable case entirely.
+//
+// ⚠ SYNTHETIC RATHER THAN SHIPPED CONTENT, AND NOT BY PREFERENCE: the real move
+// tables live under `game/ambition_content/assets`, which this crate must not
+// depend on — it is the capability, not the game. What is reproduced here is the
+// STRUCTURAL property (two entities, one source), which is the half the defect
+// turns on. `reload_tests.rs` is where the shipped pack can be reached.
+// ---------------------------------------------------------------------------
+
+/// One entity's authored block, so a fixture composes instead of string-editing
+/// a document. `duration_s` is what a RETIME moves.
+fn entity_block(id: &str, duration_s: f32) -> String {
+    format!(
+        r#"        (
+            id: "{id}",
+            contracts: (
+                moveset: Some((
+                    verbs: {{ "attack": "swat" }},
+                    moves: [
+                        (
+                            id: "swat",
+                            clip: (clip: "slash"),
+                            duration_s: {duration_s},
+                            windows: [
+                                (start_s: 0.0, end_s: 0.28, tag: Startup, volumes: []),
+                                (start_s: 0.28, end_s: 0.36, tag: Active, volumes: [
+                                    (shape: Rect(offset: (28.0, 0.0), half_extents: (14.0, 10.0)),
+                                     damage: 7, knockback: 40.0),
+                                ]),
+                                (start_s: 0.36, end_s: {duration_s}, tag: Recovery, volumes: []),
+                            ],
+                        ),
+                    ],
+                )),
+            ),
+        )"#
+    )
+}
+
+/// A one-file document carrying `entities`, the `cellular_automaton.ron` shape.
+fn doc_of(entities: &[String]) -> String {
+    format!(
+        "(\n    schema_version: 1,\n    entities: [\n{}\n    ],\n)",
+        entities.join(",\n")
+    )
+}
+
+/// A compiled pack whose single move table authors `ids`, all at the same timing.
+fn pack_authoring(ids: &[&str]) -> ambition_content_pack::PreparedContentPack {
+    let blocks: Vec<String> = ids.iter().map(|id| entity_block(id, 0.68)).collect();
+    accept(&[("moves/table.ron", &doc_of(&blocks))])
+}
+
+/// ⛔⛤ **A PACK THAT DECLARES NO MOVE SOURCE AT ALL** — the candidate half of
+/// row 1. MEASURED that this compiles rather than assumed: `ambition_demo_smash`
+/// ships a pack with no moveset source, so an empty manifest is a real shape and
+/// not a test-only curiosity.
+fn pack_authoring_nothing() -> ambition_content_pack::PreparedContentPack {
+    accept(&[])
+}
+
+/// ⛔⛤ **ROW 2 IS UNREACHABLE THROUGH A COMPILED PACK — AND I HAD THE MECHANISM
+/// WRONG.** I reported "a move table authoring zero entities is refused" as
+/// REASONED, and attributed it to `ambition_content_pack`'s lower-must-define
+/// rule. The outcome is right and the attribution was not: the refusal comes
+/// from THIS schema's own check (`moveset_content_schema.rs:108-125`), at facet
+/// validation, which is earlier — *"declares the `moveset` schema and carries no
+/// move contract for any of its 0 entit(ies)"*. This arm asserts the refusal
+/// that actually fires. A mechanism that explains an outcome is not evidence for
+/// it, and the test is what separated them.
+///
+/// ⇒ So "the section went empty" cannot arrive as a compiled candidate. The
+/// reachable way to lose every entity is to drop them from a table that still
+/// authors something, or to remove the source — both covered below.
+///
+/// ⚠ DISTINCT FROM `a_document_with_no_move_contract_at_all_is_refused`, which
+/// feeds a doc whose entity carries a `body` and no `moveset`. This feeds ZERO
+/// entities, which reaches the same check because `!iter().any(..)` is vacuously
+/// true over an empty list — a different input, one rule, and the vacuous path
+/// is the one row 2 would travel.
+#[test]
+fn a_move_table_authoring_no_entity_is_refused_rather_than_lowering_an_empty_section() {
+    let empty = doc_of(&[]);
+    assert!(
+        !empty.contains("id:"),
+        "the fixture still authors an entity, so this arm is not testing an empty table:\n{empty}"
+    );
+    let rendered = refuse(&[("moves/table.ron", &empty)]).to_string();
+    assert!(
+        rendered.contains("no move contract"),
+        "an empty move table was refused for some other reason, so row 2's \
+         unreachability rests on a rule this arm has not identified:\n{rendered}"
+    );
+    assert!(
+        rendered.contains("0 entit"),
+        "the refusal does not report the entity COUNT, so it may be firing on a \
+         contract-less entity rather than on an empty table:\n{rendered}"
+    );
+}
+
+/// ⭐⭐ **THE ROW THAT MATTERS: ONE OF TWO ENTITIES IN ONE FILE, DROPPED.**
+/// Nothing removes its authored moveset, and the fold republishes the stale one
+/// under the new generation.
+#[test]
+fn dropping_one_of_two_entities_from_a_shared_table_names_exactly_that_entity() {
+    let base = pack_authoring(&["test_brawler", "test_duelist"]);
+    let candidate = pack_authoring(&["test_duelist"]);
+
+    // ⛔ THE PREMISE, BOTH HALVES. Without the first the fixture is not a drop;
+    // without the second it is a drop of something nobody authored.
+    let base_section = lowered_movesets(&base).expect("the base authors a section");
+    let candidate_section = lowered_movesets(&candidate).expect("the candidate authors one too");
+    assert_eq!(base_section.len(), 2, "the base must author TWO entities");
+    assert_eq!(candidate_section.len(), 1, "the candidate must author ONE");
+    assert!(
+        candidate_section.contains_key("test_duelist"),
+        "the surviving entity is not the one this arm keeps"
+    );
+
+    assert_eq!(
+        dropped_moveset_entities(&base, &candidate),
+        vec!["test_brawler".to_string()],
+        "a candidate that stops naming an entity the live cast is playing was \
+         reported as losing nothing"
+    );
+}
+
+/// ⛔ ROW 1: the candidate declares no move source at all.
+#[test]
+fn a_candidate_with_no_move_section_drops_every_entity_the_base_named() {
+    let base = pack_authoring(&["test_brawler", "test_duelist"]);
+    let candidate = pack_authoring_nothing();
+
+    assert_eq!(
+        lowered_movesets(&base).map(|s| s.len()),
+        Some(2),
+        "the premise: the base authors two entities"
+    );
+    assert!(
+        lowered_movesets(&candidate).is_none(),
+        "the premise: the candidate must carry NO move section, or this arm is \
+         testing a drop rather than a removal"
+    );
+
+    assert_eq!(
+        dropped_moveset_entities(&base, &candidate),
+        vec!["test_brawler".to_string(), "test_duelist".to_string()],
+        "a candidate that removed the whole family was not reported as losing \
+         every entity"
+    );
+}
+
+/// ⛔ AND THE OTHER DIRECTION IS NOT A LOSS: a base that authored nothing has
+/// nothing for a candidate to take away.
+#[test]
+fn a_base_with_no_move_section_can_lose_nothing() {
+    let base = pack_authoring_nothing();
+    let candidate = pack_authoring(&["test_duelist"]);
+    assert!(
+        lowered_movesets(&base).is_none() && lowered_movesets(&candidate).is_some(),
+        "the premise: base authors none, candidate authors one"
+    );
+    assert!(
+        dropped_moveset_entities(&base, &candidate).is_empty(),
+        "first authoring of a move family was reported as a loss"
+    );
+}
+
+/// ⛔⛤ **CONTROL, AND WITHOUT IT "REFUSES EVERYTHING" SATISFIES EVERY ARM
+/// ABOVE.** A retimed shared entity is the ordinary reload — the transition the
+/// participant exists to apply — and it must report nothing.
+#[test]
+fn retiming_a_shared_entity_drops_nothing() {
+    let base = accept(&[(
+        "moves/table.ron",
+        &doc_of(&[entity_block("test_duelist", 0.68)]),
+    )]);
+    let candidate = accept(&[(
+        "moves/table.ron",
+        &doc_of(&[entity_block("test_duelist", 0.92)]),
+    )]);
+
+    // ⛔ THE PREMISE: the packs must actually DIFFER, or this control passes
+    // because it compared a pack with itself.
+    assert_ne!(
+        base.fingerprint, candidate.fingerprint,
+        "the retime did not change the pack's identity, so this control has no power"
+    );
+    assert_eq!(
+        lowered_movesets(&base).expect("a section")["test_duelist"].moves[0].duration_s,
+        0.68
+    );
+    assert_eq!(
+        lowered_movesets(&candidate).expect("a section")["test_duelist"].moves[0].duration_s,
+        0.92,
+        "the retime did not reach the lowered section"
+    );
+
+    assert!(
+        dropped_moveset_entities(&base, &candidate).is_empty(),
+        "a retimed entity was reported as dropped, so an ordinary reload would \
+         now be refused"
+    );
+}
+
+/// ⛔ CONTROL: adding an entity is legal authoring. Containment, not equality —
+/// a build that cannot host the new one is refused by `UnknownCharacter`, which
+/// is a different question asked somewhere else.
+#[test]
+fn adding_an_entity_drops_nothing() {
+    let base = pack_authoring(&["test_duelist"]);
+    let candidate = pack_authoring(&["test_brawler", "test_duelist"]);
+    assert_eq!(
+        lowered_movesets(&candidate).map(|s| s.len()),
+        Some(2),
+        "the premise: the candidate authors the extra entity"
+    );
+    assert!(
+        dropped_moveset_entities(&base, &candidate).is_empty(),
+        "authoring a NEW entity was reported as dropping one — the test is an \
+         equality rather than a containment"
+    );
+}
+
+/// ⚠ SORTED AND UNIQUE AS A PROPERTY, not as a fact about `BTreeMap`. If
+/// `MoveSectionData` ever stops being ordered, a diagnostic that reorders
+/// between runs is the failure this refuses.
+#[test]
+fn the_report_is_sorted_and_unique() {
+    let base = pack_authoring(&["test_zeta", "test_alpha", "test_mid"]);
+    let candidate = pack_authoring(&["test_mid"]);
+    let dropped = dropped_moveset_entities(&base, &candidate);
+    assert_eq!(dropped.len(), 2, "the premise: two entities were dropped");
+    let mut expected = dropped.clone();
+    expected.sort();
+    expected.dedup();
+    assert_eq!(
+        dropped, expected,
+        "the report is not sorted and deduplicated"
+    );
+}

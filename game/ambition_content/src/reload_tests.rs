@@ -1360,3 +1360,168 @@ fn a_candidate_refused_at_admission_leaves_every_published_fact_alone() {
         "a refused candidate changed what the cast plays"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ⭐⭐ **THE REQUEST ROAD: A RELOAD REUSES THE ENGINE'S OWN LIFECYCLE.**
+//
+// `publish_candidate` publishes the CAST directly and is the prototype. These
+// arms are about `request_reload`, which issues the shell's existing
+// `PreparationRequested` road instead — so the epoch, the content fingerprint
+// and the publication all come from `prepare_platformer_content`, and the old
+// generation stays authoritative until the new one activates.
+// ---------------------------------------------------------------------------
+
+use ambition_platformer2d::game_shell::{
+    ProviderPreparationPlan, ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouteSpec,
+    ShellRouter,
+};
+
+fn shell_active_on(app: &mut bevy::app::App, prepares: bool) {
+    let mut catalog = ShellRouteCatalog::default();
+    let spec = ShellRouteSpec::new("game", "fixture");
+    catalog.register(if prepares {
+        spec.preparing_with(
+            ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+                .required("publish", "Publish prepared session"),
+        )
+    } else {
+        spec
+    });
+    app.world_mut().insert_resource(catalog);
+    let mut router = ShellRouter::default();
+    router.active = Some(ambition_platformer2d::game_shell::ActiveShellExperience {
+        activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
+        route_id: ShellRouteId::new("game"),
+        experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new("fixture"),
+        parameters: Default::default(),
+        load_authorization: None,
+        prepared_session: None,
+    });
+    app.world_mut().insert_resource(router);
+    app.add_message::<ShellCommand>();
+}
+
+fn issued_commands(app: &mut bevy::app::App) -> Vec<ShellCommand> {
+    let messages = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<ShellCommand>>();
+    messages.iter_current_update_messages().cloned().collect()
+}
+
+/// ⛔⛔ **A REAL EDIT ISSUES A RE-PREPARATION AND PUBLISHES NOTHING ITSELF.**
+#[test]
+fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    let generation = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+    let played = live_duration(&app);
+
+    let outcome = request_reload(app.world_mut(), a_publishable_candidate());
+    assert_eq!(
+        outcome,
+        ReloadRequest::Requested {
+            route: "game".to_string()
+        },
+        "got {outcome:?}"
+    );
+    assert!(
+        matches!(
+            issued_commands(&mut app).as_slice(),
+            [ShellCommand::ReplaceWith(route)] if route.as_str() == "game"
+        ),
+        "the request did not reach the shell as a ReplaceWith on the active route: {:?}",
+        issued_commands(&mut app)
+    );
+
+    // ⛔ AND NOTHING IS PUBLISHED YET. That is the entire difference between this
+    // road and `publish_candidate`: the new generation appears when the shell
+    // activates it, and the current one is authoritative until then.
+    assert_eq!(
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .generation(),
+        generation,
+        "requesting a re-preparation republished the cast on the spot"
+    );
+    assert_eq!(
+        live_duration(&app),
+        played,
+        "requesting a re-preparation changed what the cast plays"
+    );
+}
+
+/// ⭐ A COMPLETE NO-OP REQUESTS NOTHING. A file watcher fires on a SAVE, not on a
+/// change; re-preparing for identical content would consume an epoch, a
+/// publication and a reconstruction cycle for no reason.
+#[test]
+fn an_unchanged_candidate_requests_nothing() {
+    let mut app = host_with_a_live_cast();
+    let pack = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&pack), None);
+    shell_active_on(&mut app, true);
+
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(pack, None),
+    );
+    assert_eq!(outcome, ReloadRequest::Unchanged, "got {outcome:?}");
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a complete no-op asked the shell to re-prepare"
+    );
+}
+
+/// ⛔ A ROUTE WITH NO PREPARATION PLAN CANNOT BE RE-PREPARED, and the request says
+/// so rather than issuing a command that would reach nothing. The retry road
+/// (`ambition_load_presentation::shell_adapter`) already checks exactly this.
+#[test]
+fn a_route_with_no_preparation_plan_is_reported_rather_than_requested() {
+    let mut app = host_with_a_live_cast();
+    shell_active_on(&mut app, false);
+    let outcome = request_reload(app.world_mut(), a_publishable_candidate());
+    assert_eq!(
+        outcome,
+        ReloadRequest::RouteHasNoPreparation("game".to_string()),
+        "got {outcome:?}"
+    );
+    assert!(issued_commands(&mut app).is_empty());
+}
+
+/// ⛔ AND NO ACTIVE ROUTE IS ITS OWN ANSWER — a headless composition with no
+/// shell has nothing to re-prepare, and that is not a content problem.
+#[test]
+fn a_host_with_no_active_route_is_reported_rather_than_requested() {
+    let mut app = host_with_a_live_cast();
+    app.add_message::<ShellCommand>();
+    let outcome = request_reload(app.world_mut(), a_publishable_candidate());
+    assert_eq!(outcome, ReloadRequest::NoActiveRoute, "got {outcome:?}");
+}
+
+/// ⛔⛔ AND THE REFUSALS REACH THIS ROAD TOO. A live rollback timeline refuses a
+/// re-preparation request for the same reason it refuses a direct publication:
+/// the runtime already answers a mid-session content change by invalidating the
+/// timeline.
+#[test]
+fn a_live_rollback_timeline_refuses_a_re_preparation_request() {
+    let mut app = host_with_a_live_cast();
+    shell_active_on(&mut app, true);
+    app.world_mut().insert_resource(live_authority());
+    let outcome = request_reload(app.world_mut(), a_publishable_candidate());
+    assert_eq!(
+        outcome,
+        ReloadRequest::Refused(MoveReload::RefusedDuringLiveTimeline),
+        "got {outcome:?}"
+    );
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a refused request reached the shell anyway"
+    );
+}

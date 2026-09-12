@@ -383,6 +383,121 @@ pub fn reload_move_tables_selecting(
     publish_candidate(world, candidate, compiled_against)
 }
 
+/// What a reload REQUEST did — the road that reuses the engine's own lifecycle.
+///
+/// ⭐⭐ **A REQUEST, NOT A PUBLICATION, AND THAT IS THE WHOLE DIFFERENCE FROM
+/// [`publish_candidate`].** Fast-iteration I3 step 4 says *"file watching calls
+/// the same request path"*, and MEASURED 2026-09-11 that path exists:
+/// `ShellEvent::PreparationRequested` → `prepare_requested_sessions` →
+/// `prepare_platformer_content`, which allocates the `ContentEpoch` as its final
+/// non-fallible step and fingerprints the whole content — including the
+/// `content.pack` section — before publishing at the activation boundary.
+///
+/// ⇒ **SO A RELOAD NEEDS NO SECOND LIFECYCLE.** Re-requesting the route the shell
+/// is already ACTIVE on mints a fresh transaction (`start_route` has no same-route
+/// guard; witnessed in `ambition_game_shell`), and the old generation stays
+/// authoritative until the new one activates — which is the model the
+/// architecture review asks for, in the existing lifecycle's own terms.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReloadRequest {
+    /// The pack on disk does not compile. Nothing was selected and nothing was
+    /// requested.
+    PackRefused(String),
+    /// The candidate is mechanically identical to the selected pack, WHOLE PACK.
+    /// Nothing was requested: a re-preparation would consume an epoch, a
+    /// publication and a reconstruction for content that did not change.
+    Unchanged,
+    /// The shell is not active on any route, so there is nothing to re-prepare.
+    NoActiveRoute,
+    /// The active route declares no preparation plan, so re-requesting it would
+    /// never reach `prepare_platformer_content`.
+    ///
+    /// ⛔ THE SAME PRECONDITION THE RETRY ROAD ALREADY CHECKS
+    /// (`ambition_load_presentation::shell_adapter`), and for the same reason:
+    /// a route with no plan is not a route a preparation can be asked of.
+    RouteHasNoPreparation(String),
+    /// A rollback timeline is speculating, or its authority is unhealthy. See
+    /// [`MoveReload::RefusedDuringLiveTimeline`].
+    Refused(MoveReload),
+    /// The request was issued. **Nothing is published yet** — the new generation
+    /// appears when the shell activates it, and the current one is authoritative
+    /// until then.
+    Requested { route: String },
+}
+
+/// Ask the running host to re-prepare its session against `candidate`.
+///
+/// ⚠ **THE SELECTION IS INSTALLED BEFORE THE REQUEST, AND THAT ORDER IS FORCED.**
+/// `prepare_platformer_content` reads `SelectedContentIdentity` to fingerprint,
+/// and `authored_intrinsics` reads `SelectedContentPack` when the cast is
+/// registered — both happen INSIDE the preparation this asks for, so the
+/// selection is an input to it rather than a result of it.
+///
+/// ⛔ THE WINDOW THIS OPENS, NAMED RATHER THAN HIDDEN: between the selection and
+/// the activation, the App's selected pack is the NEW one while the live cast is
+/// still built from the old. Nothing published has changed — the cast, its
+/// generation and the prepared content identity are all untouched — but a reader
+/// that asks `pack::selected` during that window gets the incoming answer.
+/// Closing it means making selection part of the activation transaction, which
+/// is the rest of I3 and is not done here.
+pub fn request_reload(
+    world: &mut bevy::ecs::world::World,
+    candidate: ambition_content_pack::CandidateGeneration,
+) -> ReloadRequest {
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
+
+    match publication_boundary(world) {
+        PublicationBoundary::Legal => {}
+        PublicationBoundary::LiveTimeline => {
+            return ReloadRequest::Refused(MoveReload::RefusedDuringLiveTimeline)
+        }
+        PublicationBoundary::Unhealthy(reason) => {
+            return ReloadRequest::Refused(MoveReload::RefusedWhileRollbackUnhealthy(reason))
+        }
+    }
+
+    let active = crate::pack::selected(world).map(|pack| pack.fingerprint);
+    match candidate.verdict(active) {
+        ambition_content_pack::CandidateVerdict::Stale {
+            prepared_against,
+            active,
+        } => {
+            return ReloadRequest::Refused(MoveReload::StaleGeneration {
+                prepared_against: prepared_against.hex(),
+                active: active.hex(),
+            })
+        }
+        ambition_content_pack::CandidateVerdict::Unchanged { .. } => {
+            return ReloadRequest::Unchanged
+        }
+        ambition_content_pack::CandidateVerdict::Publish { .. } => {}
+    }
+
+    let Some(route) = world
+        .get_resource::<ShellRouter>()
+        .and_then(|router| router.active.as_ref())
+        .map(|active| active.route_id.clone())
+    else {
+        return ReloadRequest::NoActiveRoute;
+    };
+    let prepares = world
+        .get_resource::<ShellRouteCatalog>()
+        .and_then(|catalog| catalog.get(&route))
+        .is_some_and(|spec| spec.preparation.is_some());
+    if !prepares {
+        return ReloadRequest::RouteHasNoPreparation(route.as_str().to_string());
+    }
+
+    crate::pack::install_selection(world, candidate.into_pack());
+    // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
+    // a history entry: a player who reloaded three times and pressed back would
+    // otherwise walk back through three copies of the room they are standing in.
+    world.write_message(ShellCommand::ReplaceWith(route.clone()));
+    ReloadRequest::Requested {
+        route: route.as_str().to_string(),
+    }
+}
+
 #[cfg(test)]
 #[path = "reload_tests.rs"]
 mod reload_tests;

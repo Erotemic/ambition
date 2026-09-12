@@ -60,35 +60,50 @@ fn the_shipped_app_installs_the_reload_publication_system() {
         graph.systems.len()
     );
 
-    let count = is_registered(
-        graph,
-        ambition_content::reload::publish_staged_reload_on_activation,
-    );
-    assert_eq!(
-        count, 1,
-        "`publish_staged_reload_on_activation` is registered {count} time(s) in \
-         the shipped Update schedule; it must be exactly once, or a requested \
-         reload stages a cast revision that nothing publishes and nothing \
-         discards"
-    );
+    for (name, count) in [
+        (
+            "adopt_preparation_transaction",
+            is_registered(graph, ambition_content::reload::adopt_preparation_transaction),
+        ),
+        (
+            "commit_content_generation",
+            is_registered(graph, ambition_content::reload::commit_content_generation),
+        ),
+    ] {
+        assert_eq!(
+            count, 1,
+            "`{name}` is registered {count} time(s) in the shipped Update \
+             schedule; it must be exactly once, or a requested reload stages a \
+             cast revision that nothing publishes and nothing discards"
+        );
+    }
 }
 
-/// ⛔⛔ **AND IT RUNS BEFORE THE WORLD IS BUILT FROM THE CAST IT PUBLISHES.**
+/// ⛔⛔⛔ **THE COMMIT SITS BETWEEN THE ACTIVATION AND THE WORLD BUILT FROM IT —
+/// AND THIS TEST USED TO ASSERT ONLY HALF OF THAT.**
 ///
-/// `activate_prepared_platformer_sessions` sits in `GameplaySessionSet::
-/// Providers` on this same schedule and builds the session's actors through
-/// `PlatformerSessionBuilder`, which reads `PreparedCharacterRegistry`. The
-/// shell's `RouteActivated` and the bridge's `GameplaySessionEvent::Activated`
-/// are the same frame, so with no edge between them the activation that
-/// AUTHORIZED a reload could construct generation N+1's world out of generation
-/// N's moves — a half-transaction that no assertion on either side can see,
-/// because each half is individually correct.
+/// ⛔⛤ **THE HALF IT ASSERTED WAS SATISFIED VACUOUSLY, AND A REVIEW CAUGHT IT.**
+/// It required `publication → GameplaySessionSet::Providers` and got the edge —
+/// because ONE system did both jobs and was ordered `.before(
+/// PlatformerPreparationSet)`, which is `in_set(AmbitionLoadSet::Contributors)`,
+/// so it ran FAR earlier than `Providers` and earlier than the activation too.
+/// The shell chain is `Contributors → Commands → AmbitionGameShellSet::{Commands,
+/// Pending}`, and `advance_pending_route` pushes `RouteActivated` in `Pending`.
 ///
-/// ⚠ ASKED OF THE GRAPH, BY KEY. The provider's system is private to its crate,
-/// so the edge is asserted against the SET it belongs to — which is also the
-/// seam the ordering is actually written against.
+/// ⇒ MEASURED 2026-09-12 by driving `build_visible_app` with nothing injected:
+/// the activation landed on frame 2, the session provider built the new world on
+/// frame 2, and the family published on frame **3**. An edge to a LATE set says
+/// nothing about a message produced in a set BEFORE it.
+///
+/// ⭐⭐ **SO THE RELATIONSHIP IS `Pending → commit → Providers` AND BOTH ENDS ARE
+/// ASSERTED.** Either one alone is satisfiable by a system that does nothing
+/// useful at the time it runs.
+///
+/// ⚠ ASKED OF THE GRAPH, BY KEY. The provider's and router's systems are private
+/// to their crates, so the edges are asserted against the SETS they belong to —
+/// which is also the seam the ordering is actually written against.
 #[test]
-fn the_publication_precedes_provider_session_construction() {
+fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
@@ -97,53 +112,69 @@ fn the_publication_precedes_provider_session_construction() {
         .expect("the Update schedule exists")
         .graph();
 
-    let publication = key_of(
-        graph,
-        ambition_content::reload::publish_staged_reload_on_activation,
-    );
-    let providers = graph
-        .system_sets
-        .get_key(bevy::ecs::schedule::SystemSet::intern(
-            &ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
-        ))
-        .expect(
-            "`GameplaySessionSet::Providers` is a set in the shipped Update \
-             schedule — if it is not, the provider stopped constructing sessions \
-             there and this ordering names nothing",
-        );
-
-    assert!(
+    fn set_key<S: bevy::ecs::schedule::SystemSet>(
+        graph: &ScheduleGraph,
+        set: S,
+        why: &str,
+    ) -> bevy::ecs::schedule::SystemSetKey {
         graph
-            .dependency()
-            .graph()
-            .contains_edge(NodeId::System(publication), NodeId::Set(providers)),
-        "the reload publication has no ordering edge to \
-         `GameplaySessionSet::Providers`, so a route activation may construct \
-         the new session from the PREVIOUS cast"
+            .system_sets
+            .get_key(bevy::ecs::schedule::SystemSet::intern(&set))
+            .unwrap_or_else(|| panic!("{why}"))
+    }
+
+    let commit = key_of(graph, ambition_content::reload::commit_content_generation);
+    let adopt = key_of(graph, ambition_content::reload::adopt_preparation_transaction);
+    let dependencies = graph.dependency().graph();
+
+    // ⛔ END ONE: the activation must already EXIST when the commit runs.
+    let pending = set_key(
+        graph,
+        ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending,
+        "`AmbitionGameShellSet::Pending` is a set in the shipped Update schedule \
+         — if it is not, `RouteActivated` is produced somewhere else and this \
+         ordering names nothing",
+    );
+    assert!(
+        dependencies.contains_edge(NodeId::Set(pending), NodeId::System(commit)),
+        "the generation commit has no ordering edge AFTER \
+         `AmbitionGameShellSet::Pending`, which is where `advance_pending_route` \
+         produces `RouteActivated` — so the commit reads the activation a FRAME \
+         LATE and the world is built from generation N"
     );
 
-    // ⛔⛔ **AND BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.** The
-    // ADOPTION half of the same system stakes `PendingContentIdentity` from
+    // ⛔ END TWO: and the world must not be built until it has.
+    let providers = set_key(
+        graph,
+        ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
+        "`GameplaySessionSet::Providers` is a set in the shipped Update schedule \
+         — if it is not, the provider stopped constructing sessions there and \
+         this ordering names nothing",
+    );
+    assert!(
+        dependencies.contains_edge(NodeId::System(commit), NodeId::Set(providers)),
+        "the generation commit has no ordering edge to \
+         `GameplaySessionSet::Providers`, so a route activation may construct the \
+         new session from the PREVIOUS cast"
+    );
+
+    // ⛔⛔ **AND THE ADOPTION HALF RUNS AT THE OTHER END, BEFORE THE PREPARATION
+    // THAT READS ITS IDENTITY CLAIM.** It stakes `PendingContentIdentity` from
     // `ShellEvent::PreparationRequested`, and `prepare_requested_sessions` reads
     // the SAME message and fingerprints against that claim. A preparation that
     // ran first would MISS the claim and fall back to the App's active identity
-    // — stamping generation N+1's session with N's content, which is a wrong
-    // answer rather than a missing one.
-    let preparation = graph
-        .system_sets
-        .get_key(bevy::ecs::schedule::SystemSet::intern(
-            &ambition_platformer2d::provider::PlatformerPreparationSet,
-        ))
-        .expect(
-            "`PlatformerPreparationSet` is a set in the shipped Update schedule \
-             — if it is not, the provider stopped preparing sessions there and \
-             this ordering names nothing",
-        );
+    // — a wrong answer rather than a missing one. ⇒ This is why the two jobs are
+    // two systems: one edge wants the earliest end of the frame and the other
+    // wants the latest, and no single system can hold both.
+    let preparation = set_key(
+        graph,
+        ambition_platformer2d::provider::PlatformerPreparationSet,
+        "`PlatformerPreparationSet` is a set in the shipped Update schedule — if \
+         it is not, the provider stopped preparing sessions there and this \
+         ordering names nothing",
+    );
     assert!(
-        graph
-            .dependency()
-            .graph()
-            .contains_edge(NodeId::System(publication), NodeId::Set(preparation)),
+        dependencies.contains_edge(NodeId::System(adopt), NodeId::Set(preparation)),
         "the reload's identity claim has no ordering edge to \
          `PlatformerPreparationSet`, so a preparation may fingerprint the new \
          generation against the PREVIOUS content identity"

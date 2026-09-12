@@ -14,6 +14,7 @@
 //! substitution on those bytes, so what this exercises is a changed FILE.
 
 use super::*;
+use bevy::prelude::IntoScheduleConfigs;
 use ambition_characters::prepared::{
     close_preparation_barrier, stage_authored_character, CharacterBindings,
     PreparedCharacterRegistry,
@@ -692,7 +693,11 @@ fn a_host_plays_a_move_edited_on_disk_after_it_was_built() {
     let (app, who) = host_from_dir(root);
     let mut app = app;
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = shipped_duration(&app, &who);
 
     // The edit, made on DISK, through the typed document.
@@ -1818,7 +1823,11 @@ fn the_staged_cast_revision_publishes_when_the_route_activates() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = live_duration(&app);
 
     assert!(matches!(
@@ -2111,7 +2120,11 @@ fn no_change_to_the_technique_table_after_the_request_can_refuse_the_commit() {
             None,
         );
         shell_active_on(&mut app, true);
-        app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+        app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
         app.world_mut().insert_resource(table_with(&[KEY]));
 
         let candidate = ambition_content_pack::CandidateGeneration::prepared_against(
@@ -2185,7 +2198,11 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let live_identity = app
         .world()
         .resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
@@ -2366,7 +2383,11 @@ fn an_activation_of_another_transaction_cannot_publish_a_pending_reload() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = live_duration(&app);
 
     assert!(matches!(
@@ -2418,7 +2439,11 @@ fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = live_duration(&app);
 
     assert!(matches!(
@@ -2479,7 +2504,11 @@ fn a_request_that_fails_discards_its_staged_revision() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = live_duration(&app);
 
     assert!(matches!(
@@ -2674,7 +2703,11 @@ fn a_failed_preparation_does_not_leave_the_candidate_selected_or_silently_unchan
     let live = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
     let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&live), None);
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let selected = crate::pack::selected(app.world())
         .expect("a selection")
         .fingerprint;
@@ -2752,7 +2785,11 @@ fn a_successful_activation_promotes_the_pending_candidate() {
         None,
     );
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let before = crate::pack::selected(app.world())
         .expect("a selection")
         .fingerprint;
@@ -2859,7 +2896,11 @@ fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued
 
     // ⛔⛔ AND THE NEXT ACTIVATION PUBLISHES NOTHING — the assertion that proves
     // the discard happened rather than the refusal merely being reported.
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
     let active = app
         .world()
         .resource::<ShellRouter>()
@@ -2961,7 +3002,11 @@ fn the_fighter_ladder_is_the_second_family_the_transaction_carries() {
             .expect("the shipped pack lowers its ladder"),
         ));
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
 
     let live = live_pack(&app);
     let candidate = std::sync::Arc::new(pack_with_a_faster_first_rung());
@@ -3129,7 +3174,11 @@ fn the_encounter_wave_book_is_the_third_family_the_transaction_carries() {
                 .expect("the shipped pack lowers its wave book"),
         ));
     shell_active_on(&mut app, true);
-    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation)
+            .chain(),
+    );
 
     let live = live_pack(&app);
     let candidate = std::sync::Arc::new(pack_with_a_later_second_goblin());

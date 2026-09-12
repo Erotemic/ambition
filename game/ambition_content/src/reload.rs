@@ -769,19 +769,27 @@ pub enum ReloadRequest {
 
 /// Ask the running host to re-prepare its session against `candidate`.
 ///
-/// ⚠ **THE SELECTION IS INSTALLED BEFORE THE REQUEST, AND THAT ORDER IS FORCED.**
-/// `prepare_platformer_content` reads `SelectedContentIdentity` to fingerprint,
-/// and `authored_intrinsics` reads `SelectedContentPack` when the cast is
-/// registered — both happen INSIDE the preparation this asks for, so the
-/// selection is an input to it rather than a result of it.
+/// ⛔⛤ **THIS PARAGRAPH USED TO SAY "THE SELECTION IS INSTALLED BEFORE THE
+/// REQUEST, AND THAT ORDER IS FORCED", AND IT IS NO LONGER TRUE.** It described
+/// a window in which the App's selected pack was N+1 while the live cast was
+/// still N. The pending-generation work closed that: nothing is selected at
+/// request time. [`stage_pending_generation`] stores the candidate in
+/// `PendingGeneration` and TOUCHES NOTHING ELSE, and
+/// `crate::pack::install_selection` runs only inside
+/// [`commit_content_generation`], at the activation.
 ///
-/// ⛔ THE WINDOW THIS OPENS, NAMED RATHER THAN HIDDEN: between the selection and
-/// the activation, the App's selected pack is the NEW one while the live cast is
-/// still built from the old. Nothing published has changed — the cast, its
-/// generation and the prepared content identity are all untouched — but a reader
-/// that asks `pack::selected` during that window gets the incoming answer.
-/// Closing it means making selection part of the activation transaction, which
-/// is the rest of I3 and is not done here.
+/// ⚠ CORRECTED RATHER THAN DELETED, because a weaker reader arriving at this
+/// function needs to know that the old sentence was load-bearing and is gone:
+/// the preparation reads its identity from the TRANSACTION-LOCAL claim
+/// (`PendingContentIdentity`, staked at adoption) rather than from the App-wide
+/// selection, which is why the selection no longer has to move first.
+///
+/// ⛔ WHAT IS STILL OPEN is the request's own identity: the reload writes
+/// `ShellCommand::ReplaceWith` with no correlator and then ADOPTS the first
+/// `PreparationRequested` for its route, so a second command for the same route
+/// queued in the same frame can hand it a transaction it did not issue. A route
+/// name is not a transaction identity, and this road still uses one for the
+/// window before adoption.
 pub fn request_reload(
     world: &mut bevy::ecs::world::World,
     candidate: ambition_content_pack::CandidateGeneration,
@@ -1051,58 +1059,61 @@ fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<Pendin
 /// find nothing.
 pub fn register(app: &mut bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs;
+    // ⛔ ONE CONDITION, SPELLED ONCE, FOR BOTH HALVES. A composition without a
+    // game shell registers no `ShellEvent`, and a `MessageReader` for an
+    // unregistered message FAILS PARAMETER VALIDATION and panics the schedule.
+    // Two systems must not grow two opinions about whether the shell exists.
+    let shell_is_installed = bevy::prelude::resource_exists::<
+        bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
+    >;
     app.add_systems(
         bevy::prelude::Update,
-        publish_staged_reload_on_activation
-            // ⛔⛔ **BEFORE THE WORLD IS BUILT FROM THE CAST, OR GENERATION N+1's
-            // SESSION IS CONSTRUCTED FROM GENERATION N's MOVES.**
-            //
-            // `activate_prepared_platformer_sessions` is `in_set(
-            // GameplaySessionSet::Providers)` on this same schedule, and its
-            // `PlatformerSessionBuilder` reads `PreparedCharacterRegistry`. The
-            // shell's `RouteActivated` and the session bridge's
-            // `GameplaySessionEvent::Activated` are the SAME frame, so without
-            // this edge the two systems raced: the activation that authorized
-            // the reload could construct the new world's actors out of the cast
-            // the reload was replacing, and nothing in either half would say so.
-            //
-            // ⚠ THE EDGE IS WHAT MAKES IT IMPOSSIBLE RATHER THAN CHECKED. Bevy
+        adopt_preparation_transaction
+            // ⛔⛔ **BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.** This
+            // half stakes the claim from `ShellEvent::PreparationRequested`;
+            // `prepare_requested_sessions` reads the SAME message and
+            // fingerprints against that claim. With no edge between them the
+            // claim could arrive a frame late — and a preparation that missed it
+            // silently falls back to the App's active identity, stamping
+            // generation N+1's session with N's content. A wrong answer, not a
+            // missing one, which is why it is an edge and not a retry.
+            .before(ambition_platformer2d::provider::PlatformerPreparationSet)
+            .run_if(shell_is_installed),
+    )
+    .add_systems(
+        bevy::prelude::Update,
+        commit_content_generation
+            // ⛔⛔⛔ **AFTER THE SET THAT PRODUCES `RouteActivated`.** Without this
+            // edge the commit runs BEFORE the activation exists and reads it a
+            // FRAME LATE — see [`commit_content_generation`] for the measurement.
+            // This is the end of the relationship the old graph test could not
+            // see, because an edge to a late set says nothing about a message
+            // produced in a set before it.
+            .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending)
+            // ⛔⛔ **AND BEFORE THE WORLD IS BUILT FROM THE CAST.**
+            // `activate_prepared_platformer_sessions` is
+            // `in_set(GameplaySessionSet::Providers)` and its
+            // `PlatformerSessionBuilder` reads `PreparedCharacterRegistry`. Bevy
             // inserts the sync point, so the queued publication has applied
             // before any provider constructs anything.
             .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
-            // ⛔⛔ **AND BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.**
-            // The ADOPTION half of this system stakes the claim from
-            // `ShellEvent::PreparationRequested`; `prepare_requested_sessions`
-            // reads the SAME message and fingerprints against that claim. With
-            // no edge between them the claim could arrive a frame late — and a
-            // preparation that missed it silently falls back to the App's active
-            // identity, stamping generation N+1's session with N's content.
-            // That is a wrong answer, not a missing one, which is why it is an
-            // edge and not a retry.
-            .before(ambition_platformer2d::provider::PlatformerPreparationSet)
-            .run_if(
-                bevy::prelude::resource_exists::<
-                    bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
-                >,
-            ),
+            .run_if(shell_is_installed),
     );
 }
 
-/// Publish the staged cast revision when the shell activates the route it was
-/// requested for — and discard it if the route failed instead.
+
+/// Adopt the transaction the router mints for this reload's request.
 ///
-/// ⭐⭐ **THIS IS THE BOUNDARY THE TWO HALVES SHARE.** The shell's activation
-/// publishes the engine's new generation (epoch, content fingerprint, rollback
-/// contract); this publishes the cast's. Landing them anywhere else is a
-/// half-transaction: only the first is a new generation of the same moves, only
-/// the second is new moves under an unchanged generation.
+/// ⭐⭐ **THE FIRST MOMENT THE IDENTITY EXISTS AND IS OBSERVABLE.** MEASURED
+/// 2026-09-11: `ShellRouter::next_load_transaction` is private, the id is minted
+/// in a LATER system than the request, and `ShellCommand::ReplaceWith` carries no
+/// slot for a correlator — so the requester can neither read nor predict its own
+/// transaction and must ADOPT the one the router announces.
 ///
-/// ⛔ A FAILED PREPARATION DISCARDS THE STAGED REVISION RATHER THAN LEAVING IT.
-/// A revision that stayed staged would be applied by whatever activation came
-/// next — the content nobody asked for, arriving at a boundary nobody connected
-/// it to. The staleness stamp cannot save it: nothing published, so its base is
-/// still current.
-pub fn publish_staged_reload_on_activation(
+/// ⛔ IT DOES NOT PUBLISH. [`commit_content_generation`] does, at the OTHER end
+/// of the frame, and the two were one system until a measured one-frame split
+/// forced them apart.
+pub fn adopt_preparation_transaction(
     mut events: bevy::ecs::message::MessageReader<ambition_platformer2d::game_shell::ShellEvent>,
     mut commands: bevy::prelude::Commands,
 ) {
@@ -1136,6 +1147,63 @@ pub fn publish_staged_reload_on_activation(
                     });
                 });
             }
+            // ⛔ EVERY OTHER EVENT BELONGS TO THE COMMIT HALF, which runs at the
+            // OTHER end of the frame. Listed rather than wildcarded so a new
+            // terminal event is a compile error in one of the two systems rather
+            // than silence in both.
+            ShellEvent::RouteActivated(_)
+            | ShellEvent::ExperienceFailed { .. }
+            | ShellEvent::CommandRejected(_)
+            | ShellEvent::WaitingForLoad { .. }
+            | ShellEvent::RouteDeactivated(_)
+            | ShellEvent::ExitRequested => {}
+        }
+    }
+}
+
+
+/// Commit the generation when the shell activates the transaction it was
+/// requested for — and discard it if that transaction failed instead.
+///
+/// ⛔⛔⛔ **THIS AND [`adopt_preparation_transaction`] WERE ONE SYSTEM, AND THAT
+/// WAS A PRODUCTION BUG.** MEASURED 2026-09-12 in the shipped composition, by
+/// driving `build_visible_app` with nothing injected: the activation landed on
+/// frame 2, `activate_prepared_platformer_sessions` built the new world on frame
+/// 2, and the family published on frame **3**. One frame late, every time.
+///
+/// ⇒ The cause is that the two jobs want OPPOSITE ends of the frame. Adoption
+/// must precede `PlatformerPreparationSet`, which is
+/// `in_set(AmbitionLoadSet::Contributors)`; the shell chain is `Contributors →
+/// Commands → AmbitionGameShellSet::{Commands, Pending}`, and
+/// `advance_pending_route` pushes `RouteActivated` in `Pending`. A system early
+/// enough to adopt therefore CANNOT see the activation on the frame it happens —
+/// it reads the message next frame, by which time N+1's world has been built out
+/// of N's `PreparedCharacterRegistry`. That is exactly the N/N+1 split this road
+/// exists to prevent.
+///
+/// ⛔⛤ **AND THE GRAPH TEST WAS SATISFIED VACUOUSLY.** It asked for `publisher →
+/// Providers` and got it — because the publisher ran far EARLIER than both ends.
+/// The relationship that matters is `Pending → commit → Providers`, and only
+/// naming BOTH ends says so.
+///
+/// ⭐⭐ **THIS IS THE BOUNDARY THE TWO HALVES SHARE.** The shell's activation
+/// publishes the engine's new generation (epoch, content fingerprint, rollback
+/// contract); this publishes the cast's and every pack-derived family's. Landing
+/// them anywhere else is a half-transaction.
+///
+/// ⛔ A FAILED PREPARATION DISCARDS THE STAGED REVISION RATHER THAN LEAVING IT.
+/// A revision that stayed staged would be applied by whatever activation came
+/// next — the content nobody asked for, at a boundary nobody connected it to.
+pub fn commit_content_generation(
+    mut events: bevy::ecs::message::MessageReader<ambition_platformer2d::game_shell::ShellEvent>,
+    mut commands: bevy::prelude::Commands,
+) {
+    use ambition_platformer2d::game_shell::ShellEvent;
+    for event in events.read() {
+        match event {
+            // ⛔ ADOPTION IS THE OTHER SYSTEM'S JOB and happens EARLIER in the
+            // same frame — see [`adopt_preparation_transaction`].
+            ShellEvent::PreparationRequested(_) => {}
             ShellEvent::RouteActivated(active) => {
                 // ⛔ ONLY THE ACTIVATION OF THE TRANSACTION THIS RELOAD ASKED
                 // FOR. `load_authorization` is the barrier the router authorized
@@ -1217,9 +1285,13 @@ pub fn publish_staged_reload_on_activation(
             ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
             | ShellEvent::ExitRequested => {}
+            ShellEvent::WaitingForLoad { .. }
+            | ShellEvent::RouteDeactivated(_)
+            | ShellEvent::ExitRequested => {}
         }
     }
 }
+
 
 /// Does the pending reload own the transaction `load_id` names?
 ///

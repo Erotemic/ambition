@@ -39,6 +39,14 @@ fn live_first_rung(app: &bevy::prelude::App) -> f32 {
         .reaction_ms
 }
 
+/// The shell's activation counter — a NEW id means the route re-activated.
+fn activation_id(app: &bevy::prelude::App) -> Option<u64> {
+    app.world()
+        .get_resource::<ShellRouter>()
+        .and_then(|router| router.active.as_ref())
+        .map(|active| active.activation_id.0)
+}
+
 fn active_route(app: &bevy::prelude::App) -> Option<String> {
     app.world()
         .get_resource::<ShellRouter>()
@@ -164,17 +172,41 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // `ShellEvent::RouteActivated` themselves; this one only calls `update()`,
     // so the router mints the transaction, the provider re-prepares, and the
     // activation authorizes the publication exactly as a running game does.
-    for _ in 0..240 {
+    //
+    // ⛔⛔⛔ **THE FAMILY MUST LAND ON THE SAME FRAME AS THE ACTIVATION, AND
+    // "EVENTUALLY" IS WHAT HID A PRODUCTION BUG.** The first version of this
+    // test looped up to 240 updates and asserted only the final value — so it
+    // passed while the publication arrived ONE FRAME AFTER the world was built
+    // from it. MEASURED 2026-09-12 before the fix: the activation id moved on
+    // frame 2, `[sprite-bind] worn character` (the session provider constructing
+    // the new world) logged on frame 2, and the ladder moved on frame **3**.
+    //
+    // ⇒ A tolerance is a claim that the gap does not matter. Here the gap IS the
+    // defect: `activate_prepared_platformer_sessions` reads
+    // `PreparedCharacterRegistry` inside `GameplaySessionSet::Providers` on the
+    // activation frame, so a family that publishes afterwards publishes into a
+    // world already built without it. This asserts the frame, not the outcome.
+    let activation_before = activation_id(&app);
+    let mut activated_on = None;
+    for frame in 0..240 {
         app.update();
-        if live_first_rung(&app) != before {
+        if activation_id(&app) != activation_before {
+            activated_on = Some(frame);
             break;
         }
     }
+    let activated_on = activated_on.expect(
+        "the shipped shell never re-activated the route, so the reload's \
+         transaction never reached its boundary",
+    );
     assert_eq!(
         live_first_rung(&app),
         499.0,
-        "the shipped composition re-prepared its route and the cast still plays \
-         generation N's ladder — the pack promoted while the family it declares \
-         did not, which is the half-transaction this road exists to prevent"
+        "the route re-activated on frame {activated_on} and the ladder was still \
+         generation N's AT THE END OF THAT FRAME. The world is constructed in \
+         `GameplaySessionSet::Providers` on this same frame, so it was built \
+         from content the transaction had not published yet — the N/N+1 split \
+         this road exists to prevent. ⇒ A commit that arrives on frame+1 makes \
+         this assertion fail while a 'publishes eventually' one would pass."
     );
 }

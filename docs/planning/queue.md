@@ -41,7 +41,7 @@ Ranked direction, from the 2026-09-11 and 2026-09-12 architecture reviews:
 | ✅ **DONE** `1eb33f8e6` | **ONE GENERATION IN FLIGHT, STATED.** The three singletons this replaced coordinated by overwriting each other: a second request replaced the first's pack and its unadopted correlation, so the FIRST request's `LoadId` was then adopted by the SECOND generation. `ReloadRequest::AlreadyPending` is an explicit policy where accidental last-write-wins used to be. Supersession through a real cancellation transaction would be better; an unchosen coalescing is not a policy. |
 | ✅ **DONE** `d87051d3e` | **A CANDIDATE IDENTITY BELONGS TO ONE TRANSACTION.** A pending generation used to overwrite `SelectedContentIdentity` App-wide so preparation could see the candidate — handing that stamp to every UNRELATED preparation in the window, and the identity is exactly what the rollback timeline contract compares. `PendingContentIdentity { load_id, identity }` is consulted iff the claim names THIS load. ⛔ THE POISON THAT PASSED: making `prepare` ignore the claim left 868 tests green — the consumer half had no witness anywhere. It has one now, and the remaining unwitnessed hop (the call site) is stated in the commit rather than hidden. |
 | ✅ **DONE** `a02f19d1d` | **BIND THE PENDING GENERATION TO ONE EXACT SHELL TRANSACTION.** Was wrong: any `RouteActivated` published a staged reload and any terminal event discarded one. Fixed by ADOPTING the router's `LoadId` from `ShellEvent::PreparationRequested` — measured first that the requester cannot obtain or predict it (`next_load_transaction` is private, minted in a later system, `ReplaceWith` has no correlator slot). The discard half correlates through `router.pending` instead, because `CommandRejected::LoadFailed` carries no barrier at all. Guards: `an_activation_of_another_transaction_cannot_publish_a_pending_reload`, `a_failure_of_another_transaction_cannot_discard_a_pending_reload`, both with BOTH transactions on the same route so a name comparison cannot pass them. 3 poisons. |
-| ✅ **DONE** `495809099` | **N+1 WORLD CONSTRUCTION MUST CONSUME N+1's CAST.** Was wrong: `publish_staged_reload_on_activation` and `activate_prepared_platformer_sessions` were both unordered in `Update`, on the same frame, so the activation that authorized a reload could build the new session from the OLD cast — unspecified rather than merely unlucky. Fixed with `.before(GameplaySessionSet::Providers)`, an edge rather than a check: a guard detecting a mismatched cast would be repairing a world already built wrong. Guard: `the_publication_precedes_provider_session_construction` asks the SHIPPED `Update` graph for the edge. Poison-verified. |
+| ⛔ **REOPENED, THEN FIXED — `495809099` CLOSED HALF OF IT AND THE GUARD CERTIFIED THE HALF THAT WAS FREE.** | **N+1 WORLD CONSTRUCTION MUST CONSUME N+1's CAST.** Was wrong: `publish_staged_reload_on_activation` and `activate_prepared_platformer_sessions` were both unordered in `Update`, on the same frame, so the activation that authorized a reload could build the new session from the OLD cast — unspecified rather than merely unlucky. Fixed with `.before(GameplaySessionSet::Providers)`, an edge rather than a check: a guard detecting a mismatched cast would be repairing a world already built wrong. Guard: `the_publication_precedes_provider_session_construction` asked the SHIPPED `Update` graph for the edge. ⛔⛤ **AND THAT GUARD WAS SATISFIED VACUOUSLY — CAUGHT BY A GPT REVIEW 2026-09-12, CONFIRMED BY MEASUREMENT, FIXED IN THE SAME DAY.** One system did BOTH jobs — adopting `PreparationRequested` and publishing on `RouteActivated` — and the adoption edge forced it `.before(PlatformerPreparationSet)`, which is `in_set(AmbitionLoadSet::Contributors)`. The shell chain is `Contributors → Commands → AmbitionGameShellSet::{Commands, Pending}` and `advance_pending_route` produces `RouteActivated` in `Pending`, so the publisher ran BEFORE the event existed and read it a FRAME LATE. ⇒ The `publisher → Providers` edge held trivially, because the publisher ran earlier than BOTH ends. **An edge to a LATE set says nothing about a message produced in a set BEFORE it.** ⭐ MEASURED in the shipped composition by driving `build_visible_app` with nothing injected: activation on frame 2, the session provider building the new world on frame 2, the family publishing on frame **3** — the exact N/N+1 split this row exists to prevent, in production, under a green guard. ⇒ FIXED by splitting the system: `adopt_preparation_transaction` keeps the early edge, `commit_content_generation` is `.after(AmbitionGameShellSet::Pending)` AND `.before(GameplaySessionSet::Providers)`. The two jobs wanted opposite ends of the frame and no single system could hold both. ⭐ AND BOTH WITNESSES WERE TIGHTENED, because each was satisfiable by the defect: the graph test now asserts `Pending → commit → Providers` rather than one end of it, and `an_edit_reaches_the_shipped_game` asserts the family lands on the SAME FRAME as the activation rather than within 240 updates — **a tolerance is a claim that the gap does not matter, and here the gap WAS the defect.** Poison-verified: restoring the old ordering reddens both. |
 | ✅ **DONE** `2f3ba9b12` | **DELETE THE DIRECT PUBLICATION ROAD.** The preflight — verdict, unsupported-domain diff, publication boundary — was spelled out TWICE, in the same order, with two wrappers around the same answers; two copies of a rule make each other untestable. It is one `admit_candidate` now, and poisoning its live-timeline branch fails BOTH roads' arms, which is the proof the authority is one. `publish_candidate` and the `reload_move_tables*` entry points are `#[cfg(test)]` — a fixture primitive, not a road production can take — and `reload_move_tables` (zero callers, read the shipped asset tree) is deleted. MEASURED gap the collapse exposed: the domain refusal was certified only on the direct road; `the_request_road_refuses_an_items_only_candidate_too` is the production arm, and it FLIPS to `Requested` when items join the transaction rather than being deleted. |
 | **P0** | ONE bounded A10 reconstruction/publication implementation proving a prepared candidate can replace a live generation safely |
 | **P0** | Poison tests for refusal, stale candidates, no-op, cross-domain atomicity, rollback binding |
@@ -2686,26 +2686,26 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    `smash_*`, 21 fighters, 210 takes, 2026-09-12):
 
 ```text
-  npc_carl_stargan air_neutral                          0.06     11.3 x   6.1 px against a 23 x 48 body 
-  npc_carl_stargan smash_down                           0.07     11.6 x   6.9 px against a 23 x 48 body 
-  medic medic_air_up                                    0.08      3.4 x  13.4 px against a 13 x 48 body 
-  sanic skid                                            0.08     15.2 x   8.4 px against a 34 x 48 body 
-  medic medic_tilt_forward                              0.09     14.2 x   3.9 px against a 13 x 48 body 
-  sanic trailing_heel                                   0.09     13.5 x  10.9 px against a 34 x 48 body 
-  medic medic_tilt_down                                 0.10      9.8 x   6.3 px against a 13 x 48 body 
-  sanic run_up_kick                                     0.10     14.3 x  11.8 px against a 34 x 48 body 
-  sanic corkscrew                                       0.11     12.6 x  13.5 px against a 34 x 48 body 
-  officer officer_tilt_up                               0.11      6.4 x  12.9 px against a 16 x 48 body 
-  npc_carl_stargan tilt_forward                         0.11     11.7 x  10.6 px against a 23 x 48 body 
-  sanic heel_flick                                      0.12     12.6 x  15.2 px against a 34 x 48 body 
-  npc_carl_stargan air_back                             0.12     10.8 x  12.1 px against a 23 x 48 body 
-  npc_carl_stargan tilt_down                            0.12     12.1 x  11.3 px against a 23 x 48 body 
-  npc_carl_stargan smash_up                             0.12     14.1 x   9.8 px against a 23 x 48 body 
-  officer officer_air_neutral                           0.14     13.9 x   7.6 px against a 16 x 48 body 
-  pugnacious_polygon polygon_brawler_air_neutral        0.17     17.5 x   8.4 px against a 18 x 48 body 
-  sanic air_spin                                        0.18     16.8 x  16.8 px against a 34 x 48 body 
-  sanic drill_dive                                      0.18     16.0 x  18.5 px against a 34 x 48 body 
-  pugnacious_polygon polygon_brawler_tilt_up            0.19      9.9 x  15.7 px against a 18 x 48 body 
+  npc_carl_stargan air_neutral                          0.06     11.3 x   6.1 px against a 23 x 48 body
+  npc_carl_stargan smash_down                           0.07     11.6 x   6.9 px against a 23 x 48 body
+  medic medic_air_up                                    0.08      3.4 x  13.4 px against a 13 x 48 body
+  sanic skid                                            0.08     15.2 x   8.4 px against a 34 x 48 body
+  medic medic_tilt_forward                              0.09     14.2 x   3.9 px against a 13 x 48 body
+  sanic trailing_heel                                   0.09     13.5 x  10.9 px against a 34 x 48 body
+  medic medic_tilt_down                                 0.10      9.8 x   6.3 px against a 13 x 48 body
+  sanic run_up_kick                                     0.10     14.3 x  11.8 px against a 34 x 48 body
+  sanic corkscrew                                       0.11     12.6 x  13.5 px against a 34 x 48 body
+  officer officer_tilt_up                               0.11      6.4 x  12.9 px against a 16 x 48 body
+  npc_carl_stargan tilt_forward                         0.11     11.7 x  10.6 px against a 23 x 48 body
+  sanic heel_flick                                      0.12     12.6 x  15.2 px against a 34 x 48 body
+  npc_carl_stargan air_back                             0.12     10.8 x  12.1 px against a 23 x 48 body
+  npc_carl_stargan tilt_down                            0.12     12.1 x  11.3 px against a 23 x 48 body
+  npc_carl_stargan smash_up                             0.12     14.1 x   9.8 px against a 23 x 48 body
+  officer officer_air_neutral                           0.14     13.9 x   7.6 px against a 16 x 48 body
+  pugnacious_polygon polygon_brawler_air_neutral        0.17     17.5 x   8.4 px against a 18 x 48 body
+  sanic air_spin                                        0.18     16.8 x  16.8 px against a 34 x 48 body
+  sanic drill_dive                                      0.18     16.0 x  18.5 px against a 34 x 48 body
+  pugnacious_polygon polygon_brawler_tilt_up            0.19      9.9 x  15.7 px against a 18 x 48 body
 ```
 
    ⭐ **AND THE COMPLETE GRID SAYS THE SAME THING — 399 takes, EVERY verb, after

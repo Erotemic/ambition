@@ -2767,10 +2767,15 @@ rows are still right for the six without one. ⇒ Do not compare its output to a
 take's recorded extents; they are answers to different questions, and I nearly
 reported the difference as an 8x shrink.
 
-⭐⭐ **AND HERE IS THE JOIN THAT MAKES IT ACTIONABLE — 62 THIN MOVES, EACH WITH THE
-FILE THAT DECIDES IT.** Joining the per-move ratios to the specs: **93 recorded
-moves are bone-derived AND carry no `inflate`, and 62 of them play thin.** The
-thinnest, with the exact file:
+⭐⭐ **AND HERE IS THE JOIN THAT MAKES IT ACTIONABLE — 64 THIN MOVES, EACH WITH THE
+FILE THAT DECIDES IT.** `scripts/measure_hitbox_authoring_coverage.py` over a
+complete grid take: **97 recorded moves are bone-derived AND carry no `inflate`,
+and 64 of them play thin.**
+⚠ I FIRST PUBLISHED 93/62 HERE FROM AN AD-HOC JOIN, AND THE COMMITTED SCRIPT SAYS
+97/64. The script is the authority and the ad-hoc numbers are withdrawn — which is
+exactly what the rule about committing the script is FOR: two answers to one
+question, and only one of them can be re-derived.
+The thinnest, with the exact file:
 
 ```text
 0.06  npc_carl_stargan air_neutral    fighting_brawler_v1/specs/air_neutral.spec.json

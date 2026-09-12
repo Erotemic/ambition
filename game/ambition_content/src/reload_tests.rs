@@ -1399,6 +1399,7 @@ fn shell_active_on(app: &mut bevy::app::App, prepares: bool) {
     });
     app.world_mut().insert_resource(router);
     app.add_message::<ShellCommand>();
+    app.add_message::<ambition_platformer2d::game_shell::ShellEvent>();
 }
 
 fn issued_commands(app: &mut bevy::app::App) -> Vec<ShellCommand> {
@@ -1523,5 +1524,101 @@ fn a_live_rollback_timeline_refuses_a_re_preparation_request() {
     assert!(
         issued_commands(&mut app).is_empty(),
         "a refused request reached the shell anyway"
+    );
+}
+
+/// ⛔⛔ **THE TWO HALVES LAND AT ONE BOUNDARY.** The request stages the cast
+/// revision and publishes nothing; the shell's `RouteActivated` is what lets it
+/// through. Until then the live cast is the old one, which is what "the old
+/// generation stays authoritative until the candidate passes" means in practice.
+#[test]
+fn the_staged_cast_revision_publishes_when_the_route_activates() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "the request published the cast on the spot instead of staging it"
+    );
+
+    // The shell activates the route the request asked for.
+    let active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("the fixture is active on a route");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the route activated and the staged cast revision did not publish"
+    );
+}
+
+/// ⛔⛔ **A REQUEST THAT NEVER ACTIVATES DISCARDS ITS STAGED REVISION.** Left
+/// staged, it would be applied by whatever activation came next — content nobody
+/// asked for, arriving at a boundary nobody connected it to. The staleness stamp
+/// cannot save it: nothing published, so its base is still current.
+#[test]
+fn a_request_that_fails_discards_its_staged_revision() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    // The preparation fails instead of activating.
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::ExperienceFailed {
+            activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
+            message: "the fixture's preparation failed".to_string(),
+        },
+    );
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "a failed preparation published the cast anyway"
+    );
+
+    // ⛔ AND THE NEXT ACTIVATION MUST NOT APPLY IT EITHER — that is the whole
+    // point of discarding rather than leaving it staged.
+    let active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("still active");
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "a discarded revision was applied by a LATER activation"
     );
 }

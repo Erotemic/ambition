@@ -488,13 +488,111 @@ pub fn request_reload(
         return ReloadRequest::RouteHasNoPreparation(route.as_str().to_string());
     }
 
-    crate::pack::install_selection(world, candidate.into_pack());
+    // ⛔⛔ **THE CAST REVISION IS STAGED HERE AND PUBLISHED AT THE ACTIVATION, NOT
+    // BEFORE IT.** MEASURED 2026-09-11: `register_declared_cast` runs in
+    // `Plugin::build`, ONCE, so a session re-preparation moves the `ContentEpoch`,
+    // the content fingerprint and the rollback contract and changes NOT ONE move
+    // table the live cast plays. Re-preparing is necessary and not sufficient;
+    // the two roads are different mechanisms by necessity, because nothing can
+    // re-run `Plugin::build`.
+    //
+    // ⇒ So the transaction stages one and requests the other, and
+    // [`publish_staged_reload_on_activation`] lands them together.
+    let pack = candidate.into_pack();
+    if let Some(section) = ambition_characters::moveset_content_schema::lowered_movesets(&pack) {
+        let cast_base = world
+            .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .map(ambition_characters::prepared::PreparedCharacterRegistry::generation);
+        let problems = stage_move_section(world, section, cast_base);
+        if problems
+            .iter()
+            .any(|p| matches!(p, MovesetRevisionError::NoStagedCast))
+        {
+            return ReloadRequest::Refused(MoveReload::NoCast);
+        }
+        if !problems.is_empty() {
+            return ReloadRequest::Refused(MoveReload::UnknownCharacters(
+                problems.iter().map(ToString::to_string).collect(),
+            ));
+        }
+    }
+    crate::pack::install_selection(world, pack);
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
     // otherwise walk back through three copies of the room they are standing in.
     world.write_message(ShellCommand::ReplaceWith(route.clone()));
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
+    }
+}
+
+/// Publish the staged cast revision when the shell activates the route it was
+/// requested for — and discard it if the route failed instead.
+///
+/// ⭐⭐ **THIS IS THE BOUNDARY THE TWO HALVES SHARE.** The shell's activation
+/// publishes the engine's new generation (epoch, content fingerprint, rollback
+/// contract); this publishes the cast's. Landing them anywhere else is a
+/// half-transaction: only the first is a new generation of the same moves, only
+/// the second is new moves under an unchanged generation.
+///
+/// ⛔ A FAILED PREPARATION DISCARDS THE STAGED REVISION RATHER THAN LEAVING IT.
+/// A revision that stayed staged would be applied by whatever activation came
+/// next — the content nobody asked for, arriving at a boundary nobody connected
+/// it to. The staleness stamp cannot save it: nothing published, so its base is
+/// still current.
+pub fn publish_staged_reload_on_activation(
+    mut events: bevy::ecs::message::MessageReader<ambition_platformer2d::game_shell::ShellEvent>,
+    mut commands: bevy::prelude::Commands,
+) {
+    use ambition_platformer2d::game_shell::ShellEvent;
+    for event in events.read() {
+        match event {
+            ShellEvent::RouteActivated(_) => {
+                commands.queue(|world: &mut bevy::ecs::world::World| {
+                    let Some(support) = world
+                        .get_resource::<ambition_combat::technique::InstalledTechniques>()
+                        .map(|installed| installed.0.clone())
+                    else {
+                        return;
+                    };
+                    match activate_staged_revision(world, &support) {
+                        RevisionOutcome::NothingStaged => {}
+                        RevisionOutcome::Refused { refusals } => {
+                            bevy::log::error!(
+                                "a reloaded cast was REFUSED at the activation boundary; the \
+                                 previous cast is still published: {refusals:?}"
+                            );
+                        }
+                        other => {
+                            bevy::log::info!("a reloaded cast was published: {other:?}");
+                        }
+                    }
+                });
+            }
+            // ⛔ EVERY WAY THE REQUEST CAN END WITHOUT ACTIVATING, and they are
+            // listed rather than caught by a wildcard: a new terminal event must
+            // be a compile error here, not a staged revision nobody discards.
+            ShellEvent::ExperienceFailed { .. } | ShellEvent::CommandRejected(_) => {
+                commands.queue(discard_staged_reload);
+            }
+            ShellEvent::PreparationRequested(_)
+            | ShellEvent::WaitingForLoad { .. }
+            | ShellEvent::RouteDeactivated(_)
+            | ShellEvent::ExitRequested => {}
+        }
+    }
+}
+
+/// Throw away a staged cast revision whose preparation never activated.
+fn discard_staged_reload(world: &mut bevy::ecs::world::World) {
+    if world
+        .remove_resource::<ambition_characters::prepared::StagedCastRevision>()
+        .is_some()
+    {
+        bevy::log::warn!(
+            "a requested reload did not activate, so its staged cast revision was \
+             discarded rather than left for the next activation to apply"
+        );
     }
 }
 

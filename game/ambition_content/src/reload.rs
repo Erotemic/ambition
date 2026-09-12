@@ -1315,6 +1315,17 @@ pub fn commit_content_generation(
                 let load_id = barrier.load_id.clone();
                 let request = request.clone();
                 commands.queue(move |world: &mut bevy::ecs::world::World| {
+                    // ⛔ THE `reason` IS DELIBERATELY NOT CONSULTED, and the
+                    // pattern says so by binding only the identities. The rule
+                    // here is *any* end of MY transaction discards MY generation
+                    // — superseded, failed or cancelled, the load will never
+                    // activate and a generation waiting on it would be stranded
+                    // while `AlreadyPending` refused every later save. ⇒ A NEW
+                    // `TransactionEnd` VARIANT IS HANDLED CORRECTLY THE DAY IT IS
+                    // ADDED, which is why this is not a match on the reason. A
+                    // caller that must distinguish them (retry on `Failed`, never
+                    // on `Superseded`) reads it; this one must not.
+                    //
                     // ⛔ EITHER IDENTITY IS PROOF, AND NEITHER IS INFERRED.
                     // `request` matches a transaction this reload ISSUED even
                     // before the router announced a load for it; `load_id`

@@ -925,6 +925,91 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
 /// `PreparationRequested` and `WaitingForLoad`, both name the SUPERSEDING
 /// transaction; inferring the cancelled one from `ShellRouter.pending` reads the
 /// very field that was just overwritten.
+/// ⭐⭐ **A CANCELLED TRANSACTION NAMES THE REQUEST IT ABANDONED, AND
+/// `cancel_pending` HAD NO TEST AT ALL.**
+///
+/// MEASURED 2026-09-12: `git grep cancel_pending` returns three hits — the
+/// definition and its two callers in
+/// `ambition_load_presentation::shell_adapter` (the load screen's CANCEL and
+/// QUIT). **Zero tests.** A public method that abandons a live transaction was
+/// exercised by nothing, which is why it could be a bare `self.pending.take()`
+/// for as long as it was.
+///
+/// ⛔ `Cancelled` IS NOT `Superseded` AND NOT `Failed`. Nobody asked for
+/// something else and nothing went wrong — a person pressed cancel. A caller that
+/// retries on supersession must not retry here, and one that reports a failure
+/// must not report this.
+#[test]
+fn a_cancelled_transaction_names_the_request_it_abandoned() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let mine = ShellRequestId::new("reload.game.1");
+    let transaction = router
+        .apply(
+            ShellCommand::ReplaceWith {
+                route: ShellRouteId::new("game"),
+                request: Some(mine.clone()),
+            },
+            &catalog,
+            &host,
+            &mut loads,
+            &mut prepared,
+        )
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::PreparationRequested(transaction) => Some(transaction.clone()),
+            _ => None,
+        })
+        .expect("a ReplaceWith on a preparing route requests a preparation");
+    // ⛔ THE PREMISE: there IS a pending transaction to cancel. Cancelling
+    // nothing correctly emits nothing, and this arm must not pass that way.
+    assert!(
+        router.pending.is_some(),
+        "the fixture has nothing pending, so an empty result would be correct",
+    );
+
+    let events = router.cancel_pending();
+    let ended = events
+        .iter()
+        .find_map(|event| match event {
+            ShellEvent::TransactionEnded {
+                route_id,
+                barrier,
+                request,
+                reason,
+            } => Some((
+                route_id.clone(),
+                barrier.clone(),
+                request.clone(),
+                reason.clone(),
+            )),
+            _ => None,
+        })
+        .expect("cancelling a pending transaction emitted no event naming it");
+    assert_eq!(ended.0.as_str(), "game");
+    assert_eq!(ended.1, transaction.barrier, "it named a different barrier");
+    assert_eq!(ended.2.as_ref(), Some(&mine), "it named a different request");
+    assert_eq!(ended.3, TransactionEnd::Cancelled);
+    assert!(
+        router.pending.is_none(),
+        "the transaction was announced as ended and is still pending",
+    );
+
+    // ⭐ AND CANCELLING NOTHING SAYS NOTHING — the control, without which the
+    // arm above is satisfied by a method that emits an event unconditionally.
+    assert!(
+        router.cancel_pending().is_empty(),
+        "cancelling with nothing pending invented a terminal event",
+    );
+}
+
 #[test]
 fn a_superseded_transaction_names_the_request_it_cancelled() {
     let mut loads = LoadCoordinator::default();

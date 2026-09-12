@@ -352,6 +352,13 @@ fn log_shell_routing_failures(
                 error!("shell experience {activation_id:?} failed: {message}");
                 failures.record(format!("experience failed: {message}"));
             }
+            // ⛔ `TransactionEnded` IS DELIBERATELY NOT RECORDED HERE, and the
+            // reason is already written below: cancellation and supersession are
+            // terminal without being wrong. The `Failed` reason is not silence
+            // either — `advance_pending` emits `CommandRejected(LoadFailed { .. })`
+            // alongside it, carrying the provider's per-failure detail, and that
+            // arm above logs it. Recording the identity event too would double
+            // every real failure and add a line for every ordinary navigation.
             _ => {}
         }
     }

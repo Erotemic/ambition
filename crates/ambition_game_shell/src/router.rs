@@ -322,6 +322,20 @@ pub enum ShellEvent {
 /// waiting on a load that will never activate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TransactionEnd {
+    /// A PERSON cancelled the load, through the load-presentation screen's
+    /// cancel or quit.
+    ///
+    /// ⛔⛤ **THE LAST TERMINAL ROAD THAT NAMED NOTHING.**
+    /// `ShellRouter::cancel_pending` was a bare `self.pending.take()` returning
+    /// the route for its caller's hold bookkeeping, so a player who cancelled a
+    /// load while a content reload was in flight stranded that reload's
+    /// generation — and because `ReloadRequest::AlreadyPending` refuses while one
+    /// is in flight, every later save was refused too.
+    ///
+    /// ⚠ A SEPARATE REASON FROM `Superseded` ON PURPOSE: nobody asked for
+    /// anything else, so a caller that retries on supersession must NOT retry
+    /// here.
+    Cancelled,
     /// Another `start_route` began while this one was still pending.
     Superseded,
     /// Its barrier reached a terminal non-ready state.
@@ -454,8 +468,34 @@ impl ShellRouter {
         }
     }
 
-    pub fn cancel_pending(&mut self) -> Option<PendingShellRoute> {
-        self.pending.take()
+    /// Abandon the pending transaction and SAY SO.
+    ///
+    /// ⭐⭐ **IT RETURNS EVENTS RATHER THAN THE ROUTE BECAUSE A CALLER MUST NOT
+    /// BE ABLE TO CANCEL SILENTLY.** The previous signature handed back
+    /// `Option<PendingShellRoute>` and emitted nothing; both callers used it for
+    /// `route_id` alone and neither could have known a correlating caller was
+    /// waiting. Now the route id arrives INSIDE
+    /// [`ShellEvent::TransactionEnded`], so the bookkeeping a caller wants and
+    /// the signal a waiter needs are the same value — a caller cannot keep the
+    /// first and drop the second.
+    ///
+    /// ⚠ A SMALLER STEP THAN IT COULD BE, DELIBERATELY. Routing cancellation
+    /// through a `ShellCommand` would leave `apply`/`advance_pending` as the ONLY
+    /// producers of `ShellEvent`, which is the better shape; it also defers the
+    /// hold release and the presentation clear by a frame, and both are currently
+    /// synchronous with the person's click. That collapse is its own change.
+    pub fn cancel_pending(&mut self) -> Vec<ShellEvent> {
+        self.pending
+            .take()
+            .map(|pending| {
+                vec![ShellEvent::TransactionEnded {
+                    route_id: pending.route_id,
+                    barrier: pending.barrier,
+                    request: pending.request,
+                    reason: TransactionEnd::Cancelled,
+                }]
+            })
+            .unwrap_or_default()
     }
 
     pub fn advance_pending(

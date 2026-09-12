@@ -146,6 +146,25 @@ fn sync_shell_hold(
     }
 }
 
+/// Release the presentation hold for every transaction that just ended, and
+/// announce each one.
+///
+/// ⭐ ONE PASS OVER ONE LIST. The hold to release and the transaction to
+/// announce are the same event, so a cancellation cannot release a hold without
+/// telling whoever was waiting on the load.
+fn release_and_announce(
+    ended: Vec<ShellEvent>,
+    holds: &mut ShellRouteHolds,
+    shell_events: &mut MessageWriter<ShellEvent>,
+) {
+    for event in ended {
+        if let ShellEvent::TransactionEnded { route_id, .. } = &event {
+            holds.release(route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
+        }
+        shell_events.write(event);
+    }
+}
+
 fn process_shell_presentation_events(
     mut events: MessageReader<LoadPresentationEvent>,
     mut state: ResMut<ShellLoadPresentationState>,
@@ -153,6 +172,10 @@ fn process_shell_presentation_events(
     routes: Res<ShellRouteCatalog>,
     mut holds: ResMut<ShellRouteHolds>,
     mut shell: MessageWriter<ShellCommand>,
+    // ⚠ THIS SYSTEM FORWARDS ROUTER EVENTS, IT DOES NOT INVENT THEM.
+    // `cancel_pending` produces them; writing them is the only way a caller
+    // waiting on the cancelled transaction can ever hear about it.
+    mut shell_events: MessageWriter<ShellEvent>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
 ) {
     for event in events.read() {
@@ -187,18 +210,22 @@ fn process_shell_presentation_events(
             }
             LoadPresentationEvent::CancelRequested { .. } => {
                 let had_active_route = router.active.is_some();
-                if let Some(pending) = router.cancel_pending() {
-                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
-                }
+                release_and_announce(
+                    router.cancel_pending(),
+                    &mut holds,
+                    &mut shell_events,
+                );
                 clear_shell_presentation(&mut state, &mut presentation);
                 if !had_active_route {
                     shell.write(ShellCommand::QuitToHome);
                 }
             }
             LoadPresentationEvent::QuitRequested { .. } => {
-                if let Some(pending) = router.cancel_pending() {
-                    holds.release(&pending.route_id, &ShellHoldId::new(LOAD_PRESENTATION_HOLD));
-                }
+                release_and_announce(
+                    router.cancel_pending(),
+                    &mut holds,
+                    &mut shell_events,
+                );
                 clear_shell_presentation(&mut state, &mut presentation);
                 shell.write(ShellCommand::QuitToHome);
             }

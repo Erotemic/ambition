@@ -44,7 +44,7 @@ can assert its way into world state yet.
 ⛔ **But the boundary has no mechanism behind it, and the road it would have to
 police is public.** World mutation from gameplay goes through a message bus:
 `SetFlagRequested` (`crates/ambition_combat/src/events.rs:80`),
-`QuestAdvanceRequested` (`crates/ambition_persistence/src/quest/mod.rs:392`) and
+`QuestAdvanceRequested` (`crates/ambition_persistence/src/quest/mod.rs:420`) and
 their siblings, drained by `features::ecs::effect_bus`
 (`apply_flag_effects`, `apply_quest_effects`, `apply_switch_effects`). Those
 messages are ordinary public vocabulary written from at least four modules today

@@ -242,7 +242,7 @@ THAT WORK. THREE ARE CLOSED.**
 - ✅ **CLOSED `1eb33f8e6` — admission cannot fail after the engine half commits,
   and THIS BULLET WAS STALE FOR DAYS (re-derived 2026-09-12).** Was:
   `RouteActivated` called `activate_staged_revision`, which can return `Refused`,
-  leaving the engine at N+1 and the cast at N. VERIFIED at HEAD: `reload.rs:33`
+  leaving the engine at N+1 and the cast at N. VERIFIED at HEAD: `reload.rs:33` <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
   imports `activate_staged_revision` under `#[cfg(test)]` and its ONLY call site
   (`:223`) is inside `#[cfg(test)] pub(crate) fn reload_move_tables_from` — so no
   production path reaches the combined admit-and-publish road at all. The
@@ -258,7 +258,7 @@ THAT WORK. THREE ARE CLOSED.**
   else. See the row above for the receipts and the five poisons.
 - ✅ **CLOSED `2f3ba9b12` — there is ONE production reload road, and this bullet
   was stale too.** VERIFIED at HEAD: `publish_candidate` carries `#[cfg(test)]`
-  (`reload.rs:399`), so it is a fixture primitive rather than a road production
+  (`reload.rs:399`), so it is a fixture primitive rather than a road production <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
   can take. The request road did not sit beside it; it replaced it.
 - ✅ **CLOSED `4600f6668` — the ordering exists as an EDGE, not a check, and this
   bullet was stale as well.** VERIFIED at HEAD: `register` configures
@@ -755,7 +755,7 @@ measuring" are the same output.**
 production readers of `body_driving_seat`; the count is still four at HEAD, and
 **two members are wrong**:
 
-- `control/queries.rs:224` **is a TEST** — `#[cfg(test)]` sits at line 209, and at
+- `control/queries.rs:224` **is a TEST** — `#[cfg(test)]` sits at line 209, and at <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
   209 in `966351e25` too. **An error at the stamp, not decay.**
 - `avatar/systems.rs:103` **is a production reader and is MISSING**, added by
   `ab308504b` — *the same commit the surrounding paragraph reports as the fix.*

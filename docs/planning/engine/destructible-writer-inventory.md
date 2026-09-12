@@ -94,7 +94,7 @@ the greps below, not adjusted from the old one.
 
 ### The test row is resolved: DELETED
 
-`breakables.rs:128` was `BreakableFeature::new(b)` inside `fn stand_breakable`, a
+`breakables.rs:128` was `BreakableFeature::new(b)` inside `fn stand_breakable`, a <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
 helper under `#[cfg(test)]` at `:89`, in a table headed *"the complete production
 set"*. Found by `check_planning_citations.py --roles` (`7a392427e`).
 
@@ -210,7 +210,7 @@ that is how a system with two transitions got recorded with one, twice.
 **BOTH HALVES OF THE HOLD ARE SATISFIED.** A2's contact contract closed at
 `0157476ba`; this inventory is the other half and it reproduces at HEAD — all six
 production mutation sites, at the same lines, with `0157476ba` adding none
-(it added fixtures and a publisher comment). The `breakables.rs:128` row is still
+(it added fixtures and a publisher comment). The `breakables.rs:128` row is still <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
 a `#[cfg(test)]` helper and still correctly excluded. ⚠ The frontier's A5 row
 still reads *"HOLD until … writer inventory is complete"* and links neither page;
 that is the third time a frontier summary has outlived the page it summarises

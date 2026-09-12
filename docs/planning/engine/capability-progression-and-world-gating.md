@@ -517,7 +517,7 @@
 >
 > ⚠ **REPAIRING IT REDDENED TWO PRE-EXISTING ROUTE TESTS**, which is composition
 > repair rather than regression: both fixtures held `PlayerEntity` alone, and
-> `actor_monolith/src/features/ecs/dormancy.rs:96` already records the identical
+> `actor_monolith/src/features/ecs/dormancy.rs:96` already records the identical <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
 > trap one domain over — *"a fixture that spawned `PlayerEntity` alone would find
 > NO OBSERVERS AT ALL"*. Both grew a seat.
 >

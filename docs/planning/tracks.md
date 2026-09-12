@@ -121,7 +121,7 @@ their real customer/measurement triggers.
   the variant declaration, a reader match arm, the codec (`put_u8(.., 2)`), a
   doc comment, or the word "Consumed" in ordinary English (`platformer2d_ldtk/src/surfaces.rs:7`).
   ⛔ **Two of them LOOKED like producers and are tests** —
-  `lifecycle/continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`)
+  `lifecycle/continuity.rs:674` (`a_consumed_occurrence_is_not_resurrected_by_a_placement`) <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
   and `save_data.rs:758`
   (`every_whereabouts_variant_round_trips_including_the_terminal_one`) both
   CONSTRUCT the variant. ⇒ Both sit inside a `#[cfg(test)] mod tests` **in an
@@ -579,7 +579,7 @@ Do not promote these until the trigger exists:
   `ambition_render/src/rendering/gate_portal_visuals.rs`, plus a rollback name
   (`resource.gate_portal_phases`), three reader systems and an `init_resource`
   — and **no production producer on any road**. The only `register` call is a
-  render test (`rendering/deferred_write_safety.rs:179`); nothing constructs a
+  render test (`rendering/deferred_write_safety.rs:179`); nothing constructs a <!-- cite-test: a `#[cfg(test)]` line cited ON PURPOSE — the row's claim IS that this line is a test, so a production-role citation here would mean the opposite of what it says. Triaged individually 2026-09-12, not swept. -->
   `GatePortalConfig` in production; zero `GatePortal` entities in all four
   authored worlds. ⚠ The authoring VOCABULARY exists and the runtime READER
   exists; the road between them does not — a different situation from

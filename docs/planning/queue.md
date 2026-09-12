@@ -66,9 +66,35 @@ is, fed by `ambition_platformer2d_runtime::SelectedContentIdentity` which
 `None` is a real answer — a composition with no pack — and it is a third distinct
 generation, not a missing value.
 
-⛔ **WHAT REMAINS OF THE BINDING, and it is the whole of the P0 above:** a reload
-does not RE-PREPARE the session, so a new identity is folded in at the next
-preparation rather than at the publication. Routing publication through
+✅ **AND THE REST OF THE BINDING LANDED THE SAME DAY.** `reload::request_reload`
+(`e627a4399`) issues the shell's own `PreparationRequested` path instead of
+publishing anything itself, as `ReplaceWith` rather than `GoTo` so a reload does
+not push history. `publish_staged_reload_on_activation` (`6b0423da9`) lands the
+cast's half at the SAME boundary the shell publishes the engine's, and DISCARDS
+the staged revision when the preparation fails instead — a revision left staged
+would be applied by whatever activation came next, and the staleness stamp cannot
+save it because nothing published.
+
+⛔⛤ **THE TRAP THIS AVOIDS, MEASURED AND WORTH REPEATING:** re-preparing is
+NECESSARY AND NOT SUFFICIENT. `register_declared_cast` runs in `Plugin::build`,
+once, so a re-preparation moves the `ContentEpoch`, the content fingerprint and
+the rollback contract and **changes not one move table the live cast plays**.
+Either road alone is a half-transaction.
+
+⛔⛤ **AND `publish_staged_reload_on_activation` SHIPPED WITH NO CALLER FOR ONE
+COMMIT** — the exact failure this packet has spent the day closing. All thirty
+crate-level arms were green because each adds the system itself.
+`reload_publication_is_installed` asks the SHIPPED `Update` schedule graph by
+system TYPE (names are empty in this build) and asserts exactly one registration.
+
+⛔ **WHAT IS STILL OPEN:** the selection is installed BEFORE the request, because
+`prepare_platformer_content` reads `SelectedContentIdentity` to fingerprint and
+`authored_intrinsics` reads `SelectedContentPack` at cast registration — both
+inside the preparation being asked for. So between the request and the
+activation, `pack::selected` answers with the incoming pack while the live cast
+is still the old one. **Nothing PUBLISHED has changed**; closing the window means
+making selection part of the activation transaction. The doc on `request_reload`
+names it rather than hiding it. Routing publication through
 `prepare_platformer_content` — which already allocates the epoch as *"the final
 non-fallible step"*, so a rejected candidate consumes no generation — is the A10
 integration. The transaction also still carries TWO base clocks (the pack

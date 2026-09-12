@@ -605,6 +605,44 @@ pub fn request_reload(
     // cast it never built — after which the next save of the same file compared
     // against that selection, reported `Unchanged`, and requested nothing. The
     // game stayed split for the session while the reload said all was well.
+    // ⛔⛤ **ADMISSION FINISHES BEFORE THE REQUEST IS ISSUED, NOT AT THE COMMIT
+    // BOUNDARY.** `admit_staged_revision` takes `&World` and mutates nothing, so
+    // this asks "would this publish?" and is free to answer no. Without it, an
+    // authored effect naming a technique this composition never installed would
+    // be discovered by `RouteActivated` — at which point the shell has already
+    // committed the new route and prepared session, the engine's half of the
+    // generation is N+1, and the cast's half refuses. That half-transaction is
+    // the thing I3 exists to prevent, and a commit path is not where a candidate
+    // may learn it is invalid.
+    //
+    // ⚠ `Unchanged` AND `NothingStaged` BOTH PROCEED. The move material being
+    // identical does not mean the pack is: the participating domain can change in
+    // a character no buildable cast member wears, and the engine's generation
+    // still has to move.
+    if let Some(support) = world
+        .get_resource::<ambition_combat::technique::InstalledTechniques>()
+        .map(|installed| installed.0.clone())
+    {
+        match ambition_characters::prepared::admit_staged_revision(world, &support) {
+            ambition_characters::prepared::RevisionAdmission::Refused { refusals, .. } => {
+                discard_staged_reload(world);
+                return ReloadRequest::Refused(MoveReload::Refused(
+                    refusals.iter().map(|r| r.detail.clone()).collect(),
+                ));
+            }
+            ambition_characters::prepared::RevisionAdmission::Stale {
+                prepared_against,
+                active,
+            } => {
+                discard_staged_reload(world);
+                return ReloadRequest::Refused(MoveReload::Stale {
+                    prepared_against: prepared_against.get(),
+                    active: active.get(),
+                });
+            }
+            _ => {}
+        }
+    }
     crate::pack::stage_pending_pack(world, pack);
     // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
     // a history entry: a player who reloaded three times and pressed back would
@@ -678,10 +716,20 @@ pub fn publish_staged_reload_on_activation(
                     crate::pack::promote_pending(world);
                     match activate_staged_revision(world, &support) {
                         RevisionOutcome::NothingStaged => {}
+                        // ⛔⛤ **REACHABLE ONLY IF THE COMPOSITION CHANGED IN
+                        // FLIGHT.** `request_reload` admits the revision before
+                        // it issues the request, so ordinary authored invalidity
+                        // cannot arrive here. What can is an installed-technique
+                        // table that moved between the request and the
+                        // activation — which is a composition change, not an
+                        // author's mistake, and it is worth saying so loudly
+                        // rather than logging it as content.
                         RevisionOutcome::Refused { refusals } => {
                             bevy::log::error!(
-                                "a reloaded cast was REFUSED at the activation boundary; the \
-                                 previous cast is still published: {refusals:?}"
+                                "a reloaded cast was REFUSED at the ACTIVATION boundary, which \
+                                 request-time admission should have made impossible: the \
+                                 composition's installed techniques must have changed in \
+                                 flight. The previous cast is still published: {refusals:?}"
                             );
                         }
                         other => {

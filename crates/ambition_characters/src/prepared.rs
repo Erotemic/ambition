@@ -575,21 +575,125 @@ pub fn activate_staged_revision(
     // `admit_and_finalize_cast`.
     support: &ambition_entity_catalog::TechniqueSupport,
 ) -> RevisionOutcome {
-    let (staged, prepared_against): (Vec<StagedCharacter>, Option<CharacterCatalogGeneration>) =
-        match world.get_resource_mut::<StagedCastRevision>() {
-            Some(mut revision) if !revision.by_id.is_empty() => {
-                let against = revision.prepared_against.take();
-                (
-                    std::mem::take(&mut revision.by_id).into_values().collect(),
-                    against,
-                )
+    let admission = admit_staged_revision(world, support);
+    // ⛔⛤ **THE TRANSACTION IS SPENT ON EVERY VERDICT BUT `NothingStaged`.** A
+    // refused or stale revision that stayed staged would be retried against an
+    // even newer base on the next activation — the same defect one tick later,
+    // and now invisible because nobody staged it.
+    if !matches!(admission, RevisionAdmission::NothingStaged) {
+        if let Some(mut revision) = world.get_resource_mut::<StagedCastRevision>() {
+            revision.by_id.clear();
+            revision.prepared_against = None;
+        }
+    }
+    match admission {
+        RevisionAdmission::NothingStaged => RevisionOutcome::NothingStaged,
+        RevisionAdmission::Stale {
+            prepared_against,
+            active,
+        } => {
+            bevy::prelude::error!(
+                "a staged cast revision was prepared against generation \
+                 {prepared_against} and the live cast is {active}; it is REFUSED \
+                 rather than folded onto a cast it never saw"
+            );
+            RevisionOutcome::Stale {
+                prepared_against,
+                active,
             }
-            _ => return RevisionOutcome::NothingStaged,
+        }
+        RevisionAdmission::Unchanged { generation } => RevisionOutcome::Unchanged { generation },
+        RevisionAdmission::Refused { refusals, previous } => {
+            bevy::prelude::error!(
+                "a staged cast revision was REFUSED and the previous cast is still \
+                 active ({previous}); {} authored effect(s):\n    {}",
+                refusals.len(),
+                refusals
+                    .iter()
+                    .map(|refusal| refusal.detail.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n    ")
+            );
+            world.insert_resource(AuthoredEffectRefusals(refusals.clone()));
+            RevisionOutcome::Refused { refusals }
+        }
+        RevisionAdmission::Admitted(admitted) => publish_admitted_revision(world, admitted),
+    }
+}
+
+/// A cast revision, hydrated and ADMITTED, and not yet published.
+///
+/// ⭐⭐ **THE VALUE I3a ASKS FOR BY NAME** — *"factor candidate
+/// construction/validation from the current character activation function;
+/// return a prepared candidate without publishing it"*. Holding one means every
+/// question that can refuse ordinary authored content has already been asked and
+/// answered YES.
+///
+/// ⛔ CONSTRUCTING ONE MUTATES NOTHING. Not the registry, not the source, not the
+/// staged transaction, not an epoch. A caller may therefore ask *"would this
+/// publish?"* without having to undo anything when the answer is no — which is
+/// what lets a reload REFUSE at request time instead of discovering invalidity
+/// at a commit boundary.
+pub struct AdmittedRevision {
+    candidate: PreparedCharacterRegistry,
+    staged: Vec<StagedCharacter>,
+    previous: CharacterCatalogGeneration,
+}
+
+impl AdmittedRevision {
+    /// How many definitions this revision replaces.
+    pub fn changed(&self) -> usize {
+        self.staged.len()
+    }
+
+    /// The generation it was admitted against.
+    pub fn previous(&self) -> CharacterCatalogGeneration {
+        self.previous
+    }
+}
+
+/// What asking *"would the staged revision publish?"* answers.
+///
+/// ⚠ EVERY VARIANT BUT `Admitted` IS A REFUSAL THE COMMIT PATH MUST NEVER HAVE
+/// TO MAKE. A publication boundary that can still discover ordinary authored
+/// invalidity is a half-transaction waiting to happen: the engine's half commits
+/// and the cast's does not.
+pub enum RevisionAdmission {
+    NothingStaged,
+    Stale {
+        prepared_against: CharacterCatalogGeneration,
+        active: CharacterCatalogGeneration,
+    },
+    Unchanged {
+        generation: CharacterCatalogGeneration,
+    },
+    Refused {
+        refusals: Vec<EffectRefusal>,
+        previous: CharacterCatalogGeneration,
+    },
+    Admitted(AdmittedRevision),
+}
+
+/// Hydrate and admit the staged revision WITHOUT publishing or spending it.
+///
+/// ⛔ `&World`, not `&mut World`, and that signature is the contract: the
+/// compiler refuses a version of this that mutates.
+pub fn admit_staged_revision(
+    world: &bevy::ecs::world::World,
+    support: &ambition_entity_catalog::TechniqueSupport,
+) -> RevisionAdmission {
+    let (staged, prepared_against): (Vec<StagedCharacter>, Option<CharacterCatalogGeneration>) =
+        match world.get_resource::<StagedCastRevision>() {
+            Some(revision) if !revision.by_id.is_empty() => (
+                revision.by_id.values().cloned().collect(),
+                revision.prepared_against,
+            ),
+            _ => return RevisionAdmission::NothingStaged,
         };
     let Some(active) = world.get_resource::<PreparedCharacterRegistry>() else {
         // No cast has been published, so there is nothing to revise and nothing
         // to protect; the barrier has not run.
-        return RevisionOutcome::NothingStaged;
+        return RevisionAdmission::NothingStaged;
     };
     let previous = active.generation();
 
@@ -598,18 +702,9 @@ pub fn activate_staged_revision(
     // The edit was computed from the source as it stood at STAGE time; folding
     // it onto a registry that has since moved applies it to a cast it never saw
     // and absorbs the intervening change without a word.
-    //
-    // ⚠ THE EDITS ARE SPENT EITHER WAY — they were taken above. A stale
-    // transaction that stayed staged would be retried against an even newer base
-    // on the next activation, which is the same defect one tick later.
     if let Some(prepared_against) = prepared_against {
         if prepared_against != previous {
-            bevy::prelude::error!(
-                "a staged cast revision was prepared against generation \
-                 {prepared_against} and the live cast is {previous}; it is \
-                 REFUSED rather than folded onto a cast it never saw"
-            );
-            return RevisionOutcome::Stale {
+            return RevisionAdmission::Stale {
                 prepared_against,
                 active: previous,
             };
@@ -634,7 +729,7 @@ pub fn activate_staged_revision(
                 == Some(character)
         });
         if nothing_new {
-            return RevisionOutcome::Unchanged {
+            return RevisionAdmission::Unchanged {
                 generation: previous,
             };
         }
@@ -649,11 +744,7 @@ pub fn activate_staged_revision(
 
     // The candidate: the live cast with the edits folded over it. Built as a
     // separate value so a refusal cannot have touched the published one.
-    let changed = staged.len();
-    let mut candidate = world
-        .get_resource::<PreparedCharacterRegistry>()
-        .expect("checked above")
-        .clone();
+    let mut candidate = active.clone();
     for character in &staged {
         candidate.insert(finalize_character(
             character.inner.clone(),
@@ -665,23 +756,33 @@ pub fn activate_staged_revision(
     // ⚠ ADMITTED AGAINST THE WHOLE CANDIDATE, not against the edit alone: a
     // summon in an edited move may name a character the edit did not touch, and
     // an edit may REMOVE the definition some untouched move was naming.
-    {
-        let refusals = unsupported_authored_effects(support, &candidate);
-        if !refusals.is_empty() {
-            bevy::prelude::error!(
-                "a staged cast revision was REFUSED and the previous cast is still \
-                 active ({previous}); {} authored effect(s):\n    {}",
-                refusals.len(),
-                refusals
-                    .iter()
-                    .map(|refusal| refusal.detail.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n    ")
-            );
-            world.insert_resource(AuthoredEffectRefusals(refusals.clone()));
-            return RevisionOutcome::Refused { refusals };
-        }
+    let refusals = unsupported_authored_effects(support, &candidate);
+    if !refusals.is_empty() {
+        return RevisionAdmission::Refused { refusals, previous };
     }
+    RevisionAdmission::Admitted(AdmittedRevision {
+        candidate,
+        staged,
+        previous,
+    })
+}
+
+/// Publish a revision that has ALREADY been admitted.
+///
+/// ⛔⛤ **THERE IS NO REFUSAL IN HERE, AND THAT IS THE POINT.** Every question
+/// that could say no was asked by [`admit_staged_revision`]; a commit path that
+/// can still discover ordinary authored invalidity leaves the engine's half of a
+/// generation committed and the cast's half refused.
+pub fn publish_admitted_revision(
+    world: &mut bevy::ecs::world::World,
+    admitted: AdmittedRevision,
+) -> RevisionOutcome {
+    let AdmittedRevision {
+        mut candidate,
+        staged,
+        previous,
+    } = admitted;
+    let changed = staged.len();
     candidate.stamp_after(previous);
     let generation = candidate.generation();
 
@@ -692,9 +793,6 @@ pub fn activate_staged_revision(
     // reads the source to build its edit — would silently revert this one. The
     // drift is invisible until somebody revises the same character twice, which
     // is precisely what a content-iteration loop does all day.
-    //
-    // ⚠ AFTER the admission gate, never before: a REFUSED revision must change
-    // nothing, and the source is part of "nothing".
     if let Some(mut overrides) = world.get_resource_mut::<StagedCharacterOverrides>() {
         for character in staged {
             let id = ambition_entity_catalog::CharacterId::new(character.id());

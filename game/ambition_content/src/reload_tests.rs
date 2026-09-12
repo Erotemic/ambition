@@ -1967,3 +1967,101 @@ fn a_successful_activation_promotes_the_pending_candidate() {
         "the candidate is still pending after it was promoted"
     );
 }
+
+/// ⛔⛔ **A CANDIDATE THAT WOULD FAIL ADMISSION IS REFUSED AT REQUEST TIME, SO THE
+/// COMMIT BOUNDARY NEVER HAS TO.**
+///
+/// Without this, an authored effect naming a technique this composition never
+/// installed is discovered by `RouteActivated` — at which point the shell has
+/// already committed the new route and prepared session, the engine's half of
+/// the generation is N+1, and the cast's half refuses. That half-transaction is
+/// what I3 exists to prevent: a commit path is not where a candidate may learn
+/// it is invalid.
+///
+/// ⚠ AND NOTHING IS LEFT BEHIND. The refusal discards the staged revision and
+/// the pending pack, or the next activation would publish content this request
+/// was told it could not have.
+#[test]
+fn a_candidate_that_would_fail_admission_is_refused_before_the_request_is_issued() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+        None,
+    );
+    shell_active_on(&mut app, true);
+    let selection = crate::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    let generation = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+
+    let named = doc_text_naming(0.35, "swat", Some("nothing.installed"));
+    assert!(
+        named.contains("nothing.installed"),
+        "the fixture does not name the uninstalled technique"
+    );
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(
+            std::sync::Arc::new(pack_of(&named).expect(
+                "a candidate naming an \
+                 uninstalled technique still COMPILES",
+            )),
+            None,
+        ),
+    );
+    match &outcome {
+        ReloadRequest::Refused(MoveReload::Refused(refusals)) => assert!(
+            refusals.iter().any(|r| r.contains("nothing.installed")),
+            "the refusal does not name the uninstalled technique: {refusals:?}"
+        ),
+        other => panic!("expected a request-time admission refusal; got {other:?}"),
+    }
+
+    // ⛔ THE REQUEST NEVER REACHED THE SHELL.
+    assert!(
+        issued_commands(&mut app).is_empty(),
+        "a candidate that cannot be admitted asked the shell to re-prepare anyway"
+    );
+    // ⛔ AND NOTHING IS STAGED OR PENDING for a later activation to find.
+    assert!(
+        crate::pack::pending(app.world()).is_none(),
+        "the refused candidate is still pending"
+    );
+    assert_eq!(
+        crate::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint,
+        selection,
+        "the refused candidate became the selection"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<PreparedCharacterRegistry>()
+            .generation(),
+        generation,
+        "the refused candidate moved the cast generation"
+    );
+
+    // ⛔⛔ AND THE NEXT ACTIVATION PUBLISHES NOTHING — the assertion that proves
+    // the discard happened rather than the refusal merely being reported.
+    app.add_systems(bevy::app::Update, publish_staged_reload_on_activation);
+    let active = app
+        .world()
+        .resource::<ShellRouter>()
+        .active
+        .clone()
+        .expect("active");
+    let played = live_duration(&app);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+    assert_eq!(
+        live_duration(&app),
+        played,
+        "an unrelated activation published the candidate that was refused"
+    );
+}

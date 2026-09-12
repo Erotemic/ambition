@@ -2783,6 +2783,31 @@ move table exactly.
 px body` this file has recorded since 2026-09-11 is not a stingy box — **it is the
 thickness of her arm**, and no edit to `data/movesets/medic.ron` can change it.
 
+⛔⛤ **AND I OVERSTATED THIS AN HOUR AFTER WRITING IT. THE MOVE TABLE IS A
+FALLBACK, NOT A DEAD LETTER.** I said the `half_extents` are dead for all ten.
+MEASURED properly — how many of each fighter's recorded moves play their authored
+box EXACTLY (within 0.05 px), and whether their clip has a bone-derived spec:
+
+```text
+medic                0/13   performer            0/14   npc_emmy_noether   0/15
+projectile_polygon   0/14   pugnacious_polygon   0/16
+officer              1/15   author               1/14   pointed_polygon    1/16
+npc_carl_stargan     4/17  — and ALL FOUR are clips with NO bone-derived spec
+npc_alice            5/17   npc_bob              5/17  — 1 each with no spec
+```
+
+⇒ **THE OVERRIDE IS PER CLIP, NOT PER CHARACTER.** A clip with a bone-derived
+spec ignores the move table; a clip without one uses it, and carl_stargan's 4 of 4
+is the clean demonstration. So for five fighters the table is effectively dead
+across every recorded move, and for the other five it is still the live value for
+some — **which means "author in the `.spec.json`" is the wrong instruction for
+those moves**, and an author who follows it blindly will edit a file that does not
+decide them.
+⚠ ALICE'S AND BOB'S EXTRA FOUR ARE UNEXPLAINED: they play the authored box exactly
+while their clip DOES have a bone spec. Four exact matches to 0.05 px is not
+coincidence, so there is a third rule here I have not found. Stated rather than
+smoothed over.
+
 ⭐⭐ **AND THIS IS EXACTLY WHAT JON MEANT BY "LEARN FROM WHAT GPT-6 DID FOR THE
 PERFORMER".** The surface that makes a bone-derived box generous is
 `hitbox.inflate`, and its coverage is almost entirely one character's:

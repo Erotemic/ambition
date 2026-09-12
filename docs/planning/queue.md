@@ -31,7 +31,40 @@ rollback timeline ownership (`cb8eac09f`: publication refused while a timeline
 speculates or its authority is unhealthy). **A10 reconstruction is the SCENE half
 and was never needed for any of it** — see `Q113`.
 
-## ⛔⛔ MAIN IS RED AS OF `a595b0a2c`, AND THE CAUSE IS MEASURED
+## ✅ CLOSED `bb90f1370`: MAIN WAS RED AS OF `a595b0a2c`; THE VALUE IS NOW 1.25 AND BOTH FLOORS PASS
+
+⭐⭐ **THE RESOLUTION, MEASURED AT `bb90f1370` 2026-09-12.** NamekAmbition
+re-swept its own calibration, found the first sweep had borrowed 1.248× of
+unpinned attacker rage, and lowered `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` from
+`1.5` to **`1.25`** (`622d3db99`, merged `9dbe4492e`). I merged and ran both
+floors as NAMED integration targets:
+
+- `ambition_app --test app_it two_cpus_in_the_shipped_composition_damage_each_other` → **ok**, 22.14s
+- `ambition_demo_smash_app --test smash_it every_authored_route_gets_pressed` → **ok**, 2.99s
+
+⭐ **IT IS A CONTROLLED READING, NOT A COINCIDENCE OF MERGES.**
+`git diff a6bc7091e origin/main` over `game/ambition_demo_smash/src/lib.rs` moves
+the CONSTANT AND NOTHING ELSE; the rest of the merge is test files. So my column
+reads **1.00 pass / 1.25 pass / 1.50 fail** against a tree that is otherwise
+identical, and Namek's reads **1.00 ALIVE / 1.25 KO / 1.50 KO**. `1.25` is the
+unique value satisfying both, which is why this was a TUNING question and never
+reached Jon as a design one.
+
+⚠ **AND MY FLOORS WERE NEVER EVIDENCE THAT THE CONSTANT SHOULD NOT EXIST.**
+They were green at `1.00` and red at `1.50`, i.e. evidence about its MAGNITUDE
+alone. Namek's sweep is what shows `1.00` does not convert at all. Two guards
+measuring different quantities, and the answer was the overlap — not a winner.
+
+⭐⭐ **WHAT MADE THE OVERLAP FINDABLE WAS ASKING WHAT THE OTHER INSTRUMENT DOES
+NOT RECORD.** I asked Namek directly whether its sweep logged offstage time or
+recovery presses; the answer was no — it records resolved launch, body-speed
+peak, lateral travel, `left_the_world`. ⇒ **That one answer is what turned
+"whose number is right" into "the two bars are disjoint, sweep the gap."** Ask
+what a disagreeing instrument CANNOT see before trading values with it.
+
+<details><summary>The original red row, kept because the lane lesson in it is
+still the transferable part</summary>
+
 
 `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
 fails DETERMINISTICALLY (identical numbers on consecutive runs):
@@ -72,6 +105,8 @@ real and its POPULATION was wrong: `--test app_it -- smash_in_the_host` is a
 FILTER, and this test lives in the same binary outside it. The full
 `-p ambition_app --test app_it -- --test-threads=1` (~926s) shows it. **A green
 result names its lane; that one named a filter.**
+
+</details>
 
 ## ✅ DISK: RECLAIMED TO 41 GB — AND I GOT THE POLICY AND MY OWN LANE WRONG FIRST
 

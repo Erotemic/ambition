@@ -1,13 +1,25 @@
 #!/usr/bin/env python3
 """Which authoring surface decides each fighter's strike box, and has it ever been tuned?
 
-⛔⛤ **THE MOVE TABLE IS NOT THE ANSWER FOR MOST FIGHTERS.** MEASURED 2026-09-12:
-six fighters play the `half_extents` authored in `data/movesets/*.ron` EXACTLY;
-ten do not, because they have a rendered sprite stage whose spec DERIVES the
-hitbox from a bone segment (`"strike": {"base": "near_arm_l", "tip":
-"near_arm_hand"}`). medic's forward tilt hitbox is her forearm, extended 8% — the
-"3.8 px tall against a 48 px body" that had been read as a stingy box is the
-thickness of her arm, and no edit to the move table can change it.
+⛔⛤ **THE MOVE TABLE IS A FALLBACK, AND THE OVERRIDE IS PER CLIP.** MEASURED
+2026-09-12: a clip whose `.spec.json` DERIVES the hitbox from a bone segment
+(`"strike": {"base": "near_arm_l", "tip": "near_arm_hand"}`) ignores the
+`half_extents` authored in `data/movesets/*.ron`; a clip with no such spec uses
+them. medic's forward tilt hitbox is her forearm, extended 8% — the "3.8 px tall
+against a 48 px body" long read as a stingy box is the thickness of her arm, and
+no edit to the move table changes THAT move.
+⚠ NOT PER CHARACTER: `npc_carl_stargan` plays four moves at exactly their authored
+box, and all four are clips with no bone spec. "Author in the `.spec.json`" is the
+wrong instruction for those.
+
+⛔⛔ **AND WHICH CHARACTERS ARE ON THE BONE ROAD AT ALL IS MACHINE-LOCAL.**
+`ambition_sprite_sheet/build.rs` bakes every `*_spritesheet.ron` under
+`..._actor_monolith/assets/sprites{,_0_5x,_0_25x,_potato}` into the binary; those
+directories hold 3,433 files of which SEVEN are tracked, and the rest are
+gitignored DERIVED publish output. A character with no published sheet falls back
+to the move table. ⇒ The MECHANISM below is repository truth — the specs are
+tracked — but any POPULATION COUNT this script prints describes the checkout it
+ran on. Re-derive before tuning, and say which publish state a number came from.
 
 ⇒ For those ten the generosity surface is `hitbox.inflate` in the `.spec.json`,
 and this script answers the two questions that follow: which specs have never

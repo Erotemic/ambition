@@ -239,6 +239,36 @@ and [netcode](netcode.md) before claiming a transaction.
    plans, handles and observers either stay with their generation or are retired
    before stepping the new one. Preserve same-session unhealthy diagnostics.
 
+⭐⭐ **THE REQUEST PATH EXISTS AND IT IS A MESSAGE — MEASURED 2026-09-11, and it
+is what step 4's *"file watching calls the same request path"* is about.** The
+road to `prepare_platformer_content`, end to end:
+
+```text
+ShellEvent::PreparationRequested(ProviderLoadTransaction)   router.rs:490
+        ↓
+prepare_requested_sessions                                  provider/lifecycle.rs:219
+        ↓
+PlatformerPreparation::prepare                              provider/lifecycle.rs:280
+        ↓
+prepare_platformer_content                                  provider/lifecycle.rs:~819
+        ↓  epoch allocated as "the final non-fallible step"
+sessions.publish(transaction, …)                            provider/lifecycle.rs:~556
+```
+
+⇒ **A RELOAD DOES NOT NEED A NEW PUBLICATION ROAD; IT NEEDS TO ISSUE THAT
+REQUEST.** The transaction is three fields (`route_id`, `experience_id`,
+`barrier`), and the router emits the event as part of a ROUTE change: it opens a
+load barrier, marks a pending route and expects an activation to follow. So
+re-preparing a LIVE world is a route-level operation, which is exactly I3 step
+2's *"a supported local reconstruction boundary"* — not a reload-specific
+lifecycle, and the old generation stays authoritative until the activation
+publishes the new one.
+
+⚠ **WHAT IS NOT YET MEASURED:** whether a route can be requested TO ITSELF, and
+what the shell does with a pending route whose predecessor is the same route.
+That is the next question, and it decides whether the bounded A10 proof is
+"re-request the current route" or "a new route kind". Do not design past it.
+
 **Acceptance:** valid generation N+1 becomes visible at one boundary; no system
 observes N's definitions with N+1's code/schema. Invalid N+1 leaves N's digest,
 character generation, playback references and active timeline unchanged. Two Apps

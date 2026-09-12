@@ -118,7 +118,17 @@ invariant — identity, custody, provenance, rollback ownership. A bus that exis
 to move a number from seven to one buys a number. **The documentation was the
 defect here, not the architecture.**
 
-⛔ **AND THE STARTER ROSTER IS INSERTED BY TWO CRATES IN THE SAME COMPOSITION.**
+✅ **CLOSED 2026-09-12 AT `fc3dfa31a` — RE-DERIVED AT HEAD, AND THIS SECTION WAS
+STILL REPORTING IT AS LIVE.** There is now exactly ONE production insert of the
+starter roster: `game/ambition_content/src/plugin.rs:71`, inside
+`AmbitionContentPlugin`, which `add_simulation_plugins` installs in BOTH
+compositions. `game/ambition_app/src/app/resources.rs:357` carries a note in
+place of its old insert, and `AmbitionItemRosterPlugin` keeps only the item ART.
+⇒ The finding below is kept because it is the EVIDENCE and because its reasoning
+is the reusable part — *"each composition sees one"* is why the duplication was
+invisible — but **do not start work from it.**
+
+⛔ **AND THE STARTER ROSTER WAS INSERTED BY TWO CRATES IN THE SAME COMPOSITION.**
 `OwnedItems::starter()` is `insert_resource`d at
 `game/ambition_app/src/app/resources.rs:361` (in `init_sandbox_resources`, whose
 own comment explains that headless `Platformer2dSimHarness` runs quest reward

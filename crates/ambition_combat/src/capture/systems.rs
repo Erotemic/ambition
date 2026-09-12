@@ -2597,8 +2597,21 @@ pub fn apply_capture_throws(
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    // ⭐ A THROW OBEYS THE SAME PERCENT CURVE AS A SWING. This road calls
+    // `scaled_knockback` itself rather than going through the hitbox resolver,
+    // so a ruleset knob wired only into the resolver would leave throws on the
+    // OLD curve — and "a throw at high percent is a kill move" is the one
+    // sentence this system's own doc comment leads with. Optional because a
+    // composition without the rules projection still throws.
+    rules: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
     let feel = feel.map(|f| *f).unwrap_or_default();
+    // `1.0` is the law as first written, and also exactly what
+    // `ResolvedCombatTuning::default()` carries — an undeclared world is flat
+    // anyway, so the percent term is zero there whatever this says.
+    let percent_scale = rules
+        .map(|r| r.victim_percent_knockback_scale)
+        .unwrap_or(1.0);
     for request in requests.read() {
         let Some((
             victim,
@@ -2645,6 +2658,7 @@ pub fn apply_capture_throws(
             request.knockback_growth,
             health.damage_taken(),
             weight,
+            percent_scale,
         );
         let knockback = ae::hit_response::HitKnockback {
             // A throw is a hit: it stuns.

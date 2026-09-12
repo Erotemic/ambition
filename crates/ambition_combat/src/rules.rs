@@ -128,6 +128,34 @@ pub struct DeclaredCombatRules {
     /// The floor [`Self::stale_step`] cannot take a move below, as a multiplier.
     /// `1.0` = staling can never weaken anything.
     pub stale_floor: f32,
+    /// How much of [`Self::stale_step`]'s weakening reaches the KNOCKBACK a
+    /// stale move deals, in `0..=1`. `None` (the baseline) = all of it.
+    ///
+    /// ⛔ STALING IS ONE NUMBER WITH TWO JOBS, and treating it as one job is a
+    /// bug this knob exists to fix. A worn-out move SHOULD deal less damage —
+    /// that is the whole anti-spam point — but a worn-out move that also
+    /// launches proportionally less is being punished twice in a mechanic
+    /// where launch is what ends a stock. At the authored floor the second
+    /// punishment was throwing away nearly half of every launch, which is how
+    /// a match reaches 700% with nobody dying.
+    ///
+    /// `0.30` says: wear the damage down in full, but let only 30% of that
+    /// weakening reach the launch. The damage scale is untouched by this knob.
+    pub stale_knockback_influence: Option<f32>,
+    /// A dimensionless multiplier on the VICTIM-PERCENT growth term alone —
+    /// the `growth * percent / weight` half of the knockback law, never the
+    /// base. `None` (the baseline) = `1.0`, the law as first written.
+    ///
+    /// ⭐ THIS IS THE PERCENT CURVE'S STEEPNESS, and it is a ruleset's knob
+    /// rather than a moveset's on purpose: the alternative to it is editing
+    /// every fighter's authored knockback, which asks each author to re-derive
+    /// one global decision and guarantees they will disagree. A stage saying
+    /// "percent matters more here" is one number in one place.
+    ///
+    /// ⛔ It cannot make a 0% hit stronger. The term it scales is already zero
+    /// there, so a poke stays a poke at any value — see
+    /// [`crate::util::scaled_knockback`].
+    pub victim_percent_knockback_scale: Option<f32>,
     /// CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
     /// by. `1.0` (the baseline) = crouching buys nothing but a shorter
     /// hurtbox.
@@ -361,6 +389,12 @@ pub struct ResolvedCombatTuning {
     pub stale_step: f32,
     /// See [`DeclaredCombatRules::stale_floor`].
     pub stale_floor: f32,
+    /// See [`DeclaredCombatRules::stale_knockback_influence`]. `1.0` = a stale
+    /// move's launch is weakened as hard as its damage is.
+    pub stale_knockback_influence: f32,
+    /// See [`DeclaredCombatRules::victim_percent_knockback_scale`]. `1.0` = the
+    /// percent term as first written.
+    pub victim_percent_knockback_scale: f32,
     /// See [`DeclaredCombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
     /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
@@ -440,6 +474,23 @@ impl ResolvedCombatTuning {
         (1.0 - self.stale_step * occurrences as f32).max(self.stale_floor.clamp(0.0, 1.0))
     }
 
+    /// What a stale move's PERCENT-GROWTH TERM is multiplied by, given the
+    /// damage-staling scale [`Self::stale_scale`] returned.
+    ///
+    /// ⭐ ONE NUMBER, TWO JOBS, SEPARATED HERE. `stale_scale` is the DAMAGE
+    /// answer and keeps its full strength; this attenuates that same weakening
+    /// on its way to the launch by the declared influence. A ruleset declaring
+    /// no influence gets the full weakening, so nothing moves by default.
+    ///
+    /// Worked, at Smash's authored numbers: a fully stale move sits at the
+    /// `stale_floor` of `0.55`, and an influence of `0.30` gives
+    /// `1 - 0.30 * (1 - 0.55) = 0.865` — the damage still falls to 55%, while
+    /// the percent term keeps 86.5% of its reach.
+    pub fn knockback_stale_scale(self, stale_damage_scale: f32) -> f32 {
+        let influence = self.stale_knockback_influence.clamp(0.0, 1.0);
+        (1.0 - influence * (1.0 - stale_damage_scale)).clamp(0.0, 1.0)
+    }
+
     /// What an attacker's own damage multiplies its knockback by, capped.
     /// `1.0` for a game that declares no rage, and for a fresh fighter in one
     /// that does.
@@ -478,6 +529,20 @@ impl ResolvedCombatTuning {
                 rage_max_scale: rules.rage_max_scale,
                 stale_step: rules.stale_step,
                 stale_floor: rules.stale_floor,
+                // ⛔ UNDECLARED MEANS "AS HARD AS THE DAMAGE", not "not at
+                // all". A ruleset that stales but says nothing about launch
+                // gets the strongest weakening this law can express, which is
+                // the closest thing to the single-multiplier behaviour it
+                // replaces — so declining to speak never silently BUYS a
+                // stronger knockback curve.
+                stale_knockback_influence: rules
+                    .stale_knockback_influence
+                    .unwrap_or(1.0)
+                    .clamp(0.0, 1.0),
+                victim_percent_knockback_scale: rules
+                    .victim_percent_knockback_scale
+                    .unwrap_or(1.0)
+                    .max(0.0),
                 crouch_cancel_scale: rules.crouch_cancel_scale,
                 hit_repeat_window_scale: rules.hit_repeat_window_scale,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
@@ -513,6 +578,13 @@ impl ResolvedCombatTuning {
                 rage_max_scale: 1.0,
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                // both inert here: with `stale_step: 0.0` there is no weakening
+                // to attenuate, and `1.0` leaves the percent term exactly as
+                // the law first wrote it. An undeclared world is flat anyway
+                // (`knockback_growth: 0.0` above), so the percent term is zero
+                // whatever this says.
+                stale_knockback_influence: 1.0,
+                victim_percent_knockback_scale: 1.0,
                 crouch_cancel_scale: 1.0,
                 hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -570,6 +642,11 @@ impl Default for ResolvedCombatTuning {
             rage_max_scale: 1.0,
             stale_step: 0.0,
             stale_floor: 1.0,
+            // inert without staling or growth to act on, and `1.0` each is the
+            // law as first written — see the `resolve(None, ..)` arm above,
+            // which this impl exists to agree with.
+            stale_knockback_influence: 1.0,
+            victim_percent_knockback_scale: 1.0,
             crouch_cancel_scale: 1.0,
             hit_repeat_window_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -633,6 +710,8 @@ mod tests {
         let baseline_di = 0.12;
         let resolved = ResolvedCombatTuning::resolve(
             Some(DeclaredCombatRules {
+                stale_knockback_influence: None,
+                victim_percent_knockback_scale: None,
                 bark_chance: None,
                 ledge_trump_pop: None,
                 ledge_occupancy: None,
@@ -676,6 +755,8 @@ mod tests {
     #[test]
     fn dropping_the_declaration_returns_to_the_baseline_with_no_restore_step() {
         let declared = Some(DeclaredCombatRules {
+            stale_knockback_influence: None,
+            victim_percent_knockback_scale: None,
             bark_chance: None,
             ledge_trump_pop: None,
             ledge_occupancy: None,
@@ -711,6 +792,14 @@ mod tests {
             ResolvedCombatTuning::resolve(None, 0.12, false),
             ResolvedCombatTuning {
                 di_max_angle: 0.12,
+                // ⭐ SPELLED OUT RATHER THAN DEFAULTED, and that is the point of
+                // this assertion: it compares the FOLD's undeclared answer
+                // against a literal, so a new knob whose `resolve(None, ..)` arm
+                // disagrees with its `Default` shows up here as a failure
+                // instead of agreeing with itself. `1.0` each is the law as
+                // first written — see the None arm above.
+                stale_knockback_influence: 1.0,
+                victim_percent_knockback_scale: 1.0,
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
@@ -798,6 +887,93 @@ mod rage_tests {
 #[cfg(test)]
 mod stale_tests {
     use super::*;
+
+    /// STALING WEARS THE DAMAGE DOWN IN FULL AND THE LAUNCH DOWN A LITTLE.
+    ///
+    /// ⭐ The arithmetic of the split, pinned at the numbers Smash actually
+    /// declares: a fully stale move sits at the `0.55` floor, and an influence
+    /// of `0.30` leaves the percent term at `1 - 0.30 * (1 - 0.55)` = `0.865`.
+    /// Damage still falls to 55% — `stale_scale` is untouched and asserted
+    /// here beside it, because the WHOLE point is that these two numbers are
+    /// now allowed to differ.
+    #[test]
+    fn a_declared_influence_softens_the_launch_without_softening_the_damage() {
+        let rules = ResolvedCombatTuning {
+            stale_step: 0.05,
+            stale_floor: 0.55,
+            stale_knockback_influence: 0.30,
+            ..ResolvedCombatTuning::default()
+        };
+        // nine landings reach the floor: 1 - 0.05*9 = 0.55.
+        let damage_scale = rules.stale_scale(9);
+        assert_eq!(damage_scale, 0.55, "the damage answer moved");
+        assert!(
+            (rules.knockback_stale_scale(damage_scale) - 0.865).abs() < 1e-6,
+            "a fully stale launch kept {} of its reach, not 0.865",
+            rules.knockback_stale_scale(damage_scale)
+        );
+        // ⛔ AND THE LAUNCH IS NOT NEARLY HALVED — acceptance item (E). The
+        // defect this split repairs was the launch losing 45% alongside the
+        // damage; the repaired law may weaken it, but not like that.
+        assert!(
+            rules.knockback_stale_scale(damage_scale) > 0.8,
+            "full staleness still gutted the launch"
+        );
+        // A FRESH move is untouched on both axes, exactly.
+        assert_eq!(rules.stale_scale(0), 1.0);
+        assert_eq!(rules.knockback_stale_scale(1.0), 1.0);
+    }
+
+    /// ⛔ DECLINING TO SPEAK GETS THE FULL WEAKENING, NOT NONE OF IT.
+    ///
+    /// the direction of the default matters: an undeclared influence must be
+    /// the strongest weakening this law can express, so a ruleset that says
+    /// nothing can never silently BUY itself a stronger knockback curve by
+    /// omission. `1.0` makes `knockback_stale_scale` the identity on the
+    /// damage scale, which is the closest this shape gets to the single
+    /// multiplier it replaced.
+    #[test]
+    fn an_undeclared_influence_passes_the_damage_staling_straight_through() {
+        let plain = ResolvedCombatTuning::default();
+        assert_eq!(plain.stale_knockback_influence, 1.0);
+        for damage_scale in [0.0, 0.55, 0.75, 1.0] {
+            assert_eq!(
+                plain.knockback_stale_scale(damage_scale),
+                damage_scale,
+                "an undeclared influence altered the weakening"
+            );
+        }
+        // and `resolve` agrees with `default` — the two baselines are one
+        // answer spelled twice, which is the bug this asserts against.
+        let resolved = ResolvedCombatTuning::resolve(None, 0.0, false);
+        assert_eq!(resolved.stale_knockback_influence, 1.0);
+        assert_eq!(resolved.victim_percent_knockback_scale, 1.0);
+    }
+
+    /// A ZERO INFLUENCE DIVORCES THEM COMPLETELY, and an out-of-range one is
+    /// clamped rather than inverting the launch.
+    #[test]
+    fn the_influence_is_bounded_at_both_ends() {
+        let none = ResolvedCombatTuning {
+            stale_knockback_influence: 0.0,
+            ..ResolvedCombatTuning::default()
+        };
+        for damage_scale in [0.0, 0.55, 1.0] {
+            assert_eq!(none.knockback_stale_scale(damage_scale), 1.0);
+        }
+        // Above 1.0 cannot make staling weaken the launch MORE than it weakens
+        // the damage; below 0.0 cannot turn staling into a bonus.
+        let over = ResolvedCombatTuning {
+            stale_knockback_influence: 4.0,
+            ..ResolvedCombatTuning::default()
+        };
+        assert_eq!(over.knockback_stale_scale(0.55), 0.55);
+        let under = ResolvedCombatTuning {
+            stale_knockback_influence: -2.0,
+            ..ResolvedCombatTuning::default()
+        };
+        assert_eq!(under.knockback_stale_scale(0.55), 1.0);
+    }
 
     fn staling(step: f32, floor: f32) -> ResolvedCombatTuning {
         ResolvedCombatTuning {

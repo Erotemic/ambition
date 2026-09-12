@@ -151,6 +151,11 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         rage_max_scale: 1.0,
         stale_step: 0.0,
         stale_floor: 1.0,
+        // ...nor either knockback-staling knob: this fixture is about DI and
+        // knockback growth, and declining to speak is what an ordinary stage
+        // does — which is exactly the parity this fixture exists to pin.
+        stale_knockback_influence: None,
+        victim_percent_knockback_scale: None,
         // ...nor crouch cancel: this fixture is about DI and knockback growth.
         crouch_cancel_scale: 1.0,
         hit_repeat_window_scale: 1.0,

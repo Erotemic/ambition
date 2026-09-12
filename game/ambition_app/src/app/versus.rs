@@ -557,6 +557,15 @@ fn track_versus_roster(
                 // enough for a queue to mean anything.
                 stale_step: 0.0,
                 stale_floor: 1.0,
+                // and so nothing to attenuate on its way to the launch: with no
+                // staling declared above there is no weakening for an influence
+                // to soften, and a rule nothing can reach is the kind that lies
+                // about what the stage does.
+                stale_knockback_influence: None,
+                // and no percent curve to steepen, for the reason the knockback
+                // stays flat: rounds end on health, not on a blast zone, so
+                // there is no "percent matters more here" to say.
+                victim_percent_knockback_scale: None,
                 // and no crouch cancel: this stage has no crouch verb to
                 // reward, and a rule nothing can reach is a rule that lies about
                 // what the stage does.

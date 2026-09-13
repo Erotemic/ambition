@@ -277,7 +277,7 @@ pub(crate) struct PlatformerPreparation<'w> {
         // ⛔ THE FOLD, not the pre-fold source above: the fingerprint is over
         // `StagedCharacterOverrides` (lossless) while session construction reads
         // the published registry, so FREEZING has to capture the value the
-        // builder will actually use. See `FrozenMechanicalState`.
+        // builder will actually use. See `SessionMechanics`.
         Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
@@ -655,7 +655,7 @@ impl PlatformerPreparation<'_> {
                 report,
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
-                mechanical: FrozenMechanicalState {
+                mechanical: SessionMechanics {
                     // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
                     // published registry — see `candidate_cast_for`.
                     characters: frozen_cast,
@@ -1343,24 +1343,18 @@ pub struct PreparedPlatformerSession {
     /// ⇒ **A prepared generation now MEANS the frozen values**, not
     /// *"`PreparedContent` says N, and at activation query whatever these
     /// resources contain now"*.
-    pub mechanical: FrozenMechanicalState,
+    pub mechanical: SessionMechanics,
 }
 
-/// The mechanical App registries a session is CONSTRUCTED from, captured when
-/// its identity was taken.
+/// The mechanical registries a session is constructed from.
 ///
-/// ⚠ **CLONED, AND THE COST IS THE POINT.** These are the values the fingerprint
-/// is over; holding a handle instead would reintroduce the read-at-activation
-/// this exists to remove. The shipped cast is 58 characters, so the cost is
-/// bounded and paid once per prepared session.
-#[derive(Clone, Debug, Default)]
-pub struct FrozenMechanicalState {
-    /// `None` where the composition published no cast — a real state, and not a
-    /// missing value.
-    pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
-    pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    pub bosses: ambition_boss_encounter::BossCatalog,
-}
+/// ⛔⛤ **IT MOVED DOWN A CRATE, AND THAT IS THE FIX.** As a provider-private
+/// struct it could only ever be a PREPARED-session field, handed to `build` and
+/// dropped — so a generation's frozen values governed the first construction
+/// call and every later road (a door, a death, a reset) went back to the App.
+/// Living in `actor_monolith` it can also be the RESOURCE those roads read. One
+/// type, two lifetimes: frozen in the prepared record, promoted at activation.
+pub use ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics;
 
 #[derive(Resource, Default)]
 pub struct PreparedPlatformerSessions {
@@ -1464,6 +1458,16 @@ fn activate_prepared_platformer_sessions(
             )
         });
         let default_character = prepared.report.starting_character.clone();
+        // ⛔⛤ **PROMOTED, NOT JUST CONSUMED.** `take` removes the prepared record
+        // and `build` borrows the frozen values for one construction call; every
+        // LATER road that rebuilds a room — a door, a death, a reset — used to go
+        // back to whatever registries the App held by then. Installing the
+        // generation's mechanics as a resource is what makes "this session runs
+        // under generation N" a statement about its CONTENT and not only about
+        // its stamp. Session-scoped teardown removes it with the rest.
+        builder
+            .commands
+            .insert_resource(prepared.mechanical.clone());
         builder.build(
             activation,
             *scope,
@@ -1551,8 +1555,8 @@ impl PlatformerSessionBuilder<'_, '_> {
         // ⛔⛤ **THE FROZEN MECHANICAL STATE, NOT THIS App's CURRENT REGISTRIES.**
         // The three `Res` handles that used to serve these reads are GONE from
         // the `SystemParam`, so building from whatever the world contains now is
-        // not something this function can express. See `FrozenMechanicalState`.
-        mechanical: &FrozenMechanicalState,
+        // not something this function can express. See `SessionMechanics`.
+        mechanical: &SessionMechanics,
         default_character_id: &str,
     ) -> SessionBuildResult {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();

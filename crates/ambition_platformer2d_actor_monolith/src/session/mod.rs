@@ -21,6 +21,7 @@ pub mod death;
 /// descriptions on disk, and the load that resumes from them.
 pub mod durable_horizon;
 pub mod lifecycle_commit;
+pub mod mechanics;
 pub mod reset;
 pub mod setup;
 pub mod teardown;

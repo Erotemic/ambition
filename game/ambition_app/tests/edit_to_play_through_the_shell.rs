@@ -40,21 +40,60 @@ const SUBJECT_SOURCE: &str = "data/movesets/goblin.ron";
 /// What the edit adds. Large enough that no rounding could explain the result.
 const BUMP: f32 = 0.5;
 
-/// The duration the CONSTRUCTED body is currently playing for [`SUBJECT`].
+/// Every duration a CONSTRUCTED body is currently playing for [`SUBJECT`],
+/// entity order removed.
 ///
 /// ⛔ Re-found by moveset content every call, never cached as an `Entity`: a
 /// re-preparation may rebuild the room's bodies, and a stale entity id would
 /// read a despawned actor and look like "the edit never arrived".
-fn subject_duration_on_any_body(
+///
+/// ⛔⛤ **IT USED TO BE `.next()`, AND `.next()` OF A QUERY IS STORAGE ORDER.**
+/// `SUBJECT` is `"jab"` — a move id `goblin.ron` authors and **so does the
+/// player's own character**, at a different duration. The arm therefore sampled
+/// whichever of the two happened to sort first, and it sorted a goblin only by
+/// luck. MEASURED 2026-09-13: adding ONE resource to the App shifted every entity
+/// id by one, moved `Player Robot v3` to the head of the archetype iteration, and
+/// reddened this test **with every goblin carrying the edited value correctly**:
+///
+/// ```text
+/// before: [(515, "Goblin", 0.71), (516, "Goblin", 0.71), (517, "Goblin", 0.71), (523, "Player Robot v3", 0.25)]
+/// after:  [(524, "Player Robot v3", 0.25), (516, "Goblin", 0.71), (517, "Goblin", 0.71), (518, "Goblin", 0.71)]
+/// ```
+///
+/// ⇒ A red that says "the edit did not arrive" when the edit arrived on every
+/// body it was authored for is a false red, and a false red is obeyed faster
+/// than a false green is questioned. The population is the measurement.
+fn subject_durations_on_bodies(
     sim: &mut ambition_sim_harness::Platformer2dSimHarness,
-) -> Option<f32> {
+) -> Vec<f32> {
     use ambition_platformer2d::combat::moveset::ActorMoveset;
     let world = sim.world_mut();
     let mut q = world.query::<&ActorMoveset>();
-    q.iter(world)
+    let mut found: Vec<f32> = q
+        .iter(world)
         .filter_map(|ms| ms.0.moves.iter().find(|m| m.id == SUBJECT))
         .map(|m| m.duration_s)
-        .next()
+        .collect();
+    // ⚠ SORTED so a comparison of two samples cannot depend on iteration order
+    // either — the defect above, one level up.
+    found.sort_by(f32::total_cmp);
+    found
+}
+
+/// The duration every body that AUTHORS [`SUBJECT`] at `expected` is playing,
+/// counted — and `None` when the population does not agree on one value.
+///
+/// ⛔ THE QUESTION THIS ARM IS ABOUT IS *"did the edit reach the bodies built
+/// from the edited source"*, so the answer is a COUNT over a population, not one
+/// body's reading.
+fn subject_body_count_at(
+    sim: &mut ambition_sim_harness::Platformer2dSimHarness,
+    expected: f32,
+) -> usize {
+    subject_durations_on_bodies(sim)
+        .into_iter()
+        .filter(|found| (found - expected).abs() < 1e-4)
+        .count()
 }
 
 /// Export this build's sources to `root` and move [`SUBJECT`]'s timing by
@@ -144,8 +183,13 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
         sim.step(common::base());
     }
 
-    // ── premise: a constructed body is playing the AUTHORED move ─────────────
-    let before = subject_duration_on_any_body(&mut sim).unwrap_or_else(|| {
+    // ── premise: constructed bodies are playing the AUTHORED move ───────────
+    //
+    // ⚠ THE POPULATION, and its SIZE is part of the premise: this room builds
+    // three goblins from `goblin.ron`, and an arm that cannot say how many
+    // bodies it is about cannot tell "the edit reached them" from "the edit
+    // reached the one I happened to sample".
+    let before = subject_durations_on_bodies(&mut sim).first().copied().unwrap_or_else(|| {
         panic!(
             "no constructed body plays `{SUBJECT}`, so this room cannot witness an authored edit"
         )
@@ -153,6 +197,17 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
     assert!(
         before.is_finite() && before > 0.0,
         "the body reports a nonsense duration for `{SUBJECT}`: {before}"
+    );
+    // ⛔⛔ **THE ANTI-VACUITY FLOOR, AND IT IS THE HALF THE OLD `.next()` COULD
+    // NOT HAVE.** Every later assertion is a COUNT compared against this one, so
+    // a run where the goblins silently stopped being built would fail here
+    // rather than pass two counts of zero against each other.
+    let subjects_before = subject_body_count_at(&mut sim, before);
+    assert!(
+        subjects_before >= 3,
+        "this room is supposed to build three bodies from `{SUBJECT_SOURCE}` and \
+         {subjects_before} carry `{SUBJECT}` at the authored {before}s — the arm \
+         would be comparing counts of nearly nothing"
     );
     // ⛔ THE BOUNDARY MUST BE LEGAL, ASSERTED RATHER THAN HOPED. A live rollback
     // timeline refuses publication by design, and the smash composition — the
@@ -220,10 +275,10 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
         // ⭐ HALF THE CLAIM: THE REQUEST PUBLISHES NOTHING. The staging boundary
         // is what makes the activation atomic instead of incremental.
         assert_eq!(
-            subject_duration_on_any_body(&mut sim),
-            Some(before),
-            "the request alone changed what the live body plays — the edit reached \
-             the actor before any activation, so there is no boundary to be atomic at"
+            subject_body_count_at(&mut sim, before),
+            subjects_before,
+            "the request alone changed what the live bodies play — the edit reached \
+             the actors before any activation, so there is no boundary to be atomic at"
         );
 
         // ⛔⛔ **ASSERT AT THE ACTIVATING FRAME, NOT AT A FRAME BUDGET'S END.**
@@ -255,10 +310,12 @@ fn an_edit_on_disk_reaches_the_constructed_actor_through_the_shell() {
             )
         });
 
-        let now = subject_duration_on_any_body(&mut sim);
+        // ⛔ EVERY BODY BUILT FROM THE EDITED SOURCE, not the first one the
+        // archetype iteration happens to yield — see `subject_durations_on_bodies`.
+        let now = subject_body_count_at(&mut sim, before + BUMP);
         assert_eq!(
             now,
-            Some(before + BUMP),
+            subjects_before,
             "the shell activated on frame {activated_at} and the constructed body \
              is STILL playing `{SUBJECT}` at {now:?} rather than {}. The publication \
              and the world built from it are one frame apart, which is the ordering \

@@ -197,8 +197,15 @@ pub struct ResetPlayState<'w> {
     clock_resets: MessageWriter<'w, ambition_time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    /// ⛔⛤ **THE APP'S REGISTRIES ARE THE FALLBACK NOW, NOT THE ANSWER.** A reset
+    /// rebuilds the start room of the generation this session is RUNNING, so it
+    /// reads that generation's frozen mechanics when one has been activated —
+    /// see `SessionMechanics` for why these two reads are a pair rather than a
+    /// choice, and for the compositions that legitimately have no generation.
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
+    /// The mechanics of the generation this session was activated under.
+    generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
     placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
@@ -342,20 +349,27 @@ pub fn process_new_game_reset_request(
     };
 
     let start_index = room_set.start;
+    // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
+    let mechanics = crate::session::mechanics::GenerationMechanics::new(
+        play_state.generation.as_deref(),
+        play_state.prepared_characters.as_deref(),
+        &play_state.authored_sheets,
+        &play_state.boss_catalog,
+    );
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         &room_set,
         start_index,
         &play_state.placement_lowering,
         &play_state.content_staging,
-        &play_state.boss_catalog,
+        mechanics.bosses(),
         session_scope,
         crate::features::ActorConstructionContext::for_room_construction(
             &play_state.recipes,
             &play_state.character_catalog,
-            &play_state.authored_sheets,
+            mechanics.sheets(),
             ambition_platformer2d_core::ContentEpoch::default(),
             play_state.active_binding.as_deref(),
-            play_state.prepared_characters.as_deref(),
+            mechanics.characters(),
             play_state.brain_profiles.as_deref(),
             // **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
             // OF A RESET.** The ledger says which authored occurrences are

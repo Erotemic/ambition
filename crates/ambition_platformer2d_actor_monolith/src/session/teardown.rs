@@ -156,11 +156,24 @@ pub fn reset_session_scoped_resources_on_activation(
 pub fn reset_session_scoped_resources_on_retire(
     mut retired: MessageReader<SessionScopeRetired>,
     resources: SessionScopedResources,
+    mut commands: bevy::prelude::Commands,
 ) {
     if retired.read().count() == 0 {
         return;
     }
     reset(resources);
+    // ⛔⛤ **REMOVED, NOT DEFAULTED, AND THE DIFFERENCE IS THE WHOLE CONTRACT.**
+    // `SessionMechanics` is the generation's OWN registries, and
+    // `GenerationMechanics` treats its PRESENCE as "a generation was activated,
+    // so its values outrank the App's". Sending it through `reset()` above would
+    // leave a DEFAULT one installed — an empty cast that still wins — and a
+    // composition with no activated generation would build its rooms out of
+    // nothing instead of out of the App registries it has always used. Absent is
+    // the honest state, so it is made absent.
+    //
+    // ⚠ This is hygiene like the rest of this system, not correctness: the next
+    // activation overwrites the resource before any road reads it.
+    commands.remove_resource::<crate::session::mechanics::SessionMechanics>();
 }
 
 fn reset(resources: SessionScopedResources) {

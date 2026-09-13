@@ -616,6 +616,13 @@ pub fn begin_room_transition_load_system(
         // The developer's actor population cap: the same class of authority,
         // stated here for the same reason (the hall is the room it caps).
         Option<Res<ambition_characters::actor::AuthoredPopulationCap>>,
+        // ⛔⛤ **THE GENERATION THIS SESSION WAS ACTIVATED UNDER, AND IT OUTRANKS
+        // THE APP REGISTRIES ABOVE.** A door is the road a review measured going
+        // back to whatever the App held: a session prepared under generation N
+        // could walk through a door and have the next room built from N+1's cast
+        // because a reload had published one in between. The frozen values win
+        // where they exist; see `SessionMechanics`.
+        Option<Res<ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics>>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -627,8 +634,16 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
-    let (prepared_characters, brain_profiles, forced_brains, population_cap) =
+    let (prepared_characters, brain_profiles, forced_brains, population_cap, generation) =
         character_authorities;
+    // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
+    let mechanics =
+        ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::new(
+            generation.as_deref(),
+            prepared_characters.as_deref(),
+            &construction_services.5,
+            &construction_services.3,
+        );
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already
     // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is
@@ -1134,7 +1149,7 @@ pub fn begin_room_transition_load_system(
                 resolved_target_index,
                 &construction_services.0,
                 &construction_services.1,
-                &construction_services.3,
+                mechanics.bosses(),
                 session_scope,
                 // A transition rebuilds a room the ACTIVE content already
                 // defines, so the plan states the session's LIVE binding — the
@@ -1145,10 +1160,10 @@ pub fn begin_room_transition_load_system(
                 ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                     &construction_services.4,
                     &construction_services.2,
-                    &construction_services.5,
+                    mechanics.sheets(),
                     ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
-                    prepared_characters.as_deref(),
+                    mechanics.characters(),
                     brain_profiles.as_deref(),
                     // THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.
                     // This is the only construction road that can meet an

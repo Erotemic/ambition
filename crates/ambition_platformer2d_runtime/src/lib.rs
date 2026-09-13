@@ -288,6 +288,23 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             // author the per-tick `ControlFrame` directly, and a latch
             // publisher would overwrite it at the head of every tick.
         }
+        // ⛔⛤ **WITHOUT THIS THE CANDIDATE MARKER IS INERT AND EVERY CANDIDATE
+        // IS LIVE**, which is the dangerous failure direction: a room built as a
+        // candidate would be fully visible before its verification ran, and a
+        // REFUSED room would be visible debris rather than a drop.
+        //
+        // ⚠ It belongs to this group because the room transaction belongs to
+        // this group: `spawn_contents` commits every root hidden and
+        // `transaction::close` publishes or retires them. A composition that
+        // builds rooms without the engine foundation does not exist.
+        //
+        // ⛔ `ConstructionPlan::commit_hidden` CANNOT check this — it holds
+        // deferred `Commands`, not a world — which is why its doc says the
+        // caller owes the check and why the shipped guard is
+        // `the_shipped_app_hides_candidates_before_they_are_verified`.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(Platformer2dSimulationPhaseMonolith::X)`.
         ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(

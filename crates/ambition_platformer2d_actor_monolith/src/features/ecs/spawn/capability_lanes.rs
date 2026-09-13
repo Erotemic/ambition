@@ -56,6 +56,11 @@ fn commit_lane<D>(
     commands: &mut Commands,
     session: SessionSpawnScope,
     domain_name: &'static str,
+    // ⛔ EVERY LANE OR NONE. A room committed as a candidate whose capability
+    // lanes were committed LIVE is a half-visible scene — precisely the state
+    // `commit_inactive` exists to prevent — so this rides through rather than
+    // being decided per lane.
+    hidden: bool,
 ) -> ConstructionReceipt
 where
     D: ConstructionDomain<Services = ()>,
@@ -66,7 +71,11 @@ where
         session,
         services: &(),
     };
-    let receipt = plan.commit(&mut ctx);
+    let receipt = if hidden {
+        plan.commit_hidden(&mut ctx)
+    } else {
+        plan.commit(&mut ctx)
+    };
     debug_assert_eq!(
         receipt.committed_ids(),
         plan.planned_ids(),
@@ -240,10 +249,40 @@ impl CapabilityLanes {
         let _ = binding;
     }
 
+    /// Every lane's own transaction id.
+    ///
+    /// ⛔⛤ **A LANE DOES NOT SHARE THE ROOM'S TRANSACTION ID — MEASURED, after I
+    /// wrote a comment saying it did.** `ConstructionPlan::prepare_in_lane`
+    /// appends `\tlane:{name}`, so a portal-gun row is stamped
+    /// `epoch:1\tportal_bridge\tsession:…\tlane:portal-gun` while the actor
+    /// lane's row is stamped without the suffix. Publishing the room against the
+    /// actor transaction alone therefore admitted ZERO roots in a room whose only
+    /// committed row was a lane's — the object stayed invisible forever, and
+    /// three app-level tests caught it.
+    ///
+    /// ⇒ Publication and retirement both iterate THIS, so adding a lane cannot
+    /// silently leave its rows unpublished.
+    pub(crate) fn transactions(
+        &self,
+        session: SessionSpawnScope,
+    ) -> Vec<ambition_platformer2d_shared_tangle::construction::TransactionId> {
+        let Self {
+            gravity,
+            #[cfg(feature = "portal")]
+            portal,
+        } = self;
+        vec![
+            gravity.transaction(session),
+            #[cfg(feature = "portal")]
+            portal.transaction(session),
+        ]
+    }
+
     pub(crate) fn commit(
         &self,
         commands: &mut Commands,
         session: SessionSpawnScope,
+        hidden: bool,
     ) -> CapabilityReceipts {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
@@ -257,6 +296,7 @@ impl CapabilityLanes {
                 commands,
                 session,
                 gravity_domain::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
+                hidden,
             ),
             #[cfg(feature = "portal")]
             portal: commit_lane(
@@ -264,6 +304,7 @@ impl CapabilityLanes {
                 commands,
                 session,
                 ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
+                hidden,
             ),
         }
     }

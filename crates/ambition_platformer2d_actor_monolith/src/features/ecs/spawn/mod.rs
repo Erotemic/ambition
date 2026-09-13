@@ -830,6 +830,35 @@ impl RoomFeatureConstructionPlan {
         out
     }
 
+    /// EVERY transaction this room's commit stamps roots with — the actor lane
+    /// and each capability lane.
+    ///
+    /// ⛔⛤ **I FIRST WROTE THIS AS ONE TRANSACTION AND SAID SO IN A COMMENT:
+    /// *"ONE TRANSACTION ACROSS EVERY LANE, which is what lets
+    /// `publish_candidate` admit the room in a single pass."* IT IS NOT TRUE.**
+    /// `ConstructionPlan::prepare_in_lane` appends `\tlane:{name}`, so a
+    /// portal-gun row is stamped
+    /// `epoch:1\tportal_bridge\tsession:…\tlane:portal-gun` and the actor
+    /// lane's is stamped without it.
+    ///
+    /// ⇒ MEASURED by instrumenting rather than by re-reading: publishing
+    /// `portal_bridge` against the actor transaction alone admitted **0 roots**
+    /// where the receipt held 1, because that room's only committed row belonged
+    /// to a lane. The object stayed invisible forever and three app-level tests
+    /// caught it — `carried_item_crosses_rooms`, `boss_lifecycle` and
+    /// `death_restores_the_checkpoint`.
+    ///
+    /// ⚠ `debug_assert_binding` checks the lanes share a content BINDING, which
+    /// is a different fact and is why it did not catch this.
+    pub(crate) fn construction_transactions(
+        &self,
+        session: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
+    ) -> Vec<ambition_platformer2d_shared_tangle::construction::TransactionId> {
+        let mut all = vec![self.construction.transaction(session)];
+        all.extend(self.capability_lanes.transactions(session));
+        all
+    }
+
     pub(crate) fn construction_binding(
         &self,
     ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
@@ -1002,10 +1031,16 @@ impl RoomFeatureConstructionPlan {
     /// A feature plan is one participant in a room transaction, not the transaction, so it
     /// cannot know when the room is complete. The bracket lives with the outer artifact that
     /// does — see [`crate::world::rooms::transaction`].
+    /// `hidden` builds every root as an INACTIVE CANDIDATE — see
+    /// `ConstructionPlan::commit_hidden`. ⛔ EVERY LANE OR NONE: a room whose
+    /// construction rows were hidden while its capability lanes went live is a
+    /// half-visible scene, which is the state the candidate mechanism exists to
+    /// prevent, so the flag rides through to both.
     pub fn spawn(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        hidden: bool,
     ) -> RoomFeatureConstructionReceipt {
         // Every actor-owned authoritative family is a plan row, committed below
         // with its relations. Capability-owned families use sibling lanes.
@@ -1018,7 +1053,11 @@ impl RoomFeatureConstructionPlan {
                 session: session_scope,
                 services: &self.construction_services,
             };
-            self.construction.commit(&mut ctx)
+            if hidden {
+                self.construction.commit_hidden(&mut ctx)
+            } else {
+                self.construction.commit(&mut ctx)
+            }
         };
         debug_assert_eq!(
             construction.committed_ids(),
@@ -1026,7 +1065,7 @@ impl RoomFeatureConstructionPlan {
             "construction execution diverged from its prepared roster",
         );
 
-        let capability_receipts = self.capability_lanes.commit(commands, session_scope);
+        let capability_receipts = self.capability_lanes.commit(commands, session_scope, hidden);
 
         // The COMMITTED roster: the union of every independently typed lane.
         // The outer predicted-vs-committed cross-check in `stage::spawn_contents`
@@ -1050,8 +1089,9 @@ pub fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,
+    hidden: bool,
 ) -> RoomFeatureConstructionReceipt {
-    plan.spawn(commands, session_scope)
+    plan.spawn(commands, session_scope, hidden)
 }
 
 /// Spawn one hostile actor for an encounter wave.

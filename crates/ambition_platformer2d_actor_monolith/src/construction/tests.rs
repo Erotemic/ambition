@@ -185,6 +185,8 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
             &mut commands,
             &plan,
             SessionSpawnScope::UNSCOPED,
+            // the test rig commits LIVE: no transaction bracket publishes here.
+            false,
         );
         crate::world::rooms::transaction::close(
             &mut commands,
@@ -247,6 +249,8 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
             &mut commands,
             &plan,
             SessionSpawnScope::UNSCOPED,
+            // the test rig commits LIVE: no transaction bracket publishes here.
+            false,
         );
         *sink.lock().unwrap() = Some(receipt.construction().committed_ids());
     });

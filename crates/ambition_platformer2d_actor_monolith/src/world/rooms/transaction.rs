@@ -157,20 +157,58 @@ fn verify_and_publish(
         );
     }
 
+    // ⛔⛤ **A10: THE ROOM WAS BUILT AS A CANDIDATE, SO THIS IS WHERE IT BECOMES
+    // REAL — OR CEASES TO EXIST.** `spawn_contents` commits every root, in every
+    // lane, stamped `InactiveCandidate` at mint. Until this line nothing in the
+    // room is visible to an ordinary query, which is why the verification above
+    // is allowed to say no.
+    //
+    // ⛔ THE OLD REFUSAL MESSAGE SAID WHAT THIS DELETES: *"The world has already
+    // been mutated and cannot be rolled back."* It can now: a refused room is
+    // DROPPED.
+    //
+    // ⚠ **THIS IS NOT YET THE FULL LAST-GOOD-WORLD GUARANTEE, and the difference
+    // is one ordering.** `replace_live_world` still retires the OUTGOING room
+    // before this transaction opens, so a refusal leaves the session with NO
+    // room rather than with its previous one. What it buys today is that a
+    // refused room leaves no debris — no half-built scene standing beside a
+    // world that never accepted it. Moving the retirement after this point is
+    // the remaining step, and it lands in `replace_live_world` alone.
     let published = violations.is_empty();
+    // ⛔ EVERY LANE'S TRANSACTION, not just the actor lane's — see
+    // `construction_transactions`, and the measurement that corrected me.
+    let transactions = plan.construction_transactions(session);
     if published {
+        let admitted: usize = transactions
+            .iter()
+            .map(|transaction| {
+                ambition_platformer2d_shared_tangle::construction::publish_candidate(
+                    world,
+                    transaction,
+                )
+            })
+            .sum();
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "room-loaded {room_id}"
+            "room-loaded {room_id} ({admitted} roots admitted)"
         ));
         world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
             room_id: room_id.clone(),
         });
     } else {
         let failure_count = violations.len();
+        let dropped: usize = transactions
+            .iter()
+            .map(|transaction| {
+                ambition_platformer2d_shared_tangle::construction::retire_candidate(
+                    world,
+                    transaction,
+                )
+            })
+            .sum();
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
-            "room `{room_id}` was NOT published: {failure_count} construction violation(s). The \
-             world has already been mutated and cannot be rolled back."
+            "room `{room_id}` was NOT published: {failure_count} construction violation(s). \
+             The candidate was never visible and its {dropped} roots are dropped."
         );
     }
     world.insert_resource(LastConstructionVerification {

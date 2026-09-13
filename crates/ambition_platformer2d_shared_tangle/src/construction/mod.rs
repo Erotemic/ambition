@@ -1352,7 +1352,36 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// is what lets a plan express a mutual pair (two duellists grudging each
     /// other) without either row needing the other to exist first.
     pub fn commit(&self, ctx: &mut ConstructionExecCtx<'_, '_, '_, D>) -> ConstructionReceipt {
-        self.execute(None, ctx, false).unwrap_or_else(|error| {
+        self.commit_visibility(ctx, false)
+    }
+
+    /// [`Self::commit`], but every root is stamped [`InactiveCandidate`] AT
+    /// MINT — built, wired and invisible to ordinary queries until
+    /// [`publish_candidate`] admits the transaction.
+    ///
+    /// ⭐⭐ **THIS IS THE DEFERRED-`Commands` SHAPE OF
+    /// [`Self::commit_inactive`], and the room road needs it because it does not
+    /// have `&mut World`.** `commit_inactive` takes a world so it can ask
+    /// [`inactive_candidate_filter_installed`] and REFUSE; this cannot ask, so
+    /// **the caller owes that check** — which is why it is not the default and
+    /// why its one production caller is a room transaction that registers the
+    /// filter itself.
+    ///
+    /// ⛔ Without the filter the marker is inert and every "candidate" is LIVE,
+    /// which is the dangerous direction. See [`InactiveCandidate`].
+    pub fn commit_hidden(
+        &self,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+    ) -> ConstructionReceipt {
+        self.commit_visibility(ctx, true)
+    }
+
+    fn commit_visibility(
+        &self,
+        ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+        hidden: bool,
+    ) -> ConstructionReceipt {
+        self.execute(None, ctx, hidden).unwrap_or_else(|error| {
             unreachable!(
                 "committing a plan in full names only its own rows and encloses every relation, \
                  so it cannot be refused: {error}"

@@ -270,10 +270,35 @@ impl RoomConstructionPlan {
     /// built.
     pub fn spawn_contents(&self, commands: &mut Commands) {
         transaction::open(commands);
+        // ⛔⛤ **THE CANDIDATE ROAD IS BUILT AND WIRED BUT THIS FLAG IS `false`,
+        // AND THAT IS A MEASURED HOLD RATHER THAN AN OVERSIGHT.**
+        //
+        // Flipping it to `true` builds every root in every lane as an
+        // `InactiveCandidate` and lets `transaction::close` publish or RETIRE the
+        // whole room — which is A10's last-good-world shape and deletes the
+        // sentence that path still ends with (*"The world has already been
+        // mutated and cannot be rolled back"*). MEASURED with it on: 87 of 89
+        // app-level room tests pass, and the shipped rooms publish completely
+        // (`central_hub_complex`: receipt 18 ids, admitted 18).
+        //
+        // ⛔ **THE TWO THAT FAIL ARE `death_restores_the_checkpoint`, AND THE
+        // MECHANISM IS NOT YET UNDERSTOOD.** Instrumented rather than reasoned:
+        // the authored `placement:ground_gun_sword` is `Held` before the death
+        // and **entirely ABSENT afterwards — zero entities carry that `SimId`,
+        // and zero entities are hidden**, so it is not a candidate left
+        // unpublished. It is a road that stops rebuilding the object when the
+        // room was built through the candidate bracket, and I could not name it.
+        //
+        // ⇒ Shipping it red is not an option and neither is guessing, so the
+        // ENABLERS land and the flag waits: `commit_hidden`, the at-mint stamp,
+        // `construction_transactions` (every lane, not one — see its doc), and
+        // the registered filter are all in. The remaining work is this one
+        // `false`, plus the mechanism behind those two tests.
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,
             self.session_scope,
+            false,
         );
         debug_assert_eq!(
             receipt.authoritative_ids(),

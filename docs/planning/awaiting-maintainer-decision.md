@@ -2059,12 +2059,46 @@ behaviour restored: three of five redden.
 enum — that half of the original design was right, and a central enum would make
 `ambition_platformer2d_core` name all five owning crates.
 
-⇒ **WHAT REMAINS:** migrate abilities, body profile, stats and portal tuning onto
-the protocol, each with the production-GGRS poisons the review specifies (edit
-under a locally-maintained timeline ⇒ no advance with old baseline + new value;
-edit under a foreign one ⇒ proposal staged, authoritative value unchanged,
-replay deterministic across the attempted edit). **Not five watchers — five
-proposers.**
+✅ **TWO MORE ROADS MIGRATED, SAME DAY: `EditableAbilitySet` AND
+`DeveloperTools.player_body_profile`.** Both left `app.sim_schedule()` — under the
+rollback host, `GgrsSchedule` — for `MechanicalEditSet::{Propose, Publish}` in
+`PreUpdate`, ordered before `RunGgrsSystems`. The comment that used to sit on one
+of them **was the defect**: *"this mutates rollback state, so it must run in the
+simulation schedule with the other developer edits."*
+
+⭐ **AND THE BODY-PROFILE `Local` MOVED OUT OF THE ROLLBACK WINDOW WITH ITS
+SYSTEM, WHICH IS HALF OF THAT FIX.** A `Local` inside `GgrsSchedule` runs once per
+ADVANCE, resimulations included, so after a rewind it still remembered the new
+profile had been applied and decided from PRESENT-FRAME HOST HISTORY. In
+`PreUpdate` it runs once per rendered frame, which is the lifetime a
+"last applied" memory actually has.
+
+⛔⛤ **AND THE ABILITY SYSTEM TURNED OUT TO HAVE TWO JOBS, which a naive gate
+broke and a test caught.** It PUBLISHES a developer selection *and* RECONCILES
+the body's abilities back to `base ∩ editable` when gameplay has moved them.
+Gating it on "only when proposed" stopped the second, measured by a fixture that
+diverges `BodyAbilities` directly. ⇒ The reconciliation runs only when NOTHING is
+awaiting admission — any change to the editable sets this domain pending, so with
+nothing pending the editable IS the last admitted value, and a REFUSED edit keeps
+the domain pending and therefore closes the reconciliation road too. Otherwise
+the refusal would be a front door the unadmitted value walks through.
+
+⚠ **THE ORDERING GUARD GAINED A POPULATION FLOOR**, because "the chain is not
+empty" cannot see a road moving BACK: three proposers and three publishers, and
+raising it is deliberate. Poison-verified by returning one road to the sim
+schedule.
+
+⇒ **WHAT REMAINS:** `sync_player_stats_with_inspector` and `PortalTuning`, plus
+the production-GGRS poisons the review specifies for all four (edit under a
+locally-maintained timeline ⇒ no advance with old baseline + new value; edit
+under a foreign one ⇒ proposal staged, authoritative value unchanged, replay
+deterministic across the attempted edit). ⚠ **STATS IS NOT LIKE THE OTHER TWO AND
+THAT IS WHY IT IS NOT DONE HERE:** it is BIDIRECTIONAL — registered in
+`DevInspectorMirrorSet` to mirror the body's live stats BACK into the inspector
+*"so the F3 panel shows truth"* — so only its editor→body half is a mechanical
+edit and splitting it is a different job from moving it. `PortalTuning` is owned
+by another crate's inspector (`game/ambition_app/src/dev/portal_inspector.rs`).
+**Not five watchers — five proposers.**
 
 <details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>
 

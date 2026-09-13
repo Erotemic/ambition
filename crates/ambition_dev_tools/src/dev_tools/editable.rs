@@ -592,8 +592,42 @@ impl Default for EditableMovementTuning {
 
 /// Keep the live player's body collider aligned with the selected development
 /// profile after resets / room loads rebuild the player from engine defaults.
+/// This domain's key in [`ae::PendingMechanicalEdits`].
+pub const BODY_PROFILE: ae::MechanicalDomain = ae::MechanicalDomain("developer_body_profile");
+
+/// Raise a changed developer body profile as a PROPOSAL.
+///
+/// ⛔⛤ **THE `Local` MOVED OUT OF THE ROLLBACK WINDOW WITH THE SYSTEM, AND THAT
+/// IS HALF THE FIX — `Q120`, 2026-09-13.** This selection test used to live
+/// inside `sync_developer_body_profile`, which was registered into
+/// `app.sim_schedule()` — under the rollback host, `GgrsSchedule`. A `Local` there
+/// runs once per ADVANCE, resimulations included, so after a rewind it still
+/// remembered that the new profile had been applied and made its decision from
+/// PRESENT-FRAME HOST HISTORY rather than from the frame being simulated.
+///
+/// ⇒ In `PreUpdate` it runs once per rendered frame, which is the lifetime a
+/// "last applied" memory actually has. The proposal it raises is what carries
+/// across a refusal.
+pub fn propose_developer_body_profile(
+    developer: Res<DeveloperTools>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
+    mut last_proposed: Local<Option<PlayerBodyProfile>>,
+) {
+    // Propose only when the developer CHANGES the selected profile. Re-proposing
+    // every frame would make the dev tool authoritative over legitimate
+    // gameplay-driven body-size changes — and would stop the rollback baseline
+    // every frame for an edit nobody made.
+    if *last_proposed == Some(developer.player_body_profile) {
+        return;
+    }
+    *last_proposed = Some(developer.player_body_profile);
+    pending.propose(BODY_PROFILE);
+}
+
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
+    admission: Option<Res<ae::MechanicalEditAdmission>>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut player_q: Query<
         (
             &mut ambition_platformer2d_core::BodyKinematics,
@@ -601,17 +635,20 @@ pub fn sync_developer_body_profile(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    mut last_applied: Local<Option<PlayerBodyProfile>>,
 ) {
-    // Apply only when the developer changes the selected profile. Reapplying
-    // every frame would make the dev tool authoritative over legitimate
-    // gameplay-driven body-size changes.
-    let desired = developer.player_body_profile.size();
-    let selection_changed = *last_applied != Some(developer.player_body_profile);
-    if !selection_changed {
+    // ⛔ ONLY THIS DOMAIN'S PROPOSAL, and only when something with a view of the
+    // rollback timeline has admitted it. See `PendingMechanicalEdits`.
+    if !pending.is_pending(BODY_PROFILE) {
         return;
     }
-    *last_applied = Some(developer.player_body_profile);
+    if matches!(
+        admission.as_deref(),
+        Some(ae::MechanicalEditAdmission::Refuse)
+    ) {
+        return;
+    }
+    let desired = developer.player_body_profile.size();
+    pending.take(BODY_PROFILE);
     if let Ok((mut kinematics, mut base_size)) = player_q.single_mut() {
         if (base_size.base_size - desired).length_squared() > 0.01 {
             // Resize the body while preserving the planted-foot position.

@@ -30,10 +30,20 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+    // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
+    // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
+    // was true until 2026-09-13, when an ability edit stopped reaching the body
+    // until something with a view of the rollback timeline admitted it. ⚠ These
+    // arms are about what the sync DOES when it applies, so they run the real
+    // proposer rather than setting the pending key by hand — a fixture that
+    // stages its own admission is testing itself.
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
     app.init_resource::<AbilityChangeObservations>();
     app.add_systems(
         Update,
         (
+            ambition_dev_tools::propose_editable_abilities,
             ambition_dev_tools::sync_live_player_dev_edits_system,
             super::super::apply_worn_character_gameplay,
             observe_body_ability_changes,
@@ -110,9 +120,22 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+    // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
+    // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
+    // was true until 2026-09-13, when an ability edit stopped reaching the body
+    // until something with a view of the rollback timeline admitted it. ⚠ These
+    // arms are about what the sync DOES when it applies, so they run the real
+    // proposer rather than setting the pending key by hand — a fixture that
+    // stages its own admission is testing itself.
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
     app.add_systems(
         Update,
-        ambition_dev_tools::sync_live_player_dev_edits_system,
+        (
+            ambition_dev_tools::propose_editable_abilities,
+            ambition_dev_tools::sync_live_player_dev_edits_system,
+        )
+            .chain(),
     );
 
     let run_jump = ambition_platformer2d_core::AbilitySet::compose(&[
@@ -182,9 +205,22 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+    // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
+    // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
+    // was true until 2026-09-13, when an ability edit stopped reaching the body
+    // until something with a view of the rollback timeline admitted it. ⚠ These
+    // arms are about what the sync DOES when it applies, so they run the real
+    // proposer rather than setting the pending key by hand — a fixture that
+    // stages its own admission is testing itself.
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
     app.add_systems(
         Update,
-        ambition_dev_tools::sync_live_player_dev_edits_system,
+        (
+            ambition_dev_tools::propose_editable_abilities,
+            ambition_dev_tools::sync_live_player_dev_edits_system,
+        )
+            .chain(),
     );
 
     // A base that grants the air-jump capability (RunJump + AirJump).

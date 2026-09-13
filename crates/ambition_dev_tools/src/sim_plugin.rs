@@ -95,24 +95,39 @@ impl Plugin for DevToolsSimPlugin {
         app.add_systems(
             bevy::app::PreUpdate,
             (
-                crate::dev_tools::propose_editable_movement_tuning
+                (
+                    crate::dev_tools::propose_editable_movement_tuning,
+                    crate::propose_editable_abilities,
+                    crate::dev_tools::propose_developer_body_profile,
+                )
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
-                crate::dev_tools::publish_editable_movement_tuning
+                // ⛔⛤ **THESE TWO LEFT THE SIM SCHEDULE ON 2026-09-13, AND THE
+                // COMMENT THAT USED TO SIT ON ONE OF THEM WAS THE DEFECT:** *"this
+                // mutates rollback state, so it must run in the simulation schedule
+                // with the other developer edits."* Under the rollback host the sim
+                // schedule IS `GgrsSchedule`, so "with the other developer edits"
+                // put the write INSIDE the rollback window, where a resimulation of
+                // confirmed frames reads it. `sync_live_player_dev_edits_system`
+                // wrote `BodyAbilities`/`BodyFlightState`/`MotionModel`/
+                // `BodyDashState`/`BodyJumpState` there from a live inspector
+                // resource; `sync_developer_body_profile` wrote `BodyKinematics`
+                // and `BodyBaseSize`, arbitrated by a `Local` that runs once per
+                // ADVANCE and therefore remembered across a rewind.
+                //
+                // ⭐ The CHAIN is preserved and now means something stronger: the
+                // movement publisher runs before the ability publisher, so an
+                // admitted tuning edit is visible to it — and all of it lands
+                // before `RunGgrsSystems`.
+                (
+                    crate::dev_tools::publish_editable_movement_tuning,
+                    crate::sync_live_player_dev_edits_system,
+                    crate::dev_tools::sync_developer_body_profile,
+                )
+                    .chain()
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
             ),
         );
         let sim = app.sim_schedule();
-        app.add_systems(
-            sim,
-            (
-                crate::sync_live_player_dev_edits_system,
-                // This mutates rollback state, so it must run in the simulation
-                // schedule with the other developer edits.
-                crate::dev_tools::sync_developer_body_profile,
-            )
-                .chain()
-                .in_set(DevEditApplySet),
-        );
         app.add_systems(
             sim,
             crate::dev_tools::sync_player_stats_with_inspector.in_set(DevInspectorMirrorSet),

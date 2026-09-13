@@ -58,13 +58,42 @@ use dev_tools::EditableAbilitySet;
 /// being clobbered up to the inspector's `sandbox_all` default every frame. For
 /// the sandbox protagonist (base `sandbox_all`) the intersection equals the
 /// editable set, so the F3 experiment workflow is unchanged.
+/// This domain's key in `PendingMechanicalEdits`.
+pub const ABILITY_SET: ambition_platformer2d_core::MechanicalDomain =
+    ambition_platformer2d_core::MechanicalDomain("editable_ability_set");
+
+/// Raise a changed developer ability selection as a PROPOSAL.
+///
+/// ⛔⛤ **`Q120`, 2026-09-13.** `sync_live_player_dev_edits_system` read the live
+/// `EditableAbilitySet` from inside `app.sim_schedule()` — under the rollback
+/// host, `GgrsSchedule` — and wrote `BodyAbilities`, `BodyFlightState`,
+/// `MotionModel`, `BodyDashState` and `BodyJumpState` from it. ⇒ A rewind
+/// restored frame N's authoritative body state and this immediately applied
+/// whatever the inspector held NOW. Same class as the movement-tuning defect,
+/// one surface over.
+pub fn propose_editable_abilities(
+    editable: Res<EditableAbilitySet>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+) {
+    // ⚠ `is_added` EXCLUDED for the reason every proposer excludes it: Bevy
+    // counts INSERTION as a change, and the mirror is installed before content
+    // finishes seeding. Proposing that would stop the session the composition
+    // had just started, on frame one, every time.
+    if !editable.is_changed() || editable.is_added() {
+        return;
+    }
+    pending.propose(ABILITY_SET);
+}
+
 pub fn sync_live_player_dev_edits_system(
     // The neutral authority, NOT the inspector mirror: `publish_editable_movement_tuning`
-    // is chained immediately before this in `DevEditApplySet`, so an F3 edit is
-    // already here — and a body whose tuning came from content rather than the
+    // runs earlier in the same `MechanicalEditSet::Publish` chain, so an F3 edit
+    // is already here — and a body whose tuning came from content rather than the
     // inspector now resolves correctly too.
     active_tuning: Res<ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
+    admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
     mut player_q: Query<
         (
             &mut BodyAbilities,
@@ -82,11 +111,42 @@ pub fn sync_live_player_dev_edits_system(
         PrimaryPlayerOnly,
     >,
 ) {
+    // ⛔⛤ **THIS SYSTEM HAS TWO JOBS AND ONLY ONE OF THEM IS A MECHANICAL EDIT.**
+    // It PUBLISHES a developer ability selection, and it RECONCILES the body's
+    // abilities back to `base ∩ editable` whenever gameplay has moved them. The
+    // first is `Q120`'s subject; the second is an ordinary continuous repair and
+    // must keep working, which a naive "only run when proposed" gate broke — a
+    // fixture that diverged `BodyAbilities` directly stopped getting its cluster
+    // refresh, and that is a real consequence, not a fixture artifact.
+    //
+    // ⭐ **SO THE RECONCILIATION RUNS ONLY WHEN NOTHING IS AWAITING ADMISSION**,
+    // which is what makes it safe: any change to `EditableAbilitySet` sets this
+    // domain pending, so with nothing pending the editable IS the last admitted
+    // value. A refused edit keeps the domain pending and therefore disables the
+    // reconciliation road too — otherwise the refusal would be a front door the
+    // unadmitted value walks through.
+    //
+    // ⚠ The movement half of this system's inputs (`ActiveMovementTuning`) is
+    // published by its own domain earlier in the same chain, so an admitted
+    // tuning edit is already visible here rather than a mix of admitted and
+    // pending values.
+    let proposed = pending.is_pending(ABILITY_SET);
+    if proposed
+        && matches!(
+            admission.as_deref(),
+            Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)
+        )
+    {
+        return;
+    }
     let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump, authored_tuning)) =
         player_q.single_mut()
     else {
         return;
     };
+    if proposed {
+        pending.take(ABILITY_SET);
+    }
     let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
     let effective_tuning = authored_tuning.map(|t| t.0).unwrap_or(active_tuning.0);
     // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is

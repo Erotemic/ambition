@@ -39,24 +39,53 @@ test for the next one:
 | A10 step 5, the recipe escape | `c90a1cda0` | `commands_escape` deleted; minting is a type error |
 | A10 step 6, explicit retirement | `8fc339b16` | `replace_live_world`; both halves `pub(crate)` |
 
+**⛔ REOPENED 2026-09-13 BY REVIEW, and it is the top of the order:**
+
+- **`Q121` half two** — the freeze has the WRONG LIFETIME. `bdbddfe` removed the
+  three mutable `Res` handles from `PlatformerSessionBuilder` (right) and froze
+  the App's PUBLISHED cast while the transaction's own admitted N+1 candidate sat
+  in `PendingGeneration` (wrong). ✅ That half is fixed in `d8604e50c`. ⛔ **What
+  is still open is bigger:** `PreparedPlatformerSessions::take` drops the frozen
+  state at activation, so room transition (`room_transition/loading.rs`) and reset
+  (`session/reset/mod.rs`) go back to App-global registries. A prepared generation
+  means its frozen mechanics for the FIRST construction call and nothing else. ⇒
+  Activation must PROMOTE the snapshot into an active-generation owner every
+  world-building road borrows from. ⛔ NOT a per-road frozen copy.
+- **`Q125`** — A10's relation surface still hands `&mut Commands` (and through it
+  `&mut World`) to every `RelationFn`, so a failed candidate can still mutate
+  world N. Close it before wiring the candidate lifecycle into I3b.
+- **`Q126`** — see `Q119` above.
+
 **Open, each with its measurement already taken:**
 
 - **`Q118`** — publication legality covers the INSTANT somebody asked, not the
-  transaction interval. Two arms measure it. ⇒ **The one thing that closes it is
-  an ORDERING measurement:** does `local_session::maintain_local_session` start a
-  GGRS session before or after `commit_content_generation` in the activation
-  frame? Impossible ⇒ encode it as a schedule invariant; possible ⇒ the lease
-  packet is real.
+  transaction interval. ✅ **THE RECONNAISSANCE IS DONE — DO NOT RE-RUN IT.**
+  `f27fa58` measured the ordering on the schedule graph (reachability, not direct
+  edges, with a positive control for the walker) and found **NO path either way**
+  between `LocalSessionSet::Maintain` and `commit_content_generation`: they are
+  UNORDERED. ⇒ **No existing schedule invariant protects the pending interval**,
+  so the lease packet is real. What remains is the DESIGN: a transaction-lifetime
+  authorization/lease, or a deliberate rollback stop-and-rebase lifecycle. ⚠ This
+  row asked for the measurement for a day after it had been taken — the ledger
+  was updated and the queue was not.
 - **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
   against the real sync-test canary. The model is the decision: refuse / rebase /
   deterministic input.
-- **`Q119`** — the classification rule that replaces *"forward-only"*, plus what
-  is still NOT audited: the rest of `PlatformerSessionBuilder`'s inputs.
-- **A10's last step** — wire the candidate lifecycle to I3b. ⛔ Its blocker is a
-  SEAM: `commit_inactive` takes `&mut World`, the room road builds through
-  deferred `Commands`. ⭐ But `transaction::close` already queues a
-  `&mut World` closure, so the exclusive access exists at the verification
-  boundary — that is where the wiring goes.
+- **`Q119`** — the classification rule that replaces *"forward-only"*. ⭐ Its
+  "rest of `PlatformerSessionBuilder`'s inputs" half is now a row with names:
+  `Q126` (`AuthoredBrainOverride`, `AuthoredPopulationCap`,
+  `PerceptionExtentOverride` — mechanical, immutable, outside the identity).
+- **A10's last step** — flip `spawn_contents`'s `hidden` flag. ⛔ **ITS BLOCKER IS
+  NOW ONE ROW, `Q124`, AND IT IS A GAMEPLAY RULING RATHER THAN A MYSTERY.**
+  MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped
+  rooms publish completely (receipt 18, admitted 18). The two that fail are
+  `death_restores_the_checkpoint`, and the cause is that a death-reset rebuilds
+  the room around a placement still in your custody, duplicating its authored
+  identity — **which the LIVE build does too, and is identically refused; the
+  refusal just costs nothing there because the entities are already committed.**
+  ⇒ Read `Q124` before touching this. ⭐ Its structural half needs no ruling:
+  `TransactionBaseline::retiring`/`reconstructing` have ZERO production callers,
+  so every shipped room is verified against a declaration nobody made.
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
 

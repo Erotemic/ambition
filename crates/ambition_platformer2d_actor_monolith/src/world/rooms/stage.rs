@@ -281,19 +281,38 @@ impl RoomConstructionPlan {
         // app-level room tests pass, and the shipped rooms publish completely
         // (`central_hub_complex`: receipt 18 ids, admitted 18).
         //
-        // ⛔ **THE TWO THAT FAIL ARE `death_restores_the_checkpoint`, AND THE
-        // MECHANISM IS NOT YET UNDERSTOOD.** Instrumented rather than reasoned:
-        // the authored `placement:ground_gun_sword` is `Held` before the death
-        // and **entirely ABSENT afterwards — zero entities carry that `SimId`,
-        // and zero entities are hidden**, so it is not a candidate left
-        // unpublished. It is a road that stops rebuilding the object when the
-        // room was built through the candidate bracket, and I could not name it.
+        // ⭐⭐ **THE TWO THAT FAIL ARE `death_restores_the_checkpoint`, AND THE
+        // MECHANISM IS NAMED AS OF 2026-09-13: IT IS NOT THIS FLAG'S.** See
+        // `Q124`. A death is committed as a room transition to the SAME room, and
+        // room-transition sweeps use `RoomResident` — `With<RoomScopedEntity>,
+        // Without<InCustodyOf>` — so a placement in the player's custody follows
+        // them through the "door" and the room then mints it again. Two entities,
+        // one authored `SimId`, and the transaction correctly refuses:
         //
-        // ⇒ Shipping it red is not an option and neither is guessing, so the
-        // ENABLERS land and the flag waits: `commit_hidden`, the at-mint stamp,
+        //     violations=[ Duplicated { placement:ground_gun_sword, count: 2 },
+        //                  PlannedOverBaseline { placement:ground_gun_sword } ]
+        //
+        // ⛔⛔ **THE LIVE BUILD PRODUCES THE IDENTICAL VIOLATIONS AND IS
+        // IDENTICALLY REFUSED** — measured, three times in one run. It passes
+        // only because a refusal costs nothing there: the entities were committed
+        // to the world before verification ran, so "not published" means no
+        // `RoomLoaded` message and no more. Under this bracket the same refusal
+        // drops all 18 roots, which is the bracket working.
+        //
+        // ⇒ **SO THE FLAG WAITS ON A GAMEPLAY RULING, NOT ON AN INVESTIGATION:**
+        // what happens to a placement in your custody when a death rebuilds the
+        // room that authored it? `Q124` states the three answers.
+        //
+        // ⭐ **ONE HALF NEEDS NO RULING.** `TransactionBaseline::retiring` and
+        // `reconstructing` exist for exactly this and have ZERO production
+        // callers — `transaction::open` captures a baseline that declares
+        // nothing, so every shipped room is judged against a claim nobody made.
+        // That is why the violation above reads `PlannedOverBaseline` rather than
+        // the precise `ReconstructedOldSurvived`.
+        //
+        // ⇒ The ENABLERS are all in: `commit_hidden`, the at-mint stamp,
         // `construction_transactions` (every lane, not one — see its doc), and
-        // the registered filter are all in. The remaining work is this one
-        // `false`, plus the mechanism behind those two tests.
+        // the registered filter.
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,

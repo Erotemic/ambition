@@ -1697,7 +1697,65 @@ the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
 
-## ✅ Q121 — CLOSED 2026-09-12. A prepared generation now MEANS its frozen mechanical values.
+## ⚠ Q121 — REOPENED 2026-09-13 BY REVIEW. Half closed; the freeze took the WRONG GENERATION and DIES AT ACTIVATION.
+
+⛔⛤ **THE CLOSURE BELOW WAS WRITTEN ABOUT THE STRUCTURE AND THE STRUCTURE WAS
+RIGHT. THE VALUE WAS NOT.** A review of `bdbddfe` measured the dataflow the
+closure did not: a cast-changing reload admits the N+1 registry at REQUEST time
+and deliberately withholds it from the App until the commit boundary, so
+`PendingGeneration.admitted_cast` holds N+1 while the published
+`PreparedCharacterRegistry` stays N for the whole window. The freeze read the
+published one.
+
+⇒ **A session whose IDENTITY named N+1 and whose FIGHTERS were N's** — the exact
+mixed-generation class the road exists to remove. ⭐ And my own closure note
+named the gap that hid it: *"there is no end-to-end arm that prepares a session,
+MUTATES the registry, activates, and asserts the world was built from the frozen
+value."* The structural half is the stronger half; it is not the behavioural one,
+and the behavioural one was wrong.
+
+✅ **HALF ONE IS CLOSED (`d8604e50c`).** `PendingContentIdentity` became
+`PendingGenerationInputs` and carries the candidate cast beside the candidate
+identity — one transaction-local claim, not a second authority — with
+`AdmittedRevision::candidate()` as the accessor whose ABSENCE was the defect.
+Poison-verified: collapsing the resolver to the App registry fails the guard with
+`Some(3)` where `Some(9)` is owed.
+
+⛔ **HALF TWO IS OPEN AND IT IS THE BIGGER ONE: THE FREEZE HAS THE WRONG
+LIFETIME.** `PreparedPlatformerSessions::take` removes the prepared record at
+activation and hands `FrozenMechanicalState` transiently to
+`PlatformerSessionBuilder::build`. Nothing promotes it into an active-session
+authority. So:
+
+```text
+session activation     -> frozen generation values
+later room transition  -> current App values   (room_transition/loading.rs)
+later reset            -> current App values   (session/reset/mod.rs)
+```
+
+⇒ *"A prepared generation means its frozen mechanical values"* is true of the
+FIRST construction call and of nothing else. **The review's shape:** activation
+promotes the exact immutable snapshot into an active-generation owner, and every
+world-building road — initial, transition, reset, checkpoint reconstruction, A10
+candidate construction — takes a projection from that ONE owner. ⛔ NOT a
+separately synchronised "transition registry" and "reset registry"; that is the
+duplicate-authority defect wearing a lifecycle hat.
+
+⚠ **DO NOT INFLATE `ActiveContentBinding` INTO A BAG OF REGISTRIES.** It is a
+tiny identifier and the review says so explicitly. A typed active-generation
+object bound to the session scope is the shape.
+
+⭐ **THE ACCEPTANCE TEST IS STATED**: activate generation A, replace the
+App-global registry with B WITHOUT an admitted transition, transition rooms, and
+assert the reconstructed room is still A's (or that construction refuses as
+stale). Repeat through reset. Then activate B legitimately and prove transition
+and reset switch atomically. Two Apps, so no process-global can satisfy it.
+
+<details><summary>The 2026-09-12 closure note, kept because its structural claim
+still holds and its stated gap is what the review walked through</summary>
+
+### ✅ Q121 — the structural half: a prepared generation carries frozen values
+
 
 `PreparedPlatformerSession` carries `FrozenMechanicalState` — the prepared cast,
 the authored sheets and the boss catalog, CLONED in the same system that takes the
@@ -1721,9 +1779,6 @@ from different resources in the same system.
 a session, MUTATES the registry, activates, and asserts the world was built from
 the frozen value. What is proven is the STRUCTURE — the builder no longer has a
 handle to mutate against — which is the stronger half but not the behavioural one.
-
-<details><summary>The original row, kept because its measurement is the
-evidence</summary>
 
 ### Q121 — the prepared generation is a FINGERPRINT, not a FROZEN VALUE: prepare A, construct from B
 
@@ -1847,3 +1902,130 @@ about, not a replacement for it.
 ⇒ **WHAT WOULD CLOSE THE REST:** a structural reason no hook can observe a
 partial publication (or an upstream way to ask), and an arm for a collector that
 walks archetypes rather than querying.
+
+## Q124 — a DEATH-RESET rebuilds a room around the placement you are still CARRYING, and duplicates its identity
+
+⛔⛤ **MEASURED 2026-09-13, and it is the mechanism A10's hold said it could not
+name.** The `death_restores_the_checkpoint` arms were the only two app-level room
+tests that failed with the candidate bracket on, and the reason is not A10's.
+
+**WHAT THE INSTRUMENT SHOWED.** A death is committed as a room TRANSITION to the
+SAME room (`room-transition begin seq=1 central_hub_complex ->
+central_hub_complex`). The transaction that rebuilds it is refused:
+
+```text
+verify_and_publish room=central_hub_complex violations=[
+    Duplicated { sim_id: SimId("placement:ground_gun_sword"), count: 2 },
+    PlannedOverBaseline { sim_id: SimId("placement:ground_gun_sword") } ]
+```
+
+and the two occupants differ by exactly one component:
+
+```text
+502v0  ... ItemCustody, InCustodyOf, SettledItem, RoomScopedEntity ...   <- the one you are holding
+530v0  ... ItemCustody,             SettledItem, RoomScopedEntity ...   <- the one the room just minted
+```
+
+**THE ROAD.** Room-transition sweeps use
+`RoomResident = (With<RoomScopedEntity>, Without<InCustodyOf>)` — a carried item
+deliberately follows you through a DOOR, which is right. But this "door" leads
+back into the room that AUTHORED the thing you are carrying, and the room plan
+mints `placement:ground_gun_sword` again. Two entities, one authored identity.
+
+⛔⛔ **THE LIVE BUILD PRODUCES THE IDENTICAL VIOLATIONS AND IS IDENTICALLY
+REFUSED** — measured, not reasoned: three refusals across the same run, one per
+carried placement (`ground_gun_sword` twice, `ground_grapple` once), and
+`room-loaded` is never written for them. The test passes anyway **because under
+the live build a refusal does nothing**: the entities were committed to the world
+before verification ran, so *"the room was not published"* costs exactly the
+`RoomLoaded` message. Under the candidate bracket the same refusal correctly
+drops all 18 roots and the room is empty.
+
+⇒ **A10 DID NOT CAUSE THIS. A10 MADE AN ALREADY-SILENT REFUSAL BITE**, which is
+the whole point of "make it impossible, not checked" — and the first thing it
+found was a real production defect that has been shipping under a refusal nobody
+could act on.
+
+⭐⭐ **AND THE TRANSACTION NEVER DECLARES ITS INTENT.** `TransactionBaseline` has
+`retiring()` and `reconstructing()` for exactly this, and **`git grep` finds ZERO
+production callers** — both are reached only from tests. `transaction::open`
+captures a baseline that declares nothing, so `verify_committed_roster` judges
+every shipped room against a claim nobody made. That is why the violation reads
+`PlannedOverBaseline` (a vague *"you rebuilt something you did not say you
+would"*) instead of `ReconstructedOldSurvived` (the precise *"you said you would
+replace this and the old body is still here"*).
+
+⇒ **THE DECISION, and it is Jon's because it is a GAMEPLAY rule, not a
+structural one:** when a death-reset rebuilds the room you are standing in, what
+happens to an authored placement in your custody?
+
+1. **The held copy is destroyed and the room's fresh one is the only occurrence.**
+   Matches the test's own sentence — *"the reward was acquired before any
+   checkpoint, so a death owes it back to the world"* — and matches what a player
+   expects from a death. A same-room reset stops being a "door" for custody.
+2. **The room does not replan a placement that is in custody.** You keep what you
+   were holding and the room comes back one pickup short of itself until you drop
+   it. ⚠ This is the shape that was already rejected once for a different reason
+   (see `clear_transient_on_sandbox_reset`'s note about rebuilding a room
+   permanently one pickup short).
+3. **Custody is durable across a death and the DUPLICATE is the defect** — the
+   room's plan should recognise the identity as already live and adopt it rather
+   than mint a second. This is `reconstructing()` used properly.
+
+⛔ **WHICHEVER IS CHOSEN, `transaction::open` MUST DECLARE.** That half is
+structural and not a judgement call: a verifier checking a room against an empty
+declaration cannot tell a legitimate rebuild from an accidental duplicate, and it
+has not been able to for the life of the road.
+
+⚠ **A10's LAST STEP IS HELD ON THIS ROW**, and the hold is now one sentence
+rather than "the mechanism is not yet understood".
+
+## Q125 — A10 closed the RECIPE escape and left the RELATION escape open
+
+⛔⛤ **FROM THE 2026-09-13 REVIEW, and it is the right reading of `c90a1cda0`.**
+`ConstructionRootCtx`/`RootScope` made unplanned minting a TYPE ERROR for
+recipes. `RelationFn` still receives `&mut ConstructionExecCtx`, whose
+`pub commands: &mut Commands` lets a relation spawn, despawn an unrelated live
+entity, insert or mutate resources, and — via `commands.queue(|world: &mut
+World|)` — take unrestricted exclusive-world authority. `commit_inactive` applies
+that queue BEFORE verification, and `retire_candidate` despawns only roots tagged
+as this transaction's candidates: it cannot undo a resource write.
+
+⇒ **A failed candidate can still mutate world N**, which contradicts A10's
+last-good-world claim. ⚠ **NOT A LIVE CORRUPTION REPORT**: the review inspected
+`wire_limb`, `wire_mount` and `wire_grudge` and all three touch only their
+declared endpoints. It is a capability that no type boundary prevents.
+
+⇒ **THE SHAPE**: a `RelationScope` bound to `from` and `to`, by analogy with
+`RootScope` — insertion on either endpoint, endpoint-scoped deferred
+read-modify-write (`wire_limb` genuinely needs that for the host's `LimbRig`),
+session-scoped insertion where needed; and NO `Commands`, `World`, spawn,
+arbitrary lookup or resource mutation. A relation that needs a third
+authoritative entity has a missing PLAN ROW, not a minting need.
+
+⚠ **CLOSE IT BEFORE WIRING A10's CANDIDATE LIFECYCLE INTO I3b**, or the
+integration bakes in the escape the recipe work was built to delete.
+
+## Q126 — immutable DEVELOPER construction configuration is mechanical and is outside the identity
+
+⛔ **CONFIRMED AT HEAD 2026-09-13**, from the review. Two `PlatformerSessionBuilder`
+inputs (`lifecycle.rs:1503-1504`) are mechanical, change the constructed world,
+and reach no fingerprint:
+
+* **`AuthoredBrainOverride`** — chooses a forced profile/preset in the NPC
+  construction road (`npc_policy.rs`). Its own doc says it changes the room.
+* **`AuthoredPopulationCap`** — consumed by `RoomFeatureConstructionPlan::prepare`
+  BEFORE the construction rows exist, so it changes the authoritative ROSTER.
+
+⇒ Two Apps can share one `PreparedContentIdentity` and have different rosters, or
+different autonomous behaviour. `rollback_coverage.rs` exempts both because they
+are written once and not reread during resimulation — which answers the SNAPSHOT
+question and not the IDENTITY one. **`PerceptionExtentOverride` owes the same
+audit**: its resulting component is snapshotted, its startup configuration still
+makes two otherwise identical compositions construct different mechanical state.
+
+⇒ **THE DECISION**: (a) normalise their mechanical values into the canonical
+generation identity, or (b) refuse a non-default knob in a rollback- or
+network-compatible session. ⛔ NOT a second hash authority — the same canonical
+identity, one more typed input. If any becomes live-editable it graduates into
+`Q120`.

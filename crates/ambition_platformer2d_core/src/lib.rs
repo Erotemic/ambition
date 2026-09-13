@@ -85,6 +85,7 @@ pub use movement::{
     catch_the_wire, cut_the_wire, default_player_body_size, footstool_victim,
     integrate_normal_spine, knock_off_ledge, resolve_burst_maneuver, resolve_shield, step_motion,
     switch_motion_model, ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion,
+    MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdit,
     ArrivalMomentum, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisManeuverState,
     AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyContactBlocker, BodyContactField,
     BodyMotionFacts, BurstManeuver, ComboMark, CrawlAttachment, CrawlerParams, CrawlerState,

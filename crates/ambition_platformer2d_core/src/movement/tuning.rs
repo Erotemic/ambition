@@ -282,6 +282,82 @@ impl LedgeMomentumTuning {
 #[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct ActiveMovementTuning(pub MovementTuning);
 
+/// A developer has a mechanical edit waiting to become authoritative.
+///
+/// ⛔⛤ **AN EDIT IS A PROPOSAL UNTIL SOMETHING WITH A VIEW OF THE ROLLBACK
+/// TIMELINE ADMITS IT — AND THE FIRST VERSION OF `Q120`'s FIX GOT THIS BACKWARDS
+/// (review, 2026-09-13).** That version let the editor write
+/// [`ActiveMovementTuning`] and put a WATCHER after it that stopped the rollback
+/// baseline. MEASURED against the shipped schedule: the adapter runs in the sim
+/// schedule, which under the rollback host **is `GgrsSchedule`, advanced from
+/// `PreUpdate` by `RunGgrsSystems`** — and the watcher sat in `Update`. ⇒ The OLD
+/// timeline simulated (and could resimulate history) with the new value before
+/// the watcher ever ran. The comment claimed *"the same frame the edit was
+/// observed"*; the schedule established no such thing.
+///
+/// ⭐⭐ **SO THE VALUE DOES NOT MOVE UNTIL IT IS ADMITTED.** An editor raises this
+/// flag; the admission authority answers [`MechanicalEditAdmission`] BEFORE the
+/// advance; the adapter writes the authoritative value only when the answer says
+/// it may. A composition with no rollback host answers `Publish` and the flag is
+/// spent immediately — the hazard is the timeline, not the edit.
+///
+/// ⚠ ONE FLAG FOR EVERY EDITOR, deliberately. `Q120` names five more mutable
+/// mechanical values, and a watcher per knob would be five copies of a decision
+/// plus a dependency edge from the rollback crate to every crate that owns one.
+/// What is shared is the QUESTION, not the value.
+#[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PendingMechanicalEdit(pub bool);
+
+/// May a proposed mechanical edit become authoritative this frame?
+///
+/// Written by whoever owns the rollback timeline, before the timeline advances;
+/// read by every developer editor adapter. ⚠ Its DEFAULT is
+/// [`Self::Publish`], because a composition with no rollback host has no
+/// historical frames an edit could contradict — and because a default of
+/// `Refuse` would silently break every non-rollback build's developer tools.
+#[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MechanicalEditAdmission {
+    /// No timeline to protect, or one that has just been stopped for this edit.
+    #[default]
+    Publish,
+    /// A rollback timeline is live and this host may not rebase it — an
+    /// external/P2P session, or one a caller started. The edit STAYS PENDING and
+    /// the authoritative value does NOT move.
+    ///
+    /// ⛔ This is `Q120`'s model 1 as that row defines it: *"refuse mechanical
+    /// live edits while a rollback timeline is active"*. It is NOT "let the edit
+    /// land and leave the timeline alone", which is the incoherent state the row
+    /// exists to remove and which the first version of this fix preserved.
+    Refuse,
+}
+
+/// The three steps a developer edit takes to become authoritative, in order.
+///
+/// ⛔⛤ **THIS CHAIN MUST COMPLETE BEFORE THE SIMULATION ADVANCES.** Under the
+/// rollback host that means BEFORE `RunGgrsSystems`, which is the ordering the
+/// first version of `Q120`'s fix asserted in a comment and never declared. The
+/// rollback crate adds that edge; a composition without a rollback host still
+/// gets the chain, decides [`MechanicalEditAdmission::Publish`] by default, and
+/// is unaffected.
+///
+/// ⚠ The sets are in `PreUpdate` and are configured by BOTH the developer-tools
+/// plugin (which supplies proposers and publishers) and the rollback host (which
+/// supplies the decision and the ordering against the advance), because either
+/// can be installed without the other.
+#[derive(bevy_ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MechanicalEditSet {
+    /// A domain that mutates a value the simulation reads raises
+    /// [`PendingMechanicalEdit`] here. Reporting is not deciding.
+    Propose,
+    /// The rollback timeline's owner answers [`MechanicalEditAdmission`] here,
+    /// stopping its own baseline if that is what admitting the edit requires.
+    Admit,
+    /// Editor adapters copy their mirror into the authoritative value here —
+    /// and ONLY here, and only when the answer was
+    /// [`MechanicalEditAdmission::Publish`].
+    Publish,
+}
+
 impl core::ops::Deref for ActiveMovementTuning {
     type Target = MovementTuning;
 

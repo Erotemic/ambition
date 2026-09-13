@@ -85,7 +85,7 @@ fn editing_movement_tuning_mid_timeline_changes_what_history_resimulates_to() {
     let mut desync: Option<String> = None;
     for frame in 0..FRAMES {
         if frame == EDIT_AT {
-            // Exactly what the inspector does: `apply_editable_movement_tuning`
+            // Exactly what the inspector does: `publish_editable_movement_tuning`
             // pushes `EditableMovementTuning` into this resource, and simulation
             // systems read it directly.
             let mut tuning = sim

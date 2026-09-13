@@ -591,3 +591,67 @@ fn the_publication_breaker_is_not_ordered_against_the_command_phase_it_writes_in
          cancel a post-mortem by declaration rather than by race"
     );
 }
+
+/// ⛔⛤ **THE SHIPPED COMPOSITION COMPLETES THE MECHANICAL-EDIT CHAIN BEFORE THE
+/// TIMELINE ADVANCES — `Q120`, 2026-09-13.**
+///
+/// The rollback crate's own arm proves the HOST declares the edge. This one
+/// proves the two halves meet in the app that actually ships: the developer
+/// tools register the proposer and publisher, the rollback host registers the
+/// decision and the ordering, and neither crate depends on the other. ⇒ Two
+/// roads, and a guard on only the host's would certify a chain with nothing in
+/// it.
+///
+/// ⚠ The first version of `Q120`'s fix failed exactly here: every piece existed,
+/// each was individually reasonable, and the WRITE landed inside the rollback
+/// window because the adapter was in the sim schedule — which under this host is
+/// `GgrsSchedule`, advanced from `PreUpdate`.
+#[test]
+fn the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances() {
+    use ambition_platformer2d::engine_core::MechanicalEditSet;
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(PreUpdate)
+        .expect("the PreUpdate schedule exists")
+        .graph();
+
+    // ⛔ THE POPULATION FIRST. A `Publish` set with no systems in it makes every
+    // ordering question about it vacuously satisfied — which reads exactly like
+    // a pass.
+    let publishers = systems_in(graph, MechanicalEditSet::Publish);
+    let proposers = systems_in(graph, MechanicalEditSet::Propose);
+    assert!(
+        !publishers.is_empty() && !proposers.is_empty(),
+        "the shipped app has {} proposer(s) and {} publisher(s) in the \
+         mechanical-edit chain. An empty chain satisfies every ordering \
+         assertion below while the developer's edits reach the simulation \
+         authority through some other road entirely",
+        proposers.len(),
+        publishers.len()
+    );
+
+    let ordering = Ordering::of(graph);
+    let advance = systems_in(graph, ambition_platformer2d::rollback::RunGgrsSystems);
+    assert!(
+        !advance.is_empty(),
+        "no systems under `RunGgrsSystems` in the shipped `PreUpdate`, so \
+         'the chain runs before the advance' is a question about nothing"
+    );
+
+    assert!(
+        ordering.reaches(&publishers, &advance),
+        "the shipped app publishes a developer mechanical edit WITHOUT being \
+         ordered before `RunGgrsSystems`. The advance is what runs — and \
+         RESIMULATES — `GgrsSchedule`, so the edit can reach the authority every \
+         simulation system reads after confirmed history has already been \
+         replayed against the old value. That is the defect `Q120` measured."
+    );
+    assert!(
+        ordering.reaches(&proposers, &publishers),
+        "a proposal is not ordered before the publication it authorizes, so the \
+         admission answer a publisher reads is one frame stale"
+    );
+}

@@ -128,8 +128,8 @@ fn decided_or_device_seating(world: &mut World) -> usize {
     }
 }
 
-/// ⛔⛤ **A LIVE MECHANICAL EDIT REBASES THE TIMELINE IT WOULD OTHERWISE DESYNC —
-/// `Q120`, 2026-09-13.**
+/// ⛔⛤ **A DEVELOPER EDIT IS A PROPOSAL UNTIL THE TIMELINE'S OWNER ADMITS IT —
+/// `Q120`, REBUILT 2026-09-13 AFTER THE FIRST VERSION GOT THE ORDER BACKWARDS.**
 ///
 /// MEASURED 2026-09-12 against the real GGRS sync-test canary (save every frame,
 /// rewind 4, resimulate the same inputs, compare checksums): editing
@@ -138,63 +138,70 @@ fn decided_or_device_seating(world: &mut World) -> usize {
 /// *"NOT COHERENT"* — a mutable mechanical input outside rollback history that
 /// resimulation reads at its latest value.
 ///
-/// ⭐⭐ **THIS IS MODEL 2 OF THE THREE THAT ROW LISTS — REBASE — CHOSEN BY
-/// PRECEDENT RATHER THAN BY PREFERENCE, AND IT IS REVERSIBLE.** The content
-/// publication road adopted exactly this on the same day (`Q118`), reusing the
-/// stop-and-release the LDtk reload has shipped for months; a knob edit that
-/// changes the simulation is the same event one surface over. Model 1 (refuse)
-/// would delete the developer feature — the measurement that produced the first
-/// publication breaker said so in as many words — and model 3 (deterministic
-/// timestamped input) is a substantially larger machine. ⚠ If Jon rules
-/// otherwise, the mechanism stays and the POLICY moves: model 1 is this system
-/// declining to apply, model 3 replaces it.
+/// ⛔⛤ **THE FIRST FIX LET THE EDIT LAND AND WATCHED FOR IT AFTERWARDS, AND THE
+/// SCHEDULE NEVER SUPPORTED THAT.** The editor adapter ran in the SIM schedule,
+/// which under this host is `GgrsSchedule`, advanced from `PreUpdate` by
+/// `RunGgrsSystems`; the watcher ran in `Update`. ⇒ The old timeline simulated —
+/// and could RESIMULATE HISTORY — with the new value before anything noticed.
+/// The comment claimed *"the same frame the edit was observed"*; nothing
+/// established it. ⭐ An invariant asserted in a doc comment is a claim about a
+/// schedule, and it has to be asked of the schedule.
 ///
-/// ⛔ **AN EXTERNAL OR CALLER-OWNED SESSION IS NOT REBASED**, for the reason
-/// `RollbackSessionOwnership` already gives: peers need a coordinated content
-/// barrier and a caller's session was not started for this. Those keep model 1 by
-/// necessity — the edit lands and the timeline is left alone, which is the state
-/// this system cannot improve without a barrier that does not exist yet.
+/// ⭐⭐ **SO THE DECISION MOVED IN FRONT OF THE ADVANCE.** This runs in
+/// [`MechanicalEditSet::Admit`], which the host configures
+/// `.before(RunGgrsSystems)`, and the adapters that write the authoritative
+/// values run after it in [`MechanicalEditSet::Publish`] — still before the
+/// advance. No frame exists in which a timeline reads a value nobody admitted.
 ///
-/// ⚠ **`is_added` IS EXCLUDED** for the same reason the writer excludes it: Bevy
-/// counts INSERTION as a change, and the knobs are installed before content
-/// finishes seeding. Rebasing on frame one would restart the session the
-/// composition had just started.
-pub fn rebase_local_session_on_live_mechanical_edits(
-    tuning: Option<Res<ambition_platformer2d_core::ActiveMovementTuning>>,
-    ownership: Option<Res<crate::session::RollbackSessionOwnership>>,
-) -> bool {
-    let Some(tuning) = tuning else {
-        return false;
-    };
-    if !tuning.is_changed() || tuning.is_added() {
-        return false;
-    }
-    matches!(
-        ownership.as_deref(),
-        Some(crate::session::RollbackSessionOwnership::LocalSyncTest {
-            owner: crate::session::SyncTestOwner::LocalMaintainer,
-            ..
-        })
-    )
-}
+/// ## The three answers, and why they are these
+///
+/// * **No live session** → `Publish`. There is no history an edit could
+///   contradict. This is every non-rollback composition, always.
+/// * **A session THIS maintainer owns** → stop it, release the policy memo, then
+///   `Publish`. `maintain_local_session` starts the next baseline against the
+///   edited mechanics in the same frame's `Update`. This is `Q120`'s model 2,
+///   chosen by precedent: the content publication road adopted exactly this
+///   stop-and-release on the same day (`Q118`), reusing what the LDtk reload has
+///   shipped for months.
+/// * **`External` or `Caller`-owned** → `Refuse`, **and the proposal is
+///   retained**. `RollbackSessionOwnership` says an external session *"must
+///   never be replaced unilaterally by the local host"*, and a caller's session
+///   was not started for this.
+///
+/// ⛔⛤ **`Refuse` MEANS THE AUTHORITATIVE VALUE DOES NOT MOVE.** That is what
+/// `Q120`'s model 1 says — *"refuse mechanical live edits while a rollback
+/// timeline is active"* — and the first version of this fix wrote the opposite
+/// into both the code and the row: *"the edit lands and the timeline is left
+/// alone"*. That sentence describes the INCOHERENT state the row exists to
+/// remove, not a policy. The proposal stays pending, so the moment the session
+/// ends or ownership becomes local the edit publishes on its own.
+pub fn decide_mechanical_edit_admission(world: &mut World) {
+    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdit};
 
-/// Stop the local baseline so [`maintain_local_session`] starts the next one
-/// against the edited mechanics.
-///
-/// ⛔ Exclusive, and in the same frame the edit was observed: a frame between the
-/// edit and the stop is a frame the canary already showed desyncing.
-pub fn apply_mechanical_edit_rebase(world: &mut World) {
-    if !crate::session::session_is_active(world) {
-        // Nothing to rebase. The edit stands and the next session starts with it.
-        return;
-    }
-    crate::session::stop_session(world);
-    world.resource_mut::<LocalSessionOwnership>().release();
-    bevy::log::info!(
-        target: "ambition_platformer2d::rollback",
-        "a live mechanical edit stopped the local rollback baseline; the session \
-         owner will rebase it onto the edited tuning"
-    );
+    let pending = world
+        .get_resource::<PendingMechanicalEdit>()
+        .copied()
+        .unwrap_or_default()
+        .0;
+    let admission = if !pending || !crate::session::session_is_active(world) {
+        // Nothing proposed, or nothing to protect. The next baseline — if one is
+        // ever started — starts with whatever the edit leaves behind.
+        MechanicalEditAdmission::Publish
+    } else if maintained_settings(world).is_some() {
+        crate::session::stop_session(world);
+        if let Some(mut state) = world.get_resource_mut::<LocalSessionOwnership>() {
+            state.release();
+        }
+        bevy::log::info!(
+            target: "ambition_platformer2d::rollback",
+            "a pending mechanical edit stopped the local rollback baseline; the \
+             session owner will rebase it onto the edited mechanics"
+        );
+        MechanicalEditAdmission::Publish
+    } else {
+        MechanicalEditAdmission::Refuse
+    };
+    world.insert_resource(admission);
 }
 
 pub fn maintain_local_session(world: &mut World) {
@@ -464,36 +471,48 @@ mod seating_readiness_tests {
     }
 }
 
+
 #[cfg(test)]
-mod mechanical_edit_rebase_tests {
+mod mechanical_edit_admission_tests {
     use super::*;
+    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdit};
     use crate::session::{RollbackSessionOwnership, SyncTestOwner, SyncTestSettings};
 
-    fn app_with(ownership: Option<RollbackSessionOwnership>) -> App {
-        let mut app = App::new();
-        app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
-        if let Some(ownership) = ownership {
-            app.insert_resource(ownership);
+    /// A world with a LIVE session of the given ownership and one edit waiting.
+    ///
+    /// ⚠ `session_is_active` is what the decider branches on, so the fixture
+    /// asserts it rather than assuming the ownership resource implies it — an
+    /// ownership stamp with no session would make every arm below take the
+    /// "nothing to protect" road and agree for the wrong reason.
+    fn world_with_live_session(ownership: RollbackSessionOwnership) -> World {
+        let mut world = World::new();
+        world.init_resource::<LocalSessionOwnership>();
+        world.insert_resource(PendingMechanicalEdit(true));
+        match ownership {
+            RollbackSessionOwnership::External => {
+                let session =
+                    crate::session::build_sync_test_session(SyncTestSettings::for_players(1))
+                        .expect("the fixture could not build a GGRS session");
+                crate::session::install_session(&mut world, session);
+            }
+            RollbackSessionOwnership::LocalSyncTest { settings, owner } => {
+                crate::session::start_sync_test_session_owned(&mut world, settings, owner)
+                    .expect("the fixture could not start a GGRS session");
+            }
         }
-        app.init_resource::<LocalSessionOwnership>();
-        app.add_systems(
-            Update,
-            (|mut fired: ResMut<Fired>,
-              tuning: Option<Res<ambition_platformer2d_core::ActiveMovementTuning>>,
-              ownership: Option<Res<RollbackSessionOwnership>>| {
-                fired.0 = rebase_local_session_on_live_mechanical_edits(tuning, ownership);
-            })
-            .in_set(Probe),
+        assert_eq!(
+            world.get_resource::<RollbackSessionOwnership>().copied(),
+            Some(ownership),
+            "the fixture installed a session under different ownership than it \
+             asked for, so the arm below is testing the wrong policy"
         );
-        app.init_resource::<Fired>();
-        app
+        assert!(
+            crate::session::session_is_active(&world),
+            "the fixture has no live session, so every arm would answer Publish \
+             for want of a timeline rather than by policy"
+        );
+        world
     }
-
-    #[derive(Resource, Default)]
-    struct Fired(bool);
-
-    #[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
-    struct Probe;
 
     fn local() -> RollbackSessionOwnership {
         RollbackSessionOwnership::LocalSyncTest {
@@ -502,72 +521,124 @@ mod mechanical_edit_rebase_tests {
         }
     }
 
-    /// ⛔⛤ **A LIVE MECHANICAL EDIT ASKS FOR A REBASE — AND INSERTION DOES NOT.**
-    ///
-    /// `Q120` measured that editing `ActiveMovementTuning` mid-timeline desyncs
-    /// the GGRS sync-test canary. ⚠ The second half is the one that would break
-    /// every composition: Bevy counts INSERTION as a change, and these knobs are
-    /// installed before content finishes seeding, so a rebase on `is_added` would
-    /// stop the session the composition had just started — on frame one, every
-    /// time.
+    /// ⭐ **NO PROPOSAL, NO INTERFERENCE.** The overwhelmingly common frame.
     #[test]
-    fn an_edit_asks_for_a_rebase_and_the_first_frame_does_not() {
-        let mut app = app_with(Some(local()));
-
-        app.update();
+    fn a_frame_with_nothing_pending_never_touches_a_live_session() {
+        let mut world = world_with_live_session(local());
+        world.insert_resource(PendingMechanicalEdit(false));
+        decide_mechanical_edit_admission(&mut world);
         assert!(
-            !app.world().resource::<Fired>().0,
-            "the frame that INSTALLED the tuning asked for a rebase, which would \
-             restart every session on frame one"
+            crate::session::session_is_active(&world),
+            "a frame with no pending edit stopped the rollback session"
         );
-
-        app.update();
-        assert!(
-            !app.world().resource::<Fired>().0,
-            "an untouched knob asked for a rebase, so the trigger is not the edit"
-        );
-
-        app.world_mut()
-            .resource_mut::<ambition_platformer2d_core::ActiveMovementTuning>()
-            .0
-            .jump_speed += 1.0;
-        app.update();
-        assert!(
-            app.world().resource::<Fired>().0,
-            "a live edit to a mechanical knob did NOT ask for a rebase, so \
-             resimulation keeps reading its latest value — the state `Q120` calls \
-             not coherent"
+        assert_eq!(
+            *world.resource::<MechanicalEditAdmission>(),
+            MechanicalEditAdmission::Publish
         );
     }
 
-    /// ⭐ **THE OWNERSHIPS THAT MUST NOT BE REBASED, and they are the reason this
-    /// is a decision rather than a reflex.** An `External` session belongs to
-    /// peers — `RollbackSessionOwnership` says it *"must never be replaced
-    /// unilaterally by the local host"* — and a `Caller`-owned one was started by
-    /// a match activation or a harness that did not ask for a content rebase.
+    /// ⭐ **NO TIMELINE, NOTHING TO PROTECT.** Every composition without a
+    /// rollback host lives here, and the developer tools must keep working.
     #[test]
-    fn a_session_this_host_does_not_own_is_left_alone() {
+    fn an_edit_with_no_live_session_publishes() {
+        let mut world = World::new();
+        world.insert_resource(PendingMechanicalEdit(true));
+        decide_mechanical_edit_admission(&mut world);
+        assert_eq!(
+            *world.resource::<MechanicalEditAdmission>(),
+            MechanicalEditAdmission::Publish,
+            "a developer edit was refused by a host that has no timeline to \
+             desync, which would break live editing in every non-rollback build"
+        );
+    }
+
+    /// ⛔⛤ **MODEL 2, AND THE STOP HAPPENS BEFORE THE ANSWER IS `Publish`.**
+    ///
+    /// `Q120` measured that editing `ActiveMovementTuning` mid-timeline desyncs
+    /// the sync-test canary. The baseline this host owns is therefore stopped
+    /// and its policy memo released, so `maintain_local_session` starts the next
+    /// one against the edited mechanics.
+    #[test]
+    fn an_edit_rebases_a_baseline_this_host_owns() {
+        let mut world = world_with_live_session(local());
+        world.resource_mut::<LocalSessionOwnership>().started = Some(LocalSessionPolicy::default());
+
+        decide_mechanical_edit_admission(&mut world);
+
+        assert!(
+            !crate::session::session_is_active(&world),
+            "a live mechanical edit left this host's own baseline running, so \
+             resimulation keeps reading the latest value — the state `Q120` \
+             calls not coherent"
+        );
+        assert_eq!(
+            world.resource::<LocalSessionOwnership>().running_policy(),
+            None,
+            "the policy memo still names a session that was just stopped, so the \
+             maintainer would see 'already running exactly this' and never \
+             rebuild"
+        );
+        assert_eq!(
+            *world.resource::<MechanicalEditAdmission>(),
+            MechanicalEditAdmission::Publish
+        );
+    }
+
+    /// ⛔⛤ **MODEL 1 MEANS THE AUTHORITATIVE VALUE DOES NOT MOVE — WHICH IS NOT
+    /// WHAT THE FIRST VERSION OF THIS FIX GUARDED.**
+    ///
+    /// That version's arm was called `a_session_this_host_does_not_own_is_left
+    /// _alone` and asserted only that no rebase fired. It passed while the edit
+    /// still reached `ActiveMovementTuning` — i.e. while the timeline resimulated
+    /// against a value it had never seen. Leaving the session alone is the
+    /// EASY half; refusing the edit is the half that makes the state coherent,
+    /// and it is what `Q120`'s model 1 actually says.
+    ///
+    /// ⚠ And the proposal is RETAINED, not dropped: an edit the developer made
+    /// must not silently vanish because a peer session happened to be live. It
+    /// publishes by itself the moment the refusal stops applying.
+    #[test]
+    fn a_session_this_host_does_not_own_refuses_the_edit_and_keeps_it() {
         for (what, ownership) in [
-            ("no ownership resource at all", None),
-            ("an EXTERNAL/P2P session", Some(RollbackSessionOwnership::External)),
+            ("an EXTERNAL/P2P session", RollbackSessionOwnership::External),
             (
                 "a CALLER-owned sync test",
-                Some(RollbackSessionOwnership::LocalSyncTest {
+                RollbackSessionOwnership::LocalSyncTest {
                     settings: SyncTestSettings::for_players(1),
                     owner: SyncTestOwner::Caller,
-                }),
+                },
             ),
         ] {
-            let mut app = app_with(ownership);
-            app.update();
-            app.world_mut()
-                .resource_mut::<ambition_platformer2d_core::ActiveMovementTuning>()
-                .0
-                .jump_speed += 1.0;
-            app.update();
+            let mut world = world_with_live_session(ownership);
+
+            decide_mechanical_edit_admission(&mut world);
+
+            assert_eq!(
+                *world.resource::<MechanicalEditAdmission>(),
+                MechanicalEditAdmission::Refuse,
+                "{what} admitted a local developer edit, so its timeline \
+                 resimulates against mechanics it never ran with"
+            );
             assert!(
-                !app.world().resource::<Fired>().0,
-                "{what} was asked to rebase for a local developer edit"
+                crate::session::session_is_active(&world),
+                "{what} was stopped by this host for a local developer edit"
+            );
+            assert!(
+                world.resource::<PendingMechanicalEdit>().0,
+                "{what} DISCARDED the developer's edit instead of staging it, so \
+                 the value the inspector shows is not the value that will ever \
+                 be published"
+            );
+
+            // ⭐ AND THE REFUSAL EXPIRES WITH ITS REASON. The same retained
+            // proposal publishes as soon as the session it was protecting ends,
+            // which is what makes staging honest rather than a quiet drop.
+            crate::session::stop_session(&mut world);
+            decide_mechanical_edit_admission(&mut world);
+            assert_eq!(
+                *world.resource::<MechanicalEditAdmission>(),
+                MechanicalEditAdmission::Publish,
+                "{what} kept refusing a staged edit after its timeline ended"
             );
         }
     }

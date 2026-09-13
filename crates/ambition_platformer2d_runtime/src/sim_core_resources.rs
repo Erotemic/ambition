@@ -91,7 +91,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector
-            // edits reach it through `apply_editable_movement_tuning`. The
+            // edits reach it through `publish_editable_movement_tuning`. The
             // simulation never reads the dev-tools mirror.
             .init_resource::<ambition_platformer2d_core::ActiveMovementTuning>()
             // The room-content staging seam: providers/content register pure

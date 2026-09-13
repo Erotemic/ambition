@@ -64,13 +64,47 @@ impl Plugin for DevToolsSimPlugin {
         // wall-clock `Res<Time>` and keeps its debounce in a `Local`, neither of
         // which rewinds. Every reader is a MENU system in `Update` already.
         app.add_systems(bevy::app::Update, crate::poll_world_source_changes);
+        // ⛔⛤ **THE MOVEMENT-TUNING EDIT LEFT THE SIM SCHEDULE ON 2026-09-13.**
+        // It used to sit at the head of the chain below, copying the inspector
+        // mirror into `ActiveMovementTuning` — the value every movement policy
+        // reads. Under the rollback host the sim schedule IS `GgrsSchedule`, so
+        // that write happened inside the rollback window and a resimulation of
+        // confirmed frames read it: `Q120` measured the sync-test canary
+        // desyncing on exactly this edit.
+        //
+        // ⭐ It is now a PROPOSAL decided before the advance. The three sets come
+        // from `ambition_platformer2d_core`; the rollback host, when one is
+        // installed, orders them `.before(RunGgrsSystems)` and supplies the
+        // decision. Without a host they run in `PreUpdate` and publish by
+        // default — live editing is unchanged for every non-rollback build.
+        //
+        // ⚠ BOTH crates configure this chain, because either can be installed
+        // without the other. `configure_sets` is additive, so the constraints
+        // compose rather than compete.
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdit>();
+        app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+        app.configure_sets(
+            bevy::app::PreUpdate,
+            (
+                ambition_platformer2d_core::MechanicalEditSet::Propose,
+                ambition_platformer2d_core::MechanicalEditSet::Admit,
+                ambition_platformer2d_core::MechanicalEditSet::Publish,
+            )
+                .chain(),
+        );
+        app.add_systems(
+            bevy::app::PreUpdate,
+            (
+                crate::dev_tools::propose_editable_movement_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
+                crate::dev_tools::publish_editable_movement_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
+            ),
+        );
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
             (
-                // Editor → neutral authority, before the body-side edit apply
-                // reads it. Sim systems never see the inspector mirror.
-                crate::dev_tools::apply_editable_movement_tuning,
                 crate::sync_live_player_dev_edits_system,
                 // This mutates rollback state, so it must run in the simulation
                 // schedule with the other developer edits.

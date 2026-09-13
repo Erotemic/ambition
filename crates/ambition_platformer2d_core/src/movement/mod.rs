@@ -93,6 +93,7 @@ pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
+    MechanicalEditAdmission, MechanicalEditSet, PendingMechanicalEdit,
     FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
     OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning,
     AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS,

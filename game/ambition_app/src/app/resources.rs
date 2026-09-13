@@ -364,7 +364,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(editable_abilities)
         // The neutral authority the SIMULATION reads, seeded from authored
         // content. `editable_tuning` beside it is the inspector's reflected
-        // mirror; in a developer build `apply_editable_movement_tuning` pushes
+        // mirror; in a developer build `publish_editable_movement_tuning` pushes
         // its edits into this one. Nothing in the sim reads the mirror.
         .insert_resource(active_tuning)
         .insert_resource(editable_tuning)

@@ -515,19 +515,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         .init_resource::<ambition_input::SessionSeatingSource>()
         .add_systems(
             Update,
-            (
-                // ⛔⛤ **BEFORE THE MAINTAINER, AND THE ORDER IS THE WHOLE
-                // MECHANISM.** The rebase stops the session and releases
-                // ownership; `maintain_local_session` then sees no session in the
-                // SAME frame and starts one against the edited mechanics. Running
-                // it after would leave one frame of the old baseline with the new
-                // tuning, which is the frame `Q120`'s canary measured desyncing.
-                super::local_session::apply_mechanical_edit_rebase.run_if(
-                    super::local_session::rebase_local_session_on_live_mechanical_edits,
-                ),
-                super::local_session::maintain_local_session,
-            )
-                .chain()
+            super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
         // Both are in `Update` and nothing ordered them, so which authority sized the ggrs
@@ -646,6 +634,36 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         .configure_sets(
             PreUpdate,
             ambition_platformer2d_runtime::external_effects::ExternalEffectSet::Release.after(RunGgrsSystems),
+        )
+        // ⛔⛤ **THE EDGE `Q120`'s FIRST FIX ASSERTED IN A COMMENT AND NEVER
+        // DECLARED.** A developer edit to a value the simulation reads must be
+        // decided and published BEFORE this host advances the timeline —
+        // otherwise the old session simulates, and RESIMULATES HISTORY, against
+        // mechanics it never ran with. The first version watched for the edit in
+        // `Update`, after `RunGgrsSystems` had already advanced `GgrsSchedule`
+        // with the new value.
+        //
+        // ⭐ The SETS come from `ambition_platformer2d_core`, beside the
+        // resources, so the developer-tools crate can register proposers and
+        // publishers into them without depending on this crate — and so a
+        // composition with no rollback host still runs the same chain and
+        // publishes by default.
+        .configure_sets(
+            PreUpdate,
+            (
+                ambition_platformer2d_core::MechanicalEditSet::Propose,
+                ambition_platformer2d_core::MechanicalEditSet::Admit,
+                ambition_platformer2d_core::MechanicalEditSet::Publish,
+            )
+                .chain()
+                .before(RunGgrsSystems),
+        )
+        .init_resource::<ambition_platformer2d_core::PendingMechanicalEdit>()
+        .init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>()
+        .add_systems(
+            PreUpdate,
+            crate::local_session::decide_mechanical_edit_admission
+                .in_set(ambition_platformer2d_core::MechanicalEditSet::Admit),
         )
         .add_observer(record_sync_test_mismatch);
 }
@@ -1969,5 +1987,122 @@ mod wrong_seam_tests {
     #[test]
     fn an_idle_rollback_host_is_silent() {
         assert!(!reported(true, false, false));
+    }
+}
+
+/// ⛔⛤ **THE EDGE `Q120`'s FIRST FIX ASSERTED IN PROSE AND NEVER DECLARED.**
+///
+/// The original repair wrote, in a doc comment, that the rebase happened *"in
+/// the same frame the edit was observed"*. It did not. The editor adapter lived
+/// in the SIM schedule — under this host, `GgrsSchedule`, advanced from
+/// `PreUpdate` by `RunGgrsSystems` — and the watcher lived in `Update`. ⇒ The old
+/// timeline advanced, and could resimulate confirmed history, against the edited
+/// value before anything looked at it.
+///
+/// ⭐⭐ **SO THE ORDERING IS NOW A DECLARATION, AND THIS ASKS THE SCHEDULE FOR
+/// IT.** A comment cannot be poisoned; an edge can.
+#[cfg(test)]
+mod mechanical_edit_ordering_tests {
+    use super::*;
+    use ambition_platformer2d_core::MechanicalEditSet;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules};
+
+    fn set_node<S: bevy::ecs::schedule::SystemSet>(graph: &ScheduleGraph, set: S) -> NodeId {
+        NodeId::Set(
+            graph
+                .system_sets
+                .get_key(bevy::ecs::schedule::SystemSet::intern(&set))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "`{set:?}` is not in the PreUpdate graph at all, so every \
+                         ordering question about it below is vacuously false"
+                    )
+                }),
+        )
+    }
+
+    /// Reachability over the DEPENDENCY graph between two nodes the declaration
+    /// itself names. ⚠ Set→MEMBER is hierarchy, not dependency, so this is only
+    /// valid for set-to-set questions written as set-to-set edges — which is
+    /// exactly how the chain below is declared.
+    fn reaches(graph: &ScheduleGraph, from: NodeId, to: NodeId) -> bool {
+        use std::collections::HashSet;
+        let dependency = graph.dependency().graph();
+        let mut out: std::collections::HashMap<NodeId, Vec<NodeId>> = Default::default();
+        for (u, v) in dependency.all_edges() {
+            out.entry(u).or_default().push(v);
+        }
+        let mut seen: HashSet<NodeId> = HashSet::new();
+        let mut stack = vec![from];
+        while let Some(node) = stack.pop() {
+            if node == to && node != from {
+                return true;
+            }
+            if !seen.insert(node) {
+                continue;
+            }
+            if let Some(next) = out.get(&node) {
+                stack.extend(next.iter().copied());
+            }
+        }
+        false
+    }
+
+    #[test]
+    fn the_mechanical_edit_chain_completes_before_the_timeline_advances() {
+        let mut app = App::new();
+        app.init_schedule(ReadInputs)
+            .init_resource::<ambition_characters::control::SlotControlLatches>()
+            .init_resource::<PendingSeatInputs>()
+            .init_resource::<LocalPlayers>();
+        install_session_bridge(&mut app);
+        // ⚠ The graph is only populated once the schedule is initialized; asking
+        // an uninitialized one returns an empty graph, which reads exactly like
+        // "no edges exist" — i.e. like the finding.
+        app.world_mut()
+            .resource_mut::<Schedules>()
+            .get_mut(PreUpdate)
+            .expect("the PreUpdate schedule exists")
+            .initialize(&mut World::new())
+            .ok();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(PreUpdate)
+            .expect("the PreUpdate schedule exists")
+            .graph();
+
+        let propose = set_node(graph, MechanicalEditSet::Propose);
+        let admit = set_node(graph, MechanicalEditSet::Admit);
+        let publish = set_node(graph, MechanicalEditSet::Publish);
+        let advance = set_node(graph, RunGgrsSystems);
+
+        // ⛔ THE CONTROL, AND IT IS THE LOAD-BEARING HALF. An instrument that
+        // walks too generously answers "reaches" for everything, and every
+        // assertion below would then pass while proving nothing.
+        assert!(
+            !reaches(graph, advance, propose),
+            "the instrument reports a path from the advance BACK to the proposal \
+             step, which the declaration does not contain — it is answering \
+             'reaches' for unrelated nodes, so nothing below is evidence"
+        );
+
+        for (what, from, to) in [
+            ("a proposal is decided before it is published", propose, admit),
+            ("a decision precedes the publication it authorizes", admit, publish),
+            (
+                "the whole chain completes before the timeline advances",
+                publish,
+                advance,
+            ),
+        ] {
+            assert!(
+                reaches(graph, from, to),
+                "{what}: NOT ordered. A developer edit to a value every \
+                 simulation system reads would reach the authority after \
+                 `RunGgrsSystems` had already advanced — and RESIMULATED \
+                 CONFIRMED HISTORY — with it. That is the defect `Q120` \
+                 measured and the ordering its first fix only claimed."
+            );
+        }
     }
 }

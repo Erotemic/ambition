@@ -59,7 +59,7 @@ use dev_tools::EditableAbilitySet;
 /// the sandbox protagonist (base `sandbox_all`) the intersection equals the
 /// editable set, so the F3 experiment workflow is unchanged.
 pub fn sync_live_player_dev_edits_system(
-    // The neutral authority, NOT the inspector mirror: `apply_editable_movement_tuning`
+    // The neutral authority, NOT the inspector mirror: `publish_editable_movement_tuning`
     // is chained immediately before this in `DevEditApplySet`, so an F3 edit is
     // already here — and a body whose tuning came from content rather than the
     // inspector now resolves correctly too.

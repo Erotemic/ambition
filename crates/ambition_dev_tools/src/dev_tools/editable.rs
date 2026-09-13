@@ -850,14 +850,67 @@ pub fn sync_player_stats_with_inspector(
 /// seeding. Propagating that first "change" would let the inspector's defaults
 /// overwrite authored tuning on frame one — which is the exact ownership
 /// inversion this slice exists to remove.
-pub fn apply_editable_movement_tuning(
+/// ⛔⛤ **SPLIT IN TWO ON 2026-09-13, BECAUSE ONE HALF OF IT IS A DECISION THE
+/// ROLLBACK TIMELINE OWNS.** See [`propose_editable_movement_tuning`] for the
+/// first half. This one only WRITES, and only when something with a view of the
+/// timeline has said it may.
+///
+/// ⚠ It is deliberately NOT change-guarded any more. The guard now lives on the
+/// PROPOSAL: an untouched inspector raises nothing, so this never runs its
+/// write. Re-adding `is_changed` here would drop every edit that had to be
+/// staged for a frame — which is the entire point of staging it.
+pub fn publish_editable_movement_tuning(
     editable: Res<EditableMovementTuning>,
+    admission: Option<Res<ae::MechanicalEditAdmission>>,
+    mut pending: ResMut<ae::PendingMechanicalEdit>,
     mut active: ResMut<ae::ActiveMovementTuning>,
+) {
+    if !pending.0 {
+        return;
+    }
+    // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
+    // with no rollback host has no history an edit could contradict, and a
+    // missing answer that read as `Refuse` would silently kill live editing in
+    // every non-rollback build. The host that CAN refuse always installs it.
+    if matches!(
+        admission.as_deref(),
+        Some(ae::MechanicalEditAdmission::Refuse)
+    ) {
+        return;
+    }
+    active.0 = editable.as_engine();
+    pending.0 = false;
+}
+
+/// Raise the developer's movement-tuning edit as a PROPOSAL.
+///
+/// ⛔⛤ **THE EDIT DOES NOT REACH THE SIMULATION HERE, AND THAT IS THE FIX.**
+/// This used to be one system, `apply_editable_movement_tuning`, registered into
+/// the SIM schedule — which under the rollback host is `GgrsSchedule`. So the
+/// authoritative value moved inside the rollback window, where a resimulation of
+/// already-confirmed frames would read it: `Q120` measured that desyncing the
+/// GGRS sync-test canary. The first attempt at a fix added a WATCHER in `Update`
+/// to stop the baseline afterwards; `Update` runs after `RunGgrsSystems`, so the
+/// old timeline consumed the edit first and the watcher's doc comment claimed an
+/// ordering the schedule never established.
+///
+/// ⇒ Now: propose in [`MechanicalEditSet::Propose`], the timeline's owner
+/// answers in `Admit`, and [`publish_editable_movement_tuning`] writes in
+/// `Publish` — the whole chain in `PreUpdate`, before the advance.
+///
+/// ⚠ **`is_added` IS EXCLUDED** deliberately: Bevy counts INSERTION as a change,
+/// and the mirror is installed with its own defaults before content finishes
+/// seeding. Proposing that first "change" would let the inspector's defaults
+/// overwrite authored tuning on frame one — and would stop the session the
+/// composition had just started, every time.
+pub fn propose_editable_movement_tuning(
+    editable: Res<EditableMovementTuning>,
+    mut pending: ResMut<ae::PendingMechanicalEdit>,
 ) {
     if !editable.is_changed() || editable.is_added() {
         return;
     }
-    active.0 = editable.as_engine();
+    pending.0 = true;
 }
 
 #[cfg(test)]
@@ -868,8 +921,77 @@ mod adapter_tests {
         let mut app = App::new();
         app.init_resource::<EditableMovementTuning>();
         app.init_resource::<ae::ActiveMovementTuning>();
-        app.add_systems(Update, apply_editable_movement_tuning);
+        app.init_resource::<ae::PendingMechanicalEdit>();
+        app.init_resource::<ae::MechanicalEditAdmission>();
+        app.add_systems(
+            Update,
+            (
+                propose_editable_movement_tuning,
+                publish_editable_movement_tuning,
+            )
+                .chain(),
+        );
         app
+    }
+
+    /// ⛔⛤ **A REFUSED EDIT DOES NOT MOVE THE VALUE THE SIMULATION READS, AND IS
+    /// NOT THROWN AWAY.**
+    ///
+    /// This is `Q120`'s model 1 as its row states it — *"refuse mechanical live
+    /// edits while a rollback timeline is active"* — and the first version of
+    /// this fix implemented the opposite: the edit landed and a watcher tried to
+    /// clean up after it. An external or caller-owned timeline cannot be stopped
+    /// by this host, so the only coherent answer is to hold the proposal.
+    ///
+    /// ⭐ THE SECOND HALF IS THE ONE WORTH GUARDING. A refusal that dropped the
+    /// edit would leave the inspector showing a value that will never be
+    /// published — the developer drags a slider, nothing happens, and nothing
+    /// ever will.
+    #[test]
+    fn a_refused_edit_is_staged_and_publishes_when_the_refusal_lifts() {
+        let mut app = app_with_adapter();
+        app.update();
+        app.insert_resource(ae::MechanicalEditAdmission::Refuse);
+
+        app.world_mut()
+            .resource_mut::<EditableMovementTuning>()
+            .jump_speed = -777.0;
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<ae::ActiveMovementTuning>()
+                .jump_speed,
+            ae::MovementTuning::default().jump_speed,
+            "a refused edit still reached the authority every simulation system \
+             reads, so a timeline nobody could rebase resimulates against \
+             mechanics it never ran with"
+        );
+        assert!(
+            app.world().resource::<ae::PendingMechanicalEdit>().0,
+            "the refused edit was discarded instead of staged"
+        );
+
+        // ⚠ SEVERAL FRAMES while refused: the proposal is sticky, and
+        // `is_changed` has long since gone quiet.
+        for _ in 0..3 {
+            app.update();
+        }
+        app.insert_resource(ae::MechanicalEditAdmission::Publish);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<ae::ActiveMovementTuning>()
+                .jump_speed,
+            -777.0,
+            "the staged edit never published after the refusal lifted, so the \
+             developer's change was silently lost"
+        );
+        assert!(
+            !app.world().resource::<ae::PendingMechanicalEdit>().0,
+            "a published proposal stayed pending, so every later frame republishes it"
+        );
     }
 
     /// Live editing still works: the F3 panel's edit reaches the value the simulation actually

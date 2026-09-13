@@ -102,9 +102,27 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   authorization/lease, or a deliberate rollback stop-and-rebase lifecycle. ⚠ This
   row asked for the measurement for a day after it had been taken — the ledger
   was updated and the queue was not.</details>
-- **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
-  against the real sync-test canary. The model is the decision: refuse / rebase /
-  deterministic input.
+- ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
+  WRONG IN BOTH HALVES AND A REVIEW CAUGHT IT.** A live developer edit DESYNCS
+  rollback resimulation, measured against the real sync-test canary.
+  ⛔⛤ **ATTEMPT 1 LET THE EDIT LAND AND WATCHED FOR IT AFTERWARDS.** Its comment
+  claimed the rebase happened *"in the same frame the edit was observed"*;
+  MEASURED, the adapter was in the sim schedule — under this host `GgrsSchedule`,
+  advanced from `PreUpdate` by `RunGgrsSystems` — and the watcher was in `Update`,
+  so the old timeline consumed the edit first. ⇒ **An invariant asserted in a doc
+  comment is a claim about a SCHEDULE and has to be asked of the schedule.**
+  ⛔⛤ **AND ITS "EXTERNAL SESSIONS KEEP MODEL 1" WAS FALSE** — it wrote *"the edit
+  lands and the timeline is left alone"*, which is the incoherent state this row
+  exists to remove, with a label on it.
+  ⭐⭐ **FIXED BY AN ADMISSION PROTOCOL, ONE FOR EVERY KNOB.** `PendingMechanicalEdit`
+  / `MechanicalEditAdmission` / `MechanicalEditSet::{Propose, Admit, Publish}` in
+  `ambition_platformer2d_core`, chained in `PreUpdate` and ordered
+  `.before(RunGgrsSystems)` by the rollback host. Local-maintainer ⇒ stop and
+  rebase (model 2); `External`/`Caller` ⇒ refuse **and stage** (model 1, as the
+  row actually defines it); no timeline ⇒ publish. Four guards, all
+  poison-verified: the schedule edge (with a control), the two ownership
+  policies, and the staged-edit round trip. ⚠ Four more knobs have the same shape
+  and gain a PROPOSER each when a consumer needs one — not a decision each.
 - **`Q119`** — ⚠ **THE AUDIT IS COMPLETE; "NO EXCEPTIONS LEFT" WAS SAID TWICE AND
   WAS WRONG BOTH TIMES.** First `PerceptionExtentOverride` was outside every
   identity (closed `2026-09-13`); then, with it bound, its fingerprint was a

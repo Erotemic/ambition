@@ -880,6 +880,34 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // ⛔⛤ **THE HOST-SIDE HALF OF `Q120`'s ADMISSION PROTOCOL, AND THE WAIVER IS
+    // JUSTIFIED BY A BOUNDARY RATHER THAN BY A CENSUS OF WRITERS.**
+    //
+    // These two exist so a developer's mechanical edit is a PROPOSAL until the
+    // rollback timeline's owner admits it. Every system that touches either —
+    // the proposer, `decide_mechanical_edit_admission`, and the publisher —
+    // lives in `MechanicalEditSet::{Propose, Admit, Publish}`, which is a
+    // `PreUpdate` chain the rollback host orders `.before(RunGgrsSystems)`. ⇒
+    // **They are, by declaration, outside the rollback window**, and the
+    // ordering that puts them there is itself guarded and poison-verified
+    // (`mechanical_edit_ordering_tests`).
+    //
+    // ⚠ REWINDING THEM WOULD BE THE BUG, not merely pointless. Restoring
+    // `PendingMechanicalEdit` to a historical frame's value would resurrect an
+    // edit the developer had already published, or discard one still staged
+    // behind a refusal; restoring `MechanicalEditAdmission` would hand the next
+    // frame an answer about a timeline that no longer exists. Neither is a fact
+    // a peer needs to agree about — what the peers must agree about is
+    // `ActiveMovementTuning`, and the whole point of this protocol is that it
+    // does not move inside the window.
+    (
+        "ambition_platformer2d_core::movement::tuning::PendingMechanicalEdit",
+        "host-side edit proposal: raised and consumed in the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems, so it is outside the rollback window by construction; rewinding it would resurrect a published edit or discard a staged one",
+    ),
+    (
+        "ambition_platformer2d_core::movement::tuning::MechanicalEditAdmission",
+        "host-side answer about the live timeline, decided in PreUpdate before RunGgrsSystems and consumed in the same chain; rewinding it would hand a frame an answer about a timeline that no longer exists",
+    ),
     // ⭐ INSTALL-TIME DECLARATION, AND STRUCTURALLY SO. It is written once, in
     // `combat_schedule::install_technique`, by the statement that adds a
     // technique's handler system, and NOTHING in the simulation writes it — a

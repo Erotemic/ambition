@@ -1863,38 +1863,94 @@ which are the SECOND row of the table and have no answer yet.
 
 </details>
 
-## ⚖ Q120 — MODEL 2 (REBASE) IS IMPLEMENTED BY PRECEDENT AND IS REVERSIBLE. Jon can still rule; the mechanism now serves any of the three.
+## ⚖ Q120 — LOCAL: MODEL 2 (REBASE). EXTERNAL/CALLER: MODEL 1 (REFUSE AND STAGE). Model 3 deferred. Jon can still rule; the mechanism serves any of the three.
 
-⛔⛤ **THE STATE THIS ROW CALLS *"NOT COHERENT"* IS GONE, WITHOUT WAITING FOR THE
-RULING — because all three models are better than it, and one of them was already
-chosen next door on the same day.** `Q118`'s live-timeline half adopted
-stop-and-rebase for the CONTENT publication road, reusing the stop-and-release the
-LDtk reload has shipped for months. A developer knob edit that changes the
-simulation is the same event one surface over, so the same protocol answers it:
-`rebase_local_session_on_live_mechanical_edits` observes a change to
-`ActiveMovementTuning`, and `apply_mechanical_edit_rebase` stops the baseline in
-the SAME frame so `maintain_local_session` starts the next one against the edited
-tuning.
+⛔⛤ **THIS ROW WAS CLOSED ONCE ON 2026-09-13 AND THE CLOSURE WAS WRONG IN BOTH
+HALVES. A REVIEW OF `3699fe8..c5f727c` FOUND IT AND THE SOURCE AGREED.** Both
+errors are kept below, because the shape of each is worth more than the fix.
 
-⚠ **THIS IS A CHOICE I MADE AND IT IS LABELLED AS ONE.** Model 1 (refuse) would
-delete the developer feature — the measurement behind the first publication
-breaker said exactly that about refusing a healthy timeline. Model 3
-(deterministic timestamped input) is a substantially larger machine. ⇒ Model 2 is
-the one its sibling road took, so taking a different one here would make two
-mechanical-edit surfaces disagree. **If Jon rules otherwise the MECHANISM stays
-and the POLICY moves:** model 1 is this system declining to apply the edit, model
-3 replaces the system.
+### ⛔⛤ ERROR 1 — THE REBASE RAN AFTER THE HAZARD, AND ONLY A DOC COMMENT SAID OTHERWISE
 
-⛔ **EXTERNAL AND CALLER-OWNED SESSIONS KEEP MODEL 1 BY NECESSITY**, for the reason
-`RollbackSessionOwnership` already gives — peers need a coordinated content
-barrier that does not exist yet, and a caller's session was not started for this.
-Guarded across all four ownerships.
+The first version let the editor adapter write `ActiveMovementTuning` and put a
+WATCHER after it that stopped the local baseline. Its comment read *"in the SAME
+frame the edit was observed"*. **MEASURED against the shipped schedule, that was
+false:**
 
-⚠ **WHAT IS NOT DONE:** only `ActiveMovementTuning` triggers the rebase. The four
-others this row names (`EditableAbilitySet`, `EditablePlayerStats`, and the rest)
-have the same shape and are NOT wired — stated rather than rounded up, because the
-sentence *"the same question is owed by four more"* is what this row exists to
-carry. `Platformer2dFeelTuningMonolith` did not desync in its arm and the row says
+* `crates/ambition_dev_tools/src/sim_plugin.rs` registered the adapter into
+  `app.sim_schedule()`;
+* `crates/ambition_platformer2d_rollback_ggrs/src/lib.rs` sets the sim schedule to
+  `GgrsSchedule`;
+* `session.rs` advances `GgrsSchedule` from **`PreUpdate`**, via `RunGgrsSystems`;
+* the watcher was in **`Update`**.
+
+⇒ The old GGRS session advanced — and could RESIMULATE CONFIRMED HISTORY —
+against the edited value before the watcher ever ran. Worse, the authoritative
+value was being written *inside the rollback window*, which is the precise
+mechanism this row measured desyncing.
+
+⭐⭐ **THE REPAIR IS AN ADMISSION PROTOCOL, NOT A WATCHER, AND IT IS ONE PROTOCOL
+FOR EVERY KNOB.** `ambition_platformer2d_core` now owns
+`PendingMechanicalEdit`, `MechanicalEditAdmission` and
+`MechanicalEditSet::{Propose, Admit, Publish}` — a chain in `PreUpdate` which the
+rollback host orders `.before(RunGgrsSystems)`. An editor PROPOSES; the timeline's
+owner ANSWERS (`decide_mechanical_edit_admission`); the adapter writes the
+authoritative value only in `Publish`, only when admitted, and always before the
+advance. ⚠ The review's instruction was explicit and is followed: *"I would
+strongly avoid building five separate watch systems"* — the four remaining knobs
+add a proposer each, not a decision each, and the rollback crate gains no
+dependency on the crates that own them.
+
+⭐ **AND THE EDGE IS NOW A DECLARATION A POISON CAN REACH.**
+`mechanical_edit_ordering_tests::the_mechanical_edit_chain_completes_before_the_timeline_advances`
+asks the `PreUpdate` graph, with a control that refuses to pass if the walk is too
+generous. Removing `.before(RunGgrsSystems)` reddens it. ⇒ **An invariant asserted
+in a doc comment is a claim about a schedule, and it has to be asked of the
+schedule.**
+
+### ⛔⛤ ERROR 2 — "EXTERNAL AND CALLER SESSIONS KEEP MODEL 1" WAS FALSE
+
+The old text read: *"the edit lands and the timeline is left alone"*. **That is
+not model 1. That is the incoherent state this row exists to remove**, with a
+label on it. Model 1 as this row states it is *"refuse mechanical live edits
+while a rollback timeline is active"* — the authoritative value **does not
+change**. The old guard, `a_session_this_host_does_not_own_is_left_alone`,
+asserted only that no rebase fired; it passed while the edit still reached
+`ActiveMovementTuning`. It guarded the easy half.
+
+⇒ Now `MechanicalEditAdmission::Refuse` means the value does not move **and the
+proposal is retained**, so the developer's edit publishes by itself the moment
+the session it was protecting ends or ownership becomes local. A refusal that
+DROPPED the edit would leave the inspector showing a value that will never be
+published. Guarded by
+`a_session_this_host_does_not_own_refuses_the_edit_and_keeps_it` (both halves,
+plus the expiry) and by
+`a_refused_edit_is_staged_and_publishes_when_the_refusal_lifts`.
+
+### The rulings themselves
+
+| ownership | model | what happens |
+| --- | --- | --- |
+| no live timeline | — | publish immediately; every non-rollback composition lives here |
+| `LocalSyncTest { LocalMaintainer }` | **2 — rebase** | stop the baseline, release the policy memo, publish; `maintain_local_session` starts the next one against the edited mechanics in the same frame |
+| `LocalSyncTest { Caller }` | **1 — refuse** | value unchanged, proposal staged |
+| `External` (P2P) | **1 — refuse** | value unchanged, proposal staged |
+
+⚠ **MODEL 2 FOR THE LOCAL CASE IS A CHOICE AND IS LABELLED AS ONE.** `Q118`'s
+live-timeline half adopted stop-and-rebase for the CONTENT publication road on the
+same day, reusing the stop-and-release the LDtk reload has shipped for months; a
+knob edit that changes the simulation is the same event one surface over, so
+taking a different model here would make two mechanical-edit surfaces disagree.
+Model 3 (deterministic timestamped input) is a substantially larger machine and is
+deferred. **If Jon rules otherwise the MECHANISM stays and the POLICY moves:**
+model 1 everywhere is `decide_mechanical_edit_admission` answering `Refuse` for
+the local case too — one branch.
+
+⚠ **WHAT IS NOT DONE:** only `ActiveMovementTuning` has a proposer. The four
+others this row names (`EditableAbilitySet`, `EditablePlayerStats`,
+`DeveloperTools.player_body_profile`, `PhysicsSandboxSettings`/`PortalTuning`)
+have the same shape and are NOT wired — stated rather than rounded up, and
+deliberately left until a consumer needs one, per the review's defer list.
+`Platformer2dFeelTuningMonolith` did not desync in its arm and the row says below
 why that is not an acquittal.
 
 <details><summary>The question as it was posed</summary>

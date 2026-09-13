@@ -105,6 +105,55 @@ fn expected_brain_label(template: CharacterBrainTemplate) -> &'static str {
     }
 }
 
+/// ⛔⛤ **THE OBSERVATION WINDOW STARTS WHEN BOTH SEATS EXIST, NOT WHEN THE ROUTE
+/// IS REQUESTED — AND THE FOUR MEASUREMENTS BELOW USED TO DISAGREE WITH THAT BY
+/// SPENDING A BUDGET FROM THE REQUEST.**
+///
+/// This is the same defect `smash_cpu_cognition::play_mirror_match` was repaired
+/// for at `f44a0fe82`, and this file held FOUR more copies of it. MEASURED there,
+/// ten runs of ONE binary with no code change between them: the first two-seated
+/// tick was `5, 5, 5, 5, 37, 35, 5, 32, 5, 45` — **bimodal, varying by forty
+/// frames** — while the LAST was 137 in all ten. ⇒ Nothing ends early; the window
+/// is eaten at the START, by a seating latency that is not deterministic run to
+/// run. A balance sweep that loses forty frames of a duel reports it as a
+/// fighter who threw less.
+///
+/// ⭐ **SO SEATING IS A PREMISE, AND A PREMISE IS WAITED FOR AND ASSERTED.** The
+/// window measured after this returns is exactly the same length every run, so a
+/// short one means a body LEFT — a KO, a despawn — which is a gameplay outcome
+/// these arms must not paper over.
+///
+/// ⚠ ONE AUTHORITY: the four call sites below share this, so *"how long is a
+/// bout"* is stated once. Four copies of a window length is four chances for one
+/// to drift, and a sweep whose rows were measured over different windows is a
+/// table nobody can read across.
+fn seat_two_bodies(app: &mut App, countdown: usize, what: &str) -> usize {
+    /// Ten seconds at 60Hz, against a seating latency measured in tens of
+    /// frames: long enough that a real delay is not a failure, short enough that
+    /// a composition which never seats says so instead of hanging.
+    const SEATING_BUDGET: usize = 600;
+    let mut warmup = 0usize;
+    loop {
+        app.update();
+        warmup += 1;
+        let seated = {
+            let world = app.world_mut();
+            let mut seats = world.query::<&MatchSeat>();
+            seats.iter(world).filter(|seat| seat.0 < 2).count()
+        };
+        if seated >= 2 {
+            return warmup;
+        }
+        assert!(
+            warmup < SEATING_BUDGET,
+            "`{what}` never seated two bodies within {SEATING_BUDGET} updates (the \
+             opening countdown is {countdown}), so the match never started and \
+             nothing below would be measuring it. This is the PREMISE failing, not \
+             a fight that produced nothing."
+        );
+    }
+}
+
 /// One minute at 60Hz — the same budget `ladder_rig` uses, so the two are
 /// readable against each other.
 const TICKS: usize = 3_600;
@@ -272,6 +321,10 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // Here because D192's interval is the arm that was never run against the
     // repaired regime: the old hold could not test `D194 fix + interval` at all.
     let mut mutual_capture_ticks = 0usize;
+    // ⛔ THE PREMISE FIRST: the window below is measured from the frame both
+    // seats exist, so a variable seating latency can no longer shorten it.
+    // See `seat_two_bodies`.
+    seat_two_bodies(&mut app, countdown, fighter.as_str());
     for tick in 0..(countdown + TICKS) {
         app.update();
         {
@@ -902,6 +955,10 @@ fn mirror_bout(
     let mut situations = std::collections::BTreeMap::<String, usize>::new();
     let mut gaps: Vec<f32> = Vec::new();
     let mut live = std::collections::BTreeMap::<bevy::prelude::Entity, (String, f32)>::new();
+    // ⛔ THE PREMISE FIRST: the window below is measured from the frame both
+    // seats exist, so a variable seating latency can no longer shorten it.
+    // See `seat_two_bodies`.
+    seat_two_bodies(&mut app, countdown, fighter);
     for _ in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
@@ -1247,6 +1304,10 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
     let mut seated_ticks = 0usize;
     let mut cursor = None;
 
+    // ⛔ THE PREMISE FIRST: the window below is measured from the frame both
+    // seats exist, so a variable seating latency can no longer shorten it.
+    // See `seat_two_bodies`.
+    seat_two_bodies(&mut app, countdown, "goblin vs perfect_cellular_automaton");
     for tick in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
@@ -1413,6 +1474,10 @@ fn probe_where_the_goblin_pca_hit_events_come_from() {
     let mut by_source: BTreeMap<String, usize> = BTreeMap::new();
     let mut seated_ticks = 0usize;
     let mut cursor = None;
+    // ⛔ THE PREMISE FIRST: the window below is measured from the frame both
+    // seats exist, so a variable seating latency can no longer shorten it.
+    // See `seat_two_bodies`.
+    seat_two_bodies(&mut app, countdown, "goblin vs perfect_cellular_automaton");
     for _ in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();

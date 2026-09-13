@@ -241,6 +241,34 @@ retiring the old one. `commit_deferred`'s three lines —
 `rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..` — are the
 mutation of the LIVE world that has to become construction of a CANDIDATE one.
 
+### ⛔⛤ AND THE OBSTACLE A CANDIDATE ROOT HITS IS MEASURED TOO — WITH THE CONSTRAINT THAT CLEARS IT
+
+The session world root is **IDENTITY-BEARING**: production spawns it with
+`SimId::singleton("session", activation_id)` and says why — *"the root is
+rollback-anchored (it carries the room set) … a derived identity, so the identity
+census admits no waiver (S4)."* ⇒ A candidate root for the same activation carries
+the SAME `SimId`, and `TransactionBaseline::capture` REFUSES two entities on one
+identity (`BaselineCaptureError::DuplicateIdentity`) **before any verification
+runs**. *"Build the next world beside this one"* would break the very next
+transaction's baseline.
+
+⭐⭐ **IT DOES NOT, AND THE REASON IS THE SAME DISABLING FILTER.** `capture`'s query
+does not mention `InactiveCandidate`, so a hidden candidate is NOT in the
+population. MEASURED both ways in
+`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`:
+capture SUCCEEDS with a hidden duplicate and REFUSES once the marker is removed
+without retiring the old body.
+
+⇒ **SO THE MACHINERY ITSELF FORCES PUBLICATION AND RETIREMENT INTO ONE STEP** —
+publish without retiring and the next transaction cannot open. That is the second
+standing test rather than the first: no guard asks the question, the structure
+refuses to express the state. ⭐ **AND IT IS THE "REAL SUPERSESSION RELATIONSHIP"
+THE REVIEW ASKED FOR, in vocabulary that already exists:** a candidate root is
+`TransactionBaseline::reconstructing` for the root's identity, and
+`ReconstructedOldSurvived` — *"you said you would replace this and the old body is
+still here"* — is exactly the state that is LEGAL while the new body is a
+candidate and ILLEGAL after publication.
+
 ⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
 SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,
 `SessionMechanics`, `ActiveContentBinding`) are singular process-global resources

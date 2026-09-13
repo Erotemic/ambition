@@ -3049,3 +3049,69 @@ fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
          not the removal"
     );
 }
+
+/// ⛔⛤ **THE OBSTACLE A CANDIDATE ROOT ACTUALLY HITS, MEASURED — AND THE HIDING
+/// IS WHAT CLEARS IT.**
+///
+/// The session world root is IDENTITY-BEARING: production spawns it with
+/// `SimId::singleton("session", activation_id)` and its own comment says *"the
+/// root is rollback-anchored (it carries the room set) … a derived identity, so
+/// the identity census admits no waiver"*. ⇒ A candidate root for the SAME
+/// activation carries the SAME `SimId`, and `TransactionBaseline::capture`
+/// REFUSES two entities on one identity — `BaselineCaptureError::DuplicateIdentity`,
+/// before any verification runs. So *"build the next world beside this one"* would
+/// break the very next transaction's baseline.
+///
+/// ⭐⭐ **IT DOES NOT, BECAUSE CAPTURE CANNOT SEE A HIDDEN CANDIDATE.** The query
+/// does not mention `InactiveCandidate`, so a disabled entity is not in the
+/// population — and that is the property that lets N and N+1 hold one identity at
+/// once. ⇒ **The publication must retire the old body in the SAME step it removes
+/// the marker**, or the next capture sees two and refuses; the arm below measures
+/// both halves of that.
+#[test]
+fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not() {
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+
+    let identity = SimId::singleton("session", "7");
+    let live = world.spawn(identity.clone()).id();
+    let candidate = world
+        .spawn((identity.clone(), super::InactiveCandidate))
+        .id();
+
+    // ⚠ THE PREMISE: two entities really do hold one identity, or "capture
+    // succeeds" below is a statement about an empty world.
+    assert!(world.get::<SimId>(live).is_some());
+    assert_eq!(
+        world.get::<SimId>(candidate),
+        Some(&identity),
+        "the candidate does not carry the live world's identity, so nothing below \
+         is about sharing one"
+    );
+
+    let captured = super::TransactionBaseline::capture(&mut world);
+    assert!(
+        captured.is_ok(),
+        "a HIDDEN candidate sharing the live identity refused baseline capture, so \
+         a candidate world cannot be built beside the one it replaces: {:?}",
+        captured.err()
+    );
+
+    // ⛔ AND THE CONSTRAINT THAT FALLS OUT OF IT: publishing without retiring the
+    // old body leaves two VISIBLE entities on one identity, and the next
+    // transaction cannot open at all.
+    world.entity_mut(candidate).remove::<super::InactiveCandidate>();
+    let after = super::TransactionBaseline::capture(&mut world);
+    assert!(
+        matches!(
+            after,
+            Err(super::BaselineCaptureError::DuplicateIdentity { .. })
+        ),
+        "publishing a candidate root WITHOUT retiring the one it supersedes left a \
+         world whose next baseline capture succeeds — so nothing would force the \
+         publication and the retirement into one step: {after:?}"
+    );
+}

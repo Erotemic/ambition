@@ -2131,6 +2131,35 @@ published. Guarded by
 plus the expiry) and by
 `a_refused_edit_is_staged_and_publishes_when_the_refusal_lifts`.
 
+### ⭐⭐ AND `Q118` AND `Q120` NOW READ ONE ANSWER — REVIEW FINDING 5, 2026-09-13
+
+Both rows ask the same four questions — is there a timeline, is it healthy, who
+owns it, may this host stop it — and each had its own classification:
+`ambition_content`'s `publication_boundary` and this crate's
+`decide_mechanical_edit_admission`. **That duplication had already produced one
+defect** (`Q118`'s lease re-checking health and not the ownership condition that
+authorized publication) and a second was live when the review found it: the
+mechanical-edit decision never consulted HEALTH at all, while the publication
+decision refused an unhealthy authority outright.
+
+⇒ `ambition_platformer2d::rollback::mechanical_mutation_boundary` answers once
+(`NoTimeline | LocallyRebasable | ForeignTimeline | Unhealthy`).
+`publication_boundary` is a total mapping of it into `ambition_content`'s
+vocabulary, and `rebasable_local_timeline` forwards to
+`locally_rebasable_timeline` rather than holding its own `matches!`. **The two
+callers differ in transaction semantics, not in policy:** `Q120` consumes the
+answer instantaneously, `Q118` holds it as a transaction-lifetime lease.
+
+⚠ **AND THE UNHEALTHY ARM WAS SAFE BEFORE IT EXISTED, FOR A REASON NEITHER
+FEATURE STATED** — `stop_session` stands the authority DOWN rather than removing
+it, and `ActiveRollbackAuthority::installed` refuses to launder a divergence into
+a fresh timeline, so a rebase could not have healed one. *"Safe because something
+else happens to hold"* is a coincidence one refactor away from being false, so it
+is an arm now:
+`an_unhealthy_timeline_refuses_a_mechanical_edit_rather_than_rebasing_across_it`,
+poison-verified, with the locally-rebasable premise asserted first so the refusal
+is about health and not about ownership.
+
 ### The rulings themselves
 
 | ownership | model | what happens |

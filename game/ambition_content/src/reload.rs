@@ -673,21 +673,29 @@ fn unsupported_changed_domains(
 /// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
 /// composition that installs no rollback has no timeline to invalidate. A stood-
 /// down timeline is legal for the same reason — it is not speculating.
-/// ⛔⛤ **THE OWNERSHIP HALF IS IN THE ENUM, BECAUSE SPLITTING IT ACROSS TWO
-/// CALLS IS WHAT LET THE LEASE RE-ASK HALF A QUESTION — REVIEW, 2026-09-13.**
+/// ⛔⛤ **THIS IS A PROJECTION OF THE ROLLBACK SUBSYSTEM'S OWN ANSWER NOW, NOT A
+/// SECOND CLASSIFICATION — REVIEW, 2026-09-13.**
 ///
-/// This used to be `Legal | LiveTimeline | Unhealthy`, with
-/// [`rebasable_local_timeline`] asked SEPARATELY at the admission site. Admission
-/// therefore required BOTH *healthy* and *this host may rebase it*, while the
-/// lease that re-asks the boundary during the pending interval re-asked only the
-/// health half. ⇒ A generation admitted against a locally maintained timeline
-/// stayed admitted after that timeline was replaced by a peer-owned one, and
-/// published onto a timeline nobody was permitted to rebase — which is the exact
-/// desync `Q118`'s canary measured, one ownership over.
+/// It was `Legal | LiveTimeline | Unhealthy`, with `rebasable_local_timeline`
+/// asked SEPARATELY at the admission site. Admission therefore required BOTH
+/// *healthy* and *this host may rebase it*, while the lease that re-asks the
+/// boundary during the pending interval re-asked only the health half — so a
+/// generation admitted against a locally maintained timeline stayed admitted
+/// after a peer-owned one replaced it. Folding ownership in fixed that.
 ///
-/// ⭐⭐ **ONE ANSWER, SO A CALLER CANNOT CONSULT HALF OF IT.** The permission a
-/// publication needs is a single value now; a lease re-asks it whole because
-/// there is no half to ask.
+/// ⇒ **AND THE REVIEW'S NEXT POINT IS THE ONE THIS TYPE NOW ANSWERS:** `Q118`
+/// and `Q120` were independently defining what *"mechanical mutation is legal
+/// around rollback"* means, in two subsystems, and the divergence above is what
+/// that costs. `ambition_platformer2d::rollback::mechanical_mutation_boundary`
+/// is the single authority; this enum is `ambition_content`'s reading of it in
+/// its own vocabulary, and it is a TOTAL mapping so a new rollback state cannot
+/// be silently absorbed.
+///
+/// ⚠ THE TWO CALLERS DIFFER IN TRANSACTION SEMANTICS, NOT IN POLICY. `Q120`
+/// consumes the answer instantaneously — *may this editor proposal publish
+/// before the next GGRS advance?* — and `Q118` holds it as a transaction-lifetime
+/// LEASE — *has the condition that authorized this pending generation remained
+/// valid?*
 ///
 /// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
 /// composition that installs no rollback has no timeline to invalidate. A stood-
@@ -698,8 +706,7 @@ enum PublicationBoundary {
     /// Live, healthy, and THIS host started it and may stop it.
     RebasableTimeline,
     /// Live and healthy, but owned by peers (`External`) or by a caller that did
-    /// not ask for a content rebase. `RollbackSessionOwnership`: *"must never be
-    /// replaced unilaterally by the local host"*.
+    /// not ask for a content rebase.
     ForeignTimeline,
     Unhealthy(String),
 }
@@ -707,20 +714,19 @@ enum PublicationBoundary {
 /// May THIS host stop and rebuild the live rollback timeline for a content
 /// publication?
 ///
+/// ⛔⛤ **THIS CRATE HELD ITS OWN COPY OF THE PREDICATE AND NOW FORWARDS.** The
+/// copy was a `matches!` over `RollbackSessionOwnership` identical to the
+/// rollback subsystem's own — which is how `Q118` and `Q120` came to define
+/// *"mechanical mutation is legal around rollback"* independently, and how this
+/// crate's lease came to re-ask half of it. The answer lives with the timeline.
+///
 /// ⭐ **OWNERSHIP, NOT LIVENESS.** A locally maintained sync-test session is one
 /// this process started and may stop; an `External` session belongs to peers, and
 /// a `Caller`-owned one to a match activation or a harness that did not ask for a
 /// rebase. Only the first may be rebased unilaterally — the other two are exactly
 /// what `RollbackSessionOwnership`'s doc says must never be replaced.
-fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool {
-    use ambition_platformer2d::rollback::{RollbackSessionOwnership, SyncTestOwner};
-    matches!(
-        world.get_resource::<RollbackSessionOwnership>(),
-        Some(RollbackSessionOwnership::LocalSyncTest {
-            owner: SyncTestOwner::LocalMaintainer,
-            ..
-        })
-    )
+pub(crate) fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool {
+    ambition_platformer2d::rollback::locally_rebasable_timeline(world)
 }
 
 /// Stop the local timeline so the session owner rebases it onto the generation
@@ -748,31 +754,13 @@ fn rebase_local_timeline_onto_the_new_generation(world: &mut bevy::ecs::world::W
 }
 
 fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary {
-    use ambition_platformer2d_runtime::rollback::{
-        ActiveRollbackAuthority, RollbackConfirmationState,
-    };
-    let Some(authority) = world.get_resource::<ActiveRollbackAuthority>() else {
-        return PublicationBoundary::Legal;
-    };
-    // ⛔ THE AUTHORITY'S OWN SCOPE, never a stranger's. `confirmation_for` returns
-    // `Unavailable` for a scope it does not govern, and reading a stranger's
-    // answer would report every world as publishable.
-    match authority.confirmation_for(authority.owner()) {
-        RollbackConfirmationState::Unavailable => PublicationBoundary::Legal,
-        // ⛔ THE OWNERSHIP QUESTION IS ASKED HERE AND NOWHERE ELSE. Folding it in
-        // is what makes "may this generation publish" a single value rather than
-        // two facts a caller has to remember to consult together.
-        RollbackConfirmationState::Healthy if rebasable_local_timeline(world) => {
-            PublicationBoundary::RebasableTimeline
-        }
-        RollbackConfirmationState::Healthy => PublicationBoundary::ForeignTimeline,
-        RollbackConfirmationState::Unhealthy => PublicationBoundary::Unhealthy(
-            authority
-                .status()
-                .invalidation
-                .clone()
-                .unwrap_or_else(|| format!("{:?}", authority.status().mismatch_frames)),
-        ),
+    use ambition_platformer2d::rollback::MechanicalMutationBoundary;
+
+    match ambition_platformer2d::rollback::mechanical_mutation_boundary(world) {
+        MechanicalMutationBoundary::NoTimeline => PublicationBoundary::Legal,
+        MechanicalMutationBoundary::LocallyRebasable => PublicationBoundary::RebasableTimeline,
+        MechanicalMutationBoundary::ForeignTimeline => PublicationBoundary::ForeignTimeline,
+        MechanicalMutationBoundary::Unhealthy(reason) => PublicationBoundary::Unhealthy(reason),
     }
 }
 

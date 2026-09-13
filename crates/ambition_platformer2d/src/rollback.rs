@@ -17,7 +17,8 @@ pub use ambition_platformer2d_core::snapshot::{
 };
 pub use ambition_platformer2d_rollback_ggrs::local_session;
 pub use ambition_platformer2d_rollback_ggrs::session::{
-    drive_control_frame, drive_slot_frame, session_health, session_is_active,
+    drive_control_frame, drive_slot_frame, mechanical_mutation_boundary,
+    session_health, session_is_active, MechanicalMutationBoundary,
     start_sync_test_session, stop_session, stop_session_deferred, ActiveRollbackAuthority,
     RollbackDiagnostic, RollbackDiagnosticHistory, RollbackExecutionStats,
     RollbackSessionOwnership, RollbackTimelineContract, RollbackTimelineGeneration,
@@ -29,6 +30,11 @@ pub use ambition_platformer2d_rollback_ggrs::{
     LoadWorldSystems, Rollback, RollbackChecksumProbes, RollbackEnginePlugin, RollbackFrameCount,
     RollbackRestoreAudit, RunGgrsSystems, SaveWorld,
 };
+/// May THIS host stop and rebuild the live rollback timeline? Published because
+/// `ambition_content`'s publication lease asks the same question `Q120`'s
+/// mechanical-edit admission does, and a second copy of it is how those two came
+/// to disagree — see [`mechanical_mutation_boundary`].
+pub use ambition_platformer2d_rollback_ggrs::local_session::locally_rebasable_timeline;
 pub use ambition_platformer2d_runtime::rollback::{
     RollbackEntryKind, RollbackRegistrationDescriptor, RollbackRegistry,
 };

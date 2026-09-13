@@ -2106,3 +2106,87 @@ mod mechanical_edit_ordering_tests {
         }
     }
 }
+
+/// ⛔⛤ **ONE ANSWER TO *"MAY A MECHANICAL MUTATION HAPPEN AROUND THIS ROLLBACK
+/// TIMELINE"*, AND TWO FEATURES USED TO ANSWER IT SEPARATELY — REVIEW,
+/// 2026-09-13.**
+///
+/// `Q118` (content publication) and `Q120` (developer mechanical edits) both ask
+/// the same four questions — is there a timeline, is it healthy, who owns it, may
+/// this host stop it — and each had implemented its own classification:
+/// `ambition_content`'s `publication_boundary` and this crate's
+/// `decide_mechanical_edit_admission`. **That duplication already produced one
+/// defect**: `Q118`'s transaction-lifetime lease re-checked HEALTH and not the
+/// OWNERSHIP condition that had authorized publication in the first place, so a
+/// generation admitted against a session this host maintained stayed admitted
+/// after a peer-owned one replaced it.
+///
+/// ⇒ And a second discrepancy was live when the review found it: the
+/// mechanical-edit decision reasoned from *session active + ownership* and never
+/// consulted HEALTH, while the publication decision refused an unhealthy
+/// authority outright. ⚠ The behaviour was safe for a reason neither feature
+/// states — `stop_session` STANDS THE AUTHORITY DOWN rather than removing it and
+/// `ActiveRollbackAuthority::installed` refuses to launder a divergence into a
+/// fresh timeline, so a rebase cannot heal one — but *"safe because something
+/// else happens to hold"* is the shape this repository removes, not a policy.
+///
+/// ⭐⭐ **SO THE ROLLBACK SUBSYSTEM ANSWERS ONCE AND THE CALLERS DIFFER ONLY IN
+/// TRANSACTION SEMANTICS.** `Q120` consumes this instantaneously (*may this
+/// editor proposal publish before the next GGRS advance?*); `Q118` holds the same
+/// answer as a transaction-lifetime LEASE (*has the condition that authorized
+/// this pending generation remained valid?*). One authority for the fact, two
+/// lifetimes for the use of it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MechanicalMutationBoundary {
+    /// No authority, or one whose timeline is not speculating. Every
+    /// composition without a rollback host lives here, permanently.
+    NoTimeline,
+    /// Live, healthy, and THIS host started it and may stop it.
+    LocallyRebasable,
+    /// Live and healthy, but owned by peers (`External`) or by a caller that did
+    /// not ask for a rebase. `RollbackSessionOwnership`: *"must never be
+    /// replaced unilaterally by the local host."*
+    ForeignTimeline,
+    /// A divergence has been RECORDED. Mutating mechanics across it is wrong
+    /// under every model both rows list, because a recovery that looked clean
+    /// would have laundered the desync.
+    Unhealthy(String),
+}
+
+/// Classify this world's rollback timeline for a caller that wants to change
+/// something the simulation reads.
+///
+/// ⚠ **ABSENT AUTHORITY MEANS `NoTimeline`, which is the right answer and not a
+/// hole:** a composition that installs no rollback has no history to
+/// contradict. A stood-down timeline is the same answer for the same reason —
+/// it is not speculating.
+///
+/// ⛔ THE AUTHORITY'S OWN SCOPE, never a stranger's. `confirmation_for` returns
+/// `Unavailable` for a scope it does not govern, and reading a stranger's answer
+/// would report every world as mutable.
+pub fn mechanical_mutation_boundary(world: &World) -> MechanicalMutationBoundary {
+    use ambition_platformer2d_runtime::rollback::RollbackConfirmationState;
+
+    let Some(authority) = world.get_resource::<ActiveRollbackAuthority>() else {
+        return MechanicalMutationBoundary::NoTimeline;
+    };
+    match authority.confirmation_for(authority.owner()) {
+        RollbackConfirmationState::Unavailable => MechanicalMutationBoundary::NoTimeline,
+        RollbackConfirmationState::Unhealthy => MechanicalMutationBoundary::Unhealthy(
+            authority
+                .status()
+                .invalidation
+                .clone()
+                .unwrap_or_else(|| format!("{:?}", authority.status().mismatch_frames)),
+        ),
+        // ⛔ OWNERSHIP IS FOLDED IN HERE AND NOWHERE ELSE. Asking it separately
+        // is what let one caller consult half the permission for a day.
+        RollbackConfirmationState::Healthy => {
+            if crate::local_session::locally_rebasable_timeline(world) {
+                MechanicalMutationBoundary::LocallyRebasable
+            } else {
+                MechanicalMutationBoundary::ForeignTimeline
+            }
+        }
+    }
+}

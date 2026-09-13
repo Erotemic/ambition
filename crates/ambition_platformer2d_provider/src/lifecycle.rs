@@ -1132,14 +1132,38 @@ fn developer_construction_dump(
         population
             .and_then(|cap| cap.cap())
             .map_or_else(|| "-".to_string(), |cap| cap.to_string()),
-        // ⚠ BOTH COMPONENTS, and a fixed rendering: an extent that differs only
-        // in `y` is a different simulation, and `{:?}` of a float would let a
-        // formatting change move a fingerprint nobody edited.
+        // ⛔⛤ **IEEE BITS, NOT A DECIMAL RENDERING — AND THE DECIMAL ONE WAS A
+        // REAL COLLISION, NOT A THEORETICAL ONE (found by review, 2026-09-13).**
+        // This was `{:.4}x{:.4}`, so identity used a ROUNDED PROJECTION while the
+        // simulation consumed the full `f32` all the way to
+        // `Perception::Sighted { viewport_half }`. Two adjacent representable
+        // values —
+        //
+        //     120.00000762939453  (0x42f00001)
+        //     120.00002288818360  (0x42f00003)
+        //
+        // — both render `120.0000`, so two Apps could share one
+        // `PreparedContentIdentity` while their actors saw different distances.
+        // ⇒ **The identity must be a function of the exact value execution
+        // spends.** `to_bits` is that function, and it is total: every `f32`,
+        // including the ones a decimal rendering flattens.
+        //
+        // ⚠ The readable form is kept BESIDE it for diagnostics and is not the
+        // authority — a fingerprint whose only rendering is for humans is a
+        // fingerprint tuned to a reader rather than to a machine.
         perception
             .and_then(|extent| extent.half_extent())
             .map_or_else(
                 || "-".to_string(),
-                |half| format!("{:.4}x{:.4}", half.x, half.y),
+                |half| {
+                    format!(
+                        "{:08x}x{:08x} ({:.4}x{:.4})",
+                        half.x.to_bits(),
+                        half.y.to_bits(),
+                        half.x,
+                        half.y
+                    )
+                },
             ),
     ))
 }
@@ -3027,6 +3051,36 @@ mod mechanical_registries_reach_the_identity {
             "a composition whose actors see 120px and one whose actors see 480px \
              share one identity, so two peers can agree they run the same \
              mechanics while their enemies notice each other at different ranges",
+        );
+
+        // ⛔⛤ **AND THE ARM ABOVE IS TOO COARSE TO CATCH THE DEFECT THAT WAS
+        // ACTUALLY HERE — found by review 2026-09-13.** The dump rendered
+        // `{:.4}`, a ROUNDED PROJECTION, while the simulation consumed the full
+        // `f32` through to `Perception::Sighted { viewport_half }`. 120 vs 480
+        // differs in the first digit, so it passed against the lossy encoding.
+        //
+        // ⇒ These two are ADJACENT REPRESENTABLE `f32`s that render identically
+        // at four decimals. Two Apps holding them share no mechanics and must
+        // share no identity.
+        let near = f32::from_bits(0x42f0_0001);
+        let nearer = f32::from_bits(0x42f0_0003);
+        assert_eq!(
+            format!("{near:.4}"),
+            format!("{nearer:.4}"),
+            "the premise: these must be indistinguishable to the OLD encoding, or \
+             this arm passes for a reason that has nothing to do with precision"
+        );
+        assert_ne!(
+            near, nearer,
+            "the premise: they must be different f32 values, or there is nothing \
+             for an identity to distinguish"
+        );
+        assert_ne!(
+            seeing(near),
+            seeing(nearer),
+            "two perception extents that differ by one representable step share \
+             one `PreparedContentIdentity`, so the fingerprint is over a DECIMAL \
+             RENDERING and not over the value the simulation spends"
         );
     }
 

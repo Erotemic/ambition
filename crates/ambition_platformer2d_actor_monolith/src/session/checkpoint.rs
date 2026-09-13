@@ -1615,6 +1615,78 @@ impl SessionCheckpointOutcomes {
 /// claim about file placement.
 pub struct SessionCheckpointHorizonPlugin;
 
+/// Every checkpoint-coordinator value whose lifetime is ONE gameplay session.
+///
+/// ⛔⛤ **THE DOMAIN OWNS THIS, AND ONLY ONE MEMBER USED TO BE OWNED AT ALL.** A
+/// 2026-09-13 review found `OutstandingCheckpointRequest` crossing sessions and it
+/// was added to the central `SessionScopedResources`. A second review found the
+/// REST OF THE FAMILY still process-global — the same omission the central
+/// aggregate exists to prevent, one domain over. ⇒ Four of these are canonical
+/// ROLLBACK state, so their residue is inside B's checksum:
+///
+/// - `SessionCheckpointOperations` documents itself as *the session's*
+///   admitted-operation counter, and its `next_sequence` survived. Two otherwise
+///   identical sessions B could start with different counters merely because one
+///   process admitted more restores in its previous run. ⚠ The operation KEY
+///   already carries `SessionScopeId`, so resetting the sequence cannot recycle
+///   an identity — and its comment about not resetting at a room REBASE is about
+///   a different boundary, which this reducer does not touch.
+/// - `SessionCheckpointOutcomes` retained the previous session's terminal result.
+/// - `AcceptedCheckpointRestore` + `AbandonedCheckpointOperation` together let
+///   `terminalize_abandoned_checkpoint_restore` recognise **A's** abandoned
+///   operation after B began and publish an A-scoped cancellation into B's
+///   outcomes. Scope keys stop it masquerading as B's, but it is still A's
+///   bookkeeping written into B's canonical resource.
+/// - `SessionStartupResume` self-disqualifies by generation, which prevents the
+///   behavioural bug — but self-disqualification is not initial-state EQUALITY,
+///   and its checksum carried the stale value until something overwrote it.
+///
+/// ⚠ **EXHAUSTIVELY DESTRUCTURED, DELIBERATELY NO `..`** — the same device
+/// `SessionScopedResources::reset` uses. Adding a coordinator resource without
+/// deciding its session semantics becomes a compile error at the only moment its
+/// author is still looking.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SessionOwnedCheckpointState<'w> {
+    operations: ResMut<'w, SessionCheckpointOperations>,
+    outcomes: ResMut<'w, SessionCheckpointOutcomes>,
+    accepted: ResMut<'w, AcceptedCheckpointRestore>,
+    abandoned: ResMut<'w, AbandonedCheckpointOperation>,
+    startup_resume: ResMut<'w, SessionStartupResume>,
+    outstanding: ResMut<'w, OutstandingCheckpointRequest>,
+}
+
+/// Re-establish the checkpoint coordinator for a session about to be built.
+///
+/// ⭐ **ACTIVATION, NOT RETIREMENT, AND NOT A ROOM REBASE.** Activation is the
+/// edge that is CORRECTNESS: the session about to read these writes them first,
+/// so nothing a previous session left can reach it, and an abnormal exit that
+/// skipped its teardown cannot change that. A room rebase deliberately KEEPS the
+/// operation counter — that is the boundary this must not be confused with.
+pub fn reset_checkpoint_coordinator_on_activation(
+    mut activated: MessageReader<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated,
+    >,
+    state: SessionOwnedCheckpointState,
+) {
+    if activated.read().count() == 0 {
+        return;
+    }
+    let SessionOwnedCheckpointState {
+        mut operations,
+        mut outcomes,
+        mut accepted,
+        mut abandoned,
+        mut startup_resume,
+        mut outstanding,
+    } = state;
+    *operations = SessionCheckpointOperations::default();
+    *outcomes = SessionCheckpointOutcomes::default();
+    *accepted = AcceptedCheckpointRestore::default();
+    *abandoned = AbandonedCheckpointOperation::default();
+    *startup_resume = SessionStartupResume::default();
+    *outstanding = OutstandingCheckpointRequest::default();
+}
+
 impl Plugin for SessionCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
@@ -1625,6 +1697,19 @@ impl Plugin for SessionCheckpointHorizonPlugin {
         app.init_resource::<SessionStartupResume>();
         app.init_resource::<OutstandingCheckpointRequest>();
         app.init_resource::<AbandonedCheckpointOperation>();
+        // ⛔⛔ THE CHANNEL BESIDE THE SYSTEM THAT READS IT. A `MessageReader` for
+        // an unregistered message fails PARAMETER VALIDATION at runtime, not at
+        // compile time — it killed three unit apps and six fixtures earlier today
+        // in two other domains. `add_message` is guarded against a second
+        // registration, so a composition that also installs `SessionScopePlugin`
+        // pays nothing and one that does not is saved.
+        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();
+        // ⛔ THE DOMAIN'S OWN SESSION EDGE. See `SessionOwnedCheckpointState`.
+        app.add_systems(
+            bevy::prelude::Update,
+            reset_checkpoint_coordinator_on_activation
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
+        );
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the
         // session's admission and the retirement that follows the slot — and

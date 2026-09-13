@@ -105,10 +105,17 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
 - **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
   against the real sync-test canary. The model is the decision: refuse / rebase /
   deterministic input.
-- **`Q119`** — ✅ **AUDIT COMPLETE `2026-09-13`.** Every field of
-  `PlatformerSessionBuilder` traced to whether it reaches
-  `PreparedContentIdentity`. **Every mechanical + immutable input is bound, with
-  no exceptions left** — the catalog and brain profiles transitively through
+- **`Q119`** — ⚠ **THE AUDIT IS COMPLETE; "NO EXCEPTIONS LEFT" WAS SAID TWICE AND
+  WAS WRONG BOTH TIMES.** First `PerceptionExtentOverride` was outside every
+  identity (closed `2026-09-13`); then, with it bound, its fingerprint was a
+  ROUNDED DECIMAL while the simulation consumed the full `f32` — two adjacent
+  representable extents shared one `PreparedContentIdentity`. ⇒ **"the field is
+  present" is not "the identity identifies its mechanical value"**, and that is
+  the third time this row's scope phrase has been the load-bearing half. Now
+  encoded as IEEE bits with the readable form beside it, guarded by an arm using
+  two values that render identically at four decimals. **Say "every field of
+  `PlatformerSessionBuilder` is traced", which is what was measured.** Every
+  field is bound — the catalog and brain profiles transitively through
   `canonical_fragments()`, the two developer knobs through `construction.developer`
   (`Q126`), and `placement_lowering` / `content_staging` / `construction_recipes`
   through their own sections. ⛔ The only two NOT bound are `EditableAbilitySet`
@@ -284,6 +291,59 @@ HEAD 2026-09-13:
   (`context.incoming = active.0`), which reddens it. ⚠ WHAT REMAINS UNGUARDED is
   only the disk-to-`ActiveContentBinding` leg and the race (candidate expects N,
   live advances to M, commit must refuse).
+
+## ✅ CORRECTION PACKET, 2026-09-13 — the recurring failure mode named: the RULE was right, one COMPATIBILITY PATH or one ADJACENT MEMBER stayed outside it
+
+A third review found four instances of one pattern in the batch above, and this
+packet closed all six items it asked for. ⭐ **THE PATTERN IS WORTH MORE THAN THE
+FIXES:** each time, the ownership rule established was correct and the population
+it was applied to stopped one member short.
+
+1. ✅ **THE PERCEPTION FINGERPRINT WAS LOSSY.** `PerceptionExtentOverride` became
+   generation-owned and entered the identity — as `{:.4}` — while the simulation
+   consumed the full `f32` through to `Perception::Sighted { viewport_half }`. Two
+   adjacent representable extents (`0x42f00001`, `0x42f00003`) both render
+   `120.0000`, so two Apps shared one `PreparedContentIdentity` with different
+   mechanics. **The 120-vs-480 arm was too coarse to see it.** Now IEEE bits, with
+   the readable form beside them for diagnostics; the new arm asserts its own
+   premise (the two values must be indistinguishable at four decimals, and must
+   differ as floats) before asserting the identities differ.
+2. ✅ **THE FAIL-CLOSED GENERATION RULE HAD A CACHED-PLAN ESCAPE.** The transition
+   read `(Some(plan), _) => Ok(plan)` — I argued a prefetched plan is legal because
+   it was prepared while the generation was live. ⇒ That covers the prefetch
+   PRODUCER and not mechanics disappearing AFTER it, and the room is not finished
+   by the plan: construction-time readers consume the generation at CONSUMPTION
+   time, so the room would come out part generation-N derivative and part current
+   App. **A cached derivative is not a substitute for the authority it came from.**
+3. ✅ **`ensure_perception` KEPT THE SAME FALLBACK.** It took
+   `Option<Res<SessionMechanics>>` and fell back to the App without asking whether
+   the composition OWES a generation. `perception_extent_for` now takes the
+   shell-routed flag and returns `None` as a REFUSAL; the reader attaches nothing,
+   which the target derivation reads as the basic `Omniscient` mode rather than a
+   range the live generation never described.
+4. ✅ **THE CUTSCENE'S PENDING SIMULATION INPUT SURVIVED.** `ActiveCutscene` and
+   `CutsceneTriggerQueue` were owned; `CutsceneAdvanceRequest` was not — and its
+   `dismiss_dialogue`/`skip_cutscene` are COMPLETED EDGES already across the
+   boundary, consumed by `tick_active_cutscene` with `mem::take`. ⇒ A raises a
+   skip, retires before the tick, B's opening room auto-triggers its cutscene, and
+   the next tick spends **A's skip on B's scene**. Both it and `CutsceneSkipHold`
+   join the mirrors.
+5. ✅ **ONLY ONE MEMBER OF THE CHECKPOINT COORDINATOR WAS SESSION-OWNED.** The
+   other five stayed process-global and FOUR are canonical rollback state —
+   clearest being `SessionCheckpointOperations.next_sequence`, so two otherwise
+   identical sessions B started with different counters because one process
+   admitted more restores in its previous run, inside B's checksum. ⇒ The DOMAIN
+   owns all six now (`SessionOwnedCheckpointState`, exhaustively destructured like
+   the central aggregate) at the ACTIVATION edge — not at a room rebase, which
+   deliberately keeps the counter. ⚠ `OutstandingCheckpointRequest` was REMOVED
+   from `SessionScopedResources` in the same change: one fact, one owner, rather
+   than half a domain reset centrally and half not at all.
+6. ✅ **THE STALE A10 COMMENT BESIDE `verify_and_publish` IS CORRECTED**, and it
+   was the dangerous one — it said the remaining step was "one ordering", sitting
+   exactly where an implementation agent works. It now lists what is still
+   published before verification. Q119's queue text no longer claims "no
+   exceptions left"; it says what was measured — every field of
+   `PlatformerSessionBuilder` is traced.
 
 ## ✅ THE INDEPENDENT LIFECYCLE BUGS THE DEEPER REVIEW FOUND, 2026-09-13 — none of them wait for A10
 

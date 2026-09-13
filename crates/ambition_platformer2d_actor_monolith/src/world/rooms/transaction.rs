@@ -325,13 +325,30 @@ fn verify_and_publish(
     // been mutated and cannot be rolled back."* It can now: a refused room is
     // DROPPED.
     //
-    // ⚠ **THIS IS NOT YET THE FULL LAST-GOOD-WORLD GUARANTEE, and the difference
-    // is one ordering.** `replace_live_world` still retires the OUTGOING room
-    // before this transaction opens, so a refusal leaves the session with NO
-    // room rather than with its previous one. What it buys today is that a
-    // refused room leaves no debris — no half-built scene standing beside a
-    // world that never accepted it. Moving the retirement after this point is
-    // the remaining step, and it lands in `replace_live_world` alone.
+    // ⛔⛤ **THIS IS NOT THE LAST-GOOD-WORLD GUARANTEE, AND THE DIFFERENCE IS NOT
+    // "ONE ORDERING" — THAT SENTENCE STOOD HERE AND WAS FALSE.** It said moving
+    // `retire_outgoing` after this point was the remaining step. Two reviews
+    // (2026-09-13) measured otherwise, and this comment sits exactly where an
+    // implementation agent will work, so it is more dangerous than stale prose
+    // elsewhere.
+    //
+    // ⇒ **HIDDEN ENTITIES ARE NOT A CANDIDATE WORLD.** What is still published
+    // before this verification runs:
+    //   * `commit_deferred` writes `RoomSet`, `RoomGeometry` and the
+    //     moving-platform state — none of them entities, none of them bracketed;
+    //   * `replace_live_world` retires the OUTGOING room first, so a refusal
+    //     leaves the session with no room rather than with its previous one;
+    //   * the hot-reload caller then queues `ActiveContentBinding`, transits the
+    //     player, resets movement/combat and replaces `ldtk_index` /
+    //     `prepared_identity` / `prepared_content` — **none of which receives the
+    //     verdict computed here**;
+    //   * and the verifier has no way to validate N+1 *while intentionally
+    //     retaining N*: it calls the coexistence an accidental duplicate.
+    //
+    // ⇒ What the bracket buys TODAY is narrower and still worth having: a refused
+    // room leaves no debris — no half-built scene standing beside a world that
+    // never accepted it. The rest is a candidate WORLD/SESSION transaction; see
+    // `docs/planning/queue.md`'s A10 rows, which carry the packet order.
     let published = violations.is_empty();
     // ⛔ EVERY LANE'S TRANSACTION, not just the actor lane's — see
     // `construction_transactions`, and the measurement that corrected me.

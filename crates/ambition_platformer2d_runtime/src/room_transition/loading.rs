@@ -1169,14 +1169,23 @@ pub fn begin_room_transition_load_system(
         });
         active.prefetch_hit = prefetched_construction.is_some();
         let construction_plan_result = match (prefetched_construction, mechanics.as_ref()) {
-            (Some(plan), _) => Ok(plan),
-            // ⛔ The generation this session was prepared against is gone. A
-            // prefetched plan is still legal — it was prepared while the
-            // generation WAS live — but preparing a fresh one now would build
-            // from the App.
-            (None, None) => Err(
+            // ⛔⛤ **A CACHED PLAN IS NOT A SUBSTITUTE FOR THE AUTHORITY IT WAS
+            // DERIVED FROM — MY FIRST VERSION OF THIS MATCH SAID IT WAS.** It
+            // read `(Some(plan), _) => Ok(plan)` and argued that a prefetched
+            // plan is still legal because it was prepared while the generation
+            // WAS live. ⇒ A 2026-09-13 review named the hole that leaves: the
+            // prefetch producer refuses to BUILD one without mechanics, but
+            // nothing covered mechanics disappearing AFTER the prefetch.
+            //
+            // ⛔ And the room does not finish being built by the plan.
+            // `ensure_perception` and the other construction-time readers consume
+            // the generation at CONSUMPTION time, so the room would come out part
+            // generation-N derivative and part current App — exactly the
+            // fail-open shape the `for_live_session` rule exists to remove.
+            (_, None) => Err(
                 rooms::RoomConstructionError::LiveGenerationMechanicsMissing,
             ),
+            (Some(plan), Some(_)) => Ok(plan),
             (None, Some(mechanics)) => rooms::RoomConstructionPlan::prepare_from_parts(
                 &room_set,
                 resolved_target_index,

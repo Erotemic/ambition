@@ -2122,3 +2122,94 @@ fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
          every later boundary"
     );
 }
+
+/// ⛔⛤ **THE WHOLE COORDINATOR IS SESSION-OWNED, AND ONLY ONE MEMBER WAS —
+/// MEASURED BY A SECOND 2026-09-13 REVIEW AFTER THE FIRST FIXED ONE.**
+///
+/// `OutstandingCheckpointRequest` was found crossing sessions and reset; the rest
+/// of the family stayed process-global. FOUR of them are canonical ROLLBACK
+/// state, so the residue is inside the next session's checksum — most clearly
+/// `SessionCheckpointOperations.next_sequence`, which meant two otherwise
+/// identical sessions B could start with different counters merely because one
+/// process admitted more restores in its PREVIOUS run.
+///
+/// ⭐ **THE COUNTER IS THE SHARPEST CASE AND ALSO THE SAFEST TO RESET**: the
+/// operation key already carries `SessionScopeId`, so starting B's sequence at
+/// zero cannot recycle an identity A spent.
+///
+/// ⚠ **ACTIVATION, NOT A ROOM REBASE.** The counter deliberately SURVIVES a
+/// rebase — a different boundary, and this reducer does not run there.
+#[test]
+fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeActivated, SessionScopeId};
+
+    // ⚠ THE REDUCER, NOT THE WHOLE PLUGIN. `SessionCheckpointHorizonPlugin`'s
+    // other systems want a save file, a lifecycle slot and three channels another
+    // plugin registers; building all of that would make this arm about the
+    // fixture. What is under test is the SESSION EDGE.
+    let mut app = App::new();
+    app.add_message::<SessionScopeActivated>();
+    app.init_resource::<SessionCheckpointOperations>();
+    app.init_resource::<SessionCheckpointOutcomes>();
+    app.init_resource::<AcceptedCheckpointRestore>();
+    app.init_resource::<AbandonedCheckpointOperation>();
+    app.init_resource::<SessionStartupResume>();
+    app.init_resource::<OutstandingCheckpointRequest>();
+    app.add_systems(
+        bevy::prelude::Update,
+        super::reset_checkpoint_coordinator_on_activation,
+    );
+
+    // Session A spends operations and is left owed a restore it never got.
+    {
+        let world = app.world_mut();
+        let mut operations = world.resource_mut::<SessionCheckpointOperations>();
+        for _ in 0..3 {
+            operations.admit(Some(SessionScopeId(0))).expect("admits");
+        }
+        world.insert_resource(OutstandingCheckpointRequest(true));
+    }
+    let spent = app
+        .world()
+        .resource::<SessionCheckpointOperations>()
+        .checksum();
+    let fresh = SessionCheckpointOperations::default().checksum();
+    // ⚠ THE PREMISE: a coordinator that never moved makes "reset" vacuous.
+    assert_ne!(
+        spent, fresh,
+        "the fixture admitted no operations, so the counter below is compared \
+         against itself"
+    );
+
+    app.world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(1)));
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<SessionCheckpointOperations>()
+            .checksum(),
+        fresh,
+        "session B inherited A's admitted-operation counter, and that counter is \
+         inside the canonical checksum — so two mechanically identical sessions \
+         disagree because of what happened in a run that already ended"
+    );
+    assert!(
+        !app.world()
+            .resource::<OutstandingCheckpointRequest>()
+            .0,
+        "a restore owed to the RETIRED session survived into this one, which then \
+         performs a checkpoint reset it never requested"
+    );
+    // ⭐ AND THE CONSEQUENCE THE COUNTER EXISTS FOR: B's first operation is B's
+    // first, not A's fourth.
+    let first = app
+        .world_mut()
+        .resource_mut::<SessionCheckpointOperations>()
+        .admit(Some(SessionScopeId(1)))
+        .expect("B admits its first operation");
+    assert_eq!(
+        first.sequence, 0,
+        "B's first admitted operation did not get sequence zero under B's scope"
+    );
+}

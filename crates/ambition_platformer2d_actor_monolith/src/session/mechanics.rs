@@ -273,12 +273,27 @@ impl<'a> GenerationMechanics<'a> {
 /// it can be asked: the activated generation's value, or the App's when a
 /// composition has none.
 pub fn perception_extent_for(
+    shell_routed: bool,
     generation: Option<&SessionMechanics>,
     app: Option<&ambition_characters::perception::PerceptionExtentOverride>,
-) -> ambition_characters::perception::PerceptionExtentOverride {
+) -> Option<ambition_characters::perception::PerceptionExtentOverride> {
     match generation {
-        Some(generation) => generation.perception_extent,
-        None => app.copied().unwrap_or_default(),
+        Some(generation) => Some(generation.perception_extent),
+        // ⛔⛤ **THE SAME LIVE-GENERATION CONTRACT AS
+        // [`GenerationMechanics::for_live_session`], AND MY FIRST VERSION OF THIS
+        // FUNCTION DID NOT HAVE IT.** A 2026-09-13 review found the hole: it fell
+        // back to the App whenever the generation was absent, without asking
+        // whether this composition OWES one. ⇒ In a shell session that lost its
+        // mechanics, an actor constructed after that point would be given senses
+        // derived from whatever the App holds now — a room part
+        // generation-derivative and part current App, which is precisely the
+        // fail-open shape the rest of this module exists to remove.
+        //
+        // ⚠ `None` is a REFUSAL, and its caller must treat it as one. A
+        // direct-entry fixture is the composition entitled to state no
+        // generation, and it still gets the App's value.
+        None if shell_routed => None,
+        None => Some(app.copied().unwrap_or_default()),
     }
 }
 
@@ -492,6 +507,51 @@ mod tests {
         assert!(
             mechanics.characters().is_none(),
             "the projection read the App rather than the generation it was given"
+        );
+    }
+
+    /// ⛔⛤ **THE PERCEPTION READER OWES THE SAME CONTRACT AS THE ROOM ROADS, AND
+    /// MY FIRST VERSION OF IT DID NOT (review, 2026-09-13).**
+    ///
+    /// `ensure_perception` attaches senses to bodies as they appear, so it
+    /// consumes the generation at CONSUMPTION time rather than at plan time. With
+    /// a plain App fallback, a shell session that lost its mechanics would give
+    /// every later actor a sight range derived from whatever the App holds now —
+    /// a room part generation-N derivative and part current App.
+    ///
+    /// ⭐ **THE THREE STATES ARE ASSERTED SEPARATELY** because a fallback that
+    /// merely "usually wins" is the shape this module exists to remove.
+    #[test]
+    fn the_perception_extent_follows_the_generation_and_refuses_a_shell_without_one() {
+        use ambition_characters::perception::PerceptionExtentOverride;
+
+        let app_value = PerceptionExtentOverride(Some(ambition_platformer2d_core::Vec2::new(
+            480.0, 480.0,
+        )));
+        let generation = SessionMechanics {
+            perception_extent: PerceptionExtentOverride(Some(
+                ambition_platformer2d_core::Vec2::new(120.0, 120.0),
+            )),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            perception_extent_for(true, Some(&generation), Some(&app_value)),
+            Some(generation.perception_extent),
+            "an activated generation's sight range lost to the App's, so actors \
+             built later see a distance the identity never described"
+        );
+        assert_eq!(
+            perception_extent_for(false, None, Some(&app_value)),
+            Some(app_value),
+            "a direct-entry composition lost the App's override, which is the one \
+             composition entitled to supply it"
+        );
+        assert_eq!(
+            perception_extent_for(true, None, Some(&app_value)),
+            None,
+            "a SHELL session with no generation was handed the App's sight range, \
+             so a room comes out part generation-derivative and part App"
         );
     }
 }

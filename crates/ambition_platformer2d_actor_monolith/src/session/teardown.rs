@@ -142,16 +142,14 @@ pub struct SessionScopedResources<'w> {
     /// (`NewGameResetCommitted`) and the gravity domain answers that one itself,
     /// in `gravity::lifecycle::reset_gravity_on_room_reset`.
     base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
-    /// ⛔⛤ **A RESTORE THIS SESSION WAS OWED — AND THE NEXT ONE USED TO PAY IT.**
-    /// `OutstandingCheckpointRequest`'s own doc says *"the session is still owed a
-    /// restore"* and *"at most one outstanding request per session"*, and it was
-    /// implemented as an App-global with no session edge at all.
-    /// `resume_at_checkpoint_on_reset` deliberately PERSISTS the bit when the
-    /// request cannot yet be admitted (no session world, no player subject, the
-    /// slot busy) — correct within one session, and across a quit it meant
-    /// session B admitted a checkpoint reconstruction **B never asked for**.
-    /// ⇒ Its implementation lifetime now matches its documented one.
-    outstanding_checkpoint: ResMut<'w, crate::session::checkpoint::OutstandingCheckpointRequest>,
+    // ⛔⛤ **`OutstandingCheckpointRequest` WAS A MEMBER HERE AND IS NOT ANY MORE,
+    // 2026-09-13 — because ONE fact wants ONE owner.** It was added when a review
+    // found it crossing sessions; a second review found the REST of the checkpoint
+    // coordinator still process-global, which made this the wrong home: half a
+    // domain's session state reset by a central aggregate and half by nothing.
+    // ⇒ `SessionOwnedCheckpointState` owns all six, with its own exhaustive
+    // destructure, at the ACTIVATION edge. Keeping a copy here too would be two
+    // mechanisms for one rule, which is what this file exists to remove.
     /// ⛔⛤ **CUTSCENE PLAYBACK, WHICH USED TO OUTLIVE THE SESSION THAT STARTED
     /// IT.** `LastCutsceneRoom` above is the MEMORY of where one played; this is
     /// the runtime that is playing. While `is_playing()` holds,
@@ -179,6 +177,27 @@ pub struct SessionScopedResources<'w> {
     /// here costs nothing and removes the interval; establishing exactly how long
     /// the interval is would cost a poison test and leave the interval there.
     active_conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
+    /// ⛔⛤ **THE CUTSCENE'S PENDING SIMULATION INPUT, AND LEAVING IT OUT MADE THE
+    /// TWO MEMBERS ABOVE AN INCOMPLETE FIX (review, 2026-09-13).**
+    /// `CutsceneAdvanceRequest` holds `dismiss_dialogue` and `skip_cutscene` —
+    /// *"only completed dismiss and skip edges cross into simulation"*, so these
+    /// are edges already through the door, not presentation. `tick_active_cutscene`
+    /// consumes them with `mem::take`, and the cutscene schedule is
+    /// `auto_trigger_room_cutscenes -> drain_cutscene_triggers ->
+    /// tick_active_cutscene`.
+    ///
+    /// ⇒ So: A raises `skip_cutscene` and retires before the tick consumes it;
+    /// teardown clears `ActiveCutscene` and the trigger queue and leaves THIS —
+    /// then B's opening room auto-triggers its own cutscene, the trigger starts
+    /// B's runtime, and the very next `tick_active_cutscene` spends **A's skip on
+    /// B's scene**. Clearing the playback alone does not end A's authority.
+    cutscene_advance: ResMut<'w, ambition_cutscene::CutsceneAdvanceRequest>,
+    /// ⚠ INPUT-LOCAL WALL-TIME PROGRESS, not simulation state — it is here as
+    /// hygiene at the same boundary, so a half-held skip from the retired session
+    /// does not sit in the next one's HUD. Its own doc says it *"never enters
+    /// simulation state"*, and that is why it is the last member rather than the
+    /// reason for this group.
+    cutscene_skip_hold: ResMut<'w, ambition_cutscene::CutsceneSkipHold>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -288,10 +307,11 @@ fn reset(resources: SessionScopedResources) {
         mut projectile_seq,
         mut pending_lifecycle,
         mut base_gravity,
-        mut outstanding_checkpoint,
         mut active_cutscene,
         mut cutscene_triggers,
         mut active_conversation,
+        mut cutscene_advance,
+        mut cutscene_skip_hold,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -314,10 +334,11 @@ fn reset(resources: SessionScopedResources) {
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
-    *outstanding_checkpoint = crate::session::checkpoint::OutstandingCheckpointRequest::default();
     *active_cutscene = ambition_cutscene::ActiveCutscene::default();
     *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
     *active_conversation = ambition_conversation::ActiveConversation::default();
+    *cutscene_advance = ambition_cutscene::CutsceneAdvanceRequest::default();
+    *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

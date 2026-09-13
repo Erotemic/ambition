@@ -57,10 +57,11 @@ fn app_with_populated_mirrors() -> App {
     // case every arm below except the stale one exercises.
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();
     app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
-    app.init_resource::<crate::session::checkpoint::OutstandingCheckpointRequest>();
     app.init_resource::<ambition_cutscene::ActiveCutscene>();
     app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
     app.init_resource::<ambition_conversation::ActiveConversation>();
+    app.init_resource::<ambition_cutscene::CutsceneAdvanceRequest>();
+    app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
     app.add_systems(
         Update,
         (
@@ -536,46 +537,39 @@ fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
     );
 }
 
-/// ⛔⛤ **TWO AUTHORITIES WHOSE DOCUMENTED LIFETIME IS ONE SESSION AND WHOSE
-/// IMPLEMENTED LIFETIME WAS THE PROCESS — MEASURED BY A 2026-09-13 REVIEW.**
+/// ⛔⛤ **CUTSCENE STATE WHOSE DOCUMENTED LIFETIME IS ONE SESSION AND WHOSE
+/// IMPLEMENTED LIFETIME WAS THE PROCESS — MEASURED BY TWO 2026-09-13 REVIEWS.**
 ///
-/// `OutstandingCheckpointRequest`'s own doc says *"the session is still owed a
-/// restore"* and *"at most one outstanding request per session"*.
-/// `resume_at_checkpoint_on_reset` deliberately PERSISTS the bit when the request
-/// cannot yet be admitted — no session world, no player subject, the slot busy —
-/// which is right within one session. Across a quit it meant session B admitted a
-/// checkpoint reconstruction **B never asked for**.
+/// `CutsceneTriggerQueue`: a trigger raised just before retirement and consumed
+/// just after the next session begins plays A's cutscene in B. `ActiveCutscene`
+/// is worse — while `is_playing()` holds, input declaration captures the cutscene
+/// context, and `end_cutscene` writes the running script's `seen_flag` into the
+/// CURRENT save, so A's stale playback finishing after B installed its file
+/// writes A's narrative flag into B's.
 ///
-/// `CutsceneTriggerQueue` is the same shape: a trigger raised just before
-/// retirement and consumed just after the next session begins plays A's cutscene
-/// in B. Its sibling `ActiveCutscene` is worse — while `is_playing()` holds,
-/// input declaration captures the cutscene context, and `end_cutscene` writes the
-/// running script's `seen_flag` into the CURRENT save, so A's stale playback
-/// finishing after B installed its file writes A's narrative flag into B's.
+/// ⛔ **AND `CutsceneAdvanceRequest`, WHICH THE FIRST FIX LEFT OUT** — the
+/// completed dismiss/skip EDGES already across the simulation boundary, consumed
+/// by `tick_active_cutscene` with `mem::take`. Clearing the playback alone does
+/// not end A's authority: B's opening room auto-triggers its own cutscene and the
+/// next tick spends A's skip on it.
 ///
 /// ⚠ `ActiveCutscene` is not asserted here and that is this file's standing rule,
 /// not an omission: "every" is the COMPILER's claim, made by `reset`'s exhaustive
 /// destructure of `SessionScopedResources`. Seed a mirror here when its VALUE is
 /// the interesting part; these two have values a reader can check in one line.
 #[test]
-fn a_session_does_not_inherit_the_previous_ones_owed_restore_or_queued_cutscene() {
+fn a_session_does_not_inherit_the_previous_ones_queued_cutscene_or_pending_skip() {
     let mut app = app_with_populated_mirrors();
-    app.world_mut()
-        .insert_resource(crate::session::checkpoint::OutstandingCheckpointRequest(
-            true,
-        ));
     app.world_mut()
         .resource_mut::<ambition_cutscene::CutsceneTriggerQueue>()
         .request("intro");
+    app.world_mut()
+        .insert_resource(ambition_cutscene::CutsceneAdvanceRequest {
+            dismiss_dialogue: false,
+            skip_cutscene: true,
+        });
 
     app.update();
-    // ⚠ THE PREMISE.
-    assert!(
-        app.world()
-            .resource::<crate::session::checkpoint::OutstandingCheckpointRequest>()
-            .0,
-        "the fixture owes no restore, so clearing it below proves nothing"
-    );
     assert_eq!(
         app.world()
             .resource::<ambition_cutscene::CutsceneTriggerQueue>()
@@ -590,18 +584,23 @@ fn a_session_does_not_inherit_the_previous_ones_owed_restore_or_queued_cutscene(
     app.update();
 
     assert!(
-        !app.world()
-            .resource::<crate::session::checkpoint::OutstandingCheckpointRequest>()
-            .0,
-        "a restore owed to the RETIRED session survived it, so the next session \
-         performs a checkpoint reset it never requested"
-    );
-    assert!(
         app.world()
             .resource::<ambition_cutscene::CutsceneTriggerQueue>()
             .0
             .is_empty(),
         "a cutscene trigger raised by the retired session survived it, so the \
          next session plays the previous run's scene"
+    );
+    // ⛔⛤ **THE PENDING INPUT, WHICH THE FIRST VERSION OF THIS FIX LEFT OUT.**
+    // `skip_cutscene` is a COMPLETED edge already across the simulation boundary,
+    // consumed by `tick_active_cutscene` with `mem::take`. With the playback
+    // cleared and this left standing, B's opening room auto-triggers ITS cutscene
+    // and the very next tick spends A's skip on it.
+    assert!(
+        !app.world()
+            .resource::<ambition_cutscene::CutsceneAdvanceRequest>()
+            .skip_cutscene,
+        "a skip raised by the retired session survived it, so the next session's \
+         opening cutscene is skipped by an input nobody gave it"
     );
 }

@@ -423,6 +423,15 @@ pub fn ensure_perception(
     // when one is activated and the App's when none is. See
     // `session::mechanics::perception_extent_for`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
+    // ⛔ COMPOSITION MODE. Installed only by `ambition_game_shell`'s session
+    // plugin, so its presence is what distinguishes "this composition
+    // intentionally has no generation" from "this shell session lost the one it
+    // had". See `session::mechanics::perception_extent_for`.
+    session_gate: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
+        >,
+    >,
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
@@ -457,11 +466,21 @@ pub fn ensure_perception(
         ),
     >,
 ) {
-    let viewport_half = crate::session::mechanics::perception_extent_for(
+    let Some(extent) = crate::session::mechanics::perception_extent_for(
+        session_gate.is_some(),
         generation.as_deref(),
         extent.as_deref(),
-    )
-    .or_default(DEFAULT_VIEWPORT_HALF);
+    ) else {
+        // ⛔ A shell session with no generation must not hand out senses derived
+        // from the App. Attaching none leaves these bodies without `Perception`,
+        // which the target derivation reads as `Omniscient` — the basic mode a
+        // fixture with no perception wiring already gets — rather than giving
+        // them a range the live generation never described. The room road refuses
+        // in the same state (`LiveGenerationMechanicsMissing`), so this is the
+        // window before that refusal, not a lasting condition.
+        return;
+    };
+    let viewport_half = extent.or_default(DEFAULT_VIEWPORT_HALF);
     for entity in &bodies {
         commands.entity(entity).insert((
             Perception::Sighted { viewport_half },

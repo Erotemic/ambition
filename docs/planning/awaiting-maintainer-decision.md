@@ -1583,10 +1583,33 @@ authorization that covers the INTERVAL and is broken EARLY (breaking it cancels
 the whole shell transaction, so neither half activates), or a lifecycle that
 stops and rebases rollback as part of the same transaction.
 
-⇒ **WHAT WOULD CLOSE THIS:** one ordering measurement at
-`maintain_local_session` versus `commit_content_generation`. If the transition is
-impossible, encode the impossibility as a schedule invariant and the two arms
-above flip to assert the refusal. If it is possible, the lease packet is real.
+⭐⭐ **THE ORDERING MEASUREMENT IS TAKEN, 2026-09-12, AND THE ANSWER IS THAT
+NOTHING ORDERS THEM.** `nothing_orders_the_rollback_session_start_against_the_generation_commit`
+(`game/ambition_app/tests/reload_publication_is_installed.rs`) walks the shipped
+`Update` dependency graph and finds NO path in either direction between
+`LocalSessionSet::Maintain` — where `maintain_local_session` starts the GGRS
+session — and `commit_content_generation`. ⇒ The two are AMBIGUOUS: Bevy is free
+to run them in either order, so a schedule invariant does not exist to be
+appealed to, and *"the transition is impossible"* is not available as an answer.
+
+⛔⛤ **THE CONTROL IS WHAT MAKES THAT NEGATIVE WORTH ANYTHING.** *"No path
+exists"* and *"my traversal cannot find a path"* are indistinguishable from the
+outside, so the same traversal is first asked a question whose answer this file
+already asserts directly — `AmbitionGameShellSet::Pending` → the commit — and
+must find it.
+
+⚠ **WHAT THE MEASUREMENT DOES AND DOES NOT SAY.** It says the ORDER is
+unconstrained, which is necessary for the crossing and is exactly what a schedule
+invariant would have to fix. It does NOT by itself show that a session start
+occurs inside a pending generation's window — that needs the two to co-occur, and
+the plausible road is that a reload re-prepares the route the shell is already
+on, so the session world is torn down and rebuilt while the generation waits.
+
+⇒ **SO THE PACKET IS REAL AND THE REMAINING QUESTION IS NARROWER:** an
+authorization covering the INTERVAL, broken EARLY so that breaking it cancels the
+whole shell transaction (neither half activates), or a lifecycle that stops and
+rebases rollback as part of the same transaction. ⛔ Not a second
+`publication_boundary` call at the commit — see above.
 
 ## Q119 — RULED BY THE REVIEW, RECORDED FOR THE AUDIT TRAIL: which App authorities are MECHANICAL?
 

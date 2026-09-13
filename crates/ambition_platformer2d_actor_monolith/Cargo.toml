@@ -30,7 +30,6 @@ crate-type = ["rlib"]
 # while a body runs, and fixing it re-prices CPU matchups, which the fighter-brain
 # plan says needs the ladder rig rather than a judgement call. Enabling this
 # changes how the CPUs fight; nothing ships with it on.
-truthful_attack_kit = []
 # The stderr trace still printed, which is what hid it: the line appeared and the fact did not, and
 # nothing distinguishes "the brain published nothing" from "the brain cannot".
 # ⛔ EVERY CRATE WHOSE CAUSAL TYPES `causal.rs` IMPORTS MUST BE FORWARDED HERE.

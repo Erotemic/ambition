@@ -492,7 +492,6 @@ fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
 #[test]
 fn a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable() {
     const TICKS: u32 = 600;
-    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
 
     let mut covered = Vec::new();
     for level in 1..=9u8 {

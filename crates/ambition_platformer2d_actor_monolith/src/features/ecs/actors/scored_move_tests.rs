@@ -307,11 +307,15 @@ fn jab_uptilt_and_dash() -> MovesetContract {
 /// `dash_attack` — a candidate whose `move_id` and `frames` described a
 /// different move than the one it produced. Every scoring term downstream
 /// (startup, reach, damage, frame advantage) was reading the wrong move.
+///
+/// ⭐ **MANDATORY SINCE 2026-09-12.** It spent two days `#[ignore]`d behind
+/// `--features truthful_attack_kit` while the question "should this land, given
+/// it re-prices CPU matchups" was open. It is not that question: a planner that
+/// scores move A while the executor performs move B violates the action model
+/// whatever the matchups say, and re-pricing is the EXPECTED consequence of a
+/// decision model that starts reading the frame data of the move it actually
+/// takes. See `Q117`.
 #[test]
-#[cfg_attr(
-    not(feature = "truthful_attack_kit"),
-    ignore = "the fix is behind `--features truthful_attack_kit`; it re-prices CPU matchups and needs the ladder rig first (D-BRAIN-MENU)"
-)]
 fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() {
     let moveset = ActorMoveset(jab_uptilt_and_dash());
     let brain = fighter_brain();

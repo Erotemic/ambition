@@ -655,7 +655,42 @@ whichever way this is ruled.
 
 </details>
 
-## Q117 — should the truthful attack kit land, given it re-prices every CPU matchup?
+## ✅ Q117 — CLOSED 2026-09-12. It LANDED, and it was never a semantic yes/no.
+
+⭐ **RULED BY THE ARCHITECTURE REVIEW JON FORWARDED**, and the reasoning is the
+part to keep: *"A planner that thinks it selected move A while the executor
+performs move B violates the basic action-model contract"* — re-pricing is the
+EXPECTED consequence of a decision model that starts reading the frame data of
+the move it actually takes, not an argument against it. *"The right response is:
+fix model truth → measure changed behavior → retune."* The feature flag is
+deleted and `a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce`
+is mandatory.
+
+⭐⭐ **WHAT IT ACTUALLY DID, MEASURED at the shipped duel (pirate admiral, rung 9,
+with `Q116` already repaired):** the CPU now uses the dash attack deliberately —
+`pirate_admiral_dash_attack` is seat 0's TOP damage move at 33 of 69, where it
+was 18 of 75 — and **the duel now DECIDES, at tick 2320, where it used to run
+3613 ticks undecided.** Four knockouts either way.
+
+⛔⛤ **AND IT CAUGHT AN ACCEPTANCE FLOOR THAT COULD NOT EXPRESS A DECISIVE MATCH.**
+`smash_cpus_damage_each_other` asserted BOTH seats take ≥ 50% of a pool per
+minute; seat 0 took 0.44 **because it was winning**. `A_REAL_FIGHT`'s own doc
+already names that artefact — *"a decided match stops accumulating damage the
+moment a seat leaves the cast … and the winner, who by definition takes less,
+read lower still"* — and dividing by duel ticks had only removed most of it. The
+floor is now the EXCHANGE (the same total, as a sum) plus a per-seat check that
+each seat dealt damage and entered hitstun. ⚠ That is a weakening, it is recorded
+as one, and it is poison-verified both ways: an inert pair and a one-seat
+passenger each still redden it.
+
+⇒ **WHAT REMAINS IS A TUNING QUESTION AND IT IS JON'S:** what utility / run /
+dash-attack parameters produce the fighter quality he wants now that the brain
+evaluates the action it actually takes. That is not this row.
+
+<details><summary>The original row, kept because its measurement is the
+evidence</summary>
+
+### Q117 — should the truthful attack kit land, given it re-prices every CPU matchup?
 
 The row is `D-BRAIN-MENU`. **The fix EXISTS and runs** behind
 `--features truthful_attack_kit` on `ambition_platformer2d_actor_monolith`,
@@ -1506,6 +1541,8 @@ Do not add investigation transcripts beneath a question. Record enough source
 context to make the decision, link the owner doc when useful, and stop. Once
 answered, move the durable ruling to `maintainer-decisions.md` and delete the
 question here.
+
+</details>
 
 ## Q118 — is the rollback-legality interval ARCHITECTURE, or is it unreachable in the shipped lifecycle?
 

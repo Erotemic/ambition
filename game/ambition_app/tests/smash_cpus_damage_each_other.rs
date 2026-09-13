@@ -732,19 +732,48 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             rows.iter().take(30).collect::<Vec<_>>()
         );
     }
+    // ⛔⛤ **THE EXCHANGE, NOT EACH SEAT SEPARATELY — CORRECTED 2026-09-12.**
+    // This floor was applied to BOTH seats, and that is not what *"a fight
+    // happened"* means. `A_REAL_FIGHT`'s own doc already names the artefact:
+    // *"a decided match stops accumulating damage the moment a seat leaves the
+    // cast … and the winner, who by definition takes less, read lower still."*
+    // Dividing by duel ticks fixed most of it; the residue is that a DECISIVE
+    // match fails on its WINNER.
+    //
+    // ⇒ MEASURED when the truthful attack kit landed: 2315 ticks, DECIDED on
+    // 2320, four knockouts, 95 damage dealt between the two — and seat 0 took
+    // 0.44 because it was winning. A guard whose stated purpose is *"a fight
+    // happened, not the tuning"* called that *"the CPUs are not fighting"*.
+    //
+    // ⚠ **THIS IS A WEAKENING AND IT IS SAID OUT LOUD, because a guard changed
+    // by the very work it caught is the thing to distrust.** The pair floor is
+    // exactly the SUM of the old per-seat one, so an inert pair fails it by the
+    // same margin it always did; what it stops doing is failing a LOPSIDED
+    // fight. The per-seat half that survives is the one a sum cannot carry: a
+    // seat that deals nothing, or never enters hitstun, is still a defect — a
+    // duel with a passenger is not a duel.
+    let exchanged = per_minute(0) + per_minute(1);
+    assert!(
+        exchanged >= A_REAL_FIGHT * 2.0,
+        "the two seats exchanged {:.0}% of a pool per minute of duel ({:.0}% + \
+         {:.0}%) over the {both_seated_ticks} ticks the duel actually ran — the \
+         CPUs are not fighting. ⚠ read the UNITS before believing this: the \
+         value is a RATIO, so {:.2} means {:.0}%, and a rig that printed it \
+         under a literal `%` is what turned a 169% duel into a documented \
+         finding that they never hit each other.",
+        exchanged * 100.0,
+        per_minute(0) * 100.0,
+        per_minute(1) * 100.0,
+        exchanged,
+        exchanged * 100.0,
+    );
     for seat in 0..2 {
+        let dealt: i32 = damage_by_move[seat].values().sum();
         assert!(
-            per_minute(seat) >= A_REAL_FIGHT,
-            "seat {seat} took {:.0}% of its pool per minute of duel ({:.0}% over \
-             the {both_seated_ticks} ticks the duel actually ran) — the CPUs are \
-             not fighting. ⚠ read the UNITS before believing this: the value is a \
-             RATIO, so {:.2} means {:.0}%, and a rig that printed it under a \
-             literal `%` is what turned a 169% duel into a documented finding \
-             that they never hit each other.",
-            per_minute(seat) * 100.0,
-            taken[seat] * 100.0,
-            per_minute(seat),
-            per_minute(seat) * 100.0,
+            dealt > 0,
+            "seat {seat} dealt NO damage in {both_seated_ticks} ticks — the \
+             exchange floor above can be carried by one seat alone, and that is \
+             exactly the state this half exists to refuse"
         );
         assert!(
             hitstun_ticks[seat] > 0,

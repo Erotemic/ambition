@@ -1808,8 +1808,7 @@ pub(super) fn attack_kit_of(
             // so redirecting it here took a running fighter's specials away and
             // reddened two acceptance tests. Copying a production rule means
             // copying WHERE THE ROAD APPLIES IT.
-            let running_now = cfg!(feature = "truthful_attack_kit")
-                && running
+            let running_now = running
                 && grounded
                 && matches!(verb, AttackVerb::Basic | AttackVerb::Smash);
             let resolve_verb = if running_now {

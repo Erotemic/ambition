@@ -66,6 +66,24 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
     // ⛔ THE VICTIM IS THE HUMAN SEAT, which this test can hold still. A CPU
     // walks out of a shot's path and the arm becomes about pathfinding.
     let victim = seat(&mut app, 0);
+    // ⛔⛤ **AND THE OTHER SEAT IS A LIVE CPU THAT ATTACKS THE VICTIM, WHICH THIS
+    // ARM COUNTED AS THE SHOT'S.** `total` is the victim's `damage_taken` delta
+    // from ANY source, so every assertion below was an ATTRIBUTION the test
+    // never measured. MEASURED 2026-09-13, printing (tick, cumulative, alive,
+    // turned) on every tick of the loop:
+    //
+    // ```text
+    // tick=5   taken=3   shots_alive=1  turned=false   <- the outbound leg, correct
+    // tick=19  taken=6   shots_alive=1  turned=true    <- the return leg, correct
+    // tick=30  taken=15  shots_alive=1  turned=true    <- NOT THE SHOT
+    // ```
+    //
+    // ⇒ The shot was right on both legs the whole time. The excess is ONE event
+    // of exactly 9 in a single tick, and the pirate admiral authors three moves
+    // at exactly 9 damage — `grapeshot` among them, a melee strike, which is
+    // what lands on a victim standing still in front of it. The red was the
+    // instrument's, and it had survived a long hunt for a tree defect.
+    let opponent = seat(&mut app, 1);
 
     let at = |app: &App, body: Entity| {
         app.world()
@@ -136,6 +154,27 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
          was never in the air"
     );
 
+    // ⛔⛤ **THE OPPONENT IS PUT OUT OF REACH AND KEPT THERE**, which is what
+    // makes the damage below the SHOT'S. Pinning rather than despawning: the
+    // match owns both seats and a missing fighter ends the round, which would
+    // stop the arm rather than isolate it. 4000px against a `grapeshot` whose
+    // own half-extents are 30x16 is not a tolerance — no authored melee reach
+    // is within three orders of magnitude of it, and the pin is re-applied every
+    // tick so a brain cannot walk out of it.
+    //
+    // ⚠ IT IS RE-ASSERTED AT THE END rather than assumed: a pin that silently
+    // stopped working would put the old defect straight back.
+    const PIN_X: f32 = 4000.0;
+    let pin_opponent = |app: &mut App| {
+        if let Some(mut kin) = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(opponent)
+        {
+            kin.pos.x = PIN_X;
+            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        }
+    };
+
     // Walk the whole flight, holding the victim still and sampling the three
     // facts each tick.
     let mut first_hit_tick = None;
@@ -150,7 +189,9 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame::default(),
         );
+        pin_opponent(&mut app);
         app.update();
+        pin_opponent(&mut app);
         let taken = damage(&app, victim) - before;
         if first_hit_tick.is_none() && taken > 0 {
             first_hit_tick = Some(tick);
@@ -202,9 +243,20 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
          does not own a per-victim ledger. Damage arrived at (tick, total, \
          turned) = {hit_ticks:?}"
     );
+    // ⛔ THE PIN IS THE PREMISE OF THE ASSERT BELOW, so it is checked rather
+    // than trusted. Without this, a pin that stopped working would restore the
+    // exact defect this arm was red with for a day.
+    let opponent_x = at(&app, opponent).x;
+    assert!(
+        (opponent_x - PIN_X).abs() < 1.0,
+        "the opponent left its pin (x = {opponent_x}, pinned at {PIN_X}), so the \
+         damage below is not provably the shot's — which is the attribution this \
+         arm silently made for its whole life"
+    );
     assert_eq!(
         total, 6,
         "the whole flight did {total} where two legs of a 3-damage shot are 6 — \
-         the turnaround must re-arm a victim the outbound leg already spent"
+         the turnaround must re-arm a victim the outbound leg already spent. \
+         Damage arrived at (tick, total, turned) = {hit_ticks:?}"
     );
 }

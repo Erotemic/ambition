@@ -623,6 +623,13 @@ pub fn begin_room_transition_load_system(
         // because a reload had published one in between. The frozen values win
         // where they exist; see `SessionMechanics`.
         Option<Res<ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics>>,
+        // ⛔ COMPOSITION MODE, in this bundle because a `SystemParam` stops at
+        // sixteen and because it belongs with them: it is what says whether the
+        // generation above is OWED. Installed only by `ambition_game_shell`'s
+        // session plugin — "never inserted by direct-entry apps or headless
+        // harnesses" — so its presence distinguishes "this composition owes a
+        // generation" from "this one intentionally has none".
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
@@ -634,21 +641,35 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
-    let (prepared_characters, brain_profiles, forced_brains, population_cap, generation) =
-        character_authorities;
+    let (
+        prepared_characters,
+        brain_profiles,
+        forced_brains,
+        population_cap,
+        generation,
+        session_gate,
+    ) = character_authorities;
     // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
+    // ⛔⛤ **A DOOR REBUILDS A LIVE ROOM, SO A SHELL SESSION WITHOUT ITS
+    // GENERATION REFUSES RATHER THAN FALLING BACK TO THE App.** See
+    // `GenerationMechanics::for_live_session` — the `None` here becomes a
+    // preparation error below, on the road this system already has for a room it
+    // cannot prepare.
+    let shell_routed = session_gate.is_some();
     let mechanics =
-        ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::new(
+        ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
+            shell_routed,
             generation.as_deref(),
             prepared_characters.as_deref(),
             &construction_services.5,
             &construction_services.3,
         )
+        .map(|mechanics| mechanics
         // ⛔⛤ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. A door that
         // rebuilds a room inside an activated generation must use the values that
         // generation's identity was taken over; these two are what a composition
         // with no activated generation gets instead. See `GenerationMechanics`.
-        .with_app_developer_knobs(forced_brains.as_deref(), population_cap.as_deref());
+        .with_app_developer_knobs(forced_brains.as_deref(), population_cap.as_deref()));
 
     // A rollback app stays a rollback app when its session is stopped. If readiness was already
     // in flight, retire only the HOST-SIDE derivative. The rollback-state intent is
@@ -1147,9 +1168,16 @@ pub fn begin_room_transition_load_system(
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();
-        let construction_plan_result = match prefetched_construction {
-            Some(plan) => Ok(plan),
-            None => rooms::RoomConstructionPlan::prepare_from_parts(
+        let construction_plan_result = match (prefetched_construction, mechanics.as_ref()) {
+            (Some(plan), _) => Ok(plan),
+            // ⛔ The generation this session was prepared against is gone. A
+            // prefetched plan is still legal — it was prepared while the
+            // generation WAS live — but preparing a fresh one now would build
+            // from the App.
+            (None, None) => Err(
+                rooms::RoomConstructionError::LiveGenerationMechanicsMissing,
+            ),
+            (None, Some(mechanics)) => rooms::RoomConstructionPlan::prepare_from_parts(
                 &room_set,
                 resolved_target_index,
                 &construction_services.0,
@@ -1165,7 +1193,7 @@ pub fn begin_room_transition_load_system(
                 ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                     &construction_services.4,
                     &construction_services.2,
-                    &mechanics,
+                    mechanics,
                     ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
                     brain_profiles.as_deref(),

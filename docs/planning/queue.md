@@ -297,18 +297,42 @@ HEAD 2026-09-13:
   control `a_direct_entry_fixture_with_no_content_binding_still_publishes` (same
   plan, same absent binding, differing only in the marker); poison-verified — the
   poison reddens the shell arm alone.
-- ⛔ **STILL OPEN, the other half of the same finding:** `GenerationMechanics`'s
-  App fallback. `new(active: Option<&SessionMechanics>, ..)` falls back to the
-  App's registries when no generation is active, which is right for the ~90
-  direct-entry fixtures and wrong for a live shell session that LOST its
-  mechanics — the two are one `Option`. ⇒ It wants the same treatment as the
-  binding above: ask `SessionGatedSimulation`, and have the reset and room
-  transition DECLINE (both roads already have a decline path;
-  `process_new_game_reset_request`'s is *"DECLINE, do not die"*) rather than
-  rebuild a live world out of whatever the App is holding.
-- ⚠ **NOT YET CONFIRMED:** `ActiveConversation` spanning retirement — a
-  self-healing rule (`break_dialogue_on_hit_or_separation`) probably closes it,
-  and the open question is ORDERING. Needs a poison test, not a fix.
+- ✅ **AND SO IS THE OTHER HALF: `GenerationMechanics`'s App FALLBACK.**
+  `new(active: Option<&SessionMechanics>, ..)` fell back to the App's registries
+  whenever no generation was active — right for the ~90 direct-entry fixtures,
+  wrong for a live shell session that LOST its mechanics, and the two were one
+  `Option`. ⇒ `for_live_session(shell_routed, ..) -> Option<Self>` states the
+  mode, and the two roads that rebuild a LIVE room refuse: the reset takes its
+  own *"DECLINE, do not die"* road, and the room transition returns
+  `RoomConstructionError::LiveGenerationMechanicsMissing` through the failure
+  path it already had for a room it cannot prepare. ⚠ **A HOT RELOAD KEEPS
+  `new`**, and that is the distinction, not an exemption: it states `None` on
+  purpose because it is BUILDING the generation that replaces the live one, so a
+  rule phrased *"shell-routed ⇒ must have a generation"* would refuse the one
+  road whose job is not to have one. Guard
+  `a_live_room_rebuild_refuses_a_shell_session_with_no_generation` — three arms:
+  the refusal, the direct-entry control (a constructor that refused whenever
+  there was no generation would pass the first and break every fixture), and the
+  ordinary case reading the generation rather than the App. Poison-verified.
+  ⭐ The transition's gate rides in `character_authorities` rather than as a
+  seventeenth parameter — `SystemParam` stops at sixteen, and it belongs beside
+  the generation because it is what says whether that generation is OWED.
+- ✅ **`ActiveConversation` — CLOSED WITHOUT ESTABLISHING THE INTERVAL, AND THAT
+  IS THE CHEAPER ANSWER.** The review rated it a RISK rather than a bug because
+  `break_dialogue_on_hit_or_separation` closes a conversation whose participants
+  no longer exist, and a retired session's entities are despawned — so the stale
+  state *probably* heals. ⇒ *"Probably"* and *"eventually"* are ORDERING claims:
+  there is an interval after B begins in which the rollback snapshot still carries
+  A's conversation and input declaration can still see its owner. One line of
+  `SessionScopedResources` membership removes the interval; a poison test would
+  have measured it and left it there. **Make it impossible, not measured.**
+- ⭐ **AND MY OWN FIX HAD A HOLE THE SAME SHAPE, FOUND BY RE-READING IT:** the
+  room-transition PREFETCH still built its plan with `GenerationMechanics::new`,
+  and the door accepts a cached plan without re-checking the generation (*"it was
+  prepared while one WAS live"*). ⇒ A shell composition with no generation would
+  have prepared from the App in the prefetch and had the door promote it — the
+  fallback laundered through the cache. The prefetch refuses on the same terms and
+  clears its cache.
 
 ## ⛔⛔ NEXT ARCHITECTURE ACTION — READ THIS BEFORE PICKING A ROW
 

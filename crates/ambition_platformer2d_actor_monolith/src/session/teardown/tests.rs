@@ -60,6 +60,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<crate::session::checkpoint::OutstandingCheckpointRequest>();
     app.init_resource::<ambition_cutscene::ActiveCutscene>();
     app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
+    app.init_resource::<ambition_conversation::ActiveConversation>();
     app.add_systems(
         Update,
         (

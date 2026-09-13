@@ -1414,7 +1414,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // does this App draw, and has it uploaded THIS image.
         Option<Res<AppGpuPreparedImages>>,
     ),
-    (mut layouts, mut character_load_states, prepared_characters, authored_sheets, generation): (
+    (
+        mut layouts,
+        mut character_load_states,
+        prepared_characters,
+        authored_sheets,
+        generation,
+        session_gate,
+    ): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
@@ -1427,6 +1434,10 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // entries can never be right — a silent, permanent miss at best, and a
         // promoted plan built from the wrong cast at worst.
         Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
+        // ⛔ COMPOSITION MODE, beside the generation because it is what says
+        // whether that generation is OWED. See
+        // `GenerationMechanics::for_live_session`.
+        Option<Res<ambition_platformer2d::platformer::lifecycle::SessionGatedSimulation>>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
@@ -1436,13 +1447,27 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     let empty_registry =
         ambition_platformer2d::characters::prepared::PreparedCharacterRegistry::default();
     // ⛔ THE SAME READ THE DOOR MAKES. See the param's own note.
-    let mechanics =
-        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::new(
+    // ⛔⛤ **A PREFETCH IS PROMOTED INTO A LIVE DOOR, SO IT REFUSES ON THE SAME
+    // TERMS.** The transition accepts a cached plan without re-checking the
+    // generation — the plan was prepared while one WAS live — so a prefetch that
+    // built from the App's registries in a shell composition would reintroduce
+    // the very fallback the door now refuses, laundered through the cache.
+    let Some(mechanics) =
+        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::for_live_session(
+            session_gate.is_some(),
             generation.as_deref(),
             prepared_characters.as_deref(),
             &authored_sheets,
             &boss_catalog,
         )
+    else {
+        // No prefetch this frame. The door prepares its own plan, and refuses for
+        // the same reason if the generation is still missing when it gets there.
+        cache.entries.clear();
+        cache.identity = None;
+        return;
+    };
+    let mechanics = mechanics
         // ⛔ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. This is a PREFETCH
         // of the plan a transition will use, so it must project exactly what that
         // transition projects or the cache key describes a different world.

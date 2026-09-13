@@ -206,6 +206,15 @@ pub struct ResetPlayState<'w> {
     boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
     /// The mechanics of the generation this session was activated under.
     generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
+    /// ⛔ COMPOSITION MODE, beside the generation because it is what says whether
+    /// that generation is OWED. Installed only by `ambition_game_shell`'s session
+    /// plugin — *"never inserted by direct-entry apps or headless harnesses"* — so
+    /// its presence distinguishes *"this composition intentionally has no
+    /// generation"* from *"this shell session lost the one it had"*. See
+    /// `GenerationMechanics::for_live_session`.
+    session_gate: Option<
+        Res<'w, ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
+    >,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
     placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
@@ -350,12 +359,27 @@ pub fn process_new_game_reset_request(
 
     let start_index = room_set.start;
     // ⛔ THE GENERATION'S VALUES WHEN THERE IS ONE. See `GenerationMechanics`.
-    let mechanics = crate::session::mechanics::GenerationMechanics::new(
+    // ⛔⛤ **A RESET REBUILDS A LIVE ROOM, so a shell session that has lost its
+    // generation DECLINES rather than rebuilding from the App's registries.** See
+    // `GenerationMechanics::for_live_session`; the decline below is this
+    // function's existing *"DECLINE, do not die"* road.
+    let Some(mechanics) = crate::session::mechanics::GenerationMechanics::for_live_session(
+        play_state.session_gate.is_some(),
         play_state.generation.as_deref(),
         play_state.prepared_characters.as_deref(),
         &play_state.authored_sheets,
         &play_state.boss_catalog,
-    )
+    ) else {
+        bevy::log::error!(
+            target: "ambition_platformer2d::reset",
+            "sandbox reset declined: this composition routes gameplay through a \
+             shell session, so the start room is rebuilt from the generation's own \
+             registries — and `SessionMechanics` is absent. The running session is \
+             untouched."
+        );
+        return;
+    };
+    let mechanics = mechanics
     // ⛔⛤ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. A reset in a
     // composition with an activated generation must rebuild from the values that
     // generation's identity was taken over — see `GenerationMechanics`. These two

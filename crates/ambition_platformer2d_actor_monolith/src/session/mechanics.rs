@@ -155,6 +155,39 @@ impl<'a> GenerationMechanics<'a> {
         }
     }
 
+    /// The generation a LIVE room rebuild must read — or `None`, which is a
+    /// refusal.
+    ///
+    /// ⛔⛤ **`new`'s App FALLBACK CANNOT TELL TWO CASES APART, AND A 2026-09-13
+    /// REVIEW NAMED THE COST.** *"This composition intentionally has no
+    /// generation"* (a direct-entry demo, a headless harness, ~90 fixtures) and
+    /// *"this shell session should have generation mechanics and they are
+    /// missing"* are one `Option`. The first must keep working; the second must
+    /// FAIL, because rebuilding a live world out of whatever the App is holding
+    /// now is how a session prepared under N walks through a door into N+1.
+    ///
+    /// ⭐ **THE DISCRIMINATOR IS `SessionGatedSimulation`, WHICH ALREADY EXISTS
+    /// AND ALREADY MEANS THIS**: installed only by `ambition_game_shell`'s
+    /// session plugin, *"never inserted by direct-entry apps or headless
+    /// harnesses"*. Composition MODE is asked, not inferred.
+    ///
+    /// ⚠ **FOR ROADS THAT REBUILD A LIVE ROOM — a door, a death, a reset — AND
+    /// NOT FOR ROADS PREPARING THE NEXT GENERATION.** A hot reload legitimately
+    /// has no active generation to read: it is building the one that replaces it,
+    /// and states `None` on purpose. Those keep [`Self::new`].
+    pub fn for_live_session(
+        shell_routed: bool,
+        active: Option<&'a SessionMechanics>,
+        app_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+        app_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
+        app_bosses: &'a ambition_boss_encounter::BossCatalog,
+    ) -> Option<Self> {
+        if shell_routed && active.is_none() {
+            return None;
+        }
+        Some(Self::new(active, app_characters, app_sheets, app_bosses))
+    }
+
     /// The App's developer knobs, for a composition with NO activated generation.
     ///
     /// ⚠ Separate from [`Self::new`] because most callers have no such
@@ -416,6 +449,49 @@ mod tests {
             Some(&AuthoredPopulationCap::capped_at(99)),
             "a composition with no activated generation lost the App's cap, so the \
              assertion above is about ignoring the App rather than about ranking"
+        );
+    }
+
+    /// ⛔⛤ **A SHELL SESSION THAT HAS LOST ITS GENERATION MUST NOT REBUILD A LIVE
+    /// ROOM FROM THE App — AND `new`'s FALLBACK COULD NOT SAY SO.**
+    ///
+    /// A 2026-09-13 review named the class: *"this composition intentionally has
+    /// no generation"* and *"this shell session should have generation mechanics
+    /// and they are missing"* were one `Option`. The first is ~90 direct-entry
+    /// fixtures and must keep working; the second must FAIL, because rebuilding a
+    /// live world from whatever the App holds now is exactly how a session
+    /// prepared under N walks through a door into N+1.
+    ///
+    /// ⭐ **BOTH DIRECTIONS, AND THE SECOND IS THE CONTROL.** A constructor that
+    /// simply refused whenever there was no generation would pass the first
+    /// assertion and break every fixture in the tree.
+    #[test]
+    fn a_live_room_rebuild_refuses_a_shell_session_with_no_generation() {
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let bosses = ambition_boss_encounter::BossCatalog::default();
+
+        assert!(
+            GenerationMechanics::for_live_session(true, None, None, &sheets, &bosses).is_none(),
+            "a shell-routed composition with NO activated generation was handed \
+             the App's registries to rebuild a live room out of"
+        );
+
+        // ⭐ THE CONTROL: a direct-entry fixture states no generation and means it.
+        assert!(
+            GenerationMechanics::for_live_session(false, None, None, &sheets, &bosses).is_some(),
+            "a direct-entry composition was refused for having no generation, \
+             which is the one composition entitled to have none"
+        );
+
+        // ⭐ AND THE ORDINARY CASE: a shell session WITH its generation proceeds,
+        // reading that generation rather than the App.
+        let generation = SessionMechanics::default();
+        let mechanics =
+            GenerationMechanics::for_live_session(true, Some(&generation), None, &sheets, &bosses)
+                .expect("a shell session holding its generation may rebuild");
+        assert!(
+            mechanics.characters().is_none(),
+            "the projection read the App rather than the generation it was given"
         );
     }
 }

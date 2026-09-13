@@ -50,6 +50,13 @@ pub enum RoomConstructionError {
         room: String,
         reason: features::RoomFeatureConstructionError,
     },
+    /// ⛔⛤ **THE LIVE GENERATION'S MECHANICS ARE ABSENT IN A COMPOSITION THAT
+    /// OWES THEM.** A shell-routed session's rooms are rebuilt from the
+    /// registries its generation was prepared against; falling back to whatever
+    /// the App holds now rebuilds a live world out of a generation it was never
+    /// prepared for. ⇒ A road that rebuilds a LIVE room refuses instead. See
+    /// `session::mechanics::GenerationMechanics::for_live_session`.
+    LiveGenerationMechanicsMissing,
 }
 
 impl std::fmt::Display for RoomConstructionError {
@@ -61,6 +68,14 @@ impl std::fmt::Display for RoomConstructionError {
             Self::InvalidFeatures { room, reason } => {
                 write!(f, "room `{room}` construction is invalid: {reason}")
             }
+            Self::LiveGenerationMechanicsMissing => write!(
+                f,
+                "this composition routes gameplay through a shell session, so its \
+                 rooms are rebuilt from the generation's own registries — and \
+                 `SessionMechanics` is absent. Rebuilding from the App's current \
+                 registries would construct a world this session was never \
+                 prepared for."
+            ),
         }
     }
 }

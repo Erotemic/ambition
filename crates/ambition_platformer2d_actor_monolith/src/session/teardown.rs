@@ -166,6 +166,19 @@ pub struct SessionScopedResources<'w> {
     /// The other half: a trigger raised just before retirement and consumed just
     /// after the next session begins plays A's cutscene in B.
     cutscene_triggers: ResMut<'w, ambition_cutscene::CutsceneTriggerQueue>,
+    /// ⛔⛤ **THE CONVERSATION THE SIMULATION IS HAVING — same class as the
+    /// cutscene above, and the 2026-09-13 review rated it a RISK rather than a
+    /// confirmed bug for one reason: `break_dialogue_on_hit_or_separation` closes
+    /// a conversation whose participants no longer exist, and a retired session's
+    /// entities are despawned, so the stale state probably heals.** *"Probably"*
+    /// and *"eventually"* are ordering claims: there is an interval after B
+    /// begins in which the rollback snapshot still carries A's conversation and
+    /// input declaration can still see its owner.
+    ///
+    /// ⭐ **SO IT IS MADE IMPOSSIBLE RATHER THAN TIMED.** One line of membership
+    /// here costs nothing and removes the interval; establishing exactly how long
+    /// the interval is would cost a poison test and leave the interval there.
+    active_conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -278,6 +291,7 @@ fn reset(resources: SessionScopedResources) {
         mut outstanding_checkpoint,
         mut active_cutscene,
         mut cutscene_triggers,
+        mut active_conversation,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -303,6 +317,7 @@ fn reset(resources: SessionScopedResources) {
     *outstanding_checkpoint = crate::session::checkpoint::OutstandingCheckpointRequest::default();
     *active_cutscene = ambition_cutscene::ActiveCutscene::default();
     *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
+    *active_conversation = ambition_conversation::ActiveConversation::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

@@ -2686,6 +2686,76 @@ fn an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation
 /// ⇒ If the isolation ever needs to survive a collector that walks archetypes
 /// directly, this arm is where the difference will show up as a comment that
 /// stopped being true.
+/// ⛔⛤ **WHAT A CANDIDATE IS *NOT* HIDDEN FROM, MEASURED RATHER THAN ASSUMED.**
+///
+/// `Q123` carried an open clause: *"physics/global gatherers and anything walking
+/// ARCHETYPES directly rather than through a filtered query — those do not
+/// inherit `DefaultQueryFilters` at all."* This arm makes that concrete instead
+/// of leaving it as a worry, because a guarantee whose exceptions are unnamed is
+/// a guarantee nobody can rely on.
+///
+/// ⭐⭐ **THE CENSUS FIRST, TAKEN 2026-09-13 ACROSS `crates/`, `game/` AND
+/// `tools/`:** ZERO production uses of `World::archetypes()`, ZERO of
+/// `World::entities()`, and exactly ONE `iter_entities` — a `frame_of` helper
+/// inside `camera_snapshot.rs`'s own test module. ⇒ **Nothing shipped observes
+/// entities by a road `DefaultQueryFilters` cannot reach.**
+///
+/// ⚠ **BUT THAT IS A POPULATION FACT AND THIS ARM IS NOT.** The census says
+/// nothing does it TODAY; this says what WOULD happen, so the next reader can
+/// tell the difference between "safe" and "nobody has done it yet". The
+/// `InactiveCandidate` doc already makes the same distinction about hooks.
+#[test]
+fn a_candidate_is_hidden_from_queries_and_from_nothing_else() {
+    use bevy::prelude::Component;
+
+    #[derive(Component)]
+    struct Gathered;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let live = world.spawn(Gathered).id();
+    let candidate = world.spawn((Gathered, super::InactiveCandidate)).id();
+
+    // ⭐ THE PREMISE: an ordinary query hides it. Without this the arm below is
+    // about a filter that was never installed.
+    let queried: Vec<Entity> = world
+        .query_filtered::<Entity, bevy::prelude::With<Gathered>>()
+        .iter(&world)
+        .collect();
+    assert_eq!(
+        queried,
+        vec![live],
+        "the filter is not installed, so nothing below is about hiding",
+    );
+
+    // ⛔⛔ **AND `iter_entities` SEES IT.** This is the escape named, not a
+    // defect being asserted as correct: `World::iter_entities` walks the entity
+    // store and `DefaultQueryFilters` never enters into it. A global gatherer
+    // written this way WOULD observe an unpublished candidate.
+    let walked: Vec<Entity> = world.iter_entities().map(|entity| entity.id()).collect();
+    assert!(
+        walked.contains(&candidate),
+        "`iter_entities` no longer sees a disabled entity — if bevy started \
+         applying the default filters here, this arm should become the opposite \
+         assertion and `Q123`'s open clause is closed by the engine rather than \
+         by our census",
+    );
+    assert!(walked.contains(&live));
+
+    // ⛔ AND SO DOES A DIRECT COMPONENT READ ON A KNOWN ENTITY. `world.get` is
+    // not a query and takes no filter; anything holding an `Entity` handle to a
+    // candidate reads it as an ordinary body. ⇒ **The guarantee is about
+    // DISCOVERY, not about access** — nothing hides a candidate from code that
+    // was already given its handle, and A10's isolation rests on no such handle
+    // escaping the transaction that minted it.
+    assert!(
+        world.get::<Gathered>(candidate).is_some(),
+        "a direct component read stopped seeing a candidate, which would make \
+         `publish_candidate` — itself a direct read under `&mut World` — unable \
+         to find what it publishes",
+    );
+}
+
 #[test]
 fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
     use bevy::prelude::{Component, With};

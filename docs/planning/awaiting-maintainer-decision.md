@@ -1918,9 +1918,26 @@ Poison-verified: skipping `register_inactive_candidate_filter` reddens it.
 have that shape is not something the arm tests, and a `bevy_ggrs` upgrade is
 where it has to be re-read.
 
-⛔ **STILL UNPROVEN:** physics/global gatherers and anything walking ARCHETYPES
-directly rather than through a filtered query — those do not inherit
-`DefaultQueryFilters` at all.
+✅ **THE ARCHETYPE-WALKER CLAUSE IS ANSWERED BY CENSUS, 2026-09-13.** Across
+`crates/`, `game/` and `tools/`: **ZERO** production uses of
+`World::archetypes()`, **ZERO** of `World::entities()`, and exactly **ONE**
+`iter_entities` — a `frame_of` helper inside `camera_snapshot.rs`'s own test
+module. ⇒ **Nothing shipped observes entities by a road `DefaultQueryFilters`
+cannot reach.**
+
+⚠ **THAT IS A POPULATION FACT, so the arm beside it is not.**
+`a_candidate_is_hidden_from_queries_and_from_nothing_else` states what WOULD
+happen, so a reader can tell *"safe"* from *"nobody has done it yet"*:
+`iter_entities` DOES see a candidate, and so does a direct `world.get` on a known
+handle.
+
+⭐⭐ **WHICH NAMES THE GUARANTEE PROPERLY FOR THE FIRST TIME: IT IS ABOUT
+DISCOVERY, NOT ABOUT ACCESS.** Nothing hides a candidate from code that was
+already handed its `Entity` — and it must not, because `publish_candidate` is
+itself a direct read under `&mut World` and would be unable to find what it
+publishes. A10's isolation therefore rests on no handle escaping the transaction
+that minted it, which is exactly what `RootScope` and `RelationScope` (`Q125`)
+enforce at the type level.
 
 ⛔ **AND PUBLICATION ATOMICITY RESTS ON A POPULATION FACT, NOT A BOUNDARY.**
 `publish_candidate` removes the marker entity-by-entity under `&mut World`, which

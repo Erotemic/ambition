@@ -59,21 +59,6 @@ test for the next one:
   sources agree. That agreement rests on `.before(GameplaySessionSet::Providers)`
   — one edge, one witness — which is exactly why preparation must not depend on
   it. ⇒ The arm that would bite lives in `Q118`'s unordered interval.
-- ~~**`Q121` half two**~~ — CLOSED, see the table above. (Original text:)
-  the freeze had the WRONG LIFETIME. `bdbddfe` removed the
-  three mutable `Res` handles from `PlatformerSessionBuilder` (right) and froze
-  the App's PUBLISHED cast while the transaction's own admitted N+1 candidate sat
-  in `PendingGeneration` (wrong). ✅ That half is fixed in `d8604e50c`. ⛔ **What
-  is still open is bigger:** `PreparedPlatformerSessions::take` drops the frozen
-  state at activation, so room transition (`room_transition/loading.rs`) and reset
-  (`session/reset/mod.rs`) go back to App-global registries. A prepared generation
-  means its frozen mechanics for the FIRST construction call and nothing else. ⇒
-  Activation must PROMOTE the snapshot into an active-generation owner every
-  world-building road borrows from. ⛔ NOT a per-road frozen copy.
-- **`Q125`** — A10's relation surface still hands `&mut Commands` (and through it
-  `&mut World`) to every `RelationFn`, so a failed candidate can still mutate
-  world N. Close it before wiring the candidate lifecycle into I3b.
-- **`Q126`** — see `Q119` above.
 
 **Open, each with its measurement already taken:**
 
@@ -128,7 +113,7 @@ sentence rather than by trusting the row: candidate preparation
 (`CandidateGeneration`), atomic publication (one commit, families and selection
 together, asserted frame-exactly at app level), the canonical
 `PreparedContentIdentity` and `ContentEpoch` (staked at adoption as
-`PendingContentIdentity`, resolved by load id in `content_identity_for`, folded
+`PendingGenerationInputs`, resolved by load id in `content_identity_for`, folded
 into the `content.pack` fingerprint section, epoch allocated as the final
 non-fallible step), composition admission (`admit_candidate`, one preflight), and
 rollback timeline ownership (`cb8eac09f`: publication refused while a timeline
@@ -485,7 +470,9 @@ THAT WORK. THREE ARE CLOSED.**
   own blocker.**
   · **THE IDENTITY AND THE EPOCH BOTH REACH IT, CORRELATED BY LOAD ID.** MEASURED
   by following the chain end to end: `reload.rs:1181` stakes
-  `PendingContentIdentity { load, identity }` at ADOPTION (and `:1071` removes it
+  `PendingGenerationInputs { load, identity, characters }` at ADOPTION — it was
+  `PendingContentIdentity { load, identity }` when this row was written; `Q121`
+  added the candidate cast and renamed it (`d8604e50c`) — (and `:1071` removes it
   on discard); `crates/ambition_platformer2d_provider/src/lifecycle.rs`'s
   `content_identity_for(active, pending, load_id)`
   returns the CANDIDATE's identity for that exact load and falls back to the

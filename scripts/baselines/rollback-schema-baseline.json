@@ -64,6 +64,7 @@
     "actor.roll",
     "actor.ruleset_owns_death",
     "actor.scripted_control",
+    "actor.senses_undecided",
     "actor.spawn_baseline",
     "actor.sprite_offset",
     "actor.sprite_posed_body",

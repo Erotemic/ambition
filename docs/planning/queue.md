@@ -65,7 +65,11 @@ same stale line.
 
 ⇒ `grep -n "HOLD"` on the frontier at HEAD returns four hits and **all four are
 prose about holds that were discharged**. The only packet still waiting on
-anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
+anything is **A10** — and as of 2026-09-13 it waits on **no ruling at all**.
+`Q124`, its last named blocker, is WITHDRAWN: the gameplay rule it asked Jon to
+choose is already asserted in `death_restores_the_checkpoint`, and it is TEMPORAL
+(*"which side of the checkpoint the acquisition fell on"*) rather than any of the
+three kind-shaped options that row offered. What remains is A10's own engineering.
 
 **⛔ STILL OPEN AT THE TOP OF THE ORDER:**
 
@@ -155,22 +159,28 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   candidate is accepted; (2) non-entity room state goes live before verification;
   (3) hot-reload content/session state goes live independently of the verdict;
   (4) verification has no way to validate N+1 *while intentionally retaining N* —
-  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` MUST NOT BE
-  READ AS THE SOLE BLOCKER**: its gameplay ruling may still be needed, but the
-  engine has structural A10 work to do regardless of how it is answered. ⇒ The
+  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` IS NO LONGER A
+  BLOCKER AT ALL** (withdrawn 2026-09-13): the rule is already asserted in
+  production and is temporal, so what that row measured becomes an A10 INPUT
+  requirement — a room reconstruction under a checkpoint restore must receive the
+  checkpoint's CUSTODY ROSTER, or the plan and the baseline disagree about which
+  placements the world owes. ⇒ The
   packet is to be rewritten around a typed CANDIDATE WORLD/SESSION transaction —
   prepare every N+1 value offside, validate, then one authority switch, then
   retire N — **not** "save N's resources and restore on failure", which is
   duplicate truth plus a recovery procedure.
-- **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER IS `Q124`,
-  A GAMEPLAY RULING RATHER THAN A MYSTERY.**
+- **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER WAS `Q124`,
+  AND THAT ROW IS WITHDRAWN — the rule was never Jon's to choose.**
   MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped
   rooms publish completely (receipt 18, admitted 18). The two that fail are
   `death_restores_the_checkpoint`, and the cause is that a death-reset rebuilds
   the room around a placement still in your custody, duplicating its authored
   identity — **which the LIVE build does too, and is identically refused; the
   refusal just costs nothing there because the entities are already committed.**
-  ⇒ Read `Q124` before touching this. ⭐ Its structural half needs no ruling:
+  ⇒ The fix is the INPUT, not a ruling: the plan for a restore must be built from
+  the roster the checkpoint recorded, so a placement the checkpoint saw in custody
+  is not re-authored and one it saw on its pedestal is. ⭐ And the declaration half
+  needed no ruling either:
   `TransactionBaseline::retiring`/`reconstructing` have ZERO production callers,
   so every shipped room is verified against a declaration nobody made.
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
@@ -277,15 +287,49 @@ population. MEASURED both ways in
 capture SUCCEEDS with a hidden duplicate and REFUSES once the marker is removed
 without retiring the old body.
 
-⇒ **SO THE MACHINERY ITSELF FORCES PUBLICATION AND RETIREMENT INTO ONE STEP** —
-publish without retiring and the next transaction cannot open. That is the second
-standing test rather than the first: no guard asks the question, the structure
-refuses to express the state. ⭐ **AND IT IS THE "REAL SUPERSESSION RELATIONSHIP"
-THE REVIEW ASKED FOR, in vocabulary that already exists:** a candidate root is
-`TransactionBaseline::reconstructing` for the root's identity, and
-`ReconstructedOldSurvived` — *"you said you would replace this and the old body is
-still here"* — is exactly the state that is LEGAL while the new body is a
-candidate and ILLEGAL after publication.
+⛔⛤ **AND THE TWO CONCLUSIONS I DREW FROM THAT MEASUREMENT WERE BOTH WRONG.
+WITHDRAWN 2026-09-13 AFTER REVIEW, AND RE-DERIVED FROM THE SOURCE RATHER THAN
+TAKEN ON THE REVIEW'S WORD.** The measurement above stands; what it supports does
+not. Both retractions are kept because each is a way of over-reading a true
+result.
+
+**RETRACTED 1 — *"the machinery forces publication and retirement into ONE
+STEP"*.** It does not. `BaselineCaptureError::DuplicateIdentity` is raised in
+exactly one place (`TransactionBaseline::capture`, `construction/mod.rs`), which
+runs when the NEXT transaction OPENS. ⇒ Between a publication that forgot to
+retire and that moment, the world holds two live entities on one identity and
+every system in the game runs against it — dependants resolve to whichever the
+query yields first, which is storage order. **Detecting a bad state later, at an
+unrelated boundary, is not atomicity.** What is true is the narrow thing the arm
+measured: *a hidden candidate is invisible to `capture`, and an unhidden
+duplicate is refused by the next one that opens.* ⇒ **The atomicity claim is
+simply removed rather than weakened** — a guarantee that holds "eventually, at the
+next unrelated boundary" is the kind of sentence that gets built on.
+
+**RETRACTED 2 — *"`reconstructing` IS the supersession relationship the review
+asked for"*.** Read the declaration: `reconstructing` means *"this transaction
+intends to DESPAWN these identities' bodies and build new ones"*, and
+`verify_committed_roster` enforces exactly that — if the baseline entity is still
+`live()` at close, it is the VIOLATION `ReconstructedOldSurvived`. ⇒ It describes
+a destructive replacement that has ALREADY HAPPENED. It cannot express *"A is
+still live and correct, B is hidden, and B replaces A at publication"*, because
+in that state A being alive is the thing it reports as wrong.
+
+⇒ **SO A10 STILL OWES THE SUPERSESSION DECLARATION, AND `InactiveCandidate` +
+`reconstructing` IS NOT IT.** Two shapes, and the choice is a design decision that
+has not been made:
+1. **A distinct declaration** — `superseding(ids)` / `replace_on_publish(ids)` —
+   under which the old body being live is LEGAL at close and its removal is part
+   of PUBLISHING, not of committing.
+2. **Redefine the verifier around a PROPOSED POST-PUBLICATION ROSTER** rather than
+   around the live world: `close` judges what the world WOULD contain if this
+   transaction published, so a still-live predecessor scheduled for removal is
+   simply not in the roster being judged.
+
+⚠ **NEITHER IS WRITTEN, AND NO A10 PUBLICATION CODE SHOULD BE BUILT ON THE CLAIM
+THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
+in intent, and it is recorded here because the retracted paragraph above is
+exactly the sentence a future packet would have quoted.
 
 ⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
 SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,

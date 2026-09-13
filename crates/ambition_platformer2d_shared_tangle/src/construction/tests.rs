@@ -3065,9 +3065,31 @@ fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
 /// ⭐⭐ **IT DOES NOT, BECAUSE CAPTURE CANNOT SEE A HIDDEN CANDIDATE.** The query
 /// does not mention `InactiveCandidate`, so a disabled entity is not in the
 /// population — and that is the property that lets N and N+1 hold one identity at
-/// once. ⇒ **The publication must retire the old body in the SAME step it removes
-/// the marker**, or the next capture sees two and refuses; the arm below measures
-/// both halves of that.
+/// once.
+///
+/// ⛔⛤ **WHAT THIS ARM DOES *NOT* SHOW, WRITTEN DOWN BECAUSE I CLAIMED IT DID AND
+/// A REVIEW CORRECTED ME (2026-09-13).** It does not show that the machinery
+/// *"forces publication and retirement into one step"*.
+/// `BaselineCaptureError::DuplicateIdentity` is raised in ONE place —
+/// `TransactionBaseline::capture` — which runs when the NEXT transaction OPENS.
+/// ⇒ Between a publication that forgot to retire and that moment, the world holds
+/// two live entities on one identity and every system runs against it, resolving
+/// dependants by storage order. **Detecting a bad state later, at an unrelated
+/// boundary, is not atomicity**, and the difference matters because an atomicity
+/// claim is what a future packet would build publication on.
+///
+/// ⚠ Nor is `InactiveCandidate` + `reconstructing` the SUPERSESSION RELATIONSHIP
+/// A10 needs. `reconstructing` declares *"despawn these identities' bodies and
+/// build new ones"*, and `verify_committed_roster` reports
+/// `ReconstructedOldSurvived` if the old body is still `live()` at close — so it
+/// describes a destructive replacement that ALREADY HAPPENED, and the state A10
+/// wants (*"A still live and correct, hidden B replaces it at publication"*) is
+/// the one it calls a violation. See `queue.md`'s A10 section for the two shapes
+/// that could express it; neither is written.
+///
+/// ⇒ So the arm below measures exactly two facts and claims nothing beyond them:
+/// a hidden duplicate is invisible to capture, and an unhidden one is refused by
+/// the next capture that runs.
 #[test]
 fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not() {
     use crate::sim_id::SimId;
@@ -3100,9 +3122,10 @@ fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may
         captured.err()
     );
 
-    // ⛔ AND THE CONSTRAINT THAT FALLS OUT OF IT: publishing without retiring the
-    // old body leaves two VISIBLE entities on one identity, and the next
-    // transaction cannot open at all.
+    // ⛔ AND THE OTHER HALF: publishing without retiring the old body leaves two
+    // VISIBLE entities on one identity, and the next transaction cannot open.
+    // ⚠ THE NEXT one — not this frame, and not this publication. See the doc
+    // comment: that gap is why the atomicity claim was withdrawn.
     world.entity_mut(candidate).remove::<super::InactiveCandidate>();
     let after = super::TransactionBaseline::capture(&mut world);
     assert!(
@@ -3111,7 +3134,7 @@ fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may
             Err(super::BaselineCaptureError::DuplicateIdentity { .. })
         ),
         "publishing a candidate root WITHOUT retiring the one it supersedes left a \
-         world whose next baseline capture succeeds — so nothing would force the \
-         publication and the retirement into one step: {after:?}"
+         world whose next baseline capture succeeds — so the duplicate would not \
+         even be DETECTED, let alone prevented: {after:?}"
     );
 }

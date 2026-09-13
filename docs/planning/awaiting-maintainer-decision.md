@@ -2281,6 +2281,46 @@ component.
 partial publication (or an upstream way to ask), and an arm for a collector that
 walks archetypes rather than querying.
 
+## ✅ Q124 — WITHDRAWN 2026-09-13. THE GAMEPLAY RULE IS ALREADY ASSERTED IN PRODUCTION; WHAT REMAINS IS AN A10 IMPLEMENTATION REQUIREMENT.
+
+⛔⛤ **THE THREE OPTIONS BELOW WERE THE WRONG QUESTION, AND THE ANSWER WAS IN THE
+TEST THAT PRODUCED THE MEASUREMENT.** I asked Jon to choose between *"a death
+destroys what you hold"*, *"the room does not replan a placement in custody"* and
+*"the plan adopts the live occurrence"* — three KIND-shaped or ROAD-shaped rules.
+`game/ambition_app/tests/death_restores_the_checkpoint.rs` already states the rule
+and it is **TEMPORAL**, which none of the three is:
+
+* *"the reward was acquired before any checkpoint, so a death owes it back to the
+  world"*;
+* *"acquiring the reward was COMMITTED at C1, so a death must leave it in hand and
+  must not re-author it on its pedestal"*;
+* and the beat the file itself calls *"THE BEAT THAT KILLS THE ITEM-KIND
+  READING"* — two objects **of the same kind, held by the same body, in the same
+  frame**, reaching OPPOSITE answers, separated only by which side of the
+  checkpoint each acquisition fell on.
+
+⇒ **THE RULE IS: A RESTORE REBUILDS THE ROSTER THE CHECKPOINT RECORDED.** If the
+checkpoint saw the placement on its pedestal, the room re-authors it and the held
+copy must not exist. If the checkpoint saw it in custody, it stays in hand and the
+room must NOT plan it. **No ruling is owed** — and any of my three options would
+have CONTRADICTED an arm that ships, because each has one answer for two objects
+this test requires to differ.
+
+⭐⭐ **SO WHAT IS LEFT IS ENGINEERING, AND IT IS A10's:** a room reconstruction
+performed under a checkpoint restore must take the checkpoint's CUSTODY ROSTER as
+a transaction INPUT, so the plan and the baseline agree about which placements the
+world owes. The duplicate the instrument found is not a gameplay ambiguity; it is a
+transaction built from a plan that never received one of its inputs.
+
+⚠ **IF JON DISAGREES, THE THING THAT MOVES IS THE TEST, NOT THIS ROW.** The rule
+is asserted in production and the assertions name their reasons; a different rule
+is a change to `death_restores_the_checkpoint`, which is where it would have to be
+argued. That is why this is withdrawn rather than left pending: a question whose
+answer is already enforced by a shipped arm is not a question, it is a row nobody
+re-derived.
+
+<details><summary>The question as it was posed, kept because the MEASUREMENT is still the receipt for A10's requirement</summary>
+
 ## Q124 — a DEATH-RESET rebuilds a room around the placement you are still CARRYING, and duplicates its identity
 
 ⛔⛤ **MEASURED 2026-09-13, and it is the mechanism A10's hold said it could not
@@ -2476,6 +2516,8 @@ green again on restore):**
 ⚠ **A10's LAST STEP IS NOW HELD ON THIS ROW ALONE** — a gameplay ruling about a
 placement in your custody when a death rebuilds the room that authored it. The
 ordering half needed no ruling and is done.
+
+</details>
 
 ## ✅ Q125 — CLOSED 2026-09-13. A relation gets its two endpoints and nothing else.
 

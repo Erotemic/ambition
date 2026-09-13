@@ -239,6 +239,26 @@ Use the narrowest command that actually covers the change. Full matrix:
   ```bash
   cargo test -p ambition_app --test app_it -- <module>
   ```
+
+  ⛔⛔ **THAT TRAILING `-- <module>` IS A FILTER, NOT A LANE.** Every
+  `tests/*.rs` is a MODULE of this one binary, so the filter selects a subset
+  and the rest of the binary goes unrun while the summary still says `ok`.
+  Measured 2026-09-12: `-- smash_in_the_host` reported 66 passed and green while
+  `smash_cpus_damage_each_other`, in the same binary, was red. **A green result
+  names its POPULATION** — say which lane ran, and drop the filter before
+  claiming the target passes. Same trap one level down: `--exact` with a bare
+  test name matches nothing, prints `running 0 tests`, and exits **0**; a filter
+  must carry the full module path.
+* ⛔⛔ **A GREEN SUITE CANNOT CERTIFY AN ASSERTION'S DIRECTION.** A run catches an
+  assertion that is inverted AND failing. One inverted but coincidentally
+  passing is invisible to it forever — only reading each assertion against the
+  claim its own failure message makes will find it. So when a sense-flip is in
+  play, review the senses by hand; a rebuild is not the instrument.
+  ⇒ And a corollary that cost this repo a red main: **an `assert!` cannot record
+  whichever answer turns up — it asserts one.** A probe whose two outcomes are
+  both findings is a `println!` in a PASSING test. If you catch yourself writing
+  "expected FAIL" next to a red arm, it does not ship; the suite cannot tell a
+  deliberate probe from a break.
 * ⛔⛔ **DO NOT SWEEP `cargo test --workspace --tests` — IT FILLS THE DISK.**
   It links many integration targets at once. Simultaneous linker failures across
   unrelated crates are likely an environment-resource problem; rerun one crate

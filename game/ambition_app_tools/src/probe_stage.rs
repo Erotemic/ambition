@@ -194,6 +194,43 @@ pub fn place(app: &mut App, body: Entity, pos: Vec2) {
     );
 }
 
+/// Stand `body` at `pos`, at rest, WITHOUT disturbing the contacts it already
+/// has — the counterpart to [`place`], and the two are NOT interchangeable.
+///
+/// ⛔⛤ `constrain_body_pose`, NOT `transit_body`, AND THE DIFFERENCE IS
+/// MEASURED. [`place`] is the discrete-transit authority: `reconcile_transit`
+/// invalidates ground and wall contact BY DESIGN, which is exactly right for a
+/// teleport and exactly wrong for a fixture that stands a body on a floor and
+/// then asserts it is standing there.
+///
+/// Measured 2026-09-13 in `ko_envelope`: routing its per-trial placement
+/// through [`place`] turned five measured centre KO thresholds (219, 185, 163,
+/// 121, 108) into `REFUSED@0` and raised centre refusals 70 -> 79 across a
+/// 224-cell matrix, because the victim never retook the floor it was resting
+/// on. A 40-tick settle-until-grounded loop did not rescue it: that run came
+/// back CELL-FOR-CELL IDENTICAL to the unsettled one, which is what "never
+/// re-grounds" looks like. It also scored a body arriving airborne at the ledge
+/// and falling as a KO at 18% with no `ko_ticks`.
+///
+/// The pin's own contract is the one a fixture wants — it "does not fabricate
+/// or clear contact facts" — and it is the same two assignments a bare
+/// `kin.pos = ` / `kin.vel = ` made, under the authority
+/// `engine.pose-writes-are-authority-only` asks for.
+///
+/// ⇒ USE THIS when the body is already supported and you are sliding it along
+/// the surface it is on. USE [`place`] when the body is genuinely teleporting
+/// and SHOULD lose the contacts it had.
+pub fn pin_grounded_at_rest(app: &mut App, body: Entity, pos: Vec2) {
+    let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(body) else {
+        return;
+    };
+    ambition_platformer2d::engine_core::movement::constrain_body_pose(
+        &mut kin,
+        pos,
+        Vec2::ZERO,
+    );
+}
+
 pub fn playing_move(app: &App, body: Entity) -> Option<String> {
     app.world()
         .get::<ambition_platformer2d::combat::moveset::MovePlayback>(body)

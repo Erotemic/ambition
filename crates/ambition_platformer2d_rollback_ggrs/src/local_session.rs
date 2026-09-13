@@ -176,13 +176,15 @@ fn decided_or_device_seating(world: &mut World) -> usize {
 /// remove, not a policy. The proposal stays pending, so the moment the session
 /// ends or ownership becomes local the edit publishes on its own.
 pub fn decide_mechanical_edit_admission(world: &mut World) {
-    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdit};
+    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdits};
 
+    // ⛔ ANY domain, and the decider does not care WHICH. It answers for the
+    // whole batch — that is the half of the protocol that is genuinely shared.
+    // Which values are in the batch is each domain's own business, and a
+    // publisher drains only its own proposal.
     let pending = world
-        .get_resource::<PendingMechanicalEdit>()
-        .copied()
-        .unwrap_or_default()
-        .0;
+        .get_resource::<PendingMechanicalEdits>()
+        .is_some_and(PendingMechanicalEdits::any_pending);
     let admission = if !pending || !crate::session::session_is_active(world) {
         // Nothing proposed, or nothing to protect. The next baseline — if one is
         // ever started — starts with whatever the edit leaves behind.
@@ -475,7 +477,7 @@ mod seating_readiness_tests {
 #[cfg(test)]
 mod mechanical_edit_admission_tests {
     use super::*;
-    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdit};
+    use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdits};
     use crate::session::{RollbackSessionOwnership, SyncTestOwner, SyncTestSettings};
 
     /// A world with a LIVE session of the given ownership and one edit waiting.
@@ -487,7 +489,11 @@ mod mechanical_edit_admission_tests {
     fn world_with_live_session(ownership: RollbackSessionOwnership) -> World {
         let mut world = World::new();
         world.init_resource::<LocalSessionOwnership>();
-        world.insert_resource(PendingMechanicalEdit(true));
+        world.insert_resource({
+            let mut pending = PendingMechanicalEdits::default();
+            pending.propose(ambition_platformer2d_core::MechanicalDomain("fixture"));
+            pending
+        });
         match ownership {
             RollbackSessionOwnership::External => {
                 let session =
@@ -525,7 +531,7 @@ mod mechanical_edit_admission_tests {
     #[test]
     fn a_frame_with_nothing_pending_never_touches_a_live_session() {
         let mut world = world_with_live_session(local());
-        world.insert_resource(PendingMechanicalEdit(false));
+        world.insert_resource(PendingMechanicalEdits::default());
         decide_mechanical_edit_admission(&mut world);
         assert!(
             crate::session::session_is_active(&world),
@@ -542,7 +548,11 @@ mod mechanical_edit_admission_tests {
     #[test]
     fn an_edit_with_no_live_session_publishes() {
         let mut world = World::new();
-        world.insert_resource(PendingMechanicalEdit(true));
+        world.insert_resource({
+            let mut pending = PendingMechanicalEdits::default();
+            pending.propose(ambition_platformer2d_core::MechanicalDomain("fixture"));
+            pending
+        });
         decide_mechanical_edit_admission(&mut world);
         assert_eq!(
             *world.resource::<MechanicalEditAdmission>(),
@@ -624,7 +634,9 @@ mod mechanical_edit_admission_tests {
                 "{what} was stopped by this host for a local developer edit"
             );
             assert!(
-                world.resource::<PendingMechanicalEdit>().0,
+                world
+                    .resource::<PendingMechanicalEdits>()
+                    .is_pending(ambition_platformer2d_core::MechanicalDomain("fixture")),
                 "{what} DISCARDED the developer's edit instead of staging it, so \
                  the value the inspector shows is not the value that will ever \
                  be published"

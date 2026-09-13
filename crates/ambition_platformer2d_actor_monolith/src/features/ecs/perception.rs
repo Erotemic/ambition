@@ -411,9 +411,22 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// documented above `ensure_perception`. What was wrong was that a REFUSAL was
 /// spelled the same way as that policy. Two facts, one representation; now two.
 ///
-/// ⚠ NOT ROLLBACK STATE, for the same reason `Dormant` is derived every tick: it
-/// is re-decided from the session's own mechanics whenever they are present, and
-/// it is REMOVED in the same command as the `Perception` insert — so no frame
+/// ⛔⛤ **IT IS ROLLBACK STATE, AND THIS COMMENT SAID THE OPPOSITE FOR A DAY.**
+/// The first version read *"NOT ROLLBACK STATE, for the same reason `Dormant` is
+/// derived every tick"* — while the same change REGISTERED it canonically
+/// (`rollback_registration.rs`, schema 182 → 183). A review caught the
+/// contradiction; the registration is right and the sentence was wrong.
+///
+/// ⇒ **PRESENCE IS AUTHORITATIVE BECAUSE A QUERY FILTERS ON IT.**
+/// `tick_actor_brains` excludes this marker, so a restore that dropped it would
+/// put the body back into the decision phase for one advance with NO
+/// `Perception` — which reads as `Omniscient`, the exact fail-open the marker
+/// exists to close. *"Re-derived next tick"* is not a reason to omit a component
+/// something reads BEFORE its writer runs again; `ITEM 0` of this project's own
+/// record is that mistake. `Dormant` is registered for the same reason and its
+/// own note says so.
+///
+/// ⚠ It is REMOVED in the same command as the `Perception` insert, so no frame
 /// exists where a body carries both.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SensesUndecided;

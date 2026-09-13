@@ -658,7 +658,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .chain()
                 .before(RunGgrsSystems),
         )
-        .init_resource::<ambition_platformer2d_core::PendingMechanicalEdit>()
+        .init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
         .init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>()
         .add_systems(
             PreUpdate,

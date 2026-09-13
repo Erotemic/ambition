@@ -862,10 +862,14 @@ pub fn sync_player_stats_with_inspector(
 pub fn publish_editable_movement_tuning(
     editable: Res<EditableMovementTuning>,
     admission: Option<Res<ae::MechanicalEditAdmission>>,
-    mut pending: ResMut<ae::PendingMechanicalEdit>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut active: ResMut<ae::ActiveMovementTuning>,
 ) {
-    if !pending.0 {
+    // ⛔⛤ **ASKED ABOUT THIS DOMAIN, NOT ABOUT THE BATCH.** The first version
+    // read a single global `bool`: with two domains proposing in one frame, the
+    // first publisher cleared the bit and the second silently dropped its edit.
+    // See `PendingMechanicalEdits`.
+    if !pending.is_pending(MOVEMENT_TUNING) {
         return;
     }
     // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
@@ -879,7 +883,9 @@ pub fn publish_editable_movement_tuning(
         return;
     }
     active.0 = editable.as_engine();
-    pending.0 = false;
+    // ⛔ DRAIN ONLY OURS. There is no method on `PendingMechanicalEdits` that
+    // can drain another domain's proposal, which is the point of the type.
+    pending.take(MOVEMENT_TUNING);
 }
 
 /// Raise the developer's movement-tuning edit as a PROPOSAL.
@@ -905,13 +911,21 @@ pub fn publish_editable_movement_tuning(
 /// composition had just started, every time.
 pub fn propose_editable_movement_tuning(
     editable: Res<EditableMovementTuning>,
-    mut pending: ResMut<ae::PendingMechanicalEdit>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
 ) {
     if !editable.is_changed() || editable.is_added() {
         return;
     }
-    pending.0 = true;
+    pending.propose(MOVEMENT_TUNING);
 }
+
+/// This domain's key in [`ae::PendingMechanicalEdits`].
+///
+/// ⭐ **DECLARED BESIDE THE VALUE IT OWNS, not in a central enum.** `Q120` names
+/// five more mutable mechanical values owned by five different crates; a central
+/// enum would make `ambition_platformer2d_core` name every one of them, which is
+/// the dependency edge this protocol exists to avoid.
+pub const MOVEMENT_TUNING: ae::MechanicalDomain = ae::MechanicalDomain("movement_tuning");
 
 #[cfg(test)]
 mod adapter_tests {
@@ -921,7 +935,7 @@ mod adapter_tests {
         let mut app = App::new();
         app.init_resource::<EditableMovementTuning>();
         app.init_resource::<ae::ActiveMovementTuning>();
-        app.init_resource::<ae::PendingMechanicalEdit>();
+        app.init_resource::<ae::PendingMechanicalEdits>();
         app.init_resource::<ae::MechanicalEditAdmission>();
         app.add_systems(
             Update,
@@ -968,7 +982,9 @@ mod adapter_tests {
              mechanics it never ran with"
         );
         assert!(
-            app.world().resource::<ae::PendingMechanicalEdit>().0,
+            app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(MOVEMENT_TUNING),
             "the refused edit was discarded instead of staged"
         );
 
@@ -989,7 +1005,9 @@ mod adapter_tests {
              developer's change was silently lost"
         );
         assert!(
-            !app.world().resource::<ae::PendingMechanicalEdit>().0,
+            !app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(MOVEMENT_TUNING),
             "a published proposal stayed pending, so every later frame republishes it"
         );
     }

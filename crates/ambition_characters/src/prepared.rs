@@ -2299,7 +2299,9 @@ fn finalize_cast(
 /// `StagedCharacterOverrides::deterministic_dump` for why the fold is the wrong
 /// material. Read by the provider preparation to bind the prepared cast into
 /// `PreparedContentIdentity`.
-pub fn staged_cast_declaration(world: &bevy::ecs::world::World) -> Option<String> {
+pub fn staged_cast_declaration(
+    world: &bevy::ecs::world::World,
+) -> Option<Result<String, String>> {
     world
         .get_resource::<StagedCharacterOverrides>()
         .map(StagedCharacterOverrides::deterministic_dump)
@@ -2456,27 +2458,32 @@ impl StagedCharacterOverrides {
     /// "authored nothing" and "authored exactly the catalog row's value" become
     /// the same prepared value. Fingerprinting the fold would make those two
     /// compositions identical again.
-    pub fn deterministic_dump(&self) -> String {
+    /// ⛔⛤ **IT REFUSES RATHER THAN HASHING AN ERROR MESSAGE.** The first
+    /// version wrote `<unserializable: {error}>` into the dump, reasoning that a
+    /// distinct id-bearing marker still separated two casts. **That fails OPEN
+    /// into the identity machinery:** the fingerprint would then be a hash of a
+    /// failure STRING, and two casts that both fail to serialize for the same
+    /// reason are declared identical — which is precisely the claim
+    /// `RollbackTimelineContract` uses to decide a snapshot may be restored.
+    ///
+    /// ⇒ A generation whose mechanical material cannot be rendered has no
+    /// identity, and the honest answer is to refuse the preparation.
+    pub fn deterministic_dump(&self) -> Result<String, String> {
         let mut out = String::new();
         for (id, staged) in &self.by_id {
+            let rendered = ron::to_string(&staged.inner).map_err(|error| {
+                format!(
+                    "the staged cast cannot be rendered as canonical generation \
+                     material: character `{}`: {error}",
+                    id.as_str()
+                )
+            })?;
             out.push_str(id.as_str());
             out.push('=');
-            match ron::to_string(&staged.inner) {
-                Ok(rendered) => out.push_str(&rendered),
-                // ⛔ A SERIALIZATION FAILURE MUST NOT SILENTLY COLLAPSE TWO
-                // DIFFERENT CASTS TO ONE FINGERPRINT. It is recorded as a
-                // distinct, id-bearing marker so the identity still separates
-                // them by id, and the failure is visible in the dump itself
-                // rather than swallowed.
-                Err(error) => {
-                    out.push_str("<unserializable: ");
-                    out.push_str(&error.to_string());
-                    out.push('>');
-                }
-            }
+            out.push_str(&rendered);
             out.push('\n');
         }
-        out
+        Ok(out)
     }
 
     fn id_for_display_name(&self, display_name: &str) -> Option<&str> {

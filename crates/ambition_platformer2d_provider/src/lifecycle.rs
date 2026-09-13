@@ -570,38 +570,50 @@ impl PlatformerPreparation<'_> {
                 ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
                     .schema_fingerprint()
             });
-        let content = match prepare_platformer_content(
-            source,
-            &authored,
-            self.character_catalog_registry.as_deref(),
-            self.placement_lowering.as_deref(),
-            self.content_staging.as_deref(),
-            MechanicalRegistries {
+        // ⛔ THE MECHANICAL MATERIAL IS RENDERED FIRST AND ITS FAILURE IS A
+        // PREPARATION FAILURE, routed through the SAME arm as every other
+        // diagnostic below — see `canonical`. A dump that cannot be rendered has
+        // no identity, so this refuses rather than hashing an error string.
+        let content = match canonical(
+            self.content_inputs.3.as_deref(),
+            ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump,
+            "characters.definitions",
+        )
+        .and_then(|prepared_cast| {
+            Ok(MechanicalRegistries {
                 construction_recipes: self
                     .content_inputs
                     .0
                     .as_deref()
                     .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
                 content_pack: self.content_identity_for(transaction),
-                prepared_cast: self
-                    .content_inputs
-                    .3
-                    .as_deref()
-                    .map(ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump),
+                prepared_cast,
+                // ⚠ INFALLIBLE: the sheet dump is the provider's own declaration
+                // TEXT, already retained, with no serialization step to fail.
                 authored_sheets: self
                     .content_inputs
                     .4
                     .as_deref()
                     .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump),
-                boss_catalog: self
-                    .content_inputs
-                    .5
-                    .as_deref()
-                    .map(ambition_boss_encounter::BossCatalog::deterministic_dump),
-            },
-            snapshot_schema,
-            &mut self.epochs,
-        ) {
+                boss_catalog: canonical(
+                    self.content_inputs.5.as_deref(),
+                    ambition_boss_encounter::BossCatalog::deterministic_dump,
+                    "boss.catalog",
+                )?,
+            })
+        })
+        .and_then(|mechanical| {
+            prepare_platformer_content(
+                source,
+                &authored,
+                self.character_catalog_registry.as_deref(),
+                self.placement_lowering.as_deref(),
+                self.content_staging.as_deref(),
+                mechanical,
+                snapshot_schema,
+                &mut self.epochs,
+            )
+        }) {
             Ok(content) => content,
             Err(diagnostic) => {
                 self.fail(
@@ -849,15 +861,20 @@ pub fn prepare_platformer_content_for_app(
         .map(|identity| identity.0.clone());
     // ⛔⛤ THE THREE MECHANICAL REGISTRIES SESSION CONSTRUCTION CONSUMES AND
     // NOTHING FINGERPRINTED. See `MechanicalRegistries`.
-    let prepared_cast = ambition_characters::prepared::staged_cast_declaration(app.world());
+    let prepared_cast = ambition_characters::prepared::staged_cast_declaration(app.world())
+        .transpose()
+        .map_err(|error| ContentDiagnostic::new("characters.definitions", error))?;
+    // ⚠ INFALLIBLE: the sheet dump is the provider's own declaration TEXT,
+    // already retained, with no serialization step to fail.
     let authored_sheets = app
         .world()
         .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
         .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump);
-    let boss_catalog = app
-        .world()
-        .get_resource::<ambition_boss_encounter::BossCatalog>()
-        .map(ambition_boss_encounter::BossCatalog::deterministic_dump);
+    let boss_catalog = canonical(
+        app.world().get_resource::<ambition_boss_encounter::BossCatalog>(),
+        ambition_boss_encounter::BossCatalog::deterministic_dump,
+        "boss.catalog",
+    )?;
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
@@ -944,6 +961,24 @@ pub(crate) fn content_identity_for(
 /// list is closed:** the rest of `PlatformerSessionBuilder`'s inputs have not
 /// been audited against the mechanical/derived/presentation classification. This
 /// covers the three the review named and measured.
+/// ⛔⛤ **A CANONICAL DUMP THAT CANNOT BE RENDERED IS A REFUSAL, NOT A STRING.**
+/// The first version of these dumps embedded `<unserializable: {error}>` and
+/// carried on, which fails OPEN into the identity machinery: the fingerprint
+/// becomes a hash of a FAILURE MESSAGE, and two generations that fail the same
+/// way are declared identical — which is exactly the claim
+/// `RollbackTimelineContract` uses to decide a snapshot may be restored into a
+/// world. ⇒ A generation whose mechanical material cannot be rendered has no
+/// identity, so the preparation refuses.
+fn canonical<T>(
+    source: Option<&T>,
+    render: impl Fn(&T) -> Result<String, String>,
+    section: &'static str,
+) -> Result<Option<String>, ContentDiagnostic> {
+    source
+        .map(|value| render(value).map_err(|error| ContentDiagnostic::new(section, error)))
+        .transpose()
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct MechanicalRegistries {
     /// Canonical descriptor-only dump of every installed construction domain.

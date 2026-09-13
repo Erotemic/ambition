@@ -393,6 +393,16 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         self
     }
 
+    /// ⛔⛤ **`rebind` WAS HERE AND IS DELETED, 2026-09-12.** It bound a second
+    /// scope to a DIFFERENT entity — justified in its own doc by a cluster road
+    /// "where one function writes to each in turn" — and **MEASURED at HEAD, no
+    /// production code ever called it.** A recipe holding a `RootScope` could
+    /// therefore still manufacture a writer over any entity it could name, which
+    /// is most of what removing `Commands` was for. A capability with no caller
+    /// is not narrower than one with a caller; it is the same capability,
+    /// untested.
+    ///
+    /// ⇒ If a cluster road ever needs it, it arrives WITH that caller.
     /// Hand this scope to a callee without giving up ownership of it.
     pub fn reborrow(&mut self) -> EntityScope<'w, 's, '_> {
         EntityScope {
@@ -401,18 +411,6 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         }
     }
 
-    /// Bind a SECOND scope to a different entity, borrowing the same
-    /// `Commands`.
-    ///
-    /// ⛔ Also not a mint: the entity must already exist. This is for the roads
-    /// that populate a cluster whose members were allocated together (a boss and
-    /// its parts), where one function writes to each in turn.
-    pub fn rebind(&mut self, other: Entity) -> EntityScope<'w, 's, '_> {
-        EntityScope {
-            entity: other,
-            commands: self.commands,
-        }
-    }
 }
 
 /// An [`EntityScope`] that also knows the gameplay session owning its entity,
@@ -495,14 +493,6 @@ impl<'w, 's, 'a> RootScope<'w, 's, 'a> {
         }
     }
 
-    /// Bind a SECOND scope, same session, to a different already-allocated
-    /// entity.
-    pub fn rebind(&mut self, other: Entity) -> RootScope<'w, 's, '_> {
-        RootScope {
-            entity: self.entity.rebind(other),
-            session: self.session,
-        }
-    }
 }
 
 /// Populates one planned row's already-allocated root.
@@ -1362,7 +1352,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// is what lets a plan express a mutual pair (two duellists grudging each
     /// other) without either row needing the other to exist first.
     pub fn commit(&self, ctx: &mut ConstructionExecCtx<'_, '_, '_, D>) -> ConstructionReceipt {
-        self.execute(None, ctx).unwrap_or_else(|error| {
+        self.execute(None, ctx, false).unwrap_or_else(|error| {
             unreachable!(
                 "committing a plan in full names only its own rows and encloses every relation, \
                  so it cannot be refused: {error}"
@@ -1415,13 +1405,22 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                 session,
                 services,
             };
-            let receipt = self.commit(&mut ctx);
+            // ⛔⛤ **HIDDEN AT MINT, NOT AFTER THE FLUSH.** This used to call
+            // `commit`, apply the queue — making every candidate entity real and
+            // visible — and only then loop inserting the marker. Systems cannot
+            // observe that window (nothing is scheduled inside an exclusive
+            // world call), but component HOOKS and lifecycle OBSERVERS fire
+            // during `queue.apply` and are not systems. `execute(.., true)`
+            // stamps the marker in the same batch as the root's identity, before
+            // the recipe runs.
+            let receipt = self
+                .execute(None, &mut ctx, true)
+                .unwrap_or_else(|error| {
+                    unreachable!("a full commit cannot cut a relation: {error}")
+                });
             queue.apply(world);
             receipt
         };
-        for entity in receipt.committed.values() {
-            world.entity_mut(*entity).insert(InactiveCandidate);
-        }
         Ok(receipt)
     }
 
@@ -1450,7 +1449,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         ids: &BTreeSet<SimId>,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
     ) -> Result<ConstructionReceipt, ConstructionError> {
-        self.execute(Some(ids), ctx)
+        self.execute(Some(ids), ctx, false)
     }
 
     /// `None` means every row — which is why a full commit allocates nothing to
@@ -1458,10 +1457,23 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     /// roster explicitly would clone every `SimId` in the plan, and a
     /// reconstruction sweep calling `construct_one` per entity would pay that
     /// once per entity.
+    /// `hidden` stamps [`InactiveCandidate`] on each root AT MINT, in the same
+    /// command batch as its identity and provenance.
+    ///
+    /// ⛔⛤ **`commit_inactive` USED TO STAMP AFTERWARDS, AND THAT IS A WINDOW.**
+    /// It applied the whole command queue — at which point every candidate
+    /// entity is REAL and VISIBLE — and only then looped inserting the marker.
+    /// No scheduled system runs inside an exclusive `&mut World` call, so the
+    /// window is invisible to systems; **component hooks and lifecycle observers
+    /// are not systems and fire during `queue.apply`.** The old comment on
+    /// [`InactiveCandidate`] admitted the residual surface was *"a POPULATION
+    /// FACT, not a boundary"* — this makes it a boundary for the one thing it
+    /// can: the marker is on the root before anything else is.
     fn execute(
         &self,
         subset: Option<&BTreeSet<SimId>>,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+        hidden: bool,
     ) -> Result<ConstructionReceipt, ConstructionError> {
         let included = |id: &SimId| subset.is_none_or(|ids| ids.contains(id));
         if let Some(ids) = subset {
@@ -1488,7 +1500,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
 
         let mut receipt = ConstructionReceipt::default();
         for planned in self.entities.iter().filter(|e| included(&e.sim_id)) {
-            let entity = self.commit_entity(planned, ctx);
+            let entity = self.commit_entity(planned, ctx, hidden);
             receipt.committed.insert(planned.sim_id.clone(), entity);
         }
         for relation in self.relations.iter().filter(|r| included(&r.from)) {
@@ -1527,6 +1539,7 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
         &self,
         planned: &PlannedEntity<D>,
         ctx: &mut ConstructionExecCtx<'_, '_, '_, D>,
+        hidden: bool,
     ) -> Entity {
         let root = ctx.commands.spawn_empty().id();
         // Identity, provenance, and transaction ownership go on before the
@@ -1539,6 +1552,12 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
             planned.origin.clone(),
             self.transaction(ctx.session),
         ));
+        // ⛔ BEFORE THE RECIPE RUNS AND IN THE SAME BATCH AS THE STAMPS ABOVE,
+        // so the root is never briefly a visible member of the live world. See
+        // `execute`'s `hidden`.
+        if hidden {
+            ctx.commands.entity(root).insert(InactiveCandidate);
+        }
         // The constructor preparation resolved — NOT a fresh dispatch. A domain
         // whose `dispatch` reads mutable state would otherwise let commit run a
         // different constructor than the one the plan validated and dumped.

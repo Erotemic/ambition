@@ -41,11 +41,15 @@ impl BossCatalog {
     /// and not registration order; the derived `Serialize` is what keeps this
     /// exhaustive when a field is added, rather than a hand-listed set that a
     /// new field would silently miss.
-    pub fn deterministic_dump(&self) -> String {
-        ron::to_string(self).unwrap_or_else(|error| {
-            // ⛔ A DISTINCT MARKER, not an empty string: an empty dump would make
-            // every catalog identical to every other and to no catalog at all.
-            format!("<boss-catalog unserializable: {error}>")
+    /// ⛔⛤ **IT REFUSES RATHER THAN HASHING AN ERROR MESSAGE.** The first version
+    /// returned `<boss-catalog unserializable: {error}>`, which fails OPEN into
+    /// the identity machinery: two catalogs that both fail for the same reason
+    /// hash identically, and that hash is what the rollback timeline contract
+    /// compares. A generation whose mechanical material cannot be rendered has
+    /// no identity.
+    pub fn deterministic_dump(&self) -> Result<String, String> {
+        ron::to_string(self).map_err(|error| {
+            format!("the boss catalog cannot be rendered as canonical generation material: {error}")
         })
     }
 

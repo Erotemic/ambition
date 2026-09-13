@@ -750,8 +750,16 @@ impl Default for ConstructionLane {
 /// ⇒ The candidate keeps its `SimId`, its `SpawnOrigin`, its [`TransactionId`]
 /// and its relationships while invisible, which is what makes publication a
 /// component REMOVAL rather than a transfer.
+/// ⛔⛤ **`pub(crate)`, AND THE PRIVACY IS THE CONTRACT (`Q123`, 2026-09-13).**
+/// Publication removes this marker one entity at a time, so a hook or observer
+/// attached to it observes the transaction PARTIALLY PUBLISHED — measured
+/// `[3, 2, 1]` still-hidden siblings across a three-root publication. A workspace
+/// census found zero such hooks, but a census is a population fact and this type
+/// was `pub`, so any crate could add the first one. ⇒ Nobody outside this crate
+/// can name it, and therefore nobody outside this crate can hook it. See
+/// [`publish_candidate`] for the guarantee this narrows.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub struct InactiveCandidate;
+pub(crate) struct InactiveCandidate;
 
 /// Teach this world that [`InactiveCandidate`] hides an entity from ordinary
 /// queries.
@@ -2488,11 +2496,31 @@ pub enum InactiveCommitRefused {
 
 /// Admit a candidate into the running world: the ONE publication boundary.
 ///
-/// ⭐ PUBLICATION IS A COMPONENT REMOVAL, WHICH IS WHY IT CANNOT HALF-HAPPEN.
-/// The candidate already holds its `SimId`, its provenance, its
-/// [`TransactionId`] and every relation it was built with — nothing is copied,
-/// moved or re-identified here. What changes is whether ordinary queries can see
-/// it, and that flips for the whole transaction in one pass.
+/// ⭐ **PUBLICATION IS A COMPONENT REMOVAL, SO NOTHING IS COPIED, MOVED OR
+/// RE-IDENTIFIED.** The candidate already holds its `SimId`, its provenance, its
+/// [`TransactionId`] and every relation it was built with; what changes is
+/// whether ordinary queries can see it.
+///
+/// ⛔⛤ **THIS PARAGRAPH USED TO END *"WHICH IS WHY IT CANNOT HALF-HAPPEN"*, AND
+/// THIS REPOSITORY'S OWN EXPERIMENT DISPROVED IT (`Q123`, 2026-09-13).** An
+/// `on_remove` hook installed on the marker and asked, during a three-root
+/// publication, how many siblings were still hidden observed `[3, 2, 1]` — so the
+/// second and third hook invocations ran while the transaction was PARTIALLY
+/// PUBLISHED. Bevy runs hooks and lifecycle observers inside `remove`, and this
+/// loop removes one entity at a time.
+///
+/// ⇒ **THE GUARANTEE IS NARROWED TO WHAT IS TRUE: publication is atomic to
+/// SCHEDULED SYSTEMS.** Nothing is scheduled inside an exclusive-world call, so
+/// no system can observe a half-published transaction. It is NOT atomic to hooks
+/// or observers.
+///
+/// ⚠ **AND THE EXPOSURE IS CLOSED BY ENCAPSULATION RATHER THAN BY A RULE.**
+/// `InactiveCandidate` is `pub(crate)`: no crate outside this one can name it,
+/// so no crate outside this one can attach a hook or an observer to it. A census
+/// finding zero hooks today is a POPULATION FACT that rots; a type nobody can
+/// name is a boundary. ⇒ If A10's composability ever needs publication atomic in
+/// the presence of arbitrary hooks, entity-by-entity marker removal cannot be the
+/// authority switch and the candidate-world design must choose a different one.
 ///
 /// Returns how many roots were admitted, so a caller can assert it published the
 /// transaction it built rather than an empty set.

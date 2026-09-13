@@ -349,6 +349,16 @@ is neither open nor abandoned:
    the FULL log of the failing run rather than its summary. That is the whole
    lesson of my miss.
 
+   ⚠ **IT RAN AND DID NOT REPRODUCE: FOUR CLEAN FULL RUNS** (`643 passed; 0
+   failed` each, 236–250s) at `0073f594e` on this box, 2026-09-13, before I
+   stopped it to reclaim the toolchain. ⛔ **THAT IS NOT EVIDENCE OF ABSENCE AND
+   IS RECORDED AS A COUNT RATHER THAN A CONCLUSION** — the observed rate is about
+   one failure in five to ten full runs, so four clean runs is the expected
+   outcome either way. ⭐ The one thing it DOES establish is the population: these
+   are FULL-binary runs (643 tests), unlike the 2026-09-12 hunt logs on this box,
+   which are a `smash`-filtered subset (91 tests, 559 filtered out) and cannot
+   have covered this victim at all.
+
 ⚠ **AND THE REASON THIS SURVEY IS HERE RATHER THAN IN A REPORT:** four of the
 board's rows described defects that were fixed days earlier, one held packet's
 blocker was mis-stated in a way that made it look startable, and three

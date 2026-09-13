@@ -1863,6 +1863,42 @@ which are the SECOND row of the table and have no answer yet.
 
 </details>
 
+## ⚖ Q120 — MODEL 2 (REBASE) IS IMPLEMENTED BY PRECEDENT AND IS REVERSIBLE. Jon can still rule; the mechanism now serves any of the three.
+
+⛔⛤ **THE STATE THIS ROW CALLS *"NOT COHERENT"* IS GONE, WITHOUT WAITING FOR THE
+RULING — because all three models are better than it, and one of them was already
+chosen next door on the same day.** `Q118`'s live-timeline half adopted
+stop-and-rebase for the CONTENT publication road, reusing the stop-and-release the
+LDtk reload has shipped for months. A developer knob edit that changes the
+simulation is the same event one surface over, so the same protocol answers it:
+`rebase_local_session_on_live_mechanical_edits` observes a change to
+`ActiveMovementTuning`, and `apply_mechanical_edit_rebase` stops the baseline in
+the SAME frame so `maintain_local_session` starts the next one against the edited
+tuning.
+
+⚠ **THIS IS A CHOICE I MADE AND IT IS LABELLED AS ONE.** Model 1 (refuse) would
+delete the developer feature — the measurement behind the first publication
+breaker said exactly that about refusing a healthy timeline. Model 3
+(deterministic timestamped input) is a substantially larger machine. ⇒ Model 2 is
+the one its sibling road took, so taking a different one here would make two
+mechanical-edit surfaces disagree. **If Jon rules otherwise the MECHANISM stays
+and the POLICY moves:** model 1 is this system declining to apply the edit, model
+3 replaces the system.
+
+⛔ **EXTERNAL AND CALLER-OWNED SESSIONS KEEP MODEL 1 BY NECESSITY**, for the reason
+`RollbackSessionOwnership` already gives — peers need a coordinated content
+barrier that does not exist yet, and a caller's session was not started for this.
+Guarded across all four ownerships.
+
+⚠ **WHAT IS NOT DONE:** only `ActiveMovementTuning` triggers the rebase. The four
+others this row names (`EditableAbilitySet`, `EditablePlayerStats`, and the rest)
+have the same shape and are NOT wired — stated rather than rounded up, because the
+sentence *"the same question is owed by four more"* is what this row exists to
+carry. `Platformer2dFeelTuningMonolith` did not desync in its arm and the row says
+why that is not an acquittal.
+
+<details><summary>The question as it was posed</summary>
+
 ## Q120 — which rollback model do LIVE DEVELOPER MECHANICAL EDITS get: refusal, rebase, or deterministic input?
 
 ⛔⛤ **THE GAP IS MEASURED, NOT ARGUED. `game/ambition_app/tests/developer_edits_under_rollback.rs`.**
@@ -1900,6 +1936,8 @@ coherent models this wants. The review that found it names them:
 
 ⛔ **WHAT IS NOT COHERENT IS TODAY'S:** a mutable mechanical input outside
 rollback history that resimulation reads at its latest value.
+
+</details>
 
 ⚠ **AND THE SAME QUESTION IS OWED BY FOUR MORE**, all with live-edit writers and
 no rollback coverage: `EditableAbilitySet` (mutates rollback-controlled body

@@ -649,6 +649,7 @@ fn unsupported_changed_domains(
 /// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
 /// composition that installs no rollback has no timeline to invalidate. A stood-
 /// down timeline is legal for the same reason — it is not speculating.
+#[derive(Debug)]
 enum PublicationBoundary {
     Legal,
     LiveTimeline,
@@ -1153,6 +1154,112 @@ pub fn register(app: &mut bevy::prelude::App) {
             // before any provider constructs anything.
             .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
             .run_if(shell_is_installed),
+    )
+    .add_systems(
+        bevy::prelude::Update,
+        break_the_publication_lease_when_the_boundary_closes
+            // ⛔⛔ **BEFORE THE COMMIT IT EXISTS TO PREVENT.** A lease checked
+            // after the publication is a post-mortem, not an authorization. The
+            // cancel it writes is a `ShellCommand`, which the router applies in
+            // its own set later in the frame — so the pending generation is
+            // already gone by the time `commit_content_generation` looks for one,
+            // and the shell transaction ends without activating.
+            .before(commit_content_generation)
+            .run_if(shell_is_installed),
+    );
+}
+
+/// Break the publication authorization the moment the boundary that granted it
+/// closes.
+///
+/// ⛔⛤ **`Q118`: THE LEGALITY WAS CHECKED AT THE INSTANT SOMEBODY ASKED, AND THE
+/// TRANSACTION LIVES FOR AN INTERVAL.** `admit_candidate` asks
+/// [`publication_boundary`] and refuses a live rollback timeline or an unhealthy
+/// authority. The generation then sits in [`PendingGeneration`] — through shell
+/// preparation to `RouteActivated` — and `commit_content_generation` asks
+/// NOTHING, deliberately: *"there is nothing in it that can say no."*
+///
+/// ⇒ That carried an unstated assumption: **that nothing can establish or
+/// invalidate a rollback authority between the request and the activation.**
+/// MEASURED 2026-09-12 and the assumption is FALSE IN THE SHIPPED SCHEDULE:
+/// `nothing_orders_the_rollback_session_start_against_the_generation_commit`
+/// walks the `Update` dependency graph and finds NO path in either direction
+/// between `LocalSessionSet::Maintain` — where `maintain_local_session` starts a
+/// GGRS session — and `commit_content_generation`. Unordered, so *"the
+/// transition is impossible"* was never available as an answer.
+///
+/// ⛔⛔ **AND THE UNHEALTHY CASE IS THE WORSE ONE.** An unhealthy authority is a
+/// RECORDED DIVERGENCE. `publishing_does_not_heal_an_unhealthy_rollback_authority`
+/// exists precisely because content publication must not launder a desync — and
+/// a generation admitted while the boundary was legal would have published
+/// straight through one.
+///
+/// ⭐⭐ **IT CANCELS THE WHOLE SHELL TRANSACTION RATHER THAN REFUSING AT THE
+/// COMMIT, AND THAT IS THE DESIGN RATHER THAN A CONVENIENCE.** By commit time the
+/// shell's engine half is already at ITS boundary; a fallible content half there
+/// recreates the exact split this road exists to prevent — a route activated at
+/// N+1 with a cast still at N. Breaking the authorization EARLY ends both halves,
+/// so neither activates and the live cast is the one the game keeps playing.
+///
+/// ⚠ **A LEASE IS NOT A SECOND `publication_boundary` AUTHORITY.** It re-asks the
+/// SAME function admission asked; what is new is WHEN, not what.
+pub fn break_the_publication_lease_when_the_boundary_closes(
+    world: &mut bevy::ecs::world::World,
+) {
+    let Some(pending) = world.get_resource::<PendingGeneration>() else {
+        return;
+    };
+    // ⛔ ONLY A TRANSACTION THE ROUTER HAS ACTUALLY MINTED. Before adoption there
+    // is nothing to cancel, and the generation is discarded by its own request
+    // road if the transaction never arrives.
+    if pending.load_id.is_none() {
+        return;
+    }
+    let request = pending.request.clone();
+    let boundary = publication_boundary(world);
+    // ⛔⛤ **ONLY THE UNHEALTHY HALF, AND THE SPLIT IS MEASURED RATHER THAN
+    // CAUTIOUS.** The first version broke the lease on ANY closed boundary, and
+    // the shipped composition then refused every reload it has:
+    //
+    // ```text
+    // [probe] lease boundary=LiveTimeline authority_present=true owner=SessionScopeId(0)
+    // ```
+    //
+    // ⇒ **`Q118`'s unstated assumption is FALSE IN THE SHIPPED GAME, not only in
+    // a hand-built fixture** — a reload re-prepares the route the shell is
+    // already on, and by the time the transaction reaches its boundary the
+    // session it is replacing owns a HEALTHY, speculating GGRS timeline. A cancel
+    // there is not a seal; it is the removal of hot reload.
+    //
+    // ⛔⛔ **BUT THE TWO HALVES ARE NOT THE SAME FACT.** `LiveTimeline` says a
+    // timeline is SPECULATING, which is the ordinary state of the running game
+    // and is what a stop-and-rebase lifecycle exists to handle. `Unhealthy` says
+    // a divergence has been RECORDED — and
+    // `publishing_does_not_heal_an_unhealthy_rollback_authority` exists because
+    // content publication must never launder a desync. Publishing across THAT is
+    // wrong under every model `Q118` lists, so it is sealed now rather than
+    // waiting for the model to be chosen.
+    //
+    // ⚠ **AND THE OTHER HALF IS LEFT OPEN ON PURPOSE, with its measurement in
+    // `Q118`.** Sealing it needs the lifecycle that stops and rebases rollback
+    // inside the transaction; a cancel cannot express that, and pretending
+    // otherwise would trade a working feature for the appearance of a guarantee.
+    let PublicationBoundary::Unhealthy(detail) = &boundary else {
+        return;
+    };
+    let detail = detail.clone();
+    // ⛔ THE CONTENT HALF GOES FIRST AND UNCONDITIONALLY. The shell's answer to
+    // the cancel is a race (the transaction may have ended on this very frame);
+    // this generation's illegality is not.
+    take_pending_generation(world);
+    bevy::log::warn!(
+        target: "ambition_content::reload",
+        "the pending content generation was cancelled: the rollback authority \
+         recorded a divergence while its shell transaction was in flight \
+         ({detail}). Publishing across it would launder the desync."
+    );
+    world.write_message(
+        ambition_platformer2d::game_shell::ShellCommand::CancelPending { request },
     );
 }
 

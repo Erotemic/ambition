@@ -1544,7 +1544,48 @@ question here.
 
 </details>
 
-## Q118 — is the rollback-legality interval ARCHITECTURE, or is it unreachable in the shipped lifecycle?
+## Q118 — HALF SEALED 2026-09-13. The interval is REACHABLE IN THE SHIPPED GAME, and one half of it cannot be sealed by refusing.
+
+⛔⛤ **THE QUESTION IN THE TITLE IS ANSWERED: IT IS ARCHITECTURE.** The shipped
+lifecycle produces the transition on every reload, measured rather than argued.
+Implementing the cancel-based seal and running the production arm
+(`an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`)
+failed with *"the shipped shell never re-activated the route"*, and instrumenting
+the lease gave the reason:
+
+```text
+[probe] lease boundary=LiveTimeline authority_present=true owner=SessionScopeId(0)
+```
+
+⇒ A reload re-prepares the route the shell is ALREADY ON, so by the time the
+transaction reaches its boundary the session it is REPLACING owns a healthy,
+speculating GGRS timeline. **Every reload in the shipped game publishes across
+one.**
+
+✅ **THE UNHEALTHY HALF IS SEALED NOW** —
+`break_the_publication_lease_when_the_boundary_closes` cancels the whole shell
+transaction (`ShellCommand::CancelPending`, which names a REQUEST and refuses a
+stranger's). An unhealthy authority is a RECORDED DIVERGENCE, and publishing
+across one launders a desync, which is wrong under every model below. It does not
+wait for the ruling.
+
+⛔ **THE LIVE-TIMELINE HALF CANNOT BE SEALED BY REFUSING, AND THAT IS THE RULING
+THIS ROW NOW WANTS.** Cancelling there does not seal anything — it deletes hot
+reload from the shipped game. ⇒ Of the two directions this row already named,
+the first (an authorization broken early) is MEASURED INSUFFICIENT for this half,
+and the second is what remains: **a lifecycle that STOPS AND REBASES rollback as
+part of the same transaction.** That is a real packet and it is not a small one.
+
+⚠ **WHAT IS NOT KNOWN AND SHOULD NOT BE GUESSED:** whether publishing across a
+healthy speculating timeline is actually harmful in the shipped single-player
+composition, or only in a networked one. `Q120` is the same question from the
+developer-edit side and is also unruled. If the answer is *"harmless locally,
+fatal networked"*, the cheap correct move may be to refuse the reload only in a
+NETWORK-compatible session rather than to build the rebase lifecycle.
+
+<details><summary>The original row, whose measurements all still stand</summary>
+
+### Q118 — is the rollback-legality interval ARCHITECTURE, or is it unreachable in the shipped lifecycle?
 
 ⛔ **NOT A TASTE QUESTION AND PROBABLY NOT JON'S — recorded here because the
 ANSWER decides whether an implementation packet exists, and the measurement that
@@ -1559,8 +1600,9 @@ implementation carries an unstated assumption: **that nothing can establish or
 invalidate a rollback authority between the request and the activation.**
 
 Two arms in `game/ambition_content/src/reload_tests.rs` now measure what happens
-when it does — `a_generation_publishes_across_a_timeline_that_went_live_mid_flight`
-and `..._an_authority_that_went_unhealthy_mid_flight`. Both publish. The second
+when it does — `a_generation_still_publishes_across_a_timeline_that_went_live_mid_flight`
+and `an_authority_that_goes_unhealthy_mid_flight_cancels_the_pending_generation`
+(renamed 2026-09-13; the second is now SEALED). Both published when written. The second
 is the worse one: an unhealthy authority is a RECORDED DIVERGENCE, and
 `publishing_does_not_heal_an_unhealthy_rollback_authority` exists precisely
 because content publication must not launder a desync.
@@ -1998,6 +2040,16 @@ derives it, `close` already did, and the same poison reddens the arm.
 ⛔ **WHAT STILL NEEDS THE RULING** is only the gameplay question below: the
 verifier can now say precisely what is wrong, and cannot say what should happen
 instead.
+
+⚠ **AND ONE TEMPTING ANSWER IS ALREADY RULED OUT — CHECKED BEFORE OFFERING IT.**
+*"A death-reset is not a door, so it should take the RESET road, whose sweep does
+not exclude `InCustodyOf`"* looks like the fix, because the reset road's own
+comment says a reset destroys the occurrences it is about *"hands included"*. But
+`resume_at_checkpoint_on_reset` routes a death through the transition road
+DELIBERATELY, and says why: *"a session opening at a checkpoint and a death
+returning to one are the same question asked twice."* Re-routing would fork that
+answer, which is the defect this repository removes rather than the fix. ⇒ The
+three options below remain the whole choice.
 
 ⚠ **A10's LAST STEP IS HELD ON THIS ROW**, and the hold is now one sentence
 rather than "the mechanism is not yet understood".

@@ -3751,7 +3751,7 @@ fn an_uncorrelated_transaction_is_not_adopted_either() {
 /// A rollback timeline that goes live while a generation is pending does not
 /// stop that generation publishing.
 #[test]
-fn a_generation_publishes_across_a_timeline_that_went_live_mid_flight() {
+fn a_generation_still_publishes_across_a_timeline_that_went_live_mid_flight() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
@@ -3759,7 +3759,14 @@ fn a_generation_publishes_across_a_timeline_that_went_live_mid_flight() {
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
-        (adopt_preparation_transaction, commit_content_generation).chain(),
+        (
+            adopt_preparation_transaction,
+            // ⛔ THE SEAL, IN THE SAME ORDER `register` INSTALLS IT: before the
+            // commit it exists to prevent.
+            break_the_publication_lease_when_the_boundary_closes,
+            commit_content_generation,
+        )
+            .chain(),
     );
     let before = live_duration(&app);
 
@@ -3785,13 +3792,91 @@ fn a_generation_publishes_across_a_timeline_that_went_live_mid_flight() {
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
     app.update();
 
+    // ⛔⛤ **STILL AN OPEN GAP, AND THE ATTEMPT TO CLOSE IT IS WHAT MEASURED WHY
+    // IT CANNOT BE CLOSED THIS WAY.** `break_the_publication_lease_when_the_boundary_closes`
+    // IS in this chain and deliberately does nothing here. Breaking the lease on
+    // a LIVE TIMELINE was implemented, and the shipped composition then refused
+    // every reload it has — MEASURED via
+    // `an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`,
+    // which failed with *"the shipped shell never re-activated the route"*, and
+    // instrumented to:
+    //
+    // ```text
+    // [probe] lease boundary=LiveTimeline authority_present=true owner=SessionScopeId(0)
+    // ```
+    //
+    // ⇒ A reload re-prepares the route the shell is already on, so by the time
+    // the transaction reaches its boundary the session it is REPLACING owns a
+    // healthy speculating timeline. Cancelling there deletes hot reload rather
+    // than sealing anything.
+    //
+    // ⇒ **WHAT WOULD SEAL IT IS THE OTHER MODEL `Q118` NAMES:** a lifecycle that
+    // STOPS AND REBASES rollback inside the same transaction. This arm stays a
+    // recorded gap until that exists, and it should become the opposite
+    // assertion naming whatever seals it — as its unhealthy sibling now does.
     assert_ne!(
         live_duration(&app),
         before,
         "MEASURED GAP CLOSED? This arm records that the generation publishes \
-         across a timeline that went live mid-flight. If it now refuses, the \
-         interval is sealed and this arm should become the opposite assertion \
-         naming whatever seals it.",
+         across a HEALTHY timeline that went live mid-flight. Its unhealthy \
+         sibling IS sealed; if this one is now too, name the lifecycle that did \
+         it and make this the opposite assertion.",
+    );
+}
+
+/// ⭐⭐ **THE CONTROL, AND WITHOUT IT THE TWO ARMS AROUND IT ARE SATISFIED BY A
+/// SEAL THAT CANCELS EVERYTHING.**
+///
+/// `break_the_publication_lease_when_the_boundary_closes` running on a
+/// transaction whose boundary never closed must do NOTHING: the generation
+/// publishes, no cancel is written, and the live cast moves. A guard that refuses
+/// every reload would pass both mid-flight arms and would have broken the feature
+/// they exist to protect.
+#[test]
+fn a_lease_that_was_never_broken_publishes_exactly_as_before() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (
+            adopt_preparation_transaction,
+            break_the_publication_lease_when_the_boundary_closes,
+            commit_content_generation,
+        )
+            .chain(),
+    );
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    // ⛔ NO AUTHORITY IS INSTALLED — that is the whole difference from the two
+    // arms this controls for.
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the lease cancelled a transaction whose boundary never closed, so the \
+         two mid-flight arms beside it prove nothing",
+    );
+    assert!(
+        !app.world()
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellCommand>>()
+            .iter_current_update_messages()
+            .any(|command| matches!(
+                command,
+                ambition_platformer2d::game_shell::ShellCommand::CancelPending { .. }
+            )),
+        "a legal transaction was cancelled",
     );
 }
 
@@ -3804,7 +3889,7 @@ fn a_generation_publishes_across_a_timeline_that_went_live_mid_flight() {
 /// generation that crosses the interval publishes into exactly that world
 /// without ever asking.
 #[test]
-fn a_generation_publishes_across_an_authority_that_went_unhealthy_mid_flight() {
+fn an_authority_that_goes_unhealthy_mid_flight_cancels_the_pending_generation() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
@@ -3812,7 +3897,12 @@ fn a_generation_publishes_across_an_authority_that_went_unhealthy_mid_flight() {
     shell_active_on(&mut app, true);
     app.add_systems(
         bevy::app::Update,
-        (adopt_preparation_transaction, commit_content_generation).chain(),
+        (
+            adopt_preparation_transaction,
+            break_the_publication_lease_when_the_boundary_closes,
+            commit_content_generation,
+        )
+            .chain(),
     );
     let before = live_duration(&app);
 
@@ -3834,11 +3924,18 @@ fn a_generation_publishes_across_an_authority_that_went_unhealthy_mid_flight() {
         .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
     app.update();
 
-    assert_ne!(
+    // ⛔ THE WORSE OF THE TWO, SEALED: an unhealthy authority is a RECORDED
+    // DIVERGENCE, and a generation crossing the interval would have published
+    // straight into it without ever asking.
+    assert_eq!(
         live_duration(&app),
         before,
-        "MEASURED GAP CLOSED? This arm records that the generation publishes \
-         across an authority that went unhealthy mid-flight.",
+        "a generation published across an authority that went unhealthy \
+         mid-flight, laundering a recorded desync",
+    );
+    assert!(
+        !app.world().contains_resource::<PendingGeneration>(),
+        "the illegal generation is still pending",
     );
     assert!(
         !app.world()

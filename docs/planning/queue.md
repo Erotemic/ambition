@@ -77,8 +77,17 @@ test for the next one:
 
 **Open, each with its measurement already taken:**
 
-- **`Q118`** — publication legality covers the INSTANT somebody asked, not the
-  transaction interval. ✅ **THE RECONNAISSANCE IS DONE — DO NOT RE-RUN IT.**
+- **`Q118`** — ✅ HALF SEALED `2026-09-13`. The UNHEALTHY half now cancels the
+  whole shell transaction (`ShellCommand::CancelPending`); publishing across a
+  recorded divergence is wrong under every model, so it did not wait for a
+  ruling. ⛔ **THE LIVE-TIMELINE HALF IS MEASURED UNSEALABLE BY REFUSING:**
+  implementing the cancel there made the shipped composition refuse EVERY reload
+  it has (`boundary=LiveTimeline owner=SessionScopeId(0)` — a reload re-prepares
+  the route the shell is already on, so the session being replaced owns a healthy
+  speculating timeline). ⇒ What remains is the stop-and-rebase lifecycle, or a
+  ruling that publishing across a healthy local timeline is harmless and only a
+  NETWORK session must refuse. That is a decision, not a measurement.
+  <details><summary>the reconnaissance, already done</summary>
   `f27fa58` measured the ordering on the schedule graph (reachability, not direct
   edges, with a positive control for the walker) and found **NO path either way**
   between `LocalSessionSet::Maintain` and `commit_content_generation`: they are
@@ -86,7 +95,7 @@ test for the next one:
   so the lease packet is real. What remains is the DESIGN: a transaction-lifetime
   authorization/lease, or a deliberate rollback stop-and-rebase lifecycle. ⚠ This
   row asked for the measurement for a day after it had been taken — the ledger
-  was updated and the queue was not.
+  was updated and the queue was not.</details>
 - **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
   against the real sync-test canary. The model is the decision: refuse / rebase /
   deterministic input.

@@ -247,6 +247,29 @@ pub enum ShellCommand {
         activation_id: ShellActivationId,
         message: String,
     },
+    /// Cancel the pending transaction THIS request produced, because the
+    /// condition it was authorized under no longer holds.
+    ///
+    /// ⛔⛤ **THE ONE THING A CORRELATED REQUESTER COULD NOT DO.** A caller that
+    /// issues `ReplaceWith { request }` owns half of a two-halved transaction —
+    /// the shell prepares and activates a route, and the caller publishes its own
+    /// material at that activation. If the caller's half becomes ILLEGAL while
+    /// the transaction is in flight, its only previous options were to publish
+    /// anyway or to drop its half silently and let the route activate without
+    /// it. Both are the split the whole road exists to prevent: a route at
+    /// generation N+1 with content still at N.
+    ///
+    /// ⇒ **BREAKING THE AUTHORIZATION EARLY CANCELS BOTH HALVES**, which is what
+    /// `Q118` asks for in as many words.
+    ///
+    /// ⛔ **IT NAMES A REQUEST, NOT A ROUTE, AND IT IS REFUSED IF THE PENDING
+    /// TRANSACTION IS SOMEBODY ELSE'S.** Two generations can target one route —
+    /// that is exactly what a reload does — so a route-matching cancel could tear
+    /// down a transaction the caller did not issue. Same rule, and the same
+    /// reason, as `PendingGenerationInputs`' load-id claim.
+    CancelPending {
+        request: ShellRequestId,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -385,6 +408,22 @@ impl ShellRouter {
             }
             ShellCommand::ReplaceWith { route, request } => {
                 self.start_route(route, false, request, catalog, loads, prepared)
+            }
+            ShellCommand::CancelPending { request } => {
+                // ⛔ ONLY THE ISSUER'S OWN TRANSACTION. A `None` request on the
+                // pending transaction means nobody was correlating, so nobody
+                // can be cancelling it by name either.
+                match self.pending.as_ref().map(|pending| pending.request.clone()) {
+                    Some(Some(pending)) if pending == request => {
+                        self.cancel_pending(loads, prepared)
+                    }
+                    // ⚠ NOT AN ERROR AND NOT A REJECTION. A transaction that has
+                    // already ended — activated, failed, superseded — is the
+                    // ordinary race: the authorization broke on the same frame
+                    // the transaction finished. Silence is the honest answer,
+                    // and the caller's own half is discarded either way.
+                    _ => Vec::new(),
+                }
             }
             ShellCommand::Return => {
                 let route = self

@@ -939,6 +939,87 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
 /// something else and nothing went wrong — a person pressed cancel. A caller that
 /// retries on supersession must not retry here, and one that reports a failure
 /// must not report this.
+/// ⛔⛤ **`CancelPending` CANCELS THE ISSUER'S OWN TRANSACTION AND NOBODY
+/// ELSE'S.**
+///
+/// A correlated requester owns half of a two-halved transaction and must be able
+/// to break BOTH halves when its own half becomes illegal — `Q118`'s publication
+/// lease is the first caller. But two generations can target one route, which is
+/// exactly what a reload does, so a cancel that matched on the ROUTE could tear
+/// down a transaction the caller never issued. That is the same defect
+/// `PendingGenerationInputs`' load-id claim exists to prevent, at the other end
+/// of the same road.
+#[test]
+fn a_cancel_names_a_request_and_a_strangers_transaction_survives_it() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let mine = ShellRequestId::new("reload.game.1");
+    router.apply(
+        ShellCommand::ReplaceWith {
+            route: ShellRouteId::new("game"),
+            request: Some(mine.clone()),
+        },
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    assert!(
+        router.pending.is_some(),
+        "the fixture has nothing pending, so every assertion below is vacuous",
+    );
+
+    // ⛔ A STRANGER'S CANCEL FIRST, and it must change nothing. Asserting the
+    // owner's cancel alone would pass for a router that cancels on any name.
+    let stranger = ShellRequestId::new("reload.game.2");
+    let ignored = router.apply(
+        ShellCommand::CancelPending {
+            request: stranger.clone(),
+        },
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    assert!(
+        ignored.is_empty(),
+        "a stranger's cancel produced events: {ignored:?}",
+    );
+    assert!(
+        router.pending.is_some(),
+        "a stranger cancelled a transaction it did not issue — two generations \
+         can target one route, so this is reachable rather than theoretical",
+    );
+
+    // ⛔ AND THE OWNER'S CANCEL DOES END IT, or the arm above is satisfied by a
+    // command that never cancels anything at all.
+    let ended = router.apply(
+        ShellCommand::CancelPending { request: mine },
+        &catalog,
+        &host,
+        &mut loads,
+        &mut prepared,
+    );
+    assert!(
+        ended.iter().any(|event| matches!(
+            event,
+            ShellEvent::TransactionEnded {
+                reason: TransactionEnd::Cancelled,
+                ..
+            }
+        )),
+        "the issuer's own cancel did not end the transaction: {ended:?}",
+    );
+    assert!(router.pending.is_none());
+}
+
 #[test]
 fn a_cancelled_transaction_names_the_request_it_abandoned() {
     let mut loads = LoadCoordinator::default();

@@ -264,6 +264,16 @@ pub(crate) struct PlatformerPreparation<'w> {
         // candidate's stamp to every UNRELATED preparation running in the same
         // window.
         Option<Res<'w, ambition_platformer2d_runtime::PendingContentIdentity>>,
+        // ⛔⛤ **THE THREE MECHANICAL REGISTRIES SESSION CONSTRUCTION CONSUMES
+        // AND NOTHING FINGERPRINTED**, bundled here for the same reason the
+        // three above are: they are all inputs to ONE thing, the prepared
+        // content's identity. The prepared cast (`max_health`, motion model,
+        // abilities, contact damage, brain policy), the authored sheets (body
+        // metrics and authored attack geometry), and the boss catalog
+        // (behaviours, encounters, fallbacks). See `MechanicalRegistries`.
+        Option<Res<'w, ambition_characters::prepared::StagedCharacterOverrides>>,
+        Option<Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>>,
+        Option<Res<'w, ambition_boss_encounter::BossCatalog>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -566,11 +576,29 @@ impl PlatformerPreparation<'_> {
             self.character_catalog_registry.as_deref(),
             self.placement_lowering.as_deref(),
             self.content_staging.as_deref(),
-            self.content_inputs
-                .0
-                .as_deref()
-                .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
-            self.content_identity_for(transaction),
+            MechanicalRegistries {
+                construction_recipes: self
+                    .content_inputs
+                    .0
+                    .as_deref()
+                    .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
+                content_pack: self.content_identity_for(transaction),
+                prepared_cast: self
+                    .content_inputs
+                    .3
+                    .as_deref()
+                    .map(ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump),
+                authored_sheets: self
+                    .content_inputs
+                    .4
+                    .as_deref()
+                    .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump),
+                boss_catalog: self
+                    .content_inputs
+                    .5
+                    .as_deref()
+                    .map(ambition_boss_encounter::BossCatalog::deterministic_dump),
+            },
             snapshot_schema,
             &mut self.epochs,
         ) {
@@ -819,6 +847,17 @@ pub fn prepare_platformer_content_for_app(
         .world()
         .get_resource::<ambition_platformer2d_runtime::SelectedContentIdentity>()
         .map(|identity| identity.0.clone());
+    // ⛔⛤ THE THREE MECHANICAL REGISTRIES SESSION CONSTRUCTION CONSUMES AND
+    // NOTHING FINGERPRINTED. See `MechanicalRegistries`.
+    let prepared_cast = ambition_characters::prepared::staged_cast_declaration(app.world());
+    let authored_sheets = app
+        .world()
+        .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
+        .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump);
+    let boss_catalog = app
+        .world()
+        .get_resource::<ambition_boss_encounter::BossCatalog>()
+        .map(ambition_boss_encounter::BossCatalog::deterministic_dump);
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
@@ -835,8 +874,13 @@ pub fn prepare_platformer_content_for_app(
         character_registry.as_ref(),
         placement_lowering.as_ref(),
         content_staging.as_ref(),
-        construction_recipes,
-        content_pack,
+        MechanicalRegistries {
+            construction_recipes,
+            content_pack,
+            prepared_cast,
+            authored_sheets,
+            boss_catalog,
+        },
         snapshot_schema,
         &mut epochs,
     )
@@ -871,6 +915,54 @@ pub(crate) fn content_identity_for(
         .or_else(|| active.map(|identity| identity.0.clone()))
 }
 
+/// The MECHANICAL App authorities that session construction consumes, as
+/// canonical bytes.
+///
+/// ⛔⛤ **THIS EXISTS BECAUSE THE LIST WAS A PARAMETER PAIR AND THE LIST WAS
+/// INCOMPLETE.** `PreparedContentIdentity` bound the construction recipes and
+/// the content pack and stopped there, while `PlatformerSessionBuilder` went on
+/// to build the session out of THREE more App registries that nothing
+/// fingerprinted: the prepared cast, the authored sheets, and the boss catalog.
+/// Two compositions could therefore differ in a character's `max_health`, in the
+/// body geometry an authored sheet declares, or in how a boss fights, and share
+/// one identity — which is exactly the identity the rollback timeline contract
+/// compares to decide whether a snapshot may be restored.
+///
+/// ⭐⭐ **A NAMED STRUCT RATHER THAN MORE PARAMETERS, BECAUSE THE FAILURE MODE
+/// IS OMISSION.** A twelve-argument call is where the next mechanical registry
+/// gets forgotten; a struct is a place to add a field, and the compiler names
+/// every construction site when one appears.
+///
+/// ⚠ **OPAQUE STRINGS ON PURPOSE**, the same contract `construction_recipes` and
+/// `content_pack` already had: this crate must not name `ambition_content_pack`,
+/// `ambition_sprite_sheet` or `ambition_boss_encounter` to hash their contents.
+/// The composition that owns each authority renders its own canonical material
+/// and passes it down. `None` means "this composition installed none", which is
+/// a real state and not a missing value.
+///
+/// ⚠ **WHAT IS STILL NOT BOUND, said so the next reader does not assume this
+/// list is closed:** the rest of `PlatformerSessionBuilder`'s inputs have not
+/// been audited against the mechanical/derived/presentation classification. This
+/// covers the three the review named and measured.
+#[derive(Clone, Debug, Default)]
+pub struct MechanicalRegistries {
+    /// Canonical descriptor-only dump of every installed construction domain.
+    /// Executable recipe dispatch remains typed and closed inside each domain;
+    /// the fingerprint needs only stable schema metadata, never function
+    /// pointers.
+    pub construction_recipes: Option<String>,
+    /// The selected authored content pack's identity.
+    pub content_pack: Option<String>,
+    /// The pre-fold staged cast — `ambition_characters::prepared::staged_cast_declaration`.
+    pub prepared_cast: Option<String>,
+    /// Authored sheet declarations, which carry body metrics and authored attack
+    /// geometry — `AuthoredSheets::deterministic_dump`.
+    pub authored_sheets: Option<String>,
+    /// Boss behaviours, encounters, sheets and fallbacks —
+    /// `BossCatalog::deterministic_dump`.
+    pub boss_catalog: Option<String>,
+}
+
 pub fn prepare_platformer_content(
     source: PreparedPlatformerSource,
     authored: &crate::authoring::AuthoredCatalogFragments,
@@ -883,26 +975,7 @@ pub fn prepare_platformer_content(
     content_staging: Option<
         &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
     >,
-    // Canonical descriptor-only dump of every installed construction domain.
-    // Executable recipe dispatch remains typed and closed inside each domain;
-    // the fingerprint needs only stable schema metadata, never function pointers.
-    construction_recipes: Option<String>,
-    // ⛔⛤ **THE SELECTED CONTENT PACK'S IDENTITY, AND ITS ABSENCE WAS A HOLE.**
-    // Every other section here is an App REGISTRY. The authored content PACK —
-    // the move tables, the item catalog, the encounter waves — reached the game
-    // without reaching this fingerprint, so two sessions prepared under
-    // different packs shared one `PreparedContentIdentity`. The rollback
-    // timeline's contract compares exactly that identity, which means the guard
-    // that exists to refuse "prepared content changed while the session was
-    // active" could not see the content most likely to change during
-    // development.
-    //
-    // ⚠ AN OPAQUE STRING, like `construction_recipes` beside it, and for the
-    // same reason: this crate must not name `ambition_content_pack`. The
-    // composition that selected the pack passes its canonical identity down.
-    // `None` means "this composition selected no pack", which is a real state
-    // (a demo with no pack at all) and not a missing value.
-    content_pack: Option<String>,
+    mechanical: MechanicalRegistries,
     snapshot_schema: ambition_platformer2d_runtime::SnapshotSchemaFingerprint,
     epochs: &mut ContentEpochSequence,
 ) -> Result<PreparedContent, ContentDiagnostic> {
@@ -1108,19 +1181,29 @@ pub fn prepare_platformer_content(
     // compare function addresses either. Postcondition verification exists
     // partly because of this gap: a relation whose wiring silently stopped
     // working under an unchanged schema id is invisible here, and visible there.
-    builder
-        .add_section(
-            "construction.recipes",
-            construction_recipes.map_or_else(Vec::new, |dump| dump.into_bytes()),
-        )
-        .map_err(|error| ContentDiagnostic::new("construction.recipes", error.to_string()))?;
-
-    builder
-        .add_section(
-            "content.pack",
-            content_pack.map_or_else(Vec::new, String::into_bytes),
-        )
-        .map_err(|error| ContentDiagnostic::new("content.pack", error.to_string()))?;
+    let MechanicalRegistries {
+        construction_recipes,
+        content_pack,
+        prepared_cast,
+        authored_sheets,
+        boss_catalog,
+    } = mechanical;
+    // ⛔ DESTRUCTURED EXHAUSTIVELY, so a field added to `MechanicalRegistries`
+    // and not bound below is a compile error rather than a silent omission —
+    // which is the defect this whole struct exists to close.
+    for (section, material) in [
+        ("construction.recipes", construction_recipes),
+        ("content.pack", content_pack),
+        // ⛔⛤ THE THREE THAT SESSION CONSTRUCTION CONSUMED AND NOTHING
+        // FINGERPRINTED. See `MechanicalRegistries`.
+        ("characters.definitions", prepared_cast),
+        ("characters.authored-sheets", authored_sheets),
+        ("boss.catalog", boss_catalog),
+    ] {
+        builder
+            .add_section(section, material.map_or_else(Vec::new, String::into_bytes))
+            .map_err(|error| ContentDiagnostic::new(section, error.to_string()))?;
+    }
 
     // Epoch allocation is the final non-fallible step: a rejected candidate
     // never consumes or publishes an activation generation.
@@ -1738,8 +1821,10 @@ mod tests {
             Some(characters),
             None,
             Some(staging),
-            construction_recipes,
-            None,
+            MechanicalRegistries {
+                construction_recipes,
+                ..Default::default()
+            },
             snapshot_schema,
             &mut epochs,
         )
@@ -1782,8 +1867,7 @@ mod tests {
                 Some(&characters),
                 None,
                 Some(&staging),
-                None,
-                None,
+                MechanicalRegistries::default(),
                 snapshot_schema,
                 &mut epochs,
             )
@@ -1990,8 +2074,10 @@ mod tests {
                 Some(&characters),
                 None,
                 Some(&staging),
-                None,
-                pack.map(str::to_string),
+                MechanicalRegistries {
+                    content_pack: pack.map(str::to_string),
+                    ..Default::default()
+                },
                 snapshot_schema,
                 epochs,
             )
@@ -2031,8 +2117,10 @@ mod tests {
                 Some(&characters),
                 None,
                 Some(&staging),
-                None,
-                Some("ambition 1.0.0 aaaaaaaaaaaaaaaa".to_string()),
+                MechanicalRegistries {
+                    content_pack: Some("ambition 1.0.0 aaaaaaaaaaaaaaaa".to_string()),
+                    ..Default::default()
+                },
                 snapshot_schema,
                 epochs,
             )
@@ -2058,8 +2146,7 @@ mod tests {
             Some(&characters),
             None,
             Some(&staging),
-            None,
-            None,
+            MechanicalRegistries::default(),
             snapshot_schema,
             &mut epochs,
         )
@@ -2070,8 +2157,7 @@ mod tests {
             Some(&characters),
             None,
             Some(&staging),
-            None,
-            None,
+            MechanicalRegistries::default(),
             snapshot_schema,
             &mut epochs,
         )
@@ -2250,5 +2336,256 @@ mod tests {
         let readiness = app.world().resource::<PlatformerStreamingReadiness>();
         assert!(!readiness.pending_packed_sfx.contains_key(&load_id));
         assert!(readiness.pending_packed_sfx.contains_key(&other_load_id));
+    }
+}
+
+#[cfg(test)]
+mod mechanical_registries_reach_the_identity {
+    //! ⛔⛤ **THREE MECHANICAL APP REGISTRIES BUILT THE SESSION AND NONE OF THEM
+    //! REACHED `PreparedContentIdentity`.**
+    //!
+    //! `PlatformerSessionBuilder` consumes the prepared cast, the authored
+    //! sheets and the boss catalog while constructing the world. The identity
+    //! bound `CharacterCatalogRegistry::canonical_fragments()` — **a DIFFERENT
+    //! ROAD**, measured 2026-09-12: the provider API `App::register_character`
+    //! goes to `stage_authored_character` and lands in `StagedCharacterOverrides`,
+    //! never in that registry. So two compositions could differ in a character's
+    //! `max_health`, in the body geometry an authored sheet declares, or in how
+    //! a boss fights, and share one identity.
+    //!
+    //! ⛔⛔ **AND THE IDENTITY IS NOT A LABEL.** `RollbackTimelineContract` stores
+    //! it to state which world a timeline is valid for, so "the same generation"
+    //! was a claim two mechanically different worlds could both make.
+    //!
+    //! ⭐ **EACH ARM CHANGES EXACTLY ONE THING AND SHARES EVERYTHING ELSE WITH
+    //! ITS PAIR**, so a difference cannot come from anywhere but the registry
+    //! named — and the CONTROL below proves two Apps told the same things agree,
+    //! without which every arm here is satisfied by an identity that is simply
+    //! unstable.
+
+    use super::*;
+    use crate::authoring::AuthoredCatalogFragments;
+
+    fn source() -> PreparedPlatformerSource {
+        let world = ambition_platformer2d_core::World::new(
+            "room",
+            ambition_platformer2d_core::Vec2::new(128.0, 128.0),
+            ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+            Vec::new(),
+        );
+        let room = ambition_platformer2d_world::rooms::RoomSpec::new("room", world.clone());
+        PreparedPlatformerSource::new(
+            "fixture",
+            ambition_platformer2d_world::rooms::RoomSet::from_parts(
+                "room",
+                vec![room],
+                Vec::new(),
+            ),
+            ambition_platformer2d_core::RoomGeometry(world),
+            ambition_platformer2d_world::rooms::ActiveRoomMetadata::default(),
+            ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
+        )
+    }
+
+    /// Prepare an App whose only variation is whatever `stage` did to it.
+    fn identity_of(stage: impl FnOnce(&mut bevy::app::App)) -> String {
+        let mut app = bevy::app::App::new();
+        stage(&mut app);
+        prepare_platformer_content_for_app(
+            &mut app,
+            source(),
+            &AuthoredCatalogFragments::new("alpha", "fixture"),
+        )
+        .expect("the fixture composition prepares")
+        .fingerprint()
+        .to_string()
+    }
+
+    fn a_character(max_health: i32) -> ambition_characters::actor::definition::CharacterDefinition {
+        let mut definition =
+            ambition_characters::actor::definition::CharacterDefinition::new("alpha", "Alpha", "fixture");
+        definition.vitals.max_health = Some(max_health);
+        definition
+    }
+
+    /// ⭐ THE CONTROL, and it runs first because every arm below depends on it:
+    /// two Apps told the same things must agree, or "they differ" proves only
+    /// that the fingerprint is unstable.
+    #[test]
+    fn two_apps_told_the_same_things_agree() {
+        let left = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        let right = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        assert_eq!(
+            left, right,
+            "two identical compositions disagreed, so every arm below would \
+             pass for the wrong reason",
+        );
+    }
+
+    #[test]
+    fn a_registered_characters_max_health_reaches_the_identity() {
+        let two = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(2),
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        let five = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(5),
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        assert_ne!(
+            two, five,
+            "two compositions whose character has different MAX HEALTH share one \
+             PreparedContentIdentity — and the rollback timeline contract \
+             compares exactly that identity to decide whether a snapshot from \
+             one may be restored into the other",
+        );
+    }
+
+    #[test]
+    fn a_registered_characters_contact_damage_reaches_the_identity() {
+        let harmless = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(3),
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        let hazardous = identity_of(|app| {
+            let mut definition = a_character(3);
+            definition.contact_damage = Some(ambition_characters::actor::intrinsics::ContactDamage {
+                amount: 9,
+                ..Default::default()
+            });
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                definition,
+                &Default::default(),
+            )
+            .expect("stages");
+        });
+        assert_ne!(
+            harmless, hazardous,
+            "whether touching this body hurts is mechanical and did not reach \
+             the identity",
+        );
+    }
+
+    #[test]
+    fn an_authored_sheets_declaration_reaches_the_identity() {
+        // The declaration TEXT is the canonical material, so two sheets that
+        // differ anywhere in what the provider said must differ here.
+        fn sheets(
+            ron: &str,
+        ) -> ambition_sprite_sheet::character::sheets::AuthoredSheets {
+            let mut sheets =
+                ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+            sheets
+                .insert_ron("alpha", ron)
+                .expect("the fixture sheet parses");
+            sheets
+        }
+        fn one_record(frame_width: u32) -> String {
+            format!(
+                r#"[(
+                    target: "alpha",
+                    image: "alpha.png",
+                    label_width: 0,
+                    frame_width: {frame_width},
+                    frame_height: 32,
+                    rows: [
+                        (animation: "idle", row_index: 0, frame_count: 1,
+                         duration_ms: 100, duration_secs: 0.1, page: 0, rects: []),
+                    ],
+                )]"#
+            )
+        }
+        let narrow = identity_of(|app| {
+            app.insert_resource(sheets(&one_record(24)));
+        });
+        let wide = identity_of(|app| {
+            app.insert_resource(sheets(&one_record(48)));
+        });
+        assert_ne!(
+            narrow, wide,
+            "authored sheet records carry the BODY METRICS the collision body is \
+             built from and the authored attack geometry the character-sprite \
+             road resolves; two compositions with different ones shared an \
+             identity",
+        );
+    }
+
+    #[test]
+    fn a_boss_behaviour_reaches_the_identity() {
+        // ⭐ REGISTERED THROUGH THE PROVIDER'S OWN API, not by inserting the
+        // resource: the road this arm is about is the one a third-party
+        // composition actually takes.
+        fn register(app: &mut bevy::app::App, contact_damage: i32) {
+            use ambition_boss_encounter::BossCatalogAppExt as _;
+            // ⭐ THE SHIPPED PROFILE, MUTATED IN ONE FIELD AND RE-SERIALIZED.
+            // Hand-writing a minimal profile RON would pin a hand-listed field
+            // set that a new required field silently invalidates; round-tripping
+            // a real one keeps this arm about the ONE difference it varies.
+            let mut profile = ambition_boss_encounter::test_boss_catalog()
+                .behavior("clockwork_warden")
+                .expect("the shipped fixture catalog has this boss")
+                .clone();
+            profile.body_damage = contact_damage;
+            let behaviors = format!(
+                "{{\"clockwork_warden\": {}}}",
+                ron::to_string(&profile).expect("a profile that parsed serializes")
+            );
+            // Every behaviour needs its encounter, so the fixture's own goes
+            // along unchanged — it is the CONSTANT half of this pair.
+            let encounter = ron::to_string(
+                ambition_boss_encounter::test_boss_catalog()
+                    .encounter("clockwork_warden")
+                    .expect("the shipped fixture catalog has this encounter"),
+            )
+            .expect("an encounter that parsed serializes");
+            app.register_boss_catalog_fragment(
+                ambition_boss_encounter::BossCatalogFragment::from_ron(
+                    "fixture",
+                    // ⚠ NO FALLBACK: naming one requires an encounter for it,
+                    // and this arm is about the BEHAVIOUR, not the fallback.
+                    None::<String>,
+                    None::<String>,
+                    &behaviors,
+                    &[encounter.as_str()],
+                    "{}",
+                    Default::default(),
+                    Default::default(),
+                )
+                .expect("the fixture boss fragment parses"),
+            );
+        }
+        let gentle = identity_of(|app| register(app, 1));
+        let brutal = identity_of(|app| register(app, 40));
+        assert_ne!(
+            gentle, brutal,
+            "how much a boss HURTS is mechanical and did not reach the identity",
+        );
     }
 }

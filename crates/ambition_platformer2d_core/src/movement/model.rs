@@ -45,7 +45,7 @@ pub enum MotionModelKind {
 /// This is intentionally state-free. Apply it with [`switch_motion_model`],
 /// which preserves private state when the variant is unchanged and initializes
 /// only the destination solver's private state when the variant changes.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub enum MotionModelSpec {
     AxisSwept(AxisSweptParams),
     SurfaceMomentum(MomentumParams),

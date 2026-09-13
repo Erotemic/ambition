@@ -44,7 +44,7 @@ impl StrikeRect {
 /// Authored boss behavior: movement, contact/damage, attack geometry, and rewards.
 /// Encounter HP and phase thresholds are owned separately. Providers assemble rows
 /// into the App-local catalog; unknown authored bosses use the generic profile.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BossBehaviorProfile {
     pub id: String,
@@ -119,7 +119,7 @@ pub struct BossBehaviorProfile {
 }
 
 /// Closed motion vocabulary used by the limb router during strike Startup/Active.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum LimbMotion {
     /// Lift the limb toward `-gravity` (wind up / hold high).
     Raise,
@@ -133,7 +133,7 @@ pub enum LimbMotion {
 
 /// Limb slots and motion driven by a strike, keyed by move id in
 /// [`BossBehaviorProfile::limb_routing`].
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LimbRoute {
     /// The slots the strike drives. Slots absent from the host rig are inert.
@@ -144,7 +144,7 @@ pub struct LimbRoute {
 
 /// Authored speech-bubble anchor for a boss (see
 /// [`BossBehaviorProfile::bark_anchor`]).
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BarkAnchorSpec {
     pub dx_px: f32,
@@ -163,7 +163,7 @@ impl Default for BarkAnchorSpec {
 }
 
 /// Authored post-defeat reward. Chest geometry is in world pixels.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BossRewardProfile {
     None,
     DropChest {
@@ -193,6 +193,18 @@ mod boss_vec2_option {
         let raw: Option<(f32, f32)> = Option::deserialize(de)?;
         Ok(raw.map(|(x, y)| ae::Vec2::new(x, y)))
     }
+
+    /// ⚠ THE SERIALIZING HALF, added when the catalog became canonical
+    /// generation material. It must write exactly the shape `deserialize` reads
+    /// — a tuple — or the fingerprint's bytes would stop corresponding to the
+    /// declaration a provider can author.
+    pub fn serialize<S>(value: &Option<ae::Vec2>, se: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::Serialize as _;
+        value.map(|v| (v.x, v.y)).serialize(se)
+    }
 }
 
 mod boss_vec2_required {
@@ -205,6 +217,15 @@ mod boss_vec2_required {
     {
         let (x, y) = <(f32, f32)>::deserialize(de)?;
         Ok(ae::Vec2::new(x, y))
+    }
+
+    /// See the sibling in `boss_vec2_option`.
+    pub fn serialize<S>(value: &ae::Vec2, se: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::Serialize as _;
+        (value.x, value.y).serialize(se)
     }
 }
 

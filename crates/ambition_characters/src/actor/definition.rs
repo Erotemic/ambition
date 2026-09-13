@@ -5,7 +5,7 @@ use ambition_entity_catalog::{HurtboxDoc, MovesetContract};
 
 /// Non-authoritative reproducibility metadata for generated variants.
 /// Derived characters have independent stable ids; lineage is not inheritance or balance policy.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
 pub struct Lineage {
     pub derived_from: Option<String>,
     pub generator_revision: Option<String>,
@@ -31,7 +31,7 @@ pub const DEFAULT_UNAUTHORED_BODY_HEALTH: i32 = 4;
 /// same as every other `with_*` on [`CharacterDefinition`]. Nothing is silently
 /// MERGED, which is what the panic actually guarded against; a builder's last
 /// call winning is ordinary and visible at the call site.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum AutonomousPolicy {
     /// Written out on this character.
     Inline(crate::brain::BrainProfile),
@@ -66,7 +66,7 @@ impl AutonomousPolicy {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
 pub struct Vitals {
     /// Authored health pool. `None` leaves the construction-time pool authoritative.
     pub max_health: Option<i32>,
@@ -108,7 +108,7 @@ pub fn world_per_pixel_for_height(canonical_height: f32, sheet_pixel_height: f32
 /// Authority for body collision geometry.
 /// `SpriteAuthored` follows per-pose sheet geometry; `Explicit` is a spawn-time constant.
 /// Runtime projections must not become a second live-body geometry authority.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum BodySource {
     /// The sheet authors it, per pose (`SpritePosedBody`).
     SpriteAuthored { world_per_pixel: f32 },
@@ -117,7 +117,7 @@ pub enum BodySource {
 }
 
 /// One authored character. Control assignment belongs to session authority, not character identity.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct CharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,

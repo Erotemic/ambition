@@ -38,3 +38,7 @@ ron = { workspace = true }
 
 [dev-dependencies]
 ambition_sfx = { path = "../ambition_sfx" }
+# `test_boss_catalog` is the shipped boss fixture, used by the
+# `mechanical_registries_reach_the_identity` arms to round-trip a REAL profile
+# rather than pin a hand-written minimal one that a new required field breaks.
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

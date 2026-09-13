@@ -15,7 +15,7 @@
 use crate::brain::MoveStyleSpec;
 
 /// How this body moves under its own power.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterLocomotion {
     /// Ground-run capability, px/s — the fastest this body can locomote,
@@ -68,7 +68,7 @@ impl Default for CharacterLocomotion {
 ///
 /// A shark is rideable because of what a shark IS, and a pirate can board one for the same kind of
 /// reason; neither is a decision the placement or the driver makes.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterMount {
     /// The mount CLASS this body offers when ridden. `None` = not a mount.
@@ -91,7 +91,7 @@ pub struct CharacterMount {
 ///
 /// Absent (`None` on a definition) means it does not, which is the ordinary
 /// case: most characters harm only through their moves.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactDamage {
     /// Knockback strength of the contact — how hard being touched throws you.

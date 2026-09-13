@@ -17,7 +17,7 @@ use super::BossEncounterSpec;
 use ambition_sprite_sheet::boss::BossSheetSpec;
 
 /// One App's complete authored boss authority.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default, serde::Serialize)]
 pub struct BossCatalog {
     behaviors: BTreeMap<String, BossBehaviorProfile>,
     encounters: BTreeMap<String, BossEncounterSpec>,
@@ -29,6 +29,26 @@ pub struct BossCatalog {
 }
 
 impl BossCatalog {
+    /// Canonical generation material for every boss this App holds.
+    ///
+    /// ⛔⛤ **THE BOSS CATALOG IS MECHANICAL AND REACHED NO FINGERPRINT.**
+    /// `PlatformerSessionBuilder` consumes it while constructing the session,
+    /// and it carries behaviour profiles, encounter definitions, sheet specs and
+    /// fallback identities — so two compositions could differ in how a boss
+    /// FIGHTS and share one `PreparedContentIdentity`.
+    ///
+    /// ⚠ Every field is a `BTreeMap`, so iteration order is the content's own
+    /// and not registration order; the derived `Serialize` is what keeps this
+    /// exhaustive when a field is added, rather than a hand-listed set that a
+    /// new field would silently miss.
+    pub fn deterministic_dump(&self) -> String {
+        ron::to_string(self).unwrap_or_else(|error| {
+            // ⛔ A DISTINCT MARKER, not an empty string: an empty dump would make
+            // every catalog identical to every other and to no catalog at all.
+            format!("<boss-catalog unserializable: {error}>")
+        })
+    }
+
     pub fn is_empty(&self) -> bool {
         self.behaviors.is_empty()
             && self.encounters.is_empty()
@@ -153,7 +173,7 @@ impl BossCatalog {
 }
 
 /// One provider's immutable boss definitions.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct BossCatalogFragment {
     provider_id: String,
     fallback_boss_id: Option<String>,
@@ -362,7 +382,7 @@ impl BossCatalogFragment {
 }
 
 /// Provider fragments linked into one App.
-#[derive(Resource, Clone, Debug, Default)]
+#[derive(Resource, Clone, Debug, Default, serde::Serialize)]
 pub struct BossCatalogRegistry {
     fragments: BTreeMap<String, BossCatalogFragment>,
 }

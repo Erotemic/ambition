@@ -30,7 +30,7 @@ use bevy::prelude::Component;
 
 /// Movement family for a live boss actor. Encounter phases decide *when* a boss
 /// is active; this profile decides how the authored actor moves while active.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BossMovementProfile {
     /// Existing grounded/hovering sentinel feel: stay near the authored spawn,
     /// sway horizontally, and chase the player a little without abandoning the
@@ -162,7 +162,7 @@ impl BossMovementProfile {
 /// player read the telegraph, react, and then learn the sequence over time.
 /// Bosses without a scripted pattern fall back to the older
 /// `attack_cooldown`-driven cycle through `BossBehaviorProfile::attacks`.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BossPatternStep {
     /// Boss is winding up: telegraph volumes draw, no damage yet.
     Telegraph {
@@ -208,7 +208,7 @@ pub enum BossPatternStep {
 /// duration: two attacks that both wind up for 1.2 s are not thereby
 /// distinguishable, and a fight in which every attack looks the same is
 /// unreadable however generous its timings.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
 pub struct TelegraphSpec {
     /// The animation row the boss holds while winding up. The strongest signal,
     /// because it is on screen the whole time.
@@ -238,7 +238,7 @@ impl TelegraphSpec {
 }
 
 /// One arm of a [`BossPatternStep::Select`] table.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct WeightedArm {
     /// Relative weight among the ELIGIBLE arms. `<= 0` never wins.
     pub weight: f32,
@@ -258,7 +258,7 @@ pub struct WeightedArm {
 /// Closed on purpose (`docs/planning/engine/boss-design.md` §1 BD1: *"No scripting
 /// language — three enum arms"*). A bucket an authoring agent cannot name is a
 /// bucket BD5's validator cannot reason about.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum SituationBucket {
     /// The target is within [`PLAYER_NEAR_PX`] of the boss.
     PlayerNear,
@@ -279,7 +279,7 @@ pub enum SituationBucket {
 pub const PLAYER_NEAR_PX: f32 = 220.0;
 
 /// What makes an [`InterruptRule`] fire.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum InterruptTrigger {
     /// The boss took at least `min_damage` in one tick.
     OnHitTaken { min_damage: i32 },
@@ -290,7 +290,7 @@ pub enum InterruptTrigger {
 }
 
 /// A rule that yanks the boss out of its timeline and into a named stance.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct InterruptRule {
     pub on: InterruptTrigger,
     /// Minimum seconds between two firings of THIS rule. `0` means every chance.
@@ -305,7 +305,7 @@ pub struct InterruptRule {
 /// `stances` and `interrupts` are `#[serde(default)]`, so every existing
 /// `boss_profiles.ron` row parses unchanged (byte-parity, as BD1's sketch
 /// requires). A pattern with neither behaves exactly as it did before BD1.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct BossPattern {
     pub steps: Vec<BossPatternStep>,
     /// Named sub-sequences, entered via [`BossPatternStep::Stance`] or an
@@ -328,7 +328,7 @@ impl BossPattern {
 }
 
 /// How a boss decides which attack hitbox is active each frame.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BossAttackPattern {
     /// Legacy cycle: rotate through `BossBehaviorProfile::attacks` using the
     /// flat windup / active / cooldown durations on the profile. Cheap, but
@@ -376,7 +376,7 @@ impl BossAttackPattern {
 /// reads boss pos / spawn / combat_size / is_gnu_ton; this enum is
 /// pure data so the brain can pick a profile without touching the
 /// runtime.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum BossAttackProfile {
     /// A body-mounted GEOMETRY strike. The `String` is the strike key (snake_case, e.g.
     /// `"floor_slam"`): it selects the move's body-local hitbox rects from the strike-geometry
@@ -843,7 +843,7 @@ impl BossMacroState {
 /// dance leave these at the zero defaults — the state machine then
 /// permanently stays in `Engage` and the legacy "always move via
 /// movement profile" behavior holds.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct BossMacroTuning {
     /// Distance (px) below which the boss flees the player to
     /// avoid cornering. Set to 0 to disable the too-close trigger.

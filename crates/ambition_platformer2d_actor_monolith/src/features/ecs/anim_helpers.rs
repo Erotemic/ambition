@@ -111,7 +111,6 @@ mod every_player_slot_gets_its_overlays_ticked {
     use ambition_platformer2d_core::BodyMotionFacts;
     use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-    use bevy::prelude::*;
 
     const ARMED: f32 = 1.0;
     const DT: f32 = 0.25;

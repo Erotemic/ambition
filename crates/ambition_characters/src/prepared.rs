@@ -27,7 +27,7 @@ pub use crate::binding_namespaces::{
 ///
 /// Not `pub`, not `pub(crate)`, and that visibility is the entire mechanism. A seated fighter and a
 /// worn player wearing the same character disagreed about that character's kit for a day.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 struct PreparedCharacterOverrides {
     id: String,
     display_name: String,
@@ -2292,6 +2292,19 @@ fn finalize_cast(
 ///
 /// The binding report is logged rather than returned as an error: see
 /// `prepare_character` for why an unresolved reference degrades loudly instead of
+/// Canonical generation material for the cast this App staged, or `None` if it
+/// staged none.
+///
+/// ⛔ THE PRE-FOLD SOURCE, not the published registry — see
+/// `StagedCharacterOverrides::deterministic_dump` for why the fold is the wrong
+/// material. Read by the provider preparation to bind the prepared cast into
+/// `PreparedContentIdentity`.
+pub fn staged_cast_declaration(world: &bevy::ecs::world::World) -> Option<String> {
+    world
+        .get_resource::<StagedCharacterOverrides>()
+        .map(StagedCharacterOverrides::deterministic_dump)
+}
+
 /// refusing.
 pub fn stage_authored_character(
     app: &mut bevy::app::App,
@@ -2366,7 +2379,7 @@ pub fn stage_authored_character(
 /// cannot be read, taken, or reconstructed by a host — so there is no route to a
 /// `StagedCharacter` at all outside this module, let alone to folding one.
 #[derive(bevy::ecs::resource::Resource, Debug, Clone, Default)]
-struct StagedCharacterOverrides {
+pub struct StagedCharacterOverrides {
     /// The authored, pre-fold definitions — THE SOURCE, retained past the
     /// barrier rather than consumed by it.
     ///
@@ -2414,6 +2427,58 @@ struct StagedCharacterOverrides {
 }
 
 impl StagedCharacterOverrides {
+    /// Canonical generation material for the staged cast.
+    ///
+    /// ⛔⛤ **THE PREPARED CAST WAS MECHANICAL CONTENT THAT REACHED NO
+    /// FINGERPRINT.** `PreparedContentIdentity` binds
+    /// `CharacterCatalogRegistry::canonical_fragments()`, and MEASURED
+    /// 2026-09-12 that is a DIFFERENT ROAD from this one: the provider API
+    /// `App::register_character` goes to `stage_authored_character` and lands
+    /// here, never in that registry. So two compositions could differ in
+    /// `max_health`, `run_speed`, motion model, contact damage, abilities,
+    /// hurtboxes or brain policy and produce the SAME identity — and the
+    /// rollback timeline contract compares exactly that identity.
+    ///
+    /// ⭐⭐ **SERIALIZED BY `serde`, NOT BY A HAND-LISTED FIELD SET, AND THAT IS
+    /// THE LOAD-BEARING CHOICE.** A hand-rolled canonical writer is a population
+    /// that rots: a new mechanical field is simply absent from it and nothing
+    /// says so, which is the same defect one level up. The derive is exhaustive
+    /// by construction — a field added to [`PreparedCharacterOverrides`] changes
+    /// this dump on the day it is added.
+    ///
+    /// ⚠ **NOT `Debug`, DELIBERATELY.** `Debug` output is a rendering with no
+    /// stability contract, and hashing one would make the identity hostage to a
+    /// formatting change. RON over a `BTreeMap` is ordered by the id and carries
+    /// the values themselves.
+    ///
+    /// ⚠ **AND IT IS THE PRE-FOLD SOURCE, WHICH IS THE RIGHT MATERIAL.** The
+    /// registry is this table's FOLD (see `by_id`), and folding is lossy —
+    /// "authored nothing" and "authored exactly the catalog row's value" become
+    /// the same prepared value. Fingerprinting the fold would make those two
+    /// compositions identical again.
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = String::new();
+        for (id, staged) in &self.by_id {
+            out.push_str(id.as_str());
+            out.push('=');
+            match ron::to_string(&staged.inner) {
+                Ok(rendered) => out.push_str(&rendered),
+                // ⛔ A SERIALIZATION FAILURE MUST NOT SILENTLY COLLAPSE TWO
+                // DIFFERENT CASTS TO ONE FINGERPRINT. It is recorded as a
+                // distinct, id-bearing marker so the identity still separates
+                // them by id, and the failure is visible in the dump itself
+                // rather than swallowed.
+                Err(error) => {
+                    out.push_str("<unserializable: ");
+                    out.push_str(&error.to_string());
+                    out.push('>');
+                }
+            }
+            out.push('\n');
+        }
+        out
+    }
+
     fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
         self.by_id
             .values()

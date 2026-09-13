@@ -33,7 +33,7 @@ use crate::{MotionFrame, Vec2};
 
 /// Motion-feel parameters for a surface-momentum body. RON-authorable on the
 /// archetype row (the gameplay layer hydrates these; the kernel just consumes).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct MomentumParams {
     /// Input acceleration along the tangent while riding (px/s²).
     pub ground_accel: f32,

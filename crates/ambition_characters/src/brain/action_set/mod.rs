@@ -24,7 +24,7 @@ use bevy::ecs::component::Component;
 ///
 /// Construct via [`ActionSet::peaceful`] for a "no attacks" baseline
 /// and override only the slots that exist for this actor.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq, serde::Serialize)]
 pub struct ActionSet {
     /// What `frame.melee_pressed = true` resolves to. `None` means
     /// the actor has no melee at all (peaceful patroller, puppy slug,
@@ -590,6 +590,7 @@ pub fn held_item_ids() -> Vec<String> {
     dead_code,
     reason = "spec variants surface to per-actor EFFECTS consumers"
 )]
+#[derive(serde::Serialize)]
 pub enum MeleeActionSpec {
     /// Generic short swing. Used by Striker / standard goblin melee.
     Swipe(SwipeSpec),
@@ -613,7 +614,7 @@ pub enum MeleeActionSpec {
 /// This is the authoring seam for the rest: content states the arc, the bounce policy, and the
 /// lifetime it wants, and the shared projectile body steps exactly that. Nothing here names an
 /// ability or a firer.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ProjectileFlight {
     /// Downward acceleration along gravity, px/s². `0` flies straight.
     pub gravity: f32,
@@ -720,7 +721,7 @@ impl ProjectileFlight {
 /// recover. Distinct from the shot's flight: a slow-drawn bow and a snap pistol
 /// can fire projectiles that behave identically, and one archetype's cadence can
 /// launch wildly different shots.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum RangedStyle {
     /// Thrown rock (skirmishers / peaceful-turned-hostile NPCs).
     Rock,
@@ -740,7 +741,7 @@ pub enum RangedStyle {
 /// which is what every ranged action did before they existed. Authoring either one
 /// is how content gives a granted ranged verb its own identity without the
 /// projectile stepper learning a single ability name.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct RangedActionSpec {
     pub style: RangedStyle,
     /// Launch speed. The brain emits `frame.fire = Some(dir)`; the EFFECTS stage
@@ -799,7 +800,7 @@ pub struct RangedActionSpec {
 /// discharge share THIS, and keep their own damage, speed and aim assist; a
 /// third weapon that wants the look and not the kick authors the difference
 /// instead of asking to be added to a list in another crate.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct Discharge {
     /// Where the shot is born.
@@ -827,7 +828,7 @@ impl Default for Discharge {
 }
 
 /// Where a shot is born.
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum Muzzle {
     /// A little above the body's own origin — what a body with no weapon in
     /// view does, and what every ranged action did before this existed.
@@ -921,7 +922,7 @@ pub const PISTOL_ROUND_VISUAL: &str = "pistol_round";
 /// ⛔ IT BENDS THE DIRECTION AND NOTHING ELSE. The shot still travels, can still
 /// be shielded, still misses a target that moves — this is a firing ANGLE, not a
 /// guarantee of contact.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct AimAssist {
     /// The widest angle from the commanded direction that still counts as "the
     /// way I was pointing", in radians. `FRAC_PI_2` is Jon's half-plane.
@@ -972,7 +973,7 @@ fn default_ranged_refire_s() -> f32 {
 /// charge is continuous; the LOOK steps, because a stepped look is what a player
 /// can actually read at a glance on a busy stage. Nothing reconciles the two on
 /// purpose.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct RangedCharge {
     /// Damage at a FULL hold, as a multiple of the uncharged shot.
     pub damage_mult: f32,
@@ -1177,7 +1178,7 @@ impl MeleeActionSpec {
 }
 
 /// How an actor's locomotion looks.
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum MoveStyleSpec {
     /// Two-legged walk (default for humanoids).
     #[default]
@@ -1225,7 +1226,7 @@ pub enum SpecialActionSpec {
 // a one-for-one move. Chunk 4 / data-table work shrinks duplication.
 
 /// Light melee swing. Striker default.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct SwipeSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -1245,7 +1246,7 @@ impl SwipeSpec {
 }
 
 /// Heavy lunging strike. Brute default.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct LungeSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -1268,7 +1269,7 @@ impl LungeSpec {
 }
 
 /// Pounce + slam. Reserved for future hostile aerial archetypes.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct SlamSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -1279,7 +1280,7 @@ pub struct SlamSpec {
 }
 
 /// Jaw bite — short reach, fast.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct BiteSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -1289,7 +1290,7 @@ pub struct BiteSpec {
 }
 
 /// Light reactive punch — a reactive counter-jab (not used by passive targets).
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct PunchSpec {
     pub windup_s: f32,
     pub active_s: f32,
@@ -1583,7 +1584,7 @@ mod tests;
 /// sole switch for folding ranged/special presets, applying ranged presentation,
 /// and installing charge-projectile runtime state. `ChargesProjectiles` remains
 /// the runtime marker.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize)]
 pub enum RangedExecution {
     /// A chargeable projectile owns the ranged press; do not also fold the
     /// action set's ranged verb into the moveset.

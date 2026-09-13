@@ -218,6 +218,43 @@ struct AuthoredRecord {
 }
 
 impl AuthoredSheets {
+    /// Canonical generation material for every authored sheet this App holds.
+    ///
+    /// ⛔⛤ **AUTHORED SHEETS ARE MECHANICAL AND REACHED NO FINGERPRINT.** A
+    /// sheet record carries BODY METRICS used to build the collision body and
+    /// the authored ATTACK GEOMETRY the character-sprite road resolves, so a
+    /// provider calling `register_character_sheet_ron` changes what the game
+    /// simulates. `PreparedContentIdentity` did not bind any of it, and the
+    /// rollback timeline contract compares exactly that identity.
+    ///
+    /// ⚠ **THE DECLARATION TEXT, NOT THE PARSED RECORD.** It is what the
+    /// provider actually said, it is already retained for collision reporting,
+    /// and it needs no serialization contract of its own — two Apps that were
+    /// told the same thing produce the same bytes. The origin rides along
+    /// because "the same records from a different file" is a real difference a
+    /// reader of this fingerprint would want to see.
+    ///
+    /// ⚠ Ordered by TARGET, which is the map's own key order, so the dump is a
+    /// function of the content rather than of registration order.
+    pub fn deterministic_dump(&self) -> String {
+        let mut out = String::new();
+        for (target, record) in &self.by_target {
+            out.push_str(target);
+            out.push('\t');
+            out.push_str(&record.origin);
+            out.push('\t');
+            // The declaration is RON with newlines in it, so it is length-
+            // prefixed rather than newline-terminated: a declaration containing
+            // a line that looks like the next row's header must not be able to
+            // forge one.
+            out.push_str(&record.declaration.len().to_string());
+            out.push('\t');
+            out.push_str(&record.declaration);
+            out.push('\n');
+        }
+        out
+    }
+
     /// Parse one sheet RON and atomically index every record it declares.
     ///
     /// Single-record files use `file_root` as their target. A target may be

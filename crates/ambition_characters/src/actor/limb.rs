@@ -36,7 +36,7 @@ const LIMB_SLOT_CAP: usize = 24;
 ///
 /// Ordering is bytewise over the zero-padded name, so rig iteration is decided
 /// by the CONTENT and is stable across runs.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 pub struct LimbSlot {
     name: [u8; LIMB_SLOT_CAP],
     len: u8,

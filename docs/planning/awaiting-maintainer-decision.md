@@ -1512,3 +1512,38 @@ stops and rebases rollback as part of the same transaction.
 `maintain_local_session` versus `commit_content_generation`. If the transition is
 impossible, encode the impossibility as a schedule invariant and the two arms
 above flip to assert the refusal. If it is possible, the lease packet is real.
+
+## Q119 — RULED BY THE REVIEW, RECORDED FOR THE AUDIT TRAIL: which App authorities are MECHANICAL?
+
+⭐ **NOT AWAITING A DECISION — the classification below came from Jon's forwarded
+review and is being applied.** It lives here because the LIST is what future work
+has to be checked against, and a rule with no home is a rule nobody re-reads.
+
+> ```text
+> Mechanical + immutable during timeline → bind into generation / timeline identity
+> Mechanical + changes during timeline   → deterministic input/state, or explicit rebase
+> Derived                                → rebuild after rewind
+> Presentation-only                      → may remain outside gameplay identity
+> ```
+
+⛔ **THIS REPLACES "forward-only" AS A ROLLBACK-COVERAGE CATEGORY.** The review's
+words: *"A mechanical resource can be omitted from rollback only if it is
+immutable for the lifetime of the rollback timeline, derived entirely from
+registered historical state, or represented as deterministic external input.
+'Forward-only' by itself is not a rollback category."*
+
+⇒ **AND IT COMES WITH TWO QUESTIONS TO ASK OF ANYTHING CALLED authored /
+prepared / immutable / generation-bound / rollback-safe:**
+1. Where does execution READ the value?
+2. Where is that exact value represented in mechanical identity or historical
+   input?
+
+*"If the answer to the second question is nowhere, the first answer is enough to
+reopen the architecture."*
+
+**Bound as of 2026-09-12** (`characters.definitions`, `characters.authored-sheets`,
+`boss.catalog` — see the `MechanicalRegistries` receipt). **NOT yet audited:** the
+rest of `PlatformerSessionBuilder`'s inputs, and the live developer-edit
+resources (`ActiveMovementTuning`, `Platformer2dFeelTuningMonolith`,
+`EditableAbilitySet`, `EditablePlayerStats`, `DeveloperTools.player_body_profile`)
+which are the SECOND row of the table and have no answer yet.

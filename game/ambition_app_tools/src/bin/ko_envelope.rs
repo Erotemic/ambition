@@ -147,6 +147,20 @@ impl Launcher {
         }
     }
 
+    /// Borrow this launcher as a deliverable pulse.
+    ///
+    /// ⭐ THE ONLY PLACE THE VARIANT IS INSPECTED ON THE MEASURING PATH. Every
+    /// site downstream — the repeatability self-test, the row loop, `launch_at`,
+    /// `kills`, `ko_threshold` — takes a `Pulse` and never asks which kind it
+    /// holds, so a throw cannot quietly fall down a strike-shaped code path and
+    /// report a number about the fixture.
+    fn pulse(&self) -> Pulse<'_> {
+        match self {
+            Launcher::Strike { hit, .. } => Pulse::Strike(hit),
+            Launcher::Throw { params, .. } => Pulse::Throw(params),
+        }
+    }
+
     fn damage(&self) -> i32 {
         match self {
             Launcher::Strike { hit, .. } => hit.damage,
@@ -719,7 +733,14 @@ impl KoProbe {
         // 3. Place, still, and metered.
         self.park(self.victim, victim_x);
         self.park(self.attacker, victim_x - 240.0);
-        for _ in 0..40 {
+        // ⭐ DID THE LANDING LOOP EVER SUCCEED? `landed_y` below is read
+        // UNCONDITIONALLY, so a loop that ran out of budget hands the pin a
+        // MID-FALL height and the grounded premise then refuses a body the
+        // fixture itself put in the air. Recording the tick separates "landed
+        // and was moved afterwards" from "never landed at all" — two different
+        // defects that produce the same refusal.
+        let mut landed_after: Option<usize> = None;
+        for tick in 0..40 {
             self.park(self.attacker, victim_x - 240.0);
             self.app.update();
             let grounded = self
@@ -728,6 +749,7 @@ impl KoProbe {
                 .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
                 .is_some_and(|g| g.on_ground);
             if grounded {
+                landed_after = Some(tick);
                 break;
             }
         }
@@ -771,6 +793,86 @@ impl KoProbe {
             .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
             .is_some_and(|g| g.on_ground);
         if !grounded {
+            // ⛔⛤ THIS IS THE REFUSAL THAT ACTUALLY FIRES, AND IT SAID NOTHING.
+            //
+            // MEASURED 2026-09-13: across the strike matrix AND the stage-3 run —
+            // between them well over a hundred refused cells — the settle stage
+            // above logged `KO_REFUSE` exactly ZERO times. Every refusal this
+            // instrument has ever printed came through HERE, and this arm was a
+            // bare `return false`, so the one explanation a reader needed was the
+            // only one never written down. The careful message upstream describes
+            // a path that has never been taken.
+            //
+            // ⛔ An empty `KO_REFUSE` grep therefore proved NOTHING about a
+            // refused cell, which is worse than no instrumentation at all: it
+            // reads as "the reset was fine" to anyone who checks.
+            let p = self.pos(self.victim);
+            // ⭐ THE SUSPECT, MEASURED RATHER THAN ASSUMED: A STAGED LAUNCH THE
+            // PIN CANNOT SEE.
+            //
+            // `constrain_body_pose` writes `pos` and `vel` and nothing else — by
+            // contract it "does not fabricate or clear contact facts" — so a
+            // launch STAGED by the previous trial survives the park untouched.
+            // `kernel.rs` says so in as many words: *"the launch stays staged.
+            // `PendingLaunch` survives until a tick on which nobody else owns the
+            // pose, and the kernel spends it then."* That tick is this reset's
+            // own `update()`, which would fling a victim the fixture had just set
+            // down at rest — and a refusal reporting `pos=(574,320)` off the
+            // platform's right edge (it spans 80..560) is what that looks like.
+            //
+            // ⛔ `pending_launch_state`, NOT `take_launch`. The read-only form
+            // exists for exactly this: draining it here would SPEND the launch
+            // and destroy the evidence, and the next trial would then quietly
+            // differ from the one that produced the number printed below.
+            // ⛔ DUMP THE STATE, DO NOT GUESS AT IT AGAIN. Three hypotheses have
+            // now been falsified by measurement — a missing component, a cleared
+            // message, and the staged launch this very line was added to test —
+            // and each cost a full run because the output could not tell the
+            // candidates apart. The remaining suspects are all cheap to PRINT:
+            //
+            //  * `carried_run`/`carried_hold` — same class as the staged launch
+            //    (BodyFlightState survives `constrain_body_pose`, which writes
+            //    only pos/vel), and the airborne law does
+            //    `approach(along, *carried_run, ..)`, which would ACCELERATE a
+            //    body the fixture just set to rest.
+            //  * `contact_initialized` — the pin "does not fabricate or clear
+            //    contact facts" by contract, so an invalidated baseline survives
+            //    it and `on_ground` reads false for a body genuinely resting on
+            //    the floor. That would refuse regardless of position.
+            //  * `landed_after == None` — the loop never saw a landing, so
+            //    `landed_y` was sampled mid-fall.
+            let (staged, carried_run, carried_hold) = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyFlightState>(self.victim)
+                .map(|f| {
+                    (
+                        f.pending_launch_state().velocity,
+                        f.carried_run,
+                        f.carried_hold,
+                    )
+                })
+                .unwrap_or_default();
+            let vel = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(self.victim)
+                .map(|k| k.vel)
+                .unwrap_or_default();
+            let (on_ground, contact_init) = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
+                .map(|g| (g.on_ground, g.contact_initialized))
+                .unwrap_or_default();
+            eprintln!(
+                "KO_REFUSE: stage=ground x={victim_x:.0} pct={entry_percent} \
+                 pos=({:.1},{:.1}) vel=({:.1},{:.1}) landed_y={landed_y:.1} \
+                 landed_after={landed_after:?} on_ground={on_ground} \
+                 contact_init={contact_init} staged=({:.1},{:.1}) \
+                 carried_run={carried_run:.1} carried_hold={carried_hold:.3}",
+                p.x, p.y, vel.x, vel.y, staged.x, staged.y
+            );
             return false;
         }
 
@@ -925,6 +1027,19 @@ impl KoProbe {
         const SETTLED_TICKS: usize = 4;
         const SLOW_PX_S: f32 = 12.0;
         let mut settled_for = 0usize;
+        // ⛔⛤ A THROW PUBLISHES NO `HitEvent`, SO THE CURSOR ABOVE NEVER SEES IT.
+        //
+        // MEASURED 2026-09-13: `apply_capture_throws` calls
+        // `apply_body_hit_reaction` DIRECTLY — that function mutates velocity and
+        // publishes nothing, and the only `MessageWriter`s in `capture/systems.rs`
+        // emit capture REQUESTS. So for a throw `resolved_launch` stayed `None`
+        // forever, which is why every throw row printed `-` for `launch@100` and
+        // `tumble%`, and why `launch_at` returned `None` on every call.
+        //
+        // ⇒ Watch for the RELEASE instead. The captive is released BY the throw,
+        // so the first tick `CapturedBy` is gone is the tick the launch was
+        // applied, and the victim's velocity right then IS the launch.
+        let mut awaiting_release = matches!(pulse, Pulse::Throw(_));
         for tick in 0..150 {
             self.app.update();
             if resolved_launch.is_none() {
@@ -939,6 +1054,37 @@ impl KoProbe {
                             break;
                         }
                     }
+                }
+            }
+            // ⭐ OBSERVE THE THROW'S LAUNCH, DO NOT RECOMPUTE IT.
+            //
+            // ⛔ The tempting alternative is to evaluate `scaled_knockback` on the
+            // authored `CaptureThrowParams` and report that. It would be a
+            // FABRICATION dressed as a measurement: the probe would print the
+            // formula's own prediction and agree with itself no matter what the
+            // engine actually did, which is exactly the failure the whole
+            // instrument exists to avoid.
+            //
+            // ⚠ AND THE NUMBER IS ONE TICK LATE, stated rather than hidden. The
+            // same `update()` that released the captive also ran gravity, so this
+            // reads the launch minus one frame of it — about 37 px/s at GRAVITY
+            // 2250 / 60Hz, and ONLY on the vertical component. It is NOT silently
+            // compensated: a correction would be a second model layered over a
+            // measurement, and the residual is small against launches of 500-1200.
+            if awaiting_release
+                && self
+                    .app
+                    .world()
+                    .get::<ambition_platformer2d::combat::capture::CapturedBy>(self.victim)
+                    .is_none()
+            {
+                awaiting_release = false;
+                if resolved_launch.is_none() {
+                    resolved_launch = self
+                        .app
+                        .world()
+                        .get::<ambition_platformer2d::engine_core::BodyKinematics>(self.victim)
+                        .map(|k| k.vel.length());
                 }
             }
             if !ko {
@@ -1015,6 +1161,15 @@ impl KoProbe {
                 ambition_platformer2d::characters::smash_hold_state::SmashHoldState,
             )>();
             if !executed {
+                // ⛔ THE OTHER SILENT `None`, and it is the one that produced the
+                // stage-3 matrix's 24/24 `REFUSED@0`. Distinguishing it from the
+                // grounded refusal above is the whole question: both returned
+                // quietly, so the table could not say which had happened.
+                eprintln!(
+                    "KO_REFUSE: stage=throw-never-executed x={victim_x:.0} \
+                     pct={entry_percent} — CapturedBy survived the trial loop, so \
+                     apply_capture_throws' find matched nothing"
+                );
                 return None;
             }
         }
@@ -1445,6 +1600,199 @@ fn run_determinism() {
     );
 }
 
+/// WHY IS EVERY THROW CELL `REFUSED@0`? — NAME the missing precondition instead
+/// of guessing at it.
+///
+/// ⛔⛔ THE STAGE-3 MATRIX REFUSED ALL 24 THROW CELLS — every role, every
+/// attacker, both victims, at entry percent 0. Read as data those rows say
+/// *"throws never launch very far"*, which is the ORIGINAL COMPLAINT apparently
+/// confirmed by 24 independent cells. `PREDICTION_THROWS.md` pre-registered this
+/// exact shape as an ACTUATOR failure precisely so it could not be read that way.
+///
+/// `apply_capture_throws` takes an ELEVEN-component query on the captive and
+/// `continue`s in SILENCE when its `find` matches nothing. EIGHT of those are
+/// REQUIRED (non-`Option`), so a seated fighter missing ANY ONE produces a
+/// uniform, quiet refusal that looks identical to a weak throw.
+///
+/// ⭐ AND THE KNOWN-GOOD RECIPE IS ALREADY IN THE TREE: `capture/systems.rs`'s
+/// own `throw_app`/`grounded_body` fixture builds a captive the system DOES see.
+/// The only open question is which column a LIVE match fighter lacks that the
+/// fixture spells out — `gravity/resolve.rs:51` says a PLAYER entity carries no
+/// `ActorSurfaceState` at all, while `actor_spawn` and `body_seed` both insert
+/// one. This prints the difference rather than reasoning about it.
+///
+/// ⛔ IT DELIBERATELY INSERTS NOTHING TO "FIX" THE BODY. Adding a default
+/// `ActorSurfaceState` to a victim that already has one would overwrite its real
+/// `gravity_scale` and corrupt every later trial — a repair applied before the
+/// diagnosis, which is how a fixture starts measuring itself.
+fn run_throw_diag() {
+    use ambition_platformer2d::characters::actor as ca;
+    use ambition_platformer2d::engine_core as ec;
+    use ambition_platformer2d::engine_core::Vec2 as EVec2;
+
+    let attacker_id = "npc_pirate_admiral";
+    let victim_id = "player_robot_v3";
+    println!("# THROW ACTUATOR DIAGNOSTIC — {attacker_id} throwing {victim_id}");
+    println!("# 24/24 stage-3 throw cells were REFUSED@0. This asks WHY.");
+
+    let mut probe = KoProbe::new(attacker_id, victim_id);
+
+    // ⛔ SEPARATE THE TWO WAYS `fire` RETURNS `None`. A refusal from the RESET is
+    // a statement about the fixture's ability to stand a body up, and has
+    // nothing to do with the throw road; only a reset that SUCCEEDED lets the
+    // rest of this diagnostic mean anything.
+    if !probe.reset_trial(0, probe.centre) {
+        println!("⛔ reset_trial REFUSED — the refusal happens BEFORE any throw.");
+        println!("   The REFUSED@0 cells are then NOT evidence about the throw road.");
+        return;
+    }
+    println!("✅ reset_trial succeeded — the victim stands still on the floor.");
+
+    macro_rules! has {
+        ($e:expr, $t:ty) => {{
+            if probe.app.world().get::<$t>($e).is_some() {
+                "present"
+            } else {
+                "⛔ MISSING"
+            }
+        }};
+    }
+
+    let v = probe.victim;
+    let a = probe.attacker;
+
+    println!("\n# REQUIRED on the captive — any ONE missing refuses the whole query:");
+    println!("   BodyKinematics      {}", has!(v, ec::BodyKinematics));
+    println!("   BodyFlightState     {}", has!(v, ec::BodyFlightState));
+    println!("   BodyCombat          {}", has!(v, ca::BodyCombat));
+    println!("   BodyHealth          {}", has!(v, ca::BodyHealth));
+    println!("   ActorSurfaceState   {}", has!(v, ec::ActorSurfaceState));
+    println!("   BodyGroundState     {}", has!(v, ec::BodyGroundState));
+    println!("   BodyDodgeState      {}", has!(v, ec::BodyDodgeState));
+
+    println!("\n# OPTIONAL in the query — absence here is NOT a cause:");
+    println!(
+        "   ControlHolds        {}",
+        has!(v, ambition_platformer2d::characters::control::ControlHolds)
+    );
+
+    println!("\n# the CAPTOR arm: Query<&BodyKinematics, Without<CapturedBy>>");
+    println!("   attacker BodyKinematics {}", has!(a, ec::BodyKinematics));
+    println!(
+        "   attacker CapturedBy     {}  (must be ABSENT to match)",
+        has!(a, ambition_platformer2d::combat::capture::CapturedBy)
+    );
+
+    // ── REPRODUCE THE MATRIX'S ACTUAL FIRST CALL, not an approximation of it. ──
+    //
+    // ⛔⛔ THIS IS THE STEP THAT DECIDES IT. The hand-rolled actuation below
+    // proves the throw ROAD works; it does NOT prove `fire` works, and `fire` is
+    // what the matrix ran. `ko_threshold` opens with `kills(pulse, 0, ..)`, and
+    // `kills` returns `None` — which prints as `REFUSED@0` — only when THREE
+    // consecutive `fire` calls all refuse. So three calls here reproduce the
+    // exact condition, and the `KO_REFUSE` lines on stderr now name WHICH of the
+    // two silent refusal stages fired.
+    //
+    // ⛔ AND IT RUNS FIRST, BEFORE the manual actuation below, because that one
+    // leaves the victim launched and airborne — a `fire` measured after it would
+    // be measuring the wreckage of the previous experiment.
+    let params = CaptureThrowParams {
+        damage: 9,
+        knockback: 104.0,
+        knockback_growth: 2.40,
+        launch_dir: (1.0, -0.5),
+    };
+    println!("\n# `kills(Pulse::Throw, 0, centre)` fires `fire` up to 3x. Reproducing:");
+    let mut refusals = 0;
+    for attempt in 0..3 {
+        match probe.fire(Pulse::Throw(&params), 0, probe.centre) {
+            Some(t) => println!(
+                "   attempt {attempt}: Some — ko={} resolved_launch={:?}",
+                t.ko, t.resolved_launch
+            ),
+            None => {
+                refusals += 1;
+                println!("   attempt {attempt}: ⛔ None (a KO_REFUSE line on stderr names the stage)");
+            }
+        }
+    }
+    println!(
+        "   ⇒ {refusals}/3 refused. {}",
+        if refusals == 3 {
+            "THIS is the matrix's REFUSED@0, reproduced."
+        } else {
+            "`fire` does NOT uniformly refuse here — the matrix's cause is elsewhere."
+        }
+    );
+
+    // ── Now actuate ONE throw exactly as `fire` does, and watch it land. ──
+    probe.app.world_mut().entity_mut(v).insert((
+        ambition_platformer2d::combat::capture::CapturedBy {
+            captor: a,
+            hold_offset_local: EVec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+        },
+        ambition_platformer2d::characters::control::ScriptedControl,
+        ambition_platformer2d::characters::control::ControlHolds::only(
+            ambition_platformer2d::characters::control::ControlHold::Relationship,
+        ),
+        ambition_platformer2d::characters::smash_hold_state::SmashHoldState::lasting(10.0),
+    ));
+    println!(
+        "\n# hold installed — CapturedBy on the victim: {}",
+        has!(v, ambition_platformer2d::combat::capture::CapturedBy)
+    );
+
+    probe.app.world_mut().write_message(
+        ambition_platformer2d::combat::capture::CaptureThrowRequested {
+            captor: a,
+            damage: 9,
+            knockback: 100.0,
+            knockback_growth: 0.0,
+            launch_dir: EVec2::new(1.0, -1.0),
+        },
+    );
+
+    // ⭐ SEVERAL TICKS, NOT ONE. The captive is released BY the throw, so a
+    // surviving `CapturedBy` means the system never ran — but a message written
+    // from OUTSIDE the schedule might also simply be read a tick later than the
+    // fixture assumes, and "never" and "not yet" are different diagnoses.
+    let mut cleared_on = None;
+    for tick in 0..6 {
+        probe.app.update();
+        if probe
+            .app
+            .world()
+            .get::<ambition_platformer2d::combat::capture::CapturedBy>(v)
+            .is_none()
+        {
+            cleared_on = Some(tick);
+            break;
+        }
+    }
+
+    println!("\n# VERDICT");
+    match cleared_on {
+        Some(t) => {
+            println!("  ✅ the throw EXECUTED on tick {t} — the capture released.");
+            println!("     ⇒ the actuator works here, so the matrix's refusal is");
+            println!("       something the PER-TRIAL path does differently. Look at");
+            println!("       `fire`'s ordering, not at the component set.");
+        }
+        None => {
+            println!("  ⛔ `CapturedBy` SURVIVED six ticks — `apply_capture_throws`");
+            println!("     never ran for this captive. Its `find` matched nothing.");
+            println!("     ⇒ the cause is a MISSING REQUIRED COMPONENT above, or the");
+            println!("       message never reached `CombatSet::Materialize`.");
+        }
+    }
+    let (vx, vy) = {
+        let p = probe.pos(v);
+        (p.x, p.y)
+    };
+    println!("  victim at ({vx:.1},{vy:.1})");
+}
+
 fn run_probe() {
     const REFERENCE: &str = "player_robot_v3";
     const HEAVY: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
@@ -1505,9 +1853,35 @@ fn run_probe() {
     // ⇒ Read the grounded roles (attack*, smash*, tilt*) as measurements and the
     // aerial roles as not-yet-measured. Giving them an airborne victim is a
     // separate fixture, not a tweak to this one.
+    // ⛔⛔ THIS CAVEAT USED TO EXPLAIN AWAY A DEFECT, IN THE HEADER A READER
+    // TRUSTS. It said the aerial cells "measure the fixture, not the move"
+    // because an aerial meets a grounded parked victim — true as a caveat, and
+    // NOT why those cells are empty. Measured 2026-09-13 with both refusal arms
+    // logging: a full matchup produced 209 `KO_REFUSE` lines and EVERY ONE was
+    // `stage=ground` — the reset's own grounded premise — covering the aerials,
+    // the dash attack, both specials and all four throws alike. A real
+    // instrument failure was wearing a design limitation's clothes.
     println!(
-        "# ⛔ AERIAL ROLES (attack_air*, attack_dash) FIRE AT A GROUNDED, PARKED VICTIM — \
-         a fixture they never meet in play. Their cells measure the fixture, not the move."
+        "# ⚠ AERIAL ROLES (attack_air*, attack_dash) fire at a GROUNDED, PARKED victim — \
+         a fixture they never meet in play, so read their cells with that in mind."
+    );
+    println!(
+        "# ⛔ A `REFUSED@n` CELL IS AN INSTRUMENT FAILURE, NOT A STATEMENT ABOUT THE MOVE. \
+         Measured: 209/209 refusals in a full matchup were `stage=ground` (the reset could not \
+         stand the victim still on the floor), and they SNOWBALL — refusals grow through a run, \
+         so the roles `launchers_of` pushes last (specials, throws) absorb most of them. \
+         Cause under investigation; four hypotheses falsified by measurement so far. \
+         ⛔ Do NOT read a refused row as 'this move is weak'."
+    );
+    // ⭐ THROW ROWS READ DIFFERENTLY FROM STRIKE ROWS IN THE SAME TABLE, and a
+    // reader with only the TSV cannot tell. Three differences, all load-bearing:
+    println!(
+        "# ⭐ THROW ROWS (*_throw) ARE MEASURED PULSES, NOT STRIKES. \
+         (1) w/v is '-': window/volume address a strike's hit volume and a throw has no such address. \
+         (2) The KO%% column is the ENTRY percent — `apply_capture_throws` applies the throw's own \
+         damage BEFORE the launch reads the meter, so the launch arithmetic saw KO%% + dmg. \
+         (3) A refused throw cell means the throw NEVER EXECUTED (hold expired, or a component its \
+         query demands was missing) — it is NOT a survival, and must never be read as 'throws are weak'."
     );
 
     {
@@ -1535,9 +1909,23 @@ fn run_probe() {
                 };
                 let mut bad = Vec::new();
                 let mut nl = Vec::new();
+                // ⭐ THROWS ADMIT UNCONDITIONALLY, AND THE ASYMMETRY IS REAL —
+                // this is not the strike rule with a hole punched in it.
+                //
+                // An unbound strike is a hit volume that NO verb reaches, so no
+                // player can produce it and a row for it would measure a volume
+                // the game never fires. A throw has no `verbs` list that could be
+                // empty: `launchers_of` builds each one through `move_for_verb`,
+                // so it exists only BECAUSE a verb resolved to it. Bound by
+                // construction, and requiring a `verbs` field it does not have
+                // would silently exclude every throw — which is precisely the
+                // state this commit is ending.
                 launchers_of(attacker_id, contract, &mut bad, &mut nl)
                     .into_iter()
-                    .filter(|l| matches!(l, Launcher::Strike { verbs, .. } if !verbs.is_empty()))
+                    .filter(|l| match l {
+                        Launcher::Strike { verbs, .. } => !verbs.is_empty(),
+                        Launcher::Throw { .. } => true,
+                    })
                     .collect::<Vec<_>>()
             };
 
@@ -1555,10 +1943,17 @@ fn run_probe() {
             // Three repetitions rather than two, because an alternating defect
             // (survive/KO/survive/KO — exactly what run 1 showed) is invisible
             // to any even-numbered comparison of the first two.
-            if let Some(Launcher::Strike { hit, .. }) = launchers.first() {
+            //
+            // ⛔ NOT `if let Some(Launcher::Strike { .. })`. Written that way, a
+            // fighter whose first launcher is a THROW skips the self-test
+            // entirely and has its whole table admitted with no independence
+            // check — the `if let` falls through in silence and the run looks
+            // exactly like one that passed. The guard must cover whatever pulse
+            // is actually first.
+            if let Some(self_test) = launchers.first().map(Launcher::pulse) {
                 let mut seen = Vec::new();
                 for _ in 0..3 {
-                    seen.push(match probe.strike(hit, 100, probe.centre) {
+                    seen.push(match probe.fire(self_test, 100, probe.centre) {
                         Some(t) => format!(
                             "ko={} launch={} {}",
                             t.ko,
@@ -1617,10 +2012,8 @@ fn run_probe() {
             };
             println!("#   ledge_x = {ledge_x:.1} (derived platform edge, 40px inboard)");
             for l in &launchers {
-                let Launcher::Strike { hit, move_id, .. } = l else {
-                    continue;
-                };
-                let pulse = Pulse::Strike(hit);
+                let pulse = l.pulse();
+                let move_id = l.move_id();
                 // ⛔ THROUGH `launch_at` LIKE THE OTHER TWO. This value is both
                 // the printed column AND the midpoint the linearity check tests
                 // the fitted line against, so a single refused reset here does
@@ -1669,9 +2062,13 @@ fn run_probe() {
                 };
                 let centre_ko = probe.ko_threshold(pulse, probe.centre, max_percent);
                 let ledge_ko = probe.ko_threshold(pulse, ledge_x, max_percent);
-                let (w, v) = match l {
-                    Launcher::Strike { window, volume, .. } => (*window, *volume),
-                    _ => (0, 0),
+                // ⛔ `w0v0` WOULD BE A LIE ON A THROW. These indices ADDRESS a
+                // strike's hit volume inside its move; a throw has no such
+                // address, and zeros would read as "window 0, volume 0" — a real
+                // location — rather than "does not apply".
+                let wv = match l {
+                    Launcher::Strike { window, volume, .. } => format!("w{window}v{volume}"),
+                    Launcher::Throw { .. } => "-".to_string(),
                 };
                 // ⭐ LAUNCH-MOTION TIMING, which is a named suspect in this
                 // investigation and was being recorded and thrown away — the
@@ -1690,10 +2087,10 @@ fn run_probe() {
                     _ => "-".to_string(),
                 };
                 println!(
-                    "{}\t{move_id}\tw{w}v{v}\t{:.1}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    "{}\t{move_id}\t{wv}\t{:.1}\t{}\t{}\t{}\t{}\t{}\t{}",
                     l.role(),
-                    hit.knockback,
-                    hit.knockback_growth
+                    l.base_knockback(),
+                    l.authored_growth()
                         .map(|g| format!("{g:.2}"))
                         .unwrap_or_else(|| "None".into()),
                     launch_at_100
@@ -1718,6 +2115,12 @@ fn main() {
     }
     if std::env::args().any(|a| a == "determinism") {
         run_determinism();
+        return;
+    }
+    // ⭐ BEFORE `probe` for the same reason `contact` is: a matrix whose throw
+    // rows are all REFUSED is not a measurement of throws, and this says which.
+    if std::env::args().any(|a| a == "throwdiag") {
+        run_throw_diag();
         return;
     }
     if std::env::args().any(|a| a == "probe") {

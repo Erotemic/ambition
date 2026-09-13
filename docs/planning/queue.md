@@ -50,6 +50,23 @@ test for the next one:
 | a relation still held `&mut Commands`, and through it `&mut World` | `9922ce07b` | `RelationScope`; five escapes verified as compile errors from another crate |
 | the boomerang red was an ATTRIBUTION nothing measured | `8e1dd9218` | one +9 CPU hit at tick 30; the shot was right on both legs all along |
 
+**⭐⭐ RE-DERIVED AT HEAD 2026-09-13: EVERY FRONTIER HOLD IS DISCHARGED.** Said
+here because the claim *"A4, A6 and A7 are HELD FOR A CENSUS, and the census IS
+the deliverable"* is still repeated in hand-offs and is now false three times
+over — and because re-deriving it is the fourth time somebody has paid for the
+same stale line.
+
+| packet | the census it waited for | what the census DID |
+| --- | --- | --- |
+| A4 | `accepted-control-writer-map.md` | found NO authority doubt; its one warning (durability as an ABSENCE) closed by `CustodyDurability` |
+| A5 | `destructible-writer-inventory.md` | REFUTES the destination — breakable, chest and falling chest demonstrably do not share a transition authority |
+| A6 | `prepared-definition-field-census.md` | REFUTES the packet's premise — nine fields are read by BOTH roads, so the two-way split does not exist to be finished |
+| A7 | `item-writer-inventory.md` | reported the INVERSE shape; its one genuinely open item closed `8ac8f1569` |
+
+⇒ `grep -n "HOLD"` on the frontier at HEAD returns four hits and **all four are
+prose about holds that were discharged**. The only packet still waiting on
+anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
+
 **⛔ STILL OPEN AT THE TOP OF THE ORDER:**
 
 - **`Q121`'s remaining owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
@@ -3021,6 +3038,43 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    after.** Fixed, with `scripts/tests/test_strike_area_peaks_across_every_take.py`
    and two poisons; a fixture whose FIRST take is generous and whose LAST is
    empty is the only order that can see it.
+
+   ⭐⭐ **AND THE "SEVEN FIGHTERS UNDER 1.0" FIGURE STILL BEING QUOTED IN
+   HAND-OFFS IS STALE TWICE OVER — RE-MEASURED AT HEAD 2026-09-13.** It is
+   FOURTEEN of 21 at `attack_forward`, and the reason the two numbers disagree is
+   arithmetic rather than a change to any authored box:
+
+```text
+   fighter                      then(knob 1.6)   now   ratio
+   medic                                  0.23  0.09    2.56
+   sanic                                  0.27  0.10    2.70
+   npc_carl_stargan                       0.29  0.11    2.64
+   officer                                0.64  0.25    2.56
+   perfect_cellular_automaton             0.72  0.28    2.57
+   projectile_polygon                     0.79  0.31    2.55
+   goblin                                 0.89  0.35    2.54
+                                                1.6^2 = 2.56
+```
+
+   ⇒ **EVERY ONE OF THE SEVEN DROPPED BY EXACTLY THE DELETED ROSTER-WIDE KNOB'S
+   AREA FACTOR.** The old figures were these same authored boxes seen through a
+   1.6x multiplier that no longer exists, so the population under 1.0 was ALWAYS
+   fourteen — the knob was masking seven of them. Nothing was re-authored, and a
+   reader comparing the two lists without this line would conclude the roster got
+   worse.
+
+   ⚠ **THE FULL RANKING AT HEAD**, because the old note listed only the bottom
+   and the top end is what says what "good" looks like:
+   `player_robot_v3` 6.71, `performer` 2.06, `npc_oiler` 1.70,
+   `special_patent_clerk` 1.40, `npc_bob` 1.31, `smash_george_booul` 1.22,
+   `npc_pirate_admiral` 1.12 — then fourteen below 1.0. ⇒ **`performer` is the
+   worked example Jon's direction names** (*"learn from what GPT-6 did for the
+   performer and apply that"*), and it sits second, so the reference is real and
+   reachable rather than aspirational.
+
+   Reproduce: `./target/debug/moveset_takes --characters grid --verbs
+   attack_forward --out grid_fwd.json` then
+   `scripts/measure_strike_area_over_body.py grid_fwd.json` (21 takes, 22s).
 
    ⛔⛔ **AND THE PER-CHARACTER PEAK HIDES THE THING JON IS ASKING ABOUT.** Under
    it, one fighter of 21 is thin. Per MOVE — the new `--per-move` mode, same

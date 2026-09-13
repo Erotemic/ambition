@@ -258,6 +258,25 @@ HEAD 2026-09-13:
   observable. So step 2 is: allocate the candidate epoch early, stamp with it,
   keep `expected_live` at the live binding, and accept a gap when the reload is
   refused or turns out equivalent.
+- ✅ **STEP 2 LANDED 2026-09-13.** `ActorConstructionContext` carries the same
+  pair (`binding` = expected live, `incoming` = the content's own), and
+  `for_room_construction`'s `active_binding` now moves ONLY the expected-live
+  half — it used to CLOBBER the plan's own epoch, which is how two facts became
+  one field a level up. The hot reload decides `committed_content` BEFORE it
+  prepares the room and passes `(committed_content.epoch(), Some(live_binding))`,
+  so the roots are stamped with the generation they are made of while the
+  boundary still recognises the world it is publishing into. ⭐ **ONE VARIABLE
+  FEEDS BOTH the root stamp and the `ActiveContentBinding` published after the
+  commit**, so "the live world and its roots agree on N+1" is structural rather
+  than checked.
+- ⚠ **WHAT IS OWED:** an END-TO-END arm for a material LDtk reload — *while the
+  candidate exists the active binding stays N; every candidate root's
+  `TransactionId` names N+1; after success both agree on N+1* — plus the race
+  (candidate expects N, live advances to M, commit must refuse). No app test
+  drives `reload_ldtk_world_from_disk` today (it is `pub(super)`, behind a file
+  watcher), so the arm needs a disk fixture. The mechanism is guarded at the unit
+  level by `a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one`;
+  the ROAD is not, and that is stated rather than rounded up.
 
 ## ✅ THE INDEPENDENT LIFECYCLE BUGS THE DEEPER REVIEW FOUND, 2026-09-13 — none of them wait for A10
 

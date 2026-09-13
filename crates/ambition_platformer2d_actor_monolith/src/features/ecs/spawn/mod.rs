@@ -185,6 +185,13 @@ pub struct ActorConstructionContext<'a> {
     /// [`ContentBinding::Content`] — the enum exists because the planner also
     /// serves runtime-dynamic construction, which is not.
     pub binding: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+    /// ⛔⛤ **THE GENERATION THE CONTENT CAME FROM — the same as [`Self::binding`]
+    /// on every road except a content REPLACEMENT.** A door rebuilds a room
+    /// inside the generation already running, so the two coincide; a materially
+    /// changed hot reload carries N+1 into a world still running N, and its roots
+    /// belong to N+1 while its commit boundary must still recognise N as live.
+    /// See `ConstructionScope`, which holds the same pair one level down.
+    pub incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding,
     /// The prepared cast, when the caller has one — so a lowered NPC can be asked what its
     /// CHARACTER's default autonomous profile is.
     ///
@@ -242,6 +249,11 @@ impl<'a> ActorConstructionContext<'a> {
             characters,
             sheets,
             binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
+                content_epoch,
+            ),
+            // A plan states ONE generation until a caller says otherwise;
+            // `for_room_construction` is the only road that can separate them.
+            incoming: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
                 content_epoch,
             ),
             prepared: None,
@@ -321,6 +333,10 @@ impl<'a> ActorConstructionContext<'a> {
     ) -> Self {
         let mut context = Self::new(recipes, characters, mechanics.sheets(), content_epoch);
         if let Some(active) = active_binding {
+            // ⛔ THE EXPECTED-LIVE HALF ONLY. `incoming` keeps `content_epoch` —
+            // the generation this plan's CONTENT is, which is what its roots are
+            // stamped with. For a transition the two are the same value stated
+            // twice; for a replacement they are the whole point.
             context.binding = active.0;
         }
         context.prepared = mechanics.characters();
@@ -715,7 +731,11 @@ impl RoomFeatureConstructionPlan {
         crate::construction::preflight_planned_bodies(&requests, construction.prepared)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
-            ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation(construction.binding, Some(room.id.clone()));
+            ambition_platformer2d_shared_tangle::construction::ConstructionScope::replacing(
+                construction.binding,
+                construction.incoming,
+                Some(room.id.clone()),
+            );
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             construction_scope.clone(),
             requests,

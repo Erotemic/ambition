@@ -426,6 +426,39 @@ pub(super) fn reload_ldtk_world_from_disk(
     )
     .map_err(|error| vec![error.to_string()])?;
 
+    // ⛔⛤ **THE COMMITTED GENERATION IS DECIDED HERE, BEFORE THE ROOM IS
+    // PREPARED — IT USED TO BE DECIDED AFTER, AND THE ROOTS PAID FOR IT.**
+    //
+    // MEASURED 2026-09-13: the plan was prepared against `prepared_content.epoch()`
+    // (generation N) and `ActiveContentBinding` was published as N+1 afterwards,
+    // so a materially changed reload ended with content N+1 live and every rebuilt
+    // root's `TransactionId` naming **N**. `TransactionId` is canonical rollback
+    // state and `ConstructionScope::transaction()` is literally
+    // `binding ⊗ room ⊗ session`, so that is a provenance discrepancy inside the
+    // timeline, not a label.
+    //
+    // ⚠ **THIS MOVES AN ALLOCATION ABOVE A PREFLIGHT THAT CAN STILL FAIL, AND
+    // THAT IS DELIBERATE AND MEASURED.** The rule it relaxes — *"everything above
+    // this line is non-mutating"* — protects *"a refused reload changes nothing
+    // OBSERVABLE"*. A `ContentEpochSequence` value is not observable:
+    // it is NOT rollback-registered, no production code compares epochs with `<`
+    // or `>` (they are equality-only identities), and a provider test already
+    // calls `with_epoch(ContentEpoch(9))` on a sequence that never allocated 9.
+    // ⇒ A refused reload leaves a GAP in the counter, and gaps are already legal.
+    let committed_content = if candidate_content.fingerprint() == prepared_content.fingerprint()
+        && candidate_content.snapshot_schema() == prepared_content.snapshot_schema()
+    {
+        // An equivalent reload is not a replacement at all: it publishes the
+        // generation already live, so both bindings stay N and nothing below can
+        // express a split.
+        prepared_content.clone()
+    } else {
+        candidate_content.with_epoch(epochs.allocate())
+    };
+    let live_binding = ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+        prepared_content.epoch(),
+    );
+
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
         transaction.next_room_set.active,
         transaction.next_spec.clone(),
@@ -452,12 +485,17 @@ pub(super) fn reload_ldtk_world_from_disk(
             // PREPARING one — so the App's knobs are what there is. See
             // `GenerationMechanics`.
             .with_app_developer_knobs(forced_brains, population_cap),
-            // The generation currently live. A materially changed definition
-            // allocates a new one below, AFTER every preflight has succeeded —
-            // so a plan prepared here always states the epoch it was validated
-            // against, never one that does not exist yet.
-            prepared_content.epoch(),
-            None,
+            // ⛔ THE INCOMING GENERATION — the one this reload is publishing.
+            // Every root the plan mints is stamped with it, which is what makes a
+            // rebuilt root's `TransactionId` name the content it is actually made
+            // of. It equals the live epoch exactly when the reload is equivalent.
+            committed_content.epoch(),
+            // ⛔ AND THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
+            // boundary compares against this, so the preflight's own generation
+            // is not refused as stale by the generation it is introducing —
+            // `ActiveContentBinding` is published AFTER the commit, deliberately,
+            // and every LATER transaction must state the new one.
+            Some(&live_binding),
             brain_profiles,
             // A hot reload replaces the authored content wholesale, so the
             // dispositions of occurrences minted from the OLD definitions say
@@ -466,18 +504,6 @@ pub(super) fn reload_ldtk_world_from_disk(
         ),
     )
     .map_err(|error| vec![error.to_string()])?;
-
-    // Everything above this line is non-mutating, including preparation of the
-    // exact candidate content identity. Equivalent reloads preserve both the
-    // fingerprint and epoch; materially changed definitions allocate a new
-    // epoch only now, when every preflight has succeeded.
-    let committed_content = if candidate_content.fingerprint() == prepared_content.fingerprint()
-        && candidate_content.snapshot_schema() == prepared_content.snapshot_schema()
-    {
-        prepared_content.clone()
-    } else {
-        candidate_content.with_epoch(epochs.allocate())
-    };
 
     // Commit exactly the prepared construction artifact rather than
     // rediscovering spawn decisions here.

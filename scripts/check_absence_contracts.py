@@ -627,9 +627,35 @@ ABSENCE_CONTRACTS: list[dict] = [
             # A PUBLIC mint or a PUBLIC consumer of the staged partial. Either
             # one alone is enough: the fold is spellable the moment both ends of
             # the pipe are reachable, and they were both `pub` for one day.
+            # ⛔⛤ **NARROWED 2026-09-13: `StagedCharacterOverrides` LEFT THIS LIST,
+            # AND THE CONTRACT GOT STRONGER RATHER THAN WEAKER.** `215ecc43c`
+            # made that struct `pub` so the provider could hold a `Res<>` handle
+            # and call `deterministic_dump` on it for the prepared-content
+            # fingerprint — a finished READ, which is exactly what this
+            # contract's own reason says MAY cross the boundary. The contract
+            # went red on a proxy that had stopped tracking the guarantee.
+            #
+            # ⭐⭐ **AND THE GUARANTEE ITSELF WAS MEASURED BEFORE THE PROXY WAS
+            # TOUCHED, because narrowing a contract to make it green is how a
+            # guard stops meaning anything.** Compiling a reference to each fold
+            # entry point from `ambition_platformer2d_provider` — a different
+            # crate — at HEAD:
+            #
+            #     error[E0603]: function `finalize_cast` is private
+            #     error[E0603]: function `prepare_for_registration` is private
+            #     error[E0603]: function `prepare_character` is private
+            #
+            # ⇒ The fold is UNREACHABLE from outside the crate, which is the
+            # thing this contract exists to hold. The staged TYPE being nameable
+            # buys a caller nothing: with every fold entry private, holding a
+            # `StagedCharacterOverrides` lets you read it and not fold it.
+            #
+            # ⇒ So the list names the FOLD, and `prepare_character` /
+            # `finalize_character` join it — they were never here, and they are
+            # the two halves `finalize_cast` is built from.
             {
-                "grep": r"pub (fn|struct) (finalize_cast|prepare_for_registration|StagedCharacter|StagedRegistration|StagedCharacterOverrides)",
-                "match": r"^\s*pub (?:fn|struct) (?:finalize_cast|prepare_for_registration|StagedCharacter|StagedRegistration|StagedCharacterOverrides)\b",
+                "grep": r"pub (fn|struct) (finalize_cast|finalize_character|prepare_character|prepare_for_registration|StagedCharacter|StagedRegistration)",
+                "match": r"^\s*pub (?:fn|struct) (?:finalize_cast|finalize_character|prepare_character|prepare_for_registration|StagedCharacter|StagedRegistration)\b",
             },
         ],
         "reason": (

@@ -261,6 +261,28 @@ def sheets_in(tier_dir: Path) -> list[dict]:
                     "frames": len(by_page.get(page, [])),
                     "declared_frames": declared_frames,
                     "overlapping_rects": overlapped,
+                    # ⛔⛤ **THE CLIPPED POPULATION `D129` ASKS FOR, FROM DATA THIS
+                    # SCRIPT ALREADY READ.** That row's acceptance names a
+                    # *"render-time clipping warning population"* and MEASURED
+                    # 2026-09-12 there is no such warning anywhere in the tree —
+                    # seven queries in the row, including the refuted hypothesis
+                    # that it was bevy's own. So the row could not be closed as
+                    # written, and the subject was answerable the whole time:
+                    # a frame rect extending past its page is `x + w > width` or
+                    # `y + h > height`, and both sides are already parsed here.
+                    #
+                    # ⚠ IT IS THE MANIFEST AGAINST THE PNG, not the renderer. A
+                    # rect inside its page can still be drawn wrong by authored
+                    # geometry; what this finds is the half that is decidable
+                    # from the baked artifacts, which is the half the row calls
+                    # *"the current measured clipped-sheet population"*.
+                    "clipped": [
+                        {"x": x, "y": y, "w": w, "h": h,
+                         "over_x": max(0, x + w - width),
+                         "over_y": max(0, y + h - height)}
+                        for (x, y, w, h) in by_page.get(page, [])
+                        if x + w > width or y + h > height
+                    ],
                 }
             )
     return rows
@@ -358,6 +380,46 @@ def report(rows: list[dict], label: str, top: int) -> None:
             print(f"      … and {len(skipped) - 6} more")
 
 
+def report_clipped(everything: dict[str, list[dict]]) -> None:
+    """The clipped population `D129` demands before any repair.
+
+    ⛔⛤ **A ZERO HERE IS A REAL ANSWER AND MUST BE READ AS ONE.** `D129` asks for
+    *"the current measured clipped-sheet population"* and its acceptance names a
+    render-time warning that does not exist in the tree. If no baked rect leaves
+    its page, then the row's premise — that there IS a clipped population to
+    shrink — is false against the baked artifacts, and the row should be rewritten
+    or closed rather than left open against a subject nobody can find.
+
+    ⚠ **AND THE DENOMINATOR IS PRINTED WITH IT**, because "0 clipped" over a
+    corpus of zero sheets and "0 clipped" over 558 are the same sentence and
+    different findings — an empty corpus prints `ok`.
+    """
+    for tier, rows in everything.items():
+        pages = [row for row in rows if "clipped" in row]
+        rects = sum(row["frames"] for row in pages)
+        offenders = [row for row in pages if row["clipped"]]
+        clipped_rects = sum(len(row["clipped"]) for row in offenders)
+        print(f"\n== CLIPPED RECTS, {tier} ==")
+        print(
+            f"   {len(pages)} page(s), {rects} frame rect(s) measured against their "
+            f"own PNG dimensions"
+        )
+        if not offenders:
+            print("   0 rects extend past their page.")
+            continue
+        print(f"   {clipped_rects} rect(s) on {len(offenders)} page(s) extend past their page:")
+        for row in sorted(
+            offenders,
+            key=lambda r: max(max(c["over_x"], c["over_y"]) for c in r["clipped"]),
+            reverse=True,
+        ):
+            worst = max(max(c["over_x"], c["over_y"]) for c in row["clipped"])
+            print(
+                f"     {row['sheet']:<44} {len(row['clipped']):>3} rect(s), "
+                f"worst {worst} px past a {row['width']}x{row['height']} page"
+            )
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--all-tiers", action="store_true", help="every quality tier, not just Full")
@@ -368,6 +430,11 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="also report sheet PNGs that no manifest names",
     )
+    ap.add_argument(
+        "--clipped",
+        action="store_true",
+        help="report frame rects that extend past their own PNG page (D129)",
+    )
     args = ap.parse_args(argv)
 
     wanted = SPRITE_DIRS if args.all_tiers else SPRITE_DIRS[:1]
@@ -377,6 +444,8 @@ def main(argv: list[str]) -> int:
         everything[tier] = rows
         report(rows, f"{tier} ({path.relative_to(REPO)})", args.top)
 
+    if args.clipped:
+        report_clipped(everything)
     if args.orphans:
         report_orphans(wanted)
     if args.json:

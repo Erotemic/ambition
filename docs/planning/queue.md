@@ -3680,6 +3680,40 @@ conclusion — a negative result is a claim about the instrument:
    "clipping" is `ebf455473`, which is inspector CAMERA framing (a 320x240 view
    cutting off a vertical pair), not sprite geometry.
 
+✅⛤ **THE MEASUREMENT IS TAKEN, 2026-09-13, AND THE POPULATION IS ZERO.**
+`scripts/measure_sheet_occupancy.py --clipped --all-tiers`:
+
+```text
+== CLIPPED RECTS, full ==    225 page(s), 26271 frame rect(s)   0 extend past their page.
+== CLIPPED RECTS, 0_5x ==    215 page(s), 26271 frame rect(s)   0 extend past their page.
+== CLIPPED RECTS, 0_25x ==   213 page(s), 26271 frame rect(s)   0 extend past their page.
+== CLIPPED RECTS, potato ==  213 page(s), 26271 frame rect(s)   0 extend past their page.
+```
+
+⛔ **THE DENOMINATOR IS PRINTED WITH THE ZERO ON PURPOSE**, because *"0 clipped"*
+over an empty corpus and over 26,271 rects are the same sentence and different
+findings.
+
+⭐⭐ **AND THE INSTRUMENT IS POISON-VERIFIED, because a negative result is a claim
+about the instrument.** Making every page one pixel narrower reports **102 rects
+on 16 pages** clipped by exactly 1 px (`creator_lab_props`, `lasersword`,
+`pirate_heavy_v2`, …). ⇒ The measurement is not merely non-zero-capable, it is
+TIGHT: a great many rects sit FLUSH to their page boundary, so an off-by-one
+anywhere in the bake would surface immediately. Zero here is exactness, not
+slack.
+
+⇒ **SO THIS ROW'S PREMISE IS FALSE AGAINST THE BAKED ARTIFACTS.** It asks to
+shrink a clipped-sheet population that does not exist, and its acceptance names
+an instrument that does not exist either. **It should be rewritten around a
+subject somebody can point at, or closed.** ⚠ What this does NOT measure, stated
+so the zero is not over-read: the MANIFEST against the PNG is the decidable half.
+Authored geometry can still be wrong in ways no baked artifact can show — a body
+bbox that disagrees with the art, a frame whose subject is drawn off-centre — and
+that half needs a different instrument and a different row.
+
+<details><summary>The lead this followed, kept because it is what made the
+measurement cheap</summary>
+
 ⭐ **THE ONE REAL LEAD, AND IT MAKES THE MEASUREMENT CHEAP IF SOMEBODY WANTS IT.**
 [`scripts/measure_sheet_occupancy.py`](../../scripts/measure_sheet_occupancy.py)
 already parses every baked manifest's `(x, y, w, h, page)` rects AND reads each
@@ -3688,6 +3722,8 @@ PNG page's dimensions, over exactly the population `ambition_sprite_sheet`'s
 that data alone, with no runtime and no new corpus** — the script simply never
 asks. That is a measurement, not a repair, and it is the *"current measured
 clipped-sheet population"* this row demands before any fix.
+
+</details>
 
 ⚠ **AND `Q65` IS NOT A BLOCKER ANY MORE: it appears NOWHERE in `docs/planning/`
 at HEAD** (`d1c73ea12` had it gating every player-visible art repair). ⇒ The row's

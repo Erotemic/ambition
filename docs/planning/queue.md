@@ -80,13 +80,28 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   sources agree. That agreement rests on `.before(GameplaySessionSet::Providers)`
   — one edge, one witness — which is exactly why preparation must not depend on
   it. ⇒ The arm that would bite lives in `Q118`'s unordered interval.
+  ⚠ **RE-DERIVE THIS BEFORE STARTING: `Q118`'s interval is no longer unordered.**
+  It is covered by a lease that re-asks the WHOLE admission question and cancels
+  the shell transaction, guarded by
+  `losing_the_permission_to_rebase_mid_flight_cancels_the_pending_generation`
+  (2026-09-13). Whether that changes what witness is available to `Q121`, or only
+  where it has to stand, is the first question — and this row said "unordered"
+  for a day after it stopped being true.
 
 **Open, each with its measurement already taken:**
 
-- **`Q118`** — ✅ HALF SEALED `2026-09-13`. The UNHEALTHY half now cancels the
-  whole shell transaction (`ShellCommand::CancelPending`); publishing across a
-  recorded divergence is wrong under every model, so it did not wait for a
-  ruling. ⛔ **THE LIVE-TIMELINE HALF IS MEASURED UNSEALABLE BY REFUSING:**
+- **`Q118`** — ✅ **BOTH HALVES CLOSED `2026-09-13`, AND THE SECOND ONE TWICE:
+  the seal landed, then a review found it re-asked half its own question.** The
+  live-timeline half is stop-and-rebase, reusing the LDtk road's
+  stop-and-release; and `PublicationBoundary` now folds OWNERSHIP into itself
+  (`Legal | RebasableTimeline | ForeignTimeline | Unhealthy`) because the lease
+  that re-asks the boundary during the pending interval was re-asking only the
+  HEALTH half — so a generation admitted against a session this host maintains
+  stayed admitted after a peer-owned one replaced it. See the amended `Q118` row
+  for the full account; the paragraphs below are the RECONNAISSANCE that produced
+  it and are kept for that, not as current status.
+  ⛔ **THE LIVE-TIMELINE HALF WAS MEASURED UNSEALABLE BY REFUSING**, which is why
+  the answer is a lifecycle rather than a cancel:
   implementing the cancel there made the shipped composition refuse EVERY reload
   it has (`boundary=LiveTimeline owner=SessionScopeId(0)` — a reload re-prepares
   the route the shell is already on, so the session being replaced owns a healthy
@@ -94,9 +109,10 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   SHUT `2026-09-13`:** publishing a cast mid-timeline DESYNCS the sync-test canary
   (`checksum mismatch at frames [22, 23, 24]`), controlled by the file's no-edit
   arm and poisoned by staging-without-activating. ⇒ Harmful LOCALLY, so a
-  network-only refusal is not the cheap answer. **What remains is the
-  stop-and-rebase lifecycle** — and it is the same mechanism `Q120` is about, so
-  the two are one problem rather than two.
+  network-only refusal is not the cheap answer. ✅ **THE STOP-AND-REBASE
+  LIFECYCLE LANDED**, and `Q120` — correctly identified here as the same problem
+  — closed with it, as a pre-simulation ADMISSION protocol rather than the
+  after-the-fact watcher its first version shipped.
   <details><summary>the reconnaissance, already done</summary>
   `f27fa58` measured the ordering on the schedule graph (reachability, not direct
   edges, with a positive control for the walker) and found **NO path either way**

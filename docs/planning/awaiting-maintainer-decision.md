@@ -1576,12 +1576,37 @@ the first (an authorization broken early) is MEASURED INSUFFICIENT for this half
 and the second is what remains: **a lifecycle that STOPS AND REBASES rollback as
 part of the same transaction.** That is a real packet and it is not a small one.
 
-⚠ **WHAT IS NOT KNOWN AND SHOULD NOT BE GUESSED:** whether publishing across a
-healthy speculating timeline is actually harmful in the shipped single-player
-composition, or only in a networked one. `Q120` is the same question from the
-developer-edit side and is also unruled. If the answer is *"harmless locally,
-fatal networked"*, the cheap correct move may be to refuse the reload only in a
-NETWORK-compatible session rather than to build the rebase lifecycle.
+✅ **THAT QUESTION IS ANSWERED, 2026-09-13, AND IT CLOSES THE CHEAPER ROAD.**
+The row said *"whether publishing across a healthy speculating timeline is
+actually harmful in the shipped single-player composition, or only in a networked
+one"* was not known and should not be guessed. It is now measured, with the same
+sync-test canary `Q120` uses:
+
+```text
+[measured] Q118: publishing a cast mid-timeline DESYNCED the canary:
+           GGRS sync-test checksum mismatch at frames [22, 23, 24]
+```
+
+⇒ **HARMFUL LOCALLY, NOT ONLY NETWORKED.** So *"refuse a reload only in a
+rollback/network-COMPATIBLE session"* is NOT available as the cheap correct
+answer, and what remains is the stop-and-rebase lifecycle this row already names.
+
+⭐⭐ **THE MECHANISM IS THE ONE `Q120` IS ABOUT, WHICH IS WHY THE ARM LIVES BESIDE
+ITS ARMS.** A cast is published into `PreparedCharacterRegistry` — a RESOURCE
+outside rollback history — and `project_prepared_character_definitions` reads it
+**in the SIM schedule**, writing `ActorMoveset` onto live bodies. A rewind
+restores the body's OLD moveset from the snapshot (`actor.moveset`,
+`rollback_component_clone`) and then resimulates a historical frame through a
+system reading the NEW registry. Identical shape to `ActiveMovementTuning`.
+
+⚠ **CONTROLLED AND POISONED, because a canary that desyncs for any reason proves
+nothing:** the file's own no-edit arm is green over the same frames, and staging
+the revision WITHOUT activating it leaves the timeline healthy — so the desync is
+the PUBLICATION and not the staging, the fixture, or the rig.
+
+⇒ `Q120` is the same question from the developer-edit side and is still unruled;
+this says the two are one problem rather than two, because they share a
+mechanism and now share a measurement.
 
 <details><summary>The original row, whose measurements all still stand</summary>
 

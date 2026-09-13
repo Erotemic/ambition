@@ -86,9 +86,13 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   implementing the cancel there made the shipped composition refuse EVERY reload
   it has (`boundary=LiveTimeline owner=SessionScopeId(0)` — a reload re-prepares
   the route the shell is already on, so the session being replaced owns a healthy
-  speculating timeline). ⇒ What remains is the stop-and-rebase lifecycle, or a
-  ruling that publishing across a healthy local timeline is harmless and only a
-  NETWORK session must refuse. That is a decision, not a measurement.
+  speculating timeline). ⭐⭐ **AND THE "HARMLESS LOCALLY?" ESCAPE IS MEASURED
+  SHUT `2026-09-13`:** publishing a cast mid-timeline DESYNCS the sync-test canary
+  (`checksum mismatch at frames [22, 23, 24]`), controlled by the file's no-edit
+  arm and poisoned by staging-without-activating. ⇒ Harmful LOCALLY, so a
+  network-only refusal is not the cheap answer. **What remains is the
+  stop-and-rebase lifecycle** — and it is the same mechanism `Q120` is about, so
+  the two are one problem rather than two.
   <details><summary>the reconnaissance, already done</summary>
   `f27fa58` measured the ordering on the schedule graph (reachability, not direct
   edges, with a positive control for the walker) and found **NO path either way**

@@ -364,6 +364,19 @@ pub fn tick_actor_brains(
             // `DormancyPolicy`, so this filter changes nothing for content that
             // has not asked. See `features::ecs::dormancy`.
             Without<crate::features::ecs::dormancy::Dormant>,
+            // ⛔⛤ **AND A BODY WHOSE SENSES NOBODY COULD DECIDE DOES NOT DECIDE
+            // EITHER — REVIEW, 2026-09-13.** `Perception` below is an `Option`
+            // whose `None` reads as `Omniscient`, so when `ensure_perception`
+            // refused — a shell-routed session whose generation is missing — the
+            // bodies it declined to decide for arrived HERE with the most capable
+            // senses in the game. A refusal was an upgrade.
+            //
+            // ⚠ Same shape as `Dormant` one line up, and for the same reason: the
+            // body still integrates and still takes hits, it simply does not
+            // choose. Absent on every body in every composition that HAS its
+            // mechanics, so this filter changes nothing for the running game. See
+            // `features::ecs::perception::SensesUndecided`.
+            Without<crate::features::ecs::perception::SensesUndecided>,
         ),
     >,
 ) {

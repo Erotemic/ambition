@@ -417,9 +417,30 @@ it was applied to stopped one member short.
 3. ✅ **`ensure_perception` KEPT THE SAME FALLBACK.** It took
    `Option<Res<SessionMechanics>>` and fell back to the App without asking whether
    the composition OWES a generation. `perception_extent_for` now takes the
-   shell-routed flag and returns `None` as a REFUSAL; the reader attaches nothing,
-   which the target derivation reads as the basic `Omniscient` mode rather than a
-   range the live generation never described.
+   shell-routed flag and returns `None` as a REFUSAL.
+   ⛔⛤ **AND THE FIRST VERSION OF THAT REFUSAL WAS ITSELF FAIL-OPEN — FOUND BY THE
+   2026-09-13 REVIEW, AND THE SENTENCE THAT USED TO STAND HERE IS THE EVIDENCE:**
+   *"the reader attaches nothing, which the target derivation reads as the basic
+   `Omniscient` mode rather than a range the live generation never described."*
+   `Omniscient` is not "basic" — it is *"the body simply KNOWS"*, the MOST capable
+   perception in the game. ⇒ A session that could not say what its actors can see
+   gave them unbounded senses; the refusal was an UPGRADE, and 480px of bounded
+   viewport was what it upgraded from.
+   ⭐⭐ **FIXED AS INVALIDATION, NOT AS A THIRD PERCEPTION MODE.** A blind or
+   zero-viewport variant would be alternate AI mechanics invented by a failure
+   path. `SensesUndecided` takes the body OUT of `tick_actor_brains` — the same
+   shape as `Dormant` one filter up — so it still integrates, still falls, still
+   takes hits, and simply does not choose. Absence of `Perception` still means
+   `Omniscient` BY POLICY for players, bosses and seated match fighters; what was
+   wrong is that a refusal was spelled the same way as that policy. Two facts, one
+   representation; now two.
+   ⚠ Rollback-registered beside `Dormant` (schema 182 → 183) for the reason
+   `ITEM 0` of this project's own record gives: a component declared "derived",
+   dropped by a restore, and read before its writer ran again. Presence is
+   authoritative because a QUERY FILTERS ON IT. Guarded and poison-verified:
+   `a_session_that_cannot_decide_senses_takes_the_body_out_of_the_decision` (with
+   the direct-entry control that keeps bounded perception alive) and
+   `deciding_the_senses_clears_the_undecided_marker_in_the_same_command`.
 4. ✅ **THE CUTSCENE'S PENDING SIMULATION INPUT SURVIVED.** `ActiveCutscene` and
    `CutsceneTriggerQueue` were owned; `CutsceneAdvanceRequest` was not — and its
    `dismiss_dialogue`/`skip_cutscene` are COMPLETED EDGES already across the

@@ -3946,3 +3946,100 @@ fn an_authority_that_goes_unhealthy_mid_flight_cancels_the_pending_generation() 
          defect than the one this arm is about",
     );
 }
+
+/// ⛔⛤ **A LIVE TIMELINE THIS HOST OWNS IS REBASED, NOT REFUSED — `Q118`'s OPEN
+/// HALF, 2026-09-13.**
+///
+/// Refusing every healthy timeline is what the first publication breaker did, and
+/// the shipped composition measured the cost: a reload re-prepares the route the
+/// shell is already on, so by the time the transaction reaches its boundary the
+/// session it is replacing owns a healthy, speculating GGRS timeline. **A cancel
+/// there is not a seal; it is the removal of hot reload.**
+///
+/// ⭐ The answer reuses a protocol that already ships on the LDtk road: stop the
+/// local baseline AT the publication and release ownership, so
+/// `maintain_local_session` starts the next one against the content that is now
+/// live. `RollbackSessionOwnership` already states the rule — *"Local sync-test
+/// sessions may be stopped and recreated around a developer content reload"*.
+///
+/// ⚠ **THE SIBLING ARM ABOVE IS THE CONTROL AND IT STILL REFUSES**: the same live
+/// authority with NO locally-maintained ownership is a timeline this host may not
+/// touch, and it is still `RefusedDuringLiveTimeline`.
+#[test]
+fn a_live_timeline_this_host_maintains_is_rebased_rather_than_refused() {
+    use ambition_platformer2d::rollback::{
+        RollbackSessionOwnership, SyncTestOwner, SyncTestSettings,
+    };
+
+    let (mut app, before) = host_with_authority(Some(live_authority()));
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        });
+
+    let outcome = publish_candidate(app.world_mut(), a_publishable_candidate());
+    assert!(
+        matches!(outcome, MoveReload::Activated { .. }),
+        "a healthy timeline THIS HOST OWNS refused the publication, which deletes \
+         hot reload in the one composition that ships it: {outcome:?}"
+    );
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "the reload was admitted and published nothing"
+    );
+}
+
+/// ⛔ **WHICH TIMELINES THIS HOST MAY REBASE — all three ownerships, because the
+/// dangerous one is the one a single positive arm never reaches.**
+///
+/// `RollbackSessionOwnership` states the rule and this asserts it: a locally
+/// maintained sync test is this process's to stop; an `External` session belongs
+/// to peers (*"must never be replaced unilaterally by the local host"*); and a
+/// `Caller`-owned one belongs to a match activation or a harness that did not ask
+/// for a rebase. ⚠ A composition with NO ownership resource at all is the
+/// fixture/headless case and is equally not rebasable.
+#[test]
+fn only_a_locally_maintained_sync_test_may_be_rebased_for_a_publication() {
+    use ambition_platformer2d::rollback::{
+        RollbackSessionOwnership, SyncTestOwner, SyncTestSettings,
+    };
+
+    let mut app = bevy::app::App::new();
+    assert!(
+        !crate::reload::rebasable_local_timeline(app.world()),
+        "a composition that installs no rollback ownership at all was called \
+         rebasable, so the check is reading absence as permission"
+    );
+
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::External);
+    assert!(
+        !crate::reload::rebasable_local_timeline(app.world()),
+        "an EXTERNAL/P2P timeline was called rebasable — peers need a coordinated \
+         content barrier and this host would have stopped their session"
+    );
+
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::Caller,
+        });
+    assert!(
+        !crate::reload::rebasable_local_timeline(app.world()),
+        "a CALLER-owned sync test was called rebasable — a match activation or a \
+         harness started it and did not ask for a content rebase"
+    );
+
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        });
+    assert!(
+        crate::reload::rebasable_local_timeline(app.world()),
+        "the one timeline this host started and may rebuild was refused, which \
+         puts hot reload back where `Q118` found it"
+    );
+}

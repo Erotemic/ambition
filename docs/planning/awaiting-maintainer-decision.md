@@ -1544,6 +1544,43 @@ question here.
 
 </details>
 
+## ✅ Q118 — BOTH HALVES ANSWERED 2026-09-13, AND THE SECOND ONE BY REUSING A PROTOCOL THAT ALREADY SHIPPED
+
+⛔⛤ **THE OPEN HALF WAS NEVER A MISSING DECISION — IT WAS A MISSING REUSE.** This
+row said the live-timeline half *"needs the lifecycle that stops and rebases
+rollback inside the transaction; a cancel cannot express that"*, and treated that
+lifecycle as unbuilt. **It has been shipping on the LDtk reload road the whole
+time.** `restart_local_ggrs_after_hot_reload` stops the session and RELEASES
+ownership so `maintain_local_session` starts the next one — *"with the SAME policy
+and the SAME frozen seating, because neither of those is what a content reload
+changed"* — and `local_ggrs_restart_policy` already refuses an external session in
+the right words: *"peers need a coordinated content barrier."*
+
+⇒ **THE QUESTION IS NOT "IS A TIMELINE LIVE" BUT "MAY THIS HOST REBASE IT".**
+`RollbackSessionOwnership`'s own doc states the rule the content road now reads:
+*"Local sync-test sessions may be stopped and recreated around a developer content
+reload. External/P2P sessions require a coordinated peer barrier and must never be
+replaced unilaterally by the local host."*
+
+**What changed:**
+- `admit_candidate` no longer refuses a healthy timeline this host MAINTAINS. It
+  still refuses an `External` one, a `Caller`-owned one, and a composition with no
+  ownership resource — guarded by an arm that asserts all four.
+- `commit_content_generation` stops the local baseline and releases ownership **in
+  the same exclusive step as the publication**. A frame between the two is a frame
+  of new content resimulated on the old timeline, which is the desync the canary
+  measured.
+- The decision is asked against the LIVE WORLD at both ends rather than decided
+  once and carried — the fingerprint/consumption gap in another costume.
+
+⚠ **WHAT THIS DOES NOT DO:** it does not give peers a coordinated barrier, so an
+external session still refuses; and the stop itself is exercised through the
+shipped road rather than by a unit arm (constructing a live GGRS session in a
+fixture would test the fixture). The DECISION is guarded for all four ownerships,
+and the LDtk road's identical stop has been in production since before this row.
+
+<details><summary>The row while it was half open</summary>
+
 ## Q118 — HALF SEALED 2026-09-13. The interval is REACHABLE IN THE SHIPPED GAME, and one half of it cannot be sealed by refusing.
 
 ⛔⛤ **THE QUESTION IN THE TITLE IS ANSWERED: IT IS ARCHITECTURE.** The shipped
@@ -1630,6 +1667,8 @@ this says the two are one problem rather than two, because they share a
 mechanism, share a guard's blind spot, and now share a measurement.
 
 <details><summary>The original row, whose measurements all still stand</summary>
+
+</details>
 
 ### Q118 — is the rollback-legality interval ARCHITECTURE, or is it unreachable in the shipped lifecycle?
 

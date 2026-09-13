@@ -366,6 +366,32 @@ fn admit_candidate(
 
     match publication_boundary(world) {
         PublicationBoundary::Legal => CandidateAdmission::Proceed,
+        // ⛔⛤ **A LIVE TIMELINE THIS HOST CAN REBASE IS NOT A REFUSAL — `Q118`'s
+        // OPEN HALF, ANSWERED 2026-09-13 BY REUSING A PROTOCOL THAT ALREADY
+        // SHIPS.** Refusing every healthy timeline is what the first version of
+        // the publication breaker did, and the measurement said what it cost:
+        // *"a reload re-prepares the route the shell is already on, and by the
+        // time the transaction reaches its boundary the session it is replacing
+        // owns a HEALTHY, speculating GGRS timeline. A cancel there is not a
+        // seal; it is the removal of hot reload."*
+        //
+        // ⭐⭐ **THE LDtk RELOAD ROAD ALREADY SOLVED THIS AND NOBODY REUSED IT.**
+        // `restart_local_ggrs_after_hot_reload` stops the session and RELEASES
+        // ownership so `maintain_local_session` rebases it on the next frame —
+        // *"with the SAME policy and the SAME frozen seating, because neither of
+        // those is what a content reload changed"*. `RollbackSessionOwnership`'s
+        // own doc states the rule this reads: *"Local sync-test sessions may be
+        // stopped and recreated around a developer content reload. External/P2P
+        // sessions require a coordinated peer barrier and must never be replaced
+        // unilaterally by the local host."*
+        //
+        // ⇒ So the question is not *"is a timeline live"* but *"may this host
+        // rebase it"*, and the answer is asked against the live world at BOTH
+        // ends — here, and again at the commit — rather than decided once and
+        // carried, which is the fingerprint/consumption gap in another costume.
+        PublicationBoundary::LiveTimeline if rebasable_local_timeline(world) => {
+            CandidateAdmission::Proceed
+        }
         PublicationBoundary::LiveTimeline => {
             CandidateAdmission::Refused(MoveReload::RefusedDuringLiveTimeline)
         }
@@ -654,6 +680,49 @@ enum PublicationBoundary {
     Legal,
     LiveTimeline,
     Unhealthy(String),
+}
+
+/// May THIS host stop and rebuild the live rollback timeline for a content
+/// publication?
+///
+/// ⭐ **OWNERSHIP, NOT LIVENESS.** A locally maintained sync-test session is one
+/// this process started and may stop; an `External` session belongs to peers, and
+/// a `Caller`-owned one to a match activation or a harness that did not ask for a
+/// rebase. Only the first may be rebased unilaterally — the other two are exactly
+/// what `RollbackSessionOwnership`'s doc says must never be replaced.
+fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool {
+    use ambition_platformer2d::rollback::{RollbackSessionOwnership, SyncTestOwner};
+    matches!(
+        world.get_resource::<RollbackSessionOwnership>(),
+        Some(RollbackSessionOwnership::LocalSyncTest {
+            owner: SyncTestOwner::LocalMaintainer,
+            ..
+        })
+    )
+}
+
+/// Stop the local timeline so the session owner rebases it onto the generation
+/// just published.
+///
+/// ⛔⛔ **AT THE PUBLICATION, IN THE SAME EXCLUSIVE STEP — a frame between the two
+/// is a frame of NEW CONTENT RESIMULATED ON THE OLD TIMELINE**, which is the
+/// desync `Q118`'s canary measured. Releasing ownership is the whole of what this
+/// owes: `maintain_local_session` sees no session next frame and starts one with
+/// the same policy and the same frozen seating.
+fn rebase_local_timeline_onto_the_new_generation(world: &mut bevy::ecs::world::World) {
+    if !rebasable_local_timeline(world) || !ambition_platformer2d::rollback::session_is_active(world)
+    {
+        return;
+    }
+    ambition_platformer2d::rollback::stop_session(world);
+    world
+        .resource_mut::<ambition_platformer2d::rollback::local_session::LocalSessionOwnership>()
+        .release();
+    bevy::log::info!(
+        target: "ambition_content::reload",
+        "the published generation stopped the local rollback baseline; the session \
+         owner will rebase it onto the new content"
+    );
 }
 
 fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary {
@@ -1457,6 +1526,15 @@ pub fn commit_content_generation(
                     // ⛔ AND THE PACK LANDS AT THE SAME BOUNDARY, unconditionally,
                     // because nothing above it could have failed.
                     crate::pack::install_selection(world, generation.pack);
+                    // ⛔⛤ **AND THE TIMELINE REBASES IN THE SAME STEP.** `Q118`
+                    // measured that publishing changed mechanics across a healthy
+                    // speculating timeline DESYNCS the sync-test canary. The
+                    // answer is not to refuse the publication — that deletes hot
+                    // reload — but to stop the baseline the moment the content
+                    // changes, so the next frame's session is started against the
+                    // generation that is now live. See
+                    // `rebase_local_timeline_onto_the_new_generation`.
+                    rebase_local_timeline_onto_the_new_generation(world);
                 });
             }
             // ⛔ EVERY WAY THE REQUEST CAN END WITHOUT ACTIVATING, and they are

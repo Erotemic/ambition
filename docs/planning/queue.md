@@ -276,9 +276,13 @@ with no entity to hide, and `SessionScopeActivated` still means *"replace the li
 mirrors"*. That is the half the review's finding 2 is about, and it is a real
 design.
 
-⭐ **A CURRENT CORRECTNESS BUG THAT IS NOT A10:** a materially changed hot reload
-constructs N+1 roots stamped with **N's** `TransactionId` — the plan is prepared
-against `prepared_content.epoch()` (N) and `ActiveContentBinding` is published as
+✅ **A CURRENT CORRECTNESS BUG THAT WAS NOT A10 — FIXED 2026-09-13, both steps.**
+⚠ This paragraph described it in the present tense for part of the day after it
+had been repaired, which is the stale-`CLOSED`-language failure three reviews in a
+row have flagged; it is rewritten rather than left to be re-read as open. What was
+wrong: a materially changed hot reload constructed N+1 roots stamped with **N's**
+`TransactionId`, because the plan was prepared
+against `prepared_content.epoch()` (N) and `ActiveContentBinding` was published as
 N+1 only afterwards. `TransactionId` is canonical rollback state and
 `ConstructionScope::transaction()` is literally `binding ⊗ room ⊗ session`, so the
 live world ends with content N+1 and roots claiming N. It is the two-binding gap
@@ -318,7 +322,7 @@ HEAD 2026-09-13:
   (with the ordinary-road control) and
   `two_plans_differing_only_in_the_world_they_expect_are_different_plans`;
   poison-verified by stamping `expected_live`, which reddens the first alone.
-- ⛔ **STEP 2, AND ITS BLOCKER IS NOW MEASURED AWAY.** The hot reload must pass
+- ✅ **STEP 2, AND ITS BLOCKER WAS MEASURED AWAY.** The hot reload must pass
   `replacing(live_binding, candidate_epoch)`, which needs the candidate epoch
   minted BEFORE the preflight — against the rule that *"everything above this line
   is non-mutating … materially changed definitions allocate a new epoch only

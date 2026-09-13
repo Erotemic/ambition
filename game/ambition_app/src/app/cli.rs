@@ -961,6 +961,48 @@ pub fn build_visible_app_with(
                     // thread where winit refuses to initialize one.
                     .disable::<bevy::winit::WinitPlugin>(),
             );
+            // ⛔⛤ **BEVY INSTALLS THE RENDER-SYNC HOOKS AND OMITS THE RESOURCE
+            // THEY READ WHEN THERE IS NO BACKEND — `Q114`, MEASURED 2026-09-13.**
+            //
+            // `RenderPlugin::build` adds `ExtractPlugin` — and with it
+            // `SyncWorldPlugin`, which owns `PendingSyncEntity` — **only when a
+            // backend is available**. It then adds `CameraPlugin`, `ViewPlugin`
+            // and the rest UNCONDITIONALLY, and those register
+            // `SyncComponentPlugin` REMOVE HOOKS that do
+            // `world.resource_mut::<PendingSyncEntity>()`. ⇒ Under `backends:
+            // None` the hooks exist and the resource does not, so **despawning a
+            // camera panics**:
+            //
+            // ```text
+            // bevy_render-0.19.1/src/sync_component.rs:55
+            //   Requested resource bevy_render::sync_world::PendingSyncEntity
+            //   does not exist in the `World`.
+            // ```
+            //
+            // ⚠ **AND THE ROW THAT REPORTED THIS BLAMED THE WRONG THING, WHICH IS
+            // WHY THE FIX LOOKED LIKE A MAINTAINER'S CALL.** `D-HEADLESS-DESPAWN`
+            // read *"spawning a render-synced entity headless is fine; DESPAWNING
+            // one is fatal"* and offered three options, two of which are about
+            // which systems THIS composition installs. MEASURED at HEAD: a
+            // `Sprite` carries `SyncToRenderWorld` and despawns fine, by both the
+            // direct and the queued-command road. It is the CAMERA that panics,
+            // through a hook `bevy_render` registers no matter what this profile
+            // does. ⇒ Of the three options only *"install the resource"* is
+            // implementable here at all; the other two are changes to bevy.
+            //
+            // ⭐ `SyncWorldPlugin` is public and trivial — one resource and two
+            // observers — so this is the whole fix.
+            //
+            // ⚠ **WHAT IT COSTS, STATED RATHER THAN DISCOVERED LATER:**
+            // `PendingSyncEntity` is drained by `entity_sync_system` in
+            // `ExtractSchedule`, which lives in the render app this profile does
+            // not have. So the queue GROWS with entity churn and is never read.
+            // It is `pub(crate)` in `bevy_render`, so nothing here can clear it.
+            // Bounded by churn rather than by frames, and a headless run that
+            // spawns and despawns for long enough will hold one record per
+            // event. That is a leak; it is also strictly better than a crash,
+            // and it is the only lever this side of the boundary has.
+            app.add_plugins(bevy::render::sync_world::SyncWorldPlugin);
         }
         VisibleRenderMode::OffscreenGpu => {
             use bevy::app::ScheduleRunnerPlugin;

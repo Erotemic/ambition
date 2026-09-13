@@ -65,7 +65,11 @@ same stale line.
 
 ⇒ `grep -n "HOLD"` on the frontier at HEAD returns four hits and **all four are
 prose about holds that were discharged**. The only packet still waiting on
-anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
+anything is **A10** — and as of 2026-09-13 it waits on **no ruling at all**.
+`Q124`, its last named blocker, is WITHDRAWN: the gameplay rule it asked Jon to
+choose is already asserted in `death_restores_the_checkpoint`, and it is TEMPORAL
+(*"which side of the checkpoint the acquisition fell on"*) rather than any of the
+three kind-shaped options that row offered. What remains is A10's own engineering.
 
 **⛔ STILL OPEN AT THE TOP OF THE ORDER:**
 
@@ -76,13 +80,28 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   sources agree. That agreement rests on `.before(GameplaySessionSet::Providers)`
   — one edge, one witness — which is exactly why preparation must not depend on
   it. ⇒ The arm that would bite lives in `Q118`'s unordered interval.
+  ⚠ **RE-DERIVE THIS BEFORE STARTING: `Q118`'s interval is no longer unordered.**
+  It is covered by a lease that re-asks the WHOLE admission question and cancels
+  the shell transaction, guarded by
+  `losing_the_permission_to_rebase_mid_flight_cancels_the_pending_generation`
+  (2026-09-13). Whether that changes what witness is available to `Q121`, or only
+  where it has to stand, is the first question — and this row said "unordered"
+  for a day after it stopped being true.
 
 **Open, each with its measurement already taken:**
 
-- **`Q118`** — ✅ HALF SEALED `2026-09-13`. The UNHEALTHY half now cancels the
-  whole shell transaction (`ShellCommand::CancelPending`); publishing across a
-  recorded divergence is wrong under every model, so it did not wait for a
-  ruling. ⛔ **THE LIVE-TIMELINE HALF IS MEASURED UNSEALABLE BY REFUSING:**
+- **`Q118`** — ✅ **BOTH HALVES CLOSED `2026-09-13`, AND THE SECOND ONE TWICE:
+  the seal landed, then a review found it re-asked half its own question.** The
+  live-timeline half is stop-and-rebase, reusing the LDtk road's
+  stop-and-release; and `PublicationBoundary` now folds OWNERSHIP into itself
+  (`Legal | RebasableTimeline | ForeignTimeline | Unhealthy`) because the lease
+  that re-asks the boundary during the pending interval was re-asking only the
+  HEALTH half — so a generation admitted against a session this host maintains
+  stayed admitted after a peer-owned one replaced it. See the amended `Q118` row
+  for the full account; the paragraphs below are the RECONNAISSANCE that produced
+  it and are kept for that, not as current status.
+  ⛔ **THE LIVE-TIMELINE HALF WAS MEASURED UNSEALABLE BY REFUSING**, which is why
+  the answer is a lifecycle rather than a cancel:
   implementing the cancel there made the shipped composition refuse EVERY reload
   it has (`boundary=LiveTimeline owner=SessionScopeId(0)` — a reload re-prepares
   the route the shell is already on, so the session being replaced owns a healthy
@@ -90,9 +109,10 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   SHUT `2026-09-13`:** publishing a cast mid-timeline DESYNCS the sync-test canary
   (`checksum mismatch at frames [22, 23, 24]`), controlled by the file's no-edit
   arm and poisoned by staging-without-activating. ⇒ Harmful LOCALLY, so a
-  network-only refusal is not the cheap answer. **What remains is the
-  stop-and-rebase lifecycle** — and it is the same mechanism `Q120` is about, so
-  the two are one problem rather than two.
+  network-only refusal is not the cheap answer. ✅ **THE STOP-AND-REBASE
+  LIFECYCLE LANDED**, and `Q120` — correctly identified here as the same problem
+  — closed with it, as a pre-simulation ADMISSION protocol rather than the
+  after-the-fact watcher its first version shipped.
   <details><summary>the reconnaissance, already done</summary>
   `f27fa58` measured the ordering on the schedule graph (reachability, not direct
   edges, with a positive control for the walker) and found **NO path either way**
@@ -102,6 +122,25 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   authorization/lease, or a deliberate rollback stop-and-rebase lifecycle. ⚠ This
   row asked for the measurement for a day after it had been taken — the ledger
   was updated and the queue was not.</details>
+- ✅ **THE `ContentEpoch` CONTRACT IS RULED: GAP-TOLERANT LINEAGE IDS, 2026-09-13.**
+  The 2026-09-13 review found that `ContentEpochSequence`'s own doc — *"allocation
+  happens only after a candidate prepared definition has fully validated and is
+  about to be published or committed"* — had been made FALSE by the hot-reload
+  road, which now allocates ABOVE a preflight that can still refuse. That move was
+  right and stays: decided any later, every rebuilt root stamps a `TransactionId`
+  naming the generation the reload is REPLACING, which is a provenance discrepancy
+  inside rollback state. ⇒ A refused reload burns a number.
+  ⭐⭐ **THE CHOICE IS MADE STRUCTURALLY RATHER THAN DOCUMENTED.** The alternative
+  was reservation semantics (hand the number back on refusal), which is a second
+  lifetime to get right in exchange for a property nothing reads. Instead
+  `ContentEpoch` **no longer derives `Ord`/`PartialOrd`** — MEASURED first: the
+  whole workspace and every test target compile without them, so no code compared
+  two epochs. *"Epoch 7 is newer than epoch 5"* is a COMPILE ERROR now, not a
+  convention, and a gap cannot mean anything. `Eq`/`Hash` remain because *"is this
+  the generation I was planned against"* is the only question an epoch answers.
+  ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
+  (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
+  make a burned number comparable, far from the allocator.
 - ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
   WRONG IN BOTH HALVES AND A REVIEW CAUGHT IT.** A live developer edit DESYNCS
   rollback resimulation, measured against the real sync-test canary.
@@ -155,22 +194,28 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   candidate is accepted; (2) non-entity room state goes live before verification;
   (3) hot-reload content/session state goes live independently of the verdict;
   (4) verification has no way to validate N+1 *while intentionally retaining N* —
-  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` MUST NOT BE
-  READ AS THE SOLE BLOCKER**: its gameplay ruling may still be needed, but the
-  engine has structural A10 work to do regardless of how it is answered. ⇒ The
+  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` IS NO LONGER A
+  BLOCKER AT ALL** (withdrawn 2026-09-13): the rule is already asserted in
+  production and is temporal, so what that row measured becomes an A10 INPUT
+  requirement — a room reconstruction under a checkpoint restore must receive the
+  checkpoint's CUSTODY ROSTER, or the plan and the baseline disagree about which
+  placements the world owes. ⇒ The
   packet is to be rewritten around a typed CANDIDATE WORLD/SESSION transaction —
   prepare every N+1 value offside, validate, then one authority switch, then
   retire N — **not** "save N's resources and restore on failure", which is
   duplicate truth plus a recovery procedure.
-- **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER IS `Q124`,
-  A GAMEPLAY RULING RATHER THAN A MYSTERY.**
+- **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER WAS `Q124`,
+  AND THAT ROW IS WITHDRAWN — the rule was never Jon's to choose.**
   MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped
   rooms publish completely (receipt 18, admitted 18). The two that fail are
   `death_restores_the_checkpoint`, and the cause is that a death-reset rebuilds
   the room around a placement still in your custody, duplicating its authored
   identity — **which the LIVE build does too, and is identically refused; the
   refusal just costs nothing there because the entities are already committed.**
-  ⇒ Read `Q124` before touching this. ⭐ Its structural half needs no ruling:
+  ⇒ The fix is the INPUT, not a ruling: the plan for a restore must be built from
+  the roster the checkpoint recorded, so a placement the checkpoint saw in custody
+  is not re-authored and one it saw on its pedestal is. ⭐ And the declaration half
+  needed no ruling either:
   `TransactionBaseline::retiring`/`reconstructing` have ZERO production callers,
   so every shipped room is verified against a declaration nobody made.
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
@@ -277,15 +322,49 @@ population. MEASURED both ways in
 capture SUCCEEDS with a hidden duplicate and REFUSES once the marker is removed
 without retiring the old body.
 
-⇒ **SO THE MACHINERY ITSELF FORCES PUBLICATION AND RETIREMENT INTO ONE STEP** —
-publish without retiring and the next transaction cannot open. That is the second
-standing test rather than the first: no guard asks the question, the structure
-refuses to express the state. ⭐ **AND IT IS THE "REAL SUPERSESSION RELATIONSHIP"
-THE REVIEW ASKED FOR, in vocabulary that already exists:** a candidate root is
-`TransactionBaseline::reconstructing` for the root's identity, and
-`ReconstructedOldSurvived` — *"you said you would replace this and the old body is
-still here"* — is exactly the state that is LEGAL while the new body is a
-candidate and ILLEGAL after publication.
+⛔⛤ **AND THE TWO CONCLUSIONS I DREW FROM THAT MEASUREMENT WERE BOTH WRONG.
+WITHDRAWN 2026-09-13 AFTER REVIEW, AND RE-DERIVED FROM THE SOURCE RATHER THAN
+TAKEN ON THE REVIEW'S WORD.** The measurement above stands; what it supports does
+not. Both retractions are kept because each is a way of over-reading a true
+result.
+
+**RETRACTED 1 — *"the machinery forces publication and retirement into ONE
+STEP"*.** It does not. `BaselineCaptureError::DuplicateIdentity` is raised in
+exactly one place (`TransactionBaseline::capture`, `construction/mod.rs`), which
+runs when the NEXT transaction OPENS. ⇒ Between a publication that forgot to
+retire and that moment, the world holds two live entities on one identity and
+every system in the game runs against it — dependants resolve to whichever the
+query yields first, which is storage order. **Detecting a bad state later, at an
+unrelated boundary, is not atomicity.** What is true is the narrow thing the arm
+measured: *a hidden candidate is invisible to `capture`, and an unhidden
+duplicate is refused by the next one that opens.* ⇒ **The atomicity claim is
+simply removed rather than weakened** — a guarantee that holds "eventually, at the
+next unrelated boundary" is the kind of sentence that gets built on.
+
+**RETRACTED 2 — *"`reconstructing` IS the supersession relationship the review
+asked for"*.** Read the declaration: `reconstructing` means *"this transaction
+intends to DESPAWN these identities' bodies and build new ones"*, and
+`verify_committed_roster` enforces exactly that — if the baseline entity is still
+`live()` at close, it is the VIOLATION `ReconstructedOldSurvived`. ⇒ It describes
+a destructive replacement that has ALREADY HAPPENED. It cannot express *"A is
+still live and correct, B is hidden, and B replaces A at publication"*, because
+in that state A being alive is the thing it reports as wrong.
+
+⇒ **SO A10 STILL OWES THE SUPERSESSION DECLARATION, AND `InactiveCandidate` +
+`reconstructing` IS NOT IT.** Two shapes, and the choice is a design decision that
+has not been made:
+1. **A distinct declaration** — `superseding(ids)` / `replace_on_publish(ids)` —
+   under which the old body being live is LEGAL at close and its removal is part
+   of PUBLISHING, not of committing.
+2. **Redefine the verifier around a PROPOSED POST-PUBLICATION ROSTER** rather than
+   around the live world: `close` judges what the world WOULD contain if this
+   transaction published, so a still-live predecessor scheduled for removal is
+   simply not in the roster being judged.
+
+⚠ **NEITHER IS WRITTEN, AND NO A10 PUBLICATION CODE SHOULD BE BUILT ON THE CLAIM
+THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
+in intent, and it is recorded here because the retracted paragraph above is
+exactly the sentence a future packet would have quoted.
 
 ⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
 SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,
@@ -417,9 +496,30 @@ it was applied to stopped one member short.
 3. ✅ **`ensure_perception` KEPT THE SAME FALLBACK.** It took
    `Option<Res<SessionMechanics>>` and fell back to the App without asking whether
    the composition OWES a generation. `perception_extent_for` now takes the
-   shell-routed flag and returns `None` as a REFUSAL; the reader attaches nothing,
-   which the target derivation reads as the basic `Omniscient` mode rather than a
-   range the live generation never described.
+   shell-routed flag and returns `None` as a REFUSAL.
+   ⛔⛤ **AND THE FIRST VERSION OF THAT REFUSAL WAS ITSELF FAIL-OPEN — FOUND BY THE
+   2026-09-13 REVIEW, AND THE SENTENCE THAT USED TO STAND HERE IS THE EVIDENCE:**
+   *"the reader attaches nothing, which the target derivation reads as the basic
+   `Omniscient` mode rather than a range the live generation never described."*
+   `Omniscient` is not "basic" — it is *"the body simply KNOWS"*, the MOST capable
+   perception in the game. ⇒ A session that could not say what its actors can see
+   gave them unbounded senses; the refusal was an UPGRADE, and 480px of bounded
+   viewport was what it upgraded from.
+   ⭐⭐ **FIXED AS INVALIDATION, NOT AS A THIRD PERCEPTION MODE.** A blind or
+   zero-viewport variant would be alternate AI mechanics invented by a failure
+   path. `SensesUndecided` takes the body OUT of `tick_actor_brains` — the same
+   shape as `Dormant` one filter up — so it still integrates, still falls, still
+   takes hits, and simply does not choose. Absence of `Perception` still means
+   `Omniscient` BY POLICY for players, bosses and seated match fighters; what was
+   wrong is that a refusal was spelled the same way as that policy. Two facts, one
+   representation; now two.
+   ⚠ Rollback-registered beside `Dormant` (schema 182 → 183) for the reason
+   `ITEM 0` of this project's own record gives: a component declared "derived",
+   dropped by a restore, and read before its writer ran again. Presence is
+   authoritative because a QUERY FILTERS ON IT. Guarded and poison-verified:
+   `a_session_that_cannot_decide_senses_takes_the_body_out_of_the_decision` (with
+   the direct-entry control that keeps bounded perception alive) and
+   `deciding_the_senses_clears_the_undecided_marker_in_the_same_command`.
 4. ✅ **THE CUTSCENE'S PENDING SIMULATION INPUT SURVIVED.** `ActiveCutscene` and
    `CutsceneTriggerQueue` were owned; `CutsceneAdvanceRequest` was not — and its
    `dismiss_dialogue`/`skip_cutscene` are COMPLETED EDGES already across the
@@ -3640,6 +3740,28 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    The ten-verb subset said 104 of 208. Both are ~52%, which is the number to
    quote.
 
+   ⭐⭐ **INDEPENDENTLY REPRODUCED 2026-09-13 ON NINE FIGHTERS, AND THE NUMBERS
+   MATCH THIS TABLE EXACTLY** — goblin 17/17, sanic 15/17,
+   `perfect_cellular_automaton` 15/17, `projectile_polygon` 12/14, medic 10/13,
+   `npc_carl_stargan` 13/17, officer 10/15, `npc_alice` 7/17,
+   `npc_pirate_admiral` 2/14, from a fresh take on a different subset. A table
+   two recordings agree on digit-for-digit is one nobody has to re-run again.
+
+   ⭐ **AND THE TABLE IS A COMMAND NOW, NOT A HAND-FORMAT:**
+   `scripts/measure_strike_area_over_body.py <take> --by-character` prints
+   exactly these columns plus each fighter's median and peak. It was assembled by
+   hand from `--per-move` output, and a view somebody has to rebuild by hand is
+   one that goes stale between readings — which is what happened to the figure
+   below.
+
+   ⛔⛤ **AND THE REPRODUCTION ITSELF IS A LESSON ABOUT READING BEFORE
+   MEASURING.** The stale *"seven fighters under 1.0, medic 0.23"* line was still
+   in this session's own goal note, and I spent a ~13-minute grid recording
+   re-deriving what the two paragraphs above already said — including the
+   `1.6² = 2.56` correction. ⇒ **`grep` THE ROW BEFORE RUNNING THE TOOL.** The
+   goal note is corrected and now points here rather than carrying its own copy
+   of the numbers, which is the second authority that made this possible.
+
    THIN MOVES PER FIGHTER, complete grid (thin / recorded):
 
 ```text
@@ -5651,6 +5773,38 @@ agents can produce pixels" off this.
 installs the render crate's Update systems with `backends: None` runs a game
 right up until a cleanup.
 
+✅ **CLOSED 2026-09-13 — AND THIS ROW'S OWN MECHANISM WAS WRONG, WHICH IS WHY IT
+SAT AS A MAINTAINER'S CALL FOR THREE DAYS.** *"Spawning a render-synced entity
+headless is fine; DESPAWNING one is fatal"* is too wide. MEASURED at HEAD: a
+`Sprite` carries `SyncToRenderWorld` and despawns fine, by the direct road AND by
+the queued-command road this row's own backtrace names. **It is the CAMERA**,
+through `CameraMainTextureUsages`. ⚠ The TEST beside this row already said so —
+`a_no_window_app_still_cannot_despawn_a_camera`'s first line reads *"THE CLASS IS
+'ANY `Camera` ENTITY', NOT 'A PORTAL RIG'"* — so the wider claim was this row's
+wording alone, which is the reader a summary reaches first.
+⛔⛤ **AND THE HOOK IS BEVY'S, NOT THIS COMPOSITION'S.**
+`RenderPlugin::build` adds `ExtractPlugin` — and with it `SyncWorldPlugin`, which
+owns `PendingSyncEntity` — **only when a backend is available**, then adds
+`CameraPlugin` and friends UNCONDITIONALLY, and those register the remove hooks
+that read it. ⇒ Two of the three options below are changes to `bevy_render`;
+only *"install the resource"* was ever reachable from here, and
+`SyncWorldPlugin` is public and trivial. Installed in `build_visible_app`'s
+`NoWindow` arm.
+⭐⭐ **AND THE `#[should_panic]` ARM THAT RECORDED THIS FLIPPED ITSELF**, exactly
+as its own doc said it would: *"when the upstream hook learns to tolerate a
+missing render world, THIS TEST FAILS LOUDLY and whoever fixed it deletes the
+`should_panic` and the `still_` in the name."* It failed on the same run as the
+fix. ⇒ A recorded gap that names its own expiry condition costs nothing and pays
+for itself once. It is `a_no_window_app_can_despawn_a_camera` now, and it asserts
+the sprite half and the queued-command road too; poison-verified.
+⚠ **THE COST IS STATED:** nothing drains `PendingSyncEntity` without a render app,
+so it grows with entity churn and is never read (`pub(crate)`, so unclearable from
+here). A leak, strictly better than a crash, and the real repair is upstream.
+⇒ **The 104-`ambition_render`-systems observation stands and is a DIFFERENT
+question** — it is about cost, not correctness, and nothing here depends on it.
+
+<details><summary>The row as it stood, kept because its four dead candidates are its best content</summary>
+
 ⚠ **NOT DECIDED — NOW `Q114` IN
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).** Whether
 the fix is to install the resource in the headless profile, keep those systems out
@@ -5662,6 +5816,8 @@ whole reason a held packet can wait indefinitely without anyone declining it.
 **Acceptance:** a headless composition either does not install render-sync hooks
 or can serve them, and a fighter that despawns a render-synced entity completes a
 duel.
+
+</details>
 
 ### D-VFX-ID-ADMISSION — REFUTED before it was worked; the search was keyed on the wrong spelling
 

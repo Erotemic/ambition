@@ -241,6 +241,33 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        # ⛔⛤ RULED 2026-09-13: an epoch is a GAP-TOLERANT LINEAGE ID. The
+        # hot-reload road allocates BEFORE a preflight that can fail — deliberately,
+        # so a rebuilt root's `TransactionId` names the generation it is BECOMING
+        # rather than the one it replaces — so a refused reload burns a number.
+        # `ContentEpoch` therefore does not derive `Ord`/`PartialOrd`, which makes
+        # "epoch 7 is newer than epoch 5" a compile error rather than a convention.
+        # MEASURED before removing them: the workspace and every test target
+        # compiled unchanged, so nothing compared two epochs.
+        #
+        # ⇒ Re-deriving them is the one edit that would quietly make a GAP mean
+        # something, and it would do so far from the allocator. If ordering is
+        # genuinely wanted, the decision to revisit is RESERVATION SEMANTICS
+        # (hand the number back on refusal) — delete this contract in that commit.
+        "id": "content-epochs-are-not-ordered",
+        "paths": ["crates/ambition_platformer2d_core/src/content_epoch.rs"],
+        "patterns": [r"^\s*(Ord|PartialOrd),\s*$"],
+        "reason": (
+            "A ContentEpoch is a gap-tolerant lineage id: the hot-reload road "
+            "allocates before a preflight that can refuse, so a refused reload "
+            "leaves a hole in the sequence. Deriving Ord would make that hole "
+            "comparable, and 'epoch 7 is newer than epoch 5' would become "
+            "expressible in code that has no way to know a number was burned. "
+            "Epochs answer equality only: 'is this the generation I was planned "
+            "against'."
+        ),
+    },
+    {
         "id": "player-input-frame-mirror-does-not-return",
         "paths": ["crates/", "game/"],
         "patterns": [r"\bPlayerInputFrame\b"],

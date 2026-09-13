@@ -381,6 +381,21 @@ where
         OWNER,
         "actor.dormant",
     );
+    // ⛔⛤ **THE SAME CLASS AS `Dormant` ONE LINE UP, AND THE SAME REASON.** A
+    // body carrying this marker is OUT of the decision phase because its session
+    // could not say what it can see; a restore that dropped it would put that
+    // body back into `tick_actor_brains` for one advance — with no `Perception`
+    // component, which reads as `Omniscient`. That is precisely the fail-open
+    // the marker exists to close, reintroduced by a rewind.
+    //
+    // ⚠ "Re-derived next tick" is not a reason to omit it: `ITEM 0` of this
+    // project's own record is a component declared derived, dropped by a
+    // restore, and read before its writer ran again. Presence is authoritative
+    // because a query FILTERS on it.
+    registrar.rollback_component_clone::<crate::features::ecs::perception::SensesUndecided>(
+        OWNER,
+        "actor.senses_undecided",
+    );
     // The radius is part of authoritative dormancy policy, so probe the value
     // rather than only the component's presence.
     registrar.rollback_component_clone_probed::<crate::features::ecs::dormancy::DormancyPolicy>(

@@ -387,7 +387,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// AUTHORED (`None`=0, `Super`=1, `Damage`=2, and 3 RESERVED for the knockback
 /// threshold that `ArmorPolicy` explains it does not have yet) so that adding
 /// the reserved one later does not renumber anything already written.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 182;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 183;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

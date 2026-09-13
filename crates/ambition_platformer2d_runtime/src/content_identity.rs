@@ -69,9 +69,27 @@ digest_type!(SnapshotSchemaFingerprint, "ssp1:");
 /// ([`ContentEpochSequence`]); only the stamp is shared.
 pub use ambition_platformer2d_core::ContentEpoch;
 
-/// App-local generation allocator. Allocation happens only after a candidate
+/// App-local generation allocator — a source of DISTINCT ids, not a count of
+/// activations.
+///
+/// ⛔⛤ **THIS DOC USED TO SAY *"allocation happens only after a candidate
 /// prepared definition has fully validated and is about to be published or
-/// committed. Routing/load transaction ids are deliberately unrelated.
+/// committed"*, AND THAT STOPPED BEING TRUE — REVIEW, 2026-09-13.** The
+/// hot-reload road (`dev_runtime.rs`) allocates BEFORE a preflight that can still
+/// fail, deliberately: the epoch has to be decided before the room is planned, or
+/// every rebuilt root stamps a `TransactionId` naming the generation this reload
+/// is REPLACING — a provenance discrepancy inside rollback state, which is what
+/// that change fixed.
+///
+/// ⭐⭐ **SO THE CONTRACT IS GAP-TOLERANT LINEAGE IDS, AND
+/// [`ContentEpoch`] NO LONGER DERIVES `Ord`.** A refused reload burns a number
+/// and nothing can notice: comparing two epochs is a compile error, and the only
+/// question an epoch answers is *"is this the generation I was planned against"*.
+/// The alternative — reservation semantics, handing the number back on refusal —
+/// buys a property nothing reads at the price of a second lifetime. See
+/// `ambition_platformer2d_core::content_epoch` for the ruling in full.
+///
+/// ⚠ Routing/load transaction ids are deliberately unrelated.
 #[derive(Resource, Clone, Debug)]
 pub struct ContentEpochSequence {
     next: u64,

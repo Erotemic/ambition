@@ -164,7 +164,35 @@ fn the_browser_persona_boots_the_launcher_with_the_tile_spine_and_no_desktop_cur
     );
 }
 
-/// D-HEADLESS-DESPAWN: a `NoWindow` app still CANNOT despawn a camera.
+/// ✅ **D-HEADLESS-DESPAWN / `Q114`: a `NoWindow` app CAN despawn a camera, since
+/// 2026-09-13 — AND THIS ARM FLIPPED EXACTLY AS ITS OLD TEXT SAID IT WOULD.**
+/// It was `#[should_panic]`, named `..._still_cannot_...`, and its doc read:
+/// *"when the upstream hook learns to tolerate a missing render world, THIS TEST
+/// FAILS LOUDLY and whoever fixed it deletes the `should_panic` and the `still_`
+/// in the name."* It failed loudly on the same run as the fix. ⇒ A recorded gap
+/// that names its own expiry condition costs nothing and pays for itself once.
+///
+/// ⚠ **THE FIX WAS NOT THE UPSTREAM ONE IT ANTICIPATED**, and the difference is
+/// the point: nobody taught the hook to tolerate a missing world. The `NoWindow`
+/// arm of `build_visible_app` now adds `bevy::render::sync_world::SyncWorldPlugin`
+/// itself — it is public and trivial (one resource, two observers) — so the
+/// resource the still-installed hook reads simply exists. `Q114` offered three
+/// options; two were changes to `bevy_render` and only this one was ever
+/// reachable from here.
+///
+/// ⚠ **THE COST IS REAL AND STATED:** `PendingSyncEntity` is drained by
+/// `entity_sync_system` in `ExtractSchedule`, which lives in the render app this
+/// profile does not have, so it grows with entity churn and is never read. It is
+/// `pub(crate)`, so nothing here can clear it. Bounded by churn, not by frames,
+/// and strictly better than a crash.
+///
+/// ⭐ **AND THE SCOPE BELOW WAS ALWAYS RIGHT WHERE THE QUEUE ROW WAS NOT.** That
+/// row read *"spawning a render-synced entity headless is fine; DESPAWNING one is
+/// fatal"*; this arm's own first line already said the class is *"ANY `Camera`
+/// ENTITY"*. The sprite assertion is added below to make that difference
+/// FALSIFIABLE rather than merely stated.
+///
+/// The mechanism, unchanged and still the reason:
 ///
 /// ⛔⛔ THE CLASS IS "ANY `Camera` ENTITY", NOT "A PORTAL RIG". `backends: None`
 /// makes `create_render` return false, so `RenderPlugin::build` skips
@@ -178,26 +206,58 @@ fn the_browser_persona_boots_the_launcher_with_the_tile_spine_and_no_desktop_cur
 /// Remove path is a COMPONENT HOOK a different, still-installed plugin
 /// registered. That asymmetry is the whole defect.
 ///
-/// ⛔ THIS ASSERTS THE BUG, NOT THE FIX, AND THAT IS DELIBERATE. Gating the
-/// portal view-cone capture rig on `RenderApp` presence closed the only despawn
-/// a DUEL can reach; it did not close this. An `#[ignore]` would rot silently
-/// and a red test would break the lane, so the current behaviour is pinned
-/// instead: when the upstream hook learns to tolerate a missing render world,
-/// THIS TEST FAILS LOUDLY and whoever fixed it deletes the `should_panic` and
-/// the `still_` in the name.
-///
 /// ⭐ WHY THIS AND NOT THE DUEL. The bout that found it reaches this through
 /// `npc_alice`'s portal up-B, 3600 ticks and ~6s away, which reads as a fighter
 /// defect. Two entities and no fighter say the same thing in ~1s.
 #[test]
-#[should_panic(expected = "PendingSyncEntity")]
-fn a_no_window_app_still_cannot_despawn_a_camera() {
+fn a_no_window_app_can_despawn_a_camera() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, false);
+    // ⚠ THE PREMISE. A profile that quietly gained a `RenderApp` would drain
+    // `PendingSyncEntity` the ordinary way and make every assertion below pass
+    // for a reason that has nothing to do with the fix.
+    assert!(
+        app.get_sub_app(bevy::render::RenderApp).is_none(),
+        "the `NoWindow` profile has a RenderApp, so this arm is about nothing"
+    );
+
+    // ⛔ THE HALF THAT MAKES THE SCOPE FALSIFIABLE. The queue row claimed the
+    // class was "any render-synced entity"; a `Sprite` IS render-synced and has
+    // always despawned fine, because the Add path is an observer
+    // `SyncWorldPlugin` never registered while the Remove path is a component
+    // hook a still-installed plugin did. If this ever panics, the class really
+    // is wider and the fix needs rethinking.
+    let sprite = app.world_mut().spawn(Sprite::default()).id();
+    assert!(
+        app.world()
+            .entity(sprite)
+            .contains::<bevy::render::sync_world::SyncToRenderWorld>(),
+        "a `Sprite` is not render-synced in this profile, so the arm above is not \
+         testing the distinction it claims"
+    );
+    app.world_mut().entity_mut(sprite).despawn();
+
+    // ⛔ THE SUBJECT: `Camera2d` requires `CameraMainTextureUsages`, whose
+    // remove hook is the one that reads `PendingSyncEntity` unwrapped.
     let camera = app.world_mut().spawn(Camera2d).id();
     app.world_mut().entity_mut(camera).despawn();
+
+    // ⛔ AND THE QUEUED-COMMAND ROAD, which is the one the original backtrace
+    // named (`despawn_no_free_with_caller` under `SingleThreadedExecutor`) — a
+    // direct world call is not the same code path a duel takes.
+    let queued = app.world_mut().spawn(Camera2d).id();
+    app.add_systems(Last, move |mut commands: Commands| {
+        if let Ok(mut entity) = commands.get_entity(queued) {
+            entity.try_despawn();
+        }
+    });
+    app.update();
+    assert!(
+        app.world().get_entity(queued).is_err(),
+        "the queued despawn never ran, so surviving it proves nothing"
+    );
 }
 
-/// The CONTROL for [`a_no_window_app_still_cannot_despawn_a_camera`], and it is
+/// The CONTROL for [`a_no_window_app_can_despawn_a_camera`], and it is
 /// what makes that test mean anything.
 ///
 /// ⛔ Without it, the sibling's panic is indistinguishable from "despawn is

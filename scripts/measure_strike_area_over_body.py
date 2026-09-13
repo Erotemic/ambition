@@ -12,6 +12,17 @@ arithmetic over a recording somebody already has to make.
 
     moveset_takes --characters grid --verbs attack_forward --out takes.json
     python3 scripts/measure_strike_area_over_body.py takes.json
+    python3 scripts/measure_strike_area_over_body.py takes.json --per-move
+    python3 scripts/measure_strike_area_over_body.py takes.json --by-character
+
+⛔⛤ **THE THREE VIEWS ANSWER THREE DIFFERENT QUESTIONS AND THE DEFAULT IS THE
+LEAST USEFUL OF THEM.** The per-character PEAK (the default) says whether a
+fighter owns a generous move; `--per-move` says which of its moves are dead;
+`--by-character` says what SHARE of each moveset is. MEASURED 2026-09-13, nine
+fighters, 141 moves: the peak says six of seven formerly-stingy fighters are now
+fine, and the share says 67-100% of each one's moves are still under 1.0. When
+two views of one recording disagree, the one matching the complaint wins — and
+the complaint is *"attacks rarely ever feel like they connect"*.
 
 ⚠ THE PEAK, NOT THE MEAN. A move whose box is live for two frames and enormous
 reads as small under a mean over the take, and what a player feels is whether the
@@ -158,11 +169,52 @@ def ratios(take: dict) -> dict[str, float]:
     return {name: row[0] for name, row in peaks(take).items()}
 
 
+def share_under_one(moves: dict) -> list[tuple[str, int, int, float, float, float]]:
+    """Per character: how many of ITS OWN moves swing under its own body area.
+
+    ⛔⛤ **THE PER-CHARACTER PEAK AND THIS DISAGREE, AND THE DISAGREEMENT IS THE
+    FINDING — MEASURED 2026-09-13.** `peaks()` reports the single most generous
+    move a fighter has; this reports what SHARE of its moveset is stingy. Across
+    nine fighters they gave opposite answers: six of the seven characters a
+    standing note called *"under 1.0x their own body area"* now peak between 2.0
+    and 3.4, while 67-100% of each one's individual moves are still under 1.0.
+
+    ⇒ A roster where every fighter owns one enormous smash reads as HEALTHY under
+    the peak while most of its tilts whiff — which is the complaint *"attacks
+    rarely ever feel like they connect"* stated as a number. The peak answers
+    *"does this fighter have a generous move"*; a player is asking *"does the
+    move I just pressed reach"*.
+
+    ⚠ The ratio is area over area, so it is already normalized for body size — a
+    tall fighter and a wide one are comparable rows.
+    """
+    import statistics
+
+    by: dict[str, list[float]] = {}
+    for (character, _move), row in moves.items():
+        by.setdefault(character, []).append(row[0])
+    out = []
+    for character, values in by.items():
+        under = sum(1 for v in values if v < 1.0)
+        out.append(
+            (
+                character,
+                len(values),
+                under,
+                under / len(values),
+                statistics.median(values),
+                max(values),
+            )
+        )
+    return sorted(out, key=lambda row: -row[3])
+
+
 def main() -> int:
-    flags = {"--detail", "--per-move"}
+    flags = {"--detail", "--per-move", "--by-character"}
     args = [a for a in sys.argv[1:] if a not in flags]
     detail_flag = "--detail" in sys.argv[1:]
     per_move_flag = "--per-move" in sys.argv[1:]
+    by_character_flag = "--by-character" in sys.argv[1:]
     if len(args) != 1:
         print(__doc__)
         return 2
@@ -193,6 +245,34 @@ def main() -> int:
             "never reached a move'. Check the takes' own `outcome` and "
             "`max_live_hitboxes` first."
         )
+    if by_character_flag:
+        moves = per_move(take)
+        if not moves:
+            raise SystemExit(
+                f"{path} holds {len(rows)} character(s) and NOT ONE frame naming "
+                "the move its boxes belong to. ⇒ REFUSING TO REPORT."
+            )
+        table = share_under_one(moves)
+        width = max(len(row[0]) for row in table)
+        print(
+            f"{'character':<{width}} {'moves':>6} {'under 1.0':>10} {'share':>7} "
+            f"{'median':>7} {'peak':>7}"
+        )
+        for character, total, under, share, median, peak in table:
+            print(
+                f"{character:<{width}} {total:>6} {under:>10} {share:>6.0%} "
+                f"{median:>7.2f} {peak:>7.2f}"
+            )
+        all_under = sum(row[2] for row in table)
+        all_total = sum(row[1] for row in table)
+        print(f"\n{all_under} of {all_total} moves swing under the body that swings them.")
+        print(
+            "⚠ READ THIS BESIDE THE PEAK COLUMN, NOT INSTEAD OF IT. A fighter can peak\n"
+            "  above 3.0 and still have four fifths of its moveset under 1.0; that\n"
+            "  combination is what 'attacks rarely feel like they connect' looks like."
+        )
+        return 0
+
     if per_move_flag:
         moves = per_move(take)
         if not moves:

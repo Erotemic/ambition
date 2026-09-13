@@ -314,6 +314,59 @@ the thing it prevents.
 Measured 2026-09-12 by NamekAmbition at `4d486ef20`. The consequence for content families is in
 [the queue](queue.md)'s second-family row.
 
+## ✅ Q111 — ANSWERED 2026-09-13 BY A BOUNDARY, NOT A RULING. ONE RULE, AND IT WAS ALREADY TRUE: A COMPOSITION THAT INSTALLS THE CAPABILITY SUPPLIES THE AUTHORITY.
+
+⛔⛤ **THE OPTIONAL READER WAS NOT A JUDGEMENT CALL — ITS JUSTIFICATION WAS FALSE,
+AND FALSE BY A PLUGIN BOUNDARY RATHER THAN BY A COUNT OF GREEN TESTS.**
+`speak_conversation_cut_barks` took `Option<bevy::prelude::Res<CharacterCatalog>>`
+because *"a composition with no catalog (a demo, a headless fixture) must still
+break conversations."* MEASURED at HEAD:
+
+* the system is registered by `FeatureInteractionSchedulePlugin`;
+* `ambition_platformer2d_runtime`'s plugin group adds it
+  (`crates/ambition_platformer2d_runtime/src/lib.rs:469`);
+* **the same group adds `BrainCommandPlugin` eighteen lines later**, and its
+  `apply_brain_commands` takes a **required** `Res<CharacterCatalog>` into the
+  same sim schedule.
+
+⇒ A composition with no catalog panics at `apply_brain_commands` before any bark
+is spoken. **The state the `Option` described cannot exist wherever this system
+runs.** That is the shape a boundary replaces a census with: *"the only readers
+are optional"* is a population count that rots; *"the plugin group that installs
+this also installs a required reader"* does not.
+
+⚠ An UNAUTHORED bark is still not a failure. `npc_ambient_bark_line` answering
+`None` skips the line — that half of the old reason was always right and is
+unchanged. What changed is that "no catalog at all" stopped being spelled the same
+way.
+
+### ⛔⛤ AND THE GUARD WRITTEN TO FORBID EXACTLY THIS READER WAS BLIND TWICE OVER
+
+`engine.character-authority-is-app-local` forbids *"make those resources
+optional"*, and it never objected — for two independent reasons, which is why one
+repair did not surface it:
+
+1. **POSITION.** The line sat past the file's first `#[cfg(test)]`, inside a
+   region the scan truncated. Repaired separately; recorded in
+   [the queue](queue.md).
+2. **SPELLING, which that repair did not touch.** The `forbid` list ENUMERATED
+   `Option<Res<CharacterCatalog>>` and one fully-qualified variant; the code read
+   `Option<bevy::prelude::Res<CharacterCatalog>>`, and matching is raw substring.
+
+⭐⭐ **THE NEEDLE IS SPELLING-INVARIANT NOW: `Res<X>>`, WITH THE DOUBLE ANGLE
+BRACKET.** A required `Res<X>` closes with ONE, so two means the parameter is
+wrapped — and `Option` is the only wrapper this rule is about. It matches every
+qualification of the path because it names none. POISON-VERIFIED: restoring the
+exact spelling that hid for months is caught at `npcs.rs:518`, past the
+`#[cfg(test)]` boundary, so both blindnesses are closed by one arm.
+
+⇒ **THE ANSWER TO (2): ONE RULE, AND `BossCatalog` ALREADY OBEYED IT** — every
+reader required, and `game_assets.rs` panics naming this policy id. The two
+catalogs were never in different states about the RULE; they were in different
+states about whether anything enforced it.
+
+<details><summary>The question as it was posed</summary>
+
 ## Q111 — may `BossCatalog` and `CharacterCatalog` ever be absent, and is that one ruling or two?
 
 `engine.character-authority-is-app-local` (severity `error`) states production code may not
@@ -355,6 +408,8 @@ already exists, while for `BossCatalog` it would be a new exception against a pa
 own policy id.
 
 Measured 2026-09-12 by NamekAmbition at `4d486ef20`.
+
+</details>
 
 ## Q112 — ranged recoil writes velocity directly while the kernel documents a seam for exactly this reaction; should it move, and if not, where is that recorded?
 
@@ -551,6 +606,64 @@ SCENE half — recipes, resource writes, hooks, observers — and its acceptance
 `recovered` rather than `unchanged`) names none of the content work that landed in
 September.
 
+## ✅ Q114 — ANSWERED 2026-09-13, AND TWO OF ITS THREE OPTIONS WERE NEVER IMPLEMENTABLE. The hooks are BEVY's.
+
+⛔⛤ **THE ROW BELOW BLAMED THIS PROJECT'S COMPOSITION. MEASURED AT HEAD, IT IS
+`bevy_render` INSTALLING A HOOK AND OMITTING THE RESOURCE THAT HOOK READS.**
+
+`RenderPlugin::build` adds `ExtractPlugin` — and with it `SyncWorldPlugin`, which
+owns `PendingSyncEntity` — **only when a backend is available**
+(`bevy_render-0.19.1/src/lib.rs`, `if insert_future_resources(…)`). It then adds <!-- cite-ok: a VENDORED crate path under ~/.cargo/registry, not a repo path; there is nothing here to resolve -->
+`CameraPlugin`, `ViewPlugin` and the rest UNCONDITIONALLY, and those register
+`SyncComponentPlugin` REMOVE HOOKS whose body is
+`world.resource_mut::<PendingSyncEntity>()`
+(`bevy_render-0.19.1/src/sync_component.rs`). <!-- cite-ok: same — a vendored crate path --> ⇒ Under `backends: None` the hooks
+exist and the resource does not.
+
+⇒ **SO THE THREE OPTIONS COLLAPSE TO ONE.** *"Keep those Update systems out of
+the profile"* and *"make the hook tolerate a missing world"* are both about code
+this repository does not own — the panicking hook is registered by
+`bevy_render`'s own plugins no matter what `ambition_render` installs. Only
+*"install the resource"* is reachable from here, and `SyncWorldPlugin` is public
+and trivial (one resource, two observers). It is installed in the `NoWindow` arm
+of `build_visible_app`.
+
+### ⛔⛤ AND THE QUEUE ROW NAMED THE WRONG SUBJECT — THOUGH THE TEST BESIDE IT DID NOT
+
+`D-HEADLESS-DESPAWN` read *"spawning a render-synced entity headless is fine;
+DESPAWNING one is fatal"*. **MEASURED: a `Sprite` carries `SyncToRenderWorld` and
+despawns fine — by the direct road AND by the queued-command road the original
+backtrace named.** It is the **CAMERA** that panics, through
+`CameraMainTextureUsages`. The sprite arm is asserted in the guard for exactly
+that reason: it is the half that refutes the framing, and if it ever panics the
+subject really is "any render-synced entity" and the fix needs rethinking.
+
+⚠ **WHAT IT COSTS, STATED RATHER THAN DISCOVERED LATER.** `PendingSyncEntity` is
+drained by `entity_sync_system` in `ExtractSchedule`, which lives in the render
+app this profile does not have — so the queue GROWS with entity churn and is never
+read. It is `pub(crate)` in `bevy_render`, so nothing here can clear it. Bounded
+by churn rather than by frames. That is a leak; it is also strictly better than a
+crash, and it is the only lever this side of the boundary has. ⇒ If a long
+headless sweep ever shows memory growth proportional to spawn/despawn count, this
+is the first place to look, and the real repair is upstream: `SyncWorldPlugin`
+should be installed beside the hooks, not beside the backend.
+
+⭐⭐ **AND THE ARM THAT RECORDED THIS FLIPPED ITSELF.**
+`a_no_window_app_still_cannot_despawn_a_camera` was `#[should_panic]` and its doc
+said *"when the upstream hook learns to tolerate a missing render world, THIS TEST
+FAILS LOUDLY and whoever fixed it deletes the `should_panic` and the `still_` in
+the name."* It failed loudly on the same run as the fix. ⇒ A recorded gap that
+names its own expiry condition costs nothing and pays for itself once. ⚠ Its own
+first line ALSO already said the class is *"ANY `Camera` ENTITY"* — so it was the
+QUEUE ROW's wider wording that misled, not the test. That distinction is
+FALSIFIABLE now rather than merely stated: the renamed
+`a_no_window_app_can_despawn_a_camera` asserts the sprite half too, plus the
+queued-command road the original backtrace named, with the no-`RenderApp` premise
+<!-- cite-ok: `RenderApp` is BEVY'S type, not one this tree defines --> asserted
+first. Poison-verified — removing the plugin reproduces the exact original panic.
+
+<details><summary>The question as it was posed</summary>
+
 ## Q114 — for a `NoWindow` / `backends: None` profile, should the render-sync hooks be absent, served, or tolerant?
 
 The queue row `D-HEADLESS-DESPAWN` ends *"NOT DECIDED. Whether the fix is to
@@ -579,6 +692,8 @@ with `backends: None` installs the presentation half at all.
 PROFILE, not the machine. An agent box with no discrete GPU still reports a
 working software adapter, and `VisibleRenderMode::OffscreenGpu` composes a render
 app there.
+
+</details>
 
 ## ✅ Q116 — CLOSED 2026-09-12 AS A CORRECTNESS REPAIR. It was a defect, and the fix was the QUANTIZATION, not the constant.
 
@@ -2192,6 +2307,45 @@ direction.
 `SheetRecord` and `BossCatalog` a rollback timeline's identity should bind. That
 is a design pass, not a cleanup.
 
+### ⛔⛤ AND THE OBVIOUS INSTRUMENT CANNOT ANSWER IT — MEASURED 2026-09-13, WITH THE REFUTATION COMMITTED
+
+The 2026-09-13 review's instruction was *"answer it from CONSUMERS, not from
+taste"*, which is right and is the same rule the row above already states. The
+obvious derivation — for each field, which crates read `.field`, classify the
+crates — **was written, run, and it FAILS**:
+(`scripts/measure_identity_field_consumers.py`) reports **50 of 50 fields
+MECHANICAL and ZERO presentation**, including all five the row above names as
+presentation by their own doc comments (`portrait`, `voice`, `ranged_vfx`,
+`dream_seed`, `sprite_filenames`).
+
+⇒ **BECAUSE A FIELD NAME IS NOT AN IDENTITY.** `git grep -F ".portrait"` matches
+every struct in the workspace spelled that way; `.id`, `.body`, `.sheet`, `.key`,
+`.target`, `.rows` and `.image` each collect most of the tree. The query answers
+*"does any crate use this WORD"* — and answers it with a table that looks like a
+finished census.
+
+⭐⭐ **THE SCRIPT IS COMMITTED WITH A CONTROL THAT PRINTS THE REFUTATION ON EVERY
+RUN**, so the table can never be quoted as an answer: the five known-presentation
+fields are classified in front of the reader, the instrument disagrees with five
+of five, and the run says so in those words. A version that ever agrees with them
+is the one worth reading. ⇒ **A committed wrong instrument that announces its own
+wrongness is worth more than no instrument**, because the next person's first idea
+is this one.
+
+⇒ **WHAT WOULD ANSWER IT, neither of which is a grep:**
+1. **rust-analyzer references** on each field DECLARATION — type-aware, returns
+   the real reader set; the workspace already has a rust-analyzer surface.
+2. **SEAL THE FIELD AND READ THE COMPILER.** Make it private or rename it, and
+   every genuine reader becomes an error with a file and a line. That method does
+   not depend on a spelling and this repository has used it before.
+
+⚠ **AND THE SUBJECT MAY NOT BE THESE THREE STRUCTS.**
+`PreparedCharacterOverrides` is already private to its module, so its fields have
+almost no DIRECT readers — the values flow into `PreparedCharacter` and
+`CharacterDefinition`, and those are what a reader census has to be about.
+Establishing that is step one for whoever picks this up, and it is the kind of
+thing the failed instrument above would have hidden.
+
 ## Q123 — A10's "invisible candidate" is proven for ordinary QUERIES and nothing else
 
 ✅ **HIDDEN AT MINT AS OF `ebfcda0ee`** — the marker goes on in the same command
@@ -2280,6 +2434,46 @@ component.
 ⇒ **WHAT WOULD CLOSE THE REST:** a structural reason no hook can observe a
 partial publication (or an upstream way to ask), and an arm for a collector that
 walks archetypes rather than querying.
+
+## ✅ Q124 — WITHDRAWN 2026-09-13. THE GAMEPLAY RULE IS ALREADY ASSERTED IN PRODUCTION; WHAT REMAINS IS AN A10 IMPLEMENTATION REQUIREMENT.
+
+⛔⛤ **THE THREE OPTIONS BELOW WERE THE WRONG QUESTION, AND THE ANSWER WAS IN THE
+TEST THAT PRODUCED THE MEASUREMENT.** I asked Jon to choose between *"a death
+destroys what you hold"*, *"the room does not replan a placement in custody"* and
+*"the plan adopts the live occurrence"* — three KIND-shaped or ROAD-shaped rules.
+`game/ambition_app/tests/death_restores_the_checkpoint.rs` already states the rule
+and it is **TEMPORAL**, which none of the three is:
+
+* *"the reward was acquired before any checkpoint, so a death owes it back to the
+  world"*;
+* *"acquiring the reward was COMMITTED at C1, so a death must leave it in hand and
+  must not re-author it on its pedestal"*;
+* and the beat the file itself calls *"THE BEAT THAT KILLS THE ITEM-KIND
+  READING"* — two objects **of the same kind, held by the same body, in the same
+  frame**, reaching OPPOSITE answers, separated only by which side of the
+  checkpoint each acquisition fell on.
+
+⇒ **THE RULE IS: A RESTORE REBUILDS THE ROSTER THE CHECKPOINT RECORDED.** If the
+checkpoint saw the placement on its pedestal, the room re-authors it and the held
+copy must not exist. If the checkpoint saw it in custody, it stays in hand and the
+room must NOT plan it. **No ruling is owed** — and any of my three options would
+have CONTRADICTED an arm that ships, because each has one answer for two objects
+this test requires to differ.
+
+⭐⭐ **SO WHAT IS LEFT IS ENGINEERING, AND IT IS A10's:** a room reconstruction
+performed under a checkpoint restore must take the checkpoint's CUSTODY ROSTER as
+a transaction INPUT, so the plan and the baseline agree about which placements the
+world owes. The duplicate the instrument found is not a gameplay ambiguity; it is a
+transaction built from a plan that never received one of its inputs.
+
+⚠ **IF JON DISAGREES, THE THING THAT MOVES IS THE TEST, NOT THIS ROW.** The rule
+is asserted in production and the assertions name their reasons; a different rule
+is a change to `death_restores_the_checkpoint`, which is where it would have to be
+argued. That is why this is withdrawn rather than left pending: a question whose
+answer is already enforced by a shipped arm is not a question, it is a row nobody
+re-derived.
+
+<details><summary>The question as it was posed, kept because the MEASUREMENT is still the receipt for A10's requirement</summary>
 
 ## Q124 — a DEATH-RESET rebuilds a room around the placement you are still CARRYING, and duplicates its identity
 
@@ -2476,6 +2670,8 @@ green again on restore):**
 ⚠ **A10's LAST STEP IS NOW HELD ON THIS ROW ALONE** — a gameplay ruling about a
 placement in your custody when a death rebuilds the room that authored it. The
 ordering half needed no ruling and is done.
+
+</details>
 
 ## ✅ Q125 — CLOSED 2026-09-13. A relation gets its two endpoints and nothing else.
 

@@ -387,6 +387,37 @@ pub fn collect_perception_projectiles(
 #[derive(bevy::prelude::Component, Default)]
 pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 
+/// This body's SENSES COULD NOT BE DECIDED, so it does not decide at all.
+///
+/// ⛔⛤ **A MISSING `Perception` READS AS `Omniscient`, SO A REFUSAL WAS AN
+/// UPGRADE — REVIEW, 2026-09-13.** [`ensure_perception`] returns without
+/// attaching anything when a shell-routed session cannot say what its actors can
+/// see (`perception_extent_for` answers `None`). The bodies it declined to decide
+/// for were left with NO [`Perception`] component — which the target derivation
+/// reads as [`Perception::Omniscient`], *"the body simply KNOWS"*. ⇒ **The most
+/// capable mode in the game was the fallback for not knowing**, which is the
+/// fail-open shape this module spends its length removing.
+///
+/// ⭐⭐ **THE FIX IS NOT A THIRD PERCEPTION MODE.** Inventing a blind or
+/// zero-viewport variant would be alternate AI MECHANICS invented by a failure
+/// path — a body that hunts differently because its session is mid-transition.
+/// This is INVALIDATION: the body is out of the decision phase entirely until its
+/// senses are decided, exactly as [`crate::features::ecs::dormancy::Dormant`]
+/// takes a sleeping brain out of it. The body still integrates, still falls,
+/// still takes hits; it simply does not choose.
+///
+/// ⚠ **ABSENCE STILL MEANS `Omniscient`, AND DELIBERATELY SO.** A player brain, a
+/// boss and a seated match fighter all carry no `Perception` BY POLICY —
+/// documented above `ensure_perception`. What was wrong was that a REFUSAL was
+/// spelled the same way as that policy. Two facts, one representation; now two.
+///
+/// ⚠ NOT ROLLBACK STATE, for the same reason `Dormant` is derived every tick: it
+/// is re-decided from the session's own mechanics whenever they are present, and
+/// it is REMOVED in the same command as the `Perception` insert — so no frame
+/// exists where a body carries both.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SensesUndecided;
+
 /// Grant SIGHTED perception to every non-boss brained actor that lacks it: a
 /// [`Perception::Sighted`] policy (bounded viewport + memory pursuit) AND the
 /// [`PerceptionMemory`] belief store it pursues from. Runs before the brain tick.
@@ -433,7 +464,7 @@ pub fn ensure_perception(
         >,
     >,
     bodies: bevy::prelude::Query<
-        bevy::prelude::Entity,
+        (bevy::prelude::Entity, bevy::prelude::Has<SensesUndecided>),
         (
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
@@ -471,21 +502,42 @@ pub fn ensure_perception(
         generation.as_deref(),
         extent.as_deref(),
     ) else {
-        // ⛔ A shell session with no generation must not hand out senses derived
-        // from the App. Attaching none leaves these bodies without `Perception`,
-        // which the target derivation reads as `Omniscient` — the basic mode a
-        // fixture with no perception wiring already gets — rather than giving
-        // them a range the live generation never described. The room road refuses
+        // ⛔⛤ **A SHELL SESSION WITH NO GENERATION MUST NOT HAND OUT SENSES
+        // DERIVED FROM THE App — AND FOR A DAY IT HANDED OUT THE BEST ONES
+        // INSTEAD.** This used to `return`, leaving these bodies with no
+        // `Perception` at all; the target derivation reads that as
+        // `Omniscient`, *"the body simply KNOWS"*. ⇒ The refusal was an
+        // UPGRADE. Found by review 2026-09-13; see [`SensesUndecided`].
+        //
+        // ⭐ The bodies are marked instead, which takes them out of the
+        // decision phase until their senses are decided. The room road refuses
         // in the same state (`LiveGenerationMechanicsMissing`), so this is the
-        // window before that refusal, not a lasting condition.
+        // window before that refusal — but a window in which an actor can see
+        // the whole level is still a window in which it acts on that.
+        // ⚠ ON THE TRANSITION ONLY, the same discipline `assess_dormancy` keeps
+        // for `Dormant`: re-inserting an identical marker every tick would touch
+        // a component on every waiting body every frame and trip change detection
+        // for anything watching it.
+        for (entity, already_marked) in &bodies {
+            if !already_marked {
+                commands.entity(entity).insert(SensesUndecided);
+            }
+        }
         return;
     };
     let viewport_half = extent.or_default(DEFAULT_VIEWPORT_HALF);
-    for entity in &bodies {
-        commands.entity(entity).insert((
-            Perception::Sighted { viewport_half },
-            PerceptionMemory::default(),
-        ));
+    for (entity, _) in &bodies {
+        // ⛔ THE REMOVAL IS IN THE SAME COMMAND AS THE INSERT, so no frame
+        // exists in which a body carries decided senses AND the marker that says
+        // they are undecided. Two commands would be a window, and a window is
+        // what this whole repair is about.
+        commands
+            .entity(entity)
+            .insert((
+                Perception::Sighted { viewport_half },
+                PerceptionMemory::default(),
+            ))
+            .remove::<SensesUndecided>();
     }
 }
 /// Whether `peer` is one this body can see at all — not itself, and inside the

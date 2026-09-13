@@ -431,14 +431,29 @@ fn the_same_seed_shown_a_different_world_may_decide_differently() {
 /// this asks every rung at every interval a character could plausibly author.
 #[test]
 fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
+    // ⛔⛤ **THIS SWEEP CALLS THE QUANTIZER. THE VERSION IT REPLACES DID NOT.**
+    // The first repair asserted `noise * interval > 0.0` over the authored
+    // ladder — arithmetic ABOUT the ladder, not a test OF `jitter_ticks` — so a
+    // quantizer rewritten back to `round()` would have left it green while the
+    // top rung went frame-perfect again. A guard that names what it protects
+    // must call it.
     let mut unreachable = Vec::new();
     for interval in 1..=10u32 {
         for level in 1..=9u8 {
             let noise = FighterBrainProfile::for_level(level).execution_noise;
+            if noise <= 0.0 {
+                continue;
+            }
             let span = noise * interval as f32;
-            // `P(jitter >= 1) = span / 2` under probabilistic quantization, so
-            // reachability is exactly "the span is not zero".
-            if noise > 0.0 && span <= 0.0 {
+            // Sweep the unit square the two draws live in. `reached` is "some
+            // (sample, dither) pair this quantizer can actually be handed
+            // produces at least one tick" — which is the whole claim.
+            let reached = (0..=20).any(|s| {
+                (0..=20).any(|d| {
+                    super::jitter_ticks(s as f32 / 20.0, d as f32 / 20.0, span) >= 1
+                })
+            });
+            if !reached {
                 unreachable.push((level, interval, noise, span));
             }
         }
@@ -447,6 +462,15 @@ fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
         unreachable.is_empty(),
         "a rung's execution noise cannot move a press at some authorable \
          decision interval: {unreachable:?}",
+    );
+
+    // ⛔ AND THE QUANTIZER MUST STILL BE ABLE TO SAY ZERO, or "never a no-op"
+    // would have been bought by making every press late — which §1.3 would call
+    // a different game just as loudly as a frame-perfect one.
+    assert_eq!(
+        super::jitter_ticks(0.0, 1.0, 0.5),
+        0,
+        "the quantizer cannot produce an on-time press any more"
     );
 
     // ⛔ AND THE ORDER IS THE OTHER HALF. "Small numbers, never zero" is two

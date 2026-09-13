@@ -2655,3 +2655,89 @@ fn an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation
          speaks for is every other system running in the same frame."
     );
 }
+
+/// ⛔⛤ **THE CANDIDATE ISOLATION WAS PROVEN FOR ORDINARY GAMEPLAY QUERIES AND
+/// NOTHING ELSE — AND THE COLLECTOR THAT MATTERS MOST IS THE ROLLBACK SNAPSHOT.**
+///
+/// A candidate that entered a GGRS save would be restored into the LIVE world by
+/// the next rewind: an unpublished, unvalidated scene arriving as history. That
+/// is a strictly worse outcome than the half-visible scene
+/// `commit_inactive` exists to prevent, and nothing anywhere asserted it could
+/// not happen.
+///
+/// ⭐⭐ **MEASURED IN THE DEPENDENCY, THEN PINNED HERE AS THE MECHANISM.**
+/// `bevy_ggrs-0.22.0` collects snapshot state through ORDINARY queries —
+/// `component_snapshot.rs:69` is `Query<(&RollbackId, &S::Target)>`, its restore
+/// is `Query<(Entity, &RollbackId, Option<&mut S::Target>)>`, and
+/// `entity.rs:42` is `Query<(&RollbackId, Entity)>`. **Not one of them mentions
+/// [`super::InactiveCandidate`]**, so `DefaultQueryFilters` excludes candidates
+/// from the save, the restore and the entity map alike.
+///
+/// ⚠ **SO THIS ARM DOES NOT TEST `bevy_ggrs` AND MUST NOT BE READ AS DOING SO.**
+/// It pins the half that is ours: that a multi-component tuple query in exactly
+/// that SHAPE, which does not name the marker, sees nothing. The other half —
+/// that the dependency's queries have that shape — is a reading of a pinned
+/// version, and a `bevy_ggrs` upgrade is where it has to be re-read.
+///
+/// ⇒ If the isolation ever needs to survive a collector that walks archetypes
+/// directly, this arm is where the difference will show up as a comment that
+/// stopped being true.
+#[test]
+fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
+    use bevy::prelude::{Component, With};
+
+    /// Stands in for `bevy_ggrs::RollbackId` — the component every snapshot
+    /// query pairs with its target.
+    #[derive(Component)]
+    struct RollbackIdLike;
+
+    /// Stands in for `S::Target`, the rollback-registered gameplay component.
+    #[derive(Component)]
+    struct SnapshotTarget;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+
+    let live = world.spawn((RollbackIdLike, SnapshotTarget)).id();
+    let candidate = world
+        .spawn((RollbackIdLike, SnapshotTarget, super::InactiveCandidate))
+        .id();
+
+    // ⛔ THE PREMISE: the live body IS collected. Without it, "the candidate is
+    // not collected" is satisfied by a query that collects nothing at all —
+    // which is exactly how an empty corpus prints `ok`.
+    let collected: Vec<Entity> = world
+        .query_filtered::<Entity, (With<RollbackIdLike>, With<SnapshotTarget>)>()
+        .iter(&world)
+        .collect();
+    assert!(
+        collected.contains(&live),
+        "the snapshot-shaped query did not collect the LIVE body, so its silence \
+         about the candidate proves nothing"
+    );
+    assert!(
+        !collected.contains(&candidate),
+        "a candidate is visible to a query shaped exactly like the rollback \
+         snapshot's, so it would be SAVED — and the next rewind would restore an \
+         unpublished, unvalidated scene into the live world as history"
+    );
+
+    // ⭐ AND PUBLICATION IS WHAT ADMITS IT, here as everywhere else: the same
+    // query sees it the moment the marker comes off, with nothing copied or
+    // re-identified.
+    let transaction = world
+        .get::<TransactionId>(candidate)
+        .cloned()
+        .unwrap_or_else(|| scope().transaction(SessionSpawnScope::UNSCOPED));
+    world.entity_mut(candidate).insert(transaction);
+    world.entity_mut(candidate).remove::<super::InactiveCandidate>();
+    let collected: Vec<Entity> = world
+        .query_filtered::<Entity, (With<RollbackIdLike>, With<SnapshotTarget>)>()
+        .iter(&world)
+        .collect();
+    assert!(
+        collected.contains(&candidate),
+        "publication removed the marker and the snapshot-shaped query still \
+         cannot see the body, so the isolation does not lift"
+    );
+}

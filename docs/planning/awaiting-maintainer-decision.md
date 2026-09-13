@@ -1583,10 +1583,33 @@ authorization that covers the INTERVAL and is broken EARLY (breaking it cancels
 the whole shell transaction, so neither half activates), or a lifecycle that
 stops and rebases rollback as part of the same transaction.
 
-⇒ **WHAT WOULD CLOSE THIS:** one ordering measurement at
-`maintain_local_session` versus `commit_content_generation`. If the transition is
-impossible, encode the impossibility as a schedule invariant and the two arms
-above flip to assert the refusal. If it is possible, the lease packet is real.
+⭐⭐ **THE ORDERING MEASUREMENT IS TAKEN, 2026-09-12, AND THE ANSWER IS THAT
+NOTHING ORDERS THEM.** `nothing_orders_the_rollback_session_start_against_the_generation_commit`
+(`game/ambition_app/tests/reload_publication_is_installed.rs`) walks the shipped
+`Update` dependency graph and finds NO path in either direction between
+`LocalSessionSet::Maintain` — where `maintain_local_session` starts the GGRS
+session — and `commit_content_generation`. ⇒ The two are AMBIGUOUS: Bevy is free
+to run them in either order, so a schedule invariant does not exist to be
+appealed to, and *"the transition is impossible"* is not available as an answer.
+
+⛔⛤ **THE CONTROL IS WHAT MAKES THAT NEGATIVE WORTH ANYTHING.** *"No path
+exists"* and *"my traversal cannot find a path"* are indistinguishable from the
+outside, so the same traversal is first asked a question whose answer this file
+already asserts directly — `AmbitionGameShellSet::Pending` → the commit — and
+must find it.
+
+⚠ **WHAT THE MEASUREMENT DOES AND DOES NOT SAY.** It says the ORDER is
+unconstrained, which is necessary for the crossing and is exactly what a schedule
+invariant would have to fix. It does NOT by itself show that a session start
+occurs inside a pending generation's window — that needs the two to co-occur, and
+the plausible road is that a reload re-prepares the route the shell is already
+on, so the session world is torn down and rebuilt while the generation waits.
+
+⇒ **SO THE PACKET IS REAL AND THE REMAINING QUESTION IS NARROWER:** an
+authorization covering the INTERVAL, broken EARLY so that breaking it cancels the
+whole shell transaction (neither half activates), or a lifecycle that stops and
+rebases rollback as part of the same transaction. ⛔ Not a second
+`publication_boundary` call at the commit — see above.
 
 ## Q119 — RULED BY THE REVIEW, RECORDED FOR THE AUDIT TRAIL: which App authorities are MECHANICAL?
 
@@ -1622,3 +1645,205 @@ rest of `PlatformerSessionBuilder`'s inputs, and the live developer-edit
 resources (`ActiveMovementTuning`, `Platformer2dFeelTuningMonolith`,
 `EditableAbilitySet`, `EditablePlayerStats`, `DeveloperTools.player_body_profile`)
 which are the SECOND row of the table and have no answer yet.
+
+## Q120 — which rollback model do LIVE DEVELOPER MECHANICAL EDITS get: refusal, rebase, or deterministic input?
+
+⛔⛤ **THE GAP IS MEASURED, NOT ARGUED. `game/ambition_app/tests/developer_edits_under_rollback.rs`.**
+
+`rollback_coverage.rs` waives `ActiveMovementTuning` and
+`Platformer2dFeelTuningMonolith` with the reason *"forward-only"* — a developer
+knob, not per-frame simulation state. **That answers the wrong question.** Under
+rollback the question is not *"do we want to rewind this value"* but **"can its
+value affect the simulation of a HISTORICAL frame"**, and it can:
+
+```text
+frame 100:  jump_speed = A       simulated, checksummed
+frame 101:  a developer edits it → B
+frame 102:  rollback to frame 98
+            ... resimulate 98..102 — now reading B
+```
+
+**MEASURED 2026-09-12 against the real GGRS sync-test canary** (save every frame,
+rewind 4, resimulate the same inputs, compare checksums): editing
+`ActiveMovementTuning` mid-timeline **DESYNCS**. The control — the same forty
+frames with no edit — stays healthy, so it is the edit and not the rig.
+
+⚠ **THE FEEL-TUNING ARM DID NOT DESYNC, AND THAT IS NOT AN ACQUITTAL.** The
+scripted inputs never reached the double-tap term; the arm prints which of the
+two happened rather than asserting the one that flatters the resource.
+
+⇒ **WHAT IS NOT MEASURED AND IS EXACTLY THE DECISION:** which of the three
+coherent models this wants. The review that found it names them:
+1. **Refuse** mechanical live edits while a rollback timeline is active — simplest
+   and safest; the developer gets *"requires local rebase / session restart"*.
+2. **Rebase** — the edit becomes a generation change and a bounded
+   reconstruction, which is the shape A10 is already building.
+3. **Deterministic timestamped input** — possible, substantially more machinery
+   (a simulation tick, serialization, replay semantics, network policy).
+
+⛔ **WHAT IS NOT COHERENT IS TODAY'S:** a mutable mechanical input outside
+rollback history that resimulation reads at its latest value.
+
+⚠ **AND THE SAME QUESTION IS OWED BY FOUR MORE**, all with live-edit writers and
+no rollback coverage: `EditableAbilitySet` (mutates rollback-controlled body
+abilities), `EditablePlayerStats` (health/mana/offense, through a
+`Local<PlayerStatsSyncSnapshot>` that is itself unrestored),
+`DeveloperTools.player_body_profile`, and `PhysicsSandboxSettings`/`PortalTuning`
+which carry the same *"forward-only"* waiver.
+
+⇒ **THE WAIVER'S RULE NEEDS REPLACING EITHER WAY** — see `Q119`. *"A mechanical
+resource can be omitted from rollback only if it is immutable for the lifetime of
+the rollback timeline, derived entirely from registered historical state, or
+represented as deterministic external input. 'Forward-only' by itself is not a
+rollback category."*
+
+## ✅ Q121 — CLOSED 2026-09-12. A prepared generation now MEANS its frozen mechanical values.
+
+`PreparedPlatformerSession` carries `FrozenMechanicalState` — the prepared cast,
+the authored sheets and the boss catalog, CLONED in the same system that takes the
+identity — and `PlatformerSessionBuilder::build` consumes it. ⛔ **The three `Res`
+handles are GONE from the `SystemParam`**, so reading the live registry at
+activation is a compile error rather than a discipline. POISON-VERIFIED: putting
+`&self.boss_catalog` back into `build` fails with *"no field `boss_catalog` on
+type `&mut PlatformerSessionBuilder`"*.
+
+⚠ **THE COST IS A CLONE PER PREPARED SESSION AND THAT IS THE POINT.** Holding a
+handle instead would reintroduce the read-at-activation this removes. The shipped
+cast is 58 characters, so it is bounded and paid once.
+
+⚠ **THE FREEZE CAPTURES THE FOLD, NOT THE PRE-FOLD SOURCE**, and the distinction
+is real: the FINGERPRINT is over `StagedCharacterOverrides` (lossless — see its
+doc), while construction reads the published `PreparedCharacterRegistry`. Freezing
+has to capture the value the builder will actually use, so the two are captured
+from different resources in the same system.
+
+⛔ **WHAT IS NOT COVERED, said plainly:** there is no end-to-end arm that prepares
+a session, MUTATES the registry, activates, and asserts the world was built from
+the frozen value. What is proven is the STRUCTURE — the builder no longer has a
+handle to mutate against — which is the stronger half but not the behavioural one.
+
+<details><summary>The original row, kept because its measurement is the
+evidence</summary>
+
+### Q121 — the prepared generation is a FINGERPRINT, not a FROZEN VALUE: prepare A, construct from B
+
+⛔⛤ **THIS IS THE LAYER THE PREVIOUS FIX EXPOSED, NOT THE PREVIOUS FIX FAILING.**
+`characters.definitions`, `characters.authored-sheets` and `boss.catalog` now
+reach `PreparedContentIdentity` (`215ecc43c`), so the identity finally names the
+mechanical content. **But the identity is taken at PREPARATION and session
+construction re-reads the same MUTABLE App registries at ACTIVATION.**
+
+**MEASURED 2026-09-12.** `PlatformerSessionBuilder` is a `SystemParam` holding
+live handles:
+
+```text
+crates/ambition_platformer2d_provider/src/lifecycle.rs:1385  Option<Res<PreparedCharacterRegistry>>
+                                                     :1404  Res<AuthoredSheets>
+                                                     :1405  Res<BossCatalog>
+```
+
+⇒ Between the fingerprint and the construction, any of the three may be
+replaced — and one of them demonstrably is: **`activate_staged_revision` inserts a
+new `PreparedCharacterRegistry`**, which is the hot-reload road. So a generation
+can be prepared against cast N and have its world built from cast N+1, with the
+identity still claiming N.
+
+⚠ **IT IS THE SAME INTERVAL `Q118` IS ABOUT**, from the other side: Q118 is a
+LEGALITY that goes stale across the window, this is a VALUE that does. A fix for
+one does not fix the other, but a lifecycle that seals the interval would.
+
+⇒ **THE ANSWER THE REVIEW NAMES** is the second row of `Q119`'s table made real:
+a prepared generation should MEAN the frozen mechanical values, not
+*"`PreparedContent` says N, and at activation query whatever these App resources
+contain now"*. Session construction consumes the frozen values.
+
+⚠ **AND IT MATTERS MORE FOR A10, not less:** a last-good-world guarantee is only
+worth having if the candidate's identity identifies the world being constructed.
+
+</details>
+
+## Q122 — which fields of the mechanical registries are MECHANICAL, and which are presentation?
+
+⛔⛤ **THE NEW FINGERPRINT IS OVER-SENSITIVE, AND I INTRODUCED THAT.** Binding the
+three registries exhaustively — by `serde` derive and by declaration TEXT — was
+the right call for completeness and the wrong one for MEANING. Measured, it hashes:
+
+- the sheets' raw declaration RON, so **reformatting a file moves the mechanical
+  identity**;
+- `PreparedCharacterOverrides`'s `portrait`, `voice`, `ranged_vfx`, `dream_seed` —
+  presentation by their own doc comments;
+- `BossCatalog`'s `sprite_filenames`.
+
+✅ **ONE OF THEM IS ALREADY OUT:** the sheets' `origin` — the declaring FILE
+PATH — is removed. *"The same records from a different file"* is a real
+difference to a COLLISION REPORT and no difference at all to what a body
+simulates, and making it move the identity refuses snapshots and reloads for a
+provenance edit.
+
+⚠ **THE FAILURE MODE IS SAFE AND THAT IS WHY THIS IS NOT P0.** Over-sensitivity
+refuses a legitimate restore; under-sensitivity restores a snapshot into the
+wrong world. ⇒ **Do not fix it by hand-listing exclusions** — that is a
+population that rots, and a new presentation field added later would be included
+silently. The shape that holds is an annotation ON the field (`#[serde(skip)]`
+or an equivalent), so the derive stays exhaustive and the default is the safe
+direction.
+
+⇒ **THE DECISION IS THE LIST**: which fields of `PreparedCharacterOverrides`,
+`SheetRecord` and `BossCatalog` a rollback timeline's identity should bind. That
+is a design pass, not a cleanup.
+
+## Q123 — A10's "invisible candidate" is proven for ordinary QUERIES and nothing else
+
+✅ **HIDDEN AT MINT AS OF `ebfcda0ee`** — the marker goes on in the same command
+batch as the root's identity, before the recipe runs, closing the window where a
+component hook or lifecycle observer could see a candidate as an ordinary member
+of the live world.
+
+✅ **THE ROLLBACK-SNAPSHOT HALF IS CLOSED, and it was the one that mattered
+most** — a candidate that entered a GGRS save would be restored into the LIVE
+world by the next rewind: an unpublished, unvalidated scene arriving as history,
+strictly worse than the half-visible scene `commit_inactive` exists to prevent.
+
+**MEASURED in the pinned dependency:** `bevy_ggrs-0.22.0` collects snapshot state
+through ORDINARY queries. ⚠ THE PATHS BELOW ARE IN THE DEPENDENCY, NOT THIS
+REPO, so they are spelled without the `file:line` shape the citation checker
+resolves against the tree: in its snapshot module's component-snapshot file the save is
+`Query<(&RollbackId, &S::Target)>` (line 69) and the restore is
+`Query<(Entity, &RollbackId, Option<&mut S::Target>)>` (line 99); in
+its snapshot entity file the entity map is `Query<(&RollbackId, Entity)>` (line 42). **Not one mentions `InactiveCandidate`**, so
+`DefaultQueryFilters` excludes candidates from the save, the restore and the
+entity map alike. `a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots`
+pins the half that is OURS — that a tuple query in exactly that shape sees
+nothing — with the live body as its premise and publication as its lift.
+Poison-verified: skipping `register_inactive_candidate_filter` reddens it.
+
+⚠ **THE OTHER HALF IS A READING OF A PINNED VERSION.** That `bevy_ggrs`'s queries
+have that shape is not something the arm tests, and a `bevy_ggrs` upgrade is
+where it has to be re-read.
+
+⛔ **STILL UNPROVEN:** physics/global gatherers and anything walking ARCHETYPES
+directly rather than through a filtered query — those do not inherit
+`DefaultQueryFilters` at all.
+
+⛔ **AND PUBLICATION ATOMICITY RESTS ON A POPULATION FACT, NOT A BOUNDARY.**
+`publish_candidate` removes the marker entity-by-entity under `&mut World`, which
+is atomic with respect to SCHEDULED SYSTEMS — none run inside an exclusive world
+call. A component HOOK is not a system: one registered on a published component
+would observe a half-published candidate. The census that says this is safe today
+(**zero component hooks workspace-wide, three lifecycle observers, one an `Add`
+and not on the construction road**) is a population count, and the
+`InactiveCandidate` doc says so itself: *"it is a POPULATION FACT, not a
+boundary, and it is the thing to re-measure before trusting this in a new
+domain."*
+
+⛔⛤ **AND THE HOOK HALF CANNOT BE GUARDED FROM OUTSIDE, MEASURED.** The obvious
+fail-closed move — refuse to publish if `InactiveCandidate` carries a registered
+hook — is not available: `ComponentHooks`'s fields are `pub(crate)` in
+`bevy_ecs-0.19.1` (`lifecycle.rs:150-156`), so `ComponentInfo::hooks()` hands back
+a value nothing outside that crate can interrogate. A census of hooks is
+therefore a `git grep`, which is the population fact this row is complaining
+about, not a replacement for it.
+
+⇒ **WHAT WOULD CLOSE THE REST:** a structural reason no hook can observe a
+partial publication (or an upstream way to ask), and an arm for a collector that
+walks archetypes rather than querying.

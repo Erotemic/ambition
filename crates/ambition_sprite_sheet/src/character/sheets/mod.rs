@@ -230,9 +230,24 @@ impl AuthoredSheets {
     /// ⚠ **THE DECLARATION TEXT, NOT THE PARSED RECORD.** It is what the
     /// provider actually said, it is already retained for collision reporting,
     /// and it needs no serialization contract of its own — two Apps that were
-    /// told the same thing produce the same bytes. The origin rides along
-    /// because "the same records from a different file" is a real difference a
-    /// reader of this fingerprint would want to see.
+    /// told the same thing produce the same bytes.
+    ///
+    /// ⛔⛤ **`origin` WAS IN HERE AND IS OUT, 2026-09-12.** I included the
+    /// declaring FILE because *"the same records from a different file is a real
+    /// difference a reader of this fingerprint would want to see"* — true of a
+    /// collision report, and wrong here. This feeds MECHANICAL identity, which
+    /// `RollbackTimelineContract` compares to decide whether two worlds are the
+    /// same generation. **Moving a declaration between files changes nothing a
+    /// body simulates**, and making it move the identity refuses snapshots and
+    /// reloads for a provenance edit.
+    ///
+    /// ⚠ **THE DECLARATION TEXT IS STILL OVER-SENSITIVE AND THAT IS RECORDED
+    /// RATHER THAN FIXED** — reformatting a sheet RON moves the identity. The
+    /// fail-safe direction is over- rather than under-sensitivity (a false
+    /// difference refuses; a false sameness restores a snapshot into the wrong
+    /// world), so this is a real defect with a safe failure mode. Fixing it
+    /// properly means hashing the PARSED mechanical fields, which is a design
+    /// pass over what in a `SheetRecord` is mechanical — see `Q122`.
     ///
     /// ⚠ Ordered by TARGET, which is the map's own key order, so the dump is a
     /// function of the content rather than of registration order.
@@ -240,8 +255,6 @@ impl AuthoredSheets {
         let mut out = String::new();
         for (target, record) in &self.by_target {
             out.push_str(target);
-            out.push('\t');
-            out.push_str(&record.origin);
             out.push('\t');
             // The declaration is RON with newlines in it, so it is length-
             // prefixed rather than newline-terminated: a declaration containing

@@ -180,3 +180,120 @@ fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
          generation against the PREVIOUS content identity"
     );
 }
+
+/// ⛔⛤ **Q118: NOTHING ORDERS THE ROLLBACK SESSION START AGAINST THE GENERATION
+/// COMMIT, SO THE PUBLICATION-LEGALITY INTERVAL CAN BE CROSSED.**
+///
+/// `admit_candidate` asks `publication_boundary` at REQUEST time and refuses a
+/// live rollback timeline. The generation then waits in `PendingGeneration`
+/// through shell preparation to `RouteActivated`, and
+/// `commit_content_generation` asks nothing — deliberately: *"there is nothing
+/// in it that can say no."* Two arms in `ambition_content`'s reload tests
+/// measure what happens when a timeline goes live inside that window: the
+/// generation publishes into a world the same check would have refused.
+///
+/// ⇒ **THIS IS THE OTHER HALF — WHETHER THE SHIPPED LIFECYCLE CAN PRODUCE IT.**
+/// Those arms install the authority by hand. The road that would do it for real
+/// is `local_session::maintain_local_session`, which runs every `Update` and
+/// starts a GGRS session when gameplay becomes active — and a reload
+/// re-prepares the route the shell is already on, so the session world is torn
+/// down and rebuilt INSIDE the pending interval.
+///
+/// ⭐⭐ **WHAT THIS ASKS IS REACHABILITY IN THE DEPENDENCY GRAPH, NOT A DIRECT
+/// EDGE**, because "ordered" is transitive and a direct-edge check would call an
+/// ordered pair unordered. If there is no path either way, the two are
+/// AMBIGUOUS — Bevy is free to run them in either order, and the interval
+/// crossing is not merely possible but a race.
+#[test]
+fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
+    use std::collections::HashSet;
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(Update)
+        .expect("the Update schedule exists")
+        .graph();
+
+    let commit = NodeId::System(key_of(
+        graph,
+        ambition_content::reload::commit_content_generation,
+    ));
+    let maintain = NodeId::Set(
+        graph
+            .system_sets
+            .get_key(bevy::ecs::schedule::SystemSet::intern(
+                &ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
+            ))
+            .expect(
+                "`LocalSessionSet::Maintain` is a set in the shipped Update schedule — if it \
+                 is not, the GGRS session no longer starts there and this measurement names \
+                 nothing",
+            ),
+    );
+
+    let dependencies = graph.dependency().graph();
+    let reaches = |from: NodeId, to: NodeId| -> bool {
+        let mut seen: HashSet<NodeId> = HashSet::new();
+        let mut stack = vec![from];
+        while let Some(node) = stack.pop() {
+            if node == to {
+                return true;
+            }
+            if !seen.insert(node) {
+                continue;
+            }
+            stack.extend(dependencies.neighbors(node));
+        }
+        false
+    };
+
+    // ⛔⛔ **THE CONTROL, AND WITHOUT IT THE FINDING BELOW IS A CLAIM ABOUT MY
+    // TRAVERSAL RATHER THAN ABOUT THE SCHEDULE.** "No path exists" and "my BFS
+    // cannot find a path" are indistinguishable from the outside, so the same
+    // traversal is first asked a question whose answer is already known: the
+    // commit IS ordered after `AmbitionGameShellSet::Pending` — the arm above
+    // asserts that edge directly.
+    let pending_control = NodeId::Set(
+        graph
+            .system_sets
+            .get_key(bevy::ecs::schedule::SystemSet::intern(
+                &ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending,
+            ))
+            .expect("`AmbitionGameShellSet::Pending` is a set in the shipped Update schedule"),
+    );
+
+    let commit_first = reaches(commit, maintain);
+    let session_first = reaches(maintain, commit);
+
+    // ⚠ THE PREMISE, so a graph that lost both nodes cannot read as "ambiguous".
+    assert!(
+        dependencies.contains_node(commit) && dependencies.contains_node(maintain),
+        "one of the two nodes is not in the dependency graph at all, so neither \
+         direction below means anything"
+    );
+
+    assert!(
+        reaches(pending_control, commit),
+        "the traversal cannot find the ordering edge this file already asserts \
+         directly (`Pending` -> the commit), so its verdict about the rollback \
+         session below is a finding about the traversal"
+    );
+
+    assert!(
+        !(commit_first && session_first),
+        "the graph claims both orders, which is a cycle rather than a measurement"
+    );
+
+    assert!(
+        !commit_first && !session_first,
+        "MEASURED GAP CLOSED? This arm records that NOTHING orders the GGRS \
+         session start against the content-generation commit — so a timeline can \
+         become live between a reload's admission and its publication, which is \
+         the state `publication_boundary` refuses at request time. If an edge now \
+         exists (commit-first: {commit_first}, session-first: {session_first}), \
+         say which way and this arm becomes the assertion that the interval is \
+         sealed. See `Q118`."
+    );
+}

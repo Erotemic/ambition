@@ -33,6 +33,36 @@ fn split_mix_next(seed: &mut u64) -> u64 {
 }
 
 /// The next sample in `[-1, 1)`.
+/// Quantize a jitter span, in ticks, into whole ticks — **probabilistically, so
+/// a nonzero span is never a no-op.**
+///
+/// ⛔⛤ **THIS WAS `(sample * span).round()` INLINE, AND IT MADE THE HARDEST CPU
+/// FRAME-PERFECT.** `round()` returns 0 for every possible sample whenever
+/// `span < 0.5`, and the shipped ladder's rung 9 lands at `0.10 * 5 =
+/// 0.4999999701976776` in f32 — **under the tie by 3e-8**. MEASURED: two seats on
+/// DIFFERENT seeds pressed on IDENTICAL ticks across 600 ticks and 24 presses.
+///
+/// ⭐⭐ **EXTRACTED BECAUSE THE GUARD THAT CLAIMED TO PROTECT IT DID NOT CALL
+/// IT.** The first repair left this inline and asserted `span > 0.0` over the
+/// authored ladder — arithmetic about the ladder, not a test of the quantizer,
+/// so a quantizer rewritten back to `round()` would have left it green. A
+/// function has a name, and a named function can be swept.
+///
+/// `sample` and `dither` are independent draws in `[0, 1]`. The whole ticks are
+/// taken always; the FRACTIONAL tick is taken with probability equal to that
+/// fraction.
+///
+/// ⚠ **P(jitter >= 1) = span/2 HOLDS ONLY FOR `span <= 1`, and the comment this
+/// replaces asserted it unconditionally.** For `span > 1` the whole part alone
+/// already reaches 1 whenever `sample >= 1/span`, so the probability is
+/// `1 - 1/(2*span)` — strictly larger, which is the right direction but not the
+/// stated formula. **Expected jitter is `span/2` at every span**, and that is the
+/// quantity the rung ordering is argued from.
+fn jitter_ticks(sample: f32, dither: f32, span: f32) -> u32 {
+    let ticks = sample * span;
+    ticks.floor() as u32 + u32::from(dither < ticks.fract())
+}
+
 fn next_signed_unit(seed: &mut u64) -> f32 {
     let bits = split_mix_next(seed);
     // 53 bits into [0,1), then mapped — the same shape as an f64 uniform, at f32
@@ -505,8 +535,11 @@ fn decide(
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();
             let dither = next_signed_unit(&mut state.noise).abs();
-            let ticks = sample * cfg.profile.execution_noise * cfg.interval() as f32;
-            ticks.floor() as u32 + u32::from(dither < ticks.fract())
+            jitter_ticks(
+                sample,
+                dither,
+                cfg.profile.execution_noise * cfg.interval() as f32,
+            )
         } else {
             0
         };

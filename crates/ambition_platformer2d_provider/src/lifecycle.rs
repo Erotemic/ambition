@@ -274,6 +274,11 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_characters::prepared::StagedCharacterOverrides>>,
         Option<Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>>,
         Option<Res<'w, ambition_boss_encounter::BossCatalog>>,
+        // ⛔ THE FOLD, not the pre-fold source above: the fingerprint is over
+        // `StagedCharacterOverrides` (lossless) while session construction reads
+        // the published registry, so FREEZING has to capture the value the
+        // builder will actually use. See `FrozenMechanicalState`.
+        Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -570,38 +575,50 @@ impl PlatformerPreparation<'_> {
                 ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
                     .schema_fingerprint()
             });
-        let content = match prepare_platformer_content(
-            source,
-            &authored,
-            self.character_catalog_registry.as_deref(),
-            self.placement_lowering.as_deref(),
-            self.content_staging.as_deref(),
-            MechanicalRegistries {
+        // ⛔ THE MECHANICAL MATERIAL IS RENDERED FIRST AND ITS FAILURE IS A
+        // PREPARATION FAILURE, routed through the SAME arm as every other
+        // diagnostic below — see `canonical`. A dump that cannot be rendered has
+        // no identity, so this refuses rather than hashing an error string.
+        let content = match canonical(
+            self.content_inputs.3.as_deref(),
+            ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump,
+            "characters.definitions",
+        )
+        .and_then(|prepared_cast| {
+            Ok(MechanicalRegistries {
                 construction_recipes: self
                     .content_inputs
                     .0
                     .as_deref()
                     .map(ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog::deterministic_dump),
                 content_pack: self.content_identity_for(transaction),
-                prepared_cast: self
-                    .content_inputs
-                    .3
-                    .as_deref()
-                    .map(ambition_characters::prepared::StagedCharacterOverrides::deterministic_dump),
+                prepared_cast,
+                // ⚠ INFALLIBLE: the sheet dump is the provider's own declaration
+                // TEXT, already retained, with no serialization step to fail.
                 authored_sheets: self
                     .content_inputs
                     .4
                     .as_deref()
                     .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump),
-                boss_catalog: self
-                    .content_inputs
-                    .5
-                    .as_deref()
-                    .map(ambition_boss_encounter::BossCatalog::deterministic_dump),
-            },
-            snapshot_schema,
-            &mut self.epochs,
-        ) {
+                boss_catalog: canonical(
+                    self.content_inputs.5.as_deref(),
+                    ambition_boss_encounter::BossCatalog::deterministic_dump,
+                    "boss.catalog",
+                )?,
+            })
+        })
+        .and_then(|mechanical| {
+            prepare_platformer_content(
+                source,
+                &authored,
+                self.character_catalog_registry.as_deref(),
+                self.placement_lowering.as_deref(),
+                self.content_staging.as_deref(),
+                mechanical,
+                snapshot_schema,
+                &mut self.epochs,
+            )
+        }) {
             Ok(content) => content,
             Err(diagnostic) => {
                 self.fail(
@@ -618,7 +635,27 @@ impl PlatformerPreparation<'_> {
         };
         let identity = self.sessions.0.publish(
             transaction,
-            PreparedPlatformerSession { content, report },
+            PreparedPlatformerSession {
+                content,
+                report,
+                // ⛔ FROZEN HERE, in the same system that took the identity, so
+                // the two cannot describe different worlds.
+                mechanical: FrozenMechanicalState {
+                    characters: self.content_inputs.6.as_deref().cloned(),
+                    sheets: self
+                        .content_inputs
+                        .4
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or_default(),
+                    bosses: self
+                        .content_inputs
+                        .5
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or_default(),
+                },
+            },
             &mut self.registry,
         )?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
@@ -849,15 +886,20 @@ pub fn prepare_platformer_content_for_app(
         .map(|identity| identity.0.clone());
     // ⛔⛤ THE THREE MECHANICAL REGISTRIES SESSION CONSTRUCTION CONSUMES AND
     // NOTHING FINGERPRINTED. See `MechanicalRegistries`.
-    let prepared_cast = ambition_characters::prepared::staged_cast_declaration(app.world());
+    let prepared_cast = ambition_characters::prepared::staged_cast_declaration(app.world())
+        .transpose()
+        .map_err(|error| ContentDiagnostic::new("characters.definitions", error))?;
+    // ⚠ INFALLIBLE: the sheet dump is the provider's own declaration TEXT,
+    // already retained, with no serialization step to fail.
     let authored_sheets = app
         .world()
         .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
         .map(ambition_sprite_sheet::character::sheets::AuthoredSheets::deterministic_dump);
-    let boss_catalog = app
-        .world()
-        .get_resource::<ambition_boss_encounter::BossCatalog>()
-        .map(ambition_boss_encounter::BossCatalog::deterministic_dump);
+    let boss_catalog = canonical(
+        app.world().get_resource::<ambition_boss_encounter::BossCatalog>(),
+        ambition_boss_encounter::BossCatalog::deterministic_dump,
+        "boss.catalog",
+    )?;
     let snapshot_schema = app
         .world()
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
@@ -944,6 +986,24 @@ pub(crate) fn content_identity_for(
 /// list is closed:** the rest of `PlatformerSessionBuilder`'s inputs have not
 /// been audited against the mechanical/derived/presentation classification. This
 /// covers the three the review named and measured.
+/// ⛔⛤ **A CANONICAL DUMP THAT CANNOT BE RENDERED IS A REFUSAL, NOT A STRING.**
+/// The first version of these dumps embedded `<unserializable: {error}>` and
+/// carried on, which fails OPEN into the identity machinery: the fingerprint
+/// becomes a hash of a FAILURE MESSAGE, and two generations that fail the same
+/// way are declared identical — which is exactly the claim
+/// `RollbackTimelineContract` uses to decide a snapshot may be restored into a
+/// world. ⇒ A generation whose mechanical material cannot be rendered has no
+/// identity, so the preparation refuses.
+fn canonical<T>(
+    source: Option<&T>,
+    render: impl Fn(&T) -> Result<String, String>,
+    section: &'static str,
+) -> Result<Option<String>, ContentDiagnostic> {
+    source
+        .map(|value| render(value).map_err(|error| ContentDiagnostic::new(section, error)))
+        .transpose()
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct MechanicalRegistries {
     /// Canonical descriptor-only dump of every installed construction domain.
@@ -1222,6 +1282,36 @@ struct PreparedPlatformerRecord {
 pub struct PreparedPlatformerSession {
     pub content: PreparedContent,
     pub report: PlatformerPreparationReport,
+    /// ⛔⛤ **THE MECHANICAL VALUES THIS GENERATION WAS FINGERPRINTED AGAINST,
+    /// FROZEN AT PREPARATION.**
+    ///
+    /// `PreparedContentIdentity` binds the prepared cast, the authored sheets and
+    /// the boss catalog — and session construction USED TO RE-READ THE SAME
+    /// MUTABLE App registries at activation, so a generation could be prepared
+    /// against cast N and have its world built from N+1 with the identity still
+    /// claiming N. MEASURED: `activate_staged_revision` inserts a fresh
+    /// `PreparedCharacterRegistry`, which is exactly the hot-reload road.
+    ///
+    /// ⇒ **A prepared generation now MEANS the frozen values**, not
+    /// *"`PreparedContent` says N, and at activation query whatever these
+    /// resources contain now"*.
+    pub mechanical: FrozenMechanicalState,
+}
+
+/// The mechanical App registries a session is CONSTRUCTED from, captured when
+/// its identity was taken.
+///
+/// ⚠ **CLONED, AND THE COST IS THE POINT.** These are the values the fingerprint
+/// is over; holding a handle instead would reintroduce the read-at-activation
+/// this exists to remove. The shipped cast is 58 characters, so the cost is
+/// bounded and paid once per prepared session.
+#[derive(Clone, Debug, Default)]
+pub struct FrozenMechanicalState {
+    /// `None` where the composition published no cast — a real state, and not a
+    /// missing value.
+    pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
+    pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    pub bosses: ambition_boss_encounter::BossCatalog,
 }
 
 #[derive(Resource, Default)]
@@ -1330,6 +1420,7 @@ fn activate_prepared_platformer_sessions(
             activation,
             *scope,
             prepared.content,
+            &prepared.mechanical,
             default_character.as_str(),
         );
     }
@@ -1347,7 +1438,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// The prepared cast, when this composition registered one. Activation builds
     /// the player's BODY, and a prepared character states what a body physically
     /// is — its health pool, its mass, its authored box.
-    prepared_characters: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
+
     /// The published controller policies, so an enemy placement may name one
     /// (`EnemySpawnSpec::brain_profile`).
     brain_profiles:
@@ -1366,8 +1457,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     ),
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
-    authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
+
     placement_lowering:
         Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
     content_staging:
@@ -1410,6 +1500,11 @@ impl PlatformerSessionBuilder<'_, '_> {
         activation: &ActiveShellExperience,
         scope: SessionScopeId,
         prepared_content: PreparedContent,
+        // ⛔⛤ **THE FROZEN MECHANICAL STATE, NOT THIS App's CURRENT REGISTRIES.**
+        // The three `Res` handles that used to serve these reads are GONE from
+        // the `SystemParam`, so building from whatever the world contains now is
+        // not something this function can express. See `FrozenMechanicalState`.
+        mechanical: &FrozenMechanicalState,
         default_character_id: &str,
     ) -> SessionBuildResult {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
@@ -1439,7 +1534,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 fallback_abilities: self.editable_abilities.as_engine(),
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
-                prepared_characters: self.prepared_characters.as_deref(),
+                prepared_characters: mechanical.characters.as_ref(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared
@@ -1459,10 +1554,10 @@ impl PlatformerSessionBuilder<'_, '_> {
                     ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                         &self.construction_recipes,
                         &self.character_catalog,
-                        &self.authored_sheets,
+                        &mechanical.sheets,
                         prepared_identity.epoch,
                         None,
-                        self.prepared_characters.as_deref(),
+                        mechanical.characters.as_ref(),
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
                         // has an empty one and builds exactly what it always
@@ -1481,7 +1576,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         self.forced_brains.0.as_deref(),
                         self.forced_brains.1.as_deref(),
                     ),
-                boss_catalog: &self.boss_catalog,
+                boss_catalog: &mechanical.bosses,
                 default_character_id,
             },
         );

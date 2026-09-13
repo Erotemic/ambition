@@ -68,6 +68,18 @@ impl LocalSessionOwnership {
     }
 }
 
+/// May THIS host stop and rebuild the live rollback timeline?
+///
+/// ⭐ **OWNERSHIP, NOT LIVENESS, AND IT IS PUBLISHED BECAUSE TWO SUBSYSTEMS ASK
+/// IT.** A locally maintained sync test is one this process started and may stop;
+/// an `External` session belongs to peers, and a `Caller`-owned one to a match
+/// activation or a harness that did not ask for a rebase. `ambition_content` had
+/// its own copy of this predicate for a day, which is how `Q118`'s lease came to
+/// re-ask half its own question — see [`crate::session::mechanical_mutation_boundary`].
+pub fn locally_rebasable_timeline(world: &World) -> bool {
+    maintained_settings(world).is_some()
+}
+
 /// Return settings only for sync-test sessions owned by the local maintainer.
 /// Caller- or peer-owned sessions are not eligible for maintenance here.
 fn maintained_settings(world: &World) -> Option<super::session::SyncTestSettings> {
@@ -178,6 +190,8 @@ fn decided_or_device_seating(world: &mut World) -> usize {
 pub fn decide_mechanical_edit_admission(world: &mut World) {
     use ambition_platformer2d_core::{MechanicalEditAdmission, PendingMechanicalEdits};
 
+    use crate::session::MechanicalMutationBoundary;
+
     // ⛔ ANY domain, and the decider does not care WHICH. It answers for the
     // whole batch — that is the half of the protocol that is genuinely shared.
     // Which values are in the batch is each domain's own business, and a
@@ -185,23 +199,49 @@ pub fn decide_mechanical_edit_admission(world: &mut World) {
     let pending = world
         .get_resource::<PendingMechanicalEdits>()
         .is_some_and(PendingMechanicalEdits::any_pending);
-    let admission = if !pending || !crate::session::session_is_active(world) {
-        // Nothing proposed, or nothing to protect. The next baseline — if one is
-        // ever started — starts with whatever the edit leaves behind.
-        MechanicalEditAdmission::Publish
-    } else if maintained_settings(world).is_some() {
-        crate::session::stop_session(world);
-        if let Some(mut state) = world.get_resource_mut::<LocalSessionOwnership>() {
-            state.release();
+    if !pending {
+        world.insert_resource(MechanicalEditAdmission::Publish);
+        return;
+    }
+    // ⛔⛤ **THE SHARED PROJECTION, NOT A SECOND CLASSIFICATION.** This used to
+    // branch on `session_is_active` + ownership and never consult HEALTH, while
+    // `Q118`'s publication road refused an unhealthy authority outright — two
+    // subsystems independently defining what "mechanical mutation is legal around
+    // rollback" means, which had already produced one defect. See
+    // `crate::session::mechanical_mutation_boundary`.
+    let admission = match crate::session::mechanical_mutation_boundary(world) {
+        // Nothing to protect. The next baseline — if one is ever started —
+        // starts with whatever the edit leaves behind.
+        MechanicalMutationBoundary::NoTimeline => MechanicalEditAdmission::Publish,
+        MechanicalMutationBoundary::LocallyRebasable => {
+            crate::session::stop_session(world);
+            if let Some(mut state) = world.get_resource_mut::<LocalSessionOwnership>() {
+                state.release();
+            }
+            bevy::log::info!(
+                target: "ambition_platformer2d::rollback",
+                "a pending mechanical edit stopped the local rollback baseline; the \
+                 session owner will rebase it onto the edited mechanics"
+            );
+            MechanicalEditAdmission::Publish
         }
-        bevy::log::info!(
-            target: "ambition_platformer2d::rollback",
-            "a pending mechanical edit stopped the local rollback baseline; the \
-             session owner will rebase it onto the edited mechanics"
-        );
-        MechanicalEditAdmission::Publish
-    } else {
-        MechanicalEditAdmission::Refuse
+        MechanicalMutationBoundary::ForeignTimeline => MechanicalEditAdmission::Refuse,
+        // ⛔⛤ **AND THIS ARM IS NEW: AN UNHEALTHY TIMELINE REFUSES TOO.** A
+        // recorded divergence must not be crossed by a mechanical mutation under
+        // any model either row lists. ⚠ It was SAFE before this arm existed, for
+        // a reason neither feature stated — `stop_session` stands the authority
+        // DOWN rather than removing it, and `ActiveRollbackAuthority::installed`
+        // refuses to launder a divergence into a fresh timeline — but "safe
+        // because something else happens to hold" is not a policy.
+        MechanicalMutationBoundary::Unhealthy(reason) => {
+            bevy::log::warn!(
+                target: "ambition_platformer2d::rollback",
+                "a pending mechanical edit was refused: the rollback authority has \
+                 recorded a divergence ({reason}). Rebasing across it would carry \
+                 the edit into a timeline that is already known to disagree."
+            );
+            MechanicalEditAdmission::Refuse
+        }
     };
     world.insert_resource(admission);
 }
@@ -591,6 +631,57 @@ mod mechanical_edit_admission_tests {
         assert_eq!(
             *world.resource::<MechanicalEditAdmission>(),
             MechanicalEditAdmission::Publish
+        );
+    }
+
+    /// ⛔⛤ **AN UNHEALTHY TIMELINE REFUSES THE EDIT TOO — THE ARM `Q118` AND
+    /// `Q120` EACH ASSUMED THE OTHER HAD.**
+    ///
+    /// Before the two rows shared one boundary projection, this decision branched
+    /// on *session active + ownership* and never consulted HEALTH, while the
+    /// content publication road refused an unhealthy authority outright. A
+    /// recorded divergence is a state no model in either row permits a mechanical
+    /// mutation across.
+    ///
+    /// ⚠ **IT WAS SAFE WITHOUT THIS ARM, FOR A REASON NEITHER FEATURE STATED**,
+    /// which is exactly why the arm exists rather than a comment: `stop_session`
+    /// STANDS THE AUTHORITY DOWN rather than removing it, and
+    /// `ActiveRollbackAuthority::installed` refuses to launder a divergence into
+    /// a fresh timeline — so a rebase could not have healed one. *"Safe because
+    /// something else happens to hold"* is a coincidence one refactor away from
+    /// being false.
+    #[test]
+    fn an_unhealthy_timeline_refuses_a_mechanical_edit_rather_than_rebasing_across_it() {
+        let mut world = world_with_live_session(local());
+        // ⚠ THE PREMISE, and it is the load-bearing half: this ownership is one
+        // this host COULD rebase, so a refusal below is about HEALTH and not
+        // about ownership.
+        assert!(
+            crate::local_session::locally_rebasable_timeline(&world),
+            "the fixture's session is not locally rebasable, so refusing it says \
+             nothing about health"
+        );
+        world
+            .resource_mut::<ambition_platformer2d_runtime::rollback::ActiveRollbackAuthority>()
+            .invalidate("a deliberate desync, for this test".to_string());
+
+        decide_mechanical_edit_admission(&mut world);
+
+        assert_eq!(
+            *world.resource::<MechanicalEditAdmission>(),
+            MechanicalEditAdmission::Refuse,
+            "a mechanical edit was admitted across a RECORDED DIVERGENCE. The \
+             content publication road refuses the same world, and two features \
+             defining one policy is what produced `Q118`'s half-question lease."
+        );
+        assert!(
+            crate::session::session_is_active(&world),
+            "the unhealthy baseline was STOPPED for a developer edit, which is a \
+             rebase across a divergence"
+        );
+        assert!(
+            world.resource::<PendingMechanicalEdits>().any_pending(),
+            "the refused edit was discarded rather than staged"
         );
     }
 

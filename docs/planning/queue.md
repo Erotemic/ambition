@@ -326,6 +326,29 @@ is neither open nor abandoned:
    PANIC TEXT, the SHA and the machine** — for the panicking victim the message
    is the entire diagnosis.
 
+   ⛔⛤ **A FIFTH VICTIM, 2026-09-13, ON THIS BOX — AND I OBEYED HALF THE STANDING
+   INSTRUCTION, WHICH IS RECORDED HERE RATHER THAN QUIETLY FIXED.**
+   `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+   failed in ONE full `-p ambition_app --test app_it` run, passed in isolation,
+   and passed on the next full run with no change to it. **I captured the NAME
+   and not the panic text** — I grepped the summary lines — and for this victim
+   the text is the whole diagnosis, because:
+
+   ⭐⭐ **IT IS THE SAME SHAPE AS THE RECORDED PANICKING VICTIM, AND THAT IS THE
+   NEW DATUM.** `the_engine_steps_with_and_without::<P>` builds two Apps
+   (`add_headless_foundation` + the engine plugin group, once whole and once with
+   `P` disabled) and calls `update()` eight times each. **It contains NO
+   `assert` at all.** So a failure is necessarily a PANIC during plugin build or
+   the first eight frames — a registry, a `OnceLock`, a `MessageReader` for an
+   unregistered message, or a resource another test left behind. ⇒ Three shapes
+   across five victims, and the panicking shape has now recurred, which is the
+   first repetition the row has seen.
+
+   ⇒ **THE HUNT IS SCRIPTED SO THE NEXT REPRODUCTION KEEPS ITS TEXT:**
+   `scripts/hunt_app_it_flake.sh` runs the binary until it fails and preserves
+   the FULL log of the failing run rather than its summary. That is the whole
+   lesson of my miss.
+
 ⚠ **AND THE REASON THIS SURVEY IS HERE RATHER THAN IN A REPORT:** four of the
 board's rows described defects that were fixed days earlier, one held packet's
 blocker was mis-stated in a way that made it look startable, and three

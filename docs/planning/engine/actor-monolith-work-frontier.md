@@ -570,12 +570,40 @@ those are the only two roads. POISON-VERIFIED at `8ce24653d`: reintroducing the
 struct literal at the death-drop site (`damage_drops.rs:332`) fails
 `cargo check -p ambition_platformer2d_actor_monolith` with `error[E0639]`.
 
-⇒ **WHAT IS STILL OPEN IS NOT THE CONSTRUCTOR.** `drop_held_weapon` mints the
-occurrence's identity, room scope, provenance and attempt state itself, so a
-component-construction seal is not occurrence authority and this packet's
-*"reward policy … does not become an alternative item minting path"* is not yet
-met. ⛔ The remedy is NOT a generic item-request bus to move the count to one;
-[`item-writer-inventory.md`](item-writer-inventory.md) holds why.
+✅ **AND THE OCCURRENCE HALF IS CLOSED 2026-09-13.** This paragraph read *"what
+is still open is not the constructor: `drop_held_weapon` mints the occurrence's
+identity, room scope, provenance and attempt state itself."* All four drops now
+go through **one spawn road**, `spawn_death_drop`, which owns the three facts
+every drop carries — `SpawnOrigin::Dynamic`, `RoomScopedEntity`,
+`SpawnedThisAttempt` — and takes the identity as a `DropIdentity` with NO
+default, so a site states `Anonymous` or names an id and cannot omit the
+question. Same shape as `A4`'s `CustodyDurability`, same packet family, and A4
+recorded the reasoning first.
+
+⭐ **A SPAWN ROAD RATHER THAN A BUNDLE, DELIBERATELY.** A bundle helper would
+still have let a fifth site call `spawn_session_scoped` directly and assemble
+three of the four facts. This owns the spawn, so the facts are not something a
+caller supplies at all.
+
+⇒ **THE REMEDY IS STILL NOT A GENERIC ITEM-REQUEST BUS** to move the count to
+one; [`item-writer-inventory.md`](item-writer-inventory.md) holds why, and this
+did not build one.
+
+POISON-VERIFIED: removing `RoomScopedEntity` from the one road reddens
+`every_death_drop_is_room_scoped_and_states_its_parent` for **all four drops at
+once** (`["coin:guard", "heart:guard", "ability_drop:guard", "Guard weapon"]`) —
+which is the collapse's whole value: one omission is now one failure across the
+class instead of one drop quietly missing it, which is how the weapon lost its
+room scope and its provenance in the first place.
+
+⛔⛤ **AND THE CLASS GUARD'S OWN SCANNER HAD A DEFECT THIS EXPOSED.**
+`collectible_drop_fns` reads source text and recognises `GroundItem::` — so a DOC
+COMMENT written on `DropIdentity` explaining that *"`GroundItem::at_rest` sealed
+the COMPONENT"* was counted as a drop and attributed to the previous top-level
+function, reddening the table against `dynamic_drop_origin`, which spawns
+nothing. It skips comment lines now: **region first, pattern second.** A scanner
+that recognises a pattern and then tries to decide whether it was prose has the
+rule backwards — prose can contain the exact text the pattern watches for.
 
 **HOLD DISCHARGED:** its precondition and its deliverable both landed — A1 closed
 2026-09-09, and the enumeration this hold asks for is the page linked at the top

@@ -218,6 +218,24 @@ fn collectible_drop_fns(src: &str) -> Vec<String> {
     };
 
     for line in src.lines() {
+        // ⛔⛤ **COMMENT LINES ARE SKIPPED BEFORE ANYTHING IS RECOGNISED IN
+        // THEM, AND THIS SCANNER LEARNED THAT THE HARD WAY (2026-09-13).** A doc
+        // comment written on `DropIdentity` explaining that *"`GroundItem::at_rest`
+        // sealed the COMPONENT"* was counted as a drop, and attributed to the
+        // previous top-level function — so `dynamic_drop_origin`, which spawns
+        // nothing at all, appeared in the defined set and reddened the table.
+        //
+        // ⇒ **REGION FIRST, PATTERN SECOND.** A scanner that recognises a
+        // pattern and then tries to decide whether it was prose has the rule
+        // backwards: prose can say anything, including the exact text the
+        // pattern watches for. Deciding what is CODE is cheap and total;
+        // deciding what a sentence meant is neither.
+        //
+        // ⚠ A DOC COMMENT CANNOT SPAWN, so nothing is lost. `//` covers `///`
+        // and `//!` alike.
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
         let signature = ["pub fn ", "pub(crate) fn ", "pub(super) fn ", "fn "]
             .iter()
             .find_map(|prefix| line.strip_prefix(prefix));

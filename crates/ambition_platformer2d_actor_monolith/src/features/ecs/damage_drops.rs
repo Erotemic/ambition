@@ -68,6 +68,87 @@ fn dynamic_drop_origin(parent: &SimId, sequence: u64) -> SpawnOrigin {
     }
 }
 
+/// What EVERY runtime death drop is, regardless of what it drops.
+///
+/// ⛔⛤ **`A7` SAYS THIS PACKET'S ACCEPTANCE CLAUSE — *"reward policy … does not
+/// become an alternative item minting path"* — IS NOT MET, AND THIS IS WHY.**
+/// `GroundItem::at_rest` sealed the COMPONENT (`#[non_exhaustive]`,
+/// poison-verified at `8ce24653d`); nothing sealed the OCCURRENCE. Each of the
+/// four drop sites assembled the same four facts by hand:
+///
+/// ```text
+/// session scope        who retires it when the session ends
+/// RoomScopedEntity     which sweep takes it back
+/// SpawnOrigin          how a provenance-keyed rebuild discovers it
+/// SpawnedThisAttempt   whether an attempt reset un-drops it
+/// ```
+///
+/// ⇒ **AND THE COST OF FORGETTING ONE IS RECORDED RIGHT HERE RATHER THAN
+/// HYPOTHETICAL** — [`drop_held_weapon`]'s own doc enumerates what two missing
+/// halves cost, because they WERE missing: a session-scoped weapon follows you
+/// into the next room at its old coordinates, and a drop stating no parent is a
+/// drop nothing can say where it came from. A fifth drop site was one omission
+/// away from either.
+///
+/// ⭐⭐ **THE IDENTITY IS A PARAMETER WITH NO DEFAULT, AND THAT IS DELIBERATE.**
+/// Only the weapon mints one today — a weapon becomes an object the player
+/// CARRIES, and every durable road that could give it back is keyed by `SimId` —
+/// and whether the other three should is a design question this does not answer.
+/// What it removes is the ability to answer it by ACCIDENT: a caller states
+/// `DropIdentity::Anonymous` or names an id, exactly as a producer of
+/// `InCustodyOf` must state its `CustodyDurability` rather than inherit one.
+/// Same packet family, same fix, and A4 recorded the reasoning first.
+enum DropIdentity {
+    /// This drop is not an occurrence: no checkpoint describes it, and an
+    /// attempt reset destroys it with nothing able to rebuild it. True of the
+    /// coin, the heart and the ability pickup today.
+    Anonymous,
+    /// This drop IS an occurrence, under an id DERIVED from its parent — see
+    /// [`SimId::death_drop`] for why a counter would be wrong.
+    Occurrence(SimId),
+}
+
+/// Spawn one runtime death drop, carrying everything a drop IS.
+///
+/// ⛔⛤ **ONE SPAWN ROAD, SO A DROP SITE CANNOT BUILD A PARTIAL ONE.** A bundle
+/// helper would still have let a fifth site call `spawn_session_scoped` directly
+/// and assemble three of the four facts; this owns the spawn, so the facts are
+/// not something a caller supplies at all.
+///
+/// ⚠ IT TAKES THE SEQUENCE RATHER THAN DERIVING IT: the `DROP_SEQUENCE_*`
+/// constants distinguish two drops from ONE parent in the same frame, so they
+/// belong to the caller that knows which drop it is making.
+fn spawn_death_drop(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    parent: &SimId,
+    sequence: u64,
+    identity: DropIdentity,
+    payload: impl bevy::prelude::Bundle,
+) {
+    let mut entity = commands.spawn_session_scoped(
+        session_scope,
+        (
+            payload,
+            // ⛔ THE THREE FACTS EVERY DROP CARRIES, and the cost of each
+            // omission is recorded on `DropIdentity`: which sweep takes it back,
+            // how a provenance-keyed rebuild discovers it, and whether an
+            // attempt reset un-drops it.
+            dynamic_drop_origin(parent, sequence),
+            RoomScopedEntity,
+            super::attempt::SpawnedThisAttempt,
+        ),
+    );
+    // ⛔ `Option<SimId>` IS NOT A `Bundle` IN THIS BEVY, so the identity is a
+    // second insert rather than a fourth field — which is why this owns the
+    // SPAWN and not merely the bundle: a caller that assembled the bundle
+    // itself would have to remember this line, and remembering is the failure
+    // this removes.
+    if let DropIdentity::Occurrence(id) = identity {
+        entity.insert(id);
+    }
+}
+
 /// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
 /// Deterministic, not random, so the headless sim stays reproducible — the same
 /// enemy always drops or always doesn't.
@@ -94,8 +175,12 @@ pub fn drop_currency_coin(
     pos: ae::Vec2,
     amount: i32,
 ) {
-    commands.spawn_session_scoped(
+    spawn_death_drop(
+        commands,
         session_scope,
+        parent,
+        DROP_SEQUENCE_COIN,
+        DropIdentity::Anonymous,
         (
             FeatureSimEntity,
             FeatureId::new(format!("coin:{id}")),
@@ -105,12 +190,6 @@ pub fn drop_currency_coin(
                 format!("coin:{id}"),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
-            // The sim kept publishing a Pickup view for an entity nothing was drawing, so
-            // `draw_unclaimed_feature_views` spawned a stand-in for it in the NEW room, every
-            // transition, forever.
-            RoomScopedEntity,
-            dynamic_drop_origin(parent, DROP_SEQUENCE_COIN),
-            super::attempt::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             super::pickups::PickupMagnet::classic(),
         ),
@@ -224,8 +303,12 @@ pub fn drop_health_pickup(
     pos: ae::Vec2,
     amount: i32,
 ) {
-    commands.spawn_session_scoped(
+    spawn_death_drop(
+        commands,
         session_scope,
+        parent,
+        DROP_SEQUENCE_HEALTH,
+        DropIdentity::Anonymous,
         (
             FeatureSimEntity,
             FeatureId::new(format!("heart:{id}")),
@@ -235,10 +318,6 @@ pub fn drop_health_pickup(
                 format!("heart:{id}"),
                 ambition_interaction::PickupKind::Health { amount },
             )),
-            // Room-scoped for the same reason as the coin above.
-            RoomScopedEntity,
-            dynamic_drop_origin(parent, DROP_SEQUENCE_HEALTH),
-            super::attempt::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             super::pickups::PickupMagnet::classic(),
         ),
@@ -257,8 +336,12 @@ pub fn drop_ability_pickup(
     ability_id: &str,
     ability_name: &str,
 ) {
-    commands.spawn_session_scoped(
+    spawn_death_drop(
+        commands,
         session_scope,
+        parent,
+        DROP_SEQUENCE_ABILITY,
+        DropIdentity::Anonymous,
         (
             FeatureSimEntity,
             FeatureId::new(format!("ability_drop:{boss_id}")),
@@ -270,16 +353,6 @@ pub fn drop_ability_pickup(
                     ability_id: ability_id.to_string(),
                 },
             )),
-            // Room-scoped for the same reason as the coin above, and it is the
-            // reason that matters rather than the design question. Whether a
-            // boss's reward SHOULD survive the room is arguable; that its
-            // picture is a `RoomVisual` — and therefore room-scoped — is not.
-            // Session-scoped here meant the sim kept publishing a Pickup view
-            // for an entity nothing was drawing, which is the stand-in loop the
-            // coin's comment describes, on the longest-lived drop in the game.
-            RoomScopedEntity,
-            dynamic_drop_origin(parent, DROP_SEQUENCE_ABILITY),
-            super::attempt::SpawnedThisAttempt,
         ),
     );
 }
@@ -326,23 +399,21 @@ pub fn drop_held_weapon(
     half_extent: ae::Vec2,
     name: &str,
 ) {
-    commands.spawn_session_scoped(
+    // ⭐ THE ONLY DROP THAT IS AN OCCURRENCE, and it SAYS SO rather than being
+    // the one that happens to carry a `SimId`. Room scope, provenance and
+    // attempt state come with it — a weapon that carried an identity and not
+    // room scope would FOLLOW YOU into the next room, and one with no
+    // provenance is a drop nothing can rebuild. Those two were missing once;
+    // now they cannot be.
+    spawn_death_drop(
+        commands,
         session_scope,
+        parent,
+        DROP_SEQUENCE_WEAPON,
+        DropIdentity::Occurrence(SimId::death_drop(parent, DROP_KIND_WEAPON)),
         (
             ambition_held_items::GroundItem::at_rest(spec, pos, half_extent),
-            SimId::death_drop(parent, DROP_KIND_WEAPON),
             bevy::prelude::Name::new(name.to_string()),
-            // Room-scoped for the same reason as the coin above — and here the
-            // symptom is the object itself rather than its picture.
-            RoomScopedEntity,
-            dynamic_drop_origin(parent, DROP_SEQUENCE_WEAPON),
-            // The attempt produced it; the attempt's reset takes it back.
-            //
-            // the boss's gauntlet did NOT carry this and its sibling reward
-            // did. Both fall out of one death, and an attempt reset that
-            // un-fights the boss while leaving half its loot on the floor is two
-            // answers to one question. They agree now.
-            super::attempt::SpawnedThisAttempt,
         ),
     );
 }

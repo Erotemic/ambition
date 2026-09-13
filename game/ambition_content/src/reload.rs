@@ -770,7 +770,7 @@ pub enum ReloadRequest {
 /// ⚠ CORRECTED RATHER THAN DELETED, because a weaker reader arriving at this
 /// function needs to know that the old sentence was load-bearing and is gone:
 /// the preparation reads its identity from the TRANSACTION-LOCAL claim
-/// (`PendingContentIdentity`, staked at adoption) rather than from the App-wide
+/// (`PendingGenerationInputs`, staked at adoption) rather than from the App-wide
 /// selection, which is why the selection no longer has to move first.
 ///
 /// ✅ **AND THE REQUEST'S OWN IDENTITY IS CLOSED — this paragraph described the
@@ -1092,7 +1092,7 @@ fn stage_pending_generation(world: &mut bevy::ecs::world::World, generation: Pen
 /// App threw away.
 fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<PendingGeneration> {
     let generation = world.remove_resource::<PendingGeneration>()?;
-    world.remove_resource::<ambition_platformer2d_runtime::PendingContentIdentity>();
+    world.remove_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>();
     Some(generation)
 }
 
@@ -1198,13 +1198,33 @@ pub fn adopt_preparation_transaction(
                             return;
                         }
                         pending.load_id = Some(load_id.clone());
-                        crate::pack::identity_line(&pending.pack)
+                        // ⛔⛤ **THE CANDIDATE CAST IS STAKED WITH THE IDENTITY,
+                        // IN ONE CLAIM, BECAUSE THEY DESCRIBE ONE GENERATION.**
+                        // `admitted_cast` already holds the N+1 registry —
+                        // admitted at REQUEST time and deliberately withheld
+                        // from the App until the commit boundary. Staking only
+                        // the identity told the preparation *"you are N+1"* and
+                        // left it to find its fighters in an App that still
+                        // published N.
+                        //
+                        // ⚠ CLONED, NOT MOVED. The commit boundary consumes
+                        // `admitted_cast` to publish it; a claim that took it
+                        // would leave the transaction with nothing to commit.
+                        (
+                            crate::pack::identity_line(&pending.pack),
+                            pending
+                                .admitted_cast
+                                .as_ref()
+                                .map(|admitted| admitted.candidate().clone()),
+                        )
                     };
+                    let (claim, characters) = claim;
                     // ⭐ THE CLAIM IS MADE HERE AND NOWHERE ELSE, because this is
                     // the first moment the transaction has a name to claim.
-                    world.insert_resource(ambition_platformer2d_runtime::PendingContentIdentity {
+                    world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
                         load_id: load_id.to_string(),
                         identity: claim,
+                        characters,
                     });
                 });
             }

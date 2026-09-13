@@ -62,7 +62,7 @@ pub use combat_schedule::CombatSchedulePlugin;
 pub use combat_schedule::{install_technique, install_techniques};
 pub use content_identity::{
     ContentDiagnostic, ContentEpoch, ContentEpochSequence, ContentFingerprint,
-    ContentFingerprintSchemaVersion, ContentOwner, PendingContentIdentity, PreparedContent,
+    ContentFingerprintSchemaVersion, ContentOwner, PendingGenerationInputs, PreparedContent,
     PreparedContentBuildError, PreparedContentBuilder, PreparedContentIdentity,
     PreparedContentSection, SelectedContentIdentity, SnapshotSchemaFingerprint,
 };

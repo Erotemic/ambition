@@ -590,6 +590,23 @@ pub struct AdmittedRevision {
 }
 
 impl AdmittedRevision {
+    /// The candidate cast itself, BEFORE publication.
+    ///
+    /// ⛔⛤ **THE VALUE A PREPARATION MUST BUILD FROM, AND THE REASON IT WAS
+    /// UNREACHABLE IS THE REASON THE DEFECT EXISTED.** `candidate` was private,
+    /// so the only way to obtain the N+1 cast was to publish it — and the whole
+    /// point of holding an `AdmittedRevision` is NOT publishing it yet. A
+    /// preparation running inside the transaction therefore read the App's
+    /// published registry, which is still N, and froze the last-good cast into a
+    /// session whose identity names N+1.
+    ///
+    /// ⚠ **BORROWED, NOT TAKEN.** The commit boundary still consumes `self` to
+    /// publish. A reader that could take the candidate out could leave the
+    /// transaction with nothing to commit.
+    pub fn candidate(&self) -> &PreparedCharacterRegistry {
+        &self.candidate
+    }
+
     /// How many definitions this revision replaces.
     pub fn changed(&self) -> usize {
         self.staged.len()

@@ -259,11 +259,11 @@ pub(crate) struct PlatformerPreparation<'w> {
         >,
         Option<Res<'w, ambition_platformer2d_runtime::SelectedContentIdentity>>,
         // ⛔ THE CANDIDATE IDENTITY OF ONE TRANSACTION, not of this App. See
-        // `PendingContentIdentity`: a pending generation used to overwrite the
+        // `PendingGenerationInputs`: a pending generation used to overwrite the
         // App-wide selection to make preparation see it, which handed the
         // candidate's stamp to every UNRELATED preparation running in the same
         // window.
-        Option<Res<'w, ambition_platformer2d_runtime::PendingContentIdentity>>,
+        Option<Res<'w, ambition_platformer2d_runtime::PendingGenerationInputs>>,
         // ⛔⛤ **THE THREE MECHANICAL REGISTRIES SESSION CONSTRUCTION CONSUMES
         // AND NOTHING FINGERPRINTED**, bundled here for the same reason the
         // three above are: they are all inputs to ONE thing, the prepared
@@ -311,6 +311,18 @@ impl PlatformerPreparation<'_> {
     fn content_identity_for(&self, transaction: &ProviderLoadTransaction) -> Option<String> {
         content_identity_for(
             self.content_inputs.1.as_deref(),
+            self.content_inputs.2.as_deref(),
+            transaction.barrier.load_id.as_str(),
+        )
+    }
+
+    /// The cast this transaction freezes. See [`candidate_cast_for`].
+    fn candidate_cast_for(
+        &self,
+        transaction: &ProviderLoadTransaction,
+    ) -> Option<ambition_characters::prepared::PreparedCharacterRegistry> {
+        candidate_cast_for(
+            self.content_inputs.6.as_deref(),
             self.content_inputs.2.as_deref(),
             transaction.barrier.load_id.as_str(),
         )
@@ -633,6 +645,9 @@ impl PlatformerPreparation<'_> {
                 return None;
             }
         };
+        // ⚠ TAKEN BEFORE THE PUBLISH BORROW, not for style: `publish` borrows
+        // `self.registry` mutably.
+        let frozen_cast = self.candidate_cast_for(transaction);
         let identity = self.sessions.0.publish(
             transaction,
             PreparedPlatformerSession {
@@ -641,7 +656,9 @@ impl PlatformerPreparation<'_> {
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
                 mechanical: FrozenMechanicalState {
-                    characters: self.content_inputs.6.as_deref().cloned(),
+                    // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
+                    // published registry — see `candidate_cast_for`.
+                    characters: frozen_cast,
                     sheets: self
                         .content_inputs
                         .4
@@ -948,13 +965,44 @@ pub fn prepare_platformer_content_for_app(
 /// ignored entirely — the consumer half of the fix had no arm at all.
 pub(crate) fn content_identity_for(
     active: Option<&ambition_platformer2d_runtime::SelectedContentIdentity>,
-    pending: Option<&ambition_platformer2d_runtime::PendingContentIdentity>,
+    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
     load_id: &str,
 ) -> Option<String> {
     pending
         .and_then(|claim| claim.identity_for(load_id))
         .map(str::to_string)
         .or_else(|| active.map(|identity| identity.0.clone()))
+}
+
+/// The cast THIS transaction must be built from.
+///
+/// ⛔⛤ **THE FREEZE USED TO READ THE APP'S PUBLISHED REGISTRY, AND ON THE ONE
+/// ROAD THAT CHANGES THE CAST THAT IS THE WRONG GENERATION.** A cast-changing
+/// reload admits the N+1 registry at REQUEST time and withholds it from the App
+/// until the commit boundary — correctly, so a candidate never becomes live
+/// before its transaction commits. Preparation running inside that window
+/// therefore saw N. The session's identity said N+1 and its fighters were N's:
+/// the exact mixed-generation class the prepared-generation work exists to
+/// remove.
+///
+/// ⚠ **THE FALLBACK IS NOT A GUESS.** No claim, or a stranger's claim, means
+/// this preparation is not inside a pending generation at all, and the App's
+/// published registry is then its own transaction's value rather than somebody
+/// else's candidate. A claim that IS ours and carries no cast means the same
+/// thing for a different reason: the candidate does not change the cast, so N is
+/// N+1's cast. Both are stated rather than inferred — see
+/// `PendingGenerationInputs::characters_for`.
+pub(crate) fn candidate_cast_for(
+    active: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
+    load_id: &str,
+) -> Option<ambition_characters::prepared::PreparedCharacterRegistry> {
+    match pending.and_then(|claim| claim.characters_for(load_id)) {
+        // Our transaction, and it publishes a new cast: build from THAT.
+        Some(Some(candidate)) => Some(candidate.clone()),
+        // Our transaction, publishing no new cast; or no claim of ours at all.
+        Some(None) | None => active.cloned(),
+    }
 }
 
 /// The MECHANICAL App authorities that session construction consumes, as
@@ -1636,10 +1684,11 @@ mod tests {
         ambition_platformer2d_runtime::SelectedContentIdentity(line.to_string())
     }
 
-    fn claim(load: &str, line: &str) -> ambition_platformer2d_runtime::PendingContentIdentity {
-        ambition_platformer2d_runtime::PendingContentIdentity {
+    fn claim(load: &str, line: &str) -> ambition_platformer2d_runtime::PendingGenerationInputs {
+        ambition_platformer2d_runtime::PendingGenerationInputs {
             load_id: load.to_string(),
             identity: line.to_string(),
+            characters: None,
         }
     }
 
@@ -2501,6 +2550,106 @@ mod mechanical_registries_reach_the_identity {
             ambition_characters::actor::definition::CharacterDefinition::new("alpha", "Alpha", "fixture");
         definition.vitals.max_health = Some(max_health);
         definition
+    }
+
+    /// The cast an App PUBLISHES after staging one character with this health.
+    ///
+    /// ⚠ The published registry, not the staged overrides: the freeze captures
+    /// the value the builder actually reads, and those are different resources.
+    fn published_cast(
+        max_health: i32,
+    ) -> ambition_characters::prepared::PreparedCharacterRegistry {
+        let mut app = bevy::app::App::new();
+        ambition_characters::prepared::stage_authored_character(
+            &mut app,
+            a_character(max_health),
+            &Default::default(),
+        )
+        .expect("stages");
+        ambition_characters::prepared::close_preparation_barrier(app.world_mut());
+        app.world()
+            .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .cloned()
+            .expect("the barrier publishes a cast")
+    }
+
+    fn health_of(cast: &ambition_characters::prepared::PreparedCharacterRegistry) -> Option<i32> {
+        cast.get("alpha").and_then(|definition| definition.vitals.max_health)
+    }
+
+    /// ⛔⛤ **PREPARE N+1, FREEZE N+1 — NOT THE CAST THE APP HAS STILL GOT
+    /// PUBLISHED.**
+    ///
+    /// ⛤ THIS ARM EXISTS BECAUSE A REVIEW FOUND THE OPPOSITE SHIPPED. A
+    /// cast-changing reload admits the N+1 registry at REQUEST time and
+    /// deliberately withholds it from the App until the commit boundary, so
+    /// throughout the transaction the published `PreparedCharacterRegistry` is
+    /// still N. The freeze read that published registry — giving a prepared
+    /// session whose identity names N+1 and whose fighters are N's.
+    ///
+    /// ⭐ **THE DISCRIMINATOR IS A MECHANICAL VALUE, NOT A GENERATION COUNTER.**
+    /// `max_health` is read by the thing that builds the body; a counter would
+    /// let a resolver that returns the right STAMP with the wrong CONTENTS pass.
+    #[test]
+    fn a_transaction_freezes_its_own_candidate_cast_not_the_apps_published_one() {
+        let live = published_cast(3);
+        let candidate = published_cast(9);
+        // ⭐ THE PREMISE FIRST: these two casts must actually differ, or every
+        // assertion below is satisfied by a resolver that returns anything.
+        assert_eq!(health_of(&live), Some(3));
+        assert_eq!(health_of(&candidate), Some(9));
+
+        let mine = ambition_platformer2d_runtime::PendingGenerationInputs {
+            load_id: "shell.game.7".to_string(),
+            identity: "pack 2 cfp1:bb".to_string(),
+            characters: Some(candidate.clone()),
+        };
+
+        // ⛔ THE ASSERTION THE ARM IS FOR.
+        assert_eq!(
+            health_of(
+                &candidate_cast_for(Some(&live), Some(&mine), "shell.game.7")
+                    .expect("the claiming transaction has a cast")
+            ),
+            Some(9),
+            "the transaction froze the App's PUBLISHED cast while its OWN \
+             admitted candidate was the one it would publish at commit — a \
+             session whose identity names N+1 built from N's fighters",
+        );
+
+        // ⛔ A STRANGER'S CANDIDATE IS NOT A FALLBACK. Both loads name the same
+        // ROUTE, because two generations can target one route.
+        assert_eq!(
+            health_of(
+                &candidate_cast_for(Some(&live), Some(&mine), "shell.game.8")
+                    .expect("a stranger still has the App's cast")
+            ),
+            Some(3),
+            "an unrelated preparation was built from a candidate cast it never \
+             prepared",
+        );
+
+        // ⚠ OUR CLAIM, CARRYING NO CAST, IS NOT "USE ANYTHING": the candidate
+        // does not change the cast, so the App's published cast IS this
+        // transaction's own value.
+        let castless = ambition_platformer2d_runtime::PendingGenerationInputs {
+            characters: None,
+            ..mine.clone()
+        };
+        assert_eq!(
+            health_of(
+                &candidate_cast_for(Some(&live), Some(&castless), "shell.game.7")
+                    .expect("a cast-preserving transaction still has a cast")
+            ),
+            Some(3),
+        );
+
+        // ⚠ ABSENT IS A REAL ANSWER: a composition that published no cast at
+        // all must not be handed a stranger's.
+        assert!(
+            candidate_cast_for(None, Some(&mine), "shell.game.8").is_none(),
+            "a stranger's candidate became the cast for an App that published none",
+        );
     }
 
     /// ⭐ THE CONTROL, and it runs first because every arm below depends on it:

@@ -159,7 +159,7 @@ fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
     );
 
     // ⛔⛔ **AND THE ADOPTION HALF RUNS AT THE OTHER END, BEFORE THE PREPARATION
-    // THAT READS ITS IDENTITY CLAIM.** It stakes `PendingContentIdentity` from
+    // THAT READS ITS IDENTITY CLAIM.** It stakes `PendingGenerationInputs` from
     // `ShellEvent::PreparationRequested`, and `prepare_requested_sessions` reads
     // the SAME message and fingerprints against that claim. A preparation that
     // ran first would MISS the claim and fall back to the App's active identity

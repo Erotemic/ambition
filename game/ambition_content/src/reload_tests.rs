@@ -2118,7 +2118,7 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
     );
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+            .get_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>()
             .is_none(),
         "a claim was staked before the router named the transaction, so it names \
          no transaction at all"
@@ -2128,7 +2128,7 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
     let mine = a_preparation_for(&mut app, "shell.game.1");
     let claim = app
         .world()
-        .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+        .get_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>()
         .cloned()
         .expect("adopting the transaction stakes the claim");
     let candidate_identity = crate::pack::identity_line(
@@ -2165,7 +2165,7 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
     app.update();
     assert!(
         app.world()
-            .get_resource::<ambition_platformer2d_runtime::PendingContentIdentity>()
+            .get_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>()
             .is_none(),
         "the claim outlived the generation that staked it"
     );

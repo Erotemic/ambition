@@ -173,7 +173,7 @@ impl PreparedContentSection {
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct SelectedContentIdentity(pub String);
 
-/// The candidate identity ONE preparation transaction must fingerprint against.
+/// The candidate MECHANICAL INPUTS one preparation transaction must build from.
 ///
 /// ⛔⛤ **A PENDING GENERATION USED TO OVERWRITE `SelectedContentIdentity`, AND
 /// THAT MADE IT EVERY TRANSACTION'S ANSWER.** A hot reload has to tell the
@@ -195,18 +195,65 @@ pub struct SelectedContentIdentity(pub String);
 /// ⚠ ONE AT A TIME, DELIBERATELY. The coordinator upstream refuses a second
 /// generation while one is pending, so a single claim is the whole truth rather
 /// than a first-past-the-post over a map.
-#[derive(Resource, Clone, Debug, PartialEq, Eq)]
-pub struct PendingContentIdentity {
-    /// The `LoadId` of the transaction this identity belongs to.
+/// ⛔⛤ **IT CARRIES THE CANDIDATE CAST TOO, AND THAT IS WHY IT IS NO LONGER
+/// CALLED `PendingContentIdentity`.** A review of `bdbddfe` found the freeze
+/// landed on the wrong generation: a cast-changing reload computes the N+1 cast
+/// at REQUEST time (`take_admitted_revision`) and deliberately withholds it from
+/// the App until the commit boundary, so while the transaction is pending the
+/// published `PreparedCharacterRegistry` is still N. Preparation froze THAT —
+/// giving a session whose identity names N+1 and whose fighters are N's.
+///
+/// ⇒ **THE CANDIDATE MUST NOT HAVE TO BE PUBLISHED GLOBALLY FOR PREPARATION TO
+/// SEE IT** — that is exactly the authority bug `PendingContentIdentity` was
+/// carved out to remove, and restoring it under another name would undo this
+/// whole file. The transaction owns its candidate values and hands them to its
+/// own preparation, keyed by the same `load_id` claim the identity already uses.
+///
+/// ⚠ **ONLY THE CAST RIDES HERE, AND THAT IS MEASURED RATHER THAN ASSUMED.** The
+/// participating families are the moveset, `fighter_brain_ladder` and
+/// `encounter_waves`; a candidate that changes `AuthoredSheets` or the
+/// `BossCatalog` is REFUSED by `ReloadRequest` rather than published (see
+/// `PACK_DERIVED_FAMILIES`). Those two therefore cannot move across the
+/// prepare→activate window, so freezing them from the App is not a second
+/// generation — it is the same one. A family that gains a reload road gains a
+/// field here, and the compiler will not ask for it: the guard is
+/// `participates`.
+#[derive(Resource, Clone, Debug)]
+pub struct PendingGenerationInputs {
+    /// The `LoadId` of the transaction these inputs belong to.
     pub load_id: String,
     /// The identity line that transaction must fingerprint against.
     pub identity: String,
+    /// The ALREADY-ADMITTED candidate cast this transaction will publish at its
+    /// commit boundary, or `None` when the candidate does not change the cast.
+    ///
+    /// ⚠ `None` IS NOT "USE THE APP'S". It is *"this transaction publishes no
+    /// new cast"*, which for a non-participating candidate makes the App's
+    /// published cast the transaction's own value — the same one, not a
+    /// fallback to a stranger's.
+    pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
 }
 
-impl PendingContentIdentity {
+impl PendingGenerationInputs {
     /// The identity for `load_id`, or `None` when this claim is a stranger's.
     pub fn identity_for(&self, load_id: &str) -> Option<&str> {
         (self.load_id == load_id).then_some(self.identity.as_str())
+    }
+
+    /// The candidate cast for `load_id`.
+    ///
+    /// ⛔ TWO `None`s AND THEY ARE NOT THE SAME, which is why this returns a
+    /// nested option: the OUTER `None` means *"this claim is a stranger's, do
+    /// not use it at all"*; the inner means *"this transaction is mine and it
+    /// changes no cast"*. Flattening them would let a stranger's transaction
+    /// silently fall through to the App-global registry, which is the shape of
+    /// the defect this type exists to prevent.
+    #[allow(clippy::option_option)]
+    pub fn characters_for(
+        &self,
+        load_id: &str,
+    ) -> Option<Option<&ambition_characters::prepared::PreparedCharacterRegistry>> {
+        (self.load_id == load_id).then_some(self.characters.as_ref())
     }
 }
 

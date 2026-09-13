@@ -2686,6 +2686,100 @@ fn an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation
 /// ⇒ If the isolation ever needs to survive a collector that walks archetypes
 /// directly, this arm is where the difference will show up as a comment that
 /// stopped being true.
+/// ⛔⛤ **DOES A COMPONENT HOOK ACTUALLY SEE A HALF-PUBLISHED CANDIDATE? MEASURED,
+/// NOT FEARED.**
+///
+/// `Q123`'s last open clause says publication atomicity *"rests on a POPULATION
+/// FACT, not a boundary"*: `publish_candidate` removes the marker
+/// entity-by-entity under `&mut World`, which is atomic with respect to SCHEDULED
+/// SYSTEMS — none run inside an exclusive world call — but **a component hook is
+/// not a system**. The census that says this is safe (zero component hooks
+/// workspace-wide) is a `git grep`, and the row says so about itself.
+///
+/// ⛔ **AND THE FAIL-CLOSED GUARD IS NOT AVAILABLE, ALSO MEASURED:**
+/// `ComponentHooks`'s fields are `pub(crate)` in `bevy_ecs-0.19.1`, so
+/// *"refuse to publish if `InactiveCandidate` carries a hook"* cannot be written.
+///
+/// ⇒ **SO THE REMAINING QUESTION IS WHAT A HOOK WOULD ACTUALLY OBSERVE, AND THAT
+/// IS DECIDABLE BY REGISTERING ONE.** This does. It is the difference between
+/// *"nobody has done it"* and *"doing it is safe"*, and only the second is a
+/// guarantee.
+///
+/// ⛔⛔ **MEASURED 2026-09-13, PUBLISHING THREE ROOTS: the hook saw
+/// `[3, 2, 1]`** still-candidate siblings across its three firings. `on_remove`
+/// runs while the component is still present, so that reads as: fire 1 with
+/// nothing yet published, fire 2 with ONE published and two not, fire 3 with TWO
+/// published and one not. ⇒ **At fires 2 and 3 the hook stood inside a
+/// partially-published transaction.** The exposure `Q123` describes is
+/// demonstrated rather than inferred from a `git grep`, and the ONLY thing
+/// making it safe today is that nobody has registered such a hook.
+#[test]
+fn a_hook_on_the_marker_observes_publication_one_entity_at_a_time() {
+    use bevy::ecs::lifecycle::HookContext;
+    use bevy::ecs::world::DeferredWorld;
+    use std::sync::Mutex;
+
+    /// The roots this transaction will publish, so the hook can ask about its
+    /// SIBLINGS rather than about itself.
+    static ROOTS: Mutex<Vec<Entity>> = Mutex::new(Vec::new());
+    /// What the hook saw each time it fired: how many roots were STILL
+    /// candidates at that moment.
+    static SEEN: Mutex<Vec<usize>> = Mutex::new(Vec::new());
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    ROOTS.lock().expect("roots").clear();
+    SEEN.lock().expect("hook log").clear();
+
+    // ⛔ THE HOOK IS REGISTERED ON THE MARKER ITSELF, which is the strongest
+    // placement: it fires exactly at the moment a root stops being a candidate,
+    // which is the instant a half-published transaction can exist at all.
+    //
+    // ⚠ A HOOK IS A `fn` POINTER, NOT A CLOSURE (`ComponentHook = for<'w>
+    // fn(DeferredWorld<'w>, HookContext)`), so the roots travel through a static
+    // rather than by capture. That is the API's shape, not a shortcut.
+    world
+        .register_component_hooks::<super::InactiveCandidate>()
+        .on_remove(|world: DeferredWorld, _ctx: HookContext| {
+            let roots = ROOTS.lock().expect("roots").clone();
+            let remaining = roots
+                .iter()
+                .filter(|entity| world.get::<super::InactiveCandidate>(**entity).is_some())
+                .count();
+            SEEN.lock().expect("hook log").push(remaining);
+        });
+
+    let transaction = scope().transaction(SessionSpawnScope::UNSCOPED);
+    let roots: Vec<Entity> = (0..3)
+        .map(|_| world.spawn((super::InactiveCandidate, transaction.clone())).id())
+        .collect();
+    *ROOTS.lock().expect("roots") = roots;
+
+    let admitted = super::publish_candidate(&mut world, &transaction);
+    assert_eq!(admitted, 3, "the premise: three roots were published");
+
+    let seen = SEEN.lock().expect("hook log").clone();
+    assert_eq!(
+        seen.len(),
+        3,
+        "the hook did not fire once per root, so this arm measured something \
+         other than per-entity publication: {seen:?}"
+    );
+
+    let partial: Vec<usize> = seen
+        .iter()
+        .copied()
+        .filter(|remaining| *remaining != 0 && *remaining != 3)
+        .collect();
+    assert!(
+        !partial.is_empty(),
+        "a hook fired only at the boundaries ({seen:?}) — publication would then \
+         be atomic FROM A HOOK'S POINT OF VIEW TOO, and `Q123`'s last clause \
+         closes. If this is now true, say what made it true: it was not true on \
+         2026-09-13 and the row rests on it being false."
+    );
+}
+
 /// ⛔⛤ **WHAT A CANDIDATE IS *NOT* HIDDEN FROM, MEASURED RATHER THAN ASSUMED.**
 ///
 /// `Q123` carried an open clause: *"physics/global gatherers and anything walking

@@ -1958,6 +1958,22 @@ a value nothing outside that crate can interrogate. A census of hooks is
 therefore a `git grep`, which is the population fact this row is complaining
 about, not a replacement for it.
 
+⛔⛔ **AND THE HOOK EXPOSURE IS NOW MEASURED RATHER THAN FEARED, 2026-09-13.**
+The question *"would a hook actually see a half-published candidate"* is decidable
+by registering one, and
+`a_hook_on_the_marker_observes_publication_one_entity_at_a_time` does. Publishing
+three roots, an on-remove hook registered on [`InactiveCandidate`] saw
+**`[3, 2, 1]`**
+still-candidate siblings across its three firings — bevy's remove hook runs while the
+component is still present, so that is: nothing published, then ONE, then TWO.
+
+⇒ **AT FIRES 2 AND 3 THE HOOK STOOD INSIDE A PARTIALLY-PUBLISHED TRANSACTION.**
+The exposure is real and demonstrated; the census of zero hooks is the ONLY thing
+making it safe. That moves this clause from *"a population fact we are uneasy
+about"* to *"a measured hazard gated by a population fact"*, which is a different
+sentence for a reviewer and for anyone adding a hook to a construction-road
+component.
+
 ⇒ **WHAT WOULD CLOSE THE REST:** a structural reason no hook can observe a
 partial publication (or an upstream way to ask), and an arm for a collector that
 walks archetypes rather than querying.

@@ -1622,3 +1622,54 @@ rest of `PlatformerSessionBuilder`'s inputs, and the live developer-edit
 resources (`ActiveMovementTuning`, `Platformer2dFeelTuningMonolith`,
 `EditableAbilitySet`, `EditablePlayerStats`, `DeveloperTools.player_body_profile`)
 which are the SECOND row of the table and have no answer yet.
+
+## Q120 — which rollback model do LIVE DEVELOPER MECHANICAL EDITS get: refusal, rebase, or deterministic input?
+
+⛔⛤ **THE GAP IS MEASURED, NOT ARGUED. `game/ambition_app/tests/developer_edits_under_rollback.rs`.**
+
+`rollback_coverage.rs` waives `ActiveMovementTuning` and
+`Platformer2dFeelTuningMonolith` with the reason *"forward-only"* — a developer
+knob, not per-frame simulation state. **That answers the wrong question.** Under
+rollback the question is not *"do we want to rewind this value"* but **"can its
+value affect the simulation of a HISTORICAL frame"**, and it can:
+
+```text
+frame 100:  jump_speed = A       simulated, checksummed
+frame 101:  a developer edits it → B
+frame 102:  rollback to frame 98
+            ... resimulate 98..102 — now reading B
+```
+
+**MEASURED 2026-09-12 against the real GGRS sync-test canary** (save every frame,
+rewind 4, resimulate the same inputs, compare checksums): editing
+`ActiveMovementTuning` mid-timeline **DESYNCS**. The control — the same forty
+frames with no edit — stays healthy, so it is the edit and not the rig.
+
+⚠ **THE FEEL-TUNING ARM DID NOT DESYNC, AND THAT IS NOT AN ACQUITTAL.** The
+scripted inputs never reached the double-tap term; the arm prints which of the
+two happened rather than asserting the one that flatters the resource.
+
+⇒ **WHAT IS NOT MEASURED AND IS EXACTLY THE DECISION:** which of the three
+coherent models this wants. The review that found it names them:
+1. **Refuse** mechanical live edits while a rollback timeline is active — simplest
+   and safest; the developer gets *"requires local rebase / session restart"*.
+2. **Rebase** — the edit becomes a generation change and a bounded
+   reconstruction, which is the shape A10 is already building.
+3. **Deterministic timestamped input** — possible, substantially more machinery
+   (a simulation tick, serialization, replay semantics, network policy).
+
+⛔ **WHAT IS NOT COHERENT IS TODAY'S:** a mutable mechanical input outside
+rollback history that resimulation reads at its latest value.
+
+⚠ **AND THE SAME QUESTION IS OWED BY FOUR MORE**, all with live-edit writers and
+no rollback coverage: `EditableAbilitySet` (mutates rollback-controlled body
+abilities), `EditablePlayerStats` (health/mana/offense, through a
+`Local<PlayerStatsSyncSnapshot>` that is itself unrestored),
+`DeveloperTools.player_body_profile`, and `PhysicsSandboxSettings`/`PortalTuning`
+which carry the same *"forward-only"* waiver.
+
+⇒ **THE WAIVER'S RULE NEEDS REPLACING EITHER WAY** — see `Q119`. *"A mechanical
+resource can be omitted from rollback only if it is immutable for the lifetime of
+the rollback timeline, derived entirely from registered historical state, or
+represented as deterministic external input. 'Forward-only' by itself is not a
+rollback category."*

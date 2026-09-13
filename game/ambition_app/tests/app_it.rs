@@ -64,6 +64,7 @@ mod dash_stability;
 mod death_restores_the_checkpoint;
 mod declared_art_resolves;
 mod desync_canary;
+mod developer_edits_under_rollback;
 mod direct_and_shell_agree;
 mod dive_drill_reachability;
 mod door_entry;

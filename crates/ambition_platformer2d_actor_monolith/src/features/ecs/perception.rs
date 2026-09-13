@@ -415,6 +415,14 @@ pub fn ensure_perception(
     // reads of `ambition_dev_tools` and a fourth would undo it. Absent — which
     // is every shipped run — means the default below.
     extent: Option<bevy::prelude::Res<ambition_characters::perception::PerceptionExtentOverride>>,
+    // ⛔⛤ **THE ACTIVATED GENERATION OUTRANKS THE App, AND UNTIL 2026-09-13 THERE
+    // WAS NO RANKING AT ALL.** The override above is mechanical and immutable —
+    // `Q119`'s first row — and was bound to no identity, so two Apps with the
+    // same `PreparedContentIdentity` could give their actors different senses.
+    // It is owned by `SessionMechanics` now; this reads the generation's value
+    // when one is activated and the App's when none is. See
+    // `session::mechanics::perception_extent_for`.
+    generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
@@ -449,9 +457,11 @@ pub fn ensure_perception(
         ),
     >,
 ) {
-    let viewport_half = extent
-        .map(|extent| extent.or_default(DEFAULT_VIEWPORT_HALF))
-        .unwrap_or(DEFAULT_VIEWPORT_HALF);
+    let viewport_half = crate::session::mechanics::perception_extent_for(
+        generation.as_deref(),
+        extent.as_deref(),
+    )
+    .or_default(DEFAULT_VIEWPORT_HALF);
     for entity in &bodies {
         commands.entity(entity).insert((
             Perception::Sighted { viewport_half },

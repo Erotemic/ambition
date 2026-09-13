@@ -447,7 +447,11 @@ pub(super) fn reload_ldtk_world_from_disk(
                 prepared_characters,
                 authored_sheets,
                 boss_catalog,
-            ),
+            )
+            // ⚠ NO ACTIVATED GENERATION ON THIS ROAD — the hot reload is
+            // PREPARING one — so the App's knobs are what there is. See
+            // `GenerationMechanics`.
+            .with_app_developer_knobs(forced_brains, population_cap),
             // The generation currently live. A materially changed definition
             // allocates a new one below, AFTER every preflight has succeeded —
             // so a plan prepared here always states the epoch it was validated
@@ -459,8 +463,6 @@ pub(super) fn reload_ldtk_world_from_disk(
             // dispositions of occurrences minted from the OLD definitions say
             // nothing about the new ones. Rebuilt from the records alone.
             None,
-            forced_brains,
-            population_cap,
         ),
     )
     .map_err(|error| vec![error.to_string()])?;

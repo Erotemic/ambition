@@ -1699,7 +1699,7 @@ whole shell transaction (neither half activates), or a lifecycle that stops and
 rebases rollback as part of the same transaction. ⛔ Not a second
 `publication_boundary` call at the commit — see above.
 
-## ⚠ Q119 — the `PlatformerSessionBuilder` audit is complete; the SCOPE PHRASE is load-bearing and this heading overstated it once
+## ✅ Q119 — CLOSED 2026-09-13 after a correction: the audit was complete, the SCOPE PHRASE was not
 
 ⛔⛤ **THIS HEADING READ *"Every MECHANICAL input to session construction is
 bound"*, AND THE 2026-09-13 REVIEW WAS RIGHT TO CALL THAT TOO STRONG.** The audit
@@ -1709,12 +1709,16 @@ own doc says **IT CHANGES THE SIMULATION**, and it is bound to NOTHING — so tw
 Apps with identical `PreparedContentIdentity` can construct mechanically different
 actors and claim the same content identity. ⇒ The audited population was a
 `SystemParam`'s fields, not "session construction", and a population phrase is the
-half a reader carries away. ⚠ There is a SECOND gap the review names and this row
-did not: the two developer knobs are in the identity HASH but construction still
-reads the live App resources at build time (`lifecycle.rs`, `session/reset`, room
-transition), so a value changed after preparation constructs B under identity A.
-Being in the hash is not the invariant — **execution must consume the same
-generation-bound input the identity describes.** Both are open; see `Q126`.
+half a reader carries away. ✅ **AND THE SECOND GAP THE REVIEW NAMED IS CLOSED TOO.** The two developer knobs
+were in the identity HASH while construction went on reading the live App
+resources at build time (`lifecycle.rs`, `session/reset`, room transition), so a
+value changed after preparation constructed **B under identity A**. Being in the
+hash is not the invariant — **execution must consume the same generation-bound
+input the identity describes.** `SessionMechanics` owns all three knobs now, they
+are frozen in the same system that takes the identity (from the SAME resource
+bundle `developer_construction_dump` reads), and `for_room_construction` no longer
+ACCEPTS them: it projects them off `GenerationMechanics`, so a road cannot supply
+a different value. ⇒ Both gaps this heading opened are shut; see `Q126`.
 
 <!-- the audit itself, unchanged, below -->
 
@@ -1748,6 +1752,24 @@ row TWO of the same table (*"mechanical + changes during timeline ⇒ determinis
 input/state, or explicit rebase"*), which is exactly `Q120`, and `Q120` is a
 ruling rather than a gap.
 
+✅ **`PerceptionExtentOverride` IS CLOSED, 2026-09-13, AND BY MEASUREMENT RATHER
+THAN BY PREFERENCE.** The review asked for ONE explicit policy: bind it, or refuse
+a non-default value when a rollback/network timeline is established. MEASURED at
+HEAD: its only production writer is `dev_tools::perception_extent::from_env`, read
+once at build — so it is MECHANICAL and **IMMUTABLE**, which is this table's FIRST
+row, and the first row's treatment is binding. No policy had to be chosen; the
+classification already decided it, and the knob it cites in its own doc
+(`AuthoredPopulationCap`) had been getting the other treatment. ⇒ It is in
+`developer_construction` as `perception.extent=<x>x<y>` (both components, fixed
+4dp, so an extent differing only in `y` is a different identity and a formatting
+change cannot move a fingerprint nobody edited), it is owned by
+`SessionMechanics`, and `ensure_perception` reads the generation's value through
+`perception_extent_for`. Guarded by
+`two_different_values_of_one_developer_knob_are_two_identities`'s third arm —
+120px vs 480px sight — poison-verified by passing `None` for it at the dump.
+
+<details><summary>What the row said while it was open</summary>
+
 ⛔⛤ **`PerceptionExtentOverride` IS NOT IN THIS TABLE, AND "not a
 `PlatformerSessionBuilder` input" IS A REASON IT IS ABSENT — NOT A REASON IT IS
 FINE.** It configures `ensure_perception` when a body is built, its doc says IT
@@ -1760,6 +1782,8 @@ peers agreeing they run the same mechanics. **ONE EXPLICIT POLICY IS OWED, not a
 parallel developer hash:** either normalise it into canonical mechanical identity
 and generation-owned mechanics, or REFUSE a non-default value when a
 rollback/network timeline is established. `Q126` holds the row.
+
+</details>
 
 <details><summary>The classification this audit was run against</summary>
 

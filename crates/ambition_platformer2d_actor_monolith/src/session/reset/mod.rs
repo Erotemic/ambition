@@ -355,6 +355,14 @@ pub fn process_new_game_reset_request(
         play_state.prepared_characters.as_deref(),
         &play_state.authored_sheets,
         &play_state.boss_catalog,
+    )
+    // ⛔⛤ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. A reset in a
+    // composition with an activated generation must rebuild from the values that
+    // generation's identity was taken over — see `GenerationMechanics`. These two
+    // are what a fixture with no generation gets instead.
+    .with_app_developer_knobs(
+        play_state.forced_brains.as_deref(),
+        play_state.population_cap.as_deref(),
     );
     let room_plan = crate::rooms::RoomConstructionPlan::prepare_from_parts(
         &room_set,
@@ -379,8 +387,6 @@ pub fn process_new_game_reset_request(
             // WITHOUT that object — the one path where "remember what happened"
             // is exactly wrong.
             None,
-            play_state.forced_brains.as_deref(),
-            play_state.population_cap.as_deref(),
         ),
     );
     // DECLINE, do not die. The preflight runs before the wipe precisely so a

@@ -1442,7 +1442,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             prepared_characters.as_deref(),
             &authored_sheets,
             &boss_catalog,
-        );
+        )
+        // ⛔ THE APP'S KNOBS ARE THE FALLBACK, NOT THE SOURCE. This is a PREFETCH
+        // of the plan a transition will use, so it must project exactly what that
+        // transition projects or the cache key describes a different world.
+        .with_app_developer_knobs(forced_brains.as_deref(), population_cap.as_deref());
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.identity = None;
@@ -1581,8 +1585,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // and the acceptance row it closes in
                     // `docs/planning/engine/checkpoint-restoration-protocol.md`.
                     None,
-                    forced_brains.as_deref(),
-                    population_cap.as_deref(),
                 ),
             ) {
                 Ok(plan) => plan,

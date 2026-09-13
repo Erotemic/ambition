@@ -281,11 +281,20 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
         // ⛔⛤ **THE IMMUTABLE DEVELOPER CONSTRUCTION KNOBS**, in this bundle for
         // the same reason as the rest: they are inputs to ONE thing, the
-        // prepared content's identity. Both change the authoritative ROSTER a
-        // room admits, and neither reached any fingerprint — see
-        // `MechanicalRegistries::developer_construction`.
+        // prepared content's identity. They change the authoritative ROSTER a
+        // room admits and how far its actors can see, and none of them reached
+        // any fingerprint — see `MechanicalRegistries::developer_construction`.
         Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
         Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
+        // ⛔⛤ **THE THIRD KNOB, ADDED 2026-09-13 AFTER A REVIEW FOUND IT OUTSIDE
+        // EVERY IDENTITY.** Its own doc says *"IT CHANGES THE SIMULATION AND NO
+        // NUMBER TAKEN UNDER IT DESCRIBES THE SHIPPED GAME, exactly as
+        // `AuthoredPopulationCap` says of itself"* — and it was treated
+        // differently from the thing it cites. MEASURED: its only production
+        // writer is `dev_tools::perception_extent::from_env`, read once at build,
+        // so it is mechanical and IMMUTABLE and belongs in the first row's
+        // treatment.
+        Option<Res<'w, ambition_characters::perception::PerceptionExtentOverride>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -627,6 +636,7 @@ impl PlatformerPreparation<'_> {
                 developer_construction: developer_construction_dump(
                     self.content_inputs.7.as_deref(),
                     self.content_inputs.8.as_deref(),
+                    self.content_inputs.9.as_deref(),
                 ),
             })
         })
@@ -681,6 +691,33 @@ impl PlatformerPreparation<'_> {
                         .5
                         .as_deref()
                         .cloned()
+                        .unwrap_or_default(),
+                    // ⛔⛤ **FROZEN IN THE SAME BREATH AS THE FINGERPRINT THAT
+                    // COVERS THEM.** `Q126` put these two into
+                    // `PreparedContentIdentity` via
+                    // `developer_construction_dump`, which reads the SAME two
+                    // resources from this SAME bundle — so the value hashed and
+                    // the value construction spends are now one capture, not two
+                    // reads separated by the life of a transaction. Before this,
+                    // an edit between preparation and activation built B under
+                    // identity A.
+                    forced_brains: self
+                        .content_inputs
+                        .7
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or_default(),
+                    population_cap: self
+                        .content_inputs
+                        .8
+                        .as_deref()
+                        .copied()
+                        .unwrap_or_default(),
+                    perception_extent: self
+                        .content_inputs
+                        .9
+                        .as_deref()
+                        .copied()
                         .unwrap_or_default(),
                 },
             },
@@ -942,6 +979,8 @@ pub fn prepare_platformer_content_for_app(
             .get_resource::<ambition_characters::brain::AuthoredBrainOverride>(),
         app.world()
             .get_resource::<ambition_characters::actor::AuthoredPopulationCap>(),
+        app.world()
+            .get_resource::<ambition_characters::perception::PerceptionExtentOverride>(),
     );
     app.init_resource::<ContentEpochSequence>();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
@@ -1078,20 +1117,30 @@ pub(crate) fn candidate_cast_for(
 fn developer_construction_dump(
     brains: Option<&ambition_characters::brain::AuthoredBrainOverride>,
     population: Option<&ambition_characters::actor::AuthoredPopulationCap>,
+    perception: Option<&ambition_characters::perception::PerceptionExtentOverride>,
 ) -> Option<String> {
-    // ⛔ ABSENT ONLY WHEN BOTH ARE, so a composition that installs one knob and
-    // not the other is not silently reported as installing neither.
-    if brains.is_none() && population.is_none() {
+    // ⛔ ABSENT ONLY WHEN ALL ARE, so a composition that installs one knob and
+    // not the others is not silently reported as installing none.
+    if brains.is_none() && population.is_none() && perception.is_none() {
         return None;
     }
     let spell = |value: Option<&str>| value.unwrap_or("-").to_string();
     Some(format!(
-        "brain.preset={}\nbrain.profile={}\npopulation.cap={}\n",
+        "brain.preset={}\nbrain.profile={}\npopulation.cap={}\nperception.extent={}\n",
         spell(brains.and_then(ambition_characters::brain::AuthoredBrainOverride::preset)),
         spell(brains.and_then(ambition_characters::brain::AuthoredBrainOverride::profile)),
         population
             .and_then(|cap| cap.cap())
             .map_or_else(|| "-".to_string(), |cap| cap.to_string()),
+        // ⚠ BOTH COMPONENTS, and a fixed rendering: an extent that differs only
+        // in `y` is a different simulation, and `{:?}` of a float would let a
+        // formatting change move a fingerprint nobody edited.
+        perception
+            .and_then(|extent| extent.half_extent())
+            .map_or_else(
+                || "-".to_string(),
+                |half| format!("{:.4}x{:.4}", half.x, half.y),
+            ),
     ))
 }
 
@@ -1127,7 +1176,11 @@ pub struct MechanicalRegistries {
     /// the NPC construction road and `AuthoredPopulationCap` is spent by
     /// `RoomFeatureConstructionPlan::prepare` BEFORE the construction rows
     /// exist, so different values produce a different authoritative ROSTER and
-    /// different autonomous behaviour.
+    /// different autonomous behaviour. ⭐ **AND A THIRD JOINED THEM 2026-09-13:**
+    /// `PerceptionExtentOverride` decides how far every `Sighted` body can see,
+    /// which is how far it can be juked — its own doc already said *"IT CHANGES
+    /// THE SIMULATION … exactly as `AuthoredPopulationCap` says of itself"* while
+    /// being treated differently from it.
     ///
     /// ⛔ **"WRITTEN ONCE FROM THE ENVIRONMENT" ANSWERS THE SNAPSHOT QUESTION
     /// AND NOT THE IDENTITY ONE**, and the project had been conflating them.
@@ -1137,8 +1190,10 @@ pub struct MechanicalRegistries {
     /// what `RollbackTimelineContract` compares to decide a snapshot may be
     /// restored into a world.
     ///
-    /// ⚠ **ONE SECTION FOR BOTH, because they are one class**: developer
-    /// construction configuration. `None` means this composition installs no
+    /// ⚠ **ONE SECTION FOR ALL THREE, because they are one class**: developer
+    /// construction configuration. ⛔ And a class is how the third one was found
+    /// late rather than never — a new knob joins the section, and the section is
+    /// what a reviewer can enumerate. `None` means this composition installs no
     /// developer tools, which is what an unset environment variable has always
     /// meant and is a real state rather than a missing value.
     pub developer_construction: Option<String>,
@@ -1704,8 +1759,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                                 minted: self.minted.as_deref(),
                             }
                         }),
-                        self.forced_brains.0.as_deref(),
-                        self.forced_brains.1.as_deref(),
                     ),
                 boss_catalog: &mechanical.bosses,
                 default_character_id,
@@ -2949,6 +3002,34 @@ mod mechanical_registries_reach_the_identity {
             capped_at(2),
             "a room that admits one authored actor and a room that admits two \
              share one identity",
+        );
+
+        // ⛔⛤ **THE THIRD KNOB, AND IT WAS OUTSIDE EVERY IDENTITY UNTIL
+        // 2026-09-13.** `PerceptionExtentOverride`'s own doc says *"IT CHANGES
+        // THE SIMULATION AND NO NUMBER TAKEN UNDER IT DESCRIBES THE SHIPPED
+        // GAME, exactly as `AuthoredPopulationCap` says of itself"* — and it was
+        // treated differently from the very thing it cites. Two Apps with
+        // identical authored content and different sight ranges could enter
+        // compatible timelines under one `PreparedContentIdentity`.
+        let seeing = |half: f32| {
+            identity_of(move |app| {
+                ambition_characters::prepared::stage_authored_character(
+                    app,
+                    a_character(7),
+                    &Default::default(),
+                )
+                .expect("stages");
+                app.insert_resource(ambition_characters::perception::PerceptionExtentOverride(
+                    Some(ambition_platformer2d_core::Vec2::new(half, half)),
+                ));
+            })
+        };
+        assert_ne!(
+            seeing(120.0),
+            seeing(480.0),
+            "a composition whose actors see 120px and one whose actors see 480px \
+             share one identity, so two peers can agree they run the same \
+             mechanics while their enemies notice each other at different ranges",
         );
     }
 

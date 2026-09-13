@@ -305,13 +305,19 @@ impl<'a> ActorConstructionContext<'a> {
         // from nothing, or destroys one to rebuild it, states `None` and means
         // it. See [`Self::continuity`].
         continuity: Option<OccurrenceContinuity<'a>>,
-        // What a developer has forced the cast's brains to, when this
-        // composition installs the tools that say. See [`Self::forced_brains`].
-        forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
-        // The developer population cap, threaded like the brain override and
-        // for the same reason: a snapshot the lowering runs against, not a
-        // process-global the kernel reaches up for mid-construction.
-        population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
+        // ⛔⛤ **THE DEVELOPER KNOBS USED TO BE TWO MORE PARAMETERS HERE, AND THE
+        // 2026-09-13 REVIEW NAMED WHAT THAT COST.** Every caller passed the LIVE
+        // `Res<AuthoredBrainOverride>` / `Res<AuthoredPopulationCap>` — at
+        // activation, at reset, and through the transition road's
+        // `character_authorities`. `Q126` had already put both into
+        // `PreparedContentIdentity`, so a value edited between preparation and
+        // construction built **B under identity A**: a TOCTOU between a
+        // fingerprint and its own subject.
+        //
+        // ⇒ They come off `mechanics` now, like the cast and the sheets. Being in
+        // the hash is not the invariant — execution must consume the same
+        // generation-bound input the identity describes — and a parameter a
+        // caller supplies is exactly how the two come apart.
     ) -> Self {
         let mut context = Self::new(recipes, characters, mechanics.sheets(), content_epoch);
         if let Some(active) = active_binding {
@@ -320,8 +326,8 @@ impl<'a> ActorConstructionContext<'a> {
         context.prepared = mechanics.characters();
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
-        context.forced_brains = forced_brains;
-        context.population_cap = population_cap;
+        context.forced_brains = mechanics.forced_brains();
+        context.population_cap = mechanics.population_cap();
         context
     }
 

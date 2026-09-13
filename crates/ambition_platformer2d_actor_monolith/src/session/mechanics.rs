@@ -40,9 +40,20 @@
 /// so the cost is bounded and paid once per generation.
 ///
 /// ⛔ **WHAT IS NOT IN HERE, said plainly rather than left to be assumed:**
-/// `CharacterCatalog`, `BrainProfileRegistry`, `AuthoredBrainOverride` and
-/// `AuthoredPopulationCap` are also construction inputs and are still read from
-/// the App on every road.
+/// `CharacterCatalog` and `BrainProfileRegistry` are also construction inputs and
+/// are still read from the App on every road — bound TRANSITIVELY (see below), so
+/// a freeze of them would be a freeze the fingerprint corroborates only at one
+/// remove.
+///
+/// ⛔⛤ **`AuthoredBrainOverride` AND `AuthoredPopulationCap` WERE ALSO ON THAT
+/// LIST, AND THE 2026-09-13 REVIEW NAMED WHY THAT WAS NOT ENOUGH.** `Q126` put
+/// them in the identity hash; construction went on reading the live App
+/// resources — at activation (`lifecycle.rs`), at reset (`session/reset`), and at
+/// room transition. ⇒ A value edited after preparation constructs **B under
+/// identity A**, which is a TOCTOU between the fingerprint and its own subject.
+/// *"It appears somewhere in the hash"* is not the invariant: **execution must
+/// consume the same generation-bound input the identity describes.** They are
+/// owned here now, and every road projects them.
 ///
 /// ⛔⛤ **AND MY FIRST VERSION OF THIS PARAGRAPH SAID THE FIRST TWO ARE NOT IN
 /// `PreparedContentIdentity` EITHER. THAT WAS WRONG — MEASURED 2026-09-13.** Both
@@ -57,9 +68,11 @@
 /// like. `AuthoredBrainOverride` and `AuthoredPopulationCap` were the real gap
 /// and are closed (`Q126`).
 ///
-/// ⇒ **A generation owns the three registries its identity binds DIRECTLY, and no
-/// more than that** — extending the ownership without extending the identity
-/// would make this type claim a freeze the fingerprint cannot corroborate.
+/// ⇒ **A generation owns exactly what its identity binds DIRECTLY, and no more
+/// than that** — extending the ownership without extending the identity would
+/// make this type claim a freeze the fingerprint cannot corroborate, and
+/// extending the identity without extending the ownership leaves the gap above.
+/// The two move together or neither moves.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
     /// `None` where the composition published no cast — a real state, and not a
@@ -67,6 +80,30 @@ pub struct SessionMechanics {
     pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pub bosses: ambition_boss_encounter::BossCatalog,
+    /// The forced preset/profile a developer build asked for.
+    ///
+    /// ⚠ NOT `Option`: absent and default are the same mechanical fact here, and
+    /// `AuthoredBrainOverride::default()` is exactly *"force nothing"*. An
+    /// `Option` would let a road distinguish two states the construction code
+    /// cannot.
+    pub forced_brains: ambition_characters::brain::AuthoredBrainOverride,
+    /// The developer population ceiling this generation was prepared under.
+    pub population_cap: ambition_characters::actor::AuthoredPopulationCap,
+    /// The perception viewport override this generation was prepared under.
+    ///
+    /// ⛔⛤ **THE 2026-09-13 REVIEW FOUND THIS ONE OUTSIDE EVERY IDENTITY, AND
+    /// ITS OWN DOC IS THE ARGUMENT FOR BINDING IT:** *"IT CHANGES THE SIMULATION
+    /// AND NO NUMBER TAKEN UNDER IT DESCRIBES THE SHIPPED GAME, exactly as
+    /// `AuthoredPopulationCap` says of itself."* MEASURED at HEAD: its only
+    /// production writer is `dev_tools::perception_extent::from_env`, read once
+    /// at build — so it is MECHANICAL and IMMUTABLE, `Q119`'s first row, and gets
+    /// the first row's treatment rather than a policy of its own.
+    ///
+    /// ⚠ The rollback answer (*"the resulting `Perception` component is rollback
+    /// state"*) covers bodies that already exist. It says nothing about an actor
+    /// constructed later in the generation, and nothing about two peers agreeing
+    /// they run the same mechanics.
+    pub perception_extent: ambition_characters::perception::PerceptionExtentOverride,
 }
 
 impl SessionMechanics {
@@ -97,6 +134,8 @@ pub struct GenerationMechanics<'a> {
     app_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     app_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     app_bosses: &'a ambition_boss_encounter::BossCatalog,
+    app_forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
+    app_population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
 }
 
 impl<'a> GenerationMechanics<'a> {
@@ -111,7 +150,24 @@ impl<'a> GenerationMechanics<'a> {
             app_characters,
             app_sheets,
             app_bosses,
+            app_forced_brains: None,
+            app_population_cap: None,
         }
+    }
+
+    /// The App's developer knobs, for a composition with NO activated generation.
+    ///
+    /// ⚠ Separate from [`Self::new`] because most callers have no such
+    /// resources: a builder method keeps the fallback OPTIONAL at the call site
+    /// rather than making every fixture name two values it does not have.
+    pub fn with_app_developer_knobs(
+        mut self,
+        forced_brains: Option<&'a ambition_characters::brain::AuthoredBrainOverride>,
+        population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
+    ) -> Self {
+        self.app_forced_brains = forced_brains;
+        self.app_population_cap = population_cap;
+        self
     }
 
     /// A generation's values with NO App fallback.
@@ -126,6 +182,8 @@ impl<'a> GenerationMechanics<'a> {
             app_characters: None,
             app_sheets: &generation.sheets,
             app_bosses: &generation.bosses,
+            app_forced_brains: None,
+            app_population_cap: None,
         }
     }
 
@@ -150,6 +208,44 @@ impl<'a> GenerationMechanics<'a> {
             Some(generation) => &generation.bosses,
             None => self.app_bosses,
         }
+    }
+
+    /// The forced brain preset/profile this construction must use.
+    ///
+    /// ⛔ **AN ACTIVATED GENERATION'S VALUE WINS OVER WHATEVER THE App HOLDS
+    /// NOW**, which is the whole point: the identity was taken over this value,
+    /// so construction reading a newer one would build B under identity A.
+    pub fn forced_brains(&self) -> Option<&'a ambition_characters::brain::AuthoredBrainOverride> {
+        match self.active {
+            Some(generation) => Some(&generation.forced_brains),
+            None => self.app_forced_brains,
+        }
+    }
+
+    /// The population ceiling this construction must spend.
+    pub fn population_cap(&self) -> Option<&'a ambition_characters::actor::AuthoredPopulationCap> {
+        match self.active {
+            Some(generation) => Some(&generation.population_cap),
+            None => self.app_population_cap,
+        }
+    }
+}
+
+/// The perception viewport override a body being built must be given.
+///
+/// ⭐ **A FREE FUNCTION RATHER THAN A `GenerationMechanics` METHOD, because its
+/// caller is a SYSTEM and not a construction road.** `ensure_perception` attaches
+/// senses to bodies as they appear — it holds no plan, no room and no
+/// `GenerationMechanics` — so what it needs is the same ranking expressed where
+/// it can be asked: the activated generation's value, or the App's when a
+/// composition has none.
+pub fn perception_extent_for(
+    generation: Option<&SessionMechanics>,
+    app: Option<&ambition_characters::perception::PerceptionExtentOverride>,
+) -> ambition_characters::perception::PerceptionExtentOverride {
+    match generation {
+        Some(generation) => generation.perception_extent,
+        None => app.copied().unwrap_or_default(),
     }
 }
 
@@ -253,6 +349,73 @@ mod tests {
             ),
             None,
             "a castless generation was handed the App's cast",
+        );
+    }
+
+    /// ⛔⛤ **A GENERATION'S DEVELOPER KNOBS OUTRANK WHATEVER THE App HOLDS NOW —
+    /// AND UNTIL 2026-09-13 THEY DID NOT EXIST HERE AT ALL.**
+    ///
+    /// `Q126` put `AuthoredBrainOverride` and `AuthoredPopulationCap` into
+    /// `PreparedContentIdentity`. Construction went on reading the LIVE App
+    /// resources on all three roads — activation, reset, room transition — so a
+    /// value edited between preparation and construction built **B under
+    /// identity A**. A fingerprint over a value somebody else is free to change
+    /// before it is spent is a fingerprint of nothing.
+    ///
+    /// ⭐ THE TWO SIDES ARE DELIBERATELY BOTH PRESENT AND DIFFERENT. An arm where
+    /// the App holds nothing would pass against a projection that reads the App
+    /// first and falls back to the generation — the exact inversion of the
+    /// contract.
+    #[test]
+    fn an_activated_generations_developer_knobs_outrank_the_apps() {
+        use ambition_characters::actor::AuthoredPopulationCap;
+        use ambition_characters::brain::AuthoredBrainOverride;
+
+        let generation = SessionMechanics {
+            population_cap: AuthoredPopulationCap::capped_at(1),
+            forced_brains: AuthoredBrainOverride {
+                preset: Some("generation_brain".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let app_cap = AuthoredPopulationCap::capped_at(99);
+        let app_brains = AuthoredBrainOverride {
+            preset: Some("app_brain".into()),
+            ..Default::default()
+        };
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let bosses = ambition_boss_encounter::BossCatalog::default();
+
+        let mechanics = GenerationMechanics::new(Some(&generation), None, &sheets, &bosses)
+            .with_app_developer_knobs(Some(&app_brains), Some(&app_cap));
+
+        assert_eq!(
+            mechanics.population_cap(),
+            Some(&AuthoredPopulationCap::capped_at(1)),
+            "construction would spend the App's population cap, so a room rebuilt \
+             inside this generation admits a roster its identity never described"
+        );
+        assert_eq!(
+            mechanics
+                .forced_brains()
+                .and_then(AuthoredBrainOverride::preset),
+            Some("generation_brain"),
+            "construction would force the App's brain preset, so the actors built \
+             under this identity are not the actors it was fingerprinted over"
+        );
+
+        // ⭐ THE CONTROL: with NO activated generation the App's values are what
+        // there is, so a projection that simply ignored the App would pass the
+        // arm above and break every fixture.
+        let no_generation =
+            GenerationMechanics::new(None, None, &sheets, &bosses)
+                .with_app_developer_knobs(Some(&app_brains), Some(&app_cap));
+        assert_eq!(
+            no_generation.population_cap(),
+            Some(&AuthoredPopulationCap::capped_at(99)),
+            "a composition with no activated generation lost the App's cap, so the \
+             assertion above is about ignoring the App rather than about ranking"
         );
     }
 }

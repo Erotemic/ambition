@@ -1412,8 +1412,17 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     let boss_catalog = ambition_boss_encounter::test_boss_catalog();
     let recipes = crate::construction::engine_construction_registry();
 
-    let no_generation = crate::session::mechanics::SessionMechanics::default();
-    let planned_under = |cap: Option<&AuthoredPopulationCap>| -> Vec<String> {
+    // ⛔⛤ **THE CAP IS THE GENERATION'S, NOT A PARAMETER — CHANGED 2026-09-13.**
+    // This fixture used to hand `for_room_construction` a loose
+    // `Option<&AuthoredPopulationCap>`, which is exactly the shape the review
+    // found in production: an identity fingerprinted over one value and a
+    // construction reading another. Building the generation that OWNS the cap is
+    // the same experiment through the road production now takes.
+    let planned_under = |cap: AuthoredPopulationCap| -> Vec<String> {
+        let generation = crate::session::mechanics::SessionMechanics {
+            population_cap: cap,
+            ..Default::default()
+        };
         let plan = RoomFeatureConstructionPlan::prepare(
             &room,
             &registry,
@@ -1422,14 +1431,11 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             crate::features::ActorConstructionContext::for_room_construction(
                 &recipes,
                 &catalog,
-                // ⚠ "THIS FIXTURE HAS NO ACTIVATED GENERATION", said out loud.
-                &crate::session::mechanics::GenerationMechanics::of(&no_generation),
+                &crate::session::mechanics::GenerationMechanics::of(&generation),
                 Default::default(),
                 None,
                 None,
                 None,
-                None,
-                cap,
             ),
         )
         .expect("the room prepares");
@@ -1444,24 +1450,24 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     };
 
     assert_eq!(
-        planned_under(None),
+        planned_under(AuthoredPopulationCap::UNCAPPED),
         vec![
             "placement:npc_0",
             "placement:npc_1",
             "placement:npc_2",
             "placement:npc_3"
         ],
-        "no developer cap: every NPC is planned"
+        "an UNCAPPED generation plans every NPC"
     );
     let two = AuthoredPopulationCap::capped_at(2);
     assert_eq!(
-        planned_under(Some(&two)),
+        planned_under(two),
         vec!["placement:npc_0", "placement:npc_1"],
         "a cap of two plans the FIRST two NPCs (the door ahead of them did not count); the \
          refused two have no row and no authoritative id"
     );
     assert_eq!(
-        planned_under(Some(&two)),
+        planned_under(two),
         vec!["placement:npc_0", "placement:npc_1"],
         "a SECOND plan of the same room under the same cap starts with a full quota"
     );

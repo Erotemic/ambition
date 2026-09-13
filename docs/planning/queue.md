@@ -210,6 +210,44 @@ one message currently carries.
    below.
 4. **Then** candidate world publication.
 
+### ⭐⭐ PACKET 1's OPENING MOVE IS MEASURED, NOT OPEN-ENDED — 2026-09-13
+
+"Define the candidate-session representation" sounds like a design problem. It is
+mostly a MEASUREMENT, and the measurement says most of the machinery is already
+here:
+
+- **`RoomSet` and `RoomGeometry` ARE NOT RESOURCES. They are COMPONENTS, and they
+  live ON THE SESSION WORLD ROOT** — read everywhere through
+  `SessionWorldRef<RoomSet>` / `SessionWorldMut<..>`, which is
+  `Single<.., With<SessionRoot>>`. ⇒ Two of the three "non-entity room
+  authorities published before verification" that the review lists are entity
+  state already. A CANDIDATE ROOT carrying its own `RoomSet` + `RoomGeometry` IS
+  the candidate world for them. Only `MovingPlatformSet` is a true resource.
+- **AND THE HIDING MECHANISM SHIPS.** `InactiveCandidate` is a registered
+  DISABLING component, so an entity carrying it is invisible to ordinary queries —
+  including `Single<.., With<SessionRoot>>`. ⇒ A candidate root may carry
+  `SessionRoot` itself and still not be a candidate for any of the 217 sites,
+  which is what the *"never two roots"* measurement requires.
+- **AND THE AUTHORITY SWITCH IS ONE COMPONENT REMOVAL ON ONE ENTITY.** That makes
+  it atomic even to the hooks `Q123` proved publication is NOT atomic to — the
+  `[3, 2, 1]` result came from removing the marker from three roots in a loop.
+  **One root, one removal, one switch.**
+
+⇒ **SO THE PACKET'S SHAPE IS:** build the incoming room's `RoomSet`/`RoomGeometry`
+onto a hidden candidate root instead of writing them into the live one; keep
+`MovingPlatformSet` beside them in the same candidate (a resource needs a home in
+the candidate object); verify; publish by removing the marker from that root and
+retiring the old one. `commit_deferred`'s three lines —
+`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..` — are the
+mutation of the LIVE world that has to become construction of a CANDIDATE one.
+
+⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
+SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,
+`SessionMechanics`, `ActiveContentBinding`) are singular process-global resources
+with no entity to hide, and `SessionScopeActivated` still means *"replace the live
+mirrors"*. That is the half the review's finding 2 is about, and it is a real
+design.
+
 ⭐ **A CURRENT CORRECTNESS BUG THAT IS NOT A10:** a materially changed hot reload
 constructs N+1 roots stamped with **N's** `TransactionId` — the plan is prepared
 against `prepared_content.epoch()` (N) and `ActiveContentBinding` is published as

@@ -2985,3 +2985,67 @@ fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
          would promote a plan built for another boundary"
     );
 }
+
+/// ⭐⭐ **THE AUTHORITY SWITCH A10 NEEDS ALREADY EXISTS, AND THIS IS THE ARM THAT
+/// SAYS SO — MEASURED 2026-09-13 RATHER THAN REASONED.**
+///
+/// The A10 packet has to represent *live N plus candidate N+1*, and a 2026-09-13
+/// review called the session vocabulary's inability to do that the blocker. For
+/// the ROOM half it is not: `RoomSet` and `RoomGeometry` are COMPONENTS on the
+/// session world root (read everywhere through `SessionWorldRef`, which is
+/// `Single<.., With<SessionRoot>>`), so a candidate world's room state is a
+/// second root.
+///
+/// ⇒ **THE QUESTION THIS ANSWERS IS WHETHER THAT SECOND ROOT IS INVISIBLE.**
+/// `InactiveCandidate` is a registered DISABLING component, so a candidate root
+/// may carry `SessionRoot` ITSELF and still not be a candidate for any of the 217
+/// `SessionWorldRef`/`Mut` sites — which is exactly what
+/// `the_shipped_app_never_holds_two_session_roots_across_a_handoff` requires of
+/// any future candidate.
+///
+/// ⛔ **AND THE PUBLICATION IS ONE REMOVAL ON ONE ENTITY**, which makes it atomic
+/// even to the hooks `Q123` proved publication is NOT atomic to — that `[3, 2, 1]`
+/// result came from removing the marker from THREE roots in a loop.
+#[test]
+fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
+    use crate::lifecycle::{SessionRoot, SessionScopeId};
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+
+    let live = world.spawn(SessionRoot(SessionScopeId(0))).id();
+    let candidate = world
+        .spawn((SessionRoot(SessionScopeId(1)), super::InactiveCandidate))
+        .id();
+
+    // ⚠ THE PREMISE: both entities exist and both carry the marker the query
+    // filters on, or "only one is visible" is a statement about spawning.
+    assert!(world.get::<SessionRoot>(live).is_some());
+    assert!(
+        world.get::<SessionRoot>(candidate).is_some(),
+        "the candidate root does not carry `SessionRoot`, so hiding it proves \
+         nothing about the queries that select on it"
+    );
+
+    let mut roots = world.query_filtered::<Entity, With<SessionRoot>>();
+    let visible: Vec<Entity> = roots.iter(&world).collect();
+    assert_eq!(
+        visible,
+        vec![live],
+        "an ordinary `With<SessionRoot>` query sees the CANDIDATE root, so every \
+         `SessionWorldRef`/`Mut` site — `Single`, which matches nothing when the \
+         count is not one — would be silently SKIPPED for the life of the \
+         candidate"
+    );
+
+    // ⭐ AND PUBLICATION IS THE REMOVAL: one entity, one component, one switch.
+    world.entity_mut(candidate).remove::<super::InactiveCandidate>();
+    let published: Vec<Entity> = roots.iter(&world).collect();
+    assert_eq!(
+        published.len(),
+        2,
+        "removing the marker did not publish the candidate root, so the switch is \
+         not the removal"
+    );
+}

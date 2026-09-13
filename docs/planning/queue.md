@@ -13,6 +13,53 @@ questions belong in [`awaiting-maintainer-decision.md`](awaiting-maintainer-deci
 (2026-09-08 committed archive). Revalidate before changing a newer head. The
 review made no Rust execution claim; see the coverage receipt.
 
+## ✅ THE DEEP-REVIEW BATCH, 2026-09-12 — WHAT LANDED AND WHAT IT LEFT OPEN
+
+Jon forwarded two architecture-review reports. Their shared finding is worth more
+than any individual row: **several efforts fixed the visible duplicate authority
+and left the IDENTITY CONTRACT around it under-specified.** The review's own
+test for the next one:
+
+> Whenever something is described as *authored / prepared / immutable /
+> generation-bound / rollback-safe*, ask BOTH: **(1)** where does execution READ
+> the value, and **(2)** where is that exact value represented in mechanical
+> identity or historical input? *"If the answer to the second question is
+> nowhere, the first answer is enough to reopen the architecture."*
+
+**Landed:**
+
+| what | commit | one line |
+|---|---|---|
+| player 2's anim overlays had no ticking owner | `17bd71a82` | `Without<PlayerEntity>` here, `PrimaryPlayerOnly` there, and nothing in between; two clocks on one component |
+| shell cancel announced the end and retired nothing | `8c0a44ccf` | a late provider could publish into a transaction the shell had declared over |
+| three mechanical registries missed the identity | `215ecc43c` | prepared cast, authored sheets, boss catalog — `MechanicalRegistries` |
+| three false authoring capabilities | `da8954c0d` | `PickupSpec.collected` (a REAL duplicate authority), `requires_facing`, `persistent` |
+| rung 9's press jitter was identically zero | `9fbaab600` | fixed in the QUANTIZATION, not the constant |
+| the truthful attack kit | `bbb8e42d9` | the brain scores the move its press produces; the duel now DECIDES |
+| A10 step 5, the recipe escape | `c90a1cda0` | `commands_escape` deleted; minting is a type error |
+| A10 step 6, explicit retirement | `8fc339b16` | `replace_live_world`; both halves `pub(crate)` |
+
+**Open, each with its measurement already taken:**
+
+- **`Q118`** — publication legality covers the INSTANT somebody asked, not the
+  transaction interval. Two arms measure it. ⇒ **The one thing that closes it is
+  an ORDERING measurement:** does `local_session::maintain_local_session` start a
+  GGRS session before or after `commit_content_generation` in the activation
+  frame? Impossible ⇒ encode it as a schedule invariant; possible ⇒ the lease
+  packet is real.
+- **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
+  against the real sync-test canary. The model is the decision: refuse / rebase /
+  deterministic input.
+- **`Q119`** — the classification rule that replaces *"forward-only"*, plus what
+  is still NOT audited: the rest of `PlatformerSessionBuilder`'s inputs.
+- **A10's last step** — wire the candidate lifecycle to I3b. ⛔ Its blocker is a
+  SEAM: `commit_inactive` takes `&mut World`, the room road builds through
+  deferred `Commands`. ⭐ But `transaction::close` already queues a
+  `&mut World` closure, so the exclusive access exists at the verification
+  boundary — that is where the wiring goes.
+- **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
+  parameters the CPU wants now that it evaluates the action it actually takes.
+
 ## ⛔⛔ NEXT ARCHITECTURE ACTION — READ THIS BEFORE PICKING A ROW
 
 ⛔⛤ **I3 IS CLOSED, AND THIS HEADER POINTED AT FINISHED WORK — WHICH IS THE MOST

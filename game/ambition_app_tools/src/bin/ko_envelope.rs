@@ -428,6 +428,13 @@ enum Threshold {
     NonMonotonic(Vec<(i32, bool)>),
     /// The pulse never connected — nothing measured.
     NoContact,
+    /// The probe could not obtain a clean trial at this percent.
+    ///
+    /// ⛔ THIS IS NOT A SURVIVAL, AND THE PREVIOUS FORM SAID IT WAS. A refused
+    /// reset pushed `(p, false)`, so a percent the INSTRUMENT failed to measure
+    /// was recorded as a percent the VICTIM lived through — and the threshold
+    /// walked straight past it. Run 2 refused 8 of 64 rows this way.
+    Refused(i32),
 }
 
 impl Threshold {
@@ -437,6 +444,7 @@ impl Threshold {
             Threshold::Above(p) => format!(">{p}"),
             Threshold::NonMonotonic(s) => format!("NON_MONOTONIC{s:?}"),
             Threshold::NoContact => "NO_CONTACT".into(),
+            Threshold::Refused(p) => format!("REFUSED@{p}"),
         }
     }
 }
@@ -884,6 +892,54 @@ impl KoProbe {
     /// downward launches and landings all intervene. A search that assumes
     /// monotonicity would return a confident number for a curve that does not
     /// have one.
+    /// The resolved launch at one percent, retrying a refused reset.
+    fn launch_at(&mut self, hit: &HitVolume, percent: i32, victim_x: f32) -> Option<f32> {
+        for _ in 0..3 {
+            if let Some(t) = self.strike(hit, percent, victim_x) {
+                return t.resolved_launch;
+            }
+        }
+        None
+    }
+
+    /// Does this pulse KO at `percent`? DECIDED BY MAJORITY OF THREE.
+    ///
+    /// ⛔ ONE TRIAL IS NOT AN ANSWER NEAR A BOUNDARY. Run 2 self-detected 15
+    /// disagreements across 100 cells and they were all one shape: the binary
+    /// search converged on a percent BECAUSE a trial there killed, and the
+    /// verification at that same percent then did not. Far from a threshold this
+    /// probe is exactly reproducible — 8 of 8 trials byte-identical at 200% on a
+    /// move whose threshold is above 300 — so the flakiness is not general. It
+    /// lives within a percent or two of the blast line, where the body crosses
+    /// or fails to cross on the strength of a single tick.
+    ///
+    /// ⭐ THE RIGHT PRECISION IS THE ONE THE QUESTION NEEDS. Tuning how a game
+    /// FEELS does not turn on ±1%, so the answer is not a more exact search; it
+    /// is a cell that reports the same value twice. Majority of three, short-
+    /// circuiting as soon as either side reaches two.
+    ///
+    /// A refused reset is RETRIED rather than counted, and `None` — the probe
+    /// could not obtain a clean trial — is returned so the caller can say so
+    /// instead of silently scoring a survival.
+    fn kills(&mut self, hit: &HitVolume, percent: i32, victim_x: f32) -> Option<bool> {
+        let (mut yes, mut no) = (0, 0);
+        while yes < 2 && no < 2 {
+            let mut trial = None;
+            for _ in 0..3 {
+                if let Some(t) = self.strike(hit, percent, victim_x) {
+                    trial = Some(t);
+                    break;
+                }
+            }
+            match trial {
+                Some(t) if t.ko => yes += 1,
+                Some(_) => no += 1,
+                None => return None,
+            }
+        }
+        Some(yes > no)
+    }
+
     fn ko_threshold(&mut self, hit: &HitVolume, victim_x: f32, max_percent: i32) -> Threshold {
         // ⚠ 50 RATHER THAN 25, AND IT IS A TRADE I AM MAKING ON PURPOSE.
         // Widening the coarse step halves the sweep (13 samples -> 7) and costs
@@ -896,38 +952,43 @@ impl KoProbe {
         let step = 50;
         let mut samples: Vec<(i32, bool)> = Vec::new();
         let mut bracket: Option<(i32, i32)> = None;
-        let mut any_contact = false;
         let mut p = 0;
         while p <= max_percent {
-            match self.strike(hit, p, victim_x) {
-                Some(t) => {
-                    any_contact |= t.resolved_launch.is_some();
-                    samples.push((p, t.ko));
-                    if t.ko && bracket.is_none() {
-                        bracket = Some(((p - step).max(0), p));
-                    }
-                    // A KO followed by a survival at a HIGHER percent is a real
-                    // finding, not noise to be smoothed.
-                    if bracket.is_some() && !t.ko {
-                        return Threshold::NonMonotonic(samples);
-                    }
-                }
-                None => samples.push((p, false)),
+            let Some(ko) = self.kills(hit, p, victim_x) else {
+                return Threshold::Refused(p);
+            };
+            samples.push((p, ko));
+            if ko && bracket.is_none() {
+                bracket = Some(((p - step).max(0), p));
+            }
+            // A KO followed by a survival at a HIGHER percent is a real
+            // finding, not noise to be smoothed.
+            if bracket.is_some() && !ko {
+                return Threshold::NonMonotonic(samples);
             }
             if bracket.is_some() {
                 break;
             }
             p += step;
         }
-        if !any_contact {
-            return Threshold::NoContact;
-        }
         let Some((mut lo, mut hi)) = bracket else {
-            return Threshold::Above(max_percent);
+            // ⭐ "NEVER KILLED" AND "NEVER CONNECTED" ARE DIFFERENT ANSWERS and
+            // only one of them is about the game. One probe at the top of the
+            // range separates them.
+            let connected = self
+                .launch_at(hit, max_percent, victim_x)
+                .is_some();
+            return if connected {
+                Threshold::Above(max_percent)
+            } else {
+                Threshold::NoContact
+            };
         };
         while hi - lo > 1 {
             let mid = (lo + hi) / 2;
-            let killed = self.strike(hit, mid, victim_x).is_some_and(|t| t.ko);
+            let Some(killed) = self.kills(hit, mid, victim_x) else {
+                return Threshold::Refused(mid);
+            };
             if killed {
                 hi = mid;
             } else {
@@ -947,8 +1008,19 @@ impl KoProbe {
             return Threshold::At(0);
         }
         // VERIFY BOTH SIDES rather than trusting the walk.
-        let below = self.strike(hit, hi - 1, victim_x).is_some_and(|t| t.ko);
-        let at = self.strike(hit, hi, victim_x).is_some_and(|t| t.ko);
+        //
+        // ⛔ THROUGH `kills`, NOT `strike`. These two lines were the last place a
+        // single trial decided anything, and they are precisely where run 2's
+        // fifteen disagreements surfaced: the search converged on `hi` because a
+        // trial there killed, and then ONE trial at that same `hi` said it did
+        // not. `is_some_and` also folded a refused reset into "did not kill",
+        // which is the same silent survival the `Refused` variant exists to stop.
+        let Some(below) = self.kills(hit, hi - 1, victim_x) else {
+            return Threshold::Refused(hi - 1);
+        };
+        let Some(at) = self.kills(hit, hi, victim_x) else {
+            return Threshold::Refused(hi);
+        };
         if below || !at {
             samples.push((hi - 1, below));
             samples.push((hi, at));
@@ -995,7 +1067,7 @@ fn run_contact() {
     };
     let Some(Launcher::Strike { hit, move_id, .. }) = launchers
         .iter()
-        .find(|l| l.role() == "attack_forward" && matches!(l, Launcher::Strike { .. }))
+        .find(|l| l.role() == "smash_forward" && matches!(l, Launcher::Strike { .. }))
     else {
         println!("# no attack_forward strike found");
         return;
@@ -1036,7 +1108,35 @@ fn run_contact() {
 /// This prints state rather than asserting, because the question is WHICH fact
 /// carries over, and a guess at that is worth nothing.
 fn run_determinism() {
-    const NEAR: i32 = 200;
+    // ⛔⛔ NEAR A REAL BOUNDARY, AND THE FIRST VERSION OF THIS TEST WAS NOT.
+    //
+    // It probed 200% on a move whose centre threshold is above 300, so every
+    // trial was a comfortable survival and all eight agreed. That established
+    // the probe is reproducible where nothing is in doubt — a guard that cannot
+    // fail — and it is why run 2 still produced fifteen disagreeing cells after
+    // this test had passed. The flakiness lives within a percent or two of the
+    // blast line, so the test has to stand there.
+    //
+    // ⛔ AND THE SECOND ATTEMPT MISSED TOO, FOR A DIFFERENT REASON. It used 50%,
+    // taken from a `smash_forward` LEDGE contradiction, but then fired
+    // `tilt_forward` at CENTRE — a different move at a different position, where
+    // the threshold is above 300. Result: 6 of 6 `kills` and 8 of 8 single
+    // trials all agreeing on a comfortable survival. A guard that cannot fail,
+    // twice over.
+    //
+    // ⛔ THE THIRD ATTEMPT MISSED TOO, AND FOR THE MOST AVOIDABLE REASON YET: it
+    // took 145 from RUN 2, a table produced by the broken instrument. 8 of 8
+    // single trials came back a unanimous KILL at launch 721.9. A percent
+    // inherited from void data is not a threshold on this tree.
+    //
+    // ⭐ SO THE BOUNDARY IS MEASURED ON THIS TREE, NOT INHERITED. Sweeping
+    // `smash_forward` at centre with the current binary:
+    //     125% -> survive (launch 644.4)
+    //     150% -> KO      (launch 741.2)
+    // and 145% was already a unanimous kill, so the flip sits below it. 130 is
+    // inside the bracket and is where a single trial should waver if it ever
+    // does — which the single-trial control below is there to report.
+    const NEAR: i32 = 130;
     const LETHAL: i32 = 300;
 
     let mut probe = KoProbe::new("npc_pirate_admiral", "player_robot_v3");
@@ -1055,7 +1155,7 @@ fn run_determinism() {
     // centre cell was one of the two genuine disagreements.
     let Some(Launcher::Strike { hit, move_id, .. }) = launchers
         .iter()
-        .find(|l| l.role() == "attack_forward" && matches!(l, Launcher::Strike { .. }))
+        .find(|l| l.role() == "smash_forward" && matches!(l, Launcher::Strike { .. }))
     else {
         println!("# no attack_forward strike found — cannot reproduce the run-1 latch");
         return;
@@ -1063,6 +1163,56 @@ fn run_determinism() {
     println!("# determinism probe on npc_pirate_admiral `{move_id}` vs player_robot_v3");
     println!("# every line below is the SAME pulse at the SAME percent unless marked");
     println!("phase\ttrial\tpercent\tko\tlaunch\tticks\tpre_state");
+
+    let x = probe.centre;
+
+    // ⭐⭐ THE ARM THAT TESTS THE ACTUAL CLAIM.
+    //
+    // The single-trial rows below may legitimately disagree with each other at
+    // this percent — that IS the defect, and reproducing it is half the point.
+    // The claim that needs testing is the REMEDY: that `kills`, deciding by
+    // majority of three, returns the same verdict every time at a percent where
+    // one trial does not. A test that only ever calls `strike` cannot say
+    // anything about that, and calling this file's determinism probe "passing"
+    // on the strength of single trials is how run 2 shipped fifteen bad cells.
+    //
+    // ⛔ If these six disagree, majority-of-three is NOT enough and no matrix
+    // should be run on it.
+    let mut votes = Vec::new();
+    for _ in 0..6 {
+        votes.push(
+            probe
+                .kills(hit, NEAR, x)
+                .map(|k| k.to_string())
+                .unwrap_or_else(|| "REFUSED".into()),
+        );
+    }
+    println!("# kills()@{NEAR}% x6 (majority-of-three each): {}", votes.join(" "));
+    // ⛔ THIS LINE MAY NOT CLAIM BOUNDARY-NESS IT HAS NOT ESTABLISHED.
+    //
+    // It previously printed "the remedy holds at a boundary percent" whenever
+    // the six votes agreed — including on percents that were nowhere near a
+    // boundary, which is what happened on all three attempts (200% and 50% were
+    // comfortable survivals; 145% a comfortable kill, 8 of 8 single trials
+    // agreeing at launch 721.9). Agreement at a percent where ONE trial is
+    // already unanimous says nothing whatever about majority-of-three.
+    //
+    // The single-trial arm is the control: only if IT disagrees is this percent
+    // a boundary, and only then does agreement among the votes mean anything.
+    let votes_agree = votes.iter().all(|v| v == &votes[0]);
+    println!(
+        "# ⇒ kills() {}",
+        if votes_agree {
+            "agreed 6/6"
+        } else {
+            "⛔ DISAGREED — majority-of-three is insufficient; do not run the matrix"
+        }
+    );
+    println!(
+        "# ⇒ whether that MEANS anything depends on the single-trial rows below: \
+         if they are unanimous too, {NEAR}% is not a boundary and this test is \
+         a guard that cannot fail."
+    );
 
     let x = probe.centre;
     for i in 0..4 {
@@ -1090,9 +1240,22 @@ fn run_determinism() {
         .as_ref()
         .map(|t| t.at_strike.clone())
         .unwrap_or_else(|| "RESET_REFUSED".into());
+    // ⛔ THE LAUNCH COLUMN IS FORMATTED, NOT HARDCODED — and it was hardcoded.
+    //
+    // This row printed a literal `-` where every other row prints a measured
+    // launch, and I read my own placeholder as a measurement: it became a
+    // reported "no contact at 300%", a commit message recording a defect as
+    // KNOWN AND NOT YET EXPLAINED, and a contact sweep to chase it. The sweep
+    // came back 13 of 13 connected. The trial had been fine the whole time.
+    //
+    // ⇒ A column that can only ever print one value is not reporting anything.
     println!(
-        "INDUCE_KO\t-\t{LETHAL}\t{}\t-\t{}\t{pre}",
+        "INDUCE_KO\t-\t{LETHAL}\t{}\t{}\t{}\t{pre}",
         t.as_ref().map(|t| t.ko.to_string()).unwrap_or_else(|| "-".into()),
+        t.as_ref()
+            .and_then(|t| t.resolved_launch)
+            .map(|v| format!("{v:.1}"))
+            .unwrap_or_else(|| "-".into()),
         t.as_ref()
             .and_then(|t| t.ticks_to_ko)
             .map(|v| v.to_string())
@@ -1171,6 +1334,23 @@ fn run_probe() {
          NO-RECOVERY LOWER BOUND, not a kill percent."
     );
     println!("# attacker meter pinned to 0 so rage_scale cannot multiply a resolved launch.");
+    // ⛔⛔ AERIAL ROLES ARE MEASURED UNDER CONDITIONS THEY NEVER OCCUR IN, and
+    // their rows are NOT comparable with the grounded ones.
+    //
+    // Every trial parks the victim standing on the platform, so an `attack_air*`
+    // pulse is being fired at a grounded body from a grounded attacker. Run 2
+    // duly reported `centre_never = n/n` for attack_air, attack_air_up,
+    // attack_air_down and attack_dash. That is a statement about the FIXTURE,
+    // not about aerials: a real aerial connects with an airborne victim who has
+    // no floor to be driven into and no landing to absorb the launch.
+    //
+    // ⇒ Read the grounded roles (attack*, smash*, tilt*) as measurements and the
+    // aerial roles as not-yet-measured. Giving them an airborne victim is a
+    // separate fixture, not a tweak to this one.
+    println!(
+        "# ⛔ AERIAL ROLES (attack_air*, attack_dash) FIRE AT A GROUNDED, PARKED VICTIM — \
+         a fixture they never meet in play. Their cells measure the fixture, not the move."
+    );
 
     {
         for (attacker_id, victim_id) in &pairs {
@@ -1249,14 +1429,45 @@ fn run_probe() {
             println!(
                 "role\tmove\tw/v\tbase\tgrowth\tlaunch@100\ttumble%\tcentre_KO%\tledge_KO%\tko_ticks"
             );
-            let ledge_x = probe.centre + 240.0;
+            // ⛔⛔ DERIVED FROM THE PLATFORM, AND INBOARD OF ITS EDGE.
+            //
+            // `centre + 240.0` parked the victim at x=560, which is EXACTLY
+            // where the floor ends: `smash_stage` builds one solid at
+            // min=(80,300) size=(480,32), so the platform spans 80..560. A body
+            // standing on the last pixel decides `on_ground` sub-pixel, and it
+            // showed — 15 of run 2's 16 self-contradicting cells were LEDGE
+            // cells, and four ledge thresholds collapsed to 0-25%. That is the
+            // fixture tipping a body off a cliff it was already teetering on,
+            // not a measurement of knockback.
+            //
+            // Read the real edge off the stage and stand a margin inboard, so the
+            // cell measures a launch from NEAR the ledge instead of a coin flip
+            // about whether the victim was ever standing.
+            let ledge_x = {
+                let room = ambition_demo_smash::smash_stage();
+                let right = room
+                    .world
+                    .blocks
+                    .iter()
+                    .map(|b| b.aabb.max.x)
+                    .fold(f32::MIN, f32::max);
+                if right > f32::MIN {
+                    right - 40.0
+                } else {
+                    probe.centre + 200.0
+                }
+            };
+            println!("#   ledge_x = {ledge_x:.1} (derived platform edge, 40px inboard)");
             for l in &launchers {
                 let Launcher::Strike { hit, move_id, .. } = l else {
                     continue;
                 };
-                let launch_at_100 = probe
-                    .strike(hit, 100, probe.centre)
-                    .and_then(|t| t.resolved_launch);
+                // ⛔ THROUGH `launch_at` LIKE THE OTHER TWO. This value is both
+                // the printed column AND the midpoint the linearity check tests
+                // the fitted line against, so a single refused reset here does
+                // not merely blank a cell — it disarms the check that decides
+                // whether the tumble crossing may be solved at all.
+                let launch_at_100 = probe.launch_at(hit, 100, probe.centre);
                 // ⭐ THE TUMBLE CROSSING IS SOLVED, NOT SWEPT — and the solve
                 // CHECKS ITS OWN PREMISE instead of assuming it.
                 //
@@ -1270,10 +1481,8 @@ fn run_probe() {
                 // ⛔ If the third point misses, this prints NONLINEAR and no
                 // crossing, because a fitted line through a curve that is not
                 // one is a fabricated number.
-                let l0 = probe.strike(hit, 0, probe.centre).and_then(|t| t.resolved_launch);
-                let l200 = probe
-                    .strike(hit, 200, probe.centre)
-                    .and_then(|t| t.resolved_launch);
+                let l0 = probe.launch_at(hit, 0, probe.centre);
+                let l200 = probe.launch_at(hit, 200, probe.centre);
                 let tumble_cell = match (l0, launch_at_100, l200) {
                     (Some(a), Some(mid), Some(b)) => {
                         let predicted = (a + b) / 2.0;

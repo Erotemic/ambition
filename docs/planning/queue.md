@@ -101,10 +101,16 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
 - **`Q120`** — a live developer edit DESYNCS rollback resimulation, measured
   against the real sync-test canary. The model is the decision: refuse / rebase /
   deterministic input.
-- **`Q119`** — the classification rule that replaces *"forward-only"*. ⭐ Its
-  "rest of `PlatformerSessionBuilder`'s inputs" half is now a row with names:
-  `Q126` (`AuthoredBrainOverride`, `AuthoredPopulationCap`,
-  `PerceptionExtentOverride` — mechanical, immutable, outside the identity).
+- **`Q119`** — ✅ **AUDIT COMPLETE `2026-09-13`.** Every field of
+  `PlatformerSessionBuilder` traced to whether it reaches
+  `PreparedContentIdentity`. **Every mechanical + immutable input is bound, with
+  no exceptions left** — the catalog and brain profiles transitively through
+  `canonical_fragments()`, the two developer knobs through `construction.developer`
+  (`Q126`), and `placement_lowering` / `content_staging` / `construction_recipes`
+  through their own sections. ⛔ The only two NOT bound are `EditableAbilitySet`
+  and `ActiveMovementTuning`, and they are not omissions: they are row TWO of the
+  same classification (*mechanical + changes during timeline*), which is `Q120` —
+  a ruling, not a gap. Table in the row.
 - **A10's last step** — flip `spawn_contents`'s `hidden` flag. ⛔ **ITS BLOCKER IS
   NOW ONE ROW, `Q124`, AND IT IS A GAMEPLAY RULING RATHER THAN A MYSTERY.**
   MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped

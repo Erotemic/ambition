@@ -1653,7 +1653,41 @@ whole shell transaction (neither half activates), or a lifecycle that stops and
 rebases rollback as part of the same transaction. ⛔ Not a second
 `publication_boundary` call at the commit — see above.
 
-## Q119 — RULED BY THE REVIEW, RECORDED FOR THE AUDIT TRAIL: which App authorities are MECHANICAL?
+## ✅ Q119 — AUDIT COMPLETE 2026-09-13. Every MECHANICAL input to session construction is bound; the only unbound ones are MUTABLE and are `Q120`'s.
+
+⛔⛤ **THE OPEN HALF OF THIS ROW WAS *"the rest of `PlatformerSessionBuilder`'s
+inputs have not been audited"*, and the audit is done.** Every field of that
+`SystemParam`, traced to whether it reaches `PreparedContentIdentity`:
+
+| input | class | bound? |
+| --- | --- | --- |
+| `commands` | not an authority | n/a |
+| `editable_abilities` (`EditableAbilitySet`) | mechanical, **MUTABLE** | ⛔ `Q120` |
+| `tuning` (`ActiveMovementTuning`) | mechanical, **MUTABLE** | ⛔ `Q120` — this is the resource whose live edit DESYNCS the sync-test canary |
+| `character_catalog` | mechanical, immutable | ✅ transitively, via `canonical_fragments()` |
+| `brain_profiles` | mechanical, immutable | ✅ transitively, same fragments, same assembly |
+| `forced_brains.0` (`AuthoredBrainOverride`) | mechanical, immutable | ✅ `construction.developer` (`Q126`) |
+| `forced_brains.1` (`AuthoredPopulationCap`) | mechanical, immutable | ✅ `construction.developer` (`Q126`) |
+| `placement_lowering` | mechanical, immutable | ✅ `construction.placement-lowering` |
+| `content_staging` | mechanical, immutable | ✅ `construction.content-staging` |
+| `construction_recipes` | mechanical, immutable | ✅ `construction.recipes` |
+| `moving_platforms` | DERIVED from the room spec | ✅ through the room |
+| `active_session` | session lifecycle, not content | n/a |
+| `occurrences` / `minted` | the save's ledger — runtime state, not content | n/a |
+
+⇒ **THE CLASSIFICATION'S FIRST ROW IS SATISFIED: mechanical + immutable ⇒ bound,
+with no exceptions left.** The two that are not bound are not omissions — they are
+row TWO of the same table (*"mechanical + changes during timeline ⇒ deterministic
+input/state, or explicit rebase"*), which is exactly `Q120`, and `Q120` is a
+ruling rather than a gap.
+
+⚠ **`PerceptionExtentOverride` IS NOT IN THIS TABLE** because it is not a
+`PlatformerSessionBuilder` input — it configures `ensure_perception` when a body
+is built. `Q126` records why it is held separately.
+
+<details><summary>The classification this audit was run against</summary>
+
+### Q119 — RULED BY THE REVIEW, RECORDED FOR THE AUDIT TRAIL: which App authorities are MECHANICAL?
 
 ⭐ **NOT AWAITING A DECISION — the classification below came from Jon's forwarded
 review and is being applied.** It lives here because the LIST is what future work
@@ -1687,6 +1721,8 @@ rest of `PlatformerSessionBuilder`'s inputs, and the live developer-edit
 resources (`ActiveMovementTuning`, `Platformer2dFeelTuningMonolith`,
 `EditableAbilitySet`, `EditablePlayerStats`, `DeveloperTools.player_body_profile`)
 which are the SECOND row of the table and have no answer yet.
+
+</details>
 
 ## Q120 — which rollback model do LIVE DEVELOPER MECHANICAL EDITS get: refusal, rebase, or deterministic input?
 

@@ -449,6 +449,22 @@ impl Threshold {
     }
 }
 
+/// WHAT DELIVERS ONE PULSE — and the ONLY thing the threshold machinery varies.
+///
+/// ⛔⛤ A SECOND SEARCH WOULD BE A SECOND SET OF SEMANTICS. `ko_threshold`'s
+/// rules — what a refusal is, what a non-monotonic curve is, when a threshold
+/// counts as verified, majority-of-three — are the expensive, hard-won part of
+/// this instrument. A parallel throw search would be a second chance to get
+/// each of them subtly wrong, so strikes and throws differ ONLY in how the
+/// pulse is delivered and share everything after it.
+///
+/// Two references, so this is `Copy` and costs a threshold search nothing.
+#[derive(Clone, Copy)]
+enum Pulse<'a> {
+    Strike(&'a HitVolume),
+    Throw(&'a CaptureThrowParams),
+}
+
 struct KoProbe {
     app: bevy::prelude::App,
     attacker: bevy::prelude::Entity,
@@ -772,7 +788,7 @@ impl KoProbe {
 
     /// Fire one authored volume at the parked victim and read the engine's own
     /// verdict.
-    fn strike(&mut self, hit: &HitVolume, entry_percent: i32, victim_x: f32) -> Option<Trial> {
+    fn fire(&mut self, pulse: Pulse<'_>, entry_percent: i32, victim_x: f32) -> Option<Trial> {
         use ambition_platformer2d::combat::events::{HitEvent, HitKnockbackMagnitude, HitTarget};
         use ambition_platformer2d::combat::stocks::BodyKnockedOut;
         use ambition_platformer2d::engine_core::Vec2 as EVec2;
@@ -813,33 +829,77 @@ impl KoProbe {
             .resource::<bevy::ecs::message::Messages<BodyKnockedOut>>()
             .get_cursor();
 
-        let strike = self
-            .app
-            .world_mut()
-            .spawn((
-                ambition_platformer2d::combat::strike::Hitbox {
-                    owner: attacker,
-                    source: ambition_platformer2d::vfx::HitSide::Enemy,
-                    anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
-                        center: struck_at,
+        // ⭐⭐ DELIVERY IS THE ONLY THING THAT VARIES. The cursors above are
+        // already watching, and the settle loop below is already shared — see
+        // `Pulse`.
+        //
+        // ⛔ THE THROW DOES NOT SPEND ITS OWN TICK HERE. It installs the hold
+        // and WRITES the request; the loop's first `self.app.update()` is what
+        // executes it, so the launch's `HitEvent` lands in front of a cursor
+        // that already exists. An `update()` inside this arm would risk the
+        // event being published before the loop began watching for it.
+        let spawned: Option<bevy::prelude::Entity> = match pulse {
+            Pulse::Strike(hit) => Some(
+                self.app
+                    .world_mut()
+                    .spawn((
+                        ambition_platformer2d::combat::strike::Hitbox {
+                            owner: attacker,
+                            source: ambition_platformer2d::vfx::HitSide::Enemy,
+                            anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                                center: struck_at,
+                            },
+                            half_extent: EVec2::new(48.0, 48.0),
+                            shape: None,
+                            facing: 1.0,
+                            damage: hit.damage,
+                            knockback:
+                                ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
+                                    base: hit.knockback,
+                                    growth: hit.knockback_growth,
+                                },
+                            launch_dir: hit.launch_dir.map(|(x, y)| EVec2::new(x, y)),
+                            frame_down: EVec2::new(0.0, 1.0),
+                            strike_sfx: None,
+                            reaction: None,
+                        },
+                        ambition_platformer2d::combat::strike::HitboxHits::default(),
+                        ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
+                    ))
+                    .id(),
+            ),
+            Pulse::Throw(params) => {
+                // ⚠ `lasting`, NOT `default()`. A default `SmashHoldState` has
+                // `escape_seconds == 0.0`, which `escaped()` correctly reads as
+                // a hold ALREADY OVER — its own doc warns that a fixture
+                // reaching for `default()` watches its capture end on tick one
+                // and calls that a timeout.
+                self.app.world_mut().entity_mut(self.victim).insert((
+                    ambition_platformer2d::combat::capture::CapturedBy {
+                        captor: attacker,
+                        hold_offset_local: EVec2::new(16.0, 0.0),
+                        prior_gravity_scale: 1.0,
                     },
-                    half_extent: EVec2::new(48.0, 48.0),
-                    shape: None,
-                    facing: 1.0,
-                    damage: hit.damage,
-                    knockback: ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
-                        base: hit.knockback,
-                        growth: hit.knockback_growth,
+                    ambition_platformer2d::characters::control::ScriptedControl,
+                    ambition_platformer2d::characters::control::ControlHolds::only(
+                        ambition_platformer2d::characters::control::ControlHold::Relationship,
+                    ),
+                    ambition_platformer2d::characters::smash_hold_state::SmashHoldState::lasting(
+                        10.0,
+                    ),
+                ));
+                self.app.world_mut().write_message(
+                    ambition_platformer2d::combat::capture::CaptureThrowRequested {
+                        captor: attacker,
+                        damage: params.damage,
+                        knockback: params.knockback,
+                        knockback_growth: params.knockback_growth,
+                        launch_dir: EVec2::new(params.launch_dir.0, params.launch_dir.1),
                     },
-                    launch_dir: hit.launch_dir.map(|(x, y)| EVec2::new(x, y)),
-                    frame_down: EVec2::new(0.0, 1.0),
-                    strike_sfx: None,
-                    reaction: None,
-                },
-                ambition_platformer2d::combat::strike::HitboxHits::default(),
-                ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
-            ))
-            .id();
+                );
+                None
+            }
+        };
 
         let mut resolved_launch = None;
         let mut ko = false;
@@ -922,8 +982,41 @@ impl KoProbe {
                 }
             }
         }
-        if self.app.world().get_entity(strike).is_ok() {
-            self.app.world_mut().entity_mut(strike).despawn();
+        if let Some(strike) = spawned {
+            if self.app.world().get_entity(strike).is_ok() {
+                self.app.world_mut().entity_mut(strike).despawn();
+            }
+        }
+
+        // ⛔⛤ A THROW THAT NEVER EXECUTED IS A REFUSAL, NOT A SURVIVAL.
+        //
+        // `apply_capture_throws` silently `continue`s when its `find` matches
+        // nothing — a victim missing one of the eleven components its query
+        // demands, a hold already over, a captor that is itself captured. A
+        // cell scored "did not KO" on the strength of that would read as
+        // *throws are weak*, which is the exact complaint under investigation,
+        // and the instrument would be answering about itself.
+        //
+        // The captive is released BY the throw, so `CapturedBy` still being
+        // here means the system never ran.
+        if let Pulse::Throw(_) = pulse {
+            let executed = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::combat::capture::CapturedBy>(self.victim)
+                .is_none();
+            // Whatever happened, this fixture's hold must not survive into the
+            // next trial — a leaked `CapturedBy` would make the NEXT pulse
+            // measure a captive.
+            self.app.world_mut().entity_mut(self.victim).remove::<(
+                ambition_platformer2d::combat::capture::CapturedBy,
+                ambition_platformer2d::characters::control::ScriptedControl,
+                ambition_platformer2d::characters::control::ControlHolds,
+                ambition_platformer2d::characters::smash_hold_state::SmashHoldState,
+            )>();
+            if !executed {
+                return None;
+            }
         }
 
         Some(Trial {
@@ -932,9 +1025,22 @@ impl KoProbe {
             ko,
             ticks_to_ko,
             entry_percent,
-            effective_percent: entry_percent,
+            // ⭐ AND THIS IS WHY THE FIELD EXISTS. `apply_capture_throws`
+            // damages BEFORE reading the meter, so a throw's launch arithmetic
+            // sees `entry + damage` where a strike's sees `entry`.
+            effective_percent: match pulse {
+                Pulse::Strike(_) => entry_percent,
+                Pulse::Throw(params) => entry_percent + params.damage,
+            },
             at_strike,
         })
+    }
+
+    /// Fire a STRIKE pulse. `run_contact` and `run_determinism` are strike-only
+    /// diagnostics by design — they ask about contact and reproducibility of a
+    /// swing — so they keep a name that says so.
+    fn strike(&mut self, hit: &HitVolume, entry_percent: i32, victim_x: f32) -> Option<Trial> {
+        self.fire(Pulse::Strike(hit), entry_percent, victim_x)
     }
 
     /// Coarse sweep → bracket → binary search → VERIFY both sides.
@@ -945,9 +1051,9 @@ impl KoProbe {
     /// monotonicity would return a confident number for a curve that does not
     /// have one.
     /// The resolved launch at one percent, retrying a refused reset.
-    fn launch_at(&mut self, hit: &HitVolume, percent: i32, victim_x: f32) -> Option<f32> {
+    fn launch_at(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<f32> {
         for _ in 0..3 {
-            if let Some(t) = self.strike(hit, percent, victim_x) {
+            if let Some(t) = self.fire(pulse, percent, victim_x) {
                 return t.resolved_launch;
             }
         }
@@ -973,12 +1079,12 @@ impl KoProbe {
     /// A refused reset is RETRIED rather than counted, and `None` — the probe
     /// could not obtain a clean trial — is returned so the caller can say so
     /// instead of silently scoring a survival.
-    fn kills(&mut self, hit: &HitVolume, percent: i32, victim_x: f32) -> Option<bool> {
+    fn kills(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<bool> {
         let (mut yes, mut no) = (0, 0);
         while yes < 2 && no < 2 {
             let mut trial = None;
             for _ in 0..3 {
-                if let Some(t) = self.strike(hit, percent, victim_x) {
+                if let Some(t) = self.fire(pulse, percent, victim_x) {
                     trial = Some(t);
                     break;
                 }
@@ -992,7 +1098,7 @@ impl KoProbe {
         Some(yes > no)
     }
 
-    fn ko_threshold(&mut self, hit: &HitVolume, victim_x: f32, max_percent: i32) -> Threshold {
+    fn ko_threshold(&mut self, pulse: Pulse<'_>, victim_x: f32, max_percent: i32) -> Threshold {
         // ⚠ 50 RATHER THAN 25, AND IT IS A TRADE I AM MAKING ON PURPOSE.
         // Widening the coarse step halves the sweep (13 samples -> 7) and costs
         // the binary search one extra iteration, so the THRESHOLD it converges
@@ -1006,7 +1112,7 @@ impl KoProbe {
         let mut bracket: Option<(i32, i32)> = None;
         let mut p = 0;
         while p <= max_percent {
-            let Some(ko) = self.kills(hit, p, victim_x) else {
+            let Some(ko) = self.kills(pulse, p, victim_x) else {
                 return Threshold::Refused(p);
             };
             samples.push((p, ko));
@@ -1028,7 +1134,7 @@ impl KoProbe {
             // only one of them is about the game. One probe at the top of the
             // range separates them.
             let connected = self
-                .launch_at(hit, max_percent, victim_x)
+                .launch_at(pulse, max_percent, victim_x)
                 .is_some();
             return if connected {
                 Threshold::Above(max_percent)
@@ -1038,7 +1144,7 @@ impl KoProbe {
         };
         while hi - lo > 1 {
             let mid = (lo + hi) / 2;
-            let Some(killed) = self.kills(hit, mid, victim_x) else {
+            let Some(killed) = self.kills(pulse, mid, victim_x) else {
                 return Threshold::Refused(mid);
             };
             if killed {
@@ -1067,10 +1173,10 @@ impl KoProbe {
         // trial there killed, and then ONE trial at that same `hi` said it did
         // not. `is_some_and` also folded a refused reset into "did not kill",
         // which is the same silent survival the `Refused` variant exists to stop.
-        let Some(below) = self.kills(hit, hi - 1, victim_x) else {
+        let Some(below) = self.kills(pulse, hi - 1, victim_x) else {
             return Threshold::Refused(hi - 1);
         };
-        let Some(at) = self.kills(hit, hi, victim_x) else {
+        let Some(at) = self.kills(pulse, hi, victim_x) else {
             return Threshold::Refused(hi);
         };
         if below || !at {
@@ -1234,7 +1340,7 @@ fn run_determinism() {
     for _ in 0..6 {
         votes.push(
             probe
-                .kills(hit, NEAR, x)
+                .kills(Pulse::Strike(hit), NEAR, x)
                 .map(|k| k.to_string())
                 .unwrap_or_else(|| "REFUSED".into()),
         );
@@ -1514,12 +1620,13 @@ fn run_probe() {
                 let Launcher::Strike { hit, move_id, .. } = l else {
                     continue;
                 };
+                let pulse = Pulse::Strike(hit);
                 // ⛔ THROUGH `launch_at` LIKE THE OTHER TWO. This value is both
                 // the printed column AND the midpoint the linearity check tests
                 // the fitted line against, so a single refused reset here does
                 // not merely blank a cell — it disarms the check that decides
                 // whether the tumble crossing may be solved at all.
-                let launch_at_100 = probe.launch_at(hit, 100, probe.centre);
+                let launch_at_100 = probe.launch_at(pulse, 100, probe.centre);
                 // ⭐ THE TUMBLE CROSSING IS SOLVED, NOT SWEPT — and the solve
                 // CHECKS ITS OWN PREMISE instead of assuming it.
                 //
@@ -1533,8 +1640,8 @@ fn run_probe() {
                 // ⛔ If the third point misses, this prints NONLINEAR and no
                 // crossing, because a fitted line through a curve that is not
                 // one is a fabricated number.
-                let l0 = probe.launch_at(hit, 0, probe.centre);
-                let l200 = probe.launch_at(hit, 200, probe.centre);
+                let l0 = probe.launch_at(pulse, 0, probe.centre);
+                let l200 = probe.launch_at(pulse, 200, probe.centre);
                 let tumble_cell = match (l0, launch_at_100, l200) {
                     (Some(a), Some(mid), Some(b)) => {
                         let predicted = (a + b) / 2.0;
@@ -1560,8 +1667,8 @@ fn run_probe() {
                     }
                     _ => "-".to_string(),
                 };
-                let centre_ko = probe.ko_threshold(hit, probe.centre, max_percent);
-                let ledge_ko = probe.ko_threshold(hit, ledge_x, max_percent);
+                let centre_ko = probe.ko_threshold(pulse, probe.centre, max_percent);
+                let ledge_ko = probe.ko_threshold(pulse, ledge_x, max_percent);
                 let (w, v) = match l {
                     Launcher::Strike { window, volume, .. } => (*window, *volume),
                     _ => (0, 0),
@@ -1576,7 +1683,7 @@ fn run_probe() {
                 // `centre_ko` out from under the `centre_ko.cell()` below.
                 let ko_ticks = match &centre_ko {
                     Threshold::At(p) => probe
-                        .strike(hit, *p, probe.centre)
+                        .fire(pulse, *p, probe.centre)
                         .and_then(|t| t.ticks_to_ko)
                         .map(|t| t.to_string())
                         .unwrap_or_else(|| "-".into()),

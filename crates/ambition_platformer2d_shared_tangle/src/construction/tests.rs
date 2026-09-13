@@ -3138,3 +3138,103 @@ fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may
          even be DETECTED, let alone prevented: {after:?}"
     );
 }
+
+/// ⛔⛤ **HOST-LOCAL LINEAGE COUNTERS ARE INSIDE CANONICAL ROLLBACK STATE — A
+/// RECORDED GAP, MEASURED 2026-09-13 AFTER A REVIEW NAMED IT.**
+///
+/// `ConstructionScope::transaction` renders a `TransactionId` as
+/// `"{incoming.canonical_summary()}\t{room}\tsession:{SessionScopeId}"`, and that
+/// id is CANONICAL ROLLBACK STATE — snapshotted as its exact string. Both of the
+/// first two fields are process-local counters:
+///
+/// * `ContentBinding::Content(epoch)` renders the `ContentEpoch` NUMBER, and
+///   `ContentEpochSequence` is app-local. `Q120`'s sibling ruling deliberately
+///   made it GAP-TOLERANT — a refused hot reload burns a number — so two hosts
+///   that refused different numbers of candidates reach the same content at
+///   different epochs.
+/// * `SessionScopeId` is another app-local monotonic counter, so two hosts that
+///   have played different numbers of prior gameplay sessions bring different
+///   numbers into an otherwise identical world.
+///
+/// ⇒ **Two peers whose worlds are MECHANICALLY IDENTICAL can therefore carry
+/// different canonical transaction provenance**, and the rule the project works
+/// to is that mechanically equivalent rollback worlds need mechanically
+/// equivalent canonical state.
+///
+/// ⚠ **THE `ContentEpoch` ORDERING RULING IS NOT WHAT IS WRONG HERE, AND THIS
+/// ARM SAYS SO SO NOBODY "FIXES" IT BY REINTRODUCING `Ord`.** Removing
+/// `Ord`/`PartialOrd` and allowing gaps is right for a host-local staleness
+/// token. The defect is that the same token is ALSO serving as cross-peer
+/// canonical identity — one identifier doing two jobs, of which only the first
+/// may depend on local process history.
+///
+/// ⭐⭐ **THIS ARM ASSERTS THE DIVERGENCE, NOT THE FIX**, in the shape this
+/// repository uses for a measured gap: it is named for what it RECORDS, and the
+/// day the identities are split it FAILS and becomes the opposite assertion.
+/// The preferred correction is in `queue.md`: keep the local tokens for their
+/// real job and derive canonical provenance from peer-stable facts — the prepared
+/// content FINGERPRINT, the schema fingerprint, stable room identity, canonical
+/// `SimId`s.
+#[test]
+fn a_transaction_identity_still_depends_on_host_local_lineage_counters() {
+    use crate::lifecycle::{SessionScopeId, SessionSpawnScope};
+    use ambition_platformer2d_core::ContentEpoch;
+
+    let room = || Some("central_hub_complex".to_string());
+    let scope_of = |epoch: u64| {
+        super::ConstructionScope::in_generation(
+            super::ContentBinding::Content(ContentEpoch(epoch)),
+            room(),
+        )
+    };
+
+    // ⛔ THE CONTROL, AND IT IS THE LOAD-BEARING HALF. Two hosts with the SAME
+    // local history must agree, or "they disagree" below is a statement about an
+    // identity that is simply unstable.
+    let session = SessionSpawnScope::scoped(SessionScopeId(1));
+    assert_eq!(
+        scope_of(7).transaction(session),
+        scope_of(7).transaction(session),
+        "the transaction identity is not a function of its inputs at all, so \
+         nothing below is about local history"
+    );
+
+    // ⛔ BURNED EPOCH. App A refused one candidate before reaching this content
+    // and App B did not; the WORLD is the same room of the same content.
+    let app_a = scope_of(8).transaction(session);
+    let app_b = scope_of(7).transaction(session);
+    assert_ne!(
+        app_a, app_b,
+        "MEASURED GAP CLOSED? This arm records that a burned candidate epoch \
+         changes canonical transaction provenance for a mechanically identical \
+         world. If these now AGREE, canonical identity has been split from the \
+         host-local lineage token — delete this arm and assert the equality."
+    );
+
+    // ⛔ PRIOR SESSIONS. Same content, same room; App A has played more
+    // gameplay sessions than App B.
+    let many_prior = scope_of(7).transaction(SessionSpawnScope::scoped(SessionScopeId(9)));
+    let none_prior = scope_of(7).transaction(SessionSpawnScope::scoped(SessionScopeId(1)));
+    assert_ne!(
+        many_prior, none_prior,
+        "MEASURED GAP CLOSED? This arm records that the number of PRIOR LOCAL \
+         GAMEPLAY SESSIONS changes canonical transaction provenance for a \
+         mechanically identical world. If these now AGREE, the same split has \
+         happened for `SessionScopeId` — delete this arm and assert the equality."
+    );
+
+    // ⚠ AND THE ROOM, WHICH IS THE FIELD THAT SHOULD DECIDE IT. Recorded beside
+    // the two that should not, so the arm shows the identity is not merely
+    // unstable: it is stable on the peer-stable field and unstable on the two
+    // local ones.
+    let other_room = super::ConstructionScope::in_generation(
+        super::ContentBinding::Content(ContentEpoch(7)),
+        Some("proving_grounds".to_string()),
+    );
+    assert_ne!(
+        other_room.transaction(session),
+        scope_of(7).transaction(session),
+        "two DIFFERENT rooms share one transaction identity, which would be a \
+         much worse defect than the one this arm is about"
+    );
+}

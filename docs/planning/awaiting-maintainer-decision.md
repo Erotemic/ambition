@@ -1769,12 +1769,31 @@ batch as the root's identity, before the recipe runs, closing the window where a
 component hook or lifecycle observer could see a candidate as an ordinary member
 of the live world.
 
-⛔ **WHAT IS STILL ONLY REASONED:** `InactiveCandidate` is a registered disabling
-component, so `DefaultQueryFilters` hides it from every query that does not
-MENTION it. **Every collector that is not an ordinary query is unproven:**
-rollback SNAPSHOTS, physics/global gatherers, and anything walking the world
-directly rather than through a filtered query. A candidate that entered a
-snapshot would be restored into the live world by a rewind.
+✅ **THE ROLLBACK-SNAPSHOT HALF IS CLOSED, and it was the one that mattered
+most** — a candidate that entered a GGRS save would be restored into the LIVE
+world by the next rewind: an unpublished, unvalidated scene arriving as history,
+strictly worse than the half-visible scene `commit_inactive` exists to prevent.
+
+**MEASURED in the pinned dependency:** `bevy_ggrs-0.22.0` collects snapshot state
+through ORDINARY queries. ⚠ THE PATHS BELOW ARE IN THE DEPENDENCY, NOT THIS
+REPO, so they are spelled without the `file:line` shape the citation checker
+resolves against the tree: in its snapshot module's component-snapshot file the save is
+`Query<(&RollbackId, &S::Target)>` (line 69) and the restore is
+`Query<(Entity, &RollbackId, Option<&mut S::Target>)>` (line 99); in
+its snapshot entity file the entity map is `Query<(&RollbackId, Entity)>` (line 42). **Not one mentions `InactiveCandidate`**, so
+`DefaultQueryFilters` excludes candidates from the save, the restore and the
+entity map alike. `a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots`
+pins the half that is OURS — that a tuple query in exactly that shape sees
+nothing — with the live body as its premise and publication as its lift.
+Poison-verified: skipping `register_inactive_candidate_filter` reddens it.
+
+⚠ **THE OTHER HALF IS A READING OF A PINNED VERSION.** That `bevy_ggrs`'s queries
+have that shape is not something the arm tests, and a `bevy_ggrs` upgrade is
+where it has to be re-read.
+
+⛔ **STILL UNPROVEN:** physics/global gatherers and anything walking ARCHETYPES
+directly rather than through a filtered query — those do not inherit
+`DefaultQueryFilters` at all.
 
 ⛔ **AND PUBLICATION ATOMICITY RESTS ON A POPULATION FACT, NOT A BOUNDARY.**
 `publish_candidate` removes the marker entity-by-entity under `&mut World`, which
@@ -1787,7 +1806,14 @@ and not on the construction road**) is a population count, and the
 boundary, and it is the thing to re-measure before trusting this in a new
 domain."*
 
-⇒ **WHAT WOULD CLOSE IT:** an arm that puts a candidate through a rollback
-snapshot and asserts it is absent, and one that registers a hook on a published
-component and asserts it cannot observe a partial publication — or a structural
-reason neither can happen.
+⛔⛤ **AND THE HOOK HALF CANNOT BE GUARDED FROM OUTSIDE, MEASURED.** The obvious
+fail-closed move — refuse to publish if `InactiveCandidate` carries a registered
+hook — is not available: `ComponentHooks`'s fields are `pub(crate)` in
+`bevy_ecs-0.19.1` (`lifecycle.rs:150-156`), so `ComponentInfo::hooks()` hands back
+a value nothing outside that crate can interrogate. A census of hooks is
+therefore a `git grep`, which is the population fact this row is complaining
+about, not a replacement for it.
+
+⇒ **WHAT WOULD CLOSE THE REST:** a structural reason no hook can observe a
+partial publication (or an upstream way to ask), and an arm for a collector that
+walks archetypes rather than querying.

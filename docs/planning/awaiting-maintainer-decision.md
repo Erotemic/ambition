@@ -1579,6 +1579,40 @@ shipped road rather than by a unit arm (constructing a live GGRS session in a
 fixture would test the fixture). The DECISION is guarded for all four ownerships,
 and the LDtk road's identical stop has been in production since before this row.
 
+### ⛔⛤ AMENDED 2026-09-13 — THE LEASE RE-ASKED HALF THE QUESTION, AND A REVIEW FOUND IT
+
+The closure above shipped with the admission requiring **two** facts — the
+timeline is HEALTHY, and this host MAY REBASE IT — while
+`break_the_publication_lease_when_the_boundary_closes`, which re-asks the boundary
+during the pending interval, re-asked only the HEALTH half.
+
+⇒ **A generation admitted against a `LocalMaintainer` session stayed admitted
+after an `External`/P2P or `Caller`-owned session replaced it.** Nothing about
+health changed, so the lease saw nothing; and
+`rebase_local_timeline_onto_the_new_generation` then correctly DECLINES to touch a
+foreign timeline — so the new content published onto a timeline nobody rebased.
+That is the desync this row measured, reached from the other side.
+
+⭐⭐ **FIXED BY COLLAPSING THE TWO FACTS INTO ONE VALUE, not by adding a second
+check.** `PublicationBoundary` is now `Legal | RebasableTimeline | ForeignTimeline
+| Unhealthy`, with the ownership question folded into
+`publication_boundary` itself. A caller cannot consult half of it because there is
+no half to consult — which is the standing test *"make it impossible, not
+checked"*, applied to the shape of an answer rather than to a state.
+
+⇒ **AND ONE PREVIOUSLY-RECORDED GAP FLIPPED WITH IT.** The arm that read *"a
+generation still publishes across a timeline that went live mid-flight"* was
+written to become its own opposite once a lifecycle sealed it; it now asserts the
+cancel. Its sibling
+(`a_healthy_timeline_this_host_maintains_going_live_mid_flight_still_publishes`)
+is the control that keeps the seal from being a blanket refusal — which is the
+regression the FIRST publication breaker caused and this row measured.
+
+Guarded by `losing_the_permission_to_rebase_mid_flight_cancels_the_pending_generation`
+(the transition itself: admitted as `LocalMaintainer`, committed after `External`
+replaced it), poison-verified — with both control arms staying green under the
+same poison.
+
 <details><summary>The row while it was half open</summary>
 
 ## Q118 — HALF SEALED 2026-09-13. The interval is REACHABLE IN THE SHIPPED GAME, and one half of it cannot be sealed by refusing.

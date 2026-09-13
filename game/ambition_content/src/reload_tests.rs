@@ -3748,10 +3748,23 @@ fn an_uncorrelated_transaction_is_not_adopted_either() {
 // that COVERS the interval and is broken early, or a lifecycle that stops and
 // rebases rollback as part of the same transaction.
 
-/// A rollback timeline that goes live while a generation is pending does not
-/// stop that generation publishing.
+/// ⛔⛤ **SEALED 2026-09-13 — AND IT FLIPPED FROM "still publishes" TO "cancels",
+/// WHICH IS WHAT THIS ARM WAS WRITTEN TO DO.**
+///
+/// It used to record a gap: a timeline that went live mid-flight did not stop the
+/// generation, and its own text said *"if this one is now too, name the lifecycle
+/// that did it and make this the opposite assertion."* The lifecycle is
+/// `PublicationBoundary` folding the OWNERSHIP question into itself, so the lease
+/// re-asks the whole admission question instead of its health half.
+///
+/// ⚠ **THE TIMELINE INSTALLED HERE IS FOREIGN** — `live_authority()` with no
+/// `RollbackSessionOwnership` — which is precisely the case `admit_candidate`
+/// would have refused a moment earlier. Its sibling,
+/// `a_healthy_timeline_this_host_maintains_going_live_mid_flight_still_publishes`,
+/// is the other half and must NOT cancel, or this seal has deleted hot reload
+/// again.
 #[test]
-fn a_generation_still_publishes_across_a_timeline_that_went_live_mid_flight() {
+fn a_foreign_timeline_that_goes_live_mid_flight_cancels_the_pending_generation() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
@@ -3814,13 +3827,151 @@ fn a_generation_still_publishes_across_a_timeline_that_went_live_mid_flight() {
     // STOPS AND REBASES rollback inside the same transaction. This arm stays a
     // recorded gap until that exists, and it should become the opposite
     // assertion naming whatever seals it — as its unhealthy sibling now does.
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "a generation published across a healthy timeline that went live \
+         mid-flight and that this host may NOT rebase. `admit_candidate` would \
+         have refused that same world a moment earlier; publishing here hands \
+         new content to a timeline nobody is permitted to stop.",
+    );
+    assert!(
+        !app.world().contains_resource::<PendingGeneration>(),
+        "the illegal generation is still pending",
+    );
+}
+
+/// ⭐⭐ **THE OTHER HALF OF THE SEAL ABOVE, AND THE ONE THAT KEEPS HOT RELOAD
+/// ALIVE.**
+///
+/// The first publication breaker cancelled on ANY live timeline and the shipped
+/// composition then refused every reload it has — MEASURED, because a reload
+/// re-prepares the route the shell is already on and the session it replaces owns
+/// a healthy speculating GGRS timeline. ⇒ A seal that cannot tell *"a timeline I
+/// may stop"* from *"a timeline that belongs to peers"* is not a seal, it is the
+/// removal of the feature.
+///
+/// ⚠ This arm is what makes its sibling evidence rather than a blanket refusal.
+#[test]
+fn a_healthy_timeline_this_host_maintains_going_live_mid_flight_still_publishes() {
+    use ambition_platformer2d::rollback::{
+        RollbackSessionOwnership, SyncTestOwner, SyncTestSettings,
+    };
+
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (
+            adopt_preparation_transaction,
+            break_the_publication_lease_when_the_boundary_closes,
+            commit_content_generation,
+        )
+            .chain(),
+    );
+    let before = live_duration(&app);
+
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut().insert_resource(live_authority());
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        });
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
     assert_ne!(
         live_duration(&app),
         before,
-        "MEASURED GAP CLOSED? This arm records that the generation publishes \
-         across a HEALTHY timeline that went live mid-flight. Its unhealthy \
-         sibling IS sealed; if this one is now too, name the lifecycle that did \
-         it and make this the opposite assertion.",
+        "the lease cancelled a reload across a healthy timeline THIS HOST \
+         MAINTAINS, which is the one composition that ships hot reload — this is \
+         the measured regression the first publication breaker caused"
+    );
+}
+
+/// ⛔⛤ **THE OWNERSHIP CHANGES UNDER THE TRANSACTION — REVIEW, 2026-09-13.**
+///
+/// This is the interval defect the review named, and neither arm above reaches
+/// it. `admit_candidate` lets a generation past a HEALTHY live timeline ONLY
+/// because this host owns it and will rebase it at the commit. The lease that
+/// re-asks the boundary during the pending interval re-asked, for a day, only the
+/// HEALTH half — so the permission could be withdrawn and the generation still
+/// published.
+///
+/// ⇒ The transition is the subject: admitted against a `LocalMaintainer` session,
+/// committed after an `External`/P2P one replaced it.
+/// `rebase_local_timeline_onto_the_new_generation` then correctly declines to
+/// touch a foreign timeline, which leaves the new content published onto a
+/// timeline nobody rebased — `Q118`'s measured desync, arrived at from the other
+/// side.
+#[test]
+fn losing_the_permission_to_rebase_mid_flight_cancels_the_pending_generation() {
+    use ambition_platformer2d::rollback::{
+        RollbackSessionOwnership, SyncTestOwner, SyncTestSettings,
+    };
+
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+    );
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (
+            adopt_preparation_transaction,
+            break_the_publication_lease_when_the_boundary_closes,
+            commit_content_generation,
+        )
+            .chain(),
+    );
+    let before = live_duration(&app);
+
+    // ⛔ THE PREMISE, AND WITHOUT IT THIS ARM IS ABOUT A REFUSED REQUEST RATHER
+    // THAN ABOUT THE INTERVAL: the world is ADMISSIBLE when the request is made —
+    // a healthy timeline that this host maintains.
+    app.world_mut().insert_resource(live_authority());
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        });
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    // THE INTERVAL: the permission is withdrawn. Nothing about HEALTH changed,
+    // which is exactly why a lease that re-asked only health could not see it.
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::External);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_eq!(
+        live_duration(&app),
+        before,
+        "the generation published after this host LOST permission to rebase the \
+         timeline it was admitted against. The timeline is still healthy, so a \
+         lease that re-asks only health sees nothing — and the rebase at the \
+         commit declines to touch a foreign session, leaving new content on a \
+         timeline nobody rebased.",
+    );
+    assert!(
+        !app.world().contains_resource::<PendingGeneration>(),
+        "the illegal generation is still pending",
     );
 }
 

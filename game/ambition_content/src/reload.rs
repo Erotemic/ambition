@@ -389,10 +389,8 @@ fn admit_candidate(
         // rebase it"*, and the answer is asked against the live world at BOTH
         // ends — here, and again at the commit — rather than decided once and
         // carried, which is the fingerprint/consumption gap in another costume.
-        PublicationBoundary::LiveTimeline if rebasable_local_timeline(world) => {
-            CandidateAdmission::Proceed
-        }
-        PublicationBoundary::LiveTimeline => {
+        PublicationBoundary::RebasableTimeline => CandidateAdmission::Proceed,
+        PublicationBoundary::ForeignTimeline => {
             CandidateAdmission::Refused(MoveReload::RefusedDuringLiveTimeline)
         }
         PublicationBoundary::Unhealthy(reason) => {
@@ -675,10 +673,34 @@ fn unsupported_changed_domains(
 /// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
 /// composition that installs no rollback has no timeline to invalidate. A stood-
 /// down timeline is legal for the same reason — it is not speculating.
+/// ⛔⛤ **THE OWNERSHIP HALF IS IN THE ENUM, BECAUSE SPLITTING IT ACROSS TWO
+/// CALLS IS WHAT LET THE LEASE RE-ASK HALF A QUESTION — REVIEW, 2026-09-13.**
+///
+/// This used to be `Legal | LiveTimeline | Unhealthy`, with
+/// [`rebasable_local_timeline`] asked SEPARATELY at the admission site. Admission
+/// therefore required BOTH *healthy* and *this host may rebase it*, while the
+/// lease that re-asks the boundary during the pending interval re-asked only the
+/// health half. ⇒ A generation admitted against a locally maintained timeline
+/// stayed admitted after that timeline was replaced by a peer-owned one, and
+/// published onto a timeline nobody was permitted to rebase — which is the exact
+/// desync `Q118`'s canary measured, one ownership over.
+///
+/// ⭐⭐ **ONE ANSWER, SO A CALLER CANNOT CONSULT HALF OF IT.** The permission a
+/// publication needs is a single value now; a lease re-asks it whole because
+/// there is no half to ask.
+///
+/// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
+/// composition that installs no rollback has no timeline to invalidate. A stood-
+/// down timeline is legal for the same reason — it is not speculating.
 #[derive(Debug)]
 enum PublicationBoundary {
     Legal,
-    LiveTimeline,
+    /// Live, healthy, and THIS host started it and may stop it.
+    RebasableTimeline,
+    /// Live and healthy, but owned by peers (`External`) or by a caller that did
+    /// not ask for a content rebase. `RollbackSessionOwnership`: *"must never be
+    /// replaced unilaterally by the local host"*.
+    ForeignTimeline,
     Unhealthy(String),
 }
 
@@ -737,7 +759,13 @@ fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary 
     // answer would report every world as publishable.
     match authority.confirmation_for(authority.owner()) {
         RollbackConfirmationState::Unavailable => PublicationBoundary::Legal,
-        RollbackConfirmationState::Healthy => PublicationBoundary::LiveTimeline,
+        // ⛔ THE OWNERSHIP QUESTION IS ASKED HERE AND NOWHERE ELSE. Folding it in
+        // is what makes "may this generation publish" a single value rather than
+        // two facts a caller has to remember to consult together.
+        RollbackConfirmationState::Healthy if rebasable_local_timeline(world) => {
+            PublicationBoundary::RebasableTimeline
+        }
+        RollbackConfirmationState::Healthy => PublicationBoundary::ForeignTimeline,
         RollbackConfirmationState::Unhealthy => PublicationBoundary::Unhealthy(
             authority
                 .status()
@@ -1335,19 +1363,45 @@ pub fn break_the_publication_lease_when_the_boundary_closes(
     // `Q118`.** Sealing it needs the lifecycle that stops and rebases rollback
     // inside the transaction; a cancel cannot express that, and pretending
     // otherwise would trade a working feature for the appearance of a guarantee.
-    let PublicationBoundary::Unhealthy(detail) = &boundary else {
-        return;
+    let detail = match &boundary {
+        // ⭐ THE ORDINARY FRAME. A healthy timeline this host may stop is the
+        // state the whole stop-and-rebase lifecycle exists to handle; the lease
+        // has nothing to do.
+        PublicationBoundary::Legal | PublicationBoundary::RebasableTimeline => return,
+        PublicationBoundary::Unhealthy(detail) => format!(
+            "the rollback authority recorded a divergence while its shell \
+             transaction was in flight ({detail})"
+        ),
+        // ⛔⛤ **THE PERMISSION THAT MADE THIS ADMISSIBLE IS GONE — FOUND BY
+        // REVIEW, 2026-09-13.** `admit_candidate` lets a generation past a
+        // HEALTHY live timeline only because this host owns it and will rebase it
+        // at the commit. This lease re-asked the boundary and, for a day, re-asked
+        // only the HEALTH half of it.
+        //
+        // ⇒ So a generation admitted against a locally maintained session stayed
+        // admitted after that session was replaced by an `External`/P2P or
+        // `Caller`-owned one, and `rebase_local_timeline_onto_the_new_generation`
+        // then returns early — correctly, it may not touch a foreign timeline —
+        // leaving the new content published onto a timeline nobody rebased. That
+        // is the desync `Q118` measured, arrived at from the other side.
+        //
+        // ⚠ It is now ONE enum value rather than two facts read together, so a
+        // future caller cannot consult half of it either.
+        PublicationBoundary::ForeignTimeline => {
+            "the rollback timeline stopped being one this host may rebase while \
+             the transaction was in flight"
+                .to_string()
+        }
     };
-    let detail = detail.clone();
     // ⛔ THE CONTENT HALF GOES FIRST AND UNCONDITIONALLY. The shell's answer to
     // the cancel is a race (the transaction may have ended on this very frame);
     // this generation's illegality is not.
     take_pending_generation(world);
     bevy::log::warn!(
         target: "ambition_content::reload",
-        "the pending content generation was cancelled: the rollback authority \
-         recorded a divergence while its shell transaction was in flight \
-         ({detail}). Publishing across it would launder the desync."
+        "the pending content generation was cancelled: {detail}. Publishing \
+         across it would either launder a recorded desync or hand new content \
+         to a timeline this host is not permitted to rebase."
     );
     world.write_message(
         ambition_platformer2d::game_shell::ShellCommand::CancelPending { request },

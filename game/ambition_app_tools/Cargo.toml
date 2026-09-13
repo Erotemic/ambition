@@ -161,3 +161,15 @@ path = "src/bin/zero_time_capture_spike.rs"
 [[bin]]
 name = "moveset_render"
 path = "src/bin/moveset_render.rs"
+
+# The KO-envelope instrument: a launcher-pulse census over the prepared moveset
+# graph, then a stage-outcome probe over the same launchers.
+#
+# ⛔⛤ NO `test = false` HERE, DELIBERATELY. This target carries live `#[test]`
+# arms — including the ones that replace four failed source-parsing censuses —
+# and the guard above this file's first `[[bin]]` records what that line costs:
+# four bins carried it while holding 23 arms between them and NOT ONE executed.
+[[bin]]
+name = "ko_envelope"
+path = "src/bin/ko_envelope.rs"
+bench = false

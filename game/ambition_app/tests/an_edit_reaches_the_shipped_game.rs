@@ -359,6 +359,36 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          ladder or waves edit re-publishes the whole cast and the transaction is \
          still moveset-centric"
     );
+    // ⛔⛤ **AND THE ROOM THE RELOAD REBUILT WAS PUBLISHED, NOT REFUSED.**
+    //
+    // MEASURED 2026-09-13, and it was FALSE here: a census of every
+    // room-construction refusal across the whole suite found six, and the
+    // largest was this test's — `central_hub_complex` refused with **18x
+    // Duplicated, 18x ReconstructedOldSurvived**, the entire room. A shell
+    // handoff retires the old scope and activates the new one in one frame, and
+    // `GameplaySessionSet::Providers` was ordered BEFORE
+    // `SessionScopeSet::Cleanup`, so the incoming room's transaction captured a
+    // baseline that still held all 18 of the outgoing scope's placements.
+    //
+    // ⚠ **IT COST NOTHING VISIBLE, WHICH IS THE ONLY REASON IT SURVIVED.** A
+    // refusal today suppresses the `RoomLoaded` message and `RoomLoaded` has no
+    // production reader. Under A10's candidate bracket the same refusal drops
+    // every root, so a hot reload would land the player in an EMPTY WORLD — and
+    // that is what this arm is here to keep from coming back. It asks the
+    // production verdict, not the schedule; the schedule is asked separately by
+    // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`.
+    let verification = app
+        .world()
+        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        verification.published,
+        "the room the reload rebuilt (`{}`) was REFUSED with {} violation(s):          {:?}. Today that only suppresses `RoomLoaded`; under the candidate          bracket it drops the whole room and the reload lands in an empty world.",
+        verification.room_id,
+        verification.violations.len(),
+        verification.violations,
+    );
+
     // ⚠ THE EPOCH IS THE PREPARED WORLD'S, NOT THE PACK'S — it advances because
     // the session was re-prepared, which is what a rollback timeline contract
     // compares. Asserting it MOVED is the checkable claim; asserting a value

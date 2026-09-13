@@ -297,3 +297,152 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
          sealed. See `Q118`."
     );
 }
+
+/// ⛔⛤ **NOTHING ORDERS THE RETIRED SCOPE'S SWEEP AGAINST THE INCOMING SESSION'S
+/// CONSTRUCTION, AND A CENSUS SAYS THAT COSTS A WHOLE ROOM.**
+///
+/// MEASURED 2026-09-13 across the whole `app_it` suite: SIX room-construction
+/// transactions are refused, and the two largest are on the HOT-RELOAD road — 8
+/// placements and **18, the entire contents of `central_hub_complex`**. The world
+/// log gives the mechanism in two lines:
+///
+/// ```text
+/// f16  session-end   activation=2 scope=0
+/// f16  session-start activation=3 scope=1
+///      room-refused central_hub_complex :: 18x Duplicated, 18x ReconstructedOldSurvived
+/// ```
+///
+/// ⇒ A session handoff retires the old scope and starts the new one in the SAME
+/// FRAME, and the incoming room's transaction captures its baseline while the
+/// OUTGOING scope's placements are still live — so every one of them is a
+/// duplicate of a root the new room is about to mint.
+///
+/// ⚠ **HARMLESS TODAY, WHICH IS WHY IT WAS INVISIBLE.** A refusal costs only the
+/// `RoomLoaded` message and that message has no production reader
+/// (`content_staging.rs`: *"`RoomLoaded` remains notification-only"*). ⛔ But
+/// under A10's candidate bracket the same refusal DROPS THE WHOLE ROOM, so every
+/// hot reload would produce an empty world — which is what makes A10's flag
+/// unflippable, and it is NOT the gameplay ruling `Q124` asks for.
+///
+/// ⭐⭐ **THE READING THAT PREDICTS IT IS TWO `chain()`s THAT NEVER MEET.**
+/// `SessionScopeSet` chains `Activate -> .. -> RetireAuthority -> Cleanup` (the
+/// sweep is in `Cleanup`), and the shell chains
+/// `Activate -> GameplaySessionSet::Providers -> ..`. Both are after `Activate`
+/// and neither is ordered against the other. This arm asks the graph rather than
+/// trusting that reading — the same question, and the same control, as the
+/// arm above.
+#[test]
+fn nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction() {
+    use std::collections::HashSet;
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(Update)
+        .expect("the Update schedule exists")
+        .graph();
+
+    macro_rules! set_node {
+        ($set:expr, $what:literal) => {
+            NodeId::Set(
+                graph
+                    .system_sets
+                    .get_key(bevy::ecs::schedule::SystemSet::intern(&$set))
+                    .expect(concat!(
+                        "`",
+                        $what,
+                        "` is not a set in the shipped Update schedule, so this \
+                         measurement names nothing"
+                    )),
+            )
+        };
+    }
+
+    let cleanup = set_node!(
+        ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Cleanup,
+        "SessionScopeSet::Cleanup"
+    );
+    let providers = set_node!(
+        ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
+        "GameplaySessionSet::Providers"
+    );
+    // ⚠ THE CONTROL PAIR, and BOTH are edges some `chain()` writes down
+    // literally — `Bridge -> Activate` in the shell, `Activate -> Presentation`
+    // in `SessionScopePlugin` — so neither depends on the ordering under test.
+    let bridge_control = set_node!(
+        ambition_platformer2d::game_shell::GameplaySessionSet::Bridge,
+        "GameplaySessionSet::Bridge"
+    );
+    let activate_control = set_node!(
+        ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate,
+        "SessionScopeSet::Activate"
+    );
+    let presentation_control = set_node!(
+        ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Presentation,
+        "SessionScopeSet::Presentation"
+    );
+
+    let dependencies = graph.dependency().graph();
+    let reaches = |from: NodeId, to: NodeId| -> bool {
+        let mut seen: HashSet<NodeId> = HashSet::new();
+        let mut stack = vec![from];
+        while let Some(node) = stack.pop() {
+            if node == to {
+                return true;
+            }
+            if !seen.insert(node) {
+                continue;
+            }
+            stack.extend(dependencies.neighbors(node));
+        }
+        false
+    };
+
+    // ⚠ THE PREMISE, so a graph that lost a node cannot read as "ambiguous".
+    assert!(
+        dependencies.contains_node(cleanup) && dependencies.contains_node(providers),
+        "one of the two sets is not in the dependency graph at all, so neither \
+         direction below means anything"
+    );
+
+    // ⛔⛔ THE CONTROL. "No path exists" and "my traversal cannot find one" are
+    // indistinguishable from the outside, so the same traversal is first asked a
+    // question whose answer is known: both sets are chained AFTER `Activate`.
+    assert!(
+        reaches(bridge_control, activate_control)
+            && reaches(activate_control, presentation_control),
+        "the traversal cannot find the `Bridge -> Activate` and \
+         `Activate -> Presentation` edges that two `chain()`s declare \
+         literally, so its verdict below is a finding about the traversal"
+    );
+
+    let sweep_first = reaches(cleanup, providers);
+    let build_first = reaches(providers, cleanup);
+
+    assert!(
+        !(sweep_first && build_first),
+        "the graph claims both orders, which is a cycle rather than a measurement"
+    );
+
+    // ⛔⛤ **THE ANSWER WAS NOT THE ONE THE READING PREDICTED, AND THAT IS THE
+    // FINDING.** I expected AMBIGUITY — two `chain()`s that never meet. The
+    // graph said `build_first: true`: `Providers` is `.before(Presentation)`,
+    // and `Presentation` chained ahead of `RetireAuthority -> Cleanup`, so the
+    // incoming room was ordered BEFORE the dying scope's sweep **by
+    // declaration**. Not a race. A rule.
+    //
+    // ⇒ `SessionScopeSet` now chains `RetireAuthority -> Cleanup -> Activate ->
+    // Presentation`, and this arm is the assertion that it stays that way.
+    assert!(
+        sweep_first && !build_first,
+        "A RETIRED SCOPE'S SWEEP MUST PRECEDE THE INCOMING SESSION'S ROOM \
+         CONSTRUCTION (sweep-first: {sweep_first}, build-first: {build_first}). \
+         A shell handoff retires and activates in ONE frame, so with the build \
+         first the new room's transaction captures a baseline that still holds \
+         the outgoing scope's placements and is refused wholesale — measured at \
+         18 of 18 roots in `central_hub_complex`. If this reddened, something \
+         re-ordered `SessionScopeSet` or moved `GameplaySessionSet::Providers` \
+         out from under it."
+    );
+}

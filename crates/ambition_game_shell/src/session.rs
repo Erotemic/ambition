@@ -341,13 +341,26 @@ impl Plugin for GameplaySessionBridgePlugin {
                 // state is re-established, and only then does a provider build
                 // the world that will read it.
                 (
-                    GameplaySessionSet::Bridge,
-                    SessionScopeSet::Activate,
-                    GameplaySessionSet::Providers,
-                )
-                    .chain()
-                    .after(AmbitionGameShellSet::Pending)
-                    .before(SessionScopeSet::Presentation),
+                    (
+                        GameplaySessionSet::Bridge,
+                        SessionScopeSet::Activate,
+                        GameplaySessionSet::Providers,
+                    )
+                        .chain()
+                        .after(AmbitionGameShellSet::Pending)
+                        .before(SessionScopeSet::Presentation),
+                    // ⛔⛤ **THE BRIDGE IS THE ONLY WRITER OF `SessionScopeRetired`,
+                    // SO IT MUST PRECEDE THE SEAM THAT READS IT.**
+                    //
+                    // `SessionScopeSet` chains `RetireAuthority -> Cleanup ->
+                    // Activate`, and the `Bridge -> Activate` edge above is
+                    // satisfied by running the bridge anywhere before activation —
+                    // including AFTER the sweep, which would defer every retirement
+                    // by a frame and put the dying scope's despawns back inside the
+                    // new session's world. This edge is what makes the retire
+                    // message readable in the frame it is written.
+                    GameplaySessionSet::Bridge.before(SessionScopeSet::RetireAuthority),
+                ),
             )
             .add_systems(
                 Update,

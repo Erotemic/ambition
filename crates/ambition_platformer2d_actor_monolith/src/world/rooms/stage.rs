@@ -301,31 +301,41 @@ impl RoomConstructionPlan {
         // `RoomLoaded` message and no more. Under this bracket the same refusal
         // drops all 18 roots, which is the bracket working.
         //
-        // ⇒ **SO THE FLAG WAITS ON A GAMEPLAY RULING, NOT ON AN INVESTIGATION:**
+        // ⇒ **SO THE FLAG NOW WAITS ON A GAMEPLAY RULING ALONE:**
         // what happens to a placement in your custody when a death rebuilds the
         // room that authored it? `Q124` states the three answers.
         //
-        // ⛔⛤ **AND ON A SECOND THING THAT IS NOT A RULING, MEASURED 2026-09-13
-        // AND BIGGER.** A census of every room-construction refusal across the
-        // whole `app_it` suite finds SIX, and the two largest are on the
-        // HOT-RELOAD road rather than the death road — 8 placements and **18,
-        // the whole of `central_hub_complex`**. The world log gives the
-        // mechanism:
+        // ⛔⛤ **THERE WAS A SECOND BLOCKER, BIGGER THAN THE RULING, AND IT IS
+        // NOW CLOSED — 2026-09-13.** A census of every room-construction refusal
+        // across the whole `app_it` suite found SIX, and the two largest were on
+        // the HOT-RELOAD road rather than the death road: 8 placements and **18,
+        // the whole of `central_hub_complex`**. The world log gave the mechanism:
         //
         //     f16  session-end   activation=2 scope=0
         //     f16  session-start activation=3 scope=1
         //          room-refused :: 18x Duplicated, 18x ReconstructedOldSurvived
         //
-        // ⇒ A session handoff retires the old scope and starts the new one IN
-        // THE SAME FRAME, so the incoming room's transaction captures its
-        // baseline while the OUTGOING scope's placements are still live.
+        // A session handoff retires the old scope and starts the new one IN THE
+        // SAME FRAME, and `GameplaySessionSet::Providers` was ordered BEFORE
+        // `SessionScopeSet::Cleanup`, so the incoming room's transaction captured
+        // a baseline that still held every one of the outgoing scope's
+        // placements. ⛔ NOT A RACE — a declared order: `Providers` is
+        // `.before(Presentation)` and `Presentation` chained ahead of
+        // `RetireAuthority -> Cleanup`.
         //
-        // ⚠ Harmless today — a refusal costs only the `RoomLoaded` message and
-        // that message has no production reader — but under this bracket it
-        // DROPS THE WHOLE ROOM, so every hot reload would produce an empty
-        // world. That is a worse failure than the two death tests and it needs
-        // an ORDERING fix, not a ruling: the same retire-then-commit shape
-        // `replace_live_world` already has, one level up at the SESSION scope.
+        // ⇒ `SessionScopeSet` now chains `RetireAuthority -> Cleanup -> Activate
+        // -> Presentation`: the dying scope finishes dying before the live one is
+        // born. **The census fell from 6 refusals to 4**, and all four that
+        // remain are the single-placement custody shape below — `Q124`'s, one
+        // placement each. Guarded by
+        // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+        // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
+        // (the production verdict).
+        //
+        // ⚠ It cost nothing visible, which is the only reason it survived: a
+        // refusal today suppresses `RoomLoaded` and that message has no
+        // production reader. Under this bracket it would have dropped the whole
+        // room and landed every hot reload in an EMPTY WORLD.
         //
         // ⭐ **ONE HALF NEEDS NO RULING.** `TransactionBaseline::retiring` and
         // `reconstructing` exist for exactly this and have ZERO production

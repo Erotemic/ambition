@@ -2206,8 +2206,55 @@ each) and a session-handoff ORDERING fix (2 refusals, 26 placements) that needs 
 ruling at all. The ordering one is the same shape as `replace_live_world`'s
 retire-then-commit, one level up: at the SESSION scope rather than the room's.
 
-⚠ **A10's LAST STEP IS HELD ON THIS ROW AND ON THAT ORDERING**, and the hold is
-now two sentences rather than "the mechanism is not yet understood".
+### ✅ THE ORDERING HALF IS CLOSED — 2026-09-13. THE CENSUS IS 6 → 4, AND ALL FOUR ARE THIS ROW.
+
+⛔⛤ **AND MY READING OF THE MECHANISM WAS WRONG IN THE WAY THAT MATTERED.** I
+expected the two sets to be AMBIGUOUS — two `chain()`s that never meet, a race.
+The dependency graph was asked directly and answered `build_first: true`:
+`GameplaySessionSet::Providers` is `.before(SessionScopeSet::Presentation)`, and
+`Presentation` was chained AHEAD of `RetireAuthority -> Cleanup`. ⇒ **The incoming
+room was ordered before the dying scope's sweep BY DECLARATION.** Not a race that
+sometimes bites; a rule that always did.
+
+⇒ `SessionScopeSet` now chains **`RetireAuthority -> Cleanup -> Activate ->
+Presentation`**, with one added edge — `GameplaySessionSet::Bridge` before
+`RetireAuthority` — because the bridge is the only writer of
+`SessionScopeRetired` and must precede the seam that reads it.
+
+**MEASURED, same instrumented suite run as the census above:**
+
+```text
+before   6 refusals   26 placements on the hot-reload road + 3 held items + 1 untraced
+after    4 refusals    0 on the hot-reload road; all four are ONE placement each
+                       (3x placement:ground_gun_sword, 1x placement:ground_grapple)
+```
+
+⭐ **AND THE UNTRACED SIXTH IS ANSWERED BY THE SAME RUN**: it was a fourth
+custody-shaped refusal, not a third mechanism. This row owns all four.
+
+⭐⭐ **A SECOND PRODUCTION DEFECT FELL OUT OF THE SAME ORDER, ON THE ROAD A10 IS
+BUILT ON.** `reset_session_scoped_resources_on_retire` runs in `Cleanup` and
+REMOVES `SessionMechanics` — the generation's frozen registries. With `Cleanup`
+last, a same-frame handoff installed the new generation's mechanics at `Activate`
+and then deleted them in the same frame. The teardown module calls that system
+*"hygiene, not correctness"* on the grounds that *"the next activation overwrites
+the resource before any road reads it"* — true only while retirement precedes
+activation, which is now the case and was not.
+
+**GUARDS, both poison-verified by restoring the pre-fix order (both went red, and
+green again on restore):**
+- `reload_publication_is_installed::nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+  — asks the `Update` dependency graph, with a control pair (`Bridge -> Activate`,
+  `Activate -> Presentation`) so "no path" cannot be confused with "my traversal
+  found none".
+- `an_edit_reaches_the_shipped_game::an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
+  — asserts the PRODUCTION verdict, `LastConstructionVerification.published`, on
+  the road that was refusing all 18 roots. The schedule arm alone would pass if
+  something else re-introduced the refusal.
+
+⚠ **A10's LAST STEP IS NOW HELD ON THIS ROW ALONE** — a gameplay ruling about a
+placement in your custody when a death rebuilds the room that authored it. The
+ordering half needed no ruling and is done.
 
 ## ✅ Q125 — CLOSED 2026-09-13. A relation gets its two endpoints and nothing else.
 

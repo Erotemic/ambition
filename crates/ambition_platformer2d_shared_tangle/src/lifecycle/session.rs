@@ -487,16 +487,6 @@ pub struct SessionScopeActivated(pub SessionScopeId);
 /// poison the rollback timeline the next game would inherit.
 #[derive(SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SessionScopeSet {
-    /// A newly live scope re-establishes the process-global state that mirrors
-    /// one session, BEFORE any provider builds that session's world.
-    ///
-    /// ⭐ This seam is why the retirement resets below are hygiene. Whatever a
-    /// skipped, delayed or abnormal teardown left standing is overwritten here
-    /// by the session about to read it.
-    Activate,
-    /// Presentation systems may materialize activation-owned visuals after the
-    /// provider has published its session world.
-    Presentation,
     /// Authorities that GOVERN the retiring scope stand down: the rollback
     /// timeline, and anything else holding a claim over that session's world.
     ///
@@ -506,6 +496,16 @@ pub enum SessionScopeSet {
     RetireAuthority,
     /// Exact retirement of entities owned by the retired session.
     Cleanup,
+    /// A newly live scope re-establishes the process-global state that mirrors
+    /// one session, BEFORE any provider builds that session's world.
+    ///
+    /// ⭐ This seam is why the retirement work above is hygiene. Whatever a
+    /// skipped or abnormal teardown left standing is overwritten here by the
+    /// session about to read it.
+    Activate,
+    /// Presentation systems may materialize activation-owned visuals after the
+    /// provider has published its session world.
+    Presentation,
 }
 
 /// `Commands` extensions that make captured session ownership explicit at each
@@ -640,11 +640,33 @@ impl Plugin for SessionScopePlugin {
             .add_message::<SessionScopeActivated>()
             .configure_sets(
                 Update,
+                // ⛔⛤ **THE RETIRING SCOPE FINISHES DYING BEFORE THE NEW ONE
+                // IS BORN, AND THE ORDER USED TO BE THE OTHER WAY.**
+                //
+                // MEASURED 2026-09-13: a shell route swap emits `RouteDeactivated`
+                // and `RouteActivated` from ONE run of
+                // `translate_shell_session_lifecycle`, so a handoff retires and
+                // activates in the SAME frame. With `Cleanup` last, the incoming
+                // session's provider built its room while the OUTGOING scope's
+                // placements were still live — the world log's
+                // `session-end activation=2 / session-start activation=3` frame
+                // ended with `room-refused central_hub_complex :: 18x Duplicated`,
+                // the entire room, because every root it minted duplicated one the
+                // sweep had not taken yet.
+                //
+                // ⛔ And the same order let `reset_session_scoped_resources_on_retire`
+                // REMOVE `SessionMechanics` after the activation that installed it,
+                // so the frozen generation registries died in the frame they were
+                // published.
+                //
+                // ⇒ Both are the same defect: work belonging to the DEAD scope was
+                // scheduled after work belonging to the LIVE one. The fix is the
+                // order, not a guard at either site.
                 (
-                    SessionScopeSet::Activate,
-                    SessionScopeSet::Presentation,
                     SessionScopeSet::RetireAuthority,
                     SessionScopeSet::Cleanup,
+                    SessionScopeSet::Activate,
+                    SessionScopeSet::Presentation,
                 )
                     .chain(),
             )

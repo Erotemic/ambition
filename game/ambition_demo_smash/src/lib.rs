@@ -1723,6 +1723,17 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // ⭐⭐ THE PERCENT CURVE'S STEEPNESS, and the one number this whole
         // repair turns on. See `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
         victim_percent_knockback_scale: Some(SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
+        // ⭐⭐ WHICH MOVES ARE KILL MOVES. The knob above makes percent matter
+        // more for EVERY move equally; this one makes it matter more for HEAVY
+        // ones, and the pair is not redundant — measured, the roster authors
+        // `growth/base` at 0.019-0.021 across all 22 bound roles, so without
+        // this a forward smash is arithmetically a jab times a constant and no
+        // setting of the base-independent knob can separate them.
+        growth_base: Some(ambition_platformer2d::combat::rules::GrowthBaseCurve {
+            pivot: SMASH_GROWTH_BASE_PIVOT,
+            exponent: SMASH_GROWTH_BASE_EXPONENT,
+            ceiling: SMASH_GROWTH_BASE_CEILING,
+        }),
         // CROUCH CANCEL, 0.85x. Ducking is a defensive read, not just a
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.
@@ -4149,6 +4160,33 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// interchangeable: the staleness split is what makes a WORN move still
 /// convert, and this is what makes percent itself convert.
 pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.25;
+
+/// The base knockback at which the kill curve is exactly `1.0` — a JAB.
+///
+/// ⭐ MEASURED, NOT CHOSEN. The launcher-pulse census over the seatable cast
+/// reports `attack` (jab) base knockback n=21, min 40, MEDIAN 48, max 60. So a
+/// pivot of 48 is the roster's own jab, and every poke at or below it keeps its
+/// percent curve to the byte.
+pub const SMASH_GROWTH_BASE_PIVOT: f32 = 48.0;
+
+/// How sharply the kill curve climbs above a jab.
+///
+/// ⭐ CALIBRATED AGAINST A MEASURED KO THRESHOLD, not taste. At `0.25` a
+/// base-160 forward smash takes `(160/48)^0.25` = 1.351x its authored growth —
+/// which is the 1.35x the baseline table independently arrived at from the
+/// other direction, by asking what growth brings a 145% centre knockout into
+/// the 80-120% band.
+pub const SMASH_GROWTH_BASE_EXPONENT: f32 = 0.25;
+
+/// The most the kill curve may steepen anything.
+///
+/// ⭐ `1.40` IS THE FACTOR AT THE LARGEST SMASH BASE (185). Past that a move is
+/// already a finisher and gains nothing — which is what keeps the roster's
+/// three huge-base outliers, `bivalence` (367.2) chief among them, from
+/// collecting the biggest multiplier on the roster despite being the volumes
+/// that most deliberately opted OUT of percent scaling. See
+/// `GrowthBaseCurve::ceiling`.
+pub const SMASH_GROWTH_BASE_CEILING: f32 = 1.40;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";

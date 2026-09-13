@@ -7,10 +7,113 @@ fn dummy_entity() -> Entity {
     Entity::from_raw_u32(42).expect("nonzero raw entity index")
 }
 
+/// One resolved launch under one curve, so the tests below compare ROADS
+/// rather than restating the call five times.
+#[cfg(test)]
+fn launch_under(base: f32, growth: Option<f32>, curve: crate::rules::GrowthBaseCurve) -> f32 {
+    match resolved_hitbox_knockback_magnitude(
+        HitboxKnockback::LaunchSpeed { base, growth },
+        100,
+        1.0,
+        0.02,
+        1.25,
+        curve,
+    ) {
+        HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
+        other => panic!("a launch volume resolved as {other:?}"),
+    }
+}
+
+/// A DECLARED KILL CURVE REACHES BOTH AUTHORING ROADS, AND LEAVES A JAB ALONE.
+///
+/// ⛔ THE RATIO IS THE ASSERTION, not the absolute speed. A law that steepened
+/// only the explicitly-authored road — the drift the production comment beside
+/// this warns about — would still make every number here bigger, and only
+/// comparing each road's PERCENT TERM against the curve's own factor catches
+/// it. Measured 2026-09-13: the roster is genuinely split, 38 of 40 volumes
+/// authoring their own growth and the rest falling back to the ruleset.
+#[test]
+fn the_kill_curve_reaches_both_authoring_roads_and_leaves_a_jab_alone() {
+    let curve = crate::rules::GrowthBaseCurve {
+        pivot: 48.0,
+        exponent: 0.25,
+        ceiling: 1.40,
+    };
+    let identity = crate::rules::GrowthBaseCurve::IDENTITY;
+
+    for (growth, road) in [(Some(3.10), "authored"), (None, "ruleset fallback")] {
+        let curved = launch_under(160.0, growth, curve);
+        let flat = launch_under(160.0, growth, identity);
+        assert!(
+            flat > 160.0,
+            "the {road} road has no percent term to steepen, so this \
+             comparison would prove nothing"
+        );
+        let ratio = (curved - 160.0) / (flat - 160.0);
+        assert!(
+            (ratio - 1.3512).abs() < 0.001,
+            "the {road} road took factor {ratio}, not the curve's 1.3512"
+        );
+    }
+
+    // A JAB-SIZED BASE IS UNTOUCHED, which is what makes this a kill-move knob
+    // rather than a roster-wide knockback raise.
+    assert_eq!(
+        launch_under(48.0, Some(1.05), curve),
+        launch_under(48.0, Some(1.05), identity),
+        "a pivot-sized jab was steepened"
+    );
+}
+
+/// THE CURVE TOUCHES NEITHER OTHER KNOCKBACK UNIT.
+///
+/// A feel scale has no `base + growth * percent` to decompose, and an authored
+/// `Some(0.0)` is the documented way to say "this launch ignores percent".
+/// Checked at 300%, where a resurrected growth term could not hide.
+#[test]
+fn the_kill_curve_leaves_feel_scales_and_fixed_knockback_exactly_alone() {
+    let curve = crate::rules::GrowthBaseCurve {
+        pivot: 48.0,
+        exponent: 0.25,
+        ceiling: 1.40,
+    };
+    assert_eq!(
+        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 300, 1.0, 0.02, 1.25, curve),
+        HitKnockbackMagnitude::FeelScale(1.6),
+        "a declared kill curve reached a PvE feel scale, which has no percent \
+         term for it to act on"
+    );
+    match resolved_hitbox_knockback_magnitude(
+        HitboxKnockback::LaunchSpeed {
+            base: 160.0,
+            growth: Some(0.0),
+        },
+        300,
+        1.0,
+        0.02,
+        1.25,
+        curve,
+    ) {
+        HitKnockbackMagnitude::LaunchSpeed(speed) => assert_eq!(
+            speed, 160.0,
+            "authored fixed knockback grew a percent term at 300%: the one \
+             value the law documents as un-scalable"
+        ),
+        other => panic!("a fixed-knockback volume resolved as {other:?}"),
+    }
+}
+
 #[test]
 fn hitbox_knockback_units_remain_distinct() {
     assert_eq!(
-        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0, 0.0, 1.0),
+        resolved_hitbox_knockback_magnitude(
+            HitboxKnockback::FeelScale(1.6),
+            80,
+            2.0,
+            0.0,
+            1.0,
+            crate::rules::GrowthBaseCurve::IDENTITY
+        ),
         HitKnockbackMagnitude::FeelScale(1.6),
         "world damage-box feel scales do not become engine-unit speeds"
     );
@@ -24,6 +127,7 @@ fn hitbox_knockback_units_remain_distinct() {
             2.0,
             0.0,
             1.0,
+            crate::rules::GrowthBaseCurve::IDENTITY,
         ),
         HitKnockbackMagnitude::LaunchSpeed(150.0),
         "melee launch speed growth resolves in engine units"
@@ -1558,6 +1662,7 @@ mod ruleset_knockback_growth {
             1.0,
             ruleset_growth,
             percent_scale,
+            crate::rules::GrowthBaseCurve::IDENTITY,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),
@@ -1676,6 +1781,7 @@ mod ruleset_knockback_growth {
             2.0,
             0.01,
             1.0,
+            crate::rules::GrowthBaseCurve::IDENTITY,
         ) {
             HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
             other => panic!("a launch speed must resolve to one: {other:?}"),

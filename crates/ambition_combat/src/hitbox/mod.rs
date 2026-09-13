@@ -220,6 +220,14 @@ fn resolved_hitbox_knockback_magnitude(
     victim_weight: f32,
     ruleset_growth: f32,
     growth_scale: f32,
+    // ⭐ THE VOLUME'S OWN `base` STEEPENS ITS PERCENT CURVE, and this is the
+    // curve that says by how much. `GrowthBaseCurve::IDENTITY` is the law
+    // exactly as first written, which is what every undeclared world passes.
+    //
+    // ⛔ THE CURVE RATHER THAN A PRECOMPUTED FACTOR, because `base` is bound
+    // only inside the match arm below — a caller holding just a
+    // `HitboxKnockback` cannot compute the factor to hand in.
+    growth_base: crate::rules::GrowthBaseCurve,
 ) -> HitKnockbackMagnitude {
     match knockback {
         // ⛔ A FEEL SCALE TAKES NO GROWTH SCALE, because it has no percent term
@@ -248,6 +256,19 @@ fn resolved_hitbox_knockback_magnitude(
             // Scaling only the fallback would have moved almost nothing;
             // scaling only the authored road would have left every
             // prefab-derived swing flat.
+            // ⭐⭐ AND THE VOLUME'S OWN `base` STEEPENS THAT GROWTH, applied here
+            // for exactly the reason the ruleset scale above is: the line that
+            // collapsed the two authoring roads into one `growth` has already
+            // run, so a factor applied after it reaches BOTH — the explicitly
+            // authored `Some(g)` and the `base * ruleset_growth` fallback —
+            // without being restated in two places that could drift.
+            //
+            // ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE. `growth == 0.0`
+            // multiplied by any factor is still `0.0`, and `scaled_knockback`
+            // short-circuits on it to return `base` — so `Some(0.0)`, which is
+            // the documented way to author a launch that ignores percent, stays
+            // exactly that at every curve.
+            let growth = growth * growth_base.scale(base);
             let launch_speed = crate::util::scaled_knockback(
                 base,
                 growth,
@@ -1004,6 +1025,7 @@ pub fn apply_hitbox_damage(
                     victim_weight,
                     ruleset_growth,
                     growth_scale,
+                    rules.growth_base,
                 );
                 // ⛔ A FEEL SCALE KEEPS TAKING STALING WHOLE. It carries no
                 // `base + growth` to split, so there is no percent term for the

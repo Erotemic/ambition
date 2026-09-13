@@ -2985,3 +2985,133 @@ fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
          would promote a plan built for another boundary"
     );
 }
+
+/// ⭐⭐ **THE AUTHORITY SWITCH A10 NEEDS ALREADY EXISTS, AND THIS IS THE ARM THAT
+/// SAYS SO — MEASURED 2026-09-13 RATHER THAN REASONED.**
+///
+/// The A10 packet has to represent *live N plus candidate N+1*, and a 2026-09-13
+/// review called the session vocabulary's inability to do that the blocker. For
+/// the ROOM half it is not: `RoomSet` and `RoomGeometry` are COMPONENTS on the
+/// session world root (read everywhere through `SessionWorldRef`, which is
+/// `Single<.., With<SessionRoot>>`), so a candidate world's room state is a
+/// second root.
+///
+/// ⇒ **THE QUESTION THIS ANSWERS IS WHETHER THAT SECOND ROOT IS INVISIBLE.**
+/// `InactiveCandidate` is a registered DISABLING component, so a candidate root
+/// may carry `SessionRoot` ITSELF and still not be a candidate for any of the 217
+/// `SessionWorldRef`/`Mut` sites — which is exactly what
+/// `the_shipped_app_never_holds_two_session_roots_across_a_handoff` requires of
+/// any future candidate.
+///
+/// ⛔ **AND THE PUBLICATION IS ONE REMOVAL ON ONE ENTITY**, which makes it atomic
+/// even to the hooks `Q123` proved publication is NOT atomic to — that `[3, 2, 1]`
+/// result came from removing the marker from THREE roots in a loop.
+#[test]
+fn a_hidden_candidate_root_is_not_a_candidate_for_the_live_session_query() {
+    use crate::lifecycle::{SessionRoot, SessionScopeId};
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+
+    let live = world.spawn(SessionRoot(SessionScopeId(0))).id();
+    let candidate = world
+        .spawn((SessionRoot(SessionScopeId(1)), super::InactiveCandidate))
+        .id();
+
+    // ⚠ THE PREMISE: both entities exist and both carry the marker the query
+    // filters on, or "only one is visible" is a statement about spawning.
+    assert!(world.get::<SessionRoot>(live).is_some());
+    assert!(
+        world.get::<SessionRoot>(candidate).is_some(),
+        "the candidate root does not carry `SessionRoot`, so hiding it proves \
+         nothing about the queries that select on it"
+    );
+
+    let mut roots = world.query_filtered::<Entity, With<SessionRoot>>();
+    let visible: Vec<Entity> = roots.iter(&world).collect();
+    assert_eq!(
+        visible,
+        vec![live],
+        "an ordinary `With<SessionRoot>` query sees the CANDIDATE root, so every \
+         `SessionWorldRef`/`Mut` site — `Single`, which matches nothing when the \
+         count is not one — would be silently SKIPPED for the life of the \
+         candidate"
+    );
+
+    // ⭐ AND PUBLICATION IS THE REMOVAL: one entity, one component, one switch.
+    world.entity_mut(candidate).remove::<super::InactiveCandidate>();
+    let published: Vec<Entity> = roots.iter(&world).collect();
+    assert_eq!(
+        published.len(),
+        2,
+        "removing the marker did not publish the candidate root, so the switch is \
+         not the removal"
+    );
+}
+
+/// ⛔⛤ **THE OBSTACLE A CANDIDATE ROOT ACTUALLY HITS, MEASURED — AND THE HIDING
+/// IS WHAT CLEARS IT.**
+///
+/// The session world root is IDENTITY-BEARING: production spawns it with
+/// `SimId::singleton("session", activation_id)` and its own comment says *"the
+/// root is rollback-anchored (it carries the room set) … a derived identity, so
+/// the identity census admits no waiver"*. ⇒ A candidate root for the SAME
+/// activation carries the SAME `SimId`, and `TransactionBaseline::capture`
+/// REFUSES two entities on one identity — `BaselineCaptureError::DuplicateIdentity`,
+/// before any verification runs. So *"build the next world beside this one"* would
+/// break the very next transaction's baseline.
+///
+/// ⭐⭐ **IT DOES NOT, BECAUSE CAPTURE CANNOT SEE A HIDDEN CANDIDATE.** The query
+/// does not mention `InactiveCandidate`, so a disabled entity is not in the
+/// population — and that is the property that lets N and N+1 hold one identity at
+/// once. ⇒ **The publication must retire the old body in the SAME step it removes
+/// the marker**, or the next capture sees two and refuses; the arm below measures
+/// both halves of that.
+#[test]
+fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not() {
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+
+    let identity = SimId::singleton("session", "7");
+    let live = world.spawn(identity.clone()).id();
+    let candidate = world
+        .spawn((identity.clone(), super::InactiveCandidate))
+        .id();
+
+    // ⚠ THE PREMISE: two entities really do hold one identity, or "capture
+    // succeeds" below is a statement about an empty world.
+    assert!(world.get::<SimId>(live).is_some());
+    assert_eq!(
+        world.get::<SimId>(candidate),
+        Some(&identity),
+        "the candidate does not carry the live world's identity, so nothing below \
+         is about sharing one"
+    );
+
+    let captured = super::TransactionBaseline::capture(&mut world);
+    assert!(
+        captured.is_ok(),
+        "a HIDDEN candidate sharing the live identity refused baseline capture, so \
+         a candidate world cannot be built beside the one it replaces: {:?}",
+        captured.err()
+    );
+
+    // ⛔ AND THE CONSTRAINT THAT FALLS OUT OF IT: publishing without retiring the
+    // old body leaves two VISIBLE entities on one identity, and the next
+    // transaction cannot open at all.
+    world.entity_mut(candidate).remove::<super::InactiveCandidate>();
+    let after = super::TransactionBaseline::capture(&mut world);
+    assert!(
+        matches!(
+            after,
+            Err(super::BaselineCaptureError::DuplicateIdentity { .. })
+        ),
+        "publishing a candidate root WITHOUT retiring the one it supersedes left a \
+         world whose next baseline capture succeeds — so nothing would force the \
+         publication and the retirement into one step: {after:?}"
+    );
+}

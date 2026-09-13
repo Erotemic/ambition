@@ -515,7 +515,19 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         .init_resource::<ambition_input::SessionSeatingSource>()
         .add_systems(
             Update,
-            super::local_session::maintain_local_session
+            (
+                // ⛔⛤ **BEFORE THE MAINTAINER, AND THE ORDER IS THE WHOLE
+                // MECHANISM.** The rebase stops the session and releases
+                // ownership; `maintain_local_session` then sees no session in the
+                // SAME frame and starts one against the edited mechanics. Running
+                // it after would leave one frame of the old baseline with the new
+                // tuning, which is the frame `Q120`'s canary measured desyncing.
+                super::local_session::apply_mechanical_edit_rebase.run_if(
+                    super::local_session::rebase_local_session_on_live_mechanical_edits,
+                ),
+                super::local_session::maintain_local_session,
+            )
+                .chain()
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
         // Both are in `Update` and nothing ordered them, so which authority sized the ggrs

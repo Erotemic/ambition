@@ -210,9 +210,79 @@ one message currently carries.
    below.
 4. **Then** candidate world publication.
 
-⭐ **A CURRENT CORRECTNESS BUG THAT IS NOT A10:** a materially changed hot reload
-constructs N+1 roots stamped with **N's** `TransactionId` — the plan is prepared
-against `prepared_content.epoch()` (N) and `ActiveContentBinding` is published as
+### ⭐⭐ PACKET 1's OPENING MOVE IS MEASURED, NOT OPEN-ENDED — 2026-09-13
+
+"Define the candidate-session representation" sounds like a design problem. It is
+mostly a MEASUREMENT, and the measurement says most of the machinery is already
+here:
+
+- **`RoomSet` and `RoomGeometry` ARE NOT RESOURCES. They are COMPONENTS, and they
+  live ON THE SESSION WORLD ROOT** — read everywhere through
+  `SessionWorldRef<RoomSet>` / `SessionWorldMut<..>`, which is
+  `Single<.., With<SessionRoot>>`. ⇒ Two of the three "non-entity room
+  authorities published before verification" that the review lists are entity
+  state already. A CANDIDATE ROOT carrying its own `RoomSet` + `RoomGeometry` IS
+  the candidate world for them. Only `MovingPlatformSet` is a true resource.
+- **AND THE HIDING MECHANISM SHIPS.** `InactiveCandidate` is a registered
+  DISABLING component, so an entity carrying it is invisible to ordinary queries —
+  including `Single<.., With<SessionRoot>>`. ⇒ A candidate root may carry
+  `SessionRoot` itself and still not be a candidate for any of the 217 sites,
+  which is what the *"never two roots"* measurement requires.
+- **AND THE AUTHORITY SWITCH IS ONE COMPONENT REMOVAL ON ONE ENTITY.** That makes
+  it atomic even to the hooks `Q123` proved publication is NOT atomic to — the
+  `[3, 2, 1]` result came from removing the marker from three roots in a loop.
+  **One root, one removal, one switch.**
+
+⇒ **SO THE PACKET'S SHAPE IS:** build the incoming room's `RoomSet`/`RoomGeometry`
+onto a hidden candidate root instead of writing them into the live one; keep
+`MovingPlatformSet` beside them in the same candidate (a resource needs a home in
+the candidate object); verify; publish by removing the marker from that root and
+retiring the old one. `commit_deferred`'s three lines —
+`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..` — are the
+mutation of the LIVE world that has to become construction of a CANDIDATE one.
+
+### ⛔⛤ AND THE OBSTACLE A CANDIDATE ROOT HITS IS MEASURED TOO — WITH THE CONSTRAINT THAT CLEARS IT
+
+The session world root is **IDENTITY-BEARING**: production spawns it with
+`SimId::singleton("session", activation_id)` and says why — *"the root is
+rollback-anchored (it carries the room set) … a derived identity, so the identity
+census admits no waiver (S4)."* ⇒ A candidate root for the same activation carries
+the SAME `SimId`, and `TransactionBaseline::capture` REFUSES two entities on one
+identity (`BaselineCaptureError::DuplicateIdentity`) **before any verification
+runs**. *"Build the next world beside this one"* would break the very next
+transaction's baseline.
+
+⭐⭐ **IT DOES NOT, AND THE REASON IS THE SAME DISABLING FILTER.** `capture`'s query
+does not mention `InactiveCandidate`, so a hidden candidate is NOT in the
+population. MEASURED both ways in
+`a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`:
+capture SUCCEEDS with a hidden duplicate and REFUSES once the marker is removed
+without retiring the old body.
+
+⇒ **SO THE MACHINERY ITSELF FORCES PUBLICATION AND RETIREMENT INTO ONE STEP** —
+publish without retiring and the next transaction cannot open. That is the second
+standing test rather than the first: no guard asks the question, the structure
+refuses to express the state. ⭐ **AND IT IS THE "REAL SUPERSESSION RELATIONSHIP"
+THE REVIEW ASKED FOR, in vocabulary that already exists:** a candidate root is
+`TransactionBaseline::reconstructing` for the root's identity, and
+`ReconstructedOldSurvived` — *"you said you would replace this and the old body is
+still here"* — is exactly the state that is LEGAL while the new body is a
+candidate and ILLEGAL after publication.
+
+⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
+SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,
+`SessionMechanics`, `ActiveContentBinding`) are singular process-global resources
+with no entity to hide, and `SessionScopeActivated` still means *"replace the live
+mirrors"*. That is the half the review's finding 2 is about, and it is a real
+design.
+
+✅ **A CURRENT CORRECTNESS BUG THAT WAS NOT A10 — FIXED 2026-09-13, both steps.**
+⚠ This paragraph described it in the present tense for part of the day after it
+had been repaired, which is the stale-`CLOSED`-language failure three reviews in a
+row have flagged; it is rewritten rather than left to be re-read as open. What was
+wrong: a materially changed hot reload constructed N+1 roots stamped with **N's**
+`TransactionId`, because the plan was prepared
+against `prepared_content.epoch()` (N) and `ActiveContentBinding` was published as
 N+1 only afterwards. `TransactionId` is canonical rollback state and
 `ConstructionScope::transaction()` is literally `binding ⊗ room ⊗ session`, so the
 live world ends with content N+1 and roots claiming N. It is the two-binding gap
@@ -252,7 +322,7 @@ HEAD 2026-09-13:
   (with the ordinary-road control) and
   `two_plans_differing_only_in_the_world_they_expect_are_different_plans`;
   poison-verified by stamping `expected_live`, which reddens the first alone.
-- ⛔ **STEP 2, AND ITS BLOCKER IS NOW MEASURED AWAY.** The hot reload must pass
+- ✅ **STEP 2, AND ITS BLOCKER WAS MEASURED AWAY.** The hot reload must pass
   `replacing(live_binding, candidate_epoch)`, which needs the candidate epoch
   minted BEFORE the preflight — against the rule that *"everything above this line
   is non-mutating … materially changed definitions allocate a new epoch only
@@ -279,7 +349,8 @@ HEAD 2026-09-13:
 - ⚠ **WHAT IS OWED:** an END-TO-END arm for a material LDtk reload — *while the
   candidate exists the active binding stays N; every candidate root's
   `TransactionId` names N+1; after success both agree on N+1* — plus the race
-  (candidate expects N, live advances to M, commit must refuse). No app test
+  (candidate expects N, live advances to M, commit must refuse — ✅ GUARDED, see
+  below). No app test
   drives `reload_ldtk_world_from_disk` today (it is `pub(super)`, behind a file
   watcher), so the arm needs a disk fixture. ✅ **THE ROAD IS GUARDED, MINUS THE
   DISK:** `a_room_prepared_for_the_next_generation_still_expects_the_live_one`
@@ -288,9 +359,19 @@ HEAD 2026-09-13:
   `construction_binding()` is 4 while the roots' transaction is 5's — two
   assertions that pull in opposite directions, so a fix propagating one value
   everywhere cannot satisfy both. Poison-verified by restoring the clobber
-  (`context.incoming = active.0`), which reddens it. ⚠ WHAT REMAINS UNGUARDED is
-  only the disk-to-`ActiveContentBinding` leg and the race (candidate expects N,
-  live advances to M, commit must refuse).
+  (`context.incoming = active.0`), which reddens it. ✅ **AND THE RACE IS GUARDED
+  TOO, 2026-09-13:**
+  `a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_expected`
+  commits a plan built FROM generation 5 to be committed INTO 4, into a world that
+  has advanced to 9, and asserts the violation names **(4, 9)** — the
+  EXPECTED-LIVE half against the live one. ⭐ That assertion is also what says
+  which half the boundary reads: naming the INCOMING generation would refuse every
+  reload by the generation it is introducing, which is why the field could not
+  simply be re-pointed. Control: the same replacement arriving at exactly the
+  world it expected PUBLISHES, so staleness discriminates rather than
+  blanket-refusing a two-generation plan. Poison: make the boundary read
+  `incoming()` and it reddens. ⚠ WHAT REMAINS UNGUARDED is only the
+  disk-to-`ActiveContentBinding` leg.
 
 ## ✅ CORRECTION PACKET, 2026-09-13 — the recurring failure mode named: the RULE was right, one COMPATIBILITY PATH or one ADJACENT MEMBER stayed outside it
 

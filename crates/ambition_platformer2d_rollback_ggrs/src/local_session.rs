@@ -128,6 +128,75 @@ fn decided_or_device_seating(world: &mut World) -> usize {
     }
 }
 
+/// ⛔⛤ **A LIVE MECHANICAL EDIT REBASES THE TIMELINE IT WOULD OTHERWISE DESYNC —
+/// `Q120`, 2026-09-13.**
+///
+/// MEASURED 2026-09-12 against the real GGRS sync-test canary (save every frame,
+/// rewind 4, resimulate the same inputs, compare checksums): editing
+/// `ActiveMovementTuning` mid-timeline **DESYNCS**, while the same forty frames
+/// with no edit stay healthy. `Q120`'s own row calls the state that produces it
+/// *"NOT COHERENT"* — a mutable mechanical input outside rollback history that
+/// resimulation reads at its latest value.
+///
+/// ⭐⭐ **THIS IS MODEL 2 OF THE THREE THAT ROW LISTS — REBASE — CHOSEN BY
+/// PRECEDENT RATHER THAN BY PREFERENCE, AND IT IS REVERSIBLE.** The content
+/// publication road adopted exactly this on the same day (`Q118`), reusing the
+/// stop-and-release the LDtk reload has shipped for months; a knob edit that
+/// changes the simulation is the same event one surface over. Model 1 (refuse)
+/// would delete the developer feature — the measurement that produced the first
+/// publication breaker said so in as many words — and model 3 (deterministic
+/// timestamped input) is a substantially larger machine. ⚠ If Jon rules
+/// otherwise, the mechanism stays and the POLICY moves: model 1 is this system
+/// declining to apply, model 3 replaces it.
+///
+/// ⛔ **AN EXTERNAL OR CALLER-OWNED SESSION IS NOT REBASED**, for the reason
+/// `RollbackSessionOwnership` already gives: peers need a coordinated content
+/// barrier and a caller's session was not started for this. Those keep model 1 by
+/// necessity — the edit lands and the timeline is left alone, which is the state
+/// this system cannot improve without a barrier that does not exist yet.
+///
+/// ⚠ **`is_added` IS EXCLUDED** for the same reason the writer excludes it: Bevy
+/// counts INSERTION as a change, and the knobs are installed before content
+/// finishes seeding. Rebasing on frame one would restart the session the
+/// composition had just started.
+pub fn rebase_local_session_on_live_mechanical_edits(
+    tuning: Option<Res<ambition_platformer2d_core::ActiveMovementTuning>>,
+    ownership: Option<Res<crate::session::RollbackSessionOwnership>>,
+) -> bool {
+    let Some(tuning) = tuning else {
+        return false;
+    };
+    if !tuning.is_changed() || tuning.is_added() {
+        return false;
+    }
+    matches!(
+        ownership.as_deref(),
+        Some(crate::session::RollbackSessionOwnership::LocalSyncTest {
+            owner: crate::session::SyncTestOwner::LocalMaintainer,
+            ..
+        })
+    )
+}
+
+/// Stop the local baseline so [`maintain_local_session`] starts the next one
+/// against the edited mechanics.
+///
+/// ⛔ Exclusive, and in the same frame the edit was observed: a frame between the
+/// edit and the stop is a frame the canary already showed desyncing.
+pub fn apply_mechanical_edit_rebase(world: &mut World) {
+    if !crate::session::session_is_active(world) {
+        // Nothing to rebase. The edit stands and the next session starts with it.
+        return;
+    }
+    crate::session::stop_session(world);
+    world.resource_mut::<LocalSessionOwnership>().release();
+    bevy::log::info!(
+        target: "ambition_platformer2d::rollback",
+        "a live mechanical edit stopped the local rollback baseline; the session \
+         owner will rebase it onto the edited tuning"
+    );
+}
+
 pub fn maintain_local_session(world: &mut World) {
     let gameplay_active =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some();
@@ -392,5 +461,114 @@ mod seating_readiness_tests {
             "a decided seating must still FREEZE, or a hot reload resamples live \
              devices — which is the bug the freeze exists for"
         );
+    }
+}
+
+#[cfg(test)]
+mod mechanical_edit_rebase_tests {
+    use super::*;
+    use crate::session::{RollbackSessionOwnership, SyncTestOwner, SyncTestSettings};
+
+    fn app_with(ownership: Option<RollbackSessionOwnership>) -> App {
+        let mut app = App::new();
+        app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+        if let Some(ownership) = ownership {
+            app.insert_resource(ownership);
+        }
+        app.init_resource::<LocalSessionOwnership>();
+        app.add_systems(
+            Update,
+            (|mut fired: ResMut<Fired>,
+              tuning: Option<Res<ambition_platformer2d_core::ActiveMovementTuning>>,
+              ownership: Option<Res<RollbackSessionOwnership>>| {
+                fired.0 = rebase_local_session_on_live_mechanical_edits(tuning, ownership);
+            })
+            .in_set(Probe),
+        );
+        app.init_resource::<Fired>();
+        app
+    }
+
+    #[derive(Resource, Default)]
+    struct Fired(bool);
+
+    #[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    struct Probe;
+
+    fn local() -> RollbackSessionOwnership {
+        RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        }
+    }
+
+    /// ⛔⛤ **A LIVE MECHANICAL EDIT ASKS FOR A REBASE — AND INSERTION DOES NOT.**
+    ///
+    /// `Q120` measured that editing `ActiveMovementTuning` mid-timeline desyncs
+    /// the GGRS sync-test canary. ⚠ The second half is the one that would break
+    /// every composition: Bevy counts INSERTION as a change, and these knobs are
+    /// installed before content finishes seeding, so a rebase on `is_added` would
+    /// stop the session the composition had just started — on frame one, every
+    /// time.
+    #[test]
+    fn an_edit_asks_for_a_rebase_and_the_first_frame_does_not() {
+        let mut app = app_with(Some(local()));
+
+        app.update();
+        assert!(
+            !app.world().resource::<Fired>().0,
+            "the frame that INSTALLED the tuning asked for a rebase, which would \
+             restart every session on frame one"
+        );
+
+        app.update();
+        assert!(
+            !app.world().resource::<Fired>().0,
+            "an untouched knob asked for a rebase, so the trigger is not the edit"
+        );
+
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_core::ActiveMovementTuning>()
+            .0
+            .jump_speed += 1.0;
+        app.update();
+        assert!(
+            app.world().resource::<Fired>().0,
+            "a live edit to a mechanical knob did NOT ask for a rebase, so \
+             resimulation keeps reading its latest value — the state `Q120` calls \
+             not coherent"
+        );
+    }
+
+    /// ⭐ **THE OWNERSHIPS THAT MUST NOT BE REBASED, and they are the reason this
+    /// is a decision rather than a reflex.** An `External` session belongs to
+    /// peers — `RollbackSessionOwnership` says it *"must never be replaced
+    /// unilaterally by the local host"* — and a `Caller`-owned one was started by
+    /// a match activation or a harness that did not ask for a content rebase.
+    #[test]
+    fn a_session_this_host_does_not_own_is_left_alone() {
+        for (what, ownership) in [
+            ("no ownership resource at all", None),
+            ("an EXTERNAL/P2P session", Some(RollbackSessionOwnership::External)),
+            (
+                "a CALLER-owned sync test",
+                Some(RollbackSessionOwnership::LocalSyncTest {
+                    settings: SyncTestSettings::for_players(1),
+                    owner: SyncTestOwner::Caller,
+                }),
+            ),
+        ] {
+            let mut app = app_with(ownership);
+            app.update();
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d_core::ActiveMovementTuning>()
+                .0
+                .jump_speed += 1.0;
+            app.update();
+            assert!(
+                !app.world().resource::<Fired>().0,
+                "{what} was asked to rebase for a local developer edit"
+            );
+        }
     }
 }

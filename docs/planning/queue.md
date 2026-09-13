@@ -3099,6 +3099,37 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    attack_forward --out grid_fwd.json` then
    `scripts/measure_strike_area_over_body.py grid_fwd.json` (21 takes, 22s).
 
+   ⭐⭐ **AND THE AUTHORED CLOCK'S "ACTIVE RUNS 10-17 FRAMES" IS ALSO A TAIL
+   READ AS A NORM — MEASURED ROSTER-WIDE 2026-09-13**, which is what that item
+   asked for (*"show numbers before rebalancing"*).
+   `scripts/measure_authored_move_clock.py`, over **347 moves across 18 entities**
+   in the 17 baked movesets, in 60fps-equivalent frames:
+
+```text
+  startup  min   0.0  p25   4.2  median   5.4  p75   8.4  max  24.0   (Ultimate: tilts ~5, smashes ~12)
+  ACTIVE   min   2.4  p25   4.2  median   4.8  p75   6.0  max  20.4   (Ultimate: usually 2-5)
+  total    min  11.4  p25  20.4  median  24.6  p75  34.4  max  72.0
+
+  live >  5 frames: 169 of 347 (48%)
+  live > 10 frames:  18 of 347 ( 5%)
+```
+
+   ⇒ **THE MEDIAN MOVE IS ULTIMATE-SHAPED ON BOTH AXES THE ITEM NAMES.** Startup
+   median 5.4f against *"tilts ~5"*; ACTIVE median **4.8f, INSIDE Ultimate's usual
+   2-5**. The 10-17f figure describes **18 moves — 5% — and they are nameable**
+   (`officer_disperse` 20.4f, `synchronize_clocks` 19.8f, `conservation_law`
+   18.0f, `performer_air_neutral` 16.8f). ⇒ *"Generous boxes plus fast recovery
+   makes her moves very safe"* may still be true of a CHARACTER; it is not true of
+   the roster, and a roster-wide active-frame rebalance would be moving the median
+   AWAY from the target.
+
+   ⛔⛤ **AND THE FIRST VERSION OF THAT MEASUREMENT WAS WRONG IN A WAY THE REPO HAS
+   RECORDED BEFORE.** Keyed by `(file, move)` it reported 20 repeats that looked
+   exactly like a parser bug — they are `cellular_automaton.ron` publishing TWO
+   entities, `perfect_` and `imperfect_cellular_automaton`. ⇒ The script keys by
+   `(entity, move)` and **asserts the key is 1:1**, which is the guard the
+   *"one file with two entities doubles every count"* lesson asks for.
+
    ⛔⛔ **AND THE PER-CHARACTER PEAK HIDES THE THING JON IS ASKING ABOUT.** Under
    it, one fighter of 21 is thin. Per MOVE — the new `--per-move` mode, same
    recording — **104 of 208 moves swing a box smaller than the body swinging

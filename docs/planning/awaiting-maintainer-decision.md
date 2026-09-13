@@ -2166,8 +2166,48 @@ returning to one are the same question asked twice."* Re-routing would fork that
 answer, which is the defect this repository removes rather than the fix. ⇒ The
 three options below remain the whole choice.
 
-⚠ **A10's LAST STEP IS HELD ON THIS ROW**, and the hold is now one sentence
-rather than "the mechanism is not yet understood".
+⛔⛤ **AND A CENSUS 2026-09-13 SHOWS THIS ROW IS THE SMALLER HALF OF A10's
+BLOCKER — CORRECTING MY OWN EARLIER CONCLUSION THAT THE FLAG "WAITS ON A GAMEPLAY
+RULING".** Instrumenting every room-construction refusal across the whole
+644-test `app_it` suite finds **SIX**, and the big ones are not this defect:
+
+```text
+  3  death_restores_the_checkpoint     1 placement each   <- THIS row (a held item)
+  1  edit_to_play_through_the_shell    8 placements
+  1  an_edit_reaches_the_shipped_game 18 placements       <- the WHOLE room
+  1  (unattributed; 5 of 6 were traced)
+  by room: 5x central_hub_complex, 1x proving_grounds
+```
+
+⇒ **THE TWO BIG ONES ARE ON THE HOT-RELOAD ROAD, AND THEIR MECHANISM IS AN
+ORDERING RATHER THAN A GAMEPLAY QUESTION.** The world log shows a session handoff
+retiring the old scope and starting the new one **in the same frame**:
+
+```text
+f16  session-end   activation=2 scope=0
+f16  session-start activation=3 scope=1
+     room-refused central_hub_complex :: 18x Duplicated, 18x ReconstructedOldSurvived
+```
+
+⇒ The incoming session's room transaction captures its baseline while the
+OUTGOING scope's 18 placements are still live, so every one of them is a
+duplicate of a root the new room is about to mint.
+
+⚠ **IT IS HARMLESS TODAY AND THAT IS WHY NOBODY KNEW.** Under `hidden = false` a
+refusal costs only the `RoomLoaded` message, and `RoomLoaded` has **NO production
+reader** — `content_staging.rs` says so in as many words (*"`RoomLoaded` remains
+notification-only"*).
+
+⇒ **BUT IT IS EXACTLY WHAT MAKES A10's FLAG UNFLIPPABLE, and it is a bigger
+failure than the two death tests.** Under the candidate bracket that refusal
+DROPS the whole room, so **every hot reload would produce an empty world**. ⇒ A10
+is blocked on TWO things: this row's gameplay ruling (3 refusals, 1 placement
+each) and a session-handoff ORDERING fix (2 refusals, 26 placements) that needs no
+ruling at all. The ordering one is the same shape as `replace_live_world`'s
+retire-then-commit, one level up: at the SESSION scope rather than the room's.
+
+⚠ **A10's LAST STEP IS HELD ON THIS ROW AND ON THAT ORDERING**, and the hold is
+now two sentences rather than "the mechanism is not yet understood".
 
 ## ✅ Q125 — CLOSED 2026-09-13. A relation gets its two endpoints and nothing else.
 

@@ -305,6 +305,28 @@ impl RoomConstructionPlan {
         // what happens to a placement in your custody when a death rebuilds the
         // room that authored it? `Q124` states the three answers.
         //
+        // ⛔⛤ **AND ON A SECOND THING THAT IS NOT A RULING, MEASURED 2026-09-13
+        // AND BIGGER.** A census of every room-construction refusal across the
+        // whole `app_it` suite finds SIX, and the two largest are on the
+        // HOT-RELOAD road rather than the death road — 8 placements and **18,
+        // the whole of `central_hub_complex`**. The world log gives the
+        // mechanism:
+        //
+        //     f16  session-end   activation=2 scope=0
+        //     f16  session-start activation=3 scope=1
+        //          room-refused :: 18x Duplicated, 18x ReconstructedOldSurvived
+        //
+        // ⇒ A session handoff retires the old scope and starts the new one IN
+        // THE SAME FRAME, so the incoming room's transaction captures its
+        // baseline while the OUTGOING scope's placements are still live.
+        //
+        // ⚠ Harmless today — a refusal costs only the `RoomLoaded` message and
+        // that message has no production reader — but under this bracket it
+        // DROPS THE WHOLE ROOM, so every hot reload would produce an empty
+        // world. That is a worse failure than the two death tests and it needs
+        // an ORDERING fix, not a ruling: the same retire-then-commit shape
+        // `replace_live_world` already has, one level up at the SESSION scope.
+        //
         // ⭐ **ONE HALF NEEDS NO RULING.** `TransactionBaseline::retiring` and
         // `reconstructing` exist for exactly this and have ZERO production
         // callers — `transaction::open` captures a baseline that declares

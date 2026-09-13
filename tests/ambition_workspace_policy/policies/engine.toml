@@ -2889,6 +2889,24 @@ forbid = [
     "sheet_for_character_id(",
     "sprite_body_collision_for_character_id(",
     "all_character_sprite_filenames(",
+    # ⛔⛤ THE THREE NEEDLES BELOW ENUMERATE SPELLINGS, AND A REAL VIOLATION WORE A
+    # FOURTH FOR MONTHS. `speak_conversation_cut_barks` read
+    # `Option<bevy::prelude::Res<CharacterCatalog>>`; this list held
+    # `Option<Res<…>>` and one fully-qualified form, and matching is raw substring.
+    # ⇒ The guard written to forbid exactly that reader could not see it (`Q111`,
+    # 2026-09-13 — and it had ALSO been hidden by the `#[cfg(test)]` truncation
+    # defect, so two independent blindnesses covered one line).
+    #
+    # ⭐ `Res<X>>` — with the DOUBLE angle bracket — is the spelling-invariant
+    # form: a required `Res<X>` closes with ONE, so two means the parameter is
+    # wrapped, and `Option` is the only wrapper this rule is about. It matches
+    # every qualification of the path because it names none. The enumerated
+    # spellings stay: they are redundant now, and a redundant needle costs
+    # nothing while a missing one costs a violation nobody can see.
+    "Res<CharacterCatalog>>",
+    "Res<ambition_characters::actor::character_catalog::CharacterCatalog>>",
+    "Res<CharacterRoster>>",
+    "Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>>",
     "Option<Res<CharacterCatalog>>",
     "Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>",
     "Option<Res<CharacterRoster>>",
@@ -2909,6 +2927,8 @@ forbid = [
     "all_boss_sprite_filenames(",
     "dedicated_boss_sheets(",
     "sprite_render_size_for(target: &str",
+    "Res<BossCatalog>>",
+    "Res<ambition_boss_encounter::BossCatalog>>",
     "Option<Res<BossCatalog>>",
     "Option<Res<ambition_boss_encounter::BossCatalog>>",
     "pub struct CharacterCatalog(pub",

@@ -314,6 +314,59 @@ the thing it prevents.
 Measured 2026-09-12 by NamekAmbition at `4d486ef20`. The consequence for content families is in
 [the queue](queue.md)'s second-family row.
 
+## ✅ Q111 — ANSWERED 2026-09-13 BY A BOUNDARY, NOT A RULING. ONE RULE, AND IT WAS ALREADY TRUE: A COMPOSITION THAT INSTALLS THE CAPABILITY SUPPLIES THE AUTHORITY.
+
+⛔⛤ **THE OPTIONAL READER WAS NOT A JUDGEMENT CALL — ITS JUSTIFICATION WAS FALSE,
+AND FALSE BY A PLUGIN BOUNDARY RATHER THAN BY A COUNT OF GREEN TESTS.**
+`speak_conversation_cut_barks` took `Option<bevy::prelude::Res<CharacterCatalog>>`
+because *"a composition with no catalog (a demo, a headless fixture) must still
+break conversations."* MEASURED at HEAD:
+
+* the system is registered by `FeatureInteractionSchedulePlugin`;
+* `ambition_platformer2d_runtime`'s plugin group adds it
+  (`crates/ambition_platformer2d_runtime/src/lib.rs:469`);
+* **the same group adds `BrainCommandPlugin` eighteen lines later**, and its
+  `apply_brain_commands` takes a **required** `Res<CharacterCatalog>` into the
+  same sim schedule.
+
+⇒ A composition with no catalog panics at `apply_brain_commands` before any bark
+is spoken. **The state the `Option` described cannot exist wherever this system
+runs.** That is the shape a boundary replaces a census with: *"the only readers
+are optional"* is a population count that rots; *"the plugin group that installs
+this also installs a required reader"* does not.
+
+⚠ An UNAUTHORED bark is still not a failure. `npc_ambient_bark_line` answering
+`None` skips the line — that half of the old reason was always right and is
+unchanged. What changed is that "no catalog at all" stopped being spelled the same
+way.
+
+### ⛔⛤ AND THE GUARD WRITTEN TO FORBID EXACTLY THIS READER WAS BLIND TWICE OVER
+
+`engine.character-authority-is-app-local` forbids *"make those resources
+optional"*, and it never objected — for two independent reasons, which is why one
+repair did not surface it:
+
+1. **POSITION.** The line sat past the file's first `#[cfg(test)]`, inside a
+   region the scan truncated. Repaired separately; recorded in
+   [the queue](queue.md).
+2. **SPELLING, which that repair did not touch.** The `forbid` list ENUMERATED
+   `Option<Res<CharacterCatalog>>` and one fully-qualified variant; the code read
+   `Option<bevy::prelude::Res<CharacterCatalog>>`, and matching is raw substring.
+
+⭐⭐ **THE NEEDLE IS SPELLING-INVARIANT NOW: `Res<X>>`, WITH THE DOUBLE ANGLE
+BRACKET.** A required `Res<X>` closes with ONE, so two means the parameter is
+wrapped — and `Option` is the only wrapper this rule is about. It matches every
+qualification of the path because it names none. POISON-VERIFIED: restoring the
+exact spelling that hid for months is caught at `npcs.rs:518`, past the
+`#[cfg(test)]` boundary, so both blindnesses are closed by one arm.
+
+⇒ **THE ANSWER TO (2): ONE RULE, AND `BossCatalog` ALREADY OBEYED IT** — every
+reader required, and `game_assets.rs` panics naming this policy id. The two
+catalogs were never in different states about the RULE; they were in different
+states about whether anything enforced it.
+
+<details><summary>The question as it was posed</summary>
+
 ## Q111 — may `BossCatalog` and `CharacterCatalog` ever be absent, and is that one ruling or two?
 
 `engine.character-authority-is-app-local` (severity `error`) states production code may not
@@ -355,6 +408,8 @@ already exists, while for `BossCatalog` it would be a new exception against a pa
 own policy id.
 
 Measured 2026-09-12 by NamekAmbition at `4d486ef20`.
+
+</details>
 
 ## Q112 — ranged recoil writes velocity directly while the kernel documents a seam for exactly this reaction; should it move, and if not, where is that recorded?
 

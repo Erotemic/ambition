@@ -243,7 +243,7 @@ pub fn grant_prepared_character_body(
         // character with CATALOG tuning and no authored tuning, that path
         // inserts the marker and this removed it on the same tick. Passing the
         // catalog in to resolve both the same way then violated the workspace
-        // policy against `Option<Res<CharacterCatalog>>` — and requiring it
+        // policy against an OPTIONAL character catalog — and requiring it
         // broke three fixtures that deliberately run character demand with NO
         // catalog, which is a state another test exists to name.
         if let Some(tuning) = movement_tuning {

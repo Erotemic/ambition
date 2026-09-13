@@ -485,16 +485,37 @@ mod tests {
 /// Splitting it this way is what removes `conversation`'s only two edges back
 /// into this crate (`docs/planning/engine/actor-monolith-decomposition.md`).
 ///
-/// the catalog is OPTIONAL for the reason the break rule's was: a composition
+/// ⛔⛤ **THE CATALOG IS REQUIRED, AND THE `Option` IT REPLACED PROTECTED NOTHING
+/// — `Q111`, ANSWERED 2026-09-13.** This parameter used to read
+/// `Option<bevy::prelude::Res<CharacterCatalog>>`, justified by *"a composition
 /// with no catalog (a demo, a headless fixture) must still break conversations,
-/// and losing an unwritten line is not worth failing over.
+/// and losing an unwritten line is not worth failing over."*
+/// `engine.character-authority-is-app-local` forbids exactly that shape —
+/// *"production code may not … silently substitute an empty catalog, make those
+/// resources optional"* — and **the guard could not see this line**, for two
+/// independent reasons: it sat past the file's first `#[cfg(test)]`, and its
+/// spelling (`Option<bevy::prelude::Res<…>>`) is not one of the two the policy
+/// enumerated. Both are fixed; see the policy's needles.
+///
+/// ⭐⭐ **AND THE JUSTIFICATION WAS FALSE BY A BOUNDARY, NOT BY A COUNT.** This
+/// system is registered by `FeatureInteractionSchedulePlugin`, which
+/// `ambition_platformer2d_runtime`'s plugin group adds — and the SAME group adds
+/// `BrainCommandPlugin`, whose `apply_brain_commands` takes a REQUIRED
+/// `Res<CharacterCatalog>` in the same sim schedule. ⇒ A composition with no
+/// catalog panics there before any bark is spoken. The `Option` described a state
+/// that cannot exist wherever this system runs, and it is the census-of-writers
+/// shape a boundary replaces.
+///
+/// ⚠ An UNAUTHORED bark is still not a failure — `npc_ambient_bark_line`
+/// answering `None` skips the line, which is the part of the old reason that was
+/// always right and is unchanged.
 pub fn speak_conversation_cut_barks(
     mut requests: bevy::prelude::MessageReader<ambition_conversation::ConversationCutBark>,
     speakers: bevy::prelude::Query<(
         &ambition_platformer2d_shared_tangle::body::BodyKinematics,
         &ambition_combat::ActorInteraction,
     )>,
-    character_catalog: Option<bevy::prelude::Res<CharacterCatalog>>,
+    character_catalog: bevy::prelude::Res<CharacterCatalog>,
     prepared_cast: Option<
         bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
     >,
@@ -504,15 +525,13 @@ pub fn speak_conversation_cut_barks(
         let Ok((kin, interaction)) = speakers.get(request.speaker) else {
             continue;
         };
-        let Some(line) = character_catalog.as_deref().and_then(|catalog| {
-            npc_ambient_bark_line(
-                catalog,
-                prepared_cast.as_deref(),
-                &interaction.interactable,
-                BarkSituation::ConversationCut,
-                0,
-            )
-        }) else {
+        let Some(line) = npc_ambient_bark_line(
+            &character_catalog,
+            prepared_cast.as_deref(),
+            &interaction.interactable,
+            BarkSituation::ConversationCut,
+            0,
+        ) else {
             continue;
         };
         vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {

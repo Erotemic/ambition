@@ -1697,7 +1697,35 @@ the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
 
-## Q121 — the prepared generation is a FINGERPRINT, not a FROZEN VALUE: prepare A, construct from B
+## ✅ Q121 — CLOSED 2026-09-12. A prepared generation now MEANS its frozen mechanical values.
+
+`PreparedPlatformerSession` carries `FrozenMechanicalState` — the prepared cast,
+the authored sheets and the boss catalog, CLONED in the same system that takes the
+identity — and `PlatformerSessionBuilder::build` consumes it. ⛔ **The three `Res`
+handles are GONE from the `SystemParam`**, so reading the live registry at
+activation is a compile error rather than a discipline. POISON-VERIFIED: putting
+`&self.boss_catalog` back into `build` fails with *"no field `boss_catalog` on
+type `&mut PlatformerSessionBuilder`"*.
+
+⚠ **THE COST IS A CLONE PER PREPARED SESSION AND THAT IS THE POINT.** Holding a
+handle instead would reintroduce the read-at-activation this removes. The shipped
+cast is 58 characters, so it is bounded and paid once.
+
+⚠ **THE FREEZE CAPTURES THE FOLD, NOT THE PRE-FOLD SOURCE**, and the distinction
+is real: the FINGERPRINT is over `StagedCharacterOverrides` (lossless — see its
+doc), while construction reads the published `PreparedCharacterRegistry`. Freezing
+has to capture the value the builder will actually use, so the two are captured
+from different resources in the same system.
+
+⛔ **WHAT IS NOT COVERED, said plainly:** there is no end-to-end arm that prepares
+a session, MUTATES the registry, activates, and asserts the world was built from
+the frozen value. What is proven is the STRUCTURE — the builder no longer has a
+handle to mutate against — which is the stronger half but not the behavioural one.
+
+<details><summary>The original row, kept because its measurement is the
+evidence</summary>
+
+### Q121 — the prepared generation is a FINGERPRINT, not a FROZEN VALUE: prepare A, construct from B
 
 ⛔⛤ **THIS IS THE LAYER THE PREVIOUS FIX EXPOSED, NOT THE PREVIOUS FIX FAILING.**
 `characters.definitions`, `characters.authored-sheets` and `boss.catalog` now
@@ -1731,6 +1759,8 @@ contain now"*. Session construction consumes the frozen values.
 
 ⚠ **AND IT MATTERS MORE FOR A10, not less:** a last-good-world guarantee is only
 worth having if the candidate's identity identifies the world being constructed.
+
+</details>
 
 ## Q122 — which fields of the mechanical registries are MECHANICAL, and which are presentation?
 

@@ -274,6 +274,11 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_characters::prepared::StagedCharacterOverrides>>,
         Option<Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>>,
         Option<Res<'w, ambition_boss_encounter::BossCatalog>>,
+        // ⛔ THE FOLD, not the pre-fold source above: the fingerprint is over
+        // `StagedCharacterOverrides` (lossless) while session construction reads
+        // the published registry, so FREEZING has to capture the value the
+        // builder will actually use. See `FrozenMechanicalState`.
+        Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -630,7 +635,27 @@ impl PlatformerPreparation<'_> {
         };
         let identity = self.sessions.0.publish(
             transaction,
-            PreparedPlatformerSession { content, report },
+            PreparedPlatformerSession {
+                content,
+                report,
+                // ⛔ FROZEN HERE, in the same system that took the identity, so
+                // the two cannot describe different worlds.
+                mechanical: FrozenMechanicalState {
+                    characters: self.content_inputs.6.as_deref().cloned(),
+                    sheets: self
+                        .content_inputs
+                        .4
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or_default(),
+                    bosses: self
+                        .content_inputs
+                        .5
+                        .as_deref()
+                        .cloned()
+                        .unwrap_or_default(),
+                },
+            },
             &mut self.registry,
         )?;
         self.complete(transaction, PREPARE_SESSION_WORK_ID);
@@ -1257,6 +1282,36 @@ struct PreparedPlatformerRecord {
 pub struct PreparedPlatformerSession {
     pub content: PreparedContent,
     pub report: PlatformerPreparationReport,
+    /// ⛔⛤ **THE MECHANICAL VALUES THIS GENERATION WAS FINGERPRINTED AGAINST,
+    /// FROZEN AT PREPARATION.**
+    ///
+    /// `PreparedContentIdentity` binds the prepared cast, the authored sheets and
+    /// the boss catalog — and session construction USED TO RE-READ THE SAME
+    /// MUTABLE App registries at activation, so a generation could be prepared
+    /// against cast N and have its world built from N+1 with the identity still
+    /// claiming N. MEASURED: `activate_staged_revision` inserts a fresh
+    /// `PreparedCharacterRegistry`, which is exactly the hot-reload road.
+    ///
+    /// ⇒ **A prepared generation now MEANS the frozen values**, not
+    /// *"`PreparedContent` says N, and at activation query whatever these
+    /// resources contain now"*.
+    pub mechanical: FrozenMechanicalState,
+}
+
+/// The mechanical App registries a session is CONSTRUCTED from, captured when
+/// its identity was taken.
+///
+/// ⚠ **CLONED, AND THE COST IS THE POINT.** These are the values the fingerprint
+/// is over; holding a handle instead would reintroduce the read-at-activation
+/// this exists to remove. The shipped cast is 58 characters, so the cost is
+/// bounded and paid once per prepared session.
+#[derive(Clone, Debug, Default)]
+pub struct FrozenMechanicalState {
+    /// `None` where the composition published no cast — a real state, and not a
+    /// missing value.
+    pub characters: Option<ambition_characters::prepared::PreparedCharacterRegistry>,
+    pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    pub bosses: ambition_boss_encounter::BossCatalog,
 }
 
 #[derive(Resource, Default)]
@@ -1365,6 +1420,7 @@ fn activate_prepared_platformer_sessions(
             activation,
             *scope,
             prepared.content,
+            &prepared.mechanical,
             default_character.as_str(),
         );
     }
@@ -1382,7 +1438,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// The prepared cast, when this composition registered one. Activation builds
     /// the player's BODY, and a prepared character states what a body physically
     /// is — its health pool, its mass, its authored box.
-    prepared_characters: Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
+
     /// The published controller policies, so an enemy placement may name one
     /// (`EnemySpawnSpec::brain_profile`).
     brain_profiles:
@@ -1401,8 +1457,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     ),
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
-    authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
+
     placement_lowering:
         Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
     content_staging:
@@ -1445,6 +1500,11 @@ impl PlatformerSessionBuilder<'_, '_> {
         activation: &ActiveShellExperience,
         scope: SessionScopeId,
         prepared_content: PreparedContent,
+        // ⛔⛤ **THE FROZEN MECHANICAL STATE, NOT THIS App's CURRENT REGISTRIES.**
+        // The three `Res` handles that used to serve these reads are GONE from
+        // the `SystemParam`, so building from whatever the world contains now is
+        // not something this function can express. See `FrozenMechanicalState`.
+        mechanical: &FrozenMechanicalState,
         default_character_id: &str,
     ) -> SessionBuildResult {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
@@ -1474,7 +1534,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 fallback_abilities: self.editable_abilities.as_engine(),
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
-                prepared_characters: self.prepared_characters.as_deref(),
+                prepared_characters: mechanical.characters.as_ref(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared
@@ -1494,10 +1554,10 @@ impl PlatformerSessionBuilder<'_, '_> {
                     ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                         &self.construction_recipes,
                         &self.character_catalog,
-                        &self.authored_sheets,
+                        &mechanical.sheets,
                         prepared_identity.epoch,
                         None,
-                        self.prepared_characters.as_deref(),
+                        mechanical.characters.as_ref(),
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
                         // has an empty one and builds exactly what it always
@@ -1516,7 +1576,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         self.forced_brains.0.as_deref(),
                         self.forced_brains.1.as_deref(),
                     ),
-                boss_catalog: &self.boss_catalog,
+                boss_catalog: &mechanical.bosses,
                 default_character_id,
             },
         );

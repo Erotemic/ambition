@@ -113,6 +113,25 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
                 .map(|(_, visual, gameplay, kin)| (visual.0.clone(), gameplay.damage, kin.pos))
         };
         if let Some(found) = found {
+            // ⛔⛤ **ONE FRAME LATER, AND THAT IS A CONTRACT CHANGE THIS TEST HAD
+            // NOT FOLLOWED.** `Q112` (`246cab797`) moved ranged recoil off a
+            // direct `kin.vel += kick` and onto
+            // `BodyFlightState::stage_launch`, because a bare `vel` write is
+            // INERT for a surface-momentum body — the launch gateway is the one
+            // authority that survives the movement model. Its own comment says
+            // *"the recoil no longer writes here"*.
+            //
+            // ⇒ So sampling `kin.vel` on the frame the projectile appears reads
+            // the body BEFORE the gateway has consumed the staged launch.
+            // MEASURED: the shot frame reads 90.8 px/s (friction alone, a
+            // -10.8 delta) and the NEXT frame reads -369.2, a -470.8 delta —
+            // the gun-sword's 380 kick, landed.
+            //
+            // ⚠ THE RECOIL WAS NEVER LOST, which is the finding that matters: a
+            // red here read as "the profile did not apply" and the truth was
+            // "this test measures a retired contract". One `update()` is the
+            // whole fix.
+            app.update();
             shot = Some((found, before, vel(&app), hand_before));
             break;
         }
@@ -139,6 +158,9 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
     // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
     // is 380, so a threshold between them is what tells "the profile applied"
     // from "something pushed him".
+    //
+    // ⚠ SAMPLED AFTER THE LAUNCH GATEWAY RUNS — see the `app.update()` above.
+    // A -10.8 delta here means the sample is early, not that the kick is soft.
     let kick = after.x - before.x;
     assert!(
         kick < -200.0,

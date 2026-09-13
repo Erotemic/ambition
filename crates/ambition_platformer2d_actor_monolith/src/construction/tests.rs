@@ -3873,3 +3873,71 @@ fn a_direct_entry_fixture_with_no_content_binding_still_publishes() {
         verification.violations
     );
 }
+
+/// ⛔⛤ **THE ROAD A HOT RELOAD TAKES, MINUS THE DISK: A ROOM PREPARED FOR N+1
+/// AGAINST A WORLD STILL RUNNING N KEEPS BOTH FACTS.**
+///
+/// This is where the two could re-merge. `for_room_construction` used to take
+/// `content_epoch` and `active_binding` as two parameters and let the second
+/// CLOBBER the first into one field — which is how a materially changed reload
+/// came to stamp N+1's roots with **N**. The unit arm in `shared_tangle` proves
+/// `ConstructionScope` carries the pair; this proves the pair survives the road
+/// that builds one.
+///
+/// ⭐ **THE TWO ASSERTIONS PULL IN OPPOSITE DIRECTIONS ON PURPOSE**: the roots'
+/// transaction must follow the INCOMING generation and the boundary comparison
+/// must follow the LIVE one, so a fix that simply propagated one value everywhere
+/// cannot satisfy both.
+#[test]
+fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
+    use ambition_platformer2d_shared_tangle::construction::ContentBinding;
+
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+
+    let live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4));
+    let plan = RoomFeatureConstructionPlan::prepare(
+        &room,
+        &Default::default(),
+        &staging,
+        &ambition_boss_encounter::test_boss_catalog(),
+        ActorConstructionContext::for_room_construction(
+            &recipes,
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &crate::session::mechanics::GenerationMechanics::new(
+                None,
+                Some(&fixture_cast()),
+                &Default::default(),
+                &ambition_boss_encounter::BossCatalog::default(),
+            ),
+            // The INCOMING generation — what a reload is publishing.
+            ae::ContentEpoch(5),
+            // The world it is being committed into, which is still N.
+            Some(&live),
+            None,
+            None,
+        ),
+    )
+    .expect("the room plans");
+
+    assert_eq!(
+        plan.construction_binding(),
+        ContentBinding::Content(ae::ContentEpoch(4)),
+        "the commit boundary would compare this plan against generation 5 while \
+         the live world is still 4, and refuse the very reload introducing 5"
+    );
+
+    let session = ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED;
+    let stamped = plan.construction().scope().transaction(session);
+    let expected = ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation(
+        ContentBinding::Content(ae::ContentEpoch(5)),
+        Some(room.id.clone()),
+    )
+    .transaction(session);
+    assert_eq!(
+        stamped, expected,
+        "the roots this plan mints are stamped with the generation being REPLACED \
+         rather than the one they are made of — the live world ends at 5 with every \
+         root claiming 4, inside canonical rollback state"
+    );
+}

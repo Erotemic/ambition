@@ -274,9 +274,16 @@ HEAD 2026-09-13:
   `TransactionId` names N+1; after success both agree on N+1* — plus the race
   (candidate expects N, live advances to M, commit must refuse). No app test
   drives `reload_ldtk_world_from_disk` today (it is `pub(super)`, behind a file
-  watcher), so the arm needs a disk fixture. The mechanism is guarded at the unit
-  level by `a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one`;
-  the ROAD is not, and that is stated rather than rounded up.
+  watcher), so the arm needs a disk fixture. ✅ **THE ROAD IS GUARDED, MINUS THE
+  DISK:** `a_room_prepared_for_the_next_generation_still_expects_the_live_one`
+  builds a real `RoomFeatureConstructionPlan` through `for_room_construction` with
+  incoming 5 against a live binding of 4, and asserts that
+  `construction_binding()` is 4 while the roots' transaction is 5's — two
+  assertions that pull in opposite directions, so a fix propagating one value
+  everywhere cannot satisfy both. Poison-verified by restoring the clobber
+  (`context.incoming = active.0`), which reddens it. ⚠ WHAT REMAINS UNGUARDED is
+  only the disk-to-`ActiveContentBinding` leg and the race (candidate expects N,
+  live advances to M, commit must refuse).
 
 ## ✅ THE INDEPENDENT LIFECYCLE BUGS THE DEEPER REVIEW FOUND, 2026-09-13 — none of them wait for A10
 

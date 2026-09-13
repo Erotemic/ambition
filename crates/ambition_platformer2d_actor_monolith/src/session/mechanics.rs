@@ -39,14 +39,27 @@
 /// read-at-activation this exists to remove. The shipped cast is 58 characters,
 /// so the cost is bounded and paid once per generation.
 ///
-/// ⛔ **WHAT IS NOT IN HERE YET, said plainly rather than left to be assumed:**
+/// ⛔ **WHAT IS NOT IN HERE, said plainly rather than left to be assumed:**
 /// `CharacterCatalog`, `BrainProfileRegistry`, `AuthoredBrainOverride` and
 /// `AuthoredPopulationCap` are also construction inputs and are still read from
-/// the App on every road. The first two are not in `PreparedContentIdentity`
-/// either; the last two are `Q126`. ⇒ **A generation owns the three registries
-/// its identity binds, and no more than that** — extending the ownership without
-/// extending the identity would make this type claim a freeze the fingerprint
-/// cannot corroborate.
+/// the App on every road.
+///
+/// ⛔⛤ **AND MY FIRST VERSION OF THIS PARAGRAPH SAID THE FIRST TWO ARE NOT IN
+/// `PreparedContentIdentity` EITHER. THAT WAS WRONG — MEASURED 2026-09-13.** Both
+/// are built by ONE assembly from `CharacterCatalogRegistry`'s fragments (see
+/// `character_catalog::registry`, whose own comment is *"same values, same keys,
+/// so the two cannot disagree"*), the production road never inserts either as a
+/// standalone authority (*"Not `insert_resource(CharacterCatalog)`: that would be
+/// a second authority on what the cast is"*), and the identity binds
+/// `CharacterCatalogRegistry::canonical_fragments()` — the SOURCE RON. ⇒ They are
+/// bound TRANSITIVELY, and poisoning that one binding reddens the catalog arm and
+/// the controller-policy arm together, which is what a shared authority looks
+/// like. `AuthoredBrainOverride` and `AuthoredPopulationCap` were the real gap
+/// and are closed (`Q126`).
+///
+/// ⇒ **A generation owns the three registries its identity binds DIRECTLY, and no
+/// more than that** — extending the ownership without extending the identity
+/// would make this type claim a freeze the fingerprint cannot corroborate.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
     /// `None` where the composition published no cast — a real state, and not a

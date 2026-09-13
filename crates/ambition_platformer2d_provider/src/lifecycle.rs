@@ -2138,6 +2138,64 @@ mod tests {
         assert_ne!(baseline.fingerprint(), changed_character.fingerprint());
     }
 
+    /// ⛔⛤ **THE TWO DERIVED REGISTRIES ARE BOUND TRANSITIVELY, AND I CLAIMED
+    /// OTHERWISE.** `b3839b28f`'s message said `CharacterCatalog` and
+    /// `BrainProfileRegistry` *"are not in `PreparedContentIdentity` either"*.
+    /// **That is wrong, and measurement is what says so.**
+    ///
+    /// ⭐ Both are built by ONE assembly from `CharacterCatalogRegistry`'s
+    /// fragments — `registry.rs` builds `CharacterCatalog::from_data(..)` and
+    /// `BrainProfileRegistry { profiles: autonomous_profiles_for_registry }` from
+    /// the same parse, with the comment *"same values, same keys, so the two
+    /// cannot disagree"* — and the production road never inserts either as a
+    /// standalone authority (`prepare_declared_cast`: *"Not
+    /// `insert_resource(CharacterCatalog)`: that would be a second authority on
+    /// what the cast is"*). The identity binds
+    /// `CharacterCatalogRegistry::canonical_fragments()`, which is the SOURCE
+    /// RON, so anything derived from it moves when it moves.
+    ///
+    /// ⚠ **SO THIS ARM PINS A TRANSITIVE FACT THAT WAS ONLY REASONED.**
+    /// `prepared_content_detects_geometry_and_character_action_changes` already
+    /// covers an ACTION-SET change; the controller-policy half — the part
+    /// `BrainProfileRegistry` actually carries — had no arm, so the reasoning
+    /// above was the only thing holding it.
+    #[test]
+    fn a_controller_policy_change_moves_the_fingerprint() {
+        let staging = staging_registry(false);
+        let baseline = fixture_content(
+            fixture_source(128.0),
+            &character_registry(false, CHARACTER_B),
+            &staging,
+        );
+
+        // ⛔ THE PREMISE: the substitution must actually match. A fixture edit
+        // that hits nothing and a passing test look identical, and this
+        // repository has been bitten by a zero-match substitution twice.
+        let changed_ron = CHARACTER_B.replace(
+            r#""idle": StandStill"#,
+            r#""idle": Wanderer(speed: 40.0, aggressiveness: 0.5)"#,
+        );
+        assert_ne!(
+            changed_ron, CHARACTER_B,
+            "the brain-preset substitution matched nothing, so this arm compares \
+             a fixture with itself"
+        );
+
+        let changed = fixture_content(
+            fixture_source(128.0),
+            &character_registry(false, &changed_ron),
+            &staging,
+        );
+        assert_ne!(
+            baseline.fingerprint(),
+            changed.fingerprint(),
+            "two compositions whose controller policy differs share one \
+             PreparedContentIdentity — and that identity is what the rollback \
+             timeline contract compares to decide whether a snapshot from one may \
+             be restored into the other",
+        );
+    }
+
     /// The construction recipe table decides how authoritative entities are
     /// built, so a change to it is a change to the content. This was DOCUMENTED
     /// as contributing to the fingerprint long before it did — `prepare_platformer_content`

@@ -1160,10 +1160,9 @@ pub fn begin_room_transition_load_system(
                 ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                     &construction_services.4,
                     &construction_services.2,
-                    mechanics.sheets(),
+                    &mechanics,
                     ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
-                    mechanics.characters(),
                     brain_profiles.as_deref(),
                     // THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.
                     // This is the only construction road that can meet an

@@ -366,10 +366,9 @@ pub fn process_new_game_reset_request(
         crate::features::ActorConstructionContext::for_room_construction(
             &play_state.recipes,
             &play_state.character_catalog,
-            mechanics.sheets(),
+            &mechanics,
             ambition_platformer2d_core::ContentEpoch::default(),
             play_state.active_binding.as_deref(),
-            mechanics.characters(),
             play_state.brain_profiles.as_deref(),
             // **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
             // OF A RESET.** The ledger says which authored occurrences are

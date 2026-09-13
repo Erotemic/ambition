@@ -1412,6 +1412,7 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
     let boss_catalog = ambition_boss_encounter::test_boss_catalog();
     let recipes = crate::construction::engine_construction_registry();
 
+    let no_generation = crate::session::mechanics::SessionMechanics::default();
     let planned_under = |cap: Option<&AuthoredPopulationCap>| -> Vec<String> {
         let plan = RoomFeatureConstructionPlan::prepare(
             &room,
@@ -1421,9 +1422,9 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
             crate::features::ActorConstructionContext::for_room_construction(
                 &recipes,
                 &catalog,
-                &Default::default(),
+                // ⚠ "THIS FIXTURE HAS NO ACTIVATED GENERATION", said out loud.
+                &crate::session::mechanics::GenerationMechanics::of(&no_generation),
                 Default::default(),
-                None,
                 None,
                 None,
                 None,

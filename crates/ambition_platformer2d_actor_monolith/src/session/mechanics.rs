@@ -101,6 +101,21 @@ impl<'a> GenerationMechanics<'a> {
         }
     }
 
+    /// A generation's values with NO App fallback.
+    ///
+    /// ⭐ **FOR THE ROAD THAT CANNOT BE WITHOUT A GENERATION: ACTIVATION.** The
+    /// provider holds the exact frozen record it is building from and has no
+    /// handles to fall back to — Q121 removed them — so offering it a fallback
+    /// parameter would be offering it a value it must never use.
+    pub fn of(generation: &'a SessionMechanics) -> Self {
+        Self {
+            active: Some(generation),
+            app_characters: None,
+            app_sheets: &generation.sheets,
+            app_bosses: &generation.bosses,
+        }
+    }
+
     pub fn characters(
         &self,
     ) -> Option<&'a ambition_characters::prepared::PreparedCharacterRegistry> {

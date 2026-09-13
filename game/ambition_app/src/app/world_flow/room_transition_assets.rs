@@ -1414,12 +1414,19 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // does this App draw, and has it uploaded THIS image.
         Option<Res<AppGpuPreparedImages>>,
     ),
-    (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
+    (mut layouts, mut character_load_states, prepared_characters, authored_sheets, generation): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
         ResMut<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
         Option<Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>>,
         Res<ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
+        // ⛔⛤ **THE PREFETCH MUST READ THE SAME GENERATION THE REAL TRANSITION
+        // DOES.** A plan is promoted only if it was prepared against what the
+        // world holds at the door; a prefetch built from the App's registries
+        // while the door builds from the session's frozen ones is a cache whose
+        // entries can never be right — a silent, permanent miss at best, and a
+        // promoted plan built from the wrong cast at worst.
+        Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
     ),
     quality: Res<ResolvedVisualQuality>,
     time: Res<Time<Real>>,
@@ -1428,6 +1435,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
 ) {
     let empty_registry =
         ambition_platformer2d::characters::prepared::PreparedCharacterRegistry::default();
+    // ⛔ THE SAME READ THE DOOR MAKES. See the param's own note.
+    let mechanics =
+        ambition_platformer2d::actors::session::mechanics::GenerationMechanics::new(
+            generation.as_deref(),
+            prepared_characters.as_deref(),
+            &authored_sheets,
+            &boss_catalog,
+        );
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.identity = None;
@@ -1533,10 +1548,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
                     &construction_recipes,
                     &character_catalog,
-                    &authored_sheets,
+                    &mechanics,
                     ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
                     active_binding.as_deref(),
-                    prepared_characters.as_deref(),
                     brain_profiles.as_deref(),
                     // THE PREFETCH DELIBERATELY REMEMBERS NOTHING, and
                     // the promotion check is what makes that safe: a plan

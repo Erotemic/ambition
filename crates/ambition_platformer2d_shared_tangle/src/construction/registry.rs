@@ -26,7 +26,7 @@ use ambition_registry_core::{
 use bevy::ecs::resource::Resource;
 use bevy::prelude::{Entity, World};
 
-use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
+use super::{ConstructionDomain, RecipeId};
 
 /// Wires one declared relation once both ends exist.
 ///

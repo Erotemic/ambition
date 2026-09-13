@@ -7,7 +7,7 @@
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
-    ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
+    ConstructionDomain, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, RecipeDispatch, RecipeId,
     RelationCheck, RelationDispatch, RelationKind, RelationOps, SpawnOrigin,
 };
@@ -364,7 +364,12 @@ impl ConstructionDomain for ActorConstruction {
 pub type ActorConstructionRegistry = ConstructionRegistry<ActorConstruction>;
 pub type ActorConstructionPlan = ConstructionPlan<ActorConstruction>;
 pub type ActorConstructionRequest = ConstructionRequest<ActorConstruction>;
-type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, ActorConstruction>;
+// ⛔⛤ **`type Ctx` WAS HERE AND IS DELETED, 2026-09-13.** It aliased
+// `ConstructionExecCtx`, which the three `wire_*` functions took — and whose
+// `pub commands` was the relation escape Q125 closed. Nothing in this crate
+// needs the full execution context any more; recipes take a
+// `ConstructionRootCtx` and relations a `RelationWiring`. Left behind, it would
+// be a spelling for the capability both of those exist to remove.
 /// What a relation wiring function is handed: its two declared endpoints and
 /// nothing else. See `RelationScope` for the `&mut World` escape this closes.
 type RelationWiring<'w, 's, 'a> =

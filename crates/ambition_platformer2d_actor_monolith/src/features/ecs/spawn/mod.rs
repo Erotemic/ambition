@@ -266,20 +266,36 @@ impl<'a> ActorConstructionContext<'a> {
     /// road at once instead of seven chances to forget. `Option` still means
     /// "this composition publishes none" — that is a legal answer and always
     /// was; what is no longer possible is failing to answer.
+    /// ⛔⛤ **THE CAST AND THE SHEETS ARRIVE AS A `GenerationMechanics`, NOT AS
+    /// TWO LOOSE REGISTRIES, AND THAT IS THE HALF THE PREVIOUS COMMIT COULD NOT
+    /// GUARANTEE.** Promoting the frozen mechanics at activation made it POSSIBLE
+    /// for a rebuild road to use its generation's values; nothing made it
+    /// NECESSARY. Reset and room transition still held `Res<AuthoredSheets>` and
+    /// `Res<PreparedCharacterRegistry>` in their `SystemParam`s, so passing the
+    /// App's registries straight through stayed one edit away and no test could
+    /// see it — a guarantee enforced by discipline, in the two roads that had
+    /// already drifted once.
+    ///
+    /// ⇒ **A road must now state which generation it is building**, including
+    /// stating that it has none. `GenerationMechanics::new(None, ..)` is how a
+    /// fixture says so, and it is a sentence rather than an omission.
     pub fn for_room_construction(
         recipes: &'a crate::construction::ActorConstructionRegistry,
-        // WHO EXISTS and WHAT THEY LOOK LIKE. Stated here rather than beside the
-        // room, because they are two more of the authorities this constructor's
-        // doc is about — see [`Self::characters`].
+        // WHO EXISTS. Stated here rather than beside the room, because it is one
+        // more of the authorities this constructor's doc is about — see
+        // [`Self::characters`]. ⚠ NOT yet part of the generation: the catalog is
+        // not in `PreparedContentIdentity`, so a generation that claimed to own
+        // it would claim a freeze the fingerprint cannot corroborate.
         characters: &'a CharacterCatalog,
-        sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
+        // WHAT THEY LOOK LIKE and WHAT THEY ARE — the generation's own sheets and
+        // prepared cast, from the one owner that has them.
+        mechanics: &crate::session::mechanics::GenerationMechanics<'a>,
         content_epoch: ambition_platformer2d_core::ContentEpoch,
         // The generation the SESSION is actually running, when the caller knows
         // it. A room is rebuilt from content the active binding already
         // defines, so stating a default sentinel instead makes every plan a
         // stale-looking stranger to the epoch it will commit under.
         active_binding: Option<&crate::rooms::ActiveContentBinding>,
-        prepared: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
         brain_profiles: Option<
             &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
         >,
@@ -297,11 +313,11 @@ impl<'a> ActorConstructionContext<'a> {
         // process-global the kernel reaches up for mid-construction.
         population_cap: Option<&'a ambition_characters::actor::AuthoredPopulationCap>,
     ) -> Self {
-        let mut context = Self::new(recipes, characters, sheets, content_epoch);
+        let mut context = Self::new(recipes, characters, mechanics.sheets(), content_epoch);
         if let Some(active) = active_binding {
             context.binding = active.0;
         }
-        context.prepared = prepared;
+        context.prepared = mechanics.characters();
         context.brain_profiles = brain_profiles;
         context.continuity = continuity;
         context.forced_brains = forced_brains;

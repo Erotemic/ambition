@@ -1683,10 +1683,12 @@ impl PlatformerSessionBuilder<'_, '_> {
                     ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
                         &self.construction_recipes,
                         &self.character_catalog,
-                        &mechanical.sheets,
+                        // ⛔ THE GENERATION BEING ACTIVATED, WITH NO FALLBACK.
+                        // See `GenerationMechanics::of`.
+                        &ambition_platformer2d_actor_monolith::session::mechanics::
+                            GenerationMechanics::of(mechanical),
                         prepared_identity.epoch,
                         None,
-                        mechanical.characters.as_ref(),
                         self.brain_profiles.as_deref(),
                         // ⭐ THE SAVE'S LEDGER, AT CONSTRUCTION. A fresh session
                         // has an empty one and builds exactly what it always

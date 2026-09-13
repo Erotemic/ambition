@@ -436,14 +436,24 @@ pub(super) fn reload_ldtk_world_from_disk(
         ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
             construction_recipes,
             character_catalog,
-            authored_sheets,
+            // ⛔⛤ **A HOT RELOAD BUILDS THE NEXT GENERATION, NOT THE LIVE ONE**,
+            // so it states `None` and means it: the values it was HANDED are the
+            // candidate's, and reading the session's frozen mechanics here would
+            // rebuild the world from the generation this reload is replacing.
+            // Saying so is the point of the parameter — see
+            // `ActorConstructionContext::for_room_construction`.
+            &ambition_platformer2d::actors::session::mechanics::GenerationMechanics::new(
+                None,
+                prepared_characters,
+                authored_sheets,
+                boss_catalog,
+            ),
             // The generation currently live. A materially changed definition
             // allocates a new one below, AFTER every preflight has succeeded —
             // so a plan prepared here always states the epoch it was validated
             // against, never one that does not exist yet.
             prepared_content.epoch(),
             None,
-            prepared_characters,
             brain_profiles,
             // A hot reload replaces the authored content wholesale, so the
             // dispositions of occurrences minted from the OLD definitions say

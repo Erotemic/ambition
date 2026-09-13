@@ -37,11 +37,14 @@ use super::{ConstructionDomain, ConstructionExecCtx, RecipeId};
 /// post-rollback reconcile only `get_mut`s it, so a mount whose slot did not
 /// survive ends up pointing nowhere while the rider still points at it. One
 /// function writing both ends makes that particular half-write unspellable.
+///
+/// ⛔⛤ **IT TAKES A [`RelationScope`], NOT A `ConstructionExecCtx`, AND THE TWO
+/// `Entity` PARAMETERS ARE GONE WITH IT.** The endpoints live ON the scope, so
+/// the only writers a wiring function can name are the two the plan declared —
+/// see `RelationScope` for the escape this closes and the review that found it.
 pub type RelationFn<D> = for<'w, 's, 'a> fn(
-    Entity,
-    Entity,
     &<D as ConstructionDomain>::Relation,
-    &mut ConstructionExecCtx<'w, 's, 'a, D>,
+    &mut super::RelationScope<'w, 's, 'a, D>,
 );
 
 /// The counterpart to [`RelationFn`], and deliberately its twin: a relation is

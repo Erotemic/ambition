@@ -95,37 +95,41 @@ fn build(
 }
 
 fn wire_grudge(
-    from: Entity,
-    to: Entity,
     _relation: &ToyRelation,
-    ctx: &mut ConstructionExecCtx<'_, '_, '_, Toy>,
+    ctx: &mut crate::construction::RelationScope<'_, '_, '_, Toy>,
 ) {
+    let (from, to) = (ctx.from_entity(), ctx.to_entity());
+    // ⛔ EVERY ARM BELOW GOES THROUGH THE SABOTAGE DOOR, including the
+    // `None` one, so the adversarial arms and the ordinary path still share a
+    // single wiring road. Production relations reach `ctx.from()` / `ctx.to()`
+    // and nothing else.
+    let ctx = ctx.commands_for_sabotage();
     // Relation-side sabotage, so the adversarial tests exercise the SAME wiring
     // path ordinary construction takes. `RelationSabotage::None` is that path.
     match RELATION_SABOTAGE.with(|s| s.get()) {
         RelationSabotage::None => {
-            ctx.commands.entity(from).insert(Grudge(to));
+            ctx.entity(from).insert(Grudge(to));
         }
         // The case a receipt cannot see: the function ran, the world is unchanged.
         RelationSabotage::NoOp => {}
         RelationSabotage::WrongTarget => {
-            let elsewhere = ctx.commands.spawn_empty().id();
-            ctx.commands.entity(from).insert(Grudge(elsewhere));
+            let elsewhere = ctx.spawn_empty().id();
+            ctx.entity(from).insert(Grudge(elsewhere));
         }
         RelationSabotage::WrongSource => {
-            let elsewhere = ctx.commands.spawn_empty().id();
-            ctx.commands.entity(elsewhere).insert(Grudge(to));
+            let elsewhere = ctx.spawn_empty().id();
+            ctx.entity(elsewhere).insert(Grudge(to));
         }
         RelationSabotage::RemovedAfterWiring => {
-            ctx.commands.entity(from).insert(Grudge(to));
+            ctx.entity(from).insert(Grudge(to));
             // A later command in the same flush, exactly as a competing system
             // would issue.
-            ctx.commands.entity(from).remove::<Grudge>();
+            ctx.entity(from).remove::<Grudge>();
         }
         RelationSabotage::OverwrittenByAnotherCommand => {
-            ctx.commands.entity(from).insert(Grudge(to));
-            let usurper = ctx.commands.spawn_empty().id();
-            ctx.commands.entity(from).insert(Grudge(usurper));
+            ctx.entity(from).insert(Grudge(to));
+            let usurper = ctx.spawn_empty().id();
+            ctx.entity(from).insert(Grudge(usurper));
         }
     }
 }

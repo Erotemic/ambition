@@ -365,6 +365,10 @@ pub type ActorConstructionRegistry = ConstructionRegistry<ActorConstruction>;
 pub type ActorConstructionPlan = ConstructionPlan<ActorConstruction>;
 pub type ActorConstructionRequest = ConstructionRequest<ActorConstruction>;
 type Ctx<'w, 's, 'a> = ConstructionExecCtx<'w, 's, 'a, ActorConstruction>;
+/// What a relation wiring function is handed: its two declared endpoints and
+/// nothing else. See `RelationScope` for the `&mut World` escape this closes.
+type RelationWiring<'w, 's, 'a> =
+    ambition_platformer2d_shared_tangle::construction::RelationScope<'w, 's, 'a, ActorConstruction>;
 /// The root-bound surface a RECIPE gets. See `ConstructionRootCtx`.
 type RootCtx<'w, 's, 'a> =
     ambition_platformer2d_shared_tangle::construction::ConstructionRootCtx<'w, 's, 'a, ActorConstruction>;
@@ -766,26 +770,25 @@ fn limb_slot_key(slot: LimbSlot) -> String {
 /// read, so it queues an exclusive-world step. That step runs in queue order
 /// alongside every other relation's, which is what keeps the composition
 /// deterministic.
-fn wire_limb(limb: Entity, host: Entity, relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
+fn wire_limb(relation: &ActorRelation, ctx: &mut RelationWiring<'_, '_, '_>) {
     let ActorRelation::Limb { slot, home_offset } = relation else {
         unreachable!("dispatch_relation pairs this fn with the Limb variant")
     };
     let (slot, home_offset) = (*slot, *home_offset);
-    ctx.commands.entity(limb).insert(Limb {
+    let (limb, host) = (ctx.from_entity(), ctx.to_entity());
+    ctx.from().insert(Limb {
         of: host,
         slot,
         home_offset,
     });
-    ctx.commands.queue(move |world: &mut World| {
-        let Ok(mut host_ref) = world.get_entity_mut(host) else {
-            return;
-        };
-        if let Some(mut rig) = host_ref.get_mut::<LimbRig>() {
+    // ⛔ THE HOST'S RIG IS BUILT BY WHICHEVER LIMB IS WIRED FIRST AND EXTENDED BY
+    // THE REST, so this is one upsert rather than a `Commands::queue` closure —
+    // which would hand this function `&mut World` and with it everything
+    // `RelationScope` exists to take away. See `EntityScope::queue_component_upsert`.
+    ctx.to()
+        .queue_component_upsert(LimbRig::default, move |rig| {
             rig.limbs.insert(slot, limb);
-        } else {
-            host_ref.insert(LimbRig::from_pairs([(slot, limb)]));
-        }
-    });
+        });
 }
 
 /// Checking only `Limb.of` would accept a limb the host's rig does not drive —
@@ -965,13 +968,10 @@ pub fn verify_rig_composition(
 /// into one relation mean different things: the runtime-boarded rider has its
 /// locomotion suppressed by the kernel while the authored one walks under a
 /// saddle that repairs the pose afterwards. See [`ambition_mount::rider_of`].
-fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
-    ctx.commands
-        .entity(rider)
-        .insert(ambition_mount::rider_of(mount));
-    ctx.commands
-        .entity(mount)
-        .insert(ambition_mount::saddle_holding(rider));
+fn wire_mount(_relation: &ActorRelation, ctx: &mut RelationWiring<'_, '_, '_>) {
+    let (rider, mount) = (ctx.from_entity(), ctx.to_entity());
+    ctx.from().insert(ambition_mount::rider_of(mount));
+    ctx.to().insert(ambition_mount::saddle_holding(rider));
 }
 
 /// That leaves a rider pointing at a mount that does not point back, and
@@ -1045,9 +1045,9 @@ fn verify_mount(
 
 /// Wire a personal grudge. Re-inserting `ActorAggression` is safe: staged
 /// fighters spawn `hostile()` already, so this only adds the grudge.
-fn wire_grudge(from: Entity, to: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
-    ctx.commands
-        .entity(from)
+fn wire_grudge(_relation: &ActorRelation, ctx: &mut RelationWiring<'_, '_, '_>) {
+    let to = ctx.to_entity();
+    ctx.from()
         .insert(ambition_combat::components::ActorAggression {
             grudge: Some(to),
             ..ambition_combat::components::ActorAggression::hostile()

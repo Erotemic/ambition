@@ -393,6 +393,43 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         self
     }
 
+    /// Queue a mutation of ONE component on this entity, CREATING it first when
+    /// it is absent.
+    ///
+    /// ⭐⭐ **THE OTHER HALF OF [`Self::queue_component_mut`], AND THE ONE
+    /// `wire_limb` ACTUALLY NEEDS.** A host's `LimbRig` is built by whichever
+    /// limb is wired first and extended by the rest, so "adjust it if present"
+    /// and "make it if absent" are one operation — expressed as two, a caller
+    /// reaches for `Commands::queue` and takes back the whole `&mut World`
+    /// escape this scope exists to remove.
+    ///
+    /// ⚠ `make` RUNS ONLY WHEN THE COMPONENT IS ABSENT, so a caller may put the
+    /// expensive construction there; `edit` runs in both cases, so the two
+    /// paths cannot disagree about what "wired" means.
+    pub fn queue_component_upsert<C>(
+        &mut self,
+        make: impl FnOnce() -> C + Send + 'static,
+        edit: impl FnOnce(&mut C) + Send + 'static,
+    ) -> &mut Self
+    where
+        C: bevy::prelude::Component<Mutability = bevy::ecs::component::Mutable>,
+    {
+        let entity = self.entity;
+        self.commands.queue(move |world: &mut bevy::prelude::World| {
+            let Ok(mut entity_ref) = world.get_entity_mut(entity) else {
+                return;
+            };
+            if let Some(mut existing) = entity_ref.get_mut::<C>() {
+                edit(&mut existing);
+            } else {
+                let mut fresh = make();
+                edit(&mut fresh);
+                entity_ref.insert(fresh);
+            }
+        });
+        self
+    }
+
     /// ⛔⛤ **`rebind` WAS HERE AND IS DELETED, 2026-09-12.** It bound a second
     /// scope to a DIFFERENT entity — justified in its own doc by a cluster road
     /// "where one function writes to each in turn" — and **MEASURED at HEAD, no
@@ -1052,6 +1089,93 @@ pub struct ConstructionExecCtx<'w, 's, 'a, D: ConstructionDomain> {
     pub services: &'a D::Services,
 }
 
+/// Everything wiring ONE declared relation may touch: its two endpoints, and
+/// the read-only facts of the commit it belongs to.
+///
+/// ⛔⛤ **A `RelationFn` USED TO RECEIVE `&mut ConstructionExecCtx`, WHOSE
+/// `commands` IS PUBLIC — SO IT RECEIVED `&mut World`.** A10 made unplanned
+/// minting a TYPE ERROR for recipes (`RootScope`, `ConstructionRootCtx`) and
+/// stopped at the relation surface, which a 2026-09-13 review found and called
+/// by its right name: the last-good-world guarantee is *"construct N+1 beside N,
+/// and on failure keep N intact"*, and a relation could spawn, despawn an
+/// unrelated live entity, insert or replace a RESOURCE, or
+/// `commands.queue(|world: &mut World|)` its way to anything at all.
+/// `commit_inactive` applies that queue BEFORE verification, and
+/// `retire_candidate` despawns only this transaction's candidate roots — it
+/// cannot undo a resource write. ⇒ **A refused candidate could still have
+/// mutated the world it was supposed to leave alone.**
+///
+/// ⚠ **NOT A LIVE CORRUPTION REPORT, THEN OR NOW.** The three shipped relations
+/// (`wire_limb`, `wire_mount`, `wire_grudge`) touch only their declared
+/// endpoints. What this removes is the CAPABILITY, so the next registered
+/// relation — or an out-of-tree one — cannot violate the guarantee without
+/// failing to compile.
+///
+/// ⭐ **`commands` IS PRIVATE AND THAT IS THE WHOLE MECHANISM.** Everything
+/// below hands out [`EntityScope`]s bound to `from` and `to`; there is no
+/// method that yields a writer over a third entity, and none that yields
+/// `Commands` or `World`.
+///
+/// ⛔ **WHAT IS DELIBERATELY ABSENT: session-scoped insertion.** The review
+/// listed it as a capability a relation *might* want; no shipped relation uses
+/// one, and `RootScope::rebind` is the recorded lesson for adding the ones that
+/// might — *"a capability with no caller is not narrower than one with a caller;
+/// it is the same capability, untested"*. It arrives WITH its caller.
+pub struct RelationScope<'w, 's, 'a, D: ConstructionDomain> {
+    commands: &'a mut Commands<'w, 's>,
+    from: Entity,
+    to: Entity,
+    /// What the plan describes — content generation and room. Read-only.
+    pub scope: &'a ConstructionScope,
+    /// Gameplay-session ownership, captured when this commit was requested.
+    pub session: crate::lifecycle::SessionSpawnScope,
+    /// The domain's own frozen services. Read-only, as they are for a recipe.
+    pub services: &'a D::Services,
+}
+
+impl<'w, 's, 'a, D: ConstructionDomain> RelationScope<'w, 's, 'a, D> {
+    /// The entity the relation points FROM.
+    pub fn from_entity(&self) -> Entity {
+        self.from
+    }
+
+    /// The entity the relation points TO.
+    pub fn to_entity(&self) -> Entity {
+        self.to
+    }
+
+    /// A writer over the `from` endpoint.
+    pub fn from(&mut self) -> EntityScope<'w, 's, '_> {
+        EntityScope::new(self.commands, self.from)
+    }
+
+    /// A writer over the `to` endpoint.
+    ///
+    /// ⭐ A BIDIRECTIONAL RELATION WIRES BOTH SIDES, which is why this exists at
+    /// all — see [`RelationFn`] on why one function owning both ends is what
+    /// makes a half-write unspellable.
+    pub fn to(&mut self) -> EntityScope<'w, 's, '_> {
+        EntityScope::new(self.commands, self.to)
+    }
+
+    /// ⚠ **A SABOTAGE HOOK, NOT AN ESCAPE HATCH** — the same door
+    /// [`ConstructionRootCtx::commands_for_sabotage`] opens, and for the same
+    /// reason. Relation verification has to be poisoned by things a wiring
+    /// function COULD do if it held `Commands`: wire a grudge onto a third
+    /// entity it spawned, wire FROM one, overwrite its own write with a later
+    /// command in the same flush. Production can no longer express any of them,
+    /// so the adversarial toy relations need a door the shipped code does not
+    /// have.
+    ///
+    /// ⛔ `cfg(test)` and `pub(crate)`: unreachable from another crate at all,
+    /// and from a non-test build of this one. If it ever needs to be reachable,
+    /// the verification it feeds is what has to change.
+    #[cfg(test)]
+    pub(crate) fn commands_for_sabotage(&mut self) -> &mut Commands<'w, 's> {
+        self.commands
+    }
+}
+
 /// What execution actually committed. Compared against the plan to prove
 /// plan-to-world parity.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -1543,7 +1667,17 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
                     relation.from, relation.to
                 )
             };
-            (relation.ops.wire)(from, to, &relation.relation, ctx);
+            // ⛔ THE RELATION GETS ITS TWO ENDPOINTS AND NOTHING ELSE. See
+            // `RelationScope`.
+            let mut relation_scope = RelationScope {
+                commands: &mut *ctx.commands,
+                from,
+                to,
+                scope: ctx.scope,
+                session: ctx.session,
+                services: ctx.services,
+            };
+            (relation.ops.wire)(&relation.relation, &mut relation_scope);
             receipt.relations_wired.insert((
                 relation.from.clone(),
                 relation.kind.clone(),

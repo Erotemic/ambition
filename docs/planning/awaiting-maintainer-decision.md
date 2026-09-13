@@ -1980,7 +1980,45 @@ has not been able to for the life of the road.
 ⚠ **A10's LAST STEP IS HELD ON THIS ROW**, and the hold is now one sentence
 rather than "the mechanism is not yet understood".
 
-## Q125 — A10 closed the RECIPE escape and left the RELATION escape open
+## ✅ Q125 — CLOSED 2026-09-13. A relation gets its two endpoints and nothing else.
+
+`RelationFn` takes a `RelationScope` whose `commands` is PRIVATE; the two `Entity`
+parameters are gone with it, because the endpoints live on the scope. The whole
+surface is `from()` / `to()` (each an `EntityScope` over ONE named entity),
+`from_entity()` / `to_entity()`, and read-only `scope` / `session` / `services`.
+
+⭐ **`EntityScope::queue_component_upsert` IS WHAT MADE IT POSSIBLE WITHOUT A
+CARVE-OUT.** `wire_limb` genuinely needs a deferred read-modify-write on the host
+(the rig is built by whichever limb is wired first and extended by the rest), and
+`queue_component_mut` skips when the component is absent. Expressed as two
+operations the caller reaches for `Commands::queue` and takes the whole
+`&mut World` back; expressed as an upsert it needs nothing.
+
+**MEASURED, from `ambition_platformer2d_actor_monolith` — a DIFFERENT crate, so
+this is the real caller's view and not the defining crate's:**
+
+```text
+spawn                      -> error[E0616]: field `commands` of struct `RelationScope` is private
+insert_resource            -> error[E0616]: (same)
+despawn a third entity     -> error[E0616]: (same)
+commands.queue(&mut World) -> error[E0616]: (same)
+from().queue(&mut World)   -> error[E0599]: no method named `queue` found for struct `EntityScope`
+commands_for_sabotage()    -> error[E0599]: no method named `commands_for_sabotage` found
+```
+
+⇒ The last line is the `#[cfg(test)] pub(crate)` claim verified rather than
+asserted: the sabotage door the adversarial toy relations use is unreachable from
+any other crate.
+
+⛔ **SESSION-SCOPED INSERTION WAS DELIBERATELY NOT ADDED.** The review listed it
+as something a relation might want; no shipped relation uses one, and
+`RootScope::rebind` is the recorded lesson — *"a capability with no caller is not
+narrower than one with a caller; it is the same capability, untested"*. It arrives
+with its caller.
+
+<details><summary>The original row</summary>
+
+### Q125 — A10 closed the RECIPE escape and left the RELATION escape open
 
 ⛔⛤ **FROM THE 2026-09-13 REVIEW, and it is the right reading of `c90a1cda0`.**
 `ConstructionRootCtx`/`RootScope` made unplanned minting a TYPE ERROR for
@@ -2005,6 +2043,8 @@ authoritative entity has a missing PLAN ROW, not a minting need.
 
 ⚠ **CLOSE IT BEFORE WIRING A10's CANDIDATE LIFECYCLE INTO I3b**, or the
 integration bakes in the escape the recipe work was built to delete.
+
+</details>
 
 ## ✅ Q126 — CLOSED 2026-09-13 by (a): the two knobs are IN the canonical identity.
 

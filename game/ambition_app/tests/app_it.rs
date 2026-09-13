@@ -68,6 +68,7 @@ mod desync_canary;
 mod developer_edits_under_rollback;
 mod direct_and_shell_agree;
 mod dive_drill_reachability;
+mod a_room_is_built_from_its_generation;
 mod door_entry;
 mod door_with_the_touch_overlay;
 mod duel_arena;

@@ -2157,7 +2157,7 @@ the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
 
-## ⚠ Q121 — REOPENED 2026-09-13 BY REVIEW. Half closed; the freeze took the WRONG GENERATION and DIES AT ACTIVATION.
+## ✅ Q121 — BOTH HALVES CLOSED 2026-09-13. The freeze took the wrong generation, then had the wrong lifetime; the mechanism landed and the WITNESS was what remained.
 
 ⛔⛤ **THE CLOSURE BELOW WAS WRITTEN ABOUT THE STRUCTURE AND THE STRUCTURE WAS
 RIGHT. THE VALUE WAS NOT.** A review of `bdbddfe` measured the dataflow the
@@ -2180,6 +2180,41 @@ identity — one transaction-local claim, not a second authority — with
 `AdmittedRevision::candidate()` as the accessor whose ABSENCE was the defect.
 Poison-verified: collapsing the resolver to the App registry fails the guard with
 `Some(3)` where `Some(9)` is owed.
+
+✅ **HALF TWO IS CLOSED — THE MECHANISM LANDED EARLIER AND THE WITNESS LANDED
+`2026-09-13`.** `SessionMechanics` is the active-generation owner the review asked
+for and `GenerationMechanics` is the projection; the transition road, the reset
+road, the perception reader, the spawn recipe and the room-transition asset road
+all read it, and its ABSENCE in a shell-routed composition is a refusal
+(`LiveGenerationMechanicsMissing`) rather than a fallback.
+
+⇒ **WHAT WAS ACTUALLY MISSING BY 2026-09-13 WAS THE END-TO-END ARM, NOT THE
+MECHANISM** — this row said *"half two is open"* for a day after it was not, which
+is the third stale blocker found that day. `game/ambition_app/tests/a_room_is_built_from_its_generation.rs`
+runs the row's own acceptance shape: activate a generation, replace the App's
+published cast with an EMPTY one and **no** admitted transition, then reconstruct
+a room and assert the bodies still carry the activated cast's characters.
+Poison-verified — pointing `loading.rs`'s resolver at the App reddens it.
+
+⛔⛤ **AND TWO OF THE FIXTURE'S OWN DEFECTS ARE WORTH MORE THAN THE ARM.**
+1. It first keyed on `ActorIdentity.id`, which is the PLACEMENT's identity
+   (`NpcSpawn-0017`, or a bare UUID), not the character's. Compared to a cast's
+   ids it answers *"no overlap"* for every room in the game — and the failure read
+   exactly like the defect. The key is `WornCharacter` now.
+2. The death arm asserted over EVERY body and a death rebuilds only PART of a
+   room: one body was replaced and one SURVIVED, so the assertion passed on the
+   survivor and **both** poisons left it green. It asserts only over bodies the
+   death CONSTRUCTED now, and the poisons then separated the roads — which is how
+   the next line is measured rather than assumed.
+
+⚠ **THE NEW-GAME RESET ROAD IS STILL WITHOUT AN END-TO-END WITNESS.** MEASURED:
+poisoning `session/reset/mod.rs`'s resolver reddens neither arm, because a death
+routes through the TRANSITION road deliberately
+(`resume_at_checkpoint_on_reset`: *"a session opening at a checkpoint and a death
+returning to one are the same question asked twice"*). Its unit-level ranking is
+guarded; the road is not. That is the remaining item, and it is small.
+
+<details><summary>Half two as it stood, kept because the review's shape is the design</summary>
 
 ⛔ **HALF TWO IS OPEN AND IT IS THE BIGGER ONE: THE FREEZE HAS THE WRONG
 LIFETIME.** `PreparedPlatformerSessions::take` removes the prepared record at
@@ -2210,6 +2245,8 @@ App-global registry with B WITHOUT an admitted transition, transition rooms, and
 assert the reconstructed room is still A's (or that construction refuses as
 stale). Repeat through reset. Then activate B legitimately and prove transition
 and reset switch atomically. Two Apps, so no process-global can satisfy it.
+
+</details>
 
 <details><summary>The 2026-09-12 closure note, kept because its structural claim
 still holds and its stated gap is what the review walked through</summary>

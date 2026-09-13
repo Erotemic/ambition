@@ -231,8 +231,9 @@ fn a_room_plans_its_authored_and_provider_staged_families_with_real_provenance()
 
     assert_eq!(
         plan.construction().deterministic_dump(),
-        "construction-plan-v4\n\
+        "construction-plan-v5\n\
          epoch:4\n\
+         expects\tepoch:4\n\
          room\thall\n\
          lane\tprimary\n\
          entity\tplacement:duel_blue\tambition.staged-actor\tprovider-staged\ttest_provider\thall\tduel_blue\tstaged-actor duel_blue test_walker enemy\n\
@@ -586,11 +587,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
 
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope {
-            binding:
-                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-            room: None,
-        },
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
         vec![request],
         &live,
         &recipes,
@@ -634,11 +631,7 @@ fn two_summons_from_one_summoner_do_not_collide() {
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope {
-            binding:
-                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-            room: None,
-        },
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
         vec![
             summoned_minion_request(&summoner, 0, params()),
             summoned_minion_request(&summoner, 1, params()),
@@ -658,11 +651,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
     let recipes = engine_construction_registry();
     let summoner = SimId::placement("ghost_boss");
     let error = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope {
-            binding:
-                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-            room: None,
-        },
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
         vec![summoned_minion_request(
             &summoner,
             0,
@@ -1077,11 +1066,7 @@ fn every_parameter_variant_constructs_its_root() {
 
     let live: std::collections::BTreeSet<SimId> = [summoner].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
-        ConstructionScope {
-            binding:
-                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-            room: None,
-        },
+        ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None),
         requests,
         &live,
         &recipes,
@@ -1484,10 +1469,7 @@ use ambition_platformer2d_shared_tangle::construction::{
 };
 
 fn dynamic_scope() -> ConstructionScope {
-    ConstructionScope {
-        binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-        room: None,
-    }
+    ConstructionScope::in_generation(ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic, None)
 }
 
 fn bare_request(id: &str) -> ActorConstructionRequest {

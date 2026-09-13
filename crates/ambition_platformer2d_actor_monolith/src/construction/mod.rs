@@ -744,7 +744,7 @@ fn construct_placement(
         unreachable!("dispatch pairs this fn with Placement parameters")
     };
     // Every read is bound BEFORE `root_scope`, which borrows the whole context.
-    let room_id = ctx.scope.room.as_deref().unwrap_or("").to_string();
+    let room_id = ctx.scope.room().unwrap_or("").to_string();
     let mut lowering = crate::world::placements::LoweringCtx {
         scope: ctx.root_scope(),
         room_id: &room_id,

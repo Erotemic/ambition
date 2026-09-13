@@ -231,10 +231,33 @@ HEAD 2026-09-13:
   `ContentEpochSequence`; re-stamping later means `TransactionId` is not a pure
   function of the scope, which is what makes it deterministic and what lets a
   same-room reconstruction recognise its own previous roots.
-- ⇒ So the two-binding contract needs a candidate identity that can be MINTED
-  before the preflight and DISCARDED without consuming the live sequence — which
-  is the candidate-session representation from packet 1, not an edit to
-  `ConstructionScope`. ⚠ Do not start it as a field split.
+- ✅ **STEP 1 LANDED 2026-09-13: THE SPLIT EXISTS AND IS GUARDED.**
+  `ConstructionScope` now has PRIVATE `expected_live` and `incoming` with two
+  constructors — `in_generation(binding, room)` (every road today; it cannot
+  express a split) and `replacing(expected_live, incoming, room)`.
+  `transaction()` stamps roots with `incoming`; `construction_binding()` and the
+  lane agreement check read `expected_live`. The plan dump renders BOTH and the
+  schema moved 4 → 5, because two plans carrying one incoming generation into
+  DIFFERENT live worlds are different plans and the dump is what the prefetch
+  cache and `RoomConstructionPlanId` key on. **Behaviour is unchanged: every
+  existing road passes one binding through `in_generation`.** Guards
+  `a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one`
+  (with the ordinary-road control) and
+  `two_plans_differing_only_in_the_world_they_expect_are_different_plans`;
+  poison-verified by stamping `expected_live`, which reddens the first alone.
+- ⛔ **STEP 2, AND ITS BLOCKER IS NOW MEASURED AWAY.** The hot reload must pass
+  `replacing(live_binding, candidate_epoch)`, which needs the candidate epoch
+  minted BEFORE the preflight — against the rule that *"everything above this line
+  is non-mutating … materially changed definitions allocate a new epoch only
+  now."* ⭐ **MEASURED AT HEAD: A DISCARDED EPOCH IS HARMLESS.**
+  `ContentEpochSequence` is NOT rollback-registered; no production code compares
+  epochs with `<` or `>` (they are equality-only identities); and an existing
+  provider test already calls `with_epoch(ContentEpoch(9))` on a sequence that
+  never allocated 9. ⇒ The invariant that rule protects is *"a refused reload
+  changes nothing OBSERVABLE"*, and a monotonic counter's value is not
+  observable. So step 2 is: allocate the candidate epoch early, stamp with it,
+  keep `expected_live` at the live binding, and accept a gap when the reload is
+  refused or turns out equivalent.
 
 ## ✅ THE INDEPENDENT LIFECYCLE BUGS THE DEEPER REVIEW FOUND, 2026-09-13 — none of them wait for A10
 

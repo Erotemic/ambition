@@ -576,12 +576,80 @@ impl ConstructionRoot {
 /// `lower_all` rather than at `plan_room`. A domain that needs it carries it in
 /// [`ConstructionDomain::Services`], where it is captured alongside the other
 /// frozen facts execution reads.
+/// ⛔⛤ **TWO BINDINGS, BECAUSE A REPLACEMENT IS TWO FACTS AND ONE FIELD WAS
+/// HOLDING BOTH — MEASURED 2026-09-13.** This was a single `binding`, and its two
+/// readers wanted different answers:
+///
+/// - `transaction()` folds it into every root's `TransactionId`, which is
+///   canonical rollback state: that wants the generation the content CAME FROM.
+/// - `transaction::close` compares it against the live `ActiveContentBinding` to
+///   refuse a stale plan: that wants the generation the plan will be COMMITTED
+///   INTO.
+///
+/// For every road except a content replacement those coincide — a door and a
+/// death rebuild a room inside the generation already running — which is exactly
+/// why nobody noticed. A materially changed hot reload is the case where they
+/// differ, and it ended with content N+1 live and every rebuilt root's
+/// `TransactionId` naming **N**.
+///
+/// ⚠ **THE FIELDS ARE PRIVATE AND THERE ARE TWO CONSTRUCTORS**, so a caller
+/// states which SHAPE it is rather than assigning two values that may disagree.
+/// [`Self::in_generation`] is the ordinary road and cannot express a split.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConstructionScope {
-    /// What generation of content this plan is bound to, if any.
-    pub binding: ContentBinding,
+    /// The generation this plan expects to be COMMITTED INTO. The staleness
+    /// comparison at the boundary is against this.
+    expected_live: ContentBinding,
+    /// The generation this plan's content came FROM, and which its roots are
+    /// stamped with.
+    incoming: ContentBinding,
     /// The room being constructed, when the plan is a room's contents.
-    pub room: Option<String>,
+    room: Option<String>,
+}
+
+impl ConstructionScope {
+    /// A plan built from, and committed into, ONE generation — every road except
+    /// a content replacement.
+    pub fn in_generation(binding: ContentBinding, room: Option<String>) -> Self {
+        Self {
+            expected_live: binding,
+            incoming: binding,
+            room,
+        }
+    }
+
+    /// A plan carrying generation `incoming` into a world still running
+    /// `expected_live` — the content-replacement shape.
+    ///
+    /// ⭐ The asymmetry is the point: the boundary must still recognise the world
+    /// it is publishing into as the one the preflight ran against, while the
+    /// roots it mints belong to the generation that replaces it.
+    pub fn replacing(
+        expected_live: ContentBinding,
+        incoming: ContentBinding,
+        room: Option<String>,
+    ) -> Self {
+        Self {
+            expected_live,
+            incoming,
+            room,
+        }
+    }
+
+    /// The generation this plan expects to find live at its commit boundary.
+    pub fn expected_live(&self) -> ContentBinding {
+        self.expected_live
+    }
+
+    /// The generation this plan's roots belong to.
+    pub fn incoming(&self) -> ContentBinding {
+        self.incoming
+    }
+
+    /// The room this plan describes, when it describes one.
+    pub fn room(&self) -> Option<&str> {
+        self.room.as_deref()
+    }
 }
 
 /// Whether a plan is bound to a generation of prepared content, and which.
@@ -648,7 +716,11 @@ impl ConstructionScope {
     pub fn transaction(&self, session: crate::lifecycle::SessionSpawnScope) -> TransactionId {
         TransactionId(format!(
             "{}\t{}\t{}",
-            self.binding.canonical_summary(),
+            // ⛔ THE INCOMING GENERATION, NOT THE EXPECTED-LIVE ONE. A root
+            // belongs to the content it was built from; the other binding is the
+            // boundary's staleness comparison and has no business in an identity
+            // the rollback timeline carries. They differ only on a replacement.
+            self.incoming.canonical_summary(),
             self.room.as_deref().unwrap_or("-"),
             match session.id() {
                 Some(id) => format!("session:{id:?}"),
@@ -1753,8 +1825,16 @@ impl<D: ConstructionDomain> ConstructionPlan<D> {
     pub fn deterministic_dump(&self) -> String {
         use std::fmt::Write as _;
         let mut out = format!(
-            "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nroom\t{}\nlane\t{}\n",
-            self.scope.binding.canonical_summary(),
+            // ⛔⛤ **BOTH BINDINGS, AND THE SECOND LINE IS WHY THE SCHEMA MOVED
+            // TO 5.** This rendered ONE binding. Two plans that carry the same
+            // incoming generation into DIFFERENT live worlds are different plans
+            // — they will be compared against different boundaries — and a dump
+            // that rendered them identically calls them the same plan, which is
+            // what the prefetch cache keys on. ⚠ For every non-replacement road
+            // the two are equal, so this is a new line rather than a new value.
+            "construction-plan-v{CONSTRUCTION_PLAN_SCHEMA_VERSION}\n{}\nexpects\t{}\nroom\t{}\nlane\t{}\n",
+            self.scope.incoming.canonical_summary(),
+            self.scope.expected_live.canonical_summary(),
             self.scope.room.as_deref().unwrap_or("-"),
             self.lane.as_str(),
         );
@@ -2661,4 +2741,4 @@ impl AuthoritativeScope {
 
 /// Bumped when the plan dump's shape changes. The dump is an inspection and
 /// comparison surface, so its shape is a compatibility contract.
-pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 4;
+pub const CONSTRUCTION_PLAN_SCHEMA_VERSION: u32 = 5;

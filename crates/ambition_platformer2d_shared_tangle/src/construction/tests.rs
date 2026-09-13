@@ -177,10 +177,7 @@ fn registry() -> ConstructionRegistry<Toy> {
 }
 
 fn scope() -> ConstructionScope {
-    ConstructionScope {
-        binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(7)),
-        room: Some("room_a".into()),
-    }
+    ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(7)), Some("room_a".into()))
 }
 
 fn request(id: &str) -> ConstructionRequest<Toy> {
@@ -278,8 +275,9 @@ fn the_plan_dump_has_a_stable_shape() {
 
     assert_eq!(
         plan.deterministic_dump(),
-        "construction-plan-v4\n\
+        "construction-plan-v5\n\
          epoch:7\n\
+         expects\tepoch:7\n\
          room\troom_a\n\
          lane\tprimary\n\
          entity\tplacement:a\ttoy.build\tauthored\troom_a\ta\ta\n\
@@ -1664,10 +1662,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
             ctx.commands_for_sabotage().entity(root).remove::<TransactionId>();
         }
         Sabotage::OverwriteTransactionId => {
-            let elsewhere = ConstructionScope {
-                binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
-                room: Some("some_other_room".into()),
-            };
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
             ctx.commands_for_sabotage()
                 .entity(root)
                 .insert(elsewhere.transaction(SessionSpawnScope::UNSCOPED));
@@ -1675,10 +1670,7 @@ fn apply_sabotage(ctx: &mut ConstructionRootCtx<'_, '_, '_, Toy>) {
         Sabotage::SpawnForeignScopedRoot => {
             // Another live transaction's root. Present in the world, none of
             // this transaction's business, and must not be reported.
-            let elsewhere = ConstructionScope {
-                binding: ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)),
-                room: Some("some_other_room".into()),
-            };
+            let elsewhere = ConstructionScope::in_generation(ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(9)), Some("some_other_room".into()));
             ctx.commands_for_sabotage().spawn((
                 SimId::placement("other_rooms_occupant"),
                 elsewhere.transaction(SessionSpawnScope::UNSCOPED),
@@ -2907,5 +2899,89 @@ fn a_candidate_is_invisible_to_a_query_shaped_like_the_rollback_snapshots() {
         collected.contains(&candidate),
         "publication removed the marker and the snapshot-shaped query still \
          cannot see the body, so the isolation does not lift"
+    );
+}
+
+/// ⛔⛤ **A REPLACEMENT IS TWO GENERATIONS, AND ONE FIELD WAS HOLDING BOTH —
+/// MEASURED 2026-09-13 FROM A REVIEW FINDING, AND THIS ARM IS THE CAPABILITY.**
+///
+/// `ConstructionScope` had a single `binding`, and its two readers wanted
+/// different answers: `transaction()` folds it into every root's `TransactionId`
+/// (canonical ROLLBACK state — that wants the generation the content came FROM),
+/// while `transaction::close` compares it against the live `ActiveContentBinding`
+/// to refuse a stale plan (that wants the generation the plan commits INTO).
+///
+/// ⭐ **FOR EVERY ROAD EXCEPT A CONTENT REPLACEMENT THEY COINCIDE**, which is
+/// exactly why nothing caught it: a door and a death rebuild a room inside the
+/// generation already running. A materially changed hot reload is the case where
+/// they differ, and it ended with content N+1 live and every rebuilt root's
+/// `TransactionId` naming **N**.
+#[test]
+fn a_replacement_stamps_its_roots_with_the_incoming_generation_and_expects_the_live_one() {
+    let n = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(4));
+    let next = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(5));
+    let room = Some("hall".to_string());
+    let session = crate::lifecycle::SessionSpawnScope::UNSCOPED;
+
+    let replacement = ConstructionScope::replacing(n, next, room.clone());
+    assert_eq!(
+        replacement.expected_live(),
+        n,
+        "a replacement's boundary comparison must still name the world it is \
+         publishing INTO, or the preflight's own generation is refused as stale"
+    );
+    assert_eq!(
+        replacement.transaction(session),
+        ConstructionScope::in_generation(next, room.clone()).transaction(session),
+        "a replacement's roots must carry the INCOMING generation's transaction \
+         identity — `TransactionId` is canonical rollback state and the content \
+         binding is part of what it means"
+    );
+    assert_ne!(
+        replacement.transaction(session),
+        ConstructionScope::in_generation(n, room.clone()).transaction(session),
+        "the roots are stamped with the generation being REPLACED, which is the \
+         defect: the live world ends at N+1 with every root claiming N"
+    );
+
+    // ⭐ THE CONTROL, and it is what keeps every other road unchanged: an
+    // ordinary plan cannot express the split at all.
+    let ordinary = ConstructionScope::in_generation(n, room.clone());
+    assert_eq!(ordinary.expected_live(), ordinary.incoming());
+    assert_eq!(
+        ordinary.transaction(session),
+        ConstructionScope::in_generation(n, room).transaction(session),
+    );
+}
+
+/// ⛔ **AND THE PLAN DUMP RENDERS BOTH**, because two plans carrying the same
+/// incoming generation into DIFFERENT live worlds are different plans — they will
+/// be compared against different boundaries — and the dump is what the prefetch
+/// cache and `RoomConstructionPlanId` key on.
+#[test]
+fn two_plans_differing_only_in_the_world_they_expect_are_different_plans() {
+    let next = ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(5));
+    let into_four = ConstructionScope::replacing(
+        ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(4)),
+        next,
+        Some("hall".into()),
+    );
+    let into_three = ConstructionScope::replacing(
+        ContentBinding::Content(ambition_platformer2d_core::ContentEpoch(3)),
+        next,
+        Some("hall".into()),
+    );
+    let registry = registry();
+    let dump = |scope: ConstructionScope| {
+        ConstructionPlan::<Toy>::prepare(scope, vec![request("a")], &nothing_live(), &registry)
+            .expect("a one-row plan prepares")
+            .deterministic_dump()
+    };
+    assert_ne!(
+        dump(into_four),
+        dump(into_three),
+        "the dump renders only one binding, so a plan prepared against a \
+         different live world hashes the same — and a prefetch cache keyed on it \
+         would promote a plan built for another boundary"
     );
 }

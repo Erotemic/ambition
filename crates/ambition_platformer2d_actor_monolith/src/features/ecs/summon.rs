@@ -179,13 +179,15 @@ pub fn apply_summon_effects(
         return;
     }
 
-    let scope = ConstructionScope {
-        // A summon is not a content artifact. It says so explicitly rather than
-        // by writing the same zero epoch a reset and a fixture also wrote, which
-        // is what made the three indistinguishable to a commit boundary.
-        binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
-        room: None,
-    };
+    // A summon is not a content artifact. It says so explicitly rather than by
+    // writing the same zero epoch a reset and a fixture also wrote, which is what
+    // made the three indistinguishable to a commit boundary. ⚠ And it is built
+    // and committed inside one tick, so it has no replacement shape: both
+    // bindings are the same non-generation.
+    let scope = ConstructionScope::in_generation(
+        ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
+        None,
+    );
     let services = crate::construction::ActorConstructionServices {
         context: {
             let context = crate::world::placements::ActorPlacementContext::new(

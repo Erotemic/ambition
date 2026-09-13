@@ -267,9 +267,14 @@ impl CapabilityLanes {
             #[cfg(feature = "portal")]
             portal,
         } = self;
-        debug_assert_eq!(gravity.scope().binding, binding);
+        // ⛔ THE EXPECTED-LIVE BINDING, because that is what this assertion is
+        // about: every lane must be judged against the SAME boundary. Their
+        // incoming generations are equal too on every road that exists today,
+        // but a lane disagreeing about which world it publishes INTO is the
+        // failure this guards.
+        debug_assert_eq!(gravity.scope().expected_live(), binding);
         #[cfg(feature = "portal")]
-        debug_assert_eq!(portal.scope().binding, binding);
+        debug_assert_eq!(portal.scope().expected_live(), binding);
         let _ = binding;
     }
 

@@ -715,10 +715,7 @@ impl RoomFeatureConstructionPlan {
         crate::construction::preflight_planned_bodies(&requests, construction.prepared)
             .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_scope =
-            ambition_platformer2d_shared_tangle::construction::ConstructionScope {
-                binding: construction.binding,
-                room: Some(room.id.clone()),
-            };
+            ambition_platformer2d_shared_tangle::construction::ConstructionScope::in_generation(construction.binding, Some(room.id.clone()));
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             construction_scope.clone(),
             requests,
@@ -896,7 +893,11 @@ impl RoomFeatureConstructionPlan {
     pub(crate) fn construction_binding(
         &self,
     ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {
-        let binding = self.construction.scope().binding;
+        // ⛔ THE EXPECTED-LIVE ONE: this feeds `transaction::close`'s staleness
+        // comparison against the live `ActiveContentBinding`. The INCOMING
+        // generation is what the roots are stamped with and is not what a
+        // boundary compares. See `ConstructionScope`.
+        let binding = self.construction.scope().expected_live();
         self.capability_lanes.debug_assert_binding(binding);
         binding
     }

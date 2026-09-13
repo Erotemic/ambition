@@ -400,3 +400,110 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
          timeline would accept N's snapshots into N+1's world"
     );
 }
+
+/// ⛔⛤ **DOES THE SHIPPED APP EVER HOLD TWO `SessionRoot`s? MEASURED, BECAUSE 217
+/// SYSTEM PARAMETERS DEPEND ON THE ANSWER AND NOBODY HAD ASKED IT.**
+///
+/// `SessionWorldRef` / `SessionWorldMut` are `Single<.., With<SessionRoot>>` —
+/// **217 references across 108 files at HEAD** — and `Single` matches only when
+/// there is EXACTLY ONE. Meanwhile `live_session_world_root` deliberately selects
+/// the root owned by `ActiveSessionScope`, *"so a lingering retired root is not a
+/// candidate rather than an ambiguity"*. ⇒ Two ownership semantics for one fact,
+/// and a 2026-09-13 review said candidate coexistence would make the ordinary one
+/// ambiguous.
+///
+/// ⭐⭐ **BUT "TWO ROOTS CAN EXIST" IS A CLAIM ABOUT THIS COMPOSITION, NOT A
+/// THEOREM — AND IT IS CHEAPER TO MEASURE THAN TO DESIGN AROUND.** The one
+/// recorded occurrence was a BUILD-TIME root coexisting with an activation's, and
+/// that root is gone (`app/resources.rs` records its removal). The other source is
+/// a retired scope's root surviving into the next activation, which
+/// `SessionScopeSet`'s `RetireAuthority -> Cleanup -> Activate` ordering closed
+/// on 2026-09-13.
+///
+/// ⇒ This drives a real shell handoff — the road whose world log shows
+/// `session-end` and `session-start` on ONE frame — and counts roots every frame.
+/// If the count never exceeds one, `Single` is unambiguous in production and the
+/// 217 sites are not exposed today; if it does, this arm names the frame.
+#[test]
+fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    let roots_now = |app: &mut bevy::prelude::App| -> usize {
+        let world = app.world_mut();
+        let mut query = world
+            .query::<&ambition_platformer2d::platformer::lifecycle::SessionRoot>();
+        query.iter(world).count()
+    };
+
+    app.world_mut()
+        .write_message(ShellCommand::ReplaceWith {
+            route: gameplay.clone(),
+            request: None,
+        });
+
+    let mut seen_one = false;
+    let mut worst = 0usize;
+    let mut worst_frame = 0usize;
+    for frame in 0..240 {
+        app.update();
+        let roots = roots_now(&mut app);
+        if roots > worst {
+            worst = roots;
+            worst_frame = frame;
+        }
+        if roots == 1 {
+            seen_one = true;
+        }
+    }
+
+    // ⚠ THE PREMISE, and without it "never two" is satisfied by "never one":
+    // a run that failed to activate any session at all would pass silently.
+    assert!(
+        seen_one,
+        "no session root ever appeared in 240 frames, so this measured a route \
+         that never activated rather than a handoff"
+    );
+
+    // ── the handoff: replace the live route with itself, which is the road the
+    //    world log shows retiring and activating on ONE frame ──────────────────
+    let activation_before = activation_id(&app);
+    app.world_mut()
+        .write_message(ShellCommand::ReplaceWith {
+            route: gameplay,
+            request: None,
+        });
+    let mut handoff_worst = 0usize;
+    let mut handoff_frame = 0usize;
+    for frame in 0..240 {
+        app.update();
+        let roots = roots_now(&mut app);
+        if roots > handoff_worst {
+            handoff_worst = roots;
+            handoff_frame = frame;
+        }
+    }
+
+    // ⚠ **AND THE SECOND PREMISE, WHICH IS THE ONE THAT MATTERS HERE:** "never
+    // two roots during a handoff" is trivially true of a handoff that never
+    // happened. The activation id must have MOVED.
+    let activation_after = activation_id(&app);
+    assert!(
+        activation_before.is_some() && activation_after != activation_before,
+        "the activation id did not move across the `ReplaceWith` ({activation_before:?} \
+         -> {activation_after:?}), so the second half measured no handoff at all"
+    );
+
+    assert!(
+        worst <= 1 && handoff_worst <= 1,
+        "THE SHIPPED APP HOLDS {worst} SESSION ROOT(S) (first activation, frame \
+         {worst_frame}) and {handoff_worst} (handoff, frame {handoff_frame}). \
+         `SessionWorldRef`/`SessionWorldMut` are `Single<.., With<SessionRoot>>` \
+         at 217 sites, and `Single` matches NOTHING when the count is not one — so \
+         on that frame every one of those systems is silently skipped while \
+         `live_session_world_root` would have resolved the live root by scope. \
+         That is the two-semantics gap, and this names the frame it opens on."
+    );
+}

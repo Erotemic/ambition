@@ -175,11 +175,30 @@ one message currently carries.
    admitted session is active. ⛔ NOT `ActiveFoo` + `CandidateFoo` pairs; that is a
    synchronisation architecture. Introduce the **two-binding replacement
    contract** (`expected_live_binding` / `incoming_binding`) in the same packet.
-2. **Align session-root access with ownership** — `SessionWorldRef`/`Mut` are
-   `Single<.., With<SessionRoot>>` with **219 references across 110 files**, and
-   they do not select by `ActiveSessionScope` while `live_session_world_root()`
-   does. Two ownership semantics; candidate coexistence makes ordinary systems
-   ambiguous immediately.
+2. ⚠ **Align session-root access with ownership — RE-DERIVED AT HEAD 2026-09-13,
+   AND THE EXPOSURE THE REVIEW ASSUMED IS NOT REACHABLE TODAY.** The count is
+   real: `SessionWorldRef`/`Mut` are `Single<.., With<SessionRoot>>` at **217
+   references across 108 files** (207 production), and they do not select by
+   `ActiveSessionScope` while `live_session_world_root()` deliberately does — two
+   ownership semantics for one fact. ⛔ **BUT THE SHIPPED APP NEVER HOLDS TWO
+   ROOTS.** MEASURED by driving a real shell handoff (the road whose world log
+   shows `session-end` and `session-start` on ONE frame) and counting
+   `SessionRoot` entities every frame for 240 frames on each side: the maximum is
+   **one**, with both premises asserted (a session DID activate; the activation id
+   DID move) and the counter poison-verified by spawning a second root, which
+   reddens it naming the frame. ⇒ The one recorded two-root occurrence was a
+   BUILD-TIME root beside an activation's, and that root is gone; the other
+   source — a retired scope's root surviving into the next activation — was closed
+   by `RetireAuthority -> Cleanup -> Activate`.
+   ⇒ **SO THIS IS NOT WORK NOW; IT IS A CONSTRAINT ON PACKET 1.** The review's own
+   first option is the one that costs nothing at 217 sites: **candidates get a
+   DISTINCT root identity (`CandidateSessionRoot`), and `SessionRoot` keeps
+   meaning "the published active world".** Introducing candidates under the same
+   marker is what would make 217 system parameters ambiguous — and `Single`
+   matches NOTHING rather than picking wrong, so every one of them would be
+   silently SKIPPED for the life of the candidate. Guard:
+   `the_shipped_app_never_holds_two_session_roots_across_a_handoff`, which is the
+   arm that reddens the moment a candidate is given `SessionRoot`.
 3. **The independent lifecycle bugs, which need none of the above** — see the row
    below.
 4. **Then** candidate world publication.

@@ -3831,3 +3831,63 @@ fn the_same_candidate_room_publishes_once_the_filter_is_installed() {
         verification.violations
     );
 }
+
+/// ⛔⛤ **A SHELL-ROUTED COMPOSITION THAT HAS LOST ITS CONTENT BINDING MUST REFUSE
+/// THE ROOM, NOT PUBLISH IT — AND THE OLD CODE COULD NOT TELL THAT CASE FROM A
+/// FIXTURE.**
+///
+/// The commit boundary compared `plan.construction_binding()` against
+/// `ActiveContentBinding` *if the resource was there*, and the resource's own doc
+/// called the absent case *"an honest gap, not a waiver: a fixture with no content
+/// authority has nothing to be stale against."* True of a fixture. The `Option`
+/// meant BOTH that and *"a live shell session missing the canonical authority it
+/// owes"*, and in the second case a room publishes into a generation nobody can
+/// name — the fail-open shape a 2026-09-13 review flagged.
+///
+/// ⭐ **THE DISCRIMINATOR IS AN EXISTING TYPE, NOT A NEW ONE.**
+/// `SessionGatedSimulation` is installed only by `ambition_game_shell`'s session
+/// plugin and says so: *"never inserted by direct-entry apps or headless
+/// harnesses."* Two other sites already branch on it.
+#[test]
+fn a_shell_composition_missing_its_content_binding_refuses_the_room() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let app = commit_over(plan, |world| {
+        world.init_resource::<
+            ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
+        >();
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        !verification.published,
+        "a shell-routed composition published a room with NO `ActiveContentBinding` \
+         at all, so nothing checked which generation it was publishing into"
+    );
+}
+
+/// ⭐ THE CONTROL, and without it the arm above is satisfied by a boundary that
+/// refuses every room with no binding — which is every fixture in this file.
+///
+/// The SAME plan and the SAME absent binding, differing only in whether the
+/// composition claims to route gameplay through a shell session.
+#[test]
+fn a_direct_entry_fixture_with_no_content_binding_still_publishes() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let app = commit(plan);
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "a direct-entry fixture was refused for stating no content binding, which \
+         is the one composition entitled to state none: {:?}",
+        verification.violations
+    );
+}

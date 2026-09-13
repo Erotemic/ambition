@@ -282,10 +282,30 @@ HEAD 2026-09-13:
   killed three unit apps; the item one killed six durable-horizon fixtures. Each
   channel is registered beside the system that reads it now, which is the
   arrangement a composition cannot get half of.
-- ⛔ **STILL OPEN, and next:** the fail-open optional canonical authorities
-  (`GenerationMechanics`'s App fallback and `ActiveContentBinding`'s
-  absent-is-accepted check cannot tell *"a direct-entry fixture"* from *"a live
-  shell session that lost its authority"*).
+- ✅ **THE CONTENT BINDING NO LONGER FAILS OPEN.** `transaction::close` compared
+  the plan's binding against `ActiveContentBinding` *if the resource was there*,
+  and that resource's doc called the absent case *"an honest gap, not a waiver: a
+  fixture with no content authority has nothing to be stale against."* True of a
+  fixture — and the same `Option` also meant *"a live shell session missing the
+  canonical authority it owes"*, where a room publishes into a generation nobody
+  can name. ⭐ **THE DISCRIMINATOR ALREADY EXISTED:** `SessionGatedSimulation` is
+  installed only by `ambition_game_shell`'s session plugin and says *"never
+  inserted by direct-entry apps or headless harnesses"*; two sites in
+  `lifecycle/session.rs` already branch on it. ⇒ Composition MODE is asked instead
+  of inferred from a resource's presence, and no new concept was invented. Guards
+  `a_shell_composition_missing_its_content_binding_refuses_the_room` and its
+  control `a_direct_entry_fixture_with_no_content_binding_still_publishes` (same
+  plan, same absent binding, differing only in the marker); poison-verified — the
+  poison reddens the shell arm alone.
+- ⛔ **STILL OPEN, the other half of the same finding:** `GenerationMechanics`'s
+  App fallback. `new(active: Option<&SessionMechanics>, ..)` falls back to the
+  App's registries when no generation is active, which is right for the ~90
+  direct-entry fixtures and wrong for a live shell session that LOST its
+  mechanics — the two are one `Option`. ⇒ It wants the same treatment as the
+  binding above: ask `SessionGatedSimulation`, and have the reset and room
+  transition DECLINE (both roads already have a decline path;
+  `process_new_game_reset_request`'s is *"DECLINE, do not die"*) rather than
+  rebuild a live world out of whatever the App is holding.
 - ⚠ **NOT YET CONFIRMED:** `ActiveConversation` spanning retirement — a
   self-healing rule (`break_dialogue_on_hit_or_separation`) probably closes it,
   and the open question is ORDERING. Needs a poison test, not a fix.

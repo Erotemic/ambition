@@ -262,16 +262,48 @@ fn verify_and_publish(
     // same content generation, and the room may publish only into that exact
     // generation. The room transaction owns this comparison because it owns
     // publication; individual construction domains do not.
-    if let Some(live) = world.get_resource::<ActiveContentBinding>() {
-        let planned = plan.construction_binding();
-        if planned != live.0 {
-            violations.push(
-                ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
-                    planned,
-                    live: live.0,
-                },
-            );
+    // ⛔⛤ **AN ABSENT BINDING USED TO MEAN "NO COMPARISON", WHICH IS FAIL-OPEN —
+    // AND A 2026-09-13 REVIEW NAMED WHY THAT IS NOT A GAP BUT A HOLE.** This
+    // resource's own doc said the vacuous branch was *"an honest gap, not a
+    // waiver: a fixture with no content authority has nothing to be stale
+    // against."* True of a fixture. The `Option` could not tell that fixture from
+    // **a live shell session that lost its canonical content authority**, and in
+    // the second case a room publishes into a generation nobody can name.
+    //
+    // ⭐ **THE DISCRIMINATOR ALREADY EXISTED AND IS NOT A NEW CONCEPT.**
+    // `SessionGatedSimulation` is installed by `ambition_game_shell`'s session
+    // plugin and, in its own words, *"never inserted by direct-entry apps or
+    // headless harnesses"* — two other sites in `lifecycle/session.rs` already
+    // branch on exactly it. ⇒ Composition mode is asked, rather than inferred
+    // from whether a resource happens to be there.
+    match world.get_resource::<ActiveContentBinding>().copied() {
+        Some(live) => {
+            let planned = plan.construction_binding();
+            if planned != live.0 {
+                violations.push(
+                    ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
+                        planned,
+                        live: live.0,
+                    },
+                );
+            }
         }
+        None if world.contains_resource::<
+            ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
+        >() => {
+            // A shell-routed composition owes this resource. Publishing here
+            // would admit a room whose staleness nothing checked.
+            bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "room `{room_id}` cannot be verified: this composition routes \
+                 gameplay through a shell session, so `ActiveContentBinding` is a \
+                 canonical authority it must hold, and it is absent"
+            );
+            refuse(world, room_id);
+            return;
+        }
+        // A direct-entry fixture states no binding and means it.
+        None => {}
     }
     violations.sort_by_key(|violation| format!("{violation:?}"));
     violations.dedup();

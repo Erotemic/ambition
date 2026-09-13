@@ -537,13 +537,42 @@ impl KoProbe {
     }
 
     fn park(&mut self, body: bevy::prelude::Entity, x: f32) {
+        self.pin(
+            body,
+            ambition_platformer2d::engine_core::Vec2::new(x, 200.0),
+            ambition_platformer2d::engine_core::Vec2::ZERO,
+        );
+    }
+
+    /// THE ONE PLACE THIS PROBE WRITES A BODY'S POSE, through the external
+    /// kinematic PIN rather than a bare field write.
+    ///
+    /// ⛔⛤ `constrain_body_pose`, NOT `transit_body` — and the difference is
+    /// the whole reason the first attempt at this failed. `transit_body` is the
+    /// DISCRETE-TRANSIT authority and invalidates ground contact BY DESIGN,
+    /// which is right for a blink and wrong for a measurement fixture placing a
+    /// body on a floor. MEASURED 2026-09-13: routing this probe through it
+    /// turned five measured centre thresholds (219, 185, 163, 121, 108) into
+    /// REFUSED@0 and raised centre refusals 70 -> 79, because the victim never
+    /// retook the floor and `reset_trial`'s grounded premise refused every
+    /// trial — and a 40-tick settle loop did not rescue it either.
+    ///
+    /// ⭐ The pin "does not fabricate or clear contact facts", which is exactly
+    /// what this fixture needs, and it is the SAME TWO ASSIGNMENTS the bare
+    /// write made — now under the authority `engine.pose-writes-are-authority-only`
+    /// and `engine.velocity-writes-are-authority-only` ask for.
+    fn pin(
+        &mut self,
+        body: bevy::prelude::Entity,
+        pos: ambition_platformer2d::engine_core::Vec2,
+        vel: ambition_platformer2d::engine_core::Vec2,
+    ) {
         if let Some(mut kin) = self
             .app
             .world_mut()
             .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(body)
         {
-            kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 200.0);
-            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+            ambition_platformer2d::engine_core::movement::constrain_body_pose(&mut kin, pos, vel);
         }
     }
 
@@ -732,14 +761,22 @@ impl KoProbe {
         // threshold moved 291 -> 283 when a coarser step reshuffled the order.
         //
         // Correct x WITHOUT restoring the height the landing just resolved.
-        if let Some(mut kin) = self
-            .app
-            .world_mut()
-            .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(self.victim)
-        {
-            kin.pos.x = victim_x;
-            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
-        }
+        //
+        // ⛔⛤ AND THROUGH THE PIN, DELIBERATELY NOT THROUGH `transit_body`: this
+        // body is being slid along a floor it is ALREADY STANDING ON, and the
+        // grounded premise asserted just below is the entire point of the
+        // reset. The transit authority would clear that contact by design. See
+        // `pin` for the measurement that settled it.
+        //
+        // The `y` is read back from the body the loop above landed, so only the
+        // `x` is the trial's to choose — the pin takes a full pose, and handing
+        // it anything else would restore the height this comment forbids.
+        let landed_y = self.pos(self.victim).y;
+        self.pin(
+            self.victim,
+            ambition_platformer2d::engine_core::Vec2::new(victim_x, landed_y),
+            ambition_platformer2d::engine_core::Vec2::ZERO,
+        );
         self.app.update();
 
         // ⭐ AND THE PREMISE IS NOW CHECKED RATHER THAN HOPED FOR. A trial that

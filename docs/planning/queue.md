@@ -115,8 +115,30 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
   and `ActiveMovementTuning`, and they are not omissions: they are row TWO of the
   same classification (*mechanical + changes during timeline*), which is `Q120` —
   a ruling, not a gap. Table in the row.
-- **A10's last step** — flip `spawn_contents`'s `hidden` flag. ⛔ **ITS BLOCKER IS
-  NOW ONE ROW, `Q124`, AND IT IS A GAMEPLAY RULING RATHER THAN A MYSTERY.**
+- ⛔⛤ **A10 IS NOT ONE FLAG, AND THIS ROW SAID IT WAS — CORRECTED BY THE
+  2026-09-13 REVIEW.** *"A10's last step — flip `spawn_contents`'s `hidden`
+  flag"* is FALSE at HEAD. **Hidden entities are not a candidate world.**
+  `commit_deferred` writes `RoomSet`, `RoomGeometry` and the moving-platform
+  state BEFORE verification runs, `replace_live_world` retires the outgoing room
+  before the transaction opens, and the hot-reload caller
+  (`game/ambition_app/src/app/dev_runtime.rs`) goes on to queue
+  `ActiveContentBinding`, transit the player, reset movement/combat, and replace
+  `ldtk_index` / `prepared_identity` / `prepared_content` — **none of which
+  receives the verdict from `transaction::close`.** A refused N+1 therefore
+  destroys or mutates N even when every candidate ENTITY is discarded. ⇒ FOUR
+  distinct publication issues remain, not one: (1) outgoing N dies before the
+  candidate is accepted; (2) non-entity room state goes live before verification;
+  (3) hot-reload content/session state goes live independently of the verdict;
+  (4) verification has no way to validate N+1 *while intentionally retaining N* —
+  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` MUST NOT BE
+  READ AS THE SOLE BLOCKER**: its gameplay ruling may still be needed, but the
+  engine has structural A10 work to do regardless of how it is answered. ⇒ The
+  packet is to be rewritten around a typed CANDIDATE WORLD/SESSION transaction —
+  prepare every N+1 value offside, validate, then one authority switch, then
+  retire N — **not** "save N's resources and restore on failure", which is
+  duplicate truth plus a recovery procedure.
+- **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER IS `Q124`,
+  A GAMEPLAY RULING RATHER THAN A MYSTERY.**
   MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped
   rooms publish completely (receipt 18, admitted 18). The two that fail are
   `death_restores_the_checkpoint`, and the cause is that a death-reset rebuilds

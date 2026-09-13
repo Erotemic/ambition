@@ -1699,7 +1699,26 @@ whole shell transaction (neither half activates), or a lifecycle that stops and
 rebases rollback as part of the same transaction. ⛔ Not a second
 `publication_boundary` call at the commit — see above.
 
-## ✅ Q119 — AUDIT COMPLETE 2026-09-13. Every MECHANICAL input to session construction is bound; the only unbound ones are MUTABLE and are `Q120`'s.
+## ⚠ Q119 — the `PlatformerSessionBuilder` audit is complete; the SCOPE PHRASE is load-bearing and this heading overstated it once
+
+⛔⛤ **THIS HEADING READ *"Every MECHANICAL input to session construction is
+bound"*, AND THE 2026-09-13 REVIEW WAS RIGHT TO CALL THAT TOO STRONG.** The audit
+below enumerates the fields of ONE `SystemParam`. `PerceptionExtentOverride` is a
+mechanical input that reaches constructed actors through `ensure_perception`, its
+own doc says **IT CHANGES THE SIMULATION**, and it is bound to NOTHING — so two
+Apps with identical `PreparedContentIdentity` can construct mechanically different
+actors and claim the same content identity. ⇒ The audited population was a
+`SystemParam`'s fields, not "session construction", and a population phrase is the
+half a reader carries away. ⚠ There is a SECOND gap the review names and this row
+did not: the two developer knobs are in the identity HASH but construction still
+reads the live App resources at build time (`lifecycle.rs`, `session/reset`, room
+transition), so a value changed after preparation constructs B under identity A.
+Being in the hash is not the invariant — **execution must consume the same
+generation-bound input the identity describes.** Both are open; see `Q126`.
+
+<!-- the audit itself, unchanged, below -->
+
+### ✅ Q119's `PlatformerSessionBuilder` audit, 2026-09-13
 
 ⛔⛤ **THE OPEN HALF OF THIS ROW WAS *"the rest of `PlatformerSessionBuilder`'s
 inputs have not been audited"*, and the audit is done.** Every field of that
@@ -1721,15 +1740,26 @@ inputs have not been audited"*, and the audit is done.** Every field of that
 | `active_session` | session lifecycle, not content | n/a |
 | `occurrences` / `minted` | the save's ledger — runtime state, not content | n/a |
 
-⇒ **THE CLASSIFICATION'S FIRST ROW IS SATISFIED: mechanical + immutable ⇒ bound,
-with no exceptions left.** The two that are not bound are not omissions — they are
+⇒ **THE CLASSIFICATION'S FIRST ROW IS SATISFIED FOR THIS `SystemParam`'S FIELDS:
+mechanical + immutable ⇒ bound.** ⛔ NOT "with no exceptions left" — that was this
+row's overstatement, and `PerceptionExtentOverride` is the counter-example; see
+the heading. The two below that are not bound are not omissions — they are
 row TWO of the same table (*"mechanical + changes during timeline ⇒ deterministic
 input/state, or explicit rebase"*), which is exactly `Q120`, and `Q120` is a
 ruling rather than a gap.
 
-⚠ **`PerceptionExtentOverride` IS NOT IN THIS TABLE** because it is not a
-`PlatformerSessionBuilder` input — it configures `ensure_perception` when a body
-is built. `Q126` records why it is held separately.
+⛔⛤ **`PerceptionExtentOverride` IS NOT IN THIS TABLE, AND "not a
+`PlatformerSessionBuilder` input" IS A REASON IT IS ABSENT — NOT A REASON IT IS
+FINE.** It configures `ensure_perception` when a body is built, its doc says IT
+CHANGES THE SIMULATION, and it is in no canonical identity. ⇒ Two Apps with the
+same authored content and different extents construct different actors under one
+`PreparedContentIdentity`. The rollback answer (*"the resulting `Perception`
+component is rollback state"*) covers only bodies that already exist; it says
+nothing about an actor constructed later in the generation, and nothing about two
+peers agreeing they run the same mechanics. **ONE EXPLICIT POLICY IS OWED, not a
+parallel developer hash:** either normalise it into canonical mechanical identity
+and generation-owned mechanics, or REFUSE a non-default value when a
+rollback/network timeline is established. `Q126` holds the row.
 
 <details><summary>The classification this audit was run against</summary>
 

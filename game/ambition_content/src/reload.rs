@@ -1159,12 +1159,34 @@ pub fn register(app: &mut bevy::prelude::App) {
         bevy::prelude::Update,
         break_the_publication_lease_when_the_boundary_closes
             // ⛔⛔ **BEFORE THE COMMIT IT EXISTS TO PREVENT.** A lease checked
-            // after the publication is a post-mortem, not an authorization. The
-            // cancel it writes is a `ShellCommand`, which the router applies in
-            // its own set later in the frame — so the pending generation is
-            // already gone by the time `commit_content_generation` looks for one,
-            // and the shell transaction ends without activating.
+            // after the publication is a post-mortem, not an authorization. This
+            // edge is what makes the CONTENT half unconditional: the pending
+            // generation is already gone by the time `commit_content_generation`
+            // looks for one.
             .before(commit_content_generation)
+            // ⛔⛤ **AND BEFORE THE PHASE THAT READS WHAT IT WRITES — THIS EDGE
+            // WAS MISSING, AND THE COMMENT HERE USED TO ASSERT WHAT THE SCHEDULE
+            // DID NOT SAY.** It read *"the router applies it in its own set later
+            // in the frame"*. MEASURED 2026-09-13 against the shipped `Update`
+            // graph: `breaker` and `AmbitionGameShellSet::Commands` were
+            // UNORDERED IN BOTH DIRECTIONS. The only edge the breaker had put it
+            // before `commit_content_generation`, which is itself `.after(Pending)`
+            // — a set the router has already finished with — so it constrained
+            // nothing with respect to `Commands`, where `process_shell_commands`
+            // reads `ShellCommand::CancelPending`.
+            //
+            // ⇒ A legal ordering ran the router first, and the cancel sat in the
+            // channel until the next frame while the route activated: the SHELL
+            // at generation N+1 and content publication at N. The split this
+            // reload architecture exists to remove.
+            //
+            // ⚠ **THE EDGE IS NOT THE GUARANTEE, AND `Q118` SAYS SO.** A boundary
+            // that closes after this frame's breaker still activates; the real
+            // answer is one transaction-lifetime authority that decides shell
+            // activation and content activation together. What this removes is
+            // narrower and worth removing on its own: the cancel can no longer
+            // miss the phase that reads it.
+            .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
             .run_if(shell_is_installed),
     );
 }

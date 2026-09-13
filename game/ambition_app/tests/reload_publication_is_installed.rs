@@ -29,6 +29,124 @@ fn is_registered<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> usi
         .count()
 }
 
+/// ⛔⛤ **ORDERING IS A QUESTION ABOUT SYSTEMS, AND A WALK OF THE DEPENDENCY
+/// GRAPH ALONE CANNOT ANSWER IT.**
+///
+/// MEASURED 2026-09-13, and it cost a false negative that read exactly like a
+/// finding: `break_the_publication_lease_when_the_boundary_closes` declares
+/// `.before(commit_content_generation)` literally, and a BFS over
+/// `graph.dependency().graph()` reports NO PATH. The edge is real — but
+/// `.before(some_system_fn)` is an edge to that function's anonymous
+/// `SystemTypeSet`, and the step from a set to its member is HIERARCHY, not a
+/// dependency. A traversal that only follows dependency edges walks into the set
+/// node and stops.
+///
+/// ⇒ Every dependency edge `(u, v)` is expanded to `members(u) x members(v)` over
+/// the hierarchy's transitive closure, and reachability is then asked between
+/// SYSTEMS. A set question becomes a question about its systems, which is what
+/// the executor actually honours.
+///
+/// ⚠ **THIS IS WHY EVERY ARM BELOW CARRIES A CONTROL.** The control here is an
+/// edge somebody wrote down literally; it is the only thing that distinguishes
+/// "the schedule does not say that" from "my query cannot see it", and it caught
+/// this instrument twice.
+struct Ordering {
+    /// `edges[a]` are the systems that must run after `a`.
+    edges: std::collections::HashMap<SystemKey, Vec<SystemKey>>,
+}
+
+impl Ordering {
+    fn of(graph: &ScheduleGraph) -> Self {
+        use std::collections::{HashMap, HashSet};
+
+        let hierarchy = graph.hierarchy().graph();
+        // Transitive members of each node, systems only.
+        let mut members: HashMap<NodeId, Vec<SystemKey>> = HashMap::new();
+        fn collect(
+            graph: &ScheduleGraph,
+            hierarchy: &bevy::ecs::schedule::graph::DiGraph<NodeId>,
+            node: NodeId,
+            seen: &mut HashSet<NodeId>,
+            out: &mut Vec<SystemKey>,
+        ) {
+            if !seen.insert(node) {
+                return;
+            }
+            if let NodeId::System(key) = node {
+                out.push(key);
+            }
+            for child in hierarchy.neighbors(node) {
+                collect(graph, hierarchy, child, seen, out);
+            }
+        }
+
+        let mut member_of = |node: NodeId| -> Vec<SystemKey> {
+            if let Some(found) = members.get(&node) {
+                return found.clone();
+            }
+            let mut out = Vec::new();
+            let mut seen = HashSet::new();
+            collect(graph, hierarchy, node, &mut seen, &mut out);
+            members.insert(node, out.clone());
+            out
+        };
+
+        let mut edges: HashMap<SystemKey, Vec<SystemKey>> = HashMap::new();
+        for (from, to) in graph.dependency().graph().all_edges() {
+            let befores = member_of(from);
+            let afters = member_of(to);
+            for before in &befores {
+                edges.entry(*before).or_default().extend(afters.iter().copied());
+            }
+        }
+        Self { edges }
+    }
+
+    /// Is any system of `from` ordered before any system of `to`?
+    fn reaches(&self, from: &[SystemKey], to: &[SystemKey]) -> bool {
+        use std::collections::HashSet;
+        let target: HashSet<SystemKey> = to.iter().copied().collect();
+        let mut seen: HashSet<SystemKey> = HashSet::new();
+        let mut stack: Vec<SystemKey> = from.to_vec();
+        while let Some(node) = stack.pop() {
+            if target.contains(&node) && !from.contains(&node) {
+                return true;
+            }
+            if !seen.insert(node) {
+                continue;
+            }
+            if let Some(next) = self.edges.get(&node) {
+                stack.extend(next.iter().copied());
+            }
+        }
+        false
+    }
+}
+
+/// Every system in a set, transitively — the population an ordering question
+/// about that set is really about.
+fn systems_in<S: bevy::ecs::schedule::SystemSet>(graph: &ScheduleGraph, set: S) -> Vec<SystemKey> {
+    use std::collections::HashSet;
+    let key = graph
+        .system_sets
+        .get_key(bevy::ecs::schedule::SystemSet::intern(&set))
+        .expect("the set is in this schedule");
+    let hierarchy = graph.hierarchy().graph();
+    let mut out = Vec::new();
+    let mut seen: HashSet<NodeId> = HashSet::new();
+    let mut stack = vec![NodeId::Set(key)];
+    while let Some(node) = stack.pop() {
+        if !seen.insert(node) {
+            continue;
+        }
+        if let NodeId::System(system) = node {
+            out.push(system);
+        }
+        stack.extend(hierarchy.neighbors(node));
+    }
+    out
+}
+
 fn key_of<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> SystemKey {
     let wanted = IntoSystem::into_system(f).system_type();
     graph
@@ -206,8 +324,6 @@ fn the_commit_sits_between_the_activation_and_the_world_built_from_it() {
 /// crossing is not merely possible but a race.
 #[test]
 fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
-    use std::collections::HashSet;
-
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
@@ -215,71 +331,43 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
         .get(Update)
         .expect("the Update schedule exists")
         .graph();
+    let ordering = Ordering::of(graph);
 
-    let commit = NodeId::System(key_of(
+    let commit = vec![key_of(
         graph,
         ambition_content::reload::commit_content_generation,
-    ));
-    let maintain = NodeId::Set(
-        graph
-            .system_sets
-            .get_key(bevy::ecs::schedule::SystemSet::intern(
-                &ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
-            ))
-            .expect(
-                "`LocalSessionSet::Maintain` is a set in the shipped Update schedule — if it \
-                 is not, the GGRS session no longer starts there and this measurement names \
-                 nothing",
-            ),
+    )];
+    let maintain = systems_in(
+        graph,
+        ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain,
+    );
+    let pending_control = systems_in(
+        graph,
+        ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending,
     );
 
-    let dependencies = graph.dependency().graph();
-    let reaches = |from: NodeId, to: NodeId| -> bool {
-        let mut seen: HashSet<NodeId> = HashSet::new();
-        let mut stack = vec![from];
-        while let Some(node) = stack.pop() {
-            if node == to {
-                return true;
-            }
-            if !seen.insert(node) {
-                continue;
-            }
-            stack.extend(dependencies.neighbors(node));
-        }
-        false
-    };
-
-    // ⛔⛔ **THE CONTROL, AND WITHOUT IT THE FINDING BELOW IS A CLAIM ABOUT MY
-    // TRAVERSAL RATHER THAN ABOUT THE SCHEDULE.** "No path exists" and "my BFS
-    // cannot find a path" are indistinguishable from the outside, so the same
-    // traversal is first asked a question whose answer is already known: the
-    // commit IS ordered after `AmbitionGameShellSet::Pending` — the arm above
-    // asserts that edge directly.
-    let pending_control = NodeId::Set(
-        graph
-            .system_sets
-            .get_key(bevy::ecs::schedule::SystemSet::intern(
-                &ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending,
-            ))
-            .expect("`AmbitionGameShellSet::Pending` is a set in the shipped Update schedule"),
-    );
-
-    let commit_first = reaches(commit, maintain);
-    let session_first = reaches(maintain, commit);
-
-    // ⚠ THE PREMISE, so a graph that lost both nodes cannot read as "ambiguous".
+    // ⚠ THE PREMISE, so an empty set cannot read as "ambiguous".
     assert!(
-        dependencies.contains_node(commit) && dependencies.contains_node(maintain),
-        "one of the two nodes is not in the dependency graph at all, so neither \
+        !maintain.is_empty() && !pending_control.is_empty(),
+        "one of these sets holds no systems in the shipped schedule, so neither \
          direction below means anything"
     );
 
+    // ⛔⛔ **THE CONTROL, AND WITHOUT IT THE FINDING BELOW IS A CLAIM ABOUT MY
+    // TRAVERSAL RATHER THAN ABOUT THE SCHEDULE.** "No path exists" and "my walk
+    // cannot find a path" are indistinguishable from the outside, so the same
+    // traversal is first asked a question whose answer is known: the commit IS
+    // ordered after `AmbitionGameShellSet::Pending` — the arm above asserts that
+    // edge directly.
     assert!(
-        reaches(pending_control, commit),
+        ordering.reaches(&pending_control, &commit),
         "the traversal cannot find the ordering edge this file already asserts \
          directly (`Pending` -> the commit), so its verdict about the rollback \
          session below is a finding about the traversal"
     );
+
+    let commit_first = ordering.reaches(&commit, &maintain);
+    let session_first = ordering.reaches(&maintain, &commit);
 
     assert!(
         !(commit_first && session_first),
@@ -333,8 +421,6 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
 /// arm above.
 #[test]
 fn nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction() {
-    use std::collections::HashSet;
-
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
@@ -342,88 +428,59 @@ fn nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_constru
         .get(Update)
         .expect("the Update schedule exists")
         .graph();
+    let ordering = Ordering::of(graph);
 
-    macro_rules! set_node {
-        ($set:expr, $what:literal) => {
-            NodeId::Set(
-                graph
-                    .system_sets
-                    .get_key(bevy::ecs::schedule::SystemSet::intern(&$set))
-                    .expect(concat!(
-                        "`",
-                        $what,
-                        "` is not a set in the shipped Update schedule, so this \
-                         measurement names nothing"
-                    )),
-            )
-        };
-    }
-
-    let cleanup = set_node!(
+    let cleanup = systems_in(
+        graph,
         ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Cleanup,
-        "SessionScopeSet::Cleanup"
     );
-    let providers = set_node!(
+    let providers = systems_in(
+        graph,
         ambition_platformer2d::game_shell::GameplaySessionSet::Providers,
-        "GameplaySessionSet::Providers"
     );
     // ⚠ THE CONTROL PAIR, and BOTH are edges some `chain()` writes down
     // literally — `Bridge -> Activate` in the shell, `Activate -> Presentation`
     // in `SessionScopePlugin` — so neither depends on the ordering under test.
-    let bridge_control = set_node!(
+    let bridge_control = systems_in(
+        graph,
         ambition_platformer2d::game_shell::GameplaySessionSet::Bridge,
-        "GameplaySessionSet::Bridge"
     );
-    let activate_control = set_node!(
+    let activate_control = systems_in(
+        graph,
         ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate,
-        "SessionScopeSet::Activate"
     );
-    let presentation_control = set_node!(
+    let presentation_control = systems_in(
+        graph,
         ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Presentation,
-        "SessionScopeSet::Presentation"
     );
 
-    let dependencies = graph.dependency().graph();
-    let reaches = |from: NodeId, to: NodeId| -> bool {
-        let mut seen: HashSet<NodeId> = HashSet::new();
-        let mut stack = vec![from];
-        while let Some(node) = stack.pop() {
-            if node == to {
-                return true;
-            }
-            if !seen.insert(node) {
-                continue;
-            }
-            stack.extend(dependencies.neighbors(node));
-        }
-        false
-    };
-
-    // ⚠ THE PREMISE, so a graph that lost a node cannot read as "ambiguous".
+    // ⚠ THE PREMISE: an EMPTY set makes every question below vacuously false,
+    // which reads exactly like a finding.
     assert!(
-        dependencies.contains_node(cleanup) && dependencies.contains_node(providers),
-        "one of the two sets is not in the dependency graph at all, so neither \
+        !cleanup.is_empty() && !providers.is_empty(),
+        "one of the two sets holds no systems in the shipped schedule, so neither \
          direction below means anything"
+    );
+    assert!(
+        !bridge_control.is_empty()
+            && !activate_control.is_empty()
+            && !presentation_control.is_empty(),
+        "a control set is empty, so the control below certifies nothing"
     );
 
     // ⛔⛔ THE CONTROL. "No path exists" and "my traversal cannot find one" are
     // indistinguishable from the outside, so the same traversal is first asked a
-    // question whose answer is known: both sets are chained AFTER `Activate`.
+    // question whose answer is written down literally.
     assert!(
-        reaches(bridge_control, activate_control)
-            && reaches(activate_control, presentation_control),
+        ordering.reaches(&bridge_control, &activate_control)
+            && ordering.reaches(&activate_control, &presentation_control),
         "the traversal cannot find the `Bridge -> Activate` and \
-         `Activate -> Presentation` edges that two `chain()`s declare \
-         literally, so its verdict below is a finding about the traversal"
+         `Activate -> Presentation` edges that two `chain()`s declare literally, \
+         so its verdict below is a finding about the traversal"
     );
 
-    let sweep_first = reaches(cleanup, providers);
-    let build_first = reaches(providers, cleanup);
-
-    assert!(
-        !(sweep_first && build_first),
-        "the graph claims both orders, which is a cycle rather than a measurement"
-    );
+    let sweep_first = ordering.reaches(&cleanup, &providers);
+    let build_first = ordering.reaches(&providers, &cleanup);
 
     // ⛔⛤ **THE ANSWER WAS NOT THE ONE THE READING PREDICTED, AND THAT IS THE
     // FINDING.** I expected AMBIGUITY — two `chain()`s that never meet. The
@@ -444,5 +501,93 @@ fn nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_constru
          18 of 18 roots in `central_hub_complex`. If this reddened, something \
          re-ordered `SessionScopeSet` or moved `GameplaySessionSet::Providers` \
          out from under it."
+    );
+}
+
+/// ⛔⛤ **THE PUBLICATION BREAKER CANCELS THROUGH A MESSAGE THE ROUTER MAY HAVE
+/// ALREADY STOPPED READING THIS FRAME — AND ITS OWN SOURCE SAYS SO.**
+///
+/// `break_the_publication_lease_when_the_boundary_closes` does two things when a
+/// rollback authority has recorded a divergence mid-transaction: it removes
+/// `PendingGeneration` (the CONTENT half, immediate and unconditional), and it
+/// writes `ShellCommand::CancelPending` (the SHELL half). The comment at the
+/// write says it plainly: *"The shell's answer to the cancel is a race (the
+/// transaction may have ended on this very frame)."*
+///
+/// ⇒ **THIS ARM ASKS THE SCHEDULE WHETHER THAT RACE IS REAL.** The breaker is
+/// ordered only `.before(commit_content_generation)`, and the commit is
+/// `.after(AmbitionGameShellSet::Pending)`. So the only edge the breaker has puts
+/// it before a set that is ALREADY after the router's command phase — which
+/// constrains it not at all with respect to `Commands`, where
+/// `process_shell_commands` reads what it wrote.
+///
+/// ⚠ **THE CONTENT HALF IS SAFE EITHER WAY.** `take_pending_generation` is a
+/// direct world write, not a message, so the commit finds nothing regardless. The
+/// exposure is a SPLIT: the shell advancing its route to N+1 while content
+/// publication stays at N.
+#[test]
+fn the_publication_breaker_is_not_ordered_against_the_command_phase_it_writes_into() {
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules
+        .get(Update)
+        .expect("the Update schedule exists")
+        .graph();
+    let ordering = Ordering::of(graph);
+
+    let breaker = vec![key_of(
+        graph,
+        ambition_content::reload::break_the_publication_lease_when_the_boundary_closes,
+    )];
+    let commit = vec![key_of(
+        graph,
+        ambition_content::reload::commit_content_generation,
+    )];
+    let commands = systems_in(
+        graph,
+        ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands,
+    );
+
+    // ⚠ THE PREMISE: an EMPTY set makes every reachability question below
+    // vacuously false, which reads exactly like a finding.
+    assert!(
+        !commands.is_empty(),
+        "`AmbitionGameShellSet::Commands` holds no systems in the shipped \
+         schedule, so nothing below is a measurement"
+    );
+
+    // ⛔⛔ THE CONTROL, and it is the edge the breaker writes down LITERALLY at
+    // its own `add_systems`. An earlier version of this arm walked only the
+    // dependency graph, could not see it, and reported a finding that was
+    // entirely about the traversal — `.before(a_system_fn)` is an edge to that
+    // function's anonymous `SystemTypeSet`, and set-to-member is HIERARCHY.
+    assert!(
+        ordering.reaches(&breaker, &commit),
+        "the traversal cannot find `breaker -> commit`, declared literally, so \
+         its verdict below is a finding about the traversal"
+    );
+
+    let breaker_first = ordering.reaches(&breaker, &commands);
+    let router_first = ordering.reaches(&commands, &breaker);
+
+    assert!(
+        breaker_first,
+        "THE CANCEL CAN MISS THE PHASE THAT READS IT (breaker-before-Commands: \
+         {breaker_first}, Commands-before-breaker: {router_first}). \
+         `break_the_publication_lease_when_the_boundary_closes` writes \
+         `ShellCommand::CancelPending`, and `process_shell_commands` runs in \
+         `AmbitionGameShellSet::Commands`. With no edge the router may already \
+         have run, so the shell advances its route to generation N+1 while \
+         content publication stays at N — the split-generation class this reload \
+         architecture exists to remove, and the breaker's own source calls it a \
+         race. ⚠ THE EDGE IS NOT THE GUARANTEE: a boundary that closes AFTER \
+         this frame's breaker still activates, and that is `Q118`'s open half. \
+         What the edge removes is the message ever missing the phase."
+    );
+    assert!(
+        !router_first,
+        "the graph orders the router BEFORE the breaker, which would make the \
+         cancel a post-mortem by declaration rather than by race"
     );
 }

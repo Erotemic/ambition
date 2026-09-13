@@ -3941,3 +3941,101 @@ fn a_room_prepared_for_the_next_generation_still_expects_the_live_one() {
          root claiming 4, inside canonical rollback state"
     );
 }
+
+/// ⛔⛤ **THE RACE THE TWO-BINDING CONTRACT OWES: A REPLACEMENT WHOSE WORLD MOVED
+/// UNDER IT MUST REFUSE — AND THE COMPARISON MUST USE THE *EXPECTED-LIVE* HALF.**
+///
+/// `ConstructionScope` carries `expected_live` and `incoming` because a
+/// replacement is two generations. The staleness arm above covers the case where
+/// they coincide. This covers the one that made the split necessary: a plan built
+/// FROM generation 5 to be committed INTO a world running 4, arriving at a world
+/// that has since advanced to 9.
+///
+/// ⭐ **IT IS ALSO THE ARM THAT SAYS WHICH HALF THE BOUNDARY READS.** If `close`
+/// compared `incoming` the violation would name 5, and a reload would be refused
+/// by the very generation it is introducing — which is why the field could not
+/// simply be re-pointed.
+#[test]
+fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_expected() {
+    use ambition_platformer2d_shared_tangle::construction::ContentBinding;
+
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let expected_live = crate::rooms::ActiveContentBinding::content(ae::ContentEpoch(4));
+    let replacement = |expected: &crate::rooms::ActiveContentBinding| {
+        RoomFeatureConstructionPlan::prepare(
+            &room,
+            &Default::default(),
+            &staging,
+            &ambition_boss_encounter::test_boss_catalog(),
+            ActorConstructionContext::for_room_construction(
+                &recipes,
+                &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+                &crate::session::mechanics::GenerationMechanics::new(
+                    None,
+                    Some(&fixture_cast()),
+                    &Default::default(),
+                    &ambition_boss_encounter::BossCatalog::default(),
+                ),
+                // built FROM generation 5 …
+                ae::ContentEpoch(5),
+                // … to be committed INTO a world running 4.
+                Some(expected),
+                None,
+                None,
+            ),
+        )
+        .expect("the room plans")
+    };
+
+    // The world moved to 9 while this replacement was in flight.
+    let app = commit_over(replacement(&expected_live), |world| {
+        world.insert_resource(crate::rooms::ActiveContentBinding::content(
+            ae::ContentEpoch(9),
+        ));
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>()
+        .clone();
+    assert!(
+        !verification.published,
+        "a replacement published into a world that had advanced past the one its \
+         preflight ran against"
+    );
+    let named = verification.violations.iter().find_map(|violation| match violation {
+        RosterViolation::ContentBindingMismatch { planned, live } => Some((*planned, *live)),
+        _ => None,
+    });
+    assert_eq!(
+        named,
+        Some((
+            ContentBinding::Content(ae::ContentEpoch(4)),
+            ContentBinding::Content(ae::ContentEpoch(9)),
+        )),
+        "the boundary compared the wrong half of the scope. It must name the \
+         EXPECTED-LIVE generation (4) against the live one (9); naming the \
+         INCOMING generation (5) would refuse every reload by the generation it \
+         is introducing. Violations: {:?}",
+        verification.violations
+    );
+
+    // ⭐ THE CONTROL: the SAME replacement, committed into the world it expected,
+    // publishes. Staleness discriminates; it does not blanket-refuse a plan for
+    // carrying two generations.
+    let app = commit_over(replacement(&expected_live), |world| {
+        world.insert_resource(crate::rooms::ActiveContentBinding::content(
+            ae::ContentEpoch(4),
+        ));
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "a replacement arriving at exactly the world it expected was refused, so \
+         the assertion above is about refusing replacements rather than about \
+         staleness: {:?}",
+        verification.violations
+    );
+}

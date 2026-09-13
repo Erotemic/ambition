@@ -349,7 +349,8 @@ HEAD 2026-09-13:
 - ⚠ **WHAT IS OWED:** an END-TO-END arm for a material LDtk reload — *while the
   candidate exists the active binding stays N; every candidate root's
   `TransactionId` names N+1; after success both agree on N+1* — plus the race
-  (candidate expects N, live advances to M, commit must refuse). No app test
+  (candidate expects N, live advances to M, commit must refuse — ✅ GUARDED, see
+  below). No app test
   drives `reload_ldtk_world_from_disk` today (it is `pub(super)`, behind a file
   watcher), so the arm needs a disk fixture. ✅ **THE ROAD IS GUARDED, MINUS THE
   DISK:** `a_room_prepared_for_the_next_generation_still_expects_the_live_one`
@@ -358,9 +359,19 @@ HEAD 2026-09-13:
   `construction_binding()` is 4 while the roots' transaction is 5's — two
   assertions that pull in opposite directions, so a fix propagating one value
   everywhere cannot satisfy both. Poison-verified by restoring the clobber
-  (`context.incoming = active.0`), which reddens it. ⚠ WHAT REMAINS UNGUARDED is
-  only the disk-to-`ActiveContentBinding` leg and the race (candidate expects N,
-  live advances to M, commit must refuse).
+  (`context.incoming = active.0`), which reddens it. ✅ **AND THE RACE IS GUARDED
+  TOO, 2026-09-13:**
+  `a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_expected`
+  commits a plan built FROM generation 5 to be committed INTO 4, into a world that
+  has advanced to 9, and asserts the violation names **(4, 9)** — the
+  EXPECTED-LIVE half against the live one. ⭐ That assertion is also what says
+  which half the boundary reads: naming the INCOMING generation would refuse every
+  reload by the generation it is introducing, which is why the field could not
+  simply be re-pointed. Control: the same replacement arriving at exactly the
+  world it expected PUBLISHES, so staleness discriminates rather than
+  blanket-refusing a two-generation plan. Poison: make the boundary read
+  `incoming()` and it reddens. ⚠ WHAT REMAINS UNGUARDED is only the
+  disk-to-`ActiveContentBinding` leg.
 
 ## ✅ CORRECTION PACKET, 2026-09-13 — the recurring failure mode named: the RULE was right, one COMPATIBILITY PATH or one ADJACENT MEMBER stayed outside it
 

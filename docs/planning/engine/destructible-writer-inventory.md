@@ -99,7 +99,7 @@ helper under `#[cfg(test)]` at `:89`, in a table headed *"the complete productio
 set"*. Found by `check_planning_citations.py --roles` (`7a392427e`).
 
 It is deleted rather than re-pointed, because **both things it might have meant
-are already rows**: initial construction is `spawn_static.rs:613`, and the respawn
+are already rows**: initial construction is `spawn_static.rs:546`, and the respawn
 transition is `breakables.rs:41`. "Re-insert" was the wrong verb regardless —
 respawn is a MUTATION through the per-frame tick's `&mut BreakableFeature`, and
 nothing re-inserts the component.

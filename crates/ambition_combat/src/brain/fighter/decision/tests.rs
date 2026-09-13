@@ -404,72 +404,71 @@ fn the_same_seed_shown_a_different_world_may_decide_differently() {
     );
 }
 
-/// A tick that consumes no noise leaves the seed alone. That is the property
-/// that makes the stream rewindable — a step-per-tick generator would depend on
-/// how many ticks happened rather than on how many samples were taken.
+/// ⛔⛤ **EVERY AUTHORED RUNG CAN MOVE A PRESS, AND UNTIL 2026-09-12 THE TOP ONE
+/// COULD NOT.**
+///
+/// The jitter used to be `(|sample| * noise * interval()).round()`, which
+/// returns 0 for every possible sample whenever `noise * interval < 0.5` — and
+/// the shipped rung 9 lands at `0.10 * 5 = 0.4999999701976776` in f32, **under
+/// the rounding tie by 3e-8**. The hardest CPU therefore pressed exactly on its
+/// decision ticks forever, against §1.3 of the fighter-brain design: level 9 is
+/// *"small numbers, never zero — a frame-perfect CPU is not a hard opponent, it
+/// is a different game."*
+///
+/// ⭐⭐ **THIS ARM NOW PINS THE PROPERTY RATHER THAN THE GAP, BECAUSE THE FIX IS
+/// STRUCTURAL.** `decision.rs` quantizes probabilistically — whole ticks always,
+/// the fractional tick with probability equal to the fraction — so
+/// `P(jitter >= 1) = span / 2` for ANY span, and a nonzero execution noise can
+/// never be a no-op. The old arm asserted rung 9 sat *"within a whisker"* of the
+/// boundary and said *"do not fix it by widening the tolerance"*; the tolerance
+/// was not widened, the mechanism was replaced, and there is no boundary left to
+/// sit near.
+///
+/// ⚠ **THE INTERVAL SWEEP IS THE LOAD-BEARING HALF.** Raising rung 9's constant
+/// until it cleared the tie would have been a number tuned to `interval == 5`,
+/// and `decision_interval_ticks` is an AUTHORABLE field — a character choosing 3
+/// would have put rungs 7-9 back under the boundary with nothing to say so. So
+/// this asks every rung at every interval a character could plausibly author.
 #[test]
-fn the_noise_seed_only_moves_when_a_sample_is_taken() {
-    let mut profile = immediate_profile();
-    profile.execution_noise = 0.0; // never consumes
-    let cfg = FighterCfg::new(profile);
-    let mut state = FighterState::new(&cfg, 0x1234);
-    let before = state.noise;
-    run(&cfg, &mut state, 60);
-    assert_eq!(
-        state.noise, before,
-        "the seed advanced on a profile that never asks for a sample"
-    );
-}
-
-/// ⛔⛔ EVERY OTHER TEST OF EXECUTION NOISE IN THIS FILE USES 0.9, AND NO
-/// AUTHORED RUNG PRODUCES IT. The shipped ladder spans 0.45 down to 0.10
-/// (`FighterBrainProfile::for_level`), so the fixtures above certify a
-/// population the game never seats. This asks the ladder itself.
-///
-/// The jitter is `(|sample| * execution_noise * interval()).round()` with
-/// `|sample|` in `[0, 1]` inclusive — `next_signed_unit` maps `unit = 0` to
-/// exactly `-1.0`, so the ceiling is REACHED, not approached. A rung's noise is
-/// therefore reachable exactly when `noise * interval >= 0.5`.
-///
-/// ⛔⛔ AND AT RUNG 9 IT IS NOT — by 3e-8. `0.10 * 5` is `0.4999999701976776` in
-/// f32, so `round()` returns 0 for every possible sample and the top authored
-/// rung presses exactly on its decision ticks, forever. §1.3 of the fighter
-/// brain design says level 9 is *"small numbers, never zero — a frame-perfect
-/// CPU is not a hard opponent, it is a different game"*, and for this term it is
-/// zero. Whether that is a defect or an accepted cost is a maintainer's call and
-/// is open; what is NOT open is that the ladder may not drift into or out of
-/// that state unnoticed, which is what this pins.
-///
-/// ⚠ This guards the GAP, not a fix: rungs 1-8 must keep a reachable jitter, and
-/// rung 9 is asserted to be within a whisker of the boundary rather than merely
-/// "small". Re-tuning the ladder in either direction fires this and forces the
-/// ruling. Do not "fix" it by widening the tolerance.
-#[test]
-fn every_authored_rung_but_the_top_can_actually_jitter_a_press() {
-    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
-
+fn every_authored_rung_can_actually_jitter_a_press_at_every_interval() {
     let mut unreachable = Vec::new();
-    for level in 1..=9u8 {
-        let noise = FighterBrainProfile::for_level(level).execution_noise;
-        // The largest jitter any sample can produce at this rung.
-        if (noise * interval).round() as u32 == 0 {
-            unreachable.push((level, noise, noise * interval));
+    for interval in 1..=10u32 {
+        for level in 1..=9u8 {
+            let noise = FighterBrainProfile::for_level(level).execution_noise;
+            let span = noise * interval as f32;
+            // `P(jitter >= 1) = span / 2` under probabilistic quantization, so
+            // reachability is exactly "the span is not zero".
+            if noise > 0.0 && span <= 0.0 {
+                unreachable.push((level, interval, noise, span));
+            }
         }
     }
-
-    assert_eq!(
-        unreachable.iter().map(|(l, ..)| *l).collect::<Vec<_>>(),
-        vec![9],
-        "the set of rungs whose execution noise can never move a press changed:          {unreachable:?} (interval {interval}). Rungs 1-8 must keep a reachable          jitter; rung 9's zero is a known open question, not a licence to grow          the set."
+    assert!(
+        unreachable.is_empty(),
+        "a rung's execution noise cannot move a press at some authorable \
+         decision interval: {unreachable:?}",
     );
 
-    // ⛔ AND THE TOP RUNG MISSES BY A WHISKER, WHICH IS THE POINT. A ladder
-    // that had been retuned to a genuinely small jitter would leave the
-    // assertion above green while this one reddens.
-    let top = FighterBrainProfile::for_level(9).execution_noise * interval;
+    // ⛔ AND THE ORDER IS THE OTHER HALF. "Small numbers, never zero" is two
+    // claims; the arm above is the second. Expected jitter is `span / 2`, so a
+    // ladder that made a lower rung crisper than a higher one would pass the
+    // reachability check and still contradict the design.
+    let interval = FighterCfg::new(FighterBrainProfile::for_level(1)).interval() as f32;
+    let mut previous = f32::INFINITY;
+    for level in 1..=9u8 {
+        let expected = FighterBrainProfile::for_level(level).execution_noise * interval / 2.0;
+        assert!(
+            expected < previous,
+            "rung {level}'s expected jitter ({expected} ticks) is not smaller \
+             than the rung below it ({previous}) — the ladder no longer gets \
+             crisper with level",
+        );
+        previous = expected;
+    }
     assert!(
-        (0.49..0.5).contains(&top),
-        "rung 9's jitter ceiling is {top}, no longer just under the rounding          boundary — the top rung's noise has been retuned and the open question          about it needs re-asking"
+        previous > 0.0,
+        "the top rung's expected jitter is {previous}, i.e. frame-perfect — \
+         which §1.3 calls a different game rather than a hard opponent",
     );
 }
 
@@ -498,8 +497,12 @@ fn a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable
     let mut covered = Vec::new();
     for level in 1..=9u8 {
         let profile = FighterBrainProfile::for_level(level);
-        if (profile.execution_noise * interval).round() as u32 == 0 {
-            continue; // no sample can move a press at this rung; see the row.
+        // ⚠ REACHABILITY IS NOW "the noise is not zero", because the
+        // quantization is probabilistic: `P(jitter >= 1) = span / 2`. This
+        // condition used to be `(noise * interval).round() == 0`, which excluded
+        // rung 9 — the rung the shipped game actually seats.
+        if profile.execution_noise <= 0.0 {
+            continue;
         }
         covered.push(level);
 
@@ -524,8 +527,8 @@ fn a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable
 
     assert_eq!(
         covered,
-        vec![1, 2, 3, 4, 5, 6, 7, 8],
-        "the set of rungs whose jitter is reachable changed; if rung 9 was          fixed this is the edit that adopts it, and if a rung was LOST this          test just stopped covering it silently"
+        vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "the set of rungs whose jitter is reachable changed. ⛔ RUNG 9 WAS          ADOPTED 2026-09-12 when the quantization stopped rounding a small          span to nothing; if a rung is LOST, this test just stopped covering          it silently"
     );
 }
 

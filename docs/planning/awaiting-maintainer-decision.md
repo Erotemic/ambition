@@ -580,7 +580,43 @@ PROFILE, not the machine. An agent box with no discrete GPU still reports a
 working software adapter, and `VisibleRenderMode::OffscreenGpu` composes a render
 app there.
 
-## Q116 — is the hardest CPU shipping with execution noise DISABLED a defect, or an accepted cost?
+## ✅ Q116 — CLOSED 2026-09-12 AS A CORRECTNESS REPAIR. It was a defect, and the fix was the QUANTIZATION, not the constant.
+
+⭐ **RULED BY THE ARCHITECTURE REVIEW JON FORWARDED**, whose reasoning is the
+part worth keeping: *"Historical benchmark data already belongs to a
+commit/configuration. Changing an opponent means new measurements describe a new
+opponent. Otherwise every balance defect becomes permanent once somebody
+benchmarks it."* ⇒ The "every rung-9 measurement becomes a measurement of a
+different opponent" cost, recorded below, is not a reason to keep it.
+
+⭐⭐ **AND THE FIX IS NOT THE ONE CONSTANT THE ROW BELOW PREDICTED.** Raising rung
+9's noise until it cleared the rounding tie would be a number tuned to
+`interval == 5`, and `decision_interval_ticks` is an AUTHORABLE field — a
+character choosing 3 would put rungs 7-9 back under the boundary with nothing to
+say so. `decision.rs` now quantizes PROBABILISTICALLY: whole ticks always, the
+fractional tick with probability equal to the fraction. `P(jitter >= 1) = span/2`
+for any span, so **a nonzero execution noise cannot be a no-op at any interval,
+by construction**, and the ladder keeps every authored number it had. Expected
+jitter is exactly `span/2`, so the rungs stay ordered and rung 9 stays the
+smallest — which is what *"small numbers, never zero"* asks for.
+
+⭐ **THE SECOND HALF CAME FOR FREE AND IS THE BEHAVIOURAL PROOF.** The per-seat
+cognition stream's only consumer is this site, so rung 9 is now covered by
+`a_different_stream_makes_a_different_fighter_wherever_the_jitter_is_reachable` —
+which derives its own population and adopted rung 9 with a one-line edit.
+POISON-VERIFIED: restoring `.round()` reddens it with *"rung 9: two seats on
+DIFFERENT streams pressed on identical ticks (24 presses)"*.
+
+⭐ **AND THE DUEL FLOORS SURVIVED THE RE-PRICING**, which was the open risk:
+`two_cpus_in_the_shipped_composition_damage_each_other` and
+`the_repertoire_gets_used::every_authored_route_gets_pressed` both pass at HEAD.
+⇒ Q117's rung-9 evidence can now be re-measured against a CPU that obeys its own
+difficulty contract.
+
+<details><summary>The original row, kept because its measurement is the
+evidence</summary>
+
+### Q116 — is the hardest CPU shipping with execution noise DISABLED a defect, or an accepted cost?
 
 MEASURED and guarded at `359c8be69`; the row is `D-RUNG9-NOISE` in
 [`queue.md`](queue.md). **At rung 9 the fighter press jitter is identically zero
@@ -616,6 +652,8 @@ reachable jitter AND rung 9's ceiling must stay just under the boundary, so a
 ladder retuned to a genuinely small jitter reddens the second while the first
 stays green. The ladder cannot drift into or out of a zero-jitter rung unnoticed
 whichever way this is ruled.
+
+</details>
 
 ## Q117 — should the truthful attack kit land, given it re-prices every CPU matchup?
 

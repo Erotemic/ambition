@@ -467,9 +467,46 @@ fn decide(
     if let (Some((binding, _)), None, false) =
         (wants_attack.as_ref(), state.pending_press, charging)
     {
+        // ⛔⛤ **THIS WAS `(sample * noise * interval).round()`, AND IT MADE THE
+        // HARDEST CPU FRAME-PERFECT.** `round()` returns 0 for every possible
+        // sample whenever `noise * interval < 0.5`, and the shipped ladder's rung
+        // 9 lands at `0.10 * 5 = 0.4999999701976776` in f32 — **under the tie by
+        // 3e-8**. So the top rung pressed exactly on its decision ticks forever,
+        // against a design that says level 9 is *"small numbers, never zero — a
+        // frame-perfect CPU is not a hard opponent, it is a different game"*.
+        // MEASURED, not inferred: two seats on DIFFERENT seeds pressed on
+        // IDENTICAL ticks across 600 ticks and 24 presses.
+        //
+        // ⛔⛤ **AND IT SILENTLY VOIDED THE PER-SEAT COGNITION STREAM.** This site
+        // is that stream's ONLY consumer in the tree, so at rung 9 the per-seat
+        // seed had no observable effect at all — the reflection
+        // `two_participants_of_one_character_do_not_share_a_stream` exists to
+        // prevent, unreachable at the shipped rung.
+        //
+        // ⭐⭐ **FIXED BY THE QUANTIZATION, NOT BY THE CONSTANT, AND THAT IS THE
+        // WHOLE POINT.** Raising rung 9's noise until it clears the tie would be
+        // a number tuned to `interval == 5`; `decision_interval_ticks` is an
+        // AUTHORABLE field, so a character choosing 3 would put rung 9 — and
+        // rungs 8 and 7 — back under the boundary with nothing to say so.
+        // Probabilistic quantization takes the whole ticks always and the
+        // FRACTION of a tick with probability equal to that fraction, so
+        // `P(jitter >= 1) = span / 2` for any span: **a nonzero execution noise
+        // can never be a no-op, at any interval, by construction.** The ladder
+        // keeps every authored number it had.
+        //
+        // ⚠ EXPECTED JITTER IS `span / 2` EXACTLY, so the rungs stay ordered by
+        // their authored noise — rung 9 remains the smallest, which is what
+        // "small numbers, never zero" asks for.
+        //
+        // ⚠ THE SECOND DRAW IS UNCONDITIONAL, so stream consumption does not
+        // depend on the value drawn. A conditional draw would make the sequence
+        // a function of the samples themselves, which is harder to reason about
+        // under rollback for no benefit.
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();
-            (sample * cfg.profile.execution_noise * cfg.interval() as f32).round() as u32
+            let dither = next_signed_unit(&mut state.noise).abs();
+            let ticks = sample * cfg.profile.execution_noise * cfg.interval() as f32;
+            ticks.floor() as u32 + u32::from(dither < ticks.fract())
         } else {
             0
         };

@@ -422,11 +422,18 @@ spec, and it was widened before anything was deleted.
 ⇒ **What is NOT decided and was deliberately not guessed:** whether an authored
 opened chest should spawn with the marker or be refused. Whoever wants it adds
 the field and its lowering TOGETHER — a field without a lowering is exactly the
-trap this removed. **Second write-only field RECORDED, not removed:**
-`Chest::persistent` has the same shape (real authority:
-`encounter_reward_looted_flag`) but no defect attached, so deleting it would be a
-product-surface change with no correctness argument; the note is in
-`ambition_interaction`'s own test.
+trap this removed. ⛔⛤ **AND THE "RECORDED, NOT REMOVED" HALF OF THIS ROW WAS WRONG.** It said the
+chest's second write-only field had *"the same shape but no defect attached, so
+deleting it would be a product-surface change with no correctness argument"*. A
+serializable, documented authoring field that decides nothing is a FALSE
+CAPABILITY in the engine's API whether or not a second live authority
+contradicts it — and that framing is what kept THREE of them alive in one crate.
+All three are deleted as of 2026-09-12 (`da8954c0d`): the chest's persistence
+flag, `PickupSpec.collected` (which DID have a contradicting authority — the
+`Collected` marker — so an authored "already taken" pickup was still there to be
+taken), and `InteractableSpec.requires_facing`. Real authority for chest
+persistence remains `encounter_reward_looted_flag`, which never consulted the
+field.
 And *"melee/projectile geometry agreement"* now has a guard
 (`world/overlay.rs::breakable_geometry_agreement`, poison-verified): both
 publishers read one `CenteredAabb`, and their ELIGIBILITY predicates diverge on

@@ -406,6 +406,9 @@ struct Trial {
     /// motion model rather than restated as `500.0`.
     tumbled: bool,
     ticks_to_ko: Option<usize>,
+    /// Victim state at the moment the pulse was fired, for the determinism
+    /// probe. Two trials of the same pulse at the same percent must agree here.
+    at_strike: String,
     /// The meter the victim actually entered the pulse carrying.
     entry_percent: i32,
     /// What the launch arithmetic saw. For a throw this is `entry + damage`,
@@ -536,6 +539,70 @@ impl KoProbe {
         }
     }
 
+    /// Every victim fact a trial could INHERIT, in one tab-free field.
+    ///
+    /// ⛔ NOT A HEALTH CHECK. `reset_trial` already asserts the conditions it
+    /// knows to assert; this exists precisely for the fact it does NOT know
+    /// about, so it reports state rather than judging it. The differing column
+    /// between a pre-KO trial and a post-KO trial is the answer.
+    fn snapshot(&self) -> String {
+        use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+        let w = self.app.world();
+        let v = self.victim;
+        let ground = w
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(v)
+            .map(|g| g.on_ground)
+            .unwrap_or(false);
+        let (pos, vel) = w
+            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(v)
+            .map(|k| (k.pos, k.vel))
+            .unwrap_or_default();
+        let (hitlag, hitstun, hitstop) = w
+            .get::<BodyCombat>(v)
+            .map(|c| (c.is_in_hitlag(), c.hitstun_timer, c.hitstop_timer))
+            .unwrap_or((false, 0.0, 0.0));
+        let dmg = w
+            .get::<BodyHealth>(v)
+            .map(|h| h.damage_taken())
+            .unwrap_or(0);
+        let mut flags = Vec::new();
+        if w.get::<ambition_platformer2d::combat::stocks::RespawnGrace>(v)
+            .is_some()
+        {
+            flags.push("grace");
+        }
+        if w.get::<ambition_platformer2d::combat::death_rules::DeathInterlude>(v)
+            .is_some()
+        {
+            flags.push("interlude");
+        }
+        if w.get::<ambition_platformer2d::combat::stocks::PendingRespawn>(v)
+            .is_some()
+        {
+            flags.push("pending");
+        }
+        if w.get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(v)
+            .is_some()
+        {
+            flags.push("outofplay");
+        }
+        if w.get::<ambition_platformer2d::combat::capture::CapturedBy>(v)
+            .is_some()
+        {
+            flags.push("captured");
+        }
+        let flags = if flags.is_empty() {
+            "none".to_string()
+        } else {
+            flags.join("+")
+        };
+        format!(
+            "ground={ground} pos=({:.1},{:.1}) vel=({:.1},{:.1}) hitlag={hitlag} \
+             hitstun={hitstun:.3} hitstop={hitstop:.3} dmg={dmg} flags={flags}",
+            pos.x, pos.y, vel.x, vel.y
+        )
+    }
+
     /// ⛔ THE CONTRACT. A trial may not begin until every one of these is true,
     /// and each is CHECKED rather than waited-out by tick count.
     fn reset_trial(&mut self, entry_percent: i32, victim_x: f32) -> bool {
@@ -596,8 +663,40 @@ impl KoProbe {
                 break;
             }
         }
-        self.park(self.victim, victim_x);
+        // ⛔⛔ DO NOT `park` AGAIN HERE — MEASURED 2026-09-13, AND THIS WAS THE
+        // DEFECT UNDER RUN 1'S WHOLE TABLE.
+        //
+        // `park` places a body at y = 200.0, which is ABOVE the platform surface
+        // (PLATFORM_TOP is 300). The loop above spends up to forty ticks waiting
+        // for the victim to LAND, and the previous form then lifted it straight
+        // back into the air and ran one update — so every trial began airborne,
+        // and `ground=` varied with where that single tick left it. A body
+        // struck in the air takes a different road than one struck standing,
+        // which is why four identical trials alternated survive/KO on an
+        // IDENTICAL resolved launch of 403.0, and why the oracle row's centre
+        // threshold moved 291 -> 283 when a coarser step reshuffled the order.
+        //
+        // Correct x WITHOUT restoring the height the landing just resolved.
+        if let Some(mut kin) = self
+            .app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(self.victim)
+        {
+            kin.pos.x = victim_x;
+            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        }
         self.app.update();
+
+        // ⭐ AND THE PREMISE IS NOW CHECKED RATHER THAN HOPED FOR. A trial that
+        // cannot start the victim standing still on the floor does not start.
+        let grounded = self
+            .app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
+            .is_some_and(|g| g.on_ground);
+        if !grounded {
+            return false;
+        }
 
         for (body, meter) in [(self.victim, entry_percent), (self.attacker, 0)] {
             // ⛔ THE ATTACKER IS PINNED TO ZERO because `rage_scale` reads its
@@ -621,6 +720,12 @@ impl KoProbe {
         if !self.reset_trial(entry_percent, victim_x) {
             return None;
         }
+        // ⭐ THE STATE THE TRIAL ACTUALLY BEGINS IN, captured AFTER the reset.
+        // The first version of this diagnostic snapshotted before `reset_trial`
+        // and therefore reported the PREVIOUS trial's leftovers — informative
+        // about what carries over, and silent about the only thing that decides
+        // an outcome, which is the state at the moment of the strike.
+        let at_strike = self.snapshot();
         let struck_at = self.pos(self.victim);
         let attacker = self.attacker;
 
@@ -768,6 +873,7 @@ impl KoProbe {
             ticks_to_ko,
             entry_percent,
             effective_percent: entry_percent,
+            at_strike,
         })
     }
 
@@ -828,8 +934,20 @@ impl KoProbe {
                 lo = mid;
             }
         }
+        // ⛔ ZERO IS THE FLOOR, AND IT HAS NO BELOW — measured 2026-09-13.
+        //
+        // `hi == 0` means the pulse KOs at zero percent. The previous form still
+        // ran the both-sides check at `(hi - 1).max(0)`, which is 0 AGAIN, so
+        // `below` was necessarily the same measurement as `at` and the
+        // contradiction branch fired every time. It then recorded the sample as
+        // `hi - 1` = `-1`, a percent no trial ever ran. Every zero-percent ledge
+        // KO in run 1 was reported `NON_MONOTONIC[(0, true), (-1, true), ...]`
+        // on the strength of that. A KO at the floor is a finding, not a fault.
+        if hi == 0 {
+            return Threshold::At(0);
+        }
         // VERIFY BOTH SIDES rather than trusting the walk.
-        let below = self.strike(hit, (hi - 1).max(0), victim_x).is_some_and(|t| t.ko);
+        let below = self.strike(hit, hi - 1, victim_x).is_some_and(|t| t.ko);
         let at = self.strike(hit, hi, victim_x).is_some_and(|t| t.ko);
         if below || !at {
             samples.push((hi - 1, below));
@@ -845,6 +963,111 @@ impl KoProbe {
 /// ⛔ THE SELF-TEST RUNS FIRST AND GATES EVERYTHING. Reusing one staged match
 /// across trials is only sound if a repeated trial repeats; if it does not, a
 /// whole table would be contaminated by the previous stock and look like data.
+/// ⭐ DOES A TRIAL INHERIT ANYTHING FROM THE TRIAL BEFORE IT?
+///
+/// Run 1 said yes and named the shape. Two cells reported a percent that the
+/// coarse sweep measured as a SURVIVAL and the verification measured as a KO,
+/// and in both the binary search had converged to `lo + 1` — every probe after
+/// the first knockout came back a knockout. The oracle row moved with it
+/// (centre 291 on the slow path, 283 on the fast one).
+///
+/// ⛔ THE SELF-TEST IN `run_probe` CANNOT SEE THIS. It fires one pulse at one
+/// percent twice with identical history, so it establishes that the probe is
+/// deterministic given the same past — which is not the property the threshold
+/// search needs. The search needs the answer at a percent to be independent of
+/// what ran before it, and that is what this measures.
+///
+/// This prints state rather than asserting, because the question is WHICH fact
+/// carries over, and a guess at that is worth nothing.
+fn run_determinism() {
+    const NEAR: i32 = 200;
+    const LETHAL: i32 = 300;
+
+    let mut probe = KoProbe::new("npc_pirate_admiral", "player_robot_v3");
+    let launchers = {
+        let world = probe.app.world();
+        let registry = world
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+            .expect("registry");
+        let prepared = registry.get("npc_pirate_admiral").expect("attacker");
+        let contract = prepared.kit.projectable_moveset().expect("moveset");
+        let mut bad = Vec::new();
+        let mut nl = Vec::new();
+        launchers_of("npc_pirate_admiral", contract, &mut bad, &mut nl)
+    };
+    // The pulse the run-1 latch actually appeared on: a forward tilt, whose
+    // centre cell was one of the two genuine disagreements.
+    let Some(Launcher::Strike { hit, move_id, .. }) = launchers
+        .iter()
+        .find(|l| l.role() == "attack_forward" && matches!(l, Launcher::Strike { .. }))
+    else {
+        println!("# no attack_forward strike found — cannot reproduce the run-1 latch");
+        return;
+    };
+    println!("# determinism probe on npc_pirate_admiral `{move_id}` vs player_robot_v3");
+    println!("# every line below is the SAME pulse at the SAME percent unless marked");
+    println!("phase\ttrial\tpercent\tko\tlaunch\tticks\tpre_state");
+
+    let x = probe.centre;
+    for i in 0..4 {
+        let t = probe.strike(hit, NEAR, x);
+        let pre = t
+            .as_ref()
+            .map(|t| t.at_strike.clone())
+            .unwrap_or_else(|| "RESET_REFUSED".into());
+        println!(
+            "before_any_ko\t{i}\t{NEAR}\t{}\t{}\t{}\t{pre}",
+            t.as_ref().map(|t| t.ko.to_string()).unwrap_or_else(|| "-".into()),
+            t.as_ref()
+                .and_then(|t| t.resolved_launch)
+                .map(|v| format!("{v:.1}"))
+                .unwrap_or_else(|| "-".into()),
+            t.as_ref()
+                .and_then(|t| t.ticks_to_ko)
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "-".into()),
+        );
+    }
+
+    let t = probe.strike(hit, LETHAL, x);
+    let pre = t
+        .as_ref()
+        .map(|t| t.at_strike.clone())
+        .unwrap_or_else(|| "RESET_REFUSED".into());
+    println!(
+        "INDUCE_KO\t-\t{LETHAL}\t{}\t-\t{}\t{pre}",
+        t.as_ref().map(|t| t.ko.to_string()).unwrap_or_else(|| "-".into()),
+        t.as_ref()
+            .and_then(|t| t.ticks_to_ko)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "-".into()),
+    );
+
+    for i in 0..4 {
+        let t = probe.strike(hit, NEAR, x);
+        let pre = t
+            .as_ref()
+            .map(|t| t.at_strike.clone())
+            .unwrap_or_else(|| "RESET_REFUSED".into());
+        println!(
+            "after_a_ko\t{i}\t{NEAR}\t{}\t{}\t{}\t{pre}",
+            t.as_ref().map(|t| t.ko.to_string()).unwrap_or_else(|| "-".into()),
+            t.as_ref()
+                .and_then(|t| t.resolved_launch)
+                .map(|v| format!("{v:.1}"))
+                .unwrap_or_else(|| "-".into()),
+            t.as_ref()
+                .and_then(|t| t.ticks_to_ko)
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "-".into()),
+        );
+    }
+    println!(
+        "# READ IT AS: if `before_any_ko` and `after_a_ko` disagree at {NEAR}%, the trial \
+         is NOT independent and the differing column of `pre_state` names what carried over."
+    );
+}
+
 fn run_probe() {
     const REFERENCE: &str = "player_robot_v3";
     const HEAVY: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
@@ -924,15 +1147,44 @@ fn run_probe() {
                     .collect::<Vec<_>>()
             };
 
-            // ⭐ THE SELF-TEST. Same pulse, same percent, twice.
+            // ⭐ THE SELF-TEST, AND RUN 1 PROVED THE OLD ONE INADEQUATE.
+            //
+            // It fired one pulse at one percent twice and compared only `ko`.
+            // That passed — and the table it admitted contained cells where a
+            // percent measured as a survival in the coarse sweep came back a KO
+            // in verification, because every trial was starting AIRBORNE and the
+            // outcome turned on where a single update left the body.
+            //
+            // ⛔ COMPARE THE WHOLE OUTCOME, NOT THE VERDICT. Two trials can
+            // agree on `ko` and still have begun in different states, which is
+            // the disagreement that matters; `at_strike` is what catches it.
+            // Three repetitions rather than two, because an alternating defect
+            // (survive/KO/survive/KO — exactly what run 1 showed) is invisible
+            // to any even-numbered comparison of the first two.
             if let Some(Launcher::Strike { hit, .. }) = launchers.first() {
-                let a = probe.strike(hit, 100, probe.centre).map(|t| t.ko);
-                let b = probe.strike(hit, 100, probe.centre).map(|t| t.ko);
-                println!("#   repeatability@100%: {a:?} then {b:?}");
-                if a != b {
+                let mut seen = Vec::new();
+                for _ in 0..3 {
+                    seen.push(match probe.strike(hit, 100, probe.centre) {
+                        Some(t) => format!(
+                            "ko={} launch={} {}",
+                            t.ko,
+                            t.resolved_launch
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "-".into()),
+                            t.at_strike
+                        ),
+                        None => "RESET_REFUSED".to_string(),
+                    });
+                }
+                println!("#   repeatability@100% x3:");
+                for s in &seen {
+                    println!("#     {s}");
+                }
+                if seen.iter().any(|s| s != &seen[0]) {
                     println!(
-                        "#   ⛔ SAME-MATCH REUSE IS NOT REPEATABLE — every row below would be \
-                         contaminated by the previous stock. Table suppressed."
+                        "#   ⛔ TRIALS ARE NOT INDEPENDENT — the same pulse at the same percent \
+                         gave different results, so every threshold below would be an artefact \
+                         of trial order. Table suppressed."
                     );
                     continue;
                 }
@@ -1034,6 +1286,12 @@ fn run_probe() {
 }
 
 fn main() {
+    // ⭐ BEFORE `probe`, because a table measured with a non-independent trial is
+    // worth less than no table: run 1 produced one and its oracle row had moved.
+    if std::env::args().any(|a| a == "determinism") {
+        run_determinism();
+        return;
+    }
     if std::env::args().any(|a| a == "probe") {
         run_probe();
         return;

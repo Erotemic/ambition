@@ -262,13 +262,43 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
     // — so *"refuse a reload only in a rollback/network-COMPATIBLE session"* is
     // not available as the cheap correct answer. What remains is the
     // stop-and-rebase lifecycle the row names.
+    let error = desync.unwrap_or_else(|| {
+        panic!(
+            "MEASURED GAP CLOSED? This arm records that publishing a cast \
+             mid-timeline DESYNCS the sync-test canary, which is what makes \
+             `Q118`'s live-timeline half a local problem rather than a \
+             network-only one. If it now stays healthy, name what sealed it — the \
+             cast entering rollback history, the publication becoming a bounded \
+             rebase, or the projection leaving the sim schedule — and this arm \
+             becomes the assertion that the chosen model holds."
+        )
+    });
+
+    // ⛔⛤ **AND THE GUARD THAT SHOULD HAVE CAUGHT THIS DID NOT FIRE, WHICH IS THE
+    // ACTIONABLE HALF.** `enforce_session_contract` already invalidates a live
+    // session on *"prepared content changed while the GGRS session was active"* —
+    // so the machinery for refusing this exists and RUNS. It compares
+    // `PreparedContentIdentity` read from the SESSION ROOT entity
+    // (`content_identity_of`), which is stamped at ACTIVATION and never updated
+    // while the session lives.
+    //
+    // ⇒ **A cast published under a running session changes the world without
+    // changing that stamp, so the contract sees nothing.** The failure arrives as
+    // a CHECKSUM MISMATCH — the canary noticing after the fact — rather than as
+    // the contract's own refusal, and the two messages are how you tell them
+    // apart. That is the same blindness `Q120`'s developer edits exploit, which
+    // is why the two rows are one problem.
     assert!(
-        desync.is_some(),
-        "MEASURED GAP CLOSED? This arm records that publishing a cast mid-timeline \
-         DESYNCS the sync-test canary, which is what makes `Q118`'s live-timeline \
-         half a local problem rather than a network-only one. If it now stays \
-         healthy, name what sealed it — the cast entering rollback history, the \
-         publication becoming a bounded rebase, or the projection leaving the sim \
-         schedule — and this arm becomes the assertion that the chosen model holds.",
+        error.contains("checksum mismatch"),
+        "the failure was NOT a checksum mismatch: {error}. If `enforce_session_contract` \
+         now refuses this, the guard has stopped being blind to a change that does \
+         not move the session root's stamp — say what widened it, because `Q118` \
+         and `Q120` both rest on it being blind."
+    );
+    assert!(
+        !error.contains("prepared content changed"),
+        "the contract DID fire ({error}) — which would mean a cast publication now \
+         moves the session root's `PreparedContentIdentity`, and the interval \
+         `Q118` is about has a guard after all"
     );
 }

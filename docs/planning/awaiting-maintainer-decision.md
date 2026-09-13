@@ -1604,9 +1604,30 @@ nothing:** the file's own no-edit arm is green over the same frames, and staging
 the revision WITHOUT activating it leaves the timeline healthy — so the desync is
 the PUBLICATION and not the staging, the fixture, or the rig.
 
+⛔⛤ **AND THE GUARD THAT SHOULD HAVE CAUGHT IT EXISTS, RUNS, AND IS BLIND TO
+THIS CLASS — WHICH IS THE ACTIONABLE HALF AND SHRINKS THE PACKET.**
+`enforce_session_contract` already invalidates a live session on *"prepared
+content changed while the GGRS session was active"*. It compares
+`PreparedContentIdentity` read by `content_identity_of` from the **SESSION ROOT
+ENTITY** — a component stamped at ACTIVATION and never updated while the session
+lives.
+
+⇒ **A mechanical change published under a running session changes the world
+without changing that stamp, so the contract sees nothing.** The failure arrives
+as a CHECKSUM MISMATCH — the canary noticing after the fact — instead of as the
+contract's own refusal, and the arm asserts WHICH of the two messages it got so
+the day the guard widens is the day the arm flips.
+
+⇒ **THAT IS THE SAME BLINDNESS `Q120`'s DEVELOPER EDITS EXPLOIT**, and it is why
+the two rows are one problem: both change what a historical frame resimulates to,
+both leave the root's stamp alone, and both are therefore invisible to the one
+guard that already watches this boundary. ⭐ **So the packet is smaller than
+"build a rebase lifecycle" sounded**: the refusal machinery is built and wired;
+what it lacks is a fact to compare that moves when the world does.
+
 ⇒ `Q120` is the same question from the developer-edit side and is still unruled;
 this says the two are one problem rather than two, because they share a
-mechanism and now share a measurement.
+mechanism, share a guard's blind spot, and now share a measurement.
 
 <details><summary>The original row, whose measurements all still stand</summary>
 

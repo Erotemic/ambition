@@ -279,6 +279,13 @@ pub(crate) struct PlatformerPreparation<'w> {
         // the published registry, so FREEZING has to capture the value the
         // builder will actually use. See `SessionMechanics`.
         Option<Res<'w, ambition_characters::prepared::PreparedCharacterRegistry>>,
+        // ⛔⛤ **THE IMMUTABLE DEVELOPER CONSTRUCTION KNOBS**, in this bundle for
+        // the same reason as the rest: they are inputs to ONE thing, the
+        // prepared content's identity. Both change the authoritative ROSTER a
+        // room admits, and neither reached any fingerprint — see
+        // `MechanicalRegistries::developer_construction`.
+        Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
+        Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
     ),
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
@@ -617,6 +624,10 @@ impl PlatformerPreparation<'_> {
                     ambition_boss_encounter::BossCatalog::deterministic_dump,
                     "boss.catalog",
                 )?,
+                developer_construction: developer_construction_dump(
+                    self.content_inputs.7.as_deref(),
+                    self.content_inputs.8.as_deref(),
+                ),
             })
         })
         .and_then(|mechanical| {
@@ -925,6 +936,13 @@ pub fn prepare_platformer_content_for_app(
             ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
                 .schema_fingerprint()
         });
+    // ⚠ TAKEN BEFORE THE EPOCH BORROW: `resource_mut` holds the world mutably.
+    let developer_construction = developer_construction_dump(
+        app.world()
+            .get_resource::<ambition_characters::brain::AuthoredBrainOverride>(),
+        app.world()
+            .get_resource::<ambition_characters::actor::AuthoredPopulationCap>(),
+    );
     app.init_resource::<ContentEpochSequence>();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
     prepare_platformer_content(
@@ -939,6 +957,7 @@ pub fn prepare_platformer_content_for_app(
             prepared_cast,
             authored_sheets,
             boss_catalog,
+            developer_construction,
         },
         snapshot_schema,
         &mut epochs,
@@ -1042,6 +1061,40 @@ pub(crate) fn candidate_cast_for(
 /// `RollbackTimelineContract` uses to decide a snapshot may be restored into a
 /// world. ⇒ A generation whose mechanical material cannot be rendered has no
 /// identity, so the preparation refuses.
+/// The canonical form of the immutable developer construction configuration.
+///
+/// ⛔⛤ **RENDERED HERE RATHER THAN AS A `deterministic_dump` ON EITHER TYPE,
+/// BECAUSE NEITHER TYPE OWNS THE CLASS.** `AuthoredBrainOverride` and
+/// `AuthoredPopulationCap` live in `ambition_characters` and know nothing about
+/// each other; what binds them is that BOTH are read once from the environment
+/// by the developer plugin and BOTH change the roster a room construction
+/// admits. The class is a property of this identity, so the rendering is too.
+///
+/// ⚠ **EVERY FIELD IS SPELLED, INCLUDING THE ABSENT ONES.** A dump that omits an
+/// unset field cannot distinguish *"no preset"* from *"no developer tools"* from
+/// a field that was added and forgotten — and a fingerprint that cannot tell
+/// those apart is a fingerprint two different worlds can share. `-` is the
+/// absent spelling and is not a legal value of any of these fields.
+fn developer_construction_dump(
+    brains: Option<&ambition_characters::brain::AuthoredBrainOverride>,
+    population: Option<&ambition_characters::actor::AuthoredPopulationCap>,
+) -> Option<String> {
+    // ⛔ ABSENT ONLY WHEN BOTH ARE, so a composition that installs one knob and
+    // not the other is not silently reported as installing neither.
+    if brains.is_none() && population.is_none() {
+        return None;
+    }
+    let spell = |value: Option<&str>| value.unwrap_or("-").to_string();
+    Some(format!(
+        "brain.preset={}\nbrain.profile={}\npopulation.cap={}\n",
+        spell(brains.and_then(ambition_characters::brain::AuthoredBrainOverride::preset)),
+        spell(brains.and_then(ambition_characters::brain::AuthoredBrainOverride::profile)),
+        population
+            .and_then(|cap| cap.cap())
+            .map_or_else(|| "-".to_string(), |cap| cap.to_string()),
+    ))
+}
+
 fn canonical<T>(
     source: Option<&T>,
     render: impl Fn(&T) -> Result<String, String>,
@@ -1069,6 +1122,26 @@ pub struct MechanicalRegistries {
     /// Boss behaviours, encounters, sheets and fallbacks —
     /// `BossCatalog::deterministic_dump`.
     pub boss_catalog: Option<String>,
+    /// ⛔⛤ **IMMUTABLE DEVELOPER CONSTRUCTION CONFIGURATION, WHICH IS STILL
+    /// MECHANICAL.** `AuthoredBrainOverride` chooses a forced preset/profile in
+    /// the NPC construction road and `AuthoredPopulationCap` is spent by
+    /// `RoomFeatureConstructionPlan::prepare` BEFORE the construction rows
+    /// exist, so different values produce a different authoritative ROSTER and
+    /// different autonomous behaviour.
+    ///
+    /// ⛔ **"WRITTEN ONCE FROM THE ENVIRONMENT" ANSWERS THE SNAPSHOT QUESTION
+    /// AND NOT THE IDENTITY ONE**, and the project had been conflating them.
+    /// `rollback_coverage` waives both because a resimulated frame never rereads
+    /// them — correct, and about STORAGE. Two Apps could still share one
+    /// `PreparedContentIdentity` with different rosters, and that identity is
+    /// what `RollbackTimelineContract` compares to decide a snapshot may be
+    /// restored into a world.
+    ///
+    /// ⚠ **ONE SECTION FOR BOTH, because they are one class**: developer
+    /// construction configuration. `None` means this composition installs no
+    /// developer tools, which is what an unset environment variable has always
+    /// meant and is a real state rather than a missing value.
+    pub developer_construction: Option<String>,
 }
 
 pub fn prepare_platformer_content(
@@ -1295,6 +1368,7 @@ pub fn prepare_platformer_content(
         prepared_cast,
         authored_sheets,
         boss_catalog,
+        developer_construction,
     } = mechanical;
     // ⛔ DESTRUCTURED EXHAUSTIVELY, so a field added to `MechanicalRegistries`
     // and not bound below is a compile error rather than a silent omission —
@@ -1307,6 +1381,9 @@ pub fn prepare_platformer_content(
         ("characters.definitions", prepared_cast),
         ("characters.authored-sheets", authored_sheets),
         ("boss.catalog", boss_catalog),
+        // ⛔ THE IMMUTABLE DEVELOPER KNOBS THAT CHANGE THE CONSTRUCTED ROSTER.
+        // See `MechanicalRegistries::developer_construction`.
+        ("construction.developer", developer_construction),
     ] {
         builder
             .add_section(section, material.map_or_else(Vec::new, String::into_bytes))
@@ -2653,6 +2730,165 @@ mod mechanical_registries_reach_the_identity {
         assert!(
             candidate_cast_for(None, Some(&mine), "shell.game.8").is_none(),
             "a stranger's candidate became the cast for an App that published none",
+        );
+    }
+
+    /// ⛔⛤ **A DEVELOPER'S POPULATION CAP CHANGES THE ROSTER AND MUST CHANGE THE
+    /// IDENTITY.**
+    ///
+    /// ⛤ FROM THE 2026-09-13 REVIEW. `AuthoredPopulationCap` is spent by
+    /// `RoomFeatureConstructionPlan::prepare` BEFORE the construction rows
+    /// exist, so a capped App and an uncapped one build DIFFERENT authoritative
+    /// rosters — and they shared one `PreparedContentIdentity`, which is the
+    /// value `RollbackTimelineContract` compares to decide whether a snapshot
+    /// from one world may be restored into another.
+    ///
+    /// ⚠ **"WRITTEN ONCE FROM THE ENVIRONMENT" IS AN ANSWER TO A DIFFERENT
+    /// QUESTION.** `rollback_coverage` waives this resource because a
+    /// resimulated frame never rereads it. That is about STORAGE. This is about
+    /// IDENTITY, and the project had been treating one as the other.
+    #[test]
+    fn a_developer_population_cap_reaches_the_identity() {
+        let uncapped = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+            app.insert_resource(ambition_characters::actor::AuthoredPopulationCap::UNCAPPED);
+        });
+        let capped = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+            app.insert_resource(ambition_characters::actor::AuthoredPopulationCap::capped_at(1));
+        });
+        assert_ne!(
+            uncapped, capped,
+            "two compositions that admit different numbers of authored actors \
+             share one PreparedContentIdentity — a snapshot taken under one \
+             would be declared restorable into the other",
+        );
+    }
+
+    /// ⛔ THE SAME FOR THE FORCED BRAIN, and BOTH FIELDS, because a dump that
+    /// spells one and forgets the other is the omission this section exists to
+    /// close.
+    #[test]
+    fn a_forced_developer_brain_reaches_the_identity() {
+        let authored = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+            app.insert_resource(ambition_characters::brain::AuthoredBrainOverride::default());
+        });
+        let forced_preset = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+            app.insert_resource(ambition_characters::brain::AuthoredBrainOverride {
+                preset: Some("stand_still".to_string()),
+                profile: None,
+            });
+        });
+        let forced_profile = identity_of(|app| {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                a_character(7),
+                &Default::default(),
+            )
+            .expect("stages");
+            app.insert_resource(ambition_characters::brain::AuthoredBrainOverride {
+                preset: None,
+                profile: Some("fighter".to_string()),
+            });
+        });
+        assert_ne!(
+            authored, forced_preset,
+            "a composition whose every actor's brain PRESET is forced shares one \
+             identity with the composition that lets the author decide",
+        );
+        assert_ne!(
+            authored, forced_profile,
+            "a composition whose every actor's autonomous PROFILE is forced \
+             shares one identity with the composition that lets the author decide",
+        );
+        // ⛔ AND THE TWO FIELDS ARE NOT INTERCHANGEABLE. A dump that rendered
+        // "something is forced" rather than WHICH field would pass both arms
+        // above and fail this one — and the two roads reach genuinely different
+        // brains (see `AuthoredBrainOverride::profile`).
+        assert_ne!(
+            forced_preset, forced_profile,
+            "forcing the PRESET and forcing the PROFILE produced one identity, so \
+             the dump records that a knob is set and not which",
+        );
+    }
+
+    /// ⛔⛤ **AND TWO DIFFERENT VALUES OF ONE KNOB ARE TWO DIFFERENT WORLDS.**
+    ///
+    /// ⛤ **THIS ARM EXISTS BECAUSE A POISON DECLINED TO FIRE.** With the dump
+    /// rewritten to spell `set` instead of the value, the two arms above BOTH
+    /// stayed green: they vary WHICH FIELD is populated and never WHICH VALUE it
+    /// holds, so a fingerprint recording only *"a knob is set"* satisfies them.
+    /// A composition forcing every brain to `stand_still` and one forcing every
+    /// brain to `charge` would have shared an identity, and a cap of 1 and a cap
+    /// of 2 with it.
+    ///
+    /// ⇒ A poison that passes is a finding about the COVERAGE, not a licence to
+    /// keep the guard.
+    #[test]
+    fn two_different_values_of_one_developer_knob_are_two_identities() {
+        let forced_to = |preset: &str| {
+            let preset = preset.to_string();
+            identity_of(move |app| {
+                ambition_characters::prepared::stage_authored_character(
+                    app,
+                    a_character(7),
+                    &Default::default(),
+                )
+                .expect("stages");
+                app.insert_resource(ambition_characters::brain::AuthoredBrainOverride {
+                    preset: Some(preset),
+                    profile: None,
+                });
+            })
+        };
+        assert_ne!(
+            forced_to("stand_still"),
+            forced_to("charge"),
+            "two compositions whose every actor is forced to a DIFFERENT brain \
+             preset share one identity — the dump records that the knob is set \
+             rather than what it is set to",
+        );
+
+        let capped_at = |cap: usize| {
+            identity_of(move |app| {
+                ambition_characters::prepared::stage_authored_character(
+                    app,
+                    a_character(7),
+                    &Default::default(),
+                )
+                .expect("stages");
+                app.insert_resource(
+                    ambition_characters::actor::AuthoredPopulationCap::capped_at(cap),
+                );
+            })
+        };
+        assert_ne!(
+            capped_at(1),
+            capped_at(2),
+            "a room that admits one authored actor and a room that admits two \
+             share one identity",
         );
     }
 

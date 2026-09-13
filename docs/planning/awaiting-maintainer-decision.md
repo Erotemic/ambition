@@ -2006,7 +2006,32 @@ authoritative entity has a missing PLAN ROW, not a minting need.
 ⚠ **CLOSE IT BEFORE WIRING A10's CANDIDATE LIFECYCLE INTO I3b**, or the
 integration bakes in the escape the recipe work was built to delete.
 
-## Q126 — immutable DEVELOPER construction configuration is mechanical and is outside the identity
+## ✅ Q126 — CLOSED 2026-09-13 by (a): the two knobs are IN the canonical identity.
+
+`MechanicalRegistries::developer_construction` renders both into the
+`construction.developer` section, so two Apps that admit different numbers of
+authored actors — or force different brains — are different generations, and a
+snapshot taken under one is refused into the other by the contract that already
+compares that identity. (b), refusing a non-default knob in a rollback session,
+was not needed: including the value is strictly more useful, because it lets a
+measurement run under a cap still be replayed against itself.
+
+⚠ **`PerceptionExtentOverride` IS STILL OUT**, deliberately and not by oversight:
+its knob configures `ensure_perception` when it attaches a policy to a NEW body,
+and the resulting `Perception::Sighted` IS registered rollback state. Whether the
+seed belongs in the identity alongside the two above is the same question one
+layer out, and it is not answered by this row.
+
+⭐⭐ **A POISON DECLINED TO FIRE AND FOUND THE REAL GAP.** The first two arms vary
+WHICH FIELD is set and never WHICH VALUE, so a dump spelling `set` instead of the
+value passed both: two compositions forcing every brain to different presets, or
+capping at 1 and 2, would still have shared an identity.
+`two_different_values_of_one_developer_knob_are_two_identities` is the arm that
+closes it, and it is red under that poison.
+
+<details><summary>The original row</summary>
+
+### Q126 — immutable DEVELOPER construction configuration is mechanical and is outside the identity
 
 ⛔ **CONFIRMED AT HEAD 2026-09-13**, from the review. Two `PlatformerSessionBuilder`
 inputs (`lifecycle.rs:1503-1504`) are mechanical, change the constructed world,
@@ -2029,3 +2054,5 @@ generation identity, or (b) refuse a non-default knob in a rollback- or
 network-compatible session. ⛔ NOT a second hash authority — the same canonical
 identity, one more typed input. If any becomes live-editable it graduates into
 `Q120`.
+
+</details>

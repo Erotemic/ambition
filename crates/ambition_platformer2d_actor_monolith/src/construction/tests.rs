@@ -176,6 +176,22 @@ fn commit(plan: RoomFeatureConstructionPlan) -> App {
 
 /// As [`commit`], with `seed` run against the world FIRST
 fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
+    // the default rig commits LIVE: no candidate bracket publishes here.
+    commit_bracketed(plan, false, seed)
+}
+
+/// As [`commit_over`], choosing whether the room is built as an INACTIVE
+/// CANDIDATE.
+///
+/// ⭐ ONE PARAMETER, PASSED TO BOTH ENDS, exactly as `spawn_contents` does — the
+/// bracket's opening refusal and the spawn's visibility are one decision, and a
+/// harness that spelled it twice could hold them apart in a way production
+/// cannot.
+fn commit_bracketed(
+    plan: RoomFeatureConstructionPlan,
+    candidate_bracket: bool,
+    seed: impl FnOnce(&mut World),
+) -> App {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     seed(app.world_mut());
@@ -184,13 +200,12 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
         // an undeclared baseline would verify these rooms against a claim the
         // production road no longer makes, and would go on passing after the
         // production road's declaration broke.
-        crate::world::rooms::transaction::open(&mut commands, &plan);
+        crate::world::rooms::transaction::open(&mut commands, &plan, candidate_bracket);
         let receipt = crate::features::spawn_room_feature_entities_from_plan(
             &mut commands,
             &plan,
             SessionSpawnScope::UNSCOPED,
-            // the test rig commits LIVE: no transaction bracket publishes here.
-            false,
+            candidate_bracket,
         );
         crate::world::rooms::transaction::close(
             &mut commands,
@@ -3753,4 +3768,66 @@ fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests
              from a display name — this catalog is empty and could join nothing"
         );
     }
+}
+
+/// ⛔⛤ **A ROOM BUILT AS A CANDIDATE IN A WORLD THAT CANNOT HIDE ONE IS REFUSED
+/// — AND UNTIL 2026-09-13 NOTHING ANYWHERE ASKED.**
+///
+/// `InactiveCandidate` only hides an entity because
+/// `register_inactive_candidate_filter` made it a bevy DISABLING component.
+/// Without that call the marker is an ordinary inert component: every root the
+/// bracket stamps is stamped, and every one of them is LIVE — a half-built room
+/// participating in the running world while it is being validated, which is the
+/// exact outcome the bracket exists to prevent, and it is SILENT.
+///
+/// ⛔ `ConstructionPlan::commit_inactive` refuses on exactly this, and its doc
+/// said the deferred road's caller *"owes that check"*. MEASURED at HEAD:
+/// `inactive_candidate_filter_installed` had ONE caller — inside
+/// `commit_inactive` itself — and `commit_inactive` had ZERO production callers.
+/// ⇒ **The check lived only on the road with no traffic. Nobody owed it.**
+///
+/// ⇒ The room transaction opens with `&mut World` and asks there.
+#[test]
+fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let app = commit_bracketed(plan, true, |_| {});
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        !verification.published,
+        "a room was published as a CANDIDATE into a world where `InactiveCandidate` \
+         is not a disabling component, so every root it called invisible was live \
+         the whole time"
+    );
+}
+
+/// ⭐ THE CONTROL, and without it the arm above is satisfied by a harness that
+/// refuses every bracketed room for some unrelated reason.
+///
+/// The SAME plan, the SAME bracket, one difference: the world was taught what
+/// `InactiveCandidate` means.
+#[test]
+fn the_same_candidate_room_publishes_once_the_filter_is_installed() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    let app = commit_bracketed(plan, true, |world| {
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            world,
+        );
+    });
+    let verification = app
+        .world()
+        .resource::<crate::world::rooms::LastConstructionVerification>();
+    assert!(
+        verification.published,
+        "a bracketed room was refused in a world that DOES hide candidates, so the \
+         refusal above is about something other than the filter: {:?}",
+        verification.violations
+    );
 }

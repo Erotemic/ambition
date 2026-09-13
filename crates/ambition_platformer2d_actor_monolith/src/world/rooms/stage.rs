@@ -271,7 +271,11 @@ impl RoomConstructionPlan {
     pub fn spawn_contents(&self, commands: &mut Commands) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
-        transaction::open(commands, &self.features);
+        // ⛔ ONE DECISION, READ ONCE: the bracket's two ends — the opening
+        // refusal and the spawn's visibility — must agree, and a literal at each
+        // is two spellings of one fact.
+        let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
+        transaction::open(commands, &self.features, candidate_bracket);
         // ⛔⛤ **THE CANDIDATE ROAD IS BUILT AND WIRED BUT THIS FLAG IS `false`,
         // AND THAT IS A MEASURED HOLD RATHER THAN AN OVERSIGHT.**
         //
@@ -337,12 +341,15 @@ impl RoomConstructionPlan {
         // production reader. Under this bracket it would have dropped the whole
         // room and landed every hot reload in an EMPTY WORLD.
         //
-        // ⭐ **ONE HALF NEEDS NO RULING.** `TransactionBaseline::retiring` and
-        // `reconstructing` exist for exactly this and have ZERO production
-        // callers — `transaction::open` captures a baseline that declares
-        // nothing, so every shipped room is judged against a claim nobody made.
-        // That is why the violation above reads `PlannedOverBaseline` rather than
-        // the precise `ReconstructedOldSurvived`.
+        // ✅ **THAT HALF NEEDED NO RULING AND IS DONE.** This paragraph read
+        // *"`retiring` and `reconstructing` have ZERO production callers, so
+        // every shipped room is judged against a claim nobody made"*, and that is
+        // why the violation above once read `PlannedOverBaseline`.
+        // `transaction::open` now takes the plan and DERIVES the declaration, so
+        // the same situation reports `ReconstructedOldSurvived` and names the
+        // surviving entity. ⚠ `retiring` still has no production caller, which is
+        // a statement about room plans — a room says what it WILL contain and
+        // never declares an identity gone.
         //
         // ⇒ The ENABLERS are all in: `commit_hidden`, the at-mint stamp,
         // `construction_transactions` (every lane, not one — see its doc), and
@@ -351,7 +358,7 @@ impl RoomConstructionPlan {
             commands,
             &self.features,
             self.session_scope,
-            false,
+            candidate_bracket,
         );
         debug_assert_eq!(
             receipt.authoritative_ids(),

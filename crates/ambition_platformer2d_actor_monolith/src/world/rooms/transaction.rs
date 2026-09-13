@@ -23,7 +23,65 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 /// A resource because the two ends are separate commands in one queue and nothing else can
 /// carry a value between them.
 #[derive(Resource)]
-pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, BaselineCaptureError>);
+pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, OpenRefused>);
+
+/// ⛔⛤ **A10'S BRACKET FLAG, NAMED — IT USED TO BE A BARE `false` AT ONE CALL
+/// SITE.** `true` builds every root in every lane as an `InactiveCandidate`, so
+/// a room that fails verification is DROPPED rather than left standing
+/// half-built. See `RoomConstructionPlan::spawn_contents` for the measured hold
+/// (`Q124`) that keeps it off.
+///
+/// ⚠ It is a constant rather than a literal because it is read TWICE — the
+/// bracket's opening check and the spawn itself — and two spellings of one
+/// decision is how the two ends come to disagree about whether a room is a
+/// candidate.
+pub(crate) const ROOM_CANDIDATE_BRACKET: bool = false;
+
+/// Why a room transaction refused before it built anything.
+///
+/// ⛔⛤ **THE SECOND VARIANT COLLAPSES A RULE A DOC COMMENT USED TO ASK CALLERS TO
+/// OBEY.** `ConstructionPlan::commit_inactive` REFUSES when
+/// `register_inactive_candidate_filter` was never called, because an
+/// unregistered `InactiveCandidate` is an ordinary inert component — every
+/// "candidate" would be stamped and every one of them would be LIVE, which is
+/// the dangerous direction and is silent. The room road cannot call
+/// `commit_inactive`: it builds through deferred `Commands` and `commit_hidden`
+/// has no `&mut World` to ask with, so its doc said *"the caller owes that
+/// check"*.
+///
+/// ⚠ **THE CALLER DID NOT OWE IT — NOBODY DID.** MEASURED at HEAD 2026-09-13:
+/// `inactive_candidate_filter_installed` has exactly one caller, inside
+/// `commit_inactive` itself, and `register_inactive_candidate_filter` has exactly
+/// one production caller, in `ambition_platformer2d_runtime`'s plugin — a
+/// different crate from the room transaction the doc named. So the check lived
+/// only on the road with no production traffic.
+///
+/// ⇒ The room transaction opens with `&mut World` in hand and asks there. A
+/// composition that would build invisible candidates into a world that cannot
+/// hide them refuses the room instead, on the road production actually uses.
+#[derive(Debug)]
+pub(crate) enum OpenRefused {
+    /// The world already held one identity on two entities.
+    Baseline(BaselineCaptureError),
+    /// The bracket is on and `InactiveCandidate` is not a disabling component in
+    /// this world, so nothing it stamps would actually be hidden.
+    CandidateFilterNotInstalled,
+}
+
+impl std::fmt::Display for OpenRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Baseline(error) => write!(f, "{error}"),
+            Self::CandidateFilterNotInstalled => write!(
+                f,
+                "this room builds inactive candidates, but `InactiveCandidate` is not \
+                 registered as a disabling component in this world, so every candidate \
+                 would be LIVE while it was being validated. Call \
+                 `register_inactive_candidate_filter` at composition build."
+            ),
+        }
+    }
+}
 
 /// What the last construction transaction's verification concluded.
 ///
@@ -90,16 +148,30 @@ pub struct LastConstructionVerification {
 pub(crate) fn open(
     commands: &mut Commands,
     plan: &crate::features::RoomFeatureConstructionPlan,
+    candidate_bracket: bool,
 ) {
     let reconstructing = plan.planned_sim_ids();
     commands.queue(move |world: &mut World| {
-        let captured = TransactionBaseline::capture(world).map(|baseline| {
-            // ⛔ THE PLAN'S OWN PREDICTED ROSTER, not a hand-kept list beside it:
-            // `predicted_authoritative_ids` is the same set the receipt is
-            // `debug_assert`ed against, so the declaration and the execution
-            // cannot drift apart without that assertion firing first.
-            baseline.reconstructing(reconstructing.iter().cloned())
-        });
+        // ⛔ ASKED BEFORE THE BASELINE, because a world that cannot hide a
+        // candidate must refuse the room rather than build one it will then
+        // validate in plain sight. See `OpenRefused`.
+        let captured = if candidate_bracket
+            && !ambition_platformer2d_shared_tangle::construction::inactive_candidate_filter_installed(
+                world,
+            ) {
+            Err(OpenRefused::CandidateFilterNotInstalled)
+        } else {
+            TransactionBaseline::capture(world)
+                .map(|baseline| {
+                    // ⛔ THE PLAN'S OWN PREDICTED ROSTER, not a hand-kept list
+                    // beside it: `predicted_authoritative_ids` is the same set
+                    // the receipt is `debug_assert`ed against, so the
+                    // declaration and the execution cannot drift apart without
+                    // that assertion firing first.
+                    baseline.reconstructing(reconstructing.iter().cloned())
+                })
+                .map_err(OpenRefused::Baseline)
+        };
         world.insert_resource(PendingConstructionBaseline(captured));
     });
 }

@@ -213,6 +213,30 @@ impl CapabilityLanes {
         Ok(())
     }
 
+    /// Every identity every lane plans, as `SimId`s.
+    ///
+    /// ⛔ THE SIBLING OF [`Self::claim_planned_ids`], WHICH STRINGIFIES. The
+    /// roster it builds is for duplicate detection and for `Debug`; a
+    /// transaction DECLARATION needs the identities themselves, and
+    /// `SimId::to_string()` has no inverse — the type deliberately offers no
+    /// constructor that takes a whole canonical spelling, because one would let
+    /// any caller mint an identity in a namespace it does not own. Exhaustive
+    /// destructure, same as every other operation here, so a third lane is a
+    /// compile error.
+    pub(crate) fn planned_sim_ids(
+        &self,
+        out: &mut BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    ) {
+        let Self {
+            gravity,
+            #[cfg(feature = "portal")]
+            portal,
+        } = self;
+        out.extend(gravity.planned_ids());
+        #[cfg(feature = "portal")]
+        out.extend(portal.planned_ids());
+    }
+
     /// Append every lane to the room's canonical dump, in field order.
     pub(crate) fn write_deterministic_dump(&self, out: &mut String) {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;

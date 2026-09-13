@@ -39,9 +39,28 @@ test for the next one:
 | A10 step 5, the recipe escape | `c90a1cda0` | `commands_escape` deleted; minting is a type error |
 | A10 step 6, explicit retirement | `8fc339b16` | `replace_live_world`; both halves `pub(crate)` |
 
-**⛔ REOPENED 2026-09-13 BY REVIEW, and it is the top of the order:**
+**✅ CLOSED 2026-09-13, from the review that reopened them:**
 
-- **`Q121` half two** — the freeze has the WRONG LIFETIME. `bdbddfe` removed the
+| what was wrong | commit | receipt |
+| --- | --- | --- |
+| the freeze took generation N while preparing N+1 | `d8604e50c` | `PendingGenerationInputs` carries the admitted candidate cast; `AdmittedRevision::candidate()` |
+| the freeze died at activation, so transition and reset returned to App registries | `b3839b28f` | `SessionMechanics` promoted at activation; `GenerationMechanics` is the read |
+| ...and nothing made the roads USE it | `d7be0bb5e` | `for_room_construction` takes `&GenerationMechanics`; the bypass is `E0308` |
+| a developer's roster cap reached no fingerprint | `b57f526ba` | `construction.developer` section; a poison that PASSED found the value gap |
+| a relation still held `&mut Commands`, and through it `&mut World` | `9922ce07b` | `RelationScope`; five escapes verified as compile errors from another crate |
+| the boomerang red was an ATTRIBUTION nothing measured | `8e1dd9218` | one +9 CPU hit at tick 30; the shot was right on both legs all along |
+
+**⛔ STILL OPEN AT THE TOP OF THE ORDER:**
+
+- **`Q121`'s remaining owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
+  rather than assumed: poisoning the freeze back to the App registry leaves
+  `edit_to_play_through_the_shell` GREEN, because on that road
+  `commit_content_generation` publishes N+1 BEFORE the providers run, so the two
+  sources agree. That agreement rests on `.before(GameplaySessionSet::Providers)`
+  — one edge, one witness — which is exactly why preparation must not depend on
+  it. ⇒ The arm that would bite lives in `Q118`'s unordered interval.
+- ~~**`Q121` half two**~~ — CLOSED, see the table above. (Original text:)
+  the freeze had the WRONG LIFETIME. `bdbddfe` removed the
   three mutable `Res` handles from `PlatformerSessionBuilder` (right) and froze
   the App's PUBLISHED cast while the transaction's own admitted N+1 candidate sat
   in `PendingGeneration` (wrong). ✅ That half is fixed in `d8604e50c`. ⛔ **What

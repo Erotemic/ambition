@@ -180,7 +180,11 @@ fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World))
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     seed(app.world_mut());
     app.add_systems(Update, move |mut commands: Commands| {
-        crate::world::rooms::transaction::open(&mut commands);
+        // ⛔ THE SAME DECLARATION `spawn_contents` MAKES. A harness that opened
+        // an undeclared baseline would verify these rooms against a claim the
+        // production road no longer makes, and would go on passing after the
+        // production road's declaration broke.
+        crate::world::rooms::transaction::open(&mut commands, &plan);
         let receipt = crate::features::spawn_room_feature_entities_from_plan(
             &mut commands,
             &plan,
@@ -1399,10 +1403,21 @@ fn a_room_that_fails_verification_is_not_published() {
         !verification.published,
         "a room that failed verification must not publish: {verification:?}"
     );
+    // ⛔⛤ **IT USED TO EXPECT `PlannedOverBaseline` AND THAT WAS THE VAGUE
+    // ANSWER.** Before `transaction::open` declared anything, a room rebuilding
+    // an identity the baseline still held could only be reported as *"you built
+    // something you never said you would"* — which is true of every room reset in
+    // the game and therefore names nothing. The room DOES say it will rebuild
+    // `duel_blue`; what is wrong here is that the seeded body is STILL THERE
+    // afterwards, and that is a different and actionable sentence.
+    //
+    // ⭐ `stale` NAMES THE SURVIVING ENTITY, which is what makes the real defect
+    // (`Q124`, a held placement carried across a death-reset) diagnosable rather
+    // than merely refused.
     assert!(
         verification.violations.iter().any(|violation| matches!(
             violation,
-            ambition_platformer2d_shared_tangle::construction::RosterViolation::PlannedOverBaseline {
+            ambition_platformer2d_shared_tangle::construction::RosterViolation::ReconstructedOldSurvived {
                 ..
             }
         )),

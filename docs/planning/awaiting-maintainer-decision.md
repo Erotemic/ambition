@@ -1972,10 +1972,32 @@ happens to an authored placement in your custody?
    room's plan should recognise the identity as already live and adopt it rather
    than mint a second. This is `reconstructing()` used properly.
 
-⛔ **WHICHEVER IS CHOSEN, `transaction::open` MUST DECLARE.** That half is
-structural and not a judgement call: a verifier checking a room against an empty
-declaration cannot tell a legitimate rebuild from an accidental duplicate, and it
-has not been able to for the life of the road.
+✅ **THE STRUCTURAL HALF IS DONE AND NEEDED NO RULING.** `transaction::open`
+takes the plan and derives the declaration from it, so every shipped room now
+states what it is reconstructing. MEASURED before and after, on the same death:
+
+```text
+before: [Duplicated { placement:ground_gun_sword, count: 2 },
+         PlannedOverBaseline { placement:ground_gun_sword }]
+after:  [Duplicated { placement:ground_gun_sword, count: 2 },
+         ReconstructedOldSurvived { placement:ground_gun_sword, stale: 502v0 }]
+```
+
+⇒ The refusal is unchanged; what changed is that it now NAMES THE SURVIVING
+ENTITY instead of saying *"you rebuilt something you never said you would"* —
+which was true of every room reset in the game and therefore said nothing.
+
+⭐⭐ **AND THE FIRST VERSION OF THAT FIX BUILT A SECOND AUTHORITY, caught by a
+poison that refused to fire.** `open` originally ACCEPTED a declaration, and the
+test harness immediately grew its own copy of `plan.planned_sim_ids()` beside the
+production one. Poisoning the production declaration to declare nothing left
+`a_room_that_fails_verification_is_not_published` GREEN — the arm was declaring
+for itself and never reached the production road. `open` now takes the PLAN and
+derives it, `close` already did, and the same poison reddens the arm.
+
+⛔ **WHAT STILL NEEDS THE RULING** is only the gameplay question below: the
+verifier can now say precisely what is wrong, and cannot say what should happen
+instead.
 
 ⚠ **A10's LAST STEP IS HELD ON THIS ROW**, and the hold is now one sentence
 rather than "the mechanism is not yet understood".

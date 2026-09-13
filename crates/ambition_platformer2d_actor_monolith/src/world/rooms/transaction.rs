@@ -7,6 +7,8 @@
 //! but cannot undo already-applied Bevy commands, so this is consistency checking,
 //! not atomic rollback.
 
+use std::collections::BTreeSet;
+
 use bevy::ecs::resource::Resource;
 use bevy::prelude::{Commands, World};
 
@@ -43,9 +45,61 @@ pub struct LastConstructionVerification {
 ///
 /// Queued before anything the transaction constructs, so what it sees at flush
 /// is what was live when the transaction opened.
-pub(crate) fn open(commands: &mut Commands) {
-    commands.queue(|world: &mut World| {
-        let captured = TransactionBaseline::capture(world);
+/// Open the transaction: queue the baseline capture, DECLARING what this room
+/// intends to rebuild.
+///
+/// ⛔⛤ **`TransactionBaseline::retiring` AND `::reconstructing` HAD ZERO
+/// PRODUCTION CALLERS, MEASURED AT HEAD 2026-09-13.** Both were reached only from
+/// tests. So every shipped room opened a baseline declaring NOTHING, and
+/// `verify_committed_roster` then judged the finished room against a claim nobody
+/// had made — for the life of the road.
+///
+/// ⇒ **THE CONSEQUENCE IS NOT THAT NOTHING WAS CHECKED. IT IS THAT THE CHECK
+/// COULD NOT NAME WHAT IT FOUND.** A room rebuild legitimately replaces the
+/// bodies of the identities it authors; with no declaration that reads as
+/// `PlannedOverBaseline` — *"you rebuilt something you never said you would"* —
+/// which is true of every room reset in the game and therefore says nothing. With
+/// the declaration, the same situation reports `ReconstructedOldSurvived`, which
+/// is the precise and ACTIONABLE statement: *"you said you would replace this
+/// identity, and the old body is still here."*
+///
+/// ⭐ **THAT IS EXACTLY THE `Q124` DEFECT, NEWLY LEGIBLE.** A death-reset carries
+/// a placement held in the player's custody across the "door" (`RoomResident`
+/// excludes `InCustodyOf`) and then re-mints it, so two entities wear one
+/// authored `SimId`. What the ruling in `Q124` decides is what SHOULD happen to
+/// the held one; what this decides is that the verifier can say which of the two
+/// is unexpected.
+///
+/// ⚠ **RECONSTRUCTING, NOT RETIRING.** A room plan says what the room WILL
+/// contain; it never declares an identity gone. `retiring` therefore still has no
+/// production caller, and that is a statement about room construction rather than
+/// an omission here — a road that genuinely retires an identity (an encounter
+/// clearing its rewards, say) owes its own declaration.
+///
+/// ⛔⛤ **IT TAKES THE PLAN AND DERIVES THE DECLARATION ITSELF, RATHER THAN
+/// ACCEPTING ONE.** The first version took a `BTreeSet<SimId>` from the caller,
+/// and the test harness in `construction/tests.rs` promptly grew its own copy of
+/// `plan.planned_sim_ids()` beside `spawn_contents`'s — TWO spellings of one
+/// fact. MEASURED: poisoning the production declaration to declare NOTHING left
+/// `a_room_that_fails_verification_is_not_published` green, because the harness
+/// was declaring for itself and the arm never reached the production road at all.
+///
+/// ⇒ **A CALLER CANNOT NOW DECLARE SOMETHING OTHER THAN WHAT IT IS ABOUT TO
+/// BUILD**, and the same poison reddens the arm. `close` already took the plan;
+/// the two ends of the bracket are symmetric again.
+pub(crate) fn open(
+    commands: &mut Commands,
+    plan: &crate::features::RoomFeatureConstructionPlan,
+) {
+    let reconstructing = plan.planned_sim_ids();
+    commands.queue(move |world: &mut World| {
+        let captured = TransactionBaseline::capture(world).map(|baseline| {
+            // ⛔ THE PLAN'S OWN PREDICTED ROSTER, not a hand-kept list beside it:
+            // `predicted_authoritative_ids` is the same set the receipt is
+            // `debug_assert`ed against, so the declaration and the execution
+            // cannot drift apart without that assertion firing first.
+            baseline.reconstructing(reconstructing.iter().cloned())
+        });
         world.insert_resource(PendingConstructionBaseline(captured));
     });
 }

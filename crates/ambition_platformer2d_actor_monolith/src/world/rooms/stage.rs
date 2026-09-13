@@ -269,7 +269,9 @@ impl RoomConstructionPlan {
     /// and published, so `RoomLoaded` described a room that was still being
     /// built.
     pub fn spawn_contents(&self, commands: &mut Commands) {
-        transaction::open(commands);
+        // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
+        // for the measurement that this had no production caller at all.
+        transaction::open(commands, &self.features);
         // ⛔⛤ **THE CANDIDATE ROAD IS BUILT AND WIRED BUT THIS FLAG IS `false`,
         // AND THAT IS A MEASURED HOLD RATHER THAN AN OVERSIGHT.**
         //

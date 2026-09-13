@@ -875,6 +875,18 @@ impl RoomFeatureConstructionPlan {
         all
     }
 
+    /// Every identity this room plans to build, across EVERY lane.
+    ///
+    /// ⛔ What `transaction::open` declares it is RECONSTRUCTING. See that
+    /// function for the measurement that nothing declared anything at all.
+    pub(crate) fn planned_sim_ids(
+        &self,
+    ) -> BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        let mut all: BTreeSet<_> = self.construction.planned_ids().into_iter().collect();
+        self.capability_lanes.planned_sim_ids(&mut all);
+        all
+    }
+
     pub(crate) fn construction_binding(
         &self,
     ) -> ambition_platformer2d_shared_tangle::construction::ContentBinding {

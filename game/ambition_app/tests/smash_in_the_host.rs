@@ -6649,20 +6649,33 @@ mod ring_out {
         );
     }
 
-    /// ⭐⭐ **DOES THE UNREPAIRED PERCENT CURVE ALREADY CONVERT?** Two cells,
-    /// both at `victim_percent_knockback_scale = 1.0`, which is the percent term
-    /// exactly as first written.
+    /// ⭐⭐ **THE UNREPAIRED PERCENT CURVE DOES NOT CONVERT — THE PREMISE THE
+    /// SHIPPED MULTIPLIER RESTS ON.** Two cells, both at
+    /// `victim_percent_knockback_scale = 1.0`, the percent term exactly as first
+    /// written. Measured: 520.9px/s resolved, 246.4px of the 720px the stage
+    /// asks for, stock standing.
     ///
-    /// This is the whole calibration, not a step toward it: 1.0 is the SMALLEST
-    /// candidate there is, so if it ends the stock at 700% stale while leaving
-    /// 0% a poke, then no percent multiplier is needed and the shipped `1.5` is
-    /// unearned. The 7-scale sweep can only confirm that afterwards.
+    /// ⇒ So this arm goes RED exactly when `1.0` starts ending the stock — the
+    /// one moment anybody needs to be told, because at that moment
+    /// `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` is unearned and should return to
+    /// `1.0`. It is a premise guard, not a calibration step; the 7-scale sweep
+    /// picks the value.
     ///
     /// ⛔ IT RUNS AT 1.0 WITHOUT EDITING THE SHIPPED CONSTANT, deliberately.
     /// Changing the number and the fixture together would make the result
     /// unattributable to either.
+    ///
+    /// ⚠⚠ **THIS ARM SHIPPED INVERTED AND REDDENED MAIN — 2026-09-12.** It
+    /// asserted `kill.left_the_world`, the KO, while its own failure text and
+    /// closing parenthetical both described the opposite outcome. Cause: it was
+    /// written while the answer was still open, with a comment saying the
+    /// assertion existed "so the answer is RECORDED rather than printed and
+    /// lost", and never revisited once the measurement came in. **An `assert!`
+    /// cannot record whichever answer turns up; it asserts one.** A probe whose
+    /// two outcomes are both findings belongs in a `println!` with a passing
+    /// test, or it must pick the measured branch — as this now does.
     #[test]
-    fn the_unrepaired_percent_curve_is_measured_against_the_stock_it_must_end() {
+    fn the_unrepaired_percent_curve_leaves_the_stock_standing() {
         let mut kill_cell = george_cell(JAB, 0, 700, true);
         kill_cell.scale = Some(1.0);
         let kill = {
@@ -6702,19 +6715,18 @@ mod ring_out {
             !poke.left_the_world,
             "a 0% jab killed at scale 1.0, so this cell cannot witness anything"
         );
-        // ⚠ NOT AN ASSERTION ABOUT WHICH ANSWER IS RIGHT. Both outcomes are
-        // findings: a KO here says the staleness split alone repaired the
-        // regression and the percent multiplier is unearned; no KO says the
-        // percent curve really is independently too shallow. The assertion
-        // exists so the answer is RECORDED rather than printed and lost.
+        // ⇒ THE MEASURED FINDING, PINNED IN THE DIRECTION IT WAS MEASURED. The
+        // launch GROWS with percent and still does not convert — which is the
+        // whole reason a percent multiplier is declared at all.
         assert!(
-            kill.left_the_world,
-            "at scale 1.00 a fully stale 700% jab did NOT end the stock: the \
-             engine resolved {:?}px/s and the body travelled {:.1}px. That is \
-             the evidence that the percent curve needs its own repair — record \
-             it and calibrate upward from here.\n\
-             (If this ever flips to passing, the shipped multiplier is \
-             unnecessary and should return to 1.0.)",
+            !kill.left_the_world,
+            "at scale 1.00 a fully stale 700% jab ENDED THE STOCK: the engine \
+             resolved {:?}px/s and the body travelled {:.1}px. The percent curve \
+             now converts unaided, so `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` is \
+             UNEARNED and should return to 1.0.\n\
+             ⛔ Do not green this by flipping the assertion back. This arm is the \
+             premise the shipped constant rests on, and a red here means the \
+             premise changed — which is the one thing it exists to say.",
             kill.resolved_launch,
             kill.peak_lateral,
         );

@@ -38,6 +38,20 @@
 
 use std::collections::BTreeMap;
 
+// ⛔ A `#[path]` MODULE, NOT A LIB — this package declares in its own manifest
+// that it has no lib on purpose, because a lib relinks every binary in it
+// whenever any of them changes. `trap_probe` and `wire_probe` include this same
+// file the same way.
+//
+// ⭐ AND IT IS WORTH REUSING RATHER THAN REWRITING: its header records four
+// separate findings that each cost a run measuring nothing — `NoWindow` omits
+// the render app entirely, a hand-stepped `update()` does not wait for the wgpu
+// device `run()` waits for, the two hosts do not announce the round the same
+// way, and a seated fighter's `Brain` overwrites any control frame delivered
+// from outside.
+#[path = "../probe_stage.rs"]
+mod probe_stage;
+
 use ambition_entity_catalog::smash_capture::{CaptureThrowParams, CAPTURE_CARRY, CAPTURE_THROW};
 use ambition_entity_catalog::{
     HitVolume, MovesetContract, WindowTag, CAPTURE_THROW_BACK_VERB, CAPTURE_THROW_DOWN_VERB,
@@ -364,7 +378,666 @@ fn dist(mut xs: Vec<f32>) -> Dist {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2: THE STAGE-OUTCOME PROBE
+//
+// ⛔⛔ **A KO IS NOT A RESET.** `measure_cell` in `smash_in_the_host.rs` re-seats
+// an entire match per cell, which is correct and unaffordable here: the matrix
+// is thousands of trials. Reusing one match is possible, but ONLY behind an
+// explicit reset contract, because a knockout spends a stock, opens
+// `DeathInterlude`, adds `PendingRespawn`/`OutOfPlay`, grants `RespawnGrace`
+// (which publishes `Invulnerability::RESPAWN`), teleports the body, and leaves
+// `BodyKnockedOut` messages in the buffer that a fresh cursor would re-read as
+// the NEXT trial's result.
+//
+// ⇒ Every clause below is an assertion, not a hope, and each is tied to a fact
+// read out of the engine rather than assumed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// What one pulse did to one victim at one percent.
+#[derive(Debug, Clone)]
+struct Trial {
+    /// Read off `HitEvent.knockback` — the engine's own resolved number, never
+    /// recomputed here. `None` means no `LaunchSpeed` reached the victim, which
+    /// is a fixture failure rather than a measurement of zero.
+    resolved_launch: Option<f32>,
+    ko: bool,
+    /// Did the launch reach this body's own tumble threshold, read live off its
+    /// motion model rather than restated as `500.0`.
+    tumbled: bool,
+    ticks_to_ko: Option<usize>,
+    /// The meter the victim actually entered the pulse carrying.
+    entry_percent: i32,
+    /// What the launch arithmetic saw. For a throw this is `entry + damage`,
+    /// because `apply_capture_throws` damages BEFORE reading the meter.
+    effective_percent: i32,
+}
+
+/// The outcome of a threshold search, including the ones that are not a number.
+#[derive(Debug)]
+enum Threshold {
+    /// Lowest entry percent that KOs, verified: `at-1` survives, `at` kills.
+    At(i32),
+    /// Never killed anywhere in the tested range.
+    Above(i32),
+    /// KO then survive as percent RISES. Samples preserved rather than
+    /// collapsed into a scalar that would be a fabrication.
+    NonMonotonic(Vec<(i32, bool)>),
+    /// The pulse never connected — nothing measured.
+    NoContact,
+}
+
+impl Threshold {
+    fn cell(&self) -> String {
+        match self {
+            Threshold::At(p) => p.to_string(),
+            Threshold::Above(p) => format!(">{p}"),
+            Threshold::NonMonotonic(s) => format!("NON_MONOTONIC{s:?}"),
+            Threshold::NoContact => "NO_CONTACT".into(),
+        }
+    }
+}
+
+struct KoProbe {
+    app: bevy::prelude::App,
+    attacker: bevy::prelude::Entity,
+    victim: bevy::prelude::Entity,
+    centre: f32,
+    tumble_speed: f32,
+    victim_weight: f32,
+}
+
+impl KoProbe {
+    fn new(attacker_id: &str, victim_id: &str) -> Self {
+        use ambition_platformer2d::characters::brain::Brain;
+
+        let staged = probe_stage::stage(probe_stage::StageRequest {
+            cast: [attacker_id, victim_id],
+            demo_host: false,
+            rendered: false,
+        });
+        let probe_stage::Staged {
+            mut app,
+            seat0,
+            seat1,
+        } = staged;
+
+        // ⛔ STOCKS FIRST, AND IT IS A CORRECTNESS PRECONDITION rather than a
+        // speed trick: `STARTING_STOCKS` is 3, and Smash's
+        // `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body —
+        // so the fourth probe KO would query a destroyed entity.
+        for body in [seat0, seat1] {
+            if let Some(mut stocks) = app
+                .world_mut()
+                .get_mut::<ambition_platformer2d::actor::FighterStocks>(body)
+            {
+                stocks.remaining = 9_999;
+                stocks.started_with = 9_999;
+            }
+            // ⛔ BOTH brains, not just seat 0. A live CPU victim is what broke
+            // the first version of `ring_out`: it walked during the window and
+            // something reset its meter mid-reading.
+            app.world_mut().entity_mut(body).insert(Brain::stand_still());
+        }
+        app.update();
+
+        // Read off the REAL stage, the way `ring_out::stage_centre_and_reach`
+        // does — never restated as a literal, because `STAGE_SIZE` and the blast
+        // margins are the demo's own constants and a copy here would be a second
+        // stage that silently stops matching the first.
+        let room = ambition_demo_smash::smash_stage();
+        let centre = room.world.size.x / 2.0;
+
+        // The victim's OWN tumble threshold, off its live motion model.
+        let tumble_speed = app
+            .world()
+            .get::<ambition_platformer2d::actor::MotionModel>(seat1)
+            .and_then(|model| match model {
+                ambition_platformer2d::actor::MotionModel::AxisSwept(axis) => {
+                    Some(axis.params.abilities.tumble_speed)
+                }
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        // The divisor the knockback law actually uses, read not restated.
+        let victim_weight = app
+            .world()
+            .get::<ambition_platformer2d::combat::components::CombatTuning>(seat1)
+            .map(|t| t.weight)
+            .unwrap_or(1.0);
+
+        Self {
+            app,
+            attacker: seat0,
+            victim: seat1,
+            centre,
+            tumble_speed,
+            victim_weight,
+        }
+    }
+
+    fn pos(&self, body: bevy::prelude::Entity) -> ambition_platformer2d::engine_core::Vec2 {
+        self.app
+            .world()
+            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(body)
+            .map(|k| k.pos)
+            .unwrap_or_default()
+    }
+
+    fn park(&mut self, body: bevy::prelude::Entity, x: f32) {
+        if let Some(mut kin) = self
+            .app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(body)
+        {
+            kin.pos = ambition_platformer2d::engine_core::Vec2::new(x, 200.0);
+            kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
+        }
+    }
+
+    /// ⛔ THE CONTRACT. A trial may not begin until every one of these is true,
+    /// and each is CHECKED rather than waited-out by tick count.
+    fn reset_trial(&mut self, entry_percent: i32, victim_x: f32) -> bool {
+        use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
+
+        // 1. Let the real respawn lifecycle finish. `respawn_when_the_interlude_
+        //    closes` gates on `!DeathInterlude.open()` and then hands back every
+        //    fact the spend took, so waiting on the MARKERS is waiting on the
+        //    engine's own answer.
+        let mut settled = false;
+        for _ in 0..600 {
+            let w = self.app.world();
+            let between_lives = w
+                .get::<ambition_platformer2d::combat::death_rules::DeathInterlude>(self.victim)
+                .is_some()
+                || w.get::<ambition_platformer2d::combat::stocks::PendingRespawn>(self.victim)
+                    .is_some()
+                || w.get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(self.victim)
+                    .is_some();
+            // 2. BOTH grace witnesses. `stocks.rs` clears the bit when the clock
+            //    expires AND retracts it when the component is removed, so the
+            //    two agreeing is a measurement; either alone is a claim. A trial
+            //    begun under live grace hits an untouchable victim and reports a
+            //    FALSE SURVIVAL — the worst failure this probe can have.
+            let protected = w
+                .get::<ambition_platformer2d::combat::stocks::RespawnGrace>(self.victim)
+                .is_some()
+                || w.get::<BodyHealth>(self.victim)
+                    .is_some_and(|h| h.health.invulnerable.holds(Invulnerability::RESPAWN));
+            let frozen = w
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(self.victim)
+                .is_some_and(|c| c.is_in_hitlag() || c.hitstun_timer > 0.0);
+            let captured = w
+                .get::<ambition_platformer2d::combat::capture::CapturedBy>(self.victim)
+                .is_some();
+            if !between_lives && !protected && !frozen && !captured {
+                settled = true;
+                break;
+            }
+            self.app.update();
+        }
+        if !settled {
+            return false;
+        }
+
+        // 3. Place, still, and metered.
+        self.park(self.victim, victim_x);
+        self.park(self.attacker, victim_x - 240.0);
+        for _ in 0..40 {
+            self.park(self.attacker, victim_x - 240.0);
+            self.app.update();
+            let grounded = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
+                .is_some_and(|g| g.on_ground);
+            if grounded {
+                break;
+            }
+        }
+        self.park(self.victim, victim_x);
+        self.app.update();
+
+        for (body, meter) in [(self.victim, entry_percent), (self.attacker, 0)] {
+            // ⛔ THE ATTACKER IS PINNED TO ZERO because `rage_scale` reads its
+            // meter and multiplies EVERY resolved launch. The sweep that picked
+            // the shipped percent scale ran with an uncontrolled ~1.25x rage.
+            if let Some(mut health) = self.app.world_mut().get_mut::<BodyHealth>(body) {
+                health.set_damage_taken(meter);
+            }
+        }
+        self.app.update();
+        true
+    }
+
+    /// Fire one authored volume at the parked victim and read the engine's own
+    /// verdict.
+    fn strike(&mut self, hit: &HitVolume, entry_percent: i32, victim_x: f32) -> Option<Trial> {
+        use ambition_platformer2d::combat::events::{HitEvent, HitKnockbackMagnitude, HitTarget};
+        use ambition_platformer2d::combat::stocks::BodyKnockedOut;
+        use ambition_platformer2d::engine_core::Vec2 as EVec2;
+
+        if !self.reset_trial(entry_percent, victim_x) {
+            return None;
+        }
+        let struck_at = self.pos(self.victim);
+        let attacker = self.attacker;
+
+        // ⛔⛔ CURSORS MADE **ONCE, HERE**, AND ADVANCED INSIDE THE LOOP.
+        //
+        // This is the whole defence against a previous trial's knockout being
+        // credited to this one. A cursor created now is already positioned past
+        // everything the buffer holds, so the reads below see only what this
+        // pulse produces; a cursor created per tick would re-read from the
+        // buffer's START every tick and rediscover every earlier trial's KO.
+        //
+        // ⚠ There is no `get_cursor_from_end` in bevy_ecs 0.19.1 — `get_cursor`
+        // is the only constructor, and every call site in this repo uses it.
+        // "Made once, before the loop" IS the end-of-stream guarantee; it is a
+        // discipline rather than an API, which is exactly why it is written down
+        // here instead of assumed.
+        let mut hit_cursor = self
+            .app
+            .world()
+            .resource::<bevy::ecs::message::Messages<HitEvent>>()
+            .get_cursor();
+        let mut ko_cursor = self
+            .app
+            .world()
+            .resource::<bevy::ecs::message::Messages<BodyKnockedOut>>()
+            .get_cursor();
+
+        let strike = self
+            .app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::combat::strike::Hitbox {
+                    owner: attacker,
+                    source: ambition_platformer2d::vfx::HitSide::Enemy,
+                    anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                        center: struck_at,
+                    },
+                    half_extent: EVec2::new(48.0, 48.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: hit.damage,
+                    knockback: ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
+                        base: hit.knockback,
+                        growth: hit.knockback_growth,
+                    },
+                    launch_dir: hit.launch_dir.map(|(x, y)| EVec2::new(x, y)),
+                    frame_down: EVec2::new(0.0, 1.0),
+                    strike_sfx: None,
+                    reaction: None,
+                },
+                ambition_platformer2d::combat::strike::HitboxHits::default(),
+                ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
+            ))
+            .id();
+
+        let mut resolved_launch = None;
+        let mut ko = false;
+        let mut ticks_to_ko = None;
+        // ⭐ THE TRIAL ENDS WHEN IT IS DECIDED, NOT WHEN THE BUDGET RUNS OUT.
+        //
+        // Measured 2026-09-13: a SURVIVING trial spent all 150 ticks watching a
+        // body that had already come to rest, and at ~8.9ms/frame that budget —
+        // not the simulation — was the whole cost of this instrument (~170s per
+        // pulse row, ~5.7h for the matrix, against a 90m timeout).
+        //
+        // ⛔ THE ARMING CONDITIONS ARE THE CORRECTNESS ARGUMENT, and each one
+        // excludes a way a body can be still WITHOUT the trial being over:
+        //   * `resolved_launch.is_some()` — before contact the victim is parked
+        //     and motionless, which looks exactly like "come to rest".
+        //   * `!is_in_hitlag()` — impact hitstop FREEZES both bodies. A victim
+        //     mid-freeze is perfectly still and has not yet travelled anywhere.
+        //   * `hitstun_timer <= 0` — still being carried by the launch.
+        //   * grounded and slow, for `SETTLED_TICKS` CONSECUTIVE ticks, so a
+        //     single frame of ground contact mid-arc cannot end the trial.
+        // A body that satisfies all four has been launched, has finished its
+        // launch, and is standing on the floor: it cannot reach a blast line.
+        const SETTLED_TICKS: usize = 4;
+        const SLOW_PX_S: f32 = 12.0;
+        let mut settled_for = 0usize;
+        for tick in 0..150 {
+            self.app.update();
+            if resolved_launch.is_none() {
+                let messages = self.app.world().resource::<bevy::ecs::message::Messages<HitEvent>>();
+                for ev in hit_cursor.read(messages) {
+                    if !matches!(ev.target, HitTarget::Body(e) if e == self.victim) {
+                        continue;
+                    }
+                    if let Some(kb) = ev.knockback.as_ref() {
+                        if let HitKnockbackMagnitude::LaunchSpeed(v) = kb.magnitude {
+                            resolved_launch = Some(v);
+                            break;
+                        }
+                    }
+                }
+            }
+            if !ko {
+                let messages = self
+                    .app
+                    .world()
+                    .resource::<bevy::ecs::message::Messages<BodyKnockedOut>>();
+                if ko_cursor.read(messages).any(|k| {
+                    k.body == self.victim
+                        && matches!(
+                            k.cause,
+                            ambition_platformer2d::combat::HitSource::LeftTheWorld
+                        )
+                }) {
+                    ko = true;
+                    ticks_to_ko = Some(tick);
+                }
+            }
+            if ko {
+                break;
+            }
+            if resolved_launch.is_some() {
+                let w = self.app.world();
+                let frozen = w
+                    .get::<ambition_platformer2d::characters::actor::BodyCombat>(self.victim)
+                    .is_some_and(|c| c.is_in_hitlag() || c.hitstun_timer > 0.0);
+                let grounded = w
+                    .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
+                    .is_some_and(|g| g.on_ground);
+                let slow = w
+                    .get::<ambition_platformer2d::platformer::body::BodyKinematics>(self.victim)
+                    .is_some_and(|k| k.vel.x.abs() < SLOW_PX_S && k.vel.y.abs() < SLOW_PX_S);
+                if !frozen && grounded && slow {
+                    settled_for += 1;
+                    if settled_for >= SETTLED_TICKS {
+                        let _ = tick;
+                        break;
+                    }
+                } else {
+                    settled_for = 0;
+                }
+            }
+        }
+        if self.app.world().get_entity(strike).is_ok() {
+            self.app.world_mut().entity_mut(strike).despawn();
+        }
+
+        Some(Trial {
+            tumbled: resolved_launch.is_some_and(|v| self.tumble_speed > 0.0 && v >= self.tumble_speed),
+            resolved_launch,
+            ko,
+            ticks_to_ko,
+            entry_percent,
+            effective_percent: entry_percent,
+        })
+    }
+
+    /// Coarse sweep → bracket → binary search → VERIFY both sides.
+    ///
+    /// ⛔ NOT A BARE BINARY SEARCH. The raw launch formula is monotonic in
+    /// percent, but a TRAJECTORY is not obliged to be: platforms, ceilings,
+    /// downward launches and landings all intervene. A search that assumes
+    /// monotonicity would return a confident number for a curve that does not
+    /// have one.
+    fn ko_threshold(&mut self, hit: &HitVolume, victim_x: f32, max_percent: i32) -> Threshold {
+        // ⚠ 50 RATHER THAN 25, AND IT IS A TRADE I AM MAKING ON PURPOSE.
+        // Widening the coarse step halves the sweep (13 samples -> 7) and costs
+        // the binary search one extra iteration, so the THRESHOLD it converges
+        // on is unchanged — but the sweep is also how `NonMonotonic` is spotted,
+        // and half as many samples is half as many chances to see a curve double
+        // back. The both-sides verification below still runs on every cell, so a
+        // non-monotonicity AT the threshold is still caught; one hiding strictly
+        // between two coarse samples is not. That is the exposure.
+        let step = 50;
+        let mut samples: Vec<(i32, bool)> = Vec::new();
+        let mut bracket: Option<(i32, i32)> = None;
+        let mut any_contact = false;
+        let mut p = 0;
+        while p <= max_percent {
+            match self.strike(hit, p, victim_x) {
+                Some(t) => {
+                    any_contact |= t.resolved_launch.is_some();
+                    samples.push((p, t.ko));
+                    if t.ko && bracket.is_none() {
+                        bracket = Some(((p - step).max(0), p));
+                    }
+                    // A KO followed by a survival at a HIGHER percent is a real
+                    // finding, not noise to be smoothed.
+                    if bracket.is_some() && !t.ko {
+                        return Threshold::NonMonotonic(samples);
+                    }
+                }
+                None => samples.push((p, false)),
+            }
+            if bracket.is_some() {
+                break;
+            }
+            p += step;
+        }
+        if !any_contact {
+            return Threshold::NoContact;
+        }
+        let Some((mut lo, mut hi)) = bracket else {
+            return Threshold::Above(max_percent);
+        };
+        while hi - lo > 1 {
+            let mid = (lo + hi) / 2;
+            let killed = self.strike(hit, mid, victim_x).is_some_and(|t| t.ko);
+            if killed {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+        // VERIFY BOTH SIDES rather than trusting the walk.
+        let below = self.strike(hit, (hi - 1).max(0), victim_x).is_some_and(|t| t.ko);
+        let at = self.strike(hit, hi, victim_x).is_some_and(|t| t.ko);
+        if below || !at {
+            samples.push((hi - 1, below));
+            samples.push((hi, at));
+            return Threshold::NonMonotonic(samples);
+        }
+        Threshold::At(hi)
+    }
+}
+
+/// PHASE 2 ENTRY: KO envelopes for reachable strike pulses, reference vs heavy.
+///
+/// ⛔ THE SELF-TEST RUNS FIRST AND GATES EVERYTHING. Reusing one staged match
+/// across trials is only sound if a repeated trial repeats; if it does not, a
+/// whole table would be contaminated by the previous stock and look like data.
+fn run_probe() {
+    const REFERENCE: &str = "player_robot_v3";
+    const HEAVY: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
+    // Attackers spanning the roster rather than all 21: the question is whether
+    // ROLES separate, and every fighter authors the same role set.
+    let attackers = ["npc_pirate_admiral", "smash_george_booul", "npc_bob"];
+    let max_percent = 300;
+
+    // ⭐ ONE MATCHUP PER PROCESS. The six cells of the matrix share nothing —
+    // separate Apps, separate worlds — so running them as six processes is pure
+    // wall-clock division that cannot touch a single measured number. With no
+    // arguments the tool still walks the whole matrix in one process.
+    let argv: Vec<String> = std::env::args().collect();
+    let after: Vec<&str> = argv
+        .iter()
+        .skip_while(|a| a.as_str() != "probe")
+        .skip(1)
+        .map(|s| s.as_str())
+        .collect();
+    let pairs: Vec<(String, String)> = if after.len() >= 2 {
+        vec![(after[0].to_string(), after[1].to_string())]
+    } else {
+        let mut v = Vec::new();
+        for victim in [REFERENCE, HEAVY] {
+            for a in attackers {
+                v.push((a.to_string(), victim.to_string()));
+            }
+        }
+        v
+    };
+
+    println!("# ko_envelope PROBE — stage outcomes, 1.25 frozen, no authored value changed");
+    // ⛔⛔ EVERY KO PERCENT BELOW IS A NO-RECOVERY LOWER BOUND, and reading one
+    // as a kill percent overstates the game's lethality.
+    //
+    // Both bodies carry `Brain::stand_still()`. The victim therefore never DIs,
+    // never jumps, never air-dodges and never uses a recovery move — it is
+    // launched and it travels until something stops it. A real victim fights the
+    // launch, so its true threshold is HIGHER than the number in these columns,
+    // by an amount this instrument does not measure. What the columns ARE good
+    // for is comparison between cells measured the same way: role against role,
+    // centre against ledge, reference weight against heavy.
+    println!(
+        "# victim brain: stand_still — no DI, no jump, no recovery. KO% is a \
+         NO-RECOVERY LOWER BOUND, not a kill percent."
+    );
+    println!("# attacker meter pinned to 0 so rage_scale cannot multiply a resolved launch.");
+
+    {
+        for (attacker_id, victim_id) in &pairs {
+            let (attacker_id, victim_id) = (attacker_id.as_str(), victim_id.as_str());
+            let mut probe = KoProbe::new(attacker_id, victim_id);
+            println!(
+                "\n# {attacker_id} vs {victim_id}  weight={:.2}  tumble_speed={:.1}",
+                probe.victim_weight, probe.tumble_speed
+            );
+
+            // Build this attacker's bound strike pulses from the runtime contract.
+            let launchers = {
+                let world = probe.app.world();
+                let registry = world
+                    .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+                    .expect("registry");
+                let Some(prepared) = registry.get(attacker_id) else {
+                    println!("#   NOT IN REGISTRY — skipped");
+                    continue;
+                };
+                let Some(contract) = prepared.kit.projectable_moveset() else {
+                    println!("#   no projectable moveset — skipped");
+                    continue;
+                };
+                let mut bad = Vec::new();
+                let mut nl = Vec::new();
+                launchers_of(attacker_id, contract, &mut bad, &mut nl)
+                    .into_iter()
+                    .filter(|l| matches!(l, Launcher::Strike { verbs, .. } if !verbs.is_empty()))
+                    .collect::<Vec<_>>()
+            };
+
+            // ⭐ THE SELF-TEST. Same pulse, same percent, twice.
+            if let Some(Launcher::Strike { hit, .. }) = launchers.first() {
+                let a = probe.strike(hit, 100, probe.centre).map(|t| t.ko);
+                let b = probe.strike(hit, 100, probe.centre).map(|t| t.ko);
+                println!("#   repeatability@100%: {a:?} then {b:?}");
+                if a != b {
+                    println!(
+                        "#   ⛔ SAME-MATCH REUSE IS NOT REPEATABLE — every row below would be \
+                         contaminated by the previous stock. Table suppressed."
+                    );
+                    continue;
+                }
+            }
+
+            println!(
+                "role\tmove\tw/v\tbase\tgrowth\tlaunch@100\ttumble%\tcentre_KO%\tledge_KO%\tko_ticks"
+            );
+            let ledge_x = probe.centre + 240.0;
+            for l in &launchers {
+                let Launcher::Strike { hit, move_id, .. } = l else {
+                    continue;
+                };
+                let launch_at_100 = probe
+                    .strike(hit, 100, probe.centre)
+                    .and_then(|t| t.resolved_launch);
+                // ⭐ THE TUMBLE CROSSING IS SOLVED, NOT SWEPT — and the solve
+                // CHECKS ITS OWN PREMISE instead of assuming it.
+                //
+                // `scaled_knockback` is linear in victim percent, so three
+                // samples answer what a 13-trial sweep answered: two fix the
+                // line, the third must land on it. Measured against the slow
+                // path's own jab row (base 55.0, growth 1.10): l(0)=55.0,
+                // l(200)=330.0, midpoint 192.5 — and the engine reported exactly
+                // 192.5 at 100%, which is what makes the line trustworthy here.
+                //
+                // ⛔ If the third point misses, this prints NONLINEAR and no
+                // crossing, because a fitted line through a curve that is not
+                // one is a fabricated number.
+                let l0 = probe.strike(hit, 0, probe.centre).and_then(|t| t.resolved_launch);
+                let l200 = probe
+                    .strike(hit, 200, probe.centre)
+                    .and_then(|t| t.resolved_launch);
+                let tumble_cell = match (l0, launch_at_100, l200) {
+                    (Some(a), Some(mid), Some(b)) => {
+                        let predicted = (a + b) / 2.0;
+                        if (predicted - mid).abs() > 0.5 {
+                            format!("NONLINEAR({a:.1}/{mid:.1}/{b:.1})")
+                        } else if probe.tumble_speed <= 0.0 {
+                            "no-tumble-speed".to_string()
+                        } else if a >= probe.tumble_speed {
+                            "0".to_string()
+                        } else {
+                            let slope = (b - a) / 200.0;
+                            if slope <= 0.0 {
+                                format!(">{max_percent}")
+                            } else {
+                                let cross = ((probe.tumble_speed - a) / slope).ceil() as i32;
+                                if cross > max_percent {
+                                    format!(">{max_percent}")
+                                } else {
+                                    cross.to_string()
+                                }
+                            }
+                        }
+                    }
+                    _ => "-".to_string(),
+                };
+                let centre_ko = probe.ko_threshold(hit, probe.centre, max_percent);
+                let ledge_ko = probe.ko_threshold(hit, ledge_x, max_percent);
+                let (w, v) = match l {
+                    Launcher::Strike { window, volume, .. } => (*window, *volume),
+                    _ => (0, 0),
+                };
+                // ⭐ LAUNCH-MOTION TIMING, which is a named suspect in this
+                // investigation and was being recorded and thrown away — the
+                // compiler said so ("field `ticks_to_ko` is never read"). Ticks
+                // from contact to blast line at the cell's own threshold is how
+                // "the launch feels slow" stops being a matter of opinion.
+                // ⛔ BY REFERENCE: `Threshold::NonMonotonic` carries a `Vec`, so
+                // this enum is not `Copy` and matching it by value would move
+                // `centre_ko` out from under the `centre_ko.cell()` below.
+                let ko_ticks = match &centre_ko {
+                    Threshold::At(p) => probe
+                        .strike(hit, *p, probe.centre)
+                        .and_then(|t| t.ticks_to_ko)
+                        .map(|t| t.to_string())
+                        .unwrap_or_else(|| "-".into()),
+                    _ => "-".to_string(),
+                };
+                println!(
+                    "{}\t{move_id}\tw{w}v{v}\t{:.1}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    l.role(),
+                    hit.knockback,
+                    hit.knockback_growth
+                        .map(|g| format!("{g:.2}"))
+                        .unwrap_or_else(|| "None".into()),
+                    launch_at_100
+                        .map(|v| format!("{v:.1}"))
+                        .unwrap_or_else(|| "-".into()),
+                    tumble_cell,
+                    centre_ko.cell(),
+                    ledge_ko.cell(),
+                    ko_ticks,
+                );
+            }
+        }
+    }
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "probe") {
+        run_probe();
+        return;
+    }
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // ⛔ THE REGISTRY IS FILLED BY A `Startup` SYSTEM. A build that has never

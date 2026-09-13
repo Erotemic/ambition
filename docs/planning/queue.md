@@ -141,7 +141,10 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
   (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
   make a burned number comparable, far from the allocator.
-- ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
+- ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. `sync_live_player_dev_edits_system`, `sync_developer_body_profile` and `sync_player_stats_with_inspector` are still in `app.sim_schedule()` — i.e. inside `GgrsSchedule` — writing canonical body state from live inspector values, arbitrated by non-rollback `Local`s; `PortalTuning` is mutated outside the sim and read inside. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
+  <details><summary>closed once on the second attempt</summary>
+
+  ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
   WRONG IN BOTH HALVES AND A REVIEW CAUGHT IT.** A live developer edit DESYNCS
   rollback resimulation, measured against the real sync-test canary.
   ⛔⛤ **ATTEMPT 1 LET THE EDIT LAND AND WATCHED FOR IT AFTERWARDS.** Its comment
@@ -162,6 +165,7 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   poison-verified: the schedule edge (with a control), the two ownership
   policies, and the staged-edit round trip. ⚠ Four more knobs have the same shape
   and gain a PROPOSER each when a consumer needs one — not a decision each.
+  </details>
 - **`Q119`** — ⚠ **THE AUDIT IS COMPLETE; "NO EXCEPTIONS LEFT" WAS SAID TWICE AND
   WAS WRONG BOTH TIMES.** First `PerceptionExtentOverride` was outside every
   identity (closed `2026-09-13`); then, with it bound, its fingerprint was a
@@ -260,15 +264,35 @@ one message currently carries.
    BUILD-TIME root beside an activation's, and that root is gone; the other
    source — a retired scope's root surviving into the next activation — was closed
    by `RetireAuthority -> Cleanup -> Activate`.
-   ⇒ **SO THIS IS NOT WORK NOW; IT IS A CONSTRAINT ON PACKET 1.** The review's own
-   first option is the one that costs nothing at 217 sites: **candidates get a
-   DISTINCT root identity (`CandidateSessionRoot`), and `SessionRoot` keeps
-   meaning "the published active world".** Introducing candidates under the same
-   marker is what would make 217 system parameters ambiguous — and `Single`
-   matches NOTHING rather than picking wrong, so every one of them would be
-   silently SKIPPED for the life of the candidate. Guard:
-   `the_shipped_app_never_holds_two_session_roots_across_a_handoff`, which is the
-   arm that reddens the moment a candidate is given `SessionRoot`.
+   ⛔⛤ **AND THE INSTRUCTION THAT USED TO STAND HERE IS DELETED — IT CONTRADICTED
+   A MEASURED RESULT TWO SECTIONS BELOW, AND A REVIEW FOUND BOTH IN THE SAME
+   FILE (2026-09-13).** It read: *"candidates get a DISTINCT root identity
+   (`CandidateSessionRoot`), and `SessionRoot` keeps meaning 'the published active
+   world'"*, reasoning that a candidate under the same marker would make 217
+   `Single<With<SessionRoot>>` parameters ambiguous — `Single` matches NOTHING
+   rather than picking wrong, so every one would be silently skipped.
+   ⇒ **THAT REASONING IS SOUND AND ITS PREMISE IS FALSE.** `InactiveCandidate` is
+   a REGISTERED DISABLING component, so a hidden candidate is not in an ordinary
+   query's population at all — measured in
+   `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`,
+   and the ambiguity never arises.
+
+   ⭐⭐ **RULED: THE CANDIDATE ROOT IS `SessionRoot` + `InactiveCandidate`.** One
+   semantic root vocabulary, the Bevy behaviour actually measured rather than
+   assumed, no parallel candidate-root taxonomy, and no rewrite of ~217 session-root
+   accesses merely to support preparation.
+
+   ⛔⛔ **AND THE RULING HAS A STRICT LIMIT, stated because it is the half a
+   reader will over-extend: IT SOLVES ROOT QUERY VISIBILITY AND NOTHING ELSE.**
+   The process-global singleton authorities are untouched by it —
+   `SessionMechanics`, `ActiveContentBinding`, the active shell/session selectors,
+   and the rest of the session-owned mechanical state. Those still need CANDIDATE
+   OWNERSHIP rather than being overwritten before admission, and a candidate root
+   that is invisible to queries does not make them so.
+
+   ⚠ The guard `the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+   stays and still means what it did: no two PUBLISHED roots. A hidden candidate
+   is not one, by the same disabling filter.
 3. **The independent lifecycle bugs, which need none of the above** — see the row
    below.
 4. **Then** candidate world publication.

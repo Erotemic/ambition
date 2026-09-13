@@ -901,8 +901,8 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // `ActiveMovementTuning`, and the whole point of this protocol is that it
     // does not move inside the window.
     (
-        "ambition_platformer2d_core::movement::tuning::PendingMechanicalEdit",
-        "host-side edit proposal: raised and consumed in the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems, so it is outside the rollback window by construction; rewinding it would resurrect a published edit or discard a staged one",
+        "ambition_platformer2d_core::movement::tuning::PendingMechanicalEdits",
+        "host-side edit proposals, one sticky key per domain: raised and drained in the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems, so it is outside the rollback window by construction; rewinding it would resurrect a published edit or discard a staged one",
     ),
     (
         "ambition_platformer2d_core::movement::tuning::MechanicalEditAdmission",

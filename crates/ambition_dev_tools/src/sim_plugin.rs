@@ -81,7 +81,7 @@ impl Plugin for DevToolsSimPlugin {
         // ⚠ BOTH crates configure this chain, because either can be installed
         // without the other. `configure_sets` is additive, so the constraints
         // compose rather than compete.
-        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdit>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
         app.configure_sets(
             bevy::app::PreUpdate,

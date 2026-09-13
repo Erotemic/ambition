@@ -282,31 +282,80 @@ impl LedgeMomentumTuning {
 #[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct ActiveMovementTuning(pub MovementTuning);
 
-/// A developer has a mechanical edit waiting to become authoritative.
+/// WHICH DOMAINS have a mechanical edit waiting to become authoritative.
 ///
-/// ⛔⛤ **AN EDIT IS A PROPOSAL UNTIL SOMETHING WITH A VIEW OF THE ROLLBACK
-/// TIMELINE ADMITS IT — AND THE FIRST VERSION OF `Q120`'s FIX GOT THIS BACKWARDS
-/// (review, 2026-09-13).** That version let the editor write
-/// [`ActiveMovementTuning`] and put a WATCHER after it that stopped the rollback
-/// baseline. MEASURED against the shipped schedule: the adapter runs in the sim
-/// schedule, which under the rollback host **is `GgrsSchedule`, advanced from
-/// `PreUpdate` by `RunGgrsSystems`** — and the watcher sat in `Update`. ⇒ The OLD
-/// timeline simulated (and could resimulate history) with the new value before
-/// the watcher ever ran. The comment claimed *"the same frame the edit was
-/// observed"*; the schedule established no such thing.
+/// ⛔⛤ **THIS WAS A SINGLE `bool` FOR ONE DAY, AND THE DOC ON IT ACTIVELY
+/// RECOMMENDED PROPAGATING THAT — REVIEW, 2026-09-13.** The first version read
+/// *"ONE FLAG FOR EVERY EDITOR, deliberately"*, on the grounds that what is
+/// shared is the QUESTION and not the value. The question is shared. **The
+/// PENDING-NESS is not**, and a global bit cannot hold two of them:
 ///
-/// ⭐⭐ **SO THE VALUE DOES NOT MOVE UNTIL IT IS ADMITTED.** An editor raises this
-/// flag; the admission authority answers [`MechanicalEditAdmission`] BEFORE the
-/// advance; the adapter writes the authoritative value only when the answer says
-/// it may. A composition with no rollback host answers `Publish` and the flag is
-/// spent immediately — the hazard is the timeline, not the edit.
+/// ```text
+/// movement proposes  -> pending = true
+/// abilities propose  -> pending = true
+/// movement publishes -> writes its value, clears the bit
+/// abilities publish  -> sees false, does nothing. The edit is GONE.
+/// ```
 ///
-/// ⚠ ONE FLAG FOR EVERY EDITOR, deliberately. `Q120` names five more mutable
-/// mechanical values, and a watcher per knob would be five copies of a decision
-/// plus a dependency edge from the rollback crate to every crate that owns one.
-/// What is shared is the QUESTION, not the value.
-#[derive(bevy_ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PendingMechanicalEdit(pub bool);
+/// ⇒ And the other way round is no better: if publishers stop clearing it, a
+/// domain that changed nothing cannot tell *"some editor changed"* from *"MY
+/// value changed"*, so every publisher republishes on every other domain's edit.
+/// ⭐ **CENTRALIZE THE ADMISSION, NOT THE PROPOSAL IDENTITY.** One rollback
+/// answer for the whole batch ([`MechanicalEditAdmission`]); one sticky proposal
+/// per domain here, and a publisher drains ONLY its own.
+///
+/// ⚠ **THE KEY IS A `&'static str`, NOT AN ENUM, and that is the half the
+/// original design got right.** `Q120` names five more mutable mechanical values
+/// owned by five different crates; a central enum would make this crate name
+/// every one of them, which is the dependency edge the protocol exists to avoid.
+/// A domain declares its own key as a constant beside the value it owns.
+///
+/// ⚠ `BTreeSet`, so the set has one ordering everywhere. It is host-side state
+/// read only in the `PreUpdate` chain — see [`MechanicalEditSet`] — and is
+/// deliberately outside the rollback window.
+#[derive(bevy_ecs::resource::Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct PendingMechanicalEdits(std::collections::BTreeSet<MechanicalDomain>);
+
+/// Who owns a mechanical value a developer can edit.
+///
+/// Declared by the domain that owns the value, beside the value, so nothing
+/// central has to enumerate them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MechanicalDomain(pub &'static str);
+
+impl PendingMechanicalEdits {
+    /// This domain has an edit waiting. STICKY: it survives until that domain
+    /// drains it, so an edit refused for several frames is not lost.
+    pub fn propose(&mut self, domain: MechanicalDomain) {
+        self.0.insert(domain);
+    }
+
+    /// Does this domain have an edit waiting?
+    pub fn is_pending(&self, domain: MechanicalDomain) -> bool {
+        self.0.contains(&domain)
+    }
+
+    /// Is ANY domain waiting? The only question the admission authority asks —
+    /// it decides for the batch and does not care which values are in it.
+    pub fn any_pending(&self) -> bool {
+        !self.0.is_empty()
+    }
+
+    /// Take THIS domain's proposal, leaving every other domain's alone.
+    ///
+    /// ⛔ Returns whether there was one, so a publisher writes its authoritative
+    /// value only when it had something to publish. **A publisher that drained
+    /// the whole set is the defect this type was rebuilt to remove**; there is
+    /// no method that can.
+    pub fn take(&mut self, domain: MechanicalDomain) -> bool {
+        self.0.remove(&domain)
+    }
+
+    /// Every domain currently waiting, for a log or a test.
+    pub fn pending(&self) -> impl Iterator<Item = MechanicalDomain> + '_ {
+        self.0.iter().copied()
+    }
+}
 
 /// May a proposed mechanical edit become authoritative this frame?
 ///
@@ -347,7 +396,7 @@ pub enum MechanicalEditAdmission {
 #[derive(bevy_ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MechanicalEditSet {
     /// A domain that mutates a value the simulation reads raises
-    /// [`PendingMechanicalEdit`] here. Reporting is not deciding.
+    /// [`PendingMechanicalEdits`] here. Reporting is not deciding.
     Propose,
     /// The rollback timeline's owner answers [`MechanicalEditAdmission`] here,
     /// stopping its own baseline if that is what admitting the edit requires.
@@ -1644,6 +1693,120 @@ mod air_speed_tests {
             320.0,
             "and a glass cannon may drift FASTER than it runs — the case a \
              single shared cap makes unspellable"
+        );
+    }
+}
+
+#[cfg(test)]
+mod pending_mechanical_edits_tests {
+    use super::{MechanicalDomain, PendingMechanicalEdits};
+
+    /// Two dummy domains, because ONE domain is the case the broken version
+    /// passed. The defect is only expressible with a second.
+    const A: MechanicalDomain = MechanicalDomain("domain_a");
+    const B: MechanicalDomain = MechanicalDomain("domain_b");
+
+    /// ⛔⛤ **A PUBLISHER CANNOT CONSUME ANOTHER DOMAIN'S PROPOSAL — WHICH THE
+    /// GLOBAL `bool` THIS REPLACED COULD NOT PROMISE.**
+    ///
+    /// That version cleared one shared bit: the first publisher to run wrote its
+    /// value and cleared it, and the second saw `false` and silently dropped a
+    /// developer's edit. ⚠ THE ARM RUNS A's DRAIN FIRST AND THEN ASKS B, which is
+    /// the exact order that lost the edit.
+    #[test]
+    fn one_domain_draining_its_proposal_leaves_another_domains_alone() {
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(A);
+        pending.propose(B);
+
+        // ⚠ THE PREMISE: both really are pending, or "B survived" is a statement
+        // about a proposal that was never made.
+        assert!(pending.is_pending(A) && pending.is_pending(B));
+
+        assert!(pending.take(A), "A had a proposal and draining reported none");
+        assert!(
+            !pending.is_pending(A),
+            "A's proposal survived its own drain, so A republishes every frame"
+        );
+        assert!(
+            pending.is_pending(B),
+            "draining A's proposal ALSO consumed B's — the developer's edit to B \
+             is gone and nothing said so. This is what a single global pending \
+             bit does the moment a second domain uses the protocol."
+        );
+        assert!(pending.take(B), "B's proposal could not be drained");
+        assert!(!pending.any_pending());
+    }
+
+    /// ⛔ **A DOMAIN THAT CHANGED NOTHING PUBLISHES NOTHING**, which is the other
+    /// direction the global bit failed in: if publishers had stopped clearing it,
+    /// an untouched domain could not tell *"some editor changed"* from *"MY value
+    /// changed"* and would overwrite its authoritative value on a stranger's edit.
+    #[test]
+    fn a_domain_that_proposed_nothing_is_not_pending() {
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(A);
+        assert!(
+            !pending.is_pending(B),
+            "B is pending after only A proposed, so B would republish its \
+             inspector mirror over its authoritative value on A's edit"
+        );
+        assert!(
+            !pending.take(B),
+            "draining a domain that proposed nothing reported a proposal"
+        );
+        assert!(
+            pending.is_pending(A),
+            "B's no-op drain consumed A's proposal"
+        );
+    }
+
+    /// ⛔ **A PROPOSAL IS STICKY ACROSS FRAMES**, which is what makes a REFUSAL
+    /// honest: an edit staged behind a foreign rollback timeline must still be
+    /// there when the refusal lifts. `is_changed()` has long since gone quiet by
+    /// then.
+    #[test]
+    fn proposals_survive_until_their_own_domain_drains_them() {
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(A);
+        pending.propose(B);
+        // Several frames of refusal: nothing drains, nothing decays.
+        for _ in 0..3 {
+            assert!(pending.any_pending());
+            assert!(pending.is_pending(A) && pending.is_pending(B));
+        }
+        // The refusal lifts and BOTH publish, each draining only its own.
+        assert!(pending.take(A));
+        assert!(pending.take(B));
+        assert!(!pending.any_pending());
+    }
+
+    /// ⚠ **PROPOSING TWICE IS ONE PROPOSAL**, so an editor held down for ten
+    /// frames does not owe ten publications.
+    #[test]
+    fn proposing_the_same_domain_twice_is_one_proposal() {
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(A);
+        pending.propose(A);
+        assert_eq!(pending.pending().count(), 1);
+        assert!(pending.take(A));
+        assert!(!pending.take(A), "one proposal drained twice");
+    }
+
+    /// ⭐ **THE ADMISSION AUTHORITY ASKS ONE QUESTION FOR THE WHOLE BATCH**, and
+    /// that is the half that IS shared: the rollback host decides whether the
+    /// timeline can absorb a mechanical change, not which values changed.
+    #[test]
+    fn any_pending_is_the_only_question_the_batch_answers() {
+        let mut pending = PendingMechanicalEdits::default();
+        assert!(!pending.any_pending(), "an empty batch reported work");
+        pending.propose(B);
+        assert!(pending.any_pending());
+        pending.take(B);
+        assert!(
+            !pending.any_pending(),
+            "the batch is still open after its only proposal was drained, so the \
+             host would stop a rollback timeline for an edit nobody has"
         );
     }
 }

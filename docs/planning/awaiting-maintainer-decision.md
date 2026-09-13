@@ -353,8 +353,14 @@ repair did not surface it:
    `Option<Res<CharacterCatalog>>` and one fully-qualified variant; the code read
    `Option<bevy::prelude::Res<CharacterCatalog>>`, and matching is raw substring.
 
-⭐⭐ **THE NEEDLE IS SPELLING-INVARIANT NOW: `Res<X>>`, WITH THE DOUBLE ANGLE
-BRACKET.** A required `Res<X>` closes with ONE, so two means the parameter is
+⭐⭐ **THE NEEDLE IS QUALIFICATION-INVARIANT NOW: `Res<X>>`, WITH THE DOUBLE
+ANGLE BRACKET.** ⚠ **A RATCHET, NOT STRUCTURAL PROOF — my first wording said
+"spelling-invariant" and a review corrected it.** Raw source matching is still
+bypassable by a type alias, a wrapper type, or any syntax not containing the
+substring; it catches the regression it was written for and does not make
+optional access unrepresentable. Enforcing that structurally would take an
+AST/`syn` policy, a compile-time capability-composition test, or a type API
+without the optional road. A required `Res<X>` closes with ONE, so two means the parameter is
 wrapped — and `Option` is the only wrapper this rule is about. It matches every
 qualification of the path because it names none. POISON-VERIFIED: restoring the
 exact spelling that hid for months is caught at `npcs.rs:518`, past the
@@ -2012,7 +2018,57 @@ which are the SECOND row of the table and have no answer yet.
 
 </details>
 
-## ⚖ Q120 — LOCAL: MODEL 2 (REBASE). EXTERNAL/CALLER: MODEL 1 (REFUSE AND STAGE). Model 3 deferred. Jon can still rule; the mechanism serves any of the three.
+## ⚠ Q120 — POLICY DECIDED AND NOT REOPENED. **IMPLEMENTATION REOPENED 2026-09-13: I MARKED IT CLOSED AFTER MIGRATING ONE OF FIVE LIVE EDITOR ROADS.**
+
+⛔⛤ **THE CLOSURE BELOW SAID *"only `ActiveMovementTuning` has a proposer … the
+four others have the same shape and are NOT wired — deliberately left until a
+consumer needs one"*. THAT SENTENCE IS FALSE AND A REVIEW MEASURED IT: THEY HAVE
+LIVE CONSUMERS NOW.** `crates/ambition_dev_tools/src/sim_plugin.rs` still installs
+three systems into `app.sim_schedule()`, which under the rollback host IS
+`GgrsSchedule` — so they execute during historical resimulation:
+
+| system | writes, during rollback resimulation |
+| --- | --- |
+| `sync_live_player_dev_edits_system` | `BodyAbilities`, `BodyFlightState`, `MotionModel`, `BodyDashState`, `BodyJumpState`, from live `EditableAbilitySet` |
+| `sync_developer_body_profile` | `BodyKinematics`, `BodyBaseSize`, arbitrated by a non-rollback `Local<Option<PlayerBodyProfile>>` |
+| `sync_player_stats_with_inspector` | health, mana, offense, same non-rollback `Local` arbiter |
+
+⇒ A rewind restores frame N's authoritative body state and these then apply
+whatever the inspector holds NOW. **That is the same class of failure the
+movement fix just closed**, and the `Local` "last applied" memories are worse
+than the value: they make the decision from PRESENT-FRAME HOST HISTORY rather
+than from the simulated frame.
+
+⇒ **AND `PortalTuning` IS MORE DIRECT STILL.** `game/ambition_app/src/dev/portal_inspector.rs`
+mutates it outside rollback simulation and portal gameplay systems read it inside.
+Its rollback waiver says *"forward-only"*, which `Q119` already ruled is not a
+category: the question is *"what value will a replay of frame N observe"*.
+
+✅ **WHAT DID LAND, AND IT WAS THE GATING PIECE.** The review's Finding 2: the
+protocol's `PendingMechanicalEdit(bool)` — one global flag, and its own doc said
+*"ONE FLAG FOR EVERY EDITOR, deliberately"* — **cannot carry two domains**. The
+first publisher clears the bit and the second silently drops a developer's edit;
+stop clearing it and an untouched domain cannot tell *"some editor changed"* from
+*"MY value changed"*. It is `PendingMechanicalEdits` now: a `BTreeSet` of
+`MechanicalDomain` keys, each domain's proposal sticky until THAT domain drains
+it, with ONE batch admission unchanged. **There is no method that can drain
+another domain's proposal.** Five arms, poison-verified with the global-bit
+behaviour restored: three of five redden.
+
+⚠ **THE DOMAIN KEY IS A `&'static str` DECLARED BESIDE THE VALUE**, not a central
+enum — that half of the original design was right, and a central enum would make
+`ambition_platformer2d_core` name all five owning crates.
+
+⇒ **WHAT REMAINS:** migrate abilities, body profile, stats and portal tuning onto
+the protocol, each with the production-GGRS poisons the review specifies (edit
+under a locally-maintained timeline ⇒ no advance with old baseline + new value;
+edit under a foreign one ⇒ proposal staged, authoritative value unchanged,
+replay deterministic across the attempted edit). **Not five watchers — five
+proposers.**
+
+<details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>
+
+## ⚖ Q120 — LOCAL: MODEL 2 (REBASE). EXTERNAL/CALLER: MODEL 1 (REFUSE AND STAGE). Model 3 deferred.
 
 ⛔⛤ **THIS ROW WAS CLOSED ONCE ON 2026-09-13 AND THE CLOSURE WAS WRONG IN BOTH
 HALVES. A REVIEW OF `3699fe8..c5f727c` FOUND IT AND THE SOURCE AGREED.** Both
@@ -2103,6 +2159,8 @@ deliberately left until a consumer needs one, per the review's defer list.
 why that is not an acquittal.
 
 <details><summary>The question as it was posed</summary>
+
+</details>
 
 ## Q120 — which rollback model do LIVE DEVELOPER MECHANICAL EDITS get: refusal, rebase, or deterministic input?
 

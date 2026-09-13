@@ -606,6 +606,64 @@ SCENE half — recipes, resource writes, hooks, observers — and its acceptance
 `recovered` rather than `unchanged`) names none of the content work that landed in
 September.
 
+## ✅ Q114 — ANSWERED 2026-09-13, AND TWO OF ITS THREE OPTIONS WERE NEVER IMPLEMENTABLE. The hooks are BEVY's.
+
+⛔⛤ **THE ROW BELOW BLAMED THIS PROJECT'S COMPOSITION. MEASURED AT HEAD, IT IS
+`bevy_render` INSTALLING A HOOK AND OMITTING THE RESOURCE THAT HOOK READS.**
+
+`RenderPlugin::build` adds `ExtractPlugin` — and with it `SyncWorldPlugin`, which
+owns `PendingSyncEntity` — **only when a backend is available**
+(`bevy_render-0.19.1/src/lib.rs`, `if insert_future_resources(…)`). It then adds <!-- cite-ok: a VENDORED crate path under ~/.cargo/registry, not a repo path; there is nothing here to resolve -->
+`CameraPlugin`, `ViewPlugin` and the rest UNCONDITIONALLY, and those register
+`SyncComponentPlugin` REMOVE HOOKS whose body is
+`world.resource_mut::<PendingSyncEntity>()`
+(`bevy_render-0.19.1/src/sync_component.rs`). <!-- cite-ok: same — a vendored crate path --> ⇒ Under `backends: None` the hooks
+exist and the resource does not.
+
+⇒ **SO THE THREE OPTIONS COLLAPSE TO ONE.** *"Keep those Update systems out of
+the profile"* and *"make the hook tolerate a missing world"* are both about code
+this repository does not own — the panicking hook is registered by
+`bevy_render`'s own plugins no matter what `ambition_render` installs. Only
+*"install the resource"* is reachable from here, and `SyncWorldPlugin` is public
+and trivial (one resource, two observers). It is installed in the `NoWindow` arm
+of `build_visible_app`.
+
+### ⛔⛤ AND THE QUEUE ROW NAMED THE WRONG SUBJECT — THOUGH THE TEST BESIDE IT DID NOT
+
+`D-HEADLESS-DESPAWN` read *"spawning a render-synced entity headless is fine;
+DESPAWNING one is fatal"*. **MEASURED: a `Sprite` carries `SyncToRenderWorld` and
+despawns fine — by the direct road AND by the queued-command road the original
+backtrace named.** It is the **CAMERA** that panics, through
+`CameraMainTextureUsages`. The sprite arm is asserted in the guard for exactly
+that reason: it is the half that refutes the framing, and if it ever panics the
+subject really is "any render-synced entity" and the fix needs rethinking.
+
+⚠ **WHAT IT COSTS, STATED RATHER THAN DISCOVERED LATER.** `PendingSyncEntity` is
+drained by `entity_sync_system` in `ExtractSchedule`, which lives in the render
+app this profile does not have — so the queue GROWS with entity churn and is never
+read. It is `pub(crate)` in `bevy_render`, so nothing here can clear it. Bounded
+by churn rather than by frames. That is a leak; it is also strictly better than a
+crash, and it is the only lever this side of the boundary has. ⇒ If a long
+headless sweep ever shows memory growth proportional to spawn/despawn count, this
+is the first place to look, and the real repair is upstream: `SyncWorldPlugin`
+should be installed beside the hooks, not beside the backend.
+
+⭐⭐ **AND THE ARM THAT RECORDED THIS FLIPPED ITSELF.**
+`a_no_window_app_still_cannot_despawn_a_camera` was `#[should_panic]` and its doc
+said *"when the upstream hook learns to tolerate a missing render world, THIS TEST
+FAILS LOUDLY and whoever fixed it deletes the `should_panic` and the `still_` in
+the name."* It failed loudly on the same run as the fix. ⇒ A recorded gap that
+names its own expiry condition costs nothing and pays for itself once. ⚠ Its own
+first line ALSO already said the class is *"ANY `Camera` ENTITY"* — so it was the
+QUEUE ROW's wider wording that misled, not the test. That distinction is
+FALSIFIABLE now rather than merely stated: the renamed
+`a_no_window_app_can_despawn_a_camera` asserts the sprite half too, plus the
+queued-command road the original backtrace named, with the no-`RenderApp` premise
+<!-- cite-ok: `RenderApp` is BEVY'S type, not one this tree defines --> asserted
+first. Poison-verified — removing the plugin reproduces the exact original panic.
+
+<details><summary>The question as it was posed</summary>
+
 ## Q114 — for a `NoWindow` / `backends: None` profile, should the render-sync hooks be absent, served, or tolerant?
 
 The queue row `D-HEADLESS-DESPAWN` ends *"NOT DECIDED. Whether the fix is to
@@ -634,6 +692,8 @@ with `backends: None` installs the presentation half at all.
 PROFILE, not the machine. An agent box with no discrete GPU still reports a
 working software adapter, and `VisibleRenderMode::OffscreenGpu` composes a render
 app there.
+
+</details>
 
 ## ✅ Q116 — CLOSED 2026-09-12 AS A CORRECTNESS REPAIR. It was a defect, and the fix was the QUANTIZATION, not the constant.
 

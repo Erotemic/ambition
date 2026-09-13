@@ -5735,6 +5735,38 @@ agents can produce pixels" off this.
 installs the render crate's Update systems with `backends: None` runs a game
 right up until a cleanup.
 
+✅ **CLOSED 2026-09-13 — AND THIS ROW'S OWN MECHANISM WAS WRONG, WHICH IS WHY IT
+SAT AS A MAINTAINER'S CALL FOR THREE DAYS.** *"Spawning a render-synced entity
+headless is fine; DESPAWNING one is fatal"* is too wide. MEASURED at HEAD: a
+`Sprite` carries `SyncToRenderWorld` and despawns fine, by the direct road AND by
+the queued-command road this row's own backtrace names. **It is the CAMERA**,
+through `CameraMainTextureUsages`. ⚠ The TEST beside this row already said so —
+`a_no_window_app_still_cannot_despawn_a_camera`'s first line reads *"THE CLASS IS
+'ANY `Camera` ENTITY', NOT 'A PORTAL RIG'"* — so the wider claim was this row's
+wording alone, which is the reader a summary reaches first.
+⛔⛤ **AND THE HOOK IS BEVY'S, NOT THIS COMPOSITION'S.**
+`RenderPlugin::build` adds `ExtractPlugin` — and with it `SyncWorldPlugin`, which
+owns `PendingSyncEntity` — **only when a backend is available**, then adds
+`CameraPlugin` and friends UNCONDITIONALLY, and those register the remove hooks
+that read it. ⇒ Two of the three options below are changes to `bevy_render`;
+only *"install the resource"* was ever reachable from here, and
+`SyncWorldPlugin` is public and trivial. Installed in `build_visible_app`'s
+`NoWindow` arm.
+⭐⭐ **AND THE `#[should_panic]` ARM THAT RECORDED THIS FLIPPED ITSELF**, exactly
+as its own doc said it would: *"when the upstream hook learns to tolerate a
+missing render world, THIS TEST FAILS LOUDLY and whoever fixed it deletes the
+`should_panic` and the `still_` in the name."* It failed on the same run as the
+fix. ⇒ A recorded gap that names its own expiry condition costs nothing and pays
+for itself once. It is `a_no_window_app_can_despawn_a_camera` now, and it asserts
+the sprite half and the queued-command road too; poison-verified.
+⚠ **THE COST IS STATED:** nothing drains `PendingSyncEntity` without a render app,
+so it grows with entity churn and is never read (`pub(crate)`, so unclearable from
+here). A leak, strictly better than a crash, and the real repair is upstream.
+⇒ **The 104-`ambition_render`-systems observation stands and is a DIFFERENT
+question** — it is about cost, not correctness, and nothing here depends on it.
+
+<details><summary>The row as it stood, kept because its four dead candidates are its best content</summary>
+
 ⚠ **NOT DECIDED — NOW `Q114` IN
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).** Whether
 the fix is to install the resource in the headless profile, keep those systems out
@@ -5746,6 +5778,8 @@ whole reason a held packet can wait indefinitely without anyone declining it.
 **Acceptance:** a headless composition either does not install render-sync hooks
 or can serve them, and a fighter that despawns a render-synced entity completes a
 duel.
+
+</details>
 
 ### D-VFX-ID-ADMISSION — REFUTED before it was worked; the search was keyed on the wrong spelling
 

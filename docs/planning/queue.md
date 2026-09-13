@@ -3724,6 +3724,28 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    The ten-verb subset said 104 of 208. Both are ~52%, which is the number to
    quote.
 
+   ⭐⭐ **INDEPENDENTLY REPRODUCED 2026-09-13 ON NINE FIGHTERS, AND THE NUMBERS
+   MATCH THIS TABLE EXACTLY** — goblin 17/17, sanic 15/17,
+   `perfect_cellular_automaton` 15/17, `projectile_polygon` 12/14, medic 10/13,
+   `npc_carl_stargan` 13/17, officer 10/15, `npc_alice` 7/17,
+   `npc_pirate_admiral` 2/14, from a fresh take on a different subset. A table
+   two recordings agree on digit-for-digit is one nobody has to re-run again.
+
+   ⭐ **AND THE TABLE IS A COMMAND NOW, NOT A HAND-FORMAT:**
+   `scripts/measure_strike_area_over_body.py <take> --by-character` prints
+   exactly these columns plus each fighter's median and peak. It was assembled by
+   hand from `--per-move` output, and a view somebody has to rebuild by hand is
+   one that goes stale between readings — which is what happened to the figure
+   below.
+
+   ⛔⛤ **AND THE REPRODUCTION ITSELF IS A LESSON ABOUT READING BEFORE
+   MEASURING.** The stale *"seven fighters under 1.0, medic 0.23"* line was still
+   in this session's own goal note, and I spent a ~13-minute grid recording
+   re-deriving what the two paragraphs above already said — including the
+   `1.6² = 2.56` correction. ⇒ **`grep` THE ROW BEFORE RUNNING THE TOOL.** The
+   goal note is corrected and now points here rather than carrying its own copy
+   of the numbers, which is the second authority that made this possible.
+
    THIN MOVES PER FIGHTER, complete grid (thin / recorded):
 
 ```text

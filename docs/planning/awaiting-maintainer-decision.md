@@ -2307,6 +2307,45 @@ direction.
 `SheetRecord` and `BossCatalog` a rollback timeline's identity should bind. That
 is a design pass, not a cleanup.
 
+### ⛔⛤ AND THE OBVIOUS INSTRUMENT CANNOT ANSWER IT — MEASURED 2026-09-13, WITH THE REFUTATION COMMITTED
+
+The 2026-09-13 review's instruction was *"answer it from CONSUMERS, not from
+taste"*, which is right and is the same rule the row above already states. The
+obvious derivation — for each field, which crates read `.field`, classify the
+crates — **was written, run, and it FAILS**:
+(`scripts/measure_identity_field_consumers.py`) reports **50 of 50 fields
+MECHANICAL and ZERO presentation**, including all five the row above names as
+presentation by their own doc comments (`portrait`, `voice`, `ranged_vfx`,
+`dream_seed`, `sprite_filenames`).
+
+⇒ **BECAUSE A FIELD NAME IS NOT AN IDENTITY.** `git grep -F ".portrait"` matches
+every struct in the workspace spelled that way; `.id`, `.body`, `.sheet`, `.key`,
+`.target`, `.rows` and `.image` each collect most of the tree. The query answers
+*"does any crate use this WORD"* — and answers it with a table that looks like a
+finished census.
+
+⭐⭐ **THE SCRIPT IS COMMITTED WITH A CONTROL THAT PRINTS THE REFUTATION ON EVERY
+RUN**, so the table can never be quoted as an answer: the five known-presentation
+fields are classified in front of the reader, the instrument disagrees with five
+of five, and the run says so in those words. A version that ever agrees with them
+is the one worth reading. ⇒ **A committed wrong instrument that announces its own
+wrongness is worth more than no instrument**, because the next person's first idea
+is this one.
+
+⇒ **WHAT WOULD ANSWER IT, neither of which is a grep:**
+1. **rust-analyzer references** on each field DECLARATION — type-aware, returns
+   the real reader set; the workspace already has a rust-analyzer surface.
+2. **SEAL THE FIELD AND READ THE COMPILER.** Make it private or rename it, and
+   every genuine reader becomes an error with a file and a line. That method does
+   not depend on a spelling and this repository has used it before.
+
+⚠ **AND THE SUBJECT MAY NOT BE THESE THREE STRUCTS.**
+`PreparedCharacterOverrides` is already private to its module, so its fields have
+almost no DIRECT readers — the values flow into `PreparedCharacter` and
+`CharacterDefinition`, and those are what a reader census has to be about.
+Establishing that is step one for whoever picks this up, and it is the kind of
+thing the failed instrument above would have hidden.
+
 ## Q123 — A10's "invisible candidate" is proven for ordinary QUERIES and nothing else
 
 ✅ **HIDDEN AT MINT AS OF `ebfcda0ee`** — the marker goes on in the same command

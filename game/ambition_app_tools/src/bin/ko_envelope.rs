@@ -963,6 +963,62 @@ impl KoProbe {
 /// ⛔ THE SELF-TEST RUNS FIRST AND GATES EVERYTHING. Reusing one staged match
 /// across trials is only sound if a repeated trial repeats; if it does not, a
 /// whole table would be contaminated by the previous stock and look like data.
+/// ⭐ AT WHICH PERCENTS DOES THE PULSE FAIL TO CONNECT AT ALL?
+///
+/// The determinism probe reported `launch=-` — no contact — for a 300% trial
+/// whose at-strike state was IDENTICAL to eight trials at 200% that connected
+/// cleanly, and it did so in both runs. That is reproducible and tracks the
+/// percent rather than the trial's position in the sequence.
+///
+/// ⛔ THIS IS NOT COSMETIC. `ko_threshold` records a no-contact trial as a
+/// SURVIVAL, so a percent band where contact silently fails reads as a band the
+/// victim survived, and the threshold walks straight past it.
+///
+/// Two hypotheses were rejected by reading the code rather than by running this:
+/// the emitted magnitude variant is decided by the `HitboxKnockback` this probe
+/// constructs (`LaunchSpeed`), so no variant is being dropped by the reader; and
+/// `set_damage_taken` is `accumulated = damage.max(0)`, so there is no cap and
+/// no state transition at a high meter. Having no hypothesis left is the reason
+/// to measure rather than to keep guessing.
+fn run_contact() {
+    let mut probe = KoProbe::new("npc_pirate_admiral", "player_robot_v3");
+    let launchers = {
+        let world = probe.app.world();
+        let registry = world
+            .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+            .expect("registry");
+        let prepared = registry.get("npc_pirate_admiral").expect("attacker");
+        let contract = prepared.kit.projectable_moveset().expect("moveset");
+        let mut bad = Vec::new();
+        let mut nl = Vec::new();
+        launchers_of("npc_pirate_admiral", contract, &mut bad, &mut nl)
+    };
+    let Some(Launcher::Strike { hit, move_id, .. }) = launchers
+        .iter()
+        .find(|l| l.role() == "attack_forward" && matches!(l, Launcher::Strike { .. }))
+    else {
+        println!("# no attack_forward strike found");
+        return;
+    };
+    println!("# contact sweep: npc_pirate_admiral `{move_id}` vs player_robot_v3, centre");
+    println!("# a row with contact=false is one `ko_threshold` would have recorded as a SURVIVAL");
+    println!("percent\tcontact\tlaunch\tko\tat_strike");
+    for p in (0..=300).step_by(25) {
+        match probe.strike(hit, p, probe.centre) {
+            Some(t) => println!(
+                "{p}\t{}\t{}\t{}\t{}",
+                t.resolved_launch.is_some(),
+                t.resolved_launch
+                    .map(|v| format!("{v:.1}"))
+                    .unwrap_or_else(|| "-".into()),
+                t.ko,
+                t.at_strike
+            ),
+            None => println!("{p}\tRESET_REFUSED\t-\t-\t-"),
+        }
+    }
+}
+
 /// ⭐ DOES A TRIAL INHERIT ANYTHING FROM THE TRIAL BEFORE IT?
 ///
 /// Run 1 said yes and named the shape. Two cells reported a percent that the
@@ -1288,6 +1344,10 @@ fn run_probe() {
 fn main() {
     // ⭐ BEFORE `probe`, because a table measured with a non-independent trial is
     // worth less than no table: run 1 produced one and its oracle row had moved.
+    if std::env::args().any(|a| a == "contact") {
+        run_contact();
+        return;
+    }
     if std::env::args().any(|a| a == "determinism") {
         run_determinism();
         return;

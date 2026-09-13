@@ -1627,18 +1627,15 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// (`EnemySpawnSpec::brain_profile`).
     brain_profiles:
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
-    /// What a DEVELOPER has forced every authored actor's brain to. Absent =
-    /// no developer tools = the author decides. Beside the policies because it
-    /// is the same class of authority: lowering consults it while BUILDING a
-    /// brain, which the actor kernel used to do by calling into
-    /// `ambition_dev_tools` directly.
-    /// Paired with the population cap because this `SystemParam` is at Bevy's
-    /// sixteen: both are developer overrides of the authored cast, threaded
-    /// into lowering as a snapshot rather than read from a developer crate.
-    forced_brains: (
-        Option<Res<'w, ambition_characters::brain::AuthoredBrainOverride>>,
-        Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
-    ),
+    // ⛔⛤ **`forced_brains` IS GONE FROM THIS BUILDER, 2026-09-13, AND ITS
+    // ABSENCE IS THE POINT.** It was a pair of LIVE `Res<AuthoredBrainOverride>`
+    // / `Res<AuthoredPopulationCap>` handed straight to construction — the
+    // fingerprint/consumption TOCTOU a review found: the identity was taken over
+    // one value and the world built from whatever the App held by activation.
+    // The generation OWNS both knobs now (`SessionMechanics`) and
+    // `for_room_construction` projects them off `GenerationMechanics::of(..)`, so
+    // this builder has nothing left to read — the compiler said so, as an unused
+    // field, which is what an authority actually being removed looks like.
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
 

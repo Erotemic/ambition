@@ -190,6 +190,14 @@ pub fn complete_durable_restore(
 ///
 /// The generic runtime calls this one domain offer.
 pub fn install_durable_save_horizon(app: &mut App) {
+    // ⛔⛔ **THE CHANNEL BESIDE THE SYSTEM THAT READS IT.** A `MessageReader` for
+    // an unregistered message fails PARAMETER VALIDATION at runtime, not at
+    // compile time: adding `reset_inventory_on_new_game` to the chain below
+    // panicked six durable-horizon fixtures on their first frame. `add_message`
+    // is guarded against a second registration, so declaring it here costs a
+    // composition that also installs `session::reset` nothing and saves one that
+    // does not.
+    app.add_message::<crate::session::reset::NewGameResetCommitted>();
     app.init_resource::<SaveRestored>()
         .add_systems(
             Update,
@@ -203,6 +211,12 @@ pub fn install_durable_save_horizon(app: &mut App) {
         .add_systems(
             Update,
             (
+                // ⛔⛤ FIRST, AND THE ORDER IS THE FIX. A committed New Game
+                // establishes this run's durable item state and lowers
+                // `SaveRestored`; running it after the mirrors below would let
+                // `persist_inventory_to_save` write the OLD run's bag into the
+                // freshly wiped save on the very frame the wipe happened.
+                crate::items::persist::reset_inventory_on_new_game,
                 // Lifecycle state first: the room/custody baseline must be present
                 // before the load asks the ordinary checkpoint-resume road to act.
                 adopt_occurrence_checkpoint_from_save,

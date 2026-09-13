@@ -51,6 +51,15 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    // ⛔ THE OWNER. `reset_session_scoped_resources_on_retire` refuses a
+    // retirement belonging to a scope that is not the live one — see its body.
+    // At its default NO scope is current, which is a quit-to-title and is the
+    // case every arm below except the stale one exercises.
+    app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+    app.init_resource::<crate::session::checkpoint::OutstandingCheckpointRequest>();
+    app.init_resource::<ambition_cutscene::ActiveCutscene>();
+    app.init_resource::<ambition_cutscene::CutsceneTriggerQueue>();
     app.add_systems(
         Update,
         (
@@ -396,5 +405,202 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
             .0,
         "the latch still said A's save had been applied, so B would never \
          restore into its own world"
+    );
+}
+
+/// ⛔⛤ **A DELAYED RETIREMENT OF A DEAD SCOPE MUST NOT WIPE THE LIVE ONE'S
+/// AUTHORITIES — MEASURED MISSING BY A 2026-09-13 REVIEW.**
+///
+/// The shared lifecycle states this rule beside `ActiveSessionScope::clear_if_current`:
+/// *"Retiring A after B activated must not clear B's spawn context."* Entity
+/// cleanup obeys it, and so does the rollback session's. **This system did not
+/// ask which scope retired at all** — any `SessionScopeRetired` reset all twenty
+/// mirrors and removed `SessionMechanics`.
+///
+/// ⇒ So a retirement for A arriving after B became current wiped **B's** live
+/// state — mechanics, occurrence ledgers, baselines, encounters, possession,
+/// projectile counter, lifecycle intent — while `ActiveSessionScope` went on
+/// correctly naming B. A session still being played, reset out from under itself.
+///
+/// ⭐ **THE SECOND HALF IS THE CONTROL AND IT IS NOT OPTIONAL**: a system that
+/// refused EVERY retirement would pass the first half and delete the hygiene this
+/// whole module exists for. Retiring the LIVE scope must still clear.
+#[test]
+fn a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone() {
+    let mut app = app_with_populated_mirrors();
+
+    // Two scopes: A retired long ago, B is what the player is in.
+    let (stale, live) = {
+        let mut active = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();
+        let stale = active.begin();
+        let live = active.begin();
+        (stale, live)
+    };
+    assert_ne!(stale, live, "the fixture minted one scope twice");
+
+    app.update();
+    // ⚠ THE PREMISE: seeded state, or "unchanged" below is the empty set.
+    assert_eq!(app.world().resource::<MovingPlatformSet>().0.len(), 1);
+    assert!(!the_four_ledgers_are_empty(&app));
+
+    app.world_mut().write_message(SessionScopeRetired(stale));
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<MovingPlatformSet>().0.len(),
+        1,
+        "a retirement belonging to a scope that is NOT live cleared the live \
+         scope's moving platforms"
+    );
+    assert!(
+        app.world()
+            .resource::<PossessionState>()
+            .possessed
+            .is_some(),
+        "a stale scope's retirement dropped the LIVE session's possessed body"
+    );
+    assert!(
+        !the_four_ledgers_are_empty(&app),
+        "a stale scope's retirement wiped the ledgers describing the world the \
+         player is standing in"
+    );
+
+    // ⭐ THE CONTROL: the live scope's own retirement still clears.
+    app.world_mut().write_message(SessionScopeRetired(live));
+    app.update();
+    assert!(
+        app.world().resource::<MovingPlatformSet>().0.is_empty(),
+        "retiring the LIVE scope left its mirrors standing, so the assertion \
+         above is about refusing every retirement rather than about ownership"
+    );
+    assert!(
+        the_four_ledgers_are_empty(&app),
+        "retiring the LIVE scope left its ledgers standing"
+    );
+}
+
+/// ⛔⛤ **AMBIENT GRAVITY IS A MECHANIC THAT USED TO OUTLIVE THE SESSION THAT
+/// FLIPPED IT — MEASURED BY A 2026-09-13 REVIEW.**
+///
+/// `BaseGravity` is canonical rollback state and gravity-flip switches write it.
+/// Its only reset roads were `RoomReplayAdmitted` and a room TRANSITION's commit;
+/// neither is a session edge. ⇒ *"flip gravity upward, quit, start a new
+/// session"* began the next run upside down, until some later transition
+/// happened to correct it — mechanical state crossing a lifecycle boundary.
+///
+/// ⭐ IT IS FIXED BY DECLARATION, NOT BY A NEW SYSTEM: `BaseGravity` is a member
+/// of `SessionScopedResources`, so the exhaustive destructure in `reset` covers
+/// it and the next resource added to that aggregate cannot skip it silently
+/// either.
+#[test]
+fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
+    use ambition_platformer2d_shared_tangle::gravity::BaseGravity;
+
+    let mut app = app_with_populated_mirrors();
+    let flipped = ambition_platformer2d_core::Vec2::new(0.0, -1.0);
+    app.world_mut().insert_resource(BaseGravity { dir: flipped });
+
+    app.update();
+    // ⚠ THE PREMISE: an unflipped fixture makes "reset to default" vacuous.
+    assert_eq!(
+        app.world().resource::<BaseGravity>().dir,
+        flipped,
+        "the fixture never flipped gravity, so the assertions below compare the \
+         default against itself"
+    );
+
+    app.world_mut()
+        .write_message(SessionScopeRetired(SessionScopeId(0)));
+    app.update();
+    assert_eq!(
+        app.world().resource::<BaseGravity>().dir,
+        BaseGravity::default().dir,
+        "the retired session's flipped ambient gravity survived teardown, so the \
+         next session starts upside down"
+    );
+
+    // ⭐ AND THE ACTIVATION EDGE, which is the one that is CORRECTNESS rather
+    // than hygiene: whatever an abnormal exit left standing is overwritten by
+    // the session about to fall through it.
+    app.world_mut().insert_resource(BaseGravity { dir: flipped });
+    app.world_mut()
+        .write_message(SessionScopeActivated(SessionScopeId(1)));
+    app.update();
+    assert_eq!(
+        app.world().resource::<BaseGravity>().dir,
+        BaseGravity::default().dir,
+        "an activating session inherited the previous run's flipped gravity"
+    );
+}
+
+/// ⛔⛤ **TWO AUTHORITIES WHOSE DOCUMENTED LIFETIME IS ONE SESSION AND WHOSE
+/// IMPLEMENTED LIFETIME WAS THE PROCESS — MEASURED BY A 2026-09-13 REVIEW.**
+///
+/// `OutstandingCheckpointRequest`'s own doc says *"the session is still owed a
+/// restore"* and *"at most one outstanding request per session"*.
+/// `resume_at_checkpoint_on_reset` deliberately PERSISTS the bit when the request
+/// cannot yet be admitted — no session world, no player subject, the slot busy —
+/// which is right within one session. Across a quit it meant session B admitted a
+/// checkpoint reconstruction **B never asked for**.
+///
+/// `CutsceneTriggerQueue` is the same shape: a trigger raised just before
+/// retirement and consumed just after the next session begins plays A's cutscene
+/// in B. Its sibling `ActiveCutscene` is worse — while `is_playing()` holds,
+/// input declaration captures the cutscene context, and `end_cutscene` writes the
+/// running script's `seen_flag` into the CURRENT save, so A's stale playback
+/// finishing after B installed its file writes A's narrative flag into B's.
+///
+/// ⚠ `ActiveCutscene` is not asserted here and that is this file's standing rule,
+/// not an omission: "every" is the COMPILER's claim, made by `reset`'s exhaustive
+/// destructure of `SessionScopedResources`. Seed a mirror here when its VALUE is
+/// the interesting part; these two have values a reader can check in one line.
+#[test]
+fn a_session_does_not_inherit_the_previous_ones_owed_restore_or_queued_cutscene() {
+    let mut app = app_with_populated_mirrors();
+    app.world_mut()
+        .insert_resource(crate::session::checkpoint::OutstandingCheckpointRequest(
+            true,
+        ));
+    app.world_mut()
+        .resource_mut::<ambition_cutscene::CutsceneTriggerQueue>()
+        .request("intro");
+
+    app.update();
+    // ⚠ THE PREMISE.
+    assert!(
+        app.world()
+            .resource::<crate::session::checkpoint::OutstandingCheckpointRequest>()
+            .0,
+        "the fixture owes no restore, so clearing it below proves nothing"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_cutscene::CutsceneTriggerQueue>()
+            .0
+            .len(),
+        1,
+        "the fixture queued no cutscene trigger"
+    );
+
+    app.world_mut()
+        .write_message(SessionScopeRetired(SessionScopeId(0)));
+    app.update();
+
+    assert!(
+        !app.world()
+            .resource::<crate::session::checkpoint::OutstandingCheckpointRequest>()
+            .0,
+        "a restore owed to the RETIRED session survived it, so the next session \
+         performs a checkpoint reset it never requested"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_cutscene::CutsceneTriggerQueue>()
+            .0
+            .is_empty(),
+        "a cutscene trigger raised by the retired session survived it, so the \
+         next session plays the previous run's scene"
     );
 }

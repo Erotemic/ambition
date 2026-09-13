@@ -151,6 +151,145 @@ anything is **A10**, and it waits on `Q124` — a GAMEPLAY ruling, not a census.
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
 
+## ⛔⛤ A10 IS BLOCKED ONE LAYER BELOW CONSTRUCTION — THE DEEPER REVIEW, 2026-09-13
+
+**The engine has no state representation for "live N plus candidate N+1."** That
+is the finding, and it is deeper than *"N is retired too early"*: moving the
+retirement later would still leave candidate preparation with nowhere to put N+1's
+facts. MEASURED, every central session authority is a process-global singleton:
+`ActiveGameplaySession` (activation ASSERTS none exists), `ActiveSessionScope`
+(`begin()` makes the new scope current immediately), `SessionMechanics`,
+`ActiveContentBinding`. The vocabulary offers *the* session, *the* scope, *the*
+mechanics, *the* binding.
+
+⛔ **AND `SessionScopeActivated` ITSELF MEANS "REPLACE THE PROCESS-GLOBAL LIVE
+MIRRORS".** `reset_session_scoped_resources_on_activation` runs for every one of
+them and resets ~21 authorities. So constructing a candidate through the existing
+activation edge wipes N's world even if N's ENTITIES survive. A candidate needs
+*"a scope exists"* without *"this scope is now the live authority"* — two meanings
+one message currently carries.
+
+⇒ **THE PACKET ORDER THE REVIEW SETS, and it is not the one this file had:**
+1. **Define the candidate-session representation** — session/generation state
+   owned by a session object or scope-keyed owner plus a SELECTOR saying which
+   admitted session is active. ⛔ NOT `ActiveFoo` + `CandidateFoo` pairs; that is a
+   synchronisation architecture. Introduce the **two-binding replacement
+   contract** (`expected_live_binding` / `incoming_binding`) in the same packet.
+2. **Align session-root access with ownership** — `SessionWorldRef`/`Mut` are
+   `Single<.., With<SessionRoot>>` with **219 references across 110 files**, and
+   they do not select by `ActiveSessionScope` while `live_session_world_root()`
+   does. Two ownership semantics; candidate coexistence makes ordinary systems
+   ambiguous immediately.
+3. **The independent lifecycle bugs, which need none of the above** — see the row
+   below.
+4. **Then** candidate world publication.
+
+⭐ **A CURRENT CORRECTNESS BUG THAT IS NOT A10:** a materially changed hot reload
+constructs N+1 roots stamped with **N's** `TransactionId` — the plan is prepared
+against `prepared_content.epoch()` (N) and `ActiveContentBinding` is published as
+N+1 only afterwards. `TransactionId` is canonical rollback state and
+`ConstructionScope::transaction()` is literally `binding ⊗ room ⊗ session`, so the
+live world ends with content N+1 and roots claiming N. It is the two-binding gap
+above showing through: for an N→N transition `expected` and `incoming` coincide,
+which is what hid the missing distinction.
+
+⛔⛤ **AND THE FIX IS NOT "SPLIT THE FIELD" — READ BEFORE SIZING IT.** Verified at
+HEAD 2026-09-13:
+- `transaction::close` compares `plan.construction_binding()` against the LIVE
+  `ActiveContentBinding`, and the hot reload's own comment says the late publish
+  is deliberate: *"this transaction still verifies against the binding it was
+  prepared under; every LATER transaction must state the new one or be refused as
+  stale."* ⇒ Stamping the roots N+1 while leaving one binding field would make
+  that comparison N+1 vs N and **refuse every materially changed reload**. The
+  split into `expected_live_binding` / `incoming_binding` is therefore REQUIRED,
+  not optional, exactly as the review says.
+- ⭐ **THE CONSTRAINT THE REVIEW DID NOT NAME, and it is the one that makes this
+  a packet rather than a patch: AT PREPARE TIME THE RELOAD DOES NOT KNOW N+1.**
+  `committed_content` is `candidate_content.with_epoch(epochs.allocate())` and is
+  computed **after every preflight**, under an explicit rule — *"Everything above
+  this line is non-mutating … materially changed definitions allocate a new epoch
+  only now."* Allocating earlier makes preparation mutate
+  `ContentEpochSequence`; re-stamping later means `TransactionId` is not a pure
+  function of the scope, which is what makes it deterministic and what lets a
+  same-room reconstruction recognise its own previous roots.
+- ⇒ So the two-binding contract needs a candidate identity that can be MINTED
+  before the preflight and DISCARDED without consuming the live sequence — which
+  is the candidate-session representation from packet 1, not an edit to
+  `ConstructionScope`. ⚠ Do not start it as a field split.
+
+## ✅ THE INDEPENDENT LIFECYCLE BUGS THE DEEPER REVIEW FOUND, 2026-09-13 — none of them wait for A10
+
+- ✅ **A STALE SCOPE'S RETIREMENT WIPED THE LIVE SCOPE'S AUTHORITIES.**
+  `reset_session_scoped_resources_on_retire` reset all ~21 mirrors and removed
+  `SessionMechanics` on ANY `SessionScopeRetired`, never asking which scope
+  retired — while `ActiveSessionScope::clear_if_current` states the rule, entity
+  cleanup obeys it, and rollback cleanup obeys it. A delayed retirement of A
+  arriving after B became current reset **B**. Fixed: the sweep runs only when the
+  retiring scope is still live (or none is — a quit-to-title must still free its
+  handles). Guard `a_stale_scopes_retirement_leaves_the_live_scopes_mirrors_alone`
+  with the reverse control; poison-verified.
+- ✅ **AMBIENT GRAVITY OUTLIVED THE SESSION THAT FLIPPED IT.** `BaseGravity` is
+  canonical rollback state and a mechanic (flip switches write it); its only reset
+  roads were `RoomReplayAdmitted` and a room transition's commit — neither a
+  session edge, and Reset New Game commits through its own seam. So "flip gravity,
+  quit, new game" started upside down. Fixed on BOTH edges: it is a member of
+  `SessionScopedResources` (so the exhaustive destructure covers it and the next
+  addition cannot skip it), and the gravity domain's own reducer now answers
+  `NewGameResetCommitted` as well as `RoomReplayAdmitted`. Guards
+  `ambient_gravity_does_not_outlive_the_session_that_flipped_it` and
+  `a_new_game_and_a_replay_both_put_gravity_back_down` (two arms, the replay one
+  being the control); poison-verified. ⚠ AND IT SURFACED A SECOND DEFECT: the
+  gravity plugin added a system reading a message `session::reset`'s plugin owns,
+  so a composition without that plugin **panicked at parameter validation** on its
+  first frame (three unit apps did). The channel is registered beside the system
+  now.
+- ✅ **AN OWED RESTORE AND A QUEUED CUTSCENE BOTH CROSSED THE SESSION BOUNDARY.**
+  `OutstandingCheckpointRequest`'s own doc says *"the session is still owed a
+  restore"* and *"at most one outstanding request per session"* — implemented
+  App-global with no session edge, so session B admitted a checkpoint
+  reconstruction **B never asked for** (the bit is deliberately PERSISTED while a
+  request cannot be admitted, which is right within one session and wrong across
+  a quit). `ActiveCutscene` and `CutsceneTriggerQueue` are the same shape and
+  worse: while `is_playing()` holds, input declaration captures the cutscene
+  context, and `end_cutscene` writes the running script's `seen_flag` into the
+  CURRENT save — so A's stale playback finishing after B installed its file
+  writes A's narrative flag into **B's**. All three are members of
+  `SessionScopedResources` now, so both edges clear them and the exhaustive
+  destructure makes the next addition a compile error. Guard
+  `a_session_does_not_inherit_the_previous_ones_owed_restore_or_queued_cutscene`;
+  poison-verified. ⚠ `ActiveCutscene` itself is not value-asserted, and that is
+  this file's standing rule — *"every" is the COMPILER's claim* — not an omission.
+- ✅ **RESET NEW GAME'S WIPE DID NOT STAY A WIPE.** The reset writes
+  `AmbitionGameSaveData::default()` and leaves `OwnedItems`, the primary player's
+  `BodyWallet`, both item baselines and `SaveRestored` alone — and `SaveRestored`
+  staying TRUE is what closed the loop: `persist_inventory_to_save` saw the fresh
+  save differ from the old run's live bag and **wrote the old run back into it**
+  on the next pass. Fixed as a DOMAIN REDUCER, not another field the reset
+  monolith knows about: `reset_inventory_on_new_game` consumes
+  `NewGameResetCommitted`, establishes `OwnedItems::starter()` (what
+  `ambition_content` installs at App build, so a new game begins with what a new
+  PROCESS begins with) and `BodyWallet::default()` (checked: no character
+  definition authors a starting balance), clears both baselines and lowers
+  `SaveRestored` so the fresh run takes the same road a fresh process takes. It
+  runs FIRST in the durable-horizon chain, ahead of the mirrors. Guard
+  `a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save` —
+  which ticks a persistence pass, because an arm checking only the commit frame
+  passes against the broken code — with a starter-set assertion so a reducer that
+  merely emptied the bag cannot pass. Poison-verified.
+- ⚠ **AND THE SAME TRAP TWICE IN ONE SITTING:** both new reducers read a message
+  another plugin owns, and a `MessageReader` for an unregistered message fails
+  PARAMETER VALIDATION at runtime rather than at compile time. The gravity one
+  killed three unit apps; the item one killed six durable-horizon fixtures. Each
+  channel is registered beside the system that reads it now, which is the
+  arrangement a composition cannot get half of.
+- ⛔ **STILL OPEN, and next:** the fail-open optional canonical authorities
+  (`GenerationMechanics`'s App fallback and `ActiveContentBinding`'s
+  absent-is-accepted check cannot tell *"a direct-entry fixture"* from *"a live
+  shell session that lost its authority"*).
+- ⚠ **NOT YET CONFIRMED:** `ActiveConversation` spanning retirement — a
+  self-healing rule (`break_dialogue_on_hit_or_separation`) probably closes it,
+  and the open question is ORDERING. Needs a poison test, not a fix.
+
 ## ⛔⛔ NEXT ARCHITECTURE ACTION — READ THIS BEFORE PICKING A ROW
 
 ⛔⛤ **I3 IS CLOSED, AND THIS HEADER POINTED AT FINISHED WORK — WHICH IS THE MOST

@@ -113,6 +113,15 @@ impl Plugin for GravityPlugin {
         // Reset gravity to default when the room resets — after the
         // content layer's room-reset work (named boss arenas), ordered
         // against the SET label so this generic plugin names no content.
+        // ⛔⛔ **A `MessageReader` FOR AN UNREGISTERED MESSAGE PANICS AT PARAMETER
+        // VALIDATION, NOT AT COMPILE TIME.** `reset_gravity_on_room_reset` grew a
+        // second reader — `NewGameResetCommitted`, owned by
+        // `session::reset`'s plugin — and a composition that installs gravity
+        // without that plugin died on its first frame (measured: three gravity
+        // unit apps). `add_message` is guarded against a second registration, so
+        // the system and the channel it reads are declared together here, which
+        // is the only arrangement a composition cannot get half of.
+        app.add_message::<crate::session::reset::NewGameResetCommitted>();
         app.add_systems(
             sim,
             reset_gravity_on_room_reset

@@ -131,6 +131,41 @@ pub struct SessionScopedResources<'w> {
     /// the EARLIEST intent, that residue does not merely fire late: it REFUSES
     /// the next session's first lifecycle intent.
     pending_lifecycle: ResMut<'w, crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    /// ⛔⛤ **THE ROOM'S AMBIENT GRAVITY, ADDED 2026-09-13 AFTER A REVIEW FOUND IT
+    /// CROSSING SESSIONS.** `BaseGravity` is canonical ROLLBACK state and a
+    /// MECHANIC — gravity-flip switches write it — and its only reset roads were
+    /// a room replay and a room TRANSITION's commit. Neither is a session edge,
+    /// so *"flip gravity, quit, start a new game"* began the next session upside
+    /// down until some later transition happened to correct it.
+    ///
+    /// ⚠ Its NEW-GAME edge is not here: Reset New Game has its own seam
+    /// (`NewGameResetCommitted`) and the gravity domain answers that one itself,
+    /// in `gravity::lifecycle::reset_gravity_on_room_reset`.
+    base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
+    /// ⛔⛤ **A RESTORE THIS SESSION WAS OWED — AND THE NEXT ONE USED TO PAY IT.**
+    /// `OutstandingCheckpointRequest`'s own doc says *"the session is still owed a
+    /// restore"* and *"at most one outstanding request per session"*, and it was
+    /// implemented as an App-global with no session edge at all.
+    /// `resume_at_checkpoint_on_reset` deliberately PERSISTS the bit when the
+    /// request cannot yet be admitted (no session world, no player subject, the
+    /// slot busy) — correct within one session, and across a quit it meant
+    /// session B admitted a checkpoint reconstruction **B never asked for**.
+    /// ⇒ Its implementation lifetime now matches its documented one.
+    outstanding_checkpoint: ResMut<'w, crate::session::checkpoint::OutstandingCheckpointRequest>,
+    /// ⛔⛤ **CUTSCENE PLAYBACK, WHICH USED TO OUTLIVE THE SESSION THAT STARTED
+    /// IT.** `LastCutsceneRoom` above is the MEMORY of where one played; this is
+    /// the runtime that is playing. While `is_playing()` holds,
+    /// `declare_in_session_input_contexts` declares the high-priority cutscene
+    /// context, so a session B beginning after A quit mid-cutscene could open
+    /// with its input captured. ⛔ And it is durable as well as mechanical:
+    /// `tick_active_cutscene` calls `end_cutscene`, which writes the running
+    /// script's `seen_flag` into the CURRENT `AmbitionGameSave` — so A's stale
+    /// cutscene finishing after B installed its save writes A's narrative flag
+    /// into B's file.
+    active_cutscene: ResMut<'w, ambition_cutscene::ActiveCutscene>,
+    /// The other half: a trigger raised just before retirement and consumed just
+    /// after the next session begins plays A's cutscene in B.
+    cutscene_triggers: ResMut<'w, ambition_cutscene::CutsceneTriggerQueue>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -155,10 +190,41 @@ pub fn reset_session_scoped_resources_on_activation(
 /// session safe, and it does not depend on this having run.
 pub fn reset_session_scoped_resources_on_retire(
     mut retired: MessageReader<SessionScopeRetired>,
+    active: bevy::prelude::Res<
+        ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope,
+    >,
     resources: SessionScopedResources,
     mut commands: bevy::prelude::Commands,
 ) {
-    if retired.read().count() == 0 {
+    // ⛔⛤ **WHICH SCOPE RETIRED — THIS USED TO WIPE ON ANY RETIREMENT AT ALL, AND
+    // A 2026-09-13 review found what that costs.** The shared lifecycle already
+    // states the rule beside `ActiveSessionScope::clear_if_current`: *"Retiring A
+    // after B activated must not clear B's spawn context."* Entity cleanup obeys
+    // it (it checks each entity's owner) and the rollback session cleanup obeys
+    // it. This system did not ask at all.
+    //
+    // ⇒ A delayed `SessionScopeRetired(A)` delivered after B became current wiped
+    // **B's** mechanics, occurrence state, baselines, encounters, possession,
+    // projectile counter and lifecycle intent — twenty authorities belonging to a
+    // session that was still being played, while `ActiveSessionScope` correctly
+    // went on naming B.
+    //
+    // ⭐ **AND THE TEST IS "IS THE RETIRING SCOPE STILL THE CURRENT ONE", NOT
+    // "ARE THEY EQUAL TO SOMETHING".** A quit-to-title retires A and leaves NO
+    // scope current, and that case must still free A's handles — it is the whole
+    // reason this hygiene system exists. Only a retirement arriving while a
+    // DIFFERENT scope is live is refused.
+    let retiring: Vec<_> = retired.read().map(|event| event.0).collect();
+    if retiring.is_empty() {
+        return;
+    }
+    let live = active.current();
+    if retiring
+        .iter()
+        .all(|scope| live.is_some_and(|current| current != *scope))
+    {
+        // Every retirement in this batch belongs to a scope that is not the live
+        // one. Nothing here is ours to clear.
         return;
     }
     reset(resources);
@@ -208,6 +274,10 @@ fn reset(resources: SessionScopedResources) {
         mut cutscene_last_room,
         mut projectile_seq,
         mut pending_lifecycle,
+        mut base_gravity,
+        mut outstanding_checkpoint,
+        mut active_cutscene,
+        mut cutscene_triggers,
     } = resources;
     *moving_platforms = MovingPlatformSet::default();
     *possession = PossessionState::default();
@@ -229,6 +299,10 @@ fn reset(resources: SessionScopedResources) {
     *cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
+    *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+    *outstanding_checkpoint = crate::session::checkpoint::OutstandingCheckpointRequest::default();
+    *active_cutscene = ambition_cutscene::ActiveCutscene::default();
+    *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

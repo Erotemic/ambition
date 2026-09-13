@@ -30,6 +30,67 @@ use crate::session::durable_horizon::SaveRestored;
 use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::AmbitionGameSave;
 
+/// ⛔⛤ **RESET NEW GAME WIPED THE SAVE AND THE NEXT PERSISTENCE PASS PUT THE OLD
+/// RUN BACK — MEASURED BY A 2026-09-13 REVIEW.**
+///
+/// `process_new_game_reset_request` writes `AmbitionGameSaveData::default()`,
+/// resets encounters/bosses/quests, clears occurrences and rebuilds the room. It
+/// does not touch `OwnedItems`, the primary player's `BodyWallet`, the item
+/// baselines, or [`SaveRestored`] — and `SaveRestored` staying TRUE is what
+/// closes the loop:
+///
+/// ```text
+/// Reset New Game:   save = default, live bag = the old run's, SaveRestored = true
+/// next pass:        persist_inventory_to_save sees them differ
+///                   → writes the OLD inventory and wallet into the NEW save
+/// ```
+///
+/// ⇒ The wipe did not stay a wipe, and stale checkpoint baselines could restore
+/// old-run durable state on a later death.
+///
+/// ⭐ **THE DOMAIN OWNS ITS OWN FRESH-RUN STATE, which is why this is here and
+/// not another field the reset monolith knows about.** `NewGameResetCommitted` is
+/// the lifecycle FACT; each durable domain reduces it. Teaching the central reset
+/// the internals of every durable subsystem is how the next subsystem gets
+/// forgotten.
+///
+/// ⚠ **FRESH-RUN, NOT EMPTY.** The bag is `OwnedItems::starter()` — what
+/// `ambition_content`'s plugin installs at App build, so a new game begins with
+/// what a new PROCESS begins with. The wallet is `BodyWallet::default()`: no
+/// character definition authors a starting balance (checked), so zero is that
+/// same value. ⇒ If one ever does, this owes the definition rather than a
+/// constant.
+pub fn reset_inventory_on_new_game(
+    mut committed: MessageReader<crate::session::reset::NewGameResetCommitted>,
+    mut owned: ResMut<OwnedItems>,
+    mut restored: ResMut<SaveRestored>,
+    mut minted_baseline: Option<ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+    mut owned_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    mut wallet_q: Query<
+        &mut BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+) {
+    if committed.read().next().is_none() {
+        return;
+    }
+    *owned = OwnedItems::starter();
+    if let Ok(mut wallet) = wallet_q.single_mut() {
+        *wallet = BodyWallet::default();
+    }
+    if let Some(baseline) = minted_baseline.as_deref_mut() {
+        *baseline = Default::default();
+    }
+    if let Some(baseline) = owned_baseline.as_deref_mut() {
+        *baseline = Default::default();
+    }
+    // ⛔ AND THE RESTORE ROAD RUNS AGAIN, against the FRESH file. Leaving this
+    // true is what let the mirror write before any adopter had seen the new save;
+    // lowering it puts the fresh run through the same road a fresh process takes,
+    // where `inventory_saved() == false` means "keep the live starter set".
+    restored.0 = false;
+}
+
 /// Apply the saved inventory + wallet to the live state once, after the save
 /// is loaded and the player exists. A fresh save (never persisted —
 /// `inventory_saved == false`) keeps the live starter set.

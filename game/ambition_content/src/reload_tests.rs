@@ -3713,3 +3713,139 @@ fn an_uncorrelated_transaction_is_not_adopted_either() {
         "an uncorrelated navigation transaction was adopted as the reload's own"
     );
 }
+
+// ── Publication legality across the transaction INTERVAL ─────────────────────
+//
+// ⛔⛤ **THE LEGALITY CHECK COVERS THE INSTANT SOMEBODY ASKED, NOT THE INTERVAL
+// THE TRANSACTION LIVES IN — MEASURED 2026-09-12, AND THESE TWO ARMS ARE THE
+// MEASUREMENT.**
+//
+// `admit_candidate` asks `publication_boundary` and refuses a live timeline or
+// an unhealthy authority. That refusal is real and
+// `a_live_rollback_timeline_refuses_a_reload_request` proves it. But the
+// generation then spends time in `PendingGeneration` — through shell
+// preparation, to `RouteActivated` — and `commit_content_generation` asks
+// NOTHING: *"there is nothing in it that can say no"*, which is deliberate and
+// correct as far as it goes.
+//
+// ⇒ So the implementation carries an unstated assumption: **that nothing can
+// establish or invalidate a rollback authority between the request and the
+// activation.** These two arms show what happens when it does, and the answer is
+// that the generation publishes into a world the same check would have refused
+// a moment earlier.
+//
+// ⚠ **WHAT THESE DO NOT SHOW, STATED SO THE NEXT READER DOES NOT OVERCLAIM
+// THEM:** that the shipped lifecycle naturally produces those transitions in
+// that window. They INSTALL the authority directly. The structural gap is
+// measured; its natural reachability is not, and that is the open question —
+// see `Q118` in the decision ledger.
+//
+// ⛔ AND THE FIX IS NOT A SECOND `publication_boundary` CALL IN
+// `commit_content_generation`. By then the shell's engine/session half of the
+// generation transition is already at its commit boundary, so a fallible content
+// half there would recreate exactly the split I3 exists to prevent — a route
+// activated at N+1 with a cast still at N. The direction is an authorization
+// that COVERS the interval and is broken early, or a lifecycle that stops and
+// rebases rollback as part of the same transaction.
+
+/// A rollback timeline that goes live while a generation is pending does not
+/// stop that generation publishing.
+#[test]
+fn a_generation_publishes_across_a_timeline_that_went_live_mid_flight() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let before = live_duration(&app);
+
+    // ⛔ THE PREMISE: it was LEGAL when asked. Without this the arm is about a
+    // refused request rather than about the interval.
+    assert!(
+        app.world().get_resource::<ActiveRollbackAuthority>().is_none(),
+        "the fixture already has an authority, so the request below would be \
+         refused and this arm would measure nothing",
+    );
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    // The interval: a healthy, speculating timeline appears AFTER the request was
+    // accepted and BEFORE the activation commits it. Asked at this instant,
+    // `publication_boundary` answers `LiveTimeline` and the same candidate is
+    // refused — see `a_live_rollback_timeline_refuses_a_reload_request`.
+    app.world_mut().insert_resource(live_authority());
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "MEASURED GAP CLOSED? This arm records that the generation publishes \
+         across a timeline that went live mid-flight. If it now refuses, the \
+         interval is sealed and this arm should become the opposite assertion \
+         naming whatever seals it.",
+    );
+}
+
+/// An authority that goes UNHEALTHY while a generation is pending does not stop
+/// that generation publishing either — and this is the worse of the two.
+///
+/// ⚠ WORSE because an unhealthy authority is a RECORDED DIVERGENCE.
+/// `publishing_does_not_heal_an_unhealthy_rollback_authority` exists because
+/// content publication must not launder a desync into health by a side door; a
+/// generation that crosses the interval publishes into exactly that world
+/// without ever asking.
+#[test]
+fn a_generation_publishes_across_an_authority_that_went_unhealthy_mid_flight() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let before = live_duration(&app);
+
+    assert!(
+        app.world().get_resource::<ActiveRollbackAuthority>().is_none(),
+        "the fixture already has an authority, so the request below would be \
+         refused and this arm would measure nothing",
+    );
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    let mut authority = live_authority();
+    authority.invalidate("a desync that arrived mid-flight".to_string());
+    app.world_mut().insert_resource(authority);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "MEASURED GAP CLOSED? This arm records that the generation publishes \
+         across an authority that went unhealthy mid-flight.",
+    );
+    assert!(
+        !app.world()
+            .resource::<ActiveRollbackAuthority>()
+            .status()
+            .is_healthy(),
+        "the publication healed the authority, which is a DIFFERENT and worse \
+         defect than the one this arm is about",
+    );
+}

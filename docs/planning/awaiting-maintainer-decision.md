@@ -1468,3 +1468,47 @@ Do not add investigation transcripts beneath a question. Record enough source
 context to make the decision, link the owner doc when useful, and stop. Once
 answered, move the durable ruling to `maintainer-decisions.md` and delete the
 question here.
+
+## Q118 — is the rollback-legality interval ARCHITECTURE, or is it unreachable in the shipped lifecycle?
+
+⛔ **NOT A TASTE QUESTION AND PROBABLY NOT JON'S — recorded here because the
+ANSWER decides whether an implementation packet exists, and the measurement that
+decides it is bounded.**
+
+**MEASURED 2026-09-12, and the structural gap is real.** `admit_candidate` asks
+`publication_boundary(world)` and refuses a live rollback timeline or an
+unhealthy authority. The generation then spends time in `PendingGeneration` —
+through shell preparation to `RouteActivated` — and `commit_content_generation`
+asks NOTHING, deliberately: *"there is nothing in it that can say no."* ⇒ The
+implementation carries an unstated assumption: **that nothing can establish or
+invalidate a rollback authority between the request and the activation.**
+
+Two arms in `game/ambition_content/src/reload_tests.rs` now measure what happens
+when it does — `a_generation_publishes_across_a_timeline_that_went_live_mid_flight`
+and `..._an_authority_that_went_unhealthy_mid_flight`. Both publish. The second
+is the worse one: an unhealthy authority is a RECORDED DIVERGENCE, and
+`publishing_does_not_heal_an_unhealthy_rollback_authority` exists precisely
+because content publication must not launder a desync.
+
+⚠ **WHAT IS NOT MEASURED, AND IT IS THE WHOLE QUESTION:** whether the SHIPPED
+lifecycle naturally produces either transition inside that window. Both arms
+install the authority by hand. The suspicious road is
+`local_session::maintain_local_session`, which runs every `Update` and starts a
+GGRS session when gameplay becomes active — and a reload re-prepares the route
+the shell is already on, so the session world is torn down and rebuilt inside the
+pending interval. ⇒ **Whether the restart lands before or after
+`commit_content_generation` in that frame is an ORDERING fact I have not
+measured.**
+
+⛔ **THE FIX IS NOT A SECOND `publication_boundary` CALL AT THE COMMIT.** By then
+the shell's engine/session half is already at its commit boundary; a fallible
+content half there recreates exactly the split I3 exists to prevent — a route
+activated at N+1 with a cast still at N. The two coherent directions are an
+authorization that covers the INTERVAL and is broken EARLY (breaking it cancels
+the whole shell transaction, so neither half activates), or a lifecycle that
+stops and rebases rollback as part of the same transaction.
+
+⇒ **WHAT WOULD CLOSE THIS:** one ordering measurement at
+`maintain_local_session` versus `commit_content_generation`. If the transition is
+impossible, encode the impossibility as a schedule invariant and the two arms
+above flip to assert the refusal. If it is possible, the lease packet is real.

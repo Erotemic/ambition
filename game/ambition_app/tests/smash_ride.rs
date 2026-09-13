@@ -969,6 +969,9 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
         "the mounted admiral is holding a recovery he already paid for, so the \
          refund asserted below would pass without the flinch doing anything"
     );
+    // ⭐ ONE SOURCE OF TRUTH FOR THIS HIT'S SIZE. It is spawned below and asserted
+    // at the bottom; two literal `4`s could drift apart in silence, one cannot.
+    const SOFT_DAMAGE: i32 = 4;
     let before = damage_taken(&mut app, seat0);
     {
         let world = app.world_mut();
@@ -986,7 +989,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
                 half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
                 shape: None,
                 facing: 1.0,
-                damage: 4,
+                damage: SOFT_DAMAGE,
                 // Soft: a flinch, not a launch. This is the half of Jon's pair
                 // that must leave him aboard.
                 knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.35),
@@ -1003,11 +1006,23 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     }
     // ⛔ THE HIT MUST HAVE LANDED, or "he stayed aboard" is a claim about an
     // undisturbed fighter — which is what this arm used to be.
+    //
+    // ⭐⭐ AND IT MUST BE *THIS* HIT, WHICH A LOWER BOUND CANNOT SAY.
+    // `damage_taken()` is a SHARED aggregate over every source that can reach the
+    // body. `rival` is seat 1 of a live match — a CPU admiral this arm never
+    // pacifies — so the `flinched > 0` asserted here until now was satisfied by
+    // ANY damage from ANY source, including the rival's own offence. The guard
+    // was sound when written only because CPUs dealt none, and `8a2f87b30`
+    // (D-CPU-INERT) ended that without touching this file: a premise that rotted
+    // rather than broke. The same shared-meter read is what reddened the boomerang
+    // arm — see `8e1dd9218`, which pinned its opponent away. Pinning the EXACT
+    // authored size is the other half of that fix, and the half that travels: it
+    // makes the delta THIS hitbox's work rather than the scene's.
     let flinched = damage_taken(&mut app, seat0) - before;
-    assert!(
-        flinched > 0,
-        "the soft hit never reached the mounted admiral (damage_taken moved by \
-         {flinched}), so staying aboard proves nothing about flinching"
+    assert_eq!(
+        flinched, SOFT_DAMAGE,
+        "the mounted admiral's meter moved by {flinched} where this arm's own \
+         hitbox authors {SOFT_DAMAGE}"
     );
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),

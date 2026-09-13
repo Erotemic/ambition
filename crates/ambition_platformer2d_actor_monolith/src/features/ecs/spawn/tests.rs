@@ -625,7 +625,6 @@ mod authored_enemy_reads_its_character {
                 patrol_path_id: None,
                 patrol_radius: 0.0,
             },
-            requires_facing: false,
             enabled: true,
         };
         let named = npc(Some("npc_pirate_quartermaster"));

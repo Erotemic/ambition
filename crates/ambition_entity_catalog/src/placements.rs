@@ -103,7 +103,6 @@ pub struct HazardSpec {
 pub struct InteractableSpec {
     pub prompt: String,
     pub kind: InteractionKindSpec,
-    pub requires_facing: bool,
     pub enabled: bool,
 }
 
@@ -112,7 +111,6 @@ impl InteractableSpec {
         Self {
             prompt: prompt.into(),
             kind,
-            requires_facing: false,
             enabled: true,
         }
     }
@@ -144,12 +142,33 @@ pub enum InteractionKindSpec {
     Custom(String),
 }
 
-/// Authored pickup reward, respawn policy, collection state, and optional presentation.
+/// Authored pickup reward, respawn policy, and optional presentation.
+///
+/// ⛔⛤ **`collected: bool` WAS DELETED 2026-09-12, AND IT IS THE SAME DEFECT
+/// `ChestSpec.state` WAS.** It was a public, serializable, documented authoring
+/// field that the lowering faithfully copied into `Pickup::collected` — and
+/// production collection logic never read either one. The live authority is the
+/// `ambition_combat::components::Collected` MARKER, which `pickups.rs` inserts
+/// and queries (`Without<Collected>`).
+///
+/// ⇒ So `PickupSpec { collected: true, .. }` did not mean what its own schema
+/// said: the pickup still lacked the marker and was still there to be taken.
+/// That is a CORRECTNESS defect rather than a dead field — an author could state
+/// a fact the runtime contradicts, and a third-party provider had no way to
+/// infer that a documented field is deliberately ignored.
+///
+/// ⛔ **DELETED RATHER THAN WIRED, and the reason is the same standard the chest
+/// was held to:** do not make unsupported semantics expressible and then
+/// silently discard them. Wiring it would mean inserting `Collected` during
+/// construction, which is a real feature ("this pickup starts already taken")
+/// that nothing asks for — and MEASURED before deleting, **no authored content
+/// file in the tree sets it**, so nothing loses a meaning it had. If that
+/// feature is ever wanted, it arrives as an insert of the live marker and not as
+/// a second representation beside it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PickupSpec {
     pub kind: PickupKind,
     pub respawn: HazardRespawn,
-    pub collected: bool,
     /// Optional animated sprite sheet (a prop-kind key registered in
     /// `GameAssets.characters.props`). When set and resolvable, the render binds
     /// the pickup's visual as an idle-looping character sheet (a spinning ring, a
@@ -165,7 +184,6 @@ impl PickupSpec {
         Self {
             kind,
             respawn: HazardRespawn::Never,
-            collected: false,
             sprite: None,
         }
     }
@@ -205,14 +223,12 @@ impl PickupSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
     pub reward: Option<PickupKind>,
-    pub persistent: bool,
 }
 
 impl ChestSpec {
     pub fn new(reward: Option<PickupKind>) -> Self {
         Self {
             reward,
-            persistent: true,
         }
     }
 }

@@ -100,7 +100,6 @@ fn spawn_victory_npc_entity(
             patrol_path_id: None,
             brain_override: None,
         },
-        requires_facing: false,
         enabled: true,
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the

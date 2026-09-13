@@ -3187,7 +3187,6 @@ fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
             PlacementSchema::Pickup(PickupSpec {
                 kind: PickupKind::Health { amount: 1 },
                 respawn: HazardRespawn::Never,
-                collected: false,
                 sprite: None,
             }),
             ae::Aabb::new(ae::Vec2::new(64.0, 32.0), ae::Vec2::splat(8.0)),

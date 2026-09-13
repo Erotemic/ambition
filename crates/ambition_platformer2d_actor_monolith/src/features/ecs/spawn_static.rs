@@ -77,7 +77,6 @@ fn pickup_from_authored(
         id: authored.id.clone(),
         kind: pickup_kind_from_spec(&authored.payload.kind),
         respawn: authored.payload.respawn,
-        collected: authored.payload.collected,
     }
 }
 
@@ -96,7 +95,6 @@ fn chest_from_authored(
     ambition_interaction::Chest {
         id: authored.id.clone(),
         reward: authored.payload.reward.as_ref().map(pickup_kind_from_spec),
-        persistent: authored.payload.persistent,
     }
 }
 
@@ -219,7 +217,6 @@ pub(crate) fn interactable_from_authored(
         prompt: authored.payload.prompt.clone(),
         aabb: authored.aabb,
         kind: interaction_kind_from_spec(&authored.payload.kind),
-        requires_facing: authored.payload.requires_facing,
         enabled: authored.payload.enabled,
     }
 }

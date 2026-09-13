@@ -14,24 +14,25 @@ use bevy_math::bounding::Aabb2d as Aabb;
 
 /// A player-facing interaction trigger.
 ///
-/// ⛔ `requires_facing` IS READ BY NOTHING. Measured 2026-09-05: it is authored
-/// on `InteractableSpec` (in `ambition_entity_catalog`, so not linkable from
-/// here), threaded into this component by `spawn_static.rs`,
-/// set explicitly by content (`cut_rope/victory.rs`), and consulted by no
-/// production code — so an interactable that declares it must be faced can be
-/// used from behind. The THIRD field in this crate with that shape, after
-/// [`Chest::persistent`] and [`Pickup::collected`].
+/// ⛔⛤ **`requires_facing: bool` IS GONE, 2026-09-12.** It was authored on
+/// `InteractableSpec`, threaded in by `spawn_static.rs`, set explicitly by
+/// content — and consulted by NO production code, so an interactable declaring
+/// it must be faced could be used from behind. A public, serializable,
+/// documented authoring field that advertises a rule the engine does not
+/// implement, and a third-party provider had no way to infer that.
 ///
-/// ⇒ Wiring it or deleting it is a design call. What is measured is that the
-/// authored value currently decides nothing, and a reader should not assume the
-/// facing rule exists because the field does.
+/// ⇒ **DELETED, NOT LEFT AS A DESIGN CALL.** This comment used to end *"wiring
+/// it or deleting it is a design call"*, and that framing is what kept three
+/// no-op fields alive in one crate. **Deciding what the future feature should do
+/// is a different question from making the field impossible to misuse**, and
+/// only the second one was blocked on anything. Whoever wants facing-gated
+/// interaction adds the field and the CHECK together.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Interactable {
     pub id: String,
     pub prompt: String,
     pub aabb: Aabb,
     pub kind: InteractionKind,
-    pub requires_facing: bool,
     pub enabled: bool,
 }
 
@@ -47,7 +48,6 @@ impl Interactable {
             prompt: prompt.into(),
             aabb,
             kind,
-            requires_facing: false,
             enabled: true,
         }
     }
@@ -95,23 +95,23 @@ pub enum InteractionKind {
 
 /// Collectible object semantics.
 ///
-/// ⛔ `collected` IS NOT THE AUTHORITY AND NOTHING READS IT. Measured
-/// 2026-09-05: it is authored on `PickupSpec`, threaded into this component by
-/// `spawn_static.rs`, and read by no production code. What the runtime actually
-/// asks is whether the entity carries the `Collected` MARKER COMPONENT
-/// (`ambition_combat::components::Collected`, rollback-registered as
-/// `feature.collected`), which is what `pickups.rs` inserts and queries.
+/// ⛔⛤ **`collected: bool` IS GONE, 2026-09-12.** This comment used to say it was
+/// *"not the authority and nothing reads it"*, note that it was the same shape as
+/// `Chest::persistent`, and leave wiring-or-deleting as a design call. Leaving it
+/// there was the wrong half of that choice: `Pickup::collected` was a SECOND
+/// REPRESENTATION of a fact whose only live authority is the
+/// `ambition_combat::components::Collected` marker — the one `pickups.rs` inserts
+/// and queries as `Without<Collected>` — and a spec that said `collected: true`
+/// produced a pickup that was still there to be taken.
 ///
-/// ⇒ One fact, two representations, and only the marker is live. The same shape
-/// as [`Chest::persistent`] one type up — an authored spec field carried end to
-/// end with no consumer. Wiring it or deleting it is a design call; what must
-/// not happen is a reader trusting this field because it exists.
+/// ⇒ **One fact, one recorder.** The marker. Deleting the field is what makes a
+/// reader unable to trust it, which is stronger than a comment asking them not
+/// to. See `PickupSpec` for what was measured before the deletion.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pickup {
     pub id: String,
     pub kind: PickupKind,
     pub respawn: HazardRespawn,
-    pub collected: bool,
 }
 
 impl Pickup {
@@ -120,7 +120,6 @@ impl Pickup {
             id: id.into(),
             kind,
             respawn: HazardRespawn::Never,
-            collected: false,
         }
     }
 }
@@ -157,7 +156,6 @@ pub use ambition_entity_catalog::PickupKind;
 pub struct Chest {
     pub id: String,
     pub reward: Option<PickupKind>,
-    pub persistent: bool,
 }
 
 impl Chest {
@@ -165,7 +163,6 @@ impl Chest {
         Self {
             id: id.into(),
             reward,
-            persistent: true,
         }
     }
 }
@@ -328,33 +325,26 @@ mod tests {
     }
 
     #[test]
-    fn a_chest_carries_its_reward_and_defaults_to_persistent() {
+    fn a_chest_carries_its_reward() {
         // `reward` is propagated as given (None for empty chests / triggers).
         //
-        // ⛔⛤ **AND `persistent` IS THE SECOND WRITE-ONLY FIELD IN THIS STRUCT —
-        // THE FIRST, `state`, WAS DELETED 2026-09-12 AND THIS ONE WAS NOT.** The
-        // difference is the justification, not the shape: `state` had a LATENT
-        // DEFECT attached (an authored `Opened` chest would grant its reward
-        // twice, because the runtime gates on the `Opened` marker), and deleting
-        // it removed a bug. `persistent` is merely dead — measured 2026-09-05 and
-        // unchanged since — so removing it is a product-surface change with no
-        // correctness argument behind it, and doing both in one breath would have
-        // been arbitrary. ⇒ Recorded rather than done; it is the same shape and
-        // wants the same answer eventually.
+        // ⛔⛤ **`persistent` WAS THE SECOND WRITE-ONLY FIELD IN THIS STRUCT AND
+        // IS NOW GONE TOO, 2026-09-12.** The note that stood here said `state`
+        // was deleted because it had a LATENT DEFECT attached while `persistent`
+        // was *"merely dead"*, so removing it would be "a product-surface change
+        // with no correctness argument behind it" — recorded rather than done.
         //
-        // ⛔ THE `persistent` FLAG IS NOT READ BY ANYTHING, and this comment
-        // used to say it was — *"so the save system records them
-        // automatically"*. Measured 2026-09-05: `ChestSpec.persistent` is
-        // authored, threaded through `spawn_static.rs` into this component, and
-        // then read by NO production code; the only reader in the tree is the
-        // assertion below. What actually remembers an opened chest is
-        // `encounter_reward_looted_flag`, a per-encounter save flag that does
-        // not consult this field.
+        // ⇒ **THAT DISTINCTION WAS THE WRONG ONE.** A serializable, documented
+        // authoring field that decides nothing is a FALSE CAPABILITY in the
+        // engine's API whether or not a second live authority contradicts it:
+        // `persistent: false` on an authored chest changed nothing, and the
+        // comment above it used to claim *"so the save system records them
+        // automatically"*. What actually remembers an opened chest is
+        // `encounter_reward_looted_flag`, which never consulted this field.
         //
-        // ⇒ The assertion stays, because the DEFAULT is still a real fact about
-        // the type and a change to it should be deliberate. But nobody should
-        // read this test as evidence that per-chest persistence works: setting
-        // `persistent: false` on an authored chest changes nothing today.
+        // ⚠ And deciding what per-chest persistence SHOULD do is a different
+        // question from making the field impossible to misuse; only the second
+        // was ever blocked on anything.
         let chest = Chest::new("hub_chest", Some(PickupKind::Health { amount: 2 }));
         // ⛔ THE REWARD IS THE FACT THIS TYPE CARRIES, AND IT IS ASSERTED ONCE.
         // "Is it open" lives on the `Opened` marker; the `state` assertions that
@@ -362,7 +352,6 @@ mod tests {
         // in production read, so they went with it rather than being repointed —
         // a repointed assertion would have restated `reward`, which the next
         // line already pins.
-        assert!(chest.persistent);
         assert_eq!(chest.reward, Some(PickupKind::Health { amount: 2 }));
 
         let empty = Chest::new("decoration", None);

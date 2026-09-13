@@ -94,7 +94,7 @@ pub struct EnemyActorBundle {
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
     /// Movement-driven presentation overlay timers, shared with the player. Armed
-    /// each frame by `advance_actor_anim_overlays` (landing / dash-startup) and
+    /// each frame by `advance_body_anim_overlay_clocks` (landing / dash-startup) and
     /// read by `pick_actor_anim`, so an AI fighter shows those poses too (fable
     /// review §A9). Defaults inert.
     pub anim: ambition_characters::actor::BodyAnimFacts,

@@ -1030,7 +1030,7 @@ pub(crate) fn integrate_actor_body(
     // Arm the op-driven overlay POSES this body earned this frame (the wall-jump
     // push-off) on its `BodyAnimFacts`, through the SAME body-generic arming the
     // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
-    // just the dust (§A9 follow-up). `advance_actor_anim_overlays` decays it.
+    // just the dust (§A9 follow-up). `advance_body_anim_overlay_clocks` decays it.
     if let Some(anim) = anim.as_deref_mut() {
         crate::features::arm_ground_contact_anim_overlay(anim, move_events.ground_contact);
         crate::features::arm_movement_anim_overlays(anim, &move_events);

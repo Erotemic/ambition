@@ -309,16 +309,12 @@ pub fn interaction_input_system(
 pub fn cleanup_timers_system(
     time: Res<Time>,
     mut player_q: Query<
-        (
-            &ae::BodyMotionFacts,
-            &mut ambition_characters::actor::BodyAnimFacts,
-            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-        ),
+        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((motion_facts, mut anim, mut blink_cam)) = player_q.single_mut() else {
+    let Ok(mut blink_cam) = player_q.single_mut() else {
         return;
     };
     //  `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
@@ -326,12 +322,20 @@ pub fn cleanup_timers_system(
     // `tick_home_body_reaction_timers`,
     // which iterates every `PlayerEntity` rather than the home avatar alone —
     // this system's query could not see a second player body at all.
-    // Player-specific presentation timers (the blink-camera lerp) decay here; the
-    // body-generic anim OVERLAYS advance through the shared helper the actor tick
-    // also runs (fable review §A9).
+    //
+    // ⛔⛤ **AND THE BODY-GENERIC ANIM OVERLAYS LEFT FOR THE SAME REASON, 2026-09-12.**
+    // This system called `advance_body_anim_overlays` on the PRIMARY player, and
+    // the actor tick skipped every `PlayerEntity` — so a second player body,
+    // which carries `PlayerEntity` without `PrimaryPlayer`, was advanced by
+    // NEITHER and its armed poses never decayed. They advance for every body in
+    // `features::advance_body_anim_overlay_clocks` now, on `sim_dt` rather than
+    // on two different clocks.
+    //
+    // ⇒ What is left here is genuinely player-specific PRESENTATION state, and
+    // `Time::delta_secs` is right for it: the blink-camera lerp decays even
+    // while gameplay is suspended, which is the whole point of a camera ease.
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    ambition_characters::actor::advance_body_anim_overlays(motion_facts.dashing, &mut anim, frame_dt);
 }
 
 #[cfg(test)]

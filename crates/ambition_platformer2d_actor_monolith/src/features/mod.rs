@@ -115,7 +115,7 @@ pub use brain_command::{
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.
-pub use ecs::anim_helpers::{advance_actor_anim_overlays, ecs_breakable_state, ecs_chest_opened};
+pub use ecs::anim_helpers::{advance_body_anim_overlay_clocks, ecs_breakable_state, ecs_chest_opened};
 pub use ecs::{
     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events,
     apply_gameplay_banner_requests, apply_hitbox_damage,

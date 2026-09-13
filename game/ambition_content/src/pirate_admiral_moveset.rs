@@ -134,7 +134,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         half_extents: (30.0, 20.0),
         damage: 17,
         knockback: 160.0,
-        knockback_growth: 3.10,
+        knockback_growth: 4.50,
         launch_dir: Some((1.0, -0.42)),
         on_hit: None,
     });

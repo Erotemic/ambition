@@ -653,6 +653,53 @@ impl KoProbe {
             self.app.update();
         }
         if !settled {
+            // ⭐ SAY WHICH CONDITION BLOCKED IT. A refusal that reports only
+            // "refused" sends the next reader guessing, and run 3 refused 16 of
+            // 60 cells — every one of them a LEDGE cell, clustered where
+            // thresholds are low and therefore where nearly every trial ends in
+            // a KO. That points at the respawn cycle rather than the position,
+            // but pointing is not knowing, so the probe names the marker still
+            // standing when its budget ran out.
+            let w = self.app.world();
+            let mut blocked = Vec::new();
+            if w.get::<ambition_platformer2d::combat::death_rules::DeathInterlude>(self.victim)
+                .is_some()
+            {
+                blocked.push("interlude");
+            }
+            if w.get::<ambition_platformer2d::combat::stocks::PendingRespawn>(self.victim)
+                .is_some()
+            {
+                blocked.push("pending");
+            }
+            if w.get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(self.victim)
+                .is_some()
+            {
+                blocked.push("outofplay");
+            }
+            if w.get::<ambition_platformer2d::combat::stocks::RespawnGrace>(self.victim)
+                .is_some()
+            {
+                blocked.push("grace");
+            }
+            if w.get::<ambition_platformer2d::combat::capture::CapturedBy>(self.victim)
+                .is_some()
+            {
+                blocked.push("captured");
+            }
+            if w.get::<ambition_platformer2d::characters::actor::BodyCombat>(self.victim)
+                .is_some_and(|c| c.is_in_hitlag() || c.hitstun_timer > 0.0)
+            {
+                blocked.push("frozen");
+            }
+            eprintln!(
+                "KO_REFUSE: stage=settle x={victim_x:.0} pct={entry_percent} blocked=[{}]",
+                if blocked.is_empty() {
+                    "NONE-none-of-the-tracked-markers".to_string()
+                } else {
+                    blocked.join("+")
+                }
+            );
             return false;
         }
 

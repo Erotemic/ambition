@@ -169,6 +169,12 @@ fn process_shell_presentation_events(
     mut events: MessageReader<LoadPresentationEvent>,
     mut state: ResMut<ShellLoadPresentationState>,
     mut router: ResMut<ShellRouter>,
+    // ⛔ THE TWO AUTHORITIES A CANCEL HAS TO RETIRE, not just announce.
+    // `cancel_pending` needs them because ending a transaction means its
+    // preparation record and its load plan cease to exist — see the supersession
+    // path, which has always done exactly this.
+    mut loads: ResMut<ambition_load::LoadCoordinator>,
+    mut prepared: ResMut<ambition_game_shell::PreparedSessionRegistry>,
     routes: Res<ShellRouteCatalog>,
     mut holds: ResMut<ShellRouteHolds>,
     mut shell: MessageWriter<ShellCommand>,
@@ -211,7 +217,7 @@ fn process_shell_presentation_events(
             LoadPresentationEvent::CancelRequested { .. } => {
                 let had_active_route = router.active.is_some();
                 release_and_announce(
-                    router.cancel_pending(),
+                    router.cancel_pending(&mut loads, &mut prepared),
                     &mut holds,
                     &mut shell_events,
                 );
@@ -222,7 +228,7 @@ fn process_shell_presentation_events(
             }
             LoadPresentationEvent::QuitRequested { .. } => {
                 release_and_announce(
-                    router.cancel_pending(),
+                    router.cancel_pending(&mut loads, &mut prepared),
                     &mut holds,
                     &mut shell_events,
                 );

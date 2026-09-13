@@ -484,10 +484,47 @@ impl ShellRouter {
     /// producers of `ShellEvent`, which is the better shape; it also defers the
     /// hold release and the presentation clear by a frame, and both are currently
     /// synchronous with the person's click. That collapse is its own change.
-    pub fn cancel_pending(&mut self) -> Vec<ShellEvent> {
+    /// End the pending transaction because a PERSON cancelled it: retire its
+    /// preparation and its load authority, clear the router, and say so.
+    ///
+    /// ⛔⛤ **THIS USED TO BE `self.pending.take()` AND THE EVENT, AND NOTHING
+    /// ELSE — SO "CANCELLED" DESCRIBED THE ROUTER AND NOT THE TRANSACTION.**
+    /// The announcement half was correct and the lifecycle half was missing:
+    /// the [`PreparedSessionRegistry`] record and the [`LoadCoordinator`] plan
+    /// both survived a cancel, so
+    ///
+    /// * the abandoned provider work kept going and could still PUBLISH a
+    ///   prepared session for a transaction the shell had already declared
+    ///   ended — and with `self.pending` gone it could never activate, so that
+    ///   record had no consumer at all;
+    /// * `start → cancel` repeated accumulated resident preparation and load
+    ///   authority, one abandoned record and one abandoned plan per cancel.
+    ///
+    /// ⭐⭐ **THE TELL WAS THE SIBLING.** `start_route`'s SUPERSESSION path
+    /// already did the whole job — `prepared.cancel(..)` and
+    /// `loads.retire(..)` — so the two terminal roads out of one pending
+    /// transaction disagreed about what ending it means. ⇒ The two now do the
+    /// same three things; only the `reason` differs, which is the one thing
+    /// that really is different.
+    ///
+    /// ⚠ **`retire` RATHER THAN `LoadCommand::Cancel` THEN `retire`, AND THE
+    /// REASON IS NOT TIDINESS.** `Cancel` flips the plan to
+    /// `LoadPlanState::Cancelled` and returns a `PlanCancelled` event; retiring
+    /// immediately afterwards removes the plan that flip just marked, and this
+    /// caller would drop the event. A state change nobody can observe followed
+    /// by a delete is ceremony, and supersession already established `retire`
+    /// as the terminal operation. The observable announcement is the
+    /// [`ShellEvent::TransactionEnded`] below.
+    pub fn cancel_pending(
+        &mut self,
+        loads: &mut LoadCoordinator,
+        prepared: &mut PreparedSessionRegistry,
+    ) -> Vec<ShellEvent> {
         self.pending
             .take()
             .map(|pending| {
+                prepared.cancel(&pending.barrier);
+                loads.retire(&pending.barrier.load_id);
                 vec![ShellEvent::TransactionEnded {
                     route_id: pending.route_id,
                     barrier: pending.barrier,

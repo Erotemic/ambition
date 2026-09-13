@@ -975,7 +975,22 @@ fn a_cancelled_transaction_names_the_request_it_abandoned() {
         "the fixture has nothing pending, so an empty result would be correct",
     );
 
-    let events = router.cancel_pending();
+    // ⛔ THE OTHER PREMISE: the two authorities a cancel must retire are
+    // actually resident. Without these the lifecycle assertions below pass
+    // against a registry and a coordinator that were empty all along — the
+    // classic vacuous-absence arm.
+    assert!(
+        prepared.contains_load(&transaction.barrier.load_id),
+        "the fixture staged no preparation record, so 'no record after cancel' \
+         would prove nothing",
+    );
+    assert!(
+        loads.contains(&transaction.barrier.load_id),
+        "the fixture staged no load plan, so 'no plan after cancel' would prove \
+         nothing",
+    );
+
+    let events = router.cancel_pending(&mut loads, &mut prepared);
     let ended = events
         .iter()
         .find_map(|event| match event {
@@ -1002,12 +1017,101 @@ fn a_cancelled_transaction_names_the_request_it_abandoned() {
         "the transaction was announced as ended and is still pending",
     );
 
+    // ⛔⛤ **AND THE TRANSACTION'S AUTHORITIES ARE GONE, WHICH IS THE HALF THAT
+    // WAS MISSING.** `cancel_pending` announced the end and retired nothing, so
+    // the abandoned provider could still finish preparing and PUBLISH a prepared
+    // session for a transaction the shell had already declared over — into a
+    // record that, with `pending` cleared, nothing could ever activate.
+    assert!(
+        !prepared.contains_load(&transaction.barrier.load_id),
+        "the cancelled transaction's preparation record survived its own \
+         cancellation, so a late provider can still publish into it",
+    );
+    assert!(
+        !loads.contains(&transaction.barrier.load_id),
+        "the cancelled transaction's load plan is still resident authority",
+    );
+    assert!(
+        prepared.is_empty() && loads.is_empty(),
+        "cancelling returned the shell to its pre-request baseline, so repeated \
+         start/cancel cannot accumulate abandoned authority: prepared={}, loads={}",
+        prepared.len(),
+        loads.len(),
+    );
+
+    // ⛔⛤ **THE LATE PROVIDER CANNOT RESURRECT IT.** This is the consequence the
+    // retirement exists to produce, asserted directly rather than inferred from
+    // the registry being empty: the provider that was preparing this transaction
+    // finishes AFTER the person cancelled, and its publication is refused
+    // because the record it would publish into no longer exists.
+    //
+    // ⚠ It is refused by ABSENCE, and that is worth naming: `publish` returns
+    // `None` for a load it does not hold, so the same call that succeeded a
+    // moment ago now fails for the one reason that is honest here — there is no
+    // transaction to publish into.
+    assert!(
+        prepared.publish(&transaction).is_none(),
+        "a provider finishing after the cancel published a prepared session for \
+         a transaction the shell had already declared ended",
+    );
+
     // ⭐ AND CANCELLING NOTHING SAYS NOTHING — the control, without which the
     // arm above is satisfied by a method that emits an event unconditionally.
     assert!(
-        router.cancel_pending().is_empty(),
+        router.cancel_pending(&mut loads, &mut prepared).is_empty(),
         "cancelling with nothing pending invented a terminal event",
     );
+}
+
+/// ⛔⛤ **REPEATED start → cancel USED TO ACCUMULATE ABANDONED AUTHORITY, ONE
+/// RECORD AND ONE PLAN PER CYCLE.**
+///
+/// The single-cancel arm above proves the two authorities are retired once. This
+/// one proves the loop is CLOSED: three full cycles end where they began. A
+/// cancel that retired only the newest record would satisfy the arm above and
+/// still leak here.
+///
+/// ⚠ It asserts a RETURN TO BASELINE rather than a bound, because "fewer than
+/// three" is the shape of a leak that got slower.
+#[test]
+fn repeated_start_and_cancel_returns_the_shell_to_its_baseline() {
+    let mut loads = LoadCoordinator::default();
+    let mut prepared = PreparedSessionRegistry::default();
+    let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
+        .required("publish", "Publish prepared session");
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game", "fixture").preparing_with(plan));
+    let host = ShellHostConfiguration::default();
+    let mut router = ShellRouter::default();
+
+    let baseline = (prepared.len(), loads.len());
+    assert_eq!(baseline, (0, 0), "the fixture did not start empty");
+
+    for cycle in 1..=3 {
+        router.apply(
+            ShellCommand::ReplaceWith {
+                route: ShellRouteId::new("game"),
+                request: Some(ShellRequestId::new(format!("reload.game.{cycle}"))),
+            },
+            &catalog,
+            &host,
+            &mut loads,
+            &mut prepared,
+        );
+        assert_eq!(
+            (prepared.len(), loads.len()),
+            (1, 1),
+            "cycle {cycle} did not stage exactly one preparation and one load, \
+             so the cancel below would have nothing to retire",
+        );
+        router.cancel_pending(&mut loads, &mut prepared);
+        assert_eq!(
+            (prepared.len(), loads.len()),
+            baseline,
+            "cycle {cycle} left abandoned authority behind: the shell does not \
+             return to its baseline across start/cancel",
+        );
+    }
 }
 
 #[test]

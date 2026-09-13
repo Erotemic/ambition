@@ -3130,6 +3130,26 @@ Guard: `the_strike_poly_comes_from_the_character_the_body_wears`, poison-verifie
    `(entity, move)` and **asserts the key is 1:1**, which is the guard the
    *"one file with two entities doubles every count"* lesson asks for.
 
+   ⛔⛔ **AND THE DENOMINATOR IS NOT THE ROSTER — STATED BEFORE ANYBODY QUOTES THE
+   MEDIAN.** The baked `.ron` corpus holds **18 entities**; the smash grid runs
+   **21 fighters**. The four with NO baked moveset are **`mary_o_tall`,
+   `player_robot_v3`, `sanic` and `smash_george_booul`** (and the corpus carries
+   one entity the grid does not, `imperfect_cellular_automaton`). ⇒ The clock
+   distribution above is 18 of 21 fighters, and it CANNOT SEE
+   `player_robot_v3` — which is the fighter that topped the strike-area ranking
+   at 6.71x. A census that excludes the extreme is not wrong, but it is not the
+   roster either.
+
+   ⚠ **AND THAT GAP IS EXACTLY WHY ITEM 4 IS NOT ANSWERED HERE.** Its subject is
+   *"her"* — and the same read over authored air-reach finds **no entity in the
+   `.ron` corpus with a back-air below 0.87x its forward-air** (median 0.96; four
+   reach FURTHER backwards). Item 4 describes ~0.79x. ⇒ Either its subject is one
+   of the four fighters this corpus does not contain, or the quantity differs:
+   item 4 measures a CONTACT MARGIN in a scenario (*"connects by 0.2 px"*) and
+   this measures AUTHORED REACH, which are not the same number. **Neither reading
+   is established, so item 4 stays as it is** — this adds the roster context it
+   never had and refutes nothing.
+
    ⛔⛔ **AND THE PER-CHARACTER PEAK HIDES THE THING JON IS ASKING ABOUT.** Under
    it, one fighter of 21 is thin. Per MOVE — the new `--per-move` mode, same
    recording — **104 of 208 moves swing a box smaller than the body swinging

@@ -74,8 +74,19 @@ mod enabled {
         egui::CollapsingHeader::new("Mechanics")
             .default_open(true)
             .show(ui, |ui| {
-                let Some(mut tuning) = world.get_resource_mut::<PortalTuning>() else {
-                    missing_resource(ui, "PortalTuning");
+                // ⛔⛤ **THE MIRROR, NOT THE AUTHORITY — `Q120`, 2026-09-13.**
+                // This panel used to write `PortalTuning` directly, and
+                // `transit.rs` reads that resource inside the sim schedule —
+                // under the rollback host, `GgrsSchedule`. So a replay of frame
+                // N observed whatever this panel held NOW. It edits
+                // `EditablePortalTuning` now; `publish_editable_portal_tuning`
+                // moves the value once the rollback timeline's owner admits it.
+                // ⚠ `DerefMut`, so every `&mut tuning.field` row below is
+                // unchanged.
+                let Some(mut tuning) =
+                    world.get_resource_mut::<ambition_platformer2d::portal::EditablePortalTuning>()
+                else {
+                    missing_resource(ui, "EditablePortalTuning");
                     return;
                 };
                 egui::Grid::new("portal_mechanics_grid")

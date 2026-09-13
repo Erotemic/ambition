@@ -117,6 +117,35 @@ impl Plugin for PortalSimulationPlugin {
         app.init_resource::<PortalCarves>();
         app.init_resource::<crate::PortalHostDepths>();
         app.init_resource::<PortalTuning>();
+        // ⛔⛤ **THE PANEL EDITS A MIRROR AND THE SIMULATION READS THE AUTHORITY —
+        // `Q120`, 2026-09-13.** `transit.rs` takes `Res<PortalTuning>` in the sim
+        // schedule, which under the rollback host IS `GgrsSchedule`; the F-key
+        // inspector used to write that same resource from an egui pass, so a
+        // replay of frame N observed whatever the panel held NOW. The chain below
+        // is the shared mechanical-edit protocol: propose, let the timeline's
+        // owner admit, then publish — all in `PreUpdate`, and the rollback host
+        // orders the whole chain before `RunGgrsSystems`.
+        app.init_resource::<crate::tuning::EditablePortalTuning>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+        app.configure_sets(
+            bevy::app::PreUpdate,
+            (
+                ambition_platformer2d_core::MechanicalEditSet::Propose,
+                ambition_platformer2d_core::MechanicalEditSet::Admit,
+                ambition_platformer2d_core::MechanicalEditSet::Publish,
+            )
+                .chain(),
+        );
+        app.add_systems(
+            bevy::app::PreUpdate,
+            (
+                crate::tuning::propose_editable_portal_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
+                crate::tuning::publish_editable_portal_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
+            ),
+        );
         // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
         // owned by the HOST presentation layer (it is not part of the headless
         // mechanic), so it is initialised host-side behind the render feature, not

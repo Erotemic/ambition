@@ -2088,17 +2088,40 @@ empty" cannot see a road moving BACK: three proposers and three publishers, and
 raising it is deliberate. Poison-verified by returning one road to the sim
 schedule.
 
-⇒ **WHAT REMAINS:** `sync_player_stats_with_inspector` and `PortalTuning`, plus
+✅ **AND `PortalTuning` MIGRATED TOO, WHICH WAS THE ONE THE REVIEW CALLED "EVEN
+MORE DIRECT".** The F-key panel wrote the authoritative resource straight from an
+egui pass while `transit.rs`'s portal systems take `Res<PortalTuning>` in the sim
+schedule — so *"what value will a replay of frame N observe"* was answered
+*"whatever the panel holds now"*. ⭐ The panel edits `EditablePortalTuning` now,
+same shape as `EditableMovementTuning` → `ActiveMovementTuning`, and **every
+existing reader is untouched** — two simulation systems and five presentation
+ones keep reading `PortalTuning`. ⚠ `Deref`/`DerefMut` on the mirror, so the
+panel's several hundred `&mut tuning.field` rows did not change: the only edit at
+the call site is which resource it asks for, which is the right price for this
+repair.
+
+⇒ **WHAT REMAINS:** `sync_player_stats_with_inspector`, plus
 the production-GGRS poisons the review specifies for all four (edit under a
 locally-maintained timeline ⇒ no advance with old baseline + new value; edit
 under a foreign one ⇒ proposal staged, authoritative value unchanged, replay
-deterministic across the attempted edit). ⚠ **STATS IS NOT LIKE THE OTHER TWO AND
-THAT IS WHY IT IS NOT DONE HERE:** it is BIDIRECTIONAL — registered in
-`DevInspectorMirrorSet` to mirror the body's live stats BACK into the inspector
-*"so the F3 panel shows truth"* — so only its editor→body half is a mechanical
-edit and splitting it is a different job from moving it. `PortalTuning` is owned
-by another crate's inspector (`game/ambition_app/src/dev/portal_inspector.rs`).
-**Not five watchers — five proposers.**
+deterministic across the attempted edit). ⛔⛤ **STATS IS NOT LIKE THE OTHER THREE, AND MEASURING IT FOUND SOMETHING THE
+REVIEW DID NOT NAME.** It is BIDIRECTIONAL and INTERLEAVED in one function: the
+`else` branch mirrors body→inspector (*"so the F3 panel shows truth"*), the `if`
+branches mirror inspector→body, and **the mana/offense block at the end writes
+`BodyMana.meter` and `BodyOffense.damage_multiplier` from the inspector
+UNCONDITIONALLY, with no change test at all** — so inside `GgrsSchedule` that is a
+per-ADVANCE write of canonical state from a live developer resource, which is
+worse than the health half the review describes.
+
+⇒ **THE SPLIT IT NEEDS, so the next agent does not discover it mid-edit:**
+publisher (PreUpdate, gated on pending + admission) takes the inspector→body
+writes INCLUDING the unconditional mana/offense block; the body→inspector mirror
+stays in `DevInspectorMirrorSet` where it belongs; and the PROPOSER cannot simply
+be `stats.is_changed()`, because the mirror writes `stats` too and would raise a
+proposal every time gameplay changed HP. That is what the existing
+`PlayerStatsSyncSnapshot` `Local` is for, and reusing it correctly is the actual
+work. **Left undone deliberately rather than half-done in a system that decides
+player HP.** ⇒ **Not five watchers — five proposers.**
 
 <details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>
 

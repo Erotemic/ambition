@@ -1696,3 +1696,98 @@ resource can be omitted from rollback only if it is immutable for the lifetime o
 the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
+
+## Q121 — the prepared generation is a FINGERPRINT, not a FROZEN VALUE: prepare A, construct from B
+
+⛔⛤ **THIS IS THE LAYER THE PREVIOUS FIX EXPOSED, NOT THE PREVIOUS FIX FAILING.**
+`characters.definitions`, `characters.authored-sheets` and `boss.catalog` now
+reach `PreparedContentIdentity` (`215ecc43c`), so the identity finally names the
+mechanical content. **But the identity is taken at PREPARATION and session
+construction re-reads the same MUTABLE App registries at ACTIVATION.**
+
+**MEASURED 2026-09-12.** `PlatformerSessionBuilder` is a `SystemParam` holding
+live handles:
+
+```text
+crates/ambition_platformer2d_provider/src/lifecycle.rs:1385  Option<Res<PreparedCharacterRegistry>>
+                                                     :1404  Res<AuthoredSheets>
+                                                     :1405  Res<BossCatalog>
+```
+
+⇒ Between the fingerprint and the construction, any of the three may be
+replaced — and one of them demonstrably is: **`activate_staged_revision` inserts a
+new `PreparedCharacterRegistry`**, which is the hot-reload road. So a generation
+can be prepared against cast N and have its world built from cast N+1, with the
+identity still claiming N.
+
+⚠ **IT IS THE SAME INTERVAL `Q118` IS ABOUT**, from the other side: Q118 is a
+LEGALITY that goes stale across the window, this is a VALUE that does. A fix for
+one does not fix the other, but a lifecycle that seals the interval would.
+
+⇒ **THE ANSWER THE REVIEW NAMES** is the second row of `Q119`'s table made real:
+a prepared generation should MEAN the frozen mechanical values, not
+*"`PreparedContent` says N, and at activation query whatever these App resources
+contain now"*. Session construction consumes the frozen values.
+
+⚠ **AND IT MATTERS MORE FOR A10, not less:** a last-good-world guarantee is only
+worth having if the candidate's identity identifies the world being constructed.
+
+## Q122 — which fields of the mechanical registries are MECHANICAL, and which are presentation?
+
+⛔⛤ **THE NEW FINGERPRINT IS OVER-SENSITIVE, AND I INTRODUCED THAT.** Binding the
+three registries exhaustively — by `serde` derive and by declaration TEXT — was
+the right call for completeness and the wrong one for MEANING. Measured, it hashes:
+
+- the sheets' raw declaration RON, so **reformatting a file moves the mechanical
+  identity**;
+- `PreparedCharacterOverrides`'s `portrait`, `voice`, `ranged_vfx`, `dream_seed` —
+  presentation by their own doc comments;
+- `BossCatalog`'s `sprite_filenames`.
+
+✅ **ONE OF THEM IS ALREADY OUT:** the sheets' `origin` — the declaring FILE
+PATH — is removed. *"The same records from a different file"* is a real
+difference to a COLLISION REPORT and no difference at all to what a body
+simulates, and making it move the identity refuses snapshots and reloads for a
+provenance edit.
+
+⚠ **THE FAILURE MODE IS SAFE AND THAT IS WHY THIS IS NOT P0.** Over-sensitivity
+refuses a legitimate restore; under-sensitivity restores a snapshot into the
+wrong world. ⇒ **Do not fix it by hand-listing exclusions** — that is a
+population that rots, and a new presentation field added later would be included
+silently. The shape that holds is an annotation ON the field (`#[serde(skip)]`
+or an equivalent), so the derive stays exhaustive and the default is the safe
+direction.
+
+⇒ **THE DECISION IS THE LIST**: which fields of `PreparedCharacterOverrides`,
+`SheetRecord` and `BossCatalog` a rollback timeline's identity should bind. That
+is a design pass, not a cleanup.
+
+## Q123 — A10's "invisible candidate" is proven for ordinary QUERIES and nothing else
+
+✅ **HIDDEN AT MINT AS OF `ebfcda0ee`** — the marker goes on in the same command
+batch as the root's identity, before the recipe runs, closing the window where a
+component hook or lifecycle observer could see a candidate as an ordinary member
+of the live world.
+
+⛔ **WHAT IS STILL ONLY REASONED:** `InactiveCandidate` is a registered disabling
+component, so `DefaultQueryFilters` hides it from every query that does not
+MENTION it. **Every collector that is not an ordinary query is unproven:**
+rollback SNAPSHOTS, physics/global gatherers, and anything walking the world
+directly rather than through a filtered query. A candidate that entered a
+snapshot would be restored into the live world by a rewind.
+
+⛔ **AND PUBLICATION ATOMICITY RESTS ON A POPULATION FACT, NOT A BOUNDARY.**
+`publish_candidate` removes the marker entity-by-entity under `&mut World`, which
+is atomic with respect to SCHEDULED SYSTEMS — none run inside an exclusive world
+call. A component HOOK is not a system: one registered on a published component
+would observe a half-published candidate. The census that says this is safe today
+(**zero component hooks workspace-wide, three lifecycle observers, one an `Add`
+and not on the construction road**) is a population count, and the
+`InactiveCandidate` doc says so itself: *"it is a POPULATION FACT, not a
+boundary, and it is the thing to re-measure before trusting this in a new
+domain."*
+
+⇒ **WHAT WOULD CLOSE IT:** an arm that puts a candidate through a rollback
+snapshot and asserts it is absent, and one that registers a hook on a published
+component and asserts it cannot observe a partial publication — or a structural
+reason neither can happen.

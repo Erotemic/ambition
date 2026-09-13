@@ -127,6 +127,10 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
 
     app.world_mut().insert_resource(DeclaredCombatRules {
         bark_chance: None,
+        // This fixture is about DI and knockback growth reaching the resolved
+        // tuning; the base-referenced kill curve is a separate knob and stays
+        // undeclared (identity) so it cannot move what this asserts.
+        growth_base: None,
         // The versus route drops a trumped body where it hung.
         ledge_trump_pop: None,
         ledge_occupancy: None,

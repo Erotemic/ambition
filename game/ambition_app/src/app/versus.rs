@@ -526,6 +526,13 @@ fn track_versus_roster(
                 // The versus route says nothing about barks: every hit speaks,
                 // which is what it did before the rate existed.
                 bark_chance: None,
+                // ⛔ AND IT SAYS NOTHING ABOUT THE KILL CURVE EITHER. The
+                // base-referenced steepening is a SMASH answer to a measured
+                // Smash problem (its roster authors `growth ~= 0.02 * base`
+                // across every role, so a kill move is a jab times a constant).
+                // Versus authors its own fighters and has not been measured;
+                // declining here keeps its launches exactly as they are.
+                growth_base: None,
                 // The versus route drops a trumped body where it hung.
                 ledge_trump_pop: None,
                 // The versus route says nothing: its edges trump, which is what

@@ -39,6 +39,80 @@ pub enum LedgeOccupancy {
     Hog,
 }
 
+/// HOW MUCH STEEPER A HEAVY HIT'S PERCENT CURVE IS THAN A LIGHT ONE'S.
+///
+/// ⭐⭐ THIS EXISTS BECAUSE THE ROSTER'S AUTHORING IS HOMOGENEOUS, and that was
+/// MEASURED rather than supposed. Across all 22 bound roles the ratio
+/// `knockback_growth / knockback` sits in 0.019-0.021 — a jab's percent curve
+/// and a forward smash's are the SAME curve, differing only by the constant
+/// `base`. So a kill move is a jab times a number, and the thing a platform
+/// fighter needs — "this one closes stocks and that one does not" — is not
+/// expressible in what the roster currently authors.
+///
+/// ⛔ AND IT IS NOT `victim_percent_knockback_scale` UNDER ANOTHER NAME. That
+/// knob is base-INDEPENDENT: raising it multiplies every move's percent term by
+/// one factor, which is arithmetically identical to raising every authored
+/// growth, and leaves the roster exactly as undifferentiated as it started.
+/// This one reads the volume's own `base`, so it separates moves that knob
+/// cannot.
+///
+/// ⛔ THE PRICE, STATED HERE RATHER THAN DISCOVERED LATER: wherever this is
+/// declared, an authored `knockback_growth` stops reading as px/s-per-percent
+/// at face value, because the number an author writes is multiplied before it
+/// is spent.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GrowthBaseCurve {
+    /// The base knockback at which the steepening is exactly `1.0`. Pick a
+    /// POKE-SIZED base: every volume at or below it is left untouched.
+    pub pivot: f32,
+    /// How sharply the steepening climbs. `0.0` is identity at every pivot.
+    pub exponent: f32,
+    /// The most this curve may multiply any growth by.
+    ///
+    /// ⭐ A CEILING IS NOT DECORATION HERE, and the outlier that motivates it
+    /// was measured. Three bound pulses carry a base past the largest smash
+    /// (185); the largest, `bivalence` at 367.2, authors `growth/base` =
+    /// 0.0093 — less than half the roster's 0.019-0.021. It is deliberately a
+    /// huge-base, low-growth finisher, i.e. the ONE move that most consciously
+    /// departs from the homogeneity this curve keys on. Uncapped it would
+    /// collect the largest multiplier on the roster, which is the opposite of
+    /// what its author said about it.
+    pub ceiling: f32,
+}
+
+impl GrowthBaseCurve {
+    /// The law exactly as it was first written: a no-op at every base. Every
+    /// undeclared world — which is every Ambition room — resolves to this.
+    pub const IDENTITY: Self = Self {
+        pivot: 1.0,
+        exponent: 0.0,
+        ceiling: f32::INFINITY,
+    };
+
+    /// What this curve multiplies a volume's authored growth by.
+    ///
+    /// ⛔ IT CAN ONLY EVER STEEPEN. The `.max(1.0)` on the ratio and the
+    /// `.max(1.0)` on the ceiling each hold the factor at or above `1.0`, so a
+    /// declared curve is never a second way to nerf pokes — nothing measured
+    /// here asked for one, and a curve that could weaken a jab would otherwise
+    /// be reachable by accident from a mistyped pivot.
+    ///
+    /// ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE, because the caller
+    /// multiplies: `growth == 0.0` times any factor is still `0.0`, and
+    /// [`crate::util::scaled_knockback`] short-circuits on that to return
+    /// `base`. `Some(0.0)` — the documented way to author a launch that ignores
+    /// percent — stays exactly that at every curve.
+    pub fn scale(self, base: f32) -> f32 {
+        if self.exponent == 0.0 || self.pivot <= 0.0 || base <= 0.0 {
+            return 1.0;
+        }
+        (base / self.pivot)
+            .max(1.0)
+            .powf(self.exponent)
+            .min(self.ceiling.max(1.0))
+    }
+}
+
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct DeclaredCombatRules {
     /// Which shell experience declared these rules.
@@ -156,6 +230,13 @@ pub struct DeclaredCombatRules {
     /// there, so a poke stays a poke at any value — see
     /// [`crate::util::scaled_knockback`].
     pub victim_percent_knockback_scale: Option<f32>,
+    /// A HEAVY HIT'S PERCENT CURVE IS STEEPER THAN A LIGHT ONE'S — see
+    /// [`GrowthBaseCurve`] for the measurement that motivates it, the knob it
+    /// is NOT, and the price it charges.
+    ///
+    /// `None` is IDENTITY: every undeclared world — which is every Ambition
+    /// room — resolves byte-for-byte as before.
+    pub growth_base: Option<GrowthBaseCurve>,
     /// CROUCH CANCEL — what a CROUCHING victim multiplies an incoming launch
     /// by. `1.0` (the baseline) = crouching buys nothing but a shorter
     /// hurtbox.
@@ -395,6 +476,9 @@ pub struct ResolvedCombatTuning {
     /// See [`DeclaredCombatRules::victim_percent_knockback_scale`]. `1.0` = the
     /// percent term as first written.
     pub victim_percent_knockback_scale: f32,
+    /// See [`DeclaredCombatRules::growth_base`].
+    /// [`GrowthBaseCurve::IDENTITY`] = the law exactly as it was first written.
+    pub growth_base: GrowthBaseCurve,
     /// See [`DeclaredCombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
     /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
@@ -543,6 +627,13 @@ impl ResolvedCombatTuning {
                     .victim_percent_knockback_scale
                     .unwrap_or(1.0)
                     .max(0.0),
+                // ⛔ A DECLARED RULESET THAT SAYS NOTHING HERE GETS THE LAW
+                // UNCHANGED, which is the same contract every other `Option`
+                // above keeps: declining to speak must never silently buy a
+                // steeper kill curve. The pivot defaults to `1.0` only so the
+                // division is well-formed; with the exponent at `0.0` it is
+                // unreachable.
+                growth_base: rules.growth_base.unwrap_or(GrowthBaseCurve::IDENTITY),
                 crouch_cancel_scale: rules.crouch_cancel_scale,
                 hit_repeat_window_scale: rules.hit_repeat_window_scale,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
@@ -585,6 +676,11 @@ impl ResolvedCombatTuning {
                 // whatever this says.
                 stale_knockback_influence: 1.0,
                 victim_percent_knockback_scale: 1.0,
+                // An undeclared world's percent curve is the law as written.
+                // Every Ambition room is undeclared, and its knockback must not
+                // move to buy a platform-fighter feature — the same reasoning
+                // `downward_hit` and `clank_damage_window` state above.
+                growth_base: GrowthBaseCurve::IDENTITY,
                 crouch_cancel_scale: 1.0,
                 hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -612,6 +708,24 @@ impl ResolvedCombatTuning {
                 double_jump_cancel: false,
             },
         }
+    }
+
+    /// What this volume's own `base` does to its percent curve.
+    ///
+    /// `(base / pivot).max(1.0) ^ exponent`, and `1.0` whenever the ruleset
+    /// declined to declare one. Three properties the callers depend on:
+    ///
+    /// * ⛔ IDENTITY IS EXACT, not approximate. At `exponent == 0.0` this
+    ///   returns `1.0` by an early return rather than by `powf(0.0)`, so an
+    ///   undeclared world is byte-identical and not merely close.
+    /// * ⛔ IT NEVER RETURNS LESS THAN `1.0`. The `.max(1.0)` on the ratio means
+    ///   a move lighter than the pivot is left alone instead of being weakened.
+    /// * ⭐ IT READS `base` AND NOTHING ELSE, so it is a pure function of the
+    ///   volume — no role, no verb, no move id. That is what lets it reach every
+    ///   authored road at once: literals, named constants, `charge()` wrappers,
+    ///   derived movesets and the ruleset fallback alike.
+    pub fn growth_base_scale(&self, base: f32) -> f32 {
+        self.growth_base.scale(base)
     }
 
     /// The friendly-fire toggle in the shape `can_damage` already takes, so the
@@ -647,6 +761,10 @@ impl Default for ResolvedCombatTuning {
             // which this impl exists to agree with.
             stale_knockback_influence: 1.0,
             victim_percent_knockback_scale: 1.0,
+            // ⛔ THIS MUST AGREE WITH THE `resolve(None, ..)` ARM, which is what
+            // this impl says about itself — and naming the identity rather than
+            // spelling its three numbers is what keeps the two from drifting.
+            growth_base: GrowthBaseCurve::IDENTITY,
             crouch_cancel_scale: 1.0,
             hit_repeat_window_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -667,6 +785,123 @@ impl Default for ResolvedCombatTuning {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The curve every Ambition room outside the smash demo plays under is a
+    /// NO-OP, and that is checked at bases spanning the whole roster rather
+    /// than at one convenient number.
+    #[test]
+    fn an_undeclared_curve_changes_no_launch_at_any_base() {
+        for base in [1.0, 40.0, 48.0, 120.0, 160.0, 367.2, 10_000.0] {
+            assert_eq!(
+                GrowthBaseCurve::IDENTITY.scale(base),
+                1.0,
+                "the identity curve moved a base-{base} volume, so every \
+                 undeclared world just had its knockback retuned"
+            );
+        }
+        assert_eq!(
+            ResolvedCombatTuning::resolve(None, 0.12, false).growth_base,
+            GrowthBaseCurve::IDENTITY,
+            "an undeclared world resolved to something other than the identity"
+        );
+        assert_eq!(
+            ResolvedCombatTuning::default().growth_base,
+            GrowthBaseCurve::IDENTITY,
+            "the hand-written Default disagrees with resolve(None, ..) — the \
+             two identities this file keeps in step have drifted"
+        );
+    }
+
+    /// A JAB KEEPS ITS CURVE AND A SMASH DOES NOT. This is the entire point of
+    /// the knob, and the 1.351 is the number the calibration rests on.
+    #[test]
+    fn the_smash_curve_separates_a_kill_move_from_a_poke() {
+        let curve = GrowthBaseCurve {
+            pivot: 48.0,
+            exponent: 0.25,
+            ceiling: 1.40,
+        };
+        // AT AND BELOW THE PIVOT, EXACTLY UNTOUCHED. 40.0 is the roster's
+        // lightest measured jab; it must not move by so much as a float.
+        assert_eq!(curve.scale(48.0), 1.0, "the pivot is not its own fixed point");
+        assert_eq!(
+            curve.scale(40.0),
+            1.0,
+            "the roster's lightest jab took a steepening it should be below"
+        );
+        // ABOVE IT, STRICTLY INCREASING IN BASE.
+        let tilt = curve.scale(78.0);
+        let smash = curve.scale(160.0);
+        assert!(
+            1.0 < tilt && tilt < smash,
+            "the curve stopped being monotone in base: tilt {tilt}, smash {smash}"
+        );
+        // AND THE MEASURED FACTOR THE WHOLE CALIBRATION RESTS ON. A base-160
+        // forward smash is the reference cell in BASELINE.md.
+        assert!(
+            (smash - 1.3512).abs() < 0.001,
+            "the base-160 forward-smash factor is {smash}, not the 1.3512 the \
+             KO thresholds were calibrated against"
+        );
+    }
+
+    /// THE CEILING BINDS — proved by first showing the outlier it exists for
+    /// genuinely overshoots without it.
+    #[test]
+    fn the_ceiling_holds_the_huge_base_finishers_where_their_author_put_them() {
+        let curve = GrowthBaseCurve {
+            pivot: 48.0,
+            exponent: 0.25,
+            ceiling: 1.40,
+        };
+        let uncapped = GrowthBaseCurve {
+            ceiling: f32::INFINITY,
+            ..curve
+        };
+        // `bivalence`, base 367.2, authors growth/base = 0.0093 — it opted OUT
+        // of percent scaling, so it must not collect the biggest multiplier.
+        let overshoot = uncapped.scale(367.2);
+        assert!(
+            overshoot > 1.6,
+            "the outlier this ceiling exists for no longer overshoots \
+             ({overshoot}), so this test would pass on a ceiling that never binds"
+        );
+        assert_eq!(
+            curve.scale(367.2),
+            1.40,
+            "the ceiling let a huge-base finisher through"
+        );
+    }
+
+    /// THE CURVE CAN ONLY EVER STEEPEN — both floors, each reachable from a
+    /// plausible typo rather than from malice.
+    #[test]
+    fn a_curve_never_weakens_a_light_hit() {
+        // A pivot above every authored base: everything is "below the jab".
+        let high_pivot = GrowthBaseCurve {
+            pivot: 10_000.0,
+            exponent: 0.25,
+            ceiling: f32::INFINITY,
+        };
+        for base in [1.0, 48.0, 160.0, 367.2] {
+            assert_eq!(
+                high_pivot.scale(base),
+                1.0,
+                "a base-{base} volume was WEAKENED by a mistyped pivot"
+            );
+        }
+        // A ceiling below 1.0 is a nerf spelled as a cap.
+        let sub_unit = GrowthBaseCurve {
+            pivot: 48.0,
+            exponent: 0.25,
+            ceiling: 0.5,
+        };
+        assert_eq!(
+            sub_unit.scale(160.0),
+            1.0,
+            "a sub-unit ceiling turned the kill curve into a nerf"
+        );
+    }
 
     /// A GRAB HOLDS THE HURT FIGHTER LONGER, AND STILL LETS GO.
     ///
@@ -712,6 +947,9 @@ mod tests {
             Some(DeclaredCombatRules {
                 stale_knockback_influence: None,
                 victim_percent_knockback_scale: None,
+                // This fixture is about a declaration not disturbing the
+                // baseline, so it declines the kill-curve knob like the rest.
+                growth_base: None,
                 bark_chance: None,
                 ledge_trump_pop: None,
                 ledge_occupancy: None,
@@ -757,6 +995,7 @@ mod tests {
         let declared = Some(DeclaredCombatRules {
             stale_knockback_influence: None,
             victim_percent_knockback_scale: None,
+            growth_base: None,
             bark_chance: None,
             ledge_trump_pop: None,
             ledge_occupancy: None,
@@ -800,6 +1039,9 @@ mod tests {
                 // first written — see the None arm above.
                 stale_knockback_influence: 1.0,
                 victim_percent_knockback_scale: 1.0,
+                // ...and identity for the base-referenced kill curve, which is
+                // a no-op at every base.
+                growth_base: GrowthBaseCurve::IDENTITY,
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,

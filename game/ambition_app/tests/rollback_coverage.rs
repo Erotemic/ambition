@@ -900,6 +900,21 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // a peer needs to agree about — what the peers must agree about is
     // `ActiveMovementTuning`, and the whole point of this protocol is that it
     // does not move inside the window.
+    // ⛔⛤ **THE INSPECTOR'S MIRROR, NOT THE VALUE THE SIMULATION READS — `Q120`,
+    // 2026-09-13.** `PortalTuning` stays exactly where it was and keeps whatever
+    // rollback classification it had; this is the F-key panel's editable copy,
+    // which is why it exists at all. Every system that touches it —
+    // `propose_editable_portal_tuning`, `publish_editable_portal_tuning`, and the
+    // egui pass — is outside the rollback window, and the publisher moves the
+    // authoritative value only once the timeline's owner has admitted the edit.
+    //
+    // ⚠ REWINDING IT WOULD BE THE BUG, not merely pointless: restoring a
+    // historical frame's mirror would silently undo what the developer typed
+    // into a panel that is still showing the new number.
+    (
+        "ambition_portal2d::tuning::EditablePortalTuning",
+        "developer inspector mirror: the F-key panel edits this, never the PortalTuning the simulation reads; published into it only through the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems",
+    ),
     (
         "ambition_platformer2d_core::movement::tuning::PendingMechanicalEdits",
         "host-side edit proposals, one sticky key per domain: raised and drained in the PreUpdate MechanicalEditSet chain, declared before RunGgrsSystems, so it is outside the rollback window by construction; rewinding it would resurrect a published edit or discard a staged one",

@@ -73,6 +73,57 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
 
 **⛔ STILL OPEN AT THE TOP OF THE ORDER:**
 
+- ⛔⛤ **HOST-LOCAL LINEAGE COUNTERS ARE INSIDE CANONICAL ROLLBACK STATE — NAMED BY
+  REVIEW 2026-09-13, CONFIRMED AT SOURCE, AND RECORDED AS AN ARM.** The rule this
+  breaks is the project's own: *mechanically equivalent rollback worlds need
+  mechanically equivalent canonical state.*
+
+  `ConstructionScope::transaction` renders a `TransactionId` as
+  `"{incoming.canonical_summary()}\t{room}\tsession:{SessionScopeId}"`, and that
+  id is CANONICAL ROLLBACK STATE, snapshotted as its exact string. **Two of the
+  three fields are process-local counters:**
+
+  | identifier | where it comes from | why it is not peer-stable |
+  | --- | --- | --- |
+  | `ContentEpoch` | `ContentEpochSequence`, app-local | ruled GAP-TOLERANT the same day — a refused hot reload BURNS a number, so two hosts reach the same content at different epochs |
+  | `SessionScopeId` | another app-local monotonic counter | two hosts that played different numbers of prior gameplay sessions bring different numbers into an identical world |
+  | `ShellActivationId` | `ShellRouter::next_activation` | the gameplay root's `SimId` is `singleton("session", activation_id)`, and `SimId` is canonical rollback state — so shell navigation history is in the world's identity |
+
+  ⇒ **ONE IDENTIFIER IS DOING TWO JOBS**: local ownership/staleness correlation,
+  which legitimately depends on process history, and cross-peer canonical
+  mechanical identity, which cannot. The first is fine; the second is the defect.
+
+  ⚠ **AND THE `ContentEpoch` ORDERING RULING IS NOT WHAT IS WRONG — DO NOT "FIX"
+  THIS BY REINTRODUCING `Ord` OR FORBIDDING GAPS.** Removing `Ord`/`PartialOrd`
+  and allowing gaps is right for a host-local staleness token, and the absence
+  contract `content-epochs-are-not-ordered` should stay. What has to change is
+  where that token is subsequently USED.
+
+  ⭐ **RECORDED AS AN ARM RATHER THAN AS PROSE:**
+  `a_transaction_identity_still_depends_on_host_local_lineage_counters` asserts
+  the divergence for a burned epoch and for prior sessions, with a CONTROL (same
+  local history ⇒ same id, so the identity is not merely unstable) and a
+  peer-stable counter-example (a different ROOM does change it, which it should).
+  It is named for what it RECORDS and flips to the opposite assertion the day the
+  identities are split.
+
+  ⇒ **THE PREFERRED CORRECTION, so a later agent does not invent a third model:**
+  keep `ContentEpoch` / `SessionScopeId` / `ShellActivationId` as ownership,
+  staleness and lifecycle tokens, and derive canonical construction provenance
+  from peer-stable facts instead — the prepared-content FINGERPRINT, the schema
+  fingerprint, stable room/world identity, canonical actor `SimId`s, and a shared
+  match/session identity where one is actually mechanically meaningful. If
+  `TransactionId` needs both local correlation and canonical provenance, those
+  are two representations rather than one formatted string.
+
+  ⚠ **WHAT IS NOT MEASURED:** a two-App run demonstrating the cross-peer failure
+  end to end. The unit arm establishes the DEPENDENCY, which is where the fix will
+  land; the networking severity needs the two-App poison the review specifies
+  (App A burns a candidate epoch, App B does not, both construct identical
+  content, canonical snapshots must agree). **This is worth settling before A10
+  makes transaction provenance more central**, which is the review's own
+  sequencing.
+
 - **`Q121`'s remaining owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
   rather than assumed: poisoning the freeze back to the App registry leaves
   `edit_to_play_through_the_shell` GREEN, because on that road

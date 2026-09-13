@@ -2059,12 +2059,69 @@ behaviour restored: three of five redden.
 enum — that half of the original design was right, and a central enum would make
 `ambition_platformer2d_core` name all five owning crates.
 
-⇒ **WHAT REMAINS:** migrate abilities, body profile, stats and portal tuning onto
-the protocol, each with the production-GGRS poisons the review specifies (edit
-under a locally-maintained timeline ⇒ no advance with old baseline + new value;
-edit under a foreign one ⇒ proposal staged, authoritative value unchanged,
-replay deterministic across the attempted edit). **Not five watchers — five
-proposers.**
+✅ **TWO MORE ROADS MIGRATED, SAME DAY: `EditableAbilitySet` AND
+`DeveloperTools.player_body_profile`.** Both left `app.sim_schedule()` — under the
+rollback host, `GgrsSchedule` — for `MechanicalEditSet::{Propose, Publish}` in
+`PreUpdate`, ordered before `RunGgrsSystems`. The comment that used to sit on one
+of them **was the defect**: *"this mutates rollback state, so it must run in the
+simulation schedule with the other developer edits."*
+
+⭐ **AND THE BODY-PROFILE `Local` MOVED OUT OF THE ROLLBACK WINDOW WITH ITS
+SYSTEM, WHICH IS HALF OF THAT FIX.** A `Local` inside `GgrsSchedule` runs once per
+ADVANCE, resimulations included, so after a rewind it still remembered the new
+profile had been applied and decided from PRESENT-FRAME HOST HISTORY. In
+`PreUpdate` it runs once per rendered frame, which is the lifetime a
+"last applied" memory actually has.
+
+⛔⛤ **AND THE ABILITY SYSTEM TURNED OUT TO HAVE TWO JOBS, which a naive gate
+broke and a test caught.** It PUBLISHES a developer selection *and* RECONCILES
+the body's abilities back to `base ∩ editable` when gameplay has moved them.
+Gating it on "only when proposed" stopped the second, measured by a fixture that
+diverges `BodyAbilities` directly. ⇒ The reconciliation runs only when NOTHING is
+awaiting admission — any change to the editable sets this domain pending, so with
+nothing pending the editable IS the last admitted value, and a REFUSED edit keeps
+the domain pending and therefore closes the reconciliation road too. Otherwise
+the refusal would be a front door the unadmitted value walks through.
+
+⚠ **THE ORDERING GUARD GAINED A POPULATION FLOOR**, because "the chain is not
+empty" cannot see a road moving BACK: three proposers and three publishers, and
+raising it is deliberate. Poison-verified by returning one road to the sim
+schedule.
+
+✅ **AND `PortalTuning` MIGRATED TOO, WHICH WAS THE ONE THE REVIEW CALLED "EVEN
+MORE DIRECT".** The F-key panel wrote the authoritative resource straight from an
+egui pass while `transit.rs`'s portal systems take `Res<PortalTuning>` in the sim
+schedule — so *"what value will a replay of frame N observe"* was answered
+*"whatever the panel holds now"*. ⭐ The panel edits `EditablePortalTuning` now,
+same shape as `EditableMovementTuning` → `ActiveMovementTuning`, and **every
+existing reader is untouched** — two simulation systems and five presentation
+ones keep reading `PortalTuning`. ⚠ `Deref`/`DerefMut` on the mirror, so the
+panel's several hundred `&mut tuning.field` rows did not change: the only edit at
+the call site is which resource it asks for, which is the right price for this
+repair.
+
+⇒ **WHAT REMAINS:** `sync_player_stats_with_inspector`, plus
+the production-GGRS poisons the review specifies for all four (edit under a
+locally-maintained timeline ⇒ no advance with old baseline + new value; edit
+under a foreign one ⇒ proposal staged, authoritative value unchanged, replay
+deterministic across the attempted edit). ⛔⛤ **STATS IS NOT LIKE THE OTHER THREE, AND MEASURING IT FOUND SOMETHING THE
+REVIEW DID NOT NAME.** It is BIDIRECTIONAL and INTERLEAVED in one function: the
+`else` branch mirrors body→inspector (*"so the F3 panel shows truth"*), the `if`
+branches mirror inspector→body, and **the mana/offense block at the end writes
+`BodyMana.meter` and `BodyOffense.damage_multiplier` from the inspector
+UNCONDITIONALLY, with no change test at all** — so inside `GgrsSchedule` that is a
+per-ADVANCE write of canonical state from a live developer resource, which is
+worse than the health half the review describes.
+
+⇒ **THE SPLIT IT NEEDS, so the next agent does not discover it mid-edit:**
+publisher (PreUpdate, gated on pending + admission) takes the inspector→body
+writes INCLUDING the unconditional mana/offense block; the body→inspector mirror
+stays in `DevInspectorMirrorSet` where it belongs; and the PROPOSER cannot simply
+be `stats.is_changed()`, because the mirror writes `stats` too and would raise a
+proposal every time gameplay changed HP. That is what the existing
+`PlayerStatsSyncSnapshot` `Local` is for, and reusing it correctly is the actual
+work. **Left undone deliberately rather than half-done in a system that decides
+player HP.** ⇒ **Not five watchers — five proposers.**
 
 <details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>
 

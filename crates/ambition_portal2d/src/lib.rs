@@ -80,7 +80,10 @@ pub use transit::{
     BodyTeleported, PortalBody, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
     PortalPolicy, PortalTransit, PortalTransitable,
 };
-pub use tuning::{PortalConvention, PortalTuning};
+pub use tuning::{
+    propose_editable_portal_tuning, publish_editable_portal_tuning, EditablePortalTuning,
+    PortalConvention, PortalTuning, PORTAL_TUNING,
+};
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
     PlacedPortal, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS, stable_portal_order};

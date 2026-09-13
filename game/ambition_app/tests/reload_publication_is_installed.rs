@@ -632,6 +632,21 @@ fn the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances() {
         proposers.len(),
         publishers.len()
     );
+    // ⛔⛤ **A FLOOR ON THE POPULATION, NOT JUST ON ITS EMPTINESS — `Q120`,
+    // 2026-09-13.** Three live editor roads were migrated onto this chain out of
+    // the sim schedule (movement tuning, the ability set, the developer body
+    // profile). A regression that moved one BACK would leave the chain non-empty
+    // and every assertion below still true, so "not empty" cannot see it. ⚠ This
+    // is a FLOOR: adding the remaining knobs raises it, and it must be raised
+    // deliberately rather than by deleting the assertion.
+    assert!(
+        proposers.len() >= 3 && publishers.len() >= 3,
+        "the mechanical-edit chain has {} proposer(s) and {} publisher(s); three \
+         live editor roads were migrated onto it and a road that went back to \
+         `app.sim_schedule()` writes inside the rollback window again",
+        proposers.len(),
+        publishers.len()
+    );
 
     let ordering = Ordering::of(graph);
     let advance = systems_in(graph, ambition_platformer2d::rollback::RunGgrsSystems);

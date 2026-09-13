@@ -110,3 +110,82 @@ impl Default for PortalTuning {
 // inspector changed mid-session did not rewind with the world. Consumers take
 // `PortalTuning::map_convention()` as a parameter now, and there is nothing to
 // mirror.
+
+/// The inspector's mirror of [`PortalTuning`].
+///
+/// ⛔⛤ **`Q120`, 2026-09-13: THE F-KEY PANEL USED TO WRITE THE AUTHORITATIVE
+/// VALUE DIRECTLY, AND THE SIMULATION READS IT INSIDE THE ROLLBACK WINDOW.**
+/// `game/ambition_app/src/dev/portal_inspector.rs` did
+/// `world.get_resource_mut::<PortalTuning>()` from an egui pass, while
+/// `transit.rs`'s portal systems take `Res<PortalTuning>` in the sim schedule —
+/// which under the rollback host is `GgrsSchedule`. ⇒ *"What value will a replay
+/// of frame N observe?"* was answered *"whatever the panel holds now"*, and the
+/// rollback waiver that called this *"forward-only"* is the category `Q119`
+/// already ruled is not one.
+///
+/// ⭐ **SAME SHAPE AS `EditableMovementTuning` → `ActiveMovementTuning`**, and
+/// deliberately so: the panel edits a mirror, the mirror is PROPOSED, and the
+/// authoritative value moves only once the rollback timeline's owner has
+/// admitted it. Every existing reader — two simulation systems and five
+/// presentation ones — keeps reading `PortalTuning` and is untouched.
+///
+/// ⚠ `Deref`/`DerefMut`, so the panel's several hundred `&mut tuning.field` rows
+/// did not have to change. The only edit at the call site is which resource it
+/// asks for, which is exactly the amount of change this repair should cost.
+#[derive(
+    bevy::prelude::Resource,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    bevy::prelude::Deref,
+    bevy::prelude::DerefMut,
+)]
+pub struct EditablePortalTuning(pub PortalTuning);
+
+/// This domain's key in `PendingMechanicalEdits`, declared beside the value.
+pub const PORTAL_TUNING: ambition_platformer2d_core::MechanicalDomain =
+    ambition_platformer2d_core::MechanicalDomain("portal_tuning");
+
+/// Raise a changed portal mechanic as a PROPOSAL.
+///
+/// ⚠ **`is_added` IS EXCLUDED** for the reason every proposer excludes it: Bevy
+/// counts INSERTION as a change, and the mirror is installed before content
+/// finishes seeding — proposing that would stop the session the composition had
+/// just started, on frame one, every time.
+pub fn propose_editable_portal_tuning(
+    editable: bevy::prelude::Res<EditablePortalTuning>,
+    mut pending: bevy::prelude::ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+) {
+    if !editable.is_changed() || editable.is_added() {
+        return;
+    }
+    pending.propose(PORTAL_TUNING);
+}
+
+/// Copy an ADMITTED portal-mechanic edit into the value the simulation reads.
+///
+/// ⛔ Deliberately NOT change-guarded: the guard lives on the PROPOSAL, so an
+/// untouched panel raises nothing and this never runs its write. Re-adding
+/// `is_changed` here would drop every edit that had to be staged behind a
+/// foreign rollback timeline for a frame, which is the whole point of staging it.
+pub fn publish_editable_portal_tuning(
+    editable: bevy::prelude::Res<EditablePortalTuning>,
+    admission: Option<bevy::prelude::Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
+    mut pending: bevy::prelude::ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+    mut active: bevy::prelude::ResMut<PortalTuning>,
+) {
+    if !pending.is_pending(PORTAL_TUNING) {
+        return;
+    }
+    // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
+    // with no rollback host has no history an edit could contradict.
+    if matches!(
+        admission.as_deref(),
+        Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)
+    ) {
+        return;
+    }
+    *active = editable.0;
+    pending.take(PORTAL_TUNING);
+}

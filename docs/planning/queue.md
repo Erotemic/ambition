@@ -106,6 +106,25 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   authorization/lease, or a deliberate rollback stop-and-rebase lifecycle. ⚠ This
   row asked for the measurement for a day after it had been taken — the ledger
   was updated and the queue was not.</details>
+- ✅ **THE `ContentEpoch` CONTRACT IS RULED: GAP-TOLERANT LINEAGE IDS, 2026-09-13.**
+  The 2026-09-13 review found that `ContentEpochSequence`'s own doc — *"allocation
+  happens only after a candidate prepared definition has fully validated and is
+  about to be published or committed"* — had been made FALSE by the hot-reload
+  road, which now allocates ABOVE a preflight that can still refuse. That move was
+  right and stays: decided any later, every rebuilt root stamps a `TransactionId`
+  naming the generation the reload is REPLACING, which is a provenance discrepancy
+  inside rollback state. ⇒ A refused reload burns a number.
+  ⭐⭐ **THE CHOICE IS MADE STRUCTURALLY RATHER THAN DOCUMENTED.** The alternative
+  was reservation semantics (hand the number back on refusal), which is a second
+  lifetime to get right in exchange for a property nothing reads. Instead
+  `ContentEpoch` **no longer derives `Ord`/`PartialOrd`** — MEASURED first: the
+  whole workspace and every test target compile without them, so no code compared
+  two epochs. *"Epoch 7 is newer than epoch 5"* is a COMPILE ERROR now, not a
+  convention, and a gap cannot mean anything. `Eq`/`Hash` remain because *"is this
+  the generation I was planned against"* is the only question an epoch answers.
+  ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
+  (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
+  make a burned number comparable, far from the allocator.
 - ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
   WRONG IN BOTH HALVES AND A REVIEW CAUGHT IT.** A live developer edit DESYNCS
   rollback resimulation, measured against the real sync-test canary.

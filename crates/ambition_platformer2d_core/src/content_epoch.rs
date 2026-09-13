@@ -13,6 +13,28 @@
 //! only ever STAMPS the epoch it was planned against so a stale plan can be
 //! rejected before it mutates anything.
 //!
+//! ⛔⛤ **AN EPOCH IS A GAP-TOLERANT LINEAGE ID, NOT A COUNT OF ACTIVATIONS —
+//! RULED 2026-09-13, AND THE TYPE ENFORCES IT.** `ContentEpochSequence`'s doc
+//! used to say allocation happens *"only after a candidate prepared definition
+//! has fully validated and is about to be published or committed"*. That stopped
+//! being true when the hot-reload road moved its allocation ABOVE a preflight
+//! that can still fail — deliberately, because the epoch has to be decided before
+//! the room is planned or every rebuilt root stamps a `TransactionId` naming the
+//! generation being REPLACED. ⇒ A refused reload now burns a number.
+//!
+//! ⭐⭐ **SO THE CHOICE IS MADE RATHER THAN LEFT AMBIGUOUS: gaps are legal, and
+//! `Ord`/`PartialOrd` ARE NOT DERIVED.** The alternative was reservation
+//! semantics — allocate, and hand the number back when the preflight refuses —
+//! which is a second lifetime to get right in exchange for a property nothing
+//! reads. MEASURED before removing the derives: the workspace and every test
+//! target compile without them, so no code compared two epochs. ⇒ *"Epoch 7 is
+//! newer than epoch 5"* is now a COMPILE ERROR, not a convention. `Eq` and `Hash`
+//! remain, because *"is this the generation I was planned against"* is the only
+//! question an epoch answers.
+//!
+//! ⚠ The fact that lets this be cheap: an epoch is **not rollback-registered**.
+//! Two peers never compare sequences, so a gap on one host is invisible.
+//!
 //! [`ControlFrame`]: crate::ControlFrame
 //! [`ConfirmedFrameBoundary`]: crate::ConfirmedFrameBoundary
 
@@ -31,8 +53,6 @@ use std::fmt;
     Default,
     Eq,
     PartialEq,
-    Ord,
-    PartialOrd,
     Hash,
 )]
 pub struct ContentEpoch(pub u64);

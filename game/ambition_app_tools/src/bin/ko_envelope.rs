@@ -2378,7 +2378,26 @@ fn run_probe() {
     // Attackers spanning the roster rather than all 21: the question is whether
     // ROLES separate, and every fighter authors the same role set.
     let attackers = ["npc_pirate_admiral", "smash_george_booul", "npc_bob"];
-    let max_percent = 300;
+    // ⭐ THE CEILING IS ARGV-DRIVEN, AND 300 REMAINS THE DEFAULT so that every run
+    // recorded in PROVENANCE_RUNS.md replays to the same numbers. Raising it does
+    // not re-measure history; it measures what history could not see.
+    //
+    // ⛔ A `>300` CELL IS NOT A MEASUREMENT OF A WEAK MOVE — IT IS THE ABSENCE OF
+    // ONE. Measured on the curve-free baseline: 12 of 19 centre cells read `>300`
+    // (every tilt, most aerials, attack_dash, special_down, up_throw, down_throw).
+    // Calibration inverts `growth' = growth * (p0/p1)`, which has NO p0 for a
+    // censored cell, so two thirds of the roster cannot be authored from a 300-cap
+    // table at all.
+    //
+    // ⚠ COST, STATED: `ko_threshold` sweeps in steps of 50 (see :1836), so the
+    // coarse pass grows linearly with this number and each cell runs a full trial
+    // per sample. `ceiling=600` roughly doubles the sweep.
+    let max_percent: i32 = std::env::args()
+        .find_map(|a| {
+            a.strip_prefix("ceiling=")
+                .and_then(|n| n.parse::<i32>().ok())
+        })
+        .unwrap_or(300);
 
     // ⭐ ONE MATCHUP PER PROCESS. The six cells of the matrix share nothing —
     // separate Apps, separate worlds — so running them as six processes is pure
@@ -2395,7 +2414,15 @@ fn run_probe() {
         // fail the registry lookup, and print a table for a matchup nobody asked
         // for — a silent wrong-population error, which is the failure this
         // instrument exists to avoid.
-        .filter(|a| *a != "identity")
+        //
+        // ⭐ `ceiling=<n>` JOINS THE FILTER FOR THE SAME REASON, and the reason is
+        // no longer hypothetical: measured this session, running this binary with
+        // no `probe` token produced 788 rows of a whole-roster MOVESET CENSUS —
+        // well-formed, plausibly headed, real fighter names, and about a different
+        // question entirely. An unfiltered flag lands in `after[0]` and silently
+        // BECOMES the attacker. Nothing downstream can tell that from a table
+        // somebody meant to ask for.
+        .filter(|a| *a != "identity" && !a.starts_with("ceiling="))
         .collect();
     let pairs: Vec<(String, String)> = if after.len() >= 2 {
         vec![(after[0].to_string(), after[1].to_string())]
@@ -2410,6 +2437,14 @@ fn run_probe() {
     };
 
     println!("# ko_envelope PROBE — stage outcomes, 1.25 frozen, no authored value changed");
+    // ⭐ THE SWEEP CEILING IS A LIVE FACT OF THE RUN, not a constant a reader may
+    // look up in the source: `>N` means different things in two tables taken at
+    // different N, and the source only ever states the CURRENT default. A table
+    // that does not carry its own ceiling cannot be compared to one that does.
+    println!(
+        "# sweep ceiling: max_percent={max_percent} — a `>{max_percent}` cell is CENSORED \
+         (no threshold found at or below it), NOT a measurement that the move is weak"
+    );
     // ⛔⛔ EVERY KO PERCENT BELOW IS A NO-RECOVERY LOWER BOUND, and reading one
     // as a kill percent overstates the game's lethality.
     //

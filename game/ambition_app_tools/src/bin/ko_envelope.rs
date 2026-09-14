@@ -2616,7 +2616,9 @@ fn run_probe() {
             // Read the real edge off the stage and stand a margin inboard, so the
             // cell measures a launch from NEAR the ledge instead of a coin flip
             // about whether the victim was ever standing.
-            let ledge_x = {
+            // ⭐ BOTH EDGES, because one of them is the wrong one for half the roster.
+            // See the per-move choice at the `ledge_ko` call below.
+            let (left_ledge_x, right_ledge_x) = {
                 let room = ambition_demo_smash::smash_stage();
                 let right = room
                     .world
@@ -2624,13 +2626,23 @@ fn run_probe() {
                     .iter()
                     .map(|b| b.aabb.max.x)
                     .fold(f32::MIN, f32::max);
-                if right > f32::MIN {
-                    right - 40.0
+                let left = room
+                    .world
+                    .blocks
+                    .iter()
+                    .map(|b| b.aabb.min.x)
+                    .fold(f32::MAX, f32::min);
+                if right > f32::MIN && left < f32::MAX {
+                    (left + 40.0, right - 40.0)
                 } else {
-                    probe.centre + 200.0
+                    (probe.centre - 200.0, probe.centre + 200.0)
                 }
             };
-            println!("#   ledge_x = {ledge_x:.1} (derived platform edge, 40px inboard)");
+            println!(
+                "#   ledge_x: left={left_ledge_x:.1} right={right_ledge_x:.1} (derived platform \
+                 edges, 40px inboard). ⭐ The LEDGE column measures the OUTWARD ledge, chosen \
+                 per move by the sign of its launch_dir.x — NOT always the right one."
+            );
             for l in &launchers {
                 let pulse = l.pulse();
                 let move_id = l.move_id();
@@ -2681,6 +2693,27 @@ fn run_probe() {
                     _ => "-".to_string(),
                 };
                 let centre_ko = probe.ko_threshold(pulse, probe.centre, max_percent);
+                // ⛔⛔ THE OUTWARD LEDGE, CHOSEN PER MOVE — AND THE OLD COLUMN WAS
+                // ANSWERING A DIFFERENT QUESTION FOR HALF THE ROSTER.
+                //
+                // Every move used to be measured at the RIGHT ledge. For a
+                // negative-x launcher that aims the victim back ACROSS THE WHOLE
+                // STAGE, and the result was still labelled `ledge_KO%`. Measured
+                // before this fix, the two backward movers were exactly the two
+                // rows that looked "inverted" (ledge HARDER than centre):
+                // `back_throw` ledge 271 vs centre 135, `attack_air_back` 282 vs 200.
+                // That is not ledge kill potential; it is cross-stage kill potential.
+                //
+                // The fix is not to special-case throw names — it is to let the
+                // move's own authored launch direction pick which edge is OUTWARD.
+                // `facing` is pinned +1, so world launch follows the sign of
+                // `launch_dir.x`; a `None` dir derives from attacker-relative
+                // position and the fixture stands the attacker to the LEFT, so it
+                // launches rightward and keeps the right ledge.
+                let ledge_x = match l.launch_dir() {
+                    Some((x, _)) if x < -0.05 => left_ledge_x,
+                    _ => right_ledge_x,
+                };
                 let ledge_ko = probe.ko_threshold(pulse, ledge_x, max_percent);
                 // ⛔ `w0v0` WOULD BE A LIE ON A THROW. These indices ADDRESS a
                 // strike's hit volume inside its move; a throw has no such

@@ -141,7 +141,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         half_extents: (24.0, 30.0),
         damage: 14,
         knockback: 140.0,
-        knockback_growth: 2.80,
+        knockback_growth: 6.76,
         launch_dir: Some((0.12, -1.0)),
         on_hit: None,
     });

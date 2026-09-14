@@ -144,7 +144,7 @@ pub fn alice_moveset() -> MovesetContract {
         half_extents: (22.0, 32.0),
         damage: 12,
         knockback: 120.0,
-        knockback_growth: 2.25,
+        knockback_growth: 5.81,
         launch_dir: Some((0.10, -1.0)),
         on_hit: None,
     });

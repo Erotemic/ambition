@@ -7092,3 +7092,79 @@ Add a queue row only when all of these are known:
 If one is unknown, put the question in the relevant owner document or maintainer
 decision ledger instead. When a row is complete, delete it from this file. Git
 history is the completion log.
+
+## ✅ THE ROSTER'S UP-SMASHES COULD NOT KILL — 8 FIGHTERS RETUNED, 8/8 PREDICTIONS HIT
+
+MEASURED 2026-09-14. All KO% are rage-pinned (attacker meter 0), no-DI, vs
+`player_robot_v3` ⇒ LOWER BOUNDS. The global `victim_percent_knockback_scale = 1.25`
+was NOT touched.
+
+### The finding
+`smash_up` was non-lethal across most of the grid: 12 of 15 fighters measured `>300`
+at centre. Cause is the vertical tax — an up-smash must reach the RISE blast line,
+and the launch that takes is a STAGE CONSTANT, not a per-move fact:
+
+    launch_at_KO = base + growth * 1.25 * centre_KO%   ... over every resolved smash_up
+    author 1237.5 | ninja 1235.5 | pirate 1243.0 | officer 1236.9 | pointed_polygon 1237.5
+    projectile_polygon 1236.9 | pugnacious_polygon 1236.9 | george 1237.8 | clerk 1237.1
+    alice 1242.2
+    n=10, min 1235.5, max 1243.0, SPREAD 7.5 = 0.61% of mean
+
+Bases span 112-178 and growths 1.90-6.40, yet the required launch is invariant to
+both. ⇒ the authoring lever is `growth = (1238 - base) / (1.25 * target_KO%)`.
+⚠ The landed measurements came in +0.6-0.8% high, so the constant is nearer **1241**.
+Use 1241 next time; the 8 landed values are not worth re-deriving for 1%.
+
+### What changed (ordering PRESERVED, not normalized)
+Current KO% spread 313-474 mapped onto 130-175, so the author's own statement of who
+has the stronger up-smash survives. Predictions were written down BEFORE measuring:
+
+    fighter                      move_id              growth       predicted  measured
+    player_robot_v3              smash_up             2.80 -> 6.76   130        131
+    goblin                       smash_up             2.70 -> 6.59   133        133
+    perfect_cellular_automaton   causal_cone_expand   2.30 -> 5.91   151        152
+    npc_bob                      derrick_lift         2.28 -> 5.87   152        153
+    npc_alice                    birthday_attack      2.25 -> 5.81   154        155
+    mary_o_tall                  block_punch          2.15 -> 5.64   159        160
+    sanic                        updraft              2.12 -> 5.58   161        162
+    npc_carl_stargan             smash_up             1.90 -> 5.15   175        175
+
+8/8 inside the pre-registered +-2% band. Refusals 0. Two earlier pre-registrations
+also hit (alice 397.5 predicted vs 399; carl_stargan 474 vs 474 EXACT), which is what
+licensed authoring the remaining six from the formula instead of measuring each.
+
+### ⛔ TWO FIGHTERS ARE EXCLUDED, BY THEIR OWN AUTHORED CONTRACTS
+  - `npc_emmy_noether` — `smash_up` is `ORDINARY_GROWTH` (a NAMED CONSTANT, 1.95),
+    *"What every other move of hers grows at, at most."* Test
+    `exactly_one_move_grows_like_a_kill_move` asserts the set above it is EXACTLY
+    `["smash_forward"]`. My edit guard REFUSED the file because the line was not the
+    literal it expected.
+  - `npc_oiler` — `WITHIN_TOLERANCE_GROWTH` (2.10): *"No move but the forward smash
+    may grow harder than this."* Enforced at `oiler_moveset.rs:912`. I DID write 5.43
+    here; it would have failed that test. Reverted from a plain-cp snapshot.
+
+Both are built the same way: ONE licensed kill move, everything else capped on
+purpose. Their up-smashes are weak BY DESIGN, and both already close stocks
+(emmy_bthrow 89, oiler smash_forward 139). Role bands are sanity ranges, not
+normalization targets.
+
+### Scope and provenance
+  - `cellular_automaton.ron` changed TWO lines: that file emits its table twice,
+    serving BOTH `perfect_` and `imperfect_cellular_automaton`. The latter is not in
+    `SMASH_ROSTER` and had no baseline row, so it was measured afterwards: centre
+    **152**, identical to perfect, as a shared table predicts.
+  - ⛔ THE HOST READS `assets/data/movesets/*.ron` OFF DISK. Editing a `*_moveset.rs`
+    for a MIGRATED table is a NO-OP until
+    `cargo run -p ambition_app_tools --bin moveset_source_export -- <table>`.
+    `player_robot`, `mary_o` and `sanic` are NOT migrated (no .ron) and need a REBUILD
+    instead. Both roads were taken here and both were verified.
+  - `smash_roster_movesets.rs` carries a doc-comment-only change: its stated corpus
+    maximum said 1.05 while the tree already held 1.375, and the retuned up-smashes
+    took it to 2.49 (cap is 4.0). The guard's executable body is byte-identical and
+    `every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip` passes (1 passed).
+
+### Open for Jon (surfaced, NOT changed)
+  - Strikes compress ~36% at the 1.4 rage cap, so these are rage-1.0 statements: a
+    155% target kills nearer 110% against a damaged attacker. Whether `rage_max_scale`
+    should stay 1.4 is a global decision over 22 fighters, like the frozen 1.25.
+  - Throws bypass rage AND staleness entirely (pushed separately).

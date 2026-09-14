@@ -193,7 +193,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         half_extents: (18.0, 26.0),
         damage: 13,
         knockback: 112.0,
-        knockback_growth: 1.90,
+        knockback_growth: 5.15,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

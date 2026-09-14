@@ -867,7 +867,7 @@ language.
   ⇒ **Everything is body-scoped.** The one non-body LAYER is an intersection, so
   it can only take verbs AWAY — ⚠ **and it is the F3 INSPECTOR, not a game
   mechanism**: `EditableAbilitySet` lives in `ambition_dev_tools`, applied by
-  `sync_live_player_dev_edits_system`. It ships (`dev_tools` is inside the
+  `project_editable_abilities`. It ships (`dev_tools` is inside the
   default `desktop_dev` feature) but it is a debug affordance, which makes the
   conclusion below stronger rather than weaker: the table's only non-body row is
   not a design layer at all. There is no
@@ -983,7 +983,7 @@ FallingSandRoomState  NOT registered   #[derive(Resource, Default)] -- no rollba
   writing `BodyAbilities` directly:
 
   - the F3 re-sync (`crates/ambition_dev_tools/src/lib.rs:90`, the `intersect`
-    itself; the system is `sync_live_player_dev_edits_system` at `:61`) — primary-only, applies
+    itself; the system is `project_editable_abilities` at `:61`) — primary-only, applies
     `base ∩ mask` every frame;
   - `restore_wall_abilities_after_transit`
     (`ambition_content/src/portal/ability_adapter.rs:83`) — writes

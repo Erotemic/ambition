@@ -147,7 +147,7 @@ impl Plugin for DevToolsSimPlugin {
                 // before `RunGgrsSystems`.
                 (
                     crate::dev_tools::publish_editable_movement_tuning,
-                    crate::sync_live_player_dev_edits_system,
+                    crate::admit_editable_abilities,
                     crate::dev_tools::sync_developer_body_profile,
                     crate::dev_tools::publish_player_stats_edits,
                 )
@@ -190,6 +190,12 @@ impl Plugin for DevToolsSimPlugin {
         // that only ran before the advance would leave it wearing engine defaults
         // for a frame.
         app.add_systems(sim, crate::dev_tools::project_developer_body_profile);
+        // ⭐ AND THE ABILITY PROJECTION BESIDE IT, 2026-09-14, for the reason the
+        // body-profile one is here: a body REBUILT by mechanical lifecycle code
+        // during the simulation must wear its admitted abilities on the same tick,
+        // not a render frame later. Admission stays in `PreUpdate`; only the
+        // projection follows body existence.
+        app.add_systems(sim, crate::project_editable_abilities);
         app.add_systems(sim, crate::decay_developer_presentation_flash);
         // ⭐ AND THE SLOW-MOTION REQUEST, for the same reason: the toggle is this
         // crate's, so the ASK is this crate's. It was rung 4 of the actor

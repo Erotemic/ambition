@@ -18,6 +18,108 @@ fn observe_body_ability_changes(
     observations.0 += changed.iter().count() as u32;
 }
 
+/// ⛔⛤ **A BODY BUILT DURING THE SIMULATION WEARS ITS ADMITTED ABILITIES ON THE
+/// SAME TICK.**
+///
+/// Admission and projection were ONE system in
+/// `PreUpdate/MechanicalEditSet::Publish` until 2026-09-14. A body reconstructed
+/// by mechanical lifecycle code — a reset, a room load, a rebuild — arrives after
+/// that system has already run, so it carried its raw base into every simulation
+/// consumer for the rest of the tick and was reconciled only on the NEXT render
+/// frame. `ActivePlayerBodyProfile` was split for this exact reason, in these
+/// words: *"a body can be rebuilt by mechanical lifecycle code, so projection
+/// must follow body existence rather than editor publication."*
+///
+/// ⚠ **THE REVIEW DID NOT ESTABLISH THAT A SHIPPED ROAD EXPOSES THAT INTERVAL**,
+/// and neither does this arm — it constructs the interval deliberately. What it
+/// pins is that the interval is no longer EXPRESSIBLE: the projection follows the
+/// spawner because it lives in the same schedule bodies are built in.
+#[test]
+fn a_body_built_after_admission_is_projected_onto_in_the_same_tick() {
+    #[derive(Resource, Default)]
+    struct BuiltOnce(bool);
+
+    fn build_the_body_mid_tick(mut commands: Commands, mut built: ResMut<BuiltOnce>) {
+        if built.0 {
+            return;
+        }
+        built.0 = true;
+        let base = ambition_platformer2d_core::AbilitySet::compose(&[
+            ambition_platformer2d_core::AbilityGrant::RunJump,
+            ambition_platformer2d_core::AbilityGrant::AirJump,
+        ]);
+        commands.spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            MotionModel::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    base,
+                ),
+            ),
+        ));
+    }
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+    app.init_resource::<BuiltOnce>();
+    // The shipped shape: admission on the host frame, projection where bodies
+    // are built.
+    app.add_systems(
+        PreUpdate,
+        (
+            ambition_dev_tools::propose_editable_abilities,
+            ambition_dev_tools::admit_editable_abilities,
+        )
+            .chain(),
+    );
+    app.add_systems(
+        Update,
+        (
+            build_the_body_mid_tick,
+            ambition_dev_tools::project_editable_abilities,
+        )
+            .chain(),
+    );
+
+    // The developer switches the air jump off BEFORE any body exists.
+    app.world_mut()
+        .resource_mut::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+        .double_jump = false;
+    app.update();
+
+    // ⛔ THE PREMISE: a body really was built, and it was built with the air jump
+    // in its BASE — otherwise "it does not have one" is about an empty world or
+    // an ungranted verb rather than about the projection.
+    let world = app.world_mut();
+    let mut query = world.query_filtered::<(
+        &BodyAbilities,
+        &ambition_platformer2d_core::AbilityBase,
+    ), With<PrimaryPlayer>>();
+    let (abilities, base) = query
+        .single(world)
+        .expect("the spawner built exactly one primary body");
+    assert!(
+        base.abilities.double_jump,
+        "the body was built without the air jump in its base, so the assertion \
+         below is about an ungranted verb rather than about the mask",
+    );
+    assert!(
+        !abilities.abilities.double_jump,
+        "a body built during the tick still carried its raw base into the rest \
+         of that tick: admission ran before it existed and nothing projected the \
+         admitted mask onto it until the next render frame",
+    );
+}
+
 /// ⛔⛤ **THE MASK FILTERS THE BASE; IT DOES NOT BECOME IT.**
 ///
 /// `SimulationSetup` took a `fallback_abilities` parameter until 2026-09-14 and
@@ -45,7 +147,8 @@ fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
         Update,
         (
             ambition_dev_tools::propose_editable_abilities,
-            ambition_dev_tools::sync_live_player_dev_edits_system,
+            ambition_dev_tools::admit_editable_abilities,
+            ambition_dev_tools::project_editable_abilities,
         )
             .chain(),
     );
@@ -165,7 +268,8 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
         Update,
         (
             ambition_dev_tools::propose_editable_abilities,
-            ambition_dev_tools::sync_live_player_dev_edits_system,
+            ambition_dev_tools::admit_editable_abilities,
+            ambition_dev_tools::project_editable_abilities,
             super::super::apply_worn_character_gameplay,
             observe_body_ability_changes,
         )
@@ -256,7 +360,8 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
         Update,
         (
             ambition_dev_tools::propose_editable_abilities,
-            ambition_dev_tools::sync_live_player_dev_edits_system,
+            ambition_dev_tools::admit_editable_abilities,
+            ambition_dev_tools::project_editable_abilities,
         )
             .chain(),
     );
@@ -343,7 +448,8 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
         Update,
         (
             ambition_dev_tools::propose_editable_abilities,
-            ambition_dev_tools::sync_live_player_dev_edits_system,
+            ambition_dev_tools::admit_editable_abilities,
+            ambition_dev_tools::project_editable_abilities,
         )
             .chain(),
     );

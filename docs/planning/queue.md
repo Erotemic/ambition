@@ -874,7 +874,7 @@ SimulationSetup { fallback_abilities: AbilitySet }
 ```
 
 ⛔ **TWO ROADS TO MECHANICS.** An editor value the timeline had REFUSED still
-entered simulation as the player's BASE — and `sync_live_player_dev_edits_system`
+entered simulation as the player's BASE — and `admit_editable_abilities` / `project_editable_abilities` (`project_editable_abilities` until 2026-09-14)
 correctly declines to reconcile it back while the refusal stands, so nothing
 repaired it either.
 
@@ -991,7 +991,7 @@ for credible strong smashes therefore holds at rage 1.0 ONLY.
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST
 one using its EDITOR resource as the admitted authority.
-`sync_live_player_dev_edits_system` read `EditableAbilitySet` directly and treated
+`admit_editable_abilities` / `project_editable_abilities` (`project_editable_abilities` until 2026-09-14) read `EditableAbilitySet` directly and treated
 it as the last admitted value *"whenever nothing is pending"* — sound reasoning,
 but it put ADMISSION and PROJECTION behind the same `player_q.single_mut()` guard.
 With a live locally maintained timeline and a momentarily absent player, a

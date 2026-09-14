@@ -92,19 +92,62 @@ pub fn propose_editable_abilities(
     pending.propose(ability_set_domain());
 }
 
-pub fn sync_live_player_dev_edits_system(
+/// ADMIT a developer ability selection. It touches no body.
+///
+/// ⛔⛤ **SPLIT FROM THE PROJECTION 2026-09-14, THE WAY BODY PROFILE ALREADY
+/// WAS.** This system used to do both, in `PreUpdate/MechanicalEditSet::Publish`
+/// — so a body RECONSTRUCTED during the simulation (a reset, a room load, a
+/// rebuild) waited a whole render frame for its admitted abilities, because the
+/// only thing that projects them had already run. `ActivePlayerBodyProfile`'s
+/// split is documented with the same reason: *"a body can be rebuilt by
+/// mechanical lifecycle code, so projection must follow body existence rather
+/// than editor publication."*
+///
+/// ⇒ Admission belongs to the host frame and the rollback mutation boundary;
+/// PROJECTION belongs wherever bodies come into existence. See
+/// [`project_editable_abilities`].
+pub fn admit_editable_abilities(
+    editable_abilities: Res<EditableAbilitySet>,
+    mut active_mask: ResMut<dev_tools::ActiveEditableAbilityMask>,
+    admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+) {
+    let proposed = pending.is_pending(ability_set_domain());
+    if proposed
+        && matches!(
+            admission.as_deref(),
+            Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)
+        )
+    {
+        return;
+    }
+    if proposed {
+        active_mask.0 = Some(editable_abilities.as_engine());
+        pending.take(ability_set_domain());
+    } else if active_mask.0.is_none() {
+        // ⚠ THE BASELINE, for the same reason the stats domain has one: the
+        // continuous `base ∩ mask` reconciliation is NOT a mechanical edit and
+        // must keep working from frame one, before anybody has proposed
+        // anything. Seeding from the editable is what today's behaviour already
+        // was when nothing was pending.
+        active_mask.0 = Some(editable_abilities.as_engine());
+    }
+}
+
+/// Project the ADMITTED mask onto whatever primary player exists.
+///
+/// ⛔ **A PROJECTION, NOT A PUBLICATION**, and it runs where bodies are built so
+/// a body constructed during the simulation wears its admitted abilities on the
+/// same tick rather than a frame later. It reads the MASK, never the editor
+/// resource — see [`dev_tools::ActiveEditableAbilityMask`].
+pub fn project_editable_abilities(
     // The neutral authority, NOT the inspector mirror: `publish_editable_movement_tuning`
     // runs earlier in the same `MechanicalEditSet::Publish` chain, so an F3 edit
     // is already here — and a body whose tuning came from content rather than the
     // inspector now resolves correctly too.
     active_tuning: Res<ActiveMovementTuning>,
-    editable_abilities: Res<EditableAbilitySet>,
-    // ⛔⛤ THE ADMITTED MASK — the domain's third stage, 2026-09-14. Admission is
-    // decided here whether or not a body exists to wear the result; the
-    // projection below is what needs one. See `ActiveEditableAbilityMask`.
-    mut active_mask: ResMut<dev_tools::ActiveEditableAbilityMask>,
-    admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
-    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+    active_mask: Res<dev_tools::ActiveEditableAbilityMask>,
+    pending: Res<ambition_platformer2d_core::PendingMechanicalEdits>,
     mut player_q: Query<
         (
             &mut BodyAbilities,
@@ -122,61 +165,25 @@ pub fn sync_live_player_dev_edits_system(
         PrimaryPlayerOnly,
     >,
 ) {
-    // ⛔⛤ **THIS SYSTEM HAS TWO JOBS AND ONLY ONE OF THEM IS A MECHANICAL EDIT.**
-    // It PUBLISHES a developer ability selection, and it RECONCILES the body's
-    // abilities back to `base ∩ editable` whenever gameplay has moved them. The
-    // first is `Q120`'s subject; the second is an ordinary continuous repair and
-    // must keep working, which a naive "only run when proposed" gate broke — a
-    // fixture that diverged `BodyAbilities` directly stopped getting its cluster
-    // refresh, and that is a real consequence, not a fixture artifact.
+    // ⛔⛤ **THE RECONCILIATION IS NOT A MECHANICAL EDIT AND MUST KEEP WORKING.**
+    // Beside publishing an admitted selection, this road RECONCILES the body's
+    // abilities back to `base ∩ mask` whenever gameplay has moved them. A naive
+    // "only run when proposed" gate broke it — a fixture that diverged
+    // `BodyAbilities` directly stopped getting its cluster refresh, and that is a
+    // real consequence rather than a fixture artifact.
     //
-    // ⭐ **SO THE RECONCILIATION RUNS ONLY WHEN NOTHING IS AWAITING ADMISSION**,
-    // which is what makes it safe: any change to `EditableAbilitySet` sets this
-    // domain pending, so with nothing pending the editable IS the last admitted
-    // value. A refused edit keeps the domain pending and therefore disables the
-    // reconciliation road too — otherwise the refusal would be a front door the
-    // unadmitted value walks through.
-    //
-    // ⚠ The movement half of this system's inputs (`ActiveMovementTuning`) is
-    // published by its own domain earlier in the same chain, so an admitted
-    // tuning edit is already visible here rather than a mix of admitted and
-    // pending values.
-    let proposed = pending.is_pending(ability_set_domain());
-    if proposed
-        && matches!(
-            admission.as_deref(),
-            Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)
-        )
-    {
+    // ⭐ **SO IT RUNS ONLY WHEN NOTHING IS AWAITING ADMISSION.** A refused edit
+    // keeps the domain pending and therefore disables this road too — otherwise
+    // the refusal would be a front door the unadmitted value walks through.
+    if pending.is_pending(ability_set_domain()) {
         return;
     }
-    // ⛔ **ADMISSION FIRST, AND IT DOES NOT ASK WHETHER A BODY EXISTS.** This used
-    // to sit below the player query, so a proposal made while the primary player
-    // was momentarily absent stayed pending — re-entering the admission/rebase
-    // decision every frame until a body appeared. The edit was never lost, which
-    // is why this survived; what it cost is that "was it admitted" depended on
-    // "is there something to apply it to".
-    if proposed {
-        active_mask.0 = Some(editable_abilities.as_engine());
-        pending.take(ability_set_domain());
-    } else if active_mask.0.is_none() {
-        // ⚠ THE BASELINE, for the same reason the stats domain has one: the
-        // continuous `base ∩ mask` reconciliation is NOT a mechanical edit and
-        // must keep working from frame one, before anybody has proposed
-        // anything. Seeding from the editable is what today's behaviour already
-        // was when nothing was pending.
-        active_mask.0 = Some(editable_abilities.as_engine());
-    }
+    let Some(mask) = active_mask.0 else {
+        return;
+    };
     let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump, authored_tuning)) =
         player_q.single_mut()
     else {
-        return;
-    };
-    // ⭐ THE PROJECTION READS THE ADMITTED MASK, never the editor resource. That
-    // is the whole split: a body built later — by a reset, a room load, a
-    // reconstruction — projects what was admitted rather than whatever the panel
-    // happens to hold at that moment.
-    let Some(mask) = active_mask.0 else {
         return;
     };
     let desired_abilities = base.abilities.intersect(mask);
@@ -384,7 +391,7 @@ mod ability_admission_tests {
         app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
-        app.add_systems(Update, sync_live_player_dev_edits_system);
+        app.add_systems(Update, (admit_editable_abilities, project_editable_abilities).chain());
 
         // A mask that differs from the default, so "it arrived" is a real
         // difference rather than two defaults agreeing.
@@ -434,7 +441,7 @@ mod ability_admission_tests {
         app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Refuse);
-        app.add_systems(Update, sync_live_player_dev_edits_system);
+        app.add_systems(Update, (admit_editable_abilities, project_editable_abilities).chain());
         app.world_mut()
             .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
             .propose(ability_set_domain());

@@ -2111,7 +2111,7 @@ three systems into `app.sim_schedule()`, which under the rollback host IS
 
 | system | writes, during rollback resimulation |
 | --- | --- |
-| `sync_live_player_dev_edits_system` | `BodyAbilities`, `BodyFlightState`, `MotionModel`, `BodyDashState`, `BodyJumpState`, from live `EditableAbilitySet` |
+| `project_editable_abilities` | `BodyAbilities`, `BodyFlightState`, `MotionModel`, `BodyDashState`, `BodyJumpState`, from live `EditableAbilitySet` |
 | `sync_developer_body_profile` | `BodyKinematics`, `BodyBaseSize`, arbitrated by a non-rollback `Local<Option<PlayerBodyProfile>>` |
 | `sync_player_stats_with_inspector` | health, mana, offense, same non-rollback `Local` arbiter | <!-- cite-ok: the table records the state BEFORE the split; naming the system it replaced is the point -->
 

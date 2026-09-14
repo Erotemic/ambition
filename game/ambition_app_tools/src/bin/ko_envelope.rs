@@ -479,6 +479,59 @@ enum Pulse<'a> {
     Throw(&'a CaptureThrowParams),
 }
 
+/// THE STAGE'S BLAST ENVELOPE AS THE RUNNING GAME HOLDS IT.
+///
+/// ⛔⛔ READ OFF THE LIVE `RoomGeometry`, NEVER RESTATED FROM THE DEMO'S
+/// CONSTANTS. `FALL_BLAST_MARGIN_PX` and friends are `game/ambition_demo_smash`'s
+/// own numbers, and a copy here would be a SECOND stage that silently stops
+/// matching the first — the identical mistake `KoProbe::new` already refuses to
+/// make for `centre`. It is also the mistake that cost this investigation a
+/// session: a gravity constant transcribed from `platformer_defaults.ron` (2250)
+/// described a body the engine was accelerating at 1450, and every conclusion
+/// built on it was wrong.
+#[derive(Clone, Copy)]
+struct Blast {
+    size: ambition_platformer2d::engine_core::Vec2,
+    fall: f32,
+    side: Option<f32>,
+    rise: Option<f32>,
+}
+
+impl Blast {
+    /// WHICH LINE THE BODY CROSSED — the question `HitSource::LeftTheWorld`
+    /// cannot answer.
+    ///
+    /// ⛔ THE KERNEL'S OWN ARITHMETIC, transcribed from `apply_world_hazard_gate`
+    /// rather than re-invented: clamp into the world box, project the excess onto
+    /// the frame's down/side axes, and compare against the per-axis margin. A
+    /// second formula here would be free to disagree with the one that actually
+    /// killed the body, which would make this a story about a KO rather than a
+    /// measurement of one. Gravity is screen-down on this stage, so `down` is +y.
+    fn classify(&self, pos: ambition_platformer2d::engine_core::Vec2) -> &'static str {
+        let clamped_x = pos.x.clamp(0.0, self.size.x);
+        let clamped_y = pos.y.clamp(0.0, self.size.y);
+        let past_fall = pos.y - clamped_y;
+        let past_side = (pos.x - clamped_x).abs();
+        // Order mirrors the gate: fall always kills, side and rise are opt-in.
+        if past_fall > self.fall {
+            "fall"
+        } else if self.side.is_some_and(|m| past_side > m) {
+            if pos.x > clamped_x {
+                "side-right"
+            } else {
+                "side-left"
+            }
+        } else if self.rise.is_some_and(|m| -past_fall > m) {
+            "rise"
+        } else {
+            // ⛔ NOT "unknown" AS A SHRUG. The body was declared out by the engine
+            // and yet sits inside every margin this stage declares, which means
+            // the position sampled here is not the position the gate judged.
+            "INSIDE-ALL-MARGINS-sample-disagrees-with-gate"
+        }
+    }
+}
+
 struct KoProbe {
     app: bevy::prelude::App,
     attacker: bevy::prelude::Entity,
@@ -486,6 +539,16 @@ struct KoProbe {
     centre: f32,
     tumble_speed: f32,
     victim_weight: f32,
+    /// The live blast envelope, or `None` when the running app publishes no
+    /// `RoomGeometry` at all — reported as absence rather than back-filled from
+    /// the demo's constants, because a probe that substitutes a plausible number
+    /// for a missing one cannot tell you it was missing.
+    blast: Option<Blast>,
+    /// How many trials had to prise the victim off a ledge before they could
+    /// start. ⭐ THE CONFIRMING MEASUREMENT FOR THE REGIME-2 DIAGNOSIS: the ledge
+    /// hang is a HYPOTHESIS until this counter moves, and a fix that silently
+    /// worked would leave me claiming a mechanism I never observed.
+    ledge_releases: usize,
 }
 
 impl KoProbe {
@@ -522,6 +585,59 @@ impl KoProbe {
         }
         app.update();
 
+        // ⭐⭐ OPTIONAL: RUN THE MATRIX WITH THE GROWTH CURVE OFF (`identity`).
+        //
+        // The review's standing ruling is that `GrowthBaseCurve` is EVIDENCE and
+        // not something to ship, and that calibration needs a curve-free floor to
+        // work from. A flag rather than an edit-and-rebuild because curve-on and
+        // curve-off must come from ONE binary: rebuilding between them would put
+        // a tree difference inside the comparison, which is exactly the confound
+        // that made `envelope_AFTER_law` unusable.
+        //
+        // ⛔ WRITE THE DECLARATION, NOT THE RESOLVED RESOURCE. `ResolvedCombatTuning`
+        // is re-derived from `DeclaredCombatRules` EVERY TICK, so a write to the
+        // resolved end is overwritten before the next hit and the run would report
+        // the demo's own curve wearing an IDENTITY label.
+        //
+        // ⛔ AND THE OVERRIDE IS NOT TRUSTED. It is read back THROUGH the fold and
+        // asserted. A lever that silently failed would produce a curve-off table
+        // identical to the curve-on one, which reads as "the curve does nothing" —
+        // the most expensive possible false negative, because the honest response
+        // to it would be to raise the exponent.
+        if std::env::args().any(|a| a == "identity") {
+            {
+                let mut declared = app
+                    .world_mut()
+                    .get_resource_mut::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(
+                    )
+                    .expect(
+                        "the smash experience declares combat rules on entry; without that \
+                         resource there is no curve to turn off and this run would be \
+                         measuring an undeclared world",
+                    );
+                // `None` resolves to `GrowthBaseCurve::IDENTITY` — the law exactly
+                // as first written, and what every undeclared Ambition room uses.
+                declared.growth_base = None;
+            }
+            // One tick for the projection system to re-fold the declaration.
+            app.update();
+            let live = app
+                .world()
+                .resource::<ambition_platformer2d::combat::rules::ResolvedCombatTuning>()
+                .growth_base;
+            assert_eq!(
+                live,
+                ambition_platformer2d::combat::rules::GrowthBaseCurve::IDENTITY,
+                "the IDENTITY override did not reach the resolved rules: the combat road \
+                 still reads {live:?}. Every cell in this run would be the demo's declared \
+                 curve labelled as curve-free."
+            );
+            println!(
+                "# ⭐ GrowthBaseCurve OVERRIDDEN TO IDENTITY, verified through the fold \
+                 (growth_base={live:?}) — this run is the CURVE-FREE baseline"
+            );
+        }
+
         // Read off the REAL stage, the way `ring_out::stage_centre_and_reach`
         // does — never restated as a literal, because `STAGE_SIZE` and the blast
         // margins are the demo's own constants and a copy here would be a second
@@ -548,14 +664,71 @@ impl KoProbe {
             .map(|t| t.weight)
             .unwrap_or(1.0);
 
-        Self {
+        // ⭐⭐ THE BLAST ENVELOPE FROM THE LIVE WORLD, not from the demo's
+        // constants. `RoomGeometry` is the session-root component wrapping the
+        // active room's collision world — the same `World` whose `edges` the
+        // movement kernel destructures in `apply_world_hazard_gate` to decide
+        // `ResetCause::LeftTheWorld`. Asking it is asking the authority.
+        let blast = {
+            let world = app.world_mut();
+            let mut q = world.query::<&ambition_platformer2d::engine_core::RoomGeometry>();
+            q.iter(world).next().map(|geometry| Blast {
+                size: geometry.0.size,
+                fall: geometry.0.edges.fall,
+                side: geometry.0.edges.side,
+                rise: geometry.0.edges.rise,
+            })
+        };
+
+        let probe = Self {
             app,
             attacker: seat0,
             victim: seat1,
             centre,
             tumble_speed,
             victim_weight,
+            blast,
+            ledge_releases: 0,
+        };
+
+        // ⭐⭐ EVERY PARAMETER THE KNOCKBACK ARITHMETIC DEPENDS ON, READ OFF THE
+        // LIVE VICTIM AND THE LIVE STAGE — printed once per matchup, because these
+        // are PER-VICTIM facts and a single global header would quietly describe
+        // the wrong body for every matchup after the first.
+        //
+        // ⛔ NOT ONE OF THESE IS DERIVED FROM A SOURCE CONSTANT. That rule is not
+        // fastidiousness: this investigation spent a session on conclusions built
+        // from a gravity value transcribed out of a defaults file that did not
+        // apply to the body being measured. A number that agrees with the running
+        // game is evidence; a number that agrees with the repo is a restatement.
+        println!(
+            "# victim live facts: weight={:.3} tumble_speed={:.1} {}",
+            probe.victim_weight,
+            probe.tumble_speed,
+            probe.victim_gravity(),
+        );
+        match probe.blast {
+            Some(b) => println!(
+                "# stage live blast envelope: size=({:.0},{:.0}) fall={:.0} side={} rise={}",
+                b.size.x,
+                b.size.y,
+                b.fall,
+                b.side
+                    .map(|v| format!("{v:.0}"))
+                    .unwrap_or_else(|| "NONE(not a blast zone)".into()),
+                b.rise
+                    .map(|v| format!("{v:.0}"))
+                    .unwrap_or_else(|| "NONE(rises forever)".into()),
+            ),
+            // ⛔ LOUD ABSENCE. Without this the KO-boundary column would read
+            // "unknown" for every cell and look like a classification result.
+            None => println!(
+                "# ⛔ stage live blast envelope: NO RoomGeometry IN THE RUNNING APP — \
+                 KO boundaries CANNOT be classified this run, and no margin has been \
+                 substituted from the demo's constants."
+            ),
         }
+        probe
     }
 
     fn pos(&self, body: bevy::prelude::Entity) -> ambition_platformer2d::engine_core::Vec2 {
@@ -572,6 +745,75 @@ impl KoProbe {
             body,
             ambition_platformer2d::engine_core::Vec2::new(x, 200.0),
         );
+    }
+
+    /// THE GRAVITY THIS BODY IS ACTUALLY INTEGRATED AT — read, never named.
+    ///
+    /// ⛔⛔ THE SINGLE MOST EXPENSIVE ERROR IN THIS INVESTIGATION WAS A GRAVITY
+    /// CONSTANT COPIED OUT OF A DEFAULTS FILE. `platformer_defaults.ron` says
+    /// 2250 and that is the PLAYER's number; `resolve_body_motion_frames` has two
+    /// arms, and a match seat takes the `Without<PlayerEntity>` one, which is
+    /// `config.tuning.movement.gravity * surface.gravity_scale` — 1450 here. Every
+    /// apex, threshold and "contradiction" derived from 2250 described a body that
+    /// does not exist, and one of them was written up as a missing engine
+    /// mechanic before the arithmetic was rechecked.
+    ///
+    /// ⭐ THREE ROADS, PRINTED SIDE BY SIDE, because agreement between them is
+    /// the measurement and any one alone is a claim: the resolved frame the
+    /// kernel integrates, the configured tuning, and the surface scale that
+    /// multiplies it. A capture or a mount sets `gravity_scale` to 0.0, so a body
+    /// can be configured at 1450 and accelerating at nothing.
+    fn victim_gravity(&self) -> String {
+        let w = self.app.world();
+        let resolved = w
+            .get::<ambition_platformer2d::world::ResolvedMotionFrame>(self.victim)
+            .map(|f| f.get().gravity_acceleration());
+        let configured = w
+            .get::<ambition_platformer2d::actor::ActorConfig>(self.victim)
+            .map(|c| c.tuning.movement.gravity);
+        let scale = w
+            .get::<ambition_platformer2d::engine_core::ActorSurfaceState>(self.victim)
+            .map(|s| s.gravity_scale);
+        let opt = |v: Option<f32>| {
+            v.map(|x| format!("{x:.2}"))
+                .unwrap_or_else(|| "ABSENT".into())
+        };
+        format!(
+            "resolved_g=({}) config_g={} gravity_scale={} product={}",
+            resolved
+                .map(|v| format!("{:.1},{:.1}", v.x, v.y))
+                .unwrap_or_else(|| "ABSENT".into()),
+            opt(configured),
+            opt(scale),
+            match (configured, scale) {
+                (Some(g), Some(s)) => format!("{:.1}", g * s),
+                _ => "ABSENT".into(),
+            },
+        )
+    }
+
+    /// IS THE VICTIM HANGING ON A LEDGE? The regime-2 cause, made visible.
+    ///
+    /// The hang is policy-private axis maneuver state (ADR 0024), so this reads
+    /// it rather than owning it; `knock_off_ledge` is the only thing that clears
+    /// it here.
+    fn victim_ledge(&self) -> String {
+        self.app
+            .world()
+            .get::<ambition_platformer2d::actor::MotionModel>(self.victim)
+            .and_then(|m| match m {
+                ambition_platformer2d::actor::MotionModel::AxisSwept(axis) => {
+                    axis.state.ledge_grab
+                }
+                _ => None,
+            })
+            .map(|g| {
+                format!(
+                    "HANGING(anchor=({:.1},{:.1}) climbing={} elapsed={:.2})",
+                    g.contact.anchor.x, g.contact.anchor.y, g.climbing, g.elapsed
+                )
+            })
+            .unwrap_or_else(|| "none".into())
     }
 
     /// Every victim fact a trial could INHERIT, in one tab-free field.
@@ -772,6 +1014,72 @@ impl KoProbe {
         }
 
         // 3. Place, still, and metered.
+        //
+        // ⛔⛔⛔ LET GO OF THE LEDGE FIRST, OR THE PIN IS OVERWRITTEN EVERY TICK.
+        //
+        // MEASURED 2026-09-13. 54 of 67 refusals in a full matchup reported the
+        // victim at x=574 or x=66 with `vel=(0,0)`, unmoved across 24+ ticks. The
+        // platform spans 80..560 and the body is 30 wide, so those are `560+14`
+        // and `80-14` — one pixel of overlap, which `spans_overlap_for_support`
+        // rejects at exactly `EDGE_OVERLAP_SLOP`. That is the precise coordinate
+        // where support ends: a LEDGE HANG, latched.
+        //
+        // The hang is a TETHER. It re-asserts its anchor after this fixture's
+        // pin, which is why a body pinned at stage centre (320,320) reported
+        // (574,320) one tick later — a 254px move that looked like a teleport and
+        // was blamed on depenetration for hours. It cannot have been:
+        // `is_contact_range_snap` caps any pushout at the body's own half-diagonal
+        // (~28px) and BOTH resolution paths filter through it.
+        //
+        // ⛔ AND IT SNOWBALLS, which is why refusals grew 25 -> 209 across a run
+        // and why whatever `launchers_of` pushes LAST (throws) appeared broken.
+        // Nothing in a stand-still fixture ever lets go, so once a KO'd fighter
+        // catches an edge on the way back, every later trial inherits it.
+        //
+        // ⭐ `knock_off_ledge` IS THE SANCTIONED RELEASE — the typed
+        // combat->movement op over the axis policy's private hang state, the same
+        // one a real hit uses. It also arms `LEDGE_KNOCK_OFF_COOLDOWN` (0.35s), so
+        // the body cannot immediately re-latch the edge it was just taken off.
+        // Reaching into `axis.state.ledge_grab` directly would be a second
+        // authority on what leaving a ledge means.
+        let released = {
+            let world = self.app.world_mut();
+            let mut q = world.query::<(
+                &mut ambition_platformer2d::actor::MotionModel,
+                &mut ambition_platformer2d::engine_core::BodyLedgeState,
+            )>();
+            match q.get_mut(world, self.victim) {
+                Ok((mut model, mut ledge)) => {
+                    // ⚠ `&mut *`, NOT `&mut`. `get_mut` hands back `Mut<T>` change
+                    // trackers; Rust auto-derefs a method RECEIVER but never a
+                    // function ARGUMENT, so `&mut model` is `&mut Mut<MotionModel>`
+                    // and does not satisfy `&mut MotionModel`.
+                    ambition_platformer2d::engine_core::movement::knock_off_ledge(
+                        &mut *model,
+                        &mut *ledge,
+                    )
+                }
+                Err(_) => false,
+            }
+        };
+        if released {
+            self.ledge_releases += 1;
+            // ⭐⭐ THE CONFIRMING MEASUREMENT, AND IT MUST BE EMITTED.
+            //
+            // The ledge-hang diagnosis is a HYPOTHESIS until this line appears in
+            // a run. The danger is specific: if the release works, the refusals it
+            // was built to remove DISAPPEAR, and a silent counter would leave me
+            // reporting a mechanism nothing ever observed — a fix whose success is
+            // indistinguishable from the bug never having existed. `knock_off_ledge`
+            // returns true only when it actually took a hang away, so each of these
+            // lines is one trial that WAS latched and now is not.
+            let p = self.pos(self.victim);
+            eprintln!(
+                "KO_LEDGE_RELEASE: n={} x={victim_x:.0} pct={entry_percent} \
+                 was_at=({:.1},{:.1})",
+                self.ledge_releases, p.x, p.y,
+            );
+        }
         self.park(self.victim, victim_x);
         self.park(self.attacker, victim_x - 240.0);
         // ⭐ DID THE LANDING LOOP EVER SUCCEED? `landed_y` below is read
@@ -781,9 +1089,48 @@ impl KoProbe {
         // and was moved afterwards" from "never landed at all" — two different
         // defects that produce the same refusal.
         let mut landed_after: Option<usize> = None;
+        // ⭐ THE DESCENT ITSELF, RECORDED — because `landed_after=None` on 209/209
+        // refusals says the loop never saw a landing, and NOTHING says why.
+        //
+        // ⛔⛔ THE COMMENT THAT STOOD HERE USED GRAVITY 2250 AND WAS WRONG, and it
+        // was wrong in the direction that hid the answer. 2250 is the PLAYER's
+        // gravity (`platformer_defaults.ron`); a match seat is an ACTOR body, and
+        // `resolve_body_motion_frames` gives the `Without<PlayerEntity>` arm
+        // `config.tuning.movement.gravity * surface.gravity_scale`, which is
+        // `BodyMovementTuning::BASELINE.gravity` = 1450 at `gravity_scale` 1.0.
+        //
+        // ⭐ MEASURED, not re-derived from a second constant. Seven refusals in
+        // this very probe caught the victim in free fall one tick after the pin:
+        //     dy = 0.4000px  => g = dy * 3600 = 1440
+        //     vel_y = 24.2   => g = vel * 60  = 1452
+        // Two independent channels (displacement and velocity), seven samples,
+        // both landing on 1450 through one-decimal printing, and both consistent
+        // only if one `app.update()` is exactly one sim tick — which it is.
+        //
+        // ⇒ THE TRAIL'S ORIGINAL QUESTION IS ANSWERED AND IT WAS NOT A DESCENT.
+        // The body does not fall through the platform: it does not fall AT ALL.
+        // 21 of 25 trails read one identical pose for every sample, and the pose
+        // is x=574 or x=66 — the platform spans 80..560 and the body is 30 wide,
+        // so those are `560+14` and `80-14`: one pixel of overlap left, which
+        // `spans_overlap_for_support` rejects at exactly `EDGE_OVERLAP_SLOP`.
+        // A body frozen at zero velocity on the precise pixel where support ends
+        // is a LEDGE HANG, and the tether re-asserts its anchor over this
+        // fixture's pin every tick. See the release below.
+        //
+        // ⛔ A TRAIL, NOT A GUESS. Six hypotheses in this investigation have died
+        // by measurement — including the depenetration story this trail was built
+        // to support, which `is_contact_range_snap` refuses outright: it caps any
+        // pushout at the body's own half-diagonal (~28px), and the observed move
+        // is 254px. No collision code in this engine can produce it.
+        let mut trail: Vec<(f32, f32)> = Vec::new();
         for tick in 0..40 {
             self.park(self.attacker, victim_x - 240.0);
             self.app.update();
+            // Dense at the start (where a 16-tick fall lives), sparse after.
+            if tick < 8 || tick % 8 == 0 {
+                let p = self.pos(self.victim);
+                trail.push((p.x, p.y));
+            }
             let grounded = self
                 .app
                 .world()
@@ -939,9 +1286,38 @@ impl KoProbe {
                  landed_y={landed_y:.1} landed_after={landed_after:?} \
                  on_ground={on_ground} contact_init={contact_init} \
                  staged=({:.1},{:.1}) carried_run={carried_run:.1} \
-                 carried_hold={carried_hold:.3} seat={seat} seats_now={seats_now}",
-                pinned_at.x, pinned_at.y, p.x, p.y, vel.x, vel.y, staged.x, staged.y
+                 carried_hold={carried_hold:.3} seat={seat} seats_now={seats_now} \
+                 ledge={} {}",
+                pinned_at.x,
+                pinned_at.y,
+                p.x,
+                p.y,
+                vel.x,
+                vel.y,
+                staged.x,
+                staged.y,
+                // ⭐ THE TWO FACTS THAT WERE MISSING WHILE FIVE HYPOTHESES DIED.
+                // A frozen body is either held by something (ledge) or not being
+                // accelerated (gravity_scale) — and neither was ever printed, so
+                // every refusal looked equally mysterious.
+                self.victim_ledge(),
+                self.victim_gravity(),
             );
+            // ⭐ AND THE DESCENT THAT FAILED, on its own line so the one above
+            // stays parseable. Parked at y=200; a resting body is y=276; the
+            // platform solid spans y 300..332. Where this trail crosses those
+            // numbers — or refuses to — is the whole question.
+            if landed_after.is_none() {
+                let path: Vec<String> = trail
+                    .iter()
+                    .map(|(x, y)| format!("({x:.0},{y:.0})"))
+                    .collect();
+                eprintln!(
+                    "KO_REFUSE_TRAIL: x={victim_x:.0} pct={entry_percent} \
+                     parked=(.,200) resting_y=276 platform_y=300..332 path=[{}]",
+                    path.join(" ")
+                );
+            }
             return false;
         }
 
@@ -972,6 +1348,60 @@ impl KoProbe {
         // and therefore reported the PREVIOUS trial's leftovers — informative
         // about what carries over, and silent about the only thing that decides
         // an outcome, which is the state at the moment of the strike.
+        // ⛔⛔ THE TRIAL'S PREMISE, ASSERTED RATHER THAN HOPED FOR.
+        //
+        // `reset_trial` proves the victim is GROUNDED. It does not prove the
+        // victim is UNENCUMBERED, and those are different claims: a staged launch,
+        // carried run/hold momentum, or a latched ledge all survive
+        // `constrain_body_pose` (which writes pos and vel and nothing else) and
+        // all three would silently change what the next pulse measures.
+        //
+        // ⛔ AND IT ABORTS RATHER THAN REFUSING. A `return None` here is
+        // indistinguishable from an ordinary refusal and would go on filling the
+        // table — which is precisely how 24 `REFUSED@0` throw cells were once
+        // published as measurements of moves. The existing `seats_now == 0` guard
+        // takes the same road for the same reason. If this fires, the matrix is
+        // not salvageable and a truncated honest table beats a complete false one.
+        {
+            let (staged, carried_run, carried_hold) = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyFlightState>(self.victim)
+                .map(|f| {
+                    (
+                        f.pending_launch_state().velocity,
+                        f.carried_run,
+                        f.carried_hold,
+                    )
+                })
+                .unwrap_or_default();
+            let ledge = self.victim_ledge();
+            // Generous, because this is a CONTAMINATION test and not a precision
+            // one: anything this small cannot move a body meaningfully in the
+            // ticks before the pulse lands, and a tighter bound would fail on
+            // ordinary float residue.
+            const NEGLIGIBLE: f32 = 1.0;
+            let dirty = staged.length() > NEGLIGIBLE
+                || carried_run.abs() > NEGLIGIBLE
+                || carried_hold.abs() > 0.01
+                || ledge != "none";
+            if dirty {
+                println!(
+                    "# ⛔⛔ ABORTED — A TRIAL WAS ASKED TO BEGIN ON A CONTAMINATED \
+                     VICTIM. Rows above this line began clean and stand; there are no \
+                     rows below because every later cell would measure leftovers of \
+                     the trial before it."
+                );
+                eprintln!(
+                    "KO_ABORT: dirty-trial-start x={victim_x:.0} pct={entry_percent} \
+                     staged=({:.2},{:.2}) carried_run={carried_run:.2} \
+                     carried_hold={carried_hold:.3} ledge={ledge}",
+                    staged.x, staged.y
+                );
+                std::process::exit(2);
+            }
+        }
+
         let at_strike = self.snapshot();
         let struck_at = self.pos(self.victim);
         let attacker = self.attacker;
@@ -1040,6 +1470,46 @@ impl KoProbe {
                     .id(),
             ),
             Pulse::Throw(params) => {
+                // ⛔⛔⛔ A THROW HAPPENS AT THE CAPTOR, NOT AT THE VICTIM'S PARKED x.
+                //
+                // MEASURED 2026-09-13, and it made a published column a lie.
+                // Installing `CapturedBy` does not close a distance: the hold
+                // system constrains the captive to `captor.pos + hold_offset`
+                // EVERY TICK, so the victim is teleported to the attacker before
+                // the throw resolves. `reset_trial` parks the attacker at
+                // `victim_x - 240`, so a "centre" throw (victim_x = 320) actually
+                // fired from x ~= 96 — which IS the left ledge — and a "ledge"
+                // throw (520) fired from mid-platform at ~296.
+                //
+                // ⇒ The centre/ledge columns for throws reported WHERE THE VICTIM
+                // WAS PARKED while the throw happened 240px away. back_throw read
+                // centre=11% and ledge=91%: a centre KO EASIER than a ledge one,
+                // which is backwards and is what exposed it. At 11% that throw
+                // launches 175 px/s — nowhere near enough to cross the stage — and
+                // the KO exits were landing at x = -405..-409, far off the LEFT
+                // side. Both facts are impossible from x=320 and inevitable from
+                // x~=96.
+                //
+                // ⭐ THE STRIKE ROWS WERE NEVER AFFECTED: a strike spawns its
+                // hitbox at `struck_at`, the victim's own pose, so the attacker's
+                // placement cannot reach them. And the throw LAUNCH column is
+                // unaffected too — it is a velocity observed at release, which no
+                // position changes.
+                //
+                // The fix is to put the captor where the trial says the throw
+                // happens. `hold_offset_local.x` is 16, so parking the attacker at
+                // `victim_x - 16` lands the hold anchor on `victim_x` itself.
+                //
+                // ⛔ NOT `park`, WHICH FORCES y = 200 — that is 76px above a
+                // resting body and would throw from mid-air. The attacker's
+                // settled height is read back and preserved, so only x moves.
+                let anchor_x = victim_x - 16.0;
+                let attacker_y = self.pos(attacker).y;
+                probe_stage::pin_grounded_at_rest(
+                    &mut self.app,
+                    attacker,
+                    EVec2::new(anchor_x, attacker_y),
+                );
                 // ⚠ `lasting`, NOT `default()`. A default `SmashHoldState` has
                 // `escape_seconds == 0.0`, which `escaped()` correctly reads as
                 // a hold ALREADY OVER — its own doc warns that a fixture
@@ -1136,10 +1606,19 @@ impl KoProbe {
             //
             // ⚠ AND THE NUMBER IS ONE TICK LATE, stated rather than hidden. The
             // same `update()` that released the captive also ran gravity, so this
-            // reads the launch minus one frame of it — about 37 px/s at GRAVITY
-            // 2250 / 60Hz, and ONLY on the vertical component. It is NOT silently
-            // compensated: a correction would be a second model layered over a
-            // measurement, and the residual is small against launches of 500-1200.
+            // reads the launch minus one frame of it, and ONLY on the vertical
+            // component. It is NOT silently compensated: a correction would be a
+            // second model layered over a measurement, and the residual is small
+            // against launches of 500-1200.
+            //
+            // ⛔ THIS COMMENT SAID "about 37 px/s at GRAVITY 2250 / 60Hz" AND THAT
+            // WAS FALSE FOR EVERY BODY THIS PROBE HAS EVER MEASURED. 2250 is the
+            // PLAYER's gravity; a match seat is an actor body accelerated at
+            // `tuning.movement.gravity * gravity_scale` = 1450, so the lag is
+            // ~24 px/s, not ~37. The probe now READS the live resolved frame
+            // (`victim_gravity`) instead of naming any constant at all — a number
+            // transcribed from a defaults file is not a measurement of the body
+            // in front of you, and this one was wrong by 55%.
             if awaiting_release
                 && self
                     .app
@@ -1156,6 +1635,12 @@ impl KoProbe {
                         .map(|k| k.vel.length());
                 }
             }
+            // ⭐ THE LAST POSE THE BODY HELD WHILE STILL IN PLAY, sampled BEFORE
+            // the knockout test. A KO'd fighter is taken out of play and
+            // respawned, so a pose read after the event describes where it came
+            // BACK, not where it left — which would classify every kill as
+            // whatever boundary the respawn point sits inside.
+            let live_pos = self.pos(self.victim);
             if !ko {
                 let messages = self
                     .app
@@ -1170,6 +1655,31 @@ impl KoProbe {
                 }) {
                     ko = true;
                     ticks_to_ko = Some(tick);
+                    // ⭐⭐ WHICH LINE IT CROSSED. `HitSource::LeftTheWorld` says a
+                    // body is gone and NOTHING about the direction, so a vertical
+                    // kill and a horizontal one have been indistinguishable in
+                    // every table this probe has ever printed — while the whole
+                    // question under investigation is whether upward launches
+                    // reach the ceiling.
+                    //
+                    // ⛔ ON STDERR, NOT AS A COLUMN. Three gates diff this table
+                    // byte-for-byte against `envelope_AFTER_LAWONLY`; widening it
+                    // would destroy the only comparison road still standing.
+                    match self.blast {
+                        Some(b) => eprintln!(
+                            "KO_BOUNDARY: boundary={} x={victim_x:.0} pct={entry_percent} \
+                             tick={tick} last_live=({:.1},{:.1})",
+                            b.classify(live_pos),
+                            live_pos.x,
+                            live_pos.y,
+                        ),
+                        None => eprintln!(
+                            "KO_BOUNDARY: boundary=UNCLASSIFIABLE-no-RoomGeometry \
+                             x={victim_x:.0} pct={entry_percent} tick={tick} \
+                             last_live=({:.1},{:.1})",
+                            live_pos.x, live_pos.y,
+                        ),
+                    }
                 }
             }
             if ko {
@@ -1880,6 +2390,12 @@ fn run_probe() {
         .skip_while(|a| a.as_str() != "probe")
         .skip(1)
         .map(|s| s.as_str())
+        // ⛔ `identity` IS A FLAG, NOT A FIGHTER. Without this filter
+        // `probe <attacker> identity` would read "identity" as the VICTIM id,
+        // fail the registry lookup, and print a table for a matchup nobody asked
+        // for — a silent wrong-population error, which is the failure this
+        // instrument exists to avoid.
+        .filter(|a| *a != "identity")
         .collect();
     let pairs: Vec<(String, String)> = if after.len() >= 2 {
         vec![(after[0].to_string(), after[1].to_string())]

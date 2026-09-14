@@ -987,6 +987,92 @@ Rage compresses the envelope ~36% (a smash calibrated to 110% fresh kills at 70%
 once the attacker reaches 100%; at the ledge 18% becomes 4%). The ~80-120% band
 for credible strong smashes therefore holds at rage 1.0 ONLY.
 
+## ⛔ THROWS BYPASS RAGE *AND* STALENESS — measured and confirmed in source — 2026-09-14
+
+⭐ **A strike's resolved knockback is multiplied by `rage * stale`. A throw's is
+not multiplied by anything.** Two independent roads agree:
+
+**SOURCE.** `hitbox/mod.rs:981` computes
+`let rage = rules.rage_scale(attacker.damage_taken(hitbox.owner))` and applies
+`magnitude.scaled(rage * stale)`. The capture road does not: `apply_capture_throws`
+(`crates/ambition_combat/src/capture/systems.rs:2644`) computes
+`crate::util::scaled_knockback(request.knockback, request.knockback_growth,
+percent, weight)` and **`crates/ambition_combat/src/capture/` contains no mention
+of rage at all**.
+
+**MEASUREMENT.** `attacker_pct=100` (rage 1.40, proven live to 0.1 on a smash:
+`smash_forward` launch@100 671.2 -> 939.8) leaves both throws completely unmoved:
+
+    move           rage-pinned                      rage 1.40 (attacker 100%)
+    alice_bthrow   425.8  centre 159  ledge 19      425.8  centre 159  ledge 19
+    sanic_bthrow   429.5  centre >300 ledge >300    429.5  centre >300 ledge >300
+
+Identical in every column, two different fighters.
+
+### Why it matters for feel
+- ⚠ The ~36% rage compression recorded in `b964bd79a` is a fact about **strikes
+  only**. The values it named (pirate 4.09/6.40/3.55, George 6.28/3.46) are all
+  smashes, so that entry stands — but it must not be generalised to throws.
+- A fighter whose most credible kill option is a THROW receives **no comeback
+  scaling at all**, while a fighter who closes with a smash gets up to 1.4x. At
+  high attacker percent, strikes get relatively stronger and throws do not.
+- Throws also never decay with staleness, so a repeated throw keeps full power
+  where a repeated smash does not. The asymmetry runs both ways.
+- ⛔ This is reported, NOT repaired. Whether throws SHOULD scale with rage is a
+  rules decision over all 22 roster fighters, like `rage_max_scale` itself.
+
+⚠ It also VOIDED a test of mine: I tried to separate "magnitude threshold" from
+"mechanism failure" on sanic's throws by raising rage, and rage never reached the
+throw, so that run decided nothing. Recorded so the reasoning is not reused.
+
+## 📋 WHAT "ALL CHARACTERS" MEANS FOR FEEL WORK, and how to measure one — 2026-09-14
+
+⛔ **THE CONTENT DIRECTORY IS NOT THE ROSTER.** `game/ambition_content/src/*_moveset.rs`
+holds RPG-side bodies too. The grid is `SMASH_ROSTER` (`game/ambition_demo_smash/src/select.rs:22`)
+filtered by `SmashRoster::assemble(registry)` to what the composition can actually
+seat — and a stand-in is DROPPED the moment the character it stands in for resolves.
+
+**The 21 real fighters, in grid order:** `player_robot_v3`, `smash_george_booul`,
+`mary_o_tall`, `sanic`, `npc_pirate_admiral`, `npc_ninja_shadow_oni_leader`,
+`npc_alice`, `npc_bob`, `npc_oiler`, `perfect_cellular_automaton`, `goblin`,
+`npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`,
+`projectile_polygon`, `pugnacious_polygon`, `author`, `performer`, `officer`, `medic`.
+
+⛔ **The 2 stand-ins are NOT characters to tune.** `STAND_INS = [(smash_duelist_a ->
+player_robot_v3), (smash_duelist_b -> player_robot_v2)]`. Both carry
+`moveset::fighter_moveset()` — ONE shared table — so editing it moves both together
+and per-character identity is impossible for them by construction. `ladder_rig.rs:757`
+records that every ladder number ever taken measured these two BY DEFAULT.
+
+### ⚠ A trap: `lib.rs:4525` read alone says the roster has one authored fighter
+    definition.with_moveset(if id == SMASH_GEORGE_BOOUL { george_booul_moveset() }
+                            else { moveset::fighter_moveset() })
+That loop is `install_smash_content`, which registers only the ids THIS DEMO
+declares. The other fighters arrive via the content pack carrying their own
+authored movesets — which is why the CPU duel shows `grapeshot` / `heave_to` /
+`pirate_admiral_dash_attack`, none of which exist in the shared table. `select.rs`'s
+own re-measured note settles it: *"every other id on this roster [authors one] …
+THE COUNT IS ZERO"* — zero roster fighters fall back to a generic repertoire.
+
+### Measuring one fighter — no tool change needed
+`KoProbe::new(attacker_id, victim_id)` (`ko_envelope.rs:656`) takes STRING ids, so
+any registry id works. The `attackers` array at `:2619` is only the fallback when
+argv names no pair — it is a SAMPLE OF THREE and must never be called a roster.
+
+    cargo run -q -p ambition_app_tools --bin ko_envelope -- \
+        probe <fighter_id> player_robot_v3 ceiling=300
+
+Hold `player_robot_v3` (`REFERENCE`, `:2596`) fixed across fighters or the rows are
+not comparable. ⛔ `probe` is MANDATORY — without it the binary falls through to a
+whole-roster moveset census, 788 well-formed rows about a different question. Flags
+(`calib`, `only=`, `step=`, `ceiling=`, `attacker_pct=`) all join the argv filter,
+because an unfiltered flag lands in `after[0]` and silently BECOMES the attacker id.
+
+⚠ **Cost shape, measured:** `calib` scans from 0 and `kills()` runs 2-3 trials per
+percent, so a cell threshold near 140 costs ~350 app-trials. Use the COARSE pass for
+a roster baseline; reserve `calib` for the one cell whose value you are about to
+author. One matchup per process shares nothing, so N fighters parallelise freely.
+
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST

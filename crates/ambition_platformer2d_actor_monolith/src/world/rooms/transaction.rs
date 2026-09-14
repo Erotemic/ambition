@@ -226,6 +226,19 @@ pub enum StagedWorldViolation {
         target: String,
         geometry: String,
     },
+    /// A world was staged and there is no live session root to publish it into.
+    ///
+    /// ⛔⛤ **FAIL-CLOSED, BECAUSE THE OTHER ANSWER IS SILENT AND WRONG.**
+    /// `apply_world_replacement` writes through `session_world_component_mut`,
+    /// which returns `None` when no root is live — so without this the room would
+    /// PUBLISH, report `room-loaded`, and leave the geometry, the active room and
+    /// the platform state exactly as they were. A caller that staged a whole
+    /// world and got nothing would have no way to tell that from success.
+    ///
+    /// ⚠ It is reachable by ORDERING, not only by misuse: session activation
+    /// queues its room build BEFORE it spawns the session root, which is why
+    /// activation commits through `spawn_contents` and stages no world at all.
+    NoSessionRootToPublishInto,
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -241,6 +254,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 f,
                 "this room would seat the session in `{target}` while publishing \
                  the geometry of `{geometry}`"
+            ),
+            Self::NoSessionRootToPublishInto => write!(
+                f,
+                "this room staged a whole world and there is no live session root \
+                 to publish it into, so publishing would change nothing and say \
+                 it had succeeded"
             ),
         }
     }
@@ -272,10 +291,13 @@ fn verify_staged_world(
     let rooms = match (staged_rooms, live_rooms) {
         (Some(next), _) => Some(&next.rooms),
         (None, Some(live)) => Some(&live.rooms),
-        // No room authority at all: a fixture with no session root states no set
-        // and there is nothing to be out of range of.
         (None, None) => None,
     };
+    // ⛔ ASKED SEPARATELY FROM THE SET, because a replacement that BRINGS its own
+    // room set still needs a root to put it on.
+    if ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_none() {
+        violations.push(StagedWorldViolation::NoSessionRootToPublishInto);
+    }
     if let Some(rooms) = rooms {
         match rooms.get(pending.target_index) {
             None => violations.push(StagedWorldViolation::TargetRoomOutOfRange {

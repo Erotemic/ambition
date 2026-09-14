@@ -1668,7 +1668,6 @@ pub struct PlatformerSessionBuilder<'w, 's> {
         Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes:
         Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
-    moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
     /// ⭐⭐ WHERE THE FILE SAYS THINGS ARE, AT THE MOMENT THE WORLD IS BUILT.
     /// Activation used to pass no continuity at all, so a load authored an
@@ -1721,11 +1720,14 @@ impl PlatformerSessionBuilder<'_, '_> {
         #[cfg(feature = "ldtk")]
         let installed_ldtk_index = prepared_content.source().installed_ldtk_index().cloned();
         let prepared_identity: PreparedContentIdentity = prepared_content.identity();
-        // Live moving-platform state derives from the activating room. Rooms
-        // without authored platforms (every current demo) reset it to empty.
-        self.moving_platforms.0 = ambition_platformer2d_world::platforms::moving_platforms_for_room(
-            live_world.room_set.active_spec(),
-        );
+        // ⛔⛤ **THE ACTIVATING ROOM'S PLATFORM STATE IS THE ROOM PLAN'S TO
+        // PUBLISH, AND THIS SITE WROTE IT TWICE — DELETED 2026-09-14.** It read
+        // `moving_platforms_for_room(active_spec)`; `simulation_world` below then
+        // published `MovingPlatformSet(room_plan.platform_states())` over the top
+        // of it. MEASURED: both are literally `spec.moving_platforms.clone()` for
+        // the same room, so the values always agreed — two spellings of one fact,
+        // which is how they come to disagree. The room plan is the authority
+        // every other road already uses.
 
         let player = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,

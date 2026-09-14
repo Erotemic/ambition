@@ -1838,9 +1838,31 @@ and the plan's world is what is staged — so an in-bounds assertion could not f
 on any road that exists. It is left out and the reason is in the source, rather
 than added and left reading as coverage.
 
+⛔⛤ **AND `NoSessionRootToPublishInto` IS FAIL-CLOSED BECAUSE THE OTHER ANSWER IS
+SILENT.** `apply_world_replacement` writes through `session_world_component_mut`,
+which answers `None` when no root is live — so a staged world with nowhere to go
+would PUBLISH, report `room-loaded`, and change nothing, and a caller would have
+no way to tell that from success. ⚠ It is reachable by ORDERING rather than only
+by misuse: session activation queues its room build BEFORE it spawns the session
+root, which is exactly why activation commits through `spawn_contents` and stages
+no world at all.
+
 **ARMS**: `a_room_that_would_seat_the_session_out_of_range_is_refused`,
-`a_room_whose_geometry_is_not_its_own_is_refused`. Poison-verified together:
-short-circuiting `verify_staged_world` to `Ok(())` reddens both and nothing else.
+`a_room_whose_geometry_is_not_its_own_is_refused`,
+`a_room_that_stages_a_world_with_no_session_root_is_refused` (with the premise
+asserted — no root at all — so it cannot pass for the wrong reason).
+Poison-verified together: short-circuiting `verify_staged_world` to `Ok(())`
+reddens them and nothing else.
+
+✅ **AND ONE DUPLICATE AUTHORITY ON THE ACTIVATION ROAD IS GONE.**
+`PreparedPlatformerSource`'s activation wrote
+`MovingPlatformSet.0 = moving_platforms_for_room(active_spec)` and then
+`session::setup::simulation_world` published
+`MovingPlatformSet(room_plan.platform_states())` over the top of it. MEASURED:
+both are literally `spec.moving_platforms.clone()` for the same room, so the two
+always agreed — two spellings of one fact, which is how they come to disagree. The
+provider's copy and its `ResMut` are deleted; the room plan is the authority every
+other road already uses.
 
 **ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
 `a_refused_candidate_room_leaves_the_playable_world_untouched` and

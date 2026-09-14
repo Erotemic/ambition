@@ -1340,6 +1340,56 @@ mod tests {
         );
     }
 
+    /// ⛔⛤ **A ROOM THAT STAGES A WORLD WITH NOWHERE TO PUT IT IS REFUSED.**
+    ///
+    /// `apply_world_replacement` writes through `session_world_component_mut`,
+    /// which answers `None` when no root is live. Without this check the room
+    /// would PUBLISH, report `room-loaded`, and leave the geometry, the active
+    /// room and the platform state exactly as they were — and a caller that
+    /// staged a whole world and got nothing would have no way to tell that from
+    /// success.
+    ///
+    /// ⚠ **REACHABLE BY ORDERING, NOT ONLY BY MISUSE.** Session activation queues
+    /// its room build BEFORE it spawns the session root, which is exactly why
+    /// activation commits through `spawn_contents` and stages no world at all.
+    #[test]
+    fn a_room_that_stages_a_world_with_no_session_root_is_refused() {
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+        app.insert_resource(
+            ambition_platformer2d_world::collision::MovingPlatformSet::default(),
+        );
+        // ⛔ THE PREMISE: no session root at all, which is the whole subject.
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                .is_none(),
+            "the fixture has a session root, so this arm is about something else"
+        );
+
+        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published a world into nothing and called it success: \
+             {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::NoSessionRootToPublishInto
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+    }
+
     /// ⛔ **AND A ROOM WHOSE GEOMETRY IS NOT ITS OWN IS REFUSED.**
     ///
     /// The index and the geometry travel together from one plan, so this is a

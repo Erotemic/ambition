@@ -418,6 +418,11 @@ impl RoomConstructionPlan {
     /// as the active room — a hot reload rebuilds the set from re-read content; a
     /// transition walks within the set it already has.
     ///
+    /// `arrival` is where the transiting body lands. It is applied with the rest
+    /// of the publication and never before it: see [`transaction::StagedArrival`]
+    /// for the app-level arm that found the body being placed into a room its
+    /// own transaction had refused.
+    ///
     /// ⛔ **A CALLER MUST NOT READ THE LIVE GEOMETRY OR ROOM SET AFTER CALLING
     /// THIS AND EXPECT THE NEW ROOM.** It has not been written yet and may never
     /// be. Read the plan instead — [`Self::spec`] and `next_rooms` are the same
@@ -428,6 +433,7 @@ impl RoomConstructionPlan {
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
         carry_body: Option<Entity>,
         next_rooms: Option<RoomSet>,
+        arrival: Option<transaction::StagedArrival>,
     ) {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
@@ -435,13 +441,19 @@ impl RoomConstructionPlan {
             .into_iter()
             .filter(|(entity, _)| carry_body != Some(*entity))
             .collect();
-        let pending = transaction::PendingWorldReplacement::new(
+        let mut pending = transaction::PendingWorldReplacement::new(
             outgoing,
             next_rooms,
             self.target_index,
             self.spec().world.clone(),
             self.platform_states.clone(),
         );
+        // ⛔ THE ARRIVING BODY IS A PUBLICATION EFFECT LIKE THE REST. A
+        // transition that places it before the verdict leaves a refused player
+        // standing at the coordinates of a room that does not exist.
+        if let Some(arrival) = arrival {
+            pending = pending.arriving(arrival);
+        }
         // ⛔ QUEUED BEFORE `spawn_contents`, because `transaction::open` READS it:
         // the identities standing on the outgoing bodies are what the transaction
         // declares it is RETIRING, and a declaration made after the baseline is
@@ -1144,6 +1156,7 @@ mod tests {
                 plan.replace_live_world(
                     &mut commands,
                     outgoing.iter().map(|entity| (*entity, false)),
+                    None,
                     None,
                     None,
                 );

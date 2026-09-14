@@ -251,26 +251,32 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
     let before_room = active_room(&mut sim);
     let before_geometry = live_geometry(&mut sim);
     let before_roster = live_roster(&mut sim);
-    let before_pos = body_pos(&mut sim);
     assert!(
         !before_roster.is_empty(),
-        "the start room holds no authoritative identities, so 'N survived' \
+        "the start room holds no authoritative identities, so `N survived` \
          would be true of an empty world"
     );
 
     let zone = zones_by_distance(&mut sim, LoadingZoneActivation::EdgeExit)
         .into_iter()
         .next()
-        .unwrap_or_else(|| {
-            panic!("'{before_room}' authors no `EdgeExit` zone to walk into")
-        });
+        .unwrap_or_else(|| panic!("`{before_room}` authors no `EdgeExit` zone to walk into"));
     let target_x = zone.aabb.center().x;
 
+    // ⛔⛤ **THE WALK STOPS AT THE REFUSAL, AND THAT IS NOT TIDINESS.** The first
+    // version of this arm walked its full 600-frame cap and measured afterwards.
+    // A poison that placed the body at the refused room's arrival coordinates
+    // PASSED it — the body spends the next several hundred frames walking back
+    // toward the door, so any teleport is washed out long before the assertion
+    // reads a position. The moment a refusal exists is the only moment the
+    // body's position says anything about it.
     let mut epoch = 9_000u64;
+    let mut refused = None;
+    let mut before_the_verdict = body_pos(&mut sim);
     for _ in 0..WALK_CAP {
-        // ⛔ A MOVING TARGET, deliberately: a CONSTANT bogus binding would be
+        // ⛔ A MOVING TARGET, deliberately. A CONSTANT bogus binding would be
         // baked into the plan by `prepare` and match itself at the commit
-        // boundary, and the arm would be measuring a room that published.
+        // boundary, and this arm would be measuring a room that published.
         epoch += 1;
         sim.world_mut().insert_resource(
             ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
@@ -279,32 +285,36 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         );
         let here = body_pos(&mut sim);
         sim.step(walk_toward(target_x, here.x, base()));
+        before_the_verdict = here;
+        // ⛔ THE PREMISE, CHECKED EVERY FRAME RATHER THAN ASSUMED AT THE END: a
+        // transaction ran, it was REFUSED, and it was the TARGET room's rather
+        // than the start room's own load.
+        let verdict = sim
+            .world_mut()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .cloned();
+        if let Some(verdict) = verdict {
+            if !verdict.published && verdict.room_id != before_room {
+                refused = Some(verdict);
+                break;
+            }
+        }
     }
-
-    // ⛔⛤ **THE PREMISE FIRST, OR EVERY ASSERTION BELOW IS TRUE OF A WALK THAT
-    // NEVER REACHED A DOOR.** The transaction must have been ATTEMPTED, it must
-    // have been REFUSED, and it must have been the TARGET room's transaction
-    // rather than the start room's own load.
-    let verification = sim
-        .world_mut()
-        .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
-        .cloned()
-        .expect(
-            "no room transaction ran at all: the body never reached the zone, or              the transition never asked for a room",
-        );
-    assert!(
-        !verification.published,
-        "the room PUBLISHED under a binding nothing could match, so this arm is          not about a refusal: {verification:?}"
-    );
-    assert_ne!(
-        verification.room_id, before_room,
-        "the only transaction that ran was the start room's own load, so the          walk never triggered a transition: {verification:?}"
-    );
+    let verification = refused.unwrap_or_else(|| {
+        panic!(
+            "no room transaction was REFUSED in {WALK_CAP} frames: the body never \
+             reached the zone, the transition never asked for a room, or the room \
+             published under a binding nothing could match. Last verdict: {:?}",
+            sim.world_mut().get_resource::<
+                ambition_platformer2d::actors::features::LastConstructionVerification,
+            >()
+        )
+    });
 
     assert_eq!(
         active_room(&mut sim),
         before_room,
-        "a room the transaction REFUSED became the active room anyway"
+        "a room the transaction REFUSED became the active room anyway: {verification:?}"
     );
     assert_eq!(
         live_geometry(&mut sim),
@@ -319,11 +329,37 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
          admitted, or the room the player is standing in was swept to make way \
          for one that never arrived"
     );
+
+    // ⛔⛤ **AND THE PLAYER DID NOT MOVE.** The world surviving is half the
+    // guarantee; the other half is that the body was not placed at the REFUSED
+    // room's arrival coordinates — a position in a room the session is not in,
+    // which may be solid rock in the one it is. The arrival is a publication
+    // effect (`StagedArrival`) for exactly this reason.
+    //
+    // ⭐⭐ **MEASURED, AND THE FIRST TWO VERSIONS OF THIS ASSERTION COULD NOT
+    // FAIL.** Comparing the end-of-walk position proved nothing (the body walks
+    // back to the door for hundreds of frames afterwards). Asserting the body is
+    // inside the live room's BOUNDS proved nothing either — the refused room's
+    // arrival happens to land inside the hub's rectangle, and the poison passed
+    // it. What discriminates is the displacement across the verdict frame:
+    //
+    //     guaranteed: Vec2(0.0, 0.0)        the transition freezes the sim clock
+    //     poisoned:   Vec2(-1782.7, -188.0) the arrival, performed anyway
+    //
+    // 64px is two orders of magnitude above the first and one below the second.
+    let displacement = (body_pos(&mut sim) - before_the_verdict).length();
+    assert!(
+        displacement < 64.0,
+        "a REFUSED transition moved the body {displacement:.1}px in one frame, to \
+         {:?}: the arrival was performed for a room that never published",
+        body_pos(&mut sim)
+    );
+
     // ⭐ AND THE GAME IS STILL A GAME. A world whose room survived but whose body
     // cannot move is not the guarantee this arm claims.
     let stuck = body_pos(&mut sim);
     for _ in 0..30 {
-        sim.step(walk_toward(before_pos.x, stuck.x, base()));
+        sim.step(walk_toward(target_x, stuck.x, base()));
     }
     assert_ne!(
         body_pos(&mut sim),

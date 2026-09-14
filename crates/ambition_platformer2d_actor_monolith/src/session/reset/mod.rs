@@ -483,6 +483,11 @@ pub fn process_new_game_reset_request(
             .map(|(entity, physics_entity)| (entity, physics_entity.is_some())),
         None,
         None,
+        // ⚠ THE RESET PLACES ITS PLAYER ITSELF, below, with `reset_body_clusters`
+        // — a fuller operation than an arrival (mana, animation, combat, camera).
+        // Staging THAT behind the verdict is the player-reset-state half of A10
+        // and is not this packet; see `docs/planning/queue.md`.
+        None,
     );
 
     // 6. Reset the player to the start room's spawn point.

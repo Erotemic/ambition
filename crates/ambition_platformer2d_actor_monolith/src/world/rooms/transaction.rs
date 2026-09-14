@@ -127,6 +127,28 @@ impl std::fmt::Display for OpenRefused {
 /// `LiveLostWithoutDeclaration` can notice construction destroying a piece of it.
 /// Under the old order the outgoing room was already gone before the baseline was
 /// taken and none of those questions were askable.
+/// Where the transiting body lands when — and only when — the room it is
+/// arriving into publishes.
+///
+/// ⛔⛤ **THE BODY IS PART OF THE PUBLICATION, NOT PART OF THE ATTEMPT.** Placing
+/// it before the verdict is the same defect as writing the geometry before the
+/// verdict, and it is the half a 2026-09-14 app-level arm caught still standing:
+/// a refused transition left the player at the REFUSED room's arrival
+/// coordinates, inside the geometry of the room they never left. The world
+/// survived and the body was somewhere it had no reason to be.
+///
+/// ⚠ **DATA, NOT A CLOSURE**, because the caller lives a crate above this one.
+/// The transition computes the arrival against its own plan — it is the only
+/// thing that knows the authored door and the body's size — and states the
+/// result; `apply_world_replacement` performs it through the same
+/// `arrive_body_in_room` authority the caller used to call directly.
+pub struct StagedArrival {
+    pub subject: bevy::ecs::entity::Entity,
+    pub arrival: ambition_platformer2d_core::Vec2,
+    pub air_jumps: u8,
+    pub momentum: ambition_platformer2d_core::movement::ArrivalMomentum,
+}
+
 #[derive(Resource)]
 pub(crate) struct PendingWorldReplacement {
     /// The outgoing room's bodies, and whether each is a physics entity — the
@@ -141,6 +163,8 @@ pub(crate) struct PendingWorldReplacement {
     geometry: ambition_platformer2d_core::World,
     /// The moving-platform bodies' starting state.
     moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
+    /// Where the transiting body lands, if one is crossing.
+    arrival: Option<StagedArrival>,
 }
 
 impl PendingWorldReplacement {
@@ -157,7 +181,14 @@ impl PendingWorldReplacement {
             target_index,
             geometry,
             moving_platforms,
+            arrival: None,
         }
+    }
+
+    /// State that a body is crossing into this room, and where it lands.
+    pub(crate) fn arriving(mut self, arrival: StagedArrival) -> Self {
+        self.arrival = Some(arrival);
+        self
     }
 
     /// Every outgoing body, so the transaction can DECLARE what publication is
@@ -214,6 +245,32 @@ fn apply_world_replacement(world: &mut World, pending: PendingWorldReplacement) 
         .get_resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>()
     {
         platforms.0 = pending.moving_platforms;
+    }
+    // ⛔ LAST, AND AFTER THE GEOMETRY. The arrival was validated against the
+    // plan's world by the caller, and the body is placed into a world that is
+    // already the one it was validated against.
+    if let Some(arrival) = pending.arrival {
+        apply_staged_arrival(world, arrival);
+    }
+}
+
+/// Place the transiting body. Separate from its caller only so the poison that
+/// proves the staging matters can run THIS and nothing else — a poison that also
+/// moved the room set would redden the same arm for a different reason.
+fn apply_staged_arrival(world: &mut World, arrival: StagedArrival) {
+    let mut bodies = world.query::<(
+        ambition_platformer2d_core::BodyClusterQueryData,
+        &mut ambition_platformer2d_core::MotionModel,
+    )>();
+    if let Ok((mut item, mut model)) = bodies.get_mut(world, arrival.subject) {
+        let mut clusters = item.as_clusters_mut();
+        ambition_platformer2d_core::movement::arrive_body_in_room(
+            &mut model,
+            &mut clusters,
+            arrival.arrival,
+            arrival.air_jumps,
+            arrival.momentum,
+        );
     }
 }
 

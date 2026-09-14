@@ -1706,12 +1706,39 @@ replacement on the refusal path reddens it with
 `left: "scroll_lab"  right: "central_hub_complex"` — the player standing in a
 room that was refused and therefore has nothing in it.
 
-⛔ **AND IT SURFACED A GAP THIS PACKET DOES NOT CLOSE: THE TRANSITION DOES NOT
-READ THE VERDICT.** The state machine goes `room-transition -> playing` either
-way, and the body is transited to the REFUSED room's arrival position — inside
-the old room's geometry. The world survives and the body still moves (the arm
-checks), but *"where the player ends up after a refused transition"* is the
-transition's own answer to give, and it currently has none. ⇒ Next A10 packet,
+✅ **AND THE ARRIVING BODY IS A PUBLICATION EFFECT TOO — CLOSED THE SAME DAY IT
+WAS FOUND.** That arm first reported the body being transited to the REFUSED
+room's arrival position, inside the geometry of the room it never left. Placing
+it before the verdict is the same defect as writing the geometry before the
+verdict. `StagedArrival` carries `{subject, arrival, air_jumps, momentum}` — DATA,
+because the transition lives a crate above the transaction — and
+`apply_world_replacement` performs it through the same `arrive_body_in_room`
+authority the transition used to call directly. **The transition still decides
+WHERE** (it is the only thing that knows the authored door and the body's size);
+**the verdict decides WHETHER.** Its `MotionModel` lookup stays as a PRECONDITION:
+the publication would silently skip a body it cannot place, and
+`SubjectCannotTransit` is what turns that silence into a refusal before a single
+root is built.
+
+⛔⛤ **AND THE ASSERTION FOR IT COULD NOT FAIL TWICE BEFORE IT COULD.** Recorded
+because both failures are shapes I have hit before:
+1. Comparing the end-of-walk position proved nothing — the body walks back toward
+   the door for hundreds of frames afterwards and washes any teleport out. ⇒ The
+   walk now STOPS at the refusal; the moment a refusal exists is the only moment
+   the body's position says anything about it.
+2. Asserting the body is inside the live room's BOUNDS proved nothing either —
+   the refused room's arrival lands inside the hub's rectangle, and the poison
+   passed. ⇒ What discriminates is the displacement across the verdict frame:
+   `Vec2(0.0, 0.0)` guaranteed (the transition freezes the sim clock) against
+   `Vec2(-1782.7, -188.0)` poisoned. The bounds check was DELETED rather than kept
+   beside it: an assertion that cannot fail is worse than no assertion, because it
+   reads as coverage.
+
+⚠ **WHAT IS STILL NOT BEHIND THE VERDICT ON THE BODY SIDE**, named rather than
+implied: the RESET's `reset_body_clusters` (mana, animation, combat, camera — a
+fuller operation than an arrival) and the hot reload's `transit_body` at
+`TransitVelocity::Keep`. Both callers pass `None` for the arrival and say so at
+the call site. That is the player-reset-state half of A10 and the next packet,
 with the session-level authorities below.
 
 **ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:

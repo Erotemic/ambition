@@ -524,6 +524,13 @@ pub(super) fn reload_ldtk_world_from_disk(
         outgoing,
         None,
         Some(transaction.next_room_set),
+        // ⚠ A HOT RELOAD RE-SEATS ITS BODY ITSELF, below, with `transit_body` at
+        // `TransitVelocity::Keep` — a repair of the body's place in a world it
+        // never left, not an arrival through a door. Staging that behind the
+        // verdict belongs with the rest of this road's post-commit writes
+        // (`ldtk_index`, `prepared_identity`, `prepared_content`); see
+        // `docs/planning/queue.md`'s A10 checkpoint.
+        None,
     );
     // The session's live content binding follows the COMMITTED content. Queued
     // after `commit_deferred`, so this transaction still verifies against the

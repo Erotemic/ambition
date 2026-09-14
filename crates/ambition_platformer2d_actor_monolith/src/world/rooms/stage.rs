@@ -283,14 +283,36 @@ impl RoomConstructionPlan {
     /// commit receipt below were queued after its verification had already run
     /// and published, so `RoomLoaded` described a room that was still being
     /// built.
-    pub fn spawn_contents(&self, commands: &mut Commands) {
+    pub fn spawn_contents(&self, commands: &mut Commands) -> transaction::PublicationHandle {
+        let publication = transaction::begin_publication(
+            commands,
+            self.room_id().to_string(),
+            self.features.construction_transactions(self.session_scope),
+        );
+        self.spawn_contents_for(publication, commands);
+        publication
+    }
+
+    /// As [`Self::spawn_contents`], into a publication the caller already began
+    /// — which is how `replace_live_world` gets its staged world onto the SAME
+    /// publication the transaction will verify.
+    fn spawn_contents_for(
+        &self,
+        publication: transaction::PublicationHandle,
+        commands: &mut Commands,
+    ) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
         // ⛔ ONE DECISION, READ ONCE: the bracket's two ends — the opening
         // refusal and the spawn's visibility — must agree, and a literal at each
         // is two spellings of one fact.
         let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
-        transaction::open(commands, &self.features, self.session_scope, candidate_bracket);
+        transaction::open(
+            commands,
+            publication,
+            &self.features,
+            candidate_bracket,
+        );
         // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
         // AS OF 2026-09-14.** Every root in every lane is minted
         // `InactiveCandidate`, so nothing this room builds is visible to an
@@ -386,6 +408,7 @@ impl RoomConstructionPlan {
         });
         transaction::close(
             commands,
+            publication,
             &self.features,
             &receipt,
             self.room_id().to_string(),
@@ -438,7 +461,7 @@ impl RoomConstructionPlan {
         carry_body: Option<Entity>,
         next_rooms: Option<RoomSet>,
         arrival: Option<transaction::StagedArrival>,
-    ) {
+    ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
         let outgoing: Vec<(Entity, bool)> = outgoing
@@ -458,22 +481,21 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
-        // ⛔ **SPAWNED AS CANDIDATE-OWNED STATE, UNDER THIS ROOM'S OWN
-        // TRANSACTION.** It is hidden by the same marker its entities are, it is
-        // retired by the same `retire_candidate` on a refusal, and a staged world
-        // whose transaction never closed carries a DEAD stamp — so the next room
-        // cannot find it even by accident.
-        //
-        // ⛔ QUEUED BEFORE `spawn_contents`, because `transaction::open` READS it:
-        // the identities standing on the outgoing bodies are what the transaction
-        // declares it is RETIRING, and a declaration made after the baseline is
-        // captured would be a claim about a world nobody looked at.
-        ambition_platformer2d_shared_tangle::construction::spawn_candidate_state(
+        // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
+        // opens**, because `transaction::open` READS it: the identities standing
+        // on the outgoing bodies are what the transaction declares it is RETIRING,
+        // and a declaration made after the baseline is captured would be a claim
+        // about a world nobody looked at. Being ON the publication is what makes
+        // `staged world(P)` and `baseline(P)` the same P by construction rather
+        // than by a search that could find somebody else's.
+        let publication = transaction::begin_publication(
             commands,
-            &self.features.construction_transactions(self.session_scope)[0],
-            pending,
+            self.room_id().to_string(),
+            self.features.construction_transactions(self.session_scope),
         );
-        self.spawn_contents(commands);
+        commands.entity(publication.0).insert(pending);
+        self.spawn_contents_for(publication, commands);
+        publication
     }
 
 }
@@ -1194,52 +1216,55 @@ mod tests {
         app.update();
     }
 
-    /// ⛔ **THE VERDICT READER, ASKED THE FOUR WAYS A CALLER CAN GET IT WRONG.**
+    /// ⛔ **THE VERDICT READER, ASKED THE WAYS A CALLER CAN GET IT WRONG.**
     ///
-    /// ⚠ **THIS TESTS THE HELPER, NOT THE WIRING**, and saying so is the point.
-    /// `room_publication_succeeded` is what the dev hot reload consults before
-    /// advancing the session's content generation; that CALL is not exercised,
-    /// because forcing a hot reload to be refused needs a reload harness this
-    /// repository does not have. What is tested here is the part with the subtle
-    /// answer — the room-id comparison — and the queue row says the wiring is
-    /// reasoned rather than measured.
+    /// ⛔⛤ **IT USED TO BE KEYED BY ROOM NAME AND THAT WAS THE DEFECT.** The old
+    /// reader asked `LastConstructionVerification` — last-writer-wins — whether
+    /// the last verdict for a room with this NAME said published, so two
+    /// operations on one room were indistinguishable and a caller could authorize
+    /// its own follow-up mutations from somebody else's success. The reader is
+    /// keyed by the exact publication the caller started, so "another
+    /// publication's success" is not a case that needs checking: it is a
+    /// different entity.
+    ///
+    /// ⚠ **THIS TESTS THE READER, NOT THE WIRING.** The dev hot reload's call is
+    /// still not exercised — forcing a reload to be refused needs a reload
+    /// harness this repository does not have.
     #[test]
-    fn the_verdict_reader_answers_about_one_room_and_not_about_any_room() {
-        use super::transaction::room_publication_succeeded;
-        use crate::features::LastConstructionVerification;
+    fn the_verdict_reader_answers_about_one_publication_and_not_about_any() {
+        use super::transaction::{publication_succeeded, PublicationHandle, PublicationVerdict};
 
         let mut app = bevy::prelude::App::new();
+        let mine = PublicationHandle(app.world_mut().spawn_empty().id());
+        let theirs = PublicationHandle(app.world_mut().spawn_empty().id());
+
         assert!(
-            !room_publication_succeeded(app.world(), "hall"),
-            "no verdict at all read as a success: a caller whose writes are \
-             conditional on a room transaction would make them with none having run"
+            !publication_succeeded(app.world(), mine),
+            "a publication with NO verdict yet read as a success: a caller whose \
+             writes are conditional on it would make them mid-flight"
         );
 
-        app.world_mut().insert_resource(LastConstructionVerification {
-            room_id: "hall".to_string(),
-            violations: Vec::new(),
-            projection_violations: Vec::new(),
-            staged_violations: Vec::new(),
-            published: true,
-        });
-        assert!(room_publication_succeeded(app.world(), "hall"));
+        app.world_mut()
+            .entity_mut(theirs.0)
+            .insert(PublicationVerdict { published: true });
         assert!(
-            !room_publication_succeeded(app.world(), "cellar"),
-            "⛔ ANOTHER ROOM'S SUCCESS READ AS THIS ONE'S. \
-             `LastConstructionVerification` is last-writer-wins, and the session \
-             handoff road commits two rooms in quick succession"
+            !publication_succeeded(app.world(), mine),
+            "⛔ ANOTHER PUBLICATION'S SUCCESS READ AS THIS ONE'S"
+        );
+        assert!(publication_succeeded(app.world(), theirs));
+
+        app.world_mut()
+            .entity_mut(mine.0)
+            .insert(PublicationVerdict { published: false });
+        assert!(
+            !publication_succeeded(app.world(), mine),
+            "a REFUSED publication read as published"
         );
 
-        app.world_mut().insert_resource(LastConstructionVerification {
-            room_id: "hall".to_string(),
-            violations: Vec::new(),
-            projection_violations: Vec::new(),
-            staged_violations: Vec::new(),
-            published: false,
-        });
+        app.world_mut().entity_mut(mine.0).despawn();
         assert!(
-            !room_publication_succeeded(app.world(), "hall"),
-            "a REFUSED room read as published"
+            !publication_succeeded(app.world(), mine),
+            "a publication that no longer exists read as a success"
         );
     }
 
@@ -1437,85 +1462,6 @@ mod tests {
             ),
             "got {:?}",
             verification.staged_violations
-        );
-    }
-
-    /// ⛔⛤ **AND A WORLD STAGED FOR ANOTHER ROOM IS REFUSED — NOTHING TIED THE
-    /// TWO TOGETHER.**
-    ///
-    /// `GeometryIsNotTheTargetRoom` catches an index and a geometry that
-    /// disagree with EACH OTHER. A replacement left over from a DIFFERENT room is
-    /// perfectly self-consistent, and would have published that room's geometry,
-    /// index and platform state under this room's verdict.
-    ///
-    /// ⚠ **REACHABLE BY A LEAK, NOT ONLY BY MISUSE.** A replacement is staged by
-    /// `replace_live_world` and removed by the verdict, so it survives a frame
-    /// only if the transaction it was staged for never closed. The next room's
-    /// transaction would then find it, declare ITS outgoing roster retiring, and
-    /// publish a world nobody planned.
-    #[test]
-    fn a_world_staged_for_another_room_is_refused() {
-        let platform = MovingPlatformState::from_authored(
-            ae::Vec2::new(10.0, 20.0),
-            ae::Vec2::new(32.0, 8.0),
-            64.0,
-            10.0,
-        );
-        let (mut app, outgoing) = last_good_world(platform);
-        let before = live_world(&mut app);
-
-        // The plan builds `candidate` (index 1); the staged world seats the
-        // session in `n` (index 0) and carries `n`'s geometry — self-consistent,
-        // and nothing to do with the room being verified.
-        let plan = candidate_plan();
-        let stale_outgoing: Vec<(Entity, bool)> =
-            outgoing.iter().map(|entity| (*entity, false)).collect();
-        let stale_geometry = empty_spec("n").world.clone();
-        app.add_systems(
-            bevy::prelude::Update,
-            move |mut commands: Commands| {
-                let stale = transaction::PendingWorldReplacement::new(
-                    stale_outgoing.clone(),
-                    None,
-                    0,
-                    stale_geometry.clone(),
-                    Vec::new(),
-                );
-                // ⛔ STAMPED WITH THE SAME TRANSACTION THIS ROOM IS ABOUT TO
-                // OPEN, which is what makes it findable at all — and is the
-                // narrowest way to express the leak: a replacement that belongs
-                // to this transaction and describes another room.
-                ambition_platformer2d_shared_tangle::construction::spawn_candidate_state(
-                    &mut commands,
-                    &plan.features.construction_transactions(plan.session_scope)[0],
-                    stale,
-                );
-                plan.spawn_contents(&mut commands);
-            },
-        );
-        app.update();
-
-        let verification = app
-            .world()
-            .resource::<crate::features::LastConstructionVerification>()
-            .clone();
-        assert!(
-            !verification.published,
-            "a room published another room's staged world under its own verdict: \
-             {verification:?}"
-        );
-        assert!(
-            verification.staged_violations.iter().any(|violation| matches!(
-                violation,
-                super::transaction::StagedWorldViolation::StagedWorldIsNotThisRoom { .. }
-            )),
-            "got {:?}",
-            verification.staged_violations
-        );
-        assert_eq!(
-            live_world(&mut app),
-            before,
-            "the refusal still moved the live world"
         );
     }
 

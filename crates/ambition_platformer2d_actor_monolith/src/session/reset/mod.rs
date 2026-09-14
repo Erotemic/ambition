@@ -424,7 +424,7 @@ pub fn process_new_game_reset_request(
     let start_room_id = room_plan.room_id().to_string();
 
     // 1-3. The same artifact drives transition, hot reload, and restore.
-    room_plan.replace_live_world(
+    let publication = room_plan.replace_live_world(
         &mut commands,
         room_visuals
             .iter()
@@ -439,7 +439,11 @@ pub fn process_new_game_reset_request(
     );
 
     commands.queue(move |world: &mut World| {
-        if !crate::world::rooms::room_publication_succeeded(world, &start_room_id) {
+        // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
+        // name".** `LastConstructionVerification` is last-writer-wins and cannot
+        // tell two operations on one room apart; a reset that wiped the save on
+        // somebody else's success is the shape that makes possible.
+        if !crate::world::rooms::publication_succeeded(world, publication) {
             bevy::log::error!(
                 target: "ambition_platformer2d::reset",
                 "sandbox reset ABANDONED: the start room `{start_room_id}` failed \

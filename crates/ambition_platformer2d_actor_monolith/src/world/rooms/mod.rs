@@ -36,8 +36,8 @@ pub use systems::{
     tick_portal_phases_system, ActiveRoomMetadataSynced,
 };
 pub use transaction::{
-    room_publication_succeeded, ActiveContentBinding, LastConstructionVerification, StagedArrival,
-    StagedWorldViolation,
+    publication_succeeded, ActiveContentBinding, LastConstructionVerification, PublicationHandle,
+    PublicationVerdict, StagedArrival, StagedWorldViolation,
 };
 
 #[cfg(test)]

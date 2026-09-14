@@ -518,7 +518,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
     // callers. The staged replacement applies the set first and then
     // `set_active`, because the index is into the NEW set.
-    construction_plan.replace_live_world(
+    let publication = construction_plan.replace_live_world(
         commands,
         outgoing,
         None,
@@ -539,23 +539,24 @@ pub(super) fn reload_ldtk_world_from_disk(
     // the old room's contents running under the new epoch's name, and every
     // later room transaction refused as stale against a binding nothing built.
     //
-    // ⚠ **THEY READ THE VERDICT BY ROOM ID, NOT BY EXISTENCE.**
-    // `LastConstructionVerification` is last-writer-wins, so asking only whether
-    // it says `published` would accept a DIFFERENT room's success. The reload
-    // owns exactly one room's transaction and names it.
+    // ⚠ **THEY READ THIS PUBLICATION'S OWN VERDICT.** The reload holds the
+    // handle `replace_live_world` returned, so the question is *"did MY
+    // publication succeed"* rather than *"did the last room with this name"*.
     //
     // ⭐ Queued rather than written: the closure runs when this frame's commands
     // apply, which is after `transaction::close` has recorded its verdict — the
     // same flush, in queue order, so there is no window and nothing to poll.
-    let published_room = active_room.clone();
     let candidate_index = candidate_index;
     let committed_identity = committed_content.identity();
     let committed_epoch = committed_content.epoch();
     let committed_content = committed_content;
     commands.queue(move |world: &mut bevy::prelude::World| {
         use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
-        if !ambition_platformer2d::actors::rooms::room_publication_succeeded(world, &published_room)
-        {
+        // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
+        // name".** `LastConstructionVerification` is last-writer-wins and cannot
+        // tell two operations on one room apart, and it was nevertheless deciding
+        // whether the session's content generation could advance.
+        if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
             return;
         }
         world.insert_resource(

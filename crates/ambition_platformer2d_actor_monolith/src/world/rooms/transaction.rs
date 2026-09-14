@@ -9,6 +9,7 @@
 
 use std::collections::BTreeSet;
 
+use bevy::ecs::component::Component;
 use bevy::ecs::resource::Resource;
 use bevy::prelude::{Commands, World};
 
@@ -23,8 +24,94 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 ///
 /// A resource because the two ends are separate commands in one queue and nothing else can
 /// carry a value between them.
-#[derive(Resource)]
+/// ⛔⛤ **THE CONTROL PLANE IS EXACT NOW, AND IT WAS A SINGLETON — CHANGED
+/// 2026-09-14 ON REVIEW.** The candidate ENTITIES carried exact `TransactionId`s
+/// while the baseline, the staged world and the verdict were all *"the pending
+/// one"* / *"the last one"*: three App resources a second publication would have
+/// overwritten. That is the opposite direction from the rest of A10, and it made
+/// multi-region residency a special case before it was written.
+///
+/// ⇒ One ENTITY is the publication. Everything that belongs to it hangs off that
+/// entity — baseline, declared effects, staged world, owning lane transactions,
+/// target room, verdict — so `baseline(P)`, `staged_world(P)`, `effects(P)` and
+/// `verdict(P)` refer to the same P by construction rather than by a check.
+/// [`PublicationHandle`] is what a caller holds to ask about its OWN publication.
+#[derive(Component)]
 pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefused>);
+
+/// A caller's exact reference to the publication it started.
+///
+/// ⚠ **HOST-LOCAL AND CONTROL-PLANE ONLY.** It is an `Entity`, never canonical
+/// state, never in a snapshot, never mixed into a `SimId` or a `TransactionId`.
+/// The peer-stable identity campaign owns canonical provenance; this is the
+/// engine's own bookkeeping and must not become a second identity workaround.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PublicationHandle(pub bevy::ecs::entity::Entity);
+
+/// What a room publication is ABOUT: which room, and which construction lanes
+/// it owns.
+#[derive(Component)]
+pub(crate) struct RoomPublication {
+    room_id: String,
+    transactions: Vec<ambition_platformer2d_shared_tangle::construction::TransactionId>,
+}
+
+/// The verdict of one exact publication.
+///
+/// ⛔⛤ **PRODUCTION AUTHORIZES FROM THIS, NOT FROM `LastConstructionVerification`.**
+/// That resource is last-writer-wins and distinguishes transactions only by room
+/// NAME — two operations on one room are indistinguishable in it — and it was
+/// nevertheless deciding whether the hot reload could advance the session's
+/// content generation and whether the reset could wipe the save. A diagnostic
+/// resource is not a transaction receipt. It stays, as diagnostics.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PublicationVerdict {
+    pub published: bool,
+}
+
+/// Start a publication: the entity everything about it will hang off.
+///
+/// ⭐ **IT ALSO REAPS FINISHED ONES.** A publication lives until the commands
+/// queued behind it have read its verdict, which is the rest of THIS frame — and
+/// then it is debris. Reaping at the next `begin` is a bounded rule with no new
+/// system and no cross-frame state: a publication that still has no verdict is
+/// in flight and is left alone.
+pub(crate) fn begin_publication(
+    commands: &mut Commands,
+    room_id: String,
+    transactions: Vec<ambition_platformer2d_shared_tangle::construction::TransactionId>,
+) -> PublicationHandle {
+    let publication = commands.spawn(RoomPublication {
+        room_id,
+        transactions,
+    });
+    let handle = PublicationHandle(publication.id());
+    commands.queue(move |world: &mut World| {
+        let finished: Vec<bevy::ecs::entity::Entity> = world
+            .query_filtered::<bevy::ecs::entity::Entity, (
+                bevy::prelude::With<RoomPublication>,
+                bevy::prelude::With<PublicationVerdict>,
+            )>()
+            .iter(world)
+            .filter(|entity| *entity != handle.0)
+            .collect();
+        for entity in finished {
+            world.entity_mut(entity).despawn();
+        }
+    });
+    handle
+}
+
+/// Did this exact publication publish?
+///
+/// ⛔ **ABSENT IS `false`, AND SO IS AN UNFINISHED ONE.** A caller whose writes
+/// are conditional on a publication has nothing to be conditional on until the
+/// verdict exists.
+pub fn publication_succeeded(world: &World, publication: PublicationHandle) -> bool {
+    world
+        .get::<PublicationVerdict>(publication.0)
+        .is_some_and(|verdict| verdict.published)
+}
 
 /// What [`open`] establishes and [`verify_and_publish`] is owed: the world this
 /// transaction opened against, and what it DECLARED it would do to that world.
@@ -257,24 +344,6 @@ pub enum StagedWorldViolation {
     /// publish, report `room-loaded`, and leave the world with no platforms in
     /// it, which is a room the player falls through.
     NoPlatformStateToPublishInto,
-    /// The staged world seats the session in a room this transaction did not
-    /// build.
-    ///
-    /// ⛔⛤ **NOTHING TIED THE STAGED WORLD TO THE TRANSACTION VERIFYING IT.**
-    /// `GeometryIsNotTheTargetRoom` catches an index and a geometry that
-    /// disagree with each other — but a replacement left over from a DIFFERENT
-    /// room is perfectly self-consistent, and would have published that room's
-    /// geometry, index and platform state under this room's verdict.
-    ///
-    /// ⚠ **REACHABLE BY A LEAK, NOT ONLY BY MISUSE.** A replacement is staged by
-    /// `replace_live_world` and removed by the verdict, so it survives a frame
-    /// only if the transaction it was staged for never closed. The next room's
-    /// transaction would then find it, declare ITS outgoing roster retiring, and
-    /// publish a world nobody planned.
-    StagedWorldIsNotThisRoom {
-        staged: String,
-        room: String,
-    },
     /// A world was staged and the live session root carries no `RoomSet` to
     /// publish the active room into.
     ///
@@ -315,11 +384,6 @@ impl std::fmt::Display for StagedWorldViolation {
                  no `MovingPlatformSet`, so publishing would leave the room \
                  without the platforms it authored"
             ),
-            Self::StagedWorldIsNotThisRoom { staged, room } => write!(
-                f,
-                "this transaction built `{room}` and the world staged for it seats \
-                 the session in `{staged}`"
-            ),
             Self::NoRoomSetToPublishInto => write!(
                 f,
                 "this room staged a world and the live session root carries no \
@@ -343,7 +407,6 @@ impl std::error::Error for StagedWorldViolation {}
 fn verify_staged_world(
     world: &World,
     pending: &PendingWorldReplacement,
-    room_id: &str,
 ) -> Result<(), Vec<StagedWorldViolation>> {
     use ambition_platformer2d_world::rooms::RoomSet;
 
@@ -387,15 +450,6 @@ fn verify_staged_world(
                     geometry: pending.geometry.name.clone(),
                 })
             }
-            // ⛔ AND THE STAGED ROOM MUST BE THE ONE THIS TRANSACTION BUILT. A
-            // replacement left over from another room is self-consistent and
-            // would publish that room's whole world under this room's verdict.
-            Some(spec) if spec.id != room_id => {
-                violations.push(StagedWorldViolation::StagedWorldIsNotThisRoom {
-                    staged: spec.id.clone(),
-                    room: room_id.to_string(),
-                })
-            }
             Some(_) => {}
         }
     }
@@ -404,27 +458,6 @@ fn verify_staged_world(
     } else {
         Err(violations)
     }
-}
-
-/// This transaction's staged world, if it staged one.
-///
-/// ⛔ `With<InactiveCandidate>` is not spellable here — the marker is
-/// `pub(crate)` to the construction module — so the lookup goes through
-/// [`candidate_state_entities`], which is the module's own opt-out of the default
-/// filter. A domain that queried for `PendingWorldReplacement` directly would find
-/// NOTHING and read that as "no world staged".
-fn staged_world(
-    world: &mut World,
-    transactions: &[ambition_platformer2d_shared_tangle::construction::TransactionId],
-) -> Option<bevy::ecs::entity::Entity> {
-    transactions.iter().find_map(|transaction| {
-        ambition_platformer2d_shared_tangle::construction::candidate_state_entities(
-            world,
-            transaction,
-        )
-        .into_iter()
-        .find(|entity| world.get::<PendingWorldReplacement>(*entity).is_some())
-    })
 }
 
 /// Make the staged world live: retire the outgoing room, then publish the
@@ -532,31 +565,6 @@ pub struct LastConstructionVerification {
 }
 
 
-/// Did the room transaction for `room_id` publish?
-///
-/// ⛔⛤ **FOR A CALLER WHOSE OWN WRITES ONLY MAKE SENSE IF THE ROOM ARRIVED.** The
-/// dev hot reload is the first: it advances the session's content generation —
-/// the live binding, the installed LDtk index, the prepared content and its
-/// identity — and made those writes unconditionally. A REFUSED reload therefore
-/// left the session claiming a generation whose room does not exist: the old
-/// room's contents running under the new epoch's name, and every later room
-/// transaction refused as stale against a binding nothing built.
-///
-/// ⚠ **IT ASKS BY ROOM ID, AND THAT IS THE WHOLE FUNCTION.**
-/// [`LastConstructionVerification`] is last-writer-wins, so *"is there a verdict
-/// and does it say published"* would accept a DIFFERENT room's success — the
-/// session handoff road commits two rooms in quick succession and is exactly
-/// where that would bite. A caller owns one room's transaction and names it.
-///
-/// ⚠ **ABSENT IS `false`, NOT A WAIVER.** No verdict means no room transaction
-/// ran, and a caller whose writes are conditional on one has nothing to be
-/// conditional on.
-pub fn room_publication_succeeded(world: &World, room_id: &str) -> bool {
-    world
-        .get_resource::<LastConstructionVerification>()
-        .is_some_and(|verdict| verdict.published && verdict.room_id == room_id)
-}
-
 /// Open the transaction: queue the baseline capture.
 ///
 /// Queued before anything the transaction constructs, so what it sees at flush
@@ -605,12 +613,11 @@ pub fn room_publication_succeeded(world: &World, room_id: &str) -> bool {
 /// the two ends of the bracket are symmetric again.
 pub(crate) fn open(
     commands: &mut Commands,
+    publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
-    session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
     let planned = plan.planned_sim_ids();
-    let transactions = plan.construction_transactions(session);
     commands.queue(move |world: &mut World| {
         // ⛔ ASKED BEFORE THE BASELINE, because a world that cannot hide a
         // candidate must refuse the room rather than build one it will then
@@ -676,8 +683,8 @@ pub(crate) fn open(
                     // time you verify"*, and under A10 they are deliberately
                     // still standing — that is the whole point of staging the
                     // sweep behind the verdict.
-                    let staged = staged_world(world, &transactions)
-                        .and_then(|entity| world.get::<PendingWorldReplacement>(entity))
+                    let staged = world
+                        .get::<PendingWorldReplacement>(publication.0)
                         .map(PendingWorldReplacement::outgoing_entities);
                     if let Some(outgoing) = staged.as_ref() {
                         let planned: BTreeSet<_> = planned.iter().collect();
@@ -696,7 +703,11 @@ pub(crate) fn open(
                 })
                 .map_err(OpenRefused::Baseline)
         };
-        world.insert_resource(PendingConstructionBaseline(captured));
+        // ⛔ ON THE PUBLICATION, not in a resource: a second publication in
+        // flight would have overwritten "the pending baseline".
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.insert(PendingConstructionBaseline(captured));
+        }
     });
 }
 
@@ -708,6 +719,7 @@ pub(crate) fn open(
 /// actually build" is a question the world can answer.
 pub(crate) fn close(
     commands: &mut Commands,
+    publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
@@ -717,7 +729,15 @@ pub(crate) fn close(
     let plan = plan.clone();
     let receipt = receipt.clone();
     commands.queue(move |world: &mut World| {
-        verify_and_publish(world, &plan, &receipt, room_id, session, candidate_bracket);
+        verify_and_publish(
+            world,
+            publication,
+            &plan,
+            &receipt,
+            room_id,
+            session,
+            candidate_bracket,
+        );
     });
 }
 
@@ -744,13 +764,23 @@ impl ActiveContentBinding {
 
 fn verify_and_publish(
     world: &mut World,
+    publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
     session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
+    // ⛔ THE VERDICT GOES ON THE PUBLICATION, whatever the outcome. A caller
+    // whose follow-up work is conditional on THIS publication reads it there;
+    // `LastConstructionVerification` below is diagnostics and stays that way.
+    let record = |world: &mut World, published: bool| {
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.insert(PublicationVerdict { published });
+        }
+    };
     let refuse = |world: &mut World, room_id: String| {
+        record(world, false);
         // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
         // remembered here: it is candidate-owned state stamped with this room's
         // transaction, so `retire_candidate` takes it. This early road refuses
@@ -766,7 +796,11 @@ fn verify_and_publish(
     };
 
     let OpenedTransaction { baseline, effects } =
-        match world.remove_resource::<PendingConstructionBaseline>() {
+        match world
+            .get_entity_mut(publication.0)
+            .ok()
+            .and_then(|mut entity| entity.take::<PendingConstructionBaseline>())
+        {
         Some(PendingConstructionBaseline(Ok(opened))) => opened,
         Some(PendingConstructionBaseline(Err(error))) => {
             // Publishing a room on top of that would bury the earlier fault.
@@ -898,14 +932,16 @@ fn verify_and_publish(
     // ⛔ THE OTHER HALF OF THE PROJECTION: the staged world, not the roster.
     // Asked BEFORE the verdict is taken, so an incoherent staged world refuses
     // the room exactly as an incoherent roster does.
-    let staged_entity = staged_world(world, &transactions);
+    let staged_entity = world
+        .get::<PendingWorldReplacement>(publication.0)
+        .map(|_| publication.0);
     let staged_violations = match staged_entity
         .and_then(|entity| world.get::<PendingWorldReplacement>(entity))
     {
         Some(pending) => {
             // The borrow ends before the verifier reads the world again.
             let pending: &PendingWorldReplacement = pending;
-            let found = verify_staged_world(world, pending, &room_id);
+            let found = verify_staged_world(world, pending);
             found.err().unwrap_or_default()
         }
         None => Vec::new(),
@@ -980,13 +1016,13 @@ fn verify_and_publish(
         // `replace_live_world` used to name as a destructive window it could only
         // give one address to.
         if let Some(entity) = staged_entity {
-            // ⛔ TAKEN OFF THE CANDIDATE AND THEN DESPAWNED: publication ADOPTS
-            // the candidate's state rather than leaving a published entity
-            // carrying a replacement that has already been applied.
+            // ⛔ TAKEN OFF THE PUBLICATION: adopting the staged world means the
+            // publication no longer carries a replacement that has already been
+            // applied. The publication itself survives until its verdict has
+            // been read — see `begin_publication`.
             if let Some(pending) = world.entity_mut(entity).take::<PendingWorldReplacement>() {
                 apply_world_replacement(world, pending);
             }
-            world.entity_mut(entity).despawn();
         }
         let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
             world, &effects, &baseline,
@@ -1048,6 +1084,7 @@ fn verify_and_publish(
              The candidate was never visible and its {dropped} roots are dropped."
         );
     }
+    record(world, published);
     world.insert_resource(LastConstructionVerification {
         room_id,
         violations,

@@ -29,11 +29,31 @@ and leaves N byte-identical; admission runs `publish_candidate`,
 `commit_deferred` and `retire_outgoing` are deleted <!-- cite-ok: named BECAUSE the A10 room packet deleted them; a resolvable citation here would mean the deletion did not happen -->,
 so no road can commit a room without a verdict.
 
-The staged world is CANDIDATE-OWNED STATE, not a process global:
-`construction::spawn_candidate_state` puts it on a hidden entity stamped with the
-room's transaction, so a refusal retires it with everything else the candidate
-made, a leak carries a dead stamp no later room can find, and publication adopts
-it and drops the carrier. Measurements live in the
+**A10.1 landed (2026-09-14): the control plane is EXACT.** The candidate entities
+carried exact `TransactionId`s while the baseline, the staged world and the
+verdict were all *"the pending one"* / *"the last one"* — three App resources a
+second publication would have overwritten, and the opposite direction from the
+rest of A10. One ENTITY is the publication now: `begin_publication` returns a
+`PublicationHandle`, and the baseline, effects, staged world, owning lane
+transactions, target room and verdict all hang off it, so `baseline(P)`,
+`staged_world(P)` and `verdict(P)` are the same P by construction rather than by a
+check. `replace_live_world` and `spawn_contents` return the handle.
+
+⇒ **Production authorizes from its OWN publication.** The reset and the dev
+reload asked `LastConstructionVerification` — last-writer-wins, keyed by room
+NAME, so two operations on one room were indistinguishable — before wiping the
+save or advancing the session's content generation. They ask
+`publication_succeeded(world, handle)` now. `LastConstructionVerification` stays,
+as diagnostics.
+
+⇒ **And `StagedWorldIsNotThisRoom` is DELETED.** It was defence against a stale
+replacement being consumed by the wrong transaction; with exact identity that
+state is not expressible, and a guard for an impossible state is a check that
+cannot fail. The staged world also no longer needs `spawn_candidate_state` — it
+lives on the publication — though that primitive stays for domains that need
+candidate-owned state of their own.
+
+Measurements live in the
 [owner document](engine/construction-and-reconstitution.md#a10---bounded-safe-candidate-materialization).
 
 Three verifiers guard it: `verify_committed_roster` (is the built world coherent),

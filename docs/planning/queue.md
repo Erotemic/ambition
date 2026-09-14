@@ -7487,3 +7487,66 @@ carry generic `f * 1.08/1.04/0.74` scaling with George the sole authored set —
 throws are a separate axis that no pass this session has touched.
 ⛔ Open for Jon: whether the roster-wide generic throw formula should be replaced at
 all is a design decision, not a calibration.
+
+## ✅ THE 21-FIGHTER KILL ENVELOPE — baseline COMPLETE, and what the roster looks like now
+
+The roster baseline finished: **21 fighters, 500 measured rows, 0 REFUSED, 0 UNSTABLE**,
+identical provenance headers on every file. ⚠ rage-pinned (attacker meter 0), no-DI,
+no-recovery, vs `player_robot_v3` ⇒ every number is a LOWER BOUND.
+
+### The three smashes, after this session's 22 changes (* = changed)
+
+    fighter                      smash_fwd  smash_up  smash_down   in 80-160
+    npc_alice                    153*       155*      155*         3/3
+    npc_bob                      144*       153*      152*         3/3
+    perfect_cellular_automaton   149*       152*      150*         3/3
+    npc_pirate_admiral           110        136       120          3/3
+    smash_george_booul           125        135       125          3/3
+    special_patent_clerk         129        140*      155          3/3
+    goblin                       130*       133*      164          2/3
+    mary_o_tall                  160*       160*      162*         2/3
+    npc_ninja_shadow_oni_leader  150        145*      161          2/3
+    player_robot_v3              153        131*      175*         2/3
+    sanic                        157*       162*      166*         1/3
+    npc_carl_stargan             155        175*      >300         1/3
+    npc_emmy_noether             140        >300      >300         1/3
+    npc_oiler                    139        >300      227          1/3
+    author / performer / pointed_polygon      165  296  152        1/3 each
+    medic / officer / projectile_ / pugnacious_polygon  162 274 137 1/3 each
+
+**Smash cells inside 80-160: 37 of 63, up from 20.** No fighter is left without a
+smash in band. Every fighter that was reachable, unprotected and out of band now kills
+with its smashes inside Jon's ranges, with the authored ordering preserved in each role.
+
+### What is still outside the band is DELIBERATE, and it is enumerable
+  - **Two shared archetype tables, 7 fighters.** `148.0/3.05` + `146.0/2.95` +
+    `132.0/2.72` serve author, performer and pointed_polygon; the `162.0/3.25` family
+    serves medic, officer, projectile_polygon and pugnacious_polygon. One edit moves
+    3 or 4 fighters — a roster decision for Jon, not a per-fighter tune.
+  - **emmy and oiler**: each built around ONE licensed kill move (`BREAK_GROWTH`,
+    `TORQUE_GROWTH`) with everything else capped, and a test enforcing it.
+  - **carl's down-smash**: `launch_dir (0.0, 1.0)` is a pure spike. Measured `>600` at
+    `ceiling=600`; no magnitude can make it KO. Fixing it means changing the vector.
+
+### ⭐ THE CENSORING IS ROLE-STRUCTURED, AND IT VALIDATES THE CORPUS
+Censored rate by role, over all 500 cells:
+
+    attack 100% | attack_up 100% | attack_air_up 100% | attack_air_down 100%
+    special_up 100% | special_air_down 100% | up_throw 100% | down_throw 100%
+    attack_forward 96% | attack_down 96% | attack_dash 95% | attack_air 74%
+    ...
+    smash_up 40% | attack_air_forward 24% | back_throw 10% | smash_down 8%
+    forward_throw 5% | smash_forward 4% | attack_air_back 0%
+
+The roles that are SUPPOSED to kill are exactly the ones with measurable thresholds.
+Four causes, all measured, none of them content defects:
+  1. **Ground normals were never kill moves.** `attack`/`attack_forward`/`attack_dash`
+     at 95-100% is correct design — a jab that killed under 300% would be the bug.
+  2. **Vertical tax** — anything `*_up` must reach ~1238 launch vs ~750 lateral.
+  3. **Spikes** — anything `*_down` with a downward vector drives a GROUNDED victim
+     into the floor and crosses no blast line.
+  4. **Aerials** — documented fixture limit: the victim brain stands still.
+
+⇒ A censored cell is a claim about a ROLE, not a verdict on a fighter. ⛔ And scope a
+tuning pass on THE BAND, never on whether the instrument hit its ceiling — that error
+cost two fighters a pass (see the ninja/clerk gap-fill above).

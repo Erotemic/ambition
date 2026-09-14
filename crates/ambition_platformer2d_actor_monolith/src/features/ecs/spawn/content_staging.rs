@@ -2,7 +2,18 @@
 //!
 //! Providers map `RoomSpec` to [`SpawnActorRequest`] values. Construction drains
 //! the same stagers for normal loads and restores on the simulation side;
-//! `RoomLoaded` remains notification-only. Purity keeps staging preflightable.
+//! `RoomLoaded` is a NOTIFICATION rather than an input to staging — staging
+//! never reads it, which is what keeps it preflightable.
+//!
+//! ⛔⛤ **IT IS NOT A MESSAGE NOBODY READS, AND THIS LINE USED TO BE QUOTED AS IF
+//! IT WERE.** MEASURED 2026-09-14: three PRODUCTION systems read it through
+//! `ambition_combat::events::FreshAttempt` —
+//! `void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
+//! `rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's
+//! `BrokenBricks`. ⇒ A room the transaction REFUSES writes no `RoomLoaded`, so
+//! staged hits are not voided and per-attempt state is not re-armed — which is
+//! the correct outcome (no attempt began, because no room arrived) but is a
+//! CONSEQUENCE rather than a no-op, and A10's refusal path owes it a sentence.
 
 use std::sync::Arc;
 

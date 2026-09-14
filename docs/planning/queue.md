@@ -1859,6 +1859,31 @@ shape `death_restores_the_checkpoint` produced when the bracket was first flippe
 Making the publication a no-op reddens the second.
 
 
+**WHAT A REFUSAL COSTS, STATED — AND THE OLD ANSWER WAS WRONG.** Three planning
+and source sites said a refusal *"costs only the `RoomLoaded` message, and
+`RoomLoaded` has NO production reader"*, quoting `content_staging.rs`'s
+*"notification-only"*. **MEASURED 2026-09-14: it has THREE production readers**,
+all through `ambition_combat::events::FreshAttempt` —
+`void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
+`rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's `BrokenBricks`.
+⇒ A refused room:
+
+```text
+publishes no RoomLoaded      -> no fresh attempt, anywhere
+  -> staged victim hits are NOT voided      (correct: no new population)
+  -> per-attempt state is NOT re-armed      (correct: no attempt began)
+leaves the live world byte-identical        (the arms above)
+drops every candidate root it built
+```
+
+⭐ Every one of those is the RIGHT outcome, which is why nobody noticed the claim
+was false: *"harmless"* was the correct verdict reached by the wrong reasoning.
+`content_staging.rs`'s line is about staging never READING the message, not about
+nobody reading it — and it is now written that way. ⚠ No new guard: the boundary
+is already pinned (`RoomLoaded` is written exactly once on admission and never on
+refusal, both arms), and *"this message has N readers"* is a population count that
+rots in the other direction.
+
 **ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
 because this verifier passes its own arms. It is closed when PRODUCTION
 COMPOSITION demonstrates both halves.

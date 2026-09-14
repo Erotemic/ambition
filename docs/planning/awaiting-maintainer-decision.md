@@ -2977,18 +2977,25 @@ f16  session-start activation=3 scope=1
 OUTGOING scope's 18 placements are still live, so every one of them is a
 duplicate of a root the new room is about to mint.
 
-⚠ **IT IS HARMLESS TODAY AND THAT IS WHY NOBODY KNEW.** Under `hidden = false` a
-refusal costs only the `RoomLoaded` message, and `RoomLoaded` has **NO production
-reader** — `content_staging.rs` says so in as many words (*"`RoomLoaded` remains
-notification-only"*).
+⚠ **IT WAS HARMLESS AND THAT IS WHY NOBODY KNEW — BUT THE REASON GIVEN HERE WAS
+WRONG, CORRECTED 2026-09-14.** This paragraph said `RoomLoaded` has **NO
+production reader**, quoting `content_staging.rs`'s *"notification-only"*.
+MEASURED: it has THREE, all through `ambition_combat::events::FreshAttempt` —
+`void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
+`rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's `BrokenBricks`.
+A refusal therefore also leaves staged hits unvoided and per-attempt state
+un-re-armed. ⭐ Both are the RIGHT outcome — no attempt began, because no room
+arrived — so "harmless" was the correct verdict reached by the wrong reasoning,
+and `content_staging.rs`'s line is about staging never READING the message rather
+than about nobody reading it.
 
-⇒ **BUT IT IS EXACTLY WHAT MAKES A10's FLAG UNFLIPPABLE, and it is a bigger
-failure than the two death tests.** Under the candidate bracket that refusal
-DROPS the whole room, so **every hot reload would produce an empty world**. ⇒ A10
-is blocked on TWO things: this row's gameplay ruling (3 refusals, 1 placement
-each) and a session-handoff ORDERING fix (2 refusals, 26 placements) that needs no
-ruling at all. The ordering one is the same shape as `replace_live_world`'s
-retire-then-commit, one level up: at the SESSION scope rather than the room's.
+✅ **AND BOTH BLOCKERS ARE CLOSED.** The session-handoff ORDERING fix landed
+2026-09-13 (`SessionScopeSet` chains `RetireAuthority -> Cleanup -> Activate ->
+Presentation`), and this row's gameplay ruling turned out not to be what the flag
+was waiting for: the refusal was `reconstructing` meaning *"the old body should
+already be gone"*, and the transaction now declares `superseding` per identity
+instead. `ROOM_CANDIDATE_BRACKET` has been `true` since 2026-09-14. See
+`docs/planning/queue.md`'s A10 checkpoint.
 
 ### ✅ THE ORDERING HALF IS CLOSED — 2026-09-13. THE CENSUS IS 6 → 4, AND ALL FOUR ARE THIS ROW.
 

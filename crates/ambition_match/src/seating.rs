@@ -131,10 +131,41 @@ impl MatchInstance {
     /// reach the same tick in one domain drew IDENTICALLY — the second match
     /// replayed the first's items, in order, from its first drop.
     ///
-    /// ⛔ IT IS THE ACTIVATION STAMP, not a counter and not a wall clock. Both
-    /// halves are already canonical simulation state that a rewind restores, so
-    /// the context a resimulated tick draws with is the one it drew with the
-    /// first time. Anything a peer could disagree about would desync the draws.
+    /// ⛔⛔⛔ **THE SESSION TERM WAS REMOVED 2026-09-14, AND IT WAS A DESYNC.**
+    /// This mixed in the raw `SessionScopeId.0` — a PER-APP MONOTONIC COUNTER
+    /// minted by `ActiveSessionScope::begin` once per local activation. The draws
+    /// it seeds choose **which item appears and which spawn point receives it**
+    /// (`items/match_spawn.rs`), so two peers whose Apps had activated a
+    /// different number of sessions built DIFFERENT AUTHORITATIVE WORLDS from the
+    /// same match state. Found by the GPT architecture review of 2026-09-14.
+    ///
+    /// ⛔⛤ **AND THE PARAGRAPH THAT DEFENDED IT NAMED THE RULE IT BROKE.** It
+    /// said *"both halves are already canonical simulation state that a rewind
+    /// restores … anything a peer could disagree about would desync the draws."*
+    /// Rollback-restored establishes that ONE MACHINE REWINDING ITSELF agrees
+    /// with itself. It says nothing about TWO PEERS agreeing, and those are
+    /// different properties that need different words. The bark draw three files
+    /// away rejects `Entity::to_bits()` as a salt for exactly this reason, in
+    /// exactly these words — a defence applied to one argument of a call is not
+    /// applied to the call.
+    ///
+    /// ⇒ **THE CONTEXT IS THE ACTIVATION TICK, WHICH BOTH PEERS SIMULATE.**
+    /// Within one deterministic run consecutive matches activate on different
+    /// ticks, so they still draw differently — which is the property the first
+    /// paragraph is about.
+    ///
+    /// ⚠ **WHAT THIS COSTS, STATED**: two runs of the world whose matches
+    /// activate on the same tick now draw the SAME items. That is a repeat across
+    /// a restart, not a divergence — both peers still agree — and it is the
+    /// honest trade for removing a desync. Restoring cross-run variety needs a
+    /// peer-NEGOTIATED nonce (a lobby-supplied match seed), which is netcode this
+    /// repository does not have yet. ⛔ **`seat_topology` IS NOT THAT NONCE**:
+    /// measured at HEAD, the one production caller of `activate_if_seatable`
+    /// passes `None`.
+    ///
+    /// ⚠ **`SessionScopeId` STAYS ON THIS TYPE** and still decides EQUALITY, so
+    /// `MatchScoped::belongs_to` and the settlement resources' staleness checks
+    /// are unchanged. Local ownership is what it is for; a random seed is not.
     ///
     /// A match with no stamp — a bare fixture — answers
     /// [`CONTEXT_UNSEEDED`](ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED),
@@ -142,17 +173,9 @@ impl MatchInstance {
     pub fn random_context(&self) -> ambition_platformer2d_core::sim_random::RandomContext {
         match (self.session, self.activated_on) {
             (None, None) => ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
-            // Mixed rather than concatenated: two sessions whose matches
-            // activated on the same tick must not collapse onto one context, and
-            // neither must one session's consecutive matches.
-            (session, activated_on) => session
-                .map_or(0, |session| session.0)
-                .wrapping_mul(0x9E37_79B9_7F4A_7C15)
-                .wrapping_add(
-                    activated_on
-                        .unwrap_or(0)
-                        .wrapping_mul(0xD6E8_FEB8_6659_FD93),
-                ),
+            (_, activated_on) => activated_on
+                .unwrap_or(0)
+                .wrapping_mul(0xD6E8_FEB8_6659_FD93),
         }
     }
 
@@ -221,15 +244,48 @@ mod match_context_tests {
             "the contexts differ and the draws do not, so the axis is inert"
         );
 
-        // ⛔ AND A DIFFERENT SESSION IS A DIFFERENT RUN even at the same
-        // activation tick — a fresh session restarts the sim clock, so without
-        // this the first match of every session is identical.
+        // ⛔⛔⛔ **THIS ASSERTION WAS `assert_ne!` UNTIL 2026-09-14, AND THE
+        // REQUIREMENT IT PINNED WAS A DESYNC.** It read: *"two sessions whose
+        // first match activated on the same tick share a context, so every
+        // playthrough opens the same way."* True as stated — and the only thing
+        // that could satisfy it was mixing in `SessionScopeId`, a PER-APP
+        // counter. The draws it seeds choose which item spawns and where, so two
+        // peers with different local session histories built different
+        // authoritative worlds.
+        //
+        // ⇒ **THE REQUIREMENT IS RETRACTED, NOT THE TEST.** What replaces it is
+        // the property that actually has to hold: **the local session scope must
+        // not change the draw at all.** Cross-run variety was real and is a real
+        // loss (see `random_context`), but it was being bought with a value no
+        // two peers can be relied on to agree about.
+        //
+        // ⚠ A requirement can be falsified by a RULING rather than by an edit,
+        // and the honest response is to say which requirement died.
         let next_session = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(100));
-        assert_ne!(
+        assert_eq!(
             a,
             next_session.instance().random_context(),
-            "two sessions whose first match activated on the same tick share a \
-             context, so every playthrough opens the same way"
+            "the LOCAL session scope changed the draw context. It is minted by a \
+             per-App counter, so two peers whose Apps have activated a different \
+             number of sessions would spawn different items at different points \
+             from the same match state"
+        );
+
+        // ⛔⛤ **AND THE DRAWS THEMSELVES AGREE, not only the context number.** A
+        // context equality alone would pass if `random_context` returned a
+        // constant, which is a different defect wearing the same green.
+        assert_eq!(
+            drew(a),
+            drew(next_session.instance().random_context()),
+            "the contexts compare equal and the draws do not, so the comparison \
+             is not measuring what the item spawner actually consumes"
+        );
+        // ⛔ AND THE CONTROL: those draws must not be a constant, or the
+        // assertion above holds for a seed that carries no information.
+        assert!(
+            drew(a).iter().collect::<std::collections::BTreeSet<_>>().len() > 1,
+            "the draw sequence is constant, so every equality assertion in this \
+             arm holds for a context that seeds nothing"
         );
 
         // A match with no identity at all has no context to draw against, and

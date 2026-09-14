@@ -1573,7 +1573,25 @@ point of staging the sweep behind the verdict.
 | --- | --- | --- |
 | `verify_committed_roster` | is the world I just built coherent? | `SupersededLiveLost`, `SupersededCandidateMissing`, plus the pre-existing set |
 | `verify_projected_roster` | would the roster be valid if this published? | `Duplicated`, `SupersededNotLive`, `SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`, `LiveLostWithoutDeclaration` |
-| `verify_staged_world` | would the non-entity world be coherent? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `NoSessionRootToPublishInto` |
+| `verify_staged_world` | would the non-entity world be coherent? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `NoSessionRootToPublishInto`, `NoPlatformStateToPublishInto` |
+
+⛔⛤ **THREE OF THOSE EXIST BECAUSE THE FAILURE THEY CATCH IS SILENT.**
+`RoomSet::set_active` is `index.min(len - 1)` — an out-of-range index does not
+panic, it CLAMPS, and the session wakes in the LAST room of the set wearing the
+geometry of the one it was told to build (found by accident: a poison written to
+test something else staged `usize::MAX` and moved the active room instead of
+failing). And `apply_world_replacement` writes the session-root components and the
+platform state through accessors that answer `None` when their target is absent —
+so a staged world with no root, or authored platforms with no `MovingPlatformSet`,
+would PUBLISH, report `room-loaded`, and change nothing. Those two close every
+silent skip in the publication.
+
+⚠ Each is raised only when its subject exists: `NoPlatformStateToPublishInto`
+only when the room actually authors platforms, because a room that states an empty
+vector means it and a composition that has never needed the resource is not wrong
+for lacking one. ⚠ The clamp itself is NOT changed — it has callers outside this
+road and its own contract; what changed is that this road refuses to hand it a
+value it would have to clamp.
 
 ⭐⭐ **WHAT THE PROJECTED VERIFIER ACTUALLY DOES IN PRODUCTION, MEASURED BOTH
 WAYS.** Two poisons, each a full `app_it` lane:

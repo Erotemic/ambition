@@ -239,6 +239,16 @@ pub enum StagedWorldViolation {
     /// queues its room build BEFORE it spawns the session root, which is why
     /// activation commits through `spawn_contents` and stages no world at all.
     NoSessionRootToPublishInto,
+    /// A world was staged and the composition holds no `MovingPlatformSet` to
+    /// publish its platform state into.
+    ///
+    /// ⛔ **THE SAME FAIL-CLOSED ARGUMENT AS THE ONE ABOVE, AND IT WAS THE LAST
+    /// SILENT SKIP IN THE PUBLICATION.** `apply_world_replacement` writes the
+    /// platform state through `get_resource_mut`, which answers `None` when the
+    /// resource is absent — so a room with authored moving platforms would
+    /// publish, report `room-loaded`, and leave the world with no platforms in
+    /// it, which is a room the player falls through.
+    NoPlatformStateToPublishInto,
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -260,6 +270,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 "this room staged a whole world and there is no live session root \
                  to publish it into, so publishing would change nothing and say \
                  it had succeeded"
+            ),
+            Self::NoPlatformStateToPublishInto => write!(
+                f,
+                "this room staged moving-platform state and the composition holds \
+                 no `MovingPlatformSet`, so publishing would leave the room \
+                 without the platforms it authored"
             ),
         }
     }
@@ -297,6 +313,14 @@ fn verify_staged_world(
     // room set still needs a root to put it on.
     if ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_none() {
         violations.push(StagedWorldViolation::NoSessionRootToPublishInto);
+    }
+    // ⛔ ONLY WHEN THERE IS SOMETHING TO PUBLISH. A room with no authored
+    // platforms states an empty vector and means it, and a composition that has
+    // never needed the resource is not wrong for lacking one.
+    if !pending.moving_platforms.is_empty()
+        && !world.contains_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
+    {
+        violations.push(StagedWorldViolation::NoPlatformStateToPublishInto);
     }
     if let Some(rooms) = rooms {
         match rooms.get(pending.target_index) {

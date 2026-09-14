@@ -1025,6 +1025,54 @@ Identical in every column, two different fighters.
 "mechanism failure" on sanic's throws by raising rage, and rage never reached the
 throw, so that run decided nothing. Recorded so the reasoning is not reused.
 
+## 📋 WHAT "ALL CHARACTERS" MEANS FOR FEEL WORK, and how to measure one — 2026-09-14
+
+⛔ **THE CONTENT DIRECTORY IS NOT THE ROSTER.** `game/ambition_content/src/*_moveset.rs`
+holds RPG-side bodies too. The grid is `SMASH_ROSTER` (`game/ambition_demo_smash/src/select.rs:22`)
+filtered by `SmashRoster::assemble(registry)` to what the composition can actually
+seat — and a stand-in is DROPPED the moment the character it stands in for resolves.
+
+**The 21 real fighters, in grid order:** `player_robot_v3`, `smash_george_booul`,
+`mary_o_tall`, `sanic`, `npc_pirate_admiral`, `npc_ninja_shadow_oni_leader`,
+`npc_alice`, `npc_bob`, `npc_oiler`, `perfect_cellular_automaton`, `goblin`,
+`npc_emmy_noether`, `npc_carl_stargan`, `special_patent_clerk`, `pointed_polygon`,
+`projectile_polygon`, `pugnacious_polygon`, `author`, `performer`, `officer`, `medic`.
+
+⛔ **The 2 stand-ins are NOT characters to tune.** `STAND_INS = [(smash_duelist_a ->
+player_robot_v3), (smash_duelist_b -> player_robot_v2)]`. Both carry
+`moveset::fighter_moveset()` — ONE shared table — so editing it moves both together
+and per-character identity is impossible for them by construction. `ladder_rig.rs:757`
+records that every ladder number ever taken measured these two BY DEFAULT.
+
+### ⚠ A trap: `lib.rs:4525` read alone says the roster has one authored fighter
+    definition.with_moveset(if id == SMASH_GEORGE_BOOUL { george_booul_moveset() }
+                            else { moveset::fighter_moveset() })
+That loop is `install_smash_content`, which registers only the ids THIS DEMO
+declares. The other fighters arrive via the content pack carrying their own
+authored movesets — which is why the CPU duel shows `grapeshot` / `heave_to` /
+`pirate_admiral_dash_attack`, none of which exist in the shared table. `select.rs`'s
+own re-measured note settles it: *"every other id on this roster [authors one] …
+THE COUNT IS ZERO"* — zero roster fighters fall back to a generic repertoire.
+
+### Measuring one fighter — no tool change needed
+`KoProbe::new(attacker_id, victim_id)` (`ko_envelope.rs:656`) takes STRING ids, so
+any registry id works. The `attackers` array at `:2619` is only the fallback when
+argv names no pair — it is a SAMPLE OF THREE and must never be called a roster.
+
+    cargo run -q -p ambition_app_tools --bin ko_envelope -- \
+        probe <fighter_id> player_robot_v3 ceiling=300
+
+Hold `player_robot_v3` (`REFERENCE`, `:2596`) fixed across fighters or the rows are
+not comparable. ⛔ `probe` is MANDATORY — without it the binary falls through to a
+whole-roster moveset census, 788 well-formed rows about a different question. Flags
+(`calib`, `only=`, `step=`, `ceiling=`, `attacker_pct=`) all join the argv filter,
+because an unfiltered flag lands in `after[0]` and silently BECOMES the attacker id.
+
+⚠ **Cost shape, measured:** `calib` scans from 0 and `kills()` runs 2-3 trials per
+percent, so a cell threshold near 140 costs ~350 app-trials. Use the COARSE pass for
+a roster baseline; reserve `calib` for the one cell whose value you are about to
+author. One matchup per process shares nothing, so N fighters parallelise freely.
+
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST

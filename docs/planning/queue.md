@@ -1587,11 +1587,33 @@ carries `occurrences: OccurrenceBaseline` AND `custody: CustodyBaseline`, and
 checkpoint's custody roster is a live runtime fact; what is missing is that the
 ROOM PLAN does not consult it.
 
-⇒ **SO THE STEP IS**: build the restore's room plan against
-`CheckpointRestoreInputs::custody` so a placement the checkpoint saw in custody is
-declared (retained, or superseded by the candidate) rather than silently
-re-authored — which is exactly the four declarations
-`PublicationEffects` already speaks. Then flip the bracket and prove the
+⛔⛤ **AND THE TEMPORAL RULE IS ALREADY FULLY IMPLEMENTED — MEASURED 2026-09-14,
+AFTER I HAD WRITTEN THE OPPOSITE TWICE.** `items/pickup/mod.rs`'s
+`restore_custody_to_checkpoint` does exactly what Jon's ruling says, per item:
+`custodian_of(occurrence)` says `Some(holder)` → put it back in that hand;
+`None` → *"acquired after the checkpoint"* → unequip and **DESPAWN**, and its own
+comment gives the reason — *"letting the rebuild author it again produces the SAME
+`SimId` at the AUTHORED position, which is 'the key went back on its pedestal'."*
+The room transition already selects the CHECKPOINT's ledger for a restore
+(`room_transition/loading.rs`: `selected_restore.map(|accepted| accepted.occurrences.remembered())`),
+and `OccurrenceWhereabouts::InCustody → OccurrenceDisposition::Suppressed`
+already keeps a checkpoint-held occurrence from being authored at all.
+
+⇒ **SO THE BLOCKER IS NOT THE INPUT AND NOT THE RULE. IT IS ORDERING, AND THAT
+MAKES IT AN A10 PROBLEM RATHER THAN A CUSTODY ONE.** The room rebuild mints the
+placement and `restore_custody_to_checkpoint` despawns the carried one; they are
+different systems. At the moment the room transaction VERIFIES, both exist —
+`verify_committed_roster` counts two occupants on one authored `SimId` and reports
+`Duplicated` + `PlannedOverBaseline`. Both are correct answers to the question
+that verifier asks.
+
+⇒ **AND THE PROJECTED VERIFIER IS THE QUESTION THAT ADMITS IT.** *"What would the
+roster be if this published?"* — with the room transaction declaring
+`superseding(live carried occurrence, candidate placement)`, the live one is not
+in the projection and there is no duplicate. This is the join between the A10
+verifier and the production blocker: **the room transaction must DECLARE what the
+checkpoint restore is about to retract**, rather than the verifier inferring it
+from the world (inference is what the four declarations exist to replace). Then flip the bracket and prove the
 acceptance scenario at app level: world N playable → construct candidate N+1 →
 inject a construction/verification failure → candidate entities and
 candidate-owned state gone, N's entities, room/world mechanics and

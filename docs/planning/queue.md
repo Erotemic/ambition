@@ -1628,11 +1628,18 @@ after  staging the sweep:  686 publications, 0 retired here,  3 left to a custod
 
 First the outgoing sweep ran BEFORE the baseline, so the only identity that
 survived to be superseded was the carried object. Now the sweep runs inside the
-publication and gets there FIRST. ⇒ That order is right, not incidental: the sweep
-routes physics bodies through `retire_physics_entity`, and a bare despawn ahead of
-it would leave the physics world holding a body nothing owns — the same shape as
-despawning an object out of a hand. `retire_superseded` is the CUSTODY accountant
+publication and gets there FIRST. `retire_superseded` is the CUSTODY accountant
 plus a backstop, and its despawn path is proven in its unit arm or nowhere.
+
+⚠ **AND I GAVE THE ORDER A MECHANISM IT DOES NOT HAVE — CORRECTED.** I wrote that
+the sweep must go first *"because it routes physics bodies through
+`retire_physics_entity`, and a bare despawn ahead of it would leave the physics
+world holding a body nothing owns"*. MEASURED: a physics room entity carries
+`RoomVisual` and `PhysicsRoomEntity` and **no `SimId` at all**, so it is invisible
+to `TransactionBaseline::capture` and structurally out of `retire_superseded`'s
+reach — that hazard cannot arise. The order is right for the plainer reason that
+the domain-aware retirement should run before a backstop, and the physics grace
+period (`PendingPhysicsDespawn`, not a despawn) is safe from both.
 
 **THE ARMS, AND WHAT EACH POISON PROVED.**
 
@@ -1668,6 +1675,14 @@ beside the real one: an assertion that cannot fail reads as coverage.
 * the dev reload's presentation spawns (`spawn_parallax_layers`,
   `spawn_room_visuals`), which read the PLAN rather than the live world and so
   cannot dress the wrong room, but still run on a refusal.
+* **the transition STATE MACHINE does not read the verdict.** It goes
+  `room-transition -> playing` either way. The world and the body are both safe
+  now, but the player is left standing in the zone they walked into, so a
+  persistent refusal would re-fire the transition every frame — a livelock of
+  refusals rather than a corrupted world. ⚠ Production refusals are ZERO
+  (censused over the whole `app_it` suite), so this is a shape rather than a
+  symptom; the answer is the transition's to give and belongs with the session
+  packet.
 
 **NEXT IMPLEMENTATION STEP — AND IT IS A DIFFERENT TRANSACTION.** The room scope is
 done. What remains is the SESSION scope: `ActiveGameplaySession`,

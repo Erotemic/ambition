@@ -857,6 +857,14 @@ fn verify_and_publish(
         // authoritative as of the line above; the bodies it declared it was
         // replacing go on the line below, in that order and never the other
         // one. See `retire_superseded`.
+        //
+        // ⚠ **THE SWEEP RUNS BEFORE THE BACKSTOP**, and the reason is simply that
+        // a domain-aware retirement should precede a declaration-driven one — NOT,
+        // as I first wrote, because `retire_superseded` could otherwise despawn a
+        // physics body past its grace period. MEASURED: a physics room entity
+        // carries `RoomVisual` and `PhysicsRoomEntity` and no `SimId`, so it is
+        // invisible to `TransactionBaseline::capture` and out of
+        // `retire_superseded`'s reach entirely.
         // ⛔⛤ **AND ONLY NOW DOES THE LIVE WORLD CHANGE AT ALL.** The outgoing
         // room is swept and the world-defining state published here, after the
         // candidate became authoritative — never before it, which is the order

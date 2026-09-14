@@ -267,6 +267,18 @@ pub enum StagedWorldViolation {
         staged: String,
         room: String,
     },
+    /// A world was staged and the live session root carries no `RoomSet` to
+    /// publish the active room into.
+    ///
+    /// ⚠ **THE THIRD AND LAST ACCESSOR IN `apply_world_replacement` THAT CAN
+    /// ANSWER `None`, AND THE ONLY ONE OF THE THREE I CANNOT NAME A PRODUCTION
+    /// ROAD TO.** A session root always carries a room set — the provider's
+    /// bundle and the direct-entry app both insert one. It is checked anyway
+    /// because the alternative is a PARTIAL publication reported as success: the
+    /// geometry and the platform state would be written and the active room
+    /// silently left where it was, which is a session colliding against one room
+    /// while believing it is in another.
+    NoRoomSetToPublishInto,
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -299,6 +311,12 @@ impl std::fmt::Display for StagedWorldViolation {
                 f,
                 "this transaction built `{room}` and the world staged for it seats \
                  the session in `{staged}`"
+            ),
+            Self::NoRoomSetToPublishInto => write!(
+                f,
+                "this room staged a world and the live session root carries no \
+                 `RoomSet`, so publishing would write the geometry and leave the \
+                 active room where it was"
             ),
         }
     }
@@ -345,6 +363,9 @@ fn verify_staged_world(
         && !world.contains_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
     {
         violations.push(StagedWorldViolation::NoPlatformStateToPublishInto);
+    }
+    if rooms.is_none() {
+        violations.push(StagedWorldViolation::NoRoomSetToPublishInto);
     }
     if let Some(rooms) = rooms {
         match rooms.get(pending.target_index) {

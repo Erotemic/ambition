@@ -1344,6 +1344,67 @@ mod tests {
         );
     }
 
+    /// ⛔ **AND A SESSION ROOT WITH NO ROOM SET IS REFUSED — THE THIRD AND LAST
+    /// ACCESSOR THAT COULD ANSWER `None`.**
+    ///
+    /// ⚠ **THE ONLY ONE OF THE THREE I CANNOT NAME A PRODUCTION ROAD TO**, and
+    /// saying so is the point: a session root always carries a room set. It is
+    /// checked because the alternative is a PARTIAL publication reported as
+    /// success — the geometry and platform state written, the active room
+    /// silently left where it was, a session colliding against one room while
+    /// believing it is in another.
+    #[test]
+    fn a_session_root_with_no_room_set_is_refused() {
+        use ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component;
+
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+        app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
+            Vec::new(),
+        ));
+        // A root that carries geometry and NOTHING ELSE.
+        insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(empty_spec("n").world.clone()),
+        );
+        // ⛔ THE PREMISE, both halves: there IS a root (or this arm is the
+        // no-root one wearing a different name), and it carries no room set.
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                .is_some(),
+            "the fixture built no session root at all"
+        );
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(
+                app.world()
+            )
+            .is_none(),
+            "the fixture's root carries a room set, so there is nothing to refuse"
+        );
+
+        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published a world into a root that cannot seat it: {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::NoRoomSetToPublishInto
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+    }
+
     /// ⛔⛤ **AND A WORLD STAGED FOR ANOTHER ROOM IS REFUSED — NOTHING TIED THE
     /// TWO TOGETHER.**
     ///

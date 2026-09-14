@@ -77,27 +77,52 @@ pub fn ensure_portal_bodies(
     }
 }
 
-/// Mirror the `portal_reverses_facing` gameplay setting into the global
-/// [`PortalTuning::reorient_facing`] knob each frame so toggling it in the
-/// settings menu takes effect live (the portal core reads the tuning resource on
-/// every transit). The gameplay setting defaults OFF — so by default the player
-/// keeps the same facing through a same-wall portal turn-around — while the portal
-/// crate's own default stays ON for standalone use.
+/// Carry the `portal_reverses_facing` gameplay setting into the portal tuning
+/// MIRROR, and propose it — so the settings menu and the F-key panel author the
+/// same field in the same place.
 ///
-/// Change-guarded so it only writes (and trips Bevy change detection) when the
-/// user actually flips the setting.
+/// ⛔⛤ **THIS WROTE THE AUTHORITY DIRECTLY, FROM INSIDE THE SIM SCHEDULE, AND
+/// THAT MADE TWO TRUTHS THE MOMENT `Q120` MIGRATED THE PORTAL PANEL — REVIEW,
+/// 2026-09-13.** It was `ResMut<PortalTuning>` registered
+/// `.in_set(PortalSet::Transit).before(portal_transit)`, i.e. inside
+/// `GgrsSchedule` under the rollback host. So:
+///
+/// ```text
+/// developer edits reorient_facing in the portal inspector
+///   -> proposed, admitted, published into PortalTuning
+///   -> GgrsSchedule runs
+///   -> THIS overwrites it from the persisted gameplay setting
+/// ```
+///
+/// ⇒ One field of the supposedly authoritative portal tuning was owned
+/// elsewhere, and resolution happened by whichever system wrote last. It was
+/// also a `UserSettings` read inside the rollback window in its own right: a
+/// replay of frame N observed whatever the settings menu says NOW.
+///
+/// ⭐⭐ **THE POLICY IS EXPLICIT NOW: `EditablePortalTuning` IS WHERE THE FIELD IS
+/// AUTHORED**, by the settings menu and by the developer panel alike, and
+/// `publish_editable_portal_tuning` is the only writer of the authority. Two
+/// authors of one authored value, one publisher, one authority — rather than two
+/// writers of the authority racing per frame.
+///
+/// ⚠ The gameplay setting defaults OFF, so by default the player keeps the same
+/// facing through a same-wall portal turn-around, while the portal crate's own
+/// default stays ON for standalone use. Change-guarded, so an untouched setting
+/// proposes nothing and never stops a rollback baseline.
 pub fn sync_portal_reorient_from_settings(
     // Optional: headless / unit-test apps may run portal transit without the
     // settings resource. Absent → leave the portal crate's default (ON).
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut tuning: ResMut<PortalTuning>,
+    mut editable: ResMut<ambition_platformer2d::portal::EditablePortalTuning>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
 ) {
     let Some(settings) = settings else {
         return;
     };
     let want = settings.gameplay.portal_reverses_facing;
-    if tuning.reorient_facing != want {
-        tuning.reorient_facing = want;
+    if editable.reorient_facing != want {
+        editable.reorient_facing = want;
+        pending.propose(ambition_platformer2d::portal::PORTAL_TUNING);
     }
 }
 

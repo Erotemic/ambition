@@ -2218,6 +2218,37 @@ otherwise it would copy the body's current value over a number the developer
 typed while it waits behind a refusal, making a refusal indistinguishable from a
 silent discard.
 
+⛔⛤ **AND TWO DEFECTS IN THE SAME DAY'S MIGRATION, BOTH FOUND BY THE NEXT REVIEW.**
+
+**(1) THE BODY PROFILE LOST EDITS, because admitting a value and projecting it
+onto a target are different jobs and I collapsed them.** The publisher drained the
+proposal and THEN looked for a player, so an edit made while no player existed was
+consumed with nothing to receive it — and the proposer's `Local` had already
+advanced, so it never proposed again. The same collapse contradicted the system's
+own stated purpose: it exists to restore the profile after a reset or room load
+rebuilds the player from engine defaults, and a reconstruction does not change the
+EDITOR, so nothing proposed and nothing projected.
+⇒ **EACH DOMAIN HAS THREE STAGES, NOT TWO:** editable desired value → pending
+proposal → **admitted domain authority** → projection onto whatever exists.
+Movement and portal tuning already had the third stage
+(`ActiveMovementTuning`, `PortalTuning`); the body profile did not, which is why it
+was the one that broke. `ActivePlayerBodyProfile` is that stage, and
+`project_developer_body_profile` is the projection — which stays in the sim
+schedule deliberately, because a body rebuilt mid-simulation would otherwise wear
+engine defaults for a frame. Three arms, poison-verified with the pre-fix shape.
+
+**(2) THE PORTAL MIGRATION EXPOSED A DUAL WRITER IT DID NOT CREATE.**
+`sync_portal_reorient_from_settings` wrote `PortalTuning.reorient_facing` from
+`UserSettings` from INSIDE the sim schedule, `.before(portal_transit)` — so a
+developer edit could be proposed, admitted and published, and then overwritten by
+the persisted setting on the same advance. One field of the authority was owned
+elsewhere and resolution was whichever system wrote last.
+⇒ **THE POLICY IS EXPLICIT NOW: the MIRROR is where the field is authored**, by
+the settings menu and the F-key panel alike, and `publish_editable_portal_tuning`
+is the only writer of the authority. Two authors of one authored value, one
+publisher, one authority. ⚠ It also took a `UserSettings` read out of the rollback
+window, which is one field of the much larger audit in `queue.md`.
+
 ⇒ **WHAT REMAINS FOR `Q120`, AND IT IS A COMPOSITION PROBLEM RATHER THAN AN
 UNWRITTEN TEST.** The review's acceptance is to edit a developer value under the
 REAL GGRS production scheduling and prove no advance runs the old baseline against

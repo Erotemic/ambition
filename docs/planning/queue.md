@@ -1554,12 +1554,59 @@ projection → the supersession arm reddens):
 `a_candidate_that_declares_no_supersession_would_duplicate_an_identity`,
 `a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances`.
 
-**NEXT IMPLEMENTATION STEP.** Wire the verifier into a production candidate road
-and prove the acceptance scenario at app level: world N playable → construct
-candidate N+1 → inject a construction/verification failure → candidate entities
-and candidate-owned state gone, N's entities, room/world mechanics and
-generation/content binding intact, N still playable. Then the success arm through
+**NEXT IMPLEMENTATION STEP, AND ITS ADDRESS IS NAMED IN THE SOURCE.**
+`ROOM_CANDIDATE_BRACKET` is `false`
+(`crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs:38`).
+Flipping it is the last-good-world guarantee for rooms, and the source records
+what it costs: 87 of 89 app room tests pass with it on and shipped rooms publish
+completely (`central_hub_complex`: receipt 18, admitted 18). The two failures are
+`death_restores_the_checkpoint`.
+
+⛔ **THE MECHANISM IS MEASURED AND IS NOT THE FLAG'S.** A death commits a room
+transition to the SAME room; the transition sweep is
+`RoomResident = With<RoomScopedEntity>, Without<InCustodyOf>`, so a placement in
+the player's custody follows them through the "door" and the room mints it again
+— `Duplicated` + `PlannedOverBaseline`. The LIVE build produces the identical
+violations and is identically refused; it passes only because a refusal costs
+nothing there.
+
+⚖ **AND THE RULE IS RULED — JON, 2026-09-14, AND IT IS NOT A MAINTAINER
+QUESTION.** Checkpoint restoration is TEMPORAL and the baseline decides, PER
+ITEM: an item acquired only AFTER the checkpoint may be retired from carried
+state and re-authored in its checkpoint/world state; an item held AT the
+checkpoint stays or is restored as held; two items can take different outcomes in
+one death reconstruction. ⛔ No blanket *"all carried items survive"* or *"all
+retire"*.
+
+⭐⭐ **AND THE INPUT THAT RULE NEEDS ALREADY EXISTS — I NEARLY RECORDED THE
+OPPOSITE.** `PersistedCheckpoint` is `{room_id, x, y}` and carries no roster,
+which looked like the blocker. It is only the SAVE-FILE half.
+`ambition_platformer2d_shared_tangle::lifecycle::horizon::CheckpointRestoreInputs`
+carries `occurrences: OccurrenceBaseline` AND `custody: CustodyBaseline`, and
+`restore_custody_to_checkpoint` already asks it `custodian_of(occurrence)`. ⇒ The
+checkpoint's custody roster is a live runtime fact; what is missing is that the
+ROOM PLAN does not consult it.
+
+⇒ **SO THE STEP IS**: build the restore's room plan against
+`CheckpointRestoreInputs::custody` so a placement the checkpoint saw in custody is
+declared (retained, or superseded by the candidate) rather than silently
+re-authored — which is exactly the four declarations
+`PublicationEffects` already speaks. Then flip the bracket and prove the
+acceptance scenario at app level: world N playable → construct candidate N+1 →
+inject a construction/verification failure → candidate entities and
+candidate-owned state gone, N's entities, room/world mechanics and
+generation/content binding intact, N still playable; then the success arm through
 `publish_candidate` + retirement of the declared N state.
+
+⚠ **AND THE ROOM STATE THAT IS NOT ENTITIES STILL GOES LIVE BEFORE THE VERDICT.**
+`RoomConstructionPlan::commit_deferred` is four statements —
+`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..`,
+`spawn_contents(..)`. Only the last builds the candidate; the first three mutate
+N. `replace_live_world`'s own doc names the same thing about ordering: *"A10's
+stronger last-good-world guarantee is the fix … and when it lands it lands HERE
+rather than in three call sites."* The three callers are
+`session/reset/mod.rs:470`, `room_transition/commit.rs:357` and
+`dev_runtime.rs:518`.
 
 **ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
 because this verifier passes its own arms. It is closed when PRODUCTION

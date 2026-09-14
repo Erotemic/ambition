@@ -4195,6 +4195,91 @@ fn only_a_locally_maintained_sync_test_may_be_rebased_for_a_publication() {
     );
 }
 
+/// ⛔⛤ **THE TRANSACTION HOLDS ITS OWN ROUTE, UNDER ITS OWN ID — `Q118`, the
+/// content half, 2026-09-14.**
+///
+/// Adoption takes a hold on the route so the shell cannot activate it, and
+/// registers this transaction's hold id against the publication gate. The hold is
+/// never released by a check: the gate ANSWERS at the activation, and the shell
+/// consumes the hold there.
+///
+/// ⛔ **AND THE ID IS TRANSACTION-SPECIFIC, WHICH IS THE HALF A CONSTANT FAILS.**
+/// `ShellRouteHolds` is keyed `route → set<hold id>` and a reload re-prepares the
+/// route the shell is already on, so with a constant id transaction A's delayed
+/// terminal cleanup would free successor B's block.
+///
+/// ⚠ **WHAT THIS ARM ASSERTS IS THE ID, NOT THE TWO-TRANSACTION RACE**: the hold
+/// carries `content-publication:<this request>`, and the terminal path releases
+/// it. Poisoning the id to a constant reddens it (the name stops matching), and
+/// poisoning the hold away reddens it. **The A-supersedes-B arm is still owed**
+/// and needs two live transactions on one route; it is listed in the queue row.
+#[test]
+fn each_reload_transaction_holds_its_route_under_its_own_id() {
+    use ambition_platformer2d::game_shell::{
+        ShellActivationGates, ShellRouteHolds, ShellRouteId,
+    };
+
+    let mut app = host_with_a_live_cast();
+    app.init_resource::<ShellRouteHolds>();
+    app.init_resource::<ShellActivationGates>();
+    let evaluator = app
+        .world_mut()
+        .register_system(crate::reload::answer_the_publication_gate);
+    app.insert_resource(crate::reload::PublicationGateEvaluator(evaluator));
+    app.add_systems(bevy::app::Update, adopt_preparation_transaction);
+
+    // ⛔ THE PREMISE: nothing holds the route before the transaction exists, or
+    // "it is held" below says nothing about this transaction.
+    let route = ShellRouteId::new("game");
+    assert!(
+        !app.world().resource::<ShellRouteHolds>().is_held(&route),
+        "the route was already held before any transaction adopted it",
+    );
+
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+    );
+    shell_active_on(&mut app, true);
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let first_request = app
+        .world()
+        .resource::<crate::reload::PendingGeneration>()
+        .request_for_tests();
+    let _ = a_preparation_for(&mut app, "shell.game.1");
+    app.update();
+
+    let held = app.world().resource::<ShellRouteHolds>().held(&route);
+    let first_hold = format!("content-publication:{}", first_request.as_str());
+    assert!(
+        held.iter().any(|hold| hold.as_str() == first_hold),
+        "adoption did not hold the route for its own transaction (held: {held:?}), \
+         so the shell can activate it with nothing asked about the boundary",
+    );
+    assert!(
+        app.world()
+            .resource::<ShellActivationGates>()
+            .evaluator(&ambition_platformer2d::game_shell::ShellHoldId::new(
+                first_hold.clone()
+            ))
+            .is_some(),
+        "the hold was taken with no evaluator registered for it, so the shell \
+         would block the route forever instead of asking",
+    );
+
+    // ⛔ THE TERMINAL HALF. A transaction that ends without activating must not
+    // leave its block behind, or every future reload of the route is dead.
+    crate::reload::take_pending_generation_for_tests(app.world_mut());
+    assert!(
+        !app.world().resource::<ShellRouteHolds>().is_held(&route),
+        "a transaction that ended without activating left its hold behind, so \
+         every future reload of this route is blocked forever",
+    );
+}
+
 /// ⛔⛤ **`Q118`'s REMAINING INTERVAL, MEASURED RATHER THAN ARGUED — 2026-09-13.**
 ///
 /// The unified `PublicationBoundary` closed the OWNERSHIP hole: the lease re-asks

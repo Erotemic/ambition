@@ -826,11 +826,39 @@ carries a preparation plan and is therefore always pending, so `Q118`'s subject 
 covered; a future gate on an immediate route is NOT, and would need
 `start_route` to gain the same treatment.
 
-⛔ **WHAT IS STILL OPEN**: the CONTENT half. Nothing registers a gate yet —
-`ambition_content`'s publication participant must take a transaction-specific
-hold (`"content-publication:<request-id>"`) at adoption and register an evaluator
-that answers from `mechanical_mutation_boundary`. The transaction-identity poisons
-(supersede, cancel, failure, success, later reload) belong with that half.
+✅ **AND THE CONTENT HALF LANDED THE SAME DAY.** `ambition_content::reload`
+registers `answer_the_publication_gate` once at plugin build
+(`PublicationGateEvaluator`), and `adopt_preparation_transaction` takes a
+transaction-specific hold — `content-publication:<request-id>` — on the route it
+is preparing. The gate's verdict is `publication_boundary`'s, not a second
+opinion: `Legal | RebasableTimeline → Admit`, `Unhealthy → Refuse`,
+`ForeignTimeline → Refuse`.
+
+⭐ **`take_pending_generation` RELEASES THE HOLD AND FORGETS THE GATE**, which is
+the one place a pending generation ends for a content-side reason — cancelled,
+superseded, refused, discarded. A hold left behind blocks every future reload of
+that route forever. The ACTIVATION path releases in the shell, inside the same
+exclusive operation that consumes the gate, so a successful publication never
+arrives there still holding.
+
+✅ `each_reload_transaction_holds_its_route_under_its_own_id` is the arm, with the
+premise asserted first (nothing holds the route before the transaction exists).
+**Two poisons, both fire**: taking no hold at adoption, and using a constant
+`"content-publication"` id.
+
+⛔ **STILL OWED: THE A-SUPERSEDES-B ARM.** Two live transactions on one route,
+A's delayed terminal cleanup running after B has taken its hold, and B still
+held. The constant-id poison above covers the IDENTITY claim; it does not cover
+the two-transaction race, and the arm's own doc says so rather than implying
+coverage it does not have.
+
+⚠ **AND `a_boundary_that_closes_after_the_breaker_still_publishes` DOES NOT FLIP,
+BY CONSTRUCTION.** That fixture writes `ShellEvent::RouteActivated` by hand
+instead of running the router, so no gate can be consulted in it. What it
+measures is the CONTENT half's assumption — that the commit may trust an
+activation — and that assumption stays correct and must. The guarantee now comes
+from the activation not being EMITTED, which is a shell-level fact with
+shell-level arms.
 
 ## ✅ CONSTRUCTION STOPS READING THE ABILITY EDITOR — 2026-09-14
 

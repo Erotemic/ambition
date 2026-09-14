@@ -1375,6 +1375,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          editor state that simulation does not read",
     ),
     (
+        "::reload::PublicationGateEvaluator",
+        "the SystemId of the content-publication activation gate, registered once \
+         at plugin build and never written again. It is a handle to a system, not \
+         a mechanical value -- the shell runs it to ASK whether this route may \
+         activate, and rewinding a handle would be rewinding the question rather \
+         than any answer",
+    ),
+    (
         "ambition_damage::PlayerDamagePolicy",
         "the two damage scalars resolved from user settings at a host-side \
          boundary; forward-only like the settings they come from, and narrowed \

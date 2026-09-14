@@ -70,7 +70,18 @@ pub struct ControlledBrainTick;
 /// reader uses, and a body that is not the one it names is skipped. Nothing
 /// changes when a seat has exactly one holder, which is every unambiguous tick.
 pub fn tick_controlled_brains(
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // ⛔⛤ THE SEAT'S RESOLVED POLICY, not `Res<UserSettings>`. This system is
+    // registered into the simulation schedule by
+    // `install_avatar_player_input(app, sim)`, so reading the persisted,
+    // App-local, menu-mutable settings here meant a rollback resimulation
+    // derived frame N's `ActorControl` from `old ControlFrame + the current
+    // machine's settings`. Found by the GPT architecture review 2026-09-14, on
+    // the main controlled-player brain path, after the census had reported zero.
+    //
+    // ⚠ **AND THE TABLE IS A SEAM, NOT THE DESTINATION.** It is still read DURING
+    // simulation; the stated architecture is that capture resolves the semantic
+    // DIRECTION and simulation sees no mode at all. See `SeatControlFrameModes`.
+    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     slots: Res<SlotControls>,
     drivers: Query<(bevy::prelude::Entity, &DrivingParticipant)>,
     mut controlled: Query<(
@@ -83,12 +94,6 @@ pub fn tick_controlled_brains(
         &mut ActorControl,
     )>,
 ) {
-    let control_frame_modes = user_settings
-        .as_deref()
-        .map_or(ae::ControlFrameModes::default(), |s| {
-            s.gameplay.control_frame_modes()
-        });
-
     for (entity, kin, ground, resolved_frame, motion_model, driver, mut control) in &mut controlled
     {
         // Input interpretation uses the same resolved frame as this tick's physics.
@@ -118,6 +123,10 @@ pub fn tick_controlled_brains(
             continue;
         }
         let input = slots.get(slot);
+        // ⭐ ASKED PER SEAT, beside the seat's own control frame. A frame mode is
+        // the comfort preference of the human in that chair; resolving every body
+        // against one machine-wide answer is what this migration removed.
+        let control_frame_modes = seat_modes.get(slot);
         // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {
             // A possessed body's brain drives a body a person is steering; it is

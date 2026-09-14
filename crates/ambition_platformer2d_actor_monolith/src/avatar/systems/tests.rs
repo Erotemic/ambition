@@ -163,6 +163,8 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
@@ -249,6 +251,8 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
@@ -321,6 +325,8 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
@@ -405,6 +411,8 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.
@@ -494,6 +502,8 @@ fn a_scripted_sequence_silences_a_possessed_body() {
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     //  and the table it is committed FROM. These are one model:
     // `BrainPlugin` installs both, and a hand-built fixture that takes
     // only the destination is describing a composition that cannot exist.

@@ -322,12 +322,24 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     // Precision aiming (charged fire) now defaults to screen-directed, so opt
     // into a body-relative aim mode to exercise the controlled-body-local seam
     // this test is about.
+    //
+    // ⚠ SET ON THE SEAT TABLE, which is what deterministic simulation reads since
+    // `tick_controlled_brains` stopped holding `Res<UserSettings>`. The road from
+    // the settings screen into this table is `populate_seat_control_frames`, and
+    // it has its own arm — `a_seats_frame_policy_is_published_from_the_settings`
+    // in `schedule::input_systems`. This test is about AIM RESOLUTION, so it sets
+    // the authority the resolver reads rather than plumbing through capture.
     {
-        let mut settings = app
+        let mut modes = app
             .world_mut()
-            .resource_mut::<ambition_persistence::settings::UserSettings>();
-        settings.gameplay.aim_frame_mode =
-            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
+            .resource_mut::<ambition_characters::control::SeatControlFrameModes>();
+        modes.set(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+            ambition_platformer2d_core::ControlFrameModes {
+                movement: ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
+                aim: ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict,
+            },
+        );
     }
 
     shape_primary(&mut app, |frame| {

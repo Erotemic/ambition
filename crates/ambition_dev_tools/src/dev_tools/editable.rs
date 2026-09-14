@@ -997,11 +997,40 @@ pub fn publish_player_stats_edits(
     // surfaces i32 fields for player-friendly editing and the conversion happens
     // at this boundary. Combat tuning and invincibility live on `Player`
     // (engine-side) so per-player state is engine state, not sandbox state.
+    //
+    // ⛔⛤ **FIELD-CONDITIONAL, AND IT WAS UNCONDITIONAL UNTIL 2026-09-14.** These
+    // three writes fired on EVERY admitted proposal of this domain, whatever the
+    // developer had actually moved. `mirror_player_stats_into_the_inspector`
+    // refreshes only health and max_health from the live body, so the panel's
+    // mana goes stale the moment gameplay spends any:
+    //
+    // ```text
+    //   gameplay spends mana      live 40, inspector still 100
+    //   developer edits max_health only
+    //     → the stats domain becomes pending
+    //     → health is applied  (correctly, conditionally)
+    //     → AND mana is written back to the stale 100
+    //   ⇒ a HEALTH edit refilled mana.
+    // ```
+    //
+    // The same shape applied to `damage_multiplier` against anything else that
+    // legitimately moves it. Found by the GPT architecture review 2026-09-14.
+    //
+    // ⭐ THE SNAPSHOT ALREADY MEANS "what the developer last saw", which is what
+    // the health branch above has always compared against — so the repair is to
+    // give the other two fields the same test rather than to invent a per-field
+    // dirty structure. A field that did not move is not an edit.
+    let user_changed_mana = stats.mana != snapshot.mana || stats.max_mana != snapshot.max_mana;
+    let user_changed_offense = stats.slash_damage != snapshot.slash_damage;
     let max_mana = stats.max_mana.max(0);
     if let Ok((mut mana, mut offense)) = player_q.single_mut() {
-        mana.meter.max = max_mana as f32;
-        mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
-        offense.damage_multiplier = stats.slash_damage.max(1);
+        if user_changed_mana {
+            mana.meter.max = max_mana as f32;
+            mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
+        }
+        if user_changed_offense {
+            offense.damage_multiplier = stats.slash_damage.max(1);
+        }
     }
 
     snapshot.health = stats.health;
@@ -1031,6 +1060,13 @@ pub fn mirror_player_stats_into_the_inspector(
         &ambition_characters::actor::BodyHealth,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    live_q: Query<
+        (
+            &ambition_platformer2d_core::BodyMana,
+            &ambition_platformer2d_core::BodyOffense,
+        ),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
 ) {
     if !snapshot.initialized || pending.is_pending(player_stats_domain()) {
         return;
@@ -1042,6 +1078,21 @@ pub fn mirror_player_stats_into_the_inspector(
     stats.max_health = health.health.max;
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;
+    // ⭐⭐ **AND MANA AND OFFENSE, BECAUSE A HALF-MIRROR IS THE DANGEROUS STATE.**
+    // Mirroring only health left the panel showing a mana the body had long since
+    // spent, and that stale number was what the publisher wrote back on the next
+    // unrelated edit. Mirroring the live values keeps "what the developer last
+    // saw" true for every field this domain publishes — and updating `stats` and
+    // `snapshot` TOGETHER is what stops ordinary gameplay mana consumption from
+    // looking like a proposal.
+    if let Ok((mana, offense)) = live_q.single() {
+        stats.mana = mana.meter.current.round() as i32;
+        stats.max_mana = mana.meter.max.round() as i32;
+        stats.slash_damage = offense.damage_multiplier;
+        snapshot.mana = stats.mana;
+        snapshot.max_mana = stats.max_mana;
+        snapshot.slash_damage = stats.slash_damage;
+    }
 }
 
 /// The editor adapter: push the inspector's live movement edits into the
@@ -1416,6 +1467,210 @@ mod player_stats_domain_tests {
         >();
         let health = query.single(world).expect("the fixture has a player body");
         (health.health.current, health.health.max)
+    }
+
+    fn live_mana_and_offense(app: &mut App) -> (f32, i32) {
+        let world = app.world_mut();
+        let mut query = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyMana,
+            &ambition_platformer2d_core::BodyOffense,
+        ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
+        let (mana, offense) = query.single(world).expect("the fixture has a player body");
+        (mana.meter.current, offense.damage_multiplier)
+    }
+
+    /// ⛔⛤ **EDITING ONE FIELD MUST NOT REPUBLISH THE OTHERS — FOUND BY THE GPT
+    /// ARCHITECTURE REVIEW, 2026-09-14.**
+    ///
+    /// The publisher applied HP conditionally and then wrote mana and
+    /// `damage_multiplier` on EVERY admitted proposal of this domain, whatever the
+    /// developer had moved. The mirror refreshed only health, so the panel's mana
+    /// went stale as soon as gameplay spent any — and that stale number is what
+    /// the next unrelated edit wrote back:
+    ///
+    /// ```text
+    ///   gameplay spends mana       live 31, inspector still says 100
+    ///   developer edits max_health ONLY
+    ///     → health applied, correctly
+    ///     → AND mana written back to 100
+    ///   ⇒ a HEALTH edit refilled mana.
+    /// ```
+    ///
+    /// ⭐ The premise is asserted first: the live mana must actually differ from
+    /// the inspector's when the edit is made, or the arm passes by agreeing with
+    /// itself and says nothing about field granularity.
+    #[test]
+    fn editing_one_stat_leaves_the_others_where_gameplay_put_them() {
+        let mut app = app_with_the_stats_domain();
+
+        // GAMEPLAY spends mana and buffs offense — neither is a developer edit.
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<(
+                &mut ambition_platformer2d_core::BodyMana,
+                &mut ambition_platformer2d_core::BodyOffense,
+            ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
+            let (mut mana, mut offense) = query.single_mut(world).expect("player body");
+            mana.meter.max = 100.0;
+            mana.meter.current = 31.0;
+            offense.damage_multiplier = 7;
+        }
+        // Let the mirror carry that into the panel, so the inspector is telling
+        // the truth before the edit rather than after it.
+        app.update();
+        let (mana_before, offense_before) = live_mana_and_offense(&mut app);
+        assert_eq!(
+            (mana_before, offense_before),
+            (31.0, 7),
+            "gameplay's own writes did not survive a frame, so this fixture is \
+             not exercising the case at all",
+        );
+
+        // ⛔ THE PREMISE, AND IT IS WHAT MAKES THE ARM DISCRIMINATING. Under the
+        // half-mirror the panel never learned these values, so it still held the
+        // editor's DEFAULTS — different numbers from the body's. If the defaults
+        // happened to equal what gameplay wrote, a stale write-back would be
+        // invisible and this arm would pass on the defect.
+        let defaults = EditablePlayerStats::default();
+        assert!(
+            defaults.mana as f32 != mana_before && defaults.slash_damage != offense_before,
+            "the editor's defaults ({}, {}) already equal what gameplay wrote \
+             ({mana_before}, {offense_before}), so writing the panel back over \
+             the body would change nothing and this arm cannot see the defect",
+            defaults.mana,
+            defaults.slash_damage,
+        );
+
+        // Edit ONLY max health. Nothing touches the panel's mana or offense.
+        let seen_before = app.world().resource::<ProposalsSeen>().0;
+        app.world_mut()
+            .resource_mut::<EditablePlayerStats>()
+            .max_health = 9;
+        app.update();
+
+        assert!(
+            app.world().resource::<ProposalsSeen>().0 > seen_before,
+            "the HP edit raised no proposal at all, so the publisher never ran \
+             and the field-granularity claims below are vacuous",
+        );
+        let (_, max_health) = live_health(&mut app);
+        assert_eq!(max_health, 9, "the developer's max-health edit was not applied");
+        let (mana_after, offense_after) = live_mana_and_offense(&mut app);
+        assert_eq!(
+            mana_after, 31.0,
+            "a HEALTH edit refilled mana: the publisher writes this domain's \
+             every field on any admitted proposal, and the panel's value was \
+             stale because the mirror never read mana back",
+        );
+        assert_eq!(
+            offense_after, 7,
+            "a HEALTH edit overwrote the damage multiplier for the same reason",
+        );
+    }
+
+    /// ⛔⛤ **AND THIS IS THE ARM THAT ISOLATES THE PUBLISHER'S HALF — THE OTHER
+    /// ONE CANNOT.** MEASURED 2026-09-14: poisoning the field-conditional publish
+    /// ALONE leaves `editing_one_stat_leaves_the_others_where_gameplay_put_them`
+    /// GREEN, and so does poisoning the half-mirror alone; only both together
+    /// fire it. The two repairs are redundant with respect to that arm, so it
+    /// guards the PAIR and nothing guards either one.
+    ///
+    /// ⭐ **THE CASE THAT SEPARATES THEM IS THE ONE THIS PROTOCOL EXISTS FOR: AN
+    /// EDIT STAGED BEHIND A REFUSAL.** The mirror deliberately does not run while
+    /// the domain is pending — a staged edit must not be overwritten by the body
+    /// — so while a refusal holds, the panel legitimately goes stale against a
+    /// body gameplay keeps moving. When the refusal lifts, an unconditional
+    /// publisher writes that stale mana back over the live value.
+    ///
+    /// ```text
+    ///   developer edits max_health      domain pending
+    ///   timeline says Refuse            publisher declines, mirror stays out
+    ///   gameplay spends mana            live 31, panel frozen at its old value
+    ///   timeline says Publish           → conditional: only max_health lands
+    ///                                   → unconditional: mana snaps back
+    /// ```
+    #[test]
+    fn an_edit_staged_behind_a_refusal_publishes_only_the_field_it_staged() {
+        let mut app = app_with_the_stats_domain();
+        let staged_mana = app.world().resource::<EditablePlayerStats>().mana;
+
+        // The timeline refuses, and the developer edits max health.
+        *app.world_mut().resource_mut::<ae::MechanicalEditAdmission>() =
+            ae::MechanicalEditAdmission::Refuse;
+        app.world_mut()
+            .resource_mut::<EditablePlayerStats>()
+            .max_health = 11;
+        app.update();
+
+        // Gameplay moves mana while the edit waits. The mirror is out because the
+        // domain is pending, so the panel keeps the value it had.
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<
+                &mut ambition_platformer2d_core::BodyMana,
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+            >();
+            let mut mana = query.single_mut(world).expect("player body");
+            mana.meter.max = 100.0;
+            mana.meter.current = 31.0;
+        }
+
+        // ⛔ THE PREMISE: the edit really is still staged, and the panel really
+        // does disagree with the body about mana.
+        assert!(
+            app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(player_stats_domain()),
+            "the refusal did not stage anything, so there is no staged edit to \
+             publish and the assertion below is vacuous",
+        );
+        assert_ne!(
+            staged_mana as f32, 31.0,
+            "the panel already agreed with the body about mana, so an \
+             unconditional write-back would change nothing",
+        );
+
+        // The refusal lifts.
+        *app.world_mut().resource_mut::<ae::MechanicalEditAdmission>() =
+            ae::MechanicalEditAdmission::Publish;
+        app.update();
+
+        let (_, max_health) = live_health(&mut app);
+        assert_eq!(
+            max_health, 11,
+            "the staged max-health edit never landed once the refusal lifted, \
+             which is the whole point of staging it",
+        );
+        let (mana_after, _) = live_mana_and_offense(&mut app);
+        assert_eq!(
+            mana_after, 31.0,
+            "publishing a staged HEALTH edit wrote the panel's frozen mana back \
+             over the value gameplay had reached: the publisher writes every \
+             field of this domain on any admitted proposal",
+        );
+    }
+
+    /// AND THE FIELDS THE DEVELOPER DOES MOVE STILL LAND. The falsifier for a
+    /// repair that simply stopped publishing mana and offense at all.
+    #[test]
+    fn editing_mana_or_offense_alone_still_publishes_that_field() {
+        let mut app = app_with_the_stats_domain();
+        {
+            let mut stats = app.world_mut().resource_mut::<EditablePlayerStats>();
+            stats.max_mana = 80;
+            stats.mana = 55;
+        }
+        app.update();
+        let (mana, _) = live_mana_and_offense(&mut app);
+        assert_eq!(mana, 55.0, "an explicit mana edit did not reach the body");
+
+        {
+            let mut stats = app.world_mut().resource_mut::<EditablePlayerStats>();
+            stats.slash_damage = 4;
+        }
+        app.update();
+        let (_, offense) = live_mana_and_offense(&mut app);
+        assert_eq!(offense, 4, "an explicit offense edit did not reach the body");
     }
 
     /// ⛔⛤ **GAMEPLAY DAMAGE MUST NOT LOOK LIKE A DEVELOPER EDIT — `Q120`,

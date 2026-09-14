@@ -1711,6 +1711,25 @@ infallible. Stronger than another watcher, and it lets future generation
 participants join ONE activation barrier instead of each racing to cancel the
 shell before a schedule phase.
 
+⭐⭐ **AND THE MECHANISM ALREADY EXISTS — FOUND 2026-09-13, SO THIS NEEDS NO NEW
+MACHINERY.** `ShellRouteHolds` is a registry of named holds on a route, and
+`ShellRouter::advance_pending` RETURNS EARLY while a route is held (*"a hold delays
+activation but never suppresses a terminal barrier result"*).
+`ambition_load_presentation::shell_adapter` is the worked precedent: it takes a
+`ShellHoldId` and releases it when its own condition is met.
+
+⇒ **SO THE CONTENT PUBLICATION LEASE IS A HOLD.** Content takes one when it stakes
+a pending generation; the lease system re-checks the boundary and either RELEASES
+(activation may proceed this frame) or CANCELS. **That is the ownership change, not
+another ordering edge:** a route cannot activate without its publication lease being
+affirmed, so the ABSENCE of the content system blocks activation instead of
+permitting it. Today the absence of a CANCEL permits it, which is why ordering is
+all there is.
+
+⚠ The remaining care is the frame the transaction is MINTED: the hold must be
+taken where the transaction is adopted (`adopt_preparation_transaction`), not in
+the lease system, or activation can outrun the first hold.
+
 ⇒ **RUN 2026-09-13, AND IT CONFIRMS THE REVIEW.** The acceptance poison is
 `a_boundary_that_closes_after_the_breaker_still_publishes`: a test-only ownership
 change ordered INTO the interval — after the breaker, before the commit acts on

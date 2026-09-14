@@ -644,14 +644,20 @@ system also performs a continuous `base ∩ mask` reconciliation that is NOT a
 mechanical edit, and the system's own comment records that a naive "only run when
 proposed" gate broke it. The baseline keeps that road working from frame one.
 
-⛔ **THE WITNESS IS STILL OWED, AND THE REVIEW SAID SO FIRST.** It rates this
-*"architectural risk requiring a lifecycle poison; I have not proven the
-problematic no-player/live-timeline interval occurs in shipped gameplay"* — and
-that poison is not written. What exists is the structure plus the three
-`live_refresh` arms that already covered the projection. ⇒ The arm this needs:
-propose an ability edit with NO primary player, assert the domain DRAINED and the
-mask holds the value, then spawn a body and assert it projects. Until that is
-written, this row is a refactor with a stated motive, not a measured repair.
+✅ **AND THE WITNESS LANDED THE SAME DAY** —
+`an_ability_edit_is_admitted_with_no_player_to_project_onto`. The fixture has **NO
+PLAYER AT ALL**, which is the point: the projection half is already covered by the
+three `avatar::starting_character::tests::live_refresh` arms, and an arm that
+spawned a body could not witness this at all. It asserts the domain DRAINED and
+that the mask holds the proposed value, with the premise checked first (the
+proposed mask must differ from the default, or the arm holds whether or not
+anything was admitted). Poison-verified by moving admission back below the player
+guard.
+
+⭐ Its falsifier is beside it —
+`a_refused_ability_edit_stays_pending_and_admits_nothing` — for a repair that
+simply drained the domain unconditionally once it stopped asking for a body. A
+refusal that drains is a front door the unadmitted value walks through.
 
 ## ✅ THE STATS DOMAIN PUBLISHED FIELDS NOBODY EDITED — FIXED 2026-09-14
 

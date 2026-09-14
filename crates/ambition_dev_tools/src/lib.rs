@@ -360,6 +360,105 @@ pub fn force_combat_overlay(
 }
 
 #[cfg(test)]
+mod ability_admission_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// ⛔⛤ **ADMISSION MUST NOT DEPEND ON THERE BEING A BODY TO WEAR THE RESULT.**
+    ///
+    /// `sync_live_player_dev_edits_system` used to decide admission BELOW its
+    /// `player_q.single_mut()` guard, so an ability edit proposed while the
+    /// primary player was momentarily absent stayed pending — re-entering the
+    /// admission/rebase decision every frame until a body appeared. The edit was
+    /// never lost, which is exactly why it survived: what it cost is that *"was
+    /// this admitted?"* depended on *"is there something to apply it to?"*.
+    ///
+    /// ⭐ The fixture has NO PLAYER AT ALL, which is the point — the projection
+    /// half is covered by `avatar::starting_character::tests::live_refresh`, and
+    /// an arm that spawned a body could not witness this at all.
+    #[test]
+    fn an_ability_edit_is_admitted_with_no_player_to_project_onto() {
+        let mut app = App::new();
+        app.init_resource::<ActiveMovementTuning>();
+        app.init_resource::<EditableAbilitySet>();
+        app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+        app.add_systems(Update, sync_live_player_dev_edits_system);
+
+        // A mask that differs from the default, so "it arrived" is a real
+        // difference rather than two defaults agreeing.
+        let default_mask = EditableAbilitySet::default();
+        {
+            let mut editable = app.world_mut().resource_mut::<EditableAbilitySet>();
+            editable.double_jump = !default_mask.double_jump;
+        }
+        let proposed = app.world().resource::<EditableAbilitySet>().as_engine();
+        assert_ne!(
+            proposed,
+            default_mask.as_engine(),
+            "the fixture proposed the default mask, so the assertion below would \
+             hold whether or not anything was admitted",
+        );
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+            .propose(ability_set_domain());
+
+        app.update();
+
+        assert!(
+            !app.world()
+                .resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .is_pending(ability_set_domain()),
+            "the proposal is STILL pending with no player in the world, so it \
+             re-enters the admission/rebase decision on every frame until a body \
+             happens to exist",
+        );
+        assert_eq!(
+            app.world()
+                .resource::<dev_tools::ActiveEditableAbilityMask>()
+                .0,
+            Some(proposed),
+            "nothing recorded WHAT was admitted, so a body built later projects \
+             whatever the editor panel holds at that moment instead",
+        );
+    }
+
+    /// AND A REFUSED EDIT IS NOT ADMITTED. The falsifier for a repair that simply
+    /// drained the domain unconditionally once it stopped asking for a body.
+    #[test]
+    fn a_refused_ability_edit_stays_pending_and_admits_nothing() {
+        let mut app = App::new();
+        app.init_resource::<ActiveMovementTuning>();
+        app.init_resource::<EditableAbilitySet>();
+        app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Refuse);
+        app.add_systems(Update, sync_live_player_dev_edits_system);
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
+            .propose(ability_set_domain());
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .is_pending(ability_set_domain()),
+            "a REFUSED edit was drained: the refusal became a front door the \
+             unadmitted value walks through",
+        );
+        assert_eq!(
+            app.world()
+                .resource::<dev_tools::ActiveEditableAbilityMask>()
+                .0,
+            None,
+            "a refused edit was recorded as the admitted mask",
+        );
+    }
+}
+
+#[cfg(test)]
 mod developer_runtime_state_tests {
     use super::*;
 

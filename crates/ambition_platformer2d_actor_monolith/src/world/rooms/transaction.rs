@@ -748,32 +748,24 @@ fn verify_and_publish(
     //
     // ⛔ THE OLD REFUSAL MESSAGE SAID WHAT THIS DELETES: *"The world has already
     // been mutated and cannot be rolled back."* It can now: a refused room is
-    // DROPPED.
+    // DROPPED, and so is the world it staged.
     //
-    // ⛔⛤ **THIS IS NOT THE LAST-GOOD-WORLD GUARANTEE, AND THE DIFFERENCE IS NOT
-    // "ONE ORDERING" — THAT SENTENCE STOOD HERE AND WAS FALSE.** It said moving
-    // `retire_outgoing` after this point was the remaining step. Two reviews
-    // (2026-09-13) measured otherwise, and this comment sits exactly where an
-    // implementation agent will work, so it is more dangerous than stale prose
-    // elsewhere.
+    // ⛔⛤ **THIS COMMENT USED TO SAY "THIS IS NOT THE LAST-GOOD-WORLD GUARANTEE"
+    // AND LIST FOUR THINGS PUBLISHED BEFORE THE VERDICT. ALL FOUR ARE CLOSED —
+    // 2026-09-14.** They were: `commit_deferred` writing `RoomSet`,
+    // `RoomGeometry` and the platform state; `replace_live_world` retiring the
+    // OUTGOING room first; the hot-reload caller advancing the session's content
+    // generation afterwards; and a verifier with no way to validate N+1 while
+    // intentionally RETAINING N. In order: `PendingWorldReplacement` stages all
+    // of the first, the sweep moved inside `apply_world_replacement`,
+    // `room_publication_succeeded` gates the third, and `superseding` plus
+    // `verify_projected_roster` answer the fourth.
     //
-    // ⇒ **HIDDEN ENTITIES ARE NOT A CANDIDATE WORLD.** What is still published
-    // before this verification runs:
-    //   * `commit_deferred` writes `RoomSet`, `RoomGeometry` and the
-    //     moving-platform state — none of them entities, none of them bracketed;
-    //   * `replace_live_world` retires the OUTGOING room first, so a refusal
-    //     leaves the session with no room rather than with its previous one;
-    //   * the hot-reload caller then queues `ActiveContentBinding`, transits the
-    //     player, resets movement/combat and replaces `ldtk_index` /
-    //     `prepared_identity` / `prepared_content` — **none of which receives the
-    //     verdict computed here**;
-    //   * and the verifier has no way to validate N+1 *while intentionally
-    //     retaining N*: it calls the coexistence an accidental duplicate.
-    //
-    // ⇒ What the bracket buys TODAY is narrower and still worth having: a refused
-    // room leaves no debris — no half-built scene standing beside a world that
-    // never accepted it. The rest is a candidate WORLD/SESSION transaction; see
-    // `docs/planning/queue.md`'s A10 rows, which carry the packet order.
+    // ⚠ **WHAT IS STILL OUTSIDE THE VERDICT IS NAMED IN `docs/planning/queue.md`'s
+    // A10 row** — the hot reload's own body transit and its presentation spawns,
+    // and the whole SESSION scope, which is a different transaction. Do not read
+    // the absence of a warning here as their absence.
+
     // ⛔ EVERY LANE'S TRANSACTION, not just the actor lane's — see
     // `construction_transactions`, and the measurement that corrected me.
     let transactions = plan.construction_transactions(session);

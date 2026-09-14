@@ -346,18 +346,22 @@ impl RoomConstructionPlan {
         // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
         // (the production verdict).
         //
-        // ⚠ It cost nothing visible, which is the only reason it survived that
-        // long: a refusal then suppressed `RoomLoaded` and that message has no
-        // production reader. Under this bracket it would have dropped the whole
-        // room and landed every hot reload in an EMPTY WORLD.
+        // ⚠ It cost ALMOST nothing visible, which is why it survived that long —
+        // and the "no production reader" half of that sentence was WRONG.
+        // MEASURED 2026-09-14: `RoomLoaded` has three production readers through
+        // `ambition_combat::events::FreshAttempt`, so a refusal also left staged
+        // hits unvoided and per-attempt state un-re-armed. Both are the right
+        // outcome (no attempt began), which is why nobody noticed. Under this
+        // bracket it would have dropped the whole room and landed every hot
+        // reload in an EMPTY WORLD.
         //
-        // ⛔ **WHAT THE BRACKET DOES NOT YET BUY IS THE WHOLE A10 GUARANTEE.**
-        // `replace_live_world` still retires the OUTGOING room and writes
-        // `RoomSet` / `RoomGeometry` / the platform state BEFORE any of this
-        // runs, so a refusal leaves the session with no room rather than with its
-        // previous one. That is candidate-owned STATE rather than entities, and
-        // it is the next A10 milestone — see `replace_live_world`'s own doc and
-        // `docs/planning/queue.md`.
+        // ✅ **AND THE BRACKET NOW BUYS THE WHOLE ROOM-SCOPE GUARANTEE.** This
+        // paragraph read *"`replace_live_world` still retires the OUTGOING room
+        // and writes `RoomSet` / `RoomGeometry` / the platform state BEFORE any of
+        // this runs"*. It stages all of it now — see `PendingWorldReplacement` —
+        // and a refusal leaves the session with the room it was already playing.
+        // ⚠ The SESSION scope is a different transaction and is not started; see
+        // `docs/planning/queue.md`'s A10 row for what each half covers.
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,

@@ -2469,7 +2469,27 @@ the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
 
-## ✅ Q121 — BOTH HALVES CLOSED 2026-09-13. The freeze took the wrong generation, then had the wrong lifetime; the mechanism landed and the WITNESS was what remained.
+## ⚠ Q121 — MECHANISM CLOSED, WITNESS COVERAGE PARTIAL 2026-09-13. "Both halves closed" overstated it; `queue.md`'s "remaining owed arm" was the accurate status.
+
+⛔ **CLOSURE VOCABULARY, because one word covered four different states** (review,
+2026-09-13):
+
+| | state |
+| --- | --- |
+| mechanism implemented | ✅ `SessionMechanics` + `GenerationMechanics`, every world-building road reads it, absence is a refusal |
+| DOOR reconstruction witnessed | ✅ poison-verified end to end |
+| DEATH reconstruction witnessed | ✅ poison-verified, and the anti-vacuity correction is recorded below |
+| NEW GAME reset witnessed | ✅ landed the same day the row was corrected |
+
+⇒ The last row is why this heading changed, and it is closed now:
+`a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app` drives the
+real `NewGameResetRequested` → `process_new_game_reset_request` road and asserts
+over bodies THAT RESET REBUILT — not preexisting survivors, which is the vacuity
+the death arm had to be repaired for.
+⭐⭐ **AND THE THREE ARMS ARE MEASURED TO COVER THREE DISTINCT ROADS WITH NO
+OVERLAP**, which is what makes them a coverage claim rather than three copies of
+one: the transition-resolver poison reddens the door and death arms and NOT the
+reset arm; the reset-resolver poison reddens the reset arm and NOT the other two.
 
 ⛔⛤ **THE CLOSURE BELOW WAS WRITTEN ABOUT THE STRUCTURE AND THE STRUCTURE WAS
 RIGHT. THE VALUE WAS NOT.** A review of `bdbddfe` measured the dataflow the

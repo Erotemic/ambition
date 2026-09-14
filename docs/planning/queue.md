@@ -155,7 +155,14 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   makes transaction provenance more central**, which is the review's own
   sequencing.
 
-- **`Q121`'s remaining owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
+- ✅ **`Q121`'s OWED ARMS ARE ALL IN AS OF 2026-09-13 — three roads, three arms,
+  measured not to overlap.** The transition-resolver poison reddens the DOOR and
+  DEATH arms and not the RESET arm; the reset-resolver poison reddens the reset arm
+  and not the other two. That separation is what makes the set a coverage claim
+  rather than three copies of one, and it is how "a death routes through the
+  transition road" stopped being an assumption. **The paragraph below is the
+  RECONNAISSANCE that produced them and is kept for that, not as current status.**
+- **`Q121`'s formerly owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
   rather than assumed: poisoning the freeze back to the App registry leaves
   `edit_to_play_through_the_shell` GREEN, because on that road
   `commit_content_generation` publishes N+1 BEFORE the providers run, so the two

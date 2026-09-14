@@ -488,21 +488,29 @@ word of that is true, and it is an argument about **ONE App rewinding itself**. 
 says nothing about **TWO Apps agreeing**, which is the question a checksum asks.
 A waiver justified against one failure mode reads as a clearance for the other.
 
-⭐ **AND THE REPAIR LOOKS CHEAP, BECAUSE NOTHING READS THE VALUE.**
+⭐ **NOTHING READS THE VALUE, WHICH IS WHAT MAKES A REPAIR POSSIBLE.**
 `MatchInstance` is `PartialEq + Hash` and its only uses are EQUALITY —
 `MatchScoped::belongs_to` asks *"is this object's match the active one"*, and the
 settlement resources use it so *"stale state fails identity match"*
-(`seating.rs`'s own words). No system reads the integer. So the identity needs to
-be DISTINCT BETWEEN MATCHES and AGREED BETWEEN PEERS, and the local activation
-count supplies only the first. `activated_on` (the simulation tick) already
-supplies both.
+(`crates/ambition_match/src/seating.rs`'s own words). No system reads the integer.
+So the identity needs exactly two properties: **DISTINCT BETWEEN MATCHES** and
+**AGREED BETWEEN PEERS**, and the local activation count supplies only the first.
 
-⇒ **OPEN, NOT RULED.** The candidates are: drop `session` from `MatchInstance`
-and key on the activation tick alone; or derive the session identity from
-something both peers share, the way `TransactionId` is `binding ⊗ room ⊗ session`.
-Deciding between them needs to know whether two matches can activate on the same
-tick in different sessions, which is a question about the shell's activation
-lifecycle and has not been measured.
+⛔⛤ **AND THE CHEAP REPAIR IS REFUTED — BY A TEST THAT ALREADY EXISTS.** My first
+reading was *"drop `session` and key on the activation tick alone"*.
+`match_scoped_identity_is_session_and_tick_together`
+(`crates/ambition_match/src/seating.rs:248`) is the answer, and its doc states the
+reason outright: *"A NEW SESSION IS A NEW MATCH EVEN AT THE SAME ACTIVATION TICK …
+anything comparing only the tick would keep the previous session's objects
+whenever the clocks lined up — **which they do, because a fresh session starts its
+clock at zero**."* ⇒ The tick is not distinct between matches. `session` is
+load-bearing and cannot be deleted.
+
+⇒ **SO THE RULING NARROWS TO ONE SHAPE**: keep the session term and make it agreed
+between peers rather than counted locally — the `TransactionId` pattern
+(`binding ⊗ room ⊗ session`) applied to match identity. What it must be derived
+from is the open part; the candidate both peers demonstrably share is the rollback
+SESSION's own identity, not the App's activation history.
 
 ⛔ **THE POISON THIS NEEDS IS A TWO-APP ONE, and that is why it is not closed
 here.** A single-App test cannot express the defect at all: one App has one

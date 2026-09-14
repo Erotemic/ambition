@@ -453,6 +453,65 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
 
+## ⛔⛤ `SessionScopeId` — A HOST-LOCAL COUNTER IS ON THE ROLLBACK WIRE, MEASURED 2026-09-13
+
+**The architecture review's priority 3 ("canonical local-lineage campaign"),
+reproduced and narrowed to one verified chain.** Every link read by hand:
+
+```text
+ActiveSessionScope::begin()                shared_tangle/src/lifecycle/session.rs:43
+  -> SessionScopeId(self.next_raw); next_raw += 1     A PER-APP MONOTONIC COUNTER
+  called from translate_shell_session_lifecycle       game_shell/src/session.rs:608
+MatchInstance { session: Option<SessionScopeId>, activated_on }   match/src/seating.rs
+ActiveMatch { …, session: Option<SessionScopeId>, … }            match/src/seating.rs:49
+  encode: put_u64(out, session.0)                     match/src/snapshot_impls.rs:44
+  registered: rollback_resource_optional_canonical::<ActiveMatch>
+                          actor_monolith/src/rollback_registration.rs:106
+```
+
+⛔⛔ **SO THE NUMBER OF SESSIONS **THIS MACHINE** HAS ACTIVATED IS ENCODED INTO
+CANONICAL ROLLBACK STATE AND THEREFORE INTO THE CHECKSUM.** Two peers whose Apps
+have different activation histories — one played a match, returned to the menu,
+and joined again; the other launched straight into the lobby — mint different
+`SessionScopeId`s for the SAME match. `StocksMatchSettled` and
+`SuddenDeathEntered` are `rollback_resource_canonical` and hold `MatchInstance`
+too (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:114`
+and `:121`), and `MatchScoped` is registered as a component
+(`crates/ambition_platformer2d_runtime/src/rollback/registry.rs:254`, v163).
+⇒ Four canonical carriers, one host-local value.
+
+⭐⭐ **THE EXISTING WAIVER IS NOT WRONG — ITS SCOPE PHRASE IS.**
+`rollback_coverage.rs` waives `ActiveSessionScope` with a carefully argued case:
+its sole writer is registered in **literal `Update`**, so *"a rewind cannot re-run
+it, so the allocator cannot mint differently on a resimulated timeline"*. Every
+word of that is true, and it is an argument about **ONE App rewinding itself**. It
+says nothing about **TWO Apps agreeing**, which is the question a checksum asks.
+A waiver justified against one failure mode reads as a clearance for the other.
+
+⭐ **AND THE REPAIR LOOKS CHEAP, BECAUSE NOTHING READS THE VALUE.**
+`MatchInstance` is `PartialEq + Hash` and its only uses are EQUALITY —
+`MatchScoped::belongs_to` asks *"is this object's match the active one"*, and the
+settlement resources use it so *"stale state fails identity match"*
+(`seating.rs`'s own words). No system reads the integer. So the identity needs to
+be DISTINCT BETWEEN MATCHES and AGREED BETWEEN PEERS, and the local activation
+count supplies only the first. `activated_on` (the simulation tick) already
+supplies both.
+
+⇒ **OPEN, NOT RULED.** The candidates are: drop `session` from `MatchInstance`
+and key on the activation tick alone; or derive the session identity from
+something both peers share, the way `TransactionId` is `binding ⊗ room ⊗ session`.
+Deciding between them needs to know whether two matches can activate on the same
+tick in different sessions, which is a question about the shell's activation
+lifecycle and has not been measured.
+
+⛔ **THE POISON THIS NEEDS IS A TWO-APP ONE, and that is why it is not closed
+here.** A single-App test cannot express the defect at all: one App has one
+counter and always agrees with itself, which is exactly why every existing arm is
+green. The witness is two Apps whose `ActiveSessionScope` has been advanced a
+different number of times, activating the same match, and comparing the canonical
+checksum — the arm's premise must assert the two counters actually differ, or it
+certifies nothing.
+
 ## ⛔⛤ A10 IS BLOCKED ONE LAYER BELOW CONSTRUCTION — THE DEEPER REVIEW, 2026-09-13
 
 **The engine has no state representation for "live N plus candidate N+1."** That

@@ -367,3 +367,47 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         "N survived the refusal and the body cannot move in it"
     );
 }
+
+/// ⛔⛤ **A10'S CONTROL IN THE SHIPPED COMPOSITION: THE FIRST ROOM PUBLISHES.**
+///
+/// `ROOM_CANDIDATE_BRACKET` is `true`, so every room root is minted hidden and a
+/// refused room is DROPPED. The refusal arm above proves that costs the running
+/// world nothing — but a bracket that refused EVERY room would satisfy it just as
+/// well, and the player would boot into an empty start room.
+///
+/// ⚠ **THE SESSION'S OWN FIRST ROOM IS THE ONE WITH NO OTHER WITNESS.** Activation
+/// queues its room build BEFORE it spawns the session root, so it commits through
+/// `spawn_contents` and stages no world — which means `apply_world_replacement`'s
+/// fail-closed check never sees it, and a refusal there is not caught by any of
+/// the staged-world arms. This asks the production verdict directly.
+///
+/// ⭐ It also names WHICH room, so a verdict left over from some other transaction
+/// cannot stand in for the start room's.
+#[test]
+fn the_shipped_apps_own_first_room_publishes() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let room = active_room(&mut sim);
+    let verification = sim
+        .world_mut()
+        .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .cloned()
+        .expect("booting the shipped app runs a room construction transaction");
+    assert_eq!(
+        verification.room_id, room,
+        "the last verdict is not the start room's, so this arm is reading \
+         somebody else's transaction: {verification:?}"
+    );
+    assert!(
+        verification.published,
+        "⛔ THE SHIPPED APP BOOTS INTO A REFUSED ROOM. Under the candidate \
+         bracket its roots are dropped, so the player is standing in an empty \
+         world: {verification:?}"
+    );
+    assert!(
+        !live_roster(&mut sim).is_empty(),
+        "the start room published and holds no authoritative identities at all"
+    );
+}

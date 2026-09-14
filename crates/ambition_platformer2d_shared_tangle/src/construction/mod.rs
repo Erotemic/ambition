@@ -2895,7 +2895,9 @@ impl AuthoritativeScope {
         // — *"the roots most worth catching are the ones nobody thought to
         // list"*. I could not build a candidate-internal case of that, because a
         // recipe-spawned stray is not stamped and so is visible anyway (see
-        // `a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`).
+        // `an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation`
+        // — this comment cited a name that has never existed since the arm was
+        // renamed, which the citation gate does not see because it reads `docs/`).
         // ⚠ It stays because a scope that cannot see what it is scoping is wrong
         // on its face; it is documented as unproven rather than asserted.
         let mut query = world.query_filtered::<(

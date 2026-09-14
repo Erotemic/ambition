@@ -146,12 +146,6 @@ pub struct RoomTransitionApplication<'w, 's> {
     >,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
     clock: RoomClock<'w>,
-    /// ⚠ HELD, NOT WRITTEN. The room's platform state is published by the room
-    /// transaction's verdict now (`PendingWorldReplacement`); this stays so the
-    /// transition still takes the same exclusive access it always did and cannot
-    /// be scheduled concurrently with a system that writes platforms.
-    #[allow(dead_code)]
-    moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
     // RESIDENTS, not merely room-scoped. An object a body is carrying is

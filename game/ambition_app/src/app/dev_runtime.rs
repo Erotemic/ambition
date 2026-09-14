@@ -86,11 +86,6 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
         Res<physics::PhysicsSandboxSettings>,
     ),
-    // ⚠ HELD, NOT WRITTEN — the room's platform state is published by the room
-    // transaction's verdict now. Kept so a hot reload still takes the same
-    // exclusive access and cannot be scheduled beside a platform writer.
-    #[allow(unused_variables)]
-    platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
     // RESIDENTS of the room being replaced — an object in a body's custody rides
     // the reload with its holder, exactly as it rides a room transition. See
     // `RoomResident`.

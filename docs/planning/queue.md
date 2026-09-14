@@ -1906,6 +1906,26 @@ is already pinned (`RoomLoaded` is written exactly once on admission and never o
 refusal, both arms), and *"this message has N readers"* is a population count that
 rots in the other direction.
 
+✅ **AND THE CONTROL: THE SHIPPED APP'S OWN FIRST ROOM PUBLISHES.**
+`the_shipped_apps_own_first_room_publishes`. Every arm above says what a REFUSAL
+costs; a bracket that refused EVERY room would satisfy all of them, and the player
+would boot into an empty start room. ⚠ The session's first room is the one with no
+other witness — activation queues its room build BEFORE it spawns the session
+root, so it commits through `spawn_contents`, stages no world, and never reaches
+the fail-closed check. This asks the production verdict directly, names WHICH room
+it is about, and asserts the published roster is non-empty. Poison-verified:
+forcing `published = false` reddens it with
+`room_id: "central_hub_complex", violations: []` — a refusal with nothing wrong,
+which is exactly the shape a broken bracket would produce.
+
+⚠ **AND TWO FALSE EXCLUSIVITY CLAIMS ARE DELETED.** `room_transition/commit.rs`
+and `dev_runtime.rs` each kept a `ResMut<MovingPlatformSet>` with a doc saying it
+was *"held, not written … so the transition still takes the same exclusive access
+it always did"*. The staged write happens at a command flush, which is exclusive
+world access already, so the hold bought nothing and cost the scheduler a
+parallelism edge. A parameter kept for a reason that is not true is a claim the
+next reader has to disprove.
+
 **ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
 because this verifier passes its own arms. It is closed when PRODUCTION
 COMPOSITION demonstrates both halves.

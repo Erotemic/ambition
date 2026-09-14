@@ -370,12 +370,17 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // `SessionScopeSet::Cleanup`, so the incoming room's transaction captured a
     // baseline that still held all 18 of the outgoing scope's placements.
     //
-    // ⚠ **IT COST NOTHING VISIBLE, WHICH IS THE ONLY REASON IT SURVIVED.** A
-    // refusal today suppresses the `RoomLoaded` message and `RoomLoaded` has no
-    // production reader. Under A10's candidate bracket the same refusal drops
-    // every root, so a hot reload would land the player in an EMPTY WORLD — and
-    // that is what this arm is here to keep from coming back. It asks the
-    // production verdict, not the schedule; the schedule is asked separately by
+    // ⚠ **IT COST ALMOST NOTHING VISIBLE, WHICH IS THE ONLY REASON IT SURVIVED —
+    // AND THE "NO PRODUCTION READER" HALF OF THAT WAS WRONG, CORRECTED
+    // 2026-09-14.** `RoomLoaded` has three production readers, all through
+    // `ambition_combat::events::FreshAttempt`, so a refusal also left staged hits
+    // unvoided and per-attempt state un-re-armed. Both are the right outcome (no
+    // attempt began), which is why nobody noticed.
+    //
+    // ⛔ **AND SINCE `ROOM_CANDIDATE_BRACKET` WENT `true` THE SAME REFUSAL DROPS
+    // EVERY ROOT**, so this reload would land the player in an EMPTY WORLD. That
+    // is no longer a future tense: it is what this arm keeps from coming back. It
+    // asks the production verdict, not the schedule; the schedule is asked by
     // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`.
     let verification = app
         .world()
@@ -383,7 +388,9 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         .clone();
     assert!(
         verification.published,
-        "the room the reload rebuilt (`{}`) was REFUSED with {} violation(s):          {:?}. Today that only suppresses `RoomLoaded`; under the candidate          bracket it drops the whole room and the reload lands in an empty world.",
+        "the room the reload rebuilt (`{}`) was REFUSED with {} violation(s): {:?}. \
+         Under the candidate bracket that drops the whole room, so the reload \
+         lands the player in an empty world.",
         verification.room_id,
         verification.violations.len(),
         verification.violations,

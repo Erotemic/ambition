@@ -1607,6 +1607,31 @@ different systems. At the moment the room transaction VERIFIES, both exist —
 `Duplicated` + `PlannedOverBaseline`. Both are correct answers to the question
 that verifier asks.
 
+⛔⛤ **AND THE SOURCE COMMENT'S ACCOUNT OF THE FAILURE IS STALE — RE-DERIVED AT
+HEAD 2026-09-14 BY FLIPPING THE FLAG AND RESTORING IT (md5-verified).** With
+`ROOM_CANDIDATE_BRACKET = true`, `death_restores_the_checkpoint` fails **2 of 11**
+— `a_death_returns_what_was_not_banked_and_keeps_what_was` and
+`a_refused_reset_changes_no_domain_state_and_is_not_lost` — and the assertion is
+NOT the `Duplicated` the source records:
+
+```text
+exactly one occurrence must carry `placement:ground_gun_sword`; found []
+```
+
+**ZERO occupants, not two.** The object ends up NOWHERE. And no construction
+violation is printed on that road at all (the refusal path logs through
+`bevy::log::error!`, which this harness does not surface, so *"no violations
+printed"* is NOT evidence the transaction published — that is the next thing to
+measure, by reading `LastConstructionVerification` rather than the log).
+
+⇒ **THE SHAPE THAT FITS `found []` IS TWO BASELINES FOR ONE DECISION.** The room
+plan is prepared against a ledger whose row says `InCustody → Suppressed` (do not
+author it), while `restore_custody_to_checkpoint` reads the CHECKPOINT's custody
+baseline, sees the item was NOT held at the checkpoint, and despawns it so the
+rebuild can author it. Each is right about its own question; together they can
+suppress the authoring AND retract the carried one. ⚠ **REASONED, NOT MEASURED** —
+the confirming measurement is `LastConstructionVerification` on that frame.
+
 ⇒ **AND THE PROJECTED VERIFIER IS THE QUESTION THAT ADMITS IT.** *"What would the
 roster be if this published?"* — with the room transaction declaring
 `superseding(live carried occurrence, candidate placement)`, the live one is not

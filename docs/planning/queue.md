@@ -400,6 +400,47 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   content commit be infallible. That is stronger than another watcher and lets
   future generation participants join ONE activation barrier instead of each
   racing to cancel the shell.
+  ⚖ **RULED 2026-09-14 BY REVIEW, AND IT NEEDS NO MAINTAINER DECISION: USE
+  `ShellRouteHolds`.** `ShellRouter::advance_pending` already will not activate a
+  held route, so the activation barrier exists — do NOT add another watcher and do
+  NOT invent a second barrier.
+
+  ⛔⛤ **AND DO NOT COPY `ambition_load_presentation::shell_adapter`'S CONSTANT HOLD
+  ID.** `ShellRouteHolds` is keyed `route → set<hold id>`, and content reloads
+  operate on the SAME route over and over — commonly `game`. A constant
+  `ShellHoldId("content-publication")` makes transaction A and its successor B
+  indistinguishable to cleanup:
+
+```text
+  A holds route `game`
+  B supersedes A on the same route
+  A's delayed terminal cleanup arrives
+  ⇒ it releases B's hold           (a stale event frees a live transaction)
+  or, the other way, a leaked A hold blocks every future reload of `game`.
+```
+
+  ⭐ **THE TRANSACTION ALREADY HAS EXACT IDENTITY**: `PendingGeneration` carries
+  the caller-minted `ShellRequestId`, the route, and the adopted `LoadId` once
+  available, and `ShellEvent::TransactionEnded` carries the correlated
+  request/barrier identity. ⇒ `ShellHoldId("content-publication:<request-id>")`,
+  or a typed equivalent.
+
+  ⇒ **THE LIFECYCLE, in full**: at adoption take the hold for THAT pending shell
+  transaction; while pending, a valid boundary releases that exact hold and an
+  invalid one issues that exact correlated cancellation; and every terminal path —
+  success, failure, cancel, **supersede** — removes that transaction's hold.
+
+  ⛔ **THE POISONS THIS NEEDS** (the first is the one the constant id fails):
+  A holds `game`, B supersedes A on the same route, A's delayed terminal cleanup
+  runs, **B must still be held**. Then: a cancellation cannot leak a hold; a
+  failure cannot leak a hold; a successful activation leaves none behind; and a
+  later reload of the same route is never blocked by an old transaction.
+
+  ⚠ **THE PARKED WIP IS HALF-WIRED AND WOULD HANG EVERY RELOAD** — the hold is
+  taken in `adopt_preparation_transaction` via `take_the_publication_lease` and
+  `release_the_publication_lease` is written but never CALLED. It also uses a
+  constant id, so it is the wrong shape as well as incomplete.
+
   ⇒ **THE ACCEPTANCE POISON WAS RUN 2026-09-13 AND THE INTERVAL IS REAL.**
   `a_boundary_that_closes_after_the_breaker_still_publishes` orders an ownership
   change INTO the interval — after the breaker, before the commit acts on

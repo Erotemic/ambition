@@ -87,6 +87,11 @@ impl Plugin for DevToolsSimPlugin {
         // publisher, mirror) — and as a `Local` inside the sim schedule it
         // advanced once per ADVANCE, resimulations included.
         app.init_resource::<crate::dev_tools::PlayerStatsSyncSnapshot>();
+        // ⛔ THE ADMITTED BODY PROFILE, which outlives every body that wears it.
+        // See `ActivePlayerBodyProfile`: admitting a value and projecting it onto
+        // a target are different jobs, and collapsing them lost edits made while
+        // no player existed.
+        app.init_resource::<crate::dev_tools::ActivePlayerBodyProfile>();
         app.configure_sets(
             bevy::app::PreUpdate,
             (
@@ -146,6 +151,18 @@ impl Plugin for DevToolsSimPlugin {
         // in the actor kernel's `cleanup_timers_system`, which is a simulation
         // package winding down a developer timer — and the only thing that kept
         // a `ResMut<DeveloperRuntimeState>` in the kernel's control module.
+        // ⛔⛤ **THE PROJECTION STAYS IN THE SIM SCHEDULE AND THAT IS CORRECT.** It
+        // writes no mechanical DECISION — it copies an already-admitted value onto
+        // a body — so it is reconciliation, the same class as
+        // `sync_live_player_dev_edits_system`'s ability refresh. What had to leave
+        // `GgrsSchedule` was the read of a live EDITOR resource, and that is now
+        // upstream in `MechanicalEditSet::Publish`.
+        //
+        // ⚠ And it has to be here rather than in `PreUpdate`: a body rebuilt by a
+        // reset or a room load appears DURING the simulation, and a projection
+        // that only ran before the advance would leave it wearing engine defaults
+        // for a frame.
+        app.add_systems(sim, crate::dev_tools::project_developer_body_profile);
         app.add_systems(sim, crate::decay_developer_presentation_flash);
         // ⭐ AND THE SLOW-MOTION REQUEST, for the same reason: the toggle is this
         // crate's, so the ASK is this crate's. It was rung 4 of the actor

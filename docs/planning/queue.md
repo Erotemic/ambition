@@ -73,6 +73,37 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
 
 **⛔ STILL OPEN AT THE TOP OF THE ORDER:**
 
+- ⛔⛤ **`UserSettings` IS A LIVE MECHANICAL AUTHORITY INSIDE ROLLBACK SIMULATION,
+  AND IT IS A BIGGER `Q120` THAN THE DEVELOPER EDITORS WERE — REVIEW 2026-09-13,
+  CONFIRMED FOR THE PORTAL FIELD AND OWED AN AUDIT FOR THE REST.**
+  `rollback_coverage.rs` waives it as *"user settings, forward-only"*, which is
+  the same classification mistake `Q119` already ruled is not a category. Its
+  `GameplaySettings` carries `difficulty`, `assist`, `player_damage_multiplier`,
+  `portal_reverses_facing`, `movement_frame_mode`, `aim_frame_mode` and
+  `camera_reference_frame`, the settings menu mutates them at runtime, and
+  deterministic simulation READS them: `ambition_damage`'s
+  `incoming_player_damage_multiplier`, the projectile and melee damage roads'
+  `player_damage_multiplier`, and `derive_slot_direction_gestures`'s
+  `resolved_movement_frame_mode()`.
+  ⇒ *"What value will a replay of frame N observe?"* is answered *"whatever the
+  settings menu says now."*
+  ✅ **ONE FIELD IS FIXED** — `portal_reverses_facing`; see the portal row below.
+  The rest is an audit, and it is the review's priority 1.
+  ⭐ **THE SPLIT IS NOT UNIFORM AND THAT IS THE POINT:**
+  · **local input interpretation** (movement/aim/camera frame) should be applied
+    at the INPUT-CAPTURE boundary, so deterministic simulation consumes already
+    resolved semantic intent rather than a live preference — peers must not have
+    to share accessibility settings;
+  · **game-mechanical policy** (difficulty, assist, damage scaling) needs a
+    deterministic session/match projection;
+  · **presentation** stays ordinary mutable `UserSettings`.
+  ⚠ **AND ONE PRODUCT QUESTION REMAINS JON'S:** are difficulty/assist/damage
+  modifiers MATCH-WIDE rules or PARTICIPANT-SPECIFIC accessibility policy? Both
+  are architecturally viable — match-wide means freezing them into session
+  mechanics, participant-specific means deterministic participant state — and
+  **neither permits an App-local persisted resource read during historical
+  simulation.**
+
 - ⛔⛤ **HOST-LOCAL LINEAGE COUNTERS ARE INSIDE CANONICAL ROLLBACK STATE — NAMED BY
   REVIEW 2026-09-13, CONFIRMED AT SOURCE, AND RECORDED AS AN ARM.** The rule this
   breaks is the project's own: *mechanically equivalent rollback worlds need

@@ -624,17 +624,39 @@ pub fn propose_developer_body_profile(
     pending.propose(BODY_PROFILE);
 }
 
+/// The body profile this session has ADMITTED, independent of whether a body
+/// exists to wear it.
+///
+/// ⛔⛤ **ADMITTING A VALUE AND PROJECTING IT ONTO A TARGET ARE DIFFERENT JOBS,
+/// AND COLLAPSING THEM LOST EDITS — REVIEW, 2026-09-13, ABOUT CODE SHIPPED THE
+/// SAME DAY.** The first version of the migration drained the proposal and THEN
+/// looked for a player:
+///
+/// ```text
+/// profile edited -> proposal admitted -> no player exists
+///   -> proposal removed -> nothing receives the profile
+///   -> the proposer's `Local` has already advanced, so it never proposes again
+/// ```
+///
+/// ⇒ The edit was gone with nothing to say so. And the same collapse contradicted
+/// the system's own stated purpose: it exists to keep the player's body aligned
+/// after a reset or a room load rebuilds it from engine defaults, and a
+/// reconstructed player does not cause the EDITOR to change — so after the
+/// migration there was no persistent authority a reconstruction could project.
+///
+/// ⭐⭐ **SO EACH MECHANICAL-EDITOR DOMAIN HAS THREE STAGES, NOT TWO:** editable
+/// desired value → pending proposal → **admitted domain authority** → projection
+/// onto whatever entities exist. Movement tuning and portal tuning already had
+/// the third stage (`ActiveMovementTuning`, `PortalTuning`); this domain did not,
+/// which is why it was the one that broke.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
+
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     admission: Option<Res<ae::MechanicalEditAdmission>>,
     mut pending: ResMut<ae::PendingMechanicalEdits>,
-    mut player_q: Query<
-        (
-            &mut ambition_platformer2d_core::BodyKinematics,
-            &mut ambition_platformer2d_core::BodyBaseSize,
-        ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
+    mut active: ResMut<ActivePlayerBodyProfile>,
 ) {
     // ⛔ ONLY THIS DOMAIN'S PROPOSAL, and only when something with a view of the
     // rollback timeline has admitted it. See `PendingMechanicalEdits`.
@@ -647,12 +669,42 @@ pub fn sync_developer_body_profile(
     ) {
         return;
     }
-    let desired = developer.player_body_profile.size();
+    // ⛔ THE AUTHORITY MOVES WHETHER OR NOT A BODY EXISTS TO WEAR IT. That is the
+    // whole repair: draining the proposal is now safe because the admitted value
+    // is kept, and a player constructed later reads it from here.
+    active.0 = Some(developer.player_body_profile);
     pending.take(BODY_PROFILE);
+}
+
+/// Project the ADMITTED body profile onto whatever primary player exists.
+///
+/// ⛔ **A PROJECTION, NOT A PUBLICATION.** It re-applies on its own whenever the
+/// live body disagrees with the admitted value, so a reset or a room load that
+/// rebuilds the player from engine defaults gets the developer's profile back —
+/// which is what this domain always claimed to do and stopped doing for the few
+/// hours between the migration and this repair.
+///
+/// ⚠ It writes nothing until something has been ADMITTED: `None` means the
+/// developer has not chosen, and stamping a default over an authored body would
+/// make the dev tool authoritative over content that never asked.
+pub fn project_developer_body_profile(
+    active: Res<ActivePlayerBodyProfile>,
+    mut player_q: Query<
+        (
+            &mut ambition_platformer2d_core::BodyKinematics,
+            &mut ambition_platformer2d_core::BodyBaseSize,
+        ),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+) {
+    let Some(profile) = active.0 else {
+        return;
+    };
+    let desired = profile.size();
     if let Ok((mut kinematics, mut base_size)) = player_q.single_mut() {
         if (base_size.base_size - desired).length_squared() > 0.01 {
             // Resize the body while preserving the planted-foot position.
-            let new_size = developer.player_body_profile.size();
+            let new_size = desired;
             let old_bottom = kinematics.pos.y + kinematics.size.y * 0.5;
             base_size.base_size = new_size;
             kinematics.size = new_size;
@@ -1459,6 +1511,172 @@ mod player_stats_domain_tests {
         assert_eq!(
             live_health(&mut app).1,
             9,
+            "the staged edit never published after the refusal lifted"
+        );
+    }
+}
+
+#[cfg(test)]
+mod body_profile_domain_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    fn app_with_the_body_profile_domain() -> App {
+        let mut app = App::new();
+        app.init_resource::<DeveloperTools>();
+        app.init_resource::<ActivePlayerBodyProfile>();
+        app.init_resource::<ae::PendingMechanicalEdits>();
+        app.init_resource::<ae::MechanicalEditAdmission>();
+        app.add_systems(
+            Update,
+            (
+                propose_developer_body_profile,
+                sync_developer_body_profile,
+                project_developer_body_profile,
+            )
+                .chain(),
+        );
+        app
+    }
+
+    fn spawn_a_player(app: &mut App) -> Entity {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ambition_platformer2d_core::BodyBaseSize::default(),
+            ))
+            .id()
+    }
+
+    fn base_size(app: &App, entity: Entity) -> ambition_platformer2d_core::Vec2 {
+        app.world()
+            .entity(entity)
+            .get::<ambition_platformer2d_core::BodyBaseSize>()
+            .expect("the fixture's body has a base size")
+            .base_size
+    }
+
+    /// A profile whose size differs from the default, so "it arrived" is a real
+    /// difference rather than two defaults agreeing.
+    fn a_distinct_profile() -> PlayerBodyProfile {
+        let default_size = PlayerBodyProfile::default().size();
+        // ⭐ DERIVED FROM THE TYPE'S OWN LIST, so a new profile cannot leave this
+        // fixture silently picking the default and asserting nothing.
+        PlayerBodyProfile::ALL
+            .into_iter()
+        .find(|profile| (profile.size() - default_size).length_squared() > 0.01)
+        .expect("some shipped profile differs from the default")
+    }
+
+    /// ⛔⛤ **AN EDIT MADE WHILE NO PLAYER EXISTS REACHES THE PLAYER THAT APPEARS
+    /// LATER — AND THE FIRST VERSION OF THIS MIGRATION LOST IT.**
+    ///
+    /// That version drained the proposal and THEN looked for a body: with no
+    /// player the proposal was consumed, nothing received the profile, and the
+    /// proposer's `Local` had already advanced so it never proposed again. The
+    /// edit was gone with nothing to say so.
+    #[test]
+    fn a_profile_admitted_with_no_player_reaches_the_player_that_appears_later() {
+        let mut app = app_with_the_body_profile_domain();
+        let profile = a_distinct_profile();
+
+        // ⚠ THE PREMISE: there really is no player, or the arm is the easy case.
+        assert_eq!(
+            app.world_mut()
+                .query_filtered::<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>()
+                .iter(app.world())
+                .count(),
+            0,
+            "the fixture already has a player, so this arm is not about the \
+             no-target case"
+        );
+
+        app.world_mut().resource_mut::<DeveloperTools>().player_body_profile = profile;
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ActivePlayerBodyProfile>().0,
+            Some(profile),
+            "the admitted authority did not move, so an edit made with no body \
+             present is lost the moment its proposal is drained"
+        );
+
+        // The player appears — a session activation, a room load, a reset.
+        let player = spawn_a_player(&mut app);
+        app.update();
+
+        assert_eq!(
+            base_size(&app, player),
+            profile.size(),
+            "a player constructed AFTER the edit was admitted did not receive \
+             the developer's profile. There is no persistent admitted authority \
+             for a reconstruction to project, which is the lifecycle purpose \
+             this domain claims in its own doc comment."
+        );
+    }
+
+    /// ⛔ **AND A REBUILT BODY GETS IT BACK**, which is the purpose the migration
+    /// broke: a reset or a room load reconstructs the player from engine
+    /// defaults, and the developer's selection did not change — so nothing
+    /// proposes, and only a PROJECTION can restore it.
+    #[test]
+    fn a_player_rebuilt_from_defaults_is_restored_to_the_admitted_profile() {
+        let mut app = app_with_the_body_profile_domain();
+        let profile = a_distinct_profile();
+        let first = spawn_a_player(&mut app);
+        app.world_mut().resource_mut::<DeveloperTools>().player_body_profile = profile;
+        app.update();
+        assert_eq!(base_size(&app, first), profile.size(), "the premise: it applied once");
+
+        // The world rebuilds the player from authored defaults.
+        app.world_mut().entity_mut(first).despawn();
+        let rebuilt = spawn_a_player(&mut app);
+        assert_ne!(
+            base_size(&app, rebuilt),
+            profile.size(),
+            "the premise: the rebuilt body starts at the engine default"
+        );
+        app.update();
+
+        assert_eq!(
+            base_size(&app, rebuilt),
+            profile.size(),
+            "the rebuilt player kept engine defaults. The editor value did not \
+             change, so nothing proposes — only a projection off the admitted \
+             authority can restore it, which is what this domain exists for"
+        );
+    }
+
+    /// ⛔ **A REFUSED EDIT DOES NOT MOVE THE ADMITTED AUTHORITY.** Model 1 means
+    /// the authoritative value does not change, and here the authority is the
+    /// admitted profile rather than the body.
+    #[test]
+    fn a_refused_profile_edit_leaves_the_admitted_authority_alone_and_stays_staged() {
+        let mut app = app_with_the_body_profile_domain();
+        app.insert_resource(ae::MechanicalEditAdmission::Refuse);
+        let profile = a_distinct_profile();
+        app.world_mut().resource_mut::<DeveloperTools>().player_body_profile = profile;
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ActivePlayerBodyProfile>().0,
+            None,
+            "a REFUSED profile edit moved the admitted authority anyway"
+        );
+        assert!(
+            app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(BODY_PROFILE),
+            "the refused edit was discarded rather than staged"
+        );
+
+        app.insert_resource(ae::MechanicalEditAdmission::Publish);
+        app.update();
+        assert_eq!(
+            app.world().resource::<ActivePlayerBodyProfile>().0,
+            Some(profile),
             "the staged edit never published after the refusal lifted"
         );
     }

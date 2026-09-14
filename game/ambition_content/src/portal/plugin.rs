@@ -214,11 +214,21 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // Mirror the `portal_reverses_facing` gameplay setting into the global
         // `PortalTuning::reorient_facing` knob each frame, before the transit core
         // reads it, so the toggle takes effect live.
+        // ⛔⛤ **IT LEFT THE SIM SCHEDULE ON 2026-09-13.** It used to write
+        // `PortalTuning` directly, `.before(portal_transit)` — under the rollback
+        // host that is inside `GgrsSchedule`, so a replay of frame N observed
+        // whatever the settings menu holds NOW, and it overwrote whatever the
+        // admitted portal-editor publisher had just published. Two writers of one
+        // authority, resolved by whichever ran last.
+        //
+        // ⭐ It authors the MIRROR now and proposes, so the settings menu and the
+        // F-key panel author the same field in the same place and
+        // `publish_editable_portal_tuning` remains the only writer of the
+        // authority.
         app.add_systems(
-            sim,
+            bevy::app::PreUpdate,
             sync_portal_reorient_from_settings
-                .in_set(PortalSet::Transit)
-                .before(portal_transit),
+                .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
         // Stage 19 Phase 4 — opt PROJECTILE entities into the SAME generic
         // `portal_transit` core, with their own free-flying policy

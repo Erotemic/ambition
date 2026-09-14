@@ -1723,17 +1723,30 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // ⭐⭐ THE PERCENT CURVE'S STEEPNESS, and the one number this whole
         // repair turns on. See `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
         victim_percent_knockback_scale: Some(SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
-        // ⭐⭐ WHICH MOVES ARE KILL MOVES. The knob above makes percent matter
-        // more for EVERY move equally; this one makes it matter more for HEAVY
-        // ones, and the pair is not redundant — measured, the roster authors
-        // `growth/base` at 0.019-0.021 across all 22 bound roles, so without
-        // this a forward smash is arithmetically a jab times a constant and no
-        // setting of the base-independent knob can separate them.
-        growth_base: Some(ambition_platformer2d::combat::rules::GrowthBaseCurve {
-            pivot: SMASH_GROWTH_BASE_PIVOT,
-            exponent: SMASH_GROWTH_BASE_EXPONENT,
-            ceiling: SMASH_GROWTH_BASE_CEILING,
-        }),
+        // ⭐⭐ WHICH MOVES ARE KILL MOVES — AUTHORED EXPLICITLY, NOT INFERRED.
+        //
+        // This was `GrowthBaseCurve { pivot: 48, exponent: 0.25, ceiling: 1.40 }`:
+        // a law that read a move's BASE knockback as a proxy for its ROLE and
+        // scaled growth by it. The problem it addressed was real and is measured —
+        // the roster authored `growth/base` at 0.019-0.021 across all 22 bound
+        // roles, so a forward smash was arithmetically a jab times a constant.
+        //
+        // ⛔ BUT BASE KNOCKBACK IS NOT ROLE, and the curve is the wrong abstraction:
+        //   * explicit authored `knockback_growth` stopped meaning what it says —
+        //     the number in the moveset was not the number that applied;
+        //   * a deliberate high-BKB/low-KBG move (a heavy shove that must NOT
+        //     kill) is distorted by it, having asked for exactly the opposite;
+        //   * it never reached throws at all (`capture/systems.rs` does not read
+        //     it), so half the kill options silently opted out of the law;
+        //   * the outcome evidence behind its constants came from THREE attackers
+        //     against two victims — not, as claimed at the time, the roster.
+        //
+        // ⇒ The fix for homogeneous authoring is to AUTHOR the differentiation.
+        // The first explicit KBG pass does that from measured stage thresholds
+        // (`G_new = G_old * p0/p1` for strikes, `* (p0+d)/(p1+d)` for throws):
+        // pirate f-smash now sits at `growth/base` 0.0256 and up-smash at 0.0413
+        // against a jab's 0.020 — the separation the curve was synthesising.
+        growth_base: None,
         // CROUCH CANCEL, 0.85x. Ducking is a defensive read, not just a
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.

@@ -1689,6 +1689,31 @@ honest address for *"the room being arrived into"*. Their `RoomGeometry` params
 stay as `Single` RUN CONDITIONS, named `_room_geometry` and documented as such: a
 room transition in a world with no room authority is still refused.
 
+✅ **AND IT IS WITNESSED THROUGH THE SHIPPED APP, NOT ONLY AT THE PRODUCTION
+FUNCTION** —
+`walking_into_a_loading_zone::a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`.
+Real content, real shell composition, a real walk into a real authored
+`EdgeExit`. The refusal is the same production one, produced by moving the live
+`ActiveContentBinding` every frame: a CONSTANT bogus binding would be baked into
+the plan by `prepare` and match itself at the commit boundary, so the arm would
+be measuring a room that published. It asserts the PREMISE first — a transaction
+ran, it was REFUSED, and its `room_id` is the TARGET room rather than the start
+room's own load — then that the active room, the live geometry and the whole live
+`SimId` roster are unchanged, and that the body can still move.
+
+⭐ **ITS POISON NAMES THE PLAYER-FACING CONSEQUENCE.** Applying the staged
+replacement on the refusal path reddens it with
+`left: "scroll_lab"  right: "central_hub_complex"` — the player standing in a
+room that was refused and therefore has nothing in it.
+
+⛔ **AND IT SURFACED A GAP THIS PACKET DOES NOT CLOSE: THE TRANSITION DOES NOT
+READ THE VERDICT.** The state machine goes `room-transition -> playing` either
+way, and the body is transited to the REFUSED room's arrival position — inside
+the old room's geometry. The world survives and the body still moves (the arm
+checks), but *"where the player ends up after a refused transition"* is the
+transition's own answer to give, and it currently has none. ⇒ Next A10 packet,
+with the session-level authorities below.
+
 **ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
 `a_refused_candidate_room_leaves_the_playable_world_untouched` and
 `an_admitted_candidate_room_replaces_the_playable_world_completely`. They go

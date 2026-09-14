@@ -37,6 +37,7 @@ pub use systems::{
 };
 pub use transaction::{
     room_publication_succeeded, ActiveContentBinding, LastConstructionVerification, StagedArrival,
+    StagedWorldViolation,
 };
 
 #[cfg(test)]

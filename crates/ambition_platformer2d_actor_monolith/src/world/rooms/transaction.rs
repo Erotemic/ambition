@@ -198,6 +198,106 @@ impl PendingWorldReplacement {
     }
 }
 
+/// Why the staged world may not be published.
+///
+/// ⛔⛤ **THE PROJECTED VERIFIER VALIDATES A ROSTER, AND THE ROOM IS NOT ONLY A
+/// ROSTER.** `verify_projected_roster` asks what identities the authoritative
+/// world would hold; the staged replacement also names WHICH ROOM the session
+/// becomes and WHAT GEOMETRY it collides against, and nothing was asking whether
+/// those two agree with each other or with the set they index into.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StagedWorldViolation {
+    /// The staged active-room index is not a valid index into the room set that
+    /// would be live.
+    ///
+    /// ⛔⛤ **AND THE CONSEQUENCE IS SILENT, WHICH IS WHY THIS EXISTS.**
+    /// `RoomSet::set_active` is `self.active = index.min(len - 1)` — an
+    /// out-of-range index does not panic, it CLAMPS, and the session wakes up in
+    /// the last room of the set with the geometry of the one it was told to
+    /// build. Measured by accident 2026-09-14: a poison that staged
+    /// `usize::MAX` moved the active room rather than failing.
+    TargetRoomOutOfRange { target: usize, rooms: usize },
+    /// The staged geometry is not the geometry of the staged room.
+    ///
+    /// The two travel together from one plan, so this is a caller pairing a plan
+    /// with an index into a different set — the hot-reload road replaces the SET
+    /// as well as the room, and is the one place they can disagree.
+    GeometryIsNotTheTargetRoom {
+        target: String,
+        geometry: String,
+    },
+}
+
+impl std::fmt::Display for StagedWorldViolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TargetRoomOutOfRange { target, rooms } => write!(
+                f,
+                "this room would become active room {target} of a set holding \
+                 {rooms}; `set_active` CLAMPS rather than failing, so publishing \
+                 would silently seat the session in a different room"
+            ),
+            Self::GeometryIsNotTheTargetRoom { target, geometry } => write!(
+                f,
+                "this room would seat the session in `{target}` while publishing \
+                 the geometry of `{geometry}`"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for StagedWorldViolation {}
+
+/// Would the staged world be coherent if it published?
+///
+/// ⚠ **THE ARRIVAL IS DELIBERATELY NOT CHECKED HERE, AND THAT IS A STATEMENT
+/// ABOUT THE CHECK RATHER THAN ABOUT THE RISK.** `validated_spawn` already clamps
+/// the arrival into the plan's own world, and the plan's world is what is staged
+/// — so an in-bounds assertion could not fail on any road that exists. A check
+/// that cannot fail reads as coverage. If an arrival ever comes from somewhere
+/// other than the staged plan, it becomes checkable and belongs here.
+fn verify_staged_world(
+    world: &World,
+    pending: &PendingWorldReplacement,
+) -> Result<(), Vec<StagedWorldViolation>> {
+    use ambition_platformer2d_world::rooms::RoomSet;
+
+    let mut violations = Vec::new();
+    // The set that would be live: the staged replacement's, or the one already
+    // on the session root when this transaction replaces only the active room.
+    let staged_rooms = pending.next_rooms.as_ref();
+    let live_rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        RoomSet,
+    >(world);
+    let rooms = match (staged_rooms, live_rooms) {
+        (Some(next), _) => Some(&next.rooms),
+        (None, Some(live)) => Some(&live.rooms),
+        // No room authority at all: a fixture with no session root states no set
+        // and there is nothing to be out of range of.
+        (None, None) => None,
+    };
+    if let Some(rooms) = rooms {
+        match rooms.get(pending.target_index) {
+            None => violations.push(StagedWorldViolation::TargetRoomOutOfRange {
+                target: pending.target_index,
+                rooms: rooms.len(),
+            }),
+            Some(spec) if spec.world.name != pending.geometry.name => {
+                violations.push(StagedWorldViolation::GeometryIsNotTheTargetRoom {
+                    target: spec.world.name.clone(),
+                    geometry: pending.geometry.name.clone(),
+                })
+            }
+            Some(_) => {}
+        }
+    }
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(violations)
+    }
+}
+
 /// Make the staged world live: retire the outgoing room, then publish the
 /// world-defining state.
 ///
@@ -294,6 +394,10 @@ pub struct LastConstructionVerification {
     /// distinction A10 is made of. Empty whenever the candidate bracket is off,
     /// because then there is no candidate world to project.
     pub projection_violations: Vec<ProjectionViolation>,
+    /// Every reason the staged non-entity world — which room becomes active, and
+    /// what geometry it collides against — would be incoherent. See
+    /// [`StagedWorldViolation`].
+    pub staged_violations: Vec<StagedWorldViolation>,
     /// Whether `RoomLoaded` was written.
     pub published: bool,
 }
@@ -524,6 +628,7 @@ fn verify_and_publish(
             room_id,
             violations: Vec::new(),
             projection_violations: Vec::new(),
+            staged_violations: Vec::new(),
             published: false,
         });
     };
@@ -667,6 +772,20 @@ fn verify_and_publish(
     // `SupersedingCandidateMissing` about a root that is standing right there.
     // A projection of a world with no candidates in it is not a weaker check,
     // it is a different and false one.
+    // ⛔ THE OTHER HALF OF THE PROJECTION: the staged world, not the roster.
+    // Asked BEFORE the verdict is taken, so an incoherent staged world refuses
+    // the room exactly as an incoherent roster does.
+    let staged_violations = match world.get_resource::<PendingWorldReplacement>() {
+        Some(pending) => verify_staged_world(world, pending).err().unwrap_or_default(),
+        None => Vec::new(),
+    };
+    for violation in &staged_violations {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "room `{room_id}` staged an incoherent world: {violation}"
+        );
+    }
+
     let mut effects = effects;
     let projection_violations = if candidate_bracket {
         use ambition_platformer2d_shared_tangle::construction::{
@@ -700,7 +819,8 @@ fn verify_and_publish(
         );
     }
 
-    let published = violations.is_empty() && projection_violations.is_empty();
+    let published =
+        violations.is_empty() && projection_violations.is_empty() && staged_violations.is_empty();
     if published {
         let admitted: usize = transactions
             .iter()
@@ -735,7 +855,8 @@ fn verify_and_publish(
             room_id: room_id.clone(),
         });
     } else {
-        let failure_count = violations.len() + projection_violations.len();
+        let failure_count =
+            violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the
         // session is playing was never touched, so there is nothing to recover.
         let staged = world.remove_resource::<PendingWorldReplacement>().is_some();
@@ -768,6 +889,11 @@ fn verify_and_publish(
                         .iter()
                         .map(|violation| format!("{violation:?}")),
                 )
+                .chain(
+                    staged_violations
+                        .iter()
+                        .map(|violation| format!("{violation:?}")),
+                )
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
@@ -781,6 +907,7 @@ fn verify_and_publish(
         room_id,
         violations,
         projection_violations,
+        staged_violations,
         published,
     });
 }

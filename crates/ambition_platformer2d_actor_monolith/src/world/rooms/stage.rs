@@ -1190,6 +1190,7 @@ mod tests {
             room_id: "hall".to_string(),
             violations: Vec::new(),
             projection_violations: Vec::new(),
+            staged_violations: Vec::new(),
             published: true,
         });
         assert!(room_publication_succeeded(app.world(), "hall"));
@@ -1204,6 +1205,7 @@ mod tests {
             room_id: "hall".to_string(),
             violations: Vec::new(),
             projection_violations: Vec::new(),
+            staged_violations: Vec::new(),
             published: false,
         });
         assert!(
@@ -1285,6 +1287,103 @@ mod tests {
                  session is now playing a room with nothing in it"
             );
         }
+    }
+
+    /// ⛔⛤ **A ROOM THAT WOULD SEAT THE SESSION OUT OF RANGE IS REFUSED, AND THE
+    /// DEFECT IT CATCHES IS SILENT.**
+    ///
+    /// `RoomSet::set_active` is `self.active = index.min(len - 1)`. An
+    /// out-of-range index does not panic — it CLAMPS, and the session wakes in
+    /// the last room of the set wearing the geometry of the one it was told to
+    /// build. ⭐ MEASURED BY ACCIDENT 2026-09-14: a poison written to test
+    /// something else staged `usize::MAX` and moved the active room instead of
+    /// failing.
+    ///
+    /// ⚠ The clamp itself is NOT changed here. It has callers outside this road
+    /// and its own contract; what changes is that this road refuses to hand it a
+    /// value it would have to clamp.
+    #[test]
+    fn a_room_that_would_seat_the_session_out_of_range_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // A plan whose target index is past the end of the live set of two.
+        let mut plan = candidate_plan();
+        plan.target_index = 7;
+        stage_the_candidate(&mut app, plan, outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room that would be seated out of range PUBLISHED: {verification:?}"
+        );
+        assert_eq!(
+            verification.staged_violations,
+            vec![super::transaction::StagedWorldViolation::TargetRoomOutOfRange {
+                target: 7,
+                rooms: 2,
+            }]
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
+    }
+
+    /// ⛔ **AND A ROOM WHOSE GEOMETRY IS NOT ITS OWN IS REFUSED.**
+    ///
+    /// The index and the geometry travel together from one plan, so this is a
+    /// caller pairing a plan with an index into a different SET — which is
+    /// exactly what the hot-reload road does, and the one place they can
+    /// disagree. Publishing it seats the session in one room and collides it
+    /// against another.
+    #[test]
+    fn a_room_whose_geometry_is_not_its_own_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // Index 0 is `n`; the plan still carries the candidate room's geometry.
+        let mut plan = candidate_plan();
+        plan.target_index = 0;
+        stage_the_candidate(&mut app, plan, outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published one room's index with another's geometry: {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.iter().any(|violation| matches!(
+                violation,
+                super::transaction::StagedWorldViolation::GeometryIsNotTheTargetRoom { .. }
+            )),
+            "got {:?}",
+            verification.staged_violations
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
     }
 
     /// ⭐ **AND THE SUCCESS ARM, WHICH IS WHAT MAKES THE ONE ABOVE FALSIFIABLE.**

@@ -1810,6 +1810,38 @@ PACK road and does not touch this one. ⚠ Recorded, not fixed: a reload harness
 is not an A10 prerequisite — A10's room invariant is proven on the roads that DO
 ship traffic.
 
+✅ **AND THE PROJECTION VALIDATES THE STAGED WORLD, NOT ONLY THE ROSTER —
+2026-09-14.** `verify_projected_roster` asks what IDENTITIES the authoritative
+world would hold; the staged replacement also names WHICH ROOM the session
+becomes and WHAT GEOMETRY it collides against, and nothing was asking whether
+those agree with each other or with the set they index into.
+`verify_staged_world` raises two `StagedWorldViolation`s and refuses the room the
+same way a roster violation does.
+
+⛔⛤ **`TargetRoomOutOfRange` EXISTS BECAUSE THE FAILURE IS SILENT.**
+`RoomSet::set_active` is `self.active = index.min(len - 1)` — an out-of-range
+index does not panic, it CLAMPS, and the session wakes in the LAST room of the set
+wearing the geometry of the one it was told to build. ⭐ **Found by accident:** a
+poison written to test something else staged `usize::MAX` and moved the active
+room instead of failing. ⚠ The clamp itself is not changed — it has callers
+outside this road and its own contract; what changed is that this road refuses to
+hand it a value it would have to clamp.
+
+`GeometryIsNotTheTargetRoom` catches the other pairing: the index and the geometry
+travel together from one plan, so a disagreement means a caller paired a plan with
+an index into a DIFFERENT set — which is what the hot-reload road does, and the one
+place they can diverge.
+
+⚠ **THE ARRIVAL IS DELIBERATELY NOT CHECKED, AND THAT IS A STATEMENT ABOUT THE
+CHECK.** `validated_spawn` already clamps the arrival into the plan's own world,
+and the plan's world is what is staged — so an in-bounds assertion could not fail
+on any road that exists. It is left out and the reason is in the source, rather
+than added and left reading as coverage.
+
+**ARMS**: `a_room_that_would_seat_the_session_out_of_range_is_refused`,
+`a_room_whose_geometry_is_not_its_own_is_refused`. Poison-verified together:
+short-circuiting `verify_staged_world` to `Ok(())` reddens both and nothing else.
+
 **ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
 `a_refused_candidate_room_leaves_the_playable_world_untouched` and
 `an_admitted_candidate_room_replaces_the_playable_world_completely`. They go

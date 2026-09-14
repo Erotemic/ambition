@@ -511,7 +511,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         CaptureThrowParams {
             damage: 8,
             knockback: 104.0,
-            knockback_growth: 2.81,
+            knockback_growth: 2.4,
             launch_dir: (0.55, -1.0),
         },
     );
@@ -522,7 +522,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         CaptureThrowParams {
             damage: 9,
             knockback: 112.32,
-            knockback_growth: 1.87,
+            knockback_growth: 2.52,
             launch_dir: (-1.0, -0.62),
         },
     );
@@ -533,7 +533,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         CaptureThrowParams {
             damage: 8,
             knockback: 108.16,
-            knockback_growth: 5.29,
+            knockback_growth: 2.45,
             launch_dir: (0.0, -1.0),
         },
     );

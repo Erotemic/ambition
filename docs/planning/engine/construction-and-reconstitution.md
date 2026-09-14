@@ -128,6 +128,57 @@ the candidate seal and activation state machine.
 6. Test malformed candidates after metadata admission, not only parse errors.
    [FI4](fast-iteration-acceptance.md) specifies the live-scene and failure assertions.
 
+### What the ROOM scope delivered, and what it measured — 2026-09-14
+
+Steps 1-5 are implemented for the room; step 6's assertions are in place. The
+SESSION scope has none of them.
+
+```text
+1 inventory           ConstructionPlan rows + PublicationEffects: additions,
+                      supersessions, retirements, retained-by-omission
+2 typed drafts        RootScope / RelationScope; no raw Commands or World
+3 validate            verify_committed_roster + verify_projected_roster +
+                      verify_staged_world, before any live mutation
+4 constrained publish apply_world_replacement, one authority, one order
+5 publish then retire publish_candidate -> apply -> retire_superseded
+6 malformed candidate real production refusals, not parse errors
+```
+
+**Candidate-owned state is held UNDER the candidate, not in a process global.**
+`construction::spawn_candidate_state` puts the room's staged world — outgoing
+roster, room set, target index, geometry, platform state, arriving body — on a
+hidden entity stamped with the transaction and marked `CandidateState`. Three
+consequences are structural rather than remembered: a refusal retires it with
+everything else the transaction made; a leak carries a dead stamp no later room
+can find; publication ADOPTS it (takes the component, applies it, despawns the
+carrier). `CandidateState` is excluded from `candidate_roots`, so "N roots
+admitted" still counts authoritative bodies only.
+
+**Supersession is a third baseline declaration, not a relaxed reconstruction.**
+`TransactionBaseline::reconstructing` keeps its meaning ("the old body should
+already be gone"); `superseding` states that the live body stands until
+publication. `transaction::open` splits the plan against the baseline it captures,
+per identity, and only under the candidate bracket — without it the roots spawn
+visible and there is no *beside*.
+
+**Measurements that should outlive the packet:**
+
+| question | measured |
+| --- | --- |
+| is the declaration covered by the shipped suite? | poisoning `transaction::open` to declare nothing superseded reddens **23 `app_it` tests** |
+| does the projected verifier do anything? | skipping it: **655 passed, 0 failed**. Breaking its arithmetic: **632 passed, 23 failed**. It runs and decides, and has never REFUSED on shipped traffic |
+| how often does a room refuse in production? | **zero refusals across 686 publications** — the whole refusal apparatus is proven by its arms |
+| may publication despawn a superseded body in custody? | no. Doing so failed `death_restores_the_checkpoint` 1/11 and `two_persistence_authorities_for_one_item` with `still_owned=1`: `restore_custody_to_checkpoint` unequips AND despawns as one operation keyed on that entity. With the skip: 11/11 and 0 |
+| was the construction suite testing the shipped road? | no. With publication broken: **92 passed, 0 failed** on the live road the harness defaulted to, **78 passed, 14 failed** once moved to the bracketed one |
+| what does a refused transition cost the player? | nothing measurable: displacement across the verdict frame is `Vec2(0.0, 0.0)` guaranteed against `Vec2(-1782.7, -188.0)` with the arrival applied anyway |
+| is the session handoff multi-frame? | no — retire A, activate B and publish B's room are all frame 243 on the shipped app. One frame, but not one command flush |
+
+**What a refusal costs.** No `RoomLoaded`, so no fresh attempt anywhere: staged
+victim hits are not voided and per-attempt state is not re-armed, both correct
+because no attempt began. `RoomLoaded` has three production readers through
+`ambition_combat::events::FreshAttempt` — an earlier claim that it had none was
+wrong.
+
 Default to inactive typed data, not arbitrary World cloning. An alternative
 same-World staging population must prove isolation from every relevant query,
 observer, hook and resource write. A marker or a paused fixed schedule alone is

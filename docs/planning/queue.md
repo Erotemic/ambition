@@ -26,8 +26,15 @@ makes that split against the baseline it captures, never against the
 post-construction world. Refusal drops the candidate roots and the staged world
 and leaves N byte-identical; admission runs `publish_candidate`,
 `apply_world_replacement`, `retire_superseded` as one authority in one order.
-`commit_deferred` and `retire_outgoing` are deleted, so no road can commit a room
-without a verdict.
+`commit_deferred` and `retire_outgoing` are deleted <!-- cite-ok: named BECAUSE the A10 room packet deleted them; a resolvable citation here would mean the deletion did not happen -->,
+so no road can commit a room without a verdict.
+
+The staged world is CANDIDATE-OWNED STATE, not a process global:
+`construction::spawn_candidate_state` puts it on a hidden entity stamped with the
+room's transaction, so a refusal retires it with everything else the candidate
+made, a leak carries a dead stamp no later room can find, and publication adopts
+it and drops the carrier. Measurements live in the
+[owner document](engine/construction-and-reconstitution.md#a10---bounded-safe-candidate-materialization).
 
 Three verifiers guard it: `verify_committed_roster` (is the built world coherent),
 `verify_projected_roster` (would the roster be valid if this published), and
@@ -175,7 +182,7 @@ idle gap and rollback.
 **Owner:** accepted control writer map and actor-monolith frontier.
 
 **Current state:** the prerequisite writer census is complete and did not find a
-competing control authority. The old `PlatformerRuntimeSet` vocabulary is gone;
+competing control authority. The old `PlatformerRuntimeSet` vocabulary is gone; <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: a resolvable citation here would mean the deletion did not happen -->
 the real realization places body integration inside
 `WorldPrepSet::Integrate`. Prior prose that mapped old and new set names by name
 is not an implementation guide.

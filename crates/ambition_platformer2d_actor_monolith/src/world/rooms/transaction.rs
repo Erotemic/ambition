@@ -149,7 +149,15 @@ pub struct StagedArrival {
     pub momentum: ambition_platformer2d_core::movement::ArrivalMomentum,
 }
 
-#[derive(Resource)]
+/// ⛔⛤ **A COMPONENT ON A HIDDEN CANDIDATE ENTITY, NOT A RESOURCE — CHANGED
+/// 2026-09-14 TO THE SHAPE THE RULING PREFERS.** It was a `Resource`, which is
+/// the *"paired `ActiveFoo`/`CandidateFoo` process global"* shape A10's settled
+/// architecture says not to prefer, and it showed: the refusal path had to
+/// REMEMBER to remove it, and a replacement whose transaction never closed leaked
+/// into the next room's. Held under the candidate it is retired by
+/// `retire_candidate` along with everything else the transaction made, and a leak
+/// carries the dead transaction's stamp so the next room cannot see it at all.
+#[derive(bevy::prelude::Component)]
 pub(crate) struct PendingWorldReplacement {
     /// The outgoing room's bodies, and whether each is a physics entity — the
     /// flag decides which retirement they take.
@@ -398,6 +406,27 @@ fn verify_staged_world(
     }
 }
 
+/// This transaction's staged world, if it staged one.
+///
+/// ⛔ `With<InactiveCandidate>` is not spellable here — the marker is
+/// `pub(crate)` to the construction module — so the lookup goes through
+/// [`candidate_state_entities`], which is the module's own opt-out of the default
+/// filter. A domain that queried for `PendingWorldReplacement` directly would find
+/// NOTHING and read that as "no world staged".
+fn staged_world(
+    world: &mut World,
+    transactions: &[ambition_platformer2d_shared_tangle::construction::TransactionId],
+) -> Option<bevy::ecs::entity::Entity> {
+    transactions.iter().find_map(|transaction| {
+        ambition_platformer2d_shared_tangle::construction::candidate_state_entities(
+            world,
+            transaction,
+        )
+        .into_iter()
+        .find(|entity| world.get::<PendingWorldReplacement>(*entity).is_some())
+    })
+}
+
 /// Make the staged world live: retire the outgoing room, then publish the
 /// world-defining state.
 ///
@@ -577,9 +606,11 @@ pub fn room_publication_succeeded(world: &World, room_id: &str) -> bool {
 pub(crate) fn open(
     commands: &mut Commands,
     plan: &crate::features::RoomFeatureConstructionPlan,
+    session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
     let planned = plan.planned_sim_ids();
+    let transactions = plan.construction_transactions(session);
     commands.queue(move |world: &mut World| {
         // ⛔ ASKED BEFORE THE BASELINE, because a world that cannot hide a
         // candidate must refuse the room rather than build one it will then
@@ -645,8 +676,8 @@ pub(crate) fn open(
                     // time you verify"*, and under A10 they are deliberately
                     // still standing — that is the whole point of staging the
                     // sweep behind the verdict.
-                    let staged = world
-                        .get_resource::<PendingWorldReplacement>()
+                    let staged = staged_world(world, &transactions)
+                        .and_then(|entity| world.get::<PendingWorldReplacement>(entity))
                         .map(PendingWorldReplacement::outgoing_entities);
                     if let Some(outgoing) = staged.as_ref() {
                         let planned: BTreeSet<_> = planned.iter().collect();
@@ -720,10 +751,11 @@ fn verify_and_publish(
     candidate_bracket: bool,
 ) {
     let refuse = |world: &mut World, room_id: String| {
-        // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE. A refusal that left it
-        // behind would hand the NEXT room transaction a replacement prepared for
-        // a room that never published.
-        world.remove_resource::<PendingWorldReplacement>();
+        // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE, and no longer by being
+        // remembered here: it is candidate-owned state stamped with this room's
+        // transaction, so `retire_candidate` takes it. This early road refuses
+        // BEFORE the transactions are known, and a staged world left standing
+        // here carries a dead stamp that no later room can find.
         world.insert_resource(LastConstructionVerification {
             room_id,
             violations: Vec::new(),
@@ -866,10 +898,16 @@ fn verify_and_publish(
     // ⛔ THE OTHER HALF OF THE PROJECTION: the staged world, not the roster.
     // Asked BEFORE the verdict is taken, so an incoherent staged world refuses
     // the room exactly as an incoherent roster does.
-    let staged_violations = match world.get_resource::<PendingWorldReplacement>() {
-        Some(pending) => verify_staged_world(world, pending, &room_id)
-            .err()
-            .unwrap_or_default(),
+    let staged_entity = staged_world(world, &transactions);
+    let staged_violations = match staged_entity
+        .and_then(|entity| world.get::<PendingWorldReplacement>(entity))
+    {
+        Some(pending) => {
+            // The borrow ends before the verifier reads the world again.
+            let pending: &PendingWorldReplacement = pending;
+            let found = verify_staged_world(world, pending, &room_id);
+            found.err().unwrap_or_default()
+        }
         None => Vec::new(),
     };
     for violation in &staged_violations {
@@ -941,8 +979,14 @@ fn verify_and_publish(
         // candidate became authoritative — never before it, which is the order
         // `replace_live_world` used to name as a destructive window it could only
         // give one address to.
-        if let Some(pending) = world.remove_resource::<PendingWorldReplacement>() {
-            apply_world_replacement(world, pending);
+        if let Some(entity) = staged_entity {
+            // ⛔ TAKEN OFF THE CANDIDATE AND THEN DESPAWNED: publication ADOPTS
+            // the candidate's state rather than leaving a published entity
+            // carrying a replacement that has already been applied.
+            if let Some(pending) = world.entity_mut(entity).take::<PendingWorldReplacement>() {
+                apply_world_replacement(world, pending);
+            }
+            world.entity_mut(entity).despawn();
         }
         let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
             world, &effects, &baseline,
@@ -960,7 +1004,7 @@ fn verify_and_publish(
             violations.len() + projection_violations.len() + staged_violations.len();
         // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the
         // session is playing was never touched, so there is nothing to recover.
-        let staged = world.remove_resource::<PendingWorldReplacement>().is_some();
+        let staged = staged_entity.is_some();
         let dropped: usize = transactions
             .iter()
             .map(|transaction| {

@@ -219,7 +219,12 @@ fn commit_bracketed(
         // an undeclared baseline would verify these rooms against a claim the
         // production road no longer makes, and would go on passing after the
         // production road's declaration broke.
-        crate::world::rooms::transaction::open(&mut commands, &plan, candidate_bracket);
+        crate::world::rooms::transaction::open(
+            &mut commands,
+            &plan,
+            SessionSpawnScope::UNSCOPED,
+            candidate_bracket,
+        );
         let receipt = crate::features::spawn_room_feature_entities_from_plan(
             &mut commands,
             &plan,

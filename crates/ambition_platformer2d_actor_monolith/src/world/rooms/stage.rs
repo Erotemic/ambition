@@ -290,7 +290,7 @@ impl RoomConstructionPlan {
         // refusal and the spawn's visibility — must agree, and a literal at each
         // is two spellings of one fact.
         let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
-        transaction::open(commands, &self.features, candidate_bracket);
+        transaction::open(commands, &self.features, self.session_scope, candidate_bracket);
         // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
         // AS OF 2026-09-14.** Every root in every lane is minted
         // `InactiveCandidate`, so nothing this room builds is visible to an
@@ -458,13 +458,21 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
+        // ⛔ **SPAWNED AS CANDIDATE-OWNED STATE, UNDER THIS ROOM'S OWN
+        // TRANSACTION.** It is hidden by the same marker its entities are, it is
+        // retired by the same `retire_candidate` on a refusal, and a staged world
+        // whose transaction never closed carries a DEAD stamp — so the next room
+        // cannot find it even by accident.
+        //
         // ⛔ QUEUED BEFORE `spawn_contents`, because `transaction::open` READS it:
         // the identities standing on the outgoing bodies are what the transaction
         // declares it is RETIRING, and a declaration made after the baseline is
         // captured would be a claim about a world nobody looked at.
-        commands.queue(move |world: &mut bevy::prelude::World| {
-            world.insert_resource(pending);
-        });
+        ambition_platformer2d_shared_tangle::construction::spawn_candidate_state(
+            commands,
+            &self.features.construction_transactions(self.session_scope)[0],
+            pending,
+        );
         self.spawn_contents(commands);
     }
 
@@ -1153,6 +1161,23 @@ mod tests {
         (geometry, active, platforms, ids)
     }
 
+    /// Every candidate-owned state entity this room's transaction still holds,
+    /// hidden or not.
+    ///
+    /// ⛔ **NOT `world.query::<&PendingWorldReplacement>()`.** Candidate state
+    /// wears the disabling marker, so an ordinary query is excluded from it and
+    /// would answer ZERO whether or not one is standing — the exact shape of a
+    /// check that cannot fail. `candidate_state_entities` is the construction
+    /// module's own opt-out.
+    fn staged_worlds_alive(app: &mut bevy::prelude::App, plan: &RoomConstructionPlan) -> usize {
+        let transaction = plan.features.construction_transactions(plan.session_scope)[0].clone();
+        ambition_platformer2d_shared_tangle::construction::candidate_state_entities(
+            app.world_mut(),
+            &transaction,
+        )
+        .len()
+    }
+
     fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {
         app.add_systems(
             bevy::prelude::Update,
@@ -1291,6 +1316,16 @@ mod tests {
                  session is now playing a room with nothing in it"
             );
         }
+        // ⛔ **AND THE CANDIDATE-OWNED STATE IS GONE TOO, which is the half a
+        // resource could not be asked about.** The staged world is an entity
+        // under this room's transaction, so `retire_candidate` takes it with
+        // everything else the candidate made.
+        assert_eq!(
+            staged_worlds_alive(&mut app, &candidate_plan()),
+            0,
+            "a refused candidate left its staged world standing; a leak like that \
+             is invisible to every assertion about the LIVE world"
+        );
     }
 
     /// ⛔⛤ **A ROOM THAT WOULD SEAT THE SESSION OUT OF RANGE IS REFUSED, AND THE
@@ -1446,9 +1481,15 @@ mod tests {
                     stale_geometry.clone(),
                     Vec::new(),
                 );
-                commands.queue(move |world: &mut bevy::prelude::World| {
-                    world.insert_resource(stale);
-                });
+                // ⛔ STAMPED WITH THE SAME TRANSACTION THIS ROOM IS ABOUT TO
+                // OPEN, which is what makes it findable at all — and is the
+                // narrowest way to express the leak: a replacement that belongs
+                // to this transaction and describes another room.
+                ambition_platformer2d_shared_tangle::construction::spawn_candidate_state(
+                    &mut commands,
+                    &plan.features.construction_transactions(plan.session_scope)[0],
+                    stale,
+                );
                 plan.spawn_contents(&mut commands);
             },
         );
@@ -1672,6 +1713,14 @@ mod tests {
                 "the outgoing room was never swept, so two rooms' bodies are live"
             );
         }
+        // ⛔ PUBLICATION ADOPTS THE STATE AND THEN DROPS THE CARRIER. A published
+        // entity still holding a replacement that has already been applied is a
+        // second copy of the world waiting for somebody to apply again.
+        assert_eq!(
+            staged_worlds_alive(&mut app, &candidate_plan()),
+            0,
+            "publication left the staged world standing after adopting it"
+        );
     }
 
     #[test]

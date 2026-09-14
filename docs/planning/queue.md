@@ -545,6 +545,71 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
 
+## ⛔ MAIN IS RED AT `158b442be`: `two_cpus_in_the_shipped_composition_damage_each_other`
+
+**NOT MINE, AND MEASURED BEFORE SAYING SO.** `app_it`'s
+`smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
+fails at HEAD:
+
+```text
+the two seats exchanged 46% of a pool per minute of duel (23% + 23%)
+over the 3618 ticks the duel actually ran
+```
+
+⭐ **HOW I ESTABLISHED IT WAS NOT MINE**: reverted my own uncommitted
+`crates/ambition_dev_tools/src/dev_tools/editable.rs` change to `HEAD` and re-ran
+the single test — **identical numbers, 46% over 3618 ticks** — then restored the
+file and verified the restore by md5. Same-digit agreement is what rules out a
+coincidence of two different causes landing on one threshold.
+
+It arrived with the merge of `878646645` *"The kill-move curve was a law inferring
+role from base knockback; author the role instead"*, which is exactly the kind of
+change that moves a damage-rate floor. ⇒ **It belongs to whoever authored that
+row**; recorded here so the next agent does not spend a session bisecting a red
+they did not cause, and does not treat a red `app_it` as licence to skip the lane.
+
+## ✅ THE STATS DOMAIN PUBLISHED FIELDS NOBODY EDITED — FIXED 2026-09-14
+
+**GPT architecture review, 2026-09-14, finding 5.** `publish_player_stats_edits`
+applied HP conditionally and then wrote `BodyMana.meter` and
+`BodyOffense.damage_multiplier` on **every** admitted proposal of the stats
+domain, whatever the developer had actually moved. `mirror_player_stats_into_the_inspector`
+refreshed only `health` / `max_health` from the live body. So:
+
+```text
+  gameplay spends mana        live 31, panel still shows its own value
+  developer edits max_health ONLY
+    → stats domain pending
+    → health applied, correctly and conditionally
+    → AND mana written back from the stale panel
+  ⇒ a HEALTH edit refilled mana.
+```
+
+⇒ **THE CAUSE IS A GRANULARITY MISMATCH**: the proposal identity is per DOMAIN
+while the authority changes are per FIELD. The repair keeps one domain and gives
+mana and offense the same `!= snapshot` test HP already had — the snapshot is
+already defined as *"what the developer last saw"*, so a field that did not move
+is not an edit — **and** mirrors mana / max_mana / slash_damage back from the live
+body, because the half-mirror is what let the panel go stale in the first place.
+
+⛔⛤ **AND THE FIRST ARM COULD NOT TELL THE TWO REPAIRS APART.** MEASURED:
+poisoning the field-conditional publish ALONE leaves
+`editing_one_stat_leaves_the_others_where_gameplay_put_them` green, and so does
+poisoning the half-mirror alone; **only both together fire it.** Two redundant
+repairs, one arm, and nothing guarding either. ⇒ The case that separates them is
+the one this whole protocol exists for — **an edit staged behind a REFUSAL**,
+where the mirror is deliberately out (a staged edit must not be overwritten) so
+the panel legitimately goes stale against a body gameplay keeps moving.
+`an_edit_staged_behind_a_refusal_publishes_only_the_field_it_staged` is that arm,
+and it fires on the publisher-only poison.
+
+⚠ **STILL OPEN from the same finding**: `mirror_player_stats_into_the_inspector`
+is registered through `app.sim_schedule()` and therefore runs inside
+`GgrsSchedule` under rollback. It no longer changes authoritative mechanics, so
+this is not the old determinism bug — it is the wrong LIFETIME for a presentation
+mirror, and it makes proposal discrimination depend on rollback resimulation.
+Move it to an ordinary host/render-frame schedule.
+
 ## ⛔⛤ `SessionScopeId` — A HOST-LOCAL COUNTER IS ON THE ROLLBACK WIRE, MEASURED 2026-09-13
 
 **The architecture review's priority 3 ("canonical local-lineage campaign"),

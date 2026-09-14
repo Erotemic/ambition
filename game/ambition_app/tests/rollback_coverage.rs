@@ -1362,6 +1362,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // the canonical form is one value agreed at match activation or a per-seat
     // row travelling with each peer. This resource is the seam that ruling lands
     // on; see `docs/planning/queue.md`'s `UserSettings` row.
+    // ⭐ THE EDITOR MIRROR, NOT THE AUTHORITY — and that is the whole point of it.
+    // `Platformer2dFeelTuningMonolith` is waived below as forward-only feel
+    // tuning; this resource is what the INSPECTOR writes, and it reaches that
+    // authority only through `MechanicalEditSet::Publish` with the timeline's
+    // admission. Simulation never reads it. Same status as every other editable
+    // mirror: developer-tool state, not per-frame simulation state.
+    (
+        "::feel::EditableFeelTuning",
+        "the developer-editable mirror of the feel tuning; the inspector writes \
+         THIS and an admitted publisher copies it into the monolith, so it is \
+         editor state that simulation does not read",
+    ),
     (
         "ambition_damage::PlayerDamagePolicy",
         "the two damage scalars resolved from user settings at a host-side \

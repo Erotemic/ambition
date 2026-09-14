@@ -213,7 +213,13 @@ fn install_egui_inspectors(app: &mut App) {
             ResourceInspectorPlugin::<EditablePlayerStats>::default().run_if(inspector_visible),
         )
         .add_plugins(
-            ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()
+            // ⛔⛤ **THE MIRROR, NOT THE AUTHORITY.** This was
+            // `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>`, so
+            // bevy-inspector wrote the resource deterministic simulation reads
+            // with no proposal, no admission and no rebase — while
+            // `developer_edits_under_rollback.rs` already carried a test naming
+            // that hole. See `ambition_combat::feel::EditableFeelTuning`.
+            ResourceInspectorPlugin::<ambition_platformer2d::combat::feel::EditableFeelTuning>::default()
                 .run_if(inspector_visible),
         )
         .add_plugins(portal_inspector::PortalInspectorPlugin)

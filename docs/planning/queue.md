@@ -88,7 +88,38 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⇒ *"What value will a replay of frame N observe?"* is answered *"whatever the
   settings menu says now."*
   ✅ **ONE FIELD IS FIXED** — `portal_reverses_facing`; see the portal row below.
-  The rest is an audit, and it is the review's priority 1.
+  ✅ **AND THE AUDIT'S FIRST STEP IS DONE — `scripts/measure_user_settings_in_simulation.py`,
+  2026-09-13.** 52 production functions take `Res<UserSettings>`; **SIX of them are
+  registered into the SIMULATION schedule**, which under the rollback host is
+  `GgrsSchedule`:
+
+```text
+  apply_player_hit_events          ambition_damage/src/lib.rs
+  charge_projectile_input          actor_monolith/src/projectile/systems.rs
+  derive_slot_direction_gestures   actor_monolith/src/control/input_systems.rs
+  integrate_sim_bodies             actor_monolith/src/features/ecs/actors/update.rs
+  interaction_input_system         actor_monolith/src/control/input_systems.rs
+  possession_trigger_system        actor_monolith/src/abilities/traversal/possession.rs
+```
+
+  ⭐ **THREE OF THOSE THE REVIEW DID NOT NAME** — `integrate_sim_bodies`,
+  `interaction_input_system`, `possession_trigger_system` — and all three sit
+  beside `ResolvedMotionFrame` in their own parameter lists, so the FRAME-MODE
+  preference is read in at least four simulation systems rather than the one the
+  review found. ⇒ That strengthens its ruling rather than changing it: resolving
+  the frame mode at the INPUT-CAPTURE boundary removes four readers at once.
+
+  ⚠ **THE OTHER 46 ARE `UNATTRIBUTED`, WHICH IS NOT A CLEARANCE**, and the script
+  says so in those words: a system registered through an intermediate or a set the
+  scan cannot follow lands there too. `apply_feature_hit_events` is the known
+  example — the review names it as a simulation reader and this scan does not find
+  its registration. **Check each before treating it as safe.**
+
+  ⛔⛤ **AND THE INSTRUMENT IS KEYED ON A TYPE, NOT A FIELD NAME**, which is the
+  whole difference from `measure_identity_field_consumers.py`: that one tried to
+  classify `Q122`'s fields by grepping `.field`, answered *"50 of 50 mechanical"*,
+  and is committed WITH its own refutation. `UserSettings` is one named type, so
+  `Res<…UserSettings>` finds its readers and nothing else.
   ⭐ **THE SPLIT IS NOT UNIFORM AND THAT IS THE POINT:**
   · **local input interpretation** (movement/aim/camera frame) should be applied
     at the INPUT-CAPTURE boundary, so deterministic simulation consumes already

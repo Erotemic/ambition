@@ -1517,444 +1517,193 @@ THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbati
 in intent, and it is recorded here because the retracted paragraph above is
 exactly the sentence a future packet would have quoted.
 
-### ⭐⭐ A10 CHECKPOINT — THE PROJECTED VERIFIER EXISTS, 2026-09-14
+### ⭐⭐ A10 — THE LAST-GOOD-WORLD GUARANTEE, ROOM SCOPE COMPLETE, 2026-09-14
 
-**CURRENT INVARIANT.** A failed candidate leaves the playable world N intact. A
-candidate N+1 is prepared and validated beside it; only a validated candidate
-becomes authoritative; N is retired only after that publication.
+**CURRENT INVARIANT.** *"A failed candidate world must leave the currently playable
+world N intact. A candidate N+1 is prepared and validated off to the side. Only a
+validated candidate may become authoritative, and N is retired only after that
+successful publication."*
 
-**CURRENT HEAD BEHAVIOUR.** The ruling below is implemented in
-`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`:
+**CURRENT HEAD BEHAVIOUR.** Every room lifecycle path — transition, sandbox reset,
+dev hot reload — goes through `RoomConstructionPlan::replace_live_world`, and
+nothing it does touches the live world before the verdict:
 
 ```text
-ScopeVisibility            Published | HiddenCandidate   (on every ScopeMember)
-PublicationEffects         superseding(live, candidate) / retiring(live);
-                           OMISSION MEANS RETAINED
-ProjectedRoster            published - retirements - superseded + candidates
-project_post_publication_roster(scope, effects)     pure, mutates nothing
-verify_projected_roster(projection, effects, baseline, scope, world)
+stage the whole replacement off to the side      PendingWorldReplacement
+  -> build every root HIDDEN                     ROOM_CANDIDATE_BRACKET = true
+  -> declare what publication would do           superseding / retiring / owned_by
+  -> PROJECT and VALIDATE
+       roster        verify_projected_roster
+       staged world  verify_staged_world
+       committed     verify_committed_roster
+     refusal   -> candidates dropped, staged world dropped, N untouched
+     admission -> publish_candidate, apply_world_replacement, retire_superseded
 ```
 
-⭐ **`ScopeVisibility` IS THE PIECE THAT WAS MISSING AND LOOKED LIKE A DETAIL.**
-`AuthoritativeScope::gather` already saw candidates (`Allow<InactiveCandidate>`)
-and could not SAY which members were hidden — so *"one occupant per identity"*
-over the union answers `Duplicated` for the legal A10 state. The distinction had
-to become data.
+`commit_deferred` and `retire_outgoing` are DELETED <!-- cite-ok: named BECAUSE this packet deleted them; a resolvable citation here would mean the deletion did not happen -->,
+so no road can commit a room without taking a verdict.
 
-⛔ **AND THE BASELINE IS WHAT MAKES THE GUARANTEE CHECKABLE.** The projection
-alone cannot see an entity construction DESTROYED: omission means retained, so a
+**THE FOUR DECLARATIONS, AND WHERE THEY COME FROM.** `transaction::open` splits
+the plan against the baseline it captures in the same queued command, per
+identity — never from the post-construction world, which would agree with
+anything:
+
+```text
+planned ∩ live-at-baseline   superseding(id, id)      both the baseline and the effects
+planned \ live-at-baseline   reconstructing(id)       unchanged meaning
+outgoing \ planned           retiring(id)             the EFFECTS only
+everything else              retained by omission
+```
+
+⛔ **THE SPLIT IS ONLY MADE UNDER THE BRACKET.** Without it the roots spawn
+VISIBLE, so there is no *beside*: the two bodies are both authoritative the moment
+the second lands, which is the in-place rebuild `reconstructing` already
+describes. Measured — declaring supersession on the live road made
+`a_room_that_fails_verification_is_not_published` publish a room with two bodies
+on one identity.
+
+⚠ **`retiring` IS DECLARED IN THE EFFECTS AND NEVER IN THE BASELINE.**
+`TransactionBaseline::retiring` means *"already gone by the time you verify"*, and
+under A10 the outgoing room is deliberately still standing — that is the whole
+point of staging the sweep behind the verdict.
+
+**WHAT THE VERIFIERS RAISE.**
+
+| verifier | asks | violations |
+| --- | --- | --- |
+| `verify_committed_roster` | is the world I just built coherent? | `SupersededLiveLost`, `SupersededCandidateMissing`, plus the pre-existing set |
+| `verify_projected_roster` | would the roster be valid if this published? | `Duplicated`, `SupersededNotLive`, `SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`, `LiveLostWithoutDeclaration` |
+| `verify_staged_world` | would the non-entity world be coherent? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `NoSessionRootToPublishInto` |
+
+⭐ **`ScopeVisibility` IS THE PIECE THAT LOOKED LIKE A DETAIL.**
+`AuthoritativeScope::gather` already saw candidates and could not SAY which
+members were hidden — so *"one occupant per identity"* over the union answers
+`Duplicated` for the legal A10 state. The distinction had to become data.
+
+⛔ **AND THE BASELINE IS WHAT MAKES THE GUARANTEE CHECKABLE.** The projection alone
+cannot see an entity construction DESTROYED: omission means retained, so a
 despawned bystander is absent from both sides and the arithmetic is silent.
 Comparing against what was live when the transaction opened turns that silence
 into `LiveLostWithoutDeclaration`.
 
-**VIOLATIONS THE VERIFIER RAISES**: `Duplicated`, `SupersededNotLive`,
-`SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`,
-`LiveLostWithoutDeclaration`.
-
-**ARMS**, all three poison-verified (remove the baseline comparison → the
-destruction arm reddens; stop removing the superseded predecessor from the
-projection → the supersession arm reddens):
-`a_candidate_supersedes_a_live_identity_without_destroying_it_first`,
-`a_candidate_that_declares_no_supersession_would_duplicate_an_identity`,
-`a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances`.
-
-✅ **THE BRACKET IS ON — `ROOM_CANDIDATE_BRACKET = true`, 2026-09-14.** Every
-room root in every lane is minted `InactiveCandidate`; a refused room drops all of
-them; `transaction::close` runs the projected verifier before it admits anything.
-**653/653 `app_it`, 79/79 `--workspace --lib`, 7/7 `--maintenance`, 41/41 absence
-contracts.**
-
-⇒ **WHAT UNBLOCKED IT WAS A DECLARATION PER IDENTITY, NOT A RULING.** The flag was
-recorded as waiting on `Q124`. Flipping it refused `death_restores_the_checkpoint`
-with `Duplicated { placement:ground_gun_sword, count: 2 }` +
-`ReconstructedOldSurvived { stale: 514v0 }`, and BOTH are the verifier correctly
-answering a question nobody meant to ask: `reconstructing` states *"the old body
-should already be gone"*, so a carried predecessor is a violation by definition.
-
-```text
-transaction::open, inside the queued capture:
-    planned ∩ baseline   -> baseline.superseding(id)  + effects.superseding(id, id)
-    planned \ baseline   -> baseline.reconstructing(id)
-```
-
-⛔ **THE SPLIT IS ONLY MADE UNDER THE BRACKET, AND THAT IS LOAD-BEARING.** Without
-it the roots spawn VISIBLE, so there is no *beside* — the two bodies are both
-authoritative the moment the second lands, which is the in-place rebuild
-`reconstructing` already describes. Measured: declaring supersession on the live
-road made `a_room_that_fails_verification_is_not_published` publish a room with
-two bodies on one identity.
-
-**`TransactionBaseline` GREW A THIRD DECLARATION**, and `verify_committed_roster`
-a branch for it: a superseded identity owes *the live body is still here* +
-*the candidate was built* (`SupersededLiveLost`, `SupersededCandidateMissing`),
-and its live body is SUBTRACTED from the occupant count everywhere occupants are
-counted — counting it reports the A10 invariant working as `Duplicated`.
-
-✅ **AND PUBLICATION RETIRES N, IN THAT ORDER** — `publish_candidate` for every
-lane transaction, then `retire_superseded`. The world event says so:
-`room-loaded central_hub_complex (18 roots admitted, 0 superseded roots retired,
-1 left to their custodian)`.
-
-⛔⛤ **`retire_superseded` SKIPS A BODY IN ANOTHER ENTITY'S CUSTODY, AND THAT WAS
-MEASURED, NOT REASONED.** Despawning the held body here made
-`death_restores_the_checkpoint` fail 1/11 and
-`two_persistence_authorities_for_one_item` fail with `still_owned=1`: the
-custodian's authority (`restore_custody_to_checkpoint`) takes the object out of the
-hand AND despawns it as one operation keyed on the item entity, so despawning
-first does not do half that job — it destroys the key the other half is found by,
-and the player walks away holding a weapon that no longer exists. `InCustodyOf` is
-the repository's existing statement of exactly this boundary (`RoomResident`
-already excludes it). With the skip: 11/11 and 0. ⚠ If a custodian never lets go,
-the NEXT transaction's `TransactionBaseline::capture` refuses with
-`DuplicateIdentity` — late, but loud and already there.
-
-⚠ **THE DESPAWN ARM OF `retire_superseded` NEVER FIRES IN PRODUCTION, AND THE
-REASON CHANGED UNDER ME — RE-CENSUSED AFTER THE STAGED REPLACEMENT LANDED.**
-Both censuses ran over the whole `app_it` suite with `--nocapture`:
-
-```text
-before staging:  685 publications, 3 supersessions, ALL THREE left to a custodian
-after  staging:  686 publications, 0 retired here,  3 left to a custodian
-```
-
-The first reason was that the outgoing sweep ran BEFORE the baseline, so the only
-identity that survived to be superseded was the carried object. The second is the
-opposite in shape and the same in effect: the sweep now runs inside the
-publication, physics-aware, and gets there FIRST — so the declaration-driven
-retirement finds every non-custody body already gone.
-
-⇒ **AND THAT ORDER IS RIGHT, NOT INCIDENTAL.** The outgoing sweep routes physics
-bodies through `retire_physics_entity`; a bare despawn ahead of it would skip that
-and leave the physics world holding a body nothing owns — the same shape as
-despawning an object out of a hand. `retire_superseded` is therefore the CUSTODY
-accountant plus a backstop for identities the sweep does not cover, and its
-despawn path is proven in
-`publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian`
-or nowhere. This row says so rather than letting a green suite imply coverage.
-
-**NEW ARMS**: `the_same_two_generations_declared_a_supersession_verify_clean`
-(the identical fixture to
-`a_reconstruction_that_leaves_the_old_body_alive_is_detected`, differing only in
-which sentence the transaction opened with),
-`a_supersession_that_destroyed_its_predecessor_is_refused`,
-`a_supersession_with_no_candidate_behind_it_is_refused`,
-`publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian`.
-
-**NEXT IMPLEMENTATION STEP.** The room state that is NOT entities. See below —
-that paragraph is now the whole of what stands between this and the acceptance
-scenario, which is: world N playable → construct candidate N+1 → inject a
-construction/verification failure → candidate entities and candidate-owned state
-gone, N's entities, room/world mechanics and generation/content binding intact, N
-still playable; then the success arm.
-
-✅ **AND THE ROOM STATE THAT IS NOT ENTITIES IS BEHIND THE VERDICT TOO —
-2026-09-14.** This row read *"still goes live before the verdict"*, and it was the
-last thing between the bracket and the invariant. `commit_deferred` <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen --> was four
-statements — `rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..`,
-`spawn_contents(..)` — and only the last built the candidate; `replace_live_world`
-retired the OUTGOING room ahead of all of it. So a refusal left the session
-pointed at a room index with no room in it: strictly worse than not trying, and
-arrived at BY the candidate bracket working.
-
-⇒ **`PendingWorldReplacement` STAGES ALL FOUR AND THE PUBLICATION AUTHORITY
-APPLIES THEM.** `commit_deferred` and `retire_outgoing` are DELETED
-<!-- cite-ok: named BECAUSE this change deleted them; a resolvable citation here would mean the deletion did not happen -->,
-so no road can commit a room without taking a verdict:
-
-```text
-replace_live_world(commands, outgoing, carry_body, next_rooms)
-  -> stage the whole replacement off to the side
-  -> build the room as HIDDEN CANDIDATES
-  -> declare: superseding(planned ∩ live) / retiring(outgoing \ planned)
-  -> PROJECT and VALIDATE
-       refusal   -> candidates dropped, staged world dropped, N untouched
-       admission -> publish candidates, sweep N, publish N+1's world state
-```
-
-⛔⛤ **AND STAGING IT CHANGED WHAT THE BASELINE SEES, WHICH IS THE POINT RATHER
-THAN A SIDE EFFECT.** The outgoing room is still standing when the transaction
-opens, so the baseline holds it, the projection can be asked what publication
-would do to it, and `LiveLostWithoutDeclaration` can notice construction
-destroying a piece of it. Under the old order the outgoing room was gone before
-the baseline was taken and none of those questions were askable. ⇒ The outgoing
-identities the plan does NOT re-author are declared `retiring` in the EFFECTS —
-never in the baseline, which means *"already gone by the time you verify"* and is
-exactly what A10 stops doing.
-
-⚠ **THREE CALLERS READ LIVE STATE AFTER THE CALL AND HAD TO STOP.** The
-transition validated its arrival against `RoomGeometry`, the reset read
-`world.0.spawn`, the hot reload dressed the room from `room_set.active_spec()` —
-all of them now read the PLAN, which is the same value at its source and is the
-honest address for *"the room being arrived into"*. Their `RoomGeometry` params
-stay as `Single` RUN CONDITIONS, named `_room_geometry` and documented as such: a
-room transition in a world with no room authority is still refused.
-
-✅ **AND IT IS WITNESSED THROUGH THE SHIPPED APP, NOT ONLY AT THE PRODUCTION
-FUNCTION** —
-`walking_into_a_loading_zone::a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`.
-Real content, real shell composition, a real walk into a real authored
-`EdgeExit`. The refusal is the same production one, produced by moving the live
-`ActiveContentBinding` every frame: a CONSTANT bogus binding would be baked into
-the plan by `prepare` and match itself at the commit boundary, so the arm would
-be measuring a room that published. It asserts the PREMISE first — a transaction
-ran, it was REFUSED, and its `room_id` is the TARGET room rather than the start
-room's own load — then that the active room, the live geometry and the whole live
-`SimId` roster are unchanged, and that the body can still move.
-
-⭐ **ITS POISON NAMES THE PLAYER-FACING CONSEQUENCE.** Applying the staged
-replacement on the refusal path reddens it with
-`left: "scroll_lab"  right: "central_hub_complex"` — the player standing in a
-room that was refused and therefore has nothing in it.
-
-✅ **AND THE ARRIVING BODY IS A PUBLICATION EFFECT TOO — CLOSED THE SAME DAY IT
-WAS FOUND.** That arm first reported the body being transited to the REFUSED
-room's arrival position, inside the geometry of the room it never left. Placing
-it before the verdict is the same defect as writing the geometry before the
-verdict. `StagedArrival` carries `{subject, arrival, air_jumps, momentum}` — DATA,
-because the transition lives a crate above the transaction — and
-`apply_world_replacement` performs it through the same `arrive_body_in_room`
-authority the transition used to call directly. **The transition still decides
-WHERE** (it is the only thing that knows the authored door and the body's size);
-**the verdict decides WHETHER.** Its `MotionModel` lookup stays as a PRECONDITION:
-the publication would silently skip a body it cannot place, and
-`SubjectCannotTransit` is what turns that silence into a refusal before a single
-root is built.
-
-⛔⛤ **AND THE ASSERTION FOR IT COULD NOT FAIL TWICE BEFORE IT COULD.** Recorded
-because both failures are shapes I have hit before:
-1. Comparing the end-of-walk position proved nothing — the body walks back toward
-   the door for hundreds of frames afterwards and washes any teleport out. ⇒ The
-   walk now STOPS at the refusal; the moment a refusal exists is the only moment
-   the body's position says anything about it.
-2. Asserting the body is inside the live room's BOUNDS proved nothing either —
-   the refused room's arrival lands inside the hub's rectangle, and the poison
-   passed. ⇒ What discriminates is the displacement across the verdict frame:
-   `Vec2(0.0, 0.0)` guaranteed (the transition freezes the sim clock) against
-   `Vec2(-1782.7, -188.0)` poisoned. The bounds check was DELETED rather than kept
-   beside it: an assertion that cannot fail is worse than no assertion, because it
-   reads as coverage.
-
-✅ **AND THE SANDBOX RESET IS STAGED WHOLE — 2026-09-14.** Its own comment named
-the boundary and stopped one step short of it: *"Past the point of refusal. Every
-OTHER teardown system waits for this rather than for the request, so a declined
-reset costs nothing anywhere."* True of a declined PREFLIGHT, which was the only
-refusal that existed when it was written. The room transaction can refuse too, and
-under that order the refusal arrived after the save was gone, the registries were
-cleared, the occurrence ledger was forgotten and the player had been warped to the
-spawn of a room that was never built.
-
-⇒ `NewGameResetCommitted` now means what its doc says: **the reset HAPPENED.** The
-wipes, the ledger, the player reset, the respawn request and the banner are ONE
-queued closure gated on `room_publication_succeeded`, and every dependent teardown
-system becomes verdict-gated for free because they already waited on that message.
-
-⭐ **THE ENCOUNTER ROSTER IS CAPTURED AT REQUEST AND DESPAWNED AT PUBLICATION** —
-the same reason `replace_live_world` captures the outgoing room. By the time the
-verdict runs, the start room's OWN encounters exist, and a fresh `With<Encounter>`
-query would sweep the room the reset just built.
-
-⚠ **AND `forget_everything()` IS SAFE AFTER THE REBUILD**, checked rather than
-assumed: every writer of `AuthoredOccurrences` is a SYSTEM, and no system runs
-inside a command flush, so the room the verdict just published has authored no
-rows for it to erase.
-
-**ARM**: `a_reset_whose_start_room_is_refused_wipes_nothing`, with a production
-refusal (a composition that cannot hide a candidate is refused by
-`transaction::open`) and a non-vacuity premise (the save must hold a checkpoint,
-or *"the save survived"* is true of an empty one). **Poisoned BOTH ways**: dropping
-the verdict check reddens it; forcing `room_publication_succeeded` to answer
-`false` reddens `processor_wipes_save_flags_and_clears_registries` and
-`processor_warps_player_to_start_spawn` instead. `processor_restores_authored_start_room_platform`
-stays green under the second, correctly — the platform state is published by
-`apply_world_replacement`, not by the closure.
-
-⭐ **THE SIGNATURE IS THE RECEIPT.** `AmbitionGameSave`, the three registries,
-`EncounterMusicRequest`, `GameplayBanner`, the player query, the clock writer, the
-occurrence ledger and the `NewGameResetCommitted` writer are all GONE from
-`process_new_game_reset_request`'s parameters. The staged closure writes them at a
-command flush — exclusive world access, so nothing is lost to parallelism — and
-the system can no longer spell a reset it has not verified.
-
-⚠ **WHAT IS STILL NOT BEHIND THE VERDICT**, named rather than implied: the hot
-reload's `transit_body` at `TransitVelocity::Keep` (a repair of the body's place in
-a world it never left, not an arrival), and its `DialogState` / `BodyCombat` /
-cooldown resets. Both remaining callers pass `None` for the arrival and say so at
-the call site. ⇒ With the session-level authorities below, that is what is left.
-
-✅ **AND THE HOT RELOAD'S CONTENT GENERATION IS BEHIND THE VERDICT — 2026-09-14.**
-Four writes said *"the session is now this generation"*: `ActiveContentBinding`,
-the installed `LdtkRuntimeIndex`, `PreparedContent` and `PreparedContentIdentity`.
-Made unconditionally, a REFUSED reload left the session claiming a generation
-whose room does not exist — the old room's contents under the new epoch's name,
-and every later room transaction refused as STALE against a binding nothing built.
-They are one queued closure now, gated on `room_publication_succeeded`.
-
-⛔ **IT ASKS BY ROOM ID, AND THAT IS THE WHOLE FUNCTION.**
-`LastConstructionVerification` is last-writer-wins, so *"is there a verdict and
-does it say published"* would accept a DIFFERENT room's success — and the session
-handoff road commits two rooms in quick succession. Absent is `false`, not a
-waiver. Four arms in
-`the_verdict_reader_answers_about_one_room_and_not_about_any_room`.
-
-⛔⛔ **AND THE WIRING IS REASONED, NOT MEASURED — MEASURED THAT IT IS NOT.**
-Forcing `room_publication_succeeded` to always answer `false`, so the hot reload
-NEVER advances the session's generation, leaves the **whole 654-test `app_it`
-suite green**. `git grep` confirms why: nothing outside `dev_runtime.rs` calls
-`handle_ldtk_hot_reload` or `reload_ldtk_world_from_disk`, and the only test
-traffic near `WorldSourceHotReload` is the menu row that toggles `auto_apply`.
-⇒ **THE LDTK HOT-RELOAD ROAD HAS NO END-TO-END COVERAGE IN EITHER DIRECTION**, and
-that predates this change — the unconditional writes were equally untested.
-`an_edited_pack_reaches_the_cast_the_shipped_composition_plays` is the CONTENT
-PACK road and does not touch this one. ⚠ Recorded, not fixed: a reload harness
-(a temp `.ldtk` on disk, a watcher tick, a forced refusal) is its own packet and
-is not an A10 prerequisite — A10's room invariant is proven on the roads that DO
-ship traffic.
-
-✅ **AND THE PROJECTION VALIDATES THE STAGED WORLD, NOT ONLY THE ROSTER —
-2026-09-14.** `verify_projected_roster` asks what IDENTITIES the authoritative
-world would hold; the staged replacement also names WHICH ROOM the session
-becomes and WHAT GEOMETRY it collides against, and nothing was asking whether
-those agree with each other or with the set they index into.
-`verify_staged_world` raises two `StagedWorldViolation`s and refuses the room the
-same way a roster violation does.
-
-⛔⛤ **`TargetRoomOutOfRange` EXISTS BECAUSE THE FAILURE IS SILENT.**
-`RoomSet::set_active` is `self.active = index.min(len - 1)` — an out-of-range
-index does not panic, it CLAMPS, and the session wakes in the LAST room of the set
-wearing the geometry of the one it was told to build. ⭐ **Found by accident:** a
-poison written to test something else staged `usize::MAX` and moved the active
-room instead of failing. ⚠ The clamp itself is not changed — it has callers
-outside this road and its own contract; what changed is that this road refuses to
-hand it a value it would have to clamp.
-
-`GeometryIsNotTheTargetRoom` catches the other pairing: the index and the geometry
-travel together from one plan, so a disagreement means a caller paired a plan with
-an index into a DIFFERENT set — which is what the hot-reload road does, and the one
-place they can diverge.
-
-⚠ **THE ARRIVAL IS DELIBERATELY NOT CHECKED, AND THAT IS A STATEMENT ABOUT THE
-CHECK.** `validated_spawn` already clamps the arrival into the plan's own world,
-and the plan's world is what is staged — so an in-bounds assertion could not fail
-on any road that exists. It is left out and the reason is in the source, rather
-than added and left reading as coverage.
-
-⛔⛤ **AND `NoSessionRootToPublishInto` IS FAIL-CLOSED BECAUSE THE OTHER ANSWER IS
-SILENT.** `apply_world_replacement` writes through `session_world_component_mut`,
-which answers `None` when no root is live — so a staged world with nowhere to go
-would PUBLISH, report `room-loaded`, and change nothing, and a caller would have
-no way to tell that from success. ⚠ It is reachable by ORDERING rather than only
-by misuse: session activation queues its room build BEFORE it spawns the session
-root, which is exactly why activation commits through `spawn_contents` and stages
-no world at all.
-
-**ARMS**: `a_room_that_would_seat_the_session_out_of_range_is_refused`,
-`a_room_whose_geometry_is_not_its_own_is_refused`,
-`a_room_that_stages_a_world_with_no_session_root_is_refused` (with the premise
-asserted — no root at all — so it cannot pass for the wrong reason).
-Poison-verified together: short-circuiting `verify_staged_world` to `Ok(())`
-reddens them and nothing else.
-
-✅ **AND ONE DUPLICATE AUTHORITY ON THE ACTIVATION ROAD IS GONE.**
-`PreparedPlatformerSource`'s activation wrote
-`MovingPlatformSet.0 = moving_platforms_for_room(active_spec)` and then
-`session::setup::simulation_world` published
-`MovingPlatformSet(room_plan.platform_states())` over the top of it. MEASURED:
-both are literally `spec.moving_platforms.clone()` for the same room, so the two
-always agreed — two spellings of one fact, which is how they come to disagree. The
-provider's copy and its `ResMut` are deleted; the room plan is the authority every
-other road already uses.
-
-**ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
-`a_refused_candidate_room_leaves_the_playable_world_untouched` and
-`an_admitted_candidate_room_replaces_the_playable_world_completely`. They go
-through `replace_live_world` and compare the WHOLE live world either side of the
-verdict — geometry name, active room index, platform count, and the full live
-`SimId` roster. The injected failure is a REAL production refusal
-(`ContentBindingMismatch`: the session runs under a generation the plan was not
-prepared against); nothing test-only is wired into the construction path.
-
-⭐ **THE POISONS PRINT THE PRE-A10 WORLD.** Applying the staged replacement on the
-refusal path reddens the first arm with
-`left: ("candidate", 1, 1, [])  right: ("n", 0, 1, [n_body_a, n_body_b])` — the
-session pointed at the new room, holding NOTHING, which is the same `found []`
-shape `death_restores_the_checkpoint` produced when the bracket was first flipped.
-Making the publication a no-op reddens the second.
-
-
-**WHAT A REFUSAL COSTS, STATED — AND THE OLD ANSWER WAS WRONG.** Three planning
-and source sites said a refusal *"costs only the `RoomLoaded` message, and
-`RoomLoaded` has NO production reader"*, quoting `content_staging.rs`'s
-*"notification-only"*. **MEASURED 2026-09-14: it has THREE production readers**,
-all through `ambition_combat::events::FreshAttempt` —
+**WHAT A REFUSAL COSTS — MEASURED, AND THE OLD ANSWER WAS WRONG.** Three sites said
+a refusal *"costs only the `RoomLoaded` message, and `RoomLoaded` has NO production
+reader"*. It has THREE, all through `ambition_combat::events::FreshAttempt`:
 `void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
 `rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's `BrokenBricks`.
-⇒ A refused room:
 
 ```text
-publishes no RoomLoaded      -> no fresh attempt, anywhere
-  -> staged victim hits are NOT voided      (correct: no new population)
-  -> per-attempt state is NOT re-armed      (correct: no attempt began)
-leaves the live world byte-identical        (the arms above)
-drops every candidate root it built
+no RoomLoaded    -> no fresh attempt anywhere
+                 -> staged victim hits NOT voided   (right: no new population)
+                 -> per-attempt state NOT re-armed  (right: no attempt began)
+live world       byte-identical
+candidate roots  dropped
 ```
 
-⭐ Every one of those is the RIGHT outcome, which is why nobody noticed the claim
-was false: *"harmless"* was the correct verdict reached by the wrong reasoning.
-`content_staging.rs`'s line is about staging never READING the message, not about
-nobody reading it — and it is now written that way. ⚠ No new guard: the boundary
-is already pinned (`RoomLoaded` is written exactly once on admission and never on
-refusal, both arms), and *"this message has N readers"* is a population count that
-rots in the other direction.
+⭐ Every one is the right outcome, which is why nobody noticed the claim was false:
+*"harmless"* was the correct verdict reached by the wrong reasoning.
 
-✅ **AND THE CONTROL: THE SHIPPED APP'S OWN FIRST ROOM PUBLISHES.**
-`the_shipped_apps_own_first_room_publishes`. Every arm above says what a REFUSAL
-costs; a bracket that refused EVERY room would satisfy all of them, and the player
-would boot into an empty start room. ⚠ The session's first room is the one with no
-other witness — activation queues its room build BEFORE it spawns the session
-root, so it commits through `spawn_contents`, stages no world, and never reaches
-the fail-closed check. This asks the production verdict directly, names WHICH room
-it is about, and asserts the published roster is non-empty. Poison-verified:
-forcing `published = false` reddens it with
-`room_id: "central_hub_complex", violations: []` — a refusal with nothing wrong,
-which is exactly the shape a broken bracket would produce.
+**PUBLICATION IS ONE AUTHORITY, IN ONE ORDER.** `publish_candidate` per lane
+transaction, then `apply_world_replacement` (outgoing sweep — physics-aware —
+then room set, index, geometry, platforms, arriving body), then
+`retire_superseded`. Atomic to SCHEDULED SYSTEMS only; not to hooks or observers,
+for the reason `publish_candidate` records.
 
-⚠ **AND TWO FALSE EXCLUSIVITY CLAIMS ARE DELETED.** `room_transition/commit.rs`
-and `dev_runtime.rs` each kept a `ResMut<MovingPlatformSet>` with a doc saying it
-was *"held, not written … so the transition still takes the same exclusive access
-it always did"*. The staged write happens at a command flush, which is exclusive
-world access already, so the hold bought nothing and cost the scheduler a
-parallelism edge. A parameter kept for a reason that is not true is a claim the
-next reader has to disprove.
+⛔⛤ **`retire_superseded` SKIPS A BODY IN ANOTHER ENTITY'S CUSTODY — MEASURED, NOT
+REASONED.** Despawning it failed `death_restores_the_checkpoint` 1/11 and
+`two_persistence_authorities_for_one_item` with `still_owned=1`:
+`restore_custody_to_checkpoint` takes the object out of the hand AND despawns it
+as one operation keyed on the item entity, so despawning first destroys the key
+the other half is found by and the player keeps a weapon that no longer exists.
+`InCustodyOf` is the repository's existing statement of that boundary. With the
+skip: 11/11 and 0.
 
-**ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
-because this verifier passes its own arms. It is closed when PRODUCTION
-COMPOSITION demonstrates both halves.
+⚠ **AND ITS DESPAWN ARM NEVER FIRES IN PRODUCTION**, censused twice over the whole
+`app_it` suite with `--nocapture`, for two different reasons:
 
-⚠ **A SECOND NON-REPRODUCING `app_it` FAILURE, 2026-09-14, AND ITS CONDITION IS
-RECORDED THIS TIME.** `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
-failed once and passed alone and in two full lanes after. ⛔ The message was again
-not captured — but the run it failed in was the ONE run sharing the machine with a
-full `cargo test --workspace --lib` build, and it took **444s against 222s for the
-same lane alone**. ⇒ REASONED, not measured: a fixed frame budget after an async
-readiness point reads as a failure under CPU starvation. If it reddens again,
-capture the message and check whether the test waits on a CONDITION or on a count
-of updates.
+```text
+before staging the sweep:  685 publications, 3 supersessions, ALL left to a custodian
+after  staging the sweep:  686 publications, 0 retired here,  3 left to a custodian
+```
 
-⚠ **ONE NON-REPRODUCING `app_it` FAILURE, RECORDED RATHER THAN DISMISSED**
-(2026-09-14): `an_edit_reaches_the_shipped_game::the_shipped_app_never_holds_two_session_roots_across_a_handoff`
-failed once during this work and passed on the next two runs — once alone, once
-in a full lane. ⛔ **THE ASSERTION MESSAGE WAS NOT CAPTURED**, because the grep
-pattern kept the summary and dropped it; that guard names the FRAME and the COUNT
-in its message, which is the whole diagnostic. It drives a real shell handoff over
-two 240-frame windows, so it is timing-shaped by construction. ⇒ If it reddens
-again, capture the message.
+First the outgoing sweep ran BEFORE the baseline, so the only identity that
+survived to be superseded was the carried object. Now the sweep runs inside the
+publication and gets there FIRST. ⇒ That order is right, not incidental: the sweep
+routes physics bodies through `retire_physics_entity`, and a bare despawn ahead of
+it would leave the physics world holding a body nothing owns — the same shape as
+despawning an object out of a hand. `retire_superseded` is the CUSTODY accountant
+plus a backstop, and its despawn path is proven in its unit arm or nowhere.
 
-**ACTUAL BLOCKER.** The session-level authorities are still process-global
-singletons with no candidate home — `ActiveGameplaySession`, `ActiveSessionScope`,
-`SessionMechanics`, `ActiveContentBinding` — and `SessionScopeActivated` still
-means *"replace the live mirrors"*. `RoomSet` and `RoomGeometry` are COMPONENTS on
-the session root and so are already candidate-ownable; `MovingPlatformSet` is a
-true resource and needs a home in the candidate object.
+**THE ARMS, AND WHAT EACH POISON PROVED.**
+
+| arm | poison that reddens it |
+| --- | --- |
+| `a_refused_candidate_room_leaves_the_playable_world_untouched` | applying the staged replacement on the refusal path → `left: ("candidate", 1, 1, [])` |
+| `an_admitted_candidate_room_replaces_the_playable_world_completely` | making the publication a no-op |
+| `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact` | the same, at app level → `left: "scroll_lab" right: "central_hub_complex"` |
+| `the_shipped_apps_own_first_room_publishes` | forcing `published = false` → a refusal with no violations |
+| `a_reset_whose_start_room_is_refused_wipes_nothing` | dropping the reset's verdict check |
+| `processor_wipes_save_flags_and_clears_registries`, `processor_warps_player_to_start_spawn` | forcing `room_publication_succeeded` to answer `false` |
+| the three `verify_staged_world` arms | short-circuiting it to `Ok(())` |
+| `the_same_two_generations_declared_a_supersession_verify_clean` and the three beside it | the declaration itself |
+
+⛔⛤ **AND TWO OF THOSE ASSERTIONS COULD NOT FAIL BEFORE THEY COULD.** Recorded
+because both shapes recur: comparing the body's END-OF-WALK position proved
+nothing (it walks back to the door for hundreds of frames afterwards), and
+asserting the body is inside the live room's BOUNDS proved nothing either (the
+refused room's arrival lands inside the hub's rectangle). What discriminates is
+the displacement across the verdict frame — `Vec2(0.0, 0.0)` guaranteed against
+`Vec2(-1782.7, -188.0)` poisoned. The bounds check was DELETED rather than kept
+beside the real one: an assertion that cannot fail reads as coverage.
+
+**WHAT IS STILL NOT BEHIND THE VERDICT**, named rather than implied:
+
+* the hot reload's `transit_body` at `TransitVelocity::Keep`, and its
+  `DialogState` / `BodyCombat` / cooldown resets. ⛔⛔ **That whole road has NO
+  end-to-end coverage in either direction** — forcing `room_publication_succeeded`
+  to answer `false`, so the reload never advances the session's generation, leaves
+  the entire `app_it` suite green, and `git grep` says why: nothing outside
+  `dev_runtime.rs` calls `handle_ldtk_hot_reload` or `reload_ldtk_world_from_disk`.
+  A reload harness is its own packet.
+* the dev reload's presentation spawns (`spawn_parallax_layers`,
+  `spawn_room_visuals`), which read the PLAN rather than the live world and so
+  cannot dress the wrong room, but still run on a refusal.
+
+**NEXT IMPLEMENTATION STEP — AND IT IS A DIFFERENT TRANSACTION.** The room scope is
+done. What remains is the SESSION scope: `ActiveGameplaySession`,
+`ActiveSessionScope`, `SessionMechanics` and `ActiveContentBinding` are
+process-global resources with no candidate home, and `SessionScopeActivated` still
+means *"replace the live mirrors"*. `RoomSet` and `RoomGeometry` are already
+components on the session root and so are already candidate-ownable;
+`MovingPlatformSet` is a true resource and would need one.
+
+⚠ **THE ROOM DOES NOT NEED THAT, AND THE REASON IS ORDERING.** A room transition
+must not swap session roots — the root IS the session, and the room is state on it
+— so staging the room's world as VALUES is the right shape rather than the smaller
+patch. What the session scope buys is the same guarantee one level up, at
+activation and handoff.
+
+⚠ **SESSION ACTIVATION QUEUES ITS ROOM BUILD BEFORE IT SPAWNS THE SESSION ROOT**,
+which is why it commits through `spawn_contents`, stages no world, and never
+reaches `NoSessionRootToPublishInto`. Reversing that is the first step of the
+session packet; `the_shipped_apps_own_first_room_publishes` is what holds the line
+until then.
+
+**ACCEPTANCE CRITERIA.** ⛔ A10 is not closed because candidate roots coexist or
+because a verifier passes its own arms. The ROOM scope is closed because the
+production composition demonstrates both halves — a real walk into a real authored
+door under the shipped content, refused and admitted, each poison-verified. The
+SESSION scope is open and has no arms yet.
+
+⚠ **TWO NON-REPRODUCING `app_it` FAILURES, RECORDED RATHER THAN DISMISSED.**
+`an_edit_reaches_the_shipped_game::the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+failed once and passed twice after; its message was not captured, and that guard
+names the FRAME and the COUNT in its message.
+`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+failed once, in the ONE run sharing the machine with a full workspace build
+(444s against 222s for the same lane alone) — REASONED, not measured: a fixed
+frame budget after an async readiness point reads as a failure under CPU
+starvation. ⇒ If either reddens again, capture the message first.
 
 ### ⚖ RULED 2026-09-13: OPTION 2 — VERIFY A PROJECTED POST-PUBLICATION ROSTER
 

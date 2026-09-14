@@ -1624,13 +1624,30 @@ violation is printed on that road at all (the refusal path logs through
 printed"* is NOT evidence the transaction published — that is the next thing to
 measure, by reading `LastConstructionVerification` rather than the log).
 
-⇒ **THE SHAPE THAT FITS `found []` IS TWO BASELINES FOR ONE DECISION.** The room
-plan is prepared against a ledger whose row says `InCustody → Suppressed` (do not
-author it), while `restore_custody_to_checkpoint` reads the CHECKPOINT's custody
-baseline, sees the item was NOT held at the checkpoint, and despawns it so the
-rebuild can author it. Each is right about its own question; together they can
-suppress the authoring AND retract the carried one. ⚠ **REASONED, NOT MEASURED** —
-the confirming measurement is `LastConstructionVerification` on that frame.
+⛔⛤ **AND I GUESSED WRONG ABOUT WHY, WHICH IS WHY THE REFUSAL HAD TO BECOME
+VISIBLE FIRST.** I reasoned it was *"two baselines for one decision"* — the plan
+suppressing the authoring while the custody restore retracted the carried one.
+**MEASURED instead**, once the refusal path started writing a `world-event`
+(`room-refused`) beside its invisible `bevy::log::error!`:
+
+```text
+f15  room-refused central_hub_complex (2 violation(s), 18 roots dropped):
+       Duplicated { placement:ground_gun_sword, count: 2 },
+       ReconstructedOldSurvived { placement:ground_gun_sword, stale: 514v0 }
+```
+
+⇒ **`found []` IS THE CONSEQUENCE, NOT THE DEFECT.** The room IS authored, the
+carried predecessor IS still live, the transaction declared `reconstructing` for
+that identity, the old body survived because the custody restore had not run yet —
+and the refusal then drops **all 18 roots**, which is why the object is nowhere.
+The source comment was right about `Duplicated` and my correction to it was wrong;
+what was genuinely stale is only that the arms now fail on the CONSEQUENCE.
+
+⇒ **THIS IS THE A10 CASE EXACTLY, AND THE DECLARATION IS THE FIX.**
+`reconstructing(placement)` says *"the old body should already be gone"* — under
+it, a live predecessor is `ReconstructedOldSurvived` by definition. The same
+transaction stating `superseding(placement, placement)` projects ONE occupant and
+verifies clean, which is what the projected verifier was built for.
 
 ⇒ **AND THE PROJECTED VERIFIER IS THE QUESTION THAT ADMITS IT.** *"What would the
 roster be if this published?"* — with the room transaction declaring

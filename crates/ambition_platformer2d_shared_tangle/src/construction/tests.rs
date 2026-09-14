@@ -3348,13 +3348,20 @@ fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
     );
 }
 
-/// ⛔⛤ **A10: PUBLICATION RETIRES N, AND ONLY WHAT IT HAS AUTHORITY OVER.**
+/// ⛔⛤ **A10: PUBLICATION RETIRES N, AND ONLY WHAT IT DECLARED IT WOULD.**
 ///
-/// The two halves of the boundary in one arm: a superseded body nobody is
-/// holding is despawned by the publication, and a superseded body IN ANOTHER
-/// ENTITY'S CUSTODY is left standing and counted — its custodian owns taking it
-/// out of the hand and despawning it as one operation, and a publication that
-/// despawns it first destroys the key that operation is found by.
+/// The two halves of the boundary in one arm: a superseded body declared
+/// `DepartureAuthority::Publication` is despawned here, and one declared
+/// `Custodian` is left standing and counted — its custodian owns taking it out of
+/// the hand and despawning it as one operation, and a publication that despawns
+/// it first destroys the key that operation is found by.
+///
+/// ⛔⛤ **THE SKIP USED TO BE A SNIFF, NOT A DECLARATION — CORRECTED ON REVIEW.**
+/// `retire_superseded` looked for `InCustodyOf` and quietly declined, while the
+/// projection had already certified the predecessor gone. The projection was
+/// promising an effect the publication was not entitled to perform. The authority
+/// is stated by the transaction now, `departing()` excludes a deferred one, and
+/// the two agree.
 ///
 /// ⚠ **THE SECOND HALF IS THE ONLY ONE PRODUCTION REACHES TODAY.** Measured
 /// across `app_it` 2026-09-14: 685 room publications, 3 supersessions, **all
@@ -3389,7 +3396,11 @@ fn publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian(
 
     let effects = PublicationEffects::new()
         .superseding(loose.clone(), loose.clone())
-        .superseding(held.clone(), held.clone());
+        .superseding_under(
+            held.clone(),
+            held.clone(),
+            crate::construction::DepartureAuthority::Custodian,
+        );
 
     assert_eq!(
         retire_superseded(&mut world, &effects, &baseline),
@@ -3408,6 +3419,80 @@ fn publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian(
         "the publication despawned an object out of somebody's hand: the \
          custodian's own retraction is keyed on this entity and now has nothing \
          to find, so the holder keeps a weapon that no longer exists"
+    );
+}
+
+/// ⛔⛤ **A DEFERRED DEPARTURE IS IN THE PROJECTION, BECAUSE PUBLICATION REALLY
+/// DOES LEAVE IT THERE.**
+///
+/// This is the review's finding 4, as an arm. Every supersession used to project
+/// the predecessor away and the verifier then proved ONE occupant remained — but
+/// `retire_superseded` declines to despawn a body in another entity's custody, so
+/// publication produced TWO holders of one identity while the projection had
+/// certified one. The projection claimed an effect the publication was not
+/// entitled to perform, and the answer in the code was that a later baseline
+/// capture would notice.
+///
+/// ⇒ A deferred departure keeps its predecessor in the projected world, the
+/// verifier admits exactly that pair, and the promise now matches the outcome.
+///
+/// ⚠ **EXACTLY TWO, AND ONLY THE DECLARED PAIR.** A third holder is nobody's
+/// declared effect, and the second half of this arm proves the exception does not
+/// become a hole.
+#[test]
+fn a_deferred_departure_stays_in_the_projection_and_a_third_holder_still_refuses() {
+    use crate::construction::{
+        project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
+        DepartureAuthority, ProjectionViolation, PublicationEffects, TransactionBaseline,
+        TransactionId,
+    };
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let transaction = TransactionId::from_raw("t/room".to_string());
+    let held = SimId::placement("held");
+
+    let carried = world.spawn(held.clone()).id();
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate));
+
+    let effects = PublicationEffects::new()
+        .owned_by(transaction.clone())
+        .superseding_under(held.clone(), held.clone(), DepartureAuthority::Custodian);
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let projection = project_post_publication_roster(&scope, &effects);
+
+    assert!(
+        world.get_entity(carried).is_ok(),
+        "the fixture lost the carried predecessor, so nothing here is about a \
+         deferred departure"
+    );
+    assert_eq!(
+        projection.occupants_of(&held).len(),
+        2,
+        "the projection removed a predecessor THIS publication does not remove, \
+         so it describes a world publication does not produce"
+    );
+    assert_eq!(
+        verify_projected_roster(&projection, &effects, &baseline, &scope, &world),
+        Ok(()),
+        "a DECLARED deferred departure was reported as an accidental duplicate"
+    );
+
+    // ── and the exception is exactly two ────────────────────────────────────
+    world.spawn((held.clone(), transaction.clone(), super::InactiveCandidate));
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let projection = project_post_publication_roster(&scope, &effects);
+    assert_eq!(
+        verify_projected_roster(&projection, &effects, &baseline, &scope, &world),
+        Err(vec![ProjectionViolation::Duplicated {
+            sim_id: held,
+            count: 3,
+        }]),
+        "a THIRD holder rode in under the deferral, so the declared exception is \
+         a hole rather than a bounded fact"
     );
 }
 

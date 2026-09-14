@@ -664,9 +664,32 @@ pub(crate) fn open(
                         .iter()
                         .cloned()
                         .partition(|sim_id| candidate_bracket && baseline.contains(sim_id));
+                    // ⛔⛤ **THE DEPARTURE AUTHORITY IS DECLARED HERE, FROM THE
+                    // BASELINE, NOT DISCOVERED AT RETIREMENT.** A predecessor in
+                    // another entity's CUSTODY is removed by its custodian —
+                    // `restore_custody_to_checkpoint` unequips AND despawns it as
+                    // one operation keyed on that entity, so reaching in first
+                    // destroys the key the other half is found by. Publication
+                    // used to promise it gone and then skip it because of a
+                    // component it noticed; now the promise matches what it does.
                     let mut effects = superseding.iter().fold(
                         PublicationEffects::new(),
-                        |effects, sim_id| effects.superseding(sim_id.clone(), sim_id.clone()),
+                        |effects, sim_id| {
+                            let departs = baseline
+                                .entries()
+                                .get(sim_id)
+                                .filter(|entry| {
+                                    world.get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(
+                                        entry.entity,
+                                    )
+                                    .is_some()
+                                })
+                                .map_or(
+                                    ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Publication,
+                                    |_| ambition_platformer2d_shared_tangle::construction::DepartureAuthority::Custodian,
+                                );
+                            effects.superseding_under(sim_id.clone(), sim_id.clone(), departs)
+                        },
                     );
                     // ⛔⛤ **AND THE OUTGOING ROOM IS DECLARED TOO — A
                     // RETIREMENT IS NOT A SUPERSESSION.** The staged replacement

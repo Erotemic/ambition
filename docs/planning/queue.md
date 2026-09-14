@@ -53,6 +53,24 @@ cannot fail. The staged world also no longer needs `spawn_candidate_state` — i
 lives on the publication — though that primitive stays for domains that need
 candidate-owned state of their own.
 
+**Finding 4 closed: the projection no longer promises an effect publication
+cannot perform.** Every supersession used to project the predecessor away and the
+verifier then proved ONE occupant remained — but `retire_superseded` declines to
+despawn a body in another entity's custody, so publication produced TWO holders of
+one identity while the projection had certified one, and the code's answer was
+that a later baseline capture would notice. `DepartureAuthority` is DECLARED by
+the transaction now (`Publication` or `Custodian`, read from the baseline at
+`open`), `departing()` excludes a deferred one, `retire_superseded` acts by the
+declaration instead of sniffing `InCustodyOf`, and the verifier admits exactly the
+declared pair — a THIRD holder still refuses. Witnessed by
+`a_deferred_departure_stays_in_the_projection_and_a_third_holder_still_refuses`.
+
+⚠ **This is the review's Model B with explicit vocabulary, not Model A.** The
+window where two holders exist is real and now described rather than hidden. Model
+A — the checkpoint restore owning the room candidate AND the custody projection as
+one outer publication, so the postcondition is not established until custody
+resolves — remains the better end state and is not built.
+
 Measurements live in the
 [owner document](engine/construction-and-reconstitution.md#a10---bounded-safe-candidate-materialization).
 

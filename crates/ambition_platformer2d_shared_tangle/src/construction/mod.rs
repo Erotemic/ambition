@@ -2803,8 +2803,13 @@ pub fn retire_superseded(
     baseline: &TransactionBaseline,
 ) -> SupersessionRetirement {
     let mut outcome = SupersessionRetirement::default();
-    let mut departing: BTreeSet<&SimId> = effects.supersessions().map(|s| &s.live).collect();
+    let mut departing: BTreeSet<&SimId> = effects
+        .supersessions()
+        .filter(|s| s.departs == DepartureAuthority::Publication)
+        .map(|s| &s.live)
+        .collect();
     departing.extend(effects.retirements());
+    outcome.left_to_custodian = effects.deferred_departures().count();
     for sim_id in departing {
         let Some(entry) = baseline.entries().get(sim_id) else {
             continue;
@@ -2812,10 +2817,6 @@ pub fn retire_superseded(
         let Ok(entity) = world.get_entity_mut(entry.entity) else {
             continue;
         };
-        if entity.contains::<crate::lifecycle::InCustodyOf>() {
-            outcome.left_to_custodian += 1;
-            continue;
-        }
         entity.despawn();
         outcome.retired += 1;
     }
@@ -3073,6 +3074,35 @@ pub struct Supersession {
     pub live: SimId,
     /// The hidden candidate identity that takes its place.
     pub candidate: SimId,
+    /// Who actually removes the predecessor.
+    pub departs: DepartureAuthority,
+}
+
+/// Who retires a superseded predecessor.
+///
+/// ⛔⛤ **THE PROJECTION MUST NOT CLAIM AN EFFECT THE PUBLICATION CANNOT PERFORM,
+/// AND IT DID — CORRECTED 2026-09-14 ON REVIEW.** Every supersession projected
+/// the predecessor away and the verifier then proved one occupant remained. But
+/// `retire_superseded` deliberately does NOT despawn a body in another entity's
+/// custody: the custodian's own authority unequips AND despawns it as one
+/// operation, and reaching in first destroys the key that operation is found by.
+/// So publication really produced TWO holders of one identity while the
+/// projection had certified one, and the code's answer was that a later baseline
+/// capture would notice.
+///
+/// ⇒ **A DEFERRED DEPARTURE IS DECLARED, NOT DISCOVERED.** The transaction states
+/// which authority removes each predecessor; the projection describes the world
+/// publication ACTUALLY produces; and the duplicate a declared deferral leaves is
+/// a named, bounded fact rather than a silent violation of the invariant the
+/// verifier exists to enforce.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DepartureAuthority {
+    /// This publication despawns it, in `retire_superseded`, after admission.
+    Publication,
+    /// Another authority owns the removal — today, the custodian of a body held
+    /// in someone's hands. The predecessor is still there immediately after
+    /// publication.
+    Custodian,
 }
 
 /// What a candidate transaction DECLARES it will do to the live world if it is
@@ -3120,9 +3150,29 @@ impl PublicationEffects {
         &self.owners
     }
 
-    /// `candidate` replaces `live` at publication; `live` is legal until then.
+    /// `candidate` replaces `live` at publication, and THIS publication removes
+    /// the predecessor.
     pub fn superseding(mut self, live: SimId, candidate: SimId) -> Self {
-        self.supersedes.insert(Supersession { live, candidate });
+        self.supersedes.insert(Supersession {
+            live,
+            candidate,
+            departs: DepartureAuthority::Publication,
+        });
+        self
+    }
+
+    /// `candidate` replaces `live`, and ANOTHER authority removes the
+    /// predecessor — so it is still there immediately after publication.
+    ///
+    /// ⛔ Declared, never inferred. The alternative is what this replaced: a
+    /// publication that promised the predecessor gone and then skipped it at
+    /// retirement because of a component it happened to notice.
+    pub fn superseding_under(mut self, live: SimId, candidate: SimId, departs: DepartureAuthority) -> Self {
+        self.supersedes.insert(Supersession {
+            live,
+            candidate,
+            departs,
+        });
         self
     }
 
@@ -3140,12 +3190,28 @@ impl PublicationEffects {
         self.retires.iter()
     }
 
-    /// Every published identity this declares will be gone afterwards.
+    /// Every published identity that is gone the instant this publishes.
+    ///
+    /// ⛔ A supersession whose predecessor departs under another authority is NOT
+    /// here: it is still standing immediately afterwards, and a projection that
+    /// removed it would describe a world publication does not produce.
     fn departing(&self) -> BTreeSet<&SimId> {
         self.retires
             .iter()
-            .chain(self.supersedes.iter().map(|s| &s.live))
+            .chain(
+                self.supersedes
+                    .iter()
+                    .filter(|s| s.departs == DepartureAuthority::Publication)
+                    .map(|s| &s.live),
+            )
             .collect()
+    }
+
+    /// Identities whose predecessor another authority removes after publication.
+    pub fn deferred_departures(&self) -> impl Iterator<Item = &Supersession> {
+        self.supersedes
+            .iter()
+            .filter(|s| s.departs != DepartureAuthority::Publication)
     }
 }
 
@@ -3405,13 +3471,30 @@ pub fn verify_projected_roster(
 
     // ⛔ THE CORE INVARIANT: one authoritative holder per identity, asked of the
     // world publication WOULD produce rather than of the one that exists.
+    //
+    // ⚠ **EXCEPT WHERE THE TRANSACTION DECLARED A DEFERRED DEPARTURE**, which is
+    // the one place two holders are the promised outcome: the predecessor is in
+    // another authority's custody and that authority removes it. Exactly two —
+    // the predecessor and its candidate — and no more, because a third holder is
+    // nobody's declared effect.
+    let deferred: BTreeMap<&SimId, &Supersession> = effects
+        .deferred_departures()
+        .map(|supersession| (&supersession.live, supersession))
+        .collect();
     for (sim_id, entries) in &projection.occupants {
-        if entries.len() > 1 {
-            violations.push(ProjectionViolation::Duplicated {
-                sim_id: sim_id.clone(),
-                count: entries.len(),
-            });
+        if entries.len() <= 1 {
+            continue;
         }
+        let declared = deferred.get(sim_id).is_some_and(|supersession| {
+            entries.len() == 2 && supersession.candidate == *sim_id
+        });
+        if declared {
+            continue;
+        }
+        violations.push(ProjectionViolation::Duplicated {
+            sim_id: sim_id.clone(),
+            count: entries.len(),
+        });
     }
 
     // ⛔⛤ **AN ORPHANED CANDIDATE IS A FINDING; A FOREIGN ONE IS NOT.** This loop

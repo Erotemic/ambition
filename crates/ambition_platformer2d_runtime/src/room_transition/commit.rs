@@ -146,6 +146,11 @@ pub struct RoomTransitionApplication<'w, 's> {
     >,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
     clock: RoomClock<'w>,
+    /// ⚠ HELD, NOT WRITTEN. The room's platform state is published by the room
+    /// transaction's verdict now (`PendingWorldReplacement`); this stays so the
+    /// transition still takes the same exclusive access it always did and cannot
+    /// be scheduled concurrently with a system that writes platforms.
+    #[allow(dead_code)]
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
@@ -304,7 +309,12 @@ impl RoomTransitionApplication<'_, '_> {
         // the one just left.
         self.carryover.clear_carryover();
 
-        let Ok((mut geometry, mut room_set)) = self.session.single_mut() else {
+        // ⚠ `_geometry` IS THE GUARD, NOT A WRITE TARGET. A10 stages the room
+        // geometry behind the transaction's verdict (see `replace_live_world`),
+        // so nothing here writes or reads it any more — but a transition in a
+        // world whose session root carries no room authority is still refused,
+        // and this destructure is what refuses it.
+        let Ok((_geometry, room_set)) = self.session.single_mut() else {
             // Unreachable: the preflight above proved exactly one match.
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
@@ -360,10 +370,7 @@ impl RoomTransitionApplication<'_, '_> {
                 .iter()
                 .map(|(entity, physics)| (entity, physics.is_some())),
             carry_body,
-            &mut room_set,
             None,
-            &mut geometry,
-            &mut self.moving_platforms.0,
         );
 
         // The authored arrival, validated against the NOW-target geometry using
@@ -383,8 +390,14 @@ impl RoomTransitionApplication<'_, '_> {
             player_size,
         ) {
             (Some(motion_model), Some(clusters), Some(arrival_at), Some(player_size)) => {
+                // ⛔ THE PLAN'S GEOMETRY, NOT THE LIVE COMPONENT. As of A10's
+                // staged replacement, `RoomGeometry` is not written until the
+                // room's verdict, so reading it here would validate the arrival
+                // against the room being LEFT — exactly the confusion this
+                // function's own "NOW-target geometry" comment warns about. The
+                // plan is the target room, named at its source.
                 let arrival = ambition_platformer2d_world::rooms::validated_spawn(
-                    &geometry.0,
+                    &plan.spec().world,
                     arrival_at,
                     player_size,
                 );
@@ -502,7 +515,11 @@ impl RoomTransitionApplication<'_, '_> {
                 arrival_pos,
                 player_size,
                 subject_gravity_dir,
-                &geometry.0,
+                // ⛔ THE TARGET ROOM'S GEOMETRY, for the same reason the arrival
+                // validation above reads the plan: the live component is not
+                // written until the room's verdict, and a landing report counted
+                // against the room being LEFT is worse than no report.
+                &plan.spec().world,
                 &self.carryover.feature_overlay,
             );
         }

@@ -1080,20 +1080,23 @@ when written (those limbs have been plan rows since `giant_hand_plans` fed
 ✅ **A10 STEP 6, 2026-09-12: RETIREMENT OF THE OLD WORLD IS EXPLICIT — `8fc339b16`.**
 The order *"retire the outgoing room, THEN commit the incoming one"* was a fact
 kept in THREE call sites (room transition, session reset, dev hot reload), each
-calling `retire_outgoing` then `commit_deferred` and none saying why the order
-matters. Committing first leaves two rooms' worth of entities in one live world
+calling `retire_outgoing` then `commit_deferred` <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen --> and none saying why
+the order matters. Committing first leaves two rooms' worth of entities in one live world
 with duplicate authored identities; skipping the retire leaks a room.
 `RoomConstructionPlan::replace_live_world` is the one road and **both halves are
 `pub(crate)`** — poison-verified: a bare `commit_deferred` from `ambition_app`
-fails with *"method `commit_deferred` is private"*.
+fails with *"method `commit_deferred` is private"*. <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen -->
 
-⚠ **THE DESTRUCTIVE WINDOW IS NAMED, NOT REMOVED.** Between the two halves the
-session has no room, and `room_transition/commit.rs` already said the
-consequence: *"A transition that fails after `retire_outgoing` has despawned the
-source room and has nowhere to put the body, which is not a failure a caller can
-handle."* Callers handle it by discipline — a `// Nothing below may fail` comment
-over straight-line code. ⇒ Collapsing the pair means the candidate-based fix
-lands in ONE place instead of three that have to be found first.
+✅ **AND THE DESTRUCTIVE WINDOW IT NAMED IS GONE — 2026-09-14.** This paragraph
+read *"NAMED, NOT REMOVED: between the two halves the session has no room"*, and
+it was right: `room_transition/commit.rs` said the consequence out loud —
+*"A transition that fails after the outgoing sweep has despawned the source room
+and has nowhere to put the body, which is not a failure a caller can handle."*
+Collapsing the pair here is what let the fix land in ONE place, and it did:
+`replace_live_world` now STAGES the whole replacement (`PendingWorldReplacement`)
+and the room transaction's verdict applies it or drops it. Both halves are
+DELETED rather than private — no road can commit a room without taking a verdict.
+See `docs/planning/queue.md`'s A10 checkpoint for the acceptance arms.
 
 ⇒ **WHAT REMAINS OF A10 — ONE STEP, AND ITS BLOCKER IS MEASURED.** Wire the
 candidate lifecycle to a real reload customer (I3b's scene reconstruction).

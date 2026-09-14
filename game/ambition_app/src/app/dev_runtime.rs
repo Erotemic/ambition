@@ -66,7 +66,11 @@ fn local_ggrs_restart_policy(
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
-    mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
+    // ⛔ A GUARD, NOT A WRITE TARGET. A hot reload no longer writes the live
+    // geometry (A10 stages it behind the room transaction's verdict — see
+    // `replace_live_world`), but a reload in a world whose session root carries
+    // no room authority is still refused, and this `Single` is what refuses it.
+    _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         world_rooms::RoomSet,
     >,
@@ -82,7 +86,11 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
         Res<physics::PhysicsSandboxSettings>,
     ),
-    mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
+    // ⚠ HELD, NOT WRITTEN — the room's platform state is published by the room
+    // transaction's verdict now. Kept so a hot reload still takes the same
+    // exclusive access and cannot be scheduled beside a platform writer.
+    #[allow(unused_variables)]
+    platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
     // RESIDENTS of the room being replaced — an object in a body's custody rides
     // the reload with its holder, exactly as it rides a room transition. See
     // `RoomResident`.
@@ -209,7 +217,6 @@ pub(super) fn handle_ldtk_hot_reload(
             .schema_fingerprint();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
-            &mut world,
             &mut room_set,
             &mut motion_model,
             &mut clusters,
@@ -221,7 +228,6 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut ldtk_index,
             tuning.0 .0,
             *tuning.1,
-            &mut platform_set.0,
             &room_visuals,
             visual_assets.0.as_deref(),
             visual_assets.1.as_deref(),
@@ -346,7 +352,6 @@ pub(super) fn prepare_ldtk_reload_transaction(
 
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
-    world: &mut RoomGeometry,
     room_set: &mut world_rooms::RoomSet,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -358,7 +363,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition_platformer2d::world::platforms::MovingPlatformState>,
     room_visuals: &Query<
         (
             Entity,
@@ -513,16 +517,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     let active_room = construction_plan.room_id().to_string();
     // ⚠ A hot reload replaces the room SET as well as the active room, which is
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
-    // callers. It is applied BETWEEN the retire and the commit because
-    // `commit_deferred` calls `set_active` with an index into the new set.
+    // callers. The staged replacement applies the set first and then
+    // `set_active`, because the index is into the NEW set.
     construction_plan.replace_live_world(
         commands,
         outgoing,
         None,
-        room_set,
         Some(transaction.next_room_set),
-        world,
-        moving_platforms,
     );
     // The session's live content binding follows the COMMITTED content. Queued
     // after `commit_deferred`, so this transaction still verifies against the
@@ -568,15 +569,20 @@ pub(super) fn reload_ldtk_world_from_disk(
     ambition_platformer2d::render::rendering::spawn_parallax_layers(
         commands,
         session_scope,
-        &world.0,
-        &room_set.active_spec().metadata,
+        // ⛔ THE PLAN'S ROOM, NOT THE LIVE COMPONENTS. A10 stages the room
+        // geometry and the room set behind the transaction's verdict, so reading
+        // them here would dress the reloaded room in the PREVIOUS one's backdrop
+        // — and on a refusal there is no new room to dress at all. The plan's
+        // spec is the same value at its source.
+        &construction_plan.spec().world,
+        &construction_plan.spec().metadata,
         assets,
         quality.map(|q| &q.budget.parallax),
     );
     spawn_room_visuals(
         commands,
         session_scope,
-        room_set.active_spec(),
+        construction_plan.spec(),
         physics_settings,
         assets,
     );

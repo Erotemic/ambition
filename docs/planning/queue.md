@@ -631,9 +631,10 @@ Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION R
 - ⛔⛤ **A10 IS NOT ONE FLAG, AND THIS ROW SAID IT WAS — CORRECTED BY THE
   2026-09-13 REVIEW.** *"A10's last step — flip `spawn_contents`'s `hidden`
   flag"* is FALSE at HEAD. **Hidden entities are not a candidate world.**
-  `commit_deferred` writes `RoomSet`, `RoomGeometry` and the moving-platform
-  state BEFORE verification runs, `replace_live_world` retires the outgoing room
-  before the transaction opens, and the hot-reload caller
+  `commit_deferred` wrote `RoomSet`, `RoomGeometry` and the moving-platform <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen -->
+  state BEFORE verification ran, and `replace_live_world` retired the outgoing
+  room before the transaction opened — **both closed 2026-09-14; see
+  the A10 checkpoint below**; and the hot-reload caller
   (`game/ambition_app/src/app/dev_runtime.rs`) goes on to queue
   `ActiveContentBinding`, transit the player, reset movement/combat, and replace
   `ldtk_index` / `prepared_identity` / `prepared_content` — **none of which
@@ -1447,9 +1448,12 @@ here:
 onto a hidden candidate root instead of writing them into the live one; keep
 `MovingPlatformSet` beside them in the same candidate (a resource needs a home in
 the candidate object); verify; publish by removing the marker from that root and
-retiring the old one. `commit_deferred`'s three lines —
-`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..` — are the
-mutation of the LIVE world that has to become construction of a CANDIDATE one.
+retiring the old one. `commit_deferred`'s three lines <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen --> —
+`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..` — were the
+mutation of the LIVE world that had to become construction of a CANDIDATE one.
+✅ **They are staged behind the verdict as of 2026-09-14** — see the A10
+checkpoint below — though they are staged as VALUES rather than as components of
+a candidate root, which is what the paragraphs here are about.
 
 ### ⛔⛤ AND THE OBSTACLE A CANDIDATE ROOT HITS IS MEASURED TOO — WITH THE CONSTRAINT THAT CLEARS IT
 
@@ -1604,14 +1608,29 @@ already excludes it). With the skip: 11/11 and 0. ⚠ If a custodian never lets 
 the NEXT transaction's `TransactionBaseline::capture` refuses with
 `DuplicateIdentity` — late, but loud and already there.
 
-⚠ **THE DESPAWN ARM OF `retire_superseded` NEVER FIRES IN PRODUCTION TODAY.**
-Censused over the whole `app_it` suite with `--nocapture`: **685 room
-publications, 3 supersessions, all three left to a custodian.** The room road
-supersedes nothing else because `retire_outgoing` has already removed every
-room-resident body before the baseline is captured; what survives it is exactly
-the carried object. ⇒ That arm is proven in
+⚠ **THE DESPAWN ARM OF `retire_superseded` NEVER FIRES IN PRODUCTION, AND THE
+REASON CHANGED UNDER ME — RE-CENSUSED AFTER THE STAGED REPLACEMENT LANDED.**
+Both censuses ran over the whole `app_it` suite with `--nocapture`:
+
+```text
+before staging:  685 publications, 3 supersessions, ALL THREE left to a custodian
+after  staging:  686 publications, 0 retired here,  3 left to a custodian
+```
+
+The first reason was that the outgoing sweep ran BEFORE the baseline, so the only
+identity that survived to be superseded was the carried object. The second is the
+opposite in shape and the same in effect: the sweep now runs inside the
+publication, physics-aware, and gets there FIRST — so the declaration-driven
+retirement finds every non-custody body already gone.
+
+⇒ **AND THAT ORDER IS RIGHT, NOT INCIDENTAL.** The outgoing sweep routes physics
+bodies through `retire_physics_entity`; a bare despawn ahead of it would skip that
+and leave the physics world holding a body nothing owns — the same shape as
+despawning an object out of a hand. `retire_superseded` is therefore the CUSTODY
+accountant plus a backstop for identities the sweep does not cover, and its
+despawn path is proven in
 `publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian`
-or nowhere, and this row says so rather than letting a green suite imply coverage.
+or nowhere. This row says so rather than letting a green suite imply coverage.
 
 **NEW ARMS**: `the_same_two_generations_declared_a_supersession_verify_clean`
 (the identical fixture to
@@ -1628,19 +1647,78 @@ construction/verification failure → candidate entities and candidate-owned sta
 gone, N's entities, room/world mechanics and generation/content binding intact, N
 still playable; then the success arm.
 
-⚠ **AND THE ROOM STATE THAT IS NOT ENTITIES STILL GOES LIVE BEFORE THE VERDICT.**
-`RoomConstructionPlan::commit_deferred` is four statements —
-`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..`,
-`spawn_contents(..)`. Only the last builds the candidate; the first three mutate
-N. `replace_live_world`'s own doc names the same thing about ordering: *"A10's
-stronger last-good-world guarantee is the fix … and when it lands it lands HERE
-rather than in three call sites."* The three callers are
-`session/reset/mod.rs:470`, `room_transition/commit.rs:357` and
-`dev_runtime.rs:518`.
+✅ **AND THE ROOM STATE THAT IS NOT ENTITIES IS BEHIND THE VERDICT TOO —
+2026-09-14.** This row read *"still goes live before the verdict"*, and it was the
+last thing between the bracket and the invariant. `commit_deferred` <!-- cite-ok: `retire_outgoing` / `commit_deferred` were DELETED by A10's staged world replacement (2026-09-14); these rows record what they spelled and why they went, and a resolvable citation here would mean the deletion did not happen --> was four
+statements — `rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..`,
+`spawn_contents(..)` — and only the last built the candidate; `replace_live_world`
+retired the OUTGOING room ahead of all of it. So a refusal left the session
+pointed at a room index with no room in it: strictly worse than not trying, and
+arrived at BY the candidate bracket working.
+
+⇒ **`PendingWorldReplacement` STAGES ALL FOUR AND THE PUBLICATION AUTHORITY
+APPLIES THEM.** `commit_deferred` and `retire_outgoing` are DELETED
+<!-- cite-ok: named BECAUSE this change deleted them; a resolvable citation here would mean the deletion did not happen -->,
+so no road can commit a room without taking a verdict:
+
+```text
+replace_live_world(commands, outgoing, carry_body, next_rooms)
+  -> stage the whole replacement off to the side
+  -> build the room as HIDDEN CANDIDATES
+  -> declare: superseding(planned ∩ live) / retiring(outgoing \ planned)
+  -> PROJECT and VALIDATE
+       refusal   -> candidates dropped, staged world dropped, N untouched
+       admission -> publish candidates, sweep N, publish N+1's world state
+```
+
+⛔⛤ **AND STAGING IT CHANGED WHAT THE BASELINE SEES, WHICH IS THE POINT RATHER
+THAN A SIDE EFFECT.** The outgoing room is still standing when the transaction
+opens, so the baseline holds it, the projection can be asked what publication
+would do to it, and `LiveLostWithoutDeclaration` can notice construction
+destroying a piece of it. Under the old order the outgoing room was gone before
+the baseline was taken and none of those questions were askable. ⇒ The outgoing
+identities the plan does NOT re-author are declared `retiring` in the EFFECTS —
+never in the baseline, which means *"already gone by the time you verify"* and is
+exactly what A10 stops doing.
+
+⚠ **THREE CALLERS READ LIVE STATE AFTER THE CALL AND HAD TO STOP.** The
+transition validated its arrival against `RoomGeometry`, the reset read
+`world.0.spawn`, the hot reload dressed the room from `room_set.active_spec()` —
+all of them now read the PLAN, which is the same value at its source and is the
+honest address for *"the room being arrived into"*. Their `RoomGeometry` params
+stay as `Single` RUN CONDITIONS, named `_room_geometry` and documented as such: a
+room transition in a world with no room authority is still refused.
+
+**ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
+`a_refused_candidate_room_leaves_the_playable_world_untouched` and
+`an_admitted_candidate_room_replaces_the_playable_world_completely`. They go
+through `replace_live_world` and compare the WHOLE live world either side of the
+verdict — geometry name, active room index, platform count, and the full live
+`SimId` roster. The injected failure is a REAL production refusal
+(`ContentBindingMismatch`: the session runs under a generation the plan was not
+prepared against); nothing test-only is wired into the construction path.
+
+⭐ **THE POISONS PRINT THE PRE-A10 WORLD.** Applying the staged replacement on the
+refusal path reddens the first arm with
+`left: ("candidate", 1, 1, [])  right: ("n", 0, 1, [n_body_a, n_body_b])` — the
+session pointed at the new room, holding NOTHING, which is the same `found []`
+shape `death_restores_the_checkpoint` produced when the bracket was first flipped.
+Making the publication a no-op reddens the second.
+
 
 **ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
 because this verifier passes its own arms. It is closed when PRODUCTION
 COMPOSITION demonstrates both halves.
+
+⚠ **A SECOND NON-REPRODUCING `app_it` FAILURE, 2026-09-14, AND ITS CONDITION IS
+RECORDED THIS TIME.** `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`
+failed once and passed alone and in two full lanes after. ⛔ The message was again
+not captured — but the run it failed in was the ONE run sharing the machine with a
+full `cargo test --workspace --lib` build, and it took **444s against 222s for the
+same lane alone**. ⇒ REASONED, not measured: a fixed frame budget after an async
+readiness point reads as a failure under CPU starvation. If it reddens again,
+capture the message and check whether the test waits on a CONDITION or on a count
+of updates.
 
 ⚠ **ONE NON-REPRODUCING `app_it` FAILURE, RECORDED RATHER THAN DISMISSED**
 (2026-09-14): `an_edit_reaches_the_shipped_game::the_shipped_app_never_holds_two_session_roots_across_a_handoff`

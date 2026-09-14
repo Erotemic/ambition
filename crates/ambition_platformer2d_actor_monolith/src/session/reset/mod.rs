@@ -195,6 +195,10 @@ pub struct ResetPlayState<'w> {
     sim_state:
         ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     clock_resets: MessageWriter<'w, ambition_time::time_control::ClockResetRequest>,
+    /// ⚠ Read by `clear_transient_on_sandbox_reset`'s siblings, not by the reset
+    /// itself any more: the room's platform state is published by the room
+    /// transaction's verdict. See `PendingWorldReplacement`.
+    #[allow(dead_code)]
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     /// ⛔⛤ **THE APP'S REGISTRIES ARE THE FALLBACK NOW, NOT THE ANSWER.** A reset
@@ -306,8 +310,13 @@ pub fn process_new_game_reset_request(
         EncounterMusicRequest,
     >,
     mut play_state: ResetPlayState<'_>,
-    mut room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomSet>,
-    mut world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomSet>,
+    // ⛔ A GUARD, NOT A WRITE TARGET — and `Single` is what makes it one: this
+    // system does not run unless the live session root carries room geometry. The
+    // reset no longer WRITES it (`replace_live_world` stages that behind the
+    // room's verdict), but a reset in a world with no room authority is still
+    // nothing this should attempt.
+    _room_geometry: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_platformer2d_core::RoomGeometry,
     >,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
@@ -473,10 +482,7 @@ pub fn process_new_game_reset_request(
             .iter()
             .map(|(entity, physics_entity)| (entity, physics_entity.is_some())),
         None,
-        &mut room_set,
         None,
-        &mut world,
-        &mut play_state.moving_platforms.0,
     );
 
     // 6. Reset the player to the start room's spawn point.
@@ -516,7 +522,11 @@ pub fn process_new_game_reset_request(
         // the ordering hazard that produced Jon's 440px pan is unspellable here.
         blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
         attack.clear();
-        safety.last_safe_pos = world.0.spawn;
+        // ⛔ THE PLAN'S SPAWN, NOT THE LIVE GEOMETRY'S. `replace_live_world` no
+        // longer writes `RoomGeometry` before the room's verdict, so reading it
+        // here would take the OUTGOING room's spawn. It is the same value at the
+        // same source `reset_body_clusters` above already reads.
+        safety.last_safe_pos = room_plan.spec().world.spawn;
     }
     // 7. Respawn the static world visuals + parallax for the start room.
     //    Without this, the despawn in step 3 leaves the scene empty until

@@ -105,6 +105,118 @@ impl std::fmt::Display for OpenRefused {
     }
 }
 
+/// The live world this room transaction WOULD become, held off to the side
+/// until its verdict.
+///
+/// ⛔⛤ **THE HALF OF A10 THAT IS NOT ENTITIES.** `RoomConstructionPlan::
+/// commit_deferred` is four statements and only the last one builds the
+/// candidate; the other three — `rooms.set_active`, `geometry.0 = ..`,
+/// `*moving_platforms = ..` — write the LIVE world, and `replace_live_world`
+/// retired the OUTGOING room ahead of all of it. So a refusal used to leave the
+/// session pointed at a room index with no room in it: the strictly worse
+/// outcome A10 exists to delete, arrived at by the candidate bracket working.
+///
+/// ⇒ Every one of those four is now staged here and applied by the ONE
+/// publication authority in [`verify_and_publish`], after the candidate has been
+/// admitted. A refusal drops this resource and the live world never learns the
+/// room was attempted.
+///
+/// ⚠ **AND STAGING IT CHANGES WHAT THE BASELINE SEES, WHICH IS THE POINT.** The
+/// outgoing room is still standing when the transaction opens, so the baseline
+/// holds it, the projection can be asked what publication would do to it, and
+/// `LiveLostWithoutDeclaration` can notice construction destroying a piece of it.
+/// Under the old order the outgoing room was already gone before the baseline was
+/// taken and none of those questions were askable.
+#[derive(Resource)]
+pub(crate) struct PendingWorldReplacement {
+    /// The outgoing room's bodies, and whether each is a physics entity — the
+    /// flag decides which retirement they take.
+    outgoing: Vec<(bevy::ecs::entity::Entity, bool)>,
+    /// A room SET replacement (a hot reload re-reads content); `None` when the
+    /// caller walks within the set it already has.
+    next_rooms: Option<ambition_platformer2d_world::rooms::RoomSet>,
+    /// Which room in that set becomes active.
+    target_index: usize,
+    /// The geometry the session collides against afterwards.
+    geometry: ambition_platformer2d_core::World,
+    /// The moving-platform bodies' starting state.
+    moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
+}
+
+impl PendingWorldReplacement {
+    pub(crate) fn new(
+        outgoing: Vec<(bevy::ecs::entity::Entity, bool)>,
+        next_rooms: Option<ambition_platformer2d_world::rooms::RoomSet>,
+        target_index: usize,
+        geometry: ambition_platformer2d_core::World,
+        moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
+    ) -> Self {
+        Self {
+            outgoing,
+            next_rooms,
+            target_index,
+            geometry,
+            moving_platforms,
+        }
+    }
+
+    /// Every outgoing body, so the transaction can DECLARE what publication is
+    /// about to do to the identities standing on them.
+    fn outgoing_entities(&self) -> BTreeSet<bevy::ecs::entity::Entity> {
+        self.outgoing.iter().map(|(entity, _)| *entity).collect()
+    }
+}
+
+/// Make the staged world live: retire the outgoing room, then publish the
+/// world-defining state.
+///
+/// ⛔ CALLED ONLY FROM THE ADMISSION ARM, and only after `publish_candidate`.
+/// The order inside is the one the three former call sites each kept privately —
+/// retire, then commit — and it is safe to read as atomic because nothing is
+/// SCHEDULED inside an exclusive-world call. It is not atomic to hooks or
+/// observers; see `publish_candidate` for the measurement behind that wording.
+fn apply_world_replacement(world: &mut World, pending: PendingWorldReplacement) {
+    {
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, world);
+        for (entity, is_physics) in &pending.outgoing {
+            if *is_physics {
+                crate::world::physics::retire_physics_entity(&mut commands, *entity);
+            } else {
+                // `try_despawn`: the outgoing roster was collected before this
+                // frame's commands flushed, so an entity in it can already have
+                // been despawned by something else in the same frame — an actor
+                // death, a session teardown racing a transition. Retiring a body
+                // that is already gone is the outcome this wants.
+                commands.entity(*entity).try_despawn();
+            }
+        }
+        queue.apply(world);
+    }
+    if let Some(next) = pending.next_rooms {
+        if let Some(mut rooms) = ambition_platformer2d_shared_tangle::lifecycle::
+            session_world_component_mut::<ambition_platformer2d_world::rooms::RoomSet>(world)
+        {
+            *rooms = next;
+        }
+    }
+    if let Some(mut rooms) = ambition_platformer2d_shared_tangle::lifecycle::
+        session_world_component_mut::<ambition_platformer2d_world::rooms::RoomSet>(world)
+    {
+        rooms.set_active(pending.target_index);
+    }
+    if let Some(mut geometry) = ambition_platformer2d_shared_tangle::lifecycle::
+        session_world_component_mut::<ambition_platformer2d_core::RoomGeometry>(world)
+    {
+        geometry.0 = pending.geometry;
+    }
+    if let Some(mut platforms) = world
+        .get_resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>()
+    {
+        platforms.0 = pending.moving_platforms;
+    }
+}
+
 /// What the last construction transaction's verification concluded.
 ///
 /// Developer evidence and a test seam, kept for the same reason
@@ -228,10 +340,36 @@ pub(crate) fn open(
                         .iter()
                         .cloned()
                         .partition(|sim_id| candidate_bracket && baseline.contains(sim_id));
-                    let effects = superseding.iter().fold(
+                    let mut effects = superseding.iter().fold(
                         PublicationEffects::new(),
                         |effects, sim_id| effects.superseding(sim_id.clone(), sim_id.clone()),
                     );
+                    // ⛔⛤ **AND THE OUTGOING ROOM IS DECLARED TOO — A
+                    // RETIREMENT IS NOT A SUPERSESSION.** The staged replacement
+                    // is going to sweep every body of the room being left, and
+                    // most of them are identities this plan does NOT re-author:
+                    // an enemy that wandered in, a thrown item, a body the
+                    // previous room owned. Omission means RETAINED in the
+                    // projection, so leaving them undeclared would have the
+                    // verifier certify a post-publication world still holding a
+                    // room that publication is about to destroy.
+                    //
+                    // ⚠ Declared in the EFFECTS only, never in the baseline.
+                    // `TransactionBaseline::retiring` means *"already gone by the
+                    // time you verify"*, and under A10 they are deliberately
+                    // still standing — that is the whole point of staging the
+                    // sweep behind the verdict.
+                    if let Some(outgoing) = world
+                        .get_resource::<PendingWorldReplacement>()
+                        .map(PendingWorldReplacement::outgoing_entities)
+                    {
+                        let planned: BTreeSet<_> = planned.iter().collect();
+                        for (sim_id, entry) in baseline.entries() {
+                            if outgoing.contains(&entry.entity) && !planned.contains(sim_id) {
+                                effects = effects.retiring(sim_id.clone());
+                            }
+                        }
+                    }
                     OpenedTransaction {
                         baseline: baseline
                             .reconstructing(reconstructing)
@@ -296,6 +434,10 @@ fn verify_and_publish(
     candidate_bracket: bool,
 ) {
     let refuse = |world: &mut World, room_id: String| {
+        // ⛔ THE STAGED WORLD GOES WITH THE CANDIDATE. A refusal that left it
+        // behind would hand the NEXT room transaction a replacement prepared for
+        // a room that never published.
+        world.remove_resource::<PendingWorldReplacement>();
         world.insert_resource(LastConstructionVerification {
             room_id,
             violations: Vec::new(),
@@ -491,12 +633,20 @@ fn verify_and_publish(
         // authoritative as of the line above; the bodies it declared it was
         // replacing go on the line below, in that order and never the other
         // one. See `retire_superseded`.
+        // ⛔⛤ **AND ONLY NOW DOES THE LIVE WORLD CHANGE AT ALL.** The outgoing
+        // room is swept and the world-defining state published here, after the
+        // candidate became authoritative — never before it, which is the order
+        // `replace_live_world` used to name as a destructive window it could only
+        // give one address to.
+        if let Some(pending) = world.remove_resource::<PendingWorldReplacement>() {
+            apply_world_replacement(world, pending);
+        }
         let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
             world, &effects, &baseline,
         );
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id} ({admitted} roots admitted, \
-             {} superseded roots retired, {} left to their custodian)",
+             {} declared departures retired, {} left to their custodian)",
             superseded.retired, superseded.left_to_custodian
         ));
         world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
@@ -504,6 +654,9 @@ fn verify_and_publish(
         });
     } else {
         let failure_count = violations.len() + projection_violations.len();
+        // ⭐ THE LAST-GOOD-WORLD GUARANTEE, IN ONE STATEMENT: the room the
+        // session is playing was never touched, so there is nothing to recover.
+        let staged = world.remove_resource::<PendingWorldReplacement>().is_some();
         let dropped: usize = transactions
             .iter()
             .map(|transaction| {
@@ -522,8 +675,9 @@ fn verify_and_publish(
         // against an invisible refusal — the publication side has said
         // `room-loaded` on the same channel since it existed.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "room-refused {room_id} ({failure_count} violation(s), {dropped} roots dropped): \
-             {}",
+            "room-refused {room_id} ({failure_count} violation(s), {dropped} roots dropped, \
+             live world {}): {}",
+            if staged { "kept" } else { "was not staged" },
             violations
                 .iter()
                 .map(|violation| format!("{violation:?}"))

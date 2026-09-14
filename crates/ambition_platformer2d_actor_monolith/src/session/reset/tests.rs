@@ -209,6 +209,14 @@ fn dummy_world() -> ae::World {
 /// despawn in this synthetic harness).
 fn min_app() -> App {
     let mut app = App::new();
+    // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds every
+    // room root hidden and `transaction::open` REFUSES a world that cannot hide
+    // one — and since A10 staged the room's world state behind the verdict, a
+    // refusal here means the reset publishes NOTHING, not merely that it
+    // publishes debris.
+    ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+        app.world_mut(),
+    );
     let world = dummy_world();
     app.insert_resource(NewGameResetRequested::default());
     app.insert_resource(AmbitionGameSave::default());

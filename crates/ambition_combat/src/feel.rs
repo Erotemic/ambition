@@ -5,6 +5,76 @@
 
 use bevy::prelude::*;
 
+/// The developer-editable MIRROR of [`Platformer2dFeelTuningMonolith`].
+///
+/// ⛔⛤ **THE INSPECTOR USED TO EDIT THE AUTHORITY ITSELF.**
+/// `game/ambition_app/src/dev/mod.rs` installed
+/// `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>`, so bevy-inspector
+/// wrote the resource deterministic simulation reads — no proposal, no
+/// admission, no rebase — while `developer_edits_under_rollback.rs` already
+/// carried `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to`
+/// naming that exact hole. `Q120`'s inventory of "all five live editor roads" was
+/// the list a review had named, not a census of the tree, so this one was never
+/// in it. Found by the GPT architecture review 2026-09-14.
+///
+/// ⭐ The same three stages every other domain now has: editable mirror →
+/// pending proposal → admitted authority. The monolith stays the neutral
+/// mechanical value a composition without developer tools keeps.
+#[derive(Resource, Reflect, Clone, Copy, Debug, Default, Deref, DerefMut)]
+#[reflect(Resource)]
+pub struct EditableFeelTuning(pub Platformer2dFeelTuningMonolith);
+
+/// The marker type that OWNS this domain. Identity is the type, not the label.
+pub struct FeelTuningDomain;
+
+/// This domain's key in `PendingMechanicalEdits`, declared beside the value.
+pub fn feel_tuning_domain() -> ambition_platformer2d_core::MechanicalDomain {
+    ambition_platformer2d_core::MechanicalDomain::of::<FeelTuningDomain>("feel_tuning")
+}
+
+/// Raise a changed feel value as a PROPOSAL.
+///
+/// ⚠ **`is_added` IS EXCLUDED** for the reason every proposer excludes it: Bevy
+/// counts INSERTION as a change, and the mirror is installed before content
+/// finishes seeding — proposing that would stop the session the composition had
+/// just started, on frame one, every time.
+pub fn propose_editable_feel_tuning(
+    editable: Res<EditableFeelTuning>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+) {
+    if !editable.is_changed() || editable.is_added() {
+        return;
+    }
+    pending.propose(feel_tuning_domain());
+}
+
+/// Copy an ADMITTED feel edit into the value the simulation reads.
+///
+/// ⛔ Deliberately NOT change-guarded: the guard lives on the PROPOSAL, so an
+/// untouched panel raises nothing and this never runs its write. Re-adding
+/// `is_changed` here would drop every edit that had to be staged behind a
+/// foreign rollback timeline for a frame, which is the whole point of staging it.
+pub fn publish_editable_feel_tuning(
+    editable: Res<EditableFeelTuning>,
+    admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
+    mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
+    mut active: ResMut<Platformer2dFeelTuningMonolith>,
+) {
+    if !pending.is_pending(feel_tuning_domain()) {
+        return;
+    }
+    // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
+    // with no rollback host has no history an edit could contradict.
+    if matches!(
+        admission.as_deref(),
+        Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)
+    ) {
+        return;
+    }
+    *active = editable.0;
+    pending.take(feel_tuning_domain());
+}
+
 /// Live-tunable time/input/combat feel values consumed by sandbox gameplay.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
@@ -225,3 +295,117 @@ mod tests {
         assert!(f.boss_attack_active >= 0.017);
     }
 }
+
+#[cfg(test)]
+mod feel_tuning_domain_tests {
+    use super::*;
+    use bevy::prelude::App;
+
+    /// The editor road in the order the composition runs it.
+    fn app_with_the_feel_domain(
+        admission: ambition_platformer2d_core::MechanicalEditAdmission,
+    ) -> App {
+        let mut app = App::new();
+        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.insert_resource(EditableFeelTuning(Platformer2dFeelTuningMonolith::default()));
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.insert_resource(admission);
+        app.add_systems(
+            bevy::app::Update,
+            (propose_editable_feel_tuning, publish_editable_feel_tuning).chain(),
+        );
+        // ⚠ ONE UPDATE FIRST, so the `is_added` frame is behind us. A proposer
+        // that fired on insertion would stop the session on frame one, every
+        // time, and an arm that never ran that frame could not tell.
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .is_pending(feel_tuning_domain()),
+            "installing the mirror proposed an edit: `is_added` is not excluded",
+        );
+        app
+    }
+
+    /// A double-tap WINDOW is as mechanical as a value gets — it decides whether
+    /// a press becomes a dash. Editing it must travel the admission road.
+    fn edit_the_window(app: &mut App) -> f32 {
+        let mut editable = app.world_mut().resource_mut::<EditableFeelTuning>();
+        editable.down_double_tap_window *= 2.0;
+        editable.down_double_tap_window
+    }
+
+    #[test]
+    fn an_admitted_feel_edit_reaches_the_value_simulation_reads() {
+        let mut app = app_with_the_feel_domain(
+            ambition_platformer2d_core::MechanicalEditAdmission::Publish,
+        );
+        let before = app
+            .world()
+            .resource::<Platformer2dFeelTuningMonolith>()
+            .down_double_tap_window;
+        let edited = edit_the_window(&mut app);
+        assert_ne!(
+            edited, before,
+            "the edit changed nothing, so the assertion below would hold anyway",
+        );
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<Platformer2dFeelTuningMonolith>()
+                .down_double_tap_window,
+            edited,
+            "an ADMITTED feel edit never reached the authority simulation reads",
+        );
+        assert!(
+            !app.world()
+                .resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .is_pending(feel_tuning_domain()),
+            "the domain was not drained by its own publisher",
+        );
+    }
+
+    /// ⛔⛤ AND A REFUSED EDIT DOES NOT MOVE THE AUTHORITY — the whole reason this
+    /// road exists. Until 2026-09-14 the inspector wrote
+    /// `Platformer2dFeelTuningMonolith` itself, so there was no state in which a
+    /// foreign or unhealthy rollback timeline could decline the edit at all.
+    #[test]
+    fn a_refused_feel_edit_stays_in_the_editor_and_the_authority_does_not_move() {
+        let mut app = app_with_the_feel_domain(
+            ambition_platformer2d_core::MechanicalEditAdmission::Refuse,
+        );
+        let before = app
+            .world()
+            .resource::<Platformer2dFeelTuningMonolith>()
+            .down_double_tap_window;
+        let edited = edit_the_window(&mut app);
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<Platformer2dFeelTuningMonolith>()
+                .down_double_tap_window,
+            before,
+            "a REFUSED feel edit moved the value deterministic simulation reads",
+        );
+        assert_eq!(
+            app.world()
+                .resource::<EditableFeelTuning>()
+                .down_double_tap_window,
+            edited,
+            "the refusal discarded the developer's value instead of staging it, \
+             which makes a refusal indistinguishable from a silent drop",
+        );
+        assert!(
+            app.world()
+                .resource::<ambition_platformer2d_core::PendingMechanicalEdits>()
+                .is_pending(feel_tuning_domain()),
+            "the refused proposal was drained, so it can never be published when \
+             the refusal lifts",
+        );
+    }
+}
+

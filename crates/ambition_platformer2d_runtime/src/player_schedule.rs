@@ -291,6 +291,34 @@ impl Plugin for PlayerSchedulePlugin {
         // now read. See `ambition_damage::PlayerDamagePolicy`.
         app.init_resource::<ambition_damage::PlayerDamagePolicy>();
         app.add_systems(Update, ambition_damage::project_player_damage_policy);
+        // ⛔⛤ **THE FEEL-TUNING EDITOR ROAD, `Q120`'s FIFTH — AND IT REGISTERS
+        // HERE BECAUSE `ambition_dev_tools` DOES NOT DEPEND ON `ambition_combat`.**
+        // Adding that edge to reach one resource would be dependency convenience
+        // wearing ownership's clothes; `MechanicalEditSet` is published by
+        // `ambition_platformer2d_core`, so this composes into the same
+        // Propose→Admit→Publish chain the other four use without it.
+        //
+        // The inspector edited `Platformer2dFeelTuningMonolith` DIRECTLY until
+        // 2026-09-14 — the resource deterministic simulation reads, with no
+        // proposal, no admission and no rebase. See
+        // `ambition_combat::feel::EditableFeelTuning`.
+        {
+            let seeded = app
+                .world()
+                .get_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>()
+                .copied()
+                .unwrap_or_default();
+            app.insert_resource(ambition_combat::feel::EditableFeelTuning(seeded));
+        }
+        app.add_systems(
+            bevy::app::PreUpdate,
+            (
+                ambition_combat::feel::propose_editable_feel_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
+                ambition_combat::feel::publish_editable_feel_tuning
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
+            ),
+        );
         app.add_systems(
             sim,
             (

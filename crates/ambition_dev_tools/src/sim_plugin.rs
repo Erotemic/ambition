@@ -119,6 +119,13 @@ impl Plugin for DevToolsSimPlugin {
                     crate::propose_editable_abilities,
                     crate::dev_tools::propose_developer_body_profile,
                     crate::dev_tools::propose_player_stats_edits,
+                    // ⭐ THE FIFTH DOMAIN, `EditableFeelTuning`, registers in
+                    // `ambition_platformer2d_runtime` INSTEAD OF HERE — this crate
+                    // does not depend on `ambition_combat` and adding that edge to
+                    // reach one resource would be convenience wearing ownership's
+                    // clothes. The sets are published by
+                    // `ambition_platformer2d_core`, so ordering composes without
+                    // the dependency.
                 )
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
                 // ⛔⛤ **THESE TWO LEFT THE SIM SCHEDULE ON 2026-09-13, AND THE

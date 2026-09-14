@@ -502,7 +502,39 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
   (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
   make a burned number comparable, far from the allocator.
-- ⛔⛔ **`Q120` — REOPENED AGAIN 2026-09-14, AND THE REASON IS THAT "ALL FIVE" WAS NEVER A CENSUS.** The list of five was the list the FIRST review named, and I treated finishing it as finishing the category. `game/ambition_app/src/dev/mod.rs` still installs `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()`, so bevy-inspector edits the AUTHORITATIVE mechanical resource directly — no editable mirror, no proposal, no `MechanicalEditAdmission`, no rebase — while simulation consumes the same resource across control input / double-tap handling, time control, actor integration, damage, boss bodies, runtime room-and-reset paths and combat rules. ⛔⛤ **AND THE REPOSITORY ALREADY KNEW**: `game/ambition_app/tests/developer_edits_under_rollback.rs` carries `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to` and names it as the other resource waived under the same forward-only rationale. ⇒ The defect was not undiscovered; it was outside the list, and nothing derived the list from the tree. **The repair is the same protocol: `EditableFeelTuning` → pending proposal → admission/rebase → `Platformer2dFeelTuningMonolith` as the neutral mechanical authority** (or stage fields for the next admitted generation if they must not be live-edited). Acceptance: under locally owned rollback an edit stops the old timeline before the new feel is visible and the new timeline begins against it; under foreign/caller ownership the editor keeps the proposed value and the monolith does not move; then rewind across the attempted edit. **Q120 is NOT closed at HEAD.** Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE OF THAT LIST MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
+- ✅ **`Q120` — REOPENED AND RE-CLOSED 2026-09-14, AND THE REASON IS THAT "ALL FIVE" WAS NEVER A CENSUS.** The list of five was the list the FIRST review named, and I treated finishing it as finishing the category. `game/ambition_app/src/dev/mod.rs` still installs `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()`, so bevy-inspector edits the AUTHORITATIVE mechanical resource directly — no editable mirror, no proposal, no `MechanicalEditAdmission`, no rebase — while simulation consumes the same resource across control input / double-tap handling, time control, actor integration, damage, boss bodies, runtime room-and-reset paths and combat rules. ⛔⛤ **AND THE REPOSITORY ALREADY KNEW**: `game/ambition_app/tests/developer_edits_under_rollback.rs` carries `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to` and names it as the other resource waived under the same forward-only rationale. ⇒ The defect was not undiscovered; it was outside the list, and nothing derived the list from the tree. **The repair is the same protocol: `EditableFeelTuning` → pending proposal → admission/rebase → `Platformer2dFeelTuningMonolith` as the neutral mechanical authority** (or stage fields for the next admitted generation if they must not be live-edited). Acceptance: under locally owned rollback an edit stops the old timeline before the new feel is visible and the new timeline begins against it; under foreign/caller ownership the editor keeps the proposed value and the monolith does not move; then rewind across the attempted edit. ✅ **CLOSED THE SAME DAY, 2026-09-14 — `ambition_combat::feel::EditableFeelTuning`.**
+The domain's own crate owns its mirror, exactly as `ambition_portal2d` owns
+`EditablePortalTuning`: a `Deref`/`DerefMut` newtype over the authority, a
+`FeelTuningDomain` marker keyed by `TypeId`, `propose_editable_feel_tuning`
+(change-guarded, `is_added` excluded) and `publish_editable_feel_tuning` (NOT
+change-guarded, because the guard belongs on the proposal). The inspector now
+installs `ResourceInspectorPlugin::<EditableFeelTuning>`, so no editor writes the
+resource simulation reads.
+
+⛔⛤ **AND IT REGISTERS IN `ambition_platformer2d_runtime`, NOT IN
+`ambition_dev_tools` BESIDE THE OTHER FOUR.** `ambition_dev_tools` does not depend
+on `ambition_combat`, and adding that edge to reach one resource would be
+dependency convenience wearing ownership's clothes — the same objection an earlier
+review raised about pushing `InstalledTechniques` down the graph. `MechanicalEditSet`
+is published by `ambition_platformer2d_core`, so the two systems compose into the
+same Propose→Admit→Publish chain without it.
+
+⭐ Two arms, and the second is the one that could not exist before:
+`an_admitted_feel_edit_reaches_the_value_simulation_reads` and
+`a_refused_feel_edit_stays_in_the_editor_and_the_authority_does_not_move` —
+poison-verified by deleting the refusal branch. Until this landed there was no
+state in which a foreign or unhealthy rollback timeline could decline a feel edit
+at all. Their shared fixture asserts its own premise first: one update runs before
+the edit and the domain must NOT be pending, or `is_added` is proposing on frame
+one.
+
+⚠ `developer_edits_under_rollback.rs`'s
+`editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to` writes the
+AUTHORITY directly and is left as it is: it documents the hazard for any code that
+takes `ResMut<Platformer2dFeelTuningMonolith>`, which this migration does not
+close and does not claim to.
+
+Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE OF THAT LIST MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
   <details><summary>closed once on the second attempt</summary>
 
   ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS

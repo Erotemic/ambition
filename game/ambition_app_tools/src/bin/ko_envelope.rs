@@ -428,6 +428,17 @@ struct Trial {
     /// What the launch arithmetic saw. For a throw this is `entry + damage`,
     /// because `apply_capture_throws` damages BEFORE reading the meter.
     effective_percent: i32,
+    /// WAS THE VICTIM STILL NON-ACTIONABLE WHEN IT CROSSED THE BLAST LINE?
+    ///
+    /// ⭐ TWO DIFFERENT EVENTS WEAR ONE NAME IN EVERY TABLE THIS TOOL HAS
+    /// PRINTED. A move that launches a body through the blast line while it is
+    /// still in hitstun or tumbling took the stock — the victim could not have
+    /// acted. A body that leaves the world after control returned merely FELL,
+    /// and scoring that as kill power credits the move with a stock the stage
+    /// took. Only the first is evidence about knockback.
+    ///
+    /// `None` when no KO occurred.
+    ko_forced: Option<bool>,
 }
 
 /// The outcome of a threshold search, including the ones that are not a number.
@@ -449,6 +460,14 @@ enum Threshold {
     /// was recorded as a percent the VICTIM lived through — and the threshold
     /// walked straight past it. Run 2 refused 8 of 64 rows this way.
     Refused(i32),
+    /// CALIBRATION ONLY — trials at ONE percent disagreed with each other.
+    ///
+    /// ⛔ THIS IS THE CELL MAJORITY-OF-THREE USED TO HIDE. The coarse path
+    /// outvotes a 2:1 split and prints a crisp integer; that integer then feeds
+    /// `G_new = G_old * p0/p1` and becomes a SHIPPED growth. A threshold that
+    /// could not reproduce itself is not a number to author from, so calibration
+    /// refuses it by name instead of rounding it off.
+    Unstable { percent: i32, yes: i32, no: i32 },
 }
 
 impl Threshold {
@@ -459,6 +478,61 @@ impl Threshold {
             Threshold::NonMonotonic(s) => format!("NON_MONOTONIC{s:?}"),
             Threshold::NoContact => "NO_CONTACT".into(),
             Threshold::Refused(p) => format!("REFUSED@{p}"),
+            Threshold::Unstable { percent, yes, no } => {
+                format!("UNSTABLE@{percent}({yes}y/{no}n)")
+            }
+        }
+    }
+}
+
+/// WHAT THREE TRIALS AT ONE PERCENT ACTUALLY SAID.
+///
+/// ⛔ `bool` WAS THE WRONG RETURN AND IT DESTROYED THE FINDING AT THE SEAM.
+/// `kills` ran up to three trials and collapsed them with `yes > no`, so a cell
+/// that killed twice and survived once became indistinguishable from one that
+/// killed three times. The disagreement was printed to stderr and then thrown
+/// away, which means every caller — including the one that authors a shipped
+/// growth — saw a confidence the measurement did not have.
+#[derive(Clone, Copy)]
+enum Vote {
+    Killed,
+    Survived,
+    /// The same initial state produced BOTH outcomes. Counts kept, because
+    /// 2:1 and 1:2 are different evidence about where the edge sits.
+    Mixed { yes: i32, no: i32 },
+}
+
+impl Vote {
+    /// The historical majority-of-three verdict.
+    ///
+    /// ⚠ THE COARSE PATH STILL USES THIS, DELIBERATELY. Every table this tool
+    /// has ever recorded was measured under majority rule, and changing the
+    /// default would silently re-define what those runs mean — comparability
+    /// across them is the one thing a later reading cannot buy back. Calibration
+    /// opts out by refusing the cell instead; the survey keeps its semantics.
+    fn majority(self) -> bool {
+        match self {
+            Vote::Killed => true,
+            Vote::Survived => false,
+            Vote::Mixed { yes, no } => yes > no,
+        }
+    }
+}
+
+/// ⛔ `true`/`false` ARE PRESERVED VERBATIM, AND THAT IS THE POINT.
+///
+/// The determinism probe prints six of these side by side and asks whether they
+/// agree. Every run recorded before `Vote` existed rendered a `bool`, so keeping
+/// the unanimous spellings byte-identical keeps those runs comparable with new
+/// ones. The ONLY new string is the case a `bool` could not express: a cell that
+/// disagreed with itself used to be majority-ized into a confident `true` before
+/// anyone could see it, which is the defect that arm was built to catch.
+impl std::fmt::Display for Vote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Vote::Killed => write!(f, "true"),
+            Vote::Survived => write!(f, "false"),
+            Vote::Mixed { yes, no } => write!(f, "MIXED({yes}y/{no}n)"),
         }
     }
 }
@@ -1545,6 +1619,7 @@ impl KoProbe {
         let mut resolved_launch = None;
         let mut ko = false;
         let mut ticks_to_ko = None;
+        let mut ko_forced = None;
         // ⭐ THE TRIAL ENDS WHEN IT IS DECIDED, NOT WHEN THE BUDGET RUNS OUT.
         //
         // Measured 2026-09-13: a SURVIVING trial spent all 150 ticks watching a
@@ -1641,6 +1716,32 @@ impl KoProbe {
             // BACK, not where it left — which would classify every kill as
             // whatever boundary the respawn point sits inside.
             let live_pos = self.pos(self.victim);
+            // ⭐ SAMPLED BESIDE `live_pos`, AND FOR EXACTLY ITS REASON. A KO'd body
+            // is taken out of play and respawned, so hitstun and tumble read AFTER
+            // the knockout event describe the body that came BACK — which carries
+            // neither, and would score every kill as an un-forced fall.
+            //
+            // ⛔ `tumble_until_landing` IS DELIBERATELY ABSENT FROM THIS PREDICATE.
+            // It outlives helplessness: control returns before the tumble does, so a
+            // victim still flagged by it may have been able to act. Including it
+            // would count recoverable falls as forced kills, which is the precise
+            // overstatement this field exists to end. `tumble_timer` is the
+            // helpless part, and it is the one asked here.
+            let live_forced = {
+                let w = self.app.world();
+                let stunned = w
+                    .get::<ambition_platformer2d::characters::actor::BodyCombat>(self.victim)
+                    .is_some_and(|c| c.is_in_hitlag() || c.hitstun_timer > 0.0);
+                let tumbling = w
+                    .get::<ambition_platformer2d::actor::MotionModel>(self.victim)
+                    .is_some_and(|m| match m {
+                        ambition_platformer2d::actor::MotionModel::AxisSwept(axis) => {
+                            axis.state.tumble_timer > 0.0
+                        }
+                        _ => false,
+                    });
+                stunned || tumbling
+            };
             if !ko {
                 let messages = self
                     .app
@@ -1655,6 +1756,7 @@ impl KoProbe {
                 }) {
                     ko = true;
                     ticks_to_ko = Some(tick);
+                    ko_forced = Some(live_forced);
                     // ⭐⭐ WHICH LINE IT CROSSED. `HitSource::LeftTheWorld` says a
                     // body is gone and NOTHING about the direction, so a vertical
                     // kill and a horizontal one have been indistinguishable in
@@ -1668,7 +1770,7 @@ impl KoProbe {
                     match self.blast {
                         Some(b) => eprintln!(
                             "KO_BOUNDARY: boundary={} x={victim_x:.0} pct={entry_percent} \
-                             tick={tick} last_live=({:.1},{:.1})",
+                             tick={tick} forced={live_forced} last_live=({:.1},{:.1})",
                             b.classify(live_pos),
                             live_pos.x,
                             live_pos.y,
@@ -1767,6 +1869,7 @@ impl KoProbe {
                 Pulse::Throw(params) => entry_percent + params.damage,
             },
             at_strike,
+            ko_forced,
         })
     }
 
@@ -1813,7 +1916,7 @@ impl KoProbe {
     /// A refused reset is RETRIED rather than counted, and `None` — the probe
     /// could not obtain a clean trial — is returned so the caller can say so
     /// instead of silently scoring a survival.
-    fn kills(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<bool> {
+    fn kills(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<Vote> {
         let (mut yes, mut no) = (0, 0);
         while yes < 2 && no < 2 {
             let mut trial = None;
@@ -1855,8 +1958,9 @@ impl KoProbe {
                  is a BAND, not a point, and re-sweeping it finely is the only way \
                  to know what it is"
             );
+            return Some(Vote::Mixed { yes, no });
         }
-        Some(yes > no)
+        Some(if yes > no { Vote::Killed } else { Vote::Survived })
     }
 
     fn ko_threshold(&mut self, pulse: Pulse<'_>, victim_x: f32, max_percent: i32) -> Threshold {
@@ -1891,11 +1995,51 @@ impl KoProbe {
             .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
             .filter(|n| *n > 0)
             .unwrap_or(50);
+        // ⭐⭐ CALIBRATION MODE: EXACT, NOT BRACKETED — and the difference is a
+        // number this session MEASURED, not a preference.
+        //
+        // George's forward throw reports a threshold of 175 at step=50 and 115 at
+        // step=10 from the SAME authored value, because a KO window narrower than
+        // the step is stepped clean over. Calibration inverts
+        // `G_new = G_old * p0/p1`, which takes whatever `p0` it is handed on
+        // faith — so a swept threshold does not merely mis-report, it BAKES the
+        // sweep's own artifact into a shipped growth. A survey may be coarse; a
+        // value you are about to author may not.
+        //
+        // ⭐ THE FIRST KILL IS THE ANSWER, with no bracket and no both-sides
+        // re-verification. Ascending by 1 means `p - 1` was DIRECTLY measured one
+        // iteration earlier and survived — which is precisely the fact the coarse
+        // path spends two extra trials reconstructing after its binary search.
+        //
+        // ⛔ AND A MIXED VOTE IS INVALID HERE RATHER THAN OUTVOTED. Majority-of-
+        // three turns "this cell could not reproduce itself" into a crisp integer,
+        // and that integer would become a shipped value.
+        if std::env::args().any(|a| a == "calib") {
+            let mut p = 0;
+            while p <= max_percent {
+                match self.kills(pulse, p, victim_x) {
+                    None => return Threshold::Refused(p),
+                    Some(Vote::Mixed { yes, no }) => {
+                        return Threshold::Unstable { percent: p, yes, no }
+                    }
+                    Some(Vote::Killed) => return Threshold::At(p),
+                    Some(Vote::Survived) => {}
+                }
+                p += 1;
+            }
+            // Same separation the coarse path makes: never killing and never
+            // connecting are different answers, and only one is about the game.
+            return if self.launch_at(pulse, max_percent, victim_x).is_some() {
+                Threshold::Above(max_percent)
+            } else {
+                Threshold::NoContact
+            };
+        }
         let mut samples: Vec<(i32, bool)> = Vec::new();
         let mut bracket: Option<(i32, i32)> = None;
         let mut p = 0;
         while p <= max_percent {
-            let Some(ko) = self.kills(pulse, p, victim_x) else {
+            let Some(ko) = self.kills(pulse, p, victim_x).map(Vote::majority) else {
                 return Threshold::Refused(p);
             };
             samples.push((p, ko));
@@ -1927,7 +2071,7 @@ impl KoProbe {
         };
         while hi - lo > 1 {
             let mid = (lo + hi) / 2;
-            let Some(killed) = self.kills(pulse, mid, victim_x) else {
+            let Some(killed) = self.kills(pulse, mid, victim_x).map(Vote::majority) else {
                 return Threshold::Refused(mid);
             };
             if killed {
@@ -1956,10 +2100,10 @@ impl KoProbe {
         // trial there killed, and then ONE trial at that same `hi` said it did
         // not. `is_some_and` also folded a refused reset into "did not kill",
         // which is the same silent survival the `Refused` variant exists to stop.
-        let Some(below) = self.kills(pulse, hi - 1, victim_x) else {
+        let Some(below) = self.kills(pulse, hi - 1, victim_x).map(Vote::majority) else {
             return Threshold::Refused(hi - 1);
         };
-        let Some(at) = self.kills(pulse, hi, victim_x) else {
+        let Some(at) = self.kills(pulse, hi, victim_x).map(Vote::majority) else {
             return Threshold::Refused(hi);
         };
         if below || !at {
@@ -2491,7 +2635,11 @@ fn run_probe() {
         // BECOMES the attacker. Nothing downstream can tell that from a table
         // somebody meant to ask for.
         .filter(|a| {
-            *a != "identity" && !a.starts_with("ceiling=") && !a.starts_with("step=")
+            *a != "identity"
+                && *a != "calib"
+                && !a.starts_with("ceiling=")
+                && !a.starts_with("step=")
+                && !a.starts_with("only=")
         })
         .collect();
     let pairs: Vec<(String, String)> = if after.len() >= 2 {
@@ -2524,13 +2672,56 @@ fn run_probe() {
     // ⛔ It is ALSO the poison-verification for `step=`: without this line the flag
     // reaching the sweep could only be inferred from the very result it exists to
     // test, which is circular.
+    // ⭐⭐ CALIBRATION MODE — OFF unless asked for, and the two flags below are
+    // designed together rather than shipped as separate conveniences.
+    //
+    // `calib` replaces coarse sweep + bracket + binary search with an exact
+    // ascending scan at step 1, and refuses a self-disagreeing cell instead of
+    // outvoting it. That is what AUTHORING a value needs and it is far too slow
+    // for a survey: a cell that kills near 110% costs ~110 trials instead of ~10.
+    // ⇒ `only=<substring>` matches `move_id`, because a whole-roster exact pass
+    // would run for hours and nobody would wait for it.
+    let calib = std::env::args().any(|a| a == "calib");
+    let only: Option<String> =
+        std::env::args().find_map(|a| a.strip_prefix("only=").map(|s| s.to_string()));
+    // ⛔⛔ THE STEP LINE MUST NOT DESCRIBE A PASS THAT DID NOT RUN — MEASURED, in
+    // the first calibration run this flag ever served.
+    //
+    // The header printed `# sweep step: 50` while `calib` had replaced the coarse
+    // sweep outright and an exact step-1 scan produced the row. That is false
+    // provenance in the one place a later reader trusts without checking: this
+    // file's own rule is that two tables taken at different steps are not
+    // comparable, so a table claiming a step it never used is WORSE than one
+    // carrying no step at all — it invites exactly the comparison it breaks.
+    if calib {
+        println!(
+            "# sweep step: NOT IN EFFECT — `calib` replaced the coarse sweep with an \
+             exact ascending step-1 scan; see the calibration line below"
+        );
+    } else {
+        println!(
+            "# sweep step: {} (coarse pass; a KO window narrower than this can be missed \
+             entirely — distrust any cell whose KO launch lands near tumble_speed)",
+            std::env::args()
+                .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
+                .filter(|n| *n > 0)
+                .unwrap_or(50)
+        );
+    }
+    // ⛔ POISON-VERIFICATION FOR BOTH, for the reason the step line already gives:
+    // a flag whose arrival can only be inferred from the result it exists to
+    // change is a flag nobody can prove reached the sweep.
     println!(
-        "# sweep step: {} (coarse pass; a KO window narrower than this can be missed \
-         entirely — distrust any cell whose KO launch lands near tumble_speed)",
-        std::env::args()
-            .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
-            .filter(|n| *n > 0)
-            .unwrap_or(50)
+        "# calibration mode: {} | {}",
+        if calib {
+            "ON — exact ascending scan, step=1, first KO is the threshold, mixed vote ⇒ UNSTABLE"
+        } else {
+            "off — coarse sweep + bracket + binary search, mixed vote ⇒ majority-of-three"
+        },
+        match &only {
+            Some(w) => format!("only= ACTIVE: measuring launchers whose move_id contains {w:?}"),
+            None => "no only= filter: every bound launcher measured".to_string(),
+        }
     );
     // ⛔⛔ EVERY KO PERCENT BELOW IS A NO-RECOVERY LOWER BOUND, and reading one
     // as a kill percent overstates the game's lethality.
@@ -2632,6 +2823,14 @@ fn run_probe() {
                     .filter(|l| match l {
                         Launcher::Strike { verbs, .. } => !verbs.is_empty(),
                         Launcher::Throw { .. } => true,
+                    })
+                    // ⭐ `only=` NARROWS THE POPULATION, IT DOES NOT CHANGE A NUMBER.
+                    // Each launcher's threshold search is independent of every
+                    // other's — separate pulses, separate resets — so a filtered run
+                    // and a full run report identical cells for the moves they share.
+                    .filter(|l| match &only {
+                        Some(want) => l.move_id().contains(want.as_str()),
+                        None => true,
                     })
                     .collect::<Vec<_>>()
             };
@@ -2819,11 +3018,39 @@ fn run_probe() {
                 // this enum is not `Copy` and matching it by value would move
                 // `centre_ko` out from under the `centre_ko.cell()` below.
                 let ko_ticks = match &centre_ko {
-                    Threshold::At(p) => probe
-                        .fire(pulse, *p, probe.centre)
-                        .and_then(|t| t.ticks_to_ko)
-                        .map(|t| t.to_string())
-                        .unwrap_or_else(|| "-".into()),
+                    Threshold::At(p) => match probe.fire(pulse, *p, probe.centre) {
+                        Some(t) => {
+                            // ⭐⭐ WHETHER THIS CELL MEASURES KILL POWER AT ALL.
+                            //
+                            // A threshold is evidence about knockback only if the
+                            // victim crossed the blast line while it could not act.
+                            // If control had already returned, the move did not take
+                            // the stock — the body FELL, and the stage took it. Both
+                            // outcomes have been printing as one number in every
+                            // table this tool has produced, which flatters exactly
+                            // the weak-but-far moves a calibration would then
+                            // "correct" by raising growth.
+                            //
+                            // ⛔ ON STDERR, NOT AS A COLUMN. Three gates diff this
+                            // table byte-for-byte against `envelope_AFTER_LAWONLY`;
+                            // widening it would destroy the only comparison road
+                            // still standing.
+                            eprintln!(
+                                "KO_FORCED: move={move_id} x=centre pct={p} forced={} \
+                                 — `no` means the victim had CONTROL BACK when it left \
+                                 the world, so this cell is a FALL, not kill power",
+                                match t.ko_forced {
+                                    Some(true) => "yes",
+                                    Some(false) => "no",
+                                    None => "no-ko-in-verification-trial",
+                                }
+                            );
+                            t.ticks_to_ko
+                                .map(|v| v.to_string())
+                                .unwrap_or_else(|| "-".into())
+                        }
+                        None => "-".to_string(),
+                    },
                     _ => "-".to_string(),
                 };
                 println!(

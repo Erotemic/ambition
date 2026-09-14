@@ -2680,6 +2680,16 @@ pub struct ScopeMember {
     /// as published, which is the direction that turns a legal candidate into a
     /// duplicate-identity violation.
     pub visibility: ScopeVisibility,
+    /// Which construction transaction stamped it, if any.
+    ///
+    /// ⛔⛤ **[`ScopeClassification`] CANNOT ANSWER THIS, AND ASSUMING IT COULD
+    /// ENCODED "ONE CANDIDATE PUBLICATION PER WORLD".** A classification is
+    /// relative to the ONE transaction a scope was gathered against, so a
+    /// publication's OWN capability lane reads as `ForeignScope` — and a
+    /// projection that reasons from it cannot tell "another lane of mine" from
+    /// "somebody else's candidate entirely". The owner is the fact; the
+    /// classification is one question asked of it.
+    pub owner: Option<TransactionId>,
 }
 
 /// Every identity-bearing entity in the world, classified against one
@@ -2999,6 +3009,7 @@ impl AuthoritativeScope {
                 } else {
                     ScopeVisibility::Published
                 },
+                owner: owner.cloned(),
             });
         }
         // Query iteration order is not stable across runs; violations derived
@@ -3211,7 +3222,27 @@ pub fn project_post_publication_roster(
                 }
                 ProjectedSource::RetainedLive
             }
-            ScopeVisibility::HiddenCandidate => ProjectedSource::Candidate,
+            // ⛔⛤ **ONLY THIS PUBLICATION'S CANDIDATES BECOME AUTHORITATIVE, AND
+            // ADDING EVERY HIDDEN ENTITY ENCODED "ONE CANDIDATE PUBLICATION PER
+            // WORLD".** A foreign candidate is no more part of the world this
+            // publication would produce than an unloaded room is: it stays hidden
+            // afterwards, and if it later publishes it must justify its own
+            // effects against whatever this one actually left behind.
+            //
+            // ⚠ Published identities are still counted GLOBALLY above, so a
+            // candidate that takes a live identity must still declare its
+            // supersession. What changes is that another transaction's hidden
+            // candidate wanting the same identity does not make this one invalid.
+            ScopeVisibility::HiddenCandidate => {
+                let mine = member
+                    .owner
+                    .as_ref()
+                    .is_some_and(|owner| effects.owners().contains(owner));
+                if !mine {
+                    continue;
+                }
+                ProjectedSource::Candidate
+            }
         };
         occupants
             .entry(member.sim_id.clone())
@@ -3250,13 +3281,15 @@ pub enum ProjectionViolation {
     RetiredNotLive {
         sim_id: SimId,
     },
-    /// A hidden candidate carries somebody else's transaction stamp, or none.
-    CandidateNotOwned {
+    /// A hidden candidate carries NO transaction stamp at all.
+    ///
+    /// ⛔⛤ **IT USED TO BE `CandidateNotOwned` — "not one of MINE" — AND THAT
+    /// ENCODED ONE CANDIDATE PUBLICATION PER WORLD.** Two regions prepared
+    /// offside would each have refused the other. A FOREIGN candidate is simply
+    /// not part of this publication's projected world; an UNOWNED one is nobody's
+    /// and cannot be admitted or retired by anything, so it stays hidden forever.
+    CandidateUnowned {
         sim_id: SimId,
-        /// Every transaction this publication declared it owns — see
-        /// [`PublicationEffects::owned_by`] for why it is a set.
-        expected: BTreeSet<TransactionId>,
-        found: Option<TransactionId>,
     },
     /// The projected world would lose an identity nothing declared departing.
     ///
@@ -3289,14 +3322,10 @@ impl std::fmt::Display for ProjectionViolation {
                 f,
                 "the candidate declares it retires `{sim_id}`, which is not live"
             ),
-            Self::CandidateNotOwned {
-                sim_id,
-                expected,
-                found,
-            } => write!(
+            Self::CandidateUnowned { sim_id } => write!(
                 f,
-                "candidate `{sim_id}` is stamped {found:?}, which is none of this \
-                 publication's transactions {expected:?}"
+                "hidden candidate `{sim_id}` carries no transaction stamp, so no \
+                 publication can admit it and no refusal can retire it"
             ),
             Self::LiveLostWithoutDeclaration { sim_id } => write!(
                 f,
@@ -3339,10 +3368,18 @@ pub fn verify_projected_roster(
         })
         .map(|member| &member.sim_id)
         .collect();
+    // ⛔ THIS PUBLICATION'S candidates, not every hidden entity in the world: a
+    // supersession is satisfied by a candidate THIS transaction built.
     let candidates: BTreeSet<&SimId> = scope
         .members()
         .iter()
-        .filter(|member| member.visibility == ScopeVisibility::HiddenCandidate)
+        .filter(|member| {
+            member.visibility == ScopeVisibility::HiddenCandidate
+                && member
+                    .owner
+                    .as_ref()
+                    .is_some_and(|owner| effects.owners().contains(owner))
+        })
         .map(|member| &member.sim_id)
         .collect();
 
@@ -3377,17 +3414,20 @@ pub fn verify_projected_roster(
         }
     }
 
-    // Every candidate this transaction would publish must be its own.
+    // ⛔⛤ **AN ORPHANED CANDIDATE IS A FINDING; A FOREIGN ONE IS NOT.** This loop
+    // used to demand that EVERY hidden entity in the world belong to this
+    // publication, which is the same "one candidate per world" assumption the
+    // projection carried — two independent regions prepared offside would each
+    // refuse the other. What remains checkable is the candidate nobody owns: no
+    // publication can admit it and no `retire_candidate` can drop it, so it is
+    // hidden forever and invisible to every ordinary query.
     for member in scope.members() {
         if member.visibility != ScopeVisibility::HiddenCandidate {
             continue;
         }
-        let owner = world.get::<TransactionId>(member.entity);
-        if !owner.is_some_and(|owner| effects.owners().contains(owner)) {
-            violations.push(ProjectionViolation::CandidateNotOwned {
+        if world.get::<TransactionId>(member.entity).is_none() {
+            violations.push(ProjectionViolation::CandidateUnowned {
                 sim_id: member.sim_id.clone(),
-                expected: effects.owners().clone(),
-                found: owner.cloned(),
             });
         }
     }

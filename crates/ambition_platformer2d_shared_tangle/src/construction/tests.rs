@@ -3411,6 +3411,134 @@ fn publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian(
     );
 }
 
+/// ⛔⛤ **TWO INDEPENDENT CANDIDATE PUBLICATIONS COEXIST, AND NEITHER INVALIDATES
+/// THE OTHER.**
+///
+/// ⛔ **THE VERIFIER USED TO ENCODE "ONE CANDIDATE PUBLICATION PER WORLD" AND
+/// NOBODY HAD SAID SO.** `project_post_publication_roster` added EVERY hidden
+/// entity to the projection and `verify_projected_roster` refused any whose stamp
+/// was not one of this publication's — so two regions prepared offside would each
+/// have refused the other, and the generic transaction layer would have made
+/// multi-region residency a special case forever.
+///
+/// ⇒ A foreign candidate is no more part of this publication's projected world
+/// than an unloaded room is. It stays hidden afterwards; if it publishes later it
+/// justifies its own effects against whatever this one actually left behind —
+/// which is the last assertion here.
+///
+/// ⚠ **PUBLISHED identities are still counted GLOBALLY**, which is what keeps
+/// this safe: `west` still has to declare its supersession of the live `shared`
+/// identity, and the arm below proves that by watching it happen.
+#[test]
+fn two_independent_candidate_publications_do_not_invalidate_each_other() {
+    use crate::construction::{
+        project_post_publication_roster, publish_candidate, verify_projected_roster,
+        AuthoritativeScope, PublicationEffects, TransactionBaseline, TransactionId,
+    };
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let west = TransactionId::from_raw("t/west".to_string());
+    let east = TransactionId::from_raw("t/east".to_string());
+
+    // One live identity `west` will supersede, and one bystander nobody touches.
+    let shared = SimId::placement("shared");
+    let bystander = SimId::placement("bystander");
+    let live_shared = world.spawn(shared.clone()).id();
+    world.spawn(bystander.clone());
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+
+    // Two candidates, prepared offside, with DISJOINT effects.
+    let west_body = world
+        .spawn((shared.clone(), west.clone(), super::InactiveCandidate))
+        .id();
+    let east_only = SimId::placement("east_only");
+    let east_body = world
+        .spawn((east_only.clone(), east.clone(), super::InactiveCandidate))
+        .id();
+
+    let west_effects = PublicationEffects::new()
+        .owned_by(west.clone())
+        .superseding(shared.clone(), shared.clone());
+
+    let scope = AuthoritativeScope::gather(&mut world, &west);
+    let projection = project_post_publication_roster(&scope, &west_effects);
+
+    // ⛔ THE PREMISE: east really is standing, hidden, while west is judged.
+    assert!(
+        world.get_entity(east_body).is_ok(),
+        "the fixture lost the foreign candidate, so nothing here is about coexistence"
+    );
+    assert!(
+        projection.occupants_of(&east_only).is_empty(),
+        "west's projected world contains EAST's candidate; publishing west would \
+         not make it authoritative, so the projection is describing a world that \
+         cannot happen"
+    );
+    assert_eq!(
+        projection.occupants_of(&shared).len(),
+        1,
+        "west supersedes `shared` and the projection must hold exactly its own \
+         candidate for it"
+    );
+    assert_eq!(
+        projection.occupants_of(&bystander).len(),
+        1,
+        "the retained-live bystander is missing from the projection"
+    );
+    assert_eq!(
+        verify_projected_roster(&projection, &west_effects, &baseline, &scope, &world),
+        Ok(()),
+        "a publication was refused because ANOTHER transaction had a candidate \
+         prepared beside it"
+    );
+
+    // ── west publishes; east is untouched and still hidden ──────────────────
+    assert_eq!(publish_candidate(&mut world, &west), 1);
+    world.entity_mut(live_shared).despawn();
+    assert!(
+        world.get_entity(east_body).is_ok(),
+        "publishing west retired east's candidate"
+    );
+    let still_hidden = world
+        .query_filtered::<Entity, With<super::InactiveCandidate>>()
+        .iter(&world)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        still_hidden,
+        vec![east_body],
+        "east is no longer the only hidden candidate after west published"
+    );
+    assert!(
+        world.get::<super::InactiveCandidate>(west_body).is_none(),
+        "west's own candidate was not admitted"
+    );
+
+    // ── and east now verifies against the world west actually published ─────
+    let east_baseline = TransactionBaseline::capture(&mut world).expect("the published world");
+    let east_effects = PublicationEffects::new().owned_by(east.clone());
+    let east_scope = AuthoritativeScope::gather(&mut world, &east);
+    let east_projection = project_post_publication_roster(&east_scope, &east_effects);
+    assert_eq!(
+        east_projection.occupants_of(&shared).len(),
+        1,
+        "east's projection does not see the identity west published"
+    );
+    assert_eq!(
+        verify_projected_roster(
+            &east_projection,
+            &east_effects,
+            &east_baseline,
+            &east_scope,
+            &world
+        ),
+        Ok(()),
+        "east could not verify against the world west left behind"
+    );
+}
+
 /// ⛔⛤ **AND A CANDIDATE THAT DESTROYED PART OF THE LIVE WORLD IS REFUSED.**
 ///
 /// The projection alone cannot see this: omission means RETAINED, so an entity

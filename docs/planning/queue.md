@@ -42,6 +42,21 @@ Three verifiers guard it: `verify_committed_roster` (is the built world coherent
 They are complements, not alternatives. Production refusals are currently zero, so
 the refusal apparatus is proven by its arms rather than by shipped traffic.
 
+**A10.2 landed (2026-09-14): the generic layer no longer assumes one candidate
+publication per world.** `project_post_publication_roster` added EVERY hidden
+entity and `verify_projected_roster` refused any whose stamp was not this
+publication's, so two regions prepared offside would each have refused the other.
+The projection now includes only candidates this publication OWNS — `ScopeMember`
+carries its `owner`, because a `ScopeClassification` is relative to the one
+transaction the scope was gathered against and reads a publication's own
+capability lane as foreign. Published identities are still counted GLOBALLY, so a
+candidate taking a live identity must still declare its supersession. What was
+`CandidateNotOwned` ("not one of mine") is now `CandidateUnowned` ("nobody's, so
+no publication can admit it and no refusal can retire it"). Witnessed by
+`two_independent_candidate_publications_do_not_invalidate_each_other`:
+verify west while east is hidden, publish west, east stays hidden and intact, then
+east verifies against the world west left behind.
+
 **Not yet behind the verdict**, named rather than implied: the dev reload's
 `transit_body` and its dialog/combat/cooldown resets (that road has no end-to-end
 coverage in either direction); the reload's presentation spawns, which read the

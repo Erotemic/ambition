@@ -555,6 +555,15 @@ ARCHITECTURE PACKET.** Recorded in
 it is not a separate instruction: this was ruled in the architecture review Jon
 forwarded on 2026-09-12.
 
+✅ **AND THE ROOM SCOPE IS DELIVERED, 2026-09-14.** `ROOM_CANDIDATE_BRACKET` is
+`true`; every room lifecycle path stages its whole world replacement, builds every
+root hidden, verifies a projected post-publication roster AND the staged world,
+and publishes or drops. A refused room leaves the live world byte-identical,
+witnessed through the shipped app by a real walk into a real authored door. ⚠ The
+SESSION scope is not started and is a different transaction. ⇒ **The evidence
+below is the pre-ruling analysis and is kept as provenance; the "what each answer
+unblocks" branch is decided.** See `docs/planning/queue.md`'s A10 row.
+
 ⇒ **THE SHAPE, and the boundary matters as much as the answer:**
 
 ```text

@@ -179,8 +179,18 @@ explicit; do not infer retry merely from an empty lifecycle slot.
 Before destructive application, cancellation has no restoration side effects.
 After destructive application begins, this contract promises fail-closed
 publication, **not rollback of arbitrary Commands**. The stronger last-good-world
-guarantee remains A10 and requires constrained inactive construction. Do not
+guarantee is A10 and requires constrained inactive construction. Do not
 implement that larger project as an undocumented prerequisite to A1.
+
+✅ **A10'S ROOM SCOPE LANDED 2026-09-14, AND IT CHANGES WHAT "DESTRUCTIVE
+APPLICATION" MEANS FOR A ROOM.** A room rebuild no longer has a destructive phase:
+`RoomConstructionPlan::replace_live_world` stages the entire world replacement,
+builds every root as a hidden candidate, verifies a projected post-publication
+roster, and publishes or drops. A refused room leaves the live world
+byte-identical. ⚠ This contract's wording still holds for everything ELSE a
+checkpoint restore applies — custody, domain ledgers, the session scope — and for
+the room it is now stronger than fail-closed. See `docs/planning/queue.md`'s A10
+row.
 
 The session coordinator is the sole writer of request progress/terminal outcome.
 The lifecycle slot is the sole admission writer. Domains remain sole writers of

@@ -987,6 +987,44 @@ Rage compresses the envelope ~36% (a smash calibrated to 110% fresh kills at 70%
 once the attacker reaches 100%; at the ledge 18% becomes 4%). The ~80-120% band
 for credible strong smashes therefore holds at rage 1.0 ONLY.
 
+## ⛔ THROWS BYPASS RAGE *AND* STALENESS — measured and confirmed in source — 2026-09-14
+
+⭐ **A strike's resolved knockback is multiplied by `rage * stale`. A throw's is
+not multiplied by anything.** Two independent roads agree:
+
+**SOURCE.** `hitbox/mod.rs:981` computes
+`let rage = rules.rage_scale(attacker.damage_taken(hitbox.owner))` and applies
+`magnitude.scaled(rage * stale)`. The capture road does not: `apply_capture_throws`
+(`crates/ambition_combat/src/capture/systems.rs:2644`) computes
+`crate::util::scaled_knockback(request.knockback, request.knockback_growth,
+percent, weight)` and **`crates/ambition_combat/src/capture/` contains no mention
+of rage at all**.
+
+**MEASUREMENT.** `attacker_pct=100` (rage 1.40, proven live to 0.1 on a smash:
+`smash_forward` launch@100 671.2 -> 939.8) leaves both throws completely unmoved:
+
+    move           rage-pinned                      rage 1.40 (attacker 100%)
+    alice_bthrow   425.8  centre 159  ledge 19      425.8  centre 159  ledge 19
+    sanic_bthrow   429.5  centre >300 ledge >300    429.5  centre >300 ledge >300
+
+Identical in every column, two different fighters.
+
+### Why it matters for feel
+- ⚠ The ~36% rage compression recorded in `b964bd79a` is a fact about **strikes
+  only**. The values it named (pirate 4.09/6.40/3.55, George 6.28/3.46) are all
+  smashes, so that entry stands — but it must not be generalised to throws.
+- A fighter whose most credible kill option is a THROW receives **no comeback
+  scaling at all**, while a fighter who closes with a smash gets up to 1.4x. At
+  high attacker percent, strikes get relatively stronger and throws do not.
+- Throws also never decay with staleness, so a repeated throw keeps full power
+  where a repeated smash does not. The asymmetry runs both ways.
+- ⛔ This is reported, NOT repaired. Whether throws SHOULD scale with rage is a
+  rules decision over all 22 roster fighters, like `rage_max_scale` itself.
+
+⚠ It also VOIDED a test of mine: I tried to separate "magnitude threshold" from
+"mechanism failure" on sanic's throws by raising rage, and rage never reached the
+throw, so that run decided nothing. Recorded so the reasoning is not reused.
+
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST

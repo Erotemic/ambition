@@ -1829,6 +1829,33 @@ impl KoProbe {
                 None => return None,
             }
         }
+        // ⭐⭐ A MIXED VOTE IS A MEASUREMENT, NOT NOISE TO BE SWALLOWED.
+        //
+        // The loop short-circuits at two, so reaching here with BOTH counters
+        // non-zero means 2:1 — the same initial state produced different outcomes.
+        // Majority-of-three then reports a single number for a cell that could not
+        // reproduce itself, and `117%` reads as exact when it is a band.
+        //
+        // ⛔ AND THIS IS THE SIGNAL I SPENT THREE ATTEMPTS FAILING TO DERIVE.
+        // Measured this session: `special` moved 221 -> 160 and George's forward
+        // throw 175 -> 115 when only the sweep STEP changed, while `back_throw`
+        // (further below `tumble_speed` than either) did not move at all. I
+        // proposed three arithmetic screens for which cells straddle a KO regime —
+        // proximity to tumble_speed, the boundary label, launch-per-percent — and
+        // measurement falsified all three. Two cells at L_ko ~645 behaved
+        // oppositely.
+        //
+        // ⇒ Stop predicting which cells are unstable and let the trials say so.
+        // A cell whose three runs disagree is ON an edge, whatever the arithmetic
+        // thinks, and that is knowable from data the probe already computes.
+        if yes > 0 && no > 0 {
+            eprintln!(
+                "KO_MIXED_VOTE: pct={percent} x={victim_x:.0} yes={yes} no={no} \
+                 — trials disagreed at the SAME initial state; this cell's threshold \
+                 is a BAND, not a point, and re-sweeping it finely is the only way \
+                 to know what it is"
+            );
+        }
         Some(yes > no)
     }
 
@@ -1841,7 +1868,29 @@ impl KoProbe {
         // back. The both-sides verification below still runs on every cell, so a
         // non-monotonicity AT the threshold is still caught; one hiding strictly
         // between two coarse samples is not. That is the exposure.
-        let step = 50;
+        // ⛔⛔ AND THE EXPOSURE ABOVE HAS NOW BEEN PAID, ONCE, IN A CALIBRATION.
+        //
+        // MEASURED on George's forward throw: the step-50 sweep samples launch
+        // 401.6 at p=100 and 520.4 at p=150, and `tumble_speed = 500` sits BETWEEN
+        // them. The non-tumbling window (launch ~402-500) is stepped clean over —
+        // and that window is where the move kills by FALLING off the stage edge
+        // rather than by crossing the side blast line. The reported threshold was
+        // 175 (`boundary=side-right`, L=579.8); raising growth revealed a KO at 91
+        // (`boundary=fall`, L=436.3). A 25% DROP in the launch required to kill,
+        // which no authored value can cause — two KO mechanisms, and the sweep only
+        // ever saw one of them.
+        //
+        // ⇒ `step=<n>` is argv-driven so a suspect cell can be re-swept finely
+        // WITHOUT re-defining what every recorded run measured. 50 stays the
+        // default for exactly that reason.
+        //
+        // ⚠ A cell whose KO launch lands near `tumble_speed` is the one to distrust:
+        // that is where the mechanism changes, so that is where a coarse sample can
+        // straddle two regimes and report the wrong one as "the" threshold.
+        let step: i32 = std::env::args()
+            .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
+            .filter(|n| *n > 0)
+            .unwrap_or(50);
         let mut samples: Vec<(i32, bool)> = Vec::new();
         let mut bracket: Option<(i32, i32)> = None;
         let mut p = 0;
@@ -2375,8 +2424,27 @@ fn run_throw_diag() {
 fn run_probe() {
     const REFERENCE: &str = "player_robot_v3";
     const HEAVY: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
-    // Attackers spanning the roster rather than all 21: the question is whether
-    // ROLES separate, and every fighter authors the same role set.
+    // ⛔⛔ THIS IS A THREE-FIGHTER SAMPLE. IT IS NOT THE ROSTER, AND ANY STATISTIC
+    // TAKEN OVER IT MUST NOT BE CALLED A ROSTER STATISTIC.
+    //
+    // The AUTHORED-VALUE census elsewhere in this tool genuinely walks every
+    // seatable fighter. The STAGE-OUTCOME matrix below does not: it walks these
+    // three attackers against two victims, and nothing in the output says so.
+    //
+    // That gap has already produced a false claim. A commit message reported
+    // "roster medians: smash_forward 183 -> 120, smash_down 208 -> 163, smash_up
+    // 275 -> 219" and "20 smash pulses" as evidence that a global nonlinear law fit
+    // THE ROSTER. Those numbers came from three fighters. The per-fighter
+    // measurements were sound; the population they were generalised to did not
+    // exist, and a law was justified on it.
+    //
+    // ⇒ Either seat every attacker here, or say "three-fighter calibration sample"
+    // every single time these cells are cited. The honest phrasing is the cheap
+    // half; widening the sample costs runtime this tool has not been given.
+    //
+    // (Kept deliberately: the original rationale — the question is whether ROLES
+    // separate, and every fighter authors the same role set — is still why three
+    // attackers is a reasonable SAMPLE. It is not why it would be a population.)
     let attackers = ["npc_pirate_admiral", "smash_george_booul", "npc_bob"];
     // ⭐ THE CEILING IS ARGV-DRIVEN, AND 300 REMAINS THE DEFAULT so that every run
     // recorded in PROVENANCE_RUNS.md replays to the same numbers. Raising it does
@@ -2422,7 +2490,9 @@ fn run_probe() {
         // question entirely. An unfiltered flag lands in `after[0]` and silently
         // BECOMES the attacker. Nothing downstream can tell that from a table
         // somebody meant to ask for.
-        .filter(|a| *a != "identity" && !a.starts_with("ceiling="))
+        .filter(|a| {
+            *a != "identity" && !a.starts_with("ceiling=") && !a.starts_with("step=")
+        })
         .collect();
     let pairs: Vec<(String, String)> = if after.len() >= 2 {
         vec![(after[0].to_string(), after[1].to_string())]
@@ -2444,6 +2514,23 @@ fn run_probe() {
     println!(
         "# sweep ceiling: max_percent={max_percent} — a `>{max_percent}` cell is CENSORED \
          (no threshold found at or below it), NOT a measurement that the move is weak"
+    );
+    // ⭐ THE COARSE STEP IS A LIVE FACT TOO, and for the same reason the ceiling is:
+    // two tables taken at different steps can report different thresholds for the
+    // SAME ruleset, because a KO regime narrower than the step can be stepped over
+    // (measured: George's forward throw, side-right at 175 vs fall at 91). A table
+    // that does not carry its step cannot be compared to one that does.
+    //
+    // ⛔ It is ALSO the poison-verification for `step=`: without this line the flag
+    // reaching the sweep could only be inferred from the very result it exists to
+    // test, which is circular.
+    println!(
+        "# sweep step: {} (coarse pass; a KO window narrower than this can be missed \
+         entirely — distrust any cell whose KO launch lands near tumble_speed)",
+        std::env::args()
+            .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
+            .filter(|n| *n > 0)
+            .unwrap_or(50)
     );
     // ⛔⛔ EVERY KO PERCENT BELOW IS A NO-RECOVERY LOWER BOUND, and reading one
     // as a kill percent overstates the game's lethality.

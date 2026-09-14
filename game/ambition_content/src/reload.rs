@@ -1131,6 +1131,26 @@ pub struct PendingGeneration {
     admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
 }
 
+impl PendingGeneration {
+    /// This transaction's request identity — the key its activation hold is
+    /// named by. Test-facing so an arm can assert the HOLD carries the same id
+    /// rather than a constant it hand-wrote.
+    #[doc(hidden)]
+    pub fn request_for_tests(&self) -> ambition_platformer2d::game_shell::ShellRequestId {
+        self.request.clone()
+    }
+}
+
+/// End a pending generation the way every content-side terminal path does.
+///
+/// ⚠ Test-facing, and deliberately the SAME function the production paths call:
+/// an arm that reimplemented the discard would not witness the hold release that
+/// discard is responsible for.
+#[doc(hidden)]
+pub fn take_pending_generation_for_tests(world: &mut bevy::ecs::world::World) {
+    take_pending_generation(world);
+}
+
 /// A process-unique ordinal for a reload's request identity.
 ///
 /// ⛔ NOT A ROUTE NAME AND NOT A CLOCK. The route is what was ambiguous; a clock
@@ -1179,7 +1199,41 @@ fn stage_pending_generation(world: &mut bevy::ecs::world::World, generation: Pen
 fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<PendingGeneration> {
     let generation = world.remove_resource::<PendingGeneration>()?;
     world.remove_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>();
+    // ⛔⛤ **EVERY TERMINAL PATH RELEASES THIS TRANSACTION'S HOLD, AND ONLY ITS
+    // OWN.** This is the one place a pending generation ends for a content-side
+    // reason — cancelled, superseded, refused, discarded — and a hold left behind
+    // blocks EVERY future reload of that route forever. Releasing by the
+    // transaction-specific id is what keeps it from freeing a successor's block
+    // instead: `ShellRouteHolds` is keyed `route → set<hold id>`, and a reload
+    // re-prepares the route the shell is already on.
+    //
+    // ⚠ The ACTIVATION path releases in the shell, inside the same exclusive
+    // operation that consumes the gate — so a successful publication does not
+    // arrive here holding anything.
+    release_the_publication_hold(world, &generation.request, &generation.route);
     Some(generation)
+}
+
+/// Drop one transaction's activation hold and its gate registration.
+fn release_the_publication_hold(
+    world: &mut bevy::ecs::world::World,
+    request: &ambition_platformer2d::game_shell::ShellRequestId,
+    route: &str,
+) {
+    let hold = publication_hold_for(request);
+    if let Some(mut holds) =
+        world.get_resource_mut::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+    {
+        holds.release(
+            &ambition_platformer2d::game_shell::ShellRouteId::new(route.to_string()),
+            &hold,
+        );
+    }
+    if let Some(mut gates) =
+        world.get_resource_mut::<ambition_platformer2d::game_shell::ShellActivationGates>()
+    {
+        gates.forget(&hold);
+    }
 }
 
 /// Install the reload transaction's publication half.
@@ -1200,6 +1254,12 @@ fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<Pendin
 /// find nothing.
 pub fn register(app: &mut bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs;
+    // ⛔⛤ **THE ACTIVATION GATE'S EVALUATOR, REGISTERED ONCE.** The shell runs it
+    // inside the exclusive operation that emits `RouteActivated`; see
+    // [`answer_the_publication_gate`]. The HOLD is taken per transaction at
+    // adoption, against this one evaluator.
+    let evaluator = app.world_mut().register_system(answer_the_publication_gate);
+    app.insert_resource(PublicationGateEvaluator(evaluator));
     // ⛔ ONE CONDITION, SPELLED ONCE, FOR BOTH HALVES. A composition without a
     // game shell registers no `ShellEvent`, and a `MessageReader` for an
     // unregistered message FAILS PARAMETER VALIDATION and panics the schedule.
@@ -1310,6 +1370,78 @@ pub fn register(app: &mut bevy::prelude::App) {
 ///
 /// ⚠ **A LEASE IS NOT A SECOND `publication_boundary` AUTHORITY.** It re-asks the
 /// SAME function admission asked; what is new is WHEN, not what.
+/// The hold id that blocks THIS transaction's route until publication is legal.
+///
+/// ⛔⛤ **TRANSACTION-SPECIFIC, AND A CONSTANT WOULD BE UNSAFE.**
+/// `ShellRouteHolds` is keyed `route → set<hold id>` and a content reload
+/// re-prepares the route the shell is already on — commonly `game`. With a
+/// constant `"content-publication"`, transaction A and its successor B are
+/// indistinguishable to cleanup: A's delayed terminal event frees B's block, or a
+/// leaked A hold blocks every future reload of that route. The request id is the
+/// identity the transaction already has.
+fn publication_hold_for(
+    request: &ambition_platformer2d::game_shell::ShellRequestId,
+) -> ambition_platformer2d::game_shell::ShellHoldId {
+    ambition_platformer2d::game_shell::ShellHoldId::new(format!(
+        "content-publication:{}",
+        request.as_str()
+    ))
+}
+
+/// ⛔⛤ **THE ACTIVATION GATE — `Q118`'s ANSWER, ASKED AT THE ACTIVATION.**
+///
+/// The shell runs this inside the same exclusive operation that emits
+/// `RouteActivated`, so the boundary this reads is the boundary the activation
+/// happens under. That is the whole difference from a system that checks early
+/// and releases a hold: **a block released on an earlier check is that check with
+/// extra steps**, and the interval between them is measured and real.
+///
+/// ⚠ **THE MAPPING IS `publication_boundary`'S, NOT A SECOND OPINION.**
+/// `Legal` and `RebasableTimeline` are the states `admit_candidate` already
+/// admits — a healthy timeline this host maintains is what the stop-and-rebase
+/// lifecycle exists for. `Unhealthy` must never be published across (publication
+/// would launder a recorded desync) and `ForeignTimeline` must not either (the
+/// rebase that makes publication safe cannot touch a timeline this host does not
+/// own).
+pub fn answer_the_publication_gate(
+    world: &mut bevy::ecs::world::World,
+) -> ambition_platformer2d::game_shell::ShellGateVerdict {
+    use ambition_platformer2d::game_shell::ShellGateVerdict;
+    match publication_boundary(world) {
+        PublicationBoundary::Legal | PublicationBoundary::RebasableTimeline => {
+            ShellGateVerdict::Admit
+        }
+        PublicationBoundary::Unhealthy(detail) => {
+            bevy::log::warn!(
+                target: "ambition_content::reload",
+                "the route was refused at its activation: the rollback authority \
+                 recorded a divergence while the transaction was in flight \
+                 ({detail}). Publishing across it would launder the desync."
+            );
+            ShellGateVerdict::Refuse
+        }
+        PublicationBoundary::ForeignTimeline => {
+            bevy::log::warn!(
+                target: "ambition_content::reload",
+                "the route was refused at its activation: the rollback timeline \
+                 stopped being one this host may rebase while the transaction was \
+                 in flight."
+            );
+            ShellGateVerdict::Refuse
+        }
+    }
+}
+
+/// The one registered evaluator, reused for every transaction's hold id.
+///
+/// ⚠ ONE SYSTEM, MANY HOLD IDS. `ShellActivationGates` maps a hold id to an
+/// evaluator; registering the SAME id for each transaction's hold keeps the
+/// answer in one place while the BLOCK stays transaction-specific.
+#[derive(bevy::prelude::Resource, Clone, Copy)]
+pub struct PublicationGateEvaluator(
+    pub  bevy::ecs::system::SystemId<(), ambition_platformer2d::game_shell::ShellGateVerdict>,
+);
+
 pub fn break_the_publication_lease_when_the_boundary_closes(
     world: &mut bevy::ecs::world::World,
 ) {
@@ -1458,6 +1590,33 @@ pub fn adopt_preparation_transaction(
                                 .map(|admitted| admitted.candidate().clone()),
                         )
                     };
+                    // ⛔⛤ **HOLD THE ROUTE FROM ADOPTION, AND NEVER RELEASE IT
+                    // ON AN EARLIER CHECK.** The hold is what makes the
+                    // activation ask; the gate's answer at the activation is what
+                    // releases it. See [`publication_hold_for`].
+                    if let Some(evaluator) = world
+                        .get_resource::<PublicationGateEvaluator>()
+                        .map(|evaluator| evaluator.0)
+                    {
+                        let hold = publication_hold_for(&requested_by);
+                        let route = world
+                            .get_resource::<PendingGeneration>()
+                            .map(|pending| pending.route.clone());
+                        if let Some(route) = route {
+                            let route_id =
+                                ambition_platformer2d::game_shell::ShellRouteId::new(route);
+                            if let Some(mut gates) = world
+                                .get_resource_mut::<ambition_platformer2d::game_shell::ShellActivationGates>(
+                                ) {
+                                gates.register(hold.clone(), evaluator);
+                            }
+                            if let Some(mut holds) = world
+                                .get_resource_mut::<ambition_platformer2d::game_shell::ShellRouteHolds>(
+                                ) {
+                                holds.hold(route_id, hold);
+                            }
+                        }
+                    }
                     let (claim, characters) = claim;
                     // ⭐ THE CLAIM IS MADE HERE AND NOWHERE ELSE, because this is
                     // the first moment the transaction has a name to claim.

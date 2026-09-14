@@ -380,6 +380,23 @@ fn verify_and_publish(
                 )
             })
             .sum();
+        // ⛔⛤ **A REFUSAL IS A WORLD EVENT, NOT ONLY A LOG LINE — 2026-09-14.**
+        // This path wrote `bevy::log::error!` alone, and a harness without a log
+        // plugin surfaces nothing: measured, flipping `ROOM_CANDIDATE_BRACKET` on
+        // makes `death_restores_the_checkpoint` fail with the object NOWHERE and
+        // prints no violation at all, so *"no violations printed"* could not be
+        // told from *"the transaction published"*. A10 cannot be implemented
+        // against an invisible refusal — the publication side has said
+        // `room-loaded` on the same channel since it existed.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-refused {room_id} ({failure_count} violation(s), {dropped} roots dropped): \
+             {}",
+            violations
+                .iter()
+                .map(|violation| format!("{violation:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
             "room `{room_id}` was NOT published: {failure_count} construction violation(s). \

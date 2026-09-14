@@ -276,7 +276,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         half_extents: (26.0, 34.0),
         damage: 19,
         knockback: 178.0,
-        knockback_growth: 3.30,
+        knockback_growth: 6.28,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });
@@ -304,7 +304,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         half_extents: (44.0, 13.0),
         damage: 17,
         knockback: 165.0,
-        knockback_growth: 3.05,
+        knockback_growth: 3.46,
         launch_dir: Some((0.95, -0.45)),
         on_hit: None,
     });

@@ -134,7 +134,6 @@ fn ground_gap_below_feet(
 #[derive(SystemParam)]
 pub struct RoomTransitionApplication<'w, 's> {
     commands: Commands<'w, 's>,
-    effects: RoomTransitionEffects<'w>,
     bodies: TransitBodies<'w, 's>,
     /// Room authority, held on the session root: the geometry the body will
     /// collide against and the set that names which room is active.
@@ -144,10 +143,11 @@ pub struct RoomTransitionApplication<'w, 's> {
         (&'static mut RoomGeometry, &'static mut world_rooms::RoomSet),
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
-    dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
-    clock: RoomClock<'w>,
-    dialogue: ResMut<'w, ambition_dialog::DialogState>,
-    conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
+    // ⛔⛤ **THE EFFECT CHANNELS ARE GONE FROM THIS PARAM, AND THEIR ABSENCE IS
+    // THE POINT.** The sfx/vfx writers, the clock, the developer overlay, the
+    // dialogue and the conversation moved to `RoomTransitionFinalize`, which only
+    // a published crossing reaches. Staging cannot express *"the crossing
+    // happened"* any more — the compiler says so.
     // RESIDENTS, not merely room-scoped. An object a body is carrying is
     // scoped to a room and resident in none — it crosses with whoever holds it —
     // so it is not part of what the room being left retires. The distinction is
@@ -156,8 +156,6 @@ pub struct RoomTransitionApplication<'w, 's> {
     room_visuals:
         Query<'w, 's, (Entity, Option<&'static physics::PhysicsRoomEntity>), RoomResident>,
     tuning: Res<'w, ae::ActiveMovementTuning>,
-    feel: Res<'w, Platformer2dFeelTuningMonolith>,
-    carryover: RoomTransitionCombatReset<'w, 's>,
 }
 
 /// Why an application refused, with the world still whole.
@@ -197,15 +195,6 @@ impl std::fmt::Display for RoomTransitionApplyError {
     }
 }
 
-/// What a successful application did, for the caller's diagnostics.
-///
-/// Both fields are `None` for a room rebuild with nobody in it: no body took
-/// part, so none arrived anywhere.
-pub struct AppliedRoomTransition {
-    pub subject: Option<Entity>,
-    pub arrival_pos: Option<ae::Vec2>,
-}
-
 impl RoomTransitionApplication<'_, '_> {
     /// Read the room authority the transaction's staleness checks compare
     /// against. `None` when no session root carries it, which
@@ -227,19 +216,34 @@ impl RoomTransitionApplication<'_, '_> {
         self.bodies.subject_entity(subject)
     }
 
-    /// Apply a prepared transition to a resolved subject.
+    /// STAGE a prepared transition: everything that can fail, and nothing whose
+    /// meaning is *"the crossing happened"*.
     ///
-    /// The order is load-bearing and is the same order both hosts always needed:
-    /// resolve and preflight everything that can fail, then mutate. Past the
-    /// preflight block nothing here returns `Err`, so the source room is never
-    /// retired for a crossing that then cannot complete.
-    /// `subject` is `None` for a room rebuild with NOBODY IN IT
+    /// ⛔⛤ **THIS USED TO BE `apply`, AND `apply` PERFORMED THE WHOLE CROSSING
+    /// BEFORE ANYONE HAD ASKED THE ROOM'S VERDICT — SPLIT 2026-09-14 ON
+    /// REVIEW.** It called `replace_live_world`, DROPPED the returned
+    /// `PublicationHandle`, and then cleared carryover, played the door cue, reset
+    /// the sim clock and the transition cooldown, flashed the developer overlay,
+    /// reset combat and the blink camera, closed the dialogue AND the
+    /// conversation, recorded the Class-B transit, asked for the room visuals and
+    /// emitted the arrival VFX/SFX and the landing diagnostic. A room the
+    /// transaction then REFUSED left every one of those applied to a world the
+    /// player had not left — the same defect A10.3 had just closed for the dev
+    /// hot reload, in the road every player uses.
+    ///
+    /// ⇒ Staging may read and gather anything; it may make failure impossible;
+    /// it may build the candidate. It may not say the crossing happened. The
+    /// returned [`StagedRoomTransition`] carries what finalization needs, keyed
+    /// to the exact publication `replace_live_world` began.
+    ///
+    /// The preflight order is still load-bearing: resolve everything that can
+    /// fail, then act. `subject` is `None` for a room rebuild with NOBODY IN IT
     /// (`LifecycleIntent::ReconstituteRoom`) — a replay in a composition with no
-    /// controlled body. That is not a missing subject: every body-shaped step
-    /// below is skipped because there is no body, not because one could not be
-    /// found. A crossing whose recorded body is gone never reaches here; its
-    /// caller cancels the intent instead.
-    pub fn apply(
+    /// controlled body. That is not a missing subject: every body-shaped step is
+    /// skipped because there is no body, not because one could not be found. A
+    /// crossing whose recorded body is gone never reaches here; its caller
+    /// cancels the intent instead.
+    pub fn stage(
         &mut self,
         plan: &rooms::RoomConstructionPlan,
         subject: Option<Entity>,
@@ -247,7 +251,7 @@ impl RoomTransitionApplication<'_, '_> {
         arrival_at: Option<ae::Vec2>,
         edge_exit: bool,
         zone_sfx: Option<&str>,
-    ) -> Result<AppliedRoomTransition, RoomTransitionApplyError> {
+    ) -> Result<StagedRoomTransition, RoomTransitionApplyError> {
         // ── PREFLIGHT ────────────────────────────────────────────────────────
         if self.session.iter().next().is_none() {
             return Err(RoomTransitionApplyError::NoSessionWorld);
@@ -279,7 +283,6 @@ impl RoomTransitionApplication<'_, '_> {
             .map(|frame| frame.down())
             .unwrap_or(ae::Vec2::new(0.0, 1.0));
         let tuning = self.tuning.0;
-        let feel = *self.feel;
         // THE BODY GOING THROUGH THE DOOR IS NOT RETIRED WITH THE ROOM IT IS
         // LEAVING. Stated about the SUBJECT, which is the only thing that
         // matters here, rather than about what kind of body it is.
@@ -287,7 +290,7 @@ impl RoomTransitionApplication<'_, '_> {
         // The proxy bought nothing and could only ever lose: when it answered correctly the
         // exemption was a no-op, and the one way it could answer WRONG is by calling a room-scoped
         // body a home body, which despawns the thing mid-transition.  an unconditional exemption
-        // is strictly safer, because `retire_outgoing` skips an entity that is not in its roster
+        // is strictly safer, because the sweep skips an entity that is not in its roster
         // and exempting an absent entity is already a no-op.
         //
         // and it removes a player-centrism: the transition no longer has an
@@ -296,19 +299,12 @@ impl RoomTransitionApplication<'_, '_> {
         // so the outgoing room retires whole.
         let carry_body = subject;
 
-        // ── MUTATION ─────────────────────────────────────────────────────────
-        // Nothing below may fail.
-
-        // A fresh room inherits neither hostile shots nor the gravity frame of
-        // the one just left.
-        self.carryover.clear_carryover();
-
         // ⚠ `_geometry` IS THE GUARD, NOT A WRITE TARGET. A10 stages the room
         // geometry behind the transaction's verdict (see `replace_live_world`),
         // so nothing here writes or reads it any more — but a transition in a
         // world whose session root carries no room authority is still refused,
         // and this destructure is what refuses it.
-        let Ok((_geometry, room_set)) = self.session.single_mut() else {
+        let Ok((_geometry, _room_set)) = self.session.single_mut() else {
             // Unreachable: the preflight above proved exactly one match.
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
@@ -347,15 +343,15 @@ impl RoomTransitionApplication<'_, '_> {
         };
         let clusters = cluster_item.as_mut().map(|item| item.as_clusters_mut());
 
-        // The door makes a sound, at the body's position BEFORE the transit —
-        // so a rebuild nobody walks into has no position to make it at, which is
-        // consistent with `zone_sfx` being `None` for a reconstitution anyway.
-        if let (Some(cue), Some(clusters)) = (zone_sfx, clusters.as_ref()) {
-            self.effects.sfx.write(SfxMessage::Play {
-                id: ambition_sfx::SfxId::new(cue),
-                pos: clusters.kinematics.pos,
-            });
-        }
+        // The door makes a sound at the body's position BEFORE the transit, so
+        // the position is READ here and the cue is PLAYED at finalization — a
+        // door that never opened makes no sound. A rebuild nobody walks into has
+        // no position to make it at, which is consistent with `zone_sfx` being
+        // `None` for a reconstitution anyway.
+        let door_sfx = match (zone_sfx, clusters.as_ref()) {
+            (Some(cue), Some(clusters)) => Some((cue.to_owned(), clusters.kinematics.pos)),
+            _ => None,
+        };
 
         debug_assert_eq!(plan.target_index(), target_room);
         let player_size = clusters.as_ref().map(|c| c.kinematics.size);
@@ -414,7 +410,9 @@ impl RoomTransitionApplication<'_, '_> {
         };
 
         // A transition walks within the room set it already has, so no swap.
-        plan.replace_live_world(
+        // ⛔ THE HANDLE IS KEPT. It is the whole point of the split: finalization
+        // asks THIS publication whether the crossing happened.
+        let publication = plan.replace_live_world(
             &mut self.commands,
             self.room_visuals
                 .iter()
@@ -423,6 +421,96 @@ impl RoomTransitionApplication<'_, '_> {
             None,
             staged_arrival,
         );
+
+        Ok(StagedRoomTransition {
+            publication,
+            subject,
+            arrival_pos,
+            target_room,
+            edge_exit,
+            door_sfx,
+            player_size,
+            subject_gravity_dir,
+            target_world: plan.spec().world.clone(),
+        })
+    }
+}
+
+/// A crossing that has been prepared and whose candidate room is built but
+/// HIDDEN, waiting on its publication's verdict.
+///
+/// ⚠ **PLAIN DATA, HOST-LOCAL.** It holds a [`rooms::PublicationHandle`], which
+/// is control-plane identity and never canonical rollback state, plus the facts
+/// finalization cannot re-derive afterwards — the body's pre-transit position
+/// for the door cue, its size and gravity frame for the landing diagnostic, and
+/// the TARGET room's geometry, which the live component does not hold until the
+/// verdict.
+pub struct StagedRoomTransition {
+    pub publication: rooms::PublicationHandle,
+    pub subject: Option<Entity>,
+    pub arrival_pos: Option<ae::Vec2>,
+    pub target_room: usize,
+    pub edge_exit: bool,
+    /// The zone cue and the position to play it at: where the body stood BEFORE
+    /// the transit.
+    pub door_sfx: Option<(String, ae::Vec2)>,
+    pub player_size: Option<ae::Vec2>,
+    pub subject_gravity_dir: ae::Vec2,
+    pub target_world: ae::World,
+}
+
+/// Everything a crossing does that MEANS the crossing happened.
+///
+/// Separate from [`RoomTransitionApplication`] because these are exactly the
+/// writes that must not happen until the room published. Both hosts reach them
+/// through [`finalize_room_transition`].
+#[derive(SystemParam)]
+pub struct RoomTransitionFinalize<'w, 's> {
+    effects: RoomTransitionEffects<'w>,
+    clock: RoomClock<'w>,
+    dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
+    dialogue: ResMut<'w, ambition_dialog::DialogState>,
+    conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
+    carryover: RoomTransitionCombatReset<'w, 's>,
+    bodies: TransitBodies<'w, 's>,
+    /// The room set AFTER publication — the landing diagnostic reports against
+    /// the room the body actually arrived in.
+    session: Query<
+        'w,
+        's,
+        &'static world_rooms::RoomSet,
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
+    feel: Res<'w, Platformer2dFeelTuningMonolith>,
+}
+
+impl RoomTransitionFinalize<'_, '_> {
+    fn apply_crossing(&mut self, staged: &StagedRoomTransition) {
+        let feel = *self.feel;
+        let StagedRoomTransition {
+            subject,
+            arrival_pos,
+            target_room,
+            edge_exit,
+            door_sfx,
+            player_size,
+            subject_gravity_dir,
+            target_world,
+            ..
+        } = staged;
+        let (subject, arrival_pos, target_room, edge_exit) =
+            (*subject, *arrival_pos, *target_room, *edge_exit);
+
+        // A fresh room inherits neither hostile shots nor the gravity frame of
+        // the one just left.
+        self.carryover.clear_carryover();
+
+        if let Some((cue, pos)) = door_sfx {
+            self.effects.sfx.write(SfxMessage::Play {
+                id: ambition_sfx::SfxId::new(cue),
+                pos: *pos,
+            });
+        }
 
         self.clock.clock_resets.write(ClockResetRequest::sim_clock(
             ambition_time::time_control::ClockRequester::Engine,
@@ -467,7 +555,6 @@ impl RoomTransitionApplication<'_, '_> {
         // takes the text box away; the simulation's conversation names two BODIES, and this
         // transition just despawned the room they were standing in.
         self.conversation.close();
-
         if let (Some(log), Some(subject)) = (self.bodies.class_b.as_mut(), subject) {
             log.record(
                 subject,
@@ -491,7 +578,7 @@ impl RoomTransitionApplication<'_, '_> {
         // with nobody in it emits none of them. Skipping is not a degradation:
         // there is no position to place a puff at and no landing to log, and the
         // room's own visuals were already asked for above, unconditionally.
-        if let (Some(arrival_pos), Some(player_size)) = (arrival_pos, player_size) {
+        if let (Some(arrival_pos), Some(player_size)) = (arrival_pos, *player_size) {
             if edge_exit {
                 // Edge exits should feel like contiguous room scrolling, not a
                 // death-like teleport. Only an arrival puff in the new room, because
@@ -516,26 +603,60 @@ impl RoomTransitionApplication<'_, '_> {
                 .sfx
                 .write(SfxMessage::Reset { pos: arrival_pos });
 
-            log_room_transition_landing(
-                target_room,
-                &room_set,
-                arrival_pos,
-                player_size,
-                subject_gravity_dir,
-                // ⛔ THE TARGET ROOM'S GEOMETRY, for the same reason the arrival
-                // validation above reads the plan: the live component is not
-                // written until the room's verdict, and a landing report counted
-                // against the room being LEFT is worse than no report.
-                &plan.spec().world,
-                &self.carryover.feature_overlay,
-            );
+            if let Some(room_set) = self.session.iter().next() {
+                log_room_transition_landing(
+                    target_room,
+                    room_set,
+                    arrival_pos,
+                    player_size,
+                    *subject_gravity_dir,
+                    // ⛔ THE TARGET ROOM'S GEOMETRY, captured at staging: the
+                    // live component IS this room's now, but the staged copy is
+                    // the one the arrival was validated against, so the report
+                    // and the placement cannot disagree.
+                    target_world,
+                    &self.carryover.feature_overlay,
+                );
+            }
         }
-
-        Ok(AppliedRoomTransition {
-            subject,
-            arrival_pos,
-        })
     }
+}
+
+/// Ask the exact publication whether the crossing happened, and finish it if it
+/// did.
+///
+/// ⛔⛤ **ONE DEFINITION OF A SUCCESSFUL TRANSITION, FOR BOTH HOSTS.** The eager
+/// host calls this from the exclusive system chained after its commit, once this
+/// frame's commands have flushed and the verdict exists; the confirmed host calls
+/// it immediately after `state.apply(world)`, which flushes the same commands
+/// inside its exclusive access. They differ in scheduling mechanics, never in
+/// what publication success means.
+///
+/// ⭐ **AND IT CONSUMES THE RECEIPT EITHER WAY.** The publication was begun with
+/// [`rooms::PublicationRetention::UntilOwnerRetires`]; this is the owner, and a
+/// refused receipt is as consumed as an admitted one.
+pub fn finalize_room_transition(
+    world: &mut bevy::prelude::World,
+    staged: &StagedRoomTransition,
+) -> bool {
+    let published = rooms::publication_succeeded(world, staged.publication);
+    if published {
+        let mut state: bevy::ecs::system::SystemState<RoomTransitionFinalize> =
+            bevy::ecs::system::SystemState::new(world);
+        {
+            // The same argument the confirmed host makes about
+            // `RoomTransitionApplication`: these are the parameters
+            // `RoomTransitionPlugin` installs, and a composition that could not
+            // fetch them could not have produced the publication being finalized.
+            let mut finalize = state
+                .get_mut(world)
+                .expect("RoomTransitionFinalize params are the ones RoomTransitionPlugin installs");
+            finalize.apply_crossing(staged);
+        }
+        state.apply(world);
+    }
+    rooms::retire_publication(world, staged.publication);
+    published
 }
 
 /// The bodies a room transition can relocate, bundled into one `SystemParam` to
@@ -659,7 +780,6 @@ pub fn commit_ready_room_transition_system(
         ResMut<ambition_load::LoadCoordinator>,
         MessageWriter<ambition_load::LoadEvent>,
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-        Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
         // Whose commit this is. The STABLE simulation host, not the
         // optional boundary of its current session. A rollback session teardown
         // removes `ConfirmedFrameBoundary` but does not turn the app into an
@@ -673,9 +793,12 @@ pub fn commit_ready_room_transition_system(
         ResMut<
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
         >,
-        // What this commit still owes the domains, read by the exclusive runner
-        // that follows. Not a message: a message would be readable by anything.
-        ResMut<CommittedRoomTransitionRestore>,
+        // ⛔ WHERE THE STAGED CROSSING IS HANDED OVER. Not a message: a message
+        // would be readable by anything, and the finalizer must be the one
+        // consumer. The checkpoint restore this commit may owe is recorded by the
+        // FINALIZER now, because owing it is a statement that the crossing
+        // happened.
+        ResMut<PendingRoomTransitionFinalize>,
     ),
 ) {
     let (
@@ -685,10 +808,9 @@ pub fn commit_ready_room_transition_system(
         mut loads,
         mut load_events,
         mut next_mode,
-        real_time,
         simulation_host,
         mut pending_lifecycle,
-        mut committed_restore,
+        mut pending_finalize,
     ) = load_resources;
     // the EAGER commit, and only the eager one. A rollback host reaches an
     // identical room change through `commit_confirmed_lifecycle`, which runs
@@ -889,7 +1011,17 @@ pub fn commit_ready_room_transition_system(
     // Both hosts call this; what the eager host owns is the TRANSACTION around it — the
     // staleness checks above and the barrier/cover bookkeeping below — not a second idea of
     // what a room transition does to the world.
-    if let Err(error) = application.apply(
+    //
+    // ⛔⛤ **STAGE, NOT APPLY — SPLIT 2026-09-14 ON REVIEW.** This called
+    // `apply`, which performed the entire crossing, and then treated `Ok` as
+    // *"the transition committed"*: it consumed the exact lifecycle intent,
+    // recorded the checkpoint restore as owed, and advanced the load barrier and
+    // the game mode. But the room is built as a HIDDEN candidate and its verifier
+    // has not run yet — `apply` returned before the deferred transaction took its
+    // verdict — so a room the transaction went on to REFUSE had already been
+    // reported as a completed crossing. Staging builds the candidate and hands
+    // the exact publication to the finalizer chained after this system.
+    let staged = match application.stage(
         construction_plan,
         subject,
         target_room,
@@ -897,75 +1029,194 @@ pub fn commit_ready_room_transition_system(
         intent.edge_exit(),
         intent.zone_sfx(),
     ) {
-        match error {
-            terminal @ RoomTransitionApplyError::SubjectGone
-            | terminal @ RoomTransitionApplyError::SubjectCannotTransit { .. } => {
-                // The body cannot become eligible later without some other
-                // lifecycle operation replacing this crossing. This exact intent
-                // is therefore spent as a cancellation, not retained as a retry.
-                pending_lifecycle.take();
-                cancel_eager_room_transition_transaction(
-                    &mut transition_state,
-                    &mut loads,
-                    &mut load_events,
-                    &mut next_mode,
-                    &active,
-                    "room_commit_subject_unavailable",
-                );
-                bevy::log::warn!(
-                    target: "ambition_platformer2d::room_transition",
-                    "room transition {} cancelled: {terminal}",
-                    active.sequence,
-                );
+        Ok(staged) => staged,
+        Err(error) => {
+            match error {
+                terminal @ RoomTransitionApplyError::SubjectGone
+                | terminal @ RoomTransitionApplyError::SubjectCannotTransit { .. } => {
+                    // The body cannot become eligible later without some other
+                    // lifecycle operation replacing this crossing. This exact intent
+                    // is therefore spent as a cancellation, not retained as a retry.
+                    pending_lifecycle.take();
+                    cancel_eager_room_transition_transaction(
+                        &mut transition_state,
+                        &mut loads,
+                        &mut load_events,
+                        &mut next_mode,
+                        &active,
+                        "room_commit_subject_unavailable",
+                    );
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::room_transition",
+                        "room transition {} cancelled: {terminal}",
+                        active.sequence,
+                    );
+                }
+                transient @ RoomTransitionApplyError::NoSessionWorld => {
+                    super::loading::fail_room_transition_commit_precondition(
+                        &mut transition_state,
+                        &mut loads,
+                        &mut load_events,
+                        active.sequence,
+                        transient.to_string(),
+                    );
+                }
             }
-            transient @ RoomTransitionApplyError::NoSessionWorld => {
-                super::loading::fail_room_transition_commit_precondition(
-                    &mut transition_state,
-                    &mut loads,
-                    &mut load_events,
-                    active.sequence,
-                    transient.to_string(),
-                );
-            }
+            return;
         }
+    };
+
+    // ⛔ NOTHING ELSE HAPPENS HERE. Every statement that used to follow —
+    // consuming the intent, owing the restore, advancing the barrier and the
+    // mode — means *"the crossing happened"*, and whether it happened is a
+    // question only this publication's verdict can answer.
+    *pending_finalize = PendingRoomTransitionFinalize(Some(PendingCrossing {
+        staged,
+        active,
+        #[cfg(not(target_arch = "wasm32"))]
+        commit_started,
+    }));
+}
+
+/// The crossing this frame staged, waiting on its publication's verdict.
+///
+/// ⚠ **NOT ROLLBACK STATE, and it must never become any**: it is written by the
+/// eager commit and consumed by the exclusive finalizer chained immediately
+/// after it, inside one run of the sim schedule. A value that survived a frame
+/// here would be a crossing waiting to be finished against a world that had
+/// moved on — the same rule `CommittedRoomTransitionRestore` states.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct PendingRoomTransitionFinalize(Option<PendingCrossing>);
+
+pub struct PendingCrossing {
+    staged: StagedRoomTransition,
+    /// The transaction this crossing belongs to, so the finalizer can advance it
+    /// or cancel it by the SAME sequence the commit opened.
+    active: super::loading::ActiveRoomTransitionLoad,
+    #[cfg(not(target_arch = "wasm32"))]
+    commit_started: std::time::Instant,
+}
+
+/// Finish — or refuse — the crossing the eager commit staged, from its exact
+/// publication's verdict.
+///
+/// ⛔⛤ **EXCLUSIVE, AND CHAINED AFTER THE COMMIT, WHICH IS WHAT MAKES THE
+/// VERDICT EXIST.** The candidate room is built by commands the commit system
+/// queued; the transaction's verifier is the last of them. `.chain()` puts a sync
+/// point between the two systems, so by the time this runs the publication either
+/// carries a verdict or the transaction never closed.
+pub fn finalize_committed_room_transition(world: &mut bevy::prelude::World) {
+    // ⛔ THE EAGER HOST ONLY. The confirmed host reaches the identical
+    // finalization from `commit_confirmed_lifecycle`, inline, outside the rewound
+    // schedule.
+    if world
+        .get_resource::<crate::SimulationHost>()
+        .is_some_and(|host| host.is_rollback())
+    {
         return;
     }
-    #[cfg(not(target_arch = "wasm32"))]
-    let commit_duration = Some(commit_started.elapsed());
-    #[cfg(target_arch = "wasm32")]
-    let commit_duration = None;
-    if let Some(current) = transition_state
-        .active
-        .as_mut()
-        .filter(|current| current.sequence == active.sequence)
+    let Some(crossing) = world
+        .get_resource_mut::<PendingRoomTransitionFinalize>()
+        .and_then(|mut pending| pending.0.take())
+    else {
+        return;
+    };
+
+    // ⭐ THE SHARED OPERATION. Asks the exact publication, applies every effect
+    // that means the crossing happened if it published, and consumes the receipt
+    // either way.
+    let published = finalize_room_transition(world, &crossing.staged);
+
+    let mut state: bevy::ecs::system::SystemState<(
+        ResMut<super::loading::RoomTransitionLoadState>,
+        ResMut<ambition_load::LoadCoordinator>,
+        MessageWriter<ambition_load::LoadEvent>,
+        ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
+        ResMut<
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        >,
+        ResMut<CommittedRoomTransitionRestore>,
+        Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
+    )> = bevy::ecs::system::SystemState::new(world);
     {
-        current.commit_duration = commit_duration;
-        current.committed_at = real_time.as_deref().map(|time| time.elapsed());
-    }
-    pending_lifecycle.take();
-    // ⭐ THE DOMAIN RESTORE IS OWED, AND THIS SYSTEM CANNOT PAY IT. Custody
-    // materialization spawns and despawns, so it runs in an exclusive schedule
-    // the confirmed host calls directly; the eager host records the debt here
-    // and `apply_committed_checkpoint_restore_system` settles it a system later,
-    // after this frame's structural work has flushed.
-    committed_restore.0 = active.checkpoint_operation;
-    if active.cover_required {
-        if let Some(current) = transition_state
-            .active
-            .as_mut()
-            .filter(|current| current.sequence == active.sequence)
-        {
-            current.phase = super::loading::RoomTransitionLoadPhase::Committed;
+        let (
+            mut transition_state,
+            mut loads,
+            mut load_events,
+            mut next_mode,
+            mut pending_lifecycle,
+            mut committed_restore,
+            real_time,
+        ) = state
+            .get_mut(world)
+            .expect("the eager commit's bookkeeping resources are the ones RoomTransitionPlugin installs");
+        let active = &crossing.active;
+        if !published {
+            // ⛔⛤ **A REFUSED ROOM IS NOT A CROSSING.** The intent is spent — the
+            // same terminal policy a body that cannot transit gets — because the
+            // plan this transaction authorized is the thing the verifier rejected,
+            // and retrying it re-refuses forever. The world the player is standing
+            // in was never touched, so there is nothing to recover.
+            pending_lifecycle.take();
+            cancel_eager_room_transition_transaction(
+                &mut transition_state,
+                &mut loads,
+                &mut load_events,
+                &mut next_mode,
+                active,
+                "room_commit_refused",
+            );
+            bevy::log::warn!(
+                target: "ambition_platformer2d::room_transition",
+                "room transition {} was NOT committed: the room transaction refused its \
+                 candidate, so the crossing is cancelled and the room the player is in \
+                 is untouched",
+                active.sequence,
+            );
+        } else {
+            #[cfg(not(target_arch = "wasm32"))]
+            let commit_duration = Some(crossing.commit_started.elapsed());
+            #[cfg(target_arch = "wasm32")]
+            let commit_duration = None;
+            if let Some(current) = transition_state
+                .active
+                .as_mut()
+                .filter(|current| current.sequence == active.sequence)
+            {
+                current.commit_duration = commit_duration;
+                current.committed_at = real_time.as_deref().map(|time| time.elapsed());
+            }
+            pending_lifecycle.take();
+            // ⭐ THE DOMAIN RESTORE IS OWED, AND THIS SYSTEM CANNOT PAY IT. Custody
+            // materialization spawns and despawns, so it runs in an exclusive schedule
+            // the confirmed host calls directly; the eager host records the debt here
+            // and `apply_committed_checkpoint_restore_system` settles it a system later,
+            // after this frame's structural work has flushed.
+            //
+            // ⛔ AND IT IS OWED ONLY BY A PUBLISHED CROSSING. A refused room must
+            // not restore a checkpoint into the world it did not build.
+            committed_restore.0 = active.checkpoint_operation;
+            if active.cover_required {
+                if let Some(current) = transition_state
+                    .active
+                    .as_mut()
+                    .filter(|current| current.sequence == active.sequence)
+                {
+                    current.phase = super::loading::RoomTransitionLoadPhase::Committed;
+                }
+            } else {
+                loads.retire(&active.barrier.load_id);
+                transition_state.active = None;
+                ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                    ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+                    "room_commit_uncovered",
+                );
+                next_mode
+                    .set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+            }
         }
-    } else {
-        loads.retire(&active.barrier.load_id);
-        transition_state.active = None;
-        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-            ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
-            "room_commit_uncovered",
-        );
-        next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
     }
+    state.apply(world);
 }
 
 /// The room transition this frame's eager commit landed, if it landed one.

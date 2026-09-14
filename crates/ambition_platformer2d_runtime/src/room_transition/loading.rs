@@ -1997,6 +1997,7 @@ mod checkpoint_failure_installation_tests {
     /// ```text
     /// advance_room_transition_content_epoch_system
     /// commit_ready_room_transition_system
+    /// finalize_committed_room_transition
     /// apply_committed_room_transition_restore
     /// terminalize_abandoned_checkpoint_restore_system   <- the one this defends
     /// ```
@@ -2031,12 +2032,14 @@ mod checkpoint_failure_installation_tests {
             })
             .count();
         assert_eq!(
-            members, 4,
-            "the room-transition commit chain does not hold four systems. If the \
+            members, 5,
+            "the room-transition commit chain does not hold five systems. If the \
              abandoned-operation terminalizer is the one that left, readiness \
              still takes the key off the failed transaction and NOTHING ever \
              answers it — the accepted restore and its lifecycle intent stay \
-             live forever, which is the wedge with one more indirection"
+             live forever, which is the wedge with one more indirection. And if \
+             `finalize_committed_room_transition` is the one that left, every \
+             crossing the room transaction REFUSES is reported as committed"
         );
     }
 }

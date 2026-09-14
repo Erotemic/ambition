@@ -438,6 +438,13 @@ pub fn process_new_game_reset_request(
         None,
     );
 
+    // ⛔⛤ **AND THE RECEIPT IS RETIRED BY ITS OWNER, IN ITS OWN STATEMENT.** A
+    // separate trailing closure rather than a line at the end of the reader
+    // below, because the reader RETURNS EARLY on a refusal — and a retirement
+    // that only happens on one branch is a leak on the other. Queued after every
+    // reader of this publication, so "the last reader has run" is an ordering
+    // this road states rather than one a future reader has to remember.
+    let retire = publication;
     commands.queue(move |world: &mut World| {
         // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
         // name".** `LastConstructionVerification` is last-writer-wins and cannot
@@ -569,6 +576,10 @@ pub fn process_new_game_reset_request(
         {
             banner.show("SANDBOX RESET", 3.0);
         }
+    });
+
+    commands.queue(move |world: &mut World| {
+        crate::world::rooms::retire_publication(world, retire);
     });
 }
 

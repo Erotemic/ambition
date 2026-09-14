@@ -13,8 +13,10 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub use commit::{
-    commit_ready_room_transition_system, AppliedRoomTransition, RoomClock,
-    RoomTransitionApplication, RoomTransitionApplyError, RoomTransitionEffects, TransitBodies,
+    commit_ready_room_transition_system, finalize_room_transition, CommittedRoomTransitionRestore,
+    PendingRoomTransitionFinalize, RoomClock,
+    RoomTransitionApplication, RoomTransitionApplyError, RoomTransitionEffects,
+    StagedRoomTransition, TransitBodies,
 };
 pub use loading::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
@@ -83,14 +85,25 @@ impl Plugin for RoomTransitionComposerPlugin {
                 .in_set(RoomTransitionReadinessSet),
         );
         app.init_resource::<commit::CommittedRoomTransitionRestore>();
+        app.init_resource::<commit::PendingRoomTransitionFinalize>();
         app.add_systems(
             sim,
             (
                 advance_room_transition_content_epoch_system,
                 commit_ready_room_transition_system,
+                // ⛔⛤ **THE VERDICT IS ASKED HERE, AND EVERY EFFECT THAT MEANS
+                // THE CROSSING HAPPENED IS BEHIND IT.** The commit above only
+                // STAGES: the candidate room is built by commands it queued, and
+                // the transaction's verifier is the last of them. `.chain()` puts
+                // a sync point between the two systems, so by the time this runs
+                // the publication carries a verdict. A refused room cancels the
+                // crossing here and the player keeps the room they were in.
+                commit::finalize_committed_room_transition,
                 // ⭐ IMMEDIATELY AFTER, and exclusive: the eager commit is a
                 // system and cannot run the domain-apply schedule itself. The
                 // chain is what makes "a system later" true rather than hoped.
+                // The restore it settles is owed only by a crossing the finalizer
+                // above admitted.
                 commit::apply_committed_room_transition_restore,
                 // ⭐ THE OTHER TERMINAL ROAD, in the same exclusive position and
                 // for the same reason: a checkpoint operation whose preparation

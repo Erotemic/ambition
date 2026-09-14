@@ -223,6 +223,7 @@ fn commit_bracketed(
             &mut commands,
             plan.room().id.clone(),
             plan.construction_transactions(SessionSpawnScope::UNSCOPED),
+            crate::world::rooms::transaction::PublicationRetention::UntilOwnerRetires,
         );
         crate::world::rooms::transaction::open(
             &mut commands,

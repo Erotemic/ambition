@@ -228,6 +228,65 @@ fn live_geometry(sim: &mut Platformer2dSimHarness) -> String {
         .clone()
 }
 
+/// The developer overlay's transition flash. A committed crossing sets it to
+/// `1.0`; nothing else in a plain walk writes it.
+fn preset_flash(sim: &mut Platformer2dSimHarness) -> f32 {
+    sim.world_mut()
+        .resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>()
+        .preset_flash
+}
+
+/// The controlled body's arrival flash. A committed crossing calls
+/// `BodyCombat::reset()` and then sets this to the feel tuning's transition
+/// flash, which is the one combat value a transition ADDS rather than clears.
+fn body_hit_flash(sim: &mut Platformer2dSimHarness) -> f32 {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::characters::actor::BodyCombat,
+        With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >();
+    q.single(world)
+        .expect("the session has a controlled body")
+        .hit_flash
+}
+
+/// Set the two discriminators to values a committed crossing would OVERWRITE,
+/// so "unchanged" is a claim with content.
+///
+/// ⛔ **EVERY FRAME, not once.** The refusal happens on a frame the walk loop
+/// finds; arming the state once at the top would leave hundreds of frames for
+/// the sim's own decay to return it to the value a crossing writes.
+fn arm_the_discriminators(sim: &mut Platformer2dSimHarness) {
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>()
+        .preset_flash = 0.0;
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &mut ambition_platformer2d::characters::actor::BodyCombat,
+        With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >();
+    if let Ok(mut combat) = q.single_mut(world) {
+        combat.hit_flash = 0.0;
+    }
+    // The room-visual respawn request is the crossing's *"dress the destination"*
+    // message. Cleared before each step so what the step leaves is what the step
+    // wrote.
+    if let Some(mut messages) = world.get_resource_mut::<bevy::ecs::message::Messages<
+        ambition_platformer2d::world::rooms::RespawnRoomVisualsRequested,
+    >>() {
+        messages.clear();
+    }
+}
+
+/// Did this frame ask for the destination room's visuals?
+fn asked_for_room_visuals(sim: &mut Platformer2dSimHarness) -> bool {
+    sim.world_mut()
+        .get_resource::<bevy::ecs::message::Messages<
+            ambition_platformer2d::world::rooms::RespawnRoomVisualsRequested,
+        >>()
+        .is_some_and(|messages| !messages.is_empty())
+}
+
 /// ⛔⛤ **A10, THROUGH THE SHIPPED APP: A ROOM THE TRANSACTION REFUSES COSTS THE
 /// RUNNING GAME NOTHING.**
 ///
@@ -284,6 +343,7 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
             ),
         );
         let here = body_pos(&mut sim);
+        arm_the_discriminators(&mut sim);
         sim.step(walk_toward(target_x, here.x, base()));
         before_the_verdict = here;
         // ⛔ THE PREMISE, CHECKED EVERY FRAME RATHER THAN ASSUMED AT THE END: a
@@ -355,6 +415,63 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
         body_pos(&mut sim)
     );
 
+    // ⛔⛤ **AND NO TRANSITION EFFECT RAN — ADDED 2026-09-14 ON REVIEW.** The
+    // world surviving and the body staying put were the whole of this arm, and
+    // they left the crossing's OTHER half unwitnessed: the commit used to perform
+    // every cross-domain effect before anything asked the room's verdict, so a
+    // refused room still cleared the projectile carryover, played the door cue,
+    // reset the sim clock and the transition cooldown, flashed the overlay, reset
+    // combat, closed the dialogue AND the conversation, recorded a Class-B
+    // transit, asked for the destination's visuals and emitted the arrival
+    // VFX/SFX. Every one of those is a statement that the crossing happened, made
+    // about a crossing that did not.
+    //
+    // ⚠ Each discriminator was ARMED to a value the effect would overwrite (see
+    // `arm_the_discriminators`), so these are not three ways of reading a default.
+    assert_eq!(
+        preset_flash(&mut sim),
+        0.0,
+        "⛔ A REFUSED CROSSING FLASHED THE DEVELOPER OVERLAY: the transition's \
+         effects ran for a room that never published"
+    );
+    assert_eq!(
+        body_hit_flash(&mut sim),
+        0.0,
+        "⛔ A REFUSED CROSSING WROTE THE ARRIVAL FLASH ONTO THE BODY, which means \
+         it also called `BodyCombat::reset()` on a body that never arrived \
+         anywhere"
+    );
+    assert!(
+        !asked_for_room_visuals(&mut sim),
+        "⛔ A REFUSED CROSSING ASKED FOR THE DESTINATION ROOM'S VISUALS: the \
+         presentation would dress a room the session is not in"
+    );
+
+    // ⛔ AND THE LIFECYCLE DID NOT REPORT A COMMIT. `apply()` returning `Ok` used
+    // to BE the commit: the transaction advanced, the intent was consumed and the
+    // checkpoint restore was recorded as owed. A refused room owes no restore.
+    assert!(
+        sim.world_mut()
+            .get_resource::<
+                ambition_platformer2d::runtime::room_transition::CommittedRoomTransitionRestore,
+            >()
+            .is_none_or(|owed| owed.0.is_none()),
+        "⛔ A REFUSED CROSSING LEFT A CHECKPOINT RESTORE OWED, which would apply \
+         a remembered hand into a world the refused room never built"
+    );
+    assert!(
+        sim.world_mut()
+            .get_resource::<
+                ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState,
+            >()
+            .and_then(|state| state.active.as_ref().map(|active| active.phase))
+            .is_none_or(|phase| {
+                phase
+                    != ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase::Committed
+            }),
+        "⛔ A REFUSED ROOM'S TRANSACTION IS SITTING IN `Committed`"
+    );
+
     // ⭐ AND THE GAME IS STILL A GAME. A world whose room survived but whose body
     // cannot move is not the guarantee this arm claims.
     let stuck = body_pos(&mut sim);
@@ -368,6 +485,81 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
     );
 }
 
+/// ⛔⛤ **THE CONTROL FOR THE THREE DISCRIMINATORS ABOVE: A CROSSING THAT
+/// PUBLISHES STILL DOES ALL OF IT.**
+///
+/// ⚠ **WITHOUT THIS ARM THE REFUSAL ASSERTIONS COULD NOT FAIL AND NOBODY WOULD
+/// KNOW.** `preset_flash`, the body's arrival flash and the room-visual request
+/// are all armed to a value a committed crossing overwrites — but an arming that
+/// some decay system returns to zero inside the same frame, or a message a reader
+/// drains before the assertion looks, reads exactly like *"the effect did not
+/// run"*. This walks a crossing that PUBLISHES and asserts each discriminator
+/// moves, so a dead instrument reddens here instead of passing silently there.
+#[test]
+fn a_crossing_that_publishes_does_every_transition_effect() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before_room = active_room(&mut sim);
+    let zone = zones_by_distance(&mut sim, LoadingZoneActivation::EdgeExit)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("`{before_room}` authors no `EdgeExit` zone to walk into"));
+    let target_x = zone.aabb.center().x;
+
+    let mut published = None;
+    for _ in 0..WALK_CAP {
+        let here = body_pos(&mut sim);
+        arm_the_discriminators(&mut sim);
+        sim.step(walk_toward(target_x, here.x, base()));
+        let verdict = sim
+            .world_mut()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .cloned();
+        if let Some(verdict) = verdict {
+            if verdict.published && verdict.room_id != before_room {
+                published = Some(verdict);
+                break;
+            }
+        }
+    }
+    let verification = published.unwrap_or_else(|| {
+        panic!(
+            "no room transaction PUBLISHED in {WALK_CAP} frames walking into the \
+             `{before_room}` edge exit: the body never reached the zone, or the \
+             crossing was refused"
+        )
+    });
+
+    assert_eq!(
+        preset_flash(&mut sim),
+        1.0,
+        "a crossing PUBLISHED ({verification:?}) and the developer overlay was not \
+         flashed. Either the transition's effects no longer run behind the verdict \
+         at all, or this discriminator is dead and the refusal arm's assertion on \
+         it certifies nothing"
+    );
+    assert!(
+        body_hit_flash(&mut sim) > 0.0,
+        "a crossing PUBLISHED and the body carries no arrival flash: the combat \
+         half of the crossing did not run, or the value decays inside the frame \
+         and the refusal arm's assertion on it cannot fail"
+    );
+    assert!(
+        asked_for_room_visuals(&mut sim),
+        "a crossing PUBLISHED and nothing asked for the destination room's \
+         visuals: either presentation is no longer requested, or the message is \
+         drained before this arm reads it and the refusal assertion is vacuous"
+    );
+    assert_ne!(
+        active_room(&mut sim),
+        before_room,
+        "the transaction published a room that is not the start room and the \
+         session is still in the start room"
+    );
+}
+
 /// ⛔⛤ **A10'S CONTROL IN THE SHIPPED COMPOSITION: THE FIRST ROOM PUBLISHES.**
 ///
 /// `ROOM_CANDIDATE_BRACKET` is `true`, so every room root is minted hidden and a
@@ -376,10 +568,10 @@ fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
 /// well, and the player would boot into an empty start room.
 ///
 /// ⚠ **THE SESSION'S OWN FIRST ROOM IS THE ONE WITH NO OTHER WITNESS.** Activation
-/// queues its room build BEFORE it spawns the session root, so it commits through
-/// `spawn_contents` and stages no world — which means `apply_world_replacement`'s
-/// fail-closed check never sees it, and a refusal there is not caught by any of
-/// the staged-world arms. This asks the production verdict directly.
+/// commits through `spawn_contents` and stages no world, so
+/// `apply_world_replacement`'s fail-closed checks never see it and a refusal
+/// there is caught by none of the staged-world arms. This asks the production
+/// verdict directly.
 ///
 /// ⭐ It also names WHICH room, so a verdict left over from some other transaction
 /// cannot stand in for the start room's.

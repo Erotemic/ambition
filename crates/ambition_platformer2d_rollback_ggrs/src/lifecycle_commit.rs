@@ -478,10 +478,10 @@ fn commit_transition(
         // them would silently rebuild the destination room for a dead body's
         // crossing instead of cancelling it.
         match subject {
-            None => application.apply(plan, None, target_index, arrival, edge_exit, zone_sfx),
+            None => application.stage(plan, None, target_index, arrival, edge_exit, zone_sfx),
             Some(recorded) => match application.subject_entity(recorded) {
                 None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
-                Some(entity) => application.apply(
+                Some(entity) => application.stage(
                     plan,
                     Some(entity),
                     target_index,
@@ -497,14 +497,32 @@ fn commit_transition(
     // would silently discard a half-built room.
     state.apply(world);
 
-    match outcome {
-        Ok(_) => {}
+    let staged = match outcome {
+        Ok(staged) => staged,
         Err(error) => {
             // Every variant is raised BEFORE the first destructive mutation, so
             // the world is still whole and the crossing is simply void.
             error!("Track B: {error}; cancelling the crossing");
             return CommitOutcome::Cancelled;
         }
+    };
+
+    // ⛔⛤ **AND NOW THE EXACT PUBLICATION IS ASKED — 2026-09-14 ON REVIEW.**
+    // This path treated `Ok` from the application as *"the transition
+    // committed"*: it returned `CommitOutcome::Committed` and applied the
+    // checkpoint restore without ever asking whether the room the candidate
+    // describes actually published. `state.apply(world)` above is what runs the
+    // deferred transaction, so the verdict exists by this line.
+    //
+    // ⭐ THE SAME FUNCTION THE EAGER HOST CALLS, from
+    // `finalize_committed_room_transition`. The two hosts differ in WHEN they may
+    // mutate the world, never in what publication success means.
+    if !ambition_platformer2d_runtime::room_transition::finalize_room_transition(world, &staged) {
+        error!(
+            "Track B: the room transaction refused its candidate; the crossing is \
+             cancelled and the room the session is playing is untouched"
+        );
+        return CommitOutcome::Cancelled;
     }
 
     // ── THE EXCLUSIVE-WORLD TAIL ─────────────────────────────────────────────

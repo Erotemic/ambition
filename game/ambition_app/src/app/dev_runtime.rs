@@ -654,6 +654,16 @@ pub(super) fn reload_ldtk_world_from_disk(
         queue.apply(world);
     });
 
+    // ⛔⛤ **THE OWNER RETIRES ITS OWN RECEIPT — 2026-09-14 ON REVIEW.** Nothing
+    // else ends a publication any more: `begin_publication` used to reap every
+    // finished one, so whether this reload's verdict was still readable depended
+    // on whether an unrelated room had begun publishing. Queued LAST, after both
+    // readers above, and unconditionally — a refused receipt is as consumed as an
+    // admitted one.
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        ambition_platformer2d::actors::rooms::retire_publication(world, publication);
+    });
+
     Ok(active_room)
 }
 

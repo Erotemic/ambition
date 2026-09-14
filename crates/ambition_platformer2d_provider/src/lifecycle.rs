@@ -1729,14 +1729,49 @@ impl PlatformerSessionBuilder<'_, '_> {
         // which is how they come to disagree. The room plan is the authority
         // every other road already uses.
 
+        // ⛔⛤ **THE SESSION ROOT IS SPAWNED BEFORE ITS FIRST ROOM IS BUILT —
+        // REVERSED 2026-09-14 FOR A10.4.** The room build was queued first, so
+        // its transaction captured its baseline and took its verdict in a world
+        // where the session it belongs to did not exist yet: the activating room
+        // was the ONE room publication with no root to publish into, and every
+        // other road (transition, reset, hot reload) publishes into a root that
+        // is already standing. That asymmetry is exactly what a candidate session
+        // cannot have — the first room has to be buildable INTO the candidate.
+        //
+        // ⚠ The values the room build reads are cloned off the world BUNDLE
+        // rather than read back from the root, because the root is a queued
+        // spawn: nothing can query it until this frame's commands apply.
+        let geometry = live_world.geometry.clone();
+        let room_set = live_world.room_set.clone();
+        let initial_body = live_world.initial_body.clone();
+        let world = self
+            .active_session
+            .spawn_world_for(
+                &mut self.commands,
+                activation,
+                scope,
+                // The bare epoch rides alongside the identity that defines it,
+                // from this single value, so layers below `ambition_platformer2d_runtime`
+                // (construction planning) can read the activation generation
+                // without naming prepared-content identity.
+                (
+                    live_world,
+                    prepared_content,
+                    prepared_identity,
+                    prepared_identity.epoch,
+                ),
+            )
+            .expect("provider activation still owns the session it is constructing");
+
+
         let player = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,
             SessionSpawnScope::scoped(scope),
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
-                world: &live_world.geometry,
-                room_set: &live_world.room_set,
+                world: &geometry,
+                room_set: &room_set,
                 tuning: &self.tuning,
-                initial_body: &live_world.initial_body,
+                initial_body: &initial_body,
                 prepared_characters: mechanical.characters.as_ref(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
@@ -1774,7 +1809,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                         self.occurrences.as_deref().map(|remembered| {
                             ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
                                 remembered,
-                                world: &live_world.room_set.rooms,
+                                world: &room_set.rooms,
                                 minted: self.minted.as_deref(),
                             }
                         }),
@@ -1783,25 +1818,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                 default_character_id,
             },
         );
-
-        let world = self
-            .active_session
-            .spawn_world_for(
-                &mut self.commands,
-                activation,
-                scope,
-                // The bare epoch rides alongside the identity that defines it,
-                // from this single value, so layers below `ambition_platformer2d_runtime`
-                // (construction planning) can read the activation generation
-                // without naming prepared-content identity.
-                (
-                    live_world,
-                    prepared_content,
-                    prepared_identity,
-                    prepared_identity.epoch,
-                ),
-            )
-            .expect("provider activation still owns the session it is constructing");
 
         // SESSION INPUT OWNERSHIP GOES ON THE WORLD, NOT ON A BODY.
         //

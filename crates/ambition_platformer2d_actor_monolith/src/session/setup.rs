@@ -152,7 +152,14 @@ pub fn simulation_world(
         construction,
     )
     .unwrap_or_else(|error| panic!("initial room construction failed: {error}"));
-    room_plan.spawn_contents(commands);
+    // ⚠ NOBODY HOLDS THIS RECEIPT — YET. Session activation drops the handle,
+    // so the publication ends with its verdict. A10.4's candidate session is the
+    // owner this will grow: the activation decision is exactly a reader of this
+    // room's verdict, and it will say `UntilOwnerRetires` here.
+    room_plan.spawn_contents(
+        commands,
+        crate::world::rooms::transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+    );
     commands.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
         room_plan.platform_states().to_vec(),
     ));

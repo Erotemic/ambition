@@ -54,6 +54,46 @@ pub struct PublicationHandle(pub bevy::ecs::entity::Entity);
 pub(crate) struct RoomPublication {
     room_id: String,
     transactions: Vec<ambition_platformer2d_shared_tangle::construction::TransactionId>,
+    retention: PublicationRetention,
+}
+
+/// How long a publication's RECEIPT outlives the publication.
+///
+/// ⛔⛤ **AN UNRELATED PUBLICATION MUST NEVER INVALIDATE ANOTHER OWNER'S
+/// RECEIPT — CORRECTED 2026-09-14 ON REVIEW.** `begin_publication` used to reap
+/// every finished publication in the world, so the validity of A's exact receipt
+/// depended on whether B happened to begin: *"A finishes, caller still holds A's
+/// handle, B begins, `publication_succeeded(A)` is suddenly false"*. That is
+/// ownership by coincidence, and it is exactly what a candidate session holding
+/// its first room's receipt across an activation decision cannot tolerate.
+///
+/// ⇒ Retention is DECLARED at `begin_publication`, by the caller that knows
+/// whether anyone is going to read the verdict. Nothing else retires a
+/// publication, ever.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublicationRetention {
+    /// Nobody holds this handle: the publication is retired the instant its
+    /// verdict is recorded. Session activation's first room is the case — it
+    /// commits through `spawn_contents` and drops the handle on the floor.
+    UntilTheVerdictIsRecorded,
+    /// Retained until its owner calls [`retire_publication`]. The owner reading
+    /// the verdict is what ends the publication, so a reader queued behind this
+    /// frame's flush — or an activation decision that spans frames — finds the
+    /// receipt it was promised.
+    UntilOwnerRetires,
+}
+
+/// End a publication whose owner has read its verdict.
+///
+/// ⚠ **IDEMPOTENT, AND DELIBERATELY UNCONDITIONAL.** An owner retires its
+/// publication whether it published or refused — a refused receipt is just as
+/// consumed as an admitted one — and retiring one that is already gone is not an
+/// error, because a caller cannot always know whether its verdict was ever
+/// recorded.
+pub fn retire_publication(world: &mut World, publication: PublicationHandle) {
+    if let Ok(entity) = world.get_entity_mut(publication.0) {
+        entity.despawn();
+    }
 }
 
 /// The verdict of one exact publication.
@@ -71,35 +111,22 @@ pub struct PublicationVerdict {
 
 /// Start a publication: the entity everything about it will hang off.
 ///
-/// ⭐ **IT ALSO REAPS FINISHED ONES.** A publication lives until the commands
-/// queued behind it have read its verdict, which is the rest of THIS frame — and
-/// then it is debris. Reaping at the next `begin` is a bounded rule with no new
-/// system and no cross-frame state: a publication that still has no verdict is
-/// in flight and is left alone.
+/// ⛔⛤ **IT REAPS NOTHING. THE CALLER DECLARES THE RECEIPT'S LIFETIME — see
+/// [`PublicationRetention`].** This used to despawn every finished publication
+/// in the world, which made one owner's receipt depend on whether an unrelated
+/// publication happened to begin.
 pub(crate) fn begin_publication(
     commands: &mut Commands,
     room_id: String,
     transactions: Vec<ambition_platformer2d_shared_tangle::construction::TransactionId>,
+    retention: PublicationRetention,
 ) -> PublicationHandle {
     let publication = commands.spawn(RoomPublication {
         room_id,
         transactions,
+        retention,
     });
-    let handle = PublicationHandle(publication.id());
-    commands.queue(move |world: &mut World| {
-        let finished: Vec<bevy::ecs::entity::Entity> = world
-            .query_filtered::<bevy::ecs::entity::Entity, (
-                bevy::prelude::With<RoomPublication>,
-                bevy::prelude::With<PublicationVerdict>,
-            )>()
-            .iter(world)
-            .filter(|entity| *entity != handle.0)
-            .collect();
-        for entity in finished {
-            world.entity_mut(entity).despawn();
-        }
-    });
-    handle
+    PublicationHandle(publication.id())
 }
 
 /// Did this exact publication publish?
@@ -330,9 +357,11 @@ pub enum StagedWorldViolation {
     /// the platform state exactly as they were. A caller that staged a whole
     /// world and got nothing would have no way to tell that from success.
     ///
-    /// ⚠ It is reachable by ORDERING, not only by misuse: session activation
-    /// queues its room build BEFORE it spawns the session root, which is why
-    /// activation commits through `spawn_contents` and stages no world at all.
+    /// ⚠ It WAS reachable by ORDERING as well as by misuse: session activation
+    /// queued its room build before it spawned the session root. That order is
+    /// reversed as of 2026-09-14 (`PlatformerSessionBuilder::build`), and
+    /// `verify_and_publish` now refuses ANY room publication in a shell-routed
+    /// composition that has no root to publish into, staged world or not.
     NoSessionRootToPublishInto,
     /// A world was staged and the composition holds no `MovingPlatformSet` to
     /// publish its platform state into.
@@ -791,9 +820,9 @@ fn verify_and_publish(
     // spellings of facts P already holds, and two spellings is how the ends of a
     // bracket come to disagree about which room — or which lanes — a verdict is
     // for. See [`RoomPublication`].
-    let Some((room_id, transactions)) = world
+    let Some((room_id, transactions, retention)) = world
         .get::<RoomPublication>(publication.0)
-        .map(|about| (about.room_id.clone(), about.transactions.clone()))
+        .map(|about| (about.room_id.clone(), about.transactions.clone(), about.retention))
     else {
         // Not a refusal: there is no publication to refuse. A handle whose entity
         // is gone means the caller closed a publication that was never begun, or
@@ -809,9 +838,17 @@ fn verify_and_publish(
     // ⛔ THE VERDICT GOES ON THE PUBLICATION, whatever the outcome. A caller
     // whose follow-up work is conditional on THIS publication reads it there;
     // `LastConstructionVerification` below is diagnostics and stays that way.
+    // ⛔ AND THE DECLARED RETENTION IS SETTLED IN THE SAME STATEMENT. A
+    // publication nobody holds ends here, where the last thing that will ever
+    // touch it is; one with an owner stands until that owner retires it.
     let record = |world: &mut World, published: bool| {
         if let Ok(mut entity) = world.get_entity_mut(publication.0) {
-            entity.insert(PublicationVerdict { published });
+            match retention {
+                PublicationRetention::UntilTheVerdictIsRecorded => entity.despawn(),
+                PublicationRetention::UntilOwnerRetires => {
+                    entity.insert(PublicationVerdict { published });
+                }
+            }
         }
     };
     let refuse = |world: &mut World, room_id: String| {
@@ -907,6 +944,34 @@ fn verify_and_publish(
         }
         // A direct-entry fixture states no binding and means it.
         None => {}
+    }
+
+    // ⛔⛤ **AND A ROOM PUBLISHES INTO A SESSION. IN A SHELL-ROUTED COMPOSITION
+    // THERE IS NO SUCH THING AS A ROOM WITHOUT ONE — ADDED 2026-09-14 WITH
+    // A10.4's ORDERING FIX.** Session activation used to queue its first room's
+    // build BEFORE it spawned the session root, so the activating room was the
+    // one room publication in the project that took its verdict in a world where
+    // its own session did not exist. Everything that publishes THROUGH the root
+    // (`apply_world_replacement`, and every `session_world_component_mut` write
+    // behind a verdict) answers `None` there and says nothing — the fail-open
+    // shape `StagedWorldViolation::NoSessionRootToPublishInto` already refuses
+    // for a staged world. The activation road stages no world, so that check
+    // could not see it.
+    //
+    // ⚠ **THE DISCRIMINATOR IS COMPOSITION, NOT PRESENCE** — the same reasoning
+    // as the binding check above. A direct-entry fixture legitimately builds
+    // rooms with no session at all; a shell-routed host owes one, and "the
+    // resource happens to be missing" is not a waiver there.
+    if world.contains_resource::<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
+    >() && ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_none()
+    {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "room `{room_id}` cannot be published: this composition routes gameplay              through a shell session and there is no live session root to publish              into, so every write through the root would silently do nothing"
+        );
+        refuse(world, room_id);
+        return;
     }
     violations.sort_by_key(|violation| format!("{violation:?}"));
     violations.dedup();

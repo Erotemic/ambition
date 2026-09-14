@@ -283,11 +283,22 @@ impl RoomConstructionPlan {
     /// commit receipt below were queued after its verification had already run
     /// and published, so `RoomLoaded` described a room that was still being
     /// built.
-    pub fn spawn_contents(&self, commands: &mut Commands) -> transaction::PublicationHandle {
+    ///
+    /// ⚠ **THE CALLER DECLARES WHAT HAPPENS TO THE RECEIPT.** A caller that
+    /// drops the handle says [`transaction::PublicationRetention::UntilTheVerdictIsRecorded`]
+    /// and the publication ends with its verdict; a caller that will ask
+    /// `publication_succeeded` later says `UntilOwnerRetires` and owes a
+    /// [`transaction::retire_publication`].
+    pub fn spawn_contents(
+        &self,
+        commands: &mut Commands,
+        retention: transaction::PublicationRetention,
+    ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
             self.room_id().to_string(),
             self.features.construction_transactions(self.session_scope),
+            retention,
         );
         self.spawn_contents_for(publication, commands);
         publication
@@ -491,6 +502,11 @@ impl RoomConstructionPlan {
             commands,
             self.room_id().to_string(),
             self.features.construction_transactions(self.session_scope),
+            // ⛔ A WORLD REPLACEMENT ALWAYS HAS AN OWNER. Every caller of
+            // `replace_live_world` reads this verdict — the transition finalizes
+            // behind it, the hot reload and the reset queue their effects behind
+            // it — so the receipt stands until that owner retires it.
+            transaction::PublicationRetention::UntilOwnerRetires,
         );
         commands.entity(publication.0).insert(pending);
         self.spawn_contents_for(publication, commands);
@@ -642,7 +658,10 @@ mod tests {
         );
         {
             let mut commands = app.world_mut().commands();
-            plan.spawn_contents(&mut commands);
+            plan.spawn_contents(
+                &mut commands,
+                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+            );
         }
         app.world_mut().flush();
 
@@ -876,7 +895,10 @@ mod tests {
         );
         {
             let mut commands = app.world_mut().commands();
-            plan.spawn_contents(&mut commands);
+            plan.spawn_contents(
+                &mut commands,
+                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+            );
         }
         app.world_mut().flush();
 
@@ -1022,7 +1044,10 @@ mod tests {
 
         {
             let mut commands = app.world_mut().commands();
-            plan.spawn_contents(&mut commands);
+            plan.spawn_contents(
+                &mut commands,
+                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+            );
         }
         app.update();
 
@@ -1213,6 +1238,84 @@ mod tests {
             },
         );
         app.update();
+    }
+
+    /// Stage a candidate through the production road and KEEP its receipt.
+    ///
+    /// `run_system_once` rather than `add_systems` + `update`, because two
+    /// staged candidates need two ONE-SHOT runs: a system added twice runs twice
+    /// on the next update and would stage the first plan a second time.
+    fn stage_and_keep_the_receipt(
+        app: &mut bevy::prelude::App,
+        plan: RoomConstructionPlan,
+        outgoing: Vec<Entity>,
+    ) -> super::transaction::PublicationHandle {
+        bevy::ecs::system::RunSystemOnce::run_system_once(
+            app.world_mut(),
+            move |mut commands: Commands| {
+                plan.replace_live_world(
+                    &mut commands,
+                    outgoing.iter().map(|entity| (*entity, false)),
+                    None,
+                    None,
+                    None,
+                )
+            },
+        )
+        .expect("the staging system runs")
+    }
+
+    /// ⛔⛤ **AN UNRELATED PUBLICATION MUST NOT INVALIDATE AN OWNER'S RECEIPT.**
+    ///
+    /// `begin_publication` used to reap every finished publication in the world,
+    /// so this sequence — A finishes, the caller still holds A's handle, B
+    /// begins — silently turned `publication_succeeded(A)` from `true` into
+    /// `false`. The owner's follow-up writes are conditional on that answer, so
+    /// an unrelated room beginning to publish would have skipped them.
+    ///
+    /// ⚠ **BOTH PUBLICATIONS ARE REAL ONES**, from `replace_live_world` on the
+    /// production road, not hand-spawned entities: what is under test is
+    /// `begin_publication`'s own behaviour, and a fixture that spawned its own
+    /// publications would certify nothing about it.
+    #[test]
+    fn a_later_publication_does_not_invalidate_an_earlier_owners_receipt() {
+        use super::transaction::{publication_succeeded, retire_publication};
+
+        let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(30.0, 8.0),
+            40.0,
+            5.0,
+        ));
+
+        let first = stage_and_keep_the_receipt(&mut app, candidate_plan(), outgoing);
+        assert!(
+            publication_succeeded(app.world(), first),
+            "the fixture's premise: the first candidate publishes. Without that              this arm would be asking whether a refusal survives a later              publication, which is a different question"
+        );
+
+        // B begins — and finishes — while A's owner still holds A's handle.
+        let second = stage_and_keep_the_receipt(&mut app, candidate_plan(), Vec::new());
+        assert!(
+            publication_succeeded(app.world(), first),
+            "⛔ A LATER PUBLICATION ATE AN EARLIER OWNER'S RECEIPT. Every caller              whose writes are gated on `publication_succeeded` would skip them              because an unrelated room began publishing"
+        );
+        assert!(
+            publication_succeeded(app.world(), second),
+            "the second publication's own receipt"
+        );
+
+        // ⭐ AND RETIRING ONE ENDS EXACTLY ONE. This is the only thing that ends
+        // a publication now.
+        retire_publication(app.world_mut(), first);
+        assert!(
+            !publication_succeeded(app.world(), first),
+            "a retired receipt is consumed: its owner has read it and said so"
+        );
+        assert!(
+            publication_succeeded(app.world(), second),
+            "⛔ RETIRING ONE PUBLICATION DESTROYED ANOTHER'S CONTROL PLANE"
+        );
     }
 
     /// ⛔ **THE VERDICT READER, ASKED THE WAYS A CALLER CAN GET IT WRONG.**
@@ -1697,7 +1800,10 @@ mod tests {
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
         {
             let mut commands = app.world_mut().commands();
-            plan.spawn_contents(&mut commands);
+            plan.spawn_contents(
+                &mut commands,
+                transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+            );
         }
         app.world_mut().flush();
 

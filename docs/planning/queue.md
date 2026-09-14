@@ -126,9 +126,68 @@ room id from a parameter and re-derived the owning lane transactions from the pl
 now, so the two ends of the bracket cannot disagree about which room, or which
 lanes, a verdict is for.
 
+**A10.3b landed (2026-09-14): the ORDINARY room transition authorizes its commit
+effects from its exact publication too.** A review found A10.3's defect still open
+in the road every player uses: `RoomTransitionApplication::apply` called
+`replace_live_world`, DROPPED the returned handle, and then cleared the projectile
+carryover, played the door cue, reset the sim clock and the transition cooldown,
+flashed the developer overlay, reset combat and the blink camera, closed the
+dialogue AND the conversation, recorded the Class-B transit, asked for the
+destination's visuals and emitted the arrival VFX/SFX and the landing diagnostic —
+all before the deferred transaction had taken a verdict. Worse, BOTH hosts read
+`apply() == Ok` as *"the crossing committed"*: the eager one consumed the exact
+lifecycle intent, owed the checkpoint restore and advanced the barrier and game
+mode; the confirmed one returned `CommitOutcome::Committed` and applied the
+checkpoint restore.
+
+⇒ `apply` is split into `stage` and a shared `finalize_room_transition(world, P)`.
+Staging may read, gather and build the hidden candidate; it may not say the
+crossing happened — the effect channels are GONE from `RoomTransitionApplication`,
+so that is no longer expressible. Finalization asks the exact publication, applies
+every crossing effect if it published, consumes the receipt either way, and on a
+refusal cancels the transaction under the existing terminal policy (the intent is
+spent, no restore is owed, the player keeps room N). The eager host reaches it
+through `finalize_committed_room_transition`, an exclusive system chained after
+the commit so the deferred verifier has run; the confirmed host calls the same
+function immediately after `state.apply(world)`. One definition of a successful
+transition, two scheduling mechanics.
+
+⇒ **The shipped refusal witness now measures the effects, and has a control.**
+`a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact` arms the
+developer flash, the body's arrival flash and the room-visual request to values a
+committed crossing overwrites, and asserts none moved, plus that no checkpoint
+restore is owed and the transaction is not sitting in `Committed`.
+`a_crossing_that_publishes_does_every_transition_effect` walks a crossing that
+PUBLISHES and asserts all three move — without it, a decayed value or a drained
+message would read exactly like *"the effect did not run"* and the refusal
+assertions could not fail.
+
+**A10.3c landed (2026-09-14): a publication's RECEIPT has an explicit lifetime.**
+`begin_publication` reaped every finished publication in the world, so the
+sequence *A finishes → caller still holds A's handle → B begins* silently turned
+`publication_succeeded(A)` from `true` into `false`. That is ownership by
+coincidence. Retention is DECLARED at `begin_publication` now
+(`UntilTheVerdictIsRecorded` for a caller that drops the handle — session
+activation's first room — or `UntilOwnerRetires`), nothing reaps anything, and
+`retire_publication` is the only thing that ends a publication. Every owner
+retires its own, unconditionally and in its own statement, because a reader that
+returns early on a refusal leaks on that branch. Witnessed by
+`a_later_publication_does_not_invalidate_an_earlier_owners_receipt`, which drives
+two REAL publications through `replace_live_world`. This is what lets A10.4's
+candidate session hold its first room's receipt for as long as the activation
+decision takes.
+
 **Still not behind a verdict, named rather than implied:** the transition state
-machine, which advances to `playing` either way — a persistent refusal is a
+machine, which advances to `playing` on a REFUSAL as well — the crossing is
+cancelled and the mode returns to `playing`, so a persistently refused door is a
 livelock rather than a corrupted world.
+
+⚠ **The custody Model B exception is UNCHANGED and is not to be expanded.**
+`DepartureAuthority::Custodian` describes a real window in which the predecessor
+and the candidate both stand and custody removes the predecessor immediately
+afterwards. Model A — the outer checkpoint restore owning the room publication AND
+the custody projection, establishing no postcondition until both complete —
+remains the preferable end state, particularly for replication, and is not built.
 
 **Current blocker — the SESSION scope, a different transaction, not started.**
 `SessionScopeSet::Activate` is still retire-then-overwrite one level up:
@@ -138,6 +197,17 @@ the case where a world N really exists to lose, and it is measured at ONE FRAME
 (though not one command flush — `Cleanup`, `Activate` and the provider build are
 different sets), so a candidate session root is hidden for the same order of time
 a room's candidates are.
+
+**A10.4 started (2026-09-14): the first ordering fact.** Session activation queued
+its first room's build BEFORE it spawned the session root, so the activating room
+was the one room publication in the project that took its verdict in a world where
+its own session did not exist — and everything that publishes THROUGH the root
+answers `None` there and says nothing. `PlatformerSessionBuilder::build` spawns the
+root first now, and `verify_and_publish` REFUSES any room publication in a
+shell-routed composition that has no root to publish into (the discriminator is
+composition, as for the content binding — a direct-entry fixture legitimately has
+no session). That is the prerequisite for a first room that can be built INTO a
+candidate session.
 
 **Next implementation:** stage the session authorities as VALUES published at a
 verdict, as the room packet does. They do not need to become components on the

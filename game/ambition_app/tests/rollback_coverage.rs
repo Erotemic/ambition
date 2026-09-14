@@ -1030,6 +1030,22 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::room_transition::commit::CommittedRoomTransitionRestore",
         "set and consumed inside one run of the sim schedule by two chained systems; a value that survived a frame here would be a restore waiting to be applied to a world that had moved on",
     ),
+    // ⛔⛔ THE CROSSING THIS FRAME STAGED, WAITING ON ITS PUBLICATION'S VERDICT —
+    // and it must never survive a frame either, for exactly the reason above.
+    // The eager commit builds the candidate room and hands the staged crossing to
+    // the exclusive finalizer CHAINED immediately after it, which asks the exact
+    // publication whether it published and then either applies every effect that
+    // means the crossing happened or cancels the transaction. One writer, one
+    // reader-and-clearer, one run of the sim schedule between them.
+    //
+    // ⭐ REGISTERING IT WOULD BE THE BUG, in the same shape: a rewind restoring a
+    // staged crossing would finalize it against a world that had moved on, and it
+    // holds a `PublicationHandle`, which is host-local control-plane identity and
+    // must never enter a checksum.
+    (
+        "ambition_platformer2d_runtime::room_transition::commit::PendingRoomTransitionFinalize",
+        "set and consumed inside one run of the sim schedule by two chained systems; it carries a host-local PublicationHandle, which is control-plane identity and never canonical rollback state",
+    ),
     // The tier floor of the room the HOST is loading behind a cover.
     //
     // The authored respawn beat, in SECONDS.

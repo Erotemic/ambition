@@ -1345,6 +1345,29 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     // Settings and tuning: forward-only knobs, not per-frame simulation state.
     ("::settings::UserSettings", "user settings, forward-only"),
+    // ⚠ **THE THIRD NARROWING OF THE WAIVER ABOVE, AND THE LAST ONE SIMULATION
+    // READS.** `apply_player_hit_events`, `charge_projectile_input` and
+    // `apply_feature_hit_events` each held `Res<UserSettings>` — the whole
+    // persisted, menu-mutable resource — inside the simulation schedule. They now
+    // read TWO f32s resolved once per host frame by
+    // `project_player_damage_policy`, registered in literal `Update`. With this
+    // and `SeatControlFrameModes`, `scripts/measure_user_settings_in_simulation.py`
+    // reports ZERO simulation readers of `UserSettings`.
+    //
+    // ⛔ **STILL FORWARD-ONLY, NOT CLOSED**: the policy is read DURING simulation,
+    // so a resimulation of frame N scales by whatever the difficulty slider holds
+    // now. Closing it needs the ruling the architecture review says is Jon's —
+    // whether difficulty / assist / damage are a MATCH-WIDE rule or
+    // PARTICIPANT-SPECIFIC accessibility policy — because that decides whether
+    // the canonical form is one value agreed at match activation or a per-seat
+    // row travelling with each peer. This resource is the seam that ruling lands
+    // on; see `docs/planning/queue.md`'s `UserSettings` row.
+    (
+        "ambition_damage::PlayerDamagePolicy",
+        "the two damage scalars resolved from user settings at a host-side \
+         boundary; forward-only like the settings they come from, and narrowed \
+         from four readers of a 30-field resource to one writer of two f32s",
+    ),
     // ⚠ **THE SAME WAIVER, NARROWED ON PURPOSE — AND IT IS NOT YET THE FIX.**
     // Four simulation systems used to evaluate
     // `UserSettings.gameplay.resolved_movement_frame_mode()` themselves, which

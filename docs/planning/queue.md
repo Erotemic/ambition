@@ -144,12 +144,44 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   charge_projectile_input    gameplay.player_damage_multiplier   projectile scale
 ```
 
-  ⭐ **SO THE FRAME-MODE HALF IS OUT OF SIMULATION AND WHAT REMAINS IS EXACTLY THE
-  RULING JON OWES**: are difficulty / assist / damage modifiers a MATCH-WIDE rule
-  or PARTICIPANT-SPECIFIC accessibility policy? The review is explicit that
-  architecture cannot answer that from the type, and that neither answer permits
-  reading an App-local persisted resource during historical simulation. **Measure
-  and show; do not author.**
+  ⭐⭐ **AND THOSE THREE ARE GONE TOO, 2026-09-13 — `ambition_damage::PlayerDamagePolicy`.
+  THE CENSUS NOW REPORTS ZERO SIMULATION READERS OF `UserSettings`.** The three
+  were reading two scalars out of a 30-field persisted resource:
+  `incoming_player_damage_multiplier` (difficulty × assist) and
+  `gameplay.player_damage_multiplier`. They are resolved once per host frame by
+  `project_player_damage_policy`, registered in **literal `Update`** by
+  `crates/ambition_platformer2d_runtime/src/player_schedule.rs`, into a two-f32
+  resource simulation reads.
+
+  ⚠ **MATCH-WIDE IS TODAY'S BEHAVIOUR, NOT A RULING I MADE.** All three readers
+  applied ONE machine-wide value to "the player", so a single pair of scalars
+  reproduces the shipped game exactly and the migration is behaviour-preserving.
+  **The ruling Jon owes is unchanged**: are difficulty / assist / damage a
+  MATCH-WIDE rule or PARTICIPANT-SPECIFIC accessibility policy? The review is
+  explicit that architecture cannot answer that from the type. ⇒ What the
+  migration bought is that the ruling now lands on ONE resource's shape instead of
+  three call sites in three crates.
+
+  ⭐ **THE WITNESS IS THE WHOLE ROAD, NOT THE RESOURCE.**
+  `player_melee_damage_scales_with_the_outgoing_slider` sets the slider on
+  `UserSettings` exactly as the settings screen does and runs
+  `project_player_damage_policy` chained ahead of `apply_feature_hit_events`. A
+  fixture that wrote `PlayerDamagePolicy` directly would still pass with the
+  projection deleted — poison-verified by removing it from the chain, which fires.
+
+  ⛔ **STILL FORWARD-ONLY, NOT CLOSED**, and `rollback_coverage.rs` says so in its
+  waiver: the policy is READ during simulation, so a resimulation of frame N
+  scales by whatever the slider holds now. Closing it is what the ruling decides —
+  one value agreed at match activation, or a per-seat row travelling with each
+  peer.
+
+  ⛔⛤ **AND THE CENSUS'S CONTROL HAD TO BE RE-ANCHORED ON THE RUN THAT REACHED
+  ZERO.** It read *"if `apply_feature_hit_events` is a reader AND is not in the
+  simulation list, fail"*. Migrating that system off `UserSettings` took its
+  subject out of the population, so the control switched itself off **on the exact
+  run that first reported zero** — a check that cannot fail, arriving precisely
+  when the number it guards becomes worth doubting. It now asserts the
+  SCHEDULE fact, which holds whatever the system reads.
 
   ⚠ The remaining 44 unattributed rows are still unchecked, and two scanner
   defects found here (prose matches, literal-`add_systems` attribution) are a class

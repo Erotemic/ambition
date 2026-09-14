@@ -1099,6 +1099,66 @@ pub(crate) fn apply_player_knockback(
 /// `ambition_projectiles::kind::ProjectileKind::spec`), and folding it in here
 /// turned the power slider into a self-punishment knob — raising your damage
 /// also raised the damage you took.
+/// The damage scaling deterministic simulation is allowed to read.
+///
+/// ⛔⛤ **IT EXISTS BECAUSE THREE SIMULATION SYSTEMS READ `UserSettings` DIRECTLY**
+/// — `apply_player_hit_events` here, `charge_projectile_input`, and
+/// `apply_feature_hit_events`. `UserSettings` is PERSISTED, APP-LOCAL and
+/// MENU-MUTABLE: under the rollback host a resimulation of a confirmed frame
+/// re-read whatever the difficulty slider says NOW, so the damage a historical
+/// frame dealt was not a function of that frame. The architecture review of
+/// 2026-09-13 names this its priority 1.
+///
+/// ⚠ **THE SCALARS ARE MATCH-WIDE, AND THAT IS TODAY'S BEHAVIOUR RATHER THAN A
+/// RULING.** All three readers applied one machine-wide value to "the player",
+/// so a single pair of scalars reproduces the shipped game exactly. Whether
+/// difficulty / assist / damage are a MATCH rule or PARTICIPANT-SPECIFIC
+/// accessibility policy is Jon's product call, which the review says
+/// architecture cannot answer from the type — **this resource is the seam that
+/// ruling lands on**, and it changes the shape here rather than three call
+/// sites in three crates.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, PartialEq)]
+pub struct PlayerDamagePolicy {
+    /// Scales damage the player TAKES: difficulty × assist.
+    pub incoming: f32,
+    /// Scales damage the player DEALS: the outgoing power slider.
+    pub outgoing: f32,
+}
+
+impl Default for PlayerDamagePolicy {
+    /// ⭐ UNSCALED, which is the same answer every one of the three readers gave
+    /// when `UserSettings` was absent — so a composition that installs no
+    /// projection behaves exactly as it did before.
+    fn default() -> Self {
+        Self {
+            incoming: 1.0,
+            outgoing: 1.0,
+        }
+    }
+}
+
+/// Resolve the persisted settings into the policy simulation reads.
+///
+/// ⛔ **REGISTER THIS OUTSIDE THE SIMULATION SCHEDULE.** The whole point is that
+/// the settings resource is read once per host frame, at a host-side boundary,
+/// and never during a historical replay. `ambition_platformer2d_runtime`'s player
+/// schedule registers it in literal `Update`.
+pub fn project_player_damage_policy(
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    mut policy: ResMut<PlayerDamagePolicy>,
+) {
+    let next = settings.as_deref().map_or_else(
+        PlayerDamagePolicy::default,
+        |settings| PlayerDamagePolicy {
+            incoming: incoming_player_damage_multiplier(&settings.gameplay),
+            outgoing: settings.gameplay.player_damage_multiplier,
+        },
+    );
+    // ⚠ Written through change detection: a resource rewritten every frame with
+    // the same value is one no consumer can use `is_changed` on.
+    bevy::prelude::DetectChangesMut::set_if_neq(&mut policy, next);
+}
+
 pub fn incoming_player_damage_multiplier(
     gameplay: &ambition_persistence::settings::GameplaySettings,
 ) -> f32 {
@@ -1232,7 +1292,9 @@ pub fn apply_player_hit_events(
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
-    user_settings: Res<ambition_persistence::settings::UserSettings>,
+    // ⛔ THE PROJECTED POLICY, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
+    // This system runs in the simulation schedule.
+    damage_policy: Res<PlayerDamagePolicy>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
@@ -1336,7 +1398,7 @@ pub fn apply_player_hit_events(
         )
         .collect();
 
-    let difficulty_multiplier = incoming_player_damage_multiplier(&user_settings.gameplay);
+    let difficulty_multiplier = damage_policy.incoming;
     let tuning = active_tuning.0;
     let mut feel = *feel_tuning;
     feel.di_max_angle = combat_rules.di_max_angle;

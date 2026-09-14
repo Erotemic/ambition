@@ -308,8 +308,16 @@ def main() -> int:
     # census has already reported two confident wrong answers (a `Res<UserSettings>`
     # matched inside a comment; a prose `)` closing a registration block early), so
     # it asserts against a fact it cannot derive.
+    # ⛔⛤ **AND THE CONDITION IS ABOUT THE SCHEDULE, NOT ABOUT THE READER SET.**
+    # This first read `if control in found and control not in sim`, and the moment
+    # `apply_feature_hit_events` was migrated OFF `UserSettings` the control's
+    # subject left the population and the check stopped applying — silently, on
+    # the very run that first reported ZERO simulation readers. A control that
+    # switches itself off exactly when the census reaches its goal is the shape
+    # `reference_a_check_that_cannot_fail` is about. Its registration is a fact
+    # about the schedule and holds whatever it reads.
     control = "apply_feature_hit_events"
-    if control in found and control not in sim:
+    if control not in sim:
         print(f"⛔ THE CONTROL FAILED: `{control}` is not attributed to a simulation")
         print("   schedule. It is registered at combat_schedule.rs:695 through")
         print("   `install_technique` → `install_techniques` → `add_systems(sim, …)`.")

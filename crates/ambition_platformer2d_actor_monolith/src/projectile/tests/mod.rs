@@ -98,6 +98,8 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.insert_resource(SeatRawFrames::default());
     app.insert_resource(ambition_persistence::settings::UserSettings::default());
+    // The damage scaling simulation reads — see `ambition_damage::PlayerDamagePolicy`.
+    app.init_resource::<ambition_damage::PlayerDamagePolicy>();
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());

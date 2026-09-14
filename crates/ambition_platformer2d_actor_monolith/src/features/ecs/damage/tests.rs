@@ -20,6 +20,10 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update};
 /// `MessageWriter` for an unregistered message PANICS the system rather than no-opping. One list,
 /// one edit.
 fn register_hit_pipeline_messages(app: &mut App) {
+    // The damage scaling simulation reads — see `ambition_damage::PlayerDamagePolicy`.
+    // Every fixture in this module registers the hit pipeline, so the policy is
+    // installed beside it rather than in 29 hand-rolled `App::new()` blocks.
+    app.init_resource::<ambition_damage::PlayerDamagePolicy>();
     ambition_combat::hitbox::register_strike_outcome_messages(app);
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
@@ -213,7 +217,20 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         settings.gameplay.player_damage_multiplier = multiplier;
         app.insert_resource(settings);
         register_hit_pipeline_messages(&mut app);
-        app.add_systems(Update, apply_feature_hit_events);
+        // ⭐ THE WHOLE ROAD, not the resource the system reads. The slider is set
+        // on `UserSettings` exactly as the settings screen sets it, and
+        // `project_player_damage_policy` — the host-side stage that resolves it —
+        // runs chained ahead of the consumer. A fixture that wrote
+        // `PlayerDamagePolicy` directly would still pass with the projection
+        // deleted, which is the half of this migration worth guarding.
+        app.add_systems(
+            Update,
+            (
+                ambition_damage::project_player_damage_policy,
+                apply_feature_hit_events,
+            )
+                .chain(),
+        );
         let victim = spawn_hostile_actor(&mut app); // health 5
         let mut attacker = app.world_mut().spawn_empty();
         if human_controlled {

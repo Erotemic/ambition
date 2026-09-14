@@ -521,7 +521,8 @@ pub fn apply_feature_hit_events(
     // 1.0 — the same shape as `feel_tuning`. Read in a sim system exactly as the
     // projectile spawn does; it is a menu-side (non-rollback) setting, constant
     // across a rollback window, so reading it here is deterministic.
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The projected policy, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
+    damage_policy: Res<ambition_damage::PlayerDamagePolicy>,
     // Which bodies hit HEAVY. A filter-only query: it reads no components, so
     // it conflicts with nothing here, including the mutable boss query above.
     // Two questions about the ATTACKER, both filter-only so they read no
@@ -566,9 +567,7 @@ pub fn apply_feature_hit_events(
     // MELEE, the way `ProjectileKind::spec` already scales player projectiles.
     // Enemy melee (a non-`PlayerSlash` source) is untouched; incoming
     // difficulty/assist is the separate `resolve_body_hit` scale.
-    let outgoing_melee_scale = user_settings
-        .map(|s| s.gameplay.player_damage_multiplier)
-        .unwrap_or(1.0);
+    let outgoing_melee_scale = damage_policy.outgoing;
     for mut event in hit_events.read().cloned() {
         // The ONE seam the human's outgoing melee is scaled by their difficulty
         // slider. Scale once, before any victim reads `event.damage`; projectiles

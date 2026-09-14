@@ -131,7 +131,8 @@ pub fn charge_projectile_input(
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
     mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
-    user_settings: Res<ambition_persistence::settings::UserSettings>,
+    // The projected policy, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
+    damage_policy: Res<ambition_damage::PlayerDamagePolicy>,
     // The open, content-owned motion-technique registry. The named gesture
     // patterns (qcf / qcf_grace / hcf) live in content, not this crate; the fire
     // policy below asks the catalog whether each fired.
@@ -172,7 +173,7 @@ pub fn charge_projectile_input(
         })
         .collect();
 
-    let damage_mult = user_settings.gameplay.player_damage_multiplier;
+    let damage_mult = damage_policy.outgoing;
     for (body_entity, kin, resolved_frame, mut state, mut anim) in &mut charge_body_q {
         let tick_info = tick_infos.get(&body_entity).copied().unwrap_or_default();
         state.clock += dt;

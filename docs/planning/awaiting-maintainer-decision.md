@@ -1711,12 +1711,22 @@ infallible. Stronger than another watcher, and it lets future generation
 participants join ONE activation barrier instead of each racing to cancel the
 shell before a schedule phase.
 
-⚠ **THE ACCEPTANCE POISON, STATED SO IT CAN BE RUN:** insert a test-only authority
-change ordered AFTER the current breaker and BEFORE shell activation, make the
-boundary `ForeignTimeline` or `Unhealthy`, and prove the candidate route does not
-activate, the candidate content does not publish, and N stays selected. **If that
-mutation cannot be inserted because one activation authority structurally owns the
-whole boundary, `Q118` is closed.**
+⇒ **RUN 2026-09-13, AND IT CONFIRMS THE REVIEW.** The acceptance poison is
+`a_boundary_that_closes_after_the_breaker_still_publishes`: a test-only ownership
+change ordered INTO the interval — after the breaker, before the commit acts on
+`RouteActivated`. **MEASURED: nothing cancels and the generation PUBLISHES**
+(`0.4 → 0.65`, `CancelPending` count 0). ⇒ The mutation CAN be inserted, so no
+activation authority structurally owns the boundary, and **`Q118` is not closed.**
+The arm is named for what it RECORDS and flips the day a barrier owns it.
+
+⛔⛤ **AND THE FIRST VERSION OF THAT POISON "PASSED" FOR A FIXTURE REASON, which is
+worth more than the result.** The mutation was unarmed, `a_preparation_for` pumps
+updates, so it fired on those frames and closed the boundary BEFORE the breaker
+ever ran. The breaker then cancelled — correctly — `live_duration` never moved,
+and the arm read as *"the interval is already owned"*: a conclusion entirely about
+the fixture. MEASURED at the time: `pending_after=false cancelled=1`. ⇒ It is
+ARMED now, and it asserts BOTH that the boundary really closed and that nothing
+cancelled, so neither half can be satisfied by the wrong mechanism.
 
 ## ✅ Q118 — the two POLICY halves, answered 2026-09-13, the second by reusing a protocol that already shipped
 

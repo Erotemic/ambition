@@ -156,13 +156,17 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   content commit be infallible. That is stronger than another watcher and lets
   future generation participants join ONE activation barrier instead of each
   racing to cancel the shell.
-  ⚠ **THE ACCEPTANCE POISON IS STATED:** insert a test-only authority change
-  ordered AFTER the current breaker and BEFORE shell activation, make the boundary
-  `ForeignTimeline` or `Unhealthy`, and prove the candidate route does not
-  activate, the candidate content does not publish, and N stays selected. **If
-  that mutation cannot be inserted because one activation authority structurally
-  owns the whole boundary, `Q118` is actually closed** — today it can only rely on
-  ordering.
+  ⇒ **THE ACCEPTANCE POISON WAS RUN 2026-09-13 AND THE INTERVAL IS REAL.**
+  `a_boundary_that_closes_after_the_breaker_still_publishes` orders an ownership
+  change INTO the interval — after the breaker, before the commit acts on
+  `RouteActivated` — and MEASURED, nothing cancels and the generation publishes
+  (0.4 → 0.65, `CancelPending` count 0). So no activation authority structurally
+  owns the boundary and `Q118` stays open; today it relies on ordering.
+  ⚠ The FIRST version of that poison "passed" because the mutation was unarmed
+  and `a_preparation_for` pumps updates, so it closed the boundary BEFORE the
+  breaker ran and the breaker cancelled correctly — which read as *"the interval
+  is already owned"*. It is armed now and asserts both that the boundary closed
+  and that nothing cancelled.
   ✅ **WHAT DID LAND: the seal, then its correction.** The
   live-timeline half is stop-and-rebase, reusing the LDtk road's
   stop-and-release; and `PublicationBoundary` now folds OWNERSHIP into itself

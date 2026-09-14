@@ -4194,3 +4194,135 @@ fn only_a_locally_maintained_sync_test_may_be_rebased_for_a_publication() {
          puts hot reload back where `Q118` found it"
     );
 }
+
+/// ⛔⛤ **`Q118`'s REMAINING INTERVAL, MEASURED RATHER THAN ARGUED — 2026-09-13.**
+///
+/// The unified `PublicationBoundary` closed the OWNERSHIP hole: the lease re-asks
+/// the whole admission question now, not its health half. What a review then
+/// named is a different gap, and it is about OWNERSHIP OF A BOUNDARY rather than
+/// about which policy is right:
+///
+/// ```text
+/// publication breaker checks the authority
+///         ↓
+/// the authority changes
+///         ↓
+/// the shell activates the route
+///         ↓
+/// the content commit sees RouteActivated and assumes there is nothing to refuse
+/// ```
+///
+/// That last assumption is CORRECT and must stay: making
+/// `commit_content_generation` fallible would recreate the half-transaction this
+/// whole road exists to prevent — a route activated at N+1 with a cast still at
+/// N. So the interval is narrowed by ORDERING and owned by nobody.
+///
+/// ⭐⭐ **THIS ARM IS THE REVIEW'S OWN ACCEPTANCE POISON**: a boundary change
+/// deliberately ordered AFTER the breaker and BEFORE the commit acts on the
+/// activation. Its verdict decides whether `Q118` is closed. *"If such a mutation
+/// cannot be inserted because one activation authority structurally owns the
+/// whole boundary, `Q118` is actually closed. It currently can only rely on
+/// ordering."*
+///
+/// ⇒ **MEASURED: THE MUTATION CAN BE INSERTED AND THE GENERATION PUBLISHES.** The
+/// arm asserts that, so it is named for what it RECORDS and flips the day an
+/// activation barrier owns the boundary.
+#[test]
+fn a_boundary_that_closes_after_the_breaker_still_publishes() {
+    use ambition_platformer2d::rollback::{
+        RollbackSessionOwnership, SyncTestOwner, SyncTestSettings,
+    };
+
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")),
+    );
+    shell_active_on(&mut app, true);
+
+    /// The test-only mutation, ordered INTO the interval: it runs after the
+    /// breaker has checked and before the commit acts on the activation.
+    ///
+    /// ⛔⛤ **ARMED, AND THE FIRST VERSION WAS NOT — WHICH IS WHY IT "PASSED".**
+    /// `a_preparation_for` pumps updates, so an unarmed mutation fired on those
+    /// frames and closed the boundary BEFORE the breaker ever ran. The breaker
+    /// then cancelled correctly, `live_duration` never moved, and the arm read as
+    /// *"the interval is already owned"* — a conclusion entirely about the
+    /// fixture. MEASURED at the time: `pending_after=false cancelled=1`.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct ArmTheInterval(bool);
+
+    fn close_the_boundary_behind_the_breakers_back(world: &mut bevy::ecs::world::World) {
+        if !world.resource::<ArmTheInterval>().0 {
+            return;
+        }
+        world.insert_resource(RollbackSessionOwnership::External);
+    }
+
+    app.add_systems(
+        bevy::app::Update,
+        (
+            adopt_preparation_transaction,
+            break_the_publication_lease_when_the_boundary_closes,
+            close_the_boundary_behind_the_breakers_back,
+            commit_content_generation,
+        )
+            .chain(),
+    );
+    app.init_resource::<ArmTheInterval>();
+    let before = live_duration(&app);
+
+    // ⛔ THE PREMISE: the world is ADMISSIBLE when the request is made — a
+    // healthy timeline this host maintains — or the arm is about a refused
+    // request rather than about the interval.
+    app.world_mut().insert_resource(live_authority());
+    app.world_mut()
+        .insert_resource(RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(1),
+            owner: SyncTestOwner::LocalMaintainer,
+        });
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+
+    let active = a_preparation_for(&mut app, "shell.game.1");
+    // ⛔ ARM IT ONLY NOW: everything before this frame must see the ADMISSIBLE
+    // world, or the breaker cancels for a reason that has nothing to do with the
+    // interval.
+    app.world_mut().resource_mut::<ArmTheInterval>().0 = true;
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(active));
+    app.update();
+
+    // ⛔ AND THE PREMISE OF THE POISON ITSELF: the boundary really did close.
+    // Without this the arm passes whenever the mutation failed to apply.
+    assert!(
+        !crate::reload::rebasable_local_timeline(app.world()),
+        "the test mutation did not close the boundary, so this arm measures a \
+         legal publication rather than the interval"
+    );
+
+    // ⛔ AND NOTHING CANCELLED IT, which is the half that says WHY it published:
+    // the breaker had already run and answered on a world that was still legal.
+    assert!(
+        !app.world()
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellCommand>>()
+            .iter_current_update_messages()
+            .any(|command| matches!(
+                command,
+                ambition_platformer2d::game_shell::ShellCommand::CancelPending { .. }
+            )),
+        "the transaction WAS cancelled, so this arm is measuring a breaker that \
+         saw the closed boundary rather than the interval after it"
+    );
+    assert_ne!(
+        live_duration(&app),
+        before,
+        "MEASURED GAP CLOSED? This arm records that a boundary closing AFTER the \
+         publication breaker has checked it does NOT stop the generation \
+         publishing — the interval `Q118` still owes an owner for. If the \
+         generation now stays unpublished, an activation barrier owns the whole \
+         boundary: name it, close `Q118`, and make this the opposite assertion.",
+    );
+}

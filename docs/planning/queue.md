@@ -7402,3 +7402,54 @@ numbers — the tell is a value repeating across unrelated fighters (damage=17,
 charge=1.70), and goblin's launch printing 1044.5 where the table said 751.3.
 ⇒ Resolve a strike from the fighter's OWN file, and ASSERT the parsed base/growth
 equals the baseline table's. `only=` matches `move_id`, never a role.
+
+## ✅ SIX DOWN SMASHES BROUGHT INTO BAND — AND A CENSORED SPIKE IS A FIXTURE LIMIT
+
+MEASURED 2026-09-14, same instrument and caveats (rage-pinned, no-DI, vs
+`player_robot_v3` ⇒ LOWER BOUNDS; 1.25 untouched). Method: calibration,
+`G_new = G_old * p0/p1` — no stage constant.
+
+    fighter                      move_id          G_old -> G_new  p0    predicted  measured
+    perfect_cellular_automaton   garden_growth    2.05 -> 2.75    201   150        150
+    npc_bob                      ground_anchor    2.05 -> 2.75    204   152        152
+    npc_alice                    side_channel     2.00 -> 2.68    208   155        155
+    mary_o_tall                  ground_pound     1.95 -> 2.62    218   162        162
+    sanic                        split_kick       1.95 -> 2.62    223   166        166
+    player_robot_v3              smash_down       2.60 -> 3.51    236   175        175
+
+6/6 EXACT, refusals 0. Session total: **20/20 pre-registered predictions** across the
+up-smash, forward-smash and down-smash passes.
+
+### ⛔ `launch_dir` DECIDES WHETHER A DOWN-SMASH CAN KO AT ALL
+The two censored down-smashes are exactly the two that launch straight down, and the
+split is clean with no overlap:
+
+    CENSORED, pure spike (0.0, 1.0):  carl >600 (measured at ceiling=600) | emmy >300
+    KILLS, horizontal + UPWARD:       pirate (0.9,-0.50) 120 | ninja (0.95,-0.50) 161
+                                      goblin (0.9,-0.55) 164 | alice (0.80,-0.58) 208
+                                      oiler  (0.9,-0.50) 227 | robot (1.00,-0.25) 236
+
+A pure spike drives a GROUNDED victim into the stage floor; it crosses no blast line,
+so NO MAGNITUDE MAKES IT KO. At 600% carl's launch would be 110 + 1.85*1.25*600 =
+1497.5 — past the vertical constant (1238) and double the lateral (~750) — and it
+still does not kill. ⇒ carl's cell is a FIXTURE LIMIT, not content weakness.
+Calibration has no `p0` there and never will; making it kill means changing
+`launch_dir`, which is a character-identity decision rather than a tune. Left alone.
+
+### Untouched, and why
+  - goblin 164 is ALREADY IN BAND (160-200, "many ways"). Not an outlier.
+  - emmy: pure spike AND contract-protected — her `smash_down` shares
+    `ORDINARY_GROWTH` with her `smash_up`, so moving it breaks
+    `exactly_one_move_grows_like_a_kill_move`.
+  - oiler 227: its 1.95 sits UNDER `WITHIN_TOLERANCE_GROWTH` (2.10) on purpose,
+    enforced at `oiler_moveset.rs:912`.
+  - SHARED TABLES left alone: `142.0/2.82` serves medic, officer, projectile_polygon
+    and pugnacious_polygon; `132.0/2.72` serves author, performer and pointed_polygon.
+  - Already in band: pirate 120, george 125, clerk 155, ninja 161.
+
+### Where the three passes leave the roster
+Every fighter that was reachable, unprotected and out of band now kills with all three
+smashes inside Jon's ranges, with the authored ordering preserved in each role. What
+remains is deliberate: two fighters built around a single licensed kill move, two
+shared archetype tables that are roster-level decisions, and one pure spike that the
+fixture cannot kill with.

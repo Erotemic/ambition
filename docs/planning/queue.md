@@ -1754,6 +1754,24 @@ beside the real one: an assertion that cannot fail reads as coverage.
 **NEXT IMPLEMENTATION STEP — A10s, THE SESSION SCOPE. IT IS A DIFFERENT
 TRANSACTION AND IT IS NOT STARTED.**
 
+⛔⛤ **AND THE SESSION SCOPE'S MODEL IS STATED IN THE CODE'S OWN WORDS, WHICH IS
+WHY IT IS A DIFFERENT TRANSACTION.** `SessionScopeSet::Activate` documents itself
+as *"a newly live scope re-establishes the process-global state that mirrors one
+session, BEFORE any provider builds that session's world"*, and *"whatever a
+skipped or abnormal teardown left standing is OVERWRITTEN here by the session
+about to read it."* That is retire-then-overwrite — the same shape
+`replace_live_world` had before this packet, one level up. A10 at the session
+scope means replacing it with build-beside-then-publish, and the mirrors are
+exactly the four authorities below.
+
+⚠ **A HANDOFF IS THE CASE WHERE A WORLD N REALLY DOES EXIST TO LOSE** — unlike
+activation at boot — so it is where the session packet's value is. Guarded today
+only by outcome: `a_shell_handoff_publishes_the_incoming_sessions_room` drives a
+real `ShellCommand::ReplaceWith` on the shipped app and asserts the incoming room
+published AND that the world holds authoritative identities afterwards. ⭐ The
+roster half is what makes it non-vacuous: both activations build the same room, so
+`published` alone could be a stale verdict from the first one.
+
 ⚠ **THE ROOM DOES NOT NEED IT, AND THE REASON IS OWNERSHIP RATHER THAN EFFORT.** A
 room transition must not swap session roots — the root IS the session and the room
 is state ON it — so staging the room's world as VALUES is the right shape, not the

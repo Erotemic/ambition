@@ -514,3 +514,80 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
          That is the two-semantics gap, and this names the frame it opens on."
     );
 }
+
+/// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
+/// IN IT.**
+///
+/// `ROOM_CANDIDATE_BRACKET` is `true`, so a refused room is DROPPED. The handoff
+/// is the road that used to produce the worst refusal in the whole suite — a
+/// session retiring its old scope and starting the new one in the SAME frame, so
+/// the incoming room's transaction captured a baseline still holding all 18 of
+/// the outgoing scope's placements (`room-refused :: 18x Duplicated`). Under the
+/// bracket that drops the entire room, and the new session wakes up in an empty
+/// world.
+///
+/// ⚠ **THE ORDERING FIX IS WHAT CLOSED IT** (`SessionScopeSet` chains
+/// `RetireAuthority -> Cleanup -> Activate -> Presentation`), and
+/// `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+/// asks the SCHEDULE. This asks the RESULT, which is the half a schedule
+/// assertion cannot cover: an ordering can be right and the room still refused
+/// for some other reason.
+///
+/// ⭐ The roster assertion is what makes it non-vacuous. `published` alone could
+/// be a stale verdict from the first activation — both activations build the same
+/// room, so the id cannot tell them apart — but a live authoritative roster after
+/// the handoff can only come from a room that actually arrived.
+#[test]
+fn a_shell_handoff_publishes_the_incoming_sessions_room() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    let before = activation_id(&app);
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    let after = activation_id(&app);
+    assert!(
+        before.is_some() && after != before,
+        "the activation id did not move ({before:?} -> {after:?}), so no handoff \
+         happened and everything below is about the FIRST session"
+    );
+
+    let verification = app
+        .world()
+        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        verification.published,
+        "⛔ THE INCOMING SESSION'S ROOM WAS REFUSED. Under the candidate bracket \
+         its roots are dropped, so the handoff lands the player in an empty \
+         world: {verification:?}"
+    );
+
+    let roster = {
+        let world = app.world_mut();
+        world
+            .query::<&ambition_platformer2d::platformer::sim_id::SimId>()
+            .iter(world)
+            .count()
+    };
+    assert!(
+        roster > 0,
+        "the handoff published a room and the world holds no authoritative \
+         identities at all: {verification:?}"
+    );
+}

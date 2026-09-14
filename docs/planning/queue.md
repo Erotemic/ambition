@@ -425,16 +425,68 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   request/barrier identity. ⇒ `ShellHoldId("content-publication:<request-id>")`,
   or a typed equivalent.
 
-  ⇒ **THE LIFECYCLE, in full**: at adoption take the hold for THAT pending shell
-  transaction; while pending, a valid boundary releases that exact hold and an
-  invalid one issues that exact correlated cancellation; and every terminal path —
-  success, failure, cancel, **supersede** — removes that transaction's hold.
+  ⛔⛔⛔ **RETRACTED 2026-09-14 — THE LIFECYCLE I WROTE HERE RECREATES THE EXACT
+  RACE `Q118` EXISTS TO CLOSE, AND MUST NOT BE IMPLEMENTED.** It said: *"at
+  adoption take the hold for THAT pending shell transaction; while pending, a
+  VALID BOUNDARY RELEASES THAT EXACT HOLD and an invalid one issues that exact
+  correlated cancellation."* The second GPT review of 2026-09-14 caught it, and
+  the repository's own acceptance poison already demonstrates why:
 
-  ⛔ **THE POISONS THIS NEEDS** (the first is the one the constant id fails):
-  A holds `game`, B supersedes A on the same route, A's delayed terminal cleanup
-  runs, **B must still be held**. Then: a cancellation cannot leak a hold; a
-  failure cannot leak a hold; a successful activation leaves none behind; and a
-  later reload of the same route is never blocked by an old transaction.
+```text
+  content system checks the boundary      → VALID
+  content system RELEASES its hold
+  ── somebody changes rollback ownership/health ──
+  ShellRouter::advance_pending            → is_held() == false
+  RouteActivated                          → N+1 publishes against a foreign timeline
+```
+
+  ⇒ **A TRANSACTION-SPECIFIC HOLD ID FIXES *WHICH* HOLD IS RELEASED. IT DOES NOT
+  FIX *WHEN* AUTHORIZATION IS EVALUATED.** The transaction-id ruling above is
+  still correct and still needed — it is about ownership and cleanup, which is a
+  different problem from atomicity. Both are required; neither substitutes.
+
+  ⭐ **HOW I GOT IT WRONG**: I had just measured that the interval between the
+  breaker and activation is real, and reached for the primitive that BLOCKS
+  activation — correctly — then wrote a release step that hands the interval
+  straight back. A blocking primitive only helps while it is held, so *"release it
+  once the check passes"* is the one lifecycle that cannot work. ⇒ **A GUARD YOU
+  RELEASE ON A CHECK IS THE CHECK, WITH EXTRA STEPS.**
+
+  ⇒ **THE LIFECYCLE THAT IS ACTUALLY REQUIRED**: the final validity decision and
+  the route activation need ONE OWNER, and that owner is the router.
+
+```text
+  adoption            take the transaction-specific hold
+  while pending       the content system MAINTAINS its lease state; it does NOT
+                      release the hold because the world looked valid at some
+                      earlier instant
+  advance_pending     evaluate/consume gate readiness NOW, in the same exclusive
+                      operation that emits `RouteActivated`
+                        not ready / refused → stay pending, or cancel
+                        all valid           → consume the gates AND activate,
+                                              with no window in between
+  terminal            success, failure, cancel, SUPERSEDE all remove that
+                      transaction's hold
+```
+
+  ⚠ **THE SHELL STAYS GENERIC.** It must not learn rollback semantics — it
+  understands *"this pending transaction has prerequisites, are they satisfied
+  right now"*. Rollback is one answerer among possible others; that is the same
+  reason this is better than a bespoke watcher.
+
+  ⛔ **THE POISONS THIS NEEDS.** The ATOMICITY one first, because it is the one
+  the retracted lifecycle fails: the publication participant has already judged the
+  boundary valid, THEN a test mutation changes rollback ownership/health, THEN the
+  shell attempts activation — **the route must not activate**. ⚠ That mutation has
+  to be ordered AFTER whatever point the old design would have released at, or the
+  arm passes on the defect.
+
+  Then the TRANSACTION-IDENTITY set, which the constant hold id fails: A holds
+  `game`, B supersedes A on the same route, A's delayed terminal cleanup runs,
+  **B must still be held**. And: a cancellation cannot leak a hold; a failure
+  cannot leak a hold; a successful activation consumes only its OWN gate and
+  leaves none behind; a later reload of the same route is never blocked by an old
+  transaction.
 
   ⚠ **THE PARKED WIP IS HALF-WIRED AND WOULD HANG EVERY RELOAD** — the hold is
   taken in `adopt_preparation_transaction` via `take_the_publication_lease` and

@@ -254,6 +254,157 @@ mod composed {
         );
     }
 
+    /// The answer a test gate gives, so an arm can change it BETWEEN frames.
+    #[derive(bevy::prelude::Resource, Clone, Copy)]
+    struct GateAnswer(crate::ShellGateVerdict);
+
+    fn answer_the_gate(answer: bevy::prelude::Res<GateAnswer>) -> crate::ShellGateVerdict {
+        answer.0
+    }
+
+    /// A route held by a gate, with the evaluator registered and the answer
+    /// starting at `Hold`.
+    fn app_with_a_gated_route(route: &str) -> App {
+        use ambition_load::{LoadBarrierSpec, LoadCommand, LoadCoordinator, LoadPlanSpec};
+        let mut app = shell_app();
+        // ⚠ **A BARRIER, BECAUSE ONLY A PENDING ROUTE IS GATED.** A route that is
+        // already satisfiable when the command is applied activates inside
+        // `start_route` and never reaches `advance_pending` — the same road the
+        // loading-screen hold documents as *"a ready route commits immediately
+        // when first requested"*. The content-publication transaction this
+        // machinery is for always carries a preparation plan and so is always
+        // pending; see the queue row.
+        let load = ambition_load::LoadId::new(format!("{route}-load"));
+        let barrier = ambition_load::LoadBarrierId::new(format!("{route}-ready"));
+        {
+            let mut loads = app.world_mut().resource_mut::<LoadCoordinator>();
+            loads.apply(LoadCommand::Begin(LoadPlanSpec::new(load.clone(), "Gated")));
+            loads.apply(LoadCommand::DeclareBarrier {
+                load_id: load.clone(),
+                spec: LoadBarrierSpec::new(barrier.clone(), "Gated ready"),
+            });
+        }
+        app.world_mut()
+            .resource_mut::<ShellRouteCatalog>()
+            .register(ShellRouteSpec::new(route, "gated-exp").requiring(load, barrier));
+        app.insert_resource(GateAnswer(crate::ShellGateVerdict::Hold));
+        let evaluator = app.world_mut().register_system(answer_the_gate);
+        app.world_mut()
+            .resource_mut::<crate::ShellActivationGates>()
+            .register(crate::ShellHoldId::new("test-gate"), evaluator);
+        app.world_mut().resource_mut::<crate::ShellRouteHolds>().hold(
+            ShellRouteId::new(route),
+            crate::ShellHoldId::new("test-gate"),
+        );
+        app
+    }
+
+    fn go_to(app: &mut App, route: &str) {
+        app.world_mut()
+            .write_message(ShellCommand::GoTo(ShellRouteId::new(route)));
+    }
+
+    fn set_answer(app: &mut App, verdict: crate::ShellGateVerdict) {
+        app.world_mut().resource_mut::<GateAnswer>().0 = verdict;
+    }
+
+    /// Make the route's barrier satisfiable, so the only thing left between the
+    /// pending transaction and `RouteActivated` is its gate.
+    fn make_ready(app: &mut App, route: &str) {
+        use ambition_load::{LoadCommand, LoadCoordinator};
+        let mut loads = app.world_mut().resource_mut::<LoadCoordinator>();
+        loads.apply(LoadCommand::SetDiscovery {
+            load_id: ambition_load::LoadId::new(format!("{route}-load")),
+            barrier_id: ambition_load::LoadBarrierId::new(format!("{route}-ready")),
+            open: false,
+            forecast: None,
+        });
+    }
+
+    /// ⛔⛤ **THE `Q118` ATOMICITY ARM: A GATE THAT SAID YES EARLIER DOES NOT MAKE
+    /// THE ACTIVATION AUTHORIZED.**
+    ///
+    /// The design this replaced had each participant CHECK its condition in an
+    /// earlier system and RELEASE its hold when the condition held. Measured, the
+    /// interval between that check and `RouteActivated` is real — an ownership
+    /// change landing inside it publishes against a timeline that no longer
+    /// permits it. This arm puts the change exactly there: the gate answers
+    /// `Admit` on one frame, the answer becomes `Hold` before the next, and the
+    /// route must still not be active.
+    ///
+    /// ⚠ **THE FIRST ASSERTION IS THE PREMISE.** Under the old design the frame
+    /// that answered `Admit` would have RELEASED the hold, so a route that is
+    /// still held here is what makes the second assertion mean anything.
+    #[test]
+    fn a_gate_that_answered_yes_earlier_does_not_authorize_a_later_activation() {
+        let mut app = app_with_a_gated_route("gated");
+        go_to(&mut app, "gated");
+        app.update();
+        make_ready(&mut app, "gated");
+        app.update();
+        assert!(
+            active_route(&app).is_none(),
+            "the route activated while its gate was answering Hold",
+        );
+
+        // The gate would say yes on THIS frame...
+        set_answer(&mut app, crate::ShellGateVerdict::Admit);
+        // ...and the condition changes before the next one. The gate is asked
+        // fresh each time, so the earlier yes authorizes nothing.
+        set_answer(&mut app, crate::ShellGateVerdict::Hold);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<crate::ShellRouteHolds>()
+                .is_held(&ShellRouteId::new("gated")),
+            "the hold was released by something other than an activation, which \
+             is the interval this machinery exists to remove",
+        );
+        assert!(
+            active_route(&app).is_none(),
+            "the route activated on a gate answer that was no longer true",
+        );
+
+        // And a gate that says yes AT the activation does activate.
+        set_answer(&mut app, crate::ShellGateVerdict::Admit);
+        app.update();
+        assert_eq!(
+            active_route(&app).as_deref(),
+            Some("gated"),
+            "a gate answering Admit at the activation did not let the route through",
+        );
+        assert!(
+            !app.world()
+                .resource::<crate::ShellRouteHolds>()
+                .is_held(&ShellRouteId::new("gated")),
+            "the activation did not consume its own gate's hold",
+        );
+    }
+
+    /// AND A REFUSED TRANSACTION DOES NOT ACTIVATE, EVER — it is cancelled rather
+    /// than left pending, so a route is not blocked forever by a refusal.
+    #[test]
+    fn a_refusing_gate_cancels_the_transaction_instead_of_activating_it() {
+        let mut app = app_with_a_gated_route("refused");
+        go_to(&mut app, "refused");
+        app.update();
+        make_ready(&mut app, "refused");
+        set_answer(&mut app, crate::ShellGateVerdict::Refuse);
+        app.update();
+        app.update();
+        assert!(
+            active_route(&app).is_none(),
+            "a REFUSED transaction activated",
+        );
+        assert!(
+            !app.world()
+                .resource::<crate::ShellRouteHolds>()
+                .is_held(&ShellRouteId::new("refused")),
+            "a refusal left the route held forever, so no later transaction on it \
+             can ever activate",
+        );
+    }
+
     #[test]
     fn registration_derives_catalog_and_launches_without_host_match() {
         use crate::ShellExperienceAppExt;

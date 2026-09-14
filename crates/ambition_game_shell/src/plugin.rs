@@ -18,7 +18,8 @@ use crate::{
     ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
     ShellCommand, ShellCommandRejection, ShellEvent, ShellExperienceRegistry,
     ShellHostConfiguration, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
-    ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity,
+    ShellActivationGates, ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter,
+    ShellScopedEntity,
     ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime,
     ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
 };
@@ -40,6 +41,7 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellRouter>()
             .init_resource::<PreparedSessionRegistry>()
             .init_resource::<ShellRouteHolds>()
+            .init_resource::<ShellActivationGates>()
             .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
@@ -256,16 +258,116 @@ fn process_shell_commands(
     }
 }
 
-fn advance_pending_route(
-    catalog: Res<ShellRouteCatalog>,
-    mut loads: ResMut<LoadCoordinator>,
-    mut prepared: ResMut<PreparedSessionRegistry>,
-    mut router: ResMut<ShellRouter>,
-    holds: Res<ShellRouteHolds>,
-    mut events: MessageWriter<ShellEvent>,
-) {
-    for event in router.advance_pending(&catalog, &mut loads, &mut prepared, &holds) {
-        events.write(event);
+/// Ask this route's activation gates, then activate — in ONE exclusive operation.
+///
+/// ⛔⛤ **EXCLUSIVE BECAUSE ATOMICITY IS THE WHOLE REQUIREMENT (`Q118`).** This was
+/// an ordinary system reading `Res<ShellRouteHolds>`, and the design that was
+/// about to be built had each participant CHECK its condition in an earlier
+/// system and RELEASE its hold when the condition held. Measured, that interval
+/// is real: a rollback ownership change landing between the check and
+/// `RouteActivated` publishes a generation against a timeline that no longer
+/// permits it. A block released on an earlier check is that check with extra
+/// steps.
+///
+/// ⇒ So a gate never releases itself. Each registered evaluator runs HERE,
+/// inside the same exclusive world access that then emits `RouteActivated`, and
+/// nothing can run in between.
+///
+/// ⚠ **A HOLD WITH NO REGISTERED GATE IS AN ORDINARY HOLD** and still blocks —
+/// `ambition_load_presentation`'s loading-screen hold is one, and it releases
+/// itself on its own schedule because it is a PRESENTATION beat, not an
+/// authorization. Only a hold whose owner registered an evaluator is asked.
+fn advance_pending_route(world: &mut bevy::prelude::World) {
+    let pending_route = world
+        .resource::<ShellRouter>()
+        .pending
+        .as_ref()
+        .map(|pending| pending.route_id.clone());
+    if let Some(route_id) = pending_route {
+        // ⛔ ONLY WHEN THE ROUTE WOULD OTHERWISE ACTIVATE. `Admit` CONSUMES a
+        // hold, so asking on a frame where the barrier is not ready would
+        // consume it early and leave the route unheld until readiness arrives —
+        // the exact window this machinery exists to close, reopened by it. See
+        // `ShellRouter::ready_but_for_holds`.
+        let ready = {
+            let router = world.resource::<ShellRouter>();
+            let loads = world.resource::<LoadCoordinator>();
+            let prepared = world.resource::<PreparedSessionRegistry>();
+            router.ready_but_for_holds(loads, prepared)
+        };
+        let gated: Vec<_> = if !ready {
+            Vec::new()
+        } else {
+            let holds = world.resource::<ShellRouteHolds>();
+            let gates = world.resource::<ShellActivationGates>();
+            holds
+                .held(&route_id)
+                .into_iter()
+                .filter_map(|hold| gates.evaluator(&hold).map(|system| (hold, system)))
+                .collect()
+        };
+        for (hold, evaluator) in gated {
+            // ⛔ THE ANSWER IS TAKEN NOW. `run_system` executes inside this
+            // exclusive access, so the world the gate inspected is the world the
+            // activation below happens in.
+            let verdict = world
+                .run_system(evaluator)
+                .unwrap_or(crate::router::ShellGateVerdict::Hold);
+            match verdict {
+                crate::router::ShellGateVerdict::Hold => return,
+                crate::router::ShellGateVerdict::Admit => {
+                    world
+                        .resource_mut::<ShellRouteHolds>()
+                        .release(&route_id, &hold);
+                }
+                crate::router::ShellGateVerdict::Refuse => {
+                    // ⛔⛤ **CANCEL FIRST, THEN RELEASE — AND MY FIRST VERSION DID
+                    // IT THE OTHER WAY AND LET A REFUSED ROUTE THROUGH.** It
+                    // released the hold and wrote `ShellCommand::CancelPending`,
+                    // which is correlated by REQUEST ID: a transaction started by
+                    // `GoTo` carries `None`, so nothing cancelled it and the very
+                    // next frame activated the route the gate had just refused.
+                    // The refusal arm is what caught it.
+                    //
+                    // ⇒ The router cancels the pending transaction DIRECTLY here,
+                    // inside the same exclusive access, so there is no frame in
+                    // which the route is both unheld and still pending.
+                    let cancelled = world.resource_scope(
+                        |world, mut router: bevy::prelude::Mut<ShellRouter>| {
+                            world.resource_scope(
+                                |world, mut loads: bevy::prelude::Mut<LoadCoordinator>| {
+                                    let mut prepared =
+                                        world.resource_mut::<PreparedSessionRegistry>();
+                                    router.cancel_pending(&mut loads, &mut prepared)
+                                },
+                            )
+                        },
+                    );
+                    world
+                        .resource_mut::<ShellRouteHolds>()
+                        .release(&route_id, &hold);
+                    for event in cancelled {
+                        world.write_message(event);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    let events = world.resource_scope(|world, mut router: bevy::prelude::Mut<ShellRouter>| {
+        world.resource_scope(|world, mut loads: bevy::prelude::Mut<LoadCoordinator>| {
+            world.resource_scope(
+                |world, mut prepared: bevy::prelude::Mut<PreparedSessionRegistry>| {
+                    let catalog = world.resource::<ShellRouteCatalog>();
+                    let holds = world.resource::<ShellRouteHolds>();
+                    router.advance_pending(catalog, &mut loads, &mut prepared, holds)
+                },
+            )
+        })
+    });
+    for event in events {
+        world.write_message(event);
     }
 }
 

@@ -962,13 +962,30 @@ fn verify_and_publish(
     // as the binding check above. A direct-entry fixture legitimately builds
     // rooms with no session at all; a shell-routed host owes one, and "the
     // resource happens to be missing" is not a waiver there.
+    //
+    // ⛔⛤ **AND IT ASKS FOR *THIS TRANSACTION'S* SESSION, NOT FOR THE LIVE ONE.**
+    // `session_world_entity` answers *"which root is live right now"*, which is a
+    // different question from *"which root does this publication belong to"* the
+    // moment a candidate session exists: its first room is prepared under the
+    // candidate's scope while the PREVIOUS session's root is still the live one.
+    // `session_root_for_scope` asks by the scope the plan was prepared under and
+    // sees hidden candidate roots, which is what makes a first room buildable
+    // INTO a candidate session. See A10.4.
     if world.contains_resource::<
         ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
-    >() && ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_none()
+    >() && session
+        .id()
+        .and_then(|scope| {
+            ambition_platformer2d_shared_tangle::lifecycle::session_root_for_scope(world, scope)
+        })
+        .is_none()
     {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
-            "room `{room_id}` cannot be published: this composition routes gameplay              through a shell session and there is no live session root to publish              into, so every write through the root would silently do nothing"
+            "room `{room_id}` cannot be published: this composition routes gameplay \
+             through a shell session and session {:?} carries no root to publish \
+             into, so every write through the root would silently do nothing",
+            session.id()
         );
         refuse(world, room_id);
         return;

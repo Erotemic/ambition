@@ -344,6 +344,38 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
     live_session_world_root(world).map(|(entity, _)| entity)
 }
 
+/// The session root a ROOM TRANSACTION would publish into: the root owned by the
+/// scope the transaction was prepared under, **including a hidden candidate
+/// session's**.
+///
+/// ⛔⛤ **THIS IS NOT [`session_world_entity`], AND THE DIFFERENCE IS A10.4.**
+/// That function answers *"which root is LIVE right now"* — correct for a system
+/// reading the running world, and wrong for a publication, which is a question
+/// about the session the transaction BELONGS to. A candidate session's first room
+/// is prepared under the candidate's scope while the previous session's root is
+/// still the live one, so `session_world_entity` would hand a room publication
+/// the root of a session it has nothing to do with, and a candidate session's own
+/// root is hidden from it entirely.
+///
+/// ⚠ `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the marker"*,
+/// not "only hidden ones": an ordinary live session's root is found here exactly
+/// as it is anywhere else.
+pub fn session_root_for_scope(world: &mut World, scope: SessionScopeId) -> Option<Entity> {
+    let mut query = world.try_query_filtered::<(Entity, &SessionRoot), bevy::ecs::query::Allow<
+        crate::construction::InactiveCandidate,
+    >>()?;
+    let mut found = query
+        .iter(world)
+        .filter(|(_, root)| root.0 == scope)
+        .map(|(entity, _)| entity);
+    let root = found.next()?;
+    debug_assert!(
+        found.next().is_none(),
+        "session scope {scope:?} owns more than one SessionRoot"
+    );
+    Some(root)
+}
+
 /// Which gameplay session owns the one exact live session world, if any.
 ///
 /// ⭐⭐ THE SCOPE ANY SESSION-OWNED AUTHORITY MUST NAME TO BE READ. At a

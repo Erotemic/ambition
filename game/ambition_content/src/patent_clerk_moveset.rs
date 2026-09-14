@@ -159,7 +159,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         half_extents: (26.0, 32.0),
         damage: 17,
         knockback: 170.0,
-        knockback_growth: 3.15,
+        knockback_growth: 6.10,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

@@ -7453,3 +7453,37 @@ smashes inside Jon's ranges, with the authored ordering preserved in each role. 
 remains is deliberate: two fighters built around a single licensed kill move, two
 shared archetype tables that are roster-level decisions, and one pure spike that the
 fixture cannot kill with.
+
+## ✅ TWO UP-SMASHES MY OWN FILTER MISSED — and why "censored" was the wrong proxy
+
+MEASURED 2026-09-14. ninja 145/145 and clerk 140/140 — predicted against measured,
+2/2 EXACT, refusals 0. **Session total: 22/22 pre-registered predictions.**
+
+    fighter                      move_id    G_old -> G_new   p0    predicted  measured
+    npc_ninja_shadow_oni_leader  smash_up   2.90 -> 6.00     300   145        145
+    special_patent_clerk         smash_up   3.15 -> 6.10     271   140        140
+
+### ⛔ THE SCOPING ERROR, NAMED
+The up-smash pass was built from the CENSORED cells (`>300`). ninja read 300 and clerk
+271, so they passed the filter while being just as far out of band. "Censored" was a
+proxy for "broken" and it was the WRONG PROXY — a measurable-but-terrible cell is
+exactly as broken, and is in fact EASIER to fix because it already carries a `p0`.
+⇒ Scope a tuning pass on THE BAND, never on whether the instrument hit its ceiling.
+
+### An ordering inversion caught BEFORE editing
+clerk's `p0` (271) is BETTER than ninja's (300). The first targets drafted (ninja 140,
+clerk 145) would have INVERTED the authored ordering. Corrected to ninja 145 /
+clerk 140 before any file was touched, and the measurement confirms clerk still kills
+earlier. Preserving who-is-stronger is the point; the band is only a sanity range.
+
+### ⚠ THE THROW ENVELOPE IS UNTOUCHED AND IS THE NEXT WORKSTREAM
+Observed while sanity-checking the baseline, NOT investigated: `up_throw` and
+`down_throw` read `>300` for author, officer AND alice — three unrelated fighters,
+consistently — while forward/back throws kill at 96-168. That is the same role
+structure already established (vertical tax upward, spike-into-a-grounded-victim
+downward), so it is systematic rather than per-fighter weakness. Combined with the two
+findings already pushed — throws bypass rage AND staleness, and 12 of 17 fighters
+carry generic `f * 1.08/1.04/0.74` scaling with George the sole authored set — the
+throws are a separate axis that no pass this session has touched.
+⛔ Open for Jon: whether the roster-wide generic throw formula should be replaced at
+all is a design decision, not a calibration.

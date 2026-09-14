@@ -150,6 +150,67 @@ pub struct ShellRouteHolds {
     holds: BTreeMap<ShellRouteId, std::collections::BTreeSet<ShellHoldId>>,
 }
 
+/// What an activation GATE says when the router asks it, at the moment of asking.
+///
+/// ⛔⛤ **THE VERDICT IS ASKED FOR INSIDE THE ACTIVATION, WHICH IS THE WHOLE
+/// POINT.** `Q118`'s defect is a TOCTOU: a participant checks a condition, sees
+/// it hold, releases its block, and the condition changes before the router
+/// activates. A transaction-specific hold id fixes WHICH block is released; it
+/// does not fix WHEN the condition is evaluated, and a block released on an
+/// earlier check is that check with extra steps.
+///
+/// ⇒ So a gate never releases itself. It ANSWERS, and
+/// [`ShellActivationGates`]'s evaluation and the activation that follows happen
+/// in one exclusive operation with nothing able to run between them.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ShellGateVerdict {
+    /// Not yet — stay pending and ask again next time.
+    Hold,
+    /// Go ahead. The hold is consumed by this activation and by nothing else.
+    Admit,
+    /// This transaction must not activate at all: cancel it.
+    Refuse,
+}
+
+/// The prerequisites a pending shell transaction must satisfy AT ACTIVATION.
+///
+/// ⭐ **THE SHELL STAYS GENERIC.** It knows *"this pending transaction has
+/// prerequisites; are they satisfied right now?"* and nothing else. Rollback
+/// publication is the first answerer, not the vocabulary: a gate is a registered
+/// system returning a [`ShellGateVerdict`], so a future participant joins the
+/// same barrier instead of racing the shell with a watcher of its own.
+///
+/// ⚠ **KEYED BY HOLD ID, NOT BY ROUTE.** A participant registers ONE evaluator
+/// and holds whichever route its transaction is on — and a transaction-specific
+/// hold id (`"content-publication:<request-id>"`) is what keeps a stale
+/// transaction's cleanup from freeing its successor's block on the same route.
+#[derive(Resource, Default)]
+pub struct ShellActivationGates {
+    gates: BTreeMap<ShellHoldId, bevy::ecs::system::SystemId<(), ShellGateVerdict>>,
+}
+
+impl ShellActivationGates {
+    /// Register the evaluator for a hold id, replacing any previous one.
+    pub fn register(
+        &mut self,
+        hold_id: ShellHoldId,
+        system: bevy::ecs::system::SystemId<(), ShellGateVerdict>,
+    ) {
+        self.gates.insert(hold_id, system);
+    }
+
+    pub fn evaluator(
+        &self,
+        hold_id: &ShellHoldId,
+    ) -> Option<bevy::ecs::system::SystemId<(), ShellGateVerdict>> {
+        self.gates.get(hold_id).copied()
+    }
+
+    pub fn forget(&mut self, hold_id: &ShellHoldId) {
+        self.gates.remove(hold_id);
+    }
+}
+
 impl ShellRouteHolds {
     pub fn hold(&mut self, route_id: ShellRouteId, hold_id: ShellHoldId) {
         self.holds.entry(route_id).or_default().insert(hold_id);
@@ -175,6 +236,14 @@ impl ShellRouteHolds {
         self.holds
             .get(route_id)
             .is_some_and(|holds| !holds.is_empty())
+    }
+
+    /// This route's holds, in id order — what the activation gate iterates.
+    pub fn held(&self, route_id: &ShellRouteId) -> Vec<ShellHoldId> {
+        self.holds
+            .get(route_id)
+            .map(|holds| holds.iter().cloned().collect())
+            .unwrap_or_default()
     }
 }
 
@@ -572,6 +641,31 @@ impl ShellRouter {
                 }]
             })
             .unwrap_or_default()
+    }
+
+    /// Would the pending route activate on this call if nothing were holding it?
+    ///
+    /// ⛔⛤ **THE ACTIVATION GATES ARE ASKED ONLY WHEN THE ANSWER IS YES, AND THAT
+    /// IS NOT A DETAIL.** A gate's `Admit` CONSUMES its hold. Asking on a frame
+    /// where the barrier is not ready would consume it early and leave the route
+    /// unheld for every frame until readiness — which is the exact window `Q118`
+    /// is about, reopened by the machinery meant to close it. So the gate is
+    /// asked at the last moment it can be asked and not before.
+    pub fn ready_but_for_holds(
+        &self,
+        loads: &LoadCoordinator,
+        prepared: &PreparedSessionRegistry,
+    ) -> bool {
+        let Some(pending) = self.pending.as_ref() else {
+            return false;
+        };
+        let readiness = loads
+            .snapshot(&pending.barrier.load_id, &pending.barrier.barrier_id)
+            .map(|snapshot| snapshot.readiness);
+        if !matches!(readiness, Some(BarrierReadiness::Ready)) {
+            return false;
+        }
+        !(pending.requires_prepared_session && prepared.prepared(&pending.barrier).is_none())
     }
 
     pub fn advance_pending(

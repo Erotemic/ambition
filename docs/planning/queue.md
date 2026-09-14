@@ -778,6 +778,60 @@ the thing to distrust"* — so the repair is the duel, not the number.
 ⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
 (`7675130b6`, `be30f2661`), so it is not intermittent.
 
+## ✅ Q118's ACTIVATION BARRIER IS BUILT AND ATOMIC — 2026-09-14
+
+**The shell half of `Q118` landed**, to the corrected lifecycle rather than the
+one this file carried for a day. `ambition_game_shell` gains:
+
+```text
+ShellGateVerdict      Hold | Admit | Refuse
+ShellActivationGates  ShellHoldId -> SystemId<(), ShellGateVerdict>
+ShellRouter::ready_but_for_holds(loads, prepared)
+advance_pending_route  now an EXCLUSIVE system
+```
+
+⭐⭐ **A GATE NEVER RELEASES ITSELF; IT ANSWERS, AND IT IS ASKED INSIDE THE
+ACTIVATION.** `advance_pending_route` runs each registered evaluator through Bevy's
+one-shot-system road in the same exclusive access that then emits
+`RouteActivated`, so nothing can run between the answer and the activation. That
+is the property the retracted lifecycle could not have.
+
+⛔⛤ **AND THE GATES ARE ASKED ONLY WHEN THE ROUTE WOULD OTHERWISE ACTIVATE** —
+`ready_but_for_holds`. An `Admit` CONSUMES its hold, so asking on a frame where
+the barrier is not ready would consume it early and leave the route unheld until
+readiness: the exact window this machinery exists to close, reopened by it.
+
+⛔⛤ **THE REFUSAL ARM CAUGHT A REAL DEFECT IN MY FIRST IMPLEMENTATION.** On
+`Refuse` it released the hold and wrote `ShellCommand::CancelPending`, which is
+correlated by REQUEST ID — and a transaction started by `GoTo` carries `None`, so
+nothing cancelled it and the next frame activated the route the gate had just
+refused. The router cancels the pending transaction DIRECTLY now, inside the same
+exclusive access, so there is no frame in which the route is both unheld and
+still pending. ⇒ **A "cancel" that is a MESSAGE is not a cancellation; it is a
+request that something else will cancel.**
+
+✅ **TWO ARMS, both poison-verified** by making the activation stop asking (the
+old design's shape): `a_gate_that_answered_yes_earlier_does_not_authorize_a_later_activation`
+— the gate answers `Admit`, the answer becomes `Hold` before the next frame, and
+the route must still be HELD and inactive (the hold assertion is the premise: the
+old design would have released it) — and
+`a_refusing_gate_cancels_the_transaction_instead_of_activating_it`, which also
+requires the route not be left blocked forever.
+
+⚠ **THE LIMIT, STATED: ONLY A PENDING ROUTE IS GATED.** `start_route` activates a
+route whose barrier is already satisfiable without consulting `ShellRouteHolds` at
+all — the same road the loading-screen hold documents as *"a ready route commits
+immediately when first requested"*. The content-publication transaction always
+carries a preparation plan and is therefore always pending, so `Q118`'s subject is
+covered; a future gate on an immediate route is NOT, and would need
+`start_route` to gain the same treatment.
+
+⛔ **WHAT IS STILL OPEN**: the CONTENT half. Nothing registers a gate yet —
+`ambition_content`'s publication participant must take a transaction-specific
+hold (`"content-publication:<request-id>"`) at adoption and register an evaluator
+that answers from `mechanical_mutation_boundary`. The transaction-identity poisons
+(supersede, cancel, failure, success, later reload) belong with that half.
+
 ## ✅ CONSTRUCTION STOPS READING THE ABILITY EDITOR — 2026-09-14
 
 **GPT architecture review (second of the day), finding 1.** `ActiveEditableAbilityMask`

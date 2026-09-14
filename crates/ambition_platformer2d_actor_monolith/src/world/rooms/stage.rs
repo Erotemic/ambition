@@ -411,7 +411,6 @@ impl RoomConstructionPlan {
             publication,
             &self.features,
             &receipt,
-            self.room_id().to_string(),
             self.session_scope,
             candidate_bracket,
         );

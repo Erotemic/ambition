@@ -241,7 +241,6 @@ fn commit_bracketed(
             publication,
             &plan,
             &receipt,
-            plan.room().id.clone(),
             SessionSpawnScope::UNSCOPED,
             candidate_bracket,
         );

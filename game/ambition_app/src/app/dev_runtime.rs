@@ -74,9 +74,6 @@ pub(super) fn handle_ldtk_hot_reload(
     mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         world_rooms::RoomSet,
     >,
-    mut dev_state: ResMut<DeveloperRuntimeState>,
-    mut sim_state: ResMut<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>,
-    mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
     mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ldtk_world::LdtkRuntimeIndex,
     >,
@@ -96,20 +93,14 @@ pub(super) fn handle_ldtk_hot_reload(
         ),
         RoomResident,
     >,
-    // Bundled into one tuple param to stay within Bevy's 16-param system limit.
-    visual_assets: (
-        Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
-        Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    ),
+    // ⛔ READ-FOR-THE-PLAN ONLY. The reload needs the body's CURRENT place and
+    // size to ask the transaction for a safe spawn in the candidate world; it no
+    // longer re-seats the body from here. The transit, the safety position and
+    // the combat timers are written behind this publication's verdict — see the
+    // queued closure in `reload_ldtk_world_from_disk` — so a REFUSED candidate
+    // moves nothing. PRIMARY-only: a single-player dev flow.
     mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actor::MotionModel,
-            &mut ambition_platformer2d::characters::actor::BodyCombat,
-            &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
-        ),
-        // PRIMARY-only: LDtk hot-reload repositions the camera body to the
-        // validated spawn — a single-player dev flow.
+        ae::BodyClusterQueryData,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     catalogs: (
@@ -198,8 +189,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition_platformer2d::rollback::stop_session_deferred(&mut commands);
         commands.insert_resource(RestartLocalGgrsAfterLdtkReload);
     }
-    if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
-    {
+    if let Ok(mut cluster_item) = player_q.single_mut() {
         let Some(session_scope) = commands.spawn_scope() else {
             return;
         };
@@ -213,19 +203,11 @@ pub(super) fn handle_ldtk_hot_reload(
         let result = reload_ldtk_world_from_disk(
             &mut commands,
             &mut room_set,
-            &mut motion_model,
             &mut clusters,
-            &mut dev_state,
-            &mut sim_state,
-            &mut safety,
-            &mut dialogue,
-            &mut combat,
             &mut ldtk_index,
             tuning.0 .0,
             *tuning.1,
             &room_visuals,
-            visual_assets.0.as_deref(),
-            visual_assets.1.as_deref(),
             &watch_path,
             &catalogs.0,
             &catalogs.1,
@@ -350,16 +332,17 @@ pub(super) fn prepare_ldtk_reload_transaction(
     })
 }
 
+/// ⛔⛤ **THE PARAMETERS THIS NO LONGER TAKES ARE THE POINT OF THE CHANGE.** The
+/// player's `MotionModel`, safety and combat state, `DialogState`, the transition
+/// cooldown, `DeveloperRuntimeState`, the game assets and the visual-quality
+/// budget were all `&mut`/`&` here, and every one of them was written or read
+/// BEFORE anyone knew whether the candidate room published. They are reached from
+/// the staged closure now, which runs only on this publication's own verdict, so
+/// the SIGNATURE no longer claims a reload that has not been verified.
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     room_set: &mut world_rooms::RoomSet,
-    motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut DeveloperRuntimeState,
-    sim_state: &mut ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
-    safety: &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
-    dialogue: &mut ambition_platformer2d::dialog::DialogState,
-    combat: &mut ambition_platformer2d::characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
@@ -370,8 +353,6 @@ pub(super) fn reload_ldtk_world_from_disk(
         ),
         RoomResident,
     >,
-    assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
-    quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
@@ -525,10 +506,10 @@ pub(super) fn reload_ldtk_world_from_disk(
         Some(transaction.next_room_set),
         // ⚠ A HOT RELOAD RE-SEATS ITS BODY ITSELF, below, with `transit_body` at
         // `TransitVelocity::Keep` — a repair of the body's place in a world it
-        // never left, not an arrival through a door. Staging that behind the
-        // verdict belongs with the rest of this road's post-commit writes
-        // (`ldtk_index`, `prepared_identity`, `prepared_content`); see
-        // `docs/planning/queue.md`'s A10 checkpoint.
+        // never left, not an arrival through a door. It is NOT an arrival this
+        // replacement performs, which is why this stays `None`; it is queued
+        // behind the same verdict as the rest of this road's post-commit writes
+        // (`ldtk_index`, `prepared_identity`, `prepared_content`).
         None,
     );
     // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
@@ -580,53 +561,99 @@ pub(super) fn reload_ldtk_world_from_disk(
         }
     });
 
-    // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
-    // momentum kept for a same-spot reload, contacts/attachment reconciled
-    // against the replaced geometry.
-    ae::movement::transit_body(
-        motion_model,
-        clusters,
-        transaction.safe_player_pos,
-        ae::movement::TransitVelocity::Keep,
-    );
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        &mut *clusters.dodge,
-        tuning.air_jumps,
-        // A dev transit re-seats the body somewhere safe; that answers for
-        // anything it had committed.
-        ae::RecoveryRefresh::Answered,
-    );
-    safety.last_safe_pos = transaction.safe_player_pos;
-    dialogue.close();
-    combat.hitstop_timer = 0.0;
-    combat.hitstun_timer = 0.0;
-    combat.recoil_lock_timer = 0.0;
-    sim_state.remaining = 0.10;
-    dev_state.preset_flash = 1.0;
+    // ⛔⛤ **AND SO DOES EVERY OTHER EFFECT OF THIS RELOAD — MOVED BEHIND THE
+    // VERDICT 2026-09-14 ON REVIEW.** The body transit, the mechanical transient
+    // resets and the presentation spawns all ran unconditionally right here, so a
+    // REFUSED candidate left the old room live with the player re-seated, the
+    // dialogue closed, combat timers zeroed and the candidate's backdrop already
+    // spawned over it. The room's own last-good-world property was intact and the
+    // OPERATION's was not.
+    //
+    // ⚠ **PRESENTATION IS NOW A PROJECTION OF THE PUBLISHED ROOM**, not of the
+    // attempt. It still reads the PLAN rather than the live components — the plan
+    // IS the published room once the verdict says so — but it no longer runs when
+    // there is no published room to dress.
+    let safe_player_pos = transaction.safe_player_pos;
+    let air_jumps = tuning.air_jumps;
+    let published_spec = construction_plan.spec().clone();
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        if !ambition_platformer2d::actors::rooms::publication_succeeded(world, publication) {
+            return;
+        }
 
-    ambition_platformer2d::render::rendering::spawn_parallax_layers(
-        commands,
-        session_scope,
-        // ⛔ THE PLAN'S ROOM, NOT THE LIVE COMPONENTS. A10 stages the room
-        // geometry and the room set behind the transaction's verdict, so reading
-        // them here would dress the reloaded room in the PREVIOUS one's backdrop
-        // — and on a refusal there is no new room to dress at all. The plan's
-        // spec is the same value at its source.
-        &construction_plan.spec().world,
-        &construction_plan.spec().metadata,
-        assets,
-        quality.map(|q| &q.budget.parallax),
-    );
-    spawn_room_visuals(
-        commands,
-        session_scope,
-        construction_plan.spec(),
-        physics_settings,
-        assets,
-    );
+        // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
+        // momentum kept for a same-spot reload, contacts/attachment reconciled
+        // against the replaced geometry.
+        let mut bodies = world.query_filtered::<(
+            ae::BodyClusterQueryData,
+            &mut ae::MotionModel,
+            &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
+            &mut ambition_platformer2d::characters::actor::BodyCombat,
+        ), ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+        if let Ok((mut item, mut motion_model, mut safety, mut combat)) = bodies.single_mut(world) {
+            let mut clusters = item.as_clusters_mut();
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                safe_player_pos,
+                ae::movement::TransitVelocity::Keep,
+            );
+            ae::refresh_movement_resources_clusters(
+                clusters.abilities,
+                &mut *clusters.dash,
+                &mut *clusters.jump,
+                &mut *clusters.dodge,
+                air_jumps,
+                // A dev transit re-seats the body somewhere safe; that answers
+                // for anything it had committed.
+                ae::RecoveryRefresh::Answered,
+            );
+            safety.last_safe_pos = safe_player_pos;
+            combat.hitstop_timer = 0.0;
+            combat.hitstun_timer = 0.0;
+            combat.recoil_lock_timer = 0.0;
+        }
+        if let Some(mut dialogue) =
+            world.get_resource_mut::<ambition_platformer2d::dialog::DialogState>()
+        {
+            dialogue.close();
+        }
+        if let Some(mut cooldown) = world.get_resource_mut::<
+            ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
+        >() {
+            cooldown.remaining = 0.10;
+        }
+        if let Some(mut dev) = world.get_resource_mut::<DeveloperRuntimeState>() {
+            dev.preset_flash = 1.0;
+        }
+
+        // ── presentation for the room that actually published ───────────────
+        let assets = world
+            .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>()
+            .cloned();
+        let parallax_budget = world
+            .get_resource::<ambition_platformer2d::render::quality::ResolvedVisualQuality>()
+            .map(|quality| quality.budget.parallax.clone());
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let mut commands = bevy::prelude::Commands::new(&mut queue, world);
+        ambition_platformer2d::render::rendering::spawn_parallax_layers(
+            &mut commands,
+            session_scope,
+            &published_spec.world,
+            &published_spec.metadata,
+            assets.as_ref(),
+            parallax_budget.as_ref(),
+        );
+        spawn_room_visuals(
+            &mut commands,
+            session_scope,
+            &published_spec,
+            physics_settings,
+            assets.as_ref(),
+        );
+        queue.apply(world);
+    });
+
     Ok(active_room)
 }
 

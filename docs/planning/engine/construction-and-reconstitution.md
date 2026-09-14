@@ -173,6 +173,19 @@ visible and there is no *beside*.
 | what does a refused transition cost the player? | nothing measurable: displacement across the verdict frame is `Vec2(0.0, 0.0)` guaranteed against `Vec2(-1782.7, -188.0)` with the arrival applied anyway |
 | is the session handoff multi-frame? | no — retire A, activate B and publish B's room are all frame 243 on the shipped app. One frame, but not one command flush |
 
+**The dev LDtk hot reload has NO end-to-end coverage, in either direction.**
+MEASURED 2026-09-14 by reading the suite: nothing drives
+`handle_ldtk_hot_reload` to a published reload, and nothing drives it to a
+refused one. Every other room road (transition, death reconstruction, reset,
+first-room publication, shell handoff) has at least one app-level arm. This is
+why A10.3 — moving the reload's body transit, mechanical resets and presentation
+spawns behind `publication_succeeded` — is labelled REASONED rather than
+MEASURED: the closure is compile-verified and its gate is the same function the
+covered roads use, but no arm fires it. The harness owed is a `dev_tools` app
+that writes a broken LDtk project over the watch path, presses the reload, and
+asserts the player has not moved and the old room's visuals are still standing.
+It is NOT part of the A10 packet and belongs to whoever owns dev-tool coverage.
+
 **What a refusal costs.** No `RoomLoaded`, so no fresh attempt anywhere: staged
 victim hits are not voided and per-attempt state is not re-armed, both correct
 because no attempt began. `RoomLoaded` has three production readers through

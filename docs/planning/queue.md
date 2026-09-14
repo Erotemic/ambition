@@ -17,7 +17,12 @@ it.
 [construction and reconstitution](engine/construction-and-reconstitution.md), and
 the construction/session owners.
 
-**Current state — the ROOM scope is closed (2026-09-14).** Every room lifecycle
+**Current state — the ROOM scope is closed for the WORLD, with two named gaps
+that are not about the world (2026-09-14).** ⚠ A review rejected an earlier,
+flatter "completely closed" here and it was right to: what is closed is that no
+road can change the authoritative world without a verdict. The transition state
+machine still advances to `playing` on a refusal, and the custody-deferred
+supersession is Model B rather than Model A. Both are named below. Every room lifecycle
 path (transition, reset, dev reload) runs through `replace_live_world`, which
 stages the whole replacement in `PendingWorldReplacement`, builds every root
 hidden under `ROOM_CANDIDATE_BRACKET = true`, declares what publication would do
@@ -95,12 +100,35 @@ no publication can admit it and no refusal can retire it"). Witnessed by
 verify west while east is hidden, publish west, east stays hidden and intact, then
 east verifies against the world west left behind.
 
-**Not yet behind the verdict**, named rather than implied: the dev reload's
-`transit_body` and its dialog/combat/cooldown resets (that road has no end-to-end
-coverage in either direction); the reload's presentation spawns, which read the
-plan and so cannot dress the wrong room; and the transition state machine, which
-advances to `playing` either way — a persistent refusal is a livelock rather than
-a corrupted world.
+**A10.3 landed (2026-09-14): every effect of the dev reload crosses the same
+receipt.** The body transit, the dialog close, the combat-timer and
+room-transition-cooldown resets, the preset flash and the parallax/room-visual
+spawns all ran unconditionally right after `replace_live_world`, so a REFUSED
+candidate left the OLD room live with the player re-seated into the new room's
+spawn, dialogue closed, timers zeroed and the candidate's backdrop already spawned
+over it. The room's own last-good-world property was intact and the OPERATION's
+was not. They are one closure queued behind `publication_succeeded(world, P)` now,
+re-acquiring the body, the resources and a `CommandQueue` from the world.
+Presentation is a projection of the PUBLISHED room: it still reads the plan — the
+plan IS the published room once the verdict says so — but it no longer dresses a
+room that does not exist. `reload_ldtk_world_from_disk` lost eight parameters and
+`handle_ldtk_hot_reload` lost four system params to the change, which is the
+visible shape of it.
+
+⚠ **UNWITNESSED, and that is a REAL gap, not a formality.** The LDtk hot-reload
+road has no end-to-end coverage in either direction, so this is compile-verified
+and reasoned, not measured. A harness for it is recorded in the owner document and
+is not part of this packet.
+
+⇒ **And `close` no longer takes the room name.** `verify_and_publish` read the
+room id from a parameter and re-derived the owning lane transactions from the plan
+— two more spellings of facts `RoomPublication` already holds. Both are read off P
+now, so the two ends of the bracket cannot disagree about which room, or which
+lanes, a verdict is for.
+
+**Still not behind a verdict, named rather than implied:** the transition state
+machine, which advances to `playing` either way — a persistent refusal is a
+livelock rather than a corrupted world.
 
 **Current blocker — the SESSION scope, a different transaction, not started.**
 `SessionScopeSet::Activate` is still retire-then-overwrite one level up:

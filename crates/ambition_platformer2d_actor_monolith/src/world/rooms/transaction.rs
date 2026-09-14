@@ -745,22 +745,13 @@ pub(crate) fn close(
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     receipt: &crate::features::RoomFeatureConstructionReceipt,
-    room_id: String,
     session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
     let plan = plan.clone();
     let receipt = receipt.clone();
     commands.queue(move |world: &mut World| {
-        verify_and_publish(
-            world,
-            publication,
-            &plan,
-            &receipt,
-            room_id,
-            session,
-            candidate_bracket,
-        );
+        verify_and_publish(world, publication, &plan, &receipt, session, candidate_bracket);
     });
 }
 
@@ -790,10 +781,31 @@ fn verify_and_publish(
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     receipt: &crate::features::RoomFeatureConstructionReceipt,
-    room_id: String,
     session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
+    // ⛔⛤ **WHAT THIS PUBLICATION IS ABOUT IS READ OFF THE PUBLICATION.** The
+    // room's name and the set of lane transactions it owns were stated once, at
+    // `begin_publication`, by the caller that also built them. Taking the name as
+    // a parameter and re-deriving the lanes from the plan here were two more
+    // spellings of facts P already holds, and two spellings is how the ends of a
+    // bracket come to disagree about which room — or which lanes — a verdict is
+    // for. See [`RoomPublication`].
+    let Some((room_id, transactions)) = world
+        .get::<RoomPublication>(publication.0)
+        .map(|about| (about.room_id.clone(), about.transactions.clone()))
+    else {
+        // Not a refusal: there is no publication to refuse. A handle whose entity
+        // is gone means the caller closed a publication that was never begun, or
+        // one already reaped.
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "a room transaction closed against publication {:?}, which holds no `RoomPublication`",
+            publication.0
+        );
+        return;
+    };
+
     // ⛔ THE VERDICT GOES ON THE PUBLICATION, whatever the outcome. A caller
     // whose follow-up work is conditional on THIS publication reads it there;
     // `LastConstructionVerification` below is diagnostics and stays that way.
@@ -928,13 +940,10 @@ fn verify_and_publish(
     // `verify_projected_roster` answer the fourth.
     //
     // ⚠ **WHAT IS STILL OUTSIDE THE VERDICT IS NAMED IN `docs/planning/queue.md`'s
-    // A10 row** — the hot reload's own body transit and its presentation spawns,
-    // and the whole SESSION scope, which is a different transaction. Do not read
-    // the absence of a warning here as their absence.
-
-    // ⛔ EVERY LANE'S TRANSACTION, not just the actor lane's — see
-    // `construction_transactions`, and the measurement that corrected me.
-    let transactions = plan.construction_transactions(session);
+    // A10 row** — the whole SESSION scope, which is a different transaction. The
+    // hot reload's body transit and presentation spawns joined the verdict on
+    // 2026-09-14 (`reload_ldtk_world_from_disk`). Do not read the absence of a
+    // warning here as their absence.
 
     // ═══════════════════════════════════════════════════════════════════════
     // A10: WOULD THE AUTHORITATIVE WORLD BE VALID IF THIS ROOM PUBLISHED?

@@ -119,6 +119,58 @@ impl SeatRawFrames {
     }
 }
 
+/// Each seat's CONTROL-FRAME INTERPRETATION POLICY, resolved at input capture.
+///
+/// ⛔⛤ **THIS EXISTS SO DETERMINISTIC SIMULATION NEVER READS `UserSettings`.**
+/// `movement_frame_mode` / `aim_frame_mode` / `camera_reference_frame` are
+/// PERSISTED, APP-LOCAL and MENU-MUTABLE: the settings screen can change them
+/// mid-match, and under the rollback host a resimulation of a confirmed frame
+/// would then re-interpret that frame's stick input differently than when it was
+/// first simulated. Three simulation systems read exactly one expression —
+/// `settings.gameplay.resolved_movement_frame_mode()`, with
+/// [`ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT`] as the
+/// absent-resource fallback — and this table is the ONE place that expression is
+/// now evaluated.
+///
+/// ⭐ **IT IS PER SEAT BECAUSE THE FACT IS PER PARTICIPANT.** A frame mode is an
+/// accessibility/comfort preference belonging to the human in that chair, not a
+/// property of the match, so seat 1 playing body-relative must not impose that on
+/// seat 0. That also states the shape the netcode fix takes: a remote seat's row
+/// is filled from whatever travels with that peer's input, and no simulation call
+/// site moves.
+///
+/// ⚠ **AN UNWRITTEN ROW IS [`ControlFrameModes::default`]**, which is the same
+/// answer the three readers gave when `UserSettings` was absent — so a headless
+/// composition that installs no capture stage behaves exactly as before.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SeatControlFrameModes {
+    slots: [ambition_platformer2d_core::ControlFrameModes; SlotControls::MAX_SLOTS],
+}
+
+impl SeatControlFrameModes {
+    /// How THIS seat's sticks are interpreted (defaults for an unwritten seat).
+    pub fn get(&self, slot: PlayerSlot) -> ambition_platformer2d_core::ControlFrameModes {
+        self.slots.get(slot.0 as usize).copied().unwrap_or_default()
+    }
+
+    /// This seat's locomotion frame mode — the field every current reader wants.
+    pub fn movement(&self, slot: PlayerSlot) -> ambition_platformer2d_core::InputFrameMode {
+        self.get(slot).movement
+    }
+
+    /// This seat's precision-aim frame mode.
+    pub fn aim(&self, slot: PlayerSlot) -> ambition_platformer2d_core::InputFrameMode {
+        self.get(slot).aim
+    }
+
+    /// Publish this seat's resolved policy. Out-of-range slots are ignored.
+    pub fn set(&mut self, slot: PlayerSlot, modes: ambition_platformer2d_core::ControlFrameModes) {
+        if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
+            *entry = modes;
+        }
+    }
+}
+
 // Controller-slot gesture state.
 
 /// One controller slot's double-tap timers and interact buffer.

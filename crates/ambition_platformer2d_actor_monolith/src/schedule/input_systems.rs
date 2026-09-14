@@ -572,6 +572,8 @@ pub fn populate_seat_control_frames(
     // EVERY SEAT'S DESTINATION, and there is only one now. A raw frame goes here to be shaped;
     // the commit stage folds it into that seat's latch after every shaping stage has run.
     mut raw: ResMut<ambition_characters::control::SeatRawFrames>,
+    // The one evaluation of the frame-mode policy; simulation reads this table.
+    mut seat_modes: ResMut<ambition_characters::control::SeatControlFrameModes>,
     mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     // That is the shape this fork kept producing: not two implementations, one implementation
     // with one caller.
@@ -595,6 +597,21 @@ pub fn populate_seat_control_frames(
         // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
         // and they are two lifecycles that happen to agree today.
         let slot = crate::participant_seat::player_slot_of(participant.id);
+        // ⛔⛤ **THE FRAME-MODE POLICY IS RESOLVED HERE, AT CAPTURE, AND NOWHERE
+        // ELSE.** It is published BEFORE the `!gameplay` early-out on purpose: a
+        // paused seat still has a preference, and a row that went stale while the
+        // world was stopped would be read by the first tick after it resumes.
+        // Three simulation systems used to evaluate
+        // `settings.gameplay.resolved_movement_frame_mode()` themselves, which
+        // put an App-local, menu-mutable resource inside deterministic
+        // simulation — see `SeatControlFrameModes`.
+        //
+        // ⚠ **EVERY SEAT GETS THE MACHINE-WIDE VALUE, WHICH IS WHAT THEY GOT
+        // BEFORE.** Unlike the deadzone below, the frame mode has no per-seat
+        // source to read yet; the three readers each asked the one global
+        // setting. So this is the same answer in a per-seat table, and the table
+        // is the seam a per-seat (or per-peer) source plugs into.
+        seat_modes.set(slot, user_settings.gameplay.control_frame_modes());
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state.
@@ -1537,6 +1554,8 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
@@ -1624,6 +1643,8 @@ mod focus_gate_tests {
             let mut app = App::new();
             app.init_resource::<SeatInputContexts>();
             app.init_resource::<SlotControls>();
+            // The seat's frame-mode policy, beside the seat table it interprets.
+            app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
             // and the table it is committed FROM. These are one model:
             // `BrainPlugin` installs both, and a hand-built fixture that takes
             // only the destination is describing a composition that cannot exist.
@@ -1736,6 +1757,8 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.
@@ -1859,6 +1882,8 @@ mod focus_gate_tests {
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         // and the table it is committed FROM. These are one model:
         // `BrainPlugin` installs both, and a hand-built fixture that takes
         // only the destination is describing a composition that cannot exist.

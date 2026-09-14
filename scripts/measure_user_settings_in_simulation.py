@@ -56,6 +56,26 @@ def enclosing_fn(lines: list[str], index: int) -> str | None:
     return None
 
 
+def code_of(line: str) -> str:
+    """The line with any `//` comment tail removed.
+
+    ⛔⛤ **PROSE ABOUT A TYPE IS NOT A READ OF IT, AND THIS SCRIPT SCORED ITS OWN
+    FIX AS A FAILURE.** After `derive_slot_direction_gestures` and
+    `possession_trigger_system` were migrated off `Res<UserSettings>`, the comment
+    explaining the migration — *"not `Res<UserSettings>`"* — still matched, so the
+    census reported both as unchanged simulation readers. The sibling scanner
+    `tests/ambition_workspace_policy/src/custom/control_frame.rs` already carries
+    this exact near-miss in its own test corpus.
+
+    ⚠ This is deliberately NAIVE about `//` inside a string literal. A Rust
+    parameter list has no string literals, and a naive cut that costs a false
+    NEGATIVE on a line nobody writes beats a false POSITIVE on the comment every
+    migration leaves behind.
+    """
+    head, _, _ = line.partition("//")
+    return head
+
+
 def readers() -> dict[str, set[str]]:
     """Function name -> the files it is declared in."""
     out: dict[str, set[str]] = {}
@@ -72,7 +92,7 @@ def readers() -> dict[str, set[str]]:
             continue
         lines = (ROOT / path).read_text().splitlines()
         for i, line in enumerate(lines):
-            if not READER.search(line):
+            if not READER.search(code_of(line)):
                 continue
             name = enclosing_fn(lines, i)
             if name:

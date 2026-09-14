@@ -1345,6 +1345,29 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     // Settings and tuning: forward-only knobs, not per-frame simulation state.
     ("::settings::UserSettings", "user settings, forward-only"),
+    // ⚠ **THE SAME WAIVER, NARROWED ON PURPOSE — AND IT IS NOT YET THE FIX.**
+    // Four simulation systems used to evaluate
+    // `UserSettings.gameplay.resolved_movement_frame_mode()` themselves, which
+    // put the whole 30-field persisted resource inside deterministic simulation
+    // under the waiver directly above. That expression is now evaluated ONCE, at
+    // input capture, into this four-row table — so what simulation reads is two
+    // enum fields per seat from one writer instead of a menu-mutable settings
+    // blob from four readers.
+    //
+    // ⛔ **WHAT IS STILL OPEN**: the table is read DURING simulation, so a
+    // rollback resimulation of frame N still interprets frame N's stick under
+    // whatever policy holds now. Registering it as canonical rollback state is
+    // the WRONG repair — it is written from `Update`, which may not write
+    // rollback state. The stated fix (architecture review, 2026-09-13) is that
+    // capture resolves the semantic DIRECTION and simulation never sees a mode
+    // at all, at which point this waiver and the row above both shrink. See
+    // `docs/planning/queue.md`'s `UserSettings` row.
+    (
+        "::control::SeatControlFrameModes",
+        "per-seat input-interpretation policy, forward-only like the settings it \
+         is resolved from; the remaining step is resolving the direction at \
+         capture so simulation reads no mode",
+    ),
     (
         "::movement::tuning::ActiveMovementTuning",
         "movement tuning, forward-only",

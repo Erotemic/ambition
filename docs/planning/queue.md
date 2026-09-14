@@ -89,7 +89,7 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   settings menu says now."*
   ✅ **ONE FIELD IS FIXED** — `portal_reverses_facing`; see the portal row below.
   ✅ **AND THE AUDIT'S FIRST STEP IS DONE — `scripts/measure_user_settings_in_simulation.py`,
-  2026-09-13.** 52 production functions take `Res<UserSettings>`; **SIX of them are
+  2026-09-13.** 51 production functions take `Res<UserSettings>`; **SIX of them were
   registered into the SIMULATION schedule**, which under the rollback host is
   `GgrsSchedule`:
 
@@ -120,6 +120,49 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   classify `Q122`'s fields by grepping `.field`, answered *"50 of 50 mechanical"*,
   and is committed WITH its own refutation. `UserSettings` is one named type, so
   `Res<…UserSettings>` finds its readers and nothing else.
+  ⚠ **ITS FIRST NUMBER WAS 52 AND THAT WAS ONE PROSE FALSE POSITIVE**: the regex
+  matched `Res<UserSettings>` inside a `//` comment. It scored its OWN fix as a
+  failure — the migration below left comments saying *"not `Res<UserSettings>`"* in
+  both files it had just emptied, and the census reported both as unchanged. The
+  sibling scanner `tests/ambition_workspace_policy/src/custom/control_frame.rs`
+  already carries that exact near-miss in its test corpus. Comment tails are cut
+  now; the corrected before-figure, re-derived in a worktree at the parent commit,
+  is 51 readers / 6 in simulation.
+
+  ⭐⭐ **FOUR OF THE SIX ARE GONE, 2026-09-13 — `ambition_characters::control::SeatControlFrameModes`.**
+  All four read one expression, `settings.gameplay.resolved_movement_frame_mode()`,
+  with `InputFrameMode::DEFAULT_MOVEMENT` as the absent-resource fallback:
+
+  | system | was | now |
+  | --- | --- | --- |
+  | `derive_slot_direction_gestures` | the machine-wide setting | `seat_modes.movement(slot)` |
+  | `interaction_input_system` | the machine-wide setting | `seat_modes.movement(slot)` |
+  | `possession_trigger_system` | the machine-wide setting | `seat_modes.movement(PRIMARY)` |
+  | `integrate_sim_bodies` | **`let _ = &user_settings;`** — a DEAD parameter | deleted |
+
+  The policy is evaluated ONCE, in `populate_seat_control_frames` — the input-capture
+  stage that already held the settings — into a four-row per-seat table. **Census
+  after: 47 readers, 2 in simulation** (`apply_player_hit_events`,
+  `charge_projectile_input`, both the damage-multiplier half, which is the ruling
+  Jon still owes: match-wide or participant-specific).
+
+  ⭐ **THE WITNESS IS AN ARM THAT COULD NOT BE WRITTEN BEFORE** —
+  `each_seat_resolves_its_gesture_under_its_own_frame_mode`: two seats under
+  sideways gravity, seat 0 screen-directed and seat 1 body-relative-strict, both
+  double-tapping raw DOWN; seat 1 fast-falls and seat 0 must not. With one
+  machine-wide field that state was not constructible. Poison-verified by pointing
+  both seats at `PlayerSlot::PRIMARY` (the pre-migration behaviour) — the seat-one
+  premise arm fires.
+
+  ⛔ **WHAT IS STILL OPEN, AND THE WAIVER SAYS SO IN THOSE WORDS.** The table is
+  read DURING simulation, so a resimulation of frame N still interprets frame N's
+  stick under whatever policy holds now. Registering it as rollback state is the
+  WRONG repair — it is written from `Update`, which may not write rollback state.
+  The review's stated fix is that capture resolves the semantic DIRECTION and
+  simulation sees no mode at all; `rollback_coverage.rs` carries that as the
+  narrowed waiver's remaining step. What the migration bought is that the
+  forward-only hole is now two enum fields per seat behind one writer instead of a
+  30-field menu-mutable resource behind four readers.
   ⭐ **THE SPLIT IS NOT UNIFORM AND THAT IS THE POINT:**
   · **local input interpretation** (movement/aim/camera frame) should be applied
     at the INPUT-CAPTURE boundary, so deterministic simulation consumes already

@@ -18,6 +18,125 @@ fn observe_body_ability_changes(
     observations.0 += changed.iter().count() as u32;
 }
 
+/// ⛔⛤ **THE MASK FILTERS THE BASE; IT DOES NOT BECOME IT.**
+///
+/// `SimulationSetup` took a `fallback_abilities` parameter until 2026-09-14 and
+/// every caller passed `EditableAbilitySet::as_engine()`, so the developer's
+/// panel WAS the base a character without an authored kit got. Two consequences,
+/// and this arm is the second one — the semantic half a GPT architecture review
+/// named: **an ability switched off in the panel was then absent from the base a
+/// later edit is supposed to re-enable it from.** A mask that creates the base
+/// it filters can only ever subtract, once.
+///
+/// ⭐ So: a base that GRANTS the air jump, a mask that turns it off, and then a
+/// mask that turns it back on. The third step is the one that could not work
+/// while the editor was the base.
+#[test]
+fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
+    app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+    app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+    app.add_systems(
+        Update,
+        (
+            ambition_dev_tools::propose_editable_abilities,
+            ambition_dev_tools::sync_live_player_dev_edits_system,
+        )
+            .chain(),
+    );
+
+    // THE BASE GRANTS THE AIR JUMP. This is the character's capability, not the
+    // developer's opinion about it.
+    let air_jump_base = ambition_platformer2d_core::AbilitySet::compose(&[
+        ambition_platformer2d_core::AbilityGrant::RunJump,
+        ambition_platformer2d_core::AbilityGrant::AirJump,
+    ]);
+    assert!(
+        air_jump_base.double_jump,
+        "the fixture's base does not grant the air jump, so nothing below is \
+         about a mask filtering a capability",
+    );
+    let entity = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            MotionModel::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    air_jump_base,
+                ),
+            ),
+        ))
+        .id();
+
+    // The developer switches the air jump OFF.
+    app.world_mut()
+        .resource_mut::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+        .double_jump = false;
+    app.update();
+    assert!(
+        !app.world()
+            .get::<BodyAbilities>(entity)
+            .expect("the fixture's body has abilities")
+            .abilities
+            .double_jump,
+        "turning the air jump off in the panel did not reach the body, so the \
+         re-enable below would prove nothing",
+    );
+
+    // And back ON. Under the old road this asked the base for a verb the base no
+    // longer had.
+    app.world_mut()
+        .resource_mut::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+        .double_jump = true;
+    app.update();
+    assert!(
+        app.world()
+            .get::<BodyAbilities>(entity)
+            .expect("the fixture's body has abilities")
+            .abilities
+            .double_jump,
+        "the air jump could not be turned back ON: the developer's mask had \
+         become the capability BASE, so switching a verb off removed it from the \
+         set a later edit re-enables from",
+    );
+
+    // ⛔ AND THE MASK CANNOT ADD. Both edits above left `fly` ON in the panel —
+    // `EditableAbilitySet::default()` is `sandbox_all` — while the base never
+    // granted it. Without this the arm holds for a projection that simply WROTE
+    // the mask onto the body, which is the other half of "mask, not base".
+    assert!(
+        !air_jump_base.fly,
+        "the fixture's base already grants flight, so the assertion below cannot \
+         tell a filtered mask from a copied one",
+    );
+    assert!(
+        app.world()
+            .resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
+            .fly,
+        "the panel does not have flight ON, so nothing was there to leak into the \
+         body and the assertion below is vacuous",
+    );
+    assert!(
+        !app.world()
+            .get::<BodyAbilities>(entity)
+            .expect("the fixture's body has abilities")
+            .abilities
+            .fly,
+        "the body gained FLIGHT, which its base never granted: the projection is \
+         writing the developer's mask onto the body instead of intersecting it \
+         with the base",
+    );
+}
+
 /// 1. an unchanged inspector mirror must not mark `BodyAbilities` changed;
 /// 2. a real ability edit on an Authored persona must not reapply movement
 ///    identity or erase `MomentumMotion`'s persistent riding state.

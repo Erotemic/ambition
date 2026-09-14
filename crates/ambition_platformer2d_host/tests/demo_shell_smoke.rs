@@ -94,7 +94,6 @@ fn fixture_setup(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    editable_abilities: Res<ambition_platformer2d_runtime::demo_fixture::EditableAbilitySet>,
     tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
     initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_runtime::demo_fixture::InitialBodyPolicy,
@@ -116,7 +115,6 @@ fn fixture_setup(
         ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            fallback_abilities: editable_abilities.as_engine(),
             tuning: &tuning,
             initial_body: &initial_body,
             prepared_characters: prepared_characters.as_deref(),

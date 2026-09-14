@@ -653,6 +653,71 @@ the thing to distrust"* — so the repair is the duel, not the number.
 ⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
 (`7675130b6`, `be30f2661`), so it is not intermittent.
 
+## ✅ CONSTRUCTION STOPS READING THE ABILITY EDITOR — 2026-09-14
+
+**GPT architecture review (second of the day), finding 1.** `ActiveEditableAbilityMask`
+exists so a developer's ability selection reaches mechanics only after crossing
+the rollback mutation boundary. Production construction went around it:
+
+```text
+SimulationSetup { fallback_abilities: AbilitySet }
+  <- PlatformerSessionBuilder passes self.editable_abilities.as_engine()
+  -> character_catalog.ability_set(..).unwrap_or(fallback_abilities)
+  -> the player's AbilityBase
+```
+
+⛔ **TWO ROADS TO MECHANICS.** An editor value the timeline had REFUSED still
+entered simulation as the player's BASE — and `sync_live_player_dev_edits_system`
+correctly declines to reconcile it back while the refusal stands, so nothing
+repaired it either.
+
+⭐⭐ **THE SEMANTIC HALF MATTERS MORE THAN THE TIMING HALF.** The editor value is a
+MASK over the base (`base ∩ mask`), not a base. While the mask CREATED the base,
+an ability switched off in the panel was absent from the set a later edit is
+supposed to re-enable it from — a mask that becomes what it filters can only
+subtract, and only once.
+
+⛔⛤ **AND THE REVIEW NAMED ONE CALL SITE; THERE WERE FOUR.**
+`crates/ambition_platformer2d_provider/src/lifecycle.rs`,
+`game/ambition_demo_mary_o/src/lib.rs`, `game/ambition_demo_sanic/src/lib.rs` and
+`crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` all passed
+`editable_abilities.as_engine()` and used the resource for NOTHING ELSE. ⭐ The
+tree already half-knew: `ambition_demo_sanic`'s catalog row says *"A row that
+authors no grants falls back to the DEV SANDBOX set (`EditableAbilitySet::default()`
+is `sandbox_all`), so Sanic was quietly carrying every verb in the engine at
+home"*.
+
+⇒ **THE PARAMETER IS DELETED** rather than re-sourced. `session/setup.rs` uses
+`AbilitySet::sandbox_all()` — an engine constant, and exactly what all four passed
+for an untouched panel, so behaviour is preserved. There is no argument to pass,
+so the defect is not expressible. `ambition_platformer2d_provider`'s
+`ambition_dev_tools` dependency went with it: that was its only use.
+
+⚠ **THE DEPENDENCY CONTRACT I WANTED IS NOT TRUE AT HEAD, AND I REMOVED IT RATHER
+THAN WEAKEN IT.** `check_absence_contracts.py` walks dependencies TRANSITIVELY and
+counts dev-dependencies on purpose — its own words: *"a test that reaches upward
+compiles the upward edge, and 'only in tests' is exactly the excuse under which a
+layering inversion first arrives."* `ambition_platformer2d_actor_monolith` keeps
+`ambition_dev_tools` as a `[dev-dependency]` for `live_refresh` and the reset
+tests, so *"the provider cannot reach dev-tools"* is FALSE at HEAD. ⇒ The direct
+edge is cut; the transitive one waits on moving those tests. A candidate contract,
+not a current one.
+
+✅ **WHAT GUARDS IT INSTEAD**: the source contract
+`world-construction-does-not-read-the-ability-editor` forbids `EditableAbilitySet`
+and `fallback_abilities` in the four CONSTRUCTION paths (not the workspace —
+`ambition_dev_tools` defines the type and `live_refresh` legitimately drives it).
+Poison-verified by putting `Res<EditableAbilitySet>` back into
+`PlatformerSessionBuilder`: RED.
+
+✅ **AND THE SEMANTIC ARM**:
+`an_ability_the_mask_disabled_can_be_enabled_again_from_the_base` — a base that
+grants the air jump, a mask that turns it off, then a mask that turns it back on,
+which is the step that could not work while the editor was the base. Its second
+half pins the other direction: the panel has `fly` ON (default = `sandbox_all`)
+and the base never granted it, so the body must not gain it. Poison-verified by
+`desired = mask` instead of `base ∩ mask`.
+
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST

@@ -25,7 +25,6 @@ ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_characters = { path = "../ambition_characters" }
-ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }

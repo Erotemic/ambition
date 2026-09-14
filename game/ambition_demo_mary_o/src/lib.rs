@@ -1537,9 +1537,6 @@ fn mary_o_setup(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::RoomSet,
     >,
-    editable_abilities: bevy::prelude::Res<
-        ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet,
-    >,
     tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
@@ -1570,7 +1567,6 @@ fn mary_o_setup(
             room_set: &room_set,
             // The CALLER converts: who edits the set is a developer
             // facility, and construction needs only the set.
-            fallback_abilities: editable_abilities.as_engine(),
             tuning: &tuning,
             initial_body: &initial_body,
             prepared_characters: prepared_characters.as_deref(),

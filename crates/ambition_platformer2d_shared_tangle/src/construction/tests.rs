@@ -3139,6 +3139,166 @@ fn a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may
     );
 }
 
+/// ⛔⛤ **A10: A SUPERSESSION VALIDATES WHILE ITS PREDECESSOR IS STILL ALIVE.**
+///
+/// This is the state `verify_committed_roster` cannot judge and reports as
+/// `ReconstructedOldSurvived`: live A is correct and present, hidden B is built,
+/// and B replaces A only if this publishes. The projected verifier asks the other
+/// question — *what would the roster be if this published?* — so A's being alive
+/// is not a violation, it is the premise.
+#[test]
+fn a_candidate_supersedes_a_live_identity_without_destroying_it_first() {
+    use crate::construction::{
+        project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
+        PublicationEffects, ProjectedSource, TransactionBaseline, TransactionId,
+    };
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let transaction = TransactionId::from_raw("t/candidate".to_string());
+
+    let identity = SimId::singleton("session", "7");
+    let live = world.spawn(identity.clone()).id();
+    // ⛔ THE BASELINE IS TAKEN WHILE ONLY THE LIVE WORLD EXISTS, which is what
+    // makes `LiveLostWithoutDeclaration` able to notice a destroyed predecessor.
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+
+    let candidate = world
+        .spawn((
+            identity.clone(),
+            transaction.clone(),
+            super::InactiveCandidate,
+        ))
+        .id();
+
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let effects = PublicationEffects::new().superseding(identity.clone(), identity.clone());
+    let projection = project_post_publication_roster(&scope, &effects);
+
+    // ⛔ THE PREMISE: the live entity really is still there, or this arm is about
+    // a world that had already been destroyed.
+    assert!(
+        world.get_entity(live).is_ok(),
+        "the predecessor was gone before verification, so nothing here is about \\
+         validating beside a live world"
+    );
+
+    assert_eq!(
+        projection.occupants_of(&identity).len(),
+        1,
+        "the projection holds {} occupants on one identity; a supersession must \\
+         remove the predecessor from the projected world, not add to it",
+        projection.occupants_of(&identity).len()
+    );
+    assert_eq!(
+        projection.occupants_of(&identity)[0],
+        crate::construction::ProjectedOccupant {
+            entity: candidate,
+            source: ProjectedSource::Candidate,
+        },
+        "the projected occupant is not the candidate, so publication would leave \\
+         the predecessor in place"
+    );
+    assert_eq!(
+        verify_projected_roster(&projection, &effects, &baseline, &scope, &world),
+        Ok(()),
+        "a candidate that declares what it supersedes was refused while its \\
+         predecessor was still alive — which is the whole state A10 exists to make \\
+         legal"
+    );
+}
+
+/// ⛔ **AND A CANDIDATE THAT DECLARES NOTHING IS REFUSED.** The same two entities,
+/// the same identity, no declaration: publishing would leave two authoritative
+/// holders of one `SimId`, and the projection says so BEFORE anything is
+/// published rather than at the next transaction's baseline capture.
+#[test]
+fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
+    use crate::construction::{
+        project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
+        ProjectionViolation, PublicationEffects, TransactionBaseline, TransactionId,
+    };
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let transaction = TransactionId::from_raw("t/candidate".to_string());
+
+    let identity = SimId::singleton("session", "7");
+    world.spawn(identity.clone());
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+    world.spawn((
+        identity.clone(),
+        transaction.clone(),
+        super::InactiveCandidate,
+    ));
+
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let effects = PublicationEffects::new();
+    let projection = project_post_publication_roster(&scope, &effects);
+
+    assert_eq!(
+        verify_projected_roster(&projection, &effects, &baseline, &scope, &world),
+        Err(vec![ProjectionViolation::Duplicated {
+            sim_id: identity,
+            count: 2,
+        }]),
+        "a candidate sharing a live identity and declaring no supersession was \\
+         ADMITTED; publishing it leaves two authoritative entities on one name and \\
+         every dependant resolves by storage order"
+    );
+}
+
+/// ⛔⛤ **AND A CANDIDATE THAT DESTROYED PART OF THE LIVE WORLD IS REFUSED.**
+///
+/// The projection alone cannot see this: omission means RETAINED, so an entity
+/// construction despawned is simply absent from both sides and the arithmetic is
+/// silent. Comparing against what was live when the transaction OPENED is what
+/// turns that silence into the A10 violation it is — construction must not mutate
+/// N at all.
+#[test]
+fn a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances() {
+    use crate::construction::{
+        project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
+        ProjectionViolation, PublicationEffects, TransactionBaseline, TransactionId,
+    };
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    super::register_inactive_candidate_filter(&mut world);
+    let transaction = TransactionId::from_raw("t/candidate".to_string());
+
+    let bystander = SimId::singleton("room", "hub");
+    let doomed = world.spawn(bystander.clone()).id();
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+
+    // Construction reaches into the live world and removes something it never
+    // declared. A set comparison of the projected roster sees nothing wrong.
+    world.entity_mut(doomed).despawn();
+
+    let scope = AuthoritativeScope::gather(&mut world, &transaction);
+    let effects = PublicationEffects::new();
+    let projection = project_post_publication_roster(&scope, &effects);
+    assert!(
+        projection.occupants_of(&bystander).is_empty(),
+        "the fixture did not actually destroy the live entity, so the violation \\
+         below would be about something else"
+    );
+
+    assert_eq!(
+        verify_projected_roster(&projection, &effects, &baseline, &scope, &world),
+        Err(vec![ProjectionViolation::LiveLostWithoutDeclaration {
+            sim_id: bystander,
+        }]),
+        "a candidate that despawned part of the live world verified clean: the \\
+         last-good-world guarantee is that N is untouched until publication"
+    );
+}
+
 /// ⛔⛤ **HOST-LOCAL LINEAGE COUNTERS ARE INSIDE CANONICAL ROLLBACK STATE — A
 /// RECORDED GAP, MEASURED 2026-09-13 AFTER A REVIEW NAMED IT.**
 ///

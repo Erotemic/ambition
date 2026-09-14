@@ -1044,7 +1044,7 @@ player_robot_v3), (smash_duelist_b -> player_robot_v2)]`. Both carry
 and per-character identity is impossible for them by construction. `ladder_rig.rs:757`
 records that every ladder number ever taken measured these two BY DEFAULT.
 
-### ⚠ A trap: `lib.rs:4525` read alone says the roster has one authored fighter
+### ⚠ A trap: `game/ambition_demo_smash/src/lib.rs:4525` read alone says the roster has one authored fighter
     definition.with_moveset(if id == SMASH_GEORGE_BOOUL { george_booul_moveset() }
                             else { moveset::fighter_moveset() })
 That loop is `install_smash_content`, which registers only the ids THIS DEMO
@@ -1512,6 +1512,74 @@ has not been made:
 THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
 in intent, and it is recorded here because the retracted paragraph above is
 exactly the sentence a future packet would have quoted.
+
+### ⭐⭐ A10 CHECKPOINT — THE PROJECTED VERIFIER EXISTS, 2026-09-14
+
+**CURRENT INVARIANT.** A failed candidate leaves the playable world N intact. A
+candidate N+1 is prepared and validated beside it; only a validated candidate
+becomes authoritative; N is retired only after that publication.
+
+**CURRENT HEAD BEHAVIOUR.** The ruling below is implemented in
+`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`:
+
+```text
+ScopeVisibility            Published | HiddenCandidate   (on every ScopeMember)
+PublicationEffects         superseding(live, candidate) / retiring(live);
+                           OMISSION MEANS RETAINED
+ProjectedRoster            published - retirements - superseded + candidates
+project_post_publication_roster(scope, effects)     pure, mutates nothing
+verify_projected_roster(projection, effects, baseline, scope, world)
+```
+
+⭐ **`ScopeVisibility` IS THE PIECE THAT WAS MISSING AND LOOKED LIKE A DETAIL.**
+`AuthoritativeScope::gather` already saw candidates (`Allow<InactiveCandidate>`)
+and could not SAY which members were hidden — so *"one occupant per identity"*
+over the union answers `Duplicated` for the legal A10 state. The distinction had
+to become data.
+
+⛔ **AND THE BASELINE IS WHAT MAKES THE GUARANTEE CHECKABLE.** The projection
+alone cannot see an entity construction DESTROYED: omission means retained, so a
+despawned bystander is absent from both sides and the arithmetic is silent.
+Comparing against what was live when the transaction opened turns that silence
+into `LiveLostWithoutDeclaration`.
+
+**VIOLATIONS THE VERIFIER RAISES**: `Duplicated`, `SupersededNotLive`,
+`SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`,
+`LiveLostWithoutDeclaration`.
+
+**ARMS**, all three poison-verified (remove the baseline comparison → the
+destruction arm reddens; stop removing the superseded predecessor from the
+projection → the supersession arm reddens):
+`a_candidate_supersedes_a_live_identity_without_destroying_it_first`,
+`a_candidate_that_declares_no_supersession_would_duplicate_an_identity`,
+`a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances`.
+
+**NEXT IMPLEMENTATION STEP.** Wire the verifier into a production candidate road
+and prove the acceptance scenario at app level: world N playable → construct
+candidate N+1 → inject a construction/verification failure → candidate entities
+and candidate-owned state gone, N's entities, room/world mechanics and
+generation/content binding intact, N still playable. Then the success arm through
+`publish_candidate` + retirement of the declared N state.
+
+**ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
+because this verifier passes its own arms. It is closed when PRODUCTION
+COMPOSITION demonstrates both halves.
+
+⚠ **ONE NON-REPRODUCING `app_it` FAILURE, RECORDED RATHER THAN DISMISSED**
+(2026-09-14): `an_edit_reaches_the_shipped_game::the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+failed once during this work and passed on the next two runs — once alone, once
+in a full lane. ⛔ **THE ASSERTION MESSAGE WAS NOT CAPTURED**, because the grep
+pattern kept the summary and dropped it; that guard names the FRAME and the COUNT
+in its message, which is the whole diagnostic. It drives a real shell handoff over
+two 240-frame windows, so it is timing-shaped by construction. ⇒ If it reddens
+again, capture the message.
+
+**ACTUAL BLOCKER.** The session-level authorities are still process-global
+singletons with no candidate home — `ActiveGameplaySession`, `ActiveSessionScope`,
+`SessionMechanics`, `ActiveContentBinding` — and `SessionScopeActivated` still
+means *"replace the live mirrors"*. `RoomSet` and `RoomGeometry` are COMPONENTS on
+the session root and so are already candidate-ownable; `MovingPlatformSet` is a
+true resource and needs a home in the candidate object.
 
 ### ⚖ RULED 2026-09-13: OPTION 2 — VERIFY A PROJECTED POST-PUBLICATION ROSTER
 

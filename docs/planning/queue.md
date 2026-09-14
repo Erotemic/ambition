@@ -361,6 +361,17 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   makes transaction provenance more central**, which is the review's own
   sequencing.
 
+  ⚠ **THAT DEFERRAL NAMED ITS OWN EXPIRY AND THE EXPIRY HAS PASSED — 2026-09-14.**
+  A10's room scope landed with transaction provenance MORE central, not less: a
+  publication now declares the set of lane `TransactionId`s it owns
+  (`PublicationEffects::owned_by`), and `CandidateNotOwned` refuses a candidate
+  stamped by anything outside it. ⇒ The two-App poison was not run first, and this
+  row is recorded rather than repaired because peer-stable identity is a separate
+  campaign. **Whoever takes it should know the sequencing the review asked for did
+  not happen**, and that the A10 code deliberately did not harden host-local
+  lineage into a new provenance contract — it uses the existing interfaces and
+  leaves the dependency narrow, as instructed.
+
 - ✅ **`Q121`'s OWED ARMS ARE ALL IN AS OF 2026-09-13 — three roads, three arms,
   measured not to overlap.** The transition-resolver poison reddens the DOOR and
   DEATH arms and not the RESET arm; the reset-resolver poison reddens the reset arm

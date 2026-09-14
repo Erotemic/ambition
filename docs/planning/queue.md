@@ -1641,6 +1641,37 @@ reach — that hazard cannot arise. The order is right for the plainer reason th
 the domain-aware retirement should run before a backstop, and the physics grace
 period (`PendingPhysicsDespawn`, not a despawn) is safe from both.
 
+⛔⛤ **AND THE CONSTRUCTION SUITE WAS CERTIFYING A ROAD THE GAME NO LONGER TAKES.**
+`construction/tests.rs`'s `commit_over` defaulted to a hard `false` — the LIVE
+road — while `ROOM_CANDIDATE_BRACKET` went `true`. A published room's observable
+end state is the same either way (publication is a marker REMOVAL), which is
+exactly why the divergence would have been silent. It now commits on
+`ROOM_CANDIDATE_BRACKET`, seeding the candidate filter in `commit_over`'s own seed
+so the pair of arms that asks what happens when the filter is MISSING still gets
+to ask it.
+
+⭐⭐ **MEASURED, AND IT IS NOT A TIDINESS CHANGE.** Poisoning `publish_candidate`
+to admit NOTHING:
+
+```text
+harness on the LIVE road (the old default):  92 passed, 0 failed
+harness on the SHIPPED road:                 78 passed, 14 FAILED
+```
+
+⇒ The whole construction suite was blind to the publication boundary being
+broken. Fourteen arms now see it.
+
+⚠ **ONE ARM CHANGED SUBJECT RATHER THAN MOVING.**
+`a_room_that_fails_verification_is_not_published` seeded a live
+`placement:duel_blue` and expected `ReconstructedOldSurvived` — which stopped
+being a failure at all, because on the candidate road a planned identity the
+baseline still holds is declared a SUPERSESSION and the room publishes. It now
+injects a `ContentBindingMismatch`, a production refusal that still refuses.
+⇒ `ReconstructedOldSurvived` is a LIVE-ROAD violation now; its meaning stays
+pinned at the verifier that owns it
+(`a_reconstruction_that_leaves_the_old_body_alive_is_detected`) rather than by an
+arm certifying a road production no longer uses.
+
 **THE ARMS, AND WHAT EACH POISON PROVED.**
 
 | arm | poison that reddens it |

@@ -644,6 +644,33 @@ backtrace named.** It is the **CAMERA** that panics, through
 that reason: it is the half that refutes the framing, and if it ever panics the
 subject really is "any render-synced entity" and the fix needs rethinking.
 
+### ⚖ AND THE PROFILE CONTRACT IS THE RULING, NOT THE SHIM — REVIEW, 2026-09-13
+
+**Two profiles, and they are not the same thing:**
+
+* **`NoWindow` — a PRESENTATION-COMPOSITION HARNESS.** Its purpose is to test the
+  normal presentation/plugin composition without opening a window or a GPU
+  backend. The `SyncWorldPlugin` shim is acceptable here **because this profile is
+  SHORT-LIVED**, and that lifetime is now part of its contract rather than an
+  assumption: the accumulating queue is accepted harness debt.
+* **A TRUE HEADLESS SIMULATION profile** — server, RL, long-running tests without
+  rendering — **should omit the render capability family entirely** rather than
+  fabricate enough render-sync state to satisfy hooks that rendering plugins
+  installed. That is the direction the architecture already takes: a profile
+  without render capability should not install systems whose contract requires the
+  render world.
+
+⇒ **IF `NoWindow` EVER BECOMES LONG-LIVED, THE SHIM IS INSUFFICIENT** and the fix
+is upstream or in the composition — not a bigger workaround. ⚠ **AND THE SHIM IS
+NOT THE GENERAL HEADLESS ANSWER**; presenting it as one is the error this ruling
+prevents. The acceptance for a long-lived headless profile is to churn large
+numbers of camera-capable entities and prove render-sync state stays bounded
+BECAUSE NO SUCH QUEUE EXISTS, not because it drains.
+
+⚠ **NOT MEASURED:** actual memory growth under an intended workload. The queue's
+existence is established; its cost is not, and nothing should be re-architected on
+the assumption that it matters before somebody measures it.
+
 ⚠ **WHAT IT COSTS, STATED RATHER THAN DISCOVERED LATER.** `PendingSyncEntity` is
 drained by `entity_sync_system` in `ExtractSchedule`, which lives in the render
 app this profile does not have — so the queue GROWS with entity churn and is never
@@ -1665,7 +1692,33 @@ question here.
 
 </details>
 
-## ✅ Q118 — BOTH HALVES ANSWERED 2026-09-13, AND THE SECOND ONE BY REUSING A PROTOCOL THAT ALREADY SHIPPED
+## ⚠ Q118 — POLICY ANSWERED 2026-09-13. THE LIFECYCLE GUARANTEE IS OPEN, AND "BOTH HALVES ANSWERED" WAS MY OVERSTATEMENT.
+
+⛔⛤ **A REVIEW CORRECTED THIS HEADING, AND THE CORRECTION IS NOT A MAINTAINER
+PREFERENCE — IT IS AN OWNERSHIP GAP.** The policy question IS settled (see below,
+and the unified boundary that followed). What is missing is an owner of one
+question: *may the shell activation AND the generation publication cross this
+transaction boundary?* The lease checks; the shell then activates; and
+`commit_content_generation` correctly assumes by `RouteActivated` that nothing is
+left to refuse, because a fallible content half there would recreate the
+half-transaction this road exists to prevent. ⇒ The interval between the check and
+the activation is narrowed by ORDERING and owned by nobody.
+
+⭐ **THE SHAPE:** the pending shell transaction HOLDS the required publication
+lease(s); the activation boundary asks whether they are all still valid and either
+refuses/cancels or emits `RouteActivated`, after which the content commit is
+infallible. Stronger than another watcher, and it lets future generation
+participants join ONE activation barrier instead of each racing to cancel the
+shell before a schedule phase.
+
+⚠ **THE ACCEPTANCE POISON, STATED SO IT CAN BE RUN:** insert a test-only authority
+change ordered AFTER the current breaker and BEFORE shell activation, make the
+boundary `ForeignTimeline` or `Unhealthy`, and prove the candidate route does not
+activate, the candidate content does not publish, and N stays selected. **If that
+mutation cannot be inserted because one activation authority structurally owns the
+whole boundary, `Q118` is closed.**
+
+## ✅ Q118 — the two POLICY halves, answered 2026-09-13, the second by reusing a protocol that already shipped
 
 ⛔⛤ **THE OPEN HALF WAS NEVER A MISSING DECISION — IT WAS A MISSING REUSE.** This
 row said the live-timeline half *"needs the lifecycle that stops and rebases

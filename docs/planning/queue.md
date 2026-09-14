@@ -141,8 +141,29 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
 
 **Open, each with its measurement already taken:**
 
-- **`Q118`** — ✅ **BOTH HALVES CLOSED `2026-09-13`, AND THE SECOND ONE TWICE:
-  the seal landed, then a review found it re-asked half its own question.** The
+- **`Q118`** — ⚠ **POLICY ANSWERED `2026-09-13`; THE LIFECYCLE GUARANTEE IS STILL
+  OPEN, AND I MARKED IT "BOTH HALVES CLOSED" BEFORE A REVIEW CORRECTED THAT.**
+  ⛔⛤ **WHAT IS STILL MISSING IS AN OWNER OF ONE QUESTION:** *may the shell
+  activation AND the generation publication cross this transaction boundary?*
+  The lease checks the boundary, the shell then activates the route, and
+  `commit_content_generation` — correctly — assumes by `RouteActivated` that there
+  is nothing left to refuse, because a fallible content half THERE would recreate
+  the half-transaction this road exists to prevent. ⇒ Between the lease's check
+  and the activation there is a conceptual interval that ORDERING narrows and
+  nothing OWNS. The shape the review names: the pending shell transaction HOLDS
+  the required publication lease(s), and the activation boundary asks whether they
+  are all still valid — refuse and cancel, or emit `RouteActivated` and let the
+  content commit be infallible. That is stronger than another watcher and lets
+  future generation participants join ONE activation barrier instead of each
+  racing to cancel the shell.
+  ⚠ **THE ACCEPTANCE POISON IS STATED:** insert a test-only authority change
+  ordered AFTER the current breaker and BEFORE shell activation, make the boundary
+  `ForeignTimeline` or `Unhealthy`, and prove the candidate route does not
+  activate, the candidate content does not publish, and N stays selected. **If
+  that mutation cannot be inserted because one activation authority structurally
+  owns the whole boundary, `Q118` is actually closed** — today it can only rely on
+  ordering.
+  ✅ **WHAT DID LAND: the seal, then its correction.** The
   live-timeline half is stop-and-rebase, reusing the LDtk road's
   stop-and-release; and `PublicationBoundary` now folds OWNERSHIP into itself
   (`Legal | RebasableTimeline | ForeignTimeline | Unhealthy`) because the lease
@@ -440,6 +461,50 @@ has not been made:
 THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
 in intent, and it is recorded here because the retracted paragraph above is
 exactly the sentence a future packet would have quoted.
+
+### ⚖ RULED 2026-09-13: OPTION 2 — VERIFY A PROJECTED POST-PUBLICATION ROSTER
+
+Written down so a third agent does not invent a third half-model. **Keep
+`reconstructing()`'s meaning exactly as it is** — *the old authoritative body
+should already be gone, the new one should exist* — and do not add exception
+branches to it. A10 is asking a different question, and it should ask it
+directly:
+
+> **What would the authoritative roster be if this candidate published?**
+> Validate THAT.
+
+⭐ The candidate transaction supplies four declarations:
+
+```text
+candidate additions
+declared supersessions      (candidate B replaces live A)
+declared retirements        (live A goes, nothing replaces it)
+retained live authorities   (live A stays, untouched)
+```
+
+and the verifier builds a PROJECTION rather than mutating an ECS world:
+
+```text
+ProjectedRoster = LiveRoster
+                - declared retirements
+                - superseded old bodies
+                + candidate bodies
+```
+
+then checks the ordinary invariants against it — unique `SimId`s, required
+provenance, relations, ownership/custody, transaction identities, generation
+binding. **Publication mutates the real world only if the projection passes.**
+
+⭐⭐ **THIS GENERALISES WHERE AN EXCEPTION BRANCH WOULD NOT**, which is the reason
+to prefer it: checkpoint custody restoration (`Q124`'s withdrawn measurement is an
+INPUT to this), candidate room actors, removals, reauthored occurrences, retained
+entities and changed relations are all the same four declarations rather than five
+special cases. The A10 guarantee is unchanged — **a refusal leaves N intact.**
+
+⚠ **AND THE TESTING STANDARD IS THE PART THAT USUALLY GETS SKIPPED:** exercise
+STALE generations, FAILED candidate construction, and SAME-FRAME transitions — not
+merely the helper representation. An arm that only tests `ProjectedRoster`'s
+arithmetic is testing the data structure, not the transaction.
 
 ⚠ **WHAT IS STILL GENUINELY OPEN and is not made easier by any of the above:** the
 SESSION-level facts (`ActiveGameplaySession`, `ActiveSessionScope`,

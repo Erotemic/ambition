@@ -716,6 +716,35 @@ between peers rather than counted locally — the `TransactionId` pattern
 from is the open part; the candidate both peers demonstrably share is the rollback
 SESSION's own identity, not the App's activation history.
 
+⇒ **THE BLAST RADIUS, CENSUSED AT HEAD 2026-09-14** — `git grep "random_context()"`,
+TWO production consumers and four test call sites:
+
+```text
+items/match_spawn.rs:88        DOMAIN_ITEM_SPAWN  →  sim_random_weighted (WHICH ITEM)
+                                                 →  sim_random_index    (WHICH SPAWN POINT)
+features/ecs/damage/mod.rs:275 DOMAIN_BARK        →  sim_random          (does a hit SPEAK)
+```
+
+The item road is the one that changes the authoritative world. The bark road is
+cosmetic in effect but runs in the same simulation, so it diverges too — and a
+divergent cosmetic draw is still a divergent checksum.
+
+⛔⛤ **AND THE BARK CALL SITE ALREADY CARRIES THIS EXACT LESSON, ABOUT ITS OTHER
+ARGUMENT.** Its `victim` SALT is guarded by a comment saying, in its own words:
+
+> *"THE SIMULATION NAME, NEVER `Entity::to_bits()`. An entity index is ALLOCATOR
+> HISTORY: two peers that spawned the same cast in a different order hold
+> different bits for one fighter, so a draw salted with them agrees locally and
+> disagrees across the wire. Rollback hides it — a rewind reuses the same ids —
+> which is why it survives every test that is not a netplay test."*
+
+⇒ **The author reasoned that through for the salt and passed a locally allocated
+lifecycle counter as the CONTEXT three lines above it.** Same class, same
+argument, same invisibility to every test that is not a netplay test. ⭐ **A
+DEFENCE APPLIED TO ONE ARGUMENT OF A CALL IS NOT APPLIED TO THE CALL** — when a
+comment explains why one input must be canonical, read every other input of that
+call against the same sentence.
+
 ⭐⭐ **AND THE REVIEW'S RULING IS TO SPLIT THE TWO IDENTITIES RATHER THAN REPLACE
 ONE.** `SessionScopeId` stays exactly what it is — local ownership, stale-event
 rejection, session-scoped cleanup, lifecycle correlation. A SEPARATE peer-stable

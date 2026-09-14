@@ -1741,6 +1741,35 @@ fuller operation than an arrival) and the hot reload's `transit_body` at
 the call site. That is the player-reset-state half of A10 and the next packet,
 with the session-level authorities below.
 
+✅ **AND THE HOT RELOAD'S CONTENT GENERATION IS BEHIND THE VERDICT — 2026-09-14.**
+Four writes said *"the session is now this generation"*: `ActiveContentBinding`,
+the installed `LdtkRuntimeIndex`, `PreparedContent` and `PreparedContentIdentity`.
+Made unconditionally, a REFUSED reload left the session claiming a generation
+whose room does not exist — the old room's contents under the new epoch's name,
+and every later room transaction refused as STALE against a binding nothing built.
+They are one queued closure now, gated on `room_publication_succeeded`.
+
+⛔ **IT ASKS BY ROOM ID, AND THAT IS THE WHOLE FUNCTION.**
+`LastConstructionVerification` is last-writer-wins, so *"is there a verdict and
+does it say published"* would accept a DIFFERENT room's success — and the session
+handoff road commits two rooms in quick succession. Absent is `false`, not a
+waiver. Four arms in
+`the_verdict_reader_answers_about_one_room_and_not_about_any_room`.
+
+⛔⛔ **AND THE WIRING IS REASONED, NOT MEASURED — MEASURED THAT IT IS NOT.**
+Forcing `room_publication_succeeded` to always answer `false`, so the hot reload
+NEVER advances the session's generation, leaves the **whole 654-test `app_it`
+suite green**. `git grep` confirms why: nothing outside `dev_runtime.rs` calls
+`handle_ldtk_hot_reload` or `reload_ldtk_world_from_disk`, and the only test
+traffic near `WorldSourceHotReload` is the menu row that toggles `auto_apply`.
+⇒ **THE LDTK HOT-RELOAD ROAD HAS NO END-TO-END COVERAGE IN EITHER DIRECTION**, and
+that predates this change — the unconditional writes were equally untested.
+`an_edited_pack_reaches_the_cast_the_shipped_composition_plays` is the CONTENT
+PACK road and does not touch this one. ⚠ Recorded, not fixed: a reload harness
+(a temp `.ldtk` on disk, a watcher tick, a forced refusal) is its own packet and
+is not an A10 prerequisite — A10's room invariant is proven on the roads that DO
+ship traffic.
+
 **ACCEPTANCE ARMS, BOTH POISON-VERIFIED**, in `world/rooms/stage.rs`:
 `a_refused_candidate_room_leaves_the_playable_world_untouched` and
 `an_admitted_candidate_room_replaces_the_playable_world_completely`. They go

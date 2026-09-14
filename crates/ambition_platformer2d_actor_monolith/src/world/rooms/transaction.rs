@@ -299,6 +299,31 @@ pub struct LastConstructionVerification {
 }
 
 
+/// Did the room transaction for `room_id` publish?
+///
+/// ⛔⛤ **FOR A CALLER WHOSE OWN WRITES ONLY MAKE SENSE IF THE ROOM ARRIVED.** The
+/// dev hot reload is the first: it advances the session's content generation —
+/// the live binding, the installed LDtk index, the prepared content and its
+/// identity — and made those writes unconditionally. A REFUSED reload therefore
+/// left the session claiming a generation whose room does not exist: the old
+/// room's contents running under the new epoch's name, and every later room
+/// transaction refused as stale against a binding nothing built.
+///
+/// ⚠ **IT ASKS BY ROOM ID, AND THAT IS THE WHOLE FUNCTION.**
+/// [`LastConstructionVerification`] is last-writer-wins, so *"is there a verdict
+/// and does it say published"* would accept a DIFFERENT room's success — the
+/// session handoff road commits two rooms in quick succession and is exactly
+/// where that would bite. A caller owns one room's transaction and names it.
+///
+/// ⚠ **ABSENT IS `false`, NOT A WAIVER.** No verdict means no room transaction
+/// ran, and a caller whose writes are conditional on one has nothing to be
+/// conditional on.
+pub fn room_publication_succeeded(world: &World, room_id: &str) -> bool {
+    world
+        .get_resource::<LastConstructionVerification>()
+        .is_some_and(|verdict| verdict.published && verdict.room_id == room_id)
+}
+
 /// Open the transaction: queue the baseline capture.
 ///
 /// Queued before anything the transaction constructs, so what it sees at flush

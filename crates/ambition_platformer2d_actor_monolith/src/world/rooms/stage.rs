@@ -1165,6 +1165,53 @@ mod tests {
         app.update();
     }
 
+    /// ⛔ **THE VERDICT READER, ASKED THE FOUR WAYS A CALLER CAN GET IT WRONG.**
+    ///
+    /// ⚠ **THIS TESTS THE HELPER, NOT THE WIRING**, and saying so is the point.
+    /// `room_publication_succeeded` is what the dev hot reload consults before
+    /// advancing the session's content generation; that CALL is not exercised,
+    /// because forcing a hot reload to be refused needs a reload harness this
+    /// repository does not have. What is tested here is the part with the subtle
+    /// answer — the room-id comparison — and the queue row says the wiring is
+    /// reasoned rather than measured.
+    #[test]
+    fn the_verdict_reader_answers_about_one_room_and_not_about_any_room() {
+        use super::transaction::room_publication_succeeded;
+        use crate::features::LastConstructionVerification;
+
+        let mut app = bevy::prelude::App::new();
+        assert!(
+            !room_publication_succeeded(app.world(), "hall"),
+            "no verdict at all read as a success: a caller whose writes are \
+             conditional on a room transaction would make them with none having run"
+        );
+
+        app.world_mut().insert_resource(LastConstructionVerification {
+            room_id: "hall".to_string(),
+            violations: Vec::new(),
+            projection_violations: Vec::new(),
+            published: true,
+        });
+        assert!(room_publication_succeeded(app.world(), "hall"));
+        assert!(
+            !room_publication_succeeded(app.world(), "cellar"),
+            "⛔ ANOTHER ROOM'S SUCCESS READ AS THIS ONE'S. \
+             `LastConstructionVerification` is last-writer-wins, and the session \
+             handoff road commits two rooms in quick succession"
+        );
+
+        app.world_mut().insert_resource(LastConstructionVerification {
+            room_id: "hall".to_string(),
+            violations: Vec::new(),
+            projection_violations: Vec::new(),
+            published: false,
+        });
+        assert!(
+            !room_publication_succeeded(app.world(), "hall"),
+            "a REFUSED room read as published"
+        );
+    }
+
     /// ⛔⛤ **A REFUSED CANDIDATE LEAVES WORLD N EXACTLY AS IT WAS.**
     ///
     /// The refusal is a REAL production one: the room transaction compares the

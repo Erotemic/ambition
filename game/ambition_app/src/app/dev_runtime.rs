@@ -245,7 +245,12 @@ pub(super) fn handle_ldtk_hot_reload(
             catalogs.10.as_deref(),
             catalogs.11.as_deref(),
             &mut content_identity.0,
-            &mut content_identity.1,
+            // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
+            // in: the reload writes it behind the room's verdict now, through the
+            // session root, and a `&mut` here would be a second road to the same
+            // component. It stays a `SessionWorldMut` at this system's signature
+            // because a reload in a session with no prepared content is one this
+            // system must not attempt.
             &mut content_identity.2,
             snapshot_schema,
             session_scope,
@@ -394,7 +399,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     forced_brains: Option<&ambition_platformer2d::characters::brain::AuthoredBrainOverride>,
     population_cap: Option<&ambition_platformer2d::characters::actor::AuthoredPopulationCap>,
     prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
-    prepared_identity: &mut ambition_platformer2d::runtime::PreparedContentIdentity,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
@@ -532,15 +536,53 @@ pub(super) fn reload_ldtk_world_from_disk(
         // `docs/planning/queue.md`'s A10 checkpoint.
         None,
     );
-    // The session's live content binding follows the COMMITTED content. Queued
-    // after `commit_deferred`, so this transaction still verifies against the
-    // binding it was prepared under (the epoch that existed at preflight);
-    // every LATER transaction must state the new one or be refused as stale.
-    commands.insert_resource(
-        ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
-            committed_content.epoch(),
-        ),
-    );
+    // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
+    // PUBLISHED.** These four writes — the live content binding, the installed
+    // LDtk index, and the prepared content and its identity — are the statement
+    // *"the session is now this generation"*. Made unconditionally, a REFUSED
+    // reload left the session claiming a generation whose room does not exist:
+    // the old room's contents running under the new epoch's name, and every
+    // later room transaction refused as stale against a binding nothing built.
+    //
+    // ⚠ **THEY READ THE VERDICT BY ROOM ID, NOT BY EXISTENCE.**
+    // `LastConstructionVerification` is last-writer-wins, so asking only whether
+    // it says `published` would accept a DIFFERENT room's success. The reload
+    // owns exactly one room's transaction and names it.
+    //
+    // ⭐ Queued rather than written: the closure runs when this frame's commands
+    // apply, which is after `transaction::close` has recorded its verdict — the
+    // same flush, in queue order, so there is no window and nothing to poll.
+    let published_room = active_room.clone();
+    let candidate_index = candidate_index;
+    let committed_identity = committed_content.identity();
+    let committed_epoch = committed_content.epoch();
+    let committed_content = committed_content;
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
+        if !ambition_platformer2d::actors::rooms::room_publication_succeeded(world, &published_room)
+        {
+            return;
+        }
+        world.insert_resource(
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(committed_epoch),
+        );
+        if let Some(mut index) =
+            session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world)
+        {
+            *index = candidate_index;
+        }
+        if let Some(mut identity) = session_world_component_mut::<
+            ambition_platformer2d::runtime::PreparedContentIdentity,
+        >(world)
+        {
+            *identity = committed_identity;
+        }
+        if let Some(mut content) =
+            session_world_component_mut::<ambition_platformer2d::runtime::PreparedContent>(world)
+        {
+            *content = committed_content;
+        }
+    });
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
     // momentum kept for a same-spot reload, contacts/attachment reconciled
@@ -568,10 +610,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     combat.recoil_lock_timer = 0.0;
     sim_state.remaining = 0.10;
     dev_state.preset_flash = 1.0;
-
-    *ldtk_index = candidate_index;
-    *prepared_identity = committed_content.identity();
-    *prepared_content = committed_content;
 
     ambition_platformer2d::render::rendering::spawn_parallax_layers(
         commands,

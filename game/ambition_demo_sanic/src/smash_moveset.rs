@@ -143,7 +143,7 @@ pub fn sanic_moveset() -> MovesetContract {
         half_extents: (20.0, 30.0),
         damage: 10,
         knockback: 112.0,
-        knockback_growth: 2.12,
+        knockback_growth: 5.58,
         launch_dir: Some((0.08, -1.0)),
         on_hit: None,
     });

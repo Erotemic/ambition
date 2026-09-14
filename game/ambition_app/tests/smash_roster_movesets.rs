@@ -1075,14 +1075,22 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
 /// a BAND, not an equality, and the original guard's own doc says why: *"A move MAY
 /// deliberately differ — that is what authoring is for — but it has to differ by a factor a reader
 /// can see, not by a unit."* Its `< 0.01` tolerance forbade the very latitude that sentence grants.
-/// George Booul's table sits at 0.85–1.05× of the declaration (`130 → 2.20`, `50 → 1.05`), which is
-/// a fighter being tuned; a unit slip is 40×.
+/// A fighter being tuned sits within a small multiple of the declaration; a unit slip is 40×.
+/// MEASURED 2026-09-14 over the 360 authored STRIKE volumes the roster carries (throws are
+/// capture-beat payloads and are NOT in this corpus): the widest is 2.49× and the top three are
+/// up-smashes deliberately retuned to cross the stage's vertical blast line, which needs a launch
+/// of ~1238 and is unreachable at the declared ratio for any base the roster uses.
 #[test]
 fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
     /// How far from the declaration an authored growth may sit and still be
-    /// read as a deliberate choice. Four is far wider than any fighter needs
-    /// (the widest today is 1.05) and far tighter than the ~40 a unit slip
-    /// produces, so it discriminates the two without policing taste.
+    /// read as a deliberate choice. Four is wider than any fighter needs (the
+    /// widest today is 2.49) and far tighter than the ~40 a unit slip produces,
+    /// so it discriminates the two without policing taste.
+    ///
+    /// ⛔ THIS NUMBER IS A CLAIM ABOUT THE CORPUS AND IT ROTS. It read "1.05"
+    /// while the tree already held 1.375 (`npc_oiler/convergence`), and three
+    /// retuned up-smashes then took it to 2.49. Re-measure it when you change a
+    /// growth; do not trust the sentence.
     const MAX_TUNING_FACTOR: f32 = 4.0;
 
     let mut app =

@@ -107,7 +107,7 @@ pub fn goblin_moveset() -> MovesetContract {
         half_extents: (20.0, 26.0),
         damage: 11,
         knockback: 140.0,
-        knockback_growth: 2.70,
+        knockback_growth: 6.59,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

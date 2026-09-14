@@ -109,11 +109,51 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   review found. ⇒ That strengthens its ruling rather than changing it: resolving
   the frame mode at the INPUT-CAPTURE boundary removes four readers at once.
 
-  ⚠ **THE OTHER 46 ARE `UNATTRIBUTED`, WHICH IS NOT A CLEARANCE**, and the script
-  says so in those words: a system registered through an intermediate or a set the
-  scan cannot follow lands there too. `apply_feature_hit_events` is the known
-  example — the review names it as a simulation reader and this scan does not find
-  its registration. **Check each before treating it as safe.**
+  ⚠ **THE `UNATTRIBUTED` BUCKET IS NOT A CLEARANCE**, and the script says so in
+  those words: a system registered through an intermediate or a set the scan
+  cannot follow lands there too.
+
+  ⭐⭐ **AND THAT BUCKET WAS HIDING A REAL READER — `apply_feature_hit_events`,
+  FOUND 2026-09-13.** The review names it by hand; the first scan did not find its
+  registration, and the reason is the whole lesson. It is not inside any
+  `add_systems(sim, …)` call. It is an argument to
+  `install_technique(app, POGO_BOUNCE_KEY, offer, (…systems…))`
+  (`crates/ambition_platformer2d_runtime/src/combat_schedule.rs:695`), whose body
+  is `install_techniques(app, &[(key, offer)], systems)`, whose body is
+  `app.add_systems(sim, systems)`. **Two forwarder hops.** ⇒ The scan now finds
+  registration FORWARDERS — a function that passes a parameter of its own to a
+  simulation schedule — as a fixpoint, because a one-level rule finds the plural,
+  misses the singular, and still answers "not scheduled" about a system that ships.
+
+  ⛔⛤ **AND IT NOW CARRIES A CONTROL THAT ASSERTS THAT ROW.** `apply_feature_hit_events`
+  is the one entry whose right answer is known independently of the instrument, so
+  the script exits non-zero if it ever drops out of the simulation list — verified
+  by emptying the forwarder set, which fires it. Without that, a regression in the
+  closure makes the simulation count SHRINK, and a shrinking count is exactly what
+  progress looks like here. This census has already produced two confident wrong
+  answers (a `Res<UserSettings>` matched inside a `//` comment; a prose `)` closing
+  a registration block early), which is why it asserts against a fact it cannot
+  derive.
+
+  ⇒ **CENSUS AT HEAD: 47 readers, THREE in simulation** — and all three are ONE
+  category, the damage multiplier:
+
+```text
+  apply_feature_hit_events   gameplay.player_damage_multiplier   outgoing melee scale
+  apply_player_hit_events    incoming_player_damage_multiplier   difficulty/assist
+  charge_projectile_input    gameplay.player_damage_multiplier   projectile scale
+```
+
+  ⭐ **SO THE FRAME-MODE HALF IS OUT OF SIMULATION AND WHAT REMAINS IS EXACTLY THE
+  RULING JON OWES**: are difficulty / assist / damage modifiers a MATCH-WIDE rule
+  or PARTICIPANT-SPECIFIC accessibility policy? The review is explicit that
+  architecture cannot answer that from the type, and that neither answer permits
+  reading an App-local persisted resource during historical simulation. **Measure
+  and show; do not author.**
+
+  ⚠ The remaining 44 unattributed rows are still unchecked, and two scanner
+  defects found here (prose matches, literal-`add_systems` attribution) are a class
+  other census scripts in `scripts/` may share.
 
   ⛔⛤ **AND THE INSTRUMENT IS KEYED ON A TYPE, NOT A FIELD NAME**, which is the
   whole difference from `measure_identity_field_consumers.py`: that one tried to

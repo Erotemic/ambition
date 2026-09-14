@@ -76,6 +76,46 @@ def code_of(line: str) -> str:
     return head
 
 
+def without_comments(text: str) -> str:
+    """The file with every comment blanked to spaces, offsets preserved.
+
+    ⛔⛤ **RUST COMMENTS CONTAIN UNBALANCED PARENTHESES, AND THAT IS WHAT MADE 45
+    READERS `UNATTRIBUTED`.** The schedule attribution below walks the balanced
+    parentheses of an `add_systems(sim, …)` call. A prose `)` inside a comment
+    closes the call early: MEASURED, the `add_systems(sim, …)` at
+    `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:640` is a
+    ~14,000-character block and the scanner read 435 characters of it, which is
+    why `apply_feature_hit_events` — a system the architecture review names by
+    hand as a simulation reader — was reported as not scheduled anywhere.
+
+    ⚠ Blanking rather than deleting, so every offset this function's caller
+    computes still points at the same byte of the original. And `//` preceded by
+    `:` is left alone, because that is a URL inside a string literal and cutting
+    it would drop whatever parentheses followed on that line.
+    """
+    out = list(text)
+    i = 0
+    n = len(text)
+    while i < n:
+        if text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            end = n if end < 0 else end + 2
+            for j in range(i, end):
+                if out[j] != "\n":
+                    out[j] = " "
+            i = end
+            continue
+        if text.startswith("//", i) and not (i and text[i - 1] == ":"):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+            for j in range(i, end):
+                out[j] = " "
+            i = end
+            continue
+        i += 1
+    return "".join(out)
+
+
 def readers() -> dict[str, set[str]]:
     """Function name -> the files it is declared in."""
     out: dict[str, set[str]] = {}
@@ -100,6 +140,99 @@ def readers() -> dict[str, set[str]]:
     return out
 
 
+SIM_SCHEDULE_ARG = re.compile(
+    r"add_systems\(\s*(?:sim|sim_schedule|app\.sim_schedule\(\)|"
+    r"[A-Za-z_:]*GgrsSchedule)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)"
+)
+
+
+def identifiers_in_call(text: str, start: int) -> set[str]:
+    """Every snake_case identifier inside the call whose arguments begin at `start`.
+
+    ⚠ **THE WINDOW IS THE WHOLE CALL, NOT A FIXED BYTE COUNT.** A truncating
+    window silently drops the tail of a long chain, and a long chain is exactly
+    where the systems this census is about live: measured, a 2000-byte window
+    missed the tail of `combat_schedule.rs`'s registration blocks. The walk runs
+    on comment-stripped text so a prose `)` cannot close the call early.
+    """
+    depth = 0
+    chunk = []
+    for ch in text[start:]:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        chunk.append(ch)
+    return set(re.findall(r"\b([a-z_][a-z0-9_]{4,})\b", "".join(chunk)))
+
+
+def forwards_a_parameter(text: str, owner: str, argument: str) -> bool:
+    """Is `argument` a PARAMETER of `owner` rather than a local built in place?
+
+    A bare local would be a tuple assembled in the same function, which the
+    ordinary `add_systems` scan already reads. A parameter means the names come
+    from somewhere else entirely.
+    """
+    declaration = text.find(f"fn {owner}(")
+    if declaration < 0:
+        declaration = text.find(f"fn {owner}<")
+    if declaration < 0:
+        return False
+    body = text.find("{", declaration)
+    if body < 0:
+        return False
+    return bool(re.search(rf"\b{re.escape(argument)}\s*:", text[declaration:body]))
+
+
+def find_sim_forwarders(sources: dict[str, str]) -> set[str]:
+    """Functions that pass a PARAMETER of their own on to a simulation schedule.
+
+    `install_techniques(app, offers, systems)` ends in
+    `app.add_systems(sim, systems)`, so every system handed to it is scheduled
+    even though its name never appears beside `add_systems`.
+
+    ⛔⛤ **AND IT IS A FIXPOINT, BECAUSE THE REAL CHAIN IS TWO DEEP.** The call
+    that ships `apply_feature_hit_events` is `install_technique` — SINGULAR —
+    whose whole body is `install_techniques(app, &[(key, offer)], systems)`. A
+    one-level rule finds the plural, misses the singular, and reports the review's
+    one hand-named system as unscheduled; measured, that is exactly what it did.
+    So a function that forwards a parameter to a KNOWN forwarder becomes one.
+    """
+    direct: list[tuple[str, str, str]] = []
+    for text in sources.values():
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            match = SIM_SCHEDULE_ARG.search(line)
+            if not match:
+                continue
+            owner = enclosing_fn(lines, index)
+            if owner and forwards_a_parameter(text, owner, match.group(1)):
+                direct.append((owner, match.group(1), ""))
+    found = {owner for owner, _, _ in direct}
+
+    # The closure. Each pass looks for `owner(… known_forwarder-bound param …)`:
+    # a call to a known forwarder whose arguments include a bare identifier that
+    # is the calling function's own parameter.
+    changed = True
+    while changed:
+        changed = False
+        for text in sources.values():
+            lines = text.splitlines()
+            for known in sorted(found):
+                for match in re.finditer(rf"\b{re.escape(known)}\s*\(", text):
+                    index = text[: match.start()].count("\n")
+                    owner = enclosing_fn(lines, index)
+                    if not owner or owner in found:
+                        continue
+                    arguments = identifiers_in_call(text, match.end())
+                    if any(forwards_a_parameter(text, owner, a) for a in arguments):
+                        found.add(owner)
+                        changed = True
+    return found
+
+
 def sim_registered() -> set[str]:
     """Every system name registered into a SIMULATION schedule.
 
@@ -116,32 +249,37 @@ def sim_registered() -> set[str]:
         capture_output=True,
         text=True,
     ).stdout.split()
+    sources = {}
     for path in listing:
         if not path.endswith(".rs"):
             continue
-        text = (ROOT / path).read_text()
+        # ⛔ THE ATTRIBUTION WALK RUNS ON CODE ONLY — see `without_comments`.
+        sources[path] = without_comments((ROOT / path).read_text())
+
+    # ⭐⭐ **REGISTRATION FLOWS THROUGH HELPERS, AND THAT WAS MOST OF THE
+    # `UNATTRIBUTED` LIST.** `apply_feature_hit_events` — the one system the
+    # architecture review names by hand — is not inside any `add_systems(sim, …)`
+    # call. It is an argument to `install_technique(app, KEY, offer, (…systems…))`,
+    # whose own body is `app.add_systems(sim, systems)`. A scan for the literal
+    # call answers "not scheduled" about a system that ships.
+    #
+    # ⇒ So FIRST find the forwarders — transitively, because the real chain is two
+    # deep — and then a name passed to one of those is sim-registered too. This
+    # still cannot see a registration assembled from a table or behind a `cfg`, so
+    # `UNATTRIBUTED` remains "not checked", never "safe".
+    forwarders = set(find_sim_forwarders(sources))
+    for text in sources.values():
+        for forwarder in forwarders:
+            for match in re.finditer(rf"\b{re.escape(forwarder)}\s*\(", text):
+                names.update(identifiers_in_call(text, match.end()))
+
+    for path, text in sources.items():
         for match in re.finditer(
             r"add_systems\(\s*(sim|sim_schedule|app\.sim_schedule\(\)|"
             r"[A-Za-z_:]*GgrsSchedule)\s*,",
             text,
         ):
-            # ⚠ THE WINDOW IS THE WHOLE CALL, not a fixed byte count. A truncating
-            # window silently drops the tail of a long chain — and a long chain is
-            # exactly where the systems this census is about live. MEASURED: at
-            # 2000 bytes it missed `apply_feature_hit_events`, which the review
-            # names by hand.
-            tail = text[match.end() :]
-            depth = 0
-            chunk = []
-            for ch in tail:
-                if ch == "(":
-                    depth += 1
-                elif ch == ")":
-                    if depth == 0:
-                        break
-                    depth -= 1
-                chunk.append(ch)
-            names.update(re.findall(r"\b([a-z_][a-z0-9_]{4,})\b", "".join(chunk)))
+            names.update(identifiers_in_call(text, match.end()))
     return names
 
 
@@ -156,6 +294,28 @@ def main() -> int:
     if not sim:
         print("⛔ NO SIMULATION-SCHEDULED SYSTEM FOUND AT ALL — the attribution half")
         print("   of this instrument is broken, so every row below would read SAFE.")
+        return 1
+
+    # ⛔⛔ **THE CONTROL, AND IT IS NOT DECORATION.** `apply_feature_hit_events` is
+    # verified BY HAND to run in the simulation schedule — the architecture review
+    # names it, and its registration is
+    # `crates/ambition_platformer2d_runtime/src/combat_schedule.rs:695`, two
+    # forwarder hops from any literal `add_systems(sim, …)`. It is therefore the
+    # one row whose correct answer is known independently of this script.
+    #
+    # ⇒ Without this, a regression in the forwarder closure makes the simulation
+    # list SHRINK, and a shrinking count is exactly what progress looks like. This
+    # census has already reported two confident wrong answers (a `Res<UserSettings>`
+    # matched inside a comment; a prose `)` closing a registration block early), so
+    # it asserts against a fact it cannot derive.
+    control = "apply_feature_hit_events"
+    if control in found and control not in sim:
+        print(f"⛔ THE CONTROL FAILED: `{control}` is not attributed to a simulation")
+        print("   schedule. It is registered at combat_schedule.rs:695 through")
+        print("   `install_technique` → `install_techniques` → `add_systems(sim, …)`.")
+        print("   The attribution half of this instrument is broken and EVERY")
+        print("   `UNATTRIBUTED` row below is unreliable — including rows that")
+        print("   would otherwise read as a clean bill of health.")
         return 1
 
     in_sim = sorted(name for name in found if name in sim)

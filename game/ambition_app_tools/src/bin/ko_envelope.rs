@@ -1829,6 +1829,33 @@ impl KoProbe {
                 None => return None,
             }
         }
+        // ⭐⭐ A MIXED VOTE IS A MEASUREMENT, NOT NOISE TO BE SWALLOWED.
+        //
+        // The loop short-circuits at two, so reaching here with BOTH counters
+        // non-zero means 2:1 — the same initial state produced different outcomes.
+        // Majority-of-three then reports a single number for a cell that could not
+        // reproduce itself, and `117%` reads as exact when it is a band.
+        //
+        // ⛔ AND THIS IS THE SIGNAL I SPENT THREE ATTEMPTS FAILING TO DERIVE.
+        // Measured this session: `special` moved 221 -> 160 and George's forward
+        // throw 175 -> 115 when only the sweep STEP changed, while `back_throw`
+        // (further below `tumble_speed` than either) did not move at all. I
+        // proposed three arithmetic screens for which cells straddle a KO regime —
+        // proximity to tumble_speed, the boundary label, launch-per-percent — and
+        // measurement falsified all three. Two cells at L_ko ~645 behaved
+        // oppositely.
+        //
+        // ⇒ Stop predicting which cells are unstable and let the trials say so.
+        // A cell whose three runs disagree is ON an edge, whatever the arithmetic
+        // thinks, and that is knowable from data the probe already computes.
+        if yes > 0 && no > 0 {
+            eprintln!(
+                "KO_MIXED_VOTE: pct={percent} x={victim_x:.0} yes={yes} no={no} \
+                 — trials disagreed at the SAME initial state; this cell's threshold \
+                 is a BAND, not a point, and re-sweeping it finely is the only way \
+                 to know what it is"
+            );
+        }
         Some(yes > no)
     }
 

@@ -7511,11 +7511,16 @@ no-recovery, vs `player_robot_v3` ⇒ every number is a LOWER BOUND.
     npc_carl_stargan             155        175*      >300         1/3
     npc_emmy_noether             140        >300      >300         1/3
     npc_oiler                    139        >300      227          1/3
-    author / performer / pointed_polygon      165  296  152        1/3 each
-    medic / officer / projectile_ / pugnacious_polygon  162 274 137 1/3 each
+    author / performer / pointed_polygon      165  150* 152        2/3 each
+    medic / officer / projectile_ / pugnacious_polygon  162 148* 137 2/3 each
 
-**Smash cells inside 80-160: 37 of 63, up from 20.** No fighter is left without a
-smash in band. Every fighter that was reachable, unprotected and out of band now kills
+**Smash cells inside 80-160: 44 of 63, up from 20.** No fighter is left without a
+smash in band.
+
+⚠ THIS FIGURE WAS FIRST WRITTEN AS "37 of 63" AND IS CORRECTED HERE. It was accurate
+when committed, then the archetype pass below moved seven more up-smash cells (296/274
+-> 150/148). A count of the corpus is a claim that ROTS the moment the corpus changes —
+the same failure this session corrected in the growth guard's own doc comment. Every fighter that was reachable, unprotected and out of band now kills
 with its smashes inside Jon's ranges, with the authored ordering preserved in each role.
 
 ### What is still outside the band is DELIBERATE, and it is enumerable

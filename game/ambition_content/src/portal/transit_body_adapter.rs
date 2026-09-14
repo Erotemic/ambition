@@ -122,7 +122,7 @@ pub fn sync_portal_reorient_from_settings(
     let want = settings.gameplay.portal_reverses_facing;
     if editable.reorient_facing != want {
         editable.reorient_facing = want;
-        pending.propose(ambition_platformer2d::portal::PORTAL_TUNING);
+        pending.propose(ambition_platformer2d::portal::portal_tuning_domain());
     }
 }
 

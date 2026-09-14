@@ -2137,9 +2137,23 @@ it, with ONE batch admission unchanged. **There is no method that can drain
 another domain's proposal.** Five arms, poison-verified with the global-bit
 behaviour restored: three of five redden.
 
-⚠ **THE DOMAIN KEY IS A `&'static str` DECLARED BESIDE THE VALUE**, not a central
-enum — that half of the original design was right, and a central enum would make
+⚠ **THE DOMAIN KEY IS DECLARED BESIDE THE VALUE, NOT IN A CENTRAL ENUM** — that
+half of the original design was right, and a central enum would make
 `ambition_platformer2d_core` name all five owning crates.
+⛔⛤ **BUT THE KEY WAS A BARE `&'static str`, AND A CONVENTION IS NOT UNIQUENESS —
+REVIEW, 2026-09-13.** The labels in THIS repository are distinct, so nothing
+collided; two independently authored plugins can both pick `"tuning"`, the set
+treats them as ONE domain, and the first publisher to drain it takes the other's
+proposal with it. **That is the same class the per-domain redesign removed, one
+layer down, and invisible from inside this tree because it needs an extension
+crate to happen.**
+⭐ Identity is the MARKER TYPE now (`MechanicalDomain::of::<T>(label)`), so it is
+structural and decentralised at once: a crate declares its own zero-sized marker
+beside the value it owns and core still enumerates nothing. The label survives for
+logs. ⚠ A `TypeId` is host-local, which is fine precisely because this ledger is
+outside the rollback window — the distinction `queue.md`'s canonical-identity row
+is about. Two arms, poison-verified by restoring label-keyed identity: same label
+must stay two domains, one marker must stay one domain however it is spelled.
 
 ✅ **TWO MORE ROADS MIGRATED, SAME DAY: `EditableAbilitySet` AND
 `DeveloperTools.player_body_profile`.** Both left `app.sim_schedule()` — under the

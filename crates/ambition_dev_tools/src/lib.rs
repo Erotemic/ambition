@@ -59,8 +59,15 @@ use dev_tools::EditableAbilitySet;
 /// the sandbox protagonist (base `sandbox_all`) the intersection equals the
 /// editable set, so the F3 experiment workflow is unchanged.
 /// This domain's key in `PendingMechanicalEdits`.
-pub const ABILITY_SET: ambition_platformer2d_core::MechanicalDomain =
-    ambition_platformer2d_core::MechanicalDomain("editable_ability_set");
+/// The marker type that OWNS this domain. Identity is the type, not the label —
+/// see `MechanicalDomain`.
+pub struct EditableAbilitySetDomain;
+
+pub fn ability_set_domain() -> ambition_platformer2d_core::MechanicalDomain {
+    ambition_platformer2d_core::MechanicalDomain::of::<EditableAbilitySetDomain>(
+        "editable_ability_set",
+    )
+}
 
 /// Raise a changed developer ability selection as a PROPOSAL.
 ///
@@ -82,7 +89,7 @@ pub fn propose_editable_abilities(
     if !editable.is_changed() || editable.is_added() {
         return;
     }
-    pending.propose(ABILITY_SET);
+    pending.propose(ability_set_domain());
 }
 
 pub fn sync_live_player_dev_edits_system(
@@ -130,7 +137,7 @@ pub fn sync_live_player_dev_edits_system(
     // published by its own domain earlier in the same chain, so an admitted
     // tuning edit is already visible here rather than a mix of admitted and
     // pending values.
-    let proposed = pending.is_pending(ABILITY_SET);
+    let proposed = pending.is_pending(ability_set_domain());
     if proposed
         && matches!(
             admission.as_deref(),
@@ -145,7 +152,7 @@ pub fn sync_live_player_dev_edits_system(
         return;
     };
     if proposed {
-        pending.take(ABILITY_SET);
+        pending.take(ability_set_domain());
     }
     let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
     let effective_tuning = authored_tuning.map(|t| t.0).unwrap_or(active_tuning.0);

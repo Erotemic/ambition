@@ -1575,6 +1575,24 @@ point of staging the sweep behind the verdict.
 | `verify_projected_roster` | would the roster be valid if this published? | `Duplicated`, `SupersededNotLive`, `SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`, `LiveLostWithoutDeclaration` |
 | `verify_staged_world` | would the non-entity world be coherent? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `NoSessionRootToPublishInto` |
 
+⭐⭐ **WHAT THE PROJECTED VERIFIER ACTUALLY DOES IN PRODUCTION, MEASURED BOTH
+WAYS.** Two poisons, each a full `app_it` lane:
+
+```text
+skip verify_projected_roster entirely        655 passed, 0 failed
+break the projection's departure subtraction 632 passed, 23 FAILED
+```
+
+⇒ **IT RUNS ON EVERY PUBLICATION AND ITS ARITHMETIC DECIDES THE VERDICT, AND IT
+HAS NEVER REFUSED ANYTHING ON SHIPPED TRAFFIC.** Both halves matter. It is not
+dead weight — breaking it refuses every room — and it is not a redundant second
+opinion either: `verify_committed_roster`'s superseded branch deliberately does
+NOT ask post-publication uniqueness, so the projection is the ONLY check on *"one
+occupant after publication"* for every re-authored placement, which is now the
+common case. ⚠ But its REFUSAL population is empty, so it is proven by its own
+unit arms and by nothing the game does. That is the honest label: a live guard
+with nothing yet to catch, not a load-bearing one.
+
 ⭐ **`ScopeVisibility` IS THE PIECE THAT LOOKED LIKE A DETAIL.**
 `AuthoritativeScope::gather` already saw candidates and could not SAY which
 members were hidden — so *"one occupant per identity"* over the union answers

@@ -516,6 +516,17 @@ pub mod sim {
     /// wants.
     pub use ambition_characters::control::PlayerSlot;
 
+    /// EACH SEAT'S CONTROL-FRAME INTERPRETATION POLICY, resolved at input capture.
+    ///
+    /// Exported beside [`PlayerSlot`] for the reason its own doc gives: this is
+    /// what deterministic simulation reads instead of `UserSettings`, so a
+    /// headless or replay driver that stands in for input capture has to be able
+    /// to publish into it. `ambition_sim_harness` is exactly that driver.
+    pub use ambition_characters::control::SeatControlFrameModes;
+    /// The pair of frame-mode policies a seat's row holds — exported with the
+    /// table, because a caller that can publish a row needs the value type.
+    pub use ambition_platformer2d_core::ControlFrameModes;
+
     /// WHO DRIVES THIS BODY. A body wearing one is steered by that seat's
     /// `SlotControls` frame; a body without one is left to its own `Brain`.
     ///

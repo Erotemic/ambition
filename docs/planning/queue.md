@@ -164,6 +164,29 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   (`apply_feature_hit_events`, `tick_controlled_brains`), because each one failed
   silently exactly once and a shrinking count is what progress looks like here.
 
+  ✅ **MIGRATED THE SAME DAY, 2026-09-14.** `tick_controlled_brains` reads
+  `seat_modes.get(slot)` per driven body — per SEAT, beside the seat's own control
+  frame, which the machine-wide read could not express. Census after: **44
+  readers, 0 in simulation, and the count now carries two controls** so neither
+  forwarder shape can go dark again.
+
+  ⭐⭐ **AND THE MIGRATION EXPOSED THAT NOTHING WITNESSED THE CAPTURE ROAD.** Every
+  consumer fixture sets `SeatControlFrameModes` directly — correct for what each
+  tests, and proof of nothing about how a value gets IN. Deleting the publish line
+  in `populate_seat_control_frames` would have left all of them green while the
+  settings screen stopped reaching the game.
+  `a_seats_frame_policy_is_published_from_the_settings` is the one arm that asserts
+  it, premise first (the table must start at its default), and it is
+  poison-verified against that exact deletion.
+
+  ⛔⛤ **AND FIVE `gravity_symmetry_room` ARMS MEASURED THE SAME HOLE IN THE
+  HARNESS.** `SimHarness::set_movement_frame_mode` wrote `UserSettings` and
+  nothing else, so after the last reader migrated it was setting a preference no
+  simulation system could see. The harness IS input capture for a headless
+  composition, so it publishes the resolved pair into every seat's row now —
+  `ambition_platformer2d::sim` re-exports `SeatControlFrameModes` and
+  `ControlFrameModes` for exactly that caller.
+
   ⚠⚠ **AND THE LESSON IS ABOUT THE CLOSURE CLAIM, NOT THE TOOL.** This row
   correctly warned in its own words that `UNATTRIBUTED` *"is NOT a clearance"* —
   and then made a closure claim out of the attributed count anyway. **Do not do

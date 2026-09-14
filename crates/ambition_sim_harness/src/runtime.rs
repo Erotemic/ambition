@@ -636,7 +636,29 @@ impl Platformer2dSimHarness {
     pub fn set_movement_frame_mode(&mut self, mode: InputFrameMode) {
         let mut settings = self.app.world_mut().resource_mut::<UserSettings>();
         settings.gameplay.movement_frame_mode = mode;
+        let resolved = settings.gameplay.resolved_movement_frame_mode();
+        let aim = settings.gameplay.resolved_aim_frame_mode();
         drop(settings);
+        // ⛔⛤ **AND INTO THE SEAT TABLE, BECAUSE THIS HARNESS IS STANDING IN FOR
+        // INPUT CAPTURE.** Deterministic simulation stopped reading
+        // `Res<UserSettings>` for the frame mode; it reads
+        // `SeatControlFrameModes`, published by `populate_seat_control_frames` —
+        // a device stage this headless composition does not run. So writing only
+        // the settings resource sets a preference nothing in the simulation can
+        // see, which is exactly what five `gravity_symmetry_room` arms measured
+        // when the last reader migrated. Every seat, because that is what the
+        // capture stage does today.
+        let mut modes = self
+            .app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::sim::SeatControlFrameModes>();
+        for index in 0..ambition_platformer2d::sim::SlotControls::MAX_SLOTS {
+            modes.set(
+                PlayerSlot(index as u8),
+                ambition_platformer2d::sim::ControlFrameModes { movement: resolved, aim },
+            );
+        }
+        drop(modes);
         self.rebase_after_direct_setup_mutation();
     }
 

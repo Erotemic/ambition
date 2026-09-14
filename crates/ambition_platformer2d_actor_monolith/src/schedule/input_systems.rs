@@ -1729,6 +1729,90 @@ mod focus_gate_tests {
     /// `GameMode`"*, and this crate derived exactly that in two places. The
     /// first half of this test pins that moving them changed nothing; the
     /// second pins what the move BUYS, which is the reason to make it.
+    /// ⛔⛤ THE ROAD FROM THE SETTINGS SCREEN INTO THE TABLE SIMULATION READS.
+    ///
+    /// Four simulation systems used to hold `Res<UserSettings>` and evaluate
+    /// `gameplay.control_frame_modes()` themselves; a fifth,
+    /// `tick_controlled_brains`, was found still doing it by the architecture
+    /// review of 2026-09-14 after a census had reported zero. All five now read
+    /// `SeatControlFrameModes`, and **this is the only arm that witnesses how a
+    /// value gets INTO it** — the consumers' own fixtures set the table directly,
+    /// which is correct for what they test and proves nothing about capture.
+    /// Without this, deleting the publish line would leave every one of them green
+    /// while the settings screen stopped reaching the game.
+    #[test]
+    fn a_seats_frame_policy_is_published_from_the_settings() {
+        use ambition_characters::control::{PlayerSlot, SeatControlFrameModes, SlotControls};
+        use ambition_input::participant::context_priority;
+        use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
+
+        fn seat(slot: u8) -> impl Bundle {
+            let mut contexts = ParticipantContexts::default();
+            contexts.declare(ContextClaim::capturing(
+                GAMEPLAY_CONTEXT,
+                context_priority::GAMEPLAY,
+            ));
+            (
+                InputParticipant {
+                    id: ParticipantId(slot),
+                },
+                contexts,
+                ActionState::<Platformer2dInputActionMonolith>::default(),
+                super::SeatBurstTriggerState::default(),
+            )
+        }
+
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<SeatControlFrameModes>();
+        app.init_resource::<ambition_characters::control::SeatRawFrames>();
+        app.init_resource::<ambition_input::ControlFrame>();
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.gameplay.movement_frame_mode =
+            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
+        settings.gameplay.aim_frame_mode =
+            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict;
+        app.insert_resource(settings);
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.insert_state(GameMode::Playing);
+        app.world_mut().spawn(seat(0));
+        app.add_systems(
+            Update,
+            (
+                resolve_active_input_context,
+                super::populate_seat_control_frames,
+            )
+                .chain(),
+        );
+
+        // ⭐ THE PREMISE FIRST: the table starts at the default, so a fixture that
+        // never ran capture cannot pass by agreeing with itself.
+        assert_eq!(
+            app.world().resource::<SeatControlFrameModes>().movement(PlayerSlot::PRIMARY),
+            ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
+            "the seat table did not start at its default, so the assertion below \
+             would hold whether or not capture published anything",
+        );
+
+        app.update();
+
+        let modes = app.world().resource::<SeatControlFrameModes>().get(PlayerSlot::PRIMARY);
+        assert_eq!(
+            modes.movement,
+            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict,
+            "the locomotion frame mode chosen in the settings never reached the \
+             seat table, so nothing in deterministic simulation can see it",
+        );
+        assert_eq!(
+            modes.aim,
+            ambition_platformer2d_core::InputFrameMode::BodyRelativeStrict,
+            "the AIM mode did not travel with it -- `control_frame_modes()` \
+             carries both and the publish must not drop one",
+        );
+    }
+
     #[test]
     fn an_in_session_surface_claims_input_and_can_claim_it_for_one_seat() {
         use ambition_characters::control::{PlayerSlot, SlotControls};

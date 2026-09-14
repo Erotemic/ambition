@@ -1093,8 +1093,45 @@ whenever the clocks lined up — **which they do, because a fresh session starts
 clock at zero**."* ⇒ The tick is not distinct between matches. `session` is
 load-bearing and cannot be deleted.
 
-⇒ **SO THE RULING NARROWS TO ONE SHAPE**: keep the session term and make it agreed
-between peers rather than counted locally — the `TransactionId` pattern
+✅ **THE RANDOM-CONTEXT HALF IS FIXED, 2026-09-14** — the half that changes the
+authoritative world. `MatchInstance::random_context()` no longer mixes in
+`SessionScopeId.0`; it derives from the ACTIVATION TICK, which both peers
+simulate. `SessionScopeId` stays on the type and still decides EQUALITY, so
+`MatchScoped::belongs_to` and the settlement resources' staleness checks are
+untouched — local ownership is what it is for, and a random seed is not.
+
+⛔⛤ **A REQUIREMENT DIED, AND SAYING SO IS THE POINT.**
+`two_activations_are_two_draw_contexts` asserted, in its own words, *"two sessions
+whose first match activated on the same tick share a context, so every playthrough
+opens the same way"* — with `assert_ne!`. The requirement is TRUE as stated and
+the only thing that could satisfy it was the per-App counter. It is now
+`assert_eq!` with the reason written beside it: **the local session scope must not
+change the draw at all.** ⇒ A requirement can be falsified by a RULING rather than
+by an edit, and the test says which requirement died rather than quietly changing
+an operator.
+
+⚠ **WHAT IT COSTS, STATED RATHER THAN HIDDEN**: two runs of the world whose
+matches activate on the same tick now draw the same items. That is a repeat across
+a restart, not a divergence — both peers still agree — and it is the honest trade
+for removing a desync. Cross-run variety needs a peer-NEGOTIATED nonce (a
+lobby-supplied match seed), which is netcode this repository does not have.
+⛔ **`seat_topology` IS NOT THAT NONCE**: measured at HEAD, the one production
+caller of `activate_if_seatable` passes `None`.
+
+✅ **THREE POISONS ON THE ARM**, all fire: putting the session counter back in the
+seed; returning a constant context; and the existing within-session arm. It also
+compares the DRAWS and not only the context number, with an anti-constant control
+— a context equality alone passes for a `random_context` that returns a constant.
+
+⇒ **STILL OPEN: THE REST OF THE CAMPAIGN.** The raw `SessionScopeId` is still
+snapshot-encoded in `ActiveMatch`, `StocksMatchSettled`, `SuddenDeathEntered` and
+the `MatchScoped` component, so it is still in the CHECKSUM even though it no
+longer steers a draw. Two peers with different local histories still disagree on
+those bytes. That is the metadata half of this row and it needs the two-App
+poison; what is closed is the half that changed which item spawned where.
+
+⇒ **AND THE ORIGINAL RULING BELOW IS SUPERSEDED IN ITS SECOND SENTENCE**: keep the
+session term, and make it agreed between peers rather than counted locally — the `TransactionId` pattern
 (`binding ⊗ room ⊗ session`) applied to match identity. What it must be derived
 from is the open part; the candidate both peers demonstrably share is the rollback
 SESSION's own identity, not the App's activation history.

@@ -213,6 +213,7 @@ fn commit_bracketed(
             &receipt,
             plan.room().id.clone(),
             SessionSpawnScope::UNSCOPED,
+            candidate_bracket,
         );
     });
     app.update();

@@ -291,41 +291,37 @@ impl RoomConstructionPlan {
         // is two spellings of one fact.
         let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
         transaction::open(commands, &self.features, candidate_bracket);
-        // ⛔⛤ **THE CANDIDATE ROAD IS BUILT AND WIRED BUT THIS FLAG IS `false`,
-        // AND THAT IS A MEASURED HOLD RATHER THAN AN OVERSIGHT.**
+        // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
+        // AS OF 2026-09-14.** Every root in every lane is minted
+        // `InactiveCandidate`, so nothing this room builds is visible to an
+        // ordinary query until `transaction::close` admits it, and a refused
+        // room is DROPPED rather than left standing half-built.
         //
-        // Flipping it to `true` builds every root in every lane as an
-        // `InactiveCandidate` and lets `transaction::close` publish or RETIRE the
-        // whole room — which is A10's last-good-world shape and deletes the
-        // sentence that path still ends with (*"The world has already been
-        // mutated and cannot be rolled back"*). MEASURED with it on: 87 of 89
-        // app-level room tests pass, and the shipped rooms publish completely
-        // (`central_hub_complex`: receipt 18 ids, admitted 18).
-        //
-        // ⭐⭐ **THE TWO THAT FAIL ARE `death_restores_the_checkpoint`, AND THE
-        // MECHANISM IS NAMED AS OF 2026-09-13: IT IS NOT THIS FLAG'S.** See
-        // `Q124`. A death is committed as a room transition to the SAME room, and
-        // room-transition sweeps use `RoomResident` — `With<RoomScopedEntity>,
-        // Without<InCustodyOf>` — so a placement in the player's custody follows
-        // them through the "door" and the room then mints it again. Two entities,
-        // one authored `SimId`, and the transaction correctly refuses:
+        // ⭐⭐ **WHAT UNBLOCKED IT WAS A DECLARATION, NOT A RULING.** This
+        // paragraph used to say the flag *"waits on a gameplay ruling alone"* —
+        // `Q124`, what happens to a placement in your custody when a death
+        // rebuilds the room that authored it — because turning it on refused
+        // `death_restores_the_checkpoint` with
         //
         //     violations=[ Duplicated { placement:ground_gun_sword, count: 2 },
-        //                  PlannedOverBaseline { placement:ground_gun_sword } ]
+        //                  ReconstructedOldSurvived { stale: 514v0 } ]
         //
-        // ⛔⛔ **THE LIVE BUILD PRODUCES THE IDENTICAL VIOLATIONS AND IS
-        // IDENTICALLY REFUSED** — measured, three times in one run. It passes
-        // only because a refusal costs nothing there: the entities were committed
-        // to the world before verification ran, so "not published" means no
-        // `RoomLoaded` message and no more. Under this bracket the same refusal
-        // drops all 18 roots, which is the bracket working.
+        // ⇒ **BOTH OF THOSE ARE THE VERIFIER ANSWERING A QUESTION NOBODY MEANT
+        // TO ASK.** `reconstructing` states *"the old body should already be
+        // gone"*, so a carried predecessor is a violation BY DEFINITION. The
+        // transaction now splits its declaration per identity —
+        // `superseding(id, id)` for one the baseline still holds,
+        // `reconstructing` for the rest — and the coexistence it was refusing is
+        // the A10 premise. See `transaction::open`.
         //
-        // ⇒ **SO THE FLAG NOW WAITS ON A GAMEPLAY RULING ALONE:**
-        // what happens to a placement in your custody when a death rebuilds the
-        // room that authored it? `Q124` states the three answers.
+        // ⚠ And `Q124` really is a ruling, but a narrower one than this flag: the
+        // baseline decides PER ITEM, and both halves already run — the room
+        // re-authors the object in its world state, the custodian's own
+        // retraction takes it out of the hand. See `retire_superseded` for the
+        // measured reason publication must not do that half itself.
         //
-        // ⛔⛤ **THERE WAS A SECOND BLOCKER, BIGGER THAN THE RULING, AND IT IS
-        // NOW CLOSED — 2026-09-13.** A census of every room-construction refusal
+        // ⛔⛤ **THE OTHER BLOCKER WAS BIGGER THAN THE RULING AND IS ALSO
+        // CLOSED — 2026-09-13.** A census of every room-construction refusal
         // across the whole `app_it` suite found SIX, and the two largest were on
         // the HOT-RELOAD road rather than the death road: 8 placements and **18,
         // the whole of `central_hub_complex`**. The world log gave the mechanism:
@@ -345,30 +341,23 @@ impl RoomConstructionPlan {
         // ⇒ `SessionScopeSet` now chains `RetireAuthority -> Cleanup -> Activate
         // -> Presentation`: the dying scope finishes dying before the live one is
         // born. **The census fell from 6 refusals to 4**, and all four that
-        // remain are the single-placement custody shape below — `Q124`'s, one
-        // placement each. Guarded by
+        // remain were the single-placement custody shape above. Guarded by
         // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
         // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
         // (the production verdict).
         //
-        // ⚠ It cost nothing visible, which is the only reason it survived: a
-        // refusal today suppresses `RoomLoaded` and that message has no
+        // ⚠ It cost nothing visible, which is the only reason it survived that
+        // long: a refusal then suppressed `RoomLoaded` and that message has no
         // production reader. Under this bracket it would have dropped the whole
         // room and landed every hot reload in an EMPTY WORLD.
         //
-        // ✅ **THAT HALF NEEDED NO RULING AND IS DONE.** This paragraph read
-        // *"`retiring` and `reconstructing` have ZERO production callers, so
-        // every shipped room is judged against a claim nobody made"*, and that is
-        // why the violation above once read `PlannedOverBaseline`.
-        // `transaction::open` now takes the plan and DERIVES the declaration, so
-        // the same situation reports `ReconstructedOldSurvived` and names the
-        // surviving entity. ⚠ `retiring` still has no production caller, which is
-        // a statement about room plans — a room says what it WILL contain and
-        // never declares an identity gone.
-        //
-        // ⇒ The ENABLERS are all in: `commit_hidden`, the at-mint stamp,
-        // `construction_transactions` (every lane, not one — see its doc), and
-        // the registered filter.
+        // ⛔ **WHAT THE BRACKET DOES NOT YET BUY IS THE WHOLE A10 GUARANTEE.**
+        // `replace_live_world` still retires the OUTGOING room and writes
+        // `RoomSet` / `RoomGeometry` / the platform state BEFORE any of this
+        // runs, so a refusal leaves the session with no room rather than with its
+        // previous one. That is candidate-owned STATE rather than entities, and
+        // it is the next A10 milestone — see `replace_live_world`'s own doc and
+        // `docs/planning/queue.md`.
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,
@@ -397,6 +386,7 @@ impl RoomConstructionPlan {
             &receipt,
             self.room_id().to_string(),
             self.session_scope,
+            candidate_bracket,
         );
     }
 
@@ -636,6 +626,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -863,6 +860,13 @@ mod tests {
         let expected_plan_id = plan.id().clone();
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -980,6 +984,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
 
         let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
@@ -1044,6 +1055,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
         {
             let mut commands = app.world_mut().commands();

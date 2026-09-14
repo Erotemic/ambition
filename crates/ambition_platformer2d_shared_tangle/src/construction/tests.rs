@@ -2102,6 +2102,100 @@ fn a_reconstruction_that_leaves_the_old_body_alive_is_detected() {
     );
 }
 
+/// ⛔⛤ **A10: THE SAME WORLD, DECLARED AS A SUPERSESSION, IS CLEAN.**
+///
+/// The arm above is the whole reason `superseding` exists. Identical fixture —
+/// live body untouched, a second body built for the same identity — and the only
+/// difference is which sentence the transaction opened with. `reconstructing`
+/// says *"the old body should already be gone"*, so a live predecessor is the
+/// violation it is designed to report; `superseding` says *"the old body stands
+/// until publication"*, and the coexistence is the premise rather than the fault.
+///
+/// ⚠ **WHAT IT DOES NOT SAY IS THAT PUBLISHING WOULD BE VALID.** That is
+/// `verify_projected_roster`'s question and is asked of a different world; this
+/// arm's business is only that the committed-roster check stops calling the A10
+/// shape a defect.
+#[test]
+fn the_same_two_generations_declared_a_supersession_verify_clean() {
+    let services = Services::default();
+    let mut world = World::new();
+    let original = world.spawn(SimId::placement("a")).id();
+    let baseline = baseline_of(&mut world).superseding([SimId::placement("a")]);
+
+    let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
+        .unwrap();
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    assert!(
+        world.get_entity(original).is_ok(),
+        "the predecessor was gone before verification, so this arm would be about \
+         an ordinary reconstruction rather than a supersession"
+    );
+    assert_ne!(
+        receipt.entity(&SimId::placement("a")),
+        Some(original),
+        "the fixture built no second generation at all"
+    );
+    assert_eq!(
+        verify_world(&mut world, &plan, &receipt, &baseline),
+        Ok(()),
+        "a declared supersession with its predecessor still standing was refused — \
+         which is the exact state A10 exists to make legal"
+    );
+}
+
+/// ⛔ **AND A SUPERSESSION THAT DESTROYED ITS OWN PREDECESSOR IS REFUSED.**
+///
+/// The declaration is a promise about the LIVE world: N stays playable while N+1
+/// is judged. A candidate that despawned the body it named has already spent N,
+/// so there is nothing left to fall back to whatever this verification concludes.
+#[test]
+fn a_supersession_that_destroyed_its_predecessor_is_refused() {
+    let services = Services::default();
+    let mut world = World::new();
+    let original = world.spawn(SimId::placement("a")).id();
+    let baseline = baseline_of(&mut world).superseding([SimId::placement("a")]);
+
+    // Construction reaches into the live world instead of building beside it.
+    world.entity_mut(original).despawn();
+
+    let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
+        .unwrap();
+    let receipt = commit_into(&mut world, &plan, &services);
+
+    let violations = verify_world(&mut world, &plan, &receipt, &baseline)
+        .expect_err("a supersession that spent the live world must be refused");
+    assert!(
+        violations.iter().any(|v| matches!(
+            v,
+            RosterViolation::SupersededLiveLost { expected, .. } if *expected == original
+        )),
+        "got {violations:?}"
+    );
+}
+
+/// ⛔⛤ **AND A SUPERSESSION THAT BUILT NOTHING IS REFUSED TOO.** Declaring a
+/// replacement and providing none would retire the identity at publication under
+/// a sentence that said it was replacing it.
+#[test]
+fn a_supersession_with_no_candidate_behind_it_is_refused() {
+    let mut world = World::new();
+    world.spawn(SimId::placement("a"));
+    let baseline = baseline_of(&mut world).superseding([SimId::placement("a")]);
+
+    // The plan NAMES the identity and the commit builds nothing for it.
+    let plan = ConstructionPlan::prepare(scope(), vec![request("a")], &nothing_live(), &registry())
+        .unwrap();
+    let violations = verify_world(&mut world, &plan, &ConstructionReceipt::default(), &baseline)
+        .expect_err("a supersession with no replacement must be refused");
+    assert!(
+        violations
+            .iter()
+            .any(|v| matches!(v, RosterViolation::SupersededCandidateMissing { .. })),
+        "got {violations:?}"
+    );
+}
+
 /// Identities that were already live and are untouched are not "unplanned" —
 /// that is what the baseline is for.
 #[test]
@@ -3174,7 +3268,9 @@ fn a_candidate_supersedes_a_live_identity_without_destroying_it_first() {
         .id();
 
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
-    let effects = PublicationEffects::new().superseding(identity.clone(), identity.clone());
+    let effects = PublicationEffects::new()
+        .owned_by(transaction.clone())
+        .superseding(identity.clone(), identity.clone());
     let projection = project_post_publication_roster(&scope, &effects);
 
     // ⛔ THE PREMISE: the live entity really is still there, or this arm is about
@@ -3237,7 +3333,7 @@ fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
     ));
 
     let scope = AuthoritativeScope::gather(&mut world, &transaction);
-    let effects = PublicationEffects::new();
+    let effects = PublicationEffects::new().owned_by(transaction.clone());
     let projection = project_post_publication_roster(&scope, &effects);
 
     assert_eq!(
@@ -3249,6 +3345,69 @@ fn a_candidate_that_declares_no_supersession_would_duplicate_an_identity() {
         "a candidate sharing a live identity and declaring no supersession was \\
          ADMITTED; publishing it leaves two authoritative entities on one name and \\
          every dependant resolves by storage order"
+    );
+}
+
+/// ⛔⛤ **A10: PUBLICATION RETIRES N, AND ONLY WHAT IT HAS AUTHORITY OVER.**
+///
+/// The two halves of the boundary in one arm: a superseded body nobody is
+/// holding is despawned by the publication, and a superseded body IN ANOTHER
+/// ENTITY'S CUSTODY is left standing and counted — its custodian owns taking it
+/// out of the hand and despawning it as one operation, and a publication that
+/// despawns it first destroys the key that operation is found by.
+///
+/// ⚠ **THE SECOND HALF IS THE ONLY ONE PRODUCTION REACHES TODAY.** Measured
+/// across `app_it` 2026-09-14: 685 room publications, 3 supersessions, **all
+/// three left to a custodian**. The room road supersedes nothing else because
+/// `retire_outgoing` has already removed every room-resident body before the
+/// baseline is captured; what survives it is exactly the carried object. The
+/// first half is therefore proven HERE or nowhere.
+#[test]
+fn publication_retires_a_superseded_body_and_leaves_a_held_one_to_its_custodian() {
+    use crate::construction::{
+        retire_superseded, PublicationEffects, SupersessionRetirement, TransactionBaseline,
+    };
+    use crate::lifecycle::{CustodyDurability, InCustodyOf};
+    use crate::sim_id::SimId;
+    use bevy::prelude::*;
+
+    let mut world = World::new();
+    let loose = SimId::placement("loose");
+    let held = SimId::placement("held");
+    let custodian = world.spawn_empty().id();
+    let loose_body = world.spawn(loose.clone()).id();
+    let held_body = world
+        .spawn((
+            held.clone(),
+            InCustodyOf {
+                custodian,
+                durability: CustodyDurability::SessionOnly,
+            },
+        ))
+        .id();
+    let baseline = TransactionBaseline::capture(&mut world).expect("the live world captures");
+
+    let effects = PublicationEffects::new()
+        .superseding(loose.clone(), loose.clone())
+        .superseding(held.clone(), held.clone());
+
+    assert_eq!(
+        retire_superseded(&mut world, &effects, &baseline),
+        SupersessionRetirement {
+            retired: 1,
+            left_to_custodian: 1,
+        }
+    );
+    assert!(
+        world.get_entity(loose_body).is_err(),
+        "the publication did not retire the predecessor it declared it was \
+         replacing, so two bodies now wear `{loose}`"
+    );
+    assert!(
+        world.get_entity(held_body).is_ok(),
+        "the publication despawned an object out of somebody's hand: the \
+         custodian's own retraction is keyed on this entity and now has nothing \
+         to find, so the holder keeps a weapon that no longer exists"
     );
 }
 

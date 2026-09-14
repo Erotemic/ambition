@@ -13,7 +13,8 @@ use bevy::ecs::resource::Resource;
 use bevy::prelude::{Commands, World};
 
 use ambition_platformer2d_shared_tangle::construction::{
-    BaselineCaptureError, RosterViolation, TransactionBaseline,
+    BaselineCaptureError, ProjectionViolation, PublicationEffects, RosterViolation,
+    TransactionBaseline,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 
@@ -23,19 +24,40 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 /// A resource because the two ends are separate commands in one queue and nothing else can
 /// carry a value between them.
 #[derive(Resource)]
-pub(crate) struct PendingConstructionBaseline(Result<TransactionBaseline, OpenRefused>);
+pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefused>);
 
-/// ⛔⛤ **A10'S BRACKET FLAG, NAMED — IT USED TO BE A BARE `false` AT ONE CALL
-/// SITE.** `true` builds every root in every lane as an `InactiveCandidate`, so
-/// a room that fails verification is DROPPED rather than left standing
-/// half-built. See `RoomConstructionPlan::spawn_contents` for the measured hold
-/// (`Q124`) that keeps it off.
+/// What [`open`] establishes and [`verify_and_publish`] is owed: the world this
+/// transaction opened against, and what it DECLARED it would do to that world.
 ///
-/// ⚠ It is a constant rather than a literal because it is read TWICE — the
-/// bracket's opening check and the spawn itself — and two spellings of one
-/// decision is how the two ends come to disagree about whether a room is a
-/// candidate.
-pub(crate) const ROOM_CANDIDATE_BRACKET: bool = false;
+/// ⛔⛤ **THE DECLARATION IS MADE AT THE HEAD OF THE TRANSACTION, NOT READ OFF
+/// THE WORLD AT ITS TAIL.** A10's verifier asks *"would the authoritative world
+/// be valid if this published?"*, and a declaration derived at the tail from
+/// whatever construction happened to leave standing cannot answer that — it
+/// would agree with anything. Deriving it here, from the plan and from the
+/// baseline captured before a single root was built, is what makes the
+/// projection falsifiable.
+pub(crate) struct OpenedTransaction {
+    baseline: TransactionBaseline,
+    effects: PublicationEffects,
+}
+
+/// ⛔⛤ **A10'S BRACKET FLAG, ON SINCE 2026-09-14.** `true` builds every root in
+/// every lane as an `InactiveCandidate`, so a room that fails verification is
+/// DROPPED rather than left standing half-built, and the projected
+/// post-publication roster below has a candidate population to project.
+///
+/// ⚠ It is a constant rather than a literal because it is read THREE times now —
+/// the bracket's opening refusal, the spawn's visibility, and whether [`close`]
+/// asks the projected question at all — and two spellings of one decision is how
+/// the ends come to disagree about whether a room is a candidate.
+///
+/// ⛔ **IT IS STILL A CONSTANT, AND THAT IS DELIBERATE.** Nothing chooses per
+/// room or per composition: a candidate world that some rooms opt out of is two
+/// lifecycles, and the refusal path is only trustworthy if every room takes it.
+/// The parameter exists so the harness in `construction/tests.rs` can commit the
+/// same plan LIVE and prove what the bracket changes — see
+/// `commit_bracketed`.
+pub(crate) const ROOM_CANDIDATE_BRACKET: bool = true;
 
 /// Why a room transaction refused before it built anything.
 ///
@@ -94,6 +116,15 @@ pub struct LastConstructionVerification {
     pub room_id: String,
     /// Every construction invariant the transaction found violated.
     pub violations: Vec<RosterViolation>,
+    /// Every reason the world PUBLICATION WOULD PRODUCE was invalid.
+    ///
+    /// ⛔ A separate field rather than a `RosterViolation` variant because the
+    /// two are answers to different questions about different worlds, and a
+    /// reader that cannot tell *"the room I built is wrong"* from *"the room I
+    /// built is fine and publishing it would break the world"* has lost the
+    /// distinction A10 is made of. Empty whenever the candidate bracket is off,
+    /// because then there is no candidate world to project.
+    pub projection_violations: Vec<ProjectionViolation>,
     /// Whether `RoomLoaded` was written.
     pub published: bool,
 }
@@ -150,7 +181,7 @@ pub(crate) fn open(
     plan: &crate::features::RoomFeatureConstructionPlan,
     candidate_bracket: bool,
 ) {
-    let reconstructing = plan.planned_sim_ids();
+    let planned = plan.planned_sim_ids();
     commands.queue(move |world: &mut World| {
         // ⛔ ASKED BEFORE THE BASELINE, because a world that cannot hide a
         // candidate must refuse the room rather than build one it will then
@@ -168,7 +199,45 @@ pub(crate) fn open(
                     // the receipt is `debug_assert`ed against, so the
                     // declaration and the execution cannot drift apart without
                     // that assertion firing first.
-                    baseline.reconstructing(reconstructing.iter().cloned())
+                    //
+                    // ⛔⛤ **AND THE BASELINE SPLITS IT IN TWO, PER IDENTITY.**
+                    // A planned identity NOBODY currently holds is a plain
+                    // reconstruction — "the old body should already be gone",
+                    // which for these is vacuously so and still catches a stray
+                    // wearing the name. A planned identity SOMETHING STILL
+                    // HOLDS is a SUPERSESSION: the live body is meant to keep
+                    // standing until this room publishes.
+                    //
+                    // ⭐ That is `Q124`'s ruling implemented rather than
+                    // averaged: the checkpoint baseline decides PER ITEM, and
+                    // two placements in one death reconstruction are free to
+                    // land in different halves. Nothing here asks a blanket
+                    // question about custody.
+                    //
+                    // ⚠ **AND THE SPLIT IS ONLY AVAILABLE UNDER THE BRACKET.**
+                    // A supersession states *"a HIDDEN candidate stands beside
+                    // the live body until publication"*. Without the bracket
+                    // this transaction spawns its roots VISIBLE, so there is no
+                    // beside — the two bodies are both authoritative the
+                    // instant the second one lands, which is the ordinary
+                    // in-place rebuild `reconstructing` already describes.
+                    // Declaring supersession there would be a claim about a
+                    // world this road does not build, and it would mean the
+                    // live road stopped reporting the coexistence at all.
+                    let (superseding, reconstructing): (Vec<_>, Vec<_>) = planned
+                        .iter()
+                        .cloned()
+                        .partition(|sim_id| candidate_bracket && baseline.contains(sim_id));
+                    let effects = superseding.iter().fold(
+                        PublicationEffects::new(),
+                        |effects, sim_id| effects.superseding(sim_id.clone(), sim_id.clone()),
+                    );
+                    OpenedTransaction {
+                        baseline: baseline
+                            .reconstructing(reconstructing)
+                            .superseding(superseding),
+                        effects,
+                    }
                 })
                 .map_err(OpenRefused::Baseline)
         };
@@ -188,11 +257,12 @@ pub(crate) fn close(
     receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
     session: SessionSpawnScope,
+    candidate_bracket: bool,
 ) {
     let plan = plan.clone();
     let receipt = receipt.clone();
     commands.queue(move |world: &mut World| {
-        verify_and_publish(world, &plan, &receipt, room_id, session);
+        verify_and_publish(world, &plan, &receipt, room_id, session, candidate_bracket);
     });
 }
 
@@ -223,17 +293,21 @@ fn verify_and_publish(
     receipt: &crate::features::RoomFeatureConstructionReceipt,
     room_id: String,
     session: SessionSpawnScope,
+    candidate_bracket: bool,
 ) {
     let refuse = |world: &mut World, room_id: String| {
         world.insert_resource(LastConstructionVerification {
             room_id,
             violations: Vec::new(),
+            projection_violations: Vec::new(),
             published: false,
         });
     };
 
-    let baseline = match world.remove_resource::<PendingConstructionBaseline>() {
-        Some(PendingConstructionBaseline(Ok(baseline))) => baseline,
+    let OpenedTransaction { baseline, effects } = match world
+        .remove_resource::<PendingConstructionBaseline>()
+    {
+        Some(PendingConstructionBaseline(Ok(opened))) => opened,
         Some(PendingConstructionBaseline(Err(error))) => {
             // Publishing a room on top of that would bury the earlier fault.
             bevy::log::error!(
@@ -349,10 +423,60 @@ fn verify_and_publish(
     // room leaves no debris — no half-built scene standing beside a world that
     // never accepted it. The rest is a candidate WORLD/SESSION transaction; see
     // `docs/planning/queue.md`'s A10 rows, which carry the packet order.
-    let published = violations.is_empty();
     // ⛔ EVERY LANE'S TRANSACTION, not just the actor lane's — see
     // `construction_transactions`, and the measurement that corrected me.
     let transactions = plan.construction_transactions(session);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // A10: WOULD THE AUTHORITATIVE WORLD BE VALID IF THIS ROOM PUBLISHED?
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // ⛔⛤ **EVERYTHING ABOVE JUDGES THE WORLD AS IT IS. THIS JUDGES THE WORLD
+    // PUBLICATION WOULD PRODUCE**, and the difference is the whole of A10: the
+    // candidates are hidden, the live world is deliberately still the old one,
+    // and a refusal here costs nothing because nothing has been retired to make
+    // room for them.
+    //
+    // ⚠ **ONLY UNDER THE BRACKET, AND THAT IS NOT A CONVENIENCE.** Without it
+    // every root is spawned VISIBLE, so there is no candidate population to
+    // project: each declared supersession would report
+    // `SupersedingCandidateMissing` about a root that is standing right there.
+    // A projection of a world with no candidates in it is not a weaker check,
+    // it is a different and false one.
+    let mut effects = effects;
+    let projection_violations = if candidate_bracket {
+        use ambition_platformer2d_shared_tangle::construction::{
+            project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
+        };
+        // ⛔ THE PUBLICATION OWNS EVERY LANE'S TRANSACTION. A room commits the
+        // actor lane and one transaction per capability lane under ONE verdict;
+        // a publication that claimed only the lane it gathered with would call
+        // every other lane's candidate stolen.
+        effects = transactions
+            .iter()
+            .cloned()
+            .fold(effects, PublicationEffects::owned_by);
+        // ⚠ The gather's transaction argument selects nothing here — the
+        // projection reads VISIBILITY and `PresentationOnly`, and ownership is
+        // asked of `effects.owners()` above. It is the actor lane's because a
+        // scope has to be gathered against some transaction, not because that
+        // lane is privileged.
+        let scope = AuthoritativeScope::gather(world, &transactions[0]);
+        let projection = project_post_publication_roster(&scope, &effects);
+        verify_projected_roster(&projection, &effects, &baseline, &scope, world)
+            .err()
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    for violation in &projection_violations {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "room `{room_id}` would not publish into a valid world: {violation}"
+        );
+    }
+
+    let published = violations.is_empty() && projection_violations.is_empty();
     if published {
         let admitted: usize = transactions
             .iter()
@@ -363,14 +487,23 @@ fn verify_and_publish(
                 )
             })
             .sum();
+        // ⛔⛤ **AND ONLY NOW IS N RETIRED.** Every candidate this room built is
+        // authoritative as of the line above; the bodies it declared it was
+        // replacing go on the line below, in that order and never the other
+        // one. See `retire_superseded`.
+        let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
+            world, &effects, &baseline,
+        );
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "room-loaded {room_id} ({admitted} roots admitted)"
+            "room-loaded {room_id} ({admitted} roots admitted, \
+             {} superseded roots retired, {} left to their custodian)",
+            superseded.retired, superseded.left_to_custodian
         ));
         world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
             room_id: room_id.clone(),
         });
     } else {
-        let failure_count = violations.len();
+        let failure_count = violations.len() + projection_violations.len();
         let dropped: usize = transactions
             .iter()
             .map(|transaction| {
@@ -394,6 +527,11 @@ fn verify_and_publish(
             violations
                 .iter()
                 .map(|violation| format!("{violation:?}"))
+                .chain(
+                    projection_violations
+                        .iter()
+                        .map(|violation| format!("{violation:?}")),
+                )
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
@@ -406,6 +544,7 @@ fn verify_and_publish(
     world.insert_resource(LastConstructionVerification {
         room_id,
         violations,
+        projection_violations,
         published,
     });
 }

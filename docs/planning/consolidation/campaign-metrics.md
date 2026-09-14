@@ -29,6 +29,8 @@
 | Optional Res/ResMut occurrences (heuristic) | 732 | Source-text pattern outside obvious tests. Discovery only; no defect meaning. |
 | Optional Res/ResMut unique type spellings (heuristic) | 196 | Unique type tail from the optional-resource source-text pattern. Discovery only. |
 
+The value **8** is intentionally retained as the `662a9b...` baseline. The later documentation cleanup at `2dbd81abc50f` closed `TRANS-PLANNING-HISTORY`; a refreshed current-snapshot metric should therefore recompute the ledger instead of editing this baseline in place.
+
 ## Generated `.agent` navigation inventory
 
 The commit-matched generated inventory is useful for breadth. It is not the semantic authority.

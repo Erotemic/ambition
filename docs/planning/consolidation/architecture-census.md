@@ -1,7 +1,8 @@
 # Architecture consolidation census
 
-**Snapshot:** `662a9b56096a304ce9fcfe3ebcf1177403f2452d`
-**Method:** static source, manifest, planning, and generated-inventory inspection. No Rust compiler or runtime was used.
+- **Census baseline:** `662a9b56096a304ce9fcfe3ebcf1177403f2452d`
+- **Planning-control refresh:** `2dbd81abc50f42a601d8e6177478ef0985002365`
+- **Method:** static source, manifest, planning, and generated-inventory inspection. No Rust compiler or runtime was used. The later refresh updates only documentation-control-plane entries; other architecture claims retain the census baseline.
 
 This document describes current architecture. It does not record the sequence of reviews that found it.
 The stable machine entries are in [`consolidation-ledger.json`](consolidation-ledger.json).
@@ -22,8 +23,7 @@ The main consolidation pressure is not the number of ECS objects. It is where on
 - local lifecycle identifiers still enter some canonical provenance;
 - 32 process/App resources are explicitly documented by source as session- or generation-owned;
 - direct-entry compatibility still gives some canonical values a second App-global fallback road;
-- live content/session values can be updated separately around development reload;
-- current planning still carries closed historical case-file prose beside open work.
+- live content/session values can be updated separately around development reload.
 
 The current A10 implementation should finish before another agent changes the room publication model.
 The identity correction is also separate active work.
@@ -55,7 +55,7 @@ The table uses authority *families*. One row can cover an owner and its direct p
 | AUTH-ROOM-GEOMETRY | Live room geometry | ambition_platformer2d_core on SessionRoot | Component on SessionRoot | active room | the room collision/world geometry used by simulation | canonical rollback-registered component on SessionRoot | runtime projection of the current admitted room/world geometry | — | SOURCE_CONFIRMED |
 | AUTH-MOVING-PLATFORMS | Live moving-platform state | ambition_platformer2d_world + actor_monolith session lifecycle | Resource | active room within gameplay session | current moving-platform simulation state | canonical rollback-registered Resource | mutable timeline state initialized by room construction | — | SOURCE_CONFIRMED |
 | AUTH-OCCURRENCE-CUSTODY | Occurrence and custody continuity state | ambition_platformer2d_shared_tangle + ambition_persistence + actor_monolith | Resources and typed baselines | gameplay session with durable continuity inputs | which authored occurrences exist, where custody resides, and which facts a rebuild must retain | mixed domain continuity state; some values are rollback projections and some are durable/session baselines; use owner-specific registrations | session continuity state; not a content-generation identity | distinct durable domain authorities; not one generic reset flag | SOURCE_CONFIRMED |
-| AUTH-MOVEMENT-TUNING | Active movement tuning | ambition_platformer2d_core::movement::tuning | Resource | mutable gameplay-session mechanical state | movement tuning simulation consumes now | mechanical input consumed by rollback simulation; Q120 admission prevents unsynchronized live mutation | mutable timeline mechanical state, not a frozen content-generation value | — | SOURCE_CONFIRMED |
+| AUTH-MOVEMENT-TUNING | Active movement tuning | ambition_platformer2d_core::movement::tuning | Resource | mutable gameplay-session mechanical state | movement tuning simulation consumes now | mechanical input consumed by rollback simulation; mechanical-edit admission prevents unsynchronized live mutation | mutable timeline mechanical state, not a frozen content-generation value | — | SOURCE_CONFIRMED |
 | AUTH-FEEL-TUNING | Active platformer feel tuning | ambition_combat::feel | Resource | mutable gameplay-session mechanical state | combat and platformer feel tuning simulation consumes now | mechanical input consumed by rollback simulation; live edits pass through mechanical edit admission | mutable timeline mechanical state | — | SOURCE_CONFIRMED |
 | AUTH-PORTAL-TUNING | Active portal tuning | ambition_portal2d::tuning | Resource | mutable gameplay-session mechanical state | portal mechanics tuning simulation consumes now | mechanical input consumed by rollback simulation; live edits pass through mechanical edit admission | mutable timeline mechanical state | — | SOURCE_CONFIRMED |
 | AUTH-ABILITY-MASK | Admitted developer ability mask | ambition_dev_tools | Resource plus body-component projection | mutable gameplay-session developer mechanical state | the admitted developer ability mask | host-side admitted mechanical input; projected body ability state participates in simulation | mutable timeline mechanical state | — | SOURCE_CONFIRMED |
@@ -202,7 +202,7 @@ The main convergence target is model 2 onto model 4 **plus explicit candidate-ow
 | ID | Who decides | Who writes | Validation separate from publication? | Can failure follow partial publication? | Other publication road for same truth? | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PUB-SHELL-SESSION | shell route/router and registered activation gates | `translate_shell_session_lifecycle` plus provider activation | yes: route readiness/gates precede activation | shell gate refusal cancels pending route; provider/session runtime behavior after activation needs runtime proof | shell session activation is distinct from content and room publication | session publication owner | SOURCE_CONFIRMED |
-| PUB-CONTENT-GENERATION | `publication_boundary` through the shell gate | `commit_content_generation` and content/provider activation code | yes: pending candidate and gate verdict are separate from active selection | candidate can remain pending or be refused before active family publication; Q118 still owes the A-supersedes-B hold witness | content activation and scene/world replacement are still separate publication slices | candidate/admission publication road | SOURCE_CONFIRMED |
+| PUB-CONTENT-GENERATION | `publication_boundary` through the shell gate | `commit_content_generation` and content/provider activation code | yes: pending candidate and gate verdict are separate from active selection | candidate can remain pending or be refused before active family publication; the shell/content A-supersedes-B race still owes its named production witness | content activation and scene/world replacement are still separate publication slices | candidate/admission publication road | SOURCE_CONFIRMED |
 | PUB-ROOM-REPLACEMENT | room lifecycle authorization and prepared plan | `replace_live_world` + `commit_deferred` + transaction close | partly: verification is after live resource/root mutation | yes: verification can fail after outgoing retirement and root/resource writes | same live room truth is changed across root components, resource state, entities, and later messages | SUSPECT_IMPLICIT_TRANSACTION | SOURCE_CONFIRMED |
 | PUB-CONSTRUCTION-CANDIDATE | typed construction transaction | `publish_candidate` removes `InactiveCandidate` | yes: inactive commit then validation then publish | candidate entity roots can be retired on failure; arbitrary resources/effects are outside this primitive | one bounded entity-publication road; A10 must widen ownership around it | bounded candidate entity publication | SOURCE_CONFIRMED |
 | PUB-MECHANICAL-EDIT | rollback owner or default no-rollback policy | each domain Publish system | yes: Propose -> Admit -> Publish | refused/foreign/unhealthy timeline can keep desired value without moving admitted authority | same protocol is shared across six production editor domains | explicit admission road | SOURCE_CONFIRMED |
@@ -217,7 +217,7 @@ Two publication roads need special care:
 
 ## 6. Editor and mechanical mutation architecture
 
-Q120 is a **completed foundation at this snapshot**, not a current blocker.
+The shared mechanical-edit admission protocol is a **completed foundation at this snapshot**, not a current blocker.
 The production census found six editor domains and all six use the shared admission protocol.
 
 | ID | Domain | Current stage map | Coverage | Admitted authority | Sources |
@@ -316,10 +316,9 @@ Do not replace clear Bevy set ordering with a custom scheduler abstraction.
 | TRANS-CANDIDATE-FLAG | ROOM_CANDIDATE_BRACKET disabled normal-path switch | known transitional architecture | ROOM_CANDIDATE_BRACKET is false at this snapshot. Candidate support exists but is held off on the normal room path. | A10 should remove the dual road rather than leave a permanent mode flag. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
 | TRANS-HOT-RELOAD-SPLIT | Hot reload publishes room/content/session values on separate queued writes | known transitional architecture | The reload road calls replace_live_world and then queues ActiveContentBinding plus other prepared/session values. The room verifier cannot control all of those writes. | Replace with one A10 candidate session/world publication record. | A10 candidate-world/session publication | SOURCE_CONFIRMED |
 | TRANS-FACADE-MIRRORS | Umbrella facade and compatibility re-export mirrors | migration/compatibility layer | The responsibility map records facade re-export and legacy module mirrors as compatibility surface, while ownership remains in lower crates. | Remove internal mirror paths as consumers move to the canonical public surface. Keep useful external facade ergonomics. | — | DOC_CLAIM |
-| TRANS-PLANNING-HISTORY | Historical closure prose in live queue | historical narrative in a current-state control surface | The planning contract says queue.md is executable work only and closed rows should leave Git as the receipt. The current queue still contains large closed/retracted investigation blocks alongside open architecture work. | After the current milestone, prune closed case-file prose and keep only open executable rows plus compact standing prohibitions. Do not do this during active A10 edits. | current architecture milestone / avoid hot-file conflict | SOURCE_INFERRED |
+| TRANS-PLANNING-HISTORY | Historical closure prose in live queue | resolved documentation debt | The semantic-preservation cleanup at source snapshot `2dbd81abc50f` returned `queue.md`, `status.md`, and the decision ledger to current-state roles. Closed/retracted case-file prose now lives in Git history instead of the live queue. | Keep the queue role structural: open executable rows only, with owner/current state/next action/blocker/acceptance. | — | SOURCE_CONFIRMED |
 
-The deletion ledger has **8** current roads/families.
-Some are supported direct-composition behavior today. Do not delete them until the replacement composition exists.
+The baseline snapshot contained **8** transitional roads/families. `TRANS-PLANNING-HISTORY` was closed by the documentation consolidation at `2dbd81abc50f`; the remaining architecture/compatibility rows still require their replacement conditions. Some are supported direct-composition behavior today. Do not delete them until the replacement composition exists.
 
 ## 11. Crate and package architecture
 
@@ -504,15 +503,14 @@ Use them at major authority boundaries where a passing test might otherwise exer
 
 | ID | Planning layer | Classification | Current role/state | Consolidation direction | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| DOC-QUEUE | queue.md execution ledger | current executable planning mixed with historical narrative | Planning policy defines queue.md as the one live executable ledger and says closed work belongs in Git history. The current file also contains substantial closed/retracted investigation prose. | After the milestone, return queue.md to open executable work plus short standing receipts. Keep this census as the current architecture map. | SOURCE_CONFIRMED |
+| DOC-QUEUE | queue.md execution ledger | current executable planning | The cleanup at `2dbd81abc50f` rewrote the queue to open executable rows with owner, current state, next implementation, blockers and acceptance. Closed investigations were removed from the live control plane. | Maintain this role; do not append completion diaries. | SOURCE_CONFIRMED |
 | DOC-OWNER-PLANS | Focused owner plans | durable current design within live planning | Focused owner documents define current authority, topology, executable work, acceptance, and forbidden regressions for major engine domains. | — | SOURCE_CONFIRMED |
 | DOC-ARCHITECTURE | Durable architecture document | durable design | engine-architecture.md states stable layer ownership, content/construction flow, session/rollback lifetimes, identity rules, and capability composition principles. | — | SOURCE_CONFIRMED |
 | DOC-ADR | Architecture decision records | decision record | ADRs record explicit architectural decisions such as immutable prepared content, exact session identity, spawn provenance, and construction planning. | — | SOURCE_CONFIRMED |
 | DOC-HISTORY | Engineering journals and Git history | historical evidence, not current-state authority | Repository policy places investigation/history in Git and engineering memory under dev rather than in current planning. The census should not duplicate that narrative. | — | SOURCE_CONFIRMED |
 
 The planning contract already states the target structure: queue for executable work, focused owner docs for current design, ADRs for decisions, and Git/dev for history.
-The main current mismatch is closed/retracted case-file prose inside `queue.md`.
-Do not clean that hot file during active A10 work.
+The live control-plane mismatch identified by this census was corrected in the documentation consolidation at `2dbd81abc50f`. Future reviewers should treat renewed historical growth in `queue.md` or `status.md` as a regression of the planning contract, not as a reason to add another archive layer.
 
 ## Current complexity classification
 
@@ -547,8 +545,7 @@ The strongest current cases are:
 - development reload split scene/content/session publication;
 - direct-session and direct-generation fallbacks;
 - direct-fixture missing-content-binding allowance;
-- compatibility/facade mirrors;
-- historical case-file prose in live planning.
+- compatibility/facade mirrors.
 
 ### Uncertain areas
 
@@ -567,6 +564,6 @@ This census does not claim:
 - rollback restore behavior for any state whose registration/restore contract was not explicit in source;
 - A10's final last-good-world guarantee on the production room road;
 - the two-App peer identity witness with different local histories;
-- Q118's pending A-supersedes-B hold race witness;
+- the pending shell/content A-supersedes-B hold-race witness;
 - runtime absence of hidden observer/hook/external side effects outside the bounded candidate protocol;
 - that any existing test passes at this snapshot.

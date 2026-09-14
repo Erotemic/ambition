@@ -1,7 +1,8 @@
 # Architecture consolidation plan
 
-**Snapshot:** `662a9b56096a304ce9fcfe3ebcf1177403f2452d`
-**Purpose:** remove independent truths after the current architecture milestone. This file does not authorize work on active A10 or identity campaigns.
+- **Census baseline:** `662a9b56096a304ce9fcfe3ebcf1177403f2452d`
+- **Planning-control refresh:** `2dbd81abc50f42a601d8e6177478ef0985002365`
+- **Purpose:** remove independent truths after the current architecture milestone. The planning-control row was refreshed by the documentation consolidation; other ranked architecture claims retain the census baseline. This file does not authorize work on active A10 or identity campaigns.
 
 The ranking is by authority/lifecycle leverage, not by LOC.
 A candidate can move down if a new source inspection shows that two values have distinct semantic owners.
@@ -12,14 +13,14 @@ A candidate can move down if a new source inspection shows that two values have 
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | Finish A10 as the one live room/session replacement transaction | ACTIVE — do not start a parallel implementation | large | A10 is already the current architecture milestone. This row is observation only. |
 | 2 | C02 | Separate local lifetime/correlation identity from peer-stable mechanical provenance | ACTIVE separate identity campaign | large | Do not start before the active identity campaign checkpoint. |
-| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | RECOMMENDED first new campaign after current milestone | large | A10 checkpoint + peer identity checkpoint. Q118 supersession witness should also be closed before touching activation plumbing. |
+| 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | RECOMMENDED first new campaign after current milestone | large | A10 checkpoint + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing. |
 | 4 | C04 | Make activated generation mechanics the only live-session construction source | candidate after session ownership stabilizes | medium | C03 owner decision + supported-composition decision. |
-| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | candidate after A10 and Q118 lifecycle closure | large | A10 complete + Q118 supersession witness + identity checkpoint. |
+| 5 | C05 | Collapse live content/session publication onto one admitted candidate owner | candidate after A10 and shell/content supersession closure | large | A10 complete + shell/content A-supersedes-B witness + identity checkpoint. |
 | 6 | C06 | Converge reconstruction entry roads on one materialization/publication engine | candidate after C01/C05 | large | C01 + C05. |
 | 7 | C07 | Replace optional canonical-authority fallbacks with explicit composition contracts where the authority is required | candidate after composition decision | medium | Supported composition profiles must be named first. |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup | medium | Do not run during A10 or another large ownership migration. |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | later structural review | medium-large | After owner consolidation, not before. |
-| 10 | C10 | Restore planning control-plane separation between current state and history | safe documentation campaign after milestone | small-medium | Current architecture milestone complete. |
+| 10 | C10 | Restore planning control-plane separation between current state and history | **COMPLETED 2026-09-14** | small-medium | Closed by semantic-preservation documentation cleanup. |
 
 ## 1. C01 — Finish A10 as the one live room/session replacement transaction
 
@@ -93,7 +94,7 @@ Local tokens stay local. Canonical provenance uses only peer-stable mechanical f
 
 **STATE:** RECOMMENDED first new campaign after current milestone
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** A10 checkpoint + peer identity checkpoint. Q118 supersession witness should also be closed before touching activation plumbing.
+**DO NOT START BEFORE:** A10 checkpoint + peer identity checkpoint. The shell/content A-supersedes-B race witness should also be closed before touching activation plumbing.
 
 ### CURRENT STATE
 
@@ -113,7 +114,7 @@ Reset-only process storage where direct `SessionRoot` ownership works; repeated 
 
 ### DEPENDENCIES / BLOCKERS
 
-Finish A10 and peer identity first so the live/candidate session owner is stable. Preserve rollback registrations. Q120 is not a blocker.
+Finish A10 and peer identity first so the live/candidate session owner is stable. Preserve rollback registrations. Mechanical edit admission is already established and is not a blocker.
 
 ### RISK
 
@@ -159,9 +160,9 @@ One generation authority for every live gameplay construction road; direct fixtu
 
 ## 5. C05 — Collapse live content/session publication onto one admitted candidate owner
 
-**STATE:** candidate after A10 and Q118 lifecycle closure
+**STATE:** candidate after A10 and shell/content supersession closure
 **IMPLEMENTATION CAMPAIGN SIZE:** large
-**DO NOT START BEFORE:** A10 complete + Q118 supersession witness + identity checkpoint.
+**DO NOT START BEFORE:** A10 complete + shell/content A-supersedes-B witness + identity checkpoint.
 
 ### CURRENT STATE
 
@@ -181,7 +182,7 @@ Separate queued writes for values that all mean “this session is now generatio
 
 ### DEPENDENCIES / BLOCKERS
 
-A10; Q118 A-supersedes-B hold witness; peer-stable identity.
+A10; shell/content A-supersedes-B hold witness; peer-stable identity.
 
 ### RISK
 
@@ -329,43 +330,30 @@ Package graph follows ownership/change boundaries and preserves useful independe
 
 ## 10. C10 — Restore planning control-plane separation between current state and history
 
-**STATE:** safe documentation campaign after milestone
-**IMPLEMENTATION CAMPAIGN SIZE:** small-medium
-**DO NOT START BEFORE:** Current architecture milestone complete.
+**STATE:** COMPLETED 2026-09-14
 
-### CURRENT STATE
+The documentation consolidation at source snapshot `2dbd81abc50f` returned the
+live control plane to the repository's existing contract:
 
-`docs/planning/README.md` says `queue.md` is executable work only, but `queue.md` still carries large closed/retracted case-file blocks.
+- `queue.md` contains open executable work rather than completion diaries;
+- `status.md` is a short orientation snapshot;
+- `awaiting-maintainer-decision.md` contains unresolved choices only;
+- closed/retracted investigation history is left to Git;
+- two large current owner docs were rewritten around current authority/open work
+  instead of review chronology.
 
-### INDEPENDENT TRUTHS INVOLVED
+The stable ledger entry `TRANS-PLANNING-HISTORY` remains as the closure receipt so
+future census updates do not rediscover the same debt under a new paragraph.
 
-queue, status, focused owner plans, ADRs, dev notes, Git history.
-
-### WHY COMPLEXITY EXISTS
-
-Agents preserve investigation prose when closing work, even though Git already keeps it.
-
-### WHAT COULD DISAPPEAR
-
-Closed/retracted narratives in live queue and duplicate current-state summaries. Preserve open work, standing prohibitions, and current owner contracts.
-
-### DEPENDENCIES / BLOCKERS
-
-Current A10 milestone should finish first to avoid hot-file conflict.
-
-### RISK
-
-low code risk; medium coordination risk if open constraints are deleted with history.
-
-### EXPECTED BENEFIT
-
-A short executable queue and focused current-state owner docs. Git holds chronology.
+**REGRESSION RULE:** if a live control-plane file starts accumulating closed case
+files again, delete/compress the history in place. Do not create another archive
+document inside `docs/`.
 
 ## Recommended first new campaign after the current architecture milestone
 
 Start **C03: session-owned state and reset-infrastructure consolidation** only after A10 and the active peer-identity checkpoint are stable.
-Close the named Q118 supersession witness first if it still shares activation code at that point.
-Q120 does not block this campaign; its editor admission protocol is already the baseline.
+Close the named shell/content A-supersedes-B supersession witness first if it still shares activation code at that point.
+Mechanical editor admission does not block this campaign; its shared protocol is already the baseline.
 
 Do not begin by moving all 32 values.
 Use a bounded owner-by-owner sequence:

@@ -735,7 +735,7 @@
         "damage/knockback policy",
         "developer projections"
       ],
-      "rollback_relationship": "mechanical input consumed by rollback simulation; Q120 admission prevents unsynchronized live mutation",
+      "rollback_relationship": "mechanical input consumed by rollback simulation; mechanical-edit admission prevents unsynchronized live mutation",
       "generation_relationship": "mutable timeline mechanical state, not a frozen content-generation value"
     },
     {
@@ -3004,31 +3004,31 @@
       "category": "transitional",
       "name": "Historical closure prose in live queue",
       "owner": "docs/planning",
-      "status": "SOURCE_INFERRED",
+      "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "The planning contract says queue.md is executable work only and closed rows should leave Git as the receipt. The current queue still contains large closed/retracted investigation blocks alongside open architecture work.",
+      "current_truth": "The documentation consolidation at source snapshot 2dbd81abc50f returned queue.md, status.md, and the maintainer-decision ledger to current-state roles. Closed/retracted investigation prose is no longer carried in the live queue.",
       "source_paths": [
         "docs/planning/README.md",
-        "docs/planning/queue.md"
+        "docs/planning/queue.md",
+        "docs/planning/status.md",
+        "docs/planning/awaiting-maintainer-decision.md"
       ],
       "evidence": [
         {
-          "status": "SOURCE_INFERRED",
-          "claim": "The planning contract says queue.md is executable work only and closed rows should leave Git as the receipt. The current queue still contains large closed/retracted investigation blocks alongside open architecture work.",
+          "status": "SOURCE_CONFIRMED",
+          "claim": "The documentation consolidation at source snapshot 2dbd81abc50f returned queue.md, status.md, and the maintainer-decision ledger to current-state roles. Closed/retracted investigation prose is no longer carried in the live queue.",
           "sources": [
             "docs/planning/README.md",
-            "docs/planning/queue.md"
+            "docs/planning/queue.md",
+            "docs/planning/status.md",
+            "docs/planning/awaiting-maintainer-decision.md"
           ]
         }
       ],
-      "classification": "historical narrative in a current-state control surface",
-      "consolidation_hypothesis": "After the current milestone, prune closed case-file prose and keep only open executable rows plus compact standing prohibitions. Do not do this during active A10 edits.",
-      "blocked_by": [
-        "current architecture milestone / avoid hot-file conflict"
-      ],
-      "metric_tags": [
-        "known_transitional"
-      ]
+      "classification": "resolved documentation debt; retained as stable-ID closure receipt",
+      "consolidation_hypothesis": "Closed. Preserve the queue contract and let Git/dev carry chronology.",
+      "blocked_by": [],
+      "metric_tags": []
     },
     {
       "id": "CRATE-ACTOR-MONOLITH",
@@ -3601,8 +3601,8 @@
       "name": "queue.md execution ledger",
       "owner": "docs/planning",
       "status": "SOURCE_CONFIRMED",
-      "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "Planning policy defines queue.md as the one live executable ledger and says closed work belongs in Git history. The current file also contains substantial closed/retracted investigation prose.",
+      "complexity": "ESSENTIAL_COMPLEXITY",
+      "current_truth": "queue.md is the live executable engineering ledger. At source snapshot 2dbd81abc50f it contains open rows only, with owner/current state/next implementation/blockers/acceptance rather than closed investigation history.",
       "source_paths": [
         "docs/planning/README.md",
         "docs/planning/queue.md"
@@ -3610,18 +3610,16 @@
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Planning policy defines queue.md as the one live executable ledger and says closed work belongs in Git history. The current file also contains substantial closed/retracted investigation prose.",
+          "claim": "queue.md is the live executable engineering ledger. At source snapshot 2dbd81abc50f it contains open rows only, with owner/current state/next implementation/blockers/acceptance rather than closed investigation history.",
           "sources": [
             "docs/planning/README.md",
             "docs/planning/queue.md"
           ]
         }
       ],
-      "classification": "current executable planning mixed with historical narrative",
-      "consolidation_hypothesis": "After the milestone, return queue.md to open executable work plus short standing receipts. Keep this census as the current architecture map.",
-      "blocked_by": [
-        "active A10 edits"
-      ]
+      "classification": "current executable planning",
+      "consolidation_hypothesis": "Maintain the current role; remove closed rows instead of appending completion diaries.",
+      "blocked_by": []
     },
     {
       "id": "DOC-OWNER-PLANS",

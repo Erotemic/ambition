@@ -249,6 +249,24 @@ pub enum StagedWorldViolation {
     /// publish, report `room-loaded`, and leave the world with no platforms in
     /// it, which is a room the player falls through.
     NoPlatformStateToPublishInto,
+    /// The staged world seats the session in a room this transaction did not
+    /// build.
+    ///
+    /// ⛔⛤ **NOTHING TIED THE STAGED WORLD TO THE TRANSACTION VERIFYING IT.**
+    /// `GeometryIsNotTheTargetRoom` catches an index and a geometry that
+    /// disagree with each other — but a replacement left over from a DIFFERENT
+    /// room is perfectly self-consistent, and would have published that room's
+    /// geometry, index and platform state under this room's verdict.
+    ///
+    /// ⚠ **REACHABLE BY A LEAK, NOT ONLY BY MISUSE.** A replacement is staged by
+    /// `replace_live_world` and removed by the verdict, so it survives a frame
+    /// only if the transaction it was staged for never closed. The next room's
+    /// transaction would then find it, declare ITS outgoing roster retiring, and
+    /// publish a world nobody planned.
+    StagedWorldIsNotThisRoom {
+        staged: String,
+        room: String,
+    },
 }
 
 impl std::fmt::Display for StagedWorldViolation {
@@ -277,6 +295,11 @@ impl std::fmt::Display for StagedWorldViolation {
                  no `MovingPlatformSet`, so publishing would leave the room \
                  without the platforms it authored"
             ),
+            Self::StagedWorldIsNotThisRoom { staged, room } => write!(
+                f,
+                "this transaction built `{room}` and the world staged for it seats \
+                 the session in `{staged}`"
+            ),
         }
     }
 }
@@ -294,6 +317,7 @@ impl std::error::Error for StagedWorldViolation {}
 fn verify_staged_world(
     world: &World,
     pending: &PendingWorldReplacement,
+    room_id: &str,
 ) -> Result<(), Vec<StagedWorldViolation>> {
     use ambition_platformer2d_world::rooms::RoomSet;
 
@@ -332,6 +356,15 @@ fn verify_staged_world(
                 violations.push(StagedWorldViolation::GeometryIsNotTheTargetRoom {
                     target: spec.world.name.clone(),
                     geometry: pending.geometry.name.clone(),
+                })
+            }
+            // ⛔ AND THE STAGED ROOM MUST BE THE ONE THIS TRANSACTION BUILT. A
+            // replacement left over from another room is self-consistent and
+            // would publish that room's whole world under this room's verdict.
+            Some(spec) if spec.id != room_id => {
+                violations.push(StagedWorldViolation::StagedWorldIsNotThisRoom {
+                    staged: spec.id.clone(),
+                    room: room_id.to_string(),
                 })
             }
             Some(_) => {}
@@ -591,10 +624,10 @@ pub(crate) fn open(
                     // time you verify"*, and under A10 they are deliberately
                     // still standing — that is the whole point of staging the
                     // sweep behind the verdict.
-                    if let Some(outgoing) = world
+                    let staged = world
                         .get_resource::<PendingWorldReplacement>()
-                        .map(PendingWorldReplacement::outgoing_entities)
-                    {
+                        .map(PendingWorldReplacement::outgoing_entities);
+                    if let Some(outgoing) = staged.as_ref() {
                         let planned: BTreeSet<_> = planned.iter().collect();
                         for (sim_id, entry) in baseline.entries() {
                             if outgoing.contains(&entry.entity) && !planned.contains(sim_id) {
@@ -679,9 +712,8 @@ fn verify_and_publish(
         });
     };
 
-    let OpenedTransaction { baseline, effects } = match world
-        .remove_resource::<PendingConstructionBaseline>()
-    {
+    let OpenedTransaction { baseline, effects } =
+        match world.remove_resource::<PendingConstructionBaseline>() {
         Some(PendingConstructionBaseline(Ok(opened))) => opened,
         Some(PendingConstructionBaseline(Err(error))) => {
             // Publishing a room on top of that would bury the earlier fault.
@@ -814,7 +846,9 @@ fn verify_and_publish(
     // Asked BEFORE the verdict is taken, so an incoherent staged world refuses
     // the room exactly as an incoherent roster does.
     let staged_violations = match world.get_resource::<PendingWorldReplacement>() {
-        Some(pending) => verify_staged_world(world, pending).err().unwrap_or_default(),
+        Some(pending) => verify_staged_world(world, pending, &room_id)
+            .err()
+            .unwrap_or_default(),
         None => Vec::new(),
     };
     for violation in &staged_violations {

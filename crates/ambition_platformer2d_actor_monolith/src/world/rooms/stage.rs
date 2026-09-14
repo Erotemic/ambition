@@ -1344,6 +1344,79 @@ mod tests {
         );
     }
 
+    /// ⛔⛤ **AND A WORLD STAGED FOR ANOTHER ROOM IS REFUSED — NOTHING TIED THE
+    /// TWO TOGETHER.**
+    ///
+    /// `GeometryIsNotTheTargetRoom` catches an index and a geometry that
+    /// disagree with EACH OTHER. A replacement left over from a DIFFERENT room is
+    /// perfectly self-consistent, and would have published that room's geometry,
+    /// index and platform state under this room's verdict.
+    ///
+    /// ⚠ **REACHABLE BY A LEAK, NOT ONLY BY MISUSE.** A replacement is staged by
+    /// `replace_live_world` and removed by the verdict, so it survives a frame
+    /// only if the transaction it was staged for never closed. The next room's
+    /// transaction would then find it, declare ITS outgoing roster retiring, and
+    /// publish a world nobody planned.
+    #[test]
+    fn a_world_staged_for_another_room_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // The plan builds `candidate` (index 1); the staged world seats the
+        // session in `n` (index 0) and carries `n`'s geometry — self-consistent,
+        // and nothing to do with the room being verified.
+        let plan = candidate_plan();
+        let stale_outgoing: Vec<(Entity, bool)> =
+            outgoing.iter().map(|entity| (*entity, false)).collect();
+        let stale_geometry = empty_spec("n").world.clone();
+        app.add_systems(
+            bevy::prelude::Update,
+            move |mut commands: Commands| {
+                let stale = transaction::PendingWorldReplacement::new(
+                    stale_outgoing.clone(),
+                    None,
+                    0,
+                    stale_geometry.clone(),
+                    Vec::new(),
+                );
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    world.insert_resource(stale);
+                });
+                plan.spawn_contents(&mut commands);
+            },
+        );
+        app.update();
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published another room's staged world under its own verdict: \
+             {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.iter().any(|violation| matches!(
+                violation,
+                super::transaction::StagedWorldViolation::StagedWorldIsNotThisRoom { .. }
+            )),
+            "got {:?}",
+            verification.staged_violations
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
+    }
+
     /// ⛔ **AND A ROOM WITH AUTHORED PLATFORMS AND NOWHERE TO PUT THEM IS
     /// REFUSED TOO — THE LAST SILENT SKIP IN THE PUBLICATION.**
     ///

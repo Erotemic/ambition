@@ -639,12 +639,15 @@ Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION R
   `ActiveContentBinding`, transit the player, reset movement/combat, and replace
   `ldtk_index` / `prepared_identity` / `prepared_content` — **none of which
   receives the verdict from `transaction::close`.** A refused N+1 therefore
-  destroys or mutates N even when every candidate ENTITY is discarded. ⇒ FOUR
-  distinct publication issues remain, not one: (1) outgoing N dies before the
-  candidate is accepted; (2) non-entity room state goes live before verification;
-  (3) hot-reload content/session state goes live independently of the verdict;
-  (4) verification has no way to validate N+1 *while intentionally retaining N* —
-  it calls the coexistence an accidental duplicate. ⚠ **AND `Q124` IS NO LONGER A
+  destroyed or mutated N even when every candidate ENTITY was discarded. ⇒ FOUR
+  distinct publication issues, not one — ✅ **ALL FOUR CLOSED 2026-09-14**:
+  (1) outgoing N dies before the candidate is accepted → the sweep moved inside
+  `apply_world_replacement`; (2) non-entity room state goes live before
+  verification → `PendingWorldReplacement` stages all of it; (3) hot-reload
+  content/session state goes live independently of the verdict →
+  `room_publication_succeeded` gates it; (4) verification has no way to validate
+  N+1 *while intentionally retaining N* → `TransactionBaseline::superseding` plus
+  `verify_projected_roster`, which are complements rather than alternatives. ⚠ **AND `Q124` IS NO LONGER A
   BLOCKER AT ALL** (withdrawn 2026-09-13): the rule is already asserted in
   production and is temporal, so what that row measured becomes an A10 INPUT
   requirement — a room reconstruction under a checkpoint restore must receive the
@@ -653,7 +656,8 @@ Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION R
   packet is to be rewritten around a typed CANDIDATE WORLD/SESSION transaction —
   prepare every N+1 value offside, validate, then one authority switch, then
   retire N — **not** "save N's resources and restore on failure", which is
-  duplicate truth plus a recovery procedure.
+  duplicate truth plus a recovery procedure. ✅ That is the shape the ROOM half
+  now has; the SESSION half is unstarted. See the A10 row below.
 - **The flag itself**, once the above exists. ⛔ **ITS OTHER BLOCKER WAS `Q124`,
   AND THAT ROW IS WITHDRAWN — the rule was never Jon's to choose.**
   MEASURED 2026-09-13: with the flag on, 87 of 89 app room tests pass and shipped
@@ -1351,6 +1355,25 @@ certifies nothing.
 
 ## ⛔⛤ A10 IS BLOCKED ONE LAYER BELOW CONSTRUCTION — THE DEEPER REVIEW, 2026-09-13
 
+✅ **DISCHARGED FOR THE ROOM SCOPE, 2026-09-14 — AND THE SECTION IS KEPT BECAUSE
+ITS CLOSING INSTRUCTION WOULD OTHERWISE STOP THE PACKET THAT ANSWERED IT.** Read
+this as the pre-implementation analysis it is. The finding below — *"the engine has
+no state representation for live N plus candidate N+1"* — was true of the SESSION
+authorities and still is; it was true of the ROOM and no longer is.
+
+⭐⭐ **AND THE TWO SHAPES IT OFFERED TURNED OUT TO BE COMPLEMENTS, NOT
+ALTERNATIVES.** It ended *"neither is written, and no A10 publication code should
+be built on the claim that supersession is already solved"*, presenting a distinct
+declaration and a proposed post-publication roster as a choice. **Both are
+written, and each is load-bearing without the other being enough:** the
+declaration (`TransactionBaseline::superseding` + `PublicationEffects`) is what
+makes the coexistence legal at close, and the projection
+(`verify_projected_roster`) is the only thing that then asks whether publishing
+would leave ONE occupant. Choosing either alone would have shipped half a check.
+
+⇒ The instruction stands for the SESSION scope, where the singletons below are
+unchanged. See the A10 row further down for what the room scope delivered.
+
 **The engine has no state representation for "live N plus candidate N+1."** That
 is the finding, and it is deeper than *"N is retired too early"*: moving the
 retirement later would still leave candidate preparation with nowhere to put N+1's
@@ -1516,6 +1539,10 @@ has not been made:
 THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
 in intent, and it is recorded here because the retracted paragraph above is
 exactly the sentence a future packet would have quoted.
+
+✅ **BOTH ARE WRITTEN AS OF 2026-09-14 AND THEY ARE NOT ALTERNATIVES** — see the
+note at the head of this section. The instruction is discharged for the room scope
+and stands for the session scope.
 
 ### ⭐⭐ A10 — THE LAST-GOOD-WORLD GUARANTEE, ROOM SCOPE COMPLETE, 2026-09-14
 

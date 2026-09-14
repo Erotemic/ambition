@@ -1573,7 +1573,24 @@ point of staging the sweep behind the verdict.
 | --- | --- | --- |
 | `verify_committed_roster` | is the world I just built coherent? | `SupersededLiveLost`, `SupersededCandidateMissing`, plus the pre-existing set |
 | `verify_projected_roster` | would the roster be valid if this published? | `Duplicated`, `SupersededNotLive`, `SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`, `LiveLostWithoutDeclaration` |
-| `verify_staged_world` | would the non-entity world be coherent? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `NoSessionRootToPublishInto`, `NoPlatformStateToPublishInto` |
+| `verify_staged_world` | would the non-entity world be coherent, and is it THIS room's? | `TargetRoomOutOfRange`, `GeometryIsNotTheTargetRoom`, `StagedWorldIsNotThisRoom`, `NoSessionRootToPublishInto`, `NoPlatformStateToPublishInto` |
+
+⛔⛤ **AND `StagedWorldIsNotThisRoom` CLOSES A GAP THE OTHER CHECKS CANNOT SEE.**
+`GeometryIsNotTheTargetRoom` catches an index and a geometry that disagree with
+EACH OTHER; a replacement left over from a DIFFERENT room is perfectly
+self-consistent and would publish that room's geometry, index and platform state
+under this room's verdict. ⚠ Reachable by a LEAK rather than only by misuse: a
+replacement is staged by `replace_live_world` and removed by the verdict, so it
+survives a frame only if the transaction it was staged for never closed — and the
+next room's transaction would find it, declare ITS outgoing roster retiring, and
+publish a world nobody planned.
+
+⚠ **I FIRST WROTE THIS AS A BOOLEAN — "did `open` see the staged world?" — AND THE
+ARM FOR IT PASSED WITH A PUBLISHED ROOM.** Staging from outside
+`replace_live_world` lands AFTER `close`, never between `open` and `close`,
+because a single system's command queue is applied contiguously. The bool was
+pinning an ordering that is not expressible; the identity check pins the thing
+that actually matters.
 
 ⛔⛤ **THREE OF THOSE EXIST BECAUSE THE FAILURE THEY CATCH IS SILENT.**
 `RoomSet::set_active` is `index.min(len - 1)` — an out-of-range index does not
@@ -1736,7 +1753,7 @@ arm certifying a road production no longer uses.
 | `the_shipped_apps_own_first_room_publishes` | forcing `published = false` → a refusal with no violations |
 | `a_reset_whose_start_room_is_refused_wipes_nothing` | dropping the reset's verdict check |
 | `processor_wipes_save_flags_and_clears_registries`, `processor_warps_player_to_start_spawn` | forcing `room_publication_succeeded` to answer `false` |
-| the three `verify_staged_world` arms | short-circuiting it to `Ok(())` |
+| the five `verify_staged_world` arms | short-circuiting it to `Ok(())`, or each check individually |
 | `the_same_two_generations_declared_a_supersession_verify_clean` and the three beside it | the declaration itself |
 
 ⛔⛤ **AND TWO OF THOSE ASSERTIONS COULD NOT FAIL BEFORE THEY COULD.** Recorded

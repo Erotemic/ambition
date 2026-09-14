@@ -1734,12 +1734,52 @@ because both failures are shapes I have hit before:
    beside it: an assertion that cannot fail is worse than no assertion, because it
    reads as coverage.
 
-⚠ **WHAT IS STILL NOT BEHIND THE VERDICT ON THE BODY SIDE**, named rather than
-implied: the RESET's `reset_body_clusters` (mana, animation, combat, camera — a
-fuller operation than an arrival) and the hot reload's `transit_body` at
-`TransitVelocity::Keep`. Both callers pass `None` for the arrival and say so at
-the call site. That is the player-reset-state half of A10 and the next packet,
-with the session-level authorities below.
+✅ **AND THE SANDBOX RESET IS STAGED WHOLE — 2026-09-14.** Its own comment named
+the boundary and stopped one step short of it: *"Past the point of refusal. Every
+OTHER teardown system waits for this rather than for the request, so a declined
+reset costs nothing anywhere."* True of a declined PREFLIGHT, which was the only
+refusal that existed when it was written. The room transaction can refuse too, and
+under that order the refusal arrived after the save was gone, the registries were
+cleared, the occurrence ledger was forgotten and the player had been warped to the
+spawn of a room that was never built.
+
+⇒ `NewGameResetCommitted` now means what its doc says: **the reset HAPPENED.** The
+wipes, the ledger, the player reset, the respawn request and the banner are ONE
+queued closure gated on `room_publication_succeeded`, and every dependent teardown
+system becomes verdict-gated for free because they already waited on that message.
+
+⭐ **THE ENCOUNTER ROSTER IS CAPTURED AT REQUEST AND DESPAWNED AT PUBLICATION** —
+the same reason `replace_live_world` captures the outgoing room. By the time the
+verdict runs, the start room's OWN encounters exist, and a fresh `With<Encounter>`
+query would sweep the room the reset just built.
+
+⚠ **AND `forget_everything()` IS SAFE AFTER THE REBUILD**, checked rather than
+assumed: every writer of `AuthoredOccurrences` is a SYSTEM, and no system runs
+inside a command flush, so the room the verdict just published has authored no
+rows for it to erase.
+
+**ARM**: `a_reset_whose_start_room_is_refused_wipes_nothing`, with a production
+refusal (a composition that cannot hide a candidate is refused by
+`transaction::open`) and a non-vacuity premise (the save must hold a checkpoint,
+or *"the save survived"* is true of an empty one). **Poisoned BOTH ways**: dropping
+the verdict check reddens it; forcing `room_publication_succeeded` to answer
+`false` reddens `processor_wipes_save_flags_and_clears_registries` and
+`processor_warps_player_to_start_spawn` instead. `processor_restores_authored_start_room_platform`
+stays green under the second, correctly — the platform state is published by
+`apply_world_replacement`, not by the closure.
+
+⭐ **THE SIGNATURE IS THE RECEIPT.** `AmbitionGameSave`, the three registries,
+`EncounterMusicRequest`, `GameplayBanner`, the player query, the clock writer, the
+occurrence ledger and the `NewGameResetCommitted` writer are all GONE from
+`process_new_game_reset_request`'s parameters. The staged closure writes them at a
+command flush — exclusive world access, so nothing is lost to parallelism — and
+the system can no longer spell a reset it has not verified.
+
+⚠ **WHAT IS STILL NOT BEHIND THE VERDICT**, named rather than implied: the hot
+reload's `transit_body` at `TransitVelocity::Keep` (a repair of the body's place in
+a world it never left, not an arrival), and its `DialogState` / `BodyCombat` /
+cooldown resets. Both remaining callers pass `None` for the arrival and say so at
+the call site. ⇒ With the session-level authorities below, that is what is left.
 
 ✅ **AND THE HOT RELOAD'S CONTENT GENERATION IS BEHIND THE VERDICT — 2026-09-14.**
 Four writes said *"the session is now this generation"*: `ActiveContentBinding`,

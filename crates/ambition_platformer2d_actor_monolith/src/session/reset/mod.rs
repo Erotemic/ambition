@@ -192,14 +192,6 @@ use ambition_platformer2d_world::rooms::RoomSet;
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
-    sim_state:
-        ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
-    clock_resets: MessageWriter<'w, ambition_time::time_control::ClockResetRequest>,
-    /// ⚠ Read by `clear_transient_on_sandbox_reset`'s siblings, not by the reset
-    /// itself any more: the room's platform state is published by the room
-    /// transaction's verdict. See `PendingWorldReplacement`.
-    #[allow(dead_code)]
-    moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     /// ⛔⛤ **THE APP'S REGISTRIES ARE THE FALLBACK NOW, NOT THE ANSWER.** A reset
     /// rebuilds the start room of the generation this session is RUNNING, so it
@@ -250,23 +242,6 @@ pub struct ResetPlayState<'w> {
     /// The developer's actor population cap, same class of authority as the
     /// brain override and threaded the same way.
     population_cap: Option<Res<'w, ambition_characters::actor::AuthoredPopulationCap>>,
-    /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
-    committed: MessageWriter<'w, NewGameResetCommitted>,
-    /// **What the world remembers about the occurrences it authored** — cleared
-    /// by the reset, not read by it.
-    ///
-    /// **a reset is the EMPTY BASELINE.** A relocated occurrence's row names a
-    /// room and a position in a world this reset is about to destroy; leaving it
-    /// standing would put a moved object back at coordinates from the run that
-    /// just ended, the first time the player walked into that room again. The
-    /// custody leg would have retracted itself — the placement leg cannot,
-    /// because "not in the world" is the ordinary condition of a row whose room
-    /// is unloaded, so nothing but the reset can speak for it.
-    ///
-    /// `Option`, like every other reader: a composition without the item
-    /// plugin remembers nothing and has nothing to clear.
-    occurrences:
-        Option<ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -301,15 +276,15 @@ pub struct NewGameResetDecided;
 /// mutations, and BEFORE the populate systems so when they run on
 /// the next frame the cleared registries see fresh state.
 pub fn process_new_game_reset_request(
+    // ⛔⛤ **THE PARAMS THIS SYSTEM NO LONGER TAKES ARE THE POINT OF THE CHANGE.**
+    // `AmbitionGameSave`, the three registries, `EncounterMusicRequest`,
+    // `GameplayBanner`, the player query, the clock writer, the occurrence ledger
+    // and `NewGameResetCommitted` were all `&mut` here. They are written by the
+    // staged closure below instead — at a command flush, which is exclusive world
+    // access, so nothing is lost to parallelism and the SIGNATURE no longer
+    // claims a reset that has not been verified.
     mut request: ResMut<NewGameResetRequested>,
-    mut save: ResMut<AmbitionGameSave>,
-    mut encounter_registry: ResMut<EncounterRegistry>,
-    mut boss_registry: ResMut<BossEncounterRegistry>,
-    mut quest_registry: ResMut<QuestRegistry>,
-    mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        EncounterMusicRequest,
-    >,
-    mut play_state: ResetPlayState<'_>,
+    play_state: ResetPlayState<'_>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomSet>,
     // ⛔ A GUARD, NOT A WRITE TARGET — and `Single` is what makes it one: this
     // system does not run unless the live session root carries room geometry. The
@@ -320,11 +295,7 @@ pub fn process_new_game_reset_request(
         ambition_platformer2d_core::RoomGeometry,
     >,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
-    mut respawn_visuals: MessageWriter<
-        ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested,
-    >,
     mut commands: SessionCommands<'_, '_>,
-    mut banner: ResMut<ambition_combat::events::GameplayBanner>,
     // **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
     // CHANGE moves the room out from under its residents, so an object in a
     // body's custody rides across with whoever holds it. A reset DESTROYS the
@@ -339,21 +310,6 @@ pub fn process_new_game_reset_request(
     // `populate_encounter_registry` (which the cleared `specs_loaded` flag
     // re-arms) respawns them fresh from the empty save next frame.
     encounter_entities: Query<Entity, With<ambition_encounter::Encounter>>,
-    mut player_q: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d_core::movement::MotionModel,
-            &mut ambition_characters::actor::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-            &mut ambition_combat::BodyMelee,
-            &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
-        ),
-        // PRIMARY-only: the reset warps THE player to the start-room spawn. A
-        // brain-driven clone is a transient demo body; scoping to the primary keeps
-        // the reset working once a second PlayerEntity exists (bare single_mut would Err).
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
 ) {
     if !request.request {
         return;
@@ -443,39 +399,31 @@ pub fn process_new_game_reset_request(
         }
     };
 
-    info!(
-        target: "ambition_platformer2d::reset",
-        "sandbox reset requested — wiping save, registries, and runtime"
-    );
-    // Past the point of refusal. Every OTHER teardown system waits for this
-    // rather than for the request, so a declined reset costs nothing anywhere —
-    // not just in this function.
-    play_state.committed.write(NewGameResetCommitted);
+    // ⛔⛤ **A10: THE RESET IS STAGED, NOT PERFORMED.** Everything below — the
+    // save wipe, the registries, the remembered occurrences, the player's own
+    // position and state, the commit message every other teardown system waits
+    // for — happens ONLY if the start room publishes.
+    //
+    // ⚠ **THE PREVIOUS SHAPE HAD A NAME FOR THIS AND STOPPED ONE STEP SHORT.**
+    // The line it replaced read *"Past the point of refusal. Every OTHER teardown
+    // system waits for this rather than for the request, so a declined reset
+    // costs nothing anywhere."* True of a declined PREFLIGHT, which was the only
+    // refusal that existed when it was written. The room transaction can refuse
+    // too, and under the old order that refusal arrived after the save was gone,
+    // the registries were cleared and the player had been warped to the spawn of
+    // a room that was never built. ⇒ `NewGameResetCommitted` now means what its
+    // doc says: the reset HAPPENED.
+    //
+    // ⭐ The roster is captured HERE and despawned THERE, for the same reason
+    // `replace_live_world` captures the outgoing room: by the time the verdict
+    // runs, the start room's OWN encounters exist, and a fresh
+    // `With<Encounter>` query would sweep the room this reset just built.
+    let doomed_encounters: Vec<Entity> = encounter_entities.iter().collect();
+    let spawn = room_plan.spec().world.spawn;
+    let air_jumps = tuning.air_jumps;
+    let start_room_id = room_plan.room_id().to_string();
 
-    // 1. Wipe the persisted save. Change-detection will trigger the
-    //    autosave system to write the empty save to disk this tick.
-    *save.data_mut() = ambition_persistence::save_data::AmbitionGameSaveData::default();
-
-    // 2. Clear registries. Setting them to Default flips
-    //    `specs_loaded` / `initialized` back to false so the populate
-    //    Update systems re-run on the next frame.
-    *encounter_registry = EncounterRegistry::default();
-    for entity in &encounter_entities {
-        commands.entity(entity).despawn();
-    }
-    *boss_registry = BossEncounterRegistry::default();
-    *quest_registry = QuestRegistry::default();
-    **music_request = EncounterMusicRequest::default();
-    // **AND WHAT THE WORLD REMEMBERED ABOUT ITS OWN OCCURRENCES.** The plan
-    // above was prepared against NO dispositions on purpose; this is the other
-    // half of the same statement, and without it the rooms this reset is not
-    // rebuilding would still be carrying rows that place a moved object at
-    // coordinates from the run that just ended. See the field's own note.
-    if let Some(occurrences) = play_state.occurrences.as_mut() {
-        occurrences.forget_everything();
-    }
-
-    // 3-5. The same artifact drives transition, hot reload, and restore.
+    // 1-3. The same artifact drives transition, hot reload, and restore.
     room_plan.replace_live_world(
         &mut commands,
         room_visuals
@@ -483,68 +431,141 @@ pub fn process_new_game_reset_request(
             .map(|(entity, physics_entity)| (entity, physics_entity.is_some())),
         None,
         None,
-        // ⚠ THE RESET PLACES ITS PLAYER ITSELF, below, with `reset_body_clusters`
-        // — a fuller operation than an arrival (mana, animation, combat, camera).
-        // Staging THAT behind the verdict is the player-reset-state half of A10
-        // and is not this packet; see `docs/planning/queue.md`.
+        // ⚠ THE RESET PLACES ITS PLAYER ITSELF, in the closure below, with
+        // `reset_body_clusters` — a fuller operation than an arrival (mana,
+        // animation, combat, camera). Both are behind the same verdict; they are
+        // different operations, not two spellings of one.
         None,
     );
 
-    // 6. Reset the player to the start room's spawn point.
-    play_state
-        .clock_resets
-        .write(ambition_time::time_control::ClockResetRequest::sim_clock(
+    commands.queue(move |world: &mut World| {
+        if !crate::world::rooms::room_publication_succeeded(world, &start_room_id) {
+            bevy::log::error!(
+                target: "ambition_platformer2d::reset",
+                "sandbox reset ABANDONED: the start room `{start_room_id}` failed \
+                 construction verification, so nothing was wiped and the running \
+                 session is untouched."
+            );
+            return;
+        }
+        info!(
+            target: "ambition_platformer2d::reset",
+            "sandbox reset committed — wiping save, registries, and runtime"
+        );
+        // Every OTHER teardown system waits for this rather than for the request.
+        world.write_message(NewGameResetCommitted);
+
+        // 4. Wipe the persisted save. Change-detection will trigger the
+        //    autosave system to write the empty save to disk this tick.
+        if let Some(mut save) = world.get_resource_mut::<AmbitionGameSave>() {
+            *save.data_mut() = ambition_persistence::save_data::AmbitionGameSaveData::default();
+        }
+
+        // 5. Clear registries. Setting them to Default flips
+        //    `specs_loaded` / `initialized` back to false so the populate
+        //    Update systems re-run on the next frame.
+        if let Some(mut registry) = world.get_resource_mut::<EncounterRegistry>() {
+            *registry = EncounterRegistry::default();
+        }
+        for entity in doomed_encounters {
+            if let Ok(entity) = world.get_entity_mut(entity) {
+                entity.despawn();
+            }
+        }
+        if let Some(mut registry) = world.get_resource_mut::<BossEncounterRegistry>() {
+            *registry = BossEncounterRegistry::default();
+        }
+        if let Some(mut registry) = world.get_resource_mut::<QuestRegistry>() {
+            *registry = QuestRegistry::default();
+        }
+        if let Some(mut music) = ambition_platformer2d_shared_tangle::lifecycle::
+            session_world_component_mut::<EncounterMusicRequest>(world)
+        {
+            *music = EncounterMusicRequest::default();
+        }
+        // **AND WHAT THE WORLD REMEMBERED ABOUT ITS OWN OCCURRENCES.** The plan
+        // was prepared against NO dispositions on purpose; this is the other half
+        // of the same statement, and without it the rooms this reset is not
+        // rebuilding would still carry rows that place a moved object at
+        // coordinates from the run that just ended.
+        //
+        // ⚠ Safe AFTER the rebuild: every writer of this ledger is a SYSTEM, and
+        // no system runs inside a command flush — so the room the verdict just
+        // published has authored no rows for this to erase.
+        if let Some(mut occurrences) = world.get_resource_mut::<
+            ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+        >() {
+            occurrences.forget_everything();
+        }
+
+        // 6. Reset the player to the start room's spawn point.
+        world.write_message(ambition_time::time_control::ClockResetRequest::sim_clock(
             ambition_time::time_control::ClockRequester::Engine,
             "sandbox_reset",
         ));
-    play_state.sim_state.remaining = 0.0;
-    // Reset the ECS authority directly so the next player tick frame
-    // starts from the spawn position. Also zero animation state so post-reset
-    // frames don't continue a mid-air slash or dash-startup pose.
-    if let Ok((
-        mut cluster_item,
-        mut motion_model,
-        mut anim,
-        mut combat,
-        mut blink_cam,
-        mut attack,
-        mut safety,
-    )) = player_q.single_mut()
-    {
-        let mut clusters = cluster_item.as_clusters_mut();
-        ae::reset_body_clusters(
-            &mut motion_model,
-            &mut clusters,
-            room_plan.spec().world.spawn,
-            tuning.air_jumps,
-        );
-        clusters.mana.meter.refill_full();
-        anim.reset();
-        combat.reset();
-        combat.hit_flash = 0.18;
-        // ONE CALL, and it is the reason this system needs no camera test of its
-        // own: `reset_to_spawn` clears the blink and keeps the snap together, so
-        // the ordering hazard that produced Jon's 440px pan is unspellable here.
-        blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
-        attack.clear();
-        // ⛔ THE PLAN'S SPAWN, NOT THE LIVE GEOMETRY'S. `replace_live_world` no
-        // longer writes `RoomGeometry` before the room's verdict, so reading it
-        // here would take the OUTGOING room's spawn. It is the same value at the
-        // same source `reset_body_clusters` above already reads.
-        safety.last_safe_pos = room_plan.spec().world.spawn;
-    }
-    // 7. Respawn the static world visuals + parallax for the start room.
-    //    Without this, the despawn in step 3 leaves the scene empty until
-    //    something else (LDtk reload, room transition) rebuilds it. The visual
-    //    respawn is a PRESENTATION concern, so the sim only emits the request —
-    //    the render layer's `respawn_room_visuals_on_request` consumes it and
-    //    reads the active room from `RoomSet`. A headless build has no consumer
-    //    and correctly skips the (purely visual) respawn.
-    respawn_visuals.write(ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested);
-    // 8. User feedback: surface a banner so the reset is visibly
-    //    confirmed. The HUD's banner channel is the same one used
-    //    for "ARENA CLEAR" etc.
-    banner.show("SANDBOX RESET", 3.0);
+        if let Some(mut cooldown) = world.get_resource_mut::<
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+        >() {
+            cooldown.remaining = 0.0;
+        }
+        // Reset the ECS authority directly so the next player tick frame starts
+        // from the spawn position. Also zero animation state so post-reset frames
+        // don't continue a mid-air slash or dash-startup pose.
+        let mut player = world.query_filtered::<
+            (
+                ae::BodyClusterQueryData,
+                &mut ambition_platformer2d_core::movement::MotionModel,
+                &mut ambition_characters::actor::BodyAnimFacts,
+                &mut ambition_characters::actor::BodyCombat,
+                &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+                &mut ambition_combat::BodyMelee,
+                &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
+            ),
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        if let Ok((
+            mut cluster_item,
+            mut motion_model,
+            mut anim,
+            mut combat,
+            mut blink_cam,
+            mut attack,
+            mut safety,
+        )) = player.single_mut(world)
+        {
+            let mut clusters = cluster_item.as_clusters_mut();
+            ae::reset_body_clusters(&mut motion_model, &mut clusters, spawn, air_jumps);
+            clusters.mana.meter.refill_full();
+            anim.reset();
+            combat.reset();
+            combat.hit_flash = 0.18;
+            // ONE CALL, and it is the reason this system needs no camera test of
+            // its own: `reset_to_spawn` clears the blink and keeps the snap
+            // together, so the ordering hazard that produced Jon's 440px pan is
+            // unspellable here.
+            blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
+            attack.clear();
+            // ⛔ THE PLAN'S SPAWN, NOT THE LIVE GEOMETRY'S — the same value
+            // `reset_body_clusters` above already read, named at its source.
+            safety.last_safe_pos = spawn;
+        }
+
+        // 7. Respawn the static world visuals + parallax for the start room.
+        //    Without this, the sweep above leaves the scene empty until something
+        //    else (LDtk reload, room transition) rebuilds it. The visual respawn
+        //    is a PRESENTATION concern, so the sim only emits the request — the
+        //    render layer's `respawn_room_visuals_on_request` consumes it and
+        //    reads the active room from `RoomSet`. A headless build has no
+        //    consumer and correctly skips the (purely visual) respawn.
+        world.write_message(ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested);
+
+        // 8. User feedback: surface a banner so the reset is visibly confirmed.
+        //    The HUD's banner channel is the same one used for "ARENA CLEAR" etc.
+        if let Some(mut banner) = world.get_resource_mut::<ambition_combat::events::GameplayBanner>()
+        {
+            banner.show("SANDBOX RESET", 3.0);
+        }
+    });
 }
 
 /// On a sandbox reset, despawn the transient world items **the room rebuild does not own** —

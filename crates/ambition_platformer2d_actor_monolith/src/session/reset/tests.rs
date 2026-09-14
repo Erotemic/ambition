@@ -208,15 +208,23 @@ fn dummy_world() -> ae::World {
 /// queries (empty here — no controllers / no room visuals to
 /// despawn in this synthetic harness).
 fn min_app() -> App {
+    min_app_that_can_hide_a_candidate(true)
+}
+
+/// As [`min_app`], choosing whether the world can hide an inactive candidate.
+///
+/// ⛔ THE COMPOSITION PRODUCTION BUILDS IS `true`. `ROOM_CANDIDATE_BRACKET` mints
+/// every room root hidden and `transaction::open` REFUSES a world that cannot
+/// hide one, rather than validating candidates in plain sight. `false` is that
+/// refusal — a real production one, on the road production uses, and the only
+/// injection this harness can make without a second content generation.
+fn min_app_that_can_hide_a_candidate(filter: bool) -> App {
     let mut app = App::new();
-    // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds every
-    // room root hidden and `transaction::open` REFUSES a world that cannot hide
-    // one — and since A10 staged the room's world state behind the verdict, a
-    // refusal here means the reset publishes NOTHING, not merely that it
-    // publishes debris.
-    ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
-        app.world_mut(),
-    );
+    if filter {
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+    }
     let world = dummy_world();
     app.insert_resource(NewGameResetRequested::default());
     app.insert_resource(AmbitionGameSave::default());
@@ -433,6 +441,95 @@ fn processor_warps_player_to_start_spawn() {
         .query_filtered::<&ambition_platformer2d_core::BodyKinematics, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>();
     let player_pos = q.single(app.world()).map(|k| k.pos).unwrap();
     assert_eq!(player_pos, expected_spawn);
+}
+
+/// ⛔⛤ **A10: A RESET WHOSE START ROOM IS REFUSED WIPES NOTHING.**
+///
+/// The reset used to say *"past the point of refusal"* and then destroy the save,
+/// the registries, the remembered occurrences and the player's position — before
+/// anything had verified that the start room could be built at all. The room
+/// transaction CAN refuse, and under that order the refusal arrived after there
+/// was nothing left to go back to.
+///
+/// ⚠ **THE REFUSAL IS A PRODUCTION ONE.** A composition that cannot hide an
+/// inactive candidate is refused by `transaction::open` rather than building
+/// candidates in plain sight; this harness simply does not register the filter.
+#[test]
+fn a_reset_whose_start_room_is_refused_wipes_nothing() {
+    let mut app = min_app_that_can_hide_a_candidate(false);
+    let platform = ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
+        ae::Vec2::new(10.0, 20.0),
+        ae::Vec2::new(32.0, 8.0),
+        64.0,
+        10.0,
+    );
+    {
+        let mut platform_set = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>();
+        platform_set.0 = vec![platform.clone()];
+    }
+    // ⛔ THE PREMISE: the save must have something in it, or "the save survived"
+    // is true of an empty one.
+    {
+        let mut save = app.world_mut().resource_mut::<AmbitionGameSave>();
+        save.data_mut()
+            .set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint {
+                room_id: "somewhere".into(),
+                x: 12,
+                y: 34,
+            });
+    }
+    let before_player = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d_core::BodyKinematics,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        >();
+        q.single(world).expect("the harness has a player").pos
+    };
+
+    app.world_mut()
+        .resource_mut::<NewGameResetRequested>()
+        .request();
+    app.update();
+
+    assert!(
+        !app.world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .published,
+        "the start room PUBLISHED, so this arm is not about a refused reset"
+    );
+    assert!(
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .data()
+            .checkpoint()
+            .is_some(),
+        "⛔ a reset whose room was REFUSED wiped the save anyway: the player has \
+         lost their run and gained no world to play it in"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
+            .0
+            .len(),
+        1,
+        "the live platform state moved under a refused reset"
+    );
+    let after_player = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d_core::BodyKinematics,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        >();
+        q.single(world).expect("the harness has a player").pos
+    };
+    assert_eq!(
+        after_player, before_player,
+        "a refused reset warped the player to the spawn of a room that was never \
+         built"
+    );
 }
 
 /// Reset must restore the moving platform from the start room's

@@ -400,6 +400,47 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   content commit be infallible. That is stronger than another watcher and lets
   future generation participants join ONE activation barrier instead of each
   racing to cancel the shell.
+  ⚖ **RULED 2026-09-14 BY REVIEW, AND IT NEEDS NO MAINTAINER DECISION: USE
+  `ShellRouteHolds`.** `ShellRouter::advance_pending` already will not activate a
+  held route, so the activation barrier exists — do NOT add another watcher and do
+  NOT invent a second barrier.
+
+  ⛔⛤ **AND DO NOT COPY `ambition_load_presentation::shell_adapter`'S CONSTANT HOLD
+  ID.** `ShellRouteHolds` is keyed `route → set<hold id>`, and content reloads
+  operate on the SAME route over and over — commonly `game`. A constant
+  `ShellHoldId("content-publication")` makes transaction A and its successor B
+  indistinguishable to cleanup:
+
+```text
+  A holds route `game`
+  B supersedes A on the same route
+  A's delayed terminal cleanup arrives
+  ⇒ it releases B's hold           (a stale event frees a live transaction)
+  or, the other way, a leaked A hold blocks every future reload of `game`.
+```
+
+  ⭐ **THE TRANSACTION ALREADY HAS EXACT IDENTITY**: `PendingGeneration` carries
+  the caller-minted `ShellRequestId`, the route, and the adopted `LoadId` once
+  available, and `ShellEvent::TransactionEnded` carries the correlated
+  request/barrier identity. ⇒ `ShellHoldId("content-publication:<request-id>")`,
+  or a typed equivalent.
+
+  ⇒ **THE LIFECYCLE, in full**: at adoption take the hold for THAT pending shell
+  transaction; while pending, a valid boundary releases that exact hold and an
+  invalid one issues that exact correlated cancellation; and every terminal path —
+  success, failure, cancel, **supersede** — removes that transaction's hold.
+
+  ⛔ **THE POISONS THIS NEEDS** (the first is the one the constant id fails):
+  A holds `game`, B supersedes A on the same route, A's delayed terminal cleanup
+  runs, **B must still be held**. Then: a cancellation cannot leak a hold; a
+  failure cannot leak a hold; a successful activation leaves none behind; and a
+  later reload of the same route is never blocked by an old transaction.
+
+  ⚠ **THE PARKED WIP IS HALF-WIRED AND WOULD HANG EVERY RELOAD** — the hold is
+  taken in `adopt_preparation_transaction` via `take_the_publication_lease` and
+  `release_the_publication_lease` is written but never CALLED. It also uses a
+  constant id, so it is the wrong shape as well as incomplete.
+
   ⇒ **THE ACCEPTANCE POISON WAS RUN 2026-09-13 AND THE INTERVAL IS REAL.**
   `a_boundary_that_closes_after_the_breaker_still_publishes` orders an ownership
   change INTO the interval — after the breaker, before the commit acts on
@@ -568,6 +609,56 @@ change that moves a damage-rate floor. ⇒ **It belongs to whoever authored that
 row**; recorded here so the next agent does not spend a session bisecting a red
 they did not cause, and does not treat a red `app_it` as licence to skip the lane.
 
+⛔⛤ **AND IT IS NOT THRESHOLD DRIFT — CHECK THIS BEFORE BLAMING THE GUARD.**
+`A_REAL_FIGHT` is `0.5` and the assertion is `exchanged >= A_REAL_FIGHT * 2.0`, so
+the floor is **1.0 and the measurement is 0.46 — a 54% shortfall**, not a marginal
+miss. `game/ambition_app/tests/smash_cpus_damage_each_other.rs` was last touched at
+`c0b26c637`, which predates the merge, so nobody raised the bar; the BEHAVIOUR
+dropped. ⚠ That file's own comments record a previous round where this guard was
+WEAKENED by the work it caught — *"a guard changed by the very work it caught is
+the thing to distrust"* — so the repair is the duel, not the number.
+
+⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
+(`7675130b6`, `be30f2661`), so it is not intermittent.
+
+## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
+
+**GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST
+one using its EDITOR resource as the admitted authority.
+`sync_live_player_dev_edits_system` read `EditableAbilitySet` directly and treated
+it as the last admitted value *"whenever nothing is pending"* — sound reasoning,
+but it put ADMISSION and PROJECTION behind the same `player_q.single_mut()` guard.
+With a live locally maintained timeline and a momentarily absent player, a
+still-pending proposal re-entered the admission/rebase decision on every frame
+until a body appeared.
+
+⭐ The rule `ActivePlayerBodyProfile` already states, applied: **editable desired
+value → pending proposal → admitted domain authority → projection onto whatever
+entities exist.** `ActiveEditableAbilityMask` is the third stage; admission now
+runs above the player query and the projection reads the MASK, never the editor
+resource. ⇒ A body built later — by a reset, a room load, a reconstruction —
+projects what was admitted rather than whatever the panel holds at that moment.
+
+⚠ **`None` IS SEEDED FROM THE EDITABLE ON THE FIRST PASS, DELIBERATELY.** The same
+system also performs a continuous `base ∩ mask` reconciliation that is NOT a
+mechanical edit, and the system's own comment records that a naive "only run when
+proposed" gate broke it. The baseline keeps that road working from frame one.
+
+✅ **AND THE WITNESS LANDED THE SAME DAY** —
+`an_ability_edit_is_admitted_with_no_player_to_project_onto`. The fixture has **NO
+PLAYER AT ALL**, which is the point: the projection half is already covered by the
+three `avatar::starting_character::tests::live_refresh` arms, and an arm that
+spawned a body could not witness this at all. It asserts the domain DRAINED and
+that the mask holds the proposed value, with the premise checked first (the
+proposed mask must differ from the default, or the arm holds whether or not
+anything was admitted). Poison-verified by moving admission back below the player
+guard.
+
+⭐ Its falsifier is beside it —
+`a_refused_ability_edit_stays_pending_and_admits_nothing` — for a repair that
+simply drained the domain unconditionally once it stopped asking for a body. A
+refusal that drains is a front door the unadmitted value walks through.
+
 ## ✅ THE STATS DOMAIN PUBLISHED FIELDS NOBODY EDITED — FIXED 2026-09-14
 
 **GPT architecture review, 2026-09-14, finding 5.** `publish_player_stats_edits`
@@ -603,12 +694,19 @@ the panel legitimately goes stale against a body gameplay keeps moving.
 `an_edit_staged_behind_a_refusal_publishes_only_the_field_it_staged` is that arm,
 and it fires on the publisher-only poison.
 
-⚠ **STILL OPEN from the same finding**: `mirror_player_stats_into_the_inspector`
-is registered through `app.sim_schedule()` and therefore runs inside
-`GgrsSchedule` under rollback. It no longer changes authoritative mechanics, so
-this is not the old determinism bug — it is the wrong LIFETIME for a presentation
-mirror, and it makes proposal discrimination depend on rollback resimulation.
-Move it to an ordinary host/render-frame schedule.
+✅ **AND THE SECONDARY FROM THE SAME FINDING IS CLOSED TOO, SAME DAY.**
+`mirror_player_stats_into_the_inspector` was registered through
+`app.sim_schedule()` and therefore ran inside `GgrsSchedule`. It changed nothing
+authoritative there, so this was never the determinism bug `Q120` is about — it
+was the wrong LIFETIME. A body→panel copy running once per RESIMULATED frame made
+this domain's proposal discrimination depend on how many times history was
+replayed, when the question it answers — *"did the developer type a number, or did
+the game change one?"* — is a question about RENDERED frames. It runs in `Update`
+now, which is AFTER `RunGgrsSystems` (that sits in `PreUpdate`), so the panel
+still shows the post-advance body. `DevInspectorMirrorSet` keeps its name; the
+`configure_sets` that positioned it inside the simulation's Progression phase is
+gone, because configuring a set with no members there reads exactly like a live
+edge.
 
 ## ⛔⛤ `SessionScopeId` — A HOST-LOCAL COUNTER IS ON THE ROLLBACK WIRE, MEASURED 2026-09-13
 
@@ -696,6 +794,35 @@ between peers rather than counted locally — the `TransactionId` pattern
 (`binding ⊗ room ⊗ session`) applied to match identity. What it must be derived
 from is the open part; the candidate both peers demonstrably share is the rollback
 SESSION's own identity, not the App's activation history.
+
+⇒ **THE BLAST RADIUS, CENSUSED AT HEAD 2026-09-14** — `git grep "random_context()"`,
+TWO production consumers and four test call sites:
+
+```text
+items/match_spawn.rs:88        DOMAIN_ITEM_SPAWN  →  sim_random_weighted (WHICH ITEM)
+                                                 →  sim_random_index    (WHICH SPAWN POINT)
+features/ecs/damage/mod.rs:275 DOMAIN_BARK        →  sim_random          (does a hit SPEAK)
+```
+
+The item road is the one that changes the authoritative world. The bark road is
+cosmetic in effect but runs in the same simulation, so it diverges too — and a
+divergent cosmetic draw is still a divergent checksum.
+
+⛔⛤ **AND THE BARK CALL SITE ALREADY CARRIES THIS EXACT LESSON, ABOUT ITS OTHER
+ARGUMENT.** Its `victim` SALT is guarded by a comment saying, in its own words:
+
+> *"THE SIMULATION NAME, NEVER `Entity::to_bits()`. An entity index is ALLOCATOR
+> HISTORY: two peers that spawned the same cast in a different order hold
+> different bits for one fighter, so a draw salted with them agrees locally and
+> disagrees across the wire. Rollback hides it — a rewind reuses the same ids —
+> which is why it survives every test that is not a netplay test."*
+
+⇒ **The author reasoned that through for the salt and passed a locally allocated
+lifecycle counter as the CONTEXT three lines above it.** Same class, same
+argument, same invisibility to every test that is not a netplay test. ⭐ **A
+DEFENCE APPLIED TO ONE ARGUMENT OF A CALL IS NOT APPLIED TO THE CALL** — when a
+comment explains why one input must be canonical, read every other input of that
+call against the same sentence.
 
 ⭐⭐ **AND THE REVIEW'S RULING IS TO SPLIT THE TWO IDENTITIES RATHER THAN REPLACE
 ONE.** `SessionScopeId` stays exactly what it is — local ownership, stale-event

@@ -657,6 +657,34 @@ pub fn propose_developer_body_profile(
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 
+/// The ADMITTED developer ability mask — the third stage for the ability domain.
+///
+/// ⛔⛤ **THE ABILITY DOMAIN WAS THE LAST ONE USING ITS EDITOR RESOURCE AS THE
+/// ADMITTED AUTHORITY**, and the review of 2026-09-14 named it. The rule
+/// `ActivePlayerBodyProfile` above states applies here word for word: editable
+/// desired value → pending proposal → **admitted domain authority** → projection
+/// onto whatever entities exist.
+///
+/// ⚠ **WHAT THE COLLAPSE COST IS SUBTLER HERE THAN IT WAS FOR THE BODY PROFILE,
+/// WHICH IS WHY IT SURVIVED.** `sync_live_player_dev_edits_system` reads
+/// `EditableAbilitySet` directly and treats it as the last admitted value
+/// *"whenever nothing is pending"* — sound, but it means ADMISSION and
+/// PROJECTION are both gated on a primary player EXISTING. With a live locally
+/// maintained timeline and a momentarily absent player, a still-pending proposal
+/// re-enters the admission/rebase decision on every frame until a body appears.
+///
+/// ⭐ Splitting them makes a temporary absence of a player irrelevant to whether
+/// the edit was admitted, and makes reset/reconstruction semantics explicit: a
+/// body built later projects the admitted mask rather than whatever the editor
+/// happens to hold then.
+///
+/// ⚠ `None` means no admission has happened YET — the first publish seeds it from
+/// the editable, so the continuous `base ∩ mask` reconciliation this domain also
+/// performs keeps working unchanged. That reconciliation is NOT a mechanical edit
+/// and breaking it is a real consequence; see the system's own comment.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ActiveEditableAbilityMask(pub Option<ae::AbilitySet>);
+
 pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     admission: Option<Res<ae::MechanicalEditAdmission>>,

@@ -15,8 +15,13 @@ use bevy::prelude::{App, IntoScheduleConfigs, Plugin, SystemSet};
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DevEditApplySet;
 
-/// Progression-phase seam: mirror the player's live stats back into the
+/// Host-frame seam: mirror the player's live stats back into the
 /// inspector-editable resource so the F3 panel shows truth.
+///
+/// ⚠ It moved OUT of the simulation schedule on 2026-09-14 — see the
+/// registration. A set that other crates order against keeps its name; what
+/// changed is the schedule it lives in, so a composition ordering against it
+/// must do so in `Update`.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DevInspectorMirrorSet;
 
@@ -92,6 +97,11 @@ impl Plugin for DevToolsSimPlugin {
         // a target are different jobs, and collapsing them lost edits made while
         // no player existed.
         app.init_resource::<crate::dev_tools::ActivePlayerBodyProfile>();
+        // ⭐ AND THE SAME THIRD STAGE FOR THE ABILITY DOMAIN, 2026-09-14. It was
+        // the last domain treating its EDITOR resource as the admitted authority,
+        // which tied admission to a primary player existing. See
+        // `ActiveEditableAbilityMask`.
+        app.init_resource::<crate::dev_tools::ActiveEditableAbilityMask>();
         app.configure_sets(
             bevy::app::PreUpdate,
             (
@@ -138,15 +148,25 @@ impl Plugin for DevToolsSimPlugin {
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
             ),
         );
-        let sim = app.sim_schedule();
+        // ⛔⛤ **A PRESENTATION MIRROR IN `Update`, AND IT USED TO BE IN THE SIM
+        // SCHEDULE — i.e. inside `GgrsSchedule` under the rollback host.** It
+        // never changed authoritative mechanics there, so this was not the
+        // determinism defect `Q120` was about; it was the wrong LIFETIME. A
+        // body→panel copy that runs once per resimulated frame makes the stats
+        // domain's proposal discrimination depend on how many times history was
+        // replayed, when the question it answers — *"did the developer type a
+        // number, or did the game change one?"* — is a question about RENDERED
+        // frames. GPT architecture review, 2026-09-14.
+        //
+        // ⭐ `Update` RUNS AFTER THE SIM ADVANCED THIS FRAME (`RunGgrsSystems`
+        // sits in `PreUpdate`), so the panel still shows the post-advance body,
+        // which is the whole job. The editor→body twin stays in the `PreUpdate`
+        // mechanical-edit chain where admission owns it.
         app.add_systems(
-            sim,
-            // ⭐ THE BODY→INSPECTOR HALF ONLY. Its editor→body twin left for the
-            // `PreUpdate` mechanical-edit chain (`Q120`): this one reads the body
-            // and writes a developer resource, so it changes nothing the
-            // simulation reads and is not a mechanical edit.
+            bevy::prelude::Update,
             crate::dev_tools::mirror_player_stats_into_the_inspector.in_set(DevInspectorMirrorSet),
         );
+        let sim = app.sim_schedule();
         // The HUD flash this crate owns, decayed by this crate. It was one line
         // in the actor kernel's `cleanup_timers_system`, which is a simulation
         // package winding down a developer timer — and the only thing that kept

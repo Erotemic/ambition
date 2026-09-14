@@ -98,14 +98,12 @@ impl Plugin for ProgressionSchedulePlugin {
         #[cfg(feature = "map")]
         ambition_menu::map::install_map_simulation_systems(app, sim);
 
-        // The dev-tools inspector mirror (a DOMAIN set — its system lives in
-        // `DevToolsSimPlugin`) keeps its former chain-tail slot.
-        app.configure_sets(
-            sim,
-            ambition_dev_tools::DevInspectorMirrorSet
-                .after(ProgressionSet::Map)
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
-        );
+        // ⛔⛤ **THE DEV-TOOLS INSPECTOR MIRROR LEFT THIS SCHEDULE, 2026-09-14.**
+        // It is a body→panel presentation copy and now runs in `Update`; ordering
+        // it inside the simulation's Progression phase would have been configuring
+        // a set with no members here, which reads exactly like a live edge. Its
+        // set keeps its name for any composition that wants to order against it —
+        // in `Update`. See `DevToolsSimPlugin`.
         // The generic encounter lifecycle reducer (E8 — a DOMAIN set, its
         // system lives in `EncounterRegistryPlugin`): runs after the boss wrap
         // + participant-liveness refresh (`update_encounter_progress`) so this

@@ -568,6 +568,18 @@ change that moves a damage-rate floor. ⇒ **It belongs to whoever authored that
 row**; recorded here so the next agent does not spend a session bisecting a red
 they did not cause, and does not treat a red `app_it` as licence to skip the lane.
 
+⛔⛤ **AND IT IS NOT THRESHOLD DRIFT — CHECK THIS BEFORE BLAMING THE GUARD.**
+`A_REAL_FIGHT` is `0.5` and the assertion is `exchanged >= A_REAL_FIGHT * 2.0`, so
+the floor is **1.0 and the measurement is 0.46 — a 54% shortfall**, not a marginal
+miss. `game/ambition_app/tests/smash_cpus_damage_each_other.rs` was last touched at
+`c0b26c637`, which predates the merge, so nobody raised the bar; the BEHAVIOUR
+dropped. ⚠ That file's own comments record a previous round where this guard was
+WEAKENED by the work it caught — *"a guard changed by the very work it caught is
+the thing to distrust"* — so the repair is the duel, not the number.
+
+⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
+(`7675130b6`, `be30f2661`), so it is not intermittent.
+
 ## ✅ THE STATS DOMAIN PUBLISHED FIELDS NOBODY EDITED — FIXED 2026-09-14
 
 **GPT architecture review, 2026-09-14, finding 5.** `publish_player_stats_edits`

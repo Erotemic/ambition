@@ -1044,7 +1044,7 @@ player_robot_v3), (smash_duelist_b -> player_robot_v2)]`. Both carry
 and per-character identity is impossible for them by construction. `ladder_rig.rs:757`
 records that every ladder number ever taken measured these two BY DEFAULT.
 
-### ⚠ A trap: `lib.rs:4525` read alone says the roster has one authored fighter
+### ⚠ A trap: `game/ambition_demo_smash/src/lib.rs:4525` read alone says the roster has one authored fighter
     definition.with_moveset(if id == SMASH_GEORGE_BOOUL { george_booul_moveset() }
                             else { moveset::fighter_moveset() })
 That loop is `install_smash_content`, which registers only the ids THIS DEMO
@@ -1512,6 +1512,168 @@ has not been made:
 THAT SUPERSESSION IS ALREADY SOLVED.** That instruction is the review's, verbatim
 in intent, and it is recorded here because the retracted paragraph above is
 exactly the sentence a future packet would have quoted.
+
+### ⭐⭐ A10 CHECKPOINT — THE PROJECTED VERIFIER EXISTS, 2026-09-14
+
+**CURRENT INVARIANT.** A failed candidate leaves the playable world N intact. A
+candidate N+1 is prepared and validated beside it; only a validated candidate
+becomes authoritative; N is retired only after that publication.
+
+**CURRENT HEAD BEHAVIOUR.** The ruling below is implemented in
+`crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`:
+
+```text
+ScopeVisibility            Published | HiddenCandidate   (on every ScopeMember)
+PublicationEffects         superseding(live, candidate) / retiring(live);
+                           OMISSION MEANS RETAINED
+ProjectedRoster            published - retirements - superseded + candidates
+project_post_publication_roster(scope, effects)     pure, mutates nothing
+verify_projected_roster(projection, effects, baseline, scope, world)
+```
+
+⭐ **`ScopeVisibility` IS THE PIECE THAT WAS MISSING AND LOOKED LIKE A DETAIL.**
+`AuthoritativeScope::gather` already saw candidates (`Allow<InactiveCandidate>`)
+and could not SAY which members were hidden — so *"one occupant per identity"*
+over the union answers `Duplicated` for the legal A10 state. The distinction had
+to become data.
+
+⛔ **AND THE BASELINE IS WHAT MAKES THE GUARANTEE CHECKABLE.** The projection
+alone cannot see an entity construction DESTROYED: omission means retained, so a
+despawned bystander is absent from both sides and the arithmetic is silent.
+Comparing against what was live when the transaction opened turns that silence
+into `LiveLostWithoutDeclaration`.
+
+**VIOLATIONS THE VERIFIER RAISES**: `Duplicated`, `SupersededNotLive`,
+`SupersedingCandidateMissing`, `RetiredNotLive`, `CandidateNotOwned`,
+`LiveLostWithoutDeclaration`.
+
+**ARMS**, all three poison-verified (remove the baseline comparison → the
+destruction arm reddens; stop removing the superseded predecessor from the
+projection → the supersession arm reddens):
+`a_candidate_supersedes_a_live_identity_without_destroying_it_first`,
+`a_candidate_that_declares_no_supersession_would_duplicate_an_identity`,
+`a_candidate_that_destroyed_a_live_entity_is_refused_even_though_it_balances`.
+
+**NEXT IMPLEMENTATION STEP, AND ITS ADDRESS IS NAMED IN THE SOURCE.**
+`ROOM_CANDIDATE_BRACKET` is `false`
+(`crates/ambition_platformer2d_actor_monolith/src/world/rooms/transaction.rs:38`).
+Flipping it is the last-good-world guarantee for rooms, and the source records
+what it costs: 87 of 89 app room tests pass with it on and shipped rooms publish
+completely (`central_hub_complex`: receipt 18, admitted 18). The two failures are
+`death_restores_the_checkpoint`.
+
+⛔ **THE MECHANISM IS MEASURED AND IS NOT THE FLAG'S.** A death commits a room
+transition to the SAME room; the transition sweep is
+`RoomResident = With<RoomScopedEntity>, Without<InCustodyOf>`, so a placement in
+the player's custody follows them through the "door" and the room mints it again
+— `Duplicated` + `PlannedOverBaseline`. The LIVE build produces the identical
+violations and is identically refused; it passes only because a refusal costs
+nothing there.
+
+⚖ **AND THE RULE IS RULED — JON, 2026-09-14, AND IT IS NOT A MAINTAINER
+QUESTION.** Checkpoint restoration is TEMPORAL and the baseline decides, PER
+ITEM: an item acquired only AFTER the checkpoint may be retired from carried
+state and re-authored in its checkpoint/world state; an item held AT the
+checkpoint stays or is restored as held; two items can take different outcomes in
+one death reconstruction. ⛔ No blanket *"all carried items survive"* or *"all
+retire"*.
+
+⭐⭐ **AND THE INPUT THAT RULE NEEDS ALREADY EXISTS — I NEARLY RECORDED THE
+OPPOSITE.** `PersistedCheckpoint` is `{room_id, x, y}` and carries no roster,
+which looked like the blocker. It is only the SAVE-FILE half.
+`ambition_platformer2d_shared_tangle::lifecycle::horizon::CheckpointRestoreInputs`
+carries `occurrences: OccurrenceBaseline` AND `custody: CustodyBaseline`, and
+`restore_custody_to_checkpoint` already asks it `custodian_of(occurrence)`. ⇒ The
+checkpoint's custody roster is a live runtime fact; what is missing is that the
+ROOM PLAN does not consult it.
+
+⛔⛤ **AND THE TEMPORAL RULE IS ALREADY FULLY IMPLEMENTED — MEASURED 2026-09-14,
+AFTER I HAD WRITTEN THE OPPOSITE TWICE.** `items/pickup/mod.rs`'s
+`restore_custody_to_checkpoint` does exactly what Jon's ruling says, per item:
+`custodian_of(occurrence)` says `Some(holder)` → put it back in that hand;
+`None` → *"acquired after the checkpoint"* → unequip and **DESPAWN**, and its own
+comment gives the reason — *"letting the rebuild author it again produces the SAME
+`SimId` at the AUTHORED position, which is 'the key went back on its pedestal'."*
+The room transition already selects the CHECKPOINT's ledger for a restore
+(`room_transition/loading.rs`: `selected_restore.map(|accepted| accepted.occurrences.remembered())`),
+and `OccurrenceWhereabouts::InCustody → OccurrenceDisposition::Suppressed`
+already keeps a checkpoint-held occurrence from being authored at all.
+
+⇒ **SO THE BLOCKER IS NOT THE INPUT AND NOT THE RULE. IT IS ORDERING, AND THAT
+MAKES IT AN A10 PROBLEM RATHER THAN A CUSTODY ONE.** The room rebuild mints the
+placement and `restore_custody_to_checkpoint` despawns the carried one; they are
+different systems. At the moment the room transaction VERIFIES, both exist —
+`verify_committed_roster` counts two occupants on one authored `SimId` and reports
+`Duplicated` + `PlannedOverBaseline`. Both are correct answers to the question
+that verifier asks.
+
+⛔⛤ **AND THE SOURCE COMMENT'S ACCOUNT OF THE FAILURE IS STALE — RE-DERIVED AT
+HEAD 2026-09-14 BY FLIPPING THE FLAG AND RESTORING IT (md5-verified).** With
+`ROOM_CANDIDATE_BRACKET = true`, `death_restores_the_checkpoint` fails **2 of 11**
+— `a_death_returns_what_was_not_banked_and_keeps_what_was` and
+`a_refused_reset_changes_no_domain_state_and_is_not_lost` — and the assertion is
+NOT the `Duplicated` the source records:
+
+```text
+exactly one occurrence must carry `placement:ground_gun_sword`; found []
+```
+
+**ZERO occupants, not two.** The object ends up NOWHERE. And no construction
+violation is printed on that road at all (the refusal path logs through
+`bevy::log::error!`, which this harness does not surface, so *"no violations
+printed"* is NOT evidence the transaction published — that is the next thing to
+measure, by reading `LastConstructionVerification` rather than the log).
+
+⇒ **THE SHAPE THAT FITS `found []` IS TWO BASELINES FOR ONE DECISION.** The room
+plan is prepared against a ledger whose row says `InCustody → Suppressed` (do not
+author it), while `restore_custody_to_checkpoint` reads the CHECKPOINT's custody
+baseline, sees the item was NOT held at the checkpoint, and despawns it so the
+rebuild can author it. Each is right about its own question; together they can
+suppress the authoring AND retract the carried one. ⚠ **REASONED, NOT MEASURED** —
+the confirming measurement is `LastConstructionVerification` on that frame.
+
+⇒ **AND THE PROJECTED VERIFIER IS THE QUESTION THAT ADMITS IT.** *"What would the
+roster be if this published?"* — with the room transaction declaring
+`superseding(live carried occurrence, candidate placement)`, the live one is not
+in the projection and there is no duplicate. This is the join between the A10
+verifier and the production blocker: **the room transaction must DECLARE what the
+checkpoint restore is about to retract**, rather than the verifier inferring it
+from the world (inference is what the four declarations exist to replace). Then flip the bracket and prove the
+acceptance scenario at app level: world N playable → construct candidate N+1 →
+inject a construction/verification failure → candidate entities and
+candidate-owned state gone, N's entities, room/world mechanics and
+generation/content binding intact, N still playable; then the success arm through
+`publish_candidate` + retirement of the declared N state.
+
+⚠ **AND THE ROOM STATE THAT IS NOT ENTITIES STILL GOES LIVE BEFORE THE VERDICT.**
+`RoomConstructionPlan::commit_deferred` is four statements —
+`rooms.set_active(..)`, `geometry.0 = ..`, `*moving_platforms = ..`,
+`spawn_contents(..)`. Only the last builds the candidate; the first three mutate
+N. `replace_live_world`'s own doc names the same thing about ordering: *"A10's
+stronger last-good-world guarantee is the fix … and when it lands it lands HERE
+rather than in three call sites."* The three callers are
+`session/reset/mod.rs:470`, `room_transition/commit.rs:357` and
+`dev_runtime.rs:518`.
+
+**ACCEPTANCE CRITERIA.** ⛔ A10 is NOT closed because candidate roots coexist or
+because this verifier passes its own arms. It is closed when PRODUCTION
+COMPOSITION demonstrates both halves.
+
+⚠ **ONE NON-REPRODUCING `app_it` FAILURE, RECORDED RATHER THAN DISMISSED**
+(2026-09-14): `an_edit_reaches_the_shipped_game::the_shipped_app_never_holds_two_session_roots_across_a_handoff`
+failed once during this work and passed on the next two runs — once alone, once
+in a full lane. ⛔ **THE ASSERTION MESSAGE WAS NOT CAPTURED**, because the grep
+pattern kept the summary and dropped it; that guard names the FRAME and the COUNT
+in its message, which is the whole diagnostic. It drives a real shell handoff over
+two 240-frame windows, so it is timing-shaped by construction. ⇒ If it reddens
+again, capture the message.
+
+**ACTUAL BLOCKER.** The session-level authorities are still process-global
+singletons with no candidate home — `ActiveGameplaySession`, `ActiveSessionScope`,
+`SessionMechanics`, `ActiveContentBinding` — and `SessionScopeActivated` still
+means *"replace the live mirrors"*. `RoomSet` and `RoomGeometry` are COMPONENTS on
+the session root and so are already candidate-ownable; `MovingPlatformSet` is a
+true resource and needs a home in the candidate object.
 
 ### ⚖ RULED 2026-09-13: OPTION 2 — VERIFY A PROJECTED POST-PUBLICATION ROSTER
 
@@ -7092,3 +7254,79 @@ Add a queue row only when all of these are known:
 If one is unknown, put the question in the relevant owner document or maintainer
 decision ledger instead. When a row is complete, delete it from this file. Git
 history is the completion log.
+
+## ✅ THE ROSTER'S UP-SMASHES COULD NOT KILL — 8 FIGHTERS RETUNED, 8/8 PREDICTIONS HIT
+
+MEASURED 2026-09-14. All KO% are rage-pinned (attacker meter 0), no-DI, vs
+`player_robot_v3` ⇒ LOWER BOUNDS. The global `victim_percent_knockback_scale = 1.25`
+was NOT touched.
+
+### The finding
+`smash_up` was non-lethal across most of the grid: 12 of 15 fighters measured `>300`
+at centre. Cause is the vertical tax — an up-smash must reach the RISE blast line,
+and the launch that takes is a STAGE CONSTANT, not a per-move fact:
+
+    launch_at_KO = base + growth * 1.25 * centre_KO%   ... over every resolved smash_up
+    author 1237.5 | ninja 1235.5 | pirate 1243.0 | officer 1236.9 | pointed_polygon 1237.5
+    projectile_polygon 1236.9 | pugnacious_polygon 1236.9 | george 1237.8 | clerk 1237.1
+    alice 1242.2
+    n=10, min 1235.5, max 1243.0, SPREAD 7.5 = 0.61% of mean
+
+Bases span 112-178 and growths 1.90-6.40, yet the required launch is invariant to
+both. ⇒ the authoring lever is `growth = (1238 - base) / (1.25 * target_KO%)`.
+⚠ The landed measurements came in +0.6-0.8% high, so the constant is nearer **1241**.
+Use 1241 next time; the 8 landed values are not worth re-deriving for 1%.
+
+### What changed (ordering PRESERVED, not normalized)
+Current KO% spread 313-474 mapped onto 130-175, so the author's own statement of who
+has the stronger up-smash survives. Predictions were written down BEFORE measuring:
+
+    fighter                      move_id              growth       predicted  measured
+    player_robot_v3              smash_up             2.80 -> 6.76   130        131
+    goblin                       smash_up             2.70 -> 6.59   133        133
+    perfect_cellular_automaton   causal_cone_expand   2.30 -> 5.91   151        152
+    npc_bob                      derrick_lift         2.28 -> 5.87   152        153
+    npc_alice                    birthday_attack      2.25 -> 5.81   154        155
+    mary_o_tall                  block_punch          2.15 -> 5.64   159        160
+    sanic                        updraft              2.12 -> 5.58   161        162
+    npc_carl_stargan             smash_up             1.90 -> 5.15   175        175
+
+8/8 inside the pre-registered +-2% band. Refusals 0. Two earlier pre-registrations
+also hit (alice 397.5 predicted vs 399; carl_stargan 474 vs 474 EXACT), which is what
+licensed authoring the remaining six from the formula instead of measuring each.
+
+### ⛔ TWO FIGHTERS ARE EXCLUDED, BY THEIR OWN AUTHORED CONTRACTS
+  - `npc_emmy_noether` — `smash_up` is `ORDINARY_GROWTH` (a NAMED CONSTANT, 1.95),
+    *"What every other move of hers grows at, at most."* Test
+    `exactly_one_move_grows_like_a_kill_move` asserts the set above it is EXACTLY
+    `["smash_forward"]`. My edit guard REFUSED the file because the line was not the
+    literal it expected.
+  - `npc_oiler` — `WITHIN_TOLERANCE_GROWTH` (2.10): *"No move but the forward smash
+    may grow harder than this."* Enforced at `oiler_moveset.rs:912`. I DID write 5.43
+    here; it would have failed that test. Reverted from a plain-cp snapshot.
+
+Both are built the same way: ONE licensed kill move, everything else capped on
+purpose. Their up-smashes are weak BY DESIGN, and both already close stocks
+(emmy_bthrow 89, oiler smash_forward 139). Role bands are sanity ranges, not
+normalization targets.
+
+### Scope and provenance
+  - `cellular_automaton.ron` changed TWO lines: that file emits its table twice,
+    serving BOTH `perfect_` and `imperfect_cellular_automaton`. The latter is not in
+    `SMASH_ROSTER` and had no baseline row, so it was measured afterwards: centre
+    **152**, identical to perfect, as a shared table predicts.
+  - ⛔ THE HOST READS `assets/data/movesets/*.ron` OFF DISK. Editing a `*_moveset.rs`
+    for a MIGRATED table is a NO-OP until
+    `cargo run -p ambition_app_tools --bin moveset_source_export -- <table>`.
+    `player_robot`, `mary_o` and `sanic` are NOT migrated (no .ron) and need a REBUILD
+    instead. Both roads were taken here and both were verified.
+  - `smash_roster_movesets.rs` carries a doc-comment-only change: its stated corpus
+    maximum said 1.05 while the tree already held 1.375, and the retuned up-smashes
+    took it to 2.49 (cap is 4.0). The guard's executable body is byte-identical and
+    `every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip` passes (1 passed).
+
+### Open for Jon (surfaced, NOT changed)
+  - Strikes compress ~36% at the 1.4 rage cap, so these are rage-1.0 statements: a
+    155% target kills nearer 110% against a damaged attacker. Whether `rage_max_scale`
+    should stay 1.4 is a global decision over 22 fighters, like the frozen 1.25.
+  - Throws bypass rage AND staleness entirely (pushed separately).

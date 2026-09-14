@@ -2543,12 +2543,37 @@ pub enum ScopeClassification {
     Unowned,
 }
 
+/// Whether an entity is in the PUBLISHED world or is a hidden candidate.
+///
+/// ⛔⛤ **A SCOPE GATHER SEES BOTH AND DID NOT SAY WHICH — `A10`, 2026-09-14.**
+/// [`AuthoritativeScope::gather`] uses `Allow<InactiveCandidate>` precisely so a
+/// verifier can see a candidate it is validating. That is right, and it left the
+/// two populations indistinguishable in the result: *"one occupant per
+/// identity"* read over the union answers DUPLICATED for the legitimate A10 state
+/// — live A and hidden B on one identity, which
+/// `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`
+/// measured as ALLOWED.
+///
+/// ⇒ The projection needs the distinction as DATA, not as a second query.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScopeVisibility {
+    /// Ordinary queries can see it: it is part of the authoritative world now.
+    Published,
+    /// Carries [`InactiveCandidate`], so it is invisible to ordinary queries and
+    /// becomes authoritative only if this transaction publishes.
+    HiddenCandidate,
+}
+
 /// One identity-bearing entity in the world, and what it is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ScopeMember {
     pub sim_id: SimId,
     pub entity: Entity,
     pub classification: ScopeClassification,
+    /// ⛔ NOT DEFAULTED. A member whose visibility nobody stated would be counted
+    /// as published, which is the direction that turns a legal candidate into a
+    /// duplicate-identity violation.
+    pub visibility: ScopeVisibility,
 }
 
 /// Every identity-bearing entity in the world, classified against one
@@ -2692,8 +2717,12 @@ impl AuthoritativeScope {
             &SimId,
             Option<&TransactionId>,
             Option<&PresentationOnly>,
+            // ⛔ NAMED SO THE GATHER CAN REPORT IT. `Allow` opts this query out of
+            // the default filter; reading the component is what lets the result
+            // say WHICH population each member is in. See [`ScopeVisibility`].
+            Option<&InactiveCandidate>,
         ), bevy::ecs::query::Allow<InactiveCandidate>>();
-        for (entity, sim_id, owner, presentation) in query.iter(world) {
+        for (entity, sim_id, owner, presentation, hidden) in query.iter(world) {
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly
             } else {
@@ -2709,6 +2738,11 @@ impl AuthoritativeScope {
                 sim_id: sim_id.clone(),
                 entity,
                 classification,
+                visibility: if hidden.is_some() {
+                    ScopeVisibility::HiddenCandidate
+                } else {
+                    ScopeVisibility::Published
+                },
             });
         }
         // Query iteration order is not stable across runs; violations derived
@@ -2736,6 +2770,367 @@ impl AuthoritativeScope {
 
     pub fn members(&self) -> &[ScopeMember] {
         &self.members
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A10: THE PROJECTED POST-PUBLICATION ROSTER
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⛔⛤ **THE VERIFIER A10 NEEDS DOES NOT ASK WHETHER THE LIVE WORLD IS ALREADY
+// RIGHT.** `verify_committed_roster` above judges the world AS IT IS, at the
+// close of a transaction that has already mutated it — and under that question a
+// still-live predecessor is `ReconstructedOldSurvived`, a violation. A10's whole
+// invariant is that the predecessor IS still live while its replacement is being
+// judged, so the question has to change rather than the answer:
+//
+// > **What would the authoritative roster be if this candidate published?**
+// > Validate THAT.
+//
+// ⚠ `TransactionBaseline::reconstructing` KEEPS ITS MEANING — *the old body
+// should already be gone, the new one should exist*. This is a different
+// operation and gets different vocabulary rather than an exception branch inside
+// that one.
+
+/// One staged replacement: `candidate` takes `live`'s place when this publishes.
+///
+/// ⚠ **`live` AND `candidate` MAY BE THE SAME `SimId`, AND THAT IS THE CENTRAL
+/// CASE.** A candidate session root carries the live root's identity by design —
+/// measured in
+/// `a_hidden_candidate_may_share_the_live_worlds_identity_and_a_published_one_may_not`
+/// — so a supersession is not *"a rename"*; it is *"this entity replaces that
+/// one"*, and the identities are free to agree.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Supersession {
+    /// The published identity that goes away when this publishes.
+    pub live: SimId,
+    /// The hidden candidate identity that takes its place.
+    pub candidate: SimId,
+}
+
+/// What a candidate transaction DECLARES it will do to the live world if it is
+/// admitted.
+///
+/// ⭐ **FOUR DECLARATIONS, NOT FIVE SPECIAL CASES.** Additions come from the plan;
+/// retirements and supersessions are stated here; everything else in the live
+/// world is RETAINED by omission. Checkpoint custody restoration, candidate room
+/// actors, removals, reauthored occurrences and changed relations are all the
+/// same four statements rather than a branch each.
+///
+/// ⛔ **OMISSION MEANS RETAINED, DELIBERATELY.** The alternative — requiring every
+/// surviving identity to be listed — makes the declaration a second copy of the
+/// world that has to be kept in step with it, which is the synchronisation
+/// architecture this design exists to avoid.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PublicationEffects {
+    supersedes: BTreeSet<Supersession>,
+    retires: BTreeSet<SimId>,
+}
+
+impl PublicationEffects {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// `candidate` replaces `live` at publication; `live` is legal until then.
+    pub fn superseding(mut self, live: SimId, candidate: SimId) -> Self {
+        self.supersedes.insert(Supersession { live, candidate });
+        self
+    }
+
+    /// `live` goes at publication and nothing replaces it.
+    pub fn retiring(mut self, live: SimId) -> Self {
+        self.retires.insert(live);
+        self
+    }
+
+    pub fn supersessions(&self) -> impl Iterator<Item = &Supersession> {
+        self.supersedes.iter()
+    }
+
+    pub fn retirements(&self) -> impl Iterator<Item = &SimId> {
+        self.retires.iter()
+    }
+
+    /// Every published identity this declares will be gone afterwards.
+    fn departing(&self) -> BTreeSet<&SimId> {
+        self.retires
+            .iter()
+            .chain(self.supersedes.iter().map(|s| &s.live))
+            .collect()
+    }
+}
+
+/// Where a projected occupant comes from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProjectedSource {
+    /// Live now, not declared departing, so it is still there afterwards.
+    RetainedLive,
+    /// A hidden candidate that publication makes authoritative.
+    Candidate,
+}
+
+/// One entity the authoritative world WOULD hold after this candidate published.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProjectedOccupant {
+    pub entity: Entity,
+    pub source: ProjectedSource,
+}
+
+/// The authoritative roster this candidate's declared effects would produce.
+///
+/// ⛔ **A PROJECTION, NEVER A MUTATION.** Nothing here touches the world; the
+/// live world stays exactly as it is while its successor is judged, which is the
+/// A10 guarantee restated as a data structure.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ProjectedRoster {
+    occupants: BTreeMap<SimId, Vec<ProjectedOccupant>>,
+}
+
+impl ProjectedRoster {
+    pub fn occupants_of(&self, sim_id: &SimId) -> &[ProjectedOccupant] {
+        self.occupants.get(sim_id).map_or(&[][..], Vec::as_slice)
+    }
+
+    pub fn identities(&self) -> impl Iterator<Item = &SimId> {
+        self.occupants.keys()
+    }
+
+    pub fn len(&self) -> usize {
+        self.occupants.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.occupants.is_empty()
+    }
+}
+
+/// Build the roster publication WOULD produce, without producing it.
+///
+/// ```text
+/// ProjectedRoster = published members
+///                 - declared retirements
+///                 - superseded published members
+///                 + hidden candidate members
+/// ```
+///
+/// ⚠ **PRESENTATION-ONLY MEMBERS ARE EXCLUDED**, by classification rather than by
+/// spelling, for the same reason `verify_committed_roster` excludes them: they
+/// carry an identity and no authority.
+pub fn project_post_publication_roster(
+    scope: &AuthoritativeScope,
+    effects: &PublicationEffects,
+) -> ProjectedRoster {
+    let departing = effects.departing();
+    let mut occupants: BTreeMap<SimId, Vec<ProjectedOccupant>> = BTreeMap::new();
+    for member in scope.members() {
+        if member.classification == ScopeClassification::PresentationOnly {
+            continue;
+        }
+        let source = match member.visibility {
+            ScopeVisibility::Published => {
+                if departing.contains(&member.sim_id) {
+                    continue;
+                }
+                ProjectedSource::RetainedLive
+            }
+            ScopeVisibility::HiddenCandidate => ProjectedSource::Candidate,
+        };
+        occupants
+            .entry(member.sim_id.clone())
+            .or_default()
+            .push(ProjectedOccupant {
+                entity: member.entity,
+                source,
+            });
+    }
+    for entries in occupants.values_mut() {
+        entries.sort_by_key(|occupant| occupant.entity);
+    }
+    ProjectedRoster { occupants }
+}
+
+/// Why a candidate may not publish.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProjectionViolation {
+    /// Two entities would hold one identity in the published world. The A10
+    /// failure this verifier exists for: a candidate that supersedes nothing,
+    /// or supersedes the wrong predecessor, lands beside it.
+    Duplicated {
+        sim_id: SimId,
+        count: usize,
+    },
+    /// A declared supersession names a live identity that is not live.
+    SupersededNotLive {
+        sim_id: SimId,
+    },
+    /// A declared supersession names a candidate identity this transaction did
+    /// not build.
+    SupersedingCandidateMissing {
+        sim_id: SimId,
+    },
+    /// A declared retirement names a live identity that is not live.
+    RetiredNotLive {
+        sim_id: SimId,
+    },
+    /// A hidden candidate carries somebody else's transaction stamp, or none.
+    CandidateNotOwned {
+        sim_id: SimId,
+        expected: TransactionId,
+        found: Option<TransactionId>,
+    },
+    /// The projected world would lose an identity nothing declared departing.
+    ///
+    /// ⛔ It cannot arise from the projection's arithmetic — omission means
+    /// retained — so it reports a candidate that REPLACED a live entity during
+    /// construction, which is the destructive mutation A10 forbids before
+    /// publication.
+    LiveLostWithoutDeclaration {
+        sim_id: SimId,
+    },
+}
+
+impl std::fmt::Display for ProjectionViolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Duplicated { sim_id, count } => write!(
+                f,
+                "publishing would leave {count} entities on `{sim_id}`; a candidate \
+                 must supersede the live holder of an identity it takes"
+            ),
+            Self::SupersededNotLive { sim_id } => write!(
+                f,
+                "the candidate declares it supersedes `{sim_id}`, which is not live"
+            ),
+            Self::SupersedingCandidateMissing { sim_id } => write!(
+                f,
+                "the candidate declares `{sim_id}` as a replacement and did not build it"
+            ),
+            Self::RetiredNotLive { sim_id } => write!(
+                f,
+                "the candidate declares it retires `{sim_id}`, which is not live"
+            ),
+            Self::CandidateNotOwned {
+                sim_id,
+                expected,
+                found,
+            } => write!(
+                f,
+                "candidate `{sim_id}` is stamped {found:?}, not this transaction's {expected:?}"
+            ),
+            Self::LiveLostWithoutDeclaration { sim_id } => write!(
+                f,
+                "`{sim_id}` was live when the candidate opened and would be gone after \
+                 publication without being declared retired or superseded — construction \
+                 destroyed part of the live world"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ProjectionViolation {}
+
+/// Would the authoritative world be valid if this candidate published?
+///
+/// ⛔⛤ **THIS IS THE QUESTION, AND IT IS NOT *"IS THE LIVE WORLD ALREADY
+/// RIGHT?"***. The live world is deliberately still the OLD one here. A refusal
+/// costs nothing to recover from because nothing was retired to make room.
+///
+/// ⚠ **THE BASELINE IS WHAT MAKES `LiveLostWithoutDeclaration` POSSIBLE.** The
+/// projection alone cannot see a live entity that construction destroyed —
+/// omission means retained, so a destroyed one is simply absent from both sides.
+/// Comparing against what was live when the transaction OPENED is what turns
+/// that silence into a violation.
+pub fn verify_projected_roster(
+    projection: &ProjectedRoster,
+    effects: &PublicationEffects,
+    baseline: &TransactionBaseline,
+    scope: &AuthoritativeScope,
+    world: &World,
+) -> Result<(), Vec<ProjectionViolation>> {
+    let mut violations = Vec::new();
+
+    let published: BTreeSet<&SimId> = scope
+        .members()
+        .iter()
+        .filter(|member| {
+            member.visibility == ScopeVisibility::Published
+                && member.classification != ScopeClassification::PresentationOnly
+        })
+        .map(|member| &member.sim_id)
+        .collect();
+    let candidates: BTreeSet<&SimId> = scope
+        .members()
+        .iter()
+        .filter(|member| member.visibility == ScopeVisibility::HiddenCandidate)
+        .map(|member| &member.sim_id)
+        .collect();
+
+    for supersession in effects.supersessions() {
+        if !published.contains(&supersession.live) {
+            violations.push(ProjectionViolation::SupersededNotLive {
+                sim_id: supersession.live.clone(),
+            });
+        }
+        if !candidates.contains(&supersession.candidate) {
+            violations.push(ProjectionViolation::SupersedingCandidateMissing {
+                sim_id: supersession.candidate.clone(),
+            });
+        }
+    }
+    for retired in effects.retirements() {
+        if !published.contains(retired) {
+            violations.push(ProjectionViolation::RetiredNotLive {
+                sim_id: retired.clone(),
+            });
+        }
+    }
+
+    // ⛔ THE CORE INVARIANT: one authoritative holder per identity, asked of the
+    // world publication WOULD produce rather than of the one that exists.
+    for (sim_id, entries) in &projection.occupants {
+        if entries.len() > 1 {
+            violations.push(ProjectionViolation::Duplicated {
+                sim_id: sim_id.clone(),
+                count: entries.len(),
+            });
+        }
+    }
+
+    // Every candidate this transaction would publish must be its own.
+    for member in scope.members() {
+        if member.visibility != ScopeVisibility::HiddenCandidate {
+            continue;
+        }
+        let owner = world.get::<TransactionId>(member.entity);
+        if owner != Some(scope.transaction()) {
+            violations.push(ProjectionViolation::CandidateNotOwned {
+                sim_id: member.sim_id.clone(),
+                expected: scope.transaction().clone(),
+                found: owner.cloned(),
+            });
+        }
+    }
+
+    // ⛔ AND NOTHING THE LIVE WORLD HELD MAY HAVE VANISHED UNDECLARED.
+    let departing = effects.departing();
+    for sim_id in baseline.entries().keys() {
+        if departing.contains(sim_id) {
+            continue;
+        }
+        if projection.occupants_of(sim_id).is_empty() {
+            violations.push(ProjectionViolation::LiveLostWithoutDeclaration {
+                sim_id: sim_id.clone(),
+            });
+        }
+    }
+
+    violations.sort_by_key(|violation| format!("{violation:?}"));
+    violations.dedup();
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(violations)
     }
 }
 

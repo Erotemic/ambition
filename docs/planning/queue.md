@@ -425,16 +425,68 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   request/barrier identity. ⇒ `ShellHoldId("content-publication:<request-id>")`,
   or a typed equivalent.
 
-  ⇒ **THE LIFECYCLE, in full**: at adoption take the hold for THAT pending shell
-  transaction; while pending, a valid boundary releases that exact hold and an
-  invalid one issues that exact correlated cancellation; and every terminal path —
-  success, failure, cancel, **supersede** — removes that transaction's hold.
+  ⛔⛔⛔ **RETRACTED 2026-09-14 — THE LIFECYCLE I WROTE HERE RECREATES THE EXACT
+  RACE `Q118` EXISTS TO CLOSE, AND MUST NOT BE IMPLEMENTED.** It said: *"at
+  adoption take the hold for THAT pending shell transaction; while pending, a
+  VALID BOUNDARY RELEASES THAT EXACT HOLD and an invalid one issues that exact
+  correlated cancellation."* The second GPT review of 2026-09-14 caught it, and
+  the repository's own acceptance poison already demonstrates why:
 
-  ⛔ **THE POISONS THIS NEEDS** (the first is the one the constant id fails):
-  A holds `game`, B supersedes A on the same route, A's delayed terminal cleanup
-  runs, **B must still be held**. Then: a cancellation cannot leak a hold; a
-  failure cannot leak a hold; a successful activation leaves none behind; and a
-  later reload of the same route is never blocked by an old transaction.
+```text
+  content system checks the boundary      → VALID
+  content system RELEASES its hold
+  ── somebody changes rollback ownership/health ──
+  ShellRouter::advance_pending            → is_held() == false
+  RouteActivated                          → N+1 publishes against a foreign timeline
+```
+
+  ⇒ **A TRANSACTION-SPECIFIC HOLD ID FIXES *WHICH* HOLD IS RELEASED. IT DOES NOT
+  FIX *WHEN* AUTHORIZATION IS EVALUATED.** The transaction-id ruling above is
+  still correct and still needed — it is about ownership and cleanup, which is a
+  different problem from atomicity. Both are required; neither substitutes.
+
+  ⭐ **HOW I GOT IT WRONG**: I had just measured that the interval between the
+  breaker and activation is real, and reached for the primitive that BLOCKS
+  activation — correctly — then wrote a release step that hands the interval
+  straight back. A blocking primitive only helps while it is held, so *"release it
+  once the check passes"* is the one lifecycle that cannot work. ⇒ **A GUARD YOU
+  RELEASE ON A CHECK IS THE CHECK, WITH EXTRA STEPS.**
+
+  ⇒ **THE LIFECYCLE THAT IS ACTUALLY REQUIRED**: the final validity decision and
+  the route activation need ONE OWNER, and that owner is the router.
+
+```text
+  adoption            take the transaction-specific hold
+  while pending       the content system MAINTAINS its lease state; it does NOT
+                      release the hold because the world looked valid at some
+                      earlier instant
+  advance_pending     evaluate/consume gate readiness NOW, in the same exclusive
+                      operation that emits `RouteActivated`
+                        not ready / refused → stay pending, or cancel
+                        all valid           → consume the gates AND activate,
+                                              with no window in between
+  terminal            success, failure, cancel, SUPERSEDE all remove that
+                      transaction's hold
+```
+
+  ⚠ **THE SHELL STAYS GENERIC.** It must not learn rollback semantics — it
+  understands *"this pending transaction has prerequisites, are they satisfied
+  right now"*. Rollback is one answerer among possible others; that is the same
+  reason this is better than a bespoke watcher.
+
+  ⛔ **THE POISONS THIS NEEDS.** The ATOMICITY one first, because it is the one
+  the retracted lifecycle fails: the publication participant has already judged the
+  boundary valid, THEN a test mutation changes rollback ownership/health, THEN the
+  shell attempts activation — **the route must not activate**. ⚠ That mutation has
+  to be ordered AFTER whatever point the old design would have released at, or the
+  arm passes on the defect.
+
+  Then the TRANSACTION-IDENTITY set, which the constant hold id fails: A holds
+  `game`, B supersedes A on the same route, A's delayed terminal cleanup runs,
+  **B must still be held**. And: a cancellation cannot leak a hold; a failure
+  cannot leak a hold; a successful activation consumes only its OWN gate and
+  leaves none behind; a later reload of the same route is never blocked by an old
+  transaction.
 
   ⚠ **THE PARKED WIP IS HALF-WIRED AND WOULD HANG EVERY RELOAD** — the hold is
   taken in `adopt_preparation_transaction` via `take_the_publication_lease` and
@@ -725,6 +777,71 @@ the thing to distrust"* — so the repair is the duel, not the number.
 
 ⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
 (`7675130b6`, `be30f2661`), so it is not intermittent.
+
+## ✅ CONSTRUCTION STOPS READING THE ABILITY EDITOR — 2026-09-14
+
+**GPT architecture review (second of the day), finding 1.** `ActiveEditableAbilityMask`
+exists so a developer's ability selection reaches mechanics only after crossing
+the rollback mutation boundary. Production construction went around it:
+
+```text
+SimulationSetup { fallback_abilities: AbilitySet }
+  <- PlatformerSessionBuilder passes self.editable_abilities.as_engine()
+  -> character_catalog.ability_set(..).unwrap_or(fallback_abilities)
+  -> the player's AbilityBase
+```
+
+⛔ **TWO ROADS TO MECHANICS.** An editor value the timeline had REFUSED still
+entered simulation as the player's BASE — and `sync_live_player_dev_edits_system`
+correctly declines to reconcile it back while the refusal stands, so nothing
+repaired it either.
+
+⭐⭐ **THE SEMANTIC HALF MATTERS MORE THAN THE TIMING HALF.** The editor value is a
+MASK over the base (`base ∩ mask`), not a base. While the mask CREATED the base,
+an ability switched off in the panel was absent from the set a later edit is
+supposed to re-enable it from — a mask that becomes what it filters can only
+subtract, and only once.
+
+⛔⛤ **AND THE REVIEW NAMED ONE CALL SITE; THERE WERE FOUR.**
+`crates/ambition_platformer2d_provider/src/lifecycle.rs`,
+`game/ambition_demo_mary_o/src/lib.rs`, `game/ambition_demo_sanic/src/lib.rs` and
+`crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` all passed
+`editable_abilities.as_engine()` and used the resource for NOTHING ELSE. ⭐ The
+tree already half-knew: `ambition_demo_sanic`'s catalog row says *"A row that
+authors no grants falls back to the DEV SANDBOX set (`EditableAbilitySet::default()`
+is `sandbox_all`), so Sanic was quietly carrying every verb in the engine at
+home"*.
+
+⇒ **THE PARAMETER IS DELETED** rather than re-sourced. `session/setup.rs` uses
+`AbilitySet::sandbox_all()` — an engine constant, and exactly what all four passed
+for an untouched panel, so behaviour is preserved. There is no argument to pass,
+so the defect is not expressible. `ambition_platformer2d_provider`'s
+`ambition_dev_tools` dependency went with it: that was its only use.
+
+⚠ **THE DEPENDENCY CONTRACT I WANTED IS NOT TRUE AT HEAD, AND I REMOVED IT RATHER
+THAN WEAKEN IT.** `check_absence_contracts.py` walks dependencies TRANSITIVELY and
+counts dev-dependencies on purpose — its own words: *"a test that reaches upward
+compiles the upward edge, and 'only in tests' is exactly the excuse under which a
+layering inversion first arrives."* `ambition_platformer2d_actor_monolith` keeps
+`ambition_dev_tools` as a `[dev-dependency]` for `live_refresh` and the reset
+tests, so *"the provider cannot reach dev-tools"* is FALSE at HEAD. ⇒ The direct
+edge is cut; the transitive one waits on moving those tests. A candidate contract,
+not a current one.
+
+✅ **WHAT GUARDS IT INSTEAD**: the source contract
+`world-construction-does-not-read-the-ability-editor` forbids `EditableAbilitySet`
+and `fallback_abilities` in the four CONSTRUCTION paths (not the workspace —
+`ambition_dev_tools` defines the type and `live_refresh` legitimately drives it).
+Poison-verified by putting `Res<EditableAbilitySet>` back into
+`PlatformerSessionBuilder`: RED.
+
+✅ **AND THE SEMANTIC ARM**:
+`an_ability_the_mask_disabled_can_be_enabled_again_from_the_base` — a base that
+grants the air jump, a mask that turns it off, then a mask that turns it back on,
+which is the step that could not work while the editor was the base. Its second
+half pins the other direction: the panel has `fly` ON (default = `sandbox_all`)
+and the base never granted it, so the body must not gain it. Poison-verified by
+`desired = mask` instead of `base ∩ mask`.
 
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 

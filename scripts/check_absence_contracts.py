@@ -74,6 +74,34 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "world-construction-does-not-read-the-ability-editor",
+        "paths": [
+            "crates/ambition_platformer2d_provider/",
+            "crates/ambition_platformer2d_actor_monolith/src/session/",
+            "game/ambition_demo_mary_o/src/",
+            "game/ambition_demo_sanic/src/",
+        ],
+        "patterns": [r"EditableAbilitySet", r"fallback_abilities"],
+        "reason": (
+            "A DEVELOPER'S ABILITY SELECTION IS A MASK OVER THE BASE, NEVER THE "
+            "BASE. `SimulationSetup` took a `fallback_abilities: AbilitySet` and "
+            "all four callers passed `editable_abilities.as_engine()`, so an "
+            "editor value the rollback timeline had REFUSED still entered "
+            "simulation through CONSTRUCTION, and an ability switched off in the "
+            "panel was missing from the base a later edit is supposed to "
+            "re-enable it from. `Q120`'s protocol is editable -> proposal -> "
+            "admission -> `ActiveEditableAbilityMask` -> `base` intersect `mask`. "
+            "The parameter is deleted (the shared fallback is "
+            "`AbilitySet::sandbox_all()`, an engine constant, which is what all "
+            "four passed in practice), and this contract is what keeps a new "
+            "caller from reintroducing the road. GPT architecture review "
+            "2026-09-14, which named one of the four sites. "
+            "\u26a0 THE PATHS ARE THE CONSTRUCTION ROADS, not the workspace: "
+            "`ambition_dev_tools` defines the type and `live_refresh`'s tests "
+            "legitimately drive it."
+        ),
+    },
+    {
         "id": "the-two-move-drivers-do-not-author-their-own-presses",
         "paths": [
             "game/ambition_app_tools/src/bin/moveset_takes.rs",

@@ -34,15 +34,6 @@ pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
 pub struct SimulationSetup<'a> {
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
-    /// The session's shared fallback capability set — what a character that
-    /// authors no kit of its own gets.
-    ///
-    /// ⛔⛔ AN ENGINE VALUE, NOT THE DEV-TOOLS MIRROR. This was
-    /// `&EditableAbilitySet`, so a LIVE-EDITABLE DEVELOPER TYPE sat in the
-    /// production construction path and the simulation kernel depended upward on
-    /// `ambition_dev_tools` to build a world. Who edits the set is the caller's
-    /// business; what construction needs is the set.
-    pub fallback_abilities: ae::AbilitySet,
     pub tuning: &'a ae::ActiveMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
@@ -108,7 +99,6 @@ pub fn simulation_world(
     let SimulationSetup {
         world,
         room_set,
-        fallback_abilities,
         tuning,
         initial_body,
         prepared_characters,
@@ -177,9 +167,30 @@ pub fn simulation_world(
     // forcing the whole multi-game host onto the session's shared set. A
     // row without an authored set keeps that shared sandbox set, so Ambition's own
     // protagonist is untouched.
+    // ⛔⛤ **THE SHARED FALLBACK IS AN ENGINE CONSTANT, AND IT WAS A PARAMETER
+    // UNTIL 2026-09-14.** The field's own doc said *"AN ENGINE VALUE, NOT THE
+    // DEV-TOOLS MIRROR … who edits the set is the caller's business"* — and every
+    // one of the four callers passed `editable_abilities.as_engine()`. Removing
+    // the type from this signature moved the upward dependency on
+    // `ambition_dev_tools` to the caller; it did not remove it.
+    //
+    // ⇒ **SO THE PARAMETER IS GONE.** A developer's ability selection is a MASK
+    // over this base (`ActiveEditableAbilityMask`, projected by
+    // `sync_live_player_dev_edits_system` as `base ∩ mask`), never the base
+    // itself. While the editor WAS the base, a value the rollback timeline had
+    // REFUSED still entered simulation through construction — and an ability the
+    // developer had switched off was absent from the base a later edit is
+    // supposed to re-enable it from. Both are inexpressible now: there is no
+    // argument to pass. Found by the GPT architecture review 2026-09-14, which
+    // named one of the four call sites; the other three are the demos and the
+    // host smoke test.
+    //
+    // ⚠ `sandbox_all()` is what all four passed in practice —
+    // `EditableAbilitySet::default()` IS `AbilitySet::sandbox_all()`, so this
+    // preserves behaviour exactly for an untouched panel.
     let base_abilities = character_catalog
         .ability_set(starting_character.effective_id(default_character_id))
-        .unwrap_or(fallback_abilities);
+        .unwrap_or_else(ae::AbilitySet::sandbox_all);
     let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,

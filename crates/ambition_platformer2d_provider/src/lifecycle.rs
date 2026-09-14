@@ -1640,7 +1640,6 @@ fn activate_prepared_platformer_sessions(
 #[derive(SystemParam)]
 pub struct PlatformerSessionBuilder<'w, 's> {
     commands: Commands<'w, 's>,
-    editable_abilities: Res<'w, ambition_dev_tools::dev_tools::EditableAbilitySet>,
     tuning: Res<'w, ambition_platformer2d_core::ActiveMovementTuning>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     /// The prepared cast, when this composition registered one. Activation builds
@@ -1734,9 +1733,6 @@ impl PlatformerSessionBuilder<'_, '_> {
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
                 world: &live_world.geometry,
                 room_set: &live_world.room_set,
-                // The CALLER converts: who edits the set is a developer
-                // facility, and construction needs only the set.
-                fallback_abilities: self.editable_abilities.as_engine(),
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
                 prepared_characters: mechanical.characters.as_ref(),

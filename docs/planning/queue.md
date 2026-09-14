@@ -1785,7 +1785,15 @@ ACTIVATION and HANDOFF, where the thing being replaced really is the root.
 | `RoomSet`, `RoomGeometry` | components on the session root | none — already candidate-ownable |
 | `ActiveContentBinding` | `Resource` | ~7 sites; the room transaction is its only verifier-side reader. Cheap, and the gain is small while `SessionScopeSet` keeps two sessions from coexisting |
 | `SessionMechanics` | `Resource` | read by reset and activation through `GenerationMechanics::for_live_session` |
-| `MovingPlatformSet` | `Resource` | ⛔ **`rollback_resource_canonical`** — it is in the checksum, so moving it to a component is a WIRE-FORMAT change and trips `rollback-wire-format-changes-are-declared`. That belongs to the rollback campaign, not to A10 |
+| `MovingPlatformSet` | `Resource` | `rollback_resource_canonical` — it is in the checksum, so moving it to a COMPONENT would be a wire-format change and trip `rollback-wire-format-changes-are-declared`. ⚠ **Not a blocker: it does not have to move.** `PendingWorldReplacement` already stages it as a VALUE and publishes it at a verdict; the session transaction can do the same |
+
+⛔⛤ **AND THAT TABLE'S FRAMING WAS TOO NARROW — CORRECTED BY THE SAME
+MEASUREMENT.** "Move the four authorities onto the root" is ONE shape, and the
+room packet demonstrates another: stage the writes as VALUES and publish them at
+the verdict. Nothing about a candidate session requires a type change to any of
+the four. ⇒ The `MovingPlatformSet` wire-format cost is a cost of the FIRST shape
+only, and recording it as a blocker would have stopped a packet that does not need
+to pay it.
 
 ⛔ **AND THE FIRST STEP IS AN ORDERING FACT, NOT A TYPE CHANGE.** Session
 activation queues its room build BEFORE it spawns the session root
@@ -1801,6 +1809,32 @@ a refused first room leaves the session broken either way. What the session scop
 actually needs is a policy — *what does the shell DO when an activation's first
 room refuses?* — and that policy is the shell's to state.
 `the_shipped_apps_own_first_room_publishes` holds the line until it does.
+
+⭐⭐ **AND THE HANDOFF'S WINDOW IS MEASURED, NOT ASSUMED — IT IS ONE FRAME.**
+`a_shell_handoff_publishes_the_incoming_sessions_room` with `--nocapture`, on the
+shipped app:
+
+```text
+f  12  session-start
+f  12  room-loaded central_hub_complex
+f 243  session-end
+f 243  session-start
+f 243  room-loaded central_hub_complex
+```
+
+⇒ The whole session replacement — retire A, activate B, publish B's room —
+happens in ONE FRAME. ⚠ **One frame is not one command flush**, which is the
+distinction that decides the packet's difficulty: `Cleanup`, `Activate` and the
+provider's build are different SETS, so systems DO run in the window where A is
+gone and B has not arrived. But it is an INTRA-FRAME window, not the multi-frame
+one a candidate session would otherwise have to survive — so a candidate session
+root is hidden for the same order of time the room's candidates are, and the
+packet is more tractable than the four-authorities framing suggested.
+
+⚠ Other compositions are not this tight: the same suite log shows gaps of several
+frames between `session-start` and the first `room-loaded` in the sanic and mary-o
+demos. The shipped app is the road that matters here; the demos are a second
+population the packet must check rather than assume.
 
 **ACCEPTANCE CRITERIA.** ⛔ A10 is not closed because candidate roots coexist or
 because a verifier passes its own arms. The ROOM scope is closed because the

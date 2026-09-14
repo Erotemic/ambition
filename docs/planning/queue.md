@@ -897,6 +897,68 @@ half pins the other direction: the panel has `fly` ON (default = `sandbox_all`)
 and the base never granted it, so the body must not gain it. Poison-verified by
 `desired = mask` instead of `base ∩ mask`.
 
+## ✅ THE PIRATE'S THROWS, RE-MEASURED EXACTLY — and throws turn out to be UNAUTHORED across the roster — 2026-09-14
+
+⭐ **ANSWER: none of the three un-shipped throw values return.** Measured with the
+exact calibration mode (`e18e1ebc6`), `probe npc_pirate_admiral player_robot_v3
+calib only=throw ceiling=200`. Quality signals: **refusals=0, mixed=0**, and both
+KO cells classified `forced=yes` — kill power, not falls after control returned.
+
+    move            base    growth  launch@100  centre_KO  ledge_KO
+    pirate_fthrow   104.0   2.40    428.0        165        55
+    pirate_bthrow   112.32  2.52    455.7         98        25
+    pirate_uthrow   108.16  2.45    438.9        >200       >200
+    pirate_dthrow    76.96  1.92    331.4        >200       136
+
+- **fthrow stays 2.40**, for three independent reasons: the MEASURED duel veto
+  (2.81 collapses the match to 3618 ticks / 0.23+0.23, reproducing the old red
+  banner's digits; 2.40 is green); the authoring prose CITES both `104` and `2.4`
+  verbatim; and its 165 is a CONSEQUENCE OF AUTHORED DIRECTION — the prose calls
+  `(0.55, -1.0)` *"an UPWARD throw wearing the forward slot, and that is a
+  character fact rather than a mistake"*.
+- **bthrow stays 2.52.** 1.87 would WEAKEN it — by the throw form
+  `p1 = (p0+d)*G_old/G_new - d` = `(98+9)*2.52/1.87 - 9` ~= 135. No measured
+  problem with 98, and the duel is indifferent to this value (tested green,
+  bit-identical). Do not normalise a working move into a band.
+- **uthrow stays 2.45.** 5.29 would convert a non-kill throw into a kill throw on
+  the strength of a step-50 straddling artifact.
+
+⛔ **A HYPOTHESIS OF MINE, FALSIFIED AND RECORDED.** I predicted fthrow (165) and
+bthrow (98) differed because they cross DIFFERENT blast boundaries at near-equal
+launch (428.0 vs 455.7). Measured: EVERY kill is `boundary=fall`; none by side
+blast. The cause is LATERAL EFFICIENCY — `(0.55,-1.0)` spends its launch fighting
+gravity and returns to the stage, `(-1.0,-0.62)` converts launch into horizontal
+distance and clears the platform edge far sooner (`last_live` x=614.8 vs x=53.1,
+both falling). The same ~1.7x vertical tax measured earlier.
+
+### ⭐⭐ THE STRUCTURAL FINDING: b/u/d throws are a FORMULA, not authorship
+George's own facet prose names the roster default his throws were written to
+escape — *"every fighter's back/up/down is its own f-throw times 1.08 / 1.04 /
+0.74 and the three answer the same question at three volumes."* That is now
+MEASURED rather than asserted, by reading each throw's own knockback:
+
+- **Exactly generic (12 fighters)**: alice(118) bob(132) cellular_automaton(96)
+  emmy_noether(108) ninja_shadow_oni_leader(126) oiler(114) patent_clerk(110)
+  pirate_admiral(104) player_robot(120) mary_o(112) sanic(98), and
+  carl_stargan(122 -> 131/127/90, the multipliers rounded to integers).
+- **Authors no throws (3)**: pointed_polygon, pugnacious_polygon, medic —
+  `archetype_moveset.rs` contains zero `throw` mentions.
+- **Generic f/b/u, authored DOWN slot (1)**: goblin's `goblin_dthrow` is not a
+  throw at all but `author_carry(...)` with `CaptureCarryParams { hold_offset }`.
+- ⭐ **Genuinely authored (1): George** — 138/104/145/68 with growths
+  1.9/1.3/0.0/2.6, no scaling relationship between them.
+- ⚠ **Not examined (4)**: projectile_polygon, author, performer, officer.
+
+⇒ For those 12 there is NO authored throw identity to preserve, which removes the
+"character identity" objection to tuning them — and equally means tuning them is a
+DESIGN act, not a repair. ⛔ It also means a roster-wide throw pass would be
+rewriting a formula somebody chose, and that is Jon's call rather than a fix.
+
+⚠ Related, from `b964bd79a`: every KO% in this repo's tables is **rage-pinned**.
+Rage compresses the envelope ~36% (a smash calibrated to 110% fresh kills at 70%
+once the attacker reaches 100%; at the ledge 18% becomes 4%). The ~80-120% band
+for credible strong smashes therefore holds at rage 1.0 ONLY.
+
 ## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
 
 **GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST

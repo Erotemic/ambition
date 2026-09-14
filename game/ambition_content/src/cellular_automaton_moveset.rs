@@ -207,7 +207,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         half_extents: (32.0, 24.0),
         damage: 14,
         knockback: 128.0,
-        knockback_growth: 2.25,
+        knockback_growth: 3.17,
         launch_dir: Some((0.95, -0.42)),
         on_hit: None,
     });

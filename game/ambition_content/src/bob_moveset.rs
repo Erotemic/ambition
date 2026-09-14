@@ -123,7 +123,7 @@ pub fn bob_moveset() -> MovesetContract {
         half_extents: (26.0, 22.0),
         damage: 16,
         knockback: 134.0,
-        knockback_growth: 2.30,
+        knockback_growth: 3.19,
         launch_dir: Some((0.95, -0.45)),
         on_hit: None,
     });

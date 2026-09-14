@@ -414,7 +414,7 @@
                                             ),
                                             damage: 16,
                                             knockback: 134.0,
-                                            knockback_growth: Some(2.3),
+                                            knockback_growth: Some(3.19),
                                             launch_dir: Some((0.95, -0.45)),
                                             reaction: None,
                                             on_hit: None,

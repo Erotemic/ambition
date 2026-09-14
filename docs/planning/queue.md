@@ -7236,3 +7236,58 @@ normalization targets.
     155% target kills nearer 110% against a damaged attacker. Whether `rage_max_scale`
     should stay 1.4 is a global decision over 22 fighters, like the frozen 1.25.
   - Throws bypass rage AND staleness entirely (pushed separately).
+
+## ✅ SIX FORWARD SMASHES BROUGHT INTO BAND — AND THE SIDE BLAST LINE IS *NOT* A CONSTANT
+
+MEASURED 2026-09-14, same instrument and caveats as the up-smash pass above
+(rage-pinned, no-DI, vs `player_robot_v3` ⇒ LOWER BOUNDS; 1.25 untouched).
+
+### ⛔ The vertical trick does NOT transfer, and four hypotheses died proving it
+`smash_up` crosses the RISE line at a launch of ~1238 with a spread of 0.61% (n=10).
+`smash_forward` crosses the SIDE line at **687.9-820.1 — 17.94% spread** (n=14, every
+row guard-checked so source base/growth == the baseline table's; 0 guard failures).
+Falsified, so nobody re-walks them:
+  1. HITBOX X OFFSET — alice 38.0→718.0, cellular 40.0→718.6, pirate 58.0→722.4.
+     Offset spans 20px; launch moves 4.
+  2. `launch_dir` — emmy, george and goblin ALL carry (1.0,-0.50) yet land at
+     675.2 / 724.1 / 751.3. No monotone relation.
+  3. `smash_charge_mult` as a launch scale — the source refutes it: *"scales damage"*
+     (`player_robot_moveset.rs:128`). goblin and pirate are both 1.7 → 751.3 vs 722.4.
+  4. A `+damage` term (throws use `p+damage`, so strikes might) — spread 17.94% →
+     17.62%. It changes nothing.
+⇒ RECORDED AS UNEXPLAINED. Four is already past a sane budget for one anomaly.
+
+### ⭐ And the constant was never needed — CALIBRATE
+For any move whose KO% is already measured, no stage constant is required:
+
+    G_new = G_old * p0/p1        (p0 = measured KO%, p1 = target KO%)
+
+    fighter                      move_id           G_old -> G_new   p0    predicted  measured
+    goblin                       smash_forward     2.85 -> 3.79     173   130        130
+    npc_bob                      rivet_smash       2.30 -> 3.19     199   143        144
+    perfect_cellular_automaton   generation_wipe   2.25 -> 3.17     210   149        149
+    npc_alice                    brute_force       2.20 -> 3.12     216   152        153
+    sanic                        sonic_boom        2.15 -> 3.08     225   157        157
+    mary_o_tall                  shell_kick        2.10 -> 3.03     231   160        160
+
+6/6 inside a pre-registered +-2%, four EXACT, refusals 0. Across both passes this
+session that is **14/14 pre-registered predictions**.
+
+### Untouched, and why
+  - Already in band: pirate 110, george 125, clerk 129, ninja 150, carl 155.
+  - ⛔ CONTRACT-PROTECTED: emmy 140 (`BREAK_GROWTH`) and oiler 139 (`TORQUE_GROWTH`).
+    Each fighter is built around ONE licensed kill move with everything else capped,
+    and a test enforces it.
+  - ⛔ SHARED TABLES, left alone: `162.0/3.25` is ONE table serving medic, officer,
+    projectile_polygon and pugnacious_polygon; `148.0/3.05` serves author, performer
+    and pointed_polygon (`author`/`performer` borrow `pointed_polygon_moveset()`,
+    `officer`/`medic` borrow `pugnacious_polygon_moveset()`). Editing one moves 4 and
+    3 fighters respectively — a roster decision, not a per-fighter tune.
+
+### ⛔ A trap that bit three times: the GENERIC move id
+Six fighters share the literal id `smash_forward` and six share `smash_up`. Any helper
+that scans every moveset file and takes the FIRST match reads an ARBITRARY fighter's
+numbers — the tell is a value repeating across unrelated fighters (damage=17,
+charge=1.70), and goblin's launch printing 1044.5 where the table said 751.3.
+⇒ Resolve a strike from the fighter's OWN file, and ASSERT the parsed base/growth
+equals the baseline table's. `only=` matches `move_id`, never a role.

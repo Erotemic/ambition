@@ -530,6 +530,10 @@ fn fight_app() -> App {
     );
     app.init_resource::<Traded>();
     app.init_resource::<Heard>();
+    // The damage scaling `apply_feature_hit_events` reads — see
+    // `ambition_damage::PlayerDamagePolicy`. Unscaled here, which is what the
+    // absent `UserSettings` gave this fixture before.
+    app.init_resource::<ambition_damage::PlayerDamagePolicy>();
     app
 }
 

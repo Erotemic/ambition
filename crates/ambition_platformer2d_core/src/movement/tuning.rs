@@ -320,8 +320,66 @@ pub struct PendingMechanicalEdits(std::collections::BTreeSet<MechanicalDomain>);
 ///
 /// Declared by the domain that owns the value, beside the value, so nothing
 /// central has to enumerate them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MechanicalDomain(pub &'static str);
+///
+/// ⛔⛤ **IDENTITY IS THE MARKER TYPE, NOT THE LABEL — REVIEW, 2026-09-13.** The
+/// first version was `MechanicalDomain(pub &'static str)`, and the labels in this
+/// repository happen to be distinct. **A convention is not uniqueness:** two
+/// independently authored plugins can pick `"tuning"`, the `BTreeSet` treats them
+/// as ONE domain, and the first publisher to drain it takes the other's proposal
+/// with it — recreating the exact class the per-domain redesign removed, one
+/// layer down and only for extension crates nobody here can see.
+///
+/// ⭐ [`Self::of`] mints a token from a marker TYPE, so identity is structural
+/// and decentralised at once: a crate declares its own zero-sized marker beside
+/// the value it owns, core still enumerates nothing, and two domains cannot
+/// collide however they are spelled. The label survives for logs and panics.
+///
+/// ⚠ **A `TypeId` IS HOST-LOCAL AND THAT IS FINE HERE.** This ledger is
+/// deliberately outside the rollback window — see [`PendingMechanicalEdits`] —
+/// so the token needs no deterministic cross-peer representation, which is
+/// exactly the distinction `queue.md`'s canonical-identity row is about.
+#[derive(Clone, Copy, Debug)]
+pub struct MechanicalDomain {
+    owner: core::any::TypeId,
+    label: &'static str,
+}
+
+impl MechanicalDomain {
+    /// Mint this domain's token from the marker type that owns it.
+    pub fn of<T: 'static>(label: &'static str) -> Self {
+        Self {
+            owner: core::any::TypeId::of::<T>(),
+            label,
+        }
+    }
+
+    /// For a log or a panic. NOT the identity — see the type's doc.
+    pub const fn label(self) -> &'static str {
+        self.label
+    }
+}
+
+impl PartialEq for MechanicalDomain {
+    fn eq(&self, other: &Self) -> bool {
+        self.owner == other.owner
+    }
+}
+impl Eq for MechanicalDomain {}
+impl PartialOrd for MechanicalDomain {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for MechanicalDomain {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.owner.cmp(&other.owner)
+    }
+}
+impl core::hash::Hash for MechanicalDomain {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.owner.hash(state);
+    }
+}
 
 impl PendingMechanicalEdits {
     /// This domain has an edit waiting. STICKY: it survives until that domain
@@ -1703,8 +1761,14 @@ mod pending_mechanical_edits_tests {
 
     /// Two dummy domains, because ONE domain is the case the broken version
     /// passed. The defect is only expressible with a second.
-    const A: MechanicalDomain = MechanicalDomain("domain_a");
-    const B: MechanicalDomain = MechanicalDomain("domain_b");
+    struct DomainA;
+    struct DomainB;
+    fn a() -> MechanicalDomain {
+        MechanicalDomain::of::<DomainA>("domain_a")
+    }
+    fn b() -> MechanicalDomain {
+        MechanicalDomain::of::<DomainB>("domain_b")
+    }
 
     /// ⛔⛤ **A PUBLISHER CANNOT CONSUME ANOTHER DOMAIN'S PROPOSAL — WHICH THE
     /// GLOBAL `bool` THIS REPLACED COULD NOT PROMISE.**
@@ -1716,26 +1780,89 @@ mod pending_mechanical_edits_tests {
     #[test]
     fn one_domain_draining_its_proposal_leaves_another_domains_alone() {
         let mut pending = PendingMechanicalEdits::default();
-        pending.propose(A);
-        pending.propose(B);
+        pending.propose(a());
+        pending.propose(b());
 
         // ⚠ THE PREMISE: both really are pending, or "B survived" is a statement
         // about a proposal that was never made.
-        assert!(pending.is_pending(A) && pending.is_pending(B));
+        assert!(pending.is_pending(a()) && pending.is_pending(b()));
 
-        assert!(pending.take(A), "A had a proposal and draining reported none");
+        assert!(pending.take(a()), "A had a proposal and draining reported none");
         assert!(
-            !pending.is_pending(A),
+            !pending.is_pending(a()),
             "A's proposal survived its own drain, so A republishes every frame"
         );
         assert!(
-            pending.is_pending(B),
+            pending.is_pending(b()),
             "draining A's proposal ALSO consumed B's — the developer's edit to B \
              is gone and nothing said so. This is what a single global pending \
              bit does the moment a second domain uses the protocol."
         );
-        assert!(pending.take(B), "B's proposal could not be drained");
+        assert!(pending.take(b()), "B's proposal could not be drained");
         assert!(!pending.any_pending());
+    }
+
+    /// ⛔⛤ **TWO PLUGINS THAT PICK THE SAME LABEL ARE STILL TWO DOMAINS — REVIEW,
+    /// 2026-09-13, ABOUT THE FIRST VERSION OF THIS TYPE.**
+    ///
+    /// That version was `MechanicalDomain(pub &'static str)`. The labels in THIS
+    /// repository are distinct, so nothing collided — but **a convention is not
+    /// uniqueness**: two independently authored plugins can both pick `"tuning"`,
+    /// the set treats them as ONE domain, and the first publisher to drain it
+    /// takes the other's proposal with it. That is exactly the class the
+    /// per-domain redesign removed, one layer down, and invisible to everyone in
+    /// this tree because it needs an extension crate to happen.
+    ///
+    /// ⭐ Identity is the MARKER TYPE now. The label survives for logs, and this
+    /// arm deliberately gives both domains the SAME one.
+    #[test]
+    fn two_domains_that_share_a_label_do_not_share_a_proposal() {
+        struct FirstPlugin;
+        struct SecondPlugin;
+        // ⚠ THE SAME LABEL, on purpose. The old representation would make these
+        // one key.
+        let first = MechanicalDomain::of::<FirstPlugin>("tuning");
+        let second = MechanicalDomain::of::<SecondPlugin>("tuning");
+        assert_eq!(first.label(), second.label(), "the premise: same label");
+        assert_ne!(
+            first, second,
+            "two independently declared domains with the same label are the same \
+             key, so one plugin's publisher silently consumes the other's edit"
+        );
+
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(first);
+        pending.propose(second);
+        assert_eq!(
+            pending.pending().count(),
+            2,
+            "two same-labelled domains collapsed into one proposal"
+        );
+        assert!(pending.take(first));
+        assert!(
+            pending.is_pending(second),
+            "draining the first plugin's proposal consumed the second's, which is \
+             the collision this type's identity exists to prevent"
+        );
+    }
+
+    /// ⭐ **AND THE SAME MARKER IS THE SAME DOMAIN however it is spelled**, which
+    /// is the other half: a domain that re-minted its token with a different
+    /// label would silently stop draining its own proposals.
+    #[test]
+    fn one_marker_is_one_domain_whatever_the_label_says() {
+        struct OnlyPlugin;
+        let minted_here = MechanicalDomain::of::<OnlyPlugin>("tuning");
+        let minted_elsewhere = MechanicalDomain::of::<OnlyPlugin>("a different label");
+        assert_eq!(minted_here, minted_elsewhere);
+
+        let mut pending = PendingMechanicalEdits::default();
+        pending.propose(minted_here);
+        assert!(
+            pending.take(minted_elsewhere),
+            "a domain could not drain its own proposal because the two call sites \
+             spelled the label differently"
+        );
     }
 
     /// ⛔ **A DOMAIN THAT CHANGED NOTHING PUBLISHES NOTHING**, which is the other
@@ -1745,18 +1872,18 @@ mod pending_mechanical_edits_tests {
     #[test]
     fn a_domain_that_proposed_nothing_is_not_pending() {
         let mut pending = PendingMechanicalEdits::default();
-        pending.propose(A);
+        pending.propose(a());
         assert!(
-            !pending.is_pending(B),
+            !pending.is_pending(b()),
             "B is pending after only A proposed, so B would republish its \
              inspector mirror over its authoritative value on A's edit"
         );
         assert!(
-            !pending.take(B),
+            !pending.take(b()),
             "draining a domain that proposed nothing reported a proposal"
         );
         assert!(
-            pending.is_pending(A),
+            pending.is_pending(a()),
             "B's no-op drain consumed A's proposal"
         );
     }
@@ -1768,16 +1895,16 @@ mod pending_mechanical_edits_tests {
     #[test]
     fn proposals_survive_until_their_own_domain_drains_them() {
         let mut pending = PendingMechanicalEdits::default();
-        pending.propose(A);
-        pending.propose(B);
+        pending.propose(a());
+        pending.propose(b());
         // Several frames of refusal: nothing drains, nothing decays.
         for _ in 0..3 {
             assert!(pending.any_pending());
-            assert!(pending.is_pending(A) && pending.is_pending(B));
+            assert!(pending.is_pending(a()) && pending.is_pending(b()));
         }
         // The refusal lifts and BOTH publish, each draining only its own.
-        assert!(pending.take(A));
-        assert!(pending.take(B));
+        assert!(pending.take(a()));
+        assert!(pending.take(b()));
         assert!(!pending.any_pending());
     }
 
@@ -1786,11 +1913,11 @@ mod pending_mechanical_edits_tests {
     #[test]
     fn proposing_the_same_domain_twice_is_one_proposal() {
         let mut pending = PendingMechanicalEdits::default();
-        pending.propose(A);
-        pending.propose(A);
+        pending.propose(a());
+        pending.propose(a());
         assert_eq!(pending.pending().count(), 1);
-        assert!(pending.take(A));
-        assert!(!pending.take(A), "one proposal drained twice");
+        assert!(pending.take(a()));
+        assert!(!pending.take(a()), "one proposal drained twice");
     }
 
     /// ⭐ **THE ADMISSION AUTHORITY ASKS ONE QUESTION FOR THE WHOLE BATCH**, and
@@ -1800,9 +1927,9 @@ mod pending_mechanical_edits_tests {
     fn any_pending_is_the_only_question_the_batch_answers() {
         let mut pending = PendingMechanicalEdits::default();
         assert!(!pending.any_pending(), "an empty batch reported work");
-        pending.propose(B);
+        pending.propose(b());
         assert!(pending.any_pending());
-        pending.take(B);
+        pending.take(b());
         assert!(
             !pending.any_pending(),
             "the batch is still open after its only proposal was drained, so the \

@@ -144,8 +144,13 @@ impl Default for PortalTuning {
 pub struct EditablePortalTuning(pub PortalTuning);
 
 /// This domain's key in `PendingMechanicalEdits`, declared beside the value.
-pub const PORTAL_TUNING: ambition_platformer2d_core::MechanicalDomain =
-    ambition_platformer2d_core::MechanicalDomain("portal_tuning");
+/// The marker type that OWNS this domain. Identity is the type, not the label —
+/// see `MechanicalDomain`.
+pub struct PortalTuningDomain;
+
+pub fn portal_tuning_domain() -> ambition_platformer2d_core::MechanicalDomain {
+    ambition_platformer2d_core::MechanicalDomain::of::<PortalTuningDomain>("portal_tuning")
+}
 
 /// Raise a changed portal mechanic as a PROPOSAL.
 ///
@@ -160,7 +165,7 @@ pub fn propose_editable_portal_tuning(
     if !editable.is_changed() || editable.is_added() {
         return;
     }
-    pending.propose(PORTAL_TUNING);
+    pending.propose(portal_tuning_domain());
 }
 
 /// Copy an ADMITTED portal-mechanic edit into the value the simulation reads.
@@ -175,7 +180,7 @@ pub fn publish_editable_portal_tuning(
     mut pending: bevy::prelude::ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
     mut active: bevy::prelude::ResMut<PortalTuning>,
 ) {
-    if !pending.is_pending(PORTAL_TUNING) {
+    if !pending.is_pending(portal_tuning_domain()) {
         return;
     }
     // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
@@ -187,5 +192,5 @@ pub fn publish_editable_portal_tuning(
         return;
     }
     *active = editable.0;
-    pending.take(PORTAL_TUNING);
+    pending.take(portal_tuning_domain());
 }

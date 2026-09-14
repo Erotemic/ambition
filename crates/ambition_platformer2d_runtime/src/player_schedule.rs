@@ -282,6 +282,15 @@ impl Plugin for PlayerSchedulePlugin {
                 .after(PlayerSimulationSet::Possession)
                 .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
         );
+        // ⛔⛤ THE SETTINGS READ THAT USED TO BE INSIDE THE SIMULATION SCHEDULE.
+        // `apply_player_hit_events`, `charge_projectile_input` and
+        // `apply_feature_hit_events` each read `Res<UserSettings>` — persisted,
+        // App-local, menu-mutable — so a rollback resimulation of a confirmed
+        // frame re-read whatever the difficulty slider says NOW. Resolved once
+        // per host frame here, in LITERAL `Update`, into the policy those three
+        // now read. See `ambition_damage::PlayerDamagePolicy`.
+        app.init_resource::<ambition_damage::PlayerDamagePolicy>();
+        app.add_systems(Update, ambition_damage::project_player_damage_policy);
         app.add_systems(
             sim,
             (

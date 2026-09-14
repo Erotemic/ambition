@@ -1345,6 +1345,52 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     // Settings and tuning: forward-only knobs, not per-frame simulation state.
     ("::settings::UserSettings", "user settings, forward-only"),
+    // ⚠ **THE THIRD NARROWING OF THE WAIVER ABOVE, AND THE LAST ONE SIMULATION
+    // READS.** `apply_player_hit_events`, `charge_projectile_input` and
+    // `apply_feature_hit_events` each held `Res<UserSettings>` — the whole
+    // persisted, menu-mutable resource — inside the simulation schedule. They now
+    // read TWO f32s resolved once per host frame by
+    // `project_player_damage_policy`, registered in literal `Update`. With this
+    // and `SeatControlFrameModes`, `scripts/measure_user_settings_in_simulation.py`
+    // reports ZERO simulation readers of `UserSettings`.
+    //
+    // ⛔ **STILL FORWARD-ONLY, NOT CLOSED**: the policy is read DURING simulation,
+    // so a resimulation of frame N scales by whatever the difficulty slider holds
+    // now. Closing it needs the ruling the architecture review says is Jon's —
+    // whether difficulty / assist / damage are a MATCH-WIDE rule or
+    // PARTICIPANT-SPECIFIC accessibility policy — because that decides whether
+    // the canonical form is one value agreed at match activation or a per-seat
+    // row travelling with each peer. This resource is the seam that ruling lands
+    // on; see `docs/planning/queue.md`'s `UserSettings` row.
+    (
+        "ambition_damage::PlayerDamagePolicy",
+        "the two damage scalars resolved from user settings at a host-side \
+         boundary; forward-only like the settings they come from, and narrowed \
+         from four readers of a 30-field resource to one writer of two f32s",
+    ),
+    // ⚠ **THE SAME WAIVER, NARROWED ON PURPOSE — AND IT IS NOT YET THE FIX.**
+    // Four simulation systems used to evaluate
+    // `UserSettings.gameplay.resolved_movement_frame_mode()` themselves, which
+    // put the whole 30-field persisted resource inside deterministic simulation
+    // under the waiver directly above. That expression is now evaluated ONCE, at
+    // input capture, into this four-row table — so what simulation reads is two
+    // enum fields per seat from one writer instead of a menu-mutable settings
+    // blob from four readers.
+    //
+    // ⛔ **WHAT IS STILL OPEN**: the table is read DURING simulation, so a
+    // rollback resimulation of frame N still interprets frame N's stick under
+    // whatever policy holds now. Registering it as canonical rollback state is
+    // the WRONG repair — it is written from `Update`, which may not write
+    // rollback state. The stated fix (architecture review, 2026-09-13) is that
+    // capture resolves the semantic DIRECTION and simulation never sees a mode
+    // at all, at which point this waiver and the row above both shrink. See
+    // `docs/planning/queue.md`'s `UserSettings` row.
+    (
+        "::control::SeatControlFrameModes",
+        "per-seat input-interpretation policy, forward-only like the settings it \
+         is resolved from; the remaining step is resolving the direction at \
+         capture so simulation reads no mode",
+    ),
     (
         "::movement::tuning::ActiveMovementTuning",
         "movement tuning, forward-only",

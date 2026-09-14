@@ -261,6 +261,11 @@ impl bevy::app::Plugin for BrainPlugin {
         // and installing them apart is how seat zero ended up with a shaping bus
         // nobody else had.
         app.init_resource::<crate::control::SeatRawFrames>();
+        // ⭐ AND THE POLICY THAT INTERPRETS THEM, installed in the same place for
+        // the same reason: a composition that has seats has an interpretation for
+        // each seat's sticks. Default until a capture stage publishes — which is
+        // the exact answer the three readers gave when `UserSettings` was absent.
+        app.init_resource::<crate::control::SeatControlFrameModes>();
     }
 }
 

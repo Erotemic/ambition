@@ -101,7 +101,13 @@ pub fn derive_slot_direction_gestures(
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // ⛔⛤ THE SEAT'S RESOLVED POLICY, not `Res<UserSettings>`. This ran in the
+    // simulation schedule reading a persisted, menu-mutable, App-local resource,
+    // so a rollback resimulation of a confirmed frame could interpret its stick
+    // input under a mode the player changed AFTER that frame was first
+    // simulated. The policy is resolved once at input capture; see
+    // `SeatControlFrameModes`.
+    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     //  the SLOT TABLE, not the global frame. The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
     mut slots: ResMut<ambition_characters::control::SlotControls>,
@@ -120,11 +126,6 @@ pub fn derive_slot_direction_gestures(
 ) {
     let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
-    let movement_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.resolved_movement_frame_mode()
-        });
     // ⛔⛔ **EVERY SEAT, AND IT USED TO BE `slot_gestures.primary_mut()`.** The
     // table, the accessor and the consumer were all per-slot already — body mode
     // reads `get_mut(slot).double_tap_down_pending` keyed by the acting body's
@@ -137,6 +138,9 @@ pub fn derive_slot_direction_gestures(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
+        // ⭐ ASKED PER SEAT, like the gravity below. The frame mode is the human
+        // in that chair's comfort preference, not a property of the match.
+        let movement_mode = seat_modes.movement(slot);
         let frame = crate::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
@@ -209,7 +213,8 @@ pub fn interaction_input_system(
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The seat's resolved frame policy — see `derive_slot_direction_gestures`.
+    seat_modes: Res<ambition_characters::control::SeatControlFrameModes>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually
     // being driven by this seat, home avatar or possessed actor.
@@ -224,11 +229,6 @@ pub fn interaction_input_system(
 ) {
     let frame_dt = world_time.wall_dt();
     let feel = *feel_tuning;
-    let movement_mode = user_settings
-        .as_deref()
-        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.resolved_movement_frame_mode()
-        });
     //  EVERY SEAT, and this was `slot_gestures.primary_mut` too. The interact buffer is
     // what doors and dialogue read, keyed by the acting body's slot — so a second player
     // standing at a door pressed a button that was buffered for nobody.
@@ -252,6 +252,8 @@ pub fn interaction_input_system(
         let Some(interaction) = slot_gestures.get_mut(slot) else {
             continue;
         };
+        // This seat's own frame policy — see `derive_slot_direction_gestures`.
+        let movement_mode = seat_modes.movement(slot);
         let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
         // Down + Interact is the possession gesture
         // (`abilities::traversal::possession`), so a held-Down interact is
@@ -362,6 +364,8 @@ mod per_seat_gesture_tests {
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         app.init_resource::<SeatRawFrames>();
         for slot in [0u8, 1] {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
@@ -405,6 +409,99 @@ mod per_seat_gesture_tests {
         );
     }
 
+    /// ⛔⛤ AND EACH SEAT'S GESTURE IS RESOLVED UNDER **ITS OWN** FRAME POLICY.
+    ///
+    /// THIS ARM WAS INEXPRESSIBLE BEFORE THE MIGRATION. The frame mode used to be
+    /// read here as `user_settings.gameplay.resolved_movement_frame_mode()` — one
+    /// machine-wide field, evaluated inside the simulation schedule — so "seat
+    /// zero plays screen-directed while seat one plays body-relative" was not a
+    /// state this fixture could even construct. It is the accessibility case: a
+    /// frame mode is a preference belonging to the human in the chair.
+    ///
+    /// ⭐ **AND IT IS ALSO THE ROLLBACK FIX'S WITNESS.** The same read made a
+    /// resimulation of a confirmed frame interpret that frame's stick under
+    /// whatever the settings menu says NOW. The policy is resolved once at input
+    /// capture into `SeatControlFrameModes`; simulation reads the table.
+    ///
+    /// Both seats fall SIDEWAYS (`down` = world `+x`) and both press raw-DOWN
+    /// twice. Body-relative-strict maps raw-down onto local down, so seat one
+    /// fast-falls; screen-directed maps local down onto world `+x`, which is the
+    /// raw RIGHT edge, so seat zero — pressing down — does not.
+    #[test]
+    fn each_seat_resolves_its_gesture_under_its_own_frame_mode() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<SeatRawFrames>();
+        // Sideways gravity for BOTH seats, so the only thing that differs below is
+        // the policy. A fixture where the frames differed too could not tell the
+        // two apart.
+        let mut sideways = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        sideways.publish_resolved_frame(ae::MotionFrame::from_direction(
+            ae::Vec2::new(1.0, 0.0),
+            1600.0,
+        ));
+        for slot in [0u8, 1] {
+            app.world_mut()
+                .spawn((DrivingParticipant(PlayerSlot(slot)), sideways));
+        }
+        let mut modes = ambition_characters::control::SeatControlFrameModes::default();
+        modes.set(
+            PlayerSlot(0),
+            ae::ControlFrameModes {
+                movement: ae::InputFrameMode::ScreenRelative,
+                aim: ae::InputFrameMode::ScreenRelative,
+            },
+        );
+        modes.set(
+            PlayerSlot(1),
+            ae::ControlFrameModes {
+                movement: ae::InputFrameMode::BodyRelativeStrict,
+                aim: ae::InputFrameMode::BodyRelativeStrict,
+            },
+        );
+        app.insert_resource(modes);
+        app.init_resource::<ambition_time::WorldTime>();
+        app.add_systems(Update, derive_slot_direction_gestures);
+
+        let tap = ControlFrame {
+            down_pressed: true,
+            axis_y: 1.0,
+            ..Default::default()
+        };
+        let mut fired = [false; 2];
+        for _ in 0..2 {
+            {
+                let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+                for slot in [0u8, 1] {
+                    raw.set(PlayerSlot(slot), tap);
+                }
+            }
+            app.update();
+            let slots = app.world().resource::<SlotControls>();
+            for slot in [0u8, 1] {
+                fired[slot as usize] |= slots.get(PlayerSlot(slot)).fast_fall_pressed;
+            }
+        }
+
+        assert!(
+            fired[1],
+            "seat one plays BODY-RELATIVE-STRICT, double-tapped raw down under \
+             sideways gravity, and did not fast-fall: the per-seat table is not \
+             reaching the derivation at all, so the seat-zero claim below proves \
+             nothing",
+        );
+        assert!(
+            !fired[0],
+            "seat zero plays SCREEN-DIRECTED under gravity toward world +x, where \
+             local down is the raw RIGHT edge — it pressed DOWN and fast-fell \
+             anyway. Both seats resolved under one mode, which is the machine-wide \
+             `UserSettings` read this migration removed",
+        );
+    }
+
     /// AND ONE SEAT'S TAPS ARE NOT THE OTHER'S. The falsifier for a loop that
     /// derives per seat but shares the window state: two people alternating taps
     /// would each hand the other a double-tap they never pressed.
@@ -415,6 +512,8 @@ mod per_seat_gesture_tests {
         app.insert_resource(Platformer2dFeelTuningMonolith::default());
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         app.init_resource::<SeatRawFrames>();
         for slot in [0u8, 1] {
             app.world_mut().spawn(DrivingParticipant(PlayerSlot(slot)));
@@ -481,6 +580,8 @@ mod interaction_suppression_tests {
         // will be published into. Both exist in any real composition —
         // `BrainPlugin` installs the pair.
         app.init_resource::<ambition_characters::control::SlotControls>();
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.init_resource::<ambition_time::WorldTime>();
@@ -517,6 +618,8 @@ mod interaction_suppression_tests {
             },
         );
         app.insert_resource(slots);
+        // The seat's frame-mode policy, beside the seat table it interprets.
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, BodyCombat::default()));
         app.init_resource::<ambition_time::WorldTime>();

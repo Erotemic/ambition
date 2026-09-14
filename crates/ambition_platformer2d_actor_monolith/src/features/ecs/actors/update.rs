@@ -1173,7 +1173,6 @@ pub fn integrate_sim_bodies(
     overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut cues: BodyIntegrationCues,
     mut actors: Query<
         (
@@ -1377,7 +1376,6 @@ pub fn integrate_sim_bodies(
     // The shared F3 dev tuning is the fallback; a body that authors its own feel
     // (below) overrides it per-body. Built once, cheaply copied.
     let editable_player_tuning = active_tuning.0;
-    let _ = &user_settings;
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;

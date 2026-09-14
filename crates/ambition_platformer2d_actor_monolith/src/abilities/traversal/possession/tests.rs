@@ -13,6 +13,8 @@ fn vec2(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
 fn trigger_app() -> App {
     let mut app = App::new();
     app.init_resource::<ambition_characters::control::SlotControls>();
+    // The seat's frame-mode policy, beside the seat table it interprets.
+    app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     app.insert_resource(ambition_time::WorldTime {
         raw_dt: 1.0,
         scaled_dt: 1.0,

@@ -2137,9 +2137,23 @@ it, with ONE batch admission unchanged. **There is no method that can drain
 another domain's proposal.** Five arms, poison-verified with the global-bit
 behaviour restored: three of five redden.
 
-⚠ **THE DOMAIN KEY IS A `&'static str` DECLARED BESIDE THE VALUE**, not a central
-enum — that half of the original design was right, and a central enum would make
+⚠ **THE DOMAIN KEY IS DECLARED BESIDE THE VALUE, NOT IN A CENTRAL ENUM** — that
+half of the original design was right, and a central enum would make
 `ambition_platformer2d_core` name all five owning crates.
+⛔⛤ **BUT THE KEY WAS A BARE `&'static str`, AND A CONVENTION IS NOT UNIQUENESS —
+REVIEW, 2026-09-13.** The labels in THIS repository are distinct, so nothing
+collided; two independently authored plugins can both pick `"tuning"`, the set
+treats them as ONE domain, and the first publisher to drain it takes the other's
+proposal with it. **That is the same class the per-domain redesign removed, one
+layer down, and invisible from inside this tree because it needs an extension
+crate to happen.**
+⭐ Identity is the MARKER TYPE now (`MechanicalDomain::of::<T>(label)`), so it is
+structural and decentralised at once: a crate declares its own zero-sized marker
+beside the value it owns and core still enumerates nothing. The label survives for
+logs. ⚠ A `TypeId` is host-local, which is fine precisely because this ledger is
+outside the rollback window — the distinction `queue.md`'s canonical-identity row
+is about. Two arms, poison-verified by restoring label-keyed identity: same label
+must stay two domains, one marker must stay one domain however it is spelled.
 
 ✅ **TWO MORE ROADS MIGRATED, SAME DAY: `EditableAbilitySet` AND
 `DeveloperTools.player_body_profile`.** Both left `app.sim_schedule()` — under the
@@ -2455,7 +2469,27 @@ the rollback timeline, derived entirely from registered historical state, or
 represented as deterministic external input. 'Forward-only' by itself is not a
 rollback category."*
 
-## ✅ Q121 — BOTH HALVES CLOSED 2026-09-13. The freeze took the wrong generation, then had the wrong lifetime; the mechanism landed and the WITNESS was what remained.
+## ⚠ Q121 — MECHANISM CLOSED, WITNESS COVERAGE PARTIAL 2026-09-13. "Both halves closed" overstated it; `queue.md`'s "remaining owed arm" was the accurate status.
+
+⛔ **CLOSURE VOCABULARY, because one word covered four different states** (review,
+2026-09-13):
+
+| | state |
+| --- | --- |
+| mechanism implemented | ✅ `SessionMechanics` + `GenerationMechanics`, every world-building road reads it, absence is a refusal |
+| DOOR reconstruction witnessed | ✅ poison-verified end to end |
+| DEATH reconstruction witnessed | ✅ poison-verified, and the anti-vacuity correction is recorded below |
+| NEW GAME reset witnessed | ✅ landed the same day the row was corrected |
+
+⇒ The last row is why this heading changed, and it is closed now:
+`a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app` drives the
+real `NewGameResetRequested` → `process_new_game_reset_request` road and asserts
+over bodies THAT RESET REBUILT — not preexisting survivors, which is the vacuity
+the death arm had to be repaired for.
+⭐⭐ **AND THE THREE ARMS ARE MEASURED TO COVER THREE DISTINCT ROADS WITH NO
+OVERLAP**, which is what makes them a coverage claim rather than three copies of
+one: the transition-resolver poison reddens the door and death arms and NOT the
+reset arm; the reset-resolver poison reddens the reset arm and NOT the other two.
 
 ⛔⛤ **THE CLOSURE BELOW WAS WRITTEN ABOUT THE STRUCTURE AND THE STRUCTURE WAS
 RIGHT. THE VALUE WAS NOT.** A review of `bdbddfe` measured the dataflow the

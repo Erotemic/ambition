@@ -213,13 +213,11 @@ fn a_room_entered_after_activation_is_built_from_the_generation_not_the_app() {
 /// two different callers of one reconstruction, and the door arm alone does not
 /// cover the second.
 ///
-/// ⚠ **AND THE NEW-GAME RESET ROAD (`NewGameResetRequested` →
-/// `process_new_game_reset_request`) REMAINS WITHOUT AN END-TO-END WITNESS**,
-/// stated here rather than implied by a green arm: the review named it beside
-/// the transition, and a reader counting two arms would think both are covered.
-/// Its unit-level ranking is guarded in `session::mechanics`; what is missing is
-/// the road, and the poison above is how that was established rather than
-/// assumed.
+/// ✅ **AND THE NEW-GAME RESET ROAD NOW HAS ITS OWN WITNESS** —
+/// `a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app`, below. The
+/// three arms are MEASURED to cover three distinct roads with no overlap: the
+/// transition poison reddens the door and death arms and not the reset arm; the reset
+/// poison reddens the reset arm and not the other two.
 #[test]
 fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
     let mut sim = fixed_60hz_sim();
@@ -329,5 +327,99 @@ fn a_death_rebuilds_the_world_from_the_generation_not_the_app() {
          reconstruction went back to whatever the App holds now — `Q121`'s \
          lifetime defect, reached through a death rather than a door. \
          newly_built={newly_built:?} before={before:?}"
+    );
+}
+
+/// ⛔⛤ **THE NEW-GAME RESET ROAD, WHICH THE OTHER TWO ARMS DO NOT REACH — `Q121`,
+/// 2026-09-13.**
+///
+/// The door arm and the death arm both exercise `room_transition/loading.rs`'s
+/// resolver; MEASURED, poisoning `session/reset/mod.rs`'s reddens neither,
+/// because `resume_at_checkpoint_on_reset` routes a death through the TRANSITION
+/// road deliberately. This one drives `NewGameResetRequested` →
+/// `process_new_game_reset_request`, which is the only road that reaches the
+/// reset resolver.
+///
+/// ⚠ **IT ASSERTS OVER BODIES THE RESET ACTUALLY REBUILT**, not over every body
+/// present — the vacuity the death arm had to be repaired for, where a SURVIVOR
+/// satisfied the postcondition under two different poisons.
+///
+/// ⭐ **POISON-VERIFIED, AND THE SEPARATION IS THE RESULT:** pointing
+/// `session/reset/mod.rs`'s resolver at the App reddens THIS arm and leaves the
+/// door and death arms green; pointing `room_transition/loading.rs`'s at the App
+/// reddens those two and leaves this one green. Three arms, three roads, no
+/// overlap — which is what makes the set a coverage claim rather than three
+/// copies of one.
+#[test]
+fn a_new_game_reset_rebuilds_the_world_from_the_generation_not_the_app() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..8 {
+        sim.step(base());
+    }
+
+    assert!(
+        sim.world_mut()
+            .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
+            .is_some(),
+        "no `SessionMechanics` in this harness, so there is no activated \
+         generation for the App's registry to be stale against"
+    );
+    let live_ids: Vec<String> = sim
+        .world_mut()
+        .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+        .ids()
+        .map(str::to_string)
+        .collect();
+    assert!(!live_ids.is_empty(), "the App's published cast is EMPTY");
+
+    let before_entities = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::characters::actor::WornCharacter>>();
+        let mut v: Vec<String> = q.iter(world).map(|e| format!("{e:?}")).collect();
+        v.sort();
+        v
+    };
+
+    sim.world_mut().insert_resource(an_empty_cast());
+
+    // THE SHIPPED NEW-GAME RESET ROAD, by its own resource — the only way to
+    // execute `process_new_game_reset_request` and its paired sweep.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
+        .request();
+    sim.rebase_rollback_history()
+        .expect("the pending reset folds into the rollback baseline");
+    for _ in 0..8 {
+        sim.step(base());
+    }
+
+    let newly_built: Vec<String> = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<(
+            bevy::prelude::Entity,
+            &ambition_platformer2d::characters::actor::WornCharacter,
+        ), ()>();
+        let mut out: Vec<String> = query
+            .iter(world)
+            .filter(|(entity, _)| !before_entities.contains(&format!("{entity:?}")))
+            .map(|(_, worn)| worn.0.to_string())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    };
+    assert!(
+        !newly_built.is_empty(),
+        "the new-game reset CONSTRUCTED NOTHING — every body carrying a character \
+         was already there before it. ⇒ This arm would then be a statement about \
+         survivors, which is how the death arm passed under two poisons."
+    );
+    assert!(
+        newly_built.iter().any(|id| live_ids.contains(id)),
+        "a body CONSTRUCTED by the new-game reset carries no id from the cast \
+         this session activated, while the App's published cast was EMPTY. The \
+         reset road went back to whatever the App holds now — `Q121`'s lifetime \
+         defect on the one road the door and death arms cannot reach. \
+         newly_built={newly_built:?}"
     );
 }

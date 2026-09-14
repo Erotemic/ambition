@@ -531,7 +531,7 @@ mod mechanical_edit_admission_tests {
         world.init_resource::<LocalSessionOwnership>();
         world.insert_resource({
             let mut pending = PendingMechanicalEdits::default();
-            pending.propose(ambition_platformer2d_core::MechanicalDomain("fixture"));
+            pending.propose(fixture_domain());
             pending
         });
         match ownership {
@@ -558,6 +558,11 @@ mod mechanical_edit_admission_tests {
              for want of a timeline rather than by policy"
         );
         world
+    }
+
+    struct FixtureDomain;
+    fn fixture_domain() -> ambition_platformer2d_core::MechanicalDomain {
+        ambition_platformer2d_core::MechanicalDomain::of::<FixtureDomain>("fixture")
     }
 
     fn local() -> RollbackSessionOwnership {
@@ -590,7 +595,7 @@ mod mechanical_edit_admission_tests {
         let mut world = World::new();
         world.insert_resource({
             let mut pending = PendingMechanicalEdits::default();
-            pending.propose(ambition_platformer2d_core::MechanicalDomain("fixture"));
+            pending.propose(fixture_domain());
             pending
         });
         decide_mechanical_edit_admission(&mut world);
@@ -727,7 +732,7 @@ mod mechanical_edit_admission_tests {
             assert!(
                 world
                     .resource::<PendingMechanicalEdits>()
-                    .is_pending(ambition_platformer2d_core::MechanicalDomain("fixture")),
+                    .is_pending(fixture_domain()),
                 "{what} DISCARDED the developer's edit instead of staging it, so \
                  the value the inspector shows is not the value that will ever \
                  be published"

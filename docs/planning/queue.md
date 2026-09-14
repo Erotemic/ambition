@@ -88,7 +88,190 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⇒ *"What value will a replay of frame N observe?"* is answered *"whatever the
   settings menu says now."*
   ✅ **ONE FIELD IS FIXED** — `portal_reverses_facing`; see the portal row below.
-  The rest is an audit, and it is the review's priority 1.
+  ✅ **AND THE AUDIT'S FIRST STEP IS DONE — `scripts/measure_user_settings_in_simulation.py`,
+  2026-09-13.** 51 production functions take `Res<UserSettings>`; **SIX of them were
+  registered into the SIMULATION schedule**, which under the rollback host is
+  `GgrsSchedule`:
+
+```text
+  apply_player_hit_events          ambition_damage/src/lib.rs
+  charge_projectile_input          actor_monolith/src/projectile/systems.rs
+  derive_slot_direction_gestures   actor_monolith/src/control/input_systems.rs
+  integrate_sim_bodies             actor_monolith/src/features/ecs/actors/update.rs
+  interaction_input_system         actor_monolith/src/control/input_systems.rs
+  possession_trigger_system        actor_monolith/src/abilities/traversal/possession.rs
+```
+
+  ⭐ **THREE OF THOSE THE REVIEW DID NOT NAME** — `integrate_sim_bodies`,
+  `interaction_input_system`, `possession_trigger_system` — and all three sit
+  beside `ResolvedMotionFrame` in their own parameter lists, so the FRAME-MODE
+  preference is read in at least four simulation systems rather than the one the
+  review found. ⇒ That strengthens its ruling rather than changing it: resolving
+  the frame mode at the INPUT-CAPTURE boundary removes four readers at once.
+
+  ⚠ **THE `UNATTRIBUTED` BUCKET IS NOT A CLEARANCE**, and the script says so in
+  those words: a system registered through an intermediate or a set the scan
+  cannot follow lands there too.
+
+  ⭐⭐ **AND THAT BUCKET WAS HIDING A REAL READER — `apply_feature_hit_events`,
+  FOUND 2026-09-13.** The review names it by hand; the first scan did not find its
+  registration, and the reason is the whole lesson. It is not inside any
+  `add_systems(sim, …)` call. It is an argument to
+  `install_technique(app, POGO_BOUNCE_KEY, offer, (…systems…))`
+  (`crates/ambition_platformer2d_runtime/src/combat_schedule.rs:695`), whose body
+  is `install_techniques(app, &[(key, offer)], systems)`, whose body is
+  `app.add_systems(sim, systems)`. **Two forwarder hops.** ⇒ The scan now finds
+  registration FORWARDERS — a function that passes a parameter of its own to a
+  simulation schedule — as a fixpoint, because a one-level rule finds the plural,
+  misses the singular, and still answers "not scheduled" about a system that ships.
+
+  ⛔⛤ **AND IT NOW CARRIES A CONTROL THAT ASSERTS THAT ROW.** `apply_feature_hit_events`
+  is the one entry whose right answer is known independently of the instrument, so
+  the script exits non-zero if it ever drops out of the simulation list — verified
+  by emptying the forwarder set, which fires it. Without that, a regression in the
+  closure makes the simulation count SHRINK, and a shrinking count is exactly what
+  progress looks like here. This census has already produced two confident wrong
+  answers (a `Res<UserSettings>` matched inside a `//` comment; a prose `)` closing
+  a registration block early), which is why it asserts against a fact it cannot
+  derive.
+
+  ⇒ **CENSUS AT HEAD: 47 readers, THREE in simulation** — and all three are ONE
+  category, the damage multiplier:
+
+```text
+  apply_feature_hit_events   gameplay.player_damage_multiplier   outgoing melee scale
+  apply_player_hit_events    incoming_player_damage_multiplier   difficulty/assist
+  charge_projectile_input    gameplay.player_damage_multiplier   projectile scale
+```
+
+  ⛔⛔⛔ **"ZERO" WAS WRONG FOR ABOUT AN HOUR — RETRACTED 2026-09-14.** The GPT
+  architecture review found `tick_controlled_brains` reading `Res<UserSettings>`
+  and resolving `s.gameplay.control_frame_modes()` inside `GgrsSchedule`, on the
+  MAIN controlled-player brain path, writing both frame modes into the
+  authoritative `BrainSnapshot` that derives `ActorControl`. So historical
+  simulation was still doing `old ControlFrame + the current machine's settings →
+  ActorControl`.
+
+  ⛔⛤ **THE CENSUS COULD NOT SEE IT, AND THE SHAPE IS THE SECOND FORWARDER CLASS.**
+  `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs:58` is
+  `install_avatar_player_input(app, schedule)` doing
+  `app.add_systems(schedule.clone(), tick_controlled_brains …)`, called as
+  `install_avatar_player_input(app, sim)` at
+  `crates/ambition_platformer2d_runtime/src/player_schedule.rs:153`. The SYSTEM
+  NAMES are in the installer's body while the SCHEDULE comes from the call site —
+  the mirror image of the `install_technique` shape the census had just learned.
+  ⇒ Both shapes are handled now, and **both carry a control**
+  (`apply_feature_hit_events`, `tick_controlled_brains`), because each one failed
+  silently exactly once and a shrinking count is what progress looks like here.
+
+  ⚠⚠ **AND THE LESSON IS ABOUT THE CLOSURE CLAIM, NOT THE TOOL.** This row
+  correctly warned in its own words that `UNATTRIBUTED` *"is NOT a clearance"* —
+  and then made a closure claim out of the attributed count anyway. **Do not do
+  both.** A census with an explicitly unreliable bucket can report a FLOOR on the
+  problem; it cannot report zero.
+
+  ⭐⭐ **WHAT DID LAND, 2026-09-13 — `ambition_damage::PlayerDamagePolicy`**, which
+  removed the three DAMAGE readers. The three
+  were reading two scalars out of a 30-field persisted resource:
+  `incoming_player_damage_multiplier` (difficulty × assist) and
+  `gameplay.player_damage_multiplier`. They are resolved once per host frame by
+  `project_player_damage_policy`, registered in **literal `Update`** by
+  `crates/ambition_platformer2d_runtime/src/player_schedule.rs`, into a two-f32
+  resource simulation reads.
+
+  ⚠ **MATCH-WIDE IS TODAY'S BEHAVIOUR, NOT A RULING I MADE.** All three readers
+  applied ONE machine-wide value to "the player", so a single pair of scalars
+  reproduces the shipped game exactly and the migration is behaviour-preserving.
+  **The ruling Jon owes is unchanged**: are difficulty / assist / damage a
+  MATCH-WIDE rule or PARTICIPANT-SPECIFIC accessibility policy? The review is
+  explicit that architecture cannot answer that from the type. ⇒ What the
+  migration bought is that the ruling now lands on ONE resource's shape instead of
+  three call sites in three crates.
+
+  ⭐ **THE WITNESS IS THE WHOLE ROAD, NOT THE RESOURCE.**
+  `player_melee_damage_scales_with_the_outgoing_slider` sets the slider on
+  `UserSettings` exactly as the settings screen does and runs
+  `project_player_damage_policy` chained ahead of `apply_feature_hit_events`. A
+  fixture that wrote `PlayerDamagePolicy` directly would still pass with the
+  projection deleted — poison-verified by removing it from the chain, which fires.
+
+  ⛔ **STILL FORWARD-ONLY, NOT CLOSED**, and `rollback_coverage.rs` says so in its
+  waiver: the policy is READ during simulation, so a resimulation of frame N
+  scales by whatever the slider holds now. Closing it is what the ruling decides —
+  one value agreed at match activation, or a per-seat row travelling with each
+  peer.
+
+  ⛔⛤ **AND THE CENSUS'S CONTROL HAD TO BE RE-ANCHORED ON THE RUN THAT REPORTED
+  ZERO.** It read *"if `apply_feature_hit_events` is a reader AND is not in the
+  simulation list, fail"*. Migrating that system off `UserSettings` took its
+  subject out of the population, so the control switched itself off **on the exact
+  run that first reported zero** — a check that cannot fail, arriving precisely
+  when the number it guards becomes worth doubting. It now asserts the
+  SCHEDULE fact, which holds whatever the system reads.
+
+  ⚠ The remaining 44 unattributed rows are still unchecked, and two scanner
+  defects found here (prose matches, literal-`add_systems` attribution) are a class
+  other census scripts in `scripts/` may share.
+
+  ⛔⛤ **AND THE INSTRUMENT IS KEYED ON A TYPE, NOT A FIELD NAME**, which is the
+  whole difference from `measure_identity_field_consumers.py`: that one tried to
+  classify `Q122`'s fields by grepping `.field`, answered *"50 of 50 mechanical"*,
+  and is committed WITH its own refutation. `UserSettings` is one named type, so
+  `Res<…UserSettings>` finds its readers and nothing else.
+  ⚠ **ITS FIRST NUMBER WAS 52 AND THAT WAS ONE PROSE FALSE POSITIVE**: the regex
+  matched `Res<UserSettings>` inside a `//` comment. It scored its OWN fix as a
+  failure — the migration below left comments saying *"not `Res<UserSettings>`"* in
+  both files it had just emptied, and the census reported both as unchanged. The
+  sibling scanner `tests/ambition_workspace_policy/src/custom/control_frame.rs`
+  already carries that exact near-miss in its test corpus. Comment tails are cut
+  now; the corrected before-figure, re-derived in a worktree at the parent commit,
+  is 51 readers / 6 in simulation.
+
+  ⚠ **AND `SeatControlFrameModes` IS A SEAM, NOT THE FINAL AUTHORITY — the review
+  of 2026-09-14 accepts it and says so explicitly.** It turns *four direct
+  `UserSettings` readers* into *one host-side writer → a mutable policy table →
+  several simulation readers*, which is better but is **not deterministic history
+  yet**: a replay of historical raw input is still interpreted by whatever the
+  table holds now, and the policy is not part of the network input being replayed.
+  Ordinary capture also still writes the MACHINE-WIDE value into every seat, so the
+  per-seat expressiveness exists in the type and in tests but has no per-participant
+  source. ⇒ **The destination is unchanged: capture resolves the semantic DIRECTION
+  and simulation sees no mode at all.** Do not cite the table as closure.
+
+  ⭐⭐ **FOUR OF THE SIX ARE GONE, 2026-09-13 — `ambition_characters::control::SeatControlFrameModes`.**
+  All four read one expression, `settings.gameplay.resolved_movement_frame_mode()`,
+  with `InputFrameMode::DEFAULT_MOVEMENT` as the absent-resource fallback:
+
+  | system | was | now |
+  | --- | --- | --- |
+  | `derive_slot_direction_gestures` | the machine-wide setting | `seat_modes.movement(slot)` |
+  | `interaction_input_system` | the machine-wide setting | `seat_modes.movement(slot)` |
+  | `possession_trigger_system` | the machine-wide setting | `seat_modes.movement(PRIMARY)` |
+  | `integrate_sim_bodies` | **`let _ = &user_settings;`** — a DEAD parameter | deleted |
+
+  The policy is evaluated ONCE, in `populate_seat_control_frames` — the input-capture
+  stage that already held the settings — into a four-row per-seat table. **Census
+  after: 47 readers, 2 in simulation** (`apply_player_hit_events`,
+  `charge_projectile_input`, both the damage-multiplier half, which is the ruling
+  Jon still owes: match-wide or participant-specific).
+
+  ⭐ **THE WITNESS IS AN ARM THAT COULD NOT BE WRITTEN BEFORE** —
+  `each_seat_resolves_its_gesture_under_its_own_frame_mode`: two seats under
+  sideways gravity, seat 0 screen-directed and seat 1 body-relative-strict, both
+  double-tapping raw DOWN; seat 1 fast-falls and seat 0 must not. With one
+  machine-wide field that state was not constructible. Poison-verified by pointing
+  both seats at `PlayerSlot::PRIMARY` (the pre-migration behaviour) — the seat-one
+  premise arm fires.
+
+  ⛔ **WHAT IS STILL OPEN, AND THE WAIVER SAYS SO IN THOSE WORDS.** The table is
+  read DURING simulation, so a resimulation of frame N still interprets frame N's
+  stick under whatever policy holds now. Registering it as rollback state is the
+  WRONG repair — it is written from `Update`, which may not write rollback state.
+  The review's stated fix is that capture resolves the semantic DIRECTION and
+  simulation sees no mode at all; `rollback_coverage.rs` carries that as the
+  narrowed waiver's remaining step. What the migration bought is that the
+  forward-only hole is now two enum fields per seat behind one writer instead of a
+  30-field menu-mutable resource behind four readers.
   ⭐ **THE SPLIT IS NOT UNIFORM AND THAT IS THE POINT:**
   · **local input interpretation** (movement/aim/camera frame) should be applied
     at the INPUT-CAPTURE boundary, so deterministic simulation consumes already
@@ -155,7 +338,14 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   makes transaction provenance more central**, which is the review's own
   sequencing.
 
-- **`Q121`'s remaining owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
+- ✅ **`Q121`'s OWED ARMS ARE ALL IN AS OF 2026-09-13 — three roads, three arms,
+  measured not to overlap.** The transition-resolver poison reddens the DOOR and
+  DEATH arms and not the RESET arm; the reset-resolver poison reddens the reset arm
+  and not the other two. That separation is what makes the set a coverage claim
+  rather than three copies of one, and it is how "a death routes through the
+  transition road" stopped being an assumption. **The paragraph below is the
+  RECONNAISSANCE that produced them and is kept for that, not as current status.**
+- **`Q121`'s formerly owed arm** — an END-TO-END witness. ⛔ MEASURED and stated
   rather than assumed: poisoning the freeze back to the App registry leaves
   `edit_to_play_through_the_shell` GREEN, because on that road
   `commit_content_generation` publishes N+1 BEFORE the providers run, so the two
@@ -248,7 +438,7 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
   (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
   make a burned number comparable, far from the allocator.
-- ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
+- ⛔⛔ **`Q120` — REOPENED AGAIN 2026-09-14, AND THE REASON IS THAT "ALL FIVE" WAS NEVER A CENSUS.** The list of five was the list the FIRST review named, and I treated finishing it as finishing the category. `game/ambition_app/src/dev/mod.rs` still installs `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()`, so bevy-inspector edits the AUTHORITATIVE mechanical resource directly — no editable mirror, no proposal, no `MechanicalEditAdmission`, no rebase — while simulation consumes the same resource across control input / double-tap handling, time control, actor integration, damage, boss bodies, runtime room-and-reset paths and combat rules. ⛔⛤ **AND THE REPOSITORY ALREADY KNEW**: `game/ambition_app/tests/developer_edits_under_rollback.rs` carries `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to` and names it as the other resource waived under the same forward-only rationale. ⇒ The defect was not undiscovered; it was outside the list, and nothing derived the list from the tree. **The repair is the same protocol: `EditableFeelTuning` → pending proposal → admission/rebase → `Platformer2dFeelTuningMonolith` as the neutral mechanical authority** (or stage fields for the next admitted generation if they must not be live-edited). Acceptance: under locally owned rollback an edit stops the old timeline before the new feel is visible and the new timeline begins against it; under foreign/caller ownership the editor keeps the proposed value and the monolith does not move; then rewind across the attempted edit. **Q120 is NOT closed at HEAD.** Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE OF THAT LIST MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
   <details><summary>closed once on the second attempt</summary>
 
   ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
@@ -331,6 +521,128 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   so every shipped room is verified against a declaration nobody made.
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
+
+## ⛔⛤ `SessionScopeId` — A HOST-LOCAL COUNTER IS ON THE ROLLBACK WIRE, MEASURED 2026-09-13
+
+**The architecture review's priority 3 ("canonical local-lineage campaign"),
+reproduced and narrowed to one verified chain.** Every link read by hand:
+
+```text
+ActiveSessionScope::begin()                shared_tangle/src/lifecycle/session.rs:43
+  -> SessionScopeId(self.next_raw); next_raw += 1     A PER-APP MONOTONIC COUNTER
+  called from translate_shell_session_lifecycle       game_shell/src/session.rs:608
+MatchInstance { session: Option<SessionScopeId>, activated_on }   match/src/seating.rs
+ActiveMatch { …, session: Option<SessionScopeId>, … }            match/src/seating.rs:49
+  encode: put_u64(out, session.0)                     match/src/snapshot_impls.rs:44
+  registered: rollback_resource_optional_canonical::<ActiveMatch>
+                          actor_monolith/src/rollback_registration.rs:106
+```
+
+⛔⛔ **SO THE NUMBER OF SESSIONS **THIS MACHINE** HAS ACTIVATED IS ENCODED INTO
+CANONICAL ROLLBACK STATE AND THEREFORE INTO THE CHECKSUM.** Two peers whose Apps
+have different activation histories — one played a match, returned to the menu,
+and joined again; the other launched straight into the lobby — mint different
+`SessionScopeId`s for the SAME match. `StocksMatchSettled` and
+`SuddenDeathEntered` are `rollback_resource_canonical` and hold `MatchInstance`
+too (`crates/ambition_platformer2d_actor_monolith/src/rollback_registration.rs:114`
+and `:121`), and `MatchScoped` is registered as a component
+(`crates/ambition_platformer2d_runtime/src/rollback/registry.rs:254`, v163).
+⇒ Four canonical carriers, one host-local value.
+
+⭐⭐ **THE EXISTING WAIVER IS NOT WRONG — ITS SCOPE PHRASE IS.**
+`rollback_coverage.rs` waives `ActiveSessionScope` with a carefully argued case:
+its sole writer is registered in **literal `Update`**, so *"a rewind cannot re-run
+it, so the allocator cannot mint differently on a resimulated timeline"*. Every
+word of that is true, and it is an argument about **ONE App rewinding itself**. It
+says nothing about **TWO Apps agreeing**, which is the question a checksum asks.
+A waiver justified against one failure mode reads as a clearance for the other.
+
+⛔⛔⛔ **RETRACTED 2026-09-14, AND IT IS THE MOST CONSEQUENTIAL THING ON THIS ROW.**
+I wrote *"NOTHING READS THE VALUE… `MatchInstance` … only uses are EQUALITY"*.
+**FALSE AT HEAD**, found by the GPT architecture review of 2026-09-14 and
+reproduced here:
+
+```rust
+// crates/ambition_match/src/seating.rs:142
+pub fn random_context(&self) -> RandomContext {
+    (session, activated_on) => session
+        .map_or(0, |session| session.0)          // ⇠ THE RAW LOCAL COUNTER
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(activated_on.unwrap_or(0).wrapping_mul(0xD6E8_FEB8_6659_FD93)),
+}
+```
+
+and `crates/ambition_platformer2d_actor_monolith/src/items/match_spawn.rs` feeds
+that context to `sim_random_weighted` / `sim_random_index` to choose **which item
+appears and which spawn point receives it**.
+
+⇒ **SO THIS IS NOT "the same mechanics with a different checksum". TWO PEERS WITH
+DIFFERENT PRIOR LOCAL SESSION HISTORIES SPAWN DIFFERENT ITEMS AT DIFFERENT
+POINTS.** An App-local ownership counter is the seed of authoritative gameplay
+randomness.
+
+⭐ **HOW I GOT IT WRONG IS THE REUSABLE PART**: I read the EQUALITY uses
+(`MatchScoped::belongs_to`, the settlement resources' staleness check), found them
+consistent, and generalised to *"no system reads the integer"* — a claim about
+EVERY use, from a survey of the uses I had thought to look for. `random_context`
+is an inherent method on the same struct, three lines from the field.
+⇒ **A negative claim over all consumers is a claim about the query**; read the
+type's own impl block before saying nothing reads a field.
+
+So the identity needs three properties, not two: **DISTINCT BETWEEN MATCHES**,
+**AGREED BETWEEN PEERS**, and **USABLE AS A SEED** — and the local activation
+count supplies only the first.
+
+⛔⛤ **AND THE CHEAP REPAIR IS REFUTED — BY A TEST THAT ALREADY EXISTS.** My first
+reading was *"drop `session` and key on the activation tick alone"*.
+`match_scoped_identity_is_session_and_tick_together`
+(`crates/ambition_match/src/seating.rs:248`) is the answer, and its doc states the
+reason outright: *"A NEW SESSION IS A NEW MATCH EVEN AT THE SAME ACTIVATION TICK …
+anything comparing only the tick would keep the previous session's objects
+whenever the clocks lined up — **which they do, because a fresh session starts its
+clock at zero**."* ⇒ The tick is not distinct between matches. `session` is
+load-bearing and cannot be deleted.
+
+⇒ **SO THE RULING NARROWS TO ONE SHAPE**: keep the session term and make it agreed
+between peers rather than counted locally — the `TransactionId` pattern
+(`binding ⊗ room ⊗ session`) applied to match identity. What it must be derived
+from is the open part; the candidate both peers demonstrably share is the rollback
+SESSION's own identity, not the App's activation history.
+
+⭐⭐ **AND THE REVIEW'S RULING IS TO SPLIT THE TWO IDENTITIES RATHER THAN REPLACE
+ONE.** `SessionScopeId` stays exactly what it is — local ownership, stale-event
+rejection, session-scoped cleanup, lifecycle correlation. A SEPARATE peer-stable
+value (`CanonicalMatchInstanceId` / `SharedMatchNonce` / `MatchRandomSeed`; the
+name is secondary) is what `random_context` and canonical match identity derive
+from. ⛔ **And it is ONE campaign, not five replacements**: `SessionScopedEntity`
+snapshots the raw id, the match rollback structures snapshot it, `TransactionId`
+carries session/content lineage, the gameplay root's `SimId` derives from shell
+activation lineage, and `ContentEpoch` is App-local lineage.
+
+⛔ **THE ACCEPTANCE TEST THE REVIEW SPECIFIES** (two Apps, App A burns several
+session activations first, App B does not, then both enter the same deterministic
+match with the same content / roster / inputs / configuration):
+
+```text
+PREMISE  A.local_session_scope != B.local_session_scope     ⇠ assert it, or the arm certifies nothing
+REQUIRE  same canonical match identity
+         same item selection
+         same item spawn point
+         same canonical checksum
+AND      two genuinely distinct matches get DISTINCT shared random contexts
+```
+
+⇒ **THIS MOVES AHEAD OF DEEP A10 PROVENANCE WORK**, and A10's transaction
+provenance must not be hardened around `SessionScopeId` or local epochs before the
+local-vs-canonical distinction exists.
+
+⛔ **THE POISON THIS NEEDS IS A TWO-APP ONE, and that is why it is not closed
+here.** A single-App test cannot express the defect at all: one App has one
+counter and always agrees with itself, which is exactly why every existing arm is
+green. The witness is two Apps whose `ActiveSessionScope` has been advanced a
+different number of times, activating the same match, and comparing the canonical
+checksum — the arm's premise must assert the two counters actually differ, or it
+certifies nothing.
 
 ## ⛔⛤ A10 IS BLOCKED ONE LAYER BELOW CONSTRUCTION — THE DEEPER REVIEW, 2026-09-13
 

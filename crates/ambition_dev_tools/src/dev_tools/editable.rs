@@ -593,7 +593,12 @@ impl Default for EditableMovementTuning {
 /// Keep the live player's body collider aligned with the selected development
 /// profile after resets / room loads rebuild the player from engine defaults.
 /// This domain's key in [`ae::PendingMechanicalEdits`].
-pub const BODY_PROFILE: ae::MechanicalDomain = ae::MechanicalDomain("developer_body_profile");
+/// The marker type that OWNS this domain.
+pub struct DeveloperBodyProfileDomain;
+
+pub fn body_profile_domain() -> ae::MechanicalDomain {
+    ae::MechanicalDomain::of::<DeveloperBodyProfileDomain>("developer_body_profile")
+}
 
 /// Raise a changed developer body profile as a PROPOSAL.
 ///
@@ -621,7 +626,7 @@ pub fn propose_developer_body_profile(
         return;
     }
     *last_proposed = Some(developer.player_body_profile);
-    pending.propose(BODY_PROFILE);
+    pending.propose(body_profile_domain());
 }
 
 /// The body profile this session has ADMITTED, independent of whether a body
@@ -660,7 +665,7 @@ pub fn sync_developer_body_profile(
 ) {
     // ⛔ ONLY THIS DOMAIN'S PROPOSAL, and only when something with a view of the
     // rollback timeline has admitted it. See `PendingMechanicalEdits`.
-    if !pending.is_pending(BODY_PROFILE) {
+    if !pending.is_pending(body_profile_domain()) {
         return;
     }
     if matches!(
@@ -673,7 +678,7 @@ pub fn sync_developer_body_profile(
     // whole repair: draining the proposal is now safe because the admitted value
     // is kept, and a player constructed later reads it from here.
     active.0 = Some(developer.player_body_profile);
-    pending.take(BODY_PROFILE);
+    pending.take(body_profile_domain());
 }
 
 /// Project the ADMITTED body profile onto whatever primary player exists.
@@ -875,7 +880,12 @@ pub struct PlayerStatsSyncSnapshot {
 }
 
 /// This domain's key in [`ae::PendingMechanicalEdits`].
-pub const PLAYER_STATS: ae::MechanicalDomain = ae::MechanicalDomain("editable_player_stats");
+/// The marker type that OWNS this domain.
+pub struct EditablePlayerStatsDomain;
+
+pub fn player_stats_domain() -> ae::MechanicalDomain {
+    ae::MechanicalDomain::of::<EditablePlayerStatsDomain>("editable_player_stats")
+}
 
 /// Raise a developer stat edit as a PROPOSAL.
 ///
@@ -906,7 +916,7 @@ pub fn propose_player_stats_edits(
         || stats.max_mana != snapshot.max_mana
         || stats.slash_damage != snapshot.slash_damage
     {
-        pending.propose(PLAYER_STATS);
+        pending.propose(player_stats_domain());
     }
 }
 
@@ -958,7 +968,7 @@ pub fn publish_player_stats_edits(
         snapshot.initialized = true;
         return;
     }
-    if !pending.is_pending(PLAYER_STATS) {
+    if !pending.is_pending(player_stats_domain()) {
         return;
     }
     if matches!(
@@ -999,7 +1009,7 @@ pub fn publish_player_stats_edits(
     snapshot.mana = stats.mana;
     snapshot.max_mana = stats.max_mana;
     snapshot.slash_damage = stats.slash_damage;
-    pending.take(PLAYER_STATS);
+    pending.take(player_stats_domain());
 }
 
 /// Mirror the live player's health back into the inspector, so the F3 panel
@@ -1022,7 +1032,7 @@ pub fn mirror_player_stats_into_the_inspector(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
-    if !snapshot.initialized || pending.is_pending(PLAYER_STATS) {
+    if !snapshot.initialized || pending.is_pending(player_stats_domain()) {
         return;
     }
     let Ok(health) = health_q.single() else {
@@ -1072,7 +1082,7 @@ pub fn publish_editable_movement_tuning(
     // read a single global `bool`: with two domains proposing in one frame, the
     // first publisher cleared the bit and the second silently dropped its edit.
     // See `PendingMechanicalEdits`.
-    if !pending.is_pending(MOVEMENT_TUNING) {
+    if !pending.is_pending(movement_tuning_domain()) {
         return;
     }
     // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
@@ -1088,7 +1098,7 @@ pub fn publish_editable_movement_tuning(
     active.0 = editable.as_engine();
     // ⛔ DRAIN ONLY OURS. There is no method on `PendingMechanicalEdits` that
     // can drain another domain's proposal, which is the point of the type.
-    pending.take(MOVEMENT_TUNING);
+    pending.take(movement_tuning_domain());
 }
 
 /// Raise the developer's movement-tuning edit as a PROPOSAL.
@@ -1119,7 +1129,7 @@ pub fn propose_editable_movement_tuning(
     if !editable.is_changed() || editable.is_added() {
         return;
     }
-    pending.propose(MOVEMENT_TUNING);
+    pending.propose(movement_tuning_domain());
 }
 
 /// This domain's key in [`ae::PendingMechanicalEdits`].
@@ -1128,7 +1138,12 @@ pub fn propose_editable_movement_tuning(
 /// five more mutable mechanical values owned by five different crates; a central
 /// enum would make `ambition_platformer2d_core` name every one of them, which is
 /// the dependency edge this protocol exists to avoid.
-pub const MOVEMENT_TUNING: ae::MechanicalDomain = ae::MechanicalDomain("movement_tuning");
+/// The marker type that OWNS this domain.
+pub struct MovementTuningDomain;
+
+pub fn movement_tuning_domain() -> ae::MechanicalDomain {
+    ae::MechanicalDomain::of::<MovementTuningDomain>("movement_tuning")
+}
 
 #[cfg(test)]
 mod adapter_tests {
@@ -1187,7 +1202,7 @@ mod adapter_tests {
         assert!(
             app.world()
                 .resource::<ae::PendingMechanicalEdits>()
-                .is_pending(MOVEMENT_TUNING),
+                .is_pending(movement_tuning_domain()),
             "the refused edit was discarded instead of staged"
         );
 
@@ -1210,7 +1225,7 @@ mod adapter_tests {
         assert!(
             !app.world()
                 .resource::<ae::PendingMechanicalEdits>()
-                .is_pending(MOVEMENT_TUNING),
+                .is_pending(movement_tuning_domain()),
             "a published proposal stayed pending, so every later frame republishes it"
         );
     }
@@ -1365,7 +1380,7 @@ mod player_stats_domain_tests {
             (
                 propose_player_stats_edits,
                 (|pending: Res<ae::PendingMechanicalEdits>, mut seen: ResMut<ProposalsSeen>| {
-                    if pending.is_pending(PLAYER_STATS) {
+                    if pending.is_pending(player_stats_domain()) {
                         seen.0 += 1;
                     }
                 }),
@@ -1466,7 +1481,7 @@ mod player_stats_domain_tests {
         assert!(
             !app.world()
                 .resource::<ae::PendingMechanicalEdits>()
-                .is_pending(PLAYER_STATS),
+                .is_pending(player_stats_domain()),
             "a published proposal stayed pending, so every later frame \
              republishes it and the mirror never runs again"
         );
@@ -1502,7 +1517,7 @@ mod player_stats_domain_tests {
         assert!(
             app.world()
                 .resource::<ae::PendingMechanicalEdits>()
-                .is_pending(PLAYER_STATS),
+                .is_pending(player_stats_domain()),
             "the refused edit was dropped rather than staged"
         );
 
@@ -1668,7 +1683,7 @@ mod body_profile_domain_tests {
         assert!(
             app.world()
                 .resource::<ae::PendingMechanicalEdits>()
-                .is_pending(BODY_PROFILE),
+                .is_pending(body_profile_domain()),
             "the refused edit was discarded rather than staged"
         );
 

@@ -603,12 +603,19 @@ the panel legitimately goes stale against a body gameplay keeps moving.
 `an_edit_staged_behind_a_refusal_publishes_only_the_field_it_staged` is that arm,
 and it fires on the publisher-only poison.
 
-⚠ **STILL OPEN from the same finding**: `mirror_player_stats_into_the_inspector`
-is registered through `app.sim_schedule()` and therefore runs inside
-`GgrsSchedule` under rollback. It no longer changes authoritative mechanics, so
-this is not the old determinism bug — it is the wrong LIFETIME for a presentation
-mirror, and it makes proposal discrimination depend on rollback resimulation.
-Move it to an ordinary host/render-frame schedule.
+✅ **AND THE SECONDARY FROM THE SAME FINDING IS CLOSED TOO, SAME DAY.**
+`mirror_player_stats_into_the_inspector` was registered through
+`app.sim_schedule()` and therefore ran inside `GgrsSchedule`. It changed nothing
+authoritative there, so this was never the determinism bug `Q120` is about — it
+was the wrong LIFETIME. A body→panel copy running once per RESIMULATED frame made
+this domain's proposal discrimination depend on how many times history was
+replayed, when the question it answers — *"did the developer type a number, or did
+the game change one?"* — is a question about RENDERED frames. It runs in `Update`
+now, which is AFTER `RunGgrsSystems` (that sits in `PreUpdate`), so the panel
+still shows the post-advance body. `DevInspectorMirrorSet` keeps its name; the
+`configure_sets` that positioned it inside the simulation's Progression phase is
+gone, because configuring a set with no members there reads exactly like a live
+edge.
 
 ## ⛔⛤ `SessionScopeId` — A HOST-LOCAL COUNTER IS ON THE ROLLBACK WIRE, MEASURED 2026-09-13
 

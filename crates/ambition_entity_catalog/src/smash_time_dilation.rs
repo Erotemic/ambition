@@ -1,33 +1,5 @@
-//! The time-dilation technique: "for a moment, you are slower than the world."
-//!
-//! ⭐⭐ THE SAME SPLIT `smash_counter`, `smash_teleport` AND `smash_capture` USE.
-//! A key and its params are what a MOVESET authors, so they live where movesets
-//! can name them; applying the scale and spending its clock are the GAME's job,
-//! and that half sits in the smash demo beside the capture adapter.
-//!
-//! ⛔⛔ THIS ADDS NO TIME AUTHORITY, AND THAT IS THE WHOLE POINT.
-//! `ambition_time::ProperTimeScale` is a per-body component the engine ALREADY
-//! integrates against: `WorldTime::entity_dt` is what move playback, hurtbox
-//! resolution and the animation clock all read (ADR 0011), and the component is
-//! already rollback-canonical as `actor.proper_time_scale`. ⇒ What was missing
-//! was a way for an authored move to SAY a number into it. Nothing here decides
-//! how time works; it decides who is slow and for how long.
-//!
-//! ⭐ AND IT IS THE THIRD COUNTER THE COUNTER MODULE NAMES. `smash_counter`'s own
-//! header lists the three a platform fighter wants — *"an ordinary counter
-//! answers with an attack; a Revenge-style counter answers with a lasting
-//! character modifier; a Witch-Time-style counter answers by SLOWING THE
-//! ATTACKER"* — and the third had no vocabulary at all while the first two
-//! shipped. A counter's `response` is a key, so this makes the third expressible
-//! without the counter learning anything new.
-//!
-//! ⚠ WHAT IT DOES NOT SLOW, MEASURED RATHER THAN GUESSED: the movement kernel
-//! does not read `entity_dt`, so a dilated body still WALKS at ordinary speed.
-//! Its moves, its hurtbox resolution and its animation all slow. ⇒ For the
-//! counter case that is the effect that matters — the fighter you caught is
-//! mid-swing, and their swing is what stretches — but a move that dilated a body
-//! in neutral would look wrong, and this doc is where the next author finds that
-//! out instead of the playtest.
+//! Authored payload for temporarily slowing a body.
+//! The technique writes the existing per-body proper-time scale. It does not define a second time authority.
 
 use serde::{Deserialize, Serialize};
 
@@ -39,36 +11,13 @@ pub const TIME_DILATION: &str = "smash.time_dilation";
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TimeDilationParams {
-    /// The victim's clock multiplier while it lasts. `1.0` is no change, `0.35`
-    /// is a hard slow, `0.0` is a freeze.
-    ///
-    /// ⛔ BELOW ONE IS THE ONLY DIRECTION WITH A CUSTOMER. Above one would speed
-    /// a body up, which the engine supports and no move asks for — so the
-    /// authoring guard refuses it rather than shipping a knob whose effect
-    /// nobody has designed.
+    /// Victim proper-time multiplier. Valid authored slows are in `0.0..1.0`.
     pub scale: f32,
-    /// How long the victim stays on that clock, in WORLD seconds.
-    ///
-    /// ⭐ WORLD SECONDS, NOT THE VICTIM'S OWN. A duration measured on a slowed
-    /// body's own clock would stretch itself — a 0.5s slow at `0.35` would last
-    /// 1.4s of real time, and halving the scale would more than double the
-    /// effect. The author writes how long the OTHER player waits.
+    /// Duration in world seconds. Using world time prevents the slow from extending its own duration.
     pub seconds: f32,
 }
 
-/// The admission check for `TIME_DILATION`'s params: hydration AND the domain's own rule.
-///
-/// ⛔⛔ **`check_hydrates::<T>` IS NOT A SEMANTIC CHECK, AND THE DECLARATION SAID
-/// IT WAS.** [`TimeDilationParams::problems`] rejects `scale >= 1` (a "slow" that speeds the victim up), `scale < 0`, and a nonpositive duration — and the live handler
-/// runs that check at FIRE TIME, so a move authored with bad numbers plays and
-/// is refused mid-fight. The A11 declaration checked only that serde could build
-/// the struct, so those params were "admitted" at startup. The owner document is
-/// explicit that successful hydration alone is insufficient. Caught by GPT
-/// review #9.
-///
-/// ⚠ The problems are JOINED rather than reported one at a time: an author fixing
-/// a move wants every complaint about it at once, which is the same reason
-/// `problems` returns a list rather than the first failure.
+/// Hydrate and semantically validate a time-dilation payload.
 pub fn check_time_dilation_params(
     params: &crate::ParamValue,
 ) -> Result<(), String> {

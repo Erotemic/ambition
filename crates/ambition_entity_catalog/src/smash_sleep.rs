@@ -1,19 +1,5 @@
-//! Putting a body to sleep: the authored vocabulary.
-//!
-//! ⭐⭐ THE MECHANIC WAS ALREADY THERE AND HAD NO NAME. `attack_support`'s
-//! `hard_lock_timer` is a `max()` over NAMED causes of "this body cannot act" —
-//! the knockback and landing locks a body owns, the dizzy a broken guard owes,
-//! the shieldstun a blocked hit charges, shield-drop lag. A sleep is a fifth
-//! cause, and `BodyCombat::sleep_timer` is where it lives.
-//!
-//! ⛔ SO THIS TECHNIQUE ADDS NO STATUS SYSTEM. It sets one timer that an
-//! existing gate already reads, which is the difference between a move that
-//! coordinates an authority and a move that becomes one.
-//!
-//! ⚠ IT IS A DISABLE, NOT YET A SLEEP, and the field says so too: no specific
-//! pose and no mash escape. Both are what make a sleep richer than a disable and
-//! neither is expressible as a timer in a `max` — so this is the honest half,
-//! and the other half wants its own decision rather than a quiet extension.
+//! Authored payload for a temporary action lock presented as sleep.
+//! The ruleset writes the existing combat sleep timer; this module does not define a separate status system.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,11 +14,7 @@ pub const SLEEP: &str = "smash.sleep";
 pub struct SleepParams {
     /// How long a caught body cannot act, in seconds.
     pub duration_s: f32,
-    /// How far the sleep reaches from the singer, as a half-extent.
-    ///
-    /// ⭐ AN AREA, NOT A STRIKE. The genre's version catches everyone nearby
-    /// rather than whoever is in front, and that is the whole shape of the move:
-    /// it is a punish on a crowd and a suicide against one spaced opponent.
+    /// Half-extents of the sleep area around the singer.
     pub half_extents: (f32, f32),
 }
 
@@ -88,11 +70,7 @@ mod tests {
         assert_eq!(back, params());
     }
 
-    /// A sleep of no duration is refused where it is authored.
-    ///
-    /// ⛔ AT RUNTIME IT IS INVISIBLE: the move plays its whole animation, the
-    /// pulse fires, every caught body is put to sleep for zero seconds, and the
-    /// result is indistinguishable from a move that missed.
+    /// A zero-duration sleep is refused because it has no mechanical effect.
     #[test]
     fn a_sleep_of_no_duration_is_refused() {
         let refused = std::panic::catch_unwind(|| {

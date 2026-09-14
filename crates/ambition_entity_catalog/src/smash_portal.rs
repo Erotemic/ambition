@@ -1,25 +1,5 @@
-//! The portal recovery: the authored vocabulary for "open a way up".
-//!
-//! ⭐⭐ JON'S MOVE, AND DELIBERATELY NOT A GENRE ONE, 2026-09-05: *"up b opens a
-//! portal under him, and a portal at the very top of the stage, and when he falls
-//! into it he comes out the higher portal … it's a portal so just use the portal
-//! crate rules, we can even exercise angled portals with directional input on the
-//! up b as a flavor that isn't actually in smash and is ours."*
-//!
-//! ⛔⛔ IT ADDS NO RECOVERY BEHAVIOUR, AND THAT IS THE WHOLE CLAIM.
-//! `ambition_portal2d` already owns apertures, linking and transit;
-//! `PlacedPortal` is a Component, so an aperture is a spawn, and
-//! `PortalChannelColor::Indexed(n)` documents its own pairing — *"even = slot A,
-//! odd = slot B; the partner is `Indexed(n ^ 1)`"*. A move that placed its own
-//! transit rules would be a second portal implementation wearing a fighter's
-//! name.
-//!
-//! ⭐ THE LIFETIME IS AUTHORED RATHER THAN DECIDED. Closing on move end, on the
-//! first transit, or on a timer are three different MECHANICS — a recovery, a
-//! one-shot escape, and a hole in the stage another fighter can use — and which
-//! one this move is belongs to whoever authors it. Two fields express all three,
-//! so the design question stays open in the data instead of being closed
-//! silently by whichever was easiest to implement.
+//! Authored payload for placing a linked portal pair as a recovery.
+//! Portal linking and transit remain owned by `ambition_portal2d`; this module only supplies placement, lifetime, and orientation parameters.
 
 use serde::{Deserialize, Serialize};
 
@@ -33,63 +13,22 @@ pub const PORTAL_PAIR: &str = "smash.portal_pair";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PortalPairParams {
-    /// How far ABOVE the fighter the exit aperture opens, in world px.
-    ///
-    /// ⛔ A RISE, NOT A DESTINATION. "The very top of the stage" is a fact about
-    /// a stage, and a move that read one would be authored against a single
-    /// room; a rise is a property of the MOVE and travels with the fighter to
-    /// every stage. What "the top" means is then the stage's business, through
-    /// the ordinary blast bounds.
+    /// Vertical separation between entry and exit apertures, in world pixels. This is relative movement, not a stage-specific destination.
     pub rise: f32,
     /// Half-extent of each aperture. Wide enough to fall into without aiming,
     /// or the recovery is a precision test rather than a route.
     pub half_extent: (f32, f32),
     /// Seconds both apertures stay open. `0` or less is refused at authoring.
     pub lifetime_s: f32,
-    /// Close the pair the first time anything transits it.
-    ///
-    /// ⇒ `true` makes this a ONE-SHOT ESCAPE — the recovery closes behind you,
-    /// which is what stops an opponent following. `false` leaves a route open
-    /// for [`Self::lifetime_s`], which any fighter may use, and is the version
-    /// that changes the stage rather than the fighter.
+    /// If true, close the pair after the first transit. If false, keep it open until `lifetime_s` expires.
     pub close_on_transit: bool,
-    /// Tilt of the pair from vertical, in DEGREES, for the angled variant.
-    ///
-    /// ⭐ NOT IN THE GENRE, and Jon's whole reason for the move. `0.0` is the
-    /// straight version: enter downward, leave upward. Author the straight one
-    /// first and let the angle be a second commit — it is also the cheapest
-    /// possible test of whether the placement seam takes an orientation at all.
+    /// Authored tilt from vertical, in degrees.
     #[serde(default)]
     pub tilt_degrees: f32,
-    /// How far the PLAYER'S OWN STICK may tilt the pair, in DEGREES either way.
-    ///
-    /// ⭐⭐ THE SECOND HALF OF JON'S ASK, and the half that makes the move ours:
-    /// *"we can even exercise angled portals with directional input on the up b
-    /// as a flavor that isn't actually in smash and is ours."* [`Self::tilt_degrees`]
-    /// is the authored angle; this is the range the player controls around it,
-    /// so the same move opens a straight shaft, a lean, or a hard slant
-    /// depending on what they were holding.
-    ///
-    /// ⭐ IT REUSES THE AIM THE TELEPORT ALREADY HAS. `MovePlayback::aimed_stick`
-    /// is a LATCHED, UNDAMPED stick direction — latched because *"a player who
-    /// flicked a direction and let go has stated an aim that a read at the
-    /// transit cannot see"*, and undamped because every aimed special is rooted
-    /// and a damped read is neutral for the whole move. It is already rollback
-    /// state. ⇒ Nothing new is owned here; the portal asks the same question the
-    /// teleport asks.
-    ///
-    /// ⛔ `0.0` IS NOT AIMABLE, and it is the default, so every pair authored
-    /// before this field opens exactly where it did.
+    /// Maximum player-controlled tilt around `tilt_degrees`, in degrees. `0.0` disables aiming.
     #[serde(default)]
     pub aim_tilt_degrees: f32,
-    /// Which indexed channel pair to use. ⭐ The PARTNER is not computed here —
-    /// `PortalChannel::partner()` owns that rule, and a second copy of "the
-    /// partner is `n ^ 1`" is a pairing rule with two homes.
-    ///
-    /// ⛔ INDICES `8..` ONLY, which the colour table asks for in place: `0..=7`
-    /// overlap the eight NAMED pairs in index space, and a move that quietly
-    /// took one would fight whatever authored that colour in the room. ⓘ The
-    /// ceiling is the type's: `Indexed(u8)`, so 128 distinct pairs.
+    /// Indexed portal channel. Values below 8 are reserved for named room channels and are rejected.
     pub channel_index: u8,
 }
 
@@ -173,13 +112,7 @@ mod tests {
         assert_eq!(back, params());
     }
 
-    /// A pair on a NAMED channel index is refused at authoring.
-    ///
-    /// ⛔ THE FAILURE IS INVISIBLE AT RUNTIME AND ROOM-DEPENDENT. Taking index
-    /// `2` works perfectly until somebody plays the one stage that authored that
-    /// colour, and then two unrelated portals link to each other — which reads as
-    /// the recovery teleporting you somewhere absurd rather than as a channel
-    /// collision.
+    /// A pair on a named room channel is refused because unrelated portals could link.
     #[test]
     fn a_named_channel_index_is_refused() {
         let refused = std::panic::catch_unwind(|| {

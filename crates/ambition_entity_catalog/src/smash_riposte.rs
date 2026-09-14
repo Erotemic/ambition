@@ -1,34 +1,5 @@
-//! Answer a parry with the blade: the authored vocabulary.
-//!
-//! ⭐⭐ THE COUNTER'S MOST CONVENTIONAL ANSWER WAS THE ONE IT COULD NOT GIVE.
-//! Six counters ship — the stand-ins' `riposte`, the Author's second draft, the
-//! ninja's seal, Emmy's field, the officer's shield, the clerk's clocks — and
-//! their responses are a grab, a teleport, a sleep, a heal, an absorb and a
-//! slow. Not one of them HITS BACK, because `counter_move` builds a stance with
-//! no volumes and the answer is entirely its response technique. ⇒ The genre's
-//! plainest counter (parry, then cut) was inexpressible, and the fighter who
-//! most needed it is the sword archetype whose whole table is fundamentals.
-//!
-//! ⛔ IT OWNS NO DAMAGE. The cut is an ordinary BODY STRIKE — `HitSide::Player`
-//! anchored `FollowOwner`, spawned through `strike::spawn_body_strike` and
-//! resolved by the one hitbox authority every swing in the workspace goes
-//! through. This module decides how hard, how far and how wide, and nothing else.
-//!
-//! ⛔⛔ IT IS DELIBERATELY *NOT* A `DamageBoxEffect`, and the reason is the kind
-//! of thing that only shows up when you read the citation. A `DamageBox` is
-//! anchored in the WORLD, and the resolver's table reads
-//! `(HitSide::Player, HitboxAnchor::World { .. }) => None` — a player-sided
-//! world box damages nobody. The one side that reaches bodies from a world
-//! anchor is `Environment`, which by design consults **no self-exclusion**
-//! (*"your own bomb hurts you, and you still placed it"*). ⇒ Both spellings
-//! available through the effect road are wrong for a counter: one hurts no one,
-//! the other cuts the fighter who parried.
-//!
-//! ⚠ AND IT IS NOT LIMITED TO COUNTERS. A response is delivered as an ordinary
-//! `ActorActionMessage`, so any move that names this key gets a cut in front of
-//! it. It lives here rather than in `smash_counter` for that reason.
-//!
-//! The ruleset half is `ambition_demo_smash::riposte`.
+//! Authored payload for a body-anchored follow-up strike.
+//! The strike uses the normal combat hitbox authority. Counter responses are one consumer, but any move may author this technique.
 
 use serde::{Deserialize, Serialize};
 
@@ -43,57 +14,19 @@ pub const RIPOSTE_STRIKE: &str = "smash.riposte_strike";
 pub struct RiposteStrikeParams {
     /// Percent dealt by the cut.
     pub damage: u32,
-    /// ⛔⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED, and this field has already
-    /// cost this repository three shipped moves. `DamageBoxEffect::knockback`
-    /// becomes `HitboxKnockback::FeelScale`, whose authored band is roughly
-    /// 1.1–1.6; `ambition_combat::strike::MAX_PLAUSIBLE_FEEL_SCALE` is 8.0 and
-    /// warns above it. A value like `104.0` copied off a `Strike`'s knockback
-    /// is not a stronger hit, it is a nonsense one.
+    /// Hitbox feel multiplier, not launch speed. The validator rejects non-positive values and values above 8.
     pub knockback: f32,
-    /// How far in front of the fighter the cut lands, in world px.
-    ///
-    /// ⭐ THE SWORD ARCHETYPE'S WHOLE DISTINCTION IS REACH, so this is the
-    /// number that makes one riposte different from another's.
+    /// Distance in front of the fighter where the cut is centered, in world pixels.
     pub reach: f32,
     /// Half-extents of the cut, in world px.
     pub half_extents: (f32, f32),
-    /// How long the cut stays live, in seconds.
-    ///
-    /// ⚠ SHORT. This is a hitbox that appears in one place rather than sweeping,
-    /// so a long life is a lingering trap rather than a swing.
+    /// Lifetime of the stationary cut hitbox, in seconds.
     pub lifetime_s: f32,
-    /// What the cut SOUNDS like when it lands — an `SfxId` name such as
-    /// `"player.slash"` for a blade or `"world.rock.hit"` for something blunt.
-    /// `None` leaves the victim's own hurt sound, which is what every technique
-    /// in the game used to get.
-    ///
-    /// ⭐⭐ THIS IS THE MOVE'S VOICE AND IT IS THE CHEAPEST CHARACTER THERE IS.
-    /// A swordfighter's counter and a brawler's ground shock are the same
-    /// mechanic here — both spawn a body strike — and the ONLY thing that makes
-    /// them different events to a player who is not looking at the animation is
-    /// this string.
-    ///
-    /// ⛔ A NAME, NOT AN ID, and safe by construction: it is lowered with
-    /// `SfxId::new` at spawn (a runtime hash of any `&str`), and a name the bank
-    /// never rendered simply plays nothing. ⚠ That last part is the reason to
-    /// author only ids that exist — silence is WORSE than `None`, which at least
-    /// gives the victim's material sound.
+    /// Optional sound id for a successful cut. `None` leaves the victim's normal hurt sound.
     pub hit_sfx: Option<String>,
 }
 
-/// The admission check for `RIPOSTE_STRIKE`'s params: hydration AND the domain's own rule.
-///
-/// ⛔⛔ **`check_hydrates::<T>` IS NOT A SEMANTIC CHECK, AND THE DECLARATION SAID
-/// IT WAS.** [`RiposteStrikeParams::problems`] checks the response the counter will throw — and the live handler
-/// runs that check at FIRE TIME, so a move authored with bad numbers plays and
-/// is refused mid-fight. The A11 declaration checked only that serde could build
-/// the struct, so those params were "admitted" at startup. The owner document is
-/// explicit that successful hydration alone is insufficient. Caught by GPT
-/// review #9.
-///
-/// ⚠ The problems are JOINED rather than reported one at a time: an author fixing
-/// a move wants every complaint about it at once, which is the same reason
-/// `problems` returns a list rather than the first failure.
+/// Hydrate and semantically validate a riposte-strike payload.
 pub fn check_riposte_strike_params(
     params: &crate::ParamValue,
 ) -> Result<(), String> {
@@ -107,12 +40,7 @@ pub fn check_riposte_strike_params(
 }
 
 impl RiposteStrikeParams {
-    /// Everything wrong with these params, as sentences an author can act on.
-    ///
-    /// ⭐ A LIST RATHER THAN A PANIC, matching `TimeDilationParams::problems`:
-    /// a response's params are authored inside a `CounterParams`, where there is
-    /// no constructor to assert in. The ruleset checks them when it hydrates and
-    /// names the move, which is the only place both facts are in hand.
+    /// Return all semantic validation errors for this strike payload.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if self.damage == 0 {
@@ -161,27 +89,11 @@ impl RiposteStrikeParams {
     }
 }
 
-/// Author a cut onto a move's own timeline.
-///
-/// ⭐⭐ THE COUNTER IS NOT THE ONLY CUSTOMER, and this helper is what makes that
-/// true in practice rather than in a comment. A counter reaches this technique
-/// by naming it as its `response`; a MOVE reaches it by putting the key on its
-/// timeline, and both arrive as the same `ActorActionMessage`. ⇒ Anything that
-/// wants a second, differently-shaped hit at a chosen instant — a slam whose
-/// shock runs along the ground, a swing with a late tip — can have one without a
-/// new technique and without hand-building windows.
-///
-/// ⛔ WHY NOT `multihit`: its pulses are a LEAD-IN. Its own implementation shifts
-/// the finisher back by the pulse train's length, because a multi-hit is a
-/// wind-up into a finisher. A follow-up is the other direction and it cannot be
-/// spelled that way.
+/// Author a body-anchored follow-up strike on a move timeline.
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's duration, or if the cut is unusable — the same
-/// list [`RiposteStrikeParams::problems`] gives the ruleset at runtime, asked
-/// here where the MOVE'S NAME is in hand and the failure is a build error rather
-/// than a log line nobody reads.
+/// Panics if `at_s` is after the move duration or the strike payload is invalid.
 pub fn author_cut(mut spec: MoveSpec, at_s: f32, params: RiposteStrikeParams) -> MoveSpec {
     assert!(
         at_s <= spec.duration_s,

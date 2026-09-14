@@ -1,20 +1,5 @@
-//! Put a live bomb on the stage: the authored vocabulary.
-//!
-//! ⭐ THE SAME SPLIT `smash_capture`, `smash_ride` AND `smash_teleport` USE. A
-//! key and its params are what a MOVESET authors; the fuse, the blast and the
-//! object somebody can pick up are a RULESET's, and that half is
-//! `ambition_demo_smash::bomb`.
-//!
-//! ⭐⭐ JON'S DESIGN, 2026-08-27: *"The projectile polygon should poop a bomb
-//! onto the stage, they should be able to pick it up and throw it. The bomb
-//! should detonate in 4 seconds or if it hits something with enough velocity,
-//! whichever comes first."*
-//!
-//! ⛔ THE OBJECT IS A GROUND ITEM, not a summon, and that is what makes the
-//! second sentence free. Picking things up and throwing them is machinery this
-//! engine already has — `GroundItem`, `ItemCustody`, `throw_held_item_system` —
-//! and a bomb that was a summoned body would have needed all of it written
-//! again in order to be a thing you can hold.
+//! Authored payload for dropping a bomb.
+//! The ruleset creates a ground item, so normal item custody and throwing apply to the bomb.
 
 use serde::{Deserialize, Serialize};
 
@@ -38,13 +23,7 @@ pub struct DropBombParams {
     pub damage: i32,
     /// How far the blast reaches, in world px.
     pub blast_radius: f32,
-    /// ⭐⭐ HOW HARD IS HARD ENOUGH. Jon: *"or if it hits something with enough
-    /// velocity, whichever comes first."* Below this speed the bomb bounces and
-    /// keeps its fuse; at or above it, contact is the detonation.
-    ///
-    /// ⛔ A THRESHOLD, NOT A FLAG, because both outcomes have to be reachable:
-    /// a bomb that always went off on contact could never be placed, and one
-    /// that never did would make the thrown bomb identical to the dropped one.
+    /// Minimum contact speed that detonates the bomb. Slower impacts bounce and keep the fuse.
     pub impact_speed: f32,
     /// The object's own size in the world.
     pub half_extents: (f32, f32),
@@ -52,17 +31,8 @@ pub struct DropBombParams {
     pub offset: (f32, f32),
 }
 
-/// The held-item ids a `bomb` effect names.
-///
-/// ⛔ ITS OWN DOC ALREADY STATED THE STAKE: the id "must be a registered held
-/// item or nobody can pick \[it\] up — which is half the move". Nothing checked
-/// it. `bomb.rs` resolves it at FIRE TIME with `held_item_by_id` and logs on
-/// `None`, so an unregistered id produced an object nobody can take, mid-fight,
-/// with a log line as the only symptom.
-///
-/// ⚠ Malformed params name nothing here: whether they hydrate is
-/// `TechniqueParams::Checked`'s question, asked on the same effect by the same
-/// pass.
+/// Return the held-item id referenced by a bomb payload.
+/// Malformed params return no references because parameter hydration is validated separately.
 pub fn bomb_held_item_refs(effect: &crate::EffectRef) -> Vec<String> {
     effect
         .params
@@ -71,12 +41,11 @@ pub fn bomb_held_item_refs(effect: &crate::EffectRef) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Author a bomb drop onto a move's timeline.
+/// Author a bomb drop on a move timeline.
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's own duration. A bomb scheduled after the move
-/// ends never appears, and the move would spend its recovery to do nothing.
+/// Panics if `at_s` is after the move duration.
 pub fn author_drop_bomb(mut spec: MoveSpec, at_s: f32, params: DropBombParams) -> MoveSpec {
     assert!(
         at_s <= spec.duration_s,

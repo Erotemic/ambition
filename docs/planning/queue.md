@@ -1626,10 +1626,22 @@ before staging the sweep:  685 publications, 3 supersessions, ALL left to a cust
 after  staging the sweep:  686 publications, 0 retired here,  3 left to a custodian
 ```
 
-First the outgoing sweep ran BEFORE the baseline, so the only identity that
-survived to be superseded was the carried object. Now the sweep runs inside the
-publication and gets there FIRST. `retire_superseded` is the CUSTODY accountant
-plus a backstop, and its despawn path is proven in its unit arm or nowhere.
+⚠ **THOSE COUNTS ARE RETIREMENTS PERFORMED, NOT SUPERSESSIONS DECLARED, AND THE
+TWO DIVERGED WHEN THE SWEEP MOVED.** Before staging, the sweep ran ahead of the
+baseline, so the only identity that survived to be superseded was the carried
+object — three of them, all custody. Now the outgoing room is LIVE at baseline, so
+every re-authored placement is a supersession: the common case, not the rare one.
+`retire_superseded` reports only what it acted on, and by the time it runs the
+publication's own sweep has already taken every non-custody body.
+
+⭐⭐ **AND THE DECLARATION IS COVERED BY THE SHIPPED SUITE, NOT BY MY OWN ARMS.**
+Poisoning `transaction::open` to declare NOTHING superseded reddens **23 `app_it`
+tests** — deaths, new-game resets, boss replays, save/load occurrence arms,
+canonical reconstitution. ⇒ The core of this packet is not resting on the
+acceptance arms written for it.
+
+⇒ `retire_superseded` is the CUSTODY accountant plus a backstop, and its despawn
+path is proven in its unit arm or nowhere.
 
 ⚠ **AND I GAVE THE ORDER A MECHANISM IT DOES NOT HAVE — CORRECTED.** I wrote that
 the sweep must go first *"because it routes physics bodies through

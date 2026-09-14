@@ -537,6 +537,33 @@ impl std::fmt::Display for Vote {
     }
 }
 
+/// THE ATTACKER'S OWN METER FOR EVERY TRIAL — `attacker_pct=<n>`, default 0.
+///
+/// ⛔⛤ ZERO IS NOT A NEUTRAL CHOICE, IT IS A CONTROL. `rage_scale` reads the
+/// ATTACKER's damage and multiplies every resolved launch, so a sweep that lets
+/// it float is measuring the fixture's accumulated damage as much as the
+/// authored value — `lib.rs:4161` records a case where borrowed rage turned a
+/// survival into a knockout and "only controlling rage could tell the two apart".
+/// Pinning it to 0 is what makes rows comparable.
+///
+/// ⭐ AND IT IS EXACTLY WHY THE FLAG EXISTS. A kill percent measured at rage 1.0
+/// is the WEAKEST the move will ever be; the question "does this move still kill
+/// when the attacker is behind" cannot be asked of a rage-pinned table at all.
+/// Cached, because `reset_trial` runs once per trial and a step-1 scan is ~110 of
+/// them per cell.
+fn attacker_meter() -> i32 {
+    static V: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
+    *V.get_or_init(|| {
+        std::env::args()
+            .find_map(|a| {
+                a.strip_prefix("attacker_pct=")
+                    .and_then(|n| n.parse::<i32>().ok())
+            })
+            .filter(|n| *n >= 0)
+            .unwrap_or(0)
+    })
+}
+
 /// WHAT DELIVERS ONE PULSE — and the ONLY thing the threshold machinery varies.
 ///
 /// ⛔⛤ A SECOND SEARCH WOULD BE A SECOND SET OF SEMANTICS. `ko_threshold`'s
@@ -1395,7 +1422,7 @@ impl KoProbe {
             return false;
         }
 
-        for (body, meter) in [(self.victim, entry_percent), (self.attacker, 0)] {
+        for (body, meter) in [(self.victim, entry_percent), (self.attacker, attacker_meter())] {
             // ⛔ THE ATTACKER IS PINNED TO ZERO because `rage_scale` reads its
             // meter and multiplies EVERY resolved launch. The sweep that picked
             // the shipped percent scale ran with an uncontrolled ~1.25x rage.
@@ -2640,6 +2667,7 @@ fn run_probe() {
                 && !a.starts_with("ceiling=")
                 && !a.starts_with("step=")
                 && !a.starts_with("only=")
+                && !a.starts_with("attacker_pct=")
         })
         .collect();
     let pairs: Vec<(String, String)> = if after.len() >= 2 {
@@ -2737,7 +2765,25 @@ fn run_probe() {
         "# victim brain: stand_still — no DI, no jump, no recovery. KO% is a \
          NO-RECOVERY LOWER BOUND, not a kill percent."
     );
-    println!("# attacker meter pinned to 0 so rage_scale cannot multiply a resolved launch.");
+    // ⛔⛔ THIS LINE MUST NOT CLAIM A PIN THAT DID NOT HAPPEN. The step header
+    // carried exactly this defect into the first calibration run it ever served —
+    // it announced `step: 50` while a step-1 scan produced the row. A header is
+    // the one thing a later reader trusts without re-deriving it.
+    //
+    // ⛔ AND IT DOES NOT RESTATE `rage_per_damage`/`rage_max_scale`. Those are
+    // authored in `ambition_demo_smash`, and a constant transcribed into a probe
+    // is the error that made this file's own gravity comment wrong by 55%. The
+    // meter is what this tool set; the multiplier is the ruleset's to state.
+    if attacker_meter() == 0 {
+        println!("# attacker meter pinned to 0 so rage_scale cannot multiply a resolved launch.");
+    } else {
+        println!(
+            "# attacker meter = {}% — NOT PINNED. `rage_scale` reads the attacker's own \
+             damage and multiplies EVERY resolved launch, so these rows are NOT comparable \
+             with rage-pinned tables and are NOT a lower bound.",
+            attacker_meter()
+        );
+    }
     // ⛔⛔ AERIAL ROLES ARE MEASURED UNDER CONDITIONS THEY NEVER OCCUR IN, and
     // their rows are NOT comparable with the grounded ones.
     //

@@ -94,8 +94,36 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     for _ in 0..30 {
         app.update();
     }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster(cast));
+    // ⛔⛔⛔ AN UNTIMED MATCH, OR THE PROBE EVENTUALLY MEASURES A CORPSE.
+    //
+    // MEASURED 2026-09-13 in `ko_envelope`: 184 of 209 refusals in ONE matchup
+    // reported `seats_now=0` — no `MatchSeat` entity left at all. The round had
+    // ENDED and the whole cast was despawned, so `self.victim` was a dangling
+    // handle: the pin silently early-returned (`get_mut` found no component),
+    // `pos()` answered `(0,0)` from `unwrap_or_default()`, and every remaining
+    // trial refused forever. A full table of `REFUSED@0` rows was published as
+    // measurements of MOVES while the cast they described did not exist.
+    //
+    // `SMASH_TIME_LIMIT_TICKS` is `8 * 60 * 60` = 28_800 ticks. A probe spends
+    // far more: up to 150 ticks per trial, plus a 600-tick settle loop and a
+    // 40-tick landing loop, times hundreds of trials. The clock runs out in the
+    // middle of every long run — and nothing said so, because a timed-out match
+    // looks exactly like a body that will not stand still.
+    //
+    // ⭐ `0` IS UNTIMED, NOT EXPIRE-IMMEDIATELY, and that distinction is load
+    // bearing: `MatchRules::time_remaining` is `(self.time_limit_ticks > 0)
+    // .then(..)`, and `time_expired` is documented as *"false for an untimed
+    // match, which is what makes this safe to consult unconditionally"*.
+    //
+    // ⛔ AND THE ROSTER IS THE ONLY ROAD. `PreparedMatch` keeps `rules` PRIVATE
+    // and hands out `&MatchRules`, so the live plan cannot be edited after it is
+    // prepared. The roster is what the plan is built FROM, and
+    // `MatchParticipantRoster::rules` is public precisely so a ruleset can state
+    // what its match is played under — `smash_roster` sets the clock this very
+    // way at `ambition_demo_smash/src/lib.rs:206`.
+    let mut roster = ambition_demo_smash::smash_roster(cast);
+    roster.rules.time_limit_ticks = 0;
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(

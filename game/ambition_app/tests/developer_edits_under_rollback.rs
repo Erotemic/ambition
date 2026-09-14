@@ -302,3 +302,67 @@ fn publishing_a_cast_mid_timeline_changes_what_history_resimulates_to() {
          `Q118` is about has a guard after all"
     );
 }
+
+/// ⛔⛤ **THE ADMITTED ROAD CANNOT BE MEASURED ON THIS CANARY, AND THIS ARM IS
+/// WHY — MEASURED 2026-09-13.**
+///
+/// `Q120`'s acceptance, as the architecture review states it, is to edit a
+/// developer value under the REAL GGRS production scheduling and prove no advance
+/// runs the old baseline against the new mechanics. This file owns the only
+/// sync-test canary in the suite, so it is the obvious place — and it cannot host
+/// that arm, because **the canary rig and the developer-tools composition are
+/// different compositions.**
+///
+/// MEASURED in this harness: `PreUpdate` holds 33 systems and **not one of them
+/// is a mechanical-edit proposer, publisher or admission decider**.
+/// `PendingMechanicalEdits` IS present — the rollback crate initialises it — and
+/// so is `EditableMovementTuning`, so a premise that checked for the RESOURCES
+/// would pass while the road does not exist. ⚠ That is the distinction this
+/// repository keeps relearning: **a resource is a declaration and `add_systems`
+/// is the mechanism.** The first version of the arm below asserted the mirror
+/// existed, edited it, watched the canary stay healthy, and would have reported
+/// the fix as proven — its own *"did the edit actually land"* assertion is the
+/// only thing that caught it.
+///
+/// ⇒ **SO THE ACCEPTANCE IS SPLIT ACROSS TWO COMPOSITIONS TODAY**, and both
+/// halves exist: the ORDERING half is
+/// `reload_publication_is_installed::the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances`
+/// (the real `build_visible_app`, five proposers and five publishers, the chain
+/// ordered before `RunGgrsSystems`, poison-verified); the POLICY half is
+/// `mechanical_edit_admission_tests` in the rollback crate. **What no composition
+/// can currently run is the two together against a live canary.**
+///
+/// ⭐ This arm pins the composition fact so the gap cannot close silently: the
+/// day this harness gains the developer-tools chain it FAILS, and whoever did
+/// that is the right person to write the canary arm.
+#[test]
+fn the_canary_rig_has_no_developer_edit_road_to_admit() {
+    use bevy::ecs::schedule::Schedules;
+
+    let mut sim = rollback_sim();
+    let world = sim.world();
+    let schedules = world.resource::<Schedules>();
+    let pre_update = schedules
+        .get(bevy::prelude::PreUpdate)
+        .expect("the harness has a PreUpdate schedule");
+    // ⚠ THE FLOOR. A schedule that answered zero for everything would make the
+    // assertion below pass for a reason that has nothing to do with dev tools.
+    assert!(
+        pre_update.graph().systems.len() > 10,
+        "only {} systems in this harness's PreUpdate — the graph is not the          harness's, so this arm is about nothing",
+        pre_update.graph().systems.len()
+    );
+    let chain: Vec<String> = pre_update
+        .graph()
+        .systems
+        .iter()
+        .map(|(_, system, _)| system.name().to_string())
+        .filter(|name| {
+            name.contains("propose_") || name.contains("publish_") || name.contains("admission")
+        })
+        .collect();
+    assert!(
+        chain.is_empty(),
+        "this canary harness now installs the mechanical-edit chain ({chain:?}).          ⇒ THE ACCEPTANCE ARM `Q120` OWES CAN FINALLY BE WRITTEN HERE: edit          `EditableMovementTuning` at `EDIT_AT`, step the same {FRAMES} frames,          and assert `rollback_health` stays OK **and** that          `ActiveMovementTuning` actually moved — a protocol that never publishes          also keeps the canary healthy, and that is the removal of live editing          rather than a fix. Delete this arm when you do."
+    );
+}

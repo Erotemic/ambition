@@ -2136,11 +2136,32 @@ otherwise it would copy the body's current value over a number the developer
 typed while it waits behind a refusal, making a refusal indistinguishable from a
 silent discard.
 
-⇒ **WHAT REMAINS FOR `Q120`:** the production-GGRS poisons the review specifies
-for all five domains (edit under a locally-maintained timeline ⇒ no advance with
-old baseline + new value; edit under a foreign one ⇒ proposal staged,
-authoritative value unchanged, replay deterministic across the attempted edit).
-The unit and composition arms are in; the real-canary ones are not.
+⇒ **WHAT REMAINS FOR `Q120`, AND IT IS A COMPOSITION PROBLEM RATHER THAN AN
+UNWRITTEN TEST.** The review's acceptance is to edit a developer value under the
+REAL GGRS production scheduling and prove no advance runs the old baseline against
+the new mechanics. **MEASURED 2026-09-13: the canary rig and the developer-tools
+composition are different compositions.** `Platformer2dSimHarness` — the only
+sync-test canary in the suite — has 33 systems in `PreUpdate` and **not one
+mechanical-edit proposer, publisher or admission decider**, while
+`build_visible_app` has all five of each and no canary.
+
+⚠ **AND THE RESOURCES ARE PRESENT IN THE CANARY RIG WITHOUT THE SYSTEMS**, which
+is the trap: `PendingMechanicalEdits` and `EditableMovementTuning` both exist
+there, so a premise that checked for RESOURCES passes while the road does not
+exist. The first version of the acceptance arm did exactly that, edited the
+mirror, watched the canary stay healthy, and would have reported the fix as
+proven — its own *"did the edit actually land"* assertion is the only thing that
+caught it. **A resource is a declaration; `add_systems` is the mechanism.**
+
+⇒ So the acceptance is SPLIT and both halves exist: the ORDERING half is
+`the_shipped_app_decides_a_mechanical_edit_before_the_timeline_advances` (the real
+`build_visible_app`, five proposers and five publishers, chain before
+`RunGgrsSystems`, poison-verified) and the POLICY half is
+`mechanical_edit_admission_tests`. **What no composition can currently run is the
+two together against a live canary**, and closing that is a composition change,
+not a test. `the_canary_rig_has_no_developer_edit_road_to_admit` pins the fact so
+the gap cannot close silently — the day that harness gains the chain it FAILS, and
+it says what arm to write instead.
 ⇒ **Not five watchers — five proposers.**
 
 <details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>

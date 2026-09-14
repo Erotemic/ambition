@@ -1589,9 +1589,15 @@ dead weight — breaking it refuses every room — and it is not a redundant sec
 opinion either: `verify_committed_roster`'s superseded branch deliberately does
 NOT ask post-publication uniqueness, so the projection is the ONLY check on *"one
 occupant after publication"* for every re-authored placement, which is now the
-common case. ⚠ But its REFUSAL population is empty, so it is proven by its own
-unit arms and by nothing the game does. That is the honest label: a live guard
-with nothing yet to catch, not a load-bearing one.
+common case. ⚠ But its REFUSAL population is empty — and so is every other
+verifier's on this road. **ZERO refusals across 686 publications**, censused over
+the whole suite. ⇒ The entire refusal apparatus (`verify_committed_roster`'s
+supersession branch, `verify_projected_roster`, `verify_staged_world`, the
+baseline's own `DuplicateIdentity`) is proven by its unit arms and by the
+acceptance arms written for it, and by nothing the game does on its own. That is
+the honest label — live guards with nothing yet to catch — and it is why the
+arms inject REAL production refusals rather than test-only seams: an injection
+nothing can reach is a guard that cannot fail.
 
 ⭐ **`ScopeVisibility` IS THE PIECE THAT LOOKED LIKE A DETAIL.**
 `AuthoritativeScope::gather` already saw candidates and could not SAY which

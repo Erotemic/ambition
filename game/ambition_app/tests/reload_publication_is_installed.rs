@@ -405,12 +405,22 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
 /// OUTGOING scope's placements are still live — so every one of them is a
 /// duplicate of a root the new room is about to mint.
 ///
-/// ⚠ **HARMLESS TODAY, WHICH IS WHY IT WAS INVISIBLE.** A refusal costs only the
-/// `RoomLoaded` message and that message has no production reader
-/// (`content_staging.rs`: *"`RoomLoaded` remains notification-only"*). ⛔ But
-/// under A10's candidate bracket the same refusal DROPS THE WHOLE ROOM, so every
-/// hot reload would produce an empty world — which is what makes A10's flag
-/// unflippable, and it is NOT the gameplay ruling `Q124` asks for.
+/// ⚠ **IT WAS INVISIBLE BECAUSE IT COST ALMOST NOTHING, AND THIS PARAGRAPH
+/// OVERSTATED THE "ALMOST" — CORRECTED 2026-09-14.** It read *"that message has
+/// no production reader"*, quoting `content_staging.rs`'s *"notification-only"*.
+/// MEASURED: `RoomLoaded` has THREE production readers, all through
+/// `ambition_combat::events::FreshAttempt` —
+/// `void_pending_player_hits_at_lifecycle_boundaries` (`ambition_damage`), and
+/// `rearm_attempt_scoped` for Sanic's `SpentMonitors` and Mary-O's
+/// `BrokenBricks`. A refusal therefore also leaves staged hits unvoided and
+/// per-attempt state un-re-armed. ⭐ Both are the RIGHT outcome — no attempt
+/// began, because no room arrived — which is why nobody noticed; "harmless" was
+/// the correct verdict reached by the wrong reasoning.
+///
+/// ✅ **AND THE BIGGER HALF IS CLOSED.** Under A10's candidate bracket the same
+/// refusal drops the whole room, which is why the flag was unflippable — the
+/// ordering fix below is what made it flippable, and `ROOM_CANDIDATE_BRACKET` has
+/// been `true` since 2026-09-14.
 ///
 /// ⭐⭐ **THE READING THAT PREDICTS IT IS TWO `chain()`s THAT NEVER MEET.**
 /// `SessionScopeSet` chains `Activate -> .. -> RetireAuthority -> Cleanup` (the

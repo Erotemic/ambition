@@ -291,41 +291,37 @@ impl RoomConstructionPlan {
         // is two spellings of one fact.
         let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
         transaction::open(commands, &self.features, candidate_bracket);
-        // ⛔⛤ **THE CANDIDATE ROAD IS BUILT AND WIRED BUT THIS FLAG IS `false`,
-        // AND THAT IS A MEASURED HOLD RATHER THAN AN OVERSIGHT.**
+        // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
+        // AS OF 2026-09-14.** Every root in every lane is minted
+        // `InactiveCandidate`, so nothing this room builds is visible to an
+        // ordinary query until `transaction::close` admits it, and a refused
+        // room is DROPPED rather than left standing half-built.
         //
-        // Flipping it to `true` builds every root in every lane as an
-        // `InactiveCandidate` and lets `transaction::close` publish or RETIRE the
-        // whole room — which is A10's last-good-world shape and deletes the
-        // sentence that path still ends with (*"The world has already been
-        // mutated and cannot be rolled back"*). MEASURED with it on: 87 of 89
-        // app-level room tests pass, and the shipped rooms publish completely
-        // (`central_hub_complex`: receipt 18 ids, admitted 18).
-        //
-        // ⭐⭐ **THE TWO THAT FAIL ARE `death_restores_the_checkpoint`, AND THE
-        // MECHANISM IS NAMED AS OF 2026-09-13: IT IS NOT THIS FLAG'S.** See
-        // `Q124`. A death is committed as a room transition to the SAME room, and
-        // room-transition sweeps use `RoomResident` — `With<RoomScopedEntity>,
-        // Without<InCustodyOf>` — so a placement in the player's custody follows
-        // them through the "door" and the room then mints it again. Two entities,
-        // one authored `SimId`, and the transaction correctly refuses:
+        // ⭐⭐ **WHAT UNBLOCKED IT WAS A DECLARATION, NOT A RULING.** This
+        // paragraph used to say the flag *"waits on a gameplay ruling alone"* —
+        // `Q124`, what happens to a placement in your custody when a death
+        // rebuilds the room that authored it — because turning it on refused
+        // `death_restores_the_checkpoint` with
         //
         //     violations=[ Duplicated { placement:ground_gun_sword, count: 2 },
-        //                  PlannedOverBaseline { placement:ground_gun_sword } ]
+        //                  ReconstructedOldSurvived { stale: 514v0 } ]
         //
-        // ⛔⛔ **THE LIVE BUILD PRODUCES THE IDENTICAL VIOLATIONS AND IS
-        // IDENTICALLY REFUSED** — measured, three times in one run. It passes
-        // only because a refusal costs nothing there: the entities were committed
-        // to the world before verification ran, so "not published" means no
-        // `RoomLoaded` message and no more. Under this bracket the same refusal
-        // drops all 18 roots, which is the bracket working.
+        // ⇒ **BOTH OF THOSE ARE THE VERIFIER ANSWERING A QUESTION NOBODY MEANT
+        // TO ASK.** `reconstructing` states *"the old body should already be
+        // gone"*, so a carried predecessor is a violation BY DEFINITION. The
+        // transaction now splits its declaration per identity —
+        // `superseding(id, id)` for one the baseline still holds,
+        // `reconstructing` for the rest — and the coexistence it was refusing is
+        // the A10 premise. See `transaction::open`.
         //
-        // ⇒ **SO THE FLAG NOW WAITS ON A GAMEPLAY RULING ALONE:**
-        // what happens to a placement in your custody when a death rebuilds the
-        // room that authored it? `Q124` states the three answers.
+        // ⚠ And `Q124` really is a ruling, but a narrower one than this flag: the
+        // baseline decides PER ITEM, and both halves already run — the room
+        // re-authors the object in its world state, the custodian's own
+        // retraction takes it out of the hand. See `retire_superseded` for the
+        // measured reason publication must not do that half itself.
         //
-        // ⛔⛤ **THERE WAS A SECOND BLOCKER, BIGGER THAN THE RULING, AND IT IS
-        // NOW CLOSED — 2026-09-13.** A census of every room-construction refusal
+        // ⛔⛤ **THE OTHER BLOCKER WAS BIGGER THAN THE RULING AND IS ALSO
+        // CLOSED — 2026-09-13.** A census of every room-construction refusal
         // across the whole `app_it` suite found SIX, and the two largest were on
         // the HOT-RELOAD road rather than the death road: 8 placements and **18,
         // the whole of `central_hub_complex`**. The world log gave the mechanism:
@@ -345,30 +341,27 @@ impl RoomConstructionPlan {
         // ⇒ `SessionScopeSet` now chains `RetireAuthority -> Cleanup -> Activate
         // -> Presentation`: the dying scope finishes dying before the live one is
         // born. **The census fell from 6 refusals to 4**, and all four that
-        // remain are the single-placement custody shape below — `Q124`'s, one
-        // placement each. Guarded by
+        // remain were the single-placement custody shape above. Guarded by
         // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
         // (the schedule) and by `an_edited_pack_reaches_the_cast_the_shipped_composition_plays`
         // (the production verdict).
         //
-        // ⚠ It cost nothing visible, which is the only reason it survived: a
-        // refusal today suppresses `RoomLoaded` and that message has no
-        // production reader. Under this bracket it would have dropped the whole
-        // room and landed every hot reload in an EMPTY WORLD.
+        // ⚠ It cost ALMOST nothing visible, which is why it survived that long —
+        // and the "no production reader" half of that sentence was WRONG.
+        // MEASURED 2026-09-14: `RoomLoaded` has three production readers through
+        // `ambition_combat::events::FreshAttempt`, so a refusal also left staged
+        // hits unvoided and per-attempt state un-re-armed. Both are the right
+        // outcome (no attempt began), which is why nobody noticed. Under this
+        // bracket it would have dropped the whole room and landed every hot
+        // reload in an EMPTY WORLD.
         //
-        // ✅ **THAT HALF NEEDED NO RULING AND IS DONE.** This paragraph read
-        // *"`retiring` and `reconstructing` have ZERO production callers, so
-        // every shipped room is judged against a claim nobody made"*, and that is
-        // why the violation above once read `PlannedOverBaseline`.
-        // `transaction::open` now takes the plan and DERIVES the declaration, so
-        // the same situation reports `ReconstructedOldSurvived` and names the
-        // surviving entity. ⚠ `retiring` still has no production caller, which is
-        // a statement about room plans — a room says what it WILL contain and
-        // never declares an identity gone.
-        //
-        // ⇒ The ENABLERS are all in: `commit_hidden`, the at-mint stamp,
-        // `construction_transactions` (every lane, not one — see its doc), and
-        // the registered filter.
+        // ✅ **AND THE BRACKET NOW BUYS THE WHOLE ROOM-SCOPE GUARANTEE.** This
+        // paragraph read *"`replace_live_world` still retires the OUTGOING room
+        // and writes `RoomSet` / `RoomGeometry` / the platform state BEFORE any of
+        // this runs"*. It stages all of it now — see `PendingWorldReplacement` —
+        // and a refusal leaves the session with the room it was already playing.
+        // ⚠ The SESSION scope is a different transaction and is not started; see
+        // `docs/planning/queue.md`'s A10 row for what each half covers.
         let receipt = features::spawn_room_feature_entities_from_plan(
             commands,
             &self.features,
@@ -397,109 +390,84 @@ impl RoomConstructionPlan {
             &receipt,
             self.room_id().to_string(),
             self.session_scope,
+            candidate_bracket,
         );
     }
 
-    /// Retire the outgoing room's scoped entities. The transiting possessed
-    /// body may be carried across the boundary instead of being retired.
+    /// Replace the live world with this prepared room, IF the room verifies.
     ///
-    /// ⚠ THE OUTGOING HALF OF [`Self::replace_live_world`], and callers outside
-    /// this module should want that instead: this half alone leaves the session
-    /// with no room at all.
-    pub(crate) fn retire_outgoing<'a>(
-        &self,
-        commands: &mut Commands,
-        outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
-        carry_body: Option<Entity>,
-    ) {
-        for (entity, is_physics) in outgoing {
-            if carry_body == Some(entity) {
-                continue;
-            }
-            if is_physics {
-                physics::retire_physics_entity(commands, entity);
-            } else {
-                // `try_despawn`: the outgoing roster is collected BEFORE the
-                // frame's commands flush, so an entity in it can already have
-                // been despawned by something else in the same frame — an actor
-                // death, a session teardown racing a transition. Retiring a room
-                // entity that is already gone is the outcome this wants, so
-                // failing on it turns a success into a crash.
-                //
-                // This is the honest residue of Task 5's transactionality
-                // question: `apply_to_world` promises no fallible
-                // LOOKUP, and promised nothing about the commands it queues.
-                // This was the only command in the construction path that could
-                // fail — everything else spawns.
-                commands.entity(entity).try_despawn();
-            }
-        }
-    }
-
-    /// Replace the live world with this prepared room: retire the outgoing
-    /// room, then commit the incoming one.
+    /// ⛔⛤ **THIS IS THE A10 BOUNDARY, AND AS OF 2026-09-14 IT KEEPS ITS
+    /// PROMISE.** Its doc used to end: *"Collapsing the pair here does NOT
+    /// remove the destructive window; it gives it one address. A10's stronger
+    /// last-good-world guarantee is the fix … and when it lands it lands HERE."*
+    /// It landed here. Nothing below changes the live world:
     ///
-    /// ⛔⛤ **THE ORDER IS THE WHOLE POINT, AND IT USED TO BE A FACT RECORDED IN
-    /// THREE PLACES.** Room transition, session reset and the dev hot reload
-    /// each called [`Self::retire_outgoing`] and then [`Self::commit_deferred`],
-    /// in that order, because committing first would leave the outgoing room's
-    /// bodies alive BESIDE the incoming room's — two rooms' worth of entities
-    /// answering to one live world, with duplicate authored identities — and
-    /// skipping the retire leaks a whole room. Nothing said so; three call sites
-    /// agreed, and a fourth would have been free to disagree.
+    /// ```text
+    /// stage the whole replacement off to the side   (PendingWorldReplacement)
+    ///   -> build the room as HIDDEN CANDIDATES      (spawn_contents)
+    ///   -> declare what publication would do        (superseding / retiring)
+    ///   -> PROJECT and VALIDATE that world          (verify_projected_roster)
+    ///        refusal   -> candidates dropped, staged world dropped, N untouched
+    ///        admission -> publish candidates, THEN sweep N and publish its state
+    /// ```
     ///
-    /// ⚠ **THIS IS THE DESTRUCTIVE WINDOW, NAMED.** Between the retire and the
-    /// commit the session has no room, and `room_transition::commit` says the
-    /// consequence out loud: *"A transition that fails after `retire_outgoing`
-    /// has despawned the source room and has nowhere to put the body, which is
-    /// not a failure a caller can handle."* Every caller handles that today by
-    /// discipline — a `// Nothing below may fail` comment over straight-line
-    /// code. ⇒ **Collapsing the pair here does NOT remove the window; it gives
-    /// it one address.** A10's stronger last-good-world guarantee is the fix
-    /// (build the incoming room as an inactive candidate, validate it, publish,
-    /// and only then retire the outgoing one), and when it lands it lands HERE
-    /// rather than in three call sites that have to be found first.
+    /// ⚠ **THE OUTGOING ROOM IS STILL STANDING WHILE THE CANDIDATE IS BUILT**,
+    /// and that is deliberate rather than tolerated: it is what the candidate is
+    /// being validated AGAINST. Two rooms' worth of bodies coexist for the length
+    /// of one command flush, which no SCHEDULED system can observe — the same
+    /// bound `publish_candidate` states, and the same reason the old order could
+    /// be described as safe.
     ///
     /// `next_rooms` is `Some` when the caller is replacing the ROOM SET as well
-    /// as the active room — a hot reload rebuilds the set from re-read content;
-    /// a transition walks within the set it already has. It is applied between
-    /// the two halves because `commit_deferred` calls `set_active` with an index
-    /// into the NEW set.
+    /// as the active room — a hot reload rebuilds the set from re-read content; a
+    /// transition walks within the set it already has.
+    ///
+    /// `arrival` is where the transiting body lands. It is applied with the rest
+    /// of the publication and never before it: see [`transaction::StagedArrival`]
+    /// for the app-level arm that found the body being placed into a room its
+    /// own transaction had refused.
+    ///
+    /// ⛔ **A CALLER MUST NOT READ THE LIVE GEOMETRY OR ROOM SET AFTER CALLING
+    /// THIS AND EXPECT THE NEW ROOM.** It has not been written yet and may never
+    /// be. Read the plan instead — [`Self::spec`] and `next_rooms` are the same
+    /// values, named at their source.
     pub fn replace_live_world<'a>(
         &self,
         commands: &mut Commands,
         outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
         carry_body: Option<Entity>,
-        rooms: &mut RoomSet,
         next_rooms: Option<RoomSet>,
-        geometry: &mut ambition_platformer2d_core::RoomGeometry,
-        moving_platforms: &mut Vec<MovingPlatformState>,
+        arrival: Option<transaction::StagedArrival>,
     ) {
-        self.retire_outgoing(commands, outgoing, carry_body);
-        if let Some(next) = next_rooms {
-            *rooms = next;
+        // Collected HERE rather than inside the staged closure: the roster comes
+        // from the caller's own query, which cannot outlive this call.
+        let outgoing: Vec<(Entity, bool)> = outgoing
+            .into_iter()
+            .filter(|(entity, _)| carry_body != Some(*entity))
+            .collect();
+        let mut pending = transaction::PendingWorldReplacement::new(
+            outgoing,
+            next_rooms,
+            self.target_index,
+            self.spec().world.clone(),
+            self.platform_states.clone(),
+        );
+        // ⛔ THE ARRIVING BODY IS A PUBLICATION EFFECT LIKE THE REST. A
+        // transition that places it before the verdict leaves a refused player
+        // standing at the coordinates of a room that does not exist.
+        if let Some(arrival) = arrival {
+            pending = pending.arriving(arrival);
         }
-        self.commit_deferred(commands, rooms, geometry, moving_platforms);
-    }
-
-    /// Publish target geometry/platform state and enqueue the exact frozen room
-    /// contents. Call only after every preflight has succeeded.
-    ///
-    /// ⚠ THE INCOMING HALF OF [`Self::replace_live_world`], and callers outside
-    /// this module should want that instead: this half alone commits a room
-    /// without retiring the one it replaces.
-    pub(crate) fn commit_deferred(
-        &self,
-        commands: &mut Commands,
-        rooms: &mut RoomSet,
-        geometry: &mut ambition_platformer2d_core::RoomGeometry,
-        moving_platforms: &mut Vec<MovingPlatformState>,
-    ) {
-        rooms.set_active(self.target_index);
-        geometry.0 = self.spec().world.clone();
-        *moving_platforms = self.platform_states.clone();
+        // ⛔ QUEUED BEFORE `spawn_contents`, because `transaction::open` READS it:
+        // the identities standing on the outgoing bodies are what the transaction
+        // declares it is RETIRING, and a declaration made after the baseline is
+        // captured would be a claim about a world nobody looked at.
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            world.insert_resource(pending);
+        });
         self.spawn_contents(commands);
     }
+
 }
 
 /// Identity of one prepared room-construction artifact, from EVERY frozen
@@ -636,6 +604,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -863,6 +838,13 @@ mod tests {
         let expected_plan_id = plan.id().clone();
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -980,6 +962,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
 
         let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
@@ -1025,6 +1014,666 @@ mod tests {
         );
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // A10 ACCEPTANCE: A REFUSED CANDIDATE LEAVES THE PLAYABLE WORLD INTACT
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // ⛔⛤ **THESE TWO ARMS ARE THE PROPERTY, NOT A HELPER'S BEHAVIOUR.** They go
+    // through `replace_live_world` — the one production entry every room
+    // lifecycle path takes — and assert on the WHOLE live world either side of
+    // the verdict: the bodies, the geometry, the active room, and the
+    // moving-platform state. A10 is not closed because candidates can coexist;
+    // it is closed when a refusal costs the running game nothing.
+
+    /// N: a session root carrying the OLD room's geometry and room set, the OLD
+    /// platform state, and two bodies wearing authored identities.
+    ///
+    /// ⚠ The room set holds BOTH rooms and is active on index 0, so
+    /// `set_active(1)` is an observable write rather than a no-op — a fixture
+    /// whose "before" and "after" agree cannot fail.
+    fn last_good_world(platform: MovingPlatformState) -> (bevy::prelude::App, Vec<Entity>) {
+        use ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component;
+
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+        app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(vec![
+            platform,
+        ]));
+        insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(empty_spec("n").world.clone()),
+        );
+        insert_session_world_component(
+            app.world_mut(),
+            RoomSet::from_parts("n", vec![empty_spec("n"), candidate_spec()], Vec::new()),
+        );
+        let outgoing = ["n_body_a", "n_body_b"]
+            .into_iter()
+            .map(|id| {
+                app.world_mut()
+                    .spawn((
+                        ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+                        RoomScopedEntity,
+                    ))
+                    .id()
+            })
+            .collect();
+        (app, outgoing)
+    }
+
+    /// The room the candidate would become: a DIFFERENT geometry, at index 1,
+    /// carrying its own platform and one content-staged occupant.
+    fn candidate_spec() -> RoomSpec {
+        let mut spec = RoomSpec::new(
+            "candidate",
+            ae::World::new(
+                "candidate",
+                ae::Vec2::new(1280.0, 960.0),
+                ae::Vec2::new(64.0, 64.0),
+                Vec::new(),
+            ),
+        );
+        spec.moving_platforms
+            .push(MovingPlatformState::from_authored(
+                ae::Vec2::new(300.0, 300.0),
+                ae::Vec2::new(64.0, 16.0),
+                100.0,
+                50.0,
+            ));
+        spec
+    }
+
+    fn candidate_plan() -> RoomConstructionPlan {
+        let mut staging = features::RoomContentStagingRegistry::default();
+        staging
+            .register("candidate", "test_provider", "occ", "occ.v1", |_room| {
+                vec![ambition_platformer2d_actor_spawn::SpawnActorRequest {
+                    id: "occupant".into(),
+                    name: "occupant".into(),
+                    pos: ae::Vec2::ZERO,
+                    half_size: ae::Vec2::splat(10.0),
+                    faction: ambition_combat::components::ActorFaction::Npc,
+                    grudge_against: None,
+                    kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
+                        brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "combatant".into(),
+                        ),
+                        character: ambition_entity_catalog::CharacterId::from("combatant"),
+                    },
+                }]
+            })
+            .expect("stager registers");
+        let recipes = crate::construction::engine_construction_registry();
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+        let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        RoomConstructionPlan::prepare_spec(
+            1,
+            candidate_spec(),
+            &PlacementLoweringRegistry::default(),
+            &staging,
+            &ambition_boss_encounter::BossCatalog::default(),
+            SessionSpawnScope::UNSCOPED,
+            features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
+                .with_prepared(fixture_cast()),
+        )
+        .expect("the candidate room plans")
+    }
+
+    /// What the live world holds right now, in the four places
+    /// `replace_live_world` used to write before anyone had verified anything.
+    fn live_world(app: &mut bevy::prelude::App) -> (String, usize, usize, Vec<String>) {
+        let geometry = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ambition_platformer2d_core::RoomGeometry,
+        >(app.world())
+        .expect("the session root carries geometry")
+        .0
+        .name
+        .clone();
+        let active = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            RoomSet,
+        >(app.world())
+        .expect("the session root carries a room set")
+        .active;
+        let platforms = app
+            .world()
+            .resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
+            .0
+            .len();
+        let mut ids: Vec<String> = app
+            .world_mut()
+            .query::<&ambition_platformer2d_shared_tangle::sim_id::SimId>()
+            .iter(app.world())
+            .map(|id| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        (geometry, active, platforms, ids)
+    }
+
+    fn stage_the_candidate(app: &mut bevy::prelude::App, plan: RoomConstructionPlan, outgoing: Vec<Entity>) {
+        app.add_systems(
+            bevy::prelude::Update,
+            move |mut commands: Commands| {
+                plan.replace_live_world(
+                    &mut commands,
+                    outgoing.iter().map(|entity| (*entity, false)),
+                    None,
+                    None,
+                    None,
+                );
+            },
+        );
+        app.update();
+    }
+
+    /// ⛔ **THE VERDICT READER, ASKED THE FOUR WAYS A CALLER CAN GET IT WRONG.**
+    ///
+    /// ⚠ **THIS TESTS THE HELPER, NOT THE WIRING**, and saying so is the point.
+    /// `room_publication_succeeded` is what the dev hot reload consults before
+    /// advancing the session's content generation; that CALL is not exercised,
+    /// because forcing a hot reload to be refused needs a reload harness this
+    /// repository does not have. What is tested here is the part with the subtle
+    /// answer — the room-id comparison — and the queue row says the wiring is
+    /// reasoned rather than measured.
+    #[test]
+    fn the_verdict_reader_answers_about_one_room_and_not_about_any_room() {
+        use super::transaction::room_publication_succeeded;
+        use crate::features::LastConstructionVerification;
+
+        let mut app = bevy::prelude::App::new();
+        assert!(
+            !room_publication_succeeded(app.world(), "hall"),
+            "no verdict at all read as a success: a caller whose writes are \
+             conditional on a room transaction would make them with none having run"
+        );
+
+        app.world_mut().insert_resource(LastConstructionVerification {
+            room_id: "hall".to_string(),
+            violations: Vec::new(),
+            projection_violations: Vec::new(),
+            staged_violations: Vec::new(),
+            published: true,
+        });
+        assert!(room_publication_succeeded(app.world(), "hall"));
+        assert!(
+            !room_publication_succeeded(app.world(), "cellar"),
+            "⛔ ANOTHER ROOM'S SUCCESS READ AS THIS ONE'S. \
+             `LastConstructionVerification` is last-writer-wins, and the session \
+             handoff road commits two rooms in quick succession"
+        );
+
+        app.world_mut().insert_resource(LastConstructionVerification {
+            room_id: "hall".to_string(),
+            violations: Vec::new(),
+            projection_violations: Vec::new(),
+            staged_violations: Vec::new(),
+            published: false,
+        });
+        assert!(
+            !room_publication_succeeded(app.world(), "hall"),
+            "a REFUSED room read as published"
+        );
+    }
+
+    /// ⛔⛤ **A REFUSED CANDIDATE LEAVES WORLD N EXACTLY AS IT WAS.**
+    ///
+    /// The refusal is a REAL production one: the room transaction compares the
+    /// generation it was prepared under against the session's live
+    /// `ActiveContentBinding` and refuses a stale room. Nothing test-only is
+    /// wired into the construction path to produce it.
+    #[test]
+    fn a_refused_candidate_room_leaves_the_playable_world_untouched() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform.clone());
+        let before = live_world(&mut app);
+        assert_eq!(
+            before,
+            (
+                "n".to_string(),
+                0,
+                1,
+                vec![
+                    "placement:n_body_a".to_string(),
+                    "placement:n_body_b".to_string()
+                ]
+            ),
+            "the fixture is not the world this arm claims to be protecting"
+        );
+
+        // ⛔ THE INJECTED FAILURE: the session runs under a content generation
+        // this plan was not prepared against.
+        app.insert_resource(super::transaction::ActiveContentBinding::content(
+            ambition_platformer2d_core::ContentEpoch(7),
+        ));
+
+        stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "the fixture did not actually reach a refusal, so nothing below is \
+             about a failed candidate: {verification:?}"
+        );
+        assert_eq!(
+            app.world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<
+                    ambition_platformer2d_world::rooms::RoomLoaded,
+                >>()
+                .drain()
+                .count(),
+            0,
+            "a refused room published `RoomLoaded`"
+        );
+
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "⛔ THE LAST-GOOD-WORLD GUARANTEE IS BROKEN. A candidate that was \
+             REFUSED changed the world the session is playing: geometry, active \
+             room, platform state or the live roster moved. N must be \
+             byte-identical to what it was before the attempt."
+        );
+        for entity in &outgoing {
+            assert!(
+                app.world().get_entity(*entity).is_ok(),
+                "a refused candidate swept the OUTGOING room's bodies: the \
+                 session is now playing a room with nothing in it"
+            );
+        }
+    }
+
+    /// ⛔⛤ **A ROOM THAT WOULD SEAT THE SESSION OUT OF RANGE IS REFUSED, AND THE
+    /// DEFECT IT CATCHES IS SILENT.**
+    ///
+    /// `RoomSet::set_active` is `self.active = index.min(len - 1)`. An
+    /// out-of-range index does not panic — it CLAMPS, and the session wakes in
+    /// the last room of the set wearing the geometry of the one it was told to
+    /// build. ⭐ MEASURED BY ACCIDENT 2026-09-14: a poison written to test
+    /// something else staged `usize::MAX` and moved the active room instead of
+    /// failing.
+    ///
+    /// ⚠ The clamp itself is NOT changed here. It has callers outside this road
+    /// and its own contract; what changes is that this road refuses to hand it a
+    /// value it would have to clamp.
+    #[test]
+    fn a_room_that_would_seat_the_session_out_of_range_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // A plan whose target index is past the end of the live set of two.
+        let mut plan = candidate_plan();
+        plan.target_index = 7;
+        stage_the_candidate(&mut app, plan, outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room that would be seated out of range PUBLISHED: {verification:?}"
+        );
+        assert_eq!(
+            verification.staged_violations,
+            vec![super::transaction::StagedWorldViolation::TargetRoomOutOfRange {
+                target: 7,
+                rooms: 2,
+            }]
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
+    }
+
+    /// ⛔ **AND A SESSION ROOT WITH NO ROOM SET IS REFUSED — THE THIRD AND LAST
+    /// ACCESSOR THAT COULD ANSWER `None`.**
+    ///
+    /// ⚠ **THE ONLY ONE OF THE THREE I CANNOT NAME A PRODUCTION ROAD TO**, and
+    /// saying so is the point: a session root always carries a room set. It is
+    /// checked because the alternative is a PARTIAL publication reported as
+    /// success — the geometry and platform state written, the active room
+    /// silently left where it was, a session colliding against one room while
+    /// believing it is in another.
+    #[test]
+    fn a_session_root_with_no_room_set_is_refused() {
+        use ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component;
+
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+        app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
+            Vec::new(),
+        ));
+        // A root that carries geometry and NOTHING ELSE.
+        insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(empty_spec("n").world.clone()),
+        );
+        // ⛔ THE PREMISE, both halves: there IS a root (or this arm is the
+        // no-root one wearing a different name), and it carries no room set.
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                .is_some(),
+            "the fixture built no session root at all"
+        );
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(
+                app.world()
+            )
+            .is_none(),
+            "the fixture's root carries a room set, so there is nothing to refuse"
+        );
+
+        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published a world into a root that cannot seat it: {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::NoRoomSetToPublishInto
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+    }
+
+    /// ⛔⛤ **AND A WORLD STAGED FOR ANOTHER ROOM IS REFUSED — NOTHING TIED THE
+    /// TWO TOGETHER.**
+    ///
+    /// `GeometryIsNotTheTargetRoom` catches an index and a geometry that
+    /// disagree with EACH OTHER. A replacement left over from a DIFFERENT room is
+    /// perfectly self-consistent, and would have published that room's geometry,
+    /// index and platform state under this room's verdict.
+    ///
+    /// ⚠ **REACHABLE BY A LEAK, NOT ONLY BY MISUSE.** A replacement is staged by
+    /// `replace_live_world` and removed by the verdict, so it survives a frame
+    /// only if the transaction it was staged for never closed. The next room's
+    /// transaction would then find it, declare ITS outgoing roster retiring, and
+    /// publish a world nobody planned.
+    #[test]
+    fn a_world_staged_for_another_room_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // The plan builds `candidate` (index 1); the staged world seats the
+        // session in `n` (index 0) and carries `n`'s geometry — self-consistent,
+        // and nothing to do with the room being verified.
+        let plan = candidate_plan();
+        let stale_outgoing: Vec<(Entity, bool)> =
+            outgoing.iter().map(|entity| (*entity, false)).collect();
+        let stale_geometry = empty_spec("n").world.clone();
+        app.add_systems(
+            bevy::prelude::Update,
+            move |mut commands: Commands| {
+                let stale = transaction::PendingWorldReplacement::new(
+                    stale_outgoing.clone(),
+                    None,
+                    0,
+                    stale_geometry.clone(),
+                    Vec::new(),
+                );
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    world.insert_resource(stale);
+                });
+                plan.spawn_contents(&mut commands);
+            },
+        );
+        app.update();
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published another room's staged world under its own verdict: \
+             {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.iter().any(|violation| matches!(
+                violation,
+                super::transaction::StagedWorldViolation::StagedWorldIsNotThisRoom { .. }
+            )),
+            "got {:?}",
+            verification.staged_violations
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
+    }
+
+    /// ⛔ **AND A ROOM WITH AUTHORED PLATFORMS AND NOWHERE TO PUT THEM IS
+    /// REFUSED TOO — THE LAST SILENT SKIP IN THE PUBLICATION.**
+    ///
+    /// `apply_world_replacement` writes the platform state through
+    /// `get_resource_mut`, which answers `None` when the resource is absent. A
+    /// room with authored moving platforms would publish, report `room-loaded`,
+    /// and leave the world without them — a room the player falls through.
+    ///
+    /// ⚠ **ONLY WHEN THERE IS SOMETHING TO PUBLISH.** The candidate room authors
+    /// one platform, which is what makes this arm's subject exist; a room that
+    /// states an empty vector means it, and a composition that has never needed
+    /// the resource is not wrong for lacking one. The success arm above runs in a
+    /// world that HAS the resource and proves the check is not simply always on.
+    #[test]
+    fn a_room_with_authored_platforms_and_no_platform_state_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        // ⛔ THE INJECTION: the composition loses the authority the room's
+        // platform state would be published into.
+        app.world_mut()
+            .remove_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>();
+        assert!(
+            !candidate_plan().platform_states().is_empty(),
+            "the candidate room authors no platforms, so this arm's subject does \
+             not exist"
+        );
+
+        stage_the_candidate(&mut app, candidate_plan(), outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published its platforms into nothing and called it success: \
+             {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::NoPlatformStateToPublishInto
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+    }
+
+    /// ⛔⛤ **A ROOM THAT STAGES A WORLD WITH NOWHERE TO PUT IT IS REFUSED.**
+    ///
+    /// `apply_world_replacement` writes through `session_world_component_mut`,
+    /// which answers `None` when no root is live. Without this check the room
+    /// would PUBLISH, report `room-loaded`, and leave the geometry, the active
+    /// room and the platform state exactly as they were — and a caller that
+    /// staged a whole world and got nothing would have no way to tell that from
+    /// success.
+    ///
+    /// ⚠ **REACHABLE BY ORDERING, NOT ONLY BY MISUSE.** Session activation queues
+    /// its room build BEFORE it spawns the session root, which is exactly why
+    /// activation commits through `spawn_contents` and stages no world at all.
+    #[test]
+    fn a_room_that_stages_a_world_with_no_session_root_is_refused() {
+        let mut app = bevy::prelude::App::new();
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
+        app.insert_resource(
+            ambition_platformer2d_world::collision::MovingPlatformSet::default(),
+        );
+        // ⛔ THE PREMISE: no session root at all, which is the whole subject.
+        assert!(
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                .is_none(),
+            "the fixture has a session root, so this arm is about something else"
+        );
+
+        stage_the_candidate(&mut app, candidate_plan(), Vec::new());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published a world into nothing and called it success: \
+             {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.contains(
+                &super::transaction::StagedWorldViolation::NoSessionRootToPublishInto
+            ),
+            "got {:?}",
+            verification.staged_violations
+        );
+    }
+
+    /// ⛔ **AND A ROOM WHOSE GEOMETRY IS NOT ITS OWN IS REFUSED.**
+    ///
+    /// The index and the geometry travel together from one plan, so this is a
+    /// caller pairing a plan with an index into a different SET — which is
+    /// exactly what the hot-reload road does, and the one place they can
+    /// disagree. Publishing it seats the session in one room and collides it
+    /// against another.
+    #[test]
+    fn a_room_whose_geometry_is_not_its_own_is_refused() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        let before = live_world(&mut app);
+
+        // Index 0 is `n`; the plan still carries the candidate room's geometry.
+        let mut plan = candidate_plan();
+        plan.target_index = 0;
+        stage_the_candidate(&mut app, plan, outgoing);
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(
+            !verification.published,
+            "a room published one room's index with another's geometry: {verification:?}"
+        );
+        assert!(
+            verification.staged_violations.iter().any(|violation| matches!(
+                violation,
+                super::transaction::StagedWorldViolation::GeometryIsNotTheTargetRoom { .. }
+            )),
+            "got {:?}",
+            verification.staged_violations
+        );
+        assert_eq!(
+            live_world(&mut app),
+            before,
+            "the refusal still moved the live world"
+        );
+    }
+
+    /// ⭐ **AND THE SUCCESS ARM, WHICH IS WHAT MAKES THE ONE ABOVE FALSIFIABLE.**
+    /// The identical fixture, minus the stale binding: the candidate publishes,
+    /// N's bodies are swept, and all four pieces of world state move together.
+    #[test]
+    fn an_admitted_candidate_room_replaces_the_playable_world_completely() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let (mut app, outgoing) = last_good_world(platform);
+        stage_the_candidate(&mut app, candidate_plan(), outgoing.clone());
+
+        let verification = app
+            .world()
+            .resource::<crate::features::LastConstructionVerification>()
+            .clone();
+        assert!(verification.published, "{verification:?}");
+        assert_eq!(
+            app.world_mut()
+                .resource_mut::<bevy::ecs::message::Messages<
+                    ambition_platformer2d_world::rooms::RoomLoaded,
+                >>()
+                .drain()
+                .count(),
+            1,
+            "an admitted room publishes `RoomLoaded` exactly once"
+        );
+
+        let (geometry, active, platforms, ids) = live_world(&mut app);
+        assert_eq!(geometry, "candidate", "the geometry never became the candidate's");
+        assert_eq!(active, 1, "the session is still pointed at the old room");
+        assert_eq!(platforms, 1, "the candidate's platform state never published");
+        assert_eq!(
+            ids,
+            vec!["placement:occupant".to_string()],
+            "the published roster is not exactly the candidate's: N's bodies \
+             survived their own retirement, or the candidate never became visible"
+        );
+        for entity in &outgoing {
+            assert!(
+                app.world().get_entity(*entity).is_err(),
+                "the outgoing room was never swept, so two rooms' bodies are live"
+            );
+        }
+    }
+
     #[test]
     fn commit_receipt_matches_the_prepared_root_roster() {
         let mut spec = empty_spec("receipt");
@@ -1044,6 +1693,13 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // every root hidden, and `transaction::open` REFUSES a world that cannot
+        // hide one rather than validating candidates in plain sight — so a bare
+        // `App` here is a fixture that never reaches the subject.
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            app.world_mut(),
+        );
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
         {
             let mut commands = app.world_mut().commands();

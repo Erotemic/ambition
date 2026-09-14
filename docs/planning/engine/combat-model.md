@@ -130,6 +130,73 @@ knockback, autolink, wind/vacuum, weight independence, shield-only tuning, or a
 per-hit hitlag modifier, represent that property on the hit/reaction payload and
 keep the ordinary formula unchanged for ordinary hits.
 
+## Kill envelope calibration
+
+Measured 2026-09-14 over 21 fighters / 500 rows. Every KO% here is rage-pinned
+(attacker meter 0), no-DI, no-recovery, against `player_robot_v3`, so all of them
+are **lower bounds**. The global `victim_percent_knockback_scale = 1.25` was not
+touched. Target band 80-160%.
+
+**The vertical blast line is a stage constant; the lateral one is not.** Over ten
+resolved `smash_up` rows the launch required to cross the rise line is ~1241
+(spread 0.61%) even though bases span 112-178 and growths 1.90-6.40 — so the
+authoring lever there is `growth = (1241 - base) / (1.25 * target_KO%)`. The same
+derivation on `smash_forward` gives 687.9-820.1, a 17.94% spread. Four hypotheses
+were falsified and should not be re-walked: hitbox X offset (spans 20px, moves
+launch by 4), `launch_dir` (three fighters share `(1.0, -0.50)` and land 675/724/751),
+`smash_charge_mult` (the source says it scales *damage*), and a `+damage` term
+(17.94% → 17.62%). Recorded as unexplained.
+
+**Where a KO% is already measured, no stage constant is needed.**
+`G_new = G_old * p0/p1` landed 29/29 pre-registered predictions with 0 refusals
+across the up/forward/down smash passes, so it is the preferred method and the
+vertical constant is the fallback for a censored cell.
+
+**A pure spike cannot KO at any magnitude.** `launch_dir (0.0, 1.0)` drives a
+grounded victim into the floor and crosses no blast line — carl's down-smash
+measured `>600` at `ceiling=600`, where its launch would already be double the
+lateral line. That is a fixture limit, not content weakness; making it kill means
+changing the vector, which is a character-identity decision.
+
+**Censoring is role-structured and validates the corpus.** Ground normals censor
+at 95-100% because they were never kill moves; `*_up` pays the vertical tax;
+`*_down` spikes; aerials hit the fixture's standing victim. A censored cell is a
+claim about a role, not a verdict on a fighter. ⛔ Scope a tuning pass on **the
+band**, never on whether the instrument hit its ceiling — that error left two
+fighters (ninja 300, clerk 271) out of a pass they belonged in.
+
+**What is deliberately left outside the band.** `npc_emmy_noether` and `npc_oiler`
+are each built around one licensed kill move with everything else capped by a
+named constant (`BREAK_GROWTH`, `TORQUE_GROWTH`) and enforced by
+`exactly_one_move_grows_like_a_kill_move`. Two shared archetype tables move 3 and
+4 fighters per edit, which is a roster decision. Role bands are sanity ranges, not
+normalization targets, and authored ordering is preserved in every pass.
+
+**Authoring hazards, all of which have bitten.**
+
+- The host reads `assets/data/movesets/*.ron` off disk. Editing a `*_moveset.rs`
+  for a migrated table is a no-op until
+  `cargo run -p ambition_app_tools --bin moveset_source_export -- <table>`;
+  non-migrated fighters need a rebuild instead.
+- Regeneration must cover the **borrowers**, not just the donor table. A borrower's
+  `.ron` keeps the stale value until it is regenerated itself.
+- Identical base+growth is **not** proof of a shared table. Verify sharing by the
+  move id *and* the file; borrows are declared in `archetype_moveset.rs`.
+- Six fighters share the literal id `smash_forward` and six share `smash_up`. Any
+  helper that takes the first match across all moveset files reads an arbitrary
+  fighter; resolve from the fighter's own file and assert the parsed base/growth
+  equals the baseline's.
+- A guard that boots the host and reads `PreparedCharacterRegistry` must run
+  **after** the regen, or it measures the old growths and reports a meaningless pass.
+
+**Open for the maintainer, surfaced but unchanged:** whether `rage_max_scale`
+should stay 1.4 (strikes compress ~36% at the cap, so a 155% target kills nearer
+110% against a damaged attacker) — a global decision over 22 fighters, like the
+frozen 1.25; and whether the roster-wide generic throw scaling should be replaced
+at all. `up_throw` and `down_throw` read `>300` for three unrelated fighters while
+forward/back throws kill at 96-168, which is the same role structure rather than
+per-fighter weakness.
+
 ## Body scale and equipment
 
 Equipment-driven body scaling remains separate from Smash parity. If it is still

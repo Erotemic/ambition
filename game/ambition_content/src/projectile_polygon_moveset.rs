@@ -310,7 +310,7 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         half_extents: (23.0, 29.0),
         damage: 15,
         knockback: 158.0,
-        knockback_growth: 3.15,
+        knockback_growth: 5.83,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

@@ -370,12 +370,17 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // `SessionScopeSet::Cleanup`, so the incoming room's transaction captured a
     // baseline that still held all 18 of the outgoing scope's placements.
     //
-    // ⚠ **IT COST NOTHING VISIBLE, WHICH IS THE ONLY REASON IT SURVIVED.** A
-    // refusal today suppresses the `RoomLoaded` message and `RoomLoaded` has no
-    // production reader. Under A10's candidate bracket the same refusal drops
-    // every root, so a hot reload would land the player in an EMPTY WORLD — and
-    // that is what this arm is here to keep from coming back. It asks the
-    // production verdict, not the schedule; the schedule is asked separately by
+    // ⚠ **IT COST ALMOST NOTHING VISIBLE, WHICH IS THE ONLY REASON IT SURVIVED —
+    // AND THE "NO PRODUCTION READER" HALF OF THAT WAS WRONG, CORRECTED
+    // 2026-09-14.** `RoomLoaded` has three production readers, all through
+    // `ambition_combat::events::FreshAttempt`, so a refusal also left staged hits
+    // unvoided and per-attempt state un-re-armed. Both are the right outcome (no
+    // attempt began), which is why nobody noticed.
+    //
+    // ⛔ **AND SINCE `ROOM_CANDIDATE_BRACKET` WENT `true` THE SAME REFUSAL DROPS
+    // EVERY ROOT**, so this reload would land the player in an EMPTY WORLD. That
+    // is no longer a future tense: it is what this arm keeps from coming back. It
+    // asks the production verdict, not the schedule; the schedule is asked by
     // `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`.
     let verification = app
         .world()
@@ -383,7 +388,9 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
         .clone();
     assert!(
         verification.published,
-        "the room the reload rebuilt (`{}`) was REFUSED with {} violation(s):          {:?}. Today that only suppresses `RoomLoaded`; under the candidate          bracket it drops the whole room and the reload lands in an empty world.",
+        "the room the reload rebuilt (`{}`) was REFUSED with {} violation(s): {:?}. \
+         Under the candidate bracket that drops the whole room, so the reload \
+         lands the player in an empty world.",
         verification.room_id,
         verification.violations.len(),
         verification.violations,
@@ -505,5 +512,82 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
          on that frame every one of those systems is silently skipped while \
          `live_session_world_root` would have resolved the live root by scope. \
          That is the two-semantics gap, and this names the frame it opens on."
+    );
+}
+
+/// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
+/// IN IT.**
+///
+/// `ROOM_CANDIDATE_BRACKET` is `true`, so a refused room is DROPPED. The handoff
+/// is the road that used to produce the worst refusal in the whole suite — a
+/// session retiring its old scope and starting the new one in the SAME frame, so
+/// the incoming room's transaction captured a baseline still holding all 18 of
+/// the outgoing scope's placements (`room-refused :: 18x Duplicated`). Under the
+/// bracket that drops the entire room, and the new session wakes up in an empty
+/// world.
+///
+/// ⚠ **THE ORDERING FIX IS WHAT CLOSED IT** (`SessionScopeSet` chains
+/// `RetireAuthority -> Cleanup -> Activate -> Presentation`), and
+/// `nothing_orders_the_retired_scopes_sweep_against_the_incoming_sessions_construction`
+/// asks the SCHEDULE. This asks the RESULT, which is the half a schedule
+/// assertion cannot cover: an ordering can be right and the room still refused
+/// for some other reason.
+///
+/// ⭐ The roster assertion is what makes it non-vacuous. `published` alone could
+/// be a stale verdict from the first activation — both activations build the same
+/// room, so the id cannot tell them apart — but a live authoritative roster after
+/// the handoff can only come from a room that actually arrived.
+#[test]
+fn a_shell_handoff_publishes_the_incoming_sessions_room() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    let before = activation_id(&app);
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    let after = activation_id(&app);
+    assert!(
+        before.is_some() && after != before,
+        "the activation id did not move ({before:?} -> {after:?}), so no handoff \
+         happened and everything below is about the FIRST session"
+    );
+
+    let verification = app
+        .world()
+        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .clone();
+    assert!(
+        verification.published,
+        "⛔ THE INCOMING SESSION'S ROOM WAS REFUSED. Under the candidate bracket \
+         its roots are dropped, so the handoff lands the player in an empty \
+         world: {verification:?}"
+    );
+
+    let roster = {
+        let world = app.world_mut();
+        world
+            .query::<&ambition_platformer2d::platformer::sim_id::SimId>()
+            .iter(world)
+            .count()
+    };
+    assert!(
+        roster > 0,
+        "the handoff published a room and the world holds no authoritative \
+         identities at all: {verification:?}"
     );
 }

@@ -66,7 +66,11 @@ fn local_ggrs_restart_policy(
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
-    mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
+    // ⛔ A GUARD, NOT A WRITE TARGET. A hot reload no longer writes the live
+    // geometry (A10 stages it behind the room transaction's verdict — see
+    // `replace_live_world`), but a reload in a world whose session root carries
+    // no room authority is still refused, and this `Single` is what refuses it.
+    _room_geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         world_rooms::RoomSet,
     >,
@@ -82,7 +86,6 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
         Res<physics::PhysicsSandboxSettings>,
     ),
-    mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
     // RESIDENTS of the room being replaced — an object in a body's custody rides
     // the reload with its holder, exactly as it rides a room transition. See
     // `RoomResident`.
@@ -209,7 +212,6 @@ pub(super) fn handle_ldtk_hot_reload(
             .schema_fingerprint();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
-            &mut world,
             &mut room_set,
             &mut motion_model,
             &mut clusters,
@@ -221,7 +223,6 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut ldtk_index,
             tuning.0 .0,
             *tuning.1,
-            &mut platform_set.0,
             &room_visuals,
             visual_assets.0.as_deref(),
             visual_assets.1.as_deref(),
@@ -239,7 +240,12 @@ pub(super) fn handle_ldtk_hot_reload(
             catalogs.10.as_deref(),
             catalogs.11.as_deref(),
             &mut content_identity.0,
-            &mut content_identity.1,
+            // ⚠ `content_identity.1` (the prepared IDENTITY) is no longer handed
+            // in: the reload writes it behind the room's verdict now, through the
+            // session root, and a `&mut` here would be a second road to the same
+            // component. It stays a `SessionWorldMut` at this system's signature
+            // because a reload in a session with no prepared content is one this
+            // system must not attempt.
             &mut content_identity.2,
             snapshot_schema,
             session_scope,
@@ -346,7 +352,6 @@ pub(super) fn prepare_ldtk_reload_transaction(
 
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
-    world: &mut RoomGeometry,
     room_set: &mut world_rooms::RoomSet,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -358,7 +363,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition_platformer2d::world::platforms::MovingPlatformState>,
     room_visuals: &Query<
         (
             Entity,
@@ -390,7 +394,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     forced_brains: Option<&ambition_platformer2d::characters::brain::AuthoredBrainOverride>,
     population_cap: Option<&ambition_platformer2d::characters::actor::AuthoredPopulationCap>,
     prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
-    prepared_identity: &mut ambition_platformer2d::runtime::PreparedContentIdentity,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
     snapshot_schema: ambition_platformer2d::runtime::SnapshotSchemaFingerprint,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
@@ -513,26 +516,68 @@ pub(super) fn reload_ldtk_world_from_disk(
     let active_room = construction_plan.room_id().to_string();
     // ⚠ A hot reload replaces the room SET as well as the active room, which is
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
-    // callers. It is applied BETWEEN the retire and the commit because
-    // `commit_deferred` calls `set_active` with an index into the new set.
+    // callers. The staged replacement applies the set first and then
+    // `set_active`, because the index is into the NEW set.
     construction_plan.replace_live_world(
         commands,
         outgoing,
         None,
-        room_set,
         Some(transaction.next_room_set),
-        world,
-        moving_platforms,
+        // ⚠ A HOT RELOAD RE-SEATS ITS BODY ITSELF, below, with `transit_body` at
+        // `TransitVelocity::Keep` — a repair of the body's place in a world it
+        // never left, not an arrival through a door. Staging that behind the
+        // verdict belongs with the rest of this road's post-commit writes
+        // (`ldtk_index`, `prepared_identity`, `prepared_content`); see
+        // `docs/planning/queue.md`'s A10 checkpoint.
+        None,
     );
-    // The session's live content binding follows the COMMITTED content. Queued
-    // after `commit_deferred`, so this transaction still verifies against the
-    // binding it was prepared under (the epoch that existed at preflight);
-    // every LATER transaction must state the new one or be refused as stale.
-    commands.insert_resource(
-        ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
-            committed_content.epoch(),
-        ),
-    );
+    // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
+    // PUBLISHED.** These four writes — the live content binding, the installed
+    // LDtk index, and the prepared content and its identity — are the statement
+    // *"the session is now this generation"*. Made unconditionally, a REFUSED
+    // reload left the session claiming a generation whose room does not exist:
+    // the old room's contents running under the new epoch's name, and every
+    // later room transaction refused as stale against a binding nothing built.
+    //
+    // ⚠ **THEY READ THE VERDICT BY ROOM ID, NOT BY EXISTENCE.**
+    // `LastConstructionVerification` is last-writer-wins, so asking only whether
+    // it says `published` would accept a DIFFERENT room's success. The reload
+    // owns exactly one room's transaction and names it.
+    //
+    // ⭐ Queued rather than written: the closure runs when this frame's commands
+    // apply, which is after `transaction::close` has recorded its verdict — the
+    // same flush, in queue order, so there is no window and nothing to poll.
+    let published_room = active_room.clone();
+    let candidate_index = candidate_index;
+    let committed_identity = committed_content.identity();
+    let committed_epoch = committed_content.epoch();
+    let committed_content = committed_content;
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        use ambition_platformer2d::platformer::lifecycle::session_world_component_mut;
+        if !ambition_platformer2d::actors::rooms::room_publication_succeeded(world, &published_room)
+        {
+            return;
+        }
+        world.insert_resource(
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(committed_epoch),
+        );
+        if let Some(mut index) =
+            session_world_component_mut::<ldtk_world::LdtkRuntimeIndex>(world)
+        {
+            *index = candidate_index;
+        }
+        if let Some(mut identity) = session_world_component_mut::<
+            ambition_platformer2d::runtime::PreparedContentIdentity,
+        >(world)
+        {
+            *identity = committed_identity;
+        }
+        if let Some(mut content) =
+            session_world_component_mut::<ambition_platformer2d::runtime::PreparedContent>(world)
+        {
+            *content = committed_content;
+        }
+    });
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
     // momentum kept for a same-spot reload, contacts/attachment reconciled
@@ -561,22 +606,23 @@ pub(super) fn reload_ldtk_world_from_disk(
     sim_state.remaining = 0.10;
     dev_state.preset_flash = 1.0;
 
-    *ldtk_index = candidate_index;
-    *prepared_identity = committed_content.identity();
-    *prepared_content = committed_content;
-
     ambition_platformer2d::render::rendering::spawn_parallax_layers(
         commands,
         session_scope,
-        &world.0,
-        &room_set.active_spec().metadata,
+        // ⛔ THE PLAN'S ROOM, NOT THE LIVE COMPONENTS. A10 stages the room
+        // geometry and the room set behind the transaction's verdict, so reading
+        // them here would dress the reloaded room in the PREVIOUS one's backdrop
+        // — and on a refusal there is no new room to dress at all. The plan's
+        // spec is the same value at its source.
+        &construction_plan.spec().world,
+        &construction_plan.spec().metadata,
         assets,
         quality.map(|q| &q.budget.parallax),
     );
     spawn_room_visuals(
         commands,
         session_scope,
-        room_set.active_spec(),
+        construction_plan.spec(),
         physics_settings,
         assets,
     );

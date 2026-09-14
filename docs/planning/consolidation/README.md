@@ -32,8 +32,10 @@ They describe the reason for a mechanism. They are not scores.
 
 ## Active work boundary
 
-A10 is active work at this snapshot. The normal room road still has `ROOM_CANDIDATE_BRACKET = false`.
-Candidate entity support exists, but the full live room/session switch is not yet the normal road.
+A10 is active work at this snapshot. ⚠ **THE LINE HERE SAID `ROOM_CANDIDATE_BRACKET = false` AND THAT WAS TRUE UNTIL 2026-09-14.**
+It is `true` now: the normal room road builds every root hidden, stages the whole world replacement, verifies a projected
+post-publication roster, and publishes or drops. The ROOM switch IS the normal road; the SESSION switch is not.
+See `docs/planning/queue.md`'s A10 row for what each half covers.
 Do not use this census as a second A10 implementation plan.
 
 The peer-stable identity work is also a separate active campaign. This census maps the local and canonical identities but does not change them.

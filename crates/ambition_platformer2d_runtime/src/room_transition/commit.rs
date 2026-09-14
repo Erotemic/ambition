@@ -146,7 +146,6 @@ pub struct RoomTransitionApplication<'w, 's> {
     >,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
     clock: RoomClock<'w>,
-    moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
     // RESIDENTS, not merely room-scoped. An object a body is carrying is
@@ -304,7 +303,12 @@ impl RoomTransitionApplication<'_, '_> {
         // the one just left.
         self.carryover.clear_carryover();
 
-        let Ok((mut geometry, mut room_set)) = self.session.single_mut() else {
+        // ⚠ `_geometry` IS THE GUARD, NOT A WRITE TARGET. A10 stages the room
+        // geometry behind the transaction's verdict (see `replace_live_world`),
+        // so nothing here writes or reads it any more — but a transition in a
+        // world whose session root carries no room authority is still refused,
+        // and this destructure is what refuses it.
+        let Ok((_geometry, room_set)) = self.session.single_mut() else {
             // Unreachable: the preflight above proved exactly one match.
             return Err(RoomTransitionApplyError::NoSessionWorld);
         };
@@ -312,7 +316,12 @@ impl RoomTransitionApplication<'_, '_> {
         // `subject` being `None` means NOBODY IS CROSSING — legitimate, and the
         // body steps below simply do not apply. A `get_mut` MISS on a subject
         // that IS named is a body that cannot transit, and stays an error.
-        let mut motion_model = match subject {
+        // ⛔ A PRECONDITION, NOT A WRITE TARGET ANY MORE. The arrival is
+        // performed by the room's publication (`StagedArrival`), which does its
+        // own lookup and would SILENTLY SKIP a body that cannot be placed. This
+        // is what turns that silence into `SubjectCannotTransit` before a single
+        // root is built.
+        let _motion_model = match subject {
             Some(subject) => match self.bodies.motion_models.get_mut(subject) {
                 Ok(model) => Some(model),
                 Err(_) => {
@@ -336,7 +345,7 @@ impl RoomTransitionApplication<'_, '_> {
             },
             None => None,
         };
-        let mut clusters = cluster_item.as_mut().map(|item| item.as_clusters_mut());
+        let clusters = cluster_item.as_mut().map(|item| item.as_clusters_mut());
 
         // The door makes a sound, at the body's position BEFORE the transit —
         // so a rebuild nobody walks into has no position to make it at, which is
@@ -353,6 +362,57 @@ impl RoomTransitionApplication<'_, '_> {
         // ⚠ ONE CALL, because the retire/commit ORDER is not this site's fact to
         // keep — see `replace_live_world`, which also names the destructive
         // window the `Nothing below may fail` discipline above is protecting.
+        // The authored arrival, validated against the TARGET room's geometry
+        // using the body's own size, so the body is never placed inside a solid
+        // or out of bounds.
+        //
+        // ⭐ ALL THREE OR NONE. A rebuild with nobody in it has no arrival to
+        // validate, no size to validate it against and nothing to place, and
+        // `validated_spawn` needs a size — so the placement is one statement that
+        // either has its body or does not run. It is NOT defaulted: a
+        // `Vec2::ZERO` arrival is a position, and something downstream would
+        // treat it as one.
+        //
+        // ⛔ THE PLAN'S GEOMETRY, NOT THE LIVE COMPONENT. As of A10's staged
+        // replacement, `RoomGeometry` is not written until the room's verdict, so
+        // reading it here would validate the arrival against the room being LEFT
+        // — exactly the confusion this function's own "NOW-target geometry"
+        // comment used to warn about. The plan is the target room, named at its
+        // source.
+        //
+        // ⛔⛤ **AND IT IS COMPUTED HERE AND PERFORMED BY THE PUBLICATION.** This
+        // block used to call `arrive_body_in_room` itself, before anything had
+        // verified the room it was arriving into — so a REFUSED transition left
+        // the player at the refused room's coordinates inside the geometry of the
+        // room they never left. Measured by
+        // `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`.
+        // The transition still decides WHERE (it is the only thing that knows the
+        // authored door and the body's size); the verdict decides WHETHER.
+        let mut staged_arrival = None;
+        let arrival_pos = match (subject, arrival_at, player_size) {
+            (Some(subject), Some(arrival_at), Some(player_size)) => {
+                let arrival = ambition_platformer2d_world::rooms::validated_spawn(
+                    &plan.spec().world,
+                    arrival_at,
+                    player_size,
+                );
+                staged_arrival = Some(
+                    ambition_platformer2d_actor_monolith::rooms::StagedArrival {
+                        subject,
+                        arrival,
+                        air_jumps: tuning.air_jumps,
+                        momentum: if edge_exit {
+                            ae::ArrivalMomentum::Preserve
+                        } else {
+                            ae::ArrivalMomentum::Reset
+                        },
+                    },
+                );
+                Some(arrival)
+            }
+            _ => None,
+        };
+
         // A transition walks within the room set it already has, so no swap.
         plan.replace_live_world(
             &mut self.commands,
@@ -360,49 +420,9 @@ impl RoomTransitionApplication<'_, '_> {
                 .iter()
                 .map(|(entity, physics)| (entity, physics.is_some())),
             carry_body,
-            &mut room_set,
             None,
-            &mut geometry,
-            &mut self.moving_platforms.0,
+            staged_arrival,
         );
-
-        // The authored arrival, validated against the NOW-target geometry using
-        // the body's own size, so the body is never placed inside a solid or out
-        // of bounds.
-        //
-        // ⭐ ALL FOUR OR NONE. A rebuild with nobody in it has no arrival to
-        // validate, no size to validate it against and nothing to place, and
-        // `validated_spawn` needs a size — so the placement is one step that
-        // either has its body or does not run. It is NOT defaulted: a
-        // `Vec2::ZERO` arrival is a position, and something downstream would
-        // treat it as one.
-        let arrival_pos = match (
-            motion_model.as_mut(),
-            clusters.as_mut(),
-            arrival_at,
-            player_size,
-        ) {
-            (Some(motion_model), Some(clusters), Some(arrival_at), Some(player_size)) => {
-                let arrival = ambition_platformer2d_world::rooms::validated_spawn(
-                    &geometry.0,
-                    arrival_at,
-                    player_size,
-                );
-                ae::arrive_body_in_room(
-                    motion_model,
-                    clusters,
-                    arrival,
-                    tuning.air_jumps,
-                    if edge_exit {
-                        ae::ArrivalMomentum::Preserve
-                    } else {
-                        ae::ArrivalMomentum::Reset
-                    },
-                );
-                Some(clusters.kinematics.pos)
-            }
-            _ => None,
-        };
 
         self.clock.clock_resets.write(ClockResetRequest::sim_clock(
             ambition_time::time_control::ClockRequester::Engine,
@@ -502,7 +522,11 @@ impl RoomTransitionApplication<'_, '_> {
                 arrival_pos,
                 player_size,
                 subject_gravity_dir,
-                &geometry.0,
+                // ⛔ THE TARGET ROOM'S GEOMETRY, for the same reason the arrival
+                // validation above reads the plan: the live component is not
+                // written until the room's verdict, and a landing report counted
+                // against the room being LEFT is worse than no report.
+                &plan.spec().world,
                 &self.carryover.feature_overlay,
             );
         }

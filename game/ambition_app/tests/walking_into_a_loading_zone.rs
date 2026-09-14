@@ -196,3 +196,218 @@ fn walking_into_a_door_and_holding_interact_changes_the_room() {
          and the room never changed.",
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A10 AT APP LEVEL: A REFUSED ROOM LEAVES THE ROOM YOU ARE STANDING IN
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Every authoritative identity the live world holds, sorted.
+fn live_roster(sim: &mut Platformer2dSimHarness) -> Vec<String> {
+    let world = sim.world_mut();
+    let mut ids: Vec<String> = world
+        .query::<&ambition_platformer2d::platformer::sim_id::SimId>()
+        .iter(world)
+        .map(|id| id.as_str().to_string())
+        .collect();
+    ids.sort();
+    ids
+}
+
+/// The name of the geometry the session is actually colliding against.
+fn live_geometry(sim: &mut Platformer2dSimHarness) -> String {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::engine_core::RoomGeometry,
+        With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+    >();
+    q.iter(world)
+        .next()
+        .expect("the session root carries room geometry")
+        .0
+        .name
+        .clone()
+}
+
+/// ⛔⛤ **A10, THROUGH THE SHIPPED APP: A ROOM THE TRANSACTION REFUSES COSTS THE
+/// RUNNING GAME NOTHING.**
+///
+/// The two arms in `world/rooms/stage.rs` prove the property at the production
+/// function; this one proves it where a player would meet it — the real content,
+/// the real shell composition, a real walk into a real authored zone.
+///
+/// ⚠ **THE REFUSAL IS A PRODUCTION ONE AND NOTHING TEST-ONLY IS WIRED IN.** The
+/// room transaction compares the generation its plan was prepared under against
+/// the session's live `ActiveContentBinding` and refuses a stale room. Moving the
+/// live binding every frame means no prepared plan can match it — whatever the
+/// preparation baked in, the commit boundary sees a different generation, which
+/// is exactly the *"a live shell session lost its canonical content authority"*
+/// case that comparison exists for.
+#[test]
+fn a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let before_room = active_room(&mut sim);
+    let before_geometry = live_geometry(&mut sim);
+    let before_roster = live_roster(&mut sim);
+    assert!(
+        !before_roster.is_empty(),
+        "the start room holds no authoritative identities, so `N survived` \
+         would be true of an empty world"
+    );
+
+    let zone = zones_by_distance(&mut sim, LoadingZoneActivation::EdgeExit)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("`{before_room}` authors no `EdgeExit` zone to walk into"));
+    let target_x = zone.aabb.center().x;
+
+    // ⛔⛤ **THE WALK STOPS AT THE REFUSAL, AND THAT IS NOT TIDINESS.** The first
+    // version of this arm walked its full 600-frame cap and measured afterwards.
+    // A poison that placed the body at the refused room's arrival coordinates
+    // PASSED it — the body spends the next several hundred frames walking back
+    // toward the door, so any teleport is washed out long before the assertion
+    // reads a position. The moment a refusal exists is the only moment the
+    // body's position says anything about it.
+    let mut epoch = 9_000u64;
+    let mut refused = None;
+    let mut before_the_verdict = body_pos(&mut sim);
+    for _ in 0..WALK_CAP {
+        // ⛔ A MOVING TARGET, deliberately. A CONSTANT bogus binding would be
+        // baked into the plan by `prepare` and match itself at the commit
+        // boundary, and this arm would be measuring a room that published.
+        epoch += 1;
+        sim.world_mut().insert_resource(
+            ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+                ambition_platformer2d::engine_core::ContentEpoch(epoch),
+            ),
+        );
+        let here = body_pos(&mut sim);
+        sim.step(walk_toward(target_x, here.x, base()));
+        before_the_verdict = here;
+        // ⛔ THE PREMISE, CHECKED EVERY FRAME RATHER THAN ASSUMED AT THE END: a
+        // transaction ran, it was REFUSED, and it was the TARGET room's rather
+        // than the start room's own load.
+        let verdict = sim
+            .world_mut()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .cloned();
+        if let Some(verdict) = verdict {
+            if !verdict.published && verdict.room_id != before_room {
+                refused = Some(verdict);
+                break;
+            }
+        }
+    }
+    let verification = refused.unwrap_or_else(|| {
+        panic!(
+            "no room transaction was REFUSED in {WALK_CAP} frames: the body never \
+             reached the zone, the transition never asked for a room, or the room \
+             published under a binding nothing could match. Last verdict: {:?}",
+            sim.world_mut().get_resource::<
+                ambition_platformer2d::actors::features::LastConstructionVerification,
+            >()
+        )
+    });
+
+    assert_eq!(
+        active_room(&mut sim),
+        before_room,
+        "a room the transaction REFUSED became the active room anyway: {verification:?}"
+    );
+    assert_eq!(
+        live_geometry(&mut sim),
+        before_geometry,
+        "⛔ THE LAST-GOOD-WORLD GUARANTEE IS BROKEN AT APP LEVEL: the session is \
+         colliding against a room that was never published"
+    );
+    assert_eq!(
+        live_roster(&mut sim),
+        before_roster,
+        "⛔ a refused room changed the live roster: either its candidates were \
+         admitted, or the room the player is standing in was swept to make way \
+         for one that never arrived"
+    );
+
+    // ⛔⛤ **AND THE PLAYER DID NOT MOVE.** The world surviving is half the
+    // guarantee; the other half is that the body was not placed at the REFUSED
+    // room's arrival coordinates — a position in a room the session is not in,
+    // which may be solid rock in the one it is. The arrival is a publication
+    // effect (`StagedArrival`) for exactly this reason.
+    //
+    // ⭐⭐ **MEASURED, AND THE FIRST TWO VERSIONS OF THIS ASSERTION COULD NOT
+    // FAIL.** Comparing the end-of-walk position proved nothing (the body walks
+    // back to the door for hundreds of frames afterwards). Asserting the body is
+    // inside the live room's BOUNDS proved nothing either — the refused room's
+    // arrival happens to land inside the hub's rectangle, and the poison passed
+    // it. What discriminates is the displacement across the verdict frame:
+    //
+    //     guaranteed: Vec2(0.0, 0.0)        the transition freezes the sim clock
+    //     poisoned:   Vec2(-1782.7, -188.0) the arrival, performed anyway
+    //
+    // 64px is two orders of magnitude above the first and one below the second.
+    let displacement = (body_pos(&mut sim) - before_the_verdict).length();
+    assert!(
+        displacement < 64.0,
+        "a REFUSED transition moved the body {displacement:.1}px in one frame, to \
+         {:?}: the arrival was performed for a room that never published",
+        body_pos(&mut sim)
+    );
+
+    // ⭐ AND THE GAME IS STILL A GAME. A world whose room survived but whose body
+    // cannot move is not the guarantee this arm claims.
+    let stuck = body_pos(&mut sim);
+    for _ in 0..30 {
+        sim.step(walk_toward(target_x, stuck.x, base()));
+    }
+    assert_ne!(
+        body_pos(&mut sim),
+        stuck,
+        "N survived the refusal and the body cannot move in it"
+    );
+}
+
+/// ⛔⛤ **A10'S CONTROL IN THE SHIPPED COMPOSITION: THE FIRST ROOM PUBLISHES.**
+///
+/// `ROOM_CANDIDATE_BRACKET` is `true`, so every room root is minted hidden and a
+/// refused room is DROPPED. The refusal arm above proves that costs the running
+/// world nothing — but a bracket that refused EVERY room would satisfy it just as
+/// well, and the player would boot into an empty start room.
+///
+/// ⚠ **THE SESSION'S OWN FIRST ROOM IS THE ONE WITH NO OTHER WITNESS.** Activation
+/// queues its room build BEFORE it spawns the session root, so it commits through
+/// `spawn_contents` and stages no world — which means `apply_world_replacement`'s
+/// fail-closed check never sees it, and a refusal there is not caught by any of
+/// the staged-world arms. This asks the production verdict directly.
+///
+/// ⭐ It also names WHICH room, so a verdict left over from some other transaction
+/// cannot stand in for the start room's.
+#[test]
+fn the_shipped_apps_own_first_room_publishes() {
+    let mut sim = fixed_60hz_sim();
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let room = active_room(&mut sim);
+    let verification = sim
+        .world_mut()
+        .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .cloned()
+        .expect("booting the shipped app runs a room construction transaction");
+    assert_eq!(
+        verification.room_id, room,
+        "the last verdict is not the start room's, so this arm is reading \
+         somebody else's transaction: {verification:?}"
+    );
+    assert!(
+        verification.published,
+        "⛔ THE SHIPPED APP BOOTS INTO A REFUSED ROOM. Under the candidate \
+         bracket its roots are dropped, so the player is standing in an empty \
+         world: {verification:?}"
+    );
+    assert!(
+        !live_roster(&mut sim).is_empty(),
+        "the start room published and holds no authoritative identities at all"
+    );
+}

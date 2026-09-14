@@ -35,7 +35,10 @@ pub use systems::{
     detect_room_transition_system, sync_active_room_metadata, sync_room_music_request,
     tick_portal_phases_system, ActiveRoomMetadataSynced,
 };
-pub use transaction::{ActiveContentBinding, LastConstructionVerification};
+pub use transaction::{
+    room_publication_succeeded, ActiveContentBinding, LastConstructionVerification, StagedArrival,
+    StagedWorldViolation,
+};
 
 #[cfg(test)]
 mod rooms_unit_tests {

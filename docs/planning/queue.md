@@ -17,34 +17,54 @@ it.
 [construction and reconstitution](engine/construction-and-reconstitution.md), and
 the construction/session owners.
 
-**Current state:** the projected post-publication verifier exists. Candidate
-membership is explicit through `ScopeVisibility`; publication effects explicitly
-declare supersession and retirement; the projection is checked against the live
-baseline so undeclared destruction is visible. The normal room candidate bracket
-is still disabled by `ROOM_CANDIDATE_BRACKET = false`.
+**Current state — the ROOM scope is closed (2026-09-14).** Every room lifecycle
+path (transition, reset, dev reload) runs through `replace_live_world`, which
+stages the whole replacement in `PendingWorldReplacement`, builds every root
+hidden under `ROOM_CANDIDATE_BRACKET = true`, declares what publication would do
+(`superseding` / `retiring` / `owned_by`), and only then verifies. `transaction::open`
+makes that split against the baseline it captures, never against the
+post-construction world. Refusal drops the candidate roots and the staged world
+and leaves N byte-identical; admission runs `publish_candidate`,
+`apply_world_replacement`, `retire_superseded` as one authority in one order.
+`commit_deferred` and `retire_outgoing` are deleted, so no road can commit a room
+without a verdict.
 
-**Current blocker:** room/session publication is still split across candidate
-entities and process-global authorities. `ActiveGameplaySession`,
-`ActiveSessionScope`, `SessionMechanics`, `ActiveContentBinding` and
-`MovingPlatformSet` do not yet have one candidate-owned publication home. Death
-reset also needs the room transaction to declare the checkpoint-driven
-supersession/retraction that custody restoration will perform; two independently
-correct baselines can otherwise suppress authoring and retract the carried
-occurrence.
+Three verifiers guard it: `verify_committed_roster` (is the built world coherent),
+`verify_projected_roster` (would the roster be valid if this published), and
+`verify_staged_world` (is the non-entity world coherent and is it THIS room's).
+They are complements, not alternatives. Production refusals are currently zero, so
+the refusal apparatus is proven by its arms rather than by shipped traffic.
 
-**Next implementation:** make the room/session candidate own every value needed
-for validation; declare checkpoint-driven supersession in the transaction; enable
-the room candidate bracket; then prove both production arms:
+**Not yet behind the verdict**, named rather than implied: the dev reload's
+`transit_body` and its dialog/combat/cooldown resets (that road has no end-to-end
+coverage in either direction); the reload's presentation spawns, which read the
+plan and so cannot dress the wrong room; and the transition state machine, which
+advances to `playing` either way — a persistent refusal is a livelock rather than
+a corrupted world.
 
-1. failure removes only candidate state and leaves world N playable and unchanged;
-2. success publishes N+1 once and retires only the declared N state afterward.
+**Current blocker — the SESSION scope, a different transaction, not started.**
+`SessionScopeSet::Activate` is still retire-then-overwrite one level up:
+`ActiveGameplaySession`, `ActiveSessionScope`, `SessionMechanics` and
+`ActiveContentBinding` are process-global mirrors replaced in place. The handoff is
+the case where a world N really exists to lose, and it is measured at ONE FRAME
+(though not one command flush — `Cleanup`, `Activate` and the provider build are
+different sets), so a candidate session root is hidden for the same order of time
+a room's candidates are.
 
-Do not replace this with "save the live resources and restore them on failure";
-that creates duplicate authority plus recovery logic.
+**Next implementation:** stage the session authorities as VALUES published at a
+verdict, as the room packet does. They do not need to become components on the
+candidate root — that framing would have charged `MovingPlatformSet` a
+rollback-wire-format change it does not have to pay. First concrete step is an
+ordering fact, not a type change: activation queues its room build before it
+spawns the session root, so `spawn_world_for` must precede `simulation_world`.
+Reordering alone buys little — a refused first room leaves the session broken
+either way — so the shell also owes a policy for what an activation does when its
+first room refuses. Do not replace this with "save the live resources and restore
+them on failure"; that creates duplicate authority plus recovery logic.
 
-**Acceptance:** the shipped production composition demonstrates the strong
-last-good-world guarantee for room transition, death/checkpoint reconstruction
-and hot reload. A candidate helper test alone is not closure.
+**Acceptance:** the shipped production composition demonstrates the last-good-world
+guarantee at session activation and handoff, both arms poison-verified, as the
+room scope now does for transition, death/checkpoint reconstruction and hot reload.
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
@@ -56,6 +76,17 @@ The remaining campaign is to ensure local activation counts cannot influence a
 canonical checksum, peer-stable seed or rollback-visible identity. Keep the local
 session term where it is useful for ownership; do not make local lifetime and
 peer identity the same type by accident.
+
+⚠ The review asked for this to be settled *before* A10 made transaction provenance
+more central. That did not happen: A10's room scope landed first, and a publication
+now declares the lane `TransactionId`s it owns (`PublicationEffects::owned_by`),
+with `CandidateNotOwned` refusing anything stamped outside them. A10 deliberately
+used the existing interfaces rather than hardening host-local lineage into a new
+provenance contract, so the dependency stayed narrow — but it is wider than it was.
+`a_transaction_identity_still_depends_on_host_local_lineage_counters` records the
+divergence and flips the day the identities are split. The two-App poison (A burns
+a candidate epoch, B does not, both construct identical content, canonical
+snapshots must agree) is still unwritten.
 
 **Next implementation:** define the peer-agreed session/match term explicitly and
 migrate canonical provenance to it. Keep `SessionScopeId` for local lifetime only

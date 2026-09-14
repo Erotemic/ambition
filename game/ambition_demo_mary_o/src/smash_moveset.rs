@@ -109,7 +109,7 @@ pub fn mary_o_moveset() -> MovesetContract {
         half_extents: (26.0, 18.0),
         damage: 11,
         knockback: 116.0,
-        knockback_growth: 2.10,
+        knockback_growth: 3.03,
         launch_dir: Some((0.95, -0.40)),
         on_hit: None,
     });
@@ -146,7 +146,7 @@ pub fn mary_o_moveset() -> MovesetContract {
         half_extents: (36.0, 12.0),
         damage: 10,
         knockback: 108.0,
-        knockback_growth: 1.95,
+        knockback_growth: 2.62,
         launch_dir: Some((0.8, -0.55)),
         on_hit: None,
     });

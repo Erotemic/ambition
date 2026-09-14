@@ -105,7 +105,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         half_extents: (22.0, 28.0),
         damage: 15,
         knockback: 148.0,
-        knockback_growth: 2.90,
+        knockback_growth: 6.00,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

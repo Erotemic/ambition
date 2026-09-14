@@ -1931,6 +1931,23 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         }
     }
     let occupants_of = |sim_id: &SimId| occupants.get(sim_id).map_or(&[][..], Vec::as_slice);
+    // ⛔⛤ **A DECLARED SUPERSESSION'S LIVE BODY IS NOT PART OF THE ROSTER BEING
+    // VERIFIED.** It is the world the candidate is being validated AGAINST, and
+    // it is standing on purpose. Counting it as an occupant reports the A10
+    // invariant working as `Duplicated` — which is precisely what the measured
+    // `death_restores_the_checkpoint` refusal was.
+    //
+    // ⚠ It is subtracted HERE, once, rather than branched around at each of the
+    // three places occupants are counted: two spellings of "except the
+    // predecessor" is how one of them comes to disagree.
+    let candidate_occupants_of = |sim_id: &SimId| -> Vec<Entity> {
+        let superseded = baseline.superseded_body(sim_id);
+        occupants_of(sim_id)
+            .iter()
+            .copied()
+            .filter(|entity| Some(*entity) != superseded)
+            .collect()
+    };
 
     let planned_ids = plan.planned_ids();
 
@@ -1975,7 +1992,36 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             }
             continue;
         }
-        // Not retired, not reconstructed: preserved.
+        if baseline.is_superseded(sim_id) {
+            // ⛔ THE DECLARED-SUPERSESSION CONTRACT, AND IT IS THE MIRROR OF THE
+            // ONE ABOVE: the old body MUST still be alive, and the candidate
+            // must exist. What publishing would leave behind is not askable
+            // here — this world still holds both on purpose — so
+            // `verify_projected_roster` owns that half.
+            if !live(entry.entity) {
+                violations.push(RosterViolation::SupersededLiveLost {
+                    sim_id: sim_id.clone(),
+                    expected: entry.entity,
+                });
+            }
+            // `receipt.entity` is `None` when this identity belongs to a
+            // DIFFERENT construction lane of the same room; the room
+            // transaction verifies every lane, each against its own receipt,
+            // so a missing row here means "not mine", not "not built".
+            if let Some(root) = receipt.entity(sim_id) {
+                if !live(root) {
+                    violations.push(RosterViolation::SupersededCandidateMissing {
+                        sim_id: sim_id.clone(),
+                    });
+                }
+            } else if planned_ids.contains(sim_id) && candidate_occupants_of(sim_id).is_empty() {
+                violations.push(RosterViolation::SupersededCandidateMissing {
+                    sim_id: sim_id.clone(),
+                });
+            }
+            continue;
+        }
+        // Not retired, not reconstructed, not superseded: preserved.
         if planned_ids.contains(sim_id) {
             violations.push(RosterViolation::PlannedOverBaseline {
                 sim_id: sim_id.clone(),
@@ -2018,7 +2064,7 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
             // for the same reason.
             continue;
         }
-        match occupants_of(&planned.sim_id) {
+        match candidate_occupants_of(&planned.sim_id).as_slice() {
             [] => violations.push(RosterViolation::Missing {
                 sim_id: planned.sim_id.clone(),
             }),
@@ -2226,6 +2272,17 @@ pub enum RosterViolation {
     /// A plan row names an identity that was already live and was not declared
     /// a reconstruction, so committing it creates a second body for it.
     PlannedOverBaseline { sim_id: SimId },
+    /// A declared SUPERSESSION destroyed the live body it was supposed to leave
+    /// standing.
+    ///
+    /// ⛔ The A10 invariant stated as a violation: a candidate is prepared BESIDE
+    /// the playable world, and a candidate that despawns its own predecessor has
+    /// already spent the world it was being validated against, whatever the
+    /// verdict turns out to be.
+    SupersededLiveLost { sim_id: SimId, expected: Entity },
+    /// A declared supersession built no candidate for the identity it named, so
+    /// publishing it would leave the identity with nothing.
+    SupersededCandidateMissing { sim_id: SimId },
     /// A wired relation names an entity that is not live.
     DanglingRelation {
         from: SimId,
@@ -2356,6 +2413,16 @@ impl std::fmt::Display for RosterViolation {
                 "`{sim_id}` is a plan row and was already live, without being declared a \
                  reconstruction"
             ),
+            Self::SupersededLiveLost { sim_id, expected } => write!(
+                f,
+                "`{sim_id}` was declared superseded — its live body {expected:?} had to stand \
+                 until publication — and construction destroyed it"
+            ),
+            Self::SupersededCandidateMissing { sim_id } => write!(
+                f,
+                "`{sim_id}` was declared superseded and this transaction built no candidate \
+                 to take its place"
+            ),
             Self::DanglingRelation { from, kind, to } => write!(
                 f,
                 "wired relation `{from}` -`{kind}`-> `{to}` names an entity that is not live"
@@ -2411,6 +2478,7 @@ pub struct TransactionBaseline {
     entries: BTreeMap<SimId, BaselineEntry>,
     retired: BTreeSet<SimId>,
     reconstructed: BTreeSet<SimId>,
+    superseded: BTreeSet<SimId>,
 }
 
 /// Why a baseline could not be captured.
@@ -2493,6 +2561,7 @@ impl TransactionBaseline {
             entries,
             retired: BTreeSet::new(),
             reconstructed: BTreeSet::new(),
+            superseded: BTreeSet::new(),
         })
     }
 
@@ -2510,6 +2579,30 @@ impl TransactionBaseline {
         self
     }
 
+    /// Declare that this transaction is building a HIDDEN CANDIDATE for an
+    /// identity whose live body is meant to REMAIN STANDING until publication.
+    ///
+    /// ⛔⛤ **THIS IS THE A10 OPERATION, AND IT IS NOT [`Self::reconstructing`]
+    /// WITH A LATER DEADLINE.** `reconstructing` states *"the old body should
+    /// already be gone"*, so a live predecessor is
+    /// [`RosterViolation::ReconstructedOldSurvived`] BY DEFINITION — that is the
+    /// declaration working, and it is the wrong declaration for a candidate
+    /// world. MEASURED 2026-09-13: it is exactly why flipping
+    /// `ROOM_CANDIDATE_BRACKET` refused `death_restores_the_checkpoint`, with
+    /// `Duplicated { placement:ground_gun_sword, count: 2 }` beside it.
+    ///
+    /// ⇒ Under this declaration the committed-roster check stops asking the
+    /// coexistence to justify itself and asks the two things that are actually
+    /// owed: **the live body is still here** (a candidate that destroyed its own
+    /// predecessor broke the invariant it exists to keep) and **the candidate
+    /// was built**. Whether publishing would leave ONE occupant is a different
+    /// question asked of a different world — see
+    /// [`verify_projected_roster`], which is the only place that can ask it.
+    pub fn superseding(mut self, ids: impl IntoIterator<Item = SimId>) -> Self {
+        self.superseded.extend(ids);
+        self
+    }
+
     pub fn entries(&self) -> &BTreeMap<SimId, BaselineEntry> {
         &self.entries
     }
@@ -2524,6 +2617,19 @@ impl TransactionBaseline {
 
     pub fn is_reconstructed(&self, sim_id: &SimId) -> bool {
         self.reconstructed.contains(sim_id)
+    }
+
+    pub fn is_superseded(&self, sim_id: &SimId) -> bool {
+        self.superseded.contains(sim_id)
+    }
+
+    /// The entity a superseded identity is still standing on, so a verifier can
+    /// tell the live predecessor apart from the candidate that will replace it.
+    pub fn superseded_body(&self, sim_id: &SimId) -> Option<Entity> {
+        if !self.is_superseded(sim_id) {
+            return None;
+        }
+        self.entries.get(sim_id).map(|entry| entry.entity)
     }
 }
 
@@ -2637,6 +2743,86 @@ pub fn publish_candidate(world: &mut World, transaction: &TransactionId) -> usiz
     roots.len()
 }
 
+/// Retire the live bodies a publication DECLARED it was replacing — the second
+/// half of the publication boundary, and it runs only after the first.
+///
+/// ⛔⛤ **THE ORDER IS THE INVARIANT, NOT AN OPTIMISATION.** Jon's sentence is
+/// *"only a validated candidate may become authoritative, and N is retired only
+/// after that successful publication"*. Retiring first is the shape A10 exists
+/// to delete: a refusal after it leaves the session holding neither world.
+/// Calling this before [`publish_candidate`] would restore exactly that hazard,
+/// which is why the body it despawns is looked up in the BASELINE — the world as
+/// it stood when the transaction opened — rather than by querying for the
+/// identity now, when the identity has two holders and the query cannot say
+/// which one is the predecessor.
+///
+/// ⚠ **A DECLARED SUPERSESSION WHOSE BODY IS ALREADY GONE IS SILENT HERE, AND
+/// THAT IS NOT A WAIVER.** `verify_committed_roster` refuses that transaction
+/// with [`RosterViolation::SupersededLiveLost`] before publication is reached;
+/// this function runs only on an admitted one, so it is not the place to
+/// re-litigate it.
+///
+/// ⛔⛤ **AND IT RETIRES ONLY WHAT THIS PUBLICATION HAS AUTHORITY OVER.** A
+/// superseded body that is in ANOTHER ENTITY'S CUSTODY — an object in a hand, a
+/// rider on a mount — is not the publishing transaction's to despawn.
+/// [`InCustodyOf`] is the repository's existing statement of exactly that: a body
+/// carrying it *"keeps `RoomScopedEntity`, so reset/scope queries still see it;
+/// `RoomResident` excludes it only from room-transition sweeps"*. The room's
+/// sweeps already skip it, and so does this.
+///
+/// ⭐⭐ **MEASURED 2026-09-14, AND IT IS NOT A STYLE PREFERENCE.** Despawning the
+/// held body here made `death_restores_the_checkpoint` fail 1/11 and
+/// `two_persistence_authorities_for_one_item` fail with `still_owned=1`: the
+/// custodian's own authority — `restore_custody_to_checkpoint` — takes the object
+/// out of the hand AND despawns it, as one paired operation keyed on the item
+/// entity. Reaching in and despawning first does not do half of that job, it
+/// destroys the key the other half is found by, and the player walks away still
+/// holding a weapon that no longer exists. With the skip: 11/11 and 0.
+///
+/// ⚠ **THE DEFERRED HALF IS NOT UNCHECKED.** If a custodian never lets go, two
+/// bodies keep one identity and the NEXT transaction's
+/// [`TransactionBaseline::capture`] refuses with
+/// [`BaselineCaptureError::DuplicateIdentity`] — a loud, existing check, one
+/// transaction later rather than at this instant.
+///
+/// Returns how many live bodies were retired, and how many were left to their
+/// custodian.
+pub fn retire_superseded(
+    world: &mut World,
+    effects: &PublicationEffects,
+    baseline: &TransactionBaseline,
+) -> SupersessionRetirement {
+    let mut outcome = SupersessionRetirement::default();
+    let mut departing: BTreeSet<&SimId> = effects.supersessions().map(|s| &s.live).collect();
+    departing.extend(effects.retirements());
+    for sim_id in departing {
+        let Some(entry) = baseline.entries().get(sim_id) else {
+            continue;
+        };
+        let Ok(entity) = world.get_entity_mut(entry.entity) else {
+            continue;
+        };
+        if entity.contains::<crate::lifecycle::InCustodyOf>() {
+            outcome.left_to_custodian += 1;
+            continue;
+        }
+        entity.despawn();
+        outcome.retired += 1;
+    }
+    outcome
+}
+
+/// What [`retire_superseded`] did with the bodies a publication declared it was
+/// replacing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SupersessionRetirement {
+    /// Despawned by this publication.
+    pub retired: usize,
+    /// In another entity's custody, so its custodian retires it. See the
+    /// function's own note for the measurement behind this split.
+    pub left_to_custodian: usize,
+}
+
 /// Discard a candidate without disturbing the live world.
 ///
 /// ⛔ THE REFUSAL PATH, AND IT IS WHY THE GUARANTEE IS "LAST-GOOD" RATHER THAN
@@ -2709,7 +2895,9 @@ impl AuthoritativeScope {
         // — *"the roots most worth catching are the ones nobody thought to
         // list"*. I could not build a candidate-internal case of that, because a
         // recipe-spawned stray is not stamped and so is visible anyway (see
-        // `a_recipe_that_spawns_its_own_entity_escapes_the_candidate_isolation`).
+        // `an_authoritative_root_minted_outside_the_plan_escapes_the_candidate_isolation`
+        // — this comment cited a name that has never existed since the arm was
+        // renamed, which the citation gate does not see because it reads `docs/`).
         // ⚠ It stays because a scope that cannot see what it is scoping is wrong
         // on its face; it is documented as unproven rather than asserted.
         let mut query = world.query_filtered::<(
@@ -2825,11 +3013,32 @@ pub struct Supersession {
 pub struct PublicationEffects {
     supersedes: BTreeSet<Supersession>,
     retires: BTreeSet<SimId>,
+    owners: BTreeSet<TransactionId>,
 }
 
 impl PublicationEffects {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Name a transaction whose hidden candidates this publication is entitled
+    /// to make authoritative.
+    ///
+    /// ⛔⛤ **A PUBLICATION IS NOT ALWAYS ONE TRANSACTION, AND ASSUMING IT WAS
+    /// WOULD HAVE REPORTED EVERY OTHER LANE'S CANDIDATE AS STOLEN.** A room
+    /// commits through `construction_transactions` — the actor lane plus one per
+    /// capability lane — under a single verdict. The owning set is therefore
+    /// DECLARED with the rest of the effects rather than read off whichever
+    /// single transaction happened to be used to gather the scope.
+    pub fn owned_by(mut self, transaction: TransactionId) -> Self {
+        self.owners.insert(transaction);
+        self
+    }
+
+    /// The transactions whose candidates this publication may admit. Empty means
+    /// it may admit NONE — an unstated owner is not a wildcard.
+    pub fn owners(&self) -> &BTreeSet<TransactionId> {
+        &self.owners
     }
 
     /// `candidate` replaces `live` at publication; `live` is legal until then.
@@ -2976,7 +3185,9 @@ pub enum ProjectionViolation {
     /// A hidden candidate carries somebody else's transaction stamp, or none.
     CandidateNotOwned {
         sim_id: SimId,
-        expected: TransactionId,
+        /// Every transaction this publication declared it owns — see
+        /// [`PublicationEffects::owned_by`] for why it is a set.
+        expected: BTreeSet<TransactionId>,
         found: Option<TransactionId>,
     },
     /// The projected world would lose an identity nothing declared departing.
@@ -3016,7 +3227,8 @@ impl std::fmt::Display for ProjectionViolation {
                 found,
             } => write!(
                 f,
-                "candidate `{sim_id}` is stamped {found:?}, not this transaction's {expected:?}"
+                "candidate `{sim_id}` is stamped {found:?}, which is none of this \
+                 publication's transactions {expected:?}"
             ),
             Self::LiveLostWithoutDeclaration { sim_id } => write!(
                 f,
@@ -3103,10 +3315,10 @@ pub fn verify_projected_roster(
             continue;
         }
         let owner = world.get::<TransactionId>(member.entity);
-        if owner != Some(scope.transaction()) {
+        if !owner.is_some_and(|owner| effects.owners().contains(owner)) {
             violations.push(ProjectionViolation::CandidateNotOwned {
                 sim_id: member.sim_id.clone(),
-                expected: scope.transaction().clone(),
+                expected: effects.owners().clone(),
                 found: owner.cloned(),
             });
         }

@@ -175,9 +175,28 @@ fn commit(plan: RoomFeatureConstructionPlan) -> App {
 }
 
 /// As [`commit`], with `seed` run against the world FIRST
+///
+/// ⛔⛤ **IT COMMITS ON THE ROAD PRODUCTION TAKES, AND IT USED TO NOT.** The
+/// default was a hard `false` — the LIVE road — while `ROOM_CANDIDATE_BRACKET`
+/// went `true`, so twenty-seven construction arms were certifying a road the game
+/// no longer uses. A published room's observable end state is the same either way
+/// (publication is a marker REMOVAL), which is exactly why the divergence would
+/// have been silent.
 fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
-    // the default rig commits LIVE: no candidate bracket publishes here.
-    commit_bracketed(plan, false, seed)
+    commit_bracketed(
+        plan,
+        crate::world::rooms::transaction::ROOM_CANDIDATE_BRACKET,
+        |world| {
+            // ⛔ THE COMPOSITION PRODUCTION BUILDS, installed HERE rather than
+            // inside `commit_bracketed`: the pair of arms that asks what happens
+            // when the filter is MISSING seeds it themselves, and a harness that
+            // always installed it would answer their question for them.
+            ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+                world,
+            );
+            seed(world);
+        },
+    )
 }
 
 /// As [`commit_over`], choosing whether the room is built as an INACTIVE
@@ -213,6 +232,7 @@ fn commit_bracketed(
             &receipt,
             plan.room().id.clone(),
             SessionSpawnScope::UNSCOPED,
+            candidate_bracket,
         );
     });
     app.update();
@@ -1375,24 +1395,35 @@ fn room_loaded_count(app: &mut App) -> usize {
         .count()
 }
 
-/// The room is not published when its relations did not land.
+/// ⛔⛤ **A ROOM THAT FAILS VERIFICATION IS NOT PUBLISHED — ON THE ROAD THE GAME
+/// TAKES.**
 ///
-/// A room that fails verification does not publish, and does not write
-/// `RoomLoaded`.
+/// Nothing test-only is wired into the construction path to produce the failure.
+/// The room transaction compares the generation its plan was prepared under
+/// against the session's live `ActiveContentBinding` and refuses a stale room;
+/// the seed states a generation the plan was not prepared against, which is the
+/// *"a live shell session lost its canonical content authority"* case that
+/// comparison exists for.
 ///
-/// Nothing test-only is wired into the construction path to produce it.
-///
-/// That hazard is gone, so the seam is gone with it; relation-postcondition detection is proven
-/// against the toy domain in `ambition_platformer2d_shared_tangle` and, for the real limb and mount
-/// wiring, by the poison tests further down this file.
+/// ⛔⛤ **IT USED TO SEED A LIVE `placement:duel_blue` AND EXPECT
+/// `ReconstructedOldSurvived`, AND THAT STOPPED BEING A FAILURE AT ALL.** Under
+/// `ROOM_CANDIDATE_BRACKET` a planned identity the baseline still holds is
+/// declared a SUPERSESSION, not a reconstruction — the coexistence is A10's
+/// premise, the projection removes the predecessor, and the room publishes. ⇒
+/// `ReconstructedOldSurvived` is a LIVE-ROAD violation now: on the candidate road
+/// a planned id with a live body is never declared `reconstructing` in the first
+/// place. Its meaning is still pinned, at the verifier that owns it
+/// (`a_reconstruction_that_leaves_the_old_body_alive_is_detected`), rather than
+/// by an arm here certifying a road production no longer uses.
 #[test]
 fn a_room_that_fails_verification_is_not_published() {
     let (room, staging) = duelling_room();
     let plan = prepare(&room, &staging, &engine_construction_registry())
         .expect("the room plans: the defect is in the world, not in the plan");
     let mut app = commit_over(plan, |world| {
-        // A live body already wearing an identity the room is about to build.
-        world.spawn(SimId::placement("duel_blue"));
+        world.insert_resource(crate::world::rooms::ActiveContentBinding::content(
+            ambition_platformer2d_core::ContentEpoch(7),
+        ));
     });
 
     let verification = app
@@ -1403,21 +1434,10 @@ fn a_room_that_fails_verification_is_not_published() {
         !verification.published,
         "a room that failed verification must not publish: {verification:?}"
     );
-    // ⛔⛤ **IT USED TO EXPECT `PlannedOverBaseline` AND THAT WAS THE VAGUE
-    // ANSWER.** Before `transaction::open` declared anything, a room rebuilding
-    // an identity the baseline still held could only be reported as *"you built
-    // something you never said you would"* — which is true of every room reset in
-    // the game and therefore names nothing. The room DOES say it will rebuild
-    // `duel_blue`; what is wrong here is that the seeded body is STILL THERE
-    // afterwards, and that is a different and actionable sentence.
-    //
-    // ⭐ `stale` NAMES THE SURVIVING ENTITY, which is what makes the real defect
-    // (`Q124`, a held placement carried across a death-reset) diagnosable rather
-    // than merely refused.
     assert!(
         verification.violations.iter().any(|violation| matches!(
             violation,
-            ambition_platformer2d_shared_tangle::construction::RosterViolation::ReconstructedOldSurvived {
+            ambition_platformer2d_shared_tangle::construction::RosterViolation::ContentBindingMismatch {
                 ..
             }
         )),

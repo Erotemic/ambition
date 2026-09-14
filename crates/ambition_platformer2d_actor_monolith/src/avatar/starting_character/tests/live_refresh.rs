@@ -27,6 +27,8 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     app.add_plugins(MinimalPlugins);
     app.insert_resource(super::test_catalog());
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    // The ADMITTED mask, beside the editor resource it is admitted from.
+    app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
@@ -117,6 +119,8 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    // The ADMITTED mask, beside the editor resource it is admitted from.
+    app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
@@ -202,6 +206,8 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     app.add_plugins(MinimalPlugins);
     // Default editable = air_jumps 1: the value that would cap a double jump.
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
+    // The ADMITTED mask, beside the editor resource it is admitted from.
+    app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     // The neutral authority `sync_live_player_dev_edits_system` reads (K1a).
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();

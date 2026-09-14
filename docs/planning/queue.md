@@ -621,6 +621,38 @@ the thing to distrust"* — so the repair is the duel, not the number.
 ⚠ It persisted unchanged (46%, 3618 ticks) across two further peer commits
 (`7675130b6`, `be30f2661`), so it is not intermittent.
 
+## ✅ THE ABILITY DOMAIN GETS ITS ADMITTED AUTHORITY — 2026-09-14
+
+**GPT architecture review 2026-09-14, finding 7.** The ability domain was the LAST
+one using its EDITOR resource as the admitted authority.
+`sync_live_player_dev_edits_system` read `EditableAbilitySet` directly and treated
+it as the last admitted value *"whenever nothing is pending"* — sound reasoning,
+but it put ADMISSION and PROJECTION behind the same `player_q.single_mut()` guard.
+With a live locally maintained timeline and a momentarily absent player, a
+still-pending proposal re-entered the admission/rebase decision on every frame
+until a body appeared.
+
+⭐ The rule `ActivePlayerBodyProfile` already states, applied: **editable desired
+value → pending proposal → admitted domain authority → projection onto whatever
+entities exist.** `ActiveEditableAbilityMask` is the third stage; admission now
+runs above the player query and the projection reads the MASK, never the editor
+resource. ⇒ A body built later — by a reset, a room load, a reconstruction —
+projects what was admitted rather than whatever the panel holds at that moment.
+
+⚠ **`None` IS SEEDED FROM THE EDITABLE ON THE FIRST PASS, DELIBERATELY.** The same
+system also performs a continuous `base ∩ mask` reconciliation that is NOT a
+mechanical edit, and the system's own comment records that a naive "only run when
+proposed" gate broke it. The baseline keeps that road working from frame one.
+
+⛔ **THE WITNESS IS STILL OWED, AND THE REVIEW SAID SO FIRST.** It rates this
+*"architectural risk requiring a lifecycle poison; I have not proven the
+problematic no-player/live-timeline interval occurs in shipped gameplay"* — and
+that poison is not written. What exists is the structure plus the three
+`live_refresh` arms that already covered the projection. ⇒ The arm this needs:
+propose an ability edit with NO primary player, assert the domain DRAINED and the
+mask holds the value, then spawn a body and assert it projects. Until that is
+written, this row is a refactor with a stated motive, not a measured repair.
+
 ## ✅ THE STATS DOMAIN PUBLISHED FIELDS NOBODY EDITED — FIXED 2026-09-14
 
 **GPT architecture review, 2026-09-14, finding 5.** `publish_player_stats_edits`

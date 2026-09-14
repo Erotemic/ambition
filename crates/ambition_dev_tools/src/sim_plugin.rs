@@ -97,6 +97,11 @@ impl Plugin for DevToolsSimPlugin {
         // a target are different jobs, and collapsing them lost edits made while
         // no player existed.
         app.init_resource::<crate::dev_tools::ActivePlayerBodyProfile>();
+        // ⭐ AND THE SAME THIRD STAGE FOR THE ABILITY DOMAIN, 2026-09-14. It was
+        // the last domain treating its EDITOR resource as the admitted authority,
+        // which tied admission to a primary player existing. See
+        // `ActiveEditableAbilityMask`.
+        app.init_resource::<crate::dev_tools::ActiveEditableAbilityMask>();
         app.configure_sets(
             bevy::app::PreUpdate,
             (

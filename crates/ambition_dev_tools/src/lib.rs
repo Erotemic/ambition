@@ -99,6 +99,10 @@ pub fn sync_live_player_dev_edits_system(
     // inspector now resolves correctly too.
     active_tuning: Res<ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
+    // ⛔⛤ THE ADMITTED MASK — the domain's third stage, 2026-09-14. Admission is
+    // decided here whether or not a body exists to wear the result; the
+    // projection below is what needs one. See `ActiveEditableAbilityMask`.
+    mut active_mask: ResMut<dev_tools::ActiveEditableAbilityMask>,
     admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
     mut player_q: Query<
@@ -146,15 +150,36 @@ pub fn sync_live_player_dev_edits_system(
     {
         return;
     }
+    // ⛔ **ADMISSION FIRST, AND IT DOES NOT ASK WHETHER A BODY EXISTS.** This used
+    // to sit below the player query, so a proposal made while the primary player
+    // was momentarily absent stayed pending — re-entering the admission/rebase
+    // decision every frame until a body appeared. The edit was never lost, which
+    // is why this survived; what it cost is that "was it admitted" depended on
+    // "is there something to apply it to".
+    if proposed {
+        active_mask.0 = Some(editable_abilities.as_engine());
+        pending.take(ability_set_domain());
+    } else if active_mask.0.is_none() {
+        // ⚠ THE BASELINE, for the same reason the stats domain has one: the
+        // continuous `base ∩ mask` reconciliation is NOT a mechanical edit and
+        // must keep working from frame one, before anybody has proposed
+        // anything. Seeding from the editable is what today's behaviour already
+        // was when nothing was pending.
+        active_mask.0 = Some(editable_abilities.as_engine());
+    }
     let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump, authored_tuning)) =
         player_q.single_mut()
     else {
         return;
     };
-    if proposed {
-        pending.take(ability_set_domain());
-    }
-    let desired_abilities = base.abilities.intersect(editable_abilities.as_engine());
+    // ⭐ THE PROJECTION READS THE ADMITTED MASK, never the editor resource. That
+    // is the whole split: a body built later — by a reset, a room load, a
+    // reconstruction — projects what was admitted rather than whatever the panel
+    // happens to hold at that moment.
+    let Some(mask) = active_mask.0 else {
+        return;
+    };
+    let desired_abilities = base.abilities.intersect(mask);
     let effective_tuning = authored_tuning.map(|t| t.0).unwrap_or(active_tuning.0);
     // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
     // not. Keep the equality guard here, before the helper call, so an

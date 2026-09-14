@@ -3,14 +3,11 @@
 **Building a game on this engine? Start here — and you should not need to open
 anything under `crates/` for ordinary game authoring or host composition.**
 
-That is a product/API goal rather than a blind-agent ritual. Real Ambition and
-secondary-game consumers should expose missing public affordances directly; the
-engine then closes those leaks at semantic APIs instead of asking consumers to
-learn internal crate topology. Current API evolution is owned by
+Real Ambition and secondary-game consumers should expose missing public
+affordances through semantic APIs instead of depending on internal crate
+topology. Current API evolution is owned by
 [`../planning/engine/public-sdk-1.0.md`](../planning/engine/public-sdk-1.0.md) and
-[`../concepts/api-growth.md`](../concepts/api-growth.md). The original API
-campaign and blind-agent evidence remain archived as historical discovery
-material, not recurring acceptance ceremony.
+[`../concepts/api-growth.md`](../concepts/api-growth.md).
 
 ## Status: usable public surface, still pre-1.0
 
@@ -29,15 +26,10 @@ customers. They are constrained to semantic facade modules (`actor`, `engine`,
 so adding a raw implementation-crate import there fails the architecture
 ratchet instead of expanding the public API by accident.
 
-The historical campaign that established the first facade boundary is archived
-at
-`../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md` (docs/archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md — removed from the checkout 2026-09-05; still in git history).
-
 ## Before any of that: your `Cargo.toml`
 
-**This engine does not currently compile for you without a patch table, and
-nothing tells you so.** Found by the 2026-07-30 blind run, which hit it before
-it could ask a single API question:
+Start with this dependency setup. Rollback consumers currently need the patch
+table below because Cargo patch tables do not cross workspace boundaries:
 
 ```toml
 [dependencies]
@@ -48,21 +40,8 @@ ambition_platformer2d = { path = "../path/to/ambition/crates/ambition_platformer
 # not satisfy that. Otherwise `ambition_platformer2d::bevy` is enough.
 bevy = "0.19"
 
-# Toolchain: rustc/cargo 1.95.0 or newer. `edition = "2021"` is fine.
-# ⚠ MEASURED 2026-09-03: that floor is a PROMISE NOTHING HOLDS. No crate in the
-# workspace declares `rust-version` (0 of ~80 manifests) and there is no
-# `rust-toolchain.toml`, so cargo will not refuse an older compiler and no gate
-# notices when a new language feature raises the real floor. Development happens
-# on 1.98.0. ⇒ Treat 1.95.0 as the last version someone checked, not a supported
-# floor; if it matters to you, the fix is a `rust-version` in the facade's
-# manifest, which makes cargo enforce it for every consumer.
-#
-# ⚠ Budget ~1.5 GB of disk WITH the settings below (measured: check + build +
-# test, ~250 crates), and ~2 min to check / ~3 min to build cold. Without
-# `debug = 0` it is many times that — a default build blew an 11 GB budget, and expect ~2 min for
-# `cargo check` / ~3 min for `cargo build` warm (~250 crates). Without
-# `debug = 0` a default build blew an 11 GB budget and died in `rust-lld` with
-# SIGBUS and an LLVM stack dump that never mentions disk.
+# The repository has been checked with rustc/cargo 1.95.0 or newer, but no
+# `rust-version` currently enforces that floor. `edition = "2021"` is fine.
 [profile.dev]
 debug = 0
 
@@ -89,10 +68,6 @@ linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 ```
 
-Blind run 5 had to open the engine's own `.cargo/config.toml` to find this —
-the same class of leak as the patch table, and the last file any blind run has
-needed.
-
 When rollback is selected, omitting the patch table lets a fresh lockfile resolve
 `bevy_ggrs` from crates.io and the rollback backend fails with `cannot find type
 GgrsFrameTiming in crate bevy_ggrs` — an error with no visible connection to a
@@ -103,11 +78,6 @@ re-exports it (`ambition_platformer2d::bevy`). You *do* need it in your own mani
 `#[derive(Component)]` or `#[derive(Resource)]`, because Bevy's derive macros
 resolve `::bevy_ecs` through the consuming crate's manifest and a re-export does
 not satisfy that.
-
-This is a real defect, not a documentation quirk: an engine another game can be
-built on has to be an engine another game can *link*. It is recorded as the
-top-ranked finding in
-`docs/archive/planning-superseded/2026-08-13/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-a-baseline.json`.
 
 ## Standing a game up
 
@@ -140,9 +110,8 @@ fn define(&self, module: &mut ModuleDraft) {
 not cosmetic** — preparation refuses an experience that declares neither audio
 nor silence, and the host then sits in `Activating` until it is refused.
 
-⚠ **Check that it started.** Composing successfully is not the same fact as
-running, and blind run 2 caught itself shipping a binary that exited `0` with a
-host that had never started:
+⚠ **Check that it started.** Composing successfully is not the same as reaching
+a running host:
 
 ```rust
 let mut app = PlatformerApp::headless().mount(MyModule::default()).build();
@@ -175,13 +144,7 @@ which flavour of "no display" you have — neither mentions Ambition:
 * **`DISPLAY` set but no server reachable** (CI, a container with a stale
   `DISPLAY`, `ssh` without `-X`) — `XNotSupported(XOpenDisplayFailed)`.
 
-⚠ Both are listed because the second is the common one and this document used to
-promise only the first. Somebody grepping their actual error text would not have
-found it.
-
-If you need to prove a real window in CI, install Xvfb and set `DISPLAY=:99`;
-that is the one actionable option and this document used to omit it while
-correctly telling you what not to claim.
+If you need to prove a real window in CI, install Xvfb and set `DISPLAY=:99`.
 
 And `without_gpu()` proves COMPOSITION and art preparation — not winit, not
 wgpu, not pixels. On a display-less box you cannot verify a real window at all,
@@ -212,17 +175,13 @@ name a parameter type.
 `PlatformerApp`, `ModuleDraft` and `HostStatus`, in one page, kept in sync with
 the source by a test in both directions.
 
-`cargo doc -p ambition_platformer2d -p ambition_platformer2d_world --no-deps --open` is good for browsing
-afterwards. ⚠ It should not be your first stop: ADR 0031's acceptance test is
-that you never open a file under `crates/`, and this document used to send you
-there before saying anything else.
+`cargo doc -p ambition_platformer2d -p ambition_platformer2d_world --no-deps --open` is useful for
+detailed browsing after the public surface in this directory has oriented you.
 
 ## Asking your game what it is doing
 
 `host_status` answers *did the engine start*. It does not answer *is my game
-playable* — blind run 3 shipped a build reporting `Running { prepared: true }`
-for 600 ticks while its character fell out of the world on a loop. Four names
-close that gap:
+playable*. Inspect game state when the test needs to prove playability:
 
 ```rust
 use ambition_platformer2d::actor::{BodyKinematics, PrimaryPlayer};
@@ -293,10 +252,8 @@ room contributed. A game reads these; it does not own the render path.
 ### Room coordinates
 
 **+y points DOWN**, and `Block::solid(name, min, size)` takes a **MIN CORNER,
-not a centre**. Getting that wrong puts your floor somewhere else in the room,
-your character falls past it, and nothing reports anything — the host is running
-correctly, the content is wrong. The reference fixture itself had this bug until
-2026-07-30 and its own tests could not see it.
+not a centre**. If the coordinates are wrong, the host can run correctly while
+the authored room is unplayable.
 
 **Shipping more than one game?** Mount each as its own module and start at a
 launcher instead of inside one of them:
@@ -321,22 +278,9 @@ The visible face additionally prepares art, which needs a character roster —
 declare one with `characters(MINIMAL_CHARACTER_ROSTER_RON)` and a minimal module
 reaches it fine.
 
-⚠ This paragraph claimed the two faces were "not yet fully interchangeable" and
-that the windowed face "requires content a minimal module does not have". That
-was true before slice B and false afterwards, and blind run 5 disproved it by
-booting a minimal module on the windowed face while the sentence was still here.
-Second time this document has advertised a gap it no longer had.
-
 **Everything you need is on this page and in
 [api-reference.md](api-reference.md).** You should not have to read engine
 source to write a game — that is this SDK's acceptance test, not a courtesy.
-
-⚠ This section used to say "the reference to copy is `fixtures/minimal_game`".
-Blind run 6 pointed out that taking that advice fails the very gate this
-document opens with, and that it is the identical defect `api-reference.md` was
-created to fix for `cargo doc`: **the SDK telling readers to do the thing it is
-scored on.** A less suspicious reader would have followed it and logged
-`fixtures/minimal_game/src/lib.rs` as their first engine open.
 
 `fixtures/minimal_game` and `fixtures/external_consumer` remain the engine's own
 worked examples, for engine developers. If you find yourself needing them,
@@ -367,49 +311,22 @@ python3 scripts/check_absence_contracts.py
 python3 scripts/check_absence_contracts.py --allowlist-open-count
 ```
 
-Every module in that output is a leak this SDK has not closed yet. Eighteen at
-the start of slice A.
+Every module in that output is a dependency the SDK has not yet hidden behind a
+narrower semantic seam.
 
 ## Known gaps
 
-⚠ **This section was wrong for eight commits and cost blind run 2 real time.**
-It claimed a minimal module could not reach a windowed host and that there was
-no way to ask whether the game started; slice B and C had closed both. A doc
-that advertises gaps it no longer has sends readers into `crates/` exactly as
-surely as one that hides the gaps it does. Both are the same defect.
+Current gaps in the supported public surface:
 
-Current, verified against `fixtures/minimal_game/tests/boots.rs`:
+* **A standalone castless game cannot be expressed.** `no_characters()` exists,
+  but `playable()` requires a starting character and a gameplay route depends on
+  `playable()`.
+* **Component names are unavailable through generic Bevy inspection.** The facade
+  re-exports Bevy without its `debug` feature, so `World::inspect_entity` cannot
+  report component names.
+* **Runtime content revision remains incremental.** Add it from concrete authoring
+  requirements rather than exposing internal content machinery preemptively.
 
-* **A castless game cannot be expressed.** `no_characters()` exists, but
-  `playable()` requires a starting character and without `playable()` no
-  gameplay route is registered — so a menu-only app has no route to a composing
-  host. Tracked as consumer-matrix work, not a bug with a workaround.
-* ~~The non-empty character roster schema is undocumented.~~ **CLOSED.**
-  `MINIMAL_CHARACTER_ROSTER_RON` is a working one-character roster, and its
-  rustdoc names every enum-valued field — `tier: MainHall`,
-  `body_kind: Standard`, `composition: None`, `playable_kit: Authored` (vs
-  `HostCode`, which silently overrides your action set), `move_style: Walk`,
-  `StandStill`. Those are the ones no error message can give you: the parser
-  reports one missing field per build and stops dead at the first enum, because
-  variant names cannot be guessed.
-* **Component names are invisible.** `ambition_platformer2d::bevy` is re-exported without
-  Bevy's `debug` feature, so `World::inspect_entity` reports
-  `<Enable the debug feature to see the name>` for every component — which
-  removes the one generic tool you have for "what did the engine spawn?".
-* ~~Content, capabilities and runtime content revision are not started.~~
-  **PARTLY CLOSED.** Content and capabilities are `ModuleDraft` (slices B–E);
-  rollback is `ambition_platformer2d::rollback` (slice F). Runtime content revision is still
-  not started, and no consumer has yet needed it — which is why it has not been
-  designed rather than why it is fine.
-* **The rollback surface has never been seen by a blind author.** Every other
-  part of this SDK has been through at least one run where a third-party agent
-  built against it with no access to `crates/`; `ambition_platformer2d::rollback` shipped
-  after the last one. It is the newest surface and therefore the likeliest to
-  send you into the engine. If it does, that is a defect — please say where.
-
-Closed since the runs that found them, and now covered by tests: a declared
-route no capability registers is refused with the registered routes named; a
-starting character no roster contains is refused at BUILD rather than hanging
-forever; a host that can never start reports why instead of spinning;
-`ModuleDraft::capability` no longer requires `Clone`; and `ambition_platformer2d::world` is a
-curated module rather than a whole-crate mirror.
+The SDK tests cover route refusal, roster validation, host refusal diagnostics,
+multi-experience composition, worked examples, rollback registration, and the
+curated public-module surface.

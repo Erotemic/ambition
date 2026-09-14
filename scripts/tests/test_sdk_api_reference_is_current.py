@@ -1,22 +1,8 @@
-"""`docs/sdk/api-reference.md` must match the public builder surface, both ways.
+"""Keep `docs/sdk/api-reference.md` synchronized with the public SDK surface.
 
-⚠ **Both ways is the point.** A reference that omits a method sends a reader to
-`cargo doc` — which is what blind run 4 did, for both of its engine opens, on
-the README's own recommendation. A reference that names a method which no longer
-exists is worse: the reader writes it, it does not compile, and they trust
-nothing else on the page.
-
-This is the fourth guard in the SDK's staleness family, and the family exists
-because prose failed three times in four blind runs. The others check that named
-modules exist and that promised modules are documented; this one checks the
-methods.
-
-# # Why the reference exists at all
-
-ADR 0031's gate is that an author never opens a file under `crates/`. The SDK
-was recommending `cargo doc -p ambition_platformer2d -p ambition_platformer2d_world`, so its own advice
-generated the failures it is scored on. Rustdoc is genuinely better for
-browsing; it is not a substitute for the SDK containing the surface.
+The checks run in both directions: the reference may not omit public methods or
+name methods that no longer exist. Sibling tests apply the same rule to public
+modules and enum variants.
 """
 
 from __future__ import annotations
@@ -49,12 +35,7 @@ DOCUMENTED_TYPES = {
 }
 
 # Methods deliberately absent from the reference, each with a reason. Anything
-# not listed here must be documented — the default is "public means documented".
-# EMPTY as of slice F. Its one entry was `unstable_rollback_session`, hidden
-# because documenting it would have made the promise ADR 0031 reserved for its
-# own slice. Slice F made that promise properly and the method is gone, so the
-# waiver went with it — a waiver outliving its subject is the stale entry this
-# file's sibling ratchets exist to forbid.
+# not listed here must be documented. The set is currently empty.
 INTENTIONALLY_UNDOCUMENTED: set[str] = set()
 
 
@@ -144,11 +125,7 @@ def test_the_reference_names_no_method_that_does_not_exist():
     )
 
 
-# Public enums the SDK reference names variants of, and where they are defined.
-#
-# This is the FOURTH instance of the family's founding failure — a document describing something
-# that does not exist — and the third syntactic category it has appeared in (module paths,
-# methods, now variants).
+# Public enums whose variants are part of the SDK reference.
 DOCUMENTED_ENUMS = {
     "RollbackRefused": ROLLBACK_RS,
     "RollbackHealth": ROLLBACK_RS,

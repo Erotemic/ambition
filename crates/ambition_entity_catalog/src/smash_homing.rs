@@ -1,23 +1,5 @@
-//! Carry the fighter at whoever they were pointing at: the authored vocabulary.
-//!
-//! ⭐⭐ THE TARGET QUERY IS NOT NEW AND THIS TECHNIQUE DOES NOT OWN IT.
-//! `ambition_combat::targeting::assisted_fire_direction` already answers "which
-//! foe was I pointing at" deterministically — inside an authored cone, out to an
-//! authored range, and **tie-broken on the stable `SimId` rather than the
-//! `Entity`**, because bevy_ggrs destroys and recreates rollback entities and a
-//! tie decided by a raw id picks a different target mid-resimulation than the
-//! confirmed timeline did. ⇒ A homing move ASKS that question and steers on the
-//! answer; the targeting domain keeps it.
-//!
-//! ⛔ SO WHAT IS ACTUALLY AUTHORED HERE IS THE MOTION, and only that: how fast,
-//! for how long, and how wide a cone still counts as "the way I was pointing".
-//!
-//! ⭐ THE DAMAGE IS NOT HERE EITHER. A homing move is an ordinary strike whose
-//! ACTIVE window happens to arrive where somebody is standing — so the hitbox,
-//! the launch and the recovery are authored the way every other move authors
-//! them, and this technique only decides where the fighter goes.
-//!
-//! The ruleset half is `ambition_demo_smash::homing`.
+//! Authored payload for a homing dash.
+//! Combat targeting chooses the target. This module only defines the motion and targeting limits used by the dash.
 
 use serde::{Deserialize, Serialize};
 
@@ -32,30 +14,20 @@ pub const HOMING_DASH: &str = "smash.homing_dash";
 pub struct HomingDashParams {
     /// How fast the fighter travels while homing, in world px per second.
     pub speed: f32,
-    /// How long the homing lasts. ⚠ It should END BEFORE THE MOVE DOES, or the
-    /// fighter is still being carried through his own recovery and cannot be
-    /// punished for missing.
+    /// Homing duration in seconds. It should end before the move recovery finishes.
     pub duration_s: f32,
-    /// The widest angle from the commanded direction that still counts as "the
-    /// way I was pointing", in degrees.
-    ///
-    /// ⭐⭐ THIS IS WHAT KEEPS IT A READ RATHER THAN A GUARANTEE. `90.0` is the
-    /// half-plane — anybody in front of you. Narrow it and the move demands you
-    /// point at them; widen it past 90 and it starts finding people behind you,
-    /// which is a homing move nobody has to aim.
+    /// Maximum target angle from the commanded direction, in degrees. Values above 90 degrees are rejected so the move cannot acquire targets behind the fighter.
     pub cone_degrees: f32,
     /// How far a foe may be and still attract the dash, in world px. Past this
     /// the fighter goes where they were pointing and nothing more.
     pub max_range: f32,
 }
 
-/// Author a homing dash onto a move's timeline.
+/// Author a homing dash on a move timeline.
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's duration; if the cone is not positive (a dash
-/// that can find nobody is a plain impulse wearing a technique's name); or if
-/// the cone reaches behind the fighter, which makes the move unaimable.
+/// Panics if `at_s` is after the move duration or if the targeting cone is invalid.
 pub fn author_homing_dash(mut spec: MoveSpec, at_s: f32, params: HomingDashParams) -> MoveSpec {
     assert!(
         at_s <= spec.duration_s,

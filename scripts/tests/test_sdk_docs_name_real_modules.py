@@ -65,19 +65,12 @@ def test_the_sdk_code_blocks_name_only_modules_that_exist():
     assert not missing, (
         "the SDK's code blocks name modules the facade does not export — a "
         f"reader copying them gets a compile error: {missing}. This is the "
-        "defect that shipped `ambition_platformer2d::experience` in api-prototype.md §5, a "
-        "list explicitly framed as an OUTPUT read off the call sites."
+        "stale SDK module path; update the documentation or the public facade together."
     )
 
 
 def test_every_reviewed_sdk_module_is_documented():
-    """A module we PROMISE must be findable in the SDK.
-
-    The allowlist's `allowed` set is the compatibility commitment; if a consumer
-    may name it, a consumer must be able to discover it without reading
-    `crates/`. Blind run 4 opened two engine crates hunting for the room
-    vocabulary while `world` sat in that set.
-    """
+    """Every module in the public compatibility allowlist must be documented."""
     import sys
 
     sys.path.insert(0, str(REPO / "scripts"))

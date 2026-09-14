@@ -1,25 +1,5 @@
-//! Place a mine the placer can set off from anywhere: the authored vocabulary.
-//!
-//! ⭐ THE SAME SPLIT `smash_bomb`, `smash_capture` AND `smash_portal` USE. A key
-//! and its params are what a MOVESET authors; the object on the stage, the
-//! arming clock and the blast are a RULESET's, and that half is
-//! `ambition_demo_smash::mine`.
-//!
-//! ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"projectile polygon get a tether, and
-//! probably the remote mine as their down smash."*
-//!
-//! ⛔⛔ THE MINE IS A `GroundItem`, EXACTLY LIKE THE BOMB, and that is the whole
-//! reason this technique is small. "A thing that sits on the stage, falls, and
-//! can be picked up and thrown" is an authority this engine already has; a mine
-//! that spawned its own body would have been a second answer to a question that
-//! was already answered — the mistake this campaign's plan names first.
-//! ⇒ The consequence is a FEATURE and is not a compromise: an opponent can pick
-//! your mine up, and it is still yours to detonate while they hold it.
-//!
-//! ⭐ WHAT MAKES IT A MINE RATHER THAN A BOMB IS THE TRIGGER, and only that. The
-//! bomb answers to a fuse and to being thrown hard; the mine answers to nobody
-//! but the fighter who placed it. There is no countdown to read and no contact
-//! threshold to bait — which is why it is worth having both.
+//! Authored payload for a remotely triggered mine.
+//! The ruleset represents the mine as a ground item. Normal item custody therefore applies while the placer keeps detonation authority.
 
 use serde::{Deserialize, Serialize};
 
@@ -29,25 +9,13 @@ use crate::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, ParamValue};
 /// unrecognised key falls through other rulesets untouched.
 pub const PLACE_MINE: &str = "smash.place_mine";
 
-/// Authored parameters of one placed mine.
-///
-/// ⛔ THERE IS NO `fuse_s` AND ITS ABSENCE IS THE DESIGN. A mine that expired on
-/// its own would be a slow bomb, and the choice of WHEN is the only thing the
-/// move is really selling.
+/// Authored parameters for one placed mine. The mine has no fuse; its owner triggers it after the arming delay.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlaceMineParams {
-    /// The held-item id this object becomes in somebody's hands. It must be a
-    /// registered held item, for the same reason the bomb's must be: without one
-    /// the object cannot be picked up, and half of what a stage object IS is
-    /// that somebody else can come and take it.
+    /// Held-item id used when the mine enters item custody. It must name a registered held item.
     pub item_id: String,
-    /// Seconds before the mine will answer its owner.
-    ///
-    /// ⭐⭐ THE ARMING DELAY IS THE MOVE'S ONLY BRAKE. Placement and detonation
-    /// are the same press, so without this a fighter could place and detonate on
-    /// consecutive frames and the mine would be an ordinary disjointed hitbox
-    /// with extra steps. The delay is what makes placing it a COMMITMENT.
+    /// Seconds before the mine accepts remote detonation.
     pub arm_s: f32,
     /// Damage at the centre of the blast.
     pub damage: i32,
@@ -59,17 +27,8 @@ pub struct PlaceMineParams {
     pub offset: (f32, f32),
 }
 
-/// The held-item ids a `mine` effect names.
-///
-/// ⛔ ITS OWN DOC ALREADY STATED THE STAKE: the id "must be a registered held
-/// item or nobody can pick \[it\] up — which is half the move". Nothing checked
-/// it. `mine.rs` resolves it at FIRE TIME with `held_item_by_id` and logs on
-/// `None`, so an unregistered id produced an object nobody can take, mid-fight,
-/// with a log line as the only symptom.
-///
-/// ⚠ Malformed params name nothing here: whether they hydrate is
-/// `TechniqueParams::Checked`'s question, asked on the same effect by the same
-/// pass.
+/// Return the held-item id referenced by a mine payload.
+/// Malformed params return no references because parameter hydration is validated separately.
 pub fn mine_held_item_refs(effect: &crate::EffectRef) -> Vec<String> {
     effect
         .params
@@ -78,20 +37,11 @@ pub fn mine_held_item_refs(effect: &crate::EffectRef) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Author a mine placement onto a move's timeline.
-///
-/// ⚠ ONE EVENT AUTHORS BOTH HALVES OF THE MOVE. Pressing this move while a mine
-/// of yours is already armed detonates that mine and places nothing; the
-/// ruleset decides which of the two happened, because only it can see the stage.
-/// ⇒ There is deliberately no `smash.detonate_mine` key to author beside this
-/// one: a second key would let a moveset offer detonation without placement,
-/// and a fighter who can detonate mines they cannot place is not a design
-/// anybody asked for.
+/// Author the mine technique on a move timeline. The ruleset decides whether the event places a mine or detonates the owner's armed mine.
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's own duration. A mine scheduled after the move
-/// ends never appears, and the move would spend its recovery to do nothing.
+/// Panics if `at_s` is after the move duration.
 pub fn author_place_mine(mut spec: MoveSpec, at_s: f32, params: PlaceMineParams) -> MoveSpec {
     assert!(
         at_s <= spec.duration_s,

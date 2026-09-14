@@ -25,19 +25,14 @@ fn the_minimal_game_boots_headless() {
     );
 }
 
-/// The SAME module reaches the windowed face.
-///
-/// This is the slice-B leak, as a test. Before slice B the visible face installed
-/// `PlatformerAssetsPlugin`, which panics without a `CharacterCatalog`, and a minimal module had no
-/// way to supply one — so a game that booted headless could not boot windowed, while
-/// `api-prototype.md` §2b claimed the two faces differed only in policy.
+/// The same minimal module must compose on the windowed face.
 #[test]
 fn the_minimal_game_boots_windowed() {
     let app = PlatformerApp::windowed(minimal_game::MINIMAL_WINDOW_TITLE)
         .without_gpu()
         .mount(the_one_module())
         .try_build()
-        .expect("the smallest game composes windowed — this is slice B's leak");
+        .expect("the smallest game composes windowed");
     assert!(
         app.get_schedule(ambition_platformer2d::bevy::prelude::FixedUpdate)
             .is_some(),
@@ -45,17 +40,8 @@ fn the_minimal_game_boots_windowed() {
     );
 }
 
-/// A composition that prepares art and declares no cast is REFUSED.
-///
-/// The counterpart to the test above, and the reason slice B did not simply
-/// make the engine invent an empty catalog. `PlatformerAssetsPlugin`'s refusal
-/// is deliberate — *"silently substituting an empty catalog is how a game ships
-/// with its bosses drawn as the fallback body and nobody notices"* — so the fix
-/// had to make the true answer SAYABLE, not make the demand disappear.
-///
-/// Saying nothing must therefore still fail, and fail where the consumer can
-/// read it: a structured `CompositionError` naming both fixes, rather than a
-/// panic from inside a plugin three installs later.
+/// Art preparation with no declared cast must return a structured refusal that
+/// names both supported fixes instead of inventing an empty catalog.
 #[test]
 fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
     struct Silent;
@@ -98,17 +84,8 @@ fn preparing_art_with_no_declared_cast_is_refused_and_names_both_fixes() {
     );
 }
 
-/// Declaring no cast AND a starting character is a contradiction, and it is
-/// caught.
-///
-/// It also surfaced a real limitation, recorded rather than papered over: a
-/// genuinely CASTLESS game — a menu-only app — cannot be expressed today.
-/// `playable()` requires a starting character, and without `playable()` no
-/// gameplay route is registered, so rule 7 refuses the composition. `no_characters()`
-/// is therefore only usable by a module that is not itself playable, and no
-/// such module can currently stand up alone. That is a genuine gap in the
-/// consumer matrix's "noncombat actor" direction and it belongs to a later
-/// slice, not to a quiet `expect()` here.
+/// Declaring an empty cast while naming a starting character is contradictory
+/// and must be refused explicitly.
 #[test]
 fn declaring_no_cast_and_a_starting_character_is_refused() {
     struct Contradiction;
@@ -181,8 +158,7 @@ fn a_game_that_will_never_start_reports_why() {
 
     let mut status = host_status(&app);
     let mut ticks = 0;
-    // A poll loop that can STOP. That is the affordance under test — the
-    // previous version of this loop had no exit but exhaustion.
+    // A refused host must let polling stop before the timeout.
     for _ in 0..600 {
         app.update();
         ticks += 1;
@@ -210,18 +186,8 @@ fn a_game_that_will_never_start_reports_why() {
     );
 }
 
-/// A starting character nobody authored is refused at BUILD, not at tick 600.
-///
-/// Blind run 2 found this and named it exactly: "the exact
-/// silent-failure shape slice A closed for routes, left open for characters."
-/// It declared a `starting_character` no roster contained, and `try_build`
-/// SUCCEEDED — 120 ticks ran, the process exited 0, and the host had never
-/// started. It reported that as a false positive against itself, which is the
-/// only reason it was caught.
-///
-/// Slice C made that hang *legible* (`HostStatus::Refused`). This makes it
-/// unreachable: the draft holds both the roster and the id, so it can answer at
-/// build time with the same quality of message the route check gives.
+/// A starting character absent from the authored roster is refused during
+/// composition rather than surfacing later as a host that never starts.
 #[test]
 fn a_starting_character_no_roster_contains_is_refused_at_build() {
     struct Ghost;
@@ -264,15 +230,7 @@ fn a_starting_character_no_roster_contains_is_refused_at_build() {
     );
 }
 
-/// The prelude carries the types its own signatures demand.
-///
-/// `ModuleDraft::playable` takes `Vec<RoomSpec>`; `ModuleDraft::room` takes
-/// `RoomMetadata`. Blind run 2 had to open `crates/ambition_platformer2d_world/src/lib.rs`
-/// to find where they live — the ONE engine source file it opened, which under
-/// §2c is the field that names the next leak.
-///
-/// This test imports NOTHING but `ambition_platformer2d::app::prelude` and uses both, so the
-/// omission cannot come back quietly.
+/// The app prelude exports the room types required by its own public signatures.
 #[test]
 fn the_app_prelude_carries_the_room_types_its_signatures_require() {
     // No `use ambition_platformer2d::world::...` anywhere in this function, deliberately.
@@ -281,12 +239,7 @@ fn the_app_prelude_carries_the_room_types_its_signatures_require() {
     let _ = PlatformerApp::headless();
 }
 
-/// The game reports that it started — without counting raw Bevy entities.
-///
-/// The affordance blind run 1 went looking for and did not find; it fell back
-/// to `app.world().entities().len()`, which is raw Bevy and says nothing about
-/// routes. Blind run 2 used `host_status` and caught its OWN false positive
-/// with it: a host that exited 0 having never started.
+/// `host_status` reports whether the declared game route actually started.
 #[test]
 fn the_minimal_game_reports_that_it_started() {
     let mut app = PlatformerApp::headless().mount(the_one_module()).build();
@@ -335,32 +288,12 @@ fn a_route_with_no_prepared_session_does_not_count_as_running() {
         !hollow.is_running(),
         "a route with no prepared session behind it is the empty host"
     );
-    // A diagnosis needs to know WHICH route is hollow.
+    // The status must retain the hollow route for diagnosis.
     assert_eq!(hollow.route(), Some("r"));
 }
 
-/// The actor is NOT secretly combat-shaped. (consumer-matrix row 3)
-///
-/// The row asks whether the ENGINE forces combat state onto a body regardless
-/// of what its content declared — which would make `actor` a combat concept
-/// wearing a general name, and every noncombat game pay for a fight it never
-/// has.
-///
-/// It does not. This game's walker carries 60+ components and not one of them
-/// is melee, combat, hitbox, health or moveset state.
-///
-/// Ask this on COMPONENTS, not on the ability mask. An earlier version
-/// asserted `AbilityBase.attack == false`, failed, and I recorded the category
-/// as FAILING. That was the wrong question, and `actor_clusters.rs` says so
-/// directly: *"A combat body HAS the attack verb (capability); WHETHER it
-/// swings is gated by its `ActionSet.melee` (a peaceful NPC's empty set folds
-/// no `"attack"` move, so it carries no `MovesetMelee`) and its brain
-/// (policy)."* The mask is what the movement pipeline owns for a body; the
-/// combat STATE is what makes it a fighter. Reading the mask as armament
-/// produced a false accusation against a design that is correct.
-///
-/// Asserted on a LIVE body of a RUNNING host — a constructed component would
-/// only test this test's own arithmetic.
+/// A noncombat authored character must not receive combat state. Check the live
+/// body's components rather than its generic movement capability mask.
 #[test]
 fn a_noncombat_character_gets_no_combat_state() {
     use ambition_platformer2d::bevy::prelude::{Entity, With};
@@ -420,20 +353,8 @@ fn a_noncombat_character_gets_no_combat_state() {
     );
 }
 
-/// Two modules with DISTINCT experiences COEXIST. (slice D)
-///
-/// The composition half of consumer-matrix row 4, and the thing that blocked it
-/// and `ambition-itself` together: until slice D a draft held ONE experience, so
-/// the second module's `experience()` collided with the first instead of sitting
-/// beside it. The shipped host registers four.
-///
-/// ADR 0032: *"module inclusion is a MERGE, not an ordering."* It is now a merge
-/// in both senses — conflicts are detected (below) AND non-conflicting modules
-/// compose.
-///
-/// The FIRST mounted experience is the host's home. That is a rule a consumer
-/// can predict without a second knob to set, and it matches what the shell
-/// already does with an initial route.
+/// Distinct experience IDs compose together. The first mounted experience owns
+/// the host's default initial route.
 #[test]
 fn two_modules_with_distinct_experiences_compose_together() {
     struct Second;
@@ -484,12 +405,7 @@ fn two_modules_with_distinct_experiences_compose_together() {
     );
 }
 
-/// Two modules claiming the SAME experience id are refused, naming both.
-///
-/// The conflict half. `ModuleDraft::experience` keys by id, so coexistence and
-/// collision are now different outcomes rather than the same one — before slice
-/// D every second experience was a collision, which made the conflict detector
-/// look right for the wrong reason.
+/// Duplicate experience IDs are refused, and the error names both owners.
 #[test]
 fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
     struct Squatter;
@@ -518,16 +434,8 @@ fn two_modules_claiming_one_experience_id_conflict_and_the_error_names_both() {
     }
 }
 
-/// Every other test in this file asserted that the host was `Running`. The host WAS running.
-///
-/// Blind run 3 found it by copying this fixture verbatim, which `docs/sdk/README.md` tells
-/// third parties to do.
-///
-/// `host_status` cannot see this and was never going to. It answers "did
-/// the engine start", which is exactly what it was built for and what slice C
-/// needed. "Is the game playable" is a different question and needs a different
-/// assertion: a POSITION, settling. A suite that only ever asks the engine about
-/// itself will pass over any amount of broken content.
+/// A running host is not enough to prove authored content is playable. The live
+/// player must land and settle on the authored floor.
 #[test]
 fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
     use ambition_platformer2d::bevy::prelude::With;
@@ -565,17 +473,8 @@ fn the_walker_lands_on_the_floor_instead_of_falling_through_it() {
     );
 }
 
-/// The published one-character roster actually composes.
-///
-/// `MINIMAL_CHARACTER_ROSTER_RON` exists because blind run 3 could not derive
-/// the non-empty schema: the parser names one missing field per build cycle and
-/// dead-ends at the first enum-typed field, because variant names cannot be
-/// guessed. It gave up and opened a fixture — the SDK's acceptance test failing
-/// by the SDK's own suggested remedy.
-///
-/// A published example that does not work is worse than none: it costs a
-/// reader the build cycle AND their trust in the rest of the document. So it is
-/// used here exactly as a consumer would, with the `my_hero` id it declares.
+/// The published one-character roster must compose with the character ID it
+/// declares.
 #[test]
 fn the_published_one_character_roster_composes_and_runs() {
     struct FromTheDocs;
@@ -594,8 +493,7 @@ fn the_published_one_character_roster_composes_and_runs() {
                 .playable(
                     "From The Docs",
                     "built from the published roster constant",
-                    // The id the constant declares. If these drift, the
-                    // constant is a trap rather than an example.
+                    // Keep the published roster and its documented character ID aligned.
                     "my_hero",
                     minimal_game::minimal_experience::MINIMAL_ROOM_ID,
                     vec![minimal_game::minimal_experience::minimal_room()],
@@ -624,20 +522,8 @@ fn the_published_one_character_roster_composes_and_runs() {
     );
 }
 
-/// A multi-game host boots into its LAUNCHER, not into one of its games.
-///
-/// Slice E. `PlatformerApp` could only boot into the primary experience's
-/// gameplay route — which is right for a single game and wrong for a host that
-/// ships several. `game/ambition_app` boots into a launcher listing all four of
-/// its experiences and had to configure that by hand, registering a shell
-/// experience as its home route and writing `ShellHostConfiguration.spec`
-/// itself. That was the last piece of host composition a real consumer still
-/// assembled for itself.
-///
-/// The two policies must be DISTINGUISHABLE, or this test passes on a
-/// builder that ignores the flag. So it asserts the default lands somewhere
-/// different from the launcher policy, rather than only that the launcher
-/// policy lands somewhere.
+/// A multi-game host can start at its launcher. The test also proves that this
+/// policy differs from the default first-game route.
 #[test]
 fn a_multi_game_host_can_start_at_its_launcher() {
     struct Second;
@@ -780,20 +666,9 @@ fn the_sdk_worked_room_example_compiles_and_runs() {
     );
 }
 
-/// `CompositionError`'s own doc quotes ADR 0032 — *"a draft yields one build
-/// error listing every conflict in the experience"* — and that promise is true
-/// WITHIN a pass and cannot be true across them: the capability-dependent checks
-/// (routes, roster) need the capabilities BUILT, so a draft that does not
-/// assemble cannot be asked whether its roster exists.
-///
-/// That funnel was SILENT until the slice-H red probe walked into it. Building
-/// this fixture without the render capability, with no cast declared, reported
-/// only the capability and said `1 problem(s)` as if that were the whole list —
-/// fix it, rebuild for ten minutes, meet the next one.
-///
-/// The passes cannot be merged. What they can do is say which one spoke, so
-/// "this is everything" and "this is everything I could see from here" stop
-/// looking identical.
+/// A declaration-stage refusal must say that capability-dependent checks have
+/// not run yet. Later checks require successful assembly and cannot be folded
+/// into the declaration pass.
 #[test]
 fn a_declaration_refusal_says_the_later_checks_have_not_run() {
     struct Silent;
@@ -823,15 +698,8 @@ fn a_declaration_refusal_says_the_later_checks_have_not_run() {
     );
 }
 
-/// A consumer can drive two INDEPENDENT seats through the SDK. (finding (g),
-/// input half)
-///
-/// Blind run 7 recorded that no public seam drove input to a named seat, so couch-versus was not
-/// expressible through the SDK. That is the harder of the two to notice, because nothing is missing
-/// and nothing fails; the capability is just unreachable from where a consumer stands.
-///
-/// This asserts what the finding asked for: both halves reachable, by name, from
-/// `ambition_platformer2d` alone.
+/// The SDK exposes both primary-seat and explicit-seat input driving without
+/// requiring an implementation-crate import.
 #[test]
 fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
     use ambition_platformer2d::sim::{
@@ -858,14 +726,8 @@ fn a_consumer_can_name_both_input_seams_without_leaving_the_sdk() {
     drive_control_frame(app.world_mut(), ControlFrame::default());
     drive_slot_frame(app.world_mut(), PlayerSlot(1), ControlFrame::default());
 
-    // A test whose whole content is "the call does not panic" agrees with a function that does
-    // nothing.
-    //
-    // asked of the app, not of the branch. Which resource the frame lands
-    // in is the composition's business — a latching host folds it into a latch,
-    // a headless one writes the frame — so this drives the two seams into two
-    // identical games and holds them to the same OBSERVABLE, rather than
-    // restating the helper's own arm structure back at it.
+    // Compare the two public seams through the same observable result. The host
+    // owns which underlying input resource receives the frame.
     let mut by_name = a_game!();
     let mut by_number = a_game!();
     for _ in 0..8 {

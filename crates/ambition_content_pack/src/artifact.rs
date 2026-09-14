@@ -1,46 +1,22 @@
-//! The loadable content envelope — fast-iteration packet I2, step 1.
+//! Versioned envelope for loadable content.
 //!
-//! ⭐⭐ **THE ENVELOPE KNOWS NOTHING ABOUT MOVES, AND THAT IS THE DESIGN.** A
-//! section's payload is opaque text here; the codec for a move section lives
-//! beside `MoveSpec`, in the crate that owns it. The alternative — an envelope
-//! that names every domain — makes this crate depend on each one and turns
-//! "add a content family" into "edit the envelope", which is the shape the
-//! packet's own step 1 tells us to avoid.
-//!
-//! ⛔⛔ **TWO VERSIONS, NOT ONE, AND THEY ARE NOT THE SAME QUESTION.** The
-//! ENVELOPE version is "can this reader parse the outer shape at all"; a SECTION
-//! version is "does this reader understand this family's payload". One number
-//! would force a lockstep bump of every section whenever the envelope changed,
-//! and — worse — would let a host that understands a newer envelope silently
-//! misread an older section's payload as the shape it expects now.
-//!
-//! ⚠ **ADMISSION IS A REFUSAL LIST, NOT A PARSE.** `ron::from_str` succeeding
-//! says the bytes were well-formed; it says nothing about whether this host can
-//! honour what they ask for. Every rule in [`ContentArtifact::admit`] is a state
-//! the format can EXPRESS and a host must not act on.
+//! Section payloads are opaque here; each domain owns its codec and section
+//! version. The envelope version covers only the outer shape. Parsing establishes
+//! syntax, while [`ContentArtifact::admit`] establishes whether the host may act
+//! on the artifact.
 
 use serde::{Deserialize, Serialize};
 
-/// The outer shape this module reads and writes.
-///
-/// ⛔ Bumped only when the ENVELOPE changes — the section list's own encoding.
-/// A new content family is a new section kind, not a new envelope.
+/// Version of the outer envelope shape. New section kinds do not require a bump.
 pub const ENVELOPE_VERSION: u32 = 1;
 
-/// The most sections one artifact may carry.
-///
-/// ⚠ A BOUND, because "bounded lengths" is step 1's own words and an unbounded
-/// list is a reader that allocates whatever a file says. It is generous on
-/// purpose: this refuses a corrupt or hostile file, not a large game.
+/// Maximum section count accepted from one artifact.
 pub const MAX_SECTIONS: usize = 256;
 
 /// One content family's data, as the envelope sees it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactSection {
-    /// WHICH family this is — a logical reference, never a Rust type name.
-    ///
-    /// ⛔ A type name would make the wire format a fact about the host's source
-    /// layout, so renaming a struct would invalidate every artifact on disk.
+    /// Logical content-family identifier, independent of Rust type names.
     pub kind: String,
     /// The version of THIS family's payload encoding.
     pub section_version: u32,
@@ -55,10 +31,7 @@ pub struct ContentArtifact {
     pub sections: Vec<ArtifactSection>,
 }
 
-/// Why a well-formed artifact may not be acted on.
-///
-/// ⭐ EVERY VARIANT NAMES A STATE THE FORMAT CAN EXPRESS. A refusal for
-/// something the format cannot represent would be a check that cannot fire.
+/// Why a syntactically valid artifact may not be admitted.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ArtifactRefusal {
     #[error(
@@ -102,27 +75,19 @@ impl ContentArtifact {
         }
     }
 
-    /// Parse the outer shape. ⚠ WELL-FORMED IS NOT ADMISSIBLE — call
-    /// [`Self::admit`] before acting on anything this returns.
+    /// Parse the outer shape. Call [`Self::admit`] before acting on the result.
     pub fn parse(ron_text: &str) -> Result<Self, ron::error::SpannedError> {
         ron::from_str(ron_text)
     }
 
-    /// Serialize to pretty RON. The first implementation favours clarity over
-    /// compression, which is step 1's own instruction.
+    /// Serialize to human-readable RON.
     pub fn to_ron(&self) -> Result<String, ron::Error> {
         ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
     }
 
-    /// May this host act on it?
-    ///
-    /// `supported` answers "what is the newest version of this section kind I
-    /// understand" — a host that does not know a kind at all passes `None` for
-    /// it and the section is carried without being acted on, which is how a
-    /// pack can hold a family this build did not compile.
-    ///
-    /// ⛔ EVERY VIOLATION IS RETURNED, not just the first: an author fixing a
-    /// pack should fix it in one pass.
+    /// Return every admission refusal. `supported` gives the newest payload
+    /// version understood for a known section kind; `None` carries an unknown
+    /// section without acting on it.
     pub fn admit(
         &self,
         supported: &dyn Fn(&str) -> Option<u32>,
@@ -171,10 +136,7 @@ impl ContentArtifact {
         out
     }
 
-    /// The one section of this kind, or `None`.
-    ///
-    /// ⚠ Only meaningful after [`Self::admit`] is empty — before that, "the one
-    /// section" is a claim [`ArtifactRefusal::DuplicateSection`] exists to deny.
+    /// Return the section of this kind after successful admission.
     pub fn section(&self, kind: &str) -> Option<&ArtifactSection> {
         self.sections.iter().find(|s| s.kind == kind)
     }
@@ -211,17 +173,14 @@ mod tests {
         assert_eq!(a.admit(&knows_everything), vec![]);
     }
 
-    /// ⛔⛔ THE ONE THAT READS AS SUCCESS. An empty pack admits cleanly and
-    /// replaces a host's content with nothing — the same shape as every
-    /// empty-corpus failure this repository keeps rediscovering.
+    /// An empty artifact must not replace live content with nothing.
     #[test]
     fn an_empty_artifact_is_refused_rather_than_admitted() {
         let a = ContentArtifact::new(vec![]);
         assert_eq!(a.admit(&knows_everything), vec![ArtifactRefusal::Empty]);
     }
 
-    /// ⛔ A PARTIAL WRITE OR A WATCHER FIRING MID-COPY is how a mixed pack gets
-    /// selected, and "which one wins" would otherwise be read order.
+    /// Duplicate section kinds are ambiguous and must be refused.
     #[test]
     fn two_sections_of_one_kind_are_refused() {
         let a = ContentArtifact::new(vec![section("moves", 1), section("moves", 1)]);
@@ -234,8 +193,7 @@ mod tests {
         );
     }
 
-    /// ⭐ THE REASON THE TWO VERSIONS ARE SEPARATE. A newer payload read as the
-    /// shape this host expects now is a SILENT misread, so it is refused.
+    /// A section payload newer than the host understands must be refused.
     #[test]
     fn a_section_newer_than_this_host_understands_is_refused() {
         let a = ContentArtifact::new(vec![section("moves", 4)]);
@@ -249,9 +207,7 @@ mod tests {
         );
     }
 
-    /// ⭐ AND THE CONTROL: a kind this build does not know at all is CARRIED,
-    /// not refused. A pack may hold a family this host did not compile, and
-    /// refusing it would make every artifact build-specific.
+    /// Unknown section kinds are carried rather than making artifacts build-specific.
     #[test]
     fn a_section_this_host_does_not_know_is_carried_rather_than_refused() {
         let a = ContentArtifact::new(vec![section("weather", 9)]);
@@ -271,16 +227,14 @@ mod tests {
         );
     }
 
-    /// ⛔ EVERY VIOLATION, NOT THE FIRST — an author fixes a pack in one pass.
+    /// Admission reports all independent violations in one pass.
     #[test]
     fn a_pack_with_several_problems_reports_all_of_them() {
         let mut a = ContentArtifact::new(vec![section("moves", 9), section("moves", 9)]);
         a.envelope_version = 99;
         let refusals = a.admit(&|_| Some(1));
-        // ⚠ THE SET, NOT THE COUNT. Both duplicated sections are also too new, so
-        // the count is four — and asserting `3` here was my own first version,
-        // which would have made a correct "report every violation" look wrong.
-        // What the row claims is that no problem is HIDDEN by another.
+        // Assert categories rather than a count because one section can violate
+        // more than one rule.
         assert!(
             refusals
                 .iter()

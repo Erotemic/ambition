@@ -1,25 +1,5 @@
-//! The counter stance: the authored vocabulary for "if you hit me here, this
-//! happens".
-//!
-//! ⭐⭐ THE SAME SPLIT `smash_capture` AND `smash_teleport` USE. A key and its
-//! params are what a MOVESET authors, so they live where movesets can name them;
-//! holding the parry window open and dispatching the response are the GAME's
-//! job, and that half sits in the smash demo beside the capture adapter.
-//!
-//! ⛔⛔ THIS TECHNIQUE ADDS NO DEFENSIVE MECHANIC, AND THAT IS THE WHOLE POINT.
-//! The perfect shield already denies a qualifying attack, decides it
-//! deterministically, and now says who it denied (`ParriedBodyHit`). A counter
-//! is that fact plus an authored consequence. The three counters a platform
-//! fighter wants differ ONLY in the consequence:
-//!
-//! * an ordinary counter answers with an attack;
-//! * a Revenge-style counter answers with a lasting character modifier;
-//! * a Witch-Time-style counter answers by slowing the attacker.
-//!
-//! ⇒ So there is no `CounterKind` here and there must never be one. The kind is
-//! whichever technique the author names in [`CounterParams::response`], which
-//! means a counter can answer with anything the game can already do, and a
-//! technique added for some other reason becomes a counter response for free.
+//! Authored payload for a counter stance.
+//! The active window reuses the existing parry authority. The response key selects the consequence, so the counter does not define a separate counter-kind hierarchy.
 
 use serde::{Deserialize, Serialize};
 
@@ -33,83 +13,24 @@ pub const COUNTER: &str = "smash.counter";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CounterParams {
-    /// How long the parry window stays open, in seconds.
-    ///
-    /// ⭐ REFRESHED EVERY FRAME THE AUTHORING WINDOW IS ACTIVE, not set once.
-    /// `BodyShieldState::parrying()` is the timer alone — `parry_window_timer >
-    /// 0.0` — and it counts down, so a stance that set it once would decay
-    /// mid-window and the counter would stop catching part-way through its own
-    /// authored frames. ⇒ Author this as roughly one tick of slack rather than
-    /// the stance's length: it is a "still open" heartbeat, not a duration.
+    /// Parry heartbeat in seconds. The active stance refreshes it every frame, so this is slack for the existing parry timer rather than the stance duration.
     pub window_s: f32,
-    /// The technique fired on a successful interception — the counter's answer.
-    ///
-    /// ⛔ A KEY, NOT A KIND. See the module note: what makes this a retaliation
-    /// or a buff or a slow is which technique is named here, and nothing in the
-    /// engine needs to know which of those it is.
+    /// Technique key dispatched after a successful interception. The key, not a counter kind, defines the consequence.
     pub response: String,
-    /// Aim [`Self::response`] at the body that SWUNG rather than at the
-    /// stance's owner. `false` — the default, and what every stance authored
-    /// before this field existed meant.
-    ///
-    /// ⭐⭐ THE THIRD COUNTER THIS MODULE NAMES NEEDED A TARGET, NOT AN
-    /// AUTHORITY. The header lists the three a platform fighter wants — an
-    /// ordinary counter answers with an attack, a Revenge-style one with a
-    /// lasting modifier, and a **Witch-Time-style one by SLOWING THE ATTACKER**.
-    /// The first two shipped; the third could not be written, because every
-    /// response was dispatched to the stance's OWNER and no authored effect
-    /// could name the body that swung.
-    ///
-    /// ⛔ THE FACT WAS ALREADY PUBLISHED, which is the rule every signal here
-    /// obeys: `ParriedBodyHit::attacker` exists and its own doc says why the
-    /// parry road has it — *"known here, unlike on the block road, because a
-    /// parry is resolved at the strike rather than at a damage resolution that
-    /// may have lost the striker."*
-    ///
-    /// ⛔⛔ A `bool` AND NOT AN ENUM, AND THAT IS NOT A STYLE CHOICE. This was a
-    /// two-variant enum for an afternoon and **every counter in the game
-    /// silently stopped working**: `ParamValue` is a `ron::Value`, and a unit
-    /// variant does not survive the round trip (`InvalidValueForType { expected:
-    /// "enum …", found: "a unit value" }`). Hydration failed, the stance
-    /// resolved to `None`, and the only signal was a `warn!` nobody reads. ⇒ See
-    /// `round_trip_probe` at the bottom of this file: the guard that turns that
-    /// into a compile-fast failure instead of a playtest.
+    /// If true, dispatch the response to the attacker instead of the stance owner.
+    /// This stays a boolean because `ParamValue` does not round-trip enum variants reliably.
     #[serde(default)]
     pub answers_the_attacker: bool,
-    /// The response technique's own authored params, passed through untouched.
-    ///
-    /// ⚠ NESTED, WHICH THE TELEPORT'S PARAMS DOC SAYS TO BE CAREFUL ABOUT.
-    /// That warning is about ENUMS — a `ron::Value` cannot round-trip a struct
-    /// variant — and not about maps. A `ParamValue` IS a `ron::Value`, so it
-    /// nests inside another one exactly as a map, which
-    /// `nested_response_params_survive_a_round_trip` holds to.
+    /// Authored parameters forwarded to the response technique.
     #[serde(default)]
     pub response_params: ParamValue,
-    /// This stance ABSORBS projectiles instead of returning them.
-    ///
-    /// ⭐ A COUNTER ALREADY REFLECTS SHOTS FOR FREE — the projectile road gates
-    /// on the same `parrying()` window this stance opens, which is how a
-    /// reflector arrived without anyone authoring one. This flips that: the shot
-    /// is consumed instead, and the stance's `response` is what the absorption
-    /// was WORTH.
-    ///
-    /// ⛔ THE RESPONSE IS STILL THE AUTHOR'S. Absorbing that heals, that fills a
-    /// gauge, and that simply deletes the shot are one interception and three
-    /// consequences; this field chooses the interception, not the consequence.
+    /// If true, consume intercepted projectiles instead of reflecting them. The response key still defines the consequence.
     #[serde(default)]
     pub absorbs_projectiles: bool,
 }
 
-/// A complete counter move: startup, the stance, and recovery.
-///
-/// ⛔ THE STANCE WINDOW CARRIES NO VOLUMES, DELIBERATELY. A move that defended
-/// and swung in the same frames would put its own strike into the set of things
-/// its parry could catch, and "what did I counter" would stop having one answer.
-/// The retaliation is the RESPONSE's business and happens after the catch.
-///
-/// ⭐ `motion_scale: 0.0` ON THE STANCE. A counter is a commitment — standing
-/// still is what the window costs — and the engine enforces motion scale
-/// body-side for any controller, so a player and a brain pay it alike.
+/// Build a counter with startup, a stationary active stance, and recovery.
+/// The active window has no hit volumes; retaliation is supplied by the response technique.
 pub fn counter_move(
     id: &str,
     clip: &str,
@@ -193,17 +114,11 @@ fn plain_window(
 mod tests {
     use super::*;
 
-    /// The response's params survive being carried inside the counter's params.
-    ///
-    /// ⛔ THE ONE THING THIS DESIGN RESTS ON. If a nested `ParamValue` did not
-    /// round-trip, every counter would dispatch its response with empty params
-    /// and the failure would look like a response technique misbehaving rather
-    /// than like the counter losing its argument.
+    /// Nested response parameters must survive the counter's `ParamValue` round trip.
     #[test]
     fn nested_response_params_survive_a_round_trip() {
         let params = CounterParams {
             window_s: 0.05,
-            // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
             response: "smash.capture_attempt".to_string(),
             response_params: ParamValue::parse(

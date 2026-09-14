@@ -1,24 +1,5 @@
-//! A move that changes its own mover's health: the authored vocabulary.
-//!
-//! ⭐ THE SAME SPLIT `smash_teleport`, `smash_capture` AND `smash_ride` USE, and
-//! for the same reason. A key and its params are what a MOVESET authors, so they
-//! live where movesets can name them; applying the change to a live body is the
-//! ENGINE's job, and that half sits in `ambition_combat` beside the damage it is
-//! the mirror of.
-//!
-//! ⭐⭐ JON'S DESIGN, 2026-08-26: *"the medic could have a self healing move."*
-//! Her sprite library had been carrying the other half of the answer since it
-//! was forked: `charge.clip.json` is captioned *"Down special — FIELD DRESSING.
-//! She goes to one knee, puts both hands on her own ribs and holds pressure. It
-//! gives back what she spent"*, and `special.clip.json` is ADRENALINE, *"she
-//! spends her own margin to buy tempo"*. One technique answers both, because
-//! paying and repaying are one operation with a sign.
-//!
-//! ⛔⛔ AND NOTHING IN THE ENGINE COULD DO EITHER. `BodyHealth::heal` existed
-//! and no move could reach it; there was no way at all for a move to charge its
-//! own owner, because `damage` is an INJURY — attributed, refused by
-//! invulnerability, and able to report a kill. `BodyHealth::spend` is the
-//! primitive this needed and is documented where it lives.
+//! Authored payload for changing the mover's own health.
+//! Positive values restore health; negative values pay a move cost through the existing health authority.
 
 use serde::{Deserialize, Serialize};
 
@@ -32,27 +13,9 @@ pub const VITALITY: &str = "smash.vitality";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VitalityParams {
-    /// Signed change to the MOVER'S OWN health. Positive restores; negative is
-    /// a price the move charges for itself.
-    ///
-    /// ⭐ ONE SIGNED FIELD AND NOT A `heal` PLUS A `cost`, because two fields
-    /// that may never both be set is a rule the type cannot state and every
-    /// reader has to remember — "exclusive in meaning, not in type" is the
-    /// shape this repository has been bitten by before. A sign is exclusive by
-    /// construction.
-    ///
-    /// ⛔ A RESTORE REPAYS THE METER TOO, and a price charges it. That is
-    /// `BodyHealth`'s own rule, not this technique's: in a platform fighter the
-    /// accumulated-damage meter is the currency that decides how far you launch,
-    /// so a heal that refilled the pool and left the meter would be a heal you
-    /// could not feel.
+    /// Signed change to the mover's own health. Positive values restore health; negative values are a move cost. The shared health authority also updates its damage meter.
     pub change: i32,
-    /// The lowest health a PRICE may leave the mover at. Ignored by a restore.
-    ///
-    /// ⛔⛔ A MOVE THAT CAN KILL YOU BY BEING PRESSED IS NOT A COST. `1` is the
-    /// floor that means "never self-KO", and it is what every authored price
-    /// should want; the field exists so a character can be more cautious than
-    /// that, never less. The engine clamps it up to `1` regardless.
+    /// Minimum health a negative cost may leave. The runtime never allows the cost to reduce the mover below 1.
     #[serde(default)]
     pub floor: i32,
     /// The effect drawn on the mover when the change lands.
@@ -61,13 +24,11 @@ pub struct VitalityParams {
     pub sfx: String,
 }
 
-/// Author a health change onto a move's timeline.
+/// Author a self-health change on a move timeline.
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's own duration — a change scheduled after the move
-/// ends never fires, and the move would spend its recovery to do nothing — or if
-/// `change` is zero, which is a move that costs frames and means nothing.
+/// Panics if `at_s` is after the move duration or `change` is zero.
 pub fn author_vitality(mut spec: MoveSpec, at_s: f32, params: VitalityParams) -> MoveSpec {
     assert!(
         at_s <= spec.duration_s,

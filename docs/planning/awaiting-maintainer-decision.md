@@ -2031,7 +2031,7 @@ three systems into `app.sim_schedule()`, which under the rollback host IS
 | --- | --- |
 | `sync_live_player_dev_edits_system` | `BodyAbilities`, `BodyFlightState`, `MotionModel`, `BodyDashState`, `BodyJumpState`, from live `EditableAbilitySet` |
 | `sync_developer_body_profile` | `BodyKinematics`, `BodyBaseSize`, arbitrated by a non-rollback `Local<Option<PlayerBodyProfile>>` |
-| `sync_player_stats_with_inspector` | health, mana, offense, same non-rollback `Local` arbiter |
+| `sync_player_stats_with_inspector` | health, mana, offense, same non-rollback `Local` arbiter | <!-- cite-ok: the table records the state BEFORE the split; naming the system it replaced is the point -->
 
 ⇒ A rewind restores frame N's authoritative body state and these then apply
 whatever the inspector holds NOW. **That is the same class of failure the
@@ -2100,28 +2100,48 @@ panel's several hundred `&mut tuning.field` rows did not change: the only edit a
 the call site is which resource it asks for, which is the right price for this
 repair.
 
-⇒ **WHAT REMAINS:** `sync_player_stats_with_inspector`, plus
-the production-GGRS poisons the review specifies for all four (edit under a
-locally-maintained timeline ⇒ no advance with old baseline + new value; edit
-under a foreign one ⇒ proposal staged, authoritative value unchanged, replay
-deterministic across the attempted edit). ⛔⛤ **STATS IS NOT LIKE THE OTHER THREE, AND MEASURING IT FOUND SOMETHING THE
-REVIEW DID NOT NAME.** It is BIDIRECTIONAL and INTERLEAVED in one function: the
-`else` branch mirrors body→inspector (*"so the F3 panel shows truth"*), the `if`
-branches mirror inspector→body, and **the mana/offense block at the end writes
-`BodyMana.meter` and `BodyOffense.damage_multiplier` from the inspector
-UNCONDITIONALLY, with no change test at all** — so inside `GgrsSchedule` that is a
-per-ADVANCE write of canonical state from a live developer resource, which is
-worse than the health half the review describes.
+✅ **AND THE STATS EDITOR SPLIT, WHICH WAS THE LAST OF THE FIVE AND THE ONLY ONE
+THAT WAS NOT A MOVE.** The system that was
+`sync_player_stats_with_inspector` <!-- cite-ok: naming the system this split REPLACED is the point of the sentence --> did THREE jobs in one function
+inside the sim schedule: inspector→body (health/max_health when the user moved
+them), body→inspector (*"so the F3 panel shows truth"*), and **an UNCONDITIONAL
+inspector→body write of `BodyMana.meter` and `BodyOffense.damage_multiplier`** —
+no change test at all, so under `GgrsSchedule` that one landed on every single
+ADVANCE. **The review named this domain; it did not name that write, and
+measuring it is what found it.**
 
-⇒ **THE SPLIT IT NEEDS, so the next agent does not discover it mid-edit:**
-publisher (PreUpdate, gated on pending + admission) takes the inspector→body
-writes INCLUDING the unconditional mana/offense block; the body→inspector mirror
-stays in `DevInspectorMirrorSet` where it belongs; and the PROPOSER cannot simply
-be `stats.is_changed()`, because the mirror writes `stats` too and would raise a
-proposal every time gameplay changed HP. That is what the existing
-`PlayerStatsSyncSnapshot` `Local` is for, and reusing it correctly is the actual
-work. **Left undone deliberately rather than half-done in a system that decides
-player HP.** ⇒ **Not five watchers — five proposers.**
+⭐ Three systems now: `propose_player_stats_edits`, `publish_player_stats_edits`
+(both in the `PreUpdate` chain) and `mirror_player_stats_into_the_inspector`
+(which stays in `DevInspectorMirrorSet`, because reading the body into a
+developer panel changes nothing the simulation reads).
+`PlayerStatsSyncSnapshot` became a RESOURCE — three systems share it, and as a
+`Local` inside the sim schedule it advanced once per ADVANCE and remembered
+values from frames a rewind had undone.
+
+⛔⛤ **`is_changed()` IS THE WRONG PROPOSAL TEST FOR THIS DOMAIN, and that is the
+transferable part.** The mirror writes `EditablePlayerStats` every time gameplay
+moves the player's HP, so change detection would raise a proposal — and stop the
+rollback baseline — **on every point of damage the player takes**. The snapshot
+separates *"the developer typed a number"* from *"the game changed one"*.
+
+⛔⛔ **AND THE ARM FOR THAT WAS UNFALSIFIABLE ON ITS FIRST WRITING.** Poisoning
+the proposer to propose UNCONDITIONALLY left it GREEN: the publisher runs in the
+same frame and DRAINS the proposal, so *"not pending after the update"* is
+satisfied by a propose-then-publish cycle and cannot see over-proposing at all —
+which is the entire hazard. It counts proposals BETWEEN the proposer and the
+publisher now, and the same poison reddens it.
+
+⚠ The mirror also declines to run while this domain has a proposal pending:
+otherwise it would copy the body's current value over a number the developer
+typed while it waits behind a refusal, making a refusal indistinguishable from a
+silent discard.
+
+⇒ **WHAT REMAINS FOR `Q120`:** the production-GGRS poisons the review specifies
+for all five domains (edit under a locally-maintained timeline ⇒ no advance with
+old baseline + new value; edit under a foreign one ⇒ proposal staged,
+authoritative value unchanged, replay deterministic across the attempted edit).
+The unit and composition arms are in; the real-canary ones are not.
+⇒ **Not five watchers — five proposers.**
 
 <details><summary>The closure as it stood, kept because the POLICY half of it is unchanged and is not reopened</summary>
 

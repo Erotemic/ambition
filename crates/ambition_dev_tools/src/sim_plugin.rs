@@ -83,6 +83,10 @@ impl Plugin for DevToolsSimPlugin {
         // compose rather than compete.
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
+        // ⛔ A RESOURCE, NOT A `Local`: three systems share it now (proposer,
+        // publisher, mirror) — and as a `Local` inside the sim schedule it
+        // advanced once per ADVANCE, resimulations included.
+        app.init_resource::<crate::dev_tools::PlayerStatsSyncSnapshot>();
         app.configure_sets(
             bevy::app::PreUpdate,
             (
@@ -99,6 +103,7 @@ impl Plugin for DevToolsSimPlugin {
                     crate::dev_tools::propose_editable_movement_tuning,
                     crate::propose_editable_abilities,
                     crate::dev_tools::propose_developer_body_profile,
+                    crate::dev_tools::propose_player_stats_edits,
                 )
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
                 // ⛔⛤ **THESE TWO LEFT THE SIM SCHEDULE ON 2026-09-13, AND THE
@@ -122,6 +127,7 @@ impl Plugin for DevToolsSimPlugin {
                     crate::dev_tools::publish_editable_movement_tuning,
                     crate::sync_live_player_dev_edits_system,
                     crate::dev_tools::sync_developer_body_profile,
+                    crate::dev_tools::publish_player_stats_edits,
                 )
                     .chain()
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
@@ -130,7 +136,11 @@ impl Plugin for DevToolsSimPlugin {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            crate::dev_tools::sync_player_stats_with_inspector.in_set(DevInspectorMirrorSet),
+            // ⭐ THE BODY→INSPECTOR HALF ONLY. Its editor→body twin left for the
+            // `PreUpdate` mechanical-edit chain (`Q120`): this one reads the body
+            // and writes a developer resource, so it changes nothing the
+            // simulation reads and is not a mechanical edit.
+            crate::dev_tools::mirror_player_stats_into_the_inspector.in_set(DevInspectorMirrorSet),
         );
         // The HUD flash this crate owns, decayed by this crate. It was one line
         // in the actor kernel's `cleanup_timers_system`, which is a simulation

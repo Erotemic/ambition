@@ -792,31 +792,97 @@ impl Default for EditablePlayerStats {
     }
 }
 
-/// Last-synced stats snapshot used by `sync_player_stats_with_inspector`
-/// to tell user edits apart from runtime drift. Without it, any frame
-/// where gameplay damaged HP would see `stats.health != live_hp` and
-/// push the stale inspector value back into the runtime, undoing the
-/// damage.
-#[derive(Default)]
+/// Last-synced stats snapshot, used to tell USER EDITS apart from runtime drift.
+///
+/// Without it, any frame where gameplay damaged HP would see
+/// `stats.health != live_hp` and push the stale inspector value back into the
+/// runtime, undoing the damage.
+///
+/// ⛔⛤ **A RESOURCE, NOT A `Local`, SINCE `Q120` SPLIT THIS DOMAIN — 2026-09-13.**
+/// Three systems share it now (the proposer, the publisher and the body→inspector
+/// mirror) and a `Local` belongs to exactly one. ⚠ **AND IT WAS A `Local` INSIDE
+/// THE SIM SCHEDULE, WHICH IS THE DEEPER HALF:** under the rollback host that is
+/// `GgrsSchedule`, so it advanced once per ADVANCE — resimulations included — and
+/// after a rewind still remembered a value from a frame that had been undone.
+/// It is host-side now and moves once per rendered frame.
+#[derive(bevy::prelude::Resource, Default)]
 pub struct PlayerStatsSyncSnapshot {
     initialized: bool,
     health: i32,
     max_health: i32,
+    // ⛔⛤ **THE MANA AND OFFENSE FIELDS ARE NEW, AND THEIR ABSENCE WAS A DEFECT
+    // NOBODY HAD NAMED.** The combined system wrote `BodyMana.meter` and
+    // `BodyOffense.damage_multiplier` from the inspector **UNCONDITIONALLY**, on
+    // every run, with no change test at all — so inside `GgrsSchedule` that was a
+    // per-ADVANCE write of canonical state from a live developer resource,
+    // strictly worse than the health half. Snapshotting them is what lets the
+    // publisher ask the same question about them that it always asked about HP.
+    mana: i32,
+    max_mana: i32,
+    slash_damage: i32,
 }
 
-/// Bevy system: keep `EditablePlayerStats` and the live player health
-/// in sync, in both directions.
+/// This domain's key in [`ae::PendingMechanicalEdits`].
+pub const PLAYER_STATS: ae::MechanicalDomain = ae::MechanicalDomain("editable_player_stats");
+
+/// Raise a developer stat edit as a PROPOSAL.
 ///
-/// - When the inspector mutates a stat field, the new value is written
-///   onto the ECS player authority.
-/// - When gameplay mutates the player (combat damage, pickup heal),
-///   the new value is mirrored back to the inspector resource so the
-///   field reads the live HP without manual refresh.
-/// - `refill_now` is a one-shot button: setting it to true topples HP
-///   and mana to max on the next sync, then clears the flag.
-pub fn sync_player_stats_with_inspector(
+/// ⛔⛤ **`stats.is_changed()` IS THE WRONG TEST HERE AND THAT IS WHY THIS DOMAIN
+/// TOOK LONGER THAN THE OTHER THREE.** The body→inspector MIRROR writes
+/// `EditablePlayerStats` every time gameplay moves the player's HP, so change
+/// detection would raise a proposal — and therefore stop the rollback baseline —
+/// on every point of damage the player takes. The snapshot is what separates
+/// *"the developer typed a number"* from *"the game changed one"*, and it is the
+/// same discrimination the combined system always made; it is just asked here now.
+pub fn propose_player_stats_edits(
+    stats: Res<EditablePlayerStats>,
+    snapshot: Res<PlayerStatsSyncSnapshot>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
+) {
+    if !snapshot.initialized {
+        // The first frame establishes the baseline; the publisher does that, and
+        // proposing before one exists would treat the defaults as an edit.
+        return;
+    }
+    // ⚠ `refill_now` IS AN EDIT even though it changes no value yet: it is a
+    // one-shot button whose whole effect is a write, and a refill staged behind
+    // a refusal must fire when the refusal lifts rather than being forgotten.
+    if stats.refill_now
+        || stats.health != snapshot.health
+        || stats.max_health != snapshot.max_health
+        || stats.mana != snapshot.mana
+        || stats.max_mana != snapshot.max_mana
+        || stats.slash_damage != snapshot.slash_damage
+    {
+        pending.propose(PLAYER_STATS);
+    }
+}
+
+/// Publish an ADMITTED developer stat edit onto the live player.
+///
+/// ⛔⛤ **THIS USED TO BE ONE BIDIRECTIONAL SYSTEM IN THE SIM SCHEDULE — `Q120`,
+/// 2026-09-13.** `sync_player_stats_with_inspector` did three jobs at once:
+/// inspector→body (health/max_health when the user moved them), body→inspector
+/// (the `else` branch, *"so the F3 panel shows truth"*), and an UNCONDITIONAL
+/// inspector→body write of `BodyMana.meter` and `BodyOffense.damage_multiplier`.
+/// Registered into `app.sim_schedule()` — `GgrsSchedule` under the rollback host
+/// — every one of those writes landed inside the rollback window, and the last
+/// one landed on every single ADVANCE.
+///
+/// ⭐ **THE THREE JOBS ARE THREE SYSTEMS NOW.** This one WRITES, and only when
+/// the timeline's owner has admitted the edit;
+/// [`mirror_player_stats_into_the_inspector`] reads the body back into the panel
+/// and stays where it was; [`propose_player_stats_edits`] decides that the
+/// developer — rather than gameplay — moved something.
+///
+/// ⚠ **`refill_now` IS CONSUMED HERE, NOT AT THE PROPOSAL.** A refill staged
+/// behind a foreign rollback timeline must still fire when the refusal lifts;
+/// clearing the flag when it was merely noticed would drop the button press.
+pub fn publish_player_stats_edits(
     mut stats: ResMut<EditablePlayerStats>,
-    mut snapshot: Local<PlayerStatsSyncSnapshot>,
+    admission: Option<Res<ae::MechanicalEditAdmission>>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
+    mut snapshot: ResMut<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         (
             &mut ambition_platformer2d_core::BodyMana,
@@ -829,11 +895,27 @@ pub fn sync_player_stats_with_inspector(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
+    // ⛔ THE BASELINE IS ESTABLISHED HERE AND NOWHERE ELSE, so the proposer has
+    // exactly one definition of "what the developer last saw" to compare against.
     if !snapshot.initialized {
         snapshot.health = stats.health;
         snapshot.max_health = stats.max_health;
+        snapshot.mana = stats.mana;
+        snapshot.max_mana = stats.max_mana;
+        snapshot.slash_damage = stats.slash_damage;
         snapshot.initialized = true;
+        return;
     }
+    if !pending.is_pending(PLAYER_STATS) {
+        return;
+    }
+    if matches!(
+        admission.as_deref(),
+        Some(ae::MechanicalEditAdmission::Refuse)
+    ) {
+        return;
+    }
+
     if stats.refill_now {
         stats.health = stats.max_health.max(1);
         stats.mana = stats.max_mana.max(0);
@@ -847,25 +929,57 @@ pub fn sync_player_stats_with_inspector(
             health.health.current = stats.health.clamp(0, stats.max_health.max(1));
         } else if user_changed_hp {
             health.health.current = stats.health.clamp(0, health.health.max.max(1));
-        } else {
-            stats.health = health.health.current;
-            stats.max_health = health.health.max;
         }
     }
-    snapshot.health = stats.health;
-    snapshot.max_health = stats.max_health;
-    // Mana now lives on `Player::mana` (engine `ResourceMeter`); the
-    // inspector still surfaces i32 fields for player-friendly editing
-    // and the conversion happens at this boundary. Future
-    // mana-consuming abilities call `try_spend` directly on the meter.
+    // Mana lives on `Player::mana` (engine `ResourceMeter`); the inspector
+    // surfaces i32 fields for player-friendly editing and the conversion happens
+    // at this boundary. Combat tuning and invincibility live on `Player`
+    // (engine-side) so per-player state is engine state, not sandbox state.
     let max_mana = stats.max_mana.max(0);
-    // Combat tuning + invincibility now live on `Player` (engine-side)
-    // so per-player state is engine state, not sandbox state.
     if let Ok((mut mana, mut offense)) = player_q.single_mut() {
         mana.meter.max = max_mana as f32;
         mana.meter.current = stats.mana.clamp(0, max_mana) as f32;
         offense.damage_multiplier = stats.slash_damage.max(1);
     }
+
+    snapshot.health = stats.health;
+    snapshot.max_health = stats.max_health;
+    snapshot.mana = stats.mana;
+    snapshot.max_mana = stats.max_mana;
+    snapshot.slash_damage = stats.slash_damage;
+    pending.take(PLAYER_STATS);
+}
+
+/// Mirror the live player's health back into the inspector, so the F3 panel
+/// shows truth.
+///
+/// ⭐ **THIS HALF IS PRESENTATION AND STAYS WHERE IT WAS.** It reads the body and
+/// writes the developer resource; it changes nothing the simulation reads, so it
+/// is not a mechanical edit and does not belong behind an admission boundary.
+///
+/// ⛔ **IT DOES NOT RUN WHILE THIS DOMAIN HAS A PROPOSAL PENDING.** A staged edit
+/// the developer typed must not be overwritten by the body's current value while
+/// it waits for a refusal to lift — that would make a refusal indistinguishable
+/// from a silent discard, which is the failure staging exists to prevent.
+pub fn mirror_player_stats_into_the_inspector(
+    mut stats: ResMut<EditablePlayerStats>,
+    mut snapshot: ResMut<PlayerStatsSyncSnapshot>,
+    pending: Res<ae::PendingMechanicalEdits>,
+    health_q: Query<
+        &ambition_characters::actor::BodyHealth,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
+) {
+    if !snapshot.initialized || pending.is_pending(PLAYER_STATS) {
+        return;
+    }
+    let Ok(health) = health_q.single() else {
+        return;
+    };
+    stats.health = health.health.current;
+    stats.max_health = health.health.max;
+    snapshot.health = stats.health;
+    snapshot.max_health = stats.max_health;
 }
 
 /// The editor adapter: push the inspector's live movement edits into the
@@ -1166,5 +1280,186 @@ mod adapter_tests {
         assert_eq!(out.initial_dash_speed, 900.0);
         assert_eq!(out.turnaround_time, 0.07);
         assert_eq!(out.teeter_margin, 6.0);
+    }
+}
+
+#[cfg(test)]
+mod player_stats_domain_tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// The three systems in the order the composition runs them: propose, then
+    /// publish, then the body→inspector mirror.
+    ///
+    /// ⚠ The MIRROR is registered last on purpose — in the shipped app it is in
+    /// the sim schedule, which is after `PreUpdate` — so a fixture that ran it
+    /// first would be testing an order the game does not have.
+    fn app_with_the_stats_domain() -> App {
+        let mut app = App::new();
+        app.init_resource::<EditablePlayerStats>();
+        app.init_resource::<PlayerStatsSyncSnapshot>();
+        app.init_resource::<ae::PendingMechanicalEdits>();
+        app.init_resource::<ae::MechanicalEditAdmission>();
+        // ⛔⛤ **AN OBSERVER BETWEEN PROPOSE AND PUBLISH, AND ITS ABSENCE MADE THE
+        // DAMAGE ARM UNFALSIFIABLE.** MEASURED: poisoning the proposer to propose
+        // UNCONDITIONALLY left that arm GREEN, because the publisher runs in the
+        // same frame and DRAINS the proposal — so "not pending after the update"
+        // is satisfied by a propose-then-publish cycle and cannot see
+        // over-proposing at all. Over-proposing is the whole hazard: it would
+        // stop and rebase the rollback baseline on every point of damage.
+        app.init_resource::<ProposalsSeen>();
+        app.add_systems(
+            Update,
+            (
+                propose_player_stats_edits,
+                (|pending: Res<ae::PendingMechanicalEdits>, mut seen: ResMut<ProposalsSeen>| {
+                    if pending.is_pending(PLAYER_STATS) {
+                        seen.0 += 1;
+                    }
+                }),
+                publish_player_stats_edits,
+                mirror_player_stats_into_the_inspector,
+            )
+                .chain(),
+        );
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(5),
+            ),
+            ambition_platformer2d_core::BodyMana::default(),
+            ambition_platformer2d_core::BodyOffense::default(),
+        ));
+        // The first update establishes the baseline and must change nothing.
+        app.update();
+        app
+    }
+
+    /// How many frames the domain was PENDING when the publisher was about to
+    /// run. The quantity the damage arm is really about.
+    #[derive(Resource, Default)]
+    struct ProposalsSeen(u32);
+
+    fn live_health(app: &mut App) -> (i32, i32) {
+        let world = app.world_mut();
+        let mut query = world.query_filtered::<
+            &ambition_characters::actor::BodyHealth,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let health = query.single(world).expect("the fixture has a player body");
+        (health.health.current, health.health.max)
+    }
+
+    /// ⛔⛤ **GAMEPLAY DAMAGE MUST NOT LOOK LIKE A DEVELOPER EDIT — `Q120`,
+    /// 2026-09-13, AND IT IS WHY THIS DOMAIN COULD NOT USE `is_changed()`.**
+    ///
+    /// The body→inspector mirror writes `EditablePlayerStats` every time gameplay
+    /// moves the player's HP. A proposer built on change detection would raise a
+    /// proposal — and therefore STOP THE ROLLBACK BASELINE — on every point of
+    /// damage the player takes. The snapshot is what separates *"the developer
+    /// typed a number"* from *"the game changed one"*.
+    #[test]
+    fn taking_damage_does_not_propose_a_mechanical_edit() {
+        let mut app = app_with_the_stats_domain();
+
+        // Gameplay damages the player, the way combat does.
+        {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<
+                &mut ambition_characters::actor::BodyHealth,
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+            >();
+            query.single_mut(world).expect("a player body").health.current = 2;
+        }
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ProposalsSeen>().0,
+            0,
+            "a point of combat damage raised a MECHANICAL EDIT PROPOSAL, which \
+             would stop and rebase the rollback baseline every time the player \
+             is hit. ⚠ This counts proposals BETWEEN the proposer and the \
+             publisher: asking `is_pending` after the update cannot see this, \
+             because the publisher drains the proposal in the same frame."
+        );
+        assert_eq!(
+            app.world().resource::<EditablePlayerStats>().health,
+            2,
+            "the panel did not follow the live HP, so the mirror is broken — \
+             which is the half that must keep working"
+        );
+        assert_eq!(live_health(&mut app).0, 2, "the damage was undone");
+    }
+
+    /// ⛔ **A DEVELOPER EDIT REACHES THE BODY**, which is the control: without it
+    /// the arm above is satisfied by a domain that proposes nothing, ever.
+    #[test]
+    fn a_developer_edit_proposes_and_reaches_the_body() {
+        let mut app = app_with_the_stats_domain();
+        app.world_mut().resource_mut::<EditablePlayerStats>().max_health = 9;
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ProposalsSeen>().0,
+            1,
+            "the developer's edit raised no proposal, so nothing would tell the \
+             rollback host a mechanical value is about to move"
+        );
+        assert_eq!(
+            live_health(&mut app).1,
+            9,
+            "the developer's max-health edit never reached the player body"
+        );
+        assert!(
+            !app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(PLAYER_STATS),
+            "a published proposal stayed pending, so every later frame \
+             republishes it and the mirror never runs again"
+        );
+    }
+
+    /// ⛔⛤ **A REFUSED EDIT IS STAGED, AND THE MIRROR MUST NOT OVERWRITE IT.**
+    ///
+    /// This is the arm the split exists for. While an edit waits for a foreign
+    /// rollback timeline to end, the body→inspector mirror would happily copy the
+    /// body's CURRENT value over the number the developer typed — making a
+    /// refusal indistinguishable from a silent discard, which is the failure
+    /// staging exists to prevent.
+    #[test]
+    fn a_refused_stat_edit_survives_the_inspector_mirror_and_publishes_later() {
+        let mut app = app_with_the_stats_domain();
+        app.insert_resource(ae::MechanicalEditAdmission::Refuse);
+        app.world_mut().resource_mut::<EditablePlayerStats>().max_health = 9;
+
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(
+            live_health(&mut app).1,
+            5,
+            "a REFUSED stat edit reached the player body anyway"
+        );
+        assert_eq!(
+            app.world().resource::<EditablePlayerStats>().max_health,
+            9,
+            "the mirror overwrote the developer's staged edit with the body's \
+             current value, so the refusal is indistinguishable from a discard"
+        );
+        assert!(
+            app.world()
+                .resource::<ae::PendingMechanicalEdits>()
+                .is_pending(PLAYER_STATS),
+            "the refused edit was dropped rather than staged"
+        );
+
+        app.insert_resource(ae::MechanicalEditAdmission::Publish);
+        app.update();
+        assert_eq!(
+            live_health(&mut app).1,
+            9,
+            "the staged edit never published after the refusal lifted"
+        );
     }
 }

@@ -7550,3 +7550,50 @@ Four causes, all measured, none of them content defects:
 ⇒ A censored cell is a claim about a ROLE, not a verdict on a fighter. ⛔ And scope a
 tuning pass on THE BAND, never on whether the instrument hit its ceiling — that error
 cost two fighters a pass (see the ninja/clerk gap-fill above).
+
+## ✅ THE LAST OUT-OF-BAND SMASH CELLS — 3 donor tables, 7 fighters, 7/7 EXACT
+
+    donor table                     move_id                      G_old -> G_new  p0   predicted  measured
+    pointed_polygon_moveset.rs      polygon_smash_up             2.95 -> 5.82    296  150        150
+    pugnacious_polygon_moveset.rs   polygon_brawler_smash_up     3.15 -> 5.83    274  148        148
+    projectile_polygon_moveset.rs   polygon_projectile_smash_up  3.15 -> 5.83    274  148        148
+
+Moving 7 fighters: pointed_polygon/author/performer 150, and pugnacious_polygon/
+officer/medic/projectile_polygon 148. Refusals 0. **Session total: 29/29.**
+
+### ⛔ CORRECTION TO TWO EARLIER COMMITS IN THIS FILE
+I wrote that `158.0/3.15` (and `162.0/3.25`) was ONE table serving FOUR fighters.
+It is not:
+
+    pointed_polygon_moveset.rs     -> pointed_polygon, author, performer   (3)
+    pugnacious_polygon_moveset.rs  -> pugnacious_polygon, officer, medic   (3)
+    projectile_polygon_moveset.rs  -> projectile_polygon                   (1, separate file)
+
+`projectile_polygon` has its OWN move id in its OWN file and merely SHARES THE NUMBERS.
+⇒ Identical base+growth is NOT proof of a shared table — verify sharing by the ID and
+the FILE. This is the trap already written down for clerk ("base and growth together
+are the identity, never growth alone"), applied in reverse. The borrows are declared at
+`archetype_moveset.rs:128,145,160,203`.
+
+### ⛔ REGEN MUST COVER THE BORROWERS, NOT JUST THE DONOR
+`author.ron`, `performer.ron`, `officer.ron` and `medic.ron` exist and are generated
+from the BORROWING tables. Editing a donor `.rs` changes what the borrower's table
+produces, but the borrower's `.ron` keeps the stale value until IT is regenerated, and
+the host reads the `.ron` OFF DISK. Regenerating only the three donors would have left
+FOUR fighters silently unchanged at runtime while the source read correctly. Seven
+tables were regenerated and all seven fighters measured.
+
+### ⛔ AND A GUARD RUN AT THE WRONG MOMENT IS A NON-RESULT
+`every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip` boots the host and
+reads the `PreparedCharacterRegistry`, which loads the `.ron` off disk. Run in parallel
+with the regen it would have measured the OLD growths and reported a meaningless pass.
+It was run AFTER the regen: 1 passed. Corpus max still 2.49 against a cap of 4.0 (new
+ratios 1.99 and 1.84), so the guard's doc comment needs no re-correction.
+
+### Where the roster now stands
+Every smash cell that was out of band and was neither contract-protected nor a fixture
+limit has been calibrated. What remains outside is exactly three things, all
+deliberate: emmy and oiler, each built around ONE licensed kill move with the rest
+capped and a test enforcing it; carl's pure-spike down-smash, which measured `>600` at
+`ceiling=600` and cannot KO at any magnitude; and the ground normals, which were never
+kill moves.

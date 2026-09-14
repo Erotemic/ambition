@@ -105,7 +105,7 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         half_extents: (24.0, 29.0),
         damage: 13,
         knockback: 146.0,
-        knockback_growth: 2.95,
+        knockback_growth: 5.82,
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });

@@ -618,7 +618,80 @@ Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION R
 - **Tuning that is Jon's**, not architecture: what utility / run / dash-attack
   parameters the CPU wants now that it evaluates the action it actually takes.
 
-## ⛔ MAIN IS RED AT `158b442be`: `two_cpus_in_the_shipped_composition_damage_each_other`
+## ✅ RESOLVED 2026-09-14 — was red at `158b442be`: `two_cpus_in_the_shipped_composition_damage_each_other`
+
+⭐ **GREEN AT `8c102308a`.** Measured twice on a clean tree, bit-identical both
+times: 2314 ticks, `decided Some(2314)`, 4 knockouts, seats `0.28 / 0.59` of pool
+= `0.44 / 0.92` per minute, so `exchanged` is **1.36 against a floor of 1.0**.
+`TEST_EXIT=0`. The banner below is kept unedited as the record of the red.
+
+⭐ **THIS BANNER BLAMED THE RIGHT ROW.** The red did arrive with `878646645`, and
+the repair was `8c102308a` — *"Un-ship three throw values measured by an
+instrument that cannot see its own blind spot"* — which restored
+`pirate_fthrow` / `pirate_bthrow` / `pirate_uthrow` to their authored growths.
+⚠ That commit was landed for DOCUMENTATION HONESTY (the authoring prose cites the
+value) and only afterwards measured to be the fix; it was not aimed at this test.
+
+⛔ **ATTRIBUTED TO ONE VALUE BY PROBE, NOT BY REASONING.** Each throw was returned
+to its red-era growth ALONE on a clean tree, with the poison verified in BOTH the
+`.rs` and the generated `.ron` — editing the Rust alone is INERT, and a first
+attempt that missed the `.ron` came back green and would have exonerated the
+wrong value:
+
+| perturbation | verdict | ticks |
+| --- | --- | --- |
+| `pirate_fthrow` 2.4 → **2.81** | **RED**, `0.23/0.23` — reproduces this banner's digits exactly | 3618 |
+| `pirate_bthrow` 2.52 → 1.87 | green, bit-identical to unperturbed | 2314 |
+| `pirate_uthrow` 2.45 → 5.29 (+116%) | green, bit-identical to unperturbed | 2314 |
+
+⇒ **`pirate_fthrow`'s growth alone flips this test.**
+
+⚠⚠ **THE THROW IS USED, AND `[dealt]` CANNOT SEE IT — THIS RIG HAS TWO
+ACCOUNTINGS THAT DISAGREE ABOUT THROWS.**
+
+⛔ I first read the `[dealt]` lists (strikes only, in every run red and green) as
+*"no throw is ever used"* and built a mechanism on it. That was wrong twice over.
+`[moves]`, the START counter, shows `pirate_fthrow` **4 starts** (seat 0) and 2
+(seat 1) on the green tree, beside `pirate_grab` 3/3 and `pirate_pummel` 4/2. And
+`[dealt]` could not have shown a throw in any case:
+
+- `damage_by_move` and `unclaimed_damage` are the two branches of ONE match on
+  `HitEvent.attacker_move_instance` (this test, `:497-502`).
+- `apply_capture_throws` (`crates/ambition_combat/src/capture/systems.rs:2644`)
+  applies `health.damage(request.damage)` DIRECTLY at `:2706`, and no `HitEvent`
+  is written anywhere in that file. `apply_capture_pummels` (`:2612`) likewise.
+- ⇒ **throw and pummel damage is structurally invisible to `[dealt]`** — and
+  invisible to `unclaimed` too, so the diagnostic cannot flag its own gap.
+
+⭐ **THE ASSERTED QUANTITY DOES SEE IT.** `exchanged` sums the RISES in
+`health.damage_percent()` (`:425-427`), so the number the floor tests counts
+throw and pummel damage that its own printed breakdown omits. Anyone trying to
+reconcile `[dealt]` against the percentage in the panic message will fail, and
+that is a property of the rig rather than of the game.
+
+⚠ **MECHANISM: NOT SETTLED. TWO CANDIDATES, BOTH REASONED.** Measured under
+fthrow 2.81 against the clean tree: ranged options explode (`grapeshot` 8 → 27
+seat 0, 8 → 29 seat 1; `call_the_shark` 9 → 30 seat 1), total starts RISE
+(40 → 51, 38 → 78) while distinct moves FALL (13 → 10) and dealt damage COLLAPSES
+(69/26 → 18/43). The CPUs act more and land less.
+- **(a) re-engagement** — a stronger f-throw sends the foe past closing range, so
+  the brain falls back on projectiles and the fight stops happening.
+- **(b) selection** — the fighter brain's rollout evaluates authored knockback
+  (`brain/fighter/rollout.rs:327,686,756`) and `decision.rs:221` documents a
+  *"pummel once, then throw"* policy, so the value moves scoring directly.
+
+Both fit the evidence and neither is established ⇒ **do not cite either as the
+cause.** What IS measured is the attribution table above: one authored value
+flips this test.
+
+⛔ **THE RIVAL CANDIDATE, EXCLUDED BY THE SAME PROBE.** `a04e13ef9` added 184
+lines to `crates/ambition_combat/src/feel.rs` plus runtime wiring in
+`crates/ambition_platformer2d_runtime/src/player_schedule.rs` in the same window,
+which is the combat path and not the editor. It was present in the tree during
+every probe above and the duel was still red under fthrow 2.81 ⇒ it neither
+caused nor cured this.
+
+---
 
 **NOT MINE, AND MEASURED BEFORE SAYING SO.** `app_it`'s
 `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`

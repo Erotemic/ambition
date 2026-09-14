@@ -144,8 +144,34 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   charge_projectile_input    gameplay.player_damage_multiplier   projectile scale
 ```
 
-  ⭐⭐ **AND THOSE THREE ARE GONE TOO, 2026-09-13 — `ambition_damage::PlayerDamagePolicy`.
-  THE CENSUS NOW REPORTS ZERO SIMULATION READERS OF `UserSettings`.** The three
+  ⛔⛔⛔ **"ZERO" WAS WRONG FOR ABOUT AN HOUR — RETRACTED 2026-09-14.** The GPT
+  architecture review found `tick_controlled_brains` reading `Res<UserSettings>`
+  and resolving `s.gameplay.control_frame_modes()` inside `GgrsSchedule`, on the
+  MAIN controlled-player brain path, writing both frame modes into the
+  authoritative `BrainSnapshot` that derives `ActorControl`. So historical
+  simulation was still doing `old ControlFrame + the current machine's settings →
+  ActorControl`.
+
+  ⛔⛤ **THE CENSUS COULD NOT SEE IT, AND THE SHAPE IS THE SECOND FORWARDER CLASS.**
+  `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs:58` is
+  `install_avatar_player_input(app, schedule)` doing
+  `app.add_systems(schedule.clone(), tick_controlled_brains …)`, called as
+  `install_avatar_player_input(app, sim)` at
+  `crates/ambition_platformer2d_runtime/src/player_schedule.rs:153`. The SYSTEM
+  NAMES are in the installer's body while the SCHEDULE comes from the call site —
+  the mirror image of the `install_technique` shape the census had just learned.
+  ⇒ Both shapes are handled now, and **both carry a control**
+  (`apply_feature_hit_events`, `tick_controlled_brains`), because each one failed
+  silently exactly once and a shrinking count is what progress looks like here.
+
+  ⚠⚠ **AND THE LESSON IS ABOUT THE CLOSURE CLAIM, NOT THE TOOL.** This row
+  correctly warned in its own words that `UNATTRIBUTED` *"is NOT a clearance"* —
+  and then made a closure claim out of the attributed count anyway. **Do not do
+  both.** A census with an explicitly unreliable bucket can report a FLOOR on the
+  problem; it cannot report zero.
+
+  ⭐⭐ **WHAT DID LAND, 2026-09-13 — `ambition_damage::PlayerDamagePolicy`**, which
+  removed the three DAMAGE readers. The three
   were reading two scalars out of a 30-field persisted resource:
   `incoming_player_damage_multiplier` (difficulty × assist) and
   `gameplay.player_damage_multiplier`. They are resolved once per host frame by
@@ -175,7 +201,7 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   one value agreed at match activation, or a per-seat row travelling with each
   peer.
 
-  ⛔⛤ **AND THE CENSUS'S CONTROL HAD TO BE RE-ANCHORED ON THE RUN THAT REACHED
+  ⛔⛤ **AND THE CENSUS'S CONTROL HAD TO BE RE-ANCHORED ON THE RUN THAT REPORTED
   ZERO.** It read *"if `apply_feature_hit_events` is a reader AND is not in the
   simulation list, fail"*. Migrating that system off `UserSettings` took its
   subject out of the population, so the control switched itself off **on the exact
@@ -200,6 +226,17 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   already carries that exact near-miss in its test corpus. Comment tails are cut
   now; the corrected before-figure, re-derived in a worktree at the parent commit,
   is 51 readers / 6 in simulation.
+
+  ⚠ **AND `SeatControlFrameModes` IS A SEAM, NOT THE FINAL AUTHORITY — the review
+  of 2026-09-14 accepts it and says so explicitly.** It turns *four direct
+  `UserSettings` readers* into *one host-side writer → a mutable policy table →
+  several simulation readers*, which is better but is **not deterministic history
+  yet**: a replay of historical raw input is still interpreted by whatever the
+  table holds now, and the policy is not part of the network input being replayed.
+  Ordinary capture also still writes the MACHINE-WIDE value into every seat, so the
+  per-seat expressiveness exists in the type and in tests but has no per-participant
+  source. ⇒ **The destination is unchanged: capture resolves the semantic DIRECTION
+  and simulation sees no mode at all.** Do not cite the table as closure.
 
   ⭐⭐ **FOUR OF THE SIX ARE GONE, 2026-09-13 — `ambition_characters::control::SeatControlFrameModes`.**
   All four read one expression, `settings.gameplay.resolved_movement_frame_mode()`,
@@ -401,7 +438,7 @@ three kind-shaped options that row offered. What remains is A10's own engineerin
   ⚠ Pinned by the absence contract `content-epochs-are-not-ordered`, poison-verified
   (re-derive `Ord` ⇒ RED) — because re-deriving is the one edit that would quietly
   make a burned number comparable, far from the allocator.
-- ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
+- ⛔⛔ **`Q120` — REOPENED AGAIN 2026-09-14, AND THE REASON IS THAT "ALL FIVE" WAS NEVER A CENSUS.** The list of five was the list the FIRST review named, and I treated finishing it as finishing the category. `game/ambition_app/src/dev/mod.rs` still installs `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>::default()`, so bevy-inspector edits the AUTHORITATIVE mechanical resource directly — no editable mirror, no proposal, no `MechanicalEditAdmission`, no rebase — while simulation consumes the same resource across control input / double-tap handling, time control, actor integration, damage, boss bodies, runtime room-and-reset paths and combat rules. ⛔⛤ **AND THE REPOSITORY ALREADY KNEW**: `game/ambition_app/tests/developer_edits_under_rollback.rs` carries `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to` and names it as the other resource waived under the same forward-only rationale. ⇒ The defect was not undiscovered; it was outside the list, and nothing derived the list from the tree. **The repair is the same protocol: `EditableFeelTuning` → pending proposal → admission/rebase → `Platformer2dFeelTuningMonolith` as the neutral mechanical authority** (or stage fields for the next admitted generation if they must not be live-edited). Acceptance: under locally owned rollback an edit stops the old timeline before the new feel is visible and the new timeline begins against it; under foreign/caller ownership the editor keeps the proposed value and the monolith does not move; then rewind across the attempted edit. **Q120 is NOT closed at HEAD.** Below is the previous account. ⚠ **`Q120` — POLICY DECIDED; IMPLEMENTATION REOPENED 2026-09-13 BY REVIEW: I marked it closed after migrating ONE of five LIVE editor roads. ✅ ALL FIVE OF THAT LIST MIGRATED THE SAME DAY — movement tuning, the ability set, the developer body profile, portal tuning, and the player-stats editor half. Four were MOVES out of `app.sim_schedule()` (i.e. out of `GgrsSchedule`); the stats one was a SPLIT, because that system did three jobs at once and one of them wrote `BodyMana`/`BodyOffense` UNCONDITIONALLY on every advance — which the review did not name and measuring found. What remains are the production-GGRS canary poisons, not the migration. ✅ The GATING piece landed: `PendingMechanicalEdit(bool)` could not carry two domains (the first publisher cleared the shared bit and the second dropped its edit) and is now `PendingMechanicalEdits`, a set of domain keys each drained only by its own publisher. See the ledger row. Below is the account of the FIRST reopening, which is unchanged.**
   <details><summary>closed once on the second attempt</summary>
 
   ✅ **`Q120` — CLOSED 2026-09-13, ON THE SECOND ATTEMPT; THE FIRST CLOSURE WAS
@@ -520,13 +557,41 @@ word of that is true, and it is an argument about **ONE App rewinding itself**. 
 says nothing about **TWO Apps agreeing**, which is the question a checksum asks.
 A waiver justified against one failure mode reads as a clearance for the other.
 
-⭐ **NOTHING READS THE VALUE, WHICH IS WHAT MAKES A REPAIR POSSIBLE.**
-`MatchInstance` is `PartialEq + Hash` and its only uses are EQUALITY —
-`MatchScoped::belongs_to` asks *"is this object's match the active one"*, and the
-settlement resources use it so *"stale state fails identity match"*
-(`crates/ambition_match/src/seating.rs`'s own words). No system reads the integer.
-So the identity needs exactly two properties: **DISTINCT BETWEEN MATCHES** and
-**AGREED BETWEEN PEERS**, and the local activation count supplies only the first.
+⛔⛔⛔ **RETRACTED 2026-09-14, AND IT IS THE MOST CONSEQUENTIAL THING ON THIS ROW.**
+I wrote *"NOTHING READS THE VALUE… `MatchInstance` … only uses are EQUALITY"*.
+**FALSE AT HEAD**, found by the GPT architecture review of 2026-09-14 and
+reproduced here:
+
+```rust
+// crates/ambition_match/src/seating.rs:142
+pub fn random_context(&self) -> RandomContext {
+    (session, activated_on) => session
+        .map_or(0, |session| session.0)          // ⇠ THE RAW LOCAL COUNTER
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(activated_on.unwrap_or(0).wrapping_mul(0xD6E8_FEB8_6659_FD93)),
+}
+```
+
+and `crates/ambition_platformer2d_actor_monolith/src/items/match_spawn.rs` feeds
+that context to `sim_random_weighted` / `sim_random_index` to choose **which item
+appears and which spawn point receives it**.
+
+⇒ **SO THIS IS NOT "the same mechanics with a different checksum". TWO PEERS WITH
+DIFFERENT PRIOR LOCAL SESSION HISTORIES SPAWN DIFFERENT ITEMS AT DIFFERENT
+POINTS.** An App-local ownership counter is the seed of authoritative gameplay
+randomness.
+
+⭐ **HOW I GOT IT WRONG IS THE REUSABLE PART**: I read the EQUALITY uses
+(`MatchScoped::belongs_to`, the settlement resources' staleness check), found them
+consistent, and generalised to *"no system reads the integer"* — a claim about
+EVERY use, from a survey of the uses I had thought to look for. `random_context`
+is an inherent method on the same struct, three lines from the field.
+⇒ **A negative claim over all consumers is a claim about the query**; read the
+type's own impl block before saying nothing reads a field.
+
+So the identity needs three properties, not two: **DISTINCT BETWEEN MATCHES**,
+**AGREED BETWEEN PEERS**, and **USABLE AS A SEED** — and the local activation
+count supplies only the first.
 
 ⛔⛤ **AND THE CHEAP REPAIR IS REFUTED — BY A TEST THAT ALREADY EXISTS.** My first
 reading was *"drop `session` and key on the activation tick alone"*.
@@ -543,6 +608,33 @@ between peers rather than counted locally — the `TransactionId` pattern
 (`binding ⊗ room ⊗ session`) applied to match identity. What it must be derived
 from is the open part; the candidate both peers demonstrably share is the rollback
 SESSION's own identity, not the App's activation history.
+
+⭐⭐ **AND THE REVIEW'S RULING IS TO SPLIT THE TWO IDENTITIES RATHER THAN REPLACE
+ONE.** `SessionScopeId` stays exactly what it is — local ownership, stale-event
+rejection, session-scoped cleanup, lifecycle correlation. A SEPARATE peer-stable
+value (`CanonicalMatchInstanceId` / `SharedMatchNonce` / `MatchRandomSeed`; the
+name is secondary) is what `random_context` and canonical match identity derive
+from. ⛔ **And it is ONE campaign, not five replacements**: `SessionScopedEntity`
+snapshots the raw id, the match rollback structures snapshot it, `TransactionId`
+carries session/content lineage, the gameplay root's `SimId` derives from shell
+activation lineage, and `ContentEpoch` is App-local lineage.
+
+⛔ **THE ACCEPTANCE TEST THE REVIEW SPECIFIES** (two Apps, App A burns several
+session activations first, App B does not, then both enter the same deterministic
+match with the same content / roster / inputs / configuration):
+
+```text
+PREMISE  A.local_session_scope != B.local_session_scope     ⇠ assert it, or the arm certifies nothing
+REQUIRE  same canonical match identity
+         same item selection
+         same item spawn point
+         same canonical checksum
+AND      two genuinely distinct matches get DISTINCT shared random contexts
+```
+
+⇒ **THIS MOVES AHEAD OF DEEP A10 PROVENANCE WORK**, and A10's transaction
+provenance must not be hardened around `SessionScopeId` or local epochs before the
+local-vs-canonical distinction exists.
 
 ⛔ **THE POISON THIS NEEDS IS A TWO-APP ONE, and that is why it is not closed
 here.** A single-App test cannot express the defect at all: one App has one

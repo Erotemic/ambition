@@ -146,15 +146,8 @@ SIM_SCHEDULE_ARG = re.compile(
 )
 
 
-def identifiers_in_call(text: str, start: int) -> set[str]:
-    """Every snake_case identifier inside the call whose arguments begin at `start`.
-
-    ⚠ **THE WINDOW IS THE WHOLE CALL, NOT A FIXED BYTE COUNT.** A truncating
-    window silently drops the tail of a long chain, and a long chain is exactly
-    where the systems this census is about live: measured, a 2000-byte window
-    missed the tail of `combat_schedule.rs`'s registration blocks. The walk runs
-    on comment-stripped text so a prose `)` cannot close the call early.
-    """
+def call_text(text: str, start: int) -> str:
+    """The raw argument text of the call whose arguments begin at `start`."""
     depth = 0
     chunk = []
     for ch in text[start:]:
@@ -165,7 +158,19 @@ def identifiers_in_call(text: str, start: int) -> set[str]:
                 break
             depth -= 1
         chunk.append(ch)
-    return set(re.findall(r"\b([a-z_][a-z0-9_]{4,})\b", "".join(chunk)))
+    return "".join(chunk)
+
+
+def identifiers_in_call(text: str, start: int) -> set[str]:
+    """Every snake_case identifier inside the call whose arguments begin at `start`.
+
+    ⚠ **THE WINDOW IS THE WHOLE CALL, NOT A FIXED BYTE COUNT.** A truncating
+    window silently drops the tail of a long chain, and a long chain is exactly
+    where the systems this census is about live: measured, a 2000-byte window
+    missed the tail of `combat_schedule.rs`'s registration blocks. The walk runs
+    on comment-stripped text so a prose `)` cannot close the call early.
+    """
+    return set(re.findall(r"\b([a-z_][a-z0-9_]{4,})\b", call_text(text, start)))
 
 
 def forwards_a_parameter(text: str, owner: str, argument: str) -> bool:
@@ -233,6 +238,65 @@ def find_sim_forwarders(sources: dict[str, str]) -> set[str]:
     return found
 
 
+SCHEDULE_PARAM_ADD = re.compile(
+    r"add_systems\(\s*([A-Za-z_][A-Za-z0-9_]*)(?:\.clone\(\))?\s*,"
+)
+
+
+def schedule_parameter_installers(sources: dict[str, str]) -> set[str]:
+    """Functions that take a SCHEDULE as a parameter and register systems into it.
+
+    ⛔⛤ **THE SECOND FORWARDER SHAPE, AND IT HID THE BIGGEST READER.**
+    `install_avatar_player_input(app, schedule)` does
+    `app.add_systems(schedule.clone(), tick_controlled_brains …)`, and
+    `crates/ambition_platformer2d_runtime/src/player_schedule.rs:153` calls it as
+    `install_avatar_player_input(app, sim)`. So the SYSTEM NAMES live in the
+    installer's body while the SCHEDULE comes from the call site — the mirror
+    image of `find_sim_forwarders`, where the schedule is literal and the systems
+    are the parameter. A census that knows only the first shape reported ZERO
+    simulation readers of `UserSettings` on a tree where `tick_controlled_brains`
+    reads it every simulated frame.
+
+    Returns `{owner: {system names it installs into its schedule parameter}}` for
+    owners that are CALLED with a simulation schedule somewhere.
+    """
+    installers: dict[str, set[str]] = {}
+    for text in sources.values():
+        lines = text.splitlines()
+        # ⚠ OVER THE WHOLE TEXT, NOT LINE BY LINE. `app.add_systems(` and its
+        # schedule argument sit on separate lines in every rustfmt'd installer in
+        # this workspace, so the first version of this matched NOTHING and still
+        # printed a clean "zero simulation readers".
+        for match in SCHEDULE_PARAM_ADD.finditer(text):
+            argument = match.group(1)
+            index = text[: match.start()].count("\n")
+            owner = enclosing_fn(lines, index)
+            if not owner or not forwards_a_parameter(text, owner, argument):
+                continue
+            # The systems half must NOT be the same parameter; that is the other
+            # shape, already handled by `find_sim_forwarders`.
+            names = identifiers_in_call(text, match.end())
+            names.discard(argument)
+            installers.setdefault(owner, set()).update(names)
+
+    installed: set[str] = set()
+    for text in sources.values():
+        for owner, names in installers.items():
+            for match in re.finditer(rf"\b{re.escape(owner)}\s*\(", text):
+                # ⛔⛤ THE RAW ARGUMENT TEXT, NOT `identifiers_in_call`. That
+                # helper's identifier pattern is `[a-z_][a-z0-9_]{4,}` — five
+                # characters minimum, chosen so a census of SYSTEM names is not
+                # swamped by `app`, `mut`, `set`. **The schedule local in this
+                # workspace is spelled `sim`, which is THREE.** So the call-site
+                # half matched nothing and the census kept printing zero.
+                arguments = call_text(text, match.end())
+                # Called WITH a simulation schedule; a call passing `Update` or a
+                # literal schedule does not admit these names.
+                if re.search(r"\b(sim|sim_schedule|app\.sim_schedule\(\))\b", arguments):
+                    installed.update(names)
+    return installed
+
+
 def sim_registered() -> set[str]:
     """Every system name registered into a SIMULATION schedule.
 
@@ -267,6 +331,7 @@ def sim_registered() -> set[str]:
     # deep — and then a name passed to one of those is sim-registered too. This
     # still cannot see a registration assembled from a table or behind a `cfg`, so
     # `UNATTRIBUTED` remains "not checked", never "safe".
+    names.update(schedule_parameter_installers(sources))
     forwarders = set(find_sim_forwarders(sources))
     for text in sources.values():
         for forwarder in forwarders:
@@ -316,11 +381,24 @@ def main() -> int:
     # switches itself off exactly when the census reaches its goal is the shape
     # `reference_a_check_that_cannot_fail` is about. Its registration is a fact
     # about the schedule and holds whatever it reads.
-    control = "apply_feature_hit_events"
-    if control not in sim:
-        print(f"⛔ THE CONTROL FAILED: `{control}` is not attributed to a simulation")
-        print("   schedule. It is registered at combat_schedule.rs:695 through")
-        print("   `install_technique` → `install_techniques` → `add_systems(sim, …)`.")
+    # ⛔⛤ **TWO CONTROLS, ONE PER FORWARDER SHAPE, BECAUSE EACH SHAPE FAILED
+    # SILENTLY ONCE.** `apply_feature_hit_events` reaches the simulation schedule
+    # through `install_technique` → `install_techniques` → `add_systems(sim, …)`
+    # (the systems are the parameter). `tick_controlled_brains` reaches it through
+    # `install_avatar_player_input(app, sim)` → `add_systems(schedule.clone(), …)`
+    # (the SCHEDULE is the parameter). Missing the second made this script report
+    # ZERO simulation readers on a tree where the main controlled-player brain
+    # path read `UserSettings` every simulated frame — a GPT architecture review
+    # found it by hand after the script had been trusted.
+    for control in ("apply_feature_hit_events", "tick_controlled_brains"):
+        if control in sim:
+            continue
+        print(f"⛔ A CONTROL FAILED: `{control}` is not attributed to a simulation")
+        print("   schedule, and it is verified BY HAND to run in one:")
+        print("     apply_feature_hit_events  combat_schedule.rs:695, through")
+        print("       `install_technique` → `install_techniques` → add_systems(sim, …)")
+        print("     tick_controlled_brains    player_schedule.rs:153, through")
+        print("       `install_avatar_player_input(app, sim)` → add_systems(schedule, …)")
         print("   The attribution half of this instrument is broken and EVERY")
         print("   `UNATTRIBUTED` row below is unreliable — including rows that")
         print("   would otherwise read as a clean bill of health.")

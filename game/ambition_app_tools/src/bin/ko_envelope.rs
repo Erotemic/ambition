@@ -643,6 +643,47 @@ impl KoProbe {
     fn reset_trial(&mut self, entry_percent: i32, victim_x: f32) -> bool {
         use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 
+        // ⛔⛔⛔ THE MATCH CAN END UNDERNEATH THE PROBE, AND EVERY ROW AFTER THAT
+        // IS FICTION. THIS IS THE WORST FAILURE THIS INSTRUMENT HAS HAD.
+        //
+        // MEASURED 2026-09-13: of 209 refusals in one matchup, 184 (88%) had
+        // `seats_now=0` — NOT ONE `MatchSeat` ENTITY LEFT. The round had ended
+        // and the whole cast was despawned, so `self.victim` was a DANGLING
+        // HANDLE: `pin_grounded_at_rest` silently early-returned because
+        // `get_mut` found no component, `pos()` answered `(0,0)` from
+        // `unwrap_or_default()`, the grounded premise failed, and every
+        // remaining trial refused forever. That is the snowball.
+        //
+        // ⛔ AND IT PRINTED A FULL TABLE ANYWAY. Twenty-four `REFUSED@0` throw
+        // cells were published as throw measurements when the cast they
+        // "measured" did not exist. A refused row is not a neutral blank: it
+        // reads as a fact about a MOVE. An instrument that answers about itself
+        // in the artifact's own table is worse than one that produces nothing.
+        //
+        // ⇒ ROWS PRINTED BEFORE THE TIMEOUT ARE REAL and are deliberately kept;
+        // everything after is refused. So this ABORTS LOUDLY rather than
+        // returning `false` — a `false` here is indistinguishable from an
+        // ordinary refusal and would go on filling the table with fiction.
+        let seats_now = {
+            let w = self.app.world_mut();
+            let mut q = w.query::<&ambition_platformer2d::actor::MatchSeat>();
+            q.iter(w).count()
+        };
+        if seats_now == 0 {
+            println!(
+                "# ⛔⛔ ABORTED — THE MATCH ENDED AND THE CAST WAS DESPAWNED. \
+                 Rows ABOVE this line were measured against a live match and stand; \
+                 there are no rows below because every later trial would refuse against \
+                 a dangling entity handle. The probe simulates more ticks than \
+                 SMASH_TIME_LIMIT_TICKS (8*60*60), so the match clock runs out mid-run."
+            );
+            eprintln!(
+                "KO_ABORT: seats_now=0 at x={victim_x:.0} pct={entry_percent} — \
+                 match over, cast despawned, table truncated deliberately"
+            );
+            std::process::exit(2);
+        }
+
         // 1. Let the real respawn lifecycle finish. `respawn_when_the_interlude_
         //    closes` gates on `!DeathInterlude.open()` and then hands back every
         //    fact the spend took, so waiting on the MARKERS is waiting on the
@@ -783,6 +824,16 @@ impl KoProbe {
             self.victim,
             ambition_platformer2d::engine_core::Vec2::new(victim_x, landed_y),
         );
+        // ⭐ THE POSE THE PIN ACTUALLY ACHIEVED, READ BEFORE ANY TICK RUNS.
+        //
+        // ⛔ THIS SEPARATES TWO COMPLETELY DIFFERENT DEFECTS that the refusal
+        // line could not tell apart. The pin is called with `(victim_x,
+        // landed_y)` and the refusal then reports `pos.x = 574` for a
+        // `victim_x` of 320 — so EITHER the write never reached the entity being
+        // read (a stale/duplicate victim), OR it landed and something overrode
+        // it during the update that follows. Sampling here, with no `update()`
+        // in between, is the only way to say which.
+        let pinned_at = self.pos(self.victim);
         self.app.update();
 
         // ⭐ AND THE PREMISE IS NOW CHECKED RATHER THAN HOPED FOR. A trial that
@@ -865,13 +916,31 @@ impl KoProbe {
                 .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
                 .map(|g| (g.on_ground, g.contact_initialized))
                 .unwrap_or_default();
+            // ⭐ IS THE PROBE STILL HOLDING THE RIGHT BODY? A KO respawns a
+            // fighter, and if the ruleset respawns it as a NEW ENTITY then
+            // `self.victim` is a stale handle: its pose would be frozen wherever
+            // it died (off the ledge, at rest, never landing — exactly shapes A
+            // and B), and EVERY later trial in the run would refuse, which is
+            // the snowball actually observed. Reported, not assumed.
+            let seat = self
+                .app
+                .world()
+                .get::<ambition_platformer2d::actor::MatchSeat>(self.victim)
+                .map(|s| s.0 as i32)
+                .unwrap_or(-1);
+            let seats_now = {
+                let w = self.app.world_mut();
+                let mut q = w.query::<&ambition_platformer2d::actor::MatchSeat>();
+                q.iter(w).count()
+            };
             eprintln!(
                 "KO_REFUSE: stage=ground x={victim_x:.0} pct={entry_percent} \
-                 pos=({:.1},{:.1}) vel=({:.1},{:.1}) landed_y={landed_y:.1} \
-                 landed_after={landed_after:?} on_ground={on_ground} \
-                 contact_init={contact_init} staged=({:.1},{:.1}) \
-                 carried_run={carried_run:.1} carried_hold={carried_hold:.3}",
-                p.x, p.y, vel.x, vel.y, staged.x, staged.y
+                 pinned_at=({:.1},{:.1}) pos=({:.1},{:.1}) vel=({:.1},{:.1}) \
+                 landed_y={landed_y:.1} landed_after={landed_after:?} \
+                 on_ground={on_ground} contact_init={contact_init} \
+                 staged=({:.1},{:.1}) carried_run={carried_run:.1} \
+                 carried_hold={carried_hold:.3} seat={seat} seats_now={seats_now}",
+                pinned_at.x, pinned_at.y, p.x, p.y, vel.x, vel.y, staged.x, staged.y
             );
             return false;
         }

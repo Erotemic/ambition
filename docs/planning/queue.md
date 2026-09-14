@@ -1715,25 +1715,38 @@ beside the real one: an assertion that cannot fail reads as coverage.
   symptom; the answer is the transition's to give and belongs with the session
   packet.
 
-**NEXT IMPLEMENTATION STEP — AND IT IS A DIFFERENT TRANSACTION.** The room scope is
-done. What remains is the SESSION scope: `ActiveGameplaySession`,
-`ActiveSessionScope`, `SessionMechanics` and `ActiveContentBinding` are
-process-global resources with no candidate home, and `SessionScopeActivated` still
-means *"replace the live mirrors"*. `RoomSet` and `RoomGeometry` are already
-components on the session root and so are already candidate-ownable;
-`MovingPlatformSet` is a true resource and would need one.
+**NEXT IMPLEMENTATION STEP — A10s, THE SESSION SCOPE. IT IS A DIFFERENT
+TRANSACTION AND IT IS NOT STARTED.**
 
-⚠ **THE ROOM DOES NOT NEED THAT, AND THE REASON IS ORDERING.** A room transition
-must not swap session roots — the root IS the session, and the room is state on it
-— so staging the room's world as VALUES is the right shape rather than the smaller
-patch. What the session scope buys is the same guarantee one level up, at
-activation and handoff.
+⚠ **THE ROOM DOES NOT NEED IT, AND THE REASON IS OWNERSHIP RATHER THAN EFFORT.** A
+room transition must not swap session roots — the root IS the session and the room
+is state ON it — so staging the room's world as VALUES is the right shape, not the
+smaller patch. What the session scope buys is the same guarantee one level up, at
+ACTIVATION and HANDOFF, where the thing being replaced really is the root.
 
-⚠ **SESSION ACTIVATION QUEUES ITS ROOM BUILD BEFORE IT SPAWNS THE SESSION ROOT**,
-which is why it commits through `spawn_contents`, stages no world, and never
-reaches `NoSessionRootToPublishInto`. Reversing that is the first step of the
-session packet; `the_shipped_apps_own_first_room_publishes` is what holds the line
-until then.
+**THE FOUR AUTHORITIES AND WHAT EACH ONE COSTS**, measured rather than listed:
+
+| authority | shape now | obstacle |
+| --- | --- | --- |
+| `RoomSet`, `RoomGeometry` | components on the session root | none — already candidate-ownable |
+| `ActiveContentBinding` | `Resource` | ~7 sites; the room transaction is its only verifier-side reader. Cheap, and the gain is small while `SessionScopeSet` keeps two sessions from coexisting |
+| `SessionMechanics` | `Resource` | read by reset and activation through `GenerationMechanics::for_live_session` |
+| `MovingPlatformSet` | `Resource` | ⛔ **`rollback_resource_canonical`** — it is in the checksum, so moving it to a component is a WIRE-FORMAT change and trips `rollback-wire-format-changes-are-declared`. That belongs to the rollback campaign, not to A10 |
+
+⛔ **AND THE FIRST STEP IS AN ORDERING FACT, NOT A TYPE CHANGE.** Session
+activation queues its room build BEFORE it spawns the session root
+(`simulation_world` then `spawn_world_for`), which is why it commits through
+`spawn_contents`, stages no world, and never reaches `NoSessionRootToPublishInto`.
+`spawn_world_for` does not depend on anything `simulation_world` produces, so the
+two are reorderable — `live_world` is moved into the first and borrowed by the
+second, so the reorder costs three clones.
+
+⚠ **BUT REORDERING ALONE BUYS LITTLE**, and that is worth writing down so the next
+packet does not start there: at session BIRTH there is no world N to protect, and
+a refused first room leaves the session broken either way. What the session scope
+actually needs is a policy — *what does the shell DO when an activation's first
+room refuses?* — and that policy is the shell's to state.
+`the_shipped_apps_own_first_room_publishes` holds the line until it does.
 
 **ACCEPTANCE CRITERIA.** ⛔ A10 is not closed because candidate roots coexist or
 because a verifier passes its own arms. The ROOM scope is closed because the

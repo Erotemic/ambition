@@ -128,6 +128,17 @@ verified**. `LastConstructionVerification::supersessions` records the count, and
 `a_custody_deferred_supersession_is_never_visible_as_two_holders` asserts it is
 `> 0` on a reset that re-authors an identity a hand is holding.
 
+⭐ **AND EVERY ONE OF THESE CENSUSES CARRIES A NON-ZERO ASSERTION SOMEWHERE IN ITS
+OWN ARM.** A census that reports 0 because its query is wrong reads exactly like a
+clean world, and a fixture whose scenario already finished reads the same way —
+MEASURED: an attempt to strengthen the cancel arm by starting it from a live
+session had the route fully activated by frame 3, and every settled-state
+assertion would have passed on an arm that no longer reached its subject. The
+`> 0` assertion is what failed instead. Same reason
+`LastConstructionVerification` carries `left_to_custodian` and `supersessions`:
+without a COUNT of the thing an arm is about, *"the property held"* and *"the
+situation never occurred"* are the same green.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

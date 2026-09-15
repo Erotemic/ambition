@@ -348,6 +348,23 @@ The cancel arm asserts the count is **> 0** three frames in, while the candidate
 is supposed to be standing — so the zero at the end is a claim about the WORLD
 rather than about the query.
 
+⛔⛤ **AND THE SAME QUESTION WAS THEN ASKED OF A10'S OTHER `debug_assert`s.**
+`session_root_for_scope` asserted that a scope owns at most one `SessionRoot` —
+which is the DUPLICATE-AUTHORITY CONDITION A10 forbids, stated in the one lookup
+every session-owned authority is read through. In a shipped build the assert is
+gone and the function simply returns whichever root the query yielded first, per
+call, in silence. It logs an error now and keeps the assert; the choice is
+unchanged, but it is no longer unspoken.
+
+⚠ **AND TWO MORE ARE RECORDED RATHER THAN CHANGED:**
+`CapabilityLanes::debug_assert_binding` and the `debug_assert_eq!` beside it check
+that the construction lanes share a content BINDING — A10's two-generation
+contract, and exactly the thing a hot reload gets wrong. They are in the spawn
+path rather than in A10's own files, and changing them is a bigger surface than
+this campaign should take on unasked. ⇒ **The rule to carry forward: a
+`debug_assert` is the right tool for "this cannot happen"; it is the wrong one for
+"if this happens the shipped game silently picks an answer".**
+
 ⭐ **AND THE SLOT IS EMPTIED BY A DISCARD, NEVER BY AN ASSIGNMENT.** The four
 releases live in one `release_candidate`, and the tail of the preparer calls it on
 anything the head somehow left behind rather than overwriting it. That backstop

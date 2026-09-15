@@ -474,10 +474,25 @@ pub fn session_root_for_scope(world: &mut World, scope: SessionScopeId) -> Optio
         .filter(|(_, root)| root.0 == scope)
         .map(|(entity, _)| entity);
     let root = found.next()?;
-    debug_assert!(
-        found.next().is_none(),
-        "session scope {scope:?} owns more than one SessionRoot"
-    );
+    // ⛔⛤ **TWO ROOTS ON ONE SCOPE IS THE DUPLICATE-AUTHORITY CONDITION A10
+    // FORBIDS, AND A `debug_assert` ALONE LETS THE SHIPPED GAME PICK ONE IN
+    // SILENCE.** Every session-owned authority is read through this lookup, so
+    // whichever root it happened to return first would then answer for the
+    // session — an arbitrary choice, made per call, with nothing said. The assert
+    // stays (a test build should stop dead), and the shipped build now SAYS so
+    // rather than choosing quietly.
+    if found.next().is_some() {
+        tracing::error!(
+            target: "ambition_platformer2d::lifecycle",
+            "session scope {scope:?} owns more than one SessionRoot; every \
+             session-owned authority read through this lookup is now answering \
+             from an arbitrary one of them"
+        );
+        debug_assert!(
+            false,
+            "session scope {scope:?} owns more than one SessionRoot"
+        );
+    }
     Some(root)
 }
 

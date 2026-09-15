@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use ambition_persistence::save::AmbitionGameSave;
+pub use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::{
     PersistedCustody, PersistedOccurrence, PersistedWhereabouts,
 };
@@ -83,6 +83,38 @@ pub fn adopt_occurrence_checkpoint_from_save(
 /// ⚠ THE `Update` ADOPTER STAYS. A file can also arrive after activation (a
 /// mid-session load), and adoption is idempotent: the same rows adopted twice
 /// are the same rows.
+/// Adopt the save's ledger for a session that is about to be CONSTRUCTED, before
+/// its first room is planned.
+///
+/// ⛔⛤ **A10.5 MOVED THE MOMENT THIS HAS TO HAPPEN.** The system below fires on
+/// `SessionScopeActivated`, whose promise was *"before any provider constructs
+/// the world these values describe"*. With the candidate session prepared BEFORE
+/// the route activates, that message arrives too late: MEASURED, the shipped load
+/// authored `placement:ground_beam` into the start room on 2 frames after the
+/// file said it was lying somewhere else.
+///
+/// ⭐ **ADOPTING EARLY IS SAFE BECAUSE THE LEDGER IS A PROJECTION OF THE SAVE,
+/// NOT OF THE SESSION.** A candidate that is then REFUSED changed nothing the
+/// ledger describes, and adoption is idempotent — the same rows adopted twice are
+/// the same rows. This is not candidate-owned state pretending to be live state;
+/// it is the file, read at the first moment anything needs it.
+pub fn adopt_the_occurrence_ledger_for_a_candidate(
+    save: &AmbitionGameSave,
+    occurrences: Option<ResMut<AuthoredOccurrences>>,
+    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
+    custody_baseline: Option<ResMut<CustodyBaseline>>,
+) {
+    let Some(occurrences) = occurrences else {
+        return;
+    };
+    adopt_the_ledger(
+        save.data(),
+        occurrences,
+        occurrence_baseline,
+        custody_baseline,
+    );
+}
+
 pub fn adopt_the_occurrence_ledger_at_activation(
     // `Option`: a narrow fixture that never installs the session-scope plugin
     // registers no such message, and "there is no activation channel here" is an

@@ -325,7 +325,7 @@ the route, a registered `ShellActivationGates` evaluator, adoption on
 The working tree was reverted to the green HEAD; the patch is kept out of tree.
 
 ⇒ **THE CAUSE IS SHAPE, NOT DETAIL: I REPLACED AN UNCONDITIONAL CONSTRUCTOR WITH
-A CONDITIONAL ONE.** `activate_prepared_platformer_sessions` built a world for
+A CONDITIONAL ONE.** The activation system built a world for
 EVERY activation of an authored-catalog experience. The candidate road only fires
 when a pending route has already published its prepared session, so every
 activation that does not pass through that exact state — and there are several
@@ -341,7 +341,40 @@ fallback, measure which activations take which road, and only then consider
 removing the fallback. (⚠ REASONED, not measured: the two causes above were not
 separated before the revert — the next attempt should instrument which one fires.)
 
-**Next implementation — A10.5, the shell activation boundary.** Prepare and
+**A10.5 LANDED (2026-09-14) — the candidate session is prepared and VERIFIED
+before the route activates.** `prepare_candidate_platformer_session` builds the
+whole candidate while the shell route is still pending and HOLDS that route with
+a transaction-specific hold id; `candidate_session_gate` — one registered
+evaluator, Q118's own barrier — answers `Hold` until the first room takes a
+verdict, `Admit` when it published, and `Refuse` when it did not, discarding the
+candidate whole. `adopt_candidate_platformer_session` then adopts the already-
+verified world: `ActiveGameplaySession::adopt_world` takes the root the candidate
+spawned, the shell facts it could not know go on, the projections are installed
+and the population is promoted.
+
+⇒ **THAT IS THE SESSION-SCOPE LAST-GOOD-WORLD GUARANTEE.** A refused candidate
+never activates, so `RouteDeactivated(A)` is never written and the session that is
+playing is never retired — with no new retirement machinery and the measured
+2026-09-13 reason for the current retire-then-activate order untouched.
+
+**MEASURED, in the shipped app:** `road=prepared-before-activation` on both
+activations of the handoff arm, with matching activation ids and scopes, and
+`room-loaded central_hub_complex` now printed BEFORE `session-start`. Three
+defects were found by that instrumentation rather than by reasoning, and each is
+recorded at its fix: `activate` minted a fresh id because it read the reservation
+off `self.pending` AFTER the caller cleared it (candidate prepared for
+`ShellActivationId(3)`, activated as `4`, so every session silently took the
+fallback road); the hidden candidate root's `SimId` read as an unowned candidate
+and as a stray to the room's own verifiers, which the old code avoided only by
+accident of command order; and the save's occurrence ledger was adopted on
+`SessionScopeActivated`, which is now too late for the first room.
+
+⚠ **THE FALLBACK STAYS, deliberately.** An activation nobody prepared for still
+builds and adopts inside the activation — the pre-A10.5 behaviour with the
+pre-A10.5 guarantee. The world log names which road each session took, so the
+fallback is removed on evidence rather than on hope.
+
+**Next implementation — the remaining A10.5 work.** Prepare and
 verify the candidate session while the shell route is still PENDING, hold the
 route with a `ShellActivationGates` evaluator keyed to that candidate, and let
 the gate's `Admit` / `Refuse` be the activation decision — the barrier Q118

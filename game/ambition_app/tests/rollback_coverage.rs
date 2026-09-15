@@ -1063,6 +1063,26 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::room_transition::commit::PendingRoomTransitionFinalize",
         "set and consumed inside one run of the sim schedule by two chained systems; it carries a host-local PublicationHandle, which is control-plane identity and never canonical rollback state",
     ),
+    // ⛔⛔ A10.5's CANDIDATE SESSION CONTROL PLANE, and neither is simulation
+    // state. The SLOT holds the one session this provider has prepared and not
+    // yet adopted — its ECS half lives under the candidate's own scope, hidden,
+    // and is rollback-accounted there like any other entity; what is in the
+    // resource is a host-local `Entity`, a `SessionScopeId`, a
+    // `ShellActivationId` and a `PublicationHandle`, none of which may ever enter
+    // a checksum. The EVALUATOR is a `SystemId` registered once at plugin build
+    // and never written again.
+    //
+    // ⭐ A rewind restoring either would be meaningless: shell routing does not
+    // rewind, so a restored candidate would describe an activation decision the
+    // shell has already taken or abandoned.
+    (
+        "ambition_platformer2d_provider::lifecycle::CandidateSessionSlot",
+        "the one prepared-and-unadopted candidate session: host-local control plane (an Entity, a scope id, an activation id, a PublicationHandle), written by shell routing which does not rewind",
+    ),
+    (
+        "ambition_platformer2d_provider::lifecycle::CandidateSessionGateEvaluator",
+        "a SystemId registered once at plugin build for the shell activation gate; never written again",
+    ),
     // The tier floor of the room the HOST is loading behind a cover.
     //
     // The authored respawn beat, in SECONDS.

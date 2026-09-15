@@ -495,6 +495,23 @@ the gaps that remain beside it, none of which falsifies it.
   right moment — let publication despawn the predecessor, and have the custodian
   consume the recorded pair instead of the live entity.**
 
+  ⛔⛤ **AND THE LEDGER'S DRAIN IS THE HAZARD THAT DECIDES THE DESIGN — derived
+  2026-09-15 while scoping the change, and it is why this is not a two-file
+  patch.** The moment publication despawns the predecessor, the hand is holding a
+  `HeldItem` that names a dead entity, and it stays that way until something
+  strips it. Under Model B that never happens because the despawn and the strip
+  are one operation. So Model A's ledger must be drained on EVERY path that can
+  declare a custody handoff, not just the one that motivated it: the obvious home
+  is inside `restore_custody_to_checkpoint`, but that runs only when the commit
+  carries a `checkpoint_operation`, and a plain room TRANSITION can declare a
+  custody supersession too. An undrained ledger is strictly worse than the window
+  it replaces — a stale hand rather than a duplicate that closes itself.
+
+  ⇒ The drain therefore wants to be an UNCONDITIONAL step of the publication
+  tail, ordered with the same guarantee the despawn has, rather than a passenger
+  on the checkpoint restore. That is the part to design first, and the part the
+  straight inversion never reached.
+
   ⚠ **The record must NOT live on `Supersession`.** That type is generic
   construction vocabulary in `shared_tangle`; a held-item spec id is items-domain
   content, and putting one in the other is the layering mistake that would make

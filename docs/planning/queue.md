@@ -317,6 +317,30 @@ activates is already known-good by the time `RouteDeactivated(A)` is written**.
 A refused candidate never activates, so A is never retired. That also leaves the
 measured 2026-09-13 reason for the current order untouched.
 
+⛔⛤ **A10.5 WAS ATTEMPTED AND REVERTED — 2026-09-14, AND THE MEASUREMENT IS THE
+ROW.** The full change compiled (shell reservation ledger + `adopt_world`,
+`build_candidate` spawning its own hidden root, a pending-phase preparer holding
+the route, a registered `ShellActivationGates` evaluator, adoption on
+`Activated`) and then failed 17+ `app_it` arms with *"reached no session world"*.
+The working tree was reverted to the green HEAD; the patch is kept out of tree.
+
+⇒ **THE CAUSE IS SHAPE, NOT DETAIL: I REPLACED AN UNCONDITIONAL CONSTRUCTOR WITH
+A CONDITIONAL ONE.** `activate_prepared_platformer_sessions` built a world for
+EVERY activation of an authored-catalog experience. The candidate road only fires
+when a pending route has already published its prepared session, so every
+activation that does not pass through that exact state — and there are several
+roads that do not, plus an ordering question about whether preparation has
+published by the time the pending-phase system looks within the same frame — got
+no world at all.
+
+⇒ **THE NEXT ATTEMPT MUST BE ADDITIVE.** Activation keeps a constructor for the
+case where no candidate was prepared for it; the candidate road is an
+OPTIMISATION of the ordinary road, not a replacement for it, and only the routes
+that actually prepared a candidate get the strong guarantee. Ship it behind that
+fallback, measure which activations take which road, and only then consider
+removing the fallback. (⚠ REASONED, not measured: the two causes above were not
+separated before the revert — the next attempt should instrument which one fires.)
+
 **Next implementation — A10.5, the shell activation boundary.** Prepare and
 verify the candidate session while the shell route is still PENDING, hold the
 route with a `ShellActivationGates` evaluator keyed to that candidate, and let

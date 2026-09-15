@@ -308,17 +308,36 @@ refused candidate session leaves NO session at all, because N was already gone.
 This is why A10 is not closed, and it is a larger statement than "the refusal
 half has no witness".
 
-**Next implementation — the room packet's shape lifted to session scope.** The
-outgoing session's retirement must become a DECLARED effect of the incoming
-candidate session's publication, performed by the publication authority in the
-order `publish candidate root -> retire declared superseded session`, exactly as
-`publish_candidate` then `retire_superseded` do for a room. The duplicate-roster
-defect the current order exists to prevent is then prevented by the same
-mechanism rooms already use — the outgoing bodies are DECLARED superseded rather
-than swept early — instead of by a schedule edge. Only after that does a
-production refusal witness at session scope become writable, and only then are
-`ActiveSessionScope`, `ActiveGameplaySession` and `SessionMechanics` worth moving
-behind the same verdict. They do not need to become components on the
+⚠ **AND THE FIX IS NOT TO REORDER THE RETIREMENT — CORRECTED 2026-09-14, THE
+SAME DAY THE ROW ABOVE WAS WRITTEN.** My first reading said the outgoing
+session's retirement had to become a declared effect of the incoming
+publication, the room packet's shape lifted one level. It does not: the
+retirement is fine where it is, because **a candidate verified BEFORE the route
+activates is already known-good by the time `RouteDeactivated(A)` is written**.
+A refused candidate never activates, so A is never retired. That also leaves the
+measured 2026-09-13 reason for the current order untouched.
+
+**Next implementation — A10.5, the shell activation boundary.** Prepare and
+verify the candidate session while the shell route is still PENDING, hold the
+route with a `ShellActivationGates` evaluator keyed to that candidate, and let
+the gate's `Admit` / `Refuse` be the activation decision — the barrier Q118
+already built for exactly this. Two identity prerequisites, both about deciding
+an EXISTING host-local id earlier rather than inventing a new one (⛔ A10 must
+not mint a second identity workaround; see ID-PEER):
+
+- `ShellRouter::activate` mints the `ShellActivationId` at activation, and the
+  candidate root's `SimId::singleton("session", activation_id)` needs it at
+  preparation. The id must be RESERVED when the route goes pending. Re-keying
+  that `SimId` to something else is not A10's call.
+- `ActiveSessionScope::begin` mints a scope AND makes it current in one
+  statement. A candidate needs the identity without the selection, so the
+  allocator and the active-scope selector must separate — without creating a
+  second current-scope authority.
+
+`ActiveGameplaySession::spawn_world_for` is also unusable for a candidate by
+construction (it starts `let instance = self.0.as_mut()?` and validates against
+the already-published session), which is correct for its contract: the candidate
+lives in `CandidateSessionPublication` until activation ADOPTS it. They do not need to become components on the
 candidate root — that framing would have charged `MovingPlatformSet` a
 rollback-wire-format change it does not have to pay. First concrete step is an
 ordering fact, not a type change: activation queues its room build before it

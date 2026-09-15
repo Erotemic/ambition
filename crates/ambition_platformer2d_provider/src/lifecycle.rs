@@ -1672,6 +1672,25 @@ fn discard_abandoned_candidate(
     let Some(candidate) = slot.0.take() else {
         return;
     };
+    release_candidate(candidate, reserved, holds, gates, commands, "abandoned");
+}
+
+/// The four releases a candidate owes WHATEVER door it leaves by, in the one
+/// order that works.
+///
+/// ⛔⛤ **THE ORDER IS LOAD-BEARING: HOLD BEFORE EVALUATOR.** Forgetting the
+/// evaluator while the route hold still stands leaves the router a hold it cannot
+/// evaluate — measured, the route is then wedged forever and the SUPERSEDING
+/// session never starts either, which is worse than the leak this cleanup exists
+/// to prevent.
+fn release_candidate(
+    candidate: PreparedCandidateSession,
+    reserved: &mut ambition_game_shell::ReservedGameplayScopes,
+    holds: &mut ambition_game_shell::ShellRouteHolds,
+    gates: &mut ambition_game_shell::ShellActivationGates,
+    commands: &mut Commands,
+    why: &'static str,
+) {
     let (root, scope, experience, publication, activation, route) = (
         candidate.root,
         candidate.scope,
@@ -1689,9 +1708,8 @@ fn discard_abandoned_candidate(
         );
         ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "session-abandoned experience={experience} activation={activation:?} \
-             ({discarded} entities discarded; the shell is no longer pursuing this \
-             candidate's activation)"
+            "session-{why} experience={experience} activation={activation:?} \
+             ({discarded} entities discarded)"
         ));
     });
 }
@@ -1847,10 +1865,31 @@ fn prepare_candidate_platformer_session(
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
     holds.hold(pending.route_id.clone(), hold);
-    // ⛔ THE SLOT IS EMPTY BY NOW WHATEVER HAPPENED: anything it held that this
-    // activation is not about was discarded at the head of this system. See
-    // `discard_abandoned_candidate`.
-    debug_assert!(slot.0.is_none(), "the head of this system empties the slot");
+    // ⛔⛤ **AND THE SLOT IS EMPTIED BY A DISCARD, NEVER BY AN ASSIGNMENT.** The
+    // head of this system already discarded anything this activation is not
+    // about, so this is a backstop and should never fire — but a `debug_assert`
+    // here would be compiled out of the shipped game, and what it guards is
+    // precisely the bare `slot.0 = Some(..)` that leaked a whole prepared session
+    // until 2026-09-15. A backstop that only exists in debug builds is not a
+    // backstop.
+    if let Some(stale) = slot.0.take() {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "the candidate slot still held activation {:?} when preparing {:?}; \
+             the head of `prepare_candidate_platformer_session` should have \
+             discarded it",
+            stale.activation_id,
+            activation_id,
+        );
+        release_candidate(
+            stale,
+            &mut reserved,
+            &mut holds,
+            &mut gates,
+            &mut builder.commands,
+            "displaced",
+        );
+    }
     slot.0 = Some(candidate);
 }
 

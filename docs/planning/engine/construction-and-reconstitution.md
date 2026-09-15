@@ -348,6 +348,15 @@ The cancel arm asserts the count is **> 0** three frames in, while the candidate
 is supposed to be standing — so the zero at the end is a claim about the WORLD
 rather than about the query.
 
+⭐ **AND THE SLOT IS EMPTIED BY A DISCARD, NEVER BY AN ASSIGNMENT.** The four
+releases live in one `release_candidate`, and the tail of the preparer calls it on
+anything the head somehow left behind rather than overwriting it. That backstop
+started life as a `debug_assert` and should have stayed one for about a minute:
+**it is compiled out of the shipped game**, and what it guards is precisely the
+bare `slot.0 = Some(..)` that leaked a whole prepared session. ⇒ A backstop that
+only exists in debug builds is not a backstop — it is a comment that panics in
+CI.
+
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,
 its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of

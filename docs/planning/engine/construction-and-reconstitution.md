@@ -639,7 +639,13 @@ strong-road bucket. ⇒ **A diagnostic log with a line cap is not a census
 instrument**, however precisely it labels what it does print.
 
 **7. Remaining work.** The acceptance criterion is MET at both scopes; these are
-the gaps that remain beside it, none of which falsifies it.
+the gaps that remain beside it, none of which falsifies it. ⚠ **NEITHER IS AN A10
+IMPLEMENTATION TASK ANY MORE, and that is why each names an owner and a first
+move rather than sitting here as a wish**: the custody one is a CUSTODY-DOMAIN
+restructuring (items + checkpoint restore) that A10 can state the requirement for
+but should not perform, and the door one is a DESIGN question for the maintainer.
+An item whose owner is "whoever reads this next" is an item that gets done by the
+person least placed to decide it.
 
 - **A persistently refused door is un-passable, and silently so.** Re-read
   2026-09-15: the earlier wording here (*"the state machine advances to `playing`

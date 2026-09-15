@@ -374,6 +374,36 @@ builds and adopts inside the activation — the pre-A10.5 behaviour with the
 pre-A10.5 guarantee. The world log names which road each session took, so the
 fallback is removed on evidence rather than on hope.
 
+⛔⛤ **THE ACCEPTANCE WITNESS IS STILL NOT WRITABLE, AND THE REASON IS NOW EXACT
+(MEASURED 2026-09-14 by writing it twice and watching it fail).** Two attempts:
+
+1. A test loop poisoning the candidate's `ActiveContentBinding` between frames —
+   the candidate activated anyway. The preparer, the command flush that verifies
+   the first room, and the router's gate evaluation all happen inside ONE
+   `app.update()` whenever the route's content was already prepared.
+2. The same poison as a SYSTEM ordered `.after` the preparer and before the
+   router's advance — also activated anyway. The candidate's ROOT is a queued
+   spawn: it does not exist until the same flush that verifies its first room, so
+   even an in-frame observer has nothing to write onto.
+
+⇒ **AND THE BINDING POISON IS STRUCTURALLY UNREACHABLE FOR A FIRST ROOM
+ANYWAY.** The plan's generation and the binding written on the candidate's root
+both come from `prepared_content.identity().epoch`, one frozen value — they cannot
+disagree. The room transition arm can use this poison only because the room it
+refuses is prepared against a generation the SESSION already holds.
+
+⇒ **THE WITNESS NEEDS AUTHORED CONTENT THAT FAILS VERIFICATION, NOT A POISON.**
+A registered test experience whose start room authors two placements with the same
+id refuses through `verify_committed_roster` on the production road, with nothing
+test-only inside construction. That is the next concrete step toward closing A10,
+and it is bounded: the experience-authoring surface
+(`PlatformerExperienceAuthoring`) already exists and `demo_shell_smoke` already
+composes a tiny content plugin.
+
+⇒ **UNTIL THEN A10 IS NOT CLOSED.** The session-scope guarantee is implemented and
+wired — the gate refuses, the candidate is discarded, the route does not activate —
+and it is REASONED, not measured, on shipped traffic.
+
 **Next implementation — the remaining A10.5 work.** Prepare and
 verify the candidate session while the shell route is still PENDING, hold the
 route with a `ShellActivationGates` evaluator keyed to that candidate, and let

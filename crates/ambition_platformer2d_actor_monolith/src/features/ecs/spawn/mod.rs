@@ -937,7 +937,9 @@ impl RoomFeatureConstructionPlan {
         };
 
         let actor_transaction = self.construction.transaction(session);
-        let actor_scope = AuthoritativeScope::gather(world, &actor_transaction);
+        // ⛔ THIS SESSION'S WORLD — one of the three gather sites that must agree.
+        let actor_scope =
+            AuthoritativeScope::gather_for_session(world, &actor_transaction, session);
         let mut violations = verify_committed_roster(
             &self.construction,
             &receipt.construction,

@@ -2547,6 +2547,48 @@ impl TransactionBaseline {
         Self::from_occupants(found)
     }
 
+    /// Capture the live world OF ONE SESSION.
+    ///
+    /// ⛔⛤ **A ROOM TRANSACTION'S WORLD IS ITS OWN SESSION'S WORLD.** With a
+    /// candidate session prepared while another is still playing, a whole-world
+    /// capture puts the OTHER session's bodies in this room's baseline — and a
+    /// planned identity found there is declared SUPERSEDED, so publication
+    /// despawns it. MEASURED 2026-09-15 on the shipped handoff: 18 live bodies
+    /// of the playing session retired by the incoming candidate's first room.
+    ///
+    /// ⚠ **UNSCOPED WORK IS ALWAYS INCLUDED.** An entity with no
+    /// `SessionScopedEntity` is process-resident and belongs to whoever is
+    /// looking; a direct-entry fixture passes `SessionSpawnScope::UNSCOPED` and
+    /// gets exactly the whole-world capture it had before.
+    pub fn capture_for_session(
+        world: &mut World,
+        session: crate::lifecycle::SessionSpawnScope,
+    ) -> Result<Self, BaselineCaptureError> {
+        let Some(scope) = session.id() else {
+            return Self::capture(world);
+        };
+        let mut found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>> = BTreeMap::new();
+        let mut query = world.query_filtered::<
+            (
+                Entity,
+                &SimId,
+                Option<&SpawnOrigin>,
+                Option<&crate::lifecycle::SessionScopedEntity>,
+            ),
+            bevy::prelude::Without<PresentationOnly>,
+        >();
+        for (entity, sim_id, origin, owner) in query.iter(world) {
+            if owner.is_some_and(|owner| owner.0 != scope) {
+                continue;
+            }
+            found
+                .entry(sim_id.clone())
+                .or_default()
+                .push((entity, origin.cloned()));
+        }
+        Self::from_occupants(found)
+    }
+
     /// Capture from explicit pairs, for fixtures and for callers that already
     /// hold the roster. Duplicates refuse exactly as they do in [`Self::capture`].
     pub fn from_pairs(
@@ -3074,6 +3116,29 @@ impl AuthoritativeScope {
     /// authoritative because the executor stamped it, not because its `SimId`
     /// starts with one prefix or another.
     pub fn gather(world: &mut World, transaction: &TransactionId) -> Self {
+        Self::gather_for_session(world, transaction, crate::lifecycle::SessionSpawnScope::UNSCOPED)
+    }
+
+    /// As [`Self::gather`], restricted to ONE session's world.
+    ///
+    /// ⛔⛤ **IDENTITIES ARE UNIQUE WITHIN A SESSION, NOT ACROSS THE PROCESS.**
+    /// Two sessions of the same experience legitimately hold the same authored
+    /// placement ids, and with a candidate session prepared beside a live one both
+    /// populations are in the world at once. A process-wide gather calls every one
+    /// of them a duplicate — the `18x Duplicated` refusal recorded in
+    /// `SessionScopePlugin` is the same fact seen from the other side.
+    ///
+    /// ⚠ **ALL THREE PRODUCTION GATHER SITES MUST ASK THE SAME QUESTION.**
+    /// MEASURED 2026-09-15: teaching only the projection's gather left the ROSTER
+    /// verifier's scope process-wide, and the live session's entities stayed in
+    /// it. `capability_lanes`, the actor lane and the projection are the three.
+    ///
+    /// `UNSCOPED` gathers everything, which is what a direct-entry fixture wants.
+    pub fn gather_for_session(
+        world: &mut World,
+        transaction: &TransactionId,
+        session: crate::lifecycle::SessionSpawnScope,
+    ) -> Self {
         let mut members = Vec::new();
         // `Allow<InactiveCandidate>` means *"entities WITH and WITHOUT the
         // component"*, which is what a scope gather wants: the live world AND any
@@ -3110,8 +3175,16 @@ impl AuthoritativeScope {
             // the default filter; reading the component is what lets the result
             // say WHICH population each member is in. See [`ScopeVisibility`].
             Option<&InactiveCandidate>,
+            Option<&crate::lifecycle::SessionScopedEntity>,
         ), bevy::ecs::query::Allow<InactiveCandidate>>();
-        for (entity, sim_id, owner, presentation, hidden) in query.iter(world) {
+        for (entity, sim_id, owner, presentation, hidden, session_owner) in query.iter(world) {
+            // ⛔ ANOTHER SESSION'S WORLD IS NOT IN THIS SCOPE. See
+            // `gather_for_session`. Unscoped work is everyone's.
+            if let Some(scope) = session.id() {
+                if session_owner.is_some_and(|owner| owner.0 != scope) {
+                    continue;
+                }
+            }
             let classification = if presentation.is_some() {
                 ScopeClassification::PresentationOnly
             } else {

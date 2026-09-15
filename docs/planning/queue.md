@@ -387,9 +387,26 @@ was taught the session. The roster verifier's own scope was still process-wide, 
 the live session's entities were in it: hence `Duplicated` for every authored
 placement and `UnownedIdentity` for the three above.
 
-⇒ **THE NEXT ATTEMPT'S CHECKLIST IS THEREFORE CONCRETE**: scope all three gather
-sites and `TransactionBaseline::capture`, then re-measure. That is what
-"identities are unique within a session" costs, and it is why this is a packet.
+⇒ **THAT CHECKLIST IS NOW DONE (2026-09-15).** All three gather sites take
+`AuthoritativeScope::gather_for_session` and the room transaction's baseline takes
+`TransactionBaseline::capture_for_session`, both keyed by the scope the plan was
+prepared under; `UNSCOPED` still gathers and captures everything, which is what a
+direct-entry host and every fixture wants. It is behaviour-preserving today —
+only one session is ever alive when a room is built — so it is witnessed rather
+than assumed:
+`a_rooms_publication_retires_its_own_sessions_predecessor_and_not_another_sessions`
+puts a body wearing a PLANNED identity beside the candidate and asserts BOTH
+halves. The control (the same body owned by THIS session) must still be retired —
+an ordinary supersession, which is what proves the identity really is one this
+room builds and the retirement mechanism really is live; without it "the other
+session's body survived" would also be true of an id nothing plans.
+
+⇒ **WHAT REMAINS FOR A10.5 IS THE PENDING-PHASE ROAD ITSELF**, re-applied on top
+of this: the reservation ledger and `adopt_world` in the shell, the preparer and
+the gate in the provider, the ledger adopted for a pending candidate, and the
+fallback that keeps an unprepared activation building its own world. The three
+defects that road already found are described above; the patches are kept out of
+tree.
 
 **Reverted to the A10.4 shape**: the candidate session is built at activation and
 published behind its first room's verdict. The three defects above were real and

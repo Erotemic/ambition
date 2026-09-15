@@ -229,6 +229,7 @@ fn commit_bracketed(
             &mut commands,
             publication,
             &plan,
+            SessionSpawnScope::UNSCOPED,
             candidate_bracket,
         );
         let receipt = crate::features::spawn_room_feature_entities_from_plan(

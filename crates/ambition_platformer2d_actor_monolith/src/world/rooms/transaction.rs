@@ -650,6 +650,7 @@ pub(crate) fn open(
     commands: &mut Commands,
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
+    session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
     let planned = plan.planned_sim_ids();
@@ -663,7 +664,12 @@ pub(crate) fn open(
             ) {
             Err(OpenRefused::CandidateFilterNotInstalled)
         } else {
-            TransactionBaseline::capture(world)
+            // ⛔ THIS SESSION'S WORLD, NOT THE PROCESS'S. See
+            // `TransactionBaseline::capture_for_session`: a whole-world capture
+            // puts ANOTHER session's bodies in this room's baseline, and a
+            // planned identity found there is declared SUPERSEDED — so
+            // publication despawns a live session's world.
+            TransactionBaseline::capture_for_session(world, session)
                 .map(|baseline| {
                     // ⛔ THE PLAN'S OWN PREDICTED ROSTER, not a hand-kept list
                     // beside it: `predicted_authoritative_ids` is the same set
@@ -1128,7 +1134,7 @@ fn verify_and_publish(
         // asked of `effects.owners()` above. It is the actor lane's because a
         // scope has to be gathered against some transaction, not because that
         // lane is privileged.
-        let scope = AuthoritativeScope::gather(world, &transactions[0]);
+        let scope = AuthoritativeScope::gather_for_session(world, &transactions[0], session);
         let projection = project_post_publication_roster(&scope, &effects);
         verify_projected_roster(&projection, &effects, &baseline, &scope, world)
             .err()

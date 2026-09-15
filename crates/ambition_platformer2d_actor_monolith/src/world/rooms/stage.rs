@@ -322,6 +322,7 @@ impl RoomConstructionPlan {
             commands,
             publication,
             &self.features,
+            self.session_scope,
             candidate_bracket,
         );
         // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
@@ -1377,6 +1378,79 @@ mod tests {
         assert!(
             !publication_succeeded(app.world(), mine),
             "a publication that no longer exists read as a success"
+        );
+    }
+
+    /// ⛔⛤ **ANOTHER SESSION'S BODY IS NOT THIS TRANSACTION'S TO RETIRE.**
+    ///
+    /// Two sessions of one experience legitimately hold the same authored
+    /// placement ids, and a candidate session prepared beside a live one puts both
+    /// populations in the world at once. A whole-world BASELINE then finds the
+    /// other session's body wearing an identity this room plans, declares it
+    /// SUPERSEDED, and publication despawns it. MEASURED 2026-09-15 on the shipped
+    /// handoff: *"18 declared departures retired"* one frame before the incoming
+    /// session even started — the candidate destroying the world that was playing.
+    ///
+    /// ⭐ **THE CONTROL IS WHAT MAKES THIS ARM MEAN ANYTHING.** The SAME body,
+    /// owned by THIS session, must still be retired: that is an ordinary
+    /// supersession and it proves the identity really is one this room builds and
+    /// that the retirement mechanism really is live. Without it, "the other
+    /// session's body survived" would also be true of an id nothing plans.
+    #[test]
+    fn a_rooms_publication_retires_its_own_sessions_predecessor_and_not_another_sessions() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            SessionScopedEntity, SessionScopeId,
+        };
+
+        fn stage_beside(owner: SessionScopeId) -> (bool, bool) {
+            let (mut app, outgoing) = last_good_world(MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(30.0, 8.0),
+                40.0,
+                5.0,
+            ));
+            // A body wearing an identity the candidate room is about to build,
+            // owned by `owner`.
+            let predecessor = app
+                .world_mut()
+                .spawn((
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement("occupant"),
+                    SessionScopedEntity(owner),
+                ))
+                .id();
+            stage_the_candidate(
+                &mut app,
+                candidate_plan_for(SessionSpawnScope::scoped(SessionScopeId(0))),
+                outgoing,
+            );
+            let published = app
+                .world()
+                .resource::<crate::features::LastConstructionVerification>()
+                .published;
+            (published, app.world().get_entity(predecessor).is_ok())
+        }
+
+        // ⭐ THE CONTROL: this session's own predecessor IS superseded and retired.
+        let (published, survived) = stage_beside(SessionScopeId(0));
+        assert!(
+            published,
+            "the control's room did not publish, so it says nothing about retirement"
+        );
+        assert!(
+            !survived,
+            "the control did not collide: `placement:occupant` is not an identity \
+             this room supersedes, so the arm below would be true of nothing"
+        );
+
+        // And the identical identity owned by ANOTHER session is left alone.
+        let (published, survived) = stage_beside(SessionScopeId(99));
+        assert!(published, "the room refused over another session's identity");
+        assert!(
+            survived,
+            "⛔ A ROOM'S PUBLICATION DESPAWNED ANOTHER SESSION'S BODY. This is the \
+             defect that made the candidate session destroy the world that was \
+             playing: a whole-world baseline declares another session's identities \
+             superseded"
         );
     }
 

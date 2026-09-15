@@ -3813,7 +3813,7 @@ fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
     let (room, staging) = duelling_room();
     let plan = prepare(&room, &staging, &recipes).expect("the room plans");
 
-    let app = commit_bracketed(plan, true, |_| {});
+    let mut app = commit_bracketed(plan, true, |_| {});
     let verification = app
         .world()
         .resource::<crate::world::rooms::LastConstructionVerification>();
@@ -3822,6 +3822,34 @@ fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
         "a room was published as a CANDIDATE into a world where `InactiveCandidate` \
          is not a disabling component, so every root it called invisible was live \
          the whole time"
+    );
+    // ⛔⛤ **`!published` IS TOO WEAK ON ITS OWN — 2026-09-15 AUDIT, FINDING 4.**
+    // `spawn_contents_for` queues `open`, then the candidate construction
+    // commands, then `close`. A refusal DISCOVERED INSIDE `open` cannot unqueue
+    // the commands behind it, so by the time the verdict is recorded the roots
+    // EXIST — and in this exact case they are not hidden at all, because the
+    // whole refusal is that this world cannot hide them. A verdict of `false`
+    // over a world full of live debris is not a refusal, it is a report.
+    assert_eq!(
+        ambition_platformer2d_shared_tangle::construction::outstanding_candidates(
+            app.world_mut()
+        ),
+        0,
+        "⛔ A REFUSED CANDIDATE ROOM LEFT ITS ROOTS STANDING. The transaction \
+         refused before it could hide anything, and every root it had already \
+         queued is in the world — VISIBLE, because the marker is inert here"
+    );
+    let stamped = {
+        let world = app.world_mut();
+        let mut query = world
+            .query::<&ambition_platformer2d_shared_tangle::construction::TransactionId>();
+        query.iter(world).count()
+    };
+    assert_eq!(
+        stamped, 0,
+        "⛔ CANDIDATE TRANSACTION STATE OUTLIVED ITS REFUSAL: {stamped} \
+         entit(ies) still carry a `TransactionId` for a room that was refused, \
+         so a later transaction gathering by scope can still find them"
     );
 }
 

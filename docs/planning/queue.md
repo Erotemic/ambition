@@ -50,7 +50,7 @@ session A. The five contracts, and where each stands:
 | 1 | Nested non-entity/effect ownership | **CLOSED** — a verified publication freezes what it owes the world outside its own population; a nested room's bundle is consumed at the SESSION's boundary |
 | 2 | Exact per-publication custody ownership | **CLOSED** 2026-09-15 (`CustodyHandoffs` on the exact `RoomPublication`), and now consumed by the same deferred finalization as everything else in the bundle |
 | 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally — `PlatformerSessionBuilder` no longer holds a live durable resource at all. ⚠ The BEHAVIOURAL witness is still owed: a save whose ledger, custody and minted rows together describe a mint the start room reinstates |
-| 4 | True pre-construction refusal / complete early cleanup | **PARTIAL** — the early refusal now retires what the road already queued. The primary fix (refuse BEFORE any candidate spawn can be queued) is NOT done |
+| 4 | True pre-construction refusal / complete early cleanup | **CLOSED** — the prerequisite is preflighted at APP BUILD, which is strictly before any command a room queues, and the guard for it now exists; the transaction-level refusal is the backstop and now retires the roots `open` could not unqueue |
 | 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, and every sink it writes is preflighted on that exact entity |
 
 ⛔ **WHAT THE AUDIT RULED IS *NOT* UNFINISHED A10**, and I am not reopening any of
@@ -61,6 +61,15 @@ case), and the refused-door player feedback (presentation/product policy, not
 last-good-world correctness). Stale A10 passages in `status.md` and
 `actor-monolith-work-frontier.md` are documentation debt for the debloat owner,
 not an implementation reopening.
+
+⛔⛔ **AND FINDING 4 UNCOVERED A GUARD THAT WAS ONLY A COMMENT.**
+`ambition_platformer2d_runtime` names
+`the_shipped_app_hides_candidates_before_they_are_verified` beside the
+`register_inactive_candidate_filter` call as the thing that would catch its
+removal. MEASURED: a repo-wide grep finds that name in exactly ONE place — that
+comment. ⇒ **A test cited by a `//` comment is not a test, and the citation gate
+does not scan `//` comments**, so the claim stood unchallenged. The arm exists
+now and is poison-verified against the registration.
 
 ⭐ **FINDING 1 IS REPRODUCED IN PRODUCTION, NOT ARGUED.**
 `a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session`

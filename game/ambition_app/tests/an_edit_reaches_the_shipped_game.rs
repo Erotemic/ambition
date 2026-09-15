@@ -1621,6 +1621,47 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
     );
 }
 
+/// ⛔⛤ **THE PREREQUISITE THAT MAKES CANDIDATE CONSTRUCTION SAFE, ASKED OF THE
+/// SHIPPED COMPOSITION — 2026-09-15 AUDIT, FINDING 4.**
+///
+/// `InactiveCandidate` hides an entity ONLY because
+/// `register_inactive_candidate_filter` made it a bevy disabling component.
+/// Without that call the marker is an ordinary inert component: every root the
+/// room bracket stamps is stamped, and every one of them is LIVE — a half-built
+/// room participating in the running world while it is being validated, and
+/// silently.
+///
+/// ⛔⛔ **AND THE GUARD FOR IT DID NOT EXIST.** `ambition_platformer2d_runtime`
+/// names `the_shipped_app_hides_candidates_before_they_are_verified` in a
+/// comment beside the registration, as the thing that would catch its removal.
+/// MEASURED 2026-09-15: a repo-wide grep finds that name in exactly ONE place —
+/// that comment. **A test cited by a comment is not a test**, and a `//` comment
+/// is not scanned by the citation gate, so the claim had been standing
+/// unchallenged.
+///
+/// ⭐ **THIS IS THE PREFLIGHT, AND ITS MOMENT IS APP BUILD.** The audit asks for
+/// prerequisites checked *before any candidate spawn can be queued*; the
+/// prerequisite is a property of the WORLD, established once at composition
+/// build, and that is strictly earlier than any command a room queues.
+/// `transaction::open`'s refusal remains the backstop for a hand-built world —
+/// and `a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate` now
+/// asserts that backstop leaves nothing standing.
+#[test]
+fn the_shipped_app_hides_candidates_before_they_are_verified() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    assert!(
+        ambition_platformer2d::platformer::construction::inactive_candidate_filter_installed(
+            app.world_mut()
+        ),
+        "⛔ THE SHIPPED COMPOSITION DOES NOT HIDE CANDIDATES. `InactiveCandidate` \
+         is not a disabling component in this world, so every root the room \
+         bracket calls invisible is LIVE while it is being validated, and a \
+         REFUSED room is visible debris rather than a drop"
+    );
+}
+
 /// How many `RoomLoaded` messages this composition has published since the arm
 /// installed the counter.
 #[derive(bevy::prelude::Resource, Default)]

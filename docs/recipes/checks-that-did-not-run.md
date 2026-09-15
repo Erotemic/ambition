@@ -308,6 +308,80 @@ of its scoping:
 The sweep and its population live in
 [`../planning/engine/source-text-guard-exposure.md`](../planning/engine/source-text-guard-exposure.md).
 
+### ⭐⭐ A THIRD RECURRING SHAPE: a guard keyed on a CLASSIFICATION sees only what the classification encodes
+
+The ID-PEER audit reads the live `RollbackRegistry` and asks, of every
+registration carrying a host-local lifecycle id: *is its KIND one that puts the
+whole value into the peer checksum?* That question is answerable while the kinds
+are "canonical, so every field is compared" and "clone, so nothing is". It stops
+being answerable the moment a registration keeps the canonical snapshot and
+supplies its own checksum — because then `resource-canonical` names two
+different behaviours, and the guard cannot tell them apart.
+
+⛔ **THE GUARD COULD NOT SEE ITS OWN FIX.** After `ActiveMatch` moved to a
+checksum projection, its registration still reported `resource-canonical`,
+exactly as before. The verdict was unchanged, so the closure had to be recorded
+by hand in an exception list.
+
+⛔⛔ **AND THE SAME GUARD HAD A WORSE VERSION OF THE SAME BUG ONE LINE ABOVE.**
+Its population was a list of variant NAMES kept in the test file, and that list
+omitted every `*CustomChecksum` kind — so **25 of the 29 registrations that feed
+a peer checksum were never examined at all**, including four that write a raw
+host-local id. A guard that reproduces an enum's semantics as strings inherits
+none of the enum's exhaustiveness: adding a variant cannot break it, which is
+precisely the property you want. ⇒ **Put the predicate ON THE ENUM**
+(`RollbackEntryKind::feeds_peer_checksum`), where a new variant will not compile
+until someone answers the question.
+
+⇒ **THAT REACH FOR AN EXCEPTION LIST IS THE TELL.** A reviewed list is sometimes
+the honest answer, but needing one to describe a change you just made is
+evidence that the structure cannot spell the distinction the guard is about.
+Check whether a taxonomy is MISSING A MEMBER before writing the list: here the
+family already had `component-clone-custom-checksum` and
+`resource-clone-custom-checksum`, and the absent
+`resource-canonical-custom-checksum` was the whole problem.
+
+**Two remedies, and they are not alternatives — the split needs both:**
+
+1. **Make the classification carry the distinction.** With the kind split, a
+   registration reverted to `rollback_resource_canonical` reddens the guard *by
+   name*, with the type and the kind it arrived under.
+2. **Keep a list for what the classification still cannot say, and back each
+   entry with a VALUE-level arm in the owning crate.** The kind says a
+   projection exists; it cannot say the projection excludes the right fields. A
+   projection that hashed the session anyway wears the same kind.
+
+⭐⭐ **AND SHOW THE DIVISION WITH A POISON PAIR, instead of asserting the guard
+has no blind spot.** Two poisons in opposite directions, neither of which
+reddens both sides:
+
+- break the projection's BODY (`MatchInstance::peer_stable()` →
+  `parts().0`): all three `peer_stable_checksum` arms redden, **the guard stays
+  green**;
+- revert the REGISTRATION to the whole-value checksum: **the guard reddens**,
+  the value arms stay green — the projection still compiles, is still correct,
+  and is simply no longer called.
+
+Running both is also how you find out whether a third region exists that neither
+covers. Asserting "the guard covers this" tells you nothing about that region.
+
+⛔ **AND A NEW KIND SHRINKS EVERY POPULATION KEYED ON THE OLD ONE**, which is
+why the split belongs in one commit with its readers. 22 `resource-canonical`
+rows became 18 + 4; `rollback_coverage.rs`'s resource census and the audit's own
+`CHECKSUMMED_KINDS` each silently lost four until widened. **A taxonomy edit is
+a census edit everywhere the taxonomy is read**, and the direction is the
+dangerous one — a census that quietly gets smaller still prints a clean pass.
+
+⭐ **The one thing that caught a real mistake here was cross-evidence that
+existed by accident.** The entry kind is spelled TWICE per registrar — once on
+the recording road (`runtime/rollback/registrar.rs`), once on the installing
+road (`rollback_ggrs/src/registration.rs`). Switching only the first made the
+same registration arrive under two kinds, and `RollbackRegistry`'s
+conflicting-registration check panicked at app build. That is remedy #1 of the
+previous section — *a second input of a different kind* — working without anyone
+having designed it for this. ⚠ It is also narrower than it looks: it can only
+compare names that BOTH roads reach.
+
 ### ⛔⛔ `| tail` on a long run hides whether there is any output at all
 
 `tail` writes only at EOF. A `cargo nextest run --workspace 2>&1 | tail -60 >

@@ -42,8 +42,20 @@ The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-pub
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate active seam. `SessionScopeId` is useful as an App-local session owner,
 but local activation counts must not determine peer-stable provenance or
-canonical checksums. The current engineering packet is
-[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
+canonical checksums.
+
+⛔ **AND THE LARGEST INSTANCE IS NOT A SESSION COUNT — MEASURED 2026-09-15.**
+`SimTick` is registered `resource-canonical`, so its whole value is compared
+between peers, and it is an absolute count of every sim step an App has run
+(one writer, unconditional at the head of the schedule, never rebased, menu
+frames included). Two Apps running for different lengths of time therefore
+disagree from the first compared frame. ⚠ Nothing in the repository can observe
+this: the only sessions in use are `SyncTestSession`, one machine rewinding
+itself.
+
+The current engineering packet is
+[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity),
+whose row now carries the per-road table and the order of the remaining work.
 
 ### Rollback-safe mechanical editing
 

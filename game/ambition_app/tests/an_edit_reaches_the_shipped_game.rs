@@ -577,6 +577,96 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
     census(&mut app, "after a handoff");
 }
 
+/// ⛔⛤ **A10 AT SESSION SCOPE, IN THE SHIPPED APP: THE CANDIDATE DOES NOT TOUCH
+/// THE WORLD THAT IS PLAYING.**
+///
+/// A10.5 prepares the incoming session — its hidden root, its hidden player, its
+/// first room — while the outgoing session is still live and the route is still
+/// pending. That is the whole guarantee and it is also the whole hazard: the
+/// candidate's first room plans the same authored placement ids the playing
+/// session is standing on, and a process-wide baseline declares them SUPERSEDED.
+/// MEASURED 2026-09-15, before the verifiers were taught whose world they were
+/// looking at: *"18 declared departures retired"* one frame BEFORE the incoming
+/// session started — the candidate despawning the world it was meant to replace
+/// only if it succeeded.
+///
+/// ⇒ This samples EVERY FRAME of the handoff rather than the ends: while the
+/// live scope is still N, N's population must be exactly what it was. A world
+/// that is corrected afterwards is a world that was broken.
+#[test]
+fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
+    use ambition_platformer2d::platformer::lifecycle::{
+        ActiveSessionScope, SessionScopeId, SessionScopedEntity,
+    };
+
+    fn scope(app: &bevy::prelude::App) -> Option<SessionScopeId> {
+        app.world()
+            .get_resource::<ActiveSessionScope>()
+            .and_then(ActiveSessionScope::current)
+    }
+    fn population(app: &mut bevy::prelude::App, owner: SessionScopeId) -> usize {
+        let world = app.world_mut();
+        world
+            .query::<&SessionScopedEntity>()
+            .iter(world)
+            .filter(|scoped| scoped.0 == owner)
+            .count()
+    }
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    let live = scope(&app).expect("the first session activated");
+    let before = population(&mut app, live);
+    assert!(
+        before > 0,
+        "the premise: world N is a populated session. Without it 'N was not \
+         touched' would be true of an empty world"
+    );
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    let mut handed_over = false;
+    let mut low_water = before;
+    for _ in 0..240 {
+        app.update();
+        match scope(&app) {
+            // ⛔ THE ONLY FRAMES THIS ARM JUDGES. Once the active scope has
+            // MOVED, N is retired by its own lifecycle and is supposed to empty.
+            Some(current) if current == live => {
+                low_water = low_water.min(population(&mut app, live));
+            }
+            _ => {
+                handed_over = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        handed_over,
+        "the handoff never happened, so no candidate was ever prepared beside \
+         world N and this arm measured nothing"
+    );
+    assert_eq!(
+        low_water, before,
+        "⛔ THE CANDIDATE SESSION TOOK ENTITIES OUT OF THE WORLD THAT WAS STILL \
+         PLAYING. Its first room plans the same authored ids, and a verifier that \
+         does not ask WHOSE world it is looking at declares them superseded and \
+         despawns them — before anything has decided the candidate may be played"
+    );
+}
+
 /// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
 /// IN IT.**
 ///

@@ -341,101 +341,52 @@ fallback, measure which activations take which road, and only then consider
 removing the fallback. (⚠ REASONED, not measured: the two causes above were not
 separated before the revert — the next attempt should instrument which one fires.)
 
-⛔⛤ **A10.5 WAS LANDED AND THEN REVERTED — 2026-09-15 — AND THE REVERT IS THE
-FINDING.** The full pending-phase road worked: the candidate was prepared and
-verified while the route was still pending, HELD that route through a registered
-`ShellActivationGates` evaluator, and was adopted at activation; the shipped
-handoff took `road=prepared-before-activation` on both activations and
-`room-loaded` printed BEFORE `session-start`. Three real defects were found and
-fixed along the way (the router minted a fresh activation id because it read the
-reservation off `self.pending` after the caller cleared it; the hidden candidate
-root's `SimId` read as an unowned candidate AND as a stray to the room's own
-verifiers; the save's occurrence ledger was adopted too late for the first room).
+**A10.5 LANDED (2026-09-15, on the second attempt): the candidate session is
+prepared and VERIFIED before the route activates.**
+`prepare_candidate_platformer_session` builds the whole candidate — hidden root,
+hidden initial player, hidden first room, session-owned content binding — while
+the shell route is still PENDING, and HOLDS that route with a
+transaction-specific hold id. `candidate_session_gate`, one registered evaluator
+answering through Q118's own barrier, says `Hold` until the first room takes a
+verdict, `Admit` when it published, and `Refuse` when it did not, discarding the
+candidate whole. `adopt_candidate_platformer_session` adopts the already-verified
+world through `ActiveGameplaySession::adopt_world`, puts on the shell facts a
+candidate cannot know, installs the projections and promotes the population.
 
-⇒ **AND THEN THE WORLD LOG SAID WHAT IT COST.** On the handoff the candidate's
-first room reported *"18 declared departures retired"* one frame BEFORE
-`session-start` — `transaction::open` captured a whole-world baseline, found the
-OUTGOING session's bodies holding the same authored placement ids, declared them
-superseded, and `retire_superseded` despawned them. **The candidate destroyed
-world N during the phase whose entire purpose is that it cannot.** A10.5 as built
-introduced the defect A10 exists to remove, and the suite was green: no arm
-watches the live session's population across a handoff.
+⇒ **A refused candidate never activates, so `RouteDeactivated(A)` is never
+written and the session that is playing is never retired.** No new retirement
+machinery, and the measured 2026-09-13 reason for the current retire-then-activate
+order untouched.
 
-⇒ **THE PREREQUISITE IS SESSION-SCOPED CONSTRUCTION VERIFICATION, AND IT IS A
-PACKET.** Scoping the baseline (`TransactionBaseline::capture_for_session` <!-- cite-ok: NAMED BECAUSE IT WAS REVERTED; the row records the shape the next attempt needs, not a symbol at HEAD -->) and
-the scope gather (`AuthoritativeScope::gather_for_session` <!-- cite-ok: same, reverted with the packet -->) stopped the
-retirement and turned it into a REFUSAL instead: 18 `Duplicated` plus
-`UnownedIdentity` for `encounter:goblin_encounter`,
-`encounter:symmetry_attunement` and `slot:0`. Every layer that asks *"is this
-identity already taken"* has to learn *"by whom"* before two sessions can coexist,
-and that reaches beyond A10's room packet.
+⚠ **THE FIRST ATTEMPT SHIPPED THE DEFECT A10 EXISTS TO REMOVE, AND THE WORLD LOG
+CAUGHT IT.** With the verifiers still process-wide, the handoff candidate's first
+room reported *"18 declared departures retired"* one frame BEFORE `session-start`:
+a whole-world baseline found the PLAYING session's bodies wearing ids this room
+plans, declared them superseded, and publication despawned them. It was reverted,
+the session-scoping prerequisite landed first, and A10.5 was re-applied on top —
+the same handoff now reports *"0 declared departures retired"*.
 
-⚠ **AND THE OBVIOUS EXPLANATION FOR THOSE THREE IS MEASURED FALSE.** I wrote that
-they were process-resident identities with no `SessionScopedEntity`. Two
-`#[ignore]`d probes say otherwise — one in the `fixed_60hz_sim` harness and one in
-the SHIPPED VISIBLE COMPOSITION, because a claim about "the shipped app" made in
-the harness is a claim about a different program. Both report **0 of N canonical
-identities with no session owner**, and the visible one names the three
-explicitly: `encounter:goblin_encounter`, `encounter:symmetry_attunement` and
-`slot:0` are scoped to the LIVE session (scope 0, then scope 1 after a handoff).
+**MEASURED, in the shipped app:** `road=prepared-before-activation` on both
+activations of the handoff arm; `room-loaded` printed BEFORE `session-start`; and
+`a_candidate_session_does_not_retire_the_playing_sessions_world` samples EVERY
+FRAME of the handoff and asserts N's population is untouched while N is still the
+live scope. POISON-VERIFIED: making the two scoped primitives ignore their session
+reproduces the defect and the arm fires with `163` against `181` — the same 18
+bodies the world log named. Restores checked by md5.
 
-⇒ **THE REAL CAUSE, MEASURED: THE ATTEMPT SCOPED 1 OF 3 GATHER SITES.**
-`AuthoritativeScope::gather` has three production callers —
-`features/ecs/spawn/capability_lanes.rs`, `features/ecs/spawn/mod.rs`'s
-`actor_scope`, and `world/rooms/transaction.rs`'s projection — and only the third
-was taught the session. The roster verifier's own scope was still process-wide, so
-the live session's entities were in it: hence `Duplicated` for every authored
-placement and `UnownedIdentity` for the three above.
+⚠ **STILL NOT WITNESSED: THE REFUSAL HALF.** A first room cannot be made to refuse
+from outside — the plan's generation and the binding on the candidate's root come
+from one frozen value, and the root is a queued spawn inside the same flush that
+verifies its room. It needs authored content that fails verification (a registered
+test experience whose start room authors two placements with the same id). Until
+that exists the refusal path is REASONED, and A10 is not closed.
 
-⇒ **THAT CHECKLIST IS NOW DONE (2026-09-15).** All three gather sites take
-`AuthoritativeScope::gather_for_session` and the room transaction's baseline takes
-`TransactionBaseline::capture_for_session`, both keyed by the scope the plan was
-prepared under; `UNSCOPED` still gathers and captures everything, which is what a
-direct-entry host and every fixture wants. It is behaviour-preserving today —
-only one session is ever alive when a room is built — so it is witnessed rather
-than assumed:
-`a_rooms_publication_retires_its_own_sessions_predecessor_and_not_another_sessions`
-puts a body wearing a PLANNED identity beside the candidate and asserts BOTH
-halves. The control (the same body owned by THIS session) must still be retired —
-an ordinary supersession, which is what proves the identity really is one this
-room builds and the retirement mechanism really is live; without it "the other
-session's body survived" would also be true of an id nothing plans.
+⚠ **A known order-dependent `app_it` failure remains**
+(`composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps`),
+unrelated to this work: it failed in a full run with A10.5 ABSENT earlier the same
+day and passes both in isolation and on a repeat full run.
 
-⇒ **WHAT REMAINS FOR A10.5 IS THE PENDING-PHASE ROAD ITSELF**, re-applied on top
-of this: the reservation ledger and `adopt_world` in the shell, the preparer and
-the gate in the provider, the ledger adopted for a pending candidate, and the
-fallback that keeps an unprepared activation building its own world. The three
-defects that road already found are described above; the patches are kept out of
-tree.
 
-**Reverted to the A10.4 shape**: the candidate session is built at activation and
-published behind its first room's verdict. The three defects above were real and
-their fixes are described here rather than in the tree; the patches are kept out
-of tree.
-
-**Kept from the reverted packet (2026-09-15): a room does not call its own
-session a stray.** A session root carries a canonical `SimId` and no room
-`TransactionId` — the transaction that owns it is the SESSION's publication — so
-while it is a hidden candidate the room's own verifiers see an identity in no
-plan, in no baseline (the baseline is the LIVE world) and stamped by nobody.
-`verify_committed_roster` and `verify_projected_roster` both skip a `SessionRoot`
-now. The shipped order avoided this by ACCIDENT, hiding the root only after the
-room's transaction had opened; nothing stated that as a rule.
-`a_room_publishes_into_a_session_root_that_is_still_a_hidden_candidate` states it,
-and poison-verified: disabling the two exemptions refuses the room with
-`UnownedIdentity` AND `CandidateUnowned` about `session:7`.
-
-⇒ **AND THE THIRD PLACE IT NAMED IS CLOSED TOO.** `verify_staged_world` asked
-`session_world_entity` — *"which root is LIVE"* — so a staged world replacement
-into a candidate session refused with `NoSessionRootToPublishInto`, and its
-`RoomSet` read went to the live root rather than to this transaction's. Both now
-take the root `verify_and_publish` already resolved by the transaction's own
-session scope, handed in rather than asked for a second time, so the two ends
-cannot disagree about which session a publication belongs to. The arm uses a
-SCOPED plan and asserts the room PUBLISHES, which exercises all three checks at
-once.
-
-**Next implementation — session-scoped construction verification, then A10.5 again.**
 
  Prepare and
 verify the candidate session while the shell route is still PENDING, hold the

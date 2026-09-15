@@ -735,6 +735,10 @@ impl ShellRouter {
                         };
                         self.pending = None;
                         self.activate(
+                            // ⛔ THE ID THE PENDING ROUTE RESERVED, so a
+                            // participant that prepared material for this exact
+                            // activation named the same one.
+                            pending.reserved_activation,
                             pending.route_id,
                             pending.push_history,
                             catalog,
@@ -894,6 +898,7 @@ impl ShellRouter {
                         return events;
                     }
                     events.extend(self.activate(
+                        reserved,
                         route_id,
                         push_history,
                         catalog,
@@ -956,7 +961,7 @@ impl ShellRouter {
                 }
             }
         }
-        events.extend(self.activate(route_id, push_history, catalog, None, None));
+        events.extend(self.activate(reserved, route_id, push_history, catalog, None, None));
         events
     }
 
@@ -979,6 +984,14 @@ impl ShellRouter {
 
     fn activate(
         &mut self,
+        // ⛔⛤ **PASSED IN, NOT READ OFF `self.pending` — MEASURED 2026-09-14.**
+        // My first version read the reservation from `self.pending`, and the one
+        // caller that matters clears `self.pending` before calling: the shipped
+        // handoff prepared a candidate for `ShellActivationId(3)` and activated
+        // as `ShellActivationId(4)`, so every session took the fallback road and
+        // A10.5's whole point was dead code. A caller that has a reservation
+        // states it; a caller with no pending route reserves one.
+        activation_id: ShellActivationId,
         route_id: ShellRouteId,
         push_history: bool,
         catalog: &ShellRouteCatalog,
@@ -995,14 +1008,6 @@ impl ShellRouter {
             }
             events.push(ShellEvent::RouteDeactivated(old));
         }
-        // ⛔ THE RESERVATION THE PENDING ROUTE ALREADY MADE, so a participant
-        // that prepared material for THIS activation named the same id the
-        // activation now carries. A route activated with no pending transaction
-        // (there are such roads) reserves one here.
-        let activation_id = match self.pending.as_ref() {
-            Some(pending) => pending.reserved_activation,
-            None => self.reserve_activation(),
-        };
         let active = ActiveShellExperience {
             activation_id,
             route_id,

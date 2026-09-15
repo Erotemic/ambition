@@ -470,6 +470,39 @@ the gaps that remain beside it, none of which falsifies it.
   ⇒ Model A remains the better end state for replication, but the gap it closes
   is narrower than this document used to imply: it is not an observable window,
   it is a window whose closing depends on a second authority running.
+
+  ⭐ **AND THE MECHANISM IS WRITTEN DOWN NOW, which is what the next attempt was
+  missing.** MEASURED 2026-09-15 by probing the custodian's own decisions at the
+  moment the window is open:
+
+  ```text
+  [probe] custodian reinstate=0 retract=1 inventory=[
+      "placement:ground_gun_sword@521v0=Held { holder: 532v0 }",   <- the predecessor
+      "placement:ground_gun_sword@548v0=InWorld",                  <- the candidate
+  ]
+  ```
+
+  Both hold the identity at once; the custodian RETRACTS the predecessor — strips
+  the hand and despawns it as one operation — and the candidate the room authored
+  is what remains. The two facts it needs from the predecessor to do that are the
+  HOLDER entity and the item's SPEC ID, and it needs them from the LIVE entity,
+  because it compares the spec id before stripping a hand that an equip-swap may
+  have refilled with something else.
+
+  ⇒ **Model A is therefore: capture `(holder, spec_id)` when the supersession is
+  DECLARED — the declaration already reads `InCustodyOf` off the baseline entry to
+  choose `DepartureAuthority::Custodian`, so the entity is in hand at exactly the
+  right moment — let publication despawn the predecessor, and have the custodian
+  consume the recorded pair instead of the live entity.**
+
+  ⚠ **The record must NOT live on `Supersession`.** That type is generic
+  construction vocabulary in `shared_tangle`; a held-item spec id is items-domain
+  content, and putting one in the other is the layering mistake that would make
+  this change permanent. The ledger belongs to the items domain, keyed by `SimId`,
+  written when it sees the custody-deferred declaration and consumed by
+  `restore_custody_to_checkpoint`. Blast radius is death and checkpoint restore —
+  the same arms the straight inversion failed (1/11) — so it wants a full
+  `app_it` run, not a targeted one.
   `LastConstructionVerification::left_to_custodian` exists so the PREMISE is
   assertable — a custody-window test that never opens one passes while measuring
   nothing, which is exactly what the first version of that arm did.

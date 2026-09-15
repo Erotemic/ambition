@@ -742,7 +742,7 @@ to refuse its first room the way the transition arm is: the first room's
 `ActiveContentBinding` is written by setup from that room's own plan, so it
 always matches. The PUBLISH half is exercised by every `app_it` test that boots.
 The vocabulary the design rests on is witnessed at unit level by
-`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`,
+`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`,
 which asserts the premise (an ordinary root IS visible) first so an unregistered
 filter cannot fake it. ⇒ **A10 IS NOT CLOSED**: the acceptance criterion is a
 PRODUCTION composition demonstrating that a failed candidate leaves the last-good

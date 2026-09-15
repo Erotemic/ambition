@@ -64,6 +64,20 @@ exactly two), and a refused door telling the player nothing.
 this line is a receipt rather than a field; the five statements above are the
 row's current state.
 
+⚠ **AND A CITATION IN THIS CAMPAIGN'S OWN DOCUMENT POINTED AT A TEST THAT NEVER
+EXISTED.** The owner document named
+`a_hidden_candidate_session_root_is_invisible_to_the_live_lookup_and_visible_to_its_transaction`
+as the unit-level witness for the whole candidate-visibility design; the only
+occurrence of that name in the repository was the citation itself (the real arm is
+`a_hidden_candidate_session_is_invisible_to_the_live_world_and_visible_to_its_transaction`).
+⇒ **The citation gate checks PATHS and SYMBOLS, not test names in prose**, so a
+renamed or imagined arm sits indefinitely. `scripts/check_planning_test_citations.py`
+asks `git grep` for a matching `fn`; it found this one and **seven more in six
+documents owned by other campaigns**, which is why it is not wired into
+`--maintenance` yet — deciding rename-vs-never-written is the owning campaign's
+call, and a name pointing at nothing may mean the EVIDENCE is missing rather than
+just the label.
+
 ⛔⛤ **A `debug_assert` IS NO GUARD WHERE RELEASE PICKS AN ANSWER (2026-09-15).**
 Found twice in an hour, once in my own fresh code. The candidate slot's backstop
 was a `debug_assert!(slot.0.is_none())` guarding the bare `slot.0 = Some(..)` that

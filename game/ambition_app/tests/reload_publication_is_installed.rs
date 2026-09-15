@@ -419,8 +419,8 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
 ///
 /// ✅ **AND THE BIGGER HALF IS CLOSED.** Under A10's candidate bracket the same
 /// refusal drops the whole room, which is why the flag was unflippable — the
-/// ordering fix below is what made it flippable, and `ROOM_CANDIDATE_BRACKET` has
-/// been `true` since 2026-09-14.
+/// ordering fix below is what made it flippable; the bracket went on 2026-09-14
+/// and its flag was deleted 2026-09-15, leaving one road.
 ///
 /// ⭐⭐ **THE READING THAT PREDICTS IT IS TWO `chain()`s THAT NEVER MEET.**
 /// `SessionScopeSet` chains `Activate -> .. -> RetireAuthority -> Cleanup` (the

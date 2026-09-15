@@ -377,7 +377,7 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // unvoided and per-attempt state un-re-armed. Both are the right outcome (no
     // attempt began), which is why nobody noticed.
     //
-    // ⛔ **AND SINCE `ROOM_CANDIDATE_BRACKET` WENT `true` THE SAME REFUSAL DROPS
+    // ⛔ **AND SINCE THE CANDIDATE BRACKET WENT ON THE SAME REFUSAL DROPS
     // EVERY ROOT**, so this reload would land the player in an EMPTY WORLD. That
     // is no longer a future tense: it is what this arm keeps from coming back. It
     // asks the production verdict, not the schedule; the schedule is asked by
@@ -1188,7 +1188,7 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
 /// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
 /// IN IT.**
 ///
-/// `ROOM_CANDIDATE_BRACKET` is `true`, so a refused room is DROPPED. The handoff
+/// Every room root is minted hidden, so a refused room is DROPPED. The handoff
 /// is the road that used to produce the worst refusal in the whole suite — a
 /// session retiring its old scope and starting the new one in the SAME frame, so
 /// the incoming room's transaction captured a baseline still holding all 18 of

@@ -1088,16 +1088,14 @@ impl RoomFeatureConstructionPlan {
     /// A feature plan is one participant in a room transaction, not the transaction, so it
     /// cannot know when the room is complete. The bracket lives with the outer artifact that
     /// does — see [`crate::world::rooms::transaction`].
-    /// `hidden` builds every root as an INACTIVE CANDIDATE — see
-    /// `ConstructionPlan::commit_hidden`. ⛔ EVERY LANE OR NONE: a room whose
-    /// construction rows were hidden while its capability lanes went live is a
-    /// half-visible scene, which is the state the candidate mechanism exists to
-    /// prevent, so the flag rides through to both.
+    /// ⛔ EVERY ROOT, IN EVERY LANE, IS AN INACTIVE CANDIDATE. There is no way to
+    /// ask for anything else: a room whose construction rows were hidden while
+    /// its capability lanes went live is a half-visible scene, which is the state
+    /// the candidate mechanism exists to prevent.
     pub fn spawn(
         &self,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
-        hidden: bool,
     ) -> RoomFeatureConstructionReceipt {
         // ⛔⛤ **A ROOM NO LONGER RESETS `FactionRelations` — 2026-09-15 AUDIT,
         // FINDING 1's SECOND MANIFESTATION.** This line ran on EVERY room spawn,
@@ -1129,11 +1127,7 @@ impl RoomFeatureConstructionPlan {
                 session: session_scope,
                 services: &self.construction_services,
             };
-            if hidden {
-                self.construction.commit_hidden(&mut ctx)
-            } else {
-                self.construction.commit(&mut ctx)
-            }
+            self.construction.commit_hidden(&mut ctx)
         };
         debug_assert_eq!(
             construction.committed_ids(),
@@ -1141,7 +1135,7 @@ impl RoomFeatureConstructionPlan {
             "construction execution diverged from its prepared roster",
         );
 
-        let capability_receipts = self.capability_lanes.commit(commands, session_scope, hidden);
+        let capability_receipts = self.capability_lanes.commit(commands, session_scope);
 
         // The COMMITTED roster: the union of every independently typed lane.
         // The outer predicted-vs-committed cross-check in `stage::spawn_contents`
@@ -1165,9 +1159,8 @@ pub fn spawn_room_feature_entities_from_plan(
     commands: &mut Commands,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,
-    hidden: bool,
 ) -> RoomFeatureConstructionReceipt {
-    plan.spawn(commands, session_scope, hidden)
+    plan.spawn(commands, session_scope)
 }
 
 /// Spawn one hostile actor for an encounter wave.

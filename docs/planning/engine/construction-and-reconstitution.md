@@ -255,6 +255,33 @@ Visibility is `InactiveCandidate`, a registered disabling component that stays
 and was a real defect: Bevy's disabling components do not inherit through
 ownership, and the gameplay queries that find a body find it by its own markers.
 
+⛔⛤ **AND A CANDIDATE SESSION HAS EXACTLY THREE EXITS — closed 2026-09-15, when
+one of them turned out not to exist.**
+
+```text
+ADOPTED      publish_candidate_session   (the gate said Admit)
+REFUSED      discard_candidate_session   (the gate said Refuse)
+SUPERSEDED   discard_candidate_session   (a later pending route replaced it)
+```
+
+The third was `slot.0 = Some(candidate)` — a whole prepared session going out of
+scope in silence, its hidden root, hidden first room, publication receipt and
+reserved scope all alive and unreachable. ⇒ **A candidate that is neither
+published nor discarded is the state this lifecycle exists to make impossible,
+and it was one `=` away.** MEASURED: it fires 0 times in `app_it`, so it was
+unwitnessed as well as broken; the arm that reaches it discards 20 entities.
+
+⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
+fourth exit is ever added:** the candidate's entities, its publication receipt,
+its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of
+`take`), and its gate registration — the ROUTE HOLD first and the EVALUATOR
+second. ⚠ That order is load-bearing: forgetting the evaluator while the hold
+stands leaves the router a hold it cannot evaluate, and measured, the route is
+then wedged forever and the SUPERSEDING session never starts either. The hold is
+released with a route id recorded ON the candidate, because a candidate
+superseded by a route of a different name cannot be cleaned up from the
+superseding route's id.
+
 **2. How staged supersession is represented.** `TransactionBaseline::superseding`
 is a third declaration beside `capture`/`retiring`/`reconstructing` and keeps
 their meanings intact: the live body stands until publication.

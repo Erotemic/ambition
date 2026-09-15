@@ -197,3 +197,4 @@ mod damageable_bodies_carry_identity;
 mod canonical_state_is_finite;
 
 mod edit_to_play_through_the_shell;
+mod id_peer_audit;

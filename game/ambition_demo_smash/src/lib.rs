@@ -3796,25 +3796,35 @@ fn start_the_battle_when_asked(
     if !on_select || roster.is_some() {
         return;
     }
-    // THE SEED FOR THIS MATCH'S RANDOM SQUARES.
+    // THE SEED FOR THIS MATCH'S RANDOM SQUARES — THE AGREED MATCH CONFIGURATION.
     //
-    // ADR 0023: no ambient RNG. This is the shell ACTIVATION this select
-    // screen is running under — a monotonic id minted per route entry — so two
-    // visits to the screen draw differently and one visit draws the same thing
-    // twice if it somehow started twice. Mixed with the participant count so a
-    // three-way and a two-way opened from the same visit do not walk the same
-    // sequence.
+    // ADR 0023: no ambient RNG. Not the wall clock and not a thread RNG, for
+    // the reason this site has always given: a match is decided in `Update`,
+    // everything it produces is read inside the rollback window, and "where did
+    // this fighter come from" must have an answer that survives a replay.
     //
-    // NOT the wall clock, and not a thread RNG. A match is decided in
-    // `Update`, but everything it produces is read inside the rollback window,
-    // and "where did this fighter come from" must have an answer that survives a
-    // replay.
-    let seed = router
-        .active
-        .as_ref()
-        .map_or(0, |active| active.activation_id.0 as u64)
-        .rotate_left(17)
-        ^ select.participating() as u64;
+    // ⛔⛤ **AND NOT THE SHELL ACTIVATION ID EITHER, WHICH IS WHAT THIS USED TO
+    // BE (ID-PEER).** `ShellActivationId` is a private monotonic counter
+    // incremented once per route entry ON THIS HOST. It satisfies "survives a
+    // replay" — it is stable across a rewind here — and it is NOT stable across
+    // PEERS: App A that opened three menus first and App B that started
+    // immediately carry different counts, so the same agreed match seated a
+    // DIFFERENT fighter on each. Avoiding ambient nondeterminism and achieving
+    // peer agreement are two requirements, and the counter met only the first.
+    //
+    // ⇒ The seed is now a digest of what the two peers AGREE on: the seats,
+    // who occupies them, and what each one picked. Every input is a select
+    // screen result both sides hold.
+    //
+    // ⚠ WHAT THIS DELIBERATELY GIVES UP: two IDENTICAL setups replayed now draw
+    // the SAME fighter. That variation used to come from the activation count
+    // and nothing pins it — `select::tests` says so in its own words, *"a
+    // different seed is ALLOWED to differ. Asserting it MUST differ would be
+    // asserting a hash collision never happens on a grid this small."* Restoring
+    // per-rematch variation requires a nonce the peers AGREE on at match setup,
+    // which needs a handshake this project does not have yet; inventing a second
+    // host-local token here is the defect, not the fix.
+    let seed = agreed_match_seed(&select);
     let declared_rules = smash_declared_combat_rules();
 
     let Some(decided) = select.roster_seeded(
@@ -4728,3 +4738,55 @@ fn smash_prepared_session_world(
 mod pause_arbitration_tests;
 #[cfg(test)]
 mod tests;
+
+/// ⭐⭐ **THE PEER-AGREED MATCH SEED — ID-PEER's TERM, AND ITS SIGNATURE IS THE
+/// GUARANTEE.**
+///
+/// A digest of what two peers AGREE a match IS: the seats, who occupies them,
+/// and what each one picked. Every input is a select-screen result both sides
+/// hold.
+///
+/// ⛔⛤ **IT TAKES ONLY `&SmashSelect`, AND THAT IS THE POINT.** The seed used to
+/// be `ShellActivationId` — a private monotonic counter incremented per route
+/// entry ON THIS HOST. That satisfied "no ambient RNG" and "survives a replay"
+/// (it is stable across a rewind here) and was NOT stable across PEERS: App A
+/// that opened three menus first and App B that started immediately carried
+/// different counts, so one agreed match seated a different fighter on each
+/// side. A function that cannot see the router, the clock or any counter cannot
+/// make that mistake again — the defect is unspellable rather than guarded.
+///
+/// ⚠ FNV-1a over EXPLICIT TAGS rather than `Hash`: the value is a stated
+/// function of the agreed configuration rather than of whatever the standard
+/// library's hasher does this release.
+///
+/// ⚠ AND WHAT THIS GIVES UP: two IDENTICAL setups replayed draw the SAME
+/// fighter. Nothing pins the old variation — `select::tests` says in its own
+/// words that *"a different seed is ALLOWED to differ"* — and restoring it needs
+/// a nonce the peers agree on at match setup, which needs a handshake this
+/// project does not have. Inventing a second host-local token here would be the
+/// defect, not the fix.
+pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
+    // FNV-1a over explicit tags rather than `Hash`, so the value is a
+    // stated function of the agreed configuration rather than of whatever
+    // the standard library's hasher does this release.
+    let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut mix = |n: u64| {
+        digest ^= n;
+        digest = digest.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    mix(select.participating() as u64);
+    for (index, card) in select.slots() {
+        mix(index as u64);
+        mix(match card.occupant {
+            select::SlotOccupant::Absent => 1,
+            select::SlotOccupant::Cpu => 2,
+            select::SlotOccupant::Controller { device } => 3 ^ ((device as u64) << 8),
+        });
+        mix(match card.pick {
+            None => 11,
+            Some(select::SlotPick::Random) => 12,
+            Some(select::SlotPick::Fighter(i)) => 13 ^ ((i as u64) << 8),
+        });
+    }
+    digest
+}

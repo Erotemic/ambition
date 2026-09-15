@@ -53,6 +53,15 @@ candidate construction/publication leaves the last-good world playable, and (b)
 successful replacement validates N+1 before retiring N. ⇒ **MET at room scope and
 at session scope.**
 
+**ACTUAL BLOCKER.** None for the criterion. What remains is listed under
+*Remaining work* in the owner document and is narrower in kind: custody Model B (a
+declared two-holder window on the SUCCESS path, admitted by the verifier as
+exactly two), and a refused door telling the player nothing.
+
+**RECEIPTS — WHAT LANDED, AND THE MEASUREMENT BEHIND EACH.** Everything below
+this line is a receipt rather than a field; the five statements above are the
+row's current state.
+
 **A CANDIDATE REPLACED WHILE PENDING IS DISCARDED (2026-09-15).**
 `CandidateSessionSlot` is one deep and `slot.0 = Some(candidate)` overwrote it, so
 a second pending route dropped a whole prepared session — hidden root, hidden
@@ -150,12 +159,7 @@ as its control. MEASURED: that handoff installs **1** moving platform against th
 cancel's **0**, so the pair discriminates rather than being two readings of an
 always-empty resource.
 
-**ACTUAL BLOCKER.** None for the criterion. What remains is listed under
-*Remaining work* in the owner document and is narrower in kind: custody Model B (a
-declared two-holder window on the SUCCESS path, admitted by the verifier as
-exactly two), and a refused door telling the player nothing.
-
-Every room lifecycle
+**THE ROOM SCOPE, IN ONE PARAGRAPH.** Every room lifecycle
 path (transition, reset, dev reload) runs through `replace_live_world`, which
 stages the whole replacement in `PendingWorldReplacement`, builds every root
 hidden under `ROOM_CANDIDATE_BRACKET = true`, declares what publication would do

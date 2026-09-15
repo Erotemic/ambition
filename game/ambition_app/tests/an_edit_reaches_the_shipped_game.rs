@@ -1968,6 +1968,7 @@ fn preparing_a_candidate_does_not_reset_the_live_sessions_faction_relations() {
     );
 
     let request = ShellRequestId::new("a10-faction-relations-witness");
+    let live_before = live_scope(&app);
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: ShellRouteId::new("ambition_gameplay"),
         request: Some(request.clone()),
@@ -2001,6 +2002,22 @@ fn preparing_a_candidate_does_not_reset_the_live_sessions_faction_relations() {
          PLAYING was gone while a candidate nobody had admitted was being built, \
          and the table is rollback-registered and checksummed"
     );
+
+    // ⚠ **AND THE CANCEL VARIANT THE AUDIT ASKS FOR DOES NOT BELONG ON THIS ARM
+    // — MEASURED, NOT ASSUMED.** I extended it with a production
+    // `ShellCommand::CancelPending` and an assertion that A's scope was
+    // unchanged, and it failed with `Some(SessionScopeId(1)) != Some(0)`: on a
+    // WARM handoff the route activates within the window and the candidate is
+    // ADMITTED before a cancellation issued from the test can win the race. So
+    // the arm would have been asserting about an admitted session while claiming
+    // to be about an abandoned one.
+    //
+    // ⇒ The cancellation road's witness is
+    // `a_candidate_session_whose_route_is_cancelled_is_discarded`, which starts
+    // COLD — the pending window is wide there and narrow here, which is itself
+    // the measured fact. This arm keeps the half it can state honestly: the
+    // stance survived every frame in which a candidate existed, admitted or not.
+    let _ = (request, live_before);
 }
 
 /// ⛔⛤ **REVIEW FINDING 2: THE CANDIDATE'S MINTED DESCRIPTIONS ARE ITS OWN.**

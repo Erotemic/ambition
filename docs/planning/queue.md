@@ -38,12 +38,14 @@ candidate's non-entity effects could still reach A — measured, one escaped
 `RoomLoaded` per shipped handoff — so *playable* held while *unchanged* did not.
 See the step below.
 
-**NEXT IMPLEMENTATION STEP.** Two of the five ownership contracts a holistic
-audit named on 2026-09-15 remain. The audit's verdict — *"A10 is not yet safe to
-declare closed; the campaign does not need redesigning"* — is that A10 nested
-entity VISIBILITY without nesting non-entity publication EFFECTS, so preparing or
-internally publishing candidate B could still mutate state belonging to live
-session A. The five contracts, and where each stands:
+**NEXT IMPLEMENTATION STEP.** None named. All five ownership contracts a holistic
+audit named on 2026-09-15 are closed and poison-witnessed; the verdict is the
+maintainer's and the reviewer's to give, not mine to assume. The audit's finding
+— *"A10 is not yet safe to declare closed; the campaign does not need
+redesigning"* — was that A10 nested entity VISIBILITY without nesting non-entity
+publication EFFECTS, so preparing or internally publishing candidate B could
+still mutate state belonging to live session A. The five contracts, and where
+each stands:
 
 | # | Contract | State |
 |---|---|---|

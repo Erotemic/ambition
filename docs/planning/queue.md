@@ -49,7 +49,7 @@ session A. The five contracts, and where each stands:
 |---|---|---|
 | 1 | Nested non-entity/effect ownership | **CLOSED** — a verified publication freezes what it owes the world outside its own population; a nested room's bundle is consumed at the SESSION's boundary |
 | 2 | Exact per-publication custody ownership | **CLOSED** 2026-09-15 (`CustodyHandoffs` on the exact `RoomPublication`), and now consumed by the same deferred finalization as everything else in the bundle |
-| 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally — `PlatformerSessionBuilder` no longer holds a live durable resource at all. ⚠ The BEHAVIOURAL witness is still owed: a save whose ledger, custody and minted rows together describe a mint the start room reinstates |
+| 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally (`PlatformerSessionBuilder` holds no live durable resource at all) **and behaviourally** — `a_candidate_reconstructs_a_mint_only_its_own_save_describes`, poison-verified |
 | 4 | True pre-construction refusal / complete early cleanup | **CLOSED** — the prerequisite is preflighted at APP BUILD, which is strictly before any command a room queues, and the guard for it now exists; the transaction-level refusal is the backstop and now retires the roots `open` could not unqueue |
 | 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, and every sink it writes is preflighted on that exact entity |
 
@@ -70,6 +70,21 @@ removal. MEASURED: a repo-wide grep finds that name in exactly ONE place — tha
 comment. ⇒ **A test cited by a `//` comment is not a test, and the citation gate
 does not scan `//` comments**, so the claim stood unchallenged. The arm exists
 now and is poison-verified against the registration.
+
+⛔⛔ **AND THE MINT WITNESS FAILED TO REACH ITS SUBJECT TWICE BEFORE IT LANDED.**
+The first version asserted the mint existed in the SETTLED world; poisoned, it
+still passed. `complete_durable_restore` asks for a checkpoint resume whenever
+the save carries rows, and that road rebuilds the room frames later from the LIVE
+baseline, which has adopted the same file by then — so the settled world is the
+UNION of both roads and can never tell them apart. ⇒ The arm asks
+`candidate_carries_identity` of the population behind the barrier instead, which
+is the only question whose answer belongs to one road. Poisoned with
+`minted: None`: *"across 10 frames in which a hidden candidate population
+existed, none of it carried the mint"*. ⚠ Two other fixture facts the mechanism
+demanded and I had to measure rather than guess: the ledger row must name THE
+ROOM BEING BUILT (`outlook_for` turns only that into `Reinstated`), and the
+declared parent must be a placement the room actually authors — an invented one
+panics construction with *"neither planned nor live"*.
 
 ⭐ **FINDING 1 IS REPRODUCED IN PRODUCTION, NOT ARGUED.**
 `a_pending_candidate_sessions_room_publishes_no_lifecycle_into_the_live_session`

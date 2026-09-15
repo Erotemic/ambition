@@ -1621,6 +1621,130 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
     );
 }
 
+/// ⛔⛤ **THE BEHAVIOURAL HALF OF REVIEW FINDING 2 / AUDIT FINDING 3, OWED SINCE
+/// 2026-09-15 AND PAID HERE.**
+///
+/// A candidate needs TWO describers to rebuild a runtime-minted occurrence: the
+/// ledger row saying WHERE it is, and the minted description saying WHAT it is.
+/// Construction read the first from the candidate's own horizon and the second
+/// from the LIVE `MintedItemBaseline` — B's whereabouts against A's
+/// descriptions, a mixed-session durable horizon.
+///
+/// ⚠ **THE FIRST ATTEMPT AT THIS ARM DID NOT REACH ITS SUBJECT AND I WITHDREW
+/// IT.** The mint reconstructed under NEITHER baseline, so it could not tell the
+/// fix from the defect. What was missing was a fixture whose rows actually
+/// describe something the start room reinstates, and the mechanism says exactly
+/// what that takes: `AuthoredOccurrences::outlook_for` turns a
+/// `Placed { room: <the room being built> }` row into `Reinstated`, no authored
+/// record can settle a runtime mint's debt, and the fallback resolves
+/// `description.held_item` through `held_spec_by_id`. So the row must name THIS
+/// room, and the description must name an item the registry answers to —
+/// `javelin` is one, and is the very id the reinstatement loop's own comment
+/// records losing once.
+///
+/// ⭐ **A COLD START IS WHAT MAKES THE DISCRIMINATOR CLEAN.** The live baseline
+/// is empty and the save is not, so the only thing that can describe M is the
+/// candidate's own horizon. A `minted: None` poison at the construction site
+/// takes this arm red.
+#[test]
+fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
+    use ambition_platformer2d::persistence::save_data::{
+        PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+
+    let minted_id = "minted:a10_candidate_javelin";
+    {
+        let mut save = app
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>();
+        save.0.set_durable_horizon(
+            vec![PersistedOccurrence::new(
+                minted_id,
+                PersistedWhereabouts::Placed {
+                    room: "central_hub_complex".to_string(),
+                    x: 96,
+                    y: 96,
+                },
+            )],
+            Vec::new(),
+        );
+        save.0.set_minted_items(vec![PersistedMintedItem {
+            occurrence: minted_id.to_string(),
+            // ⛔ A REAL PLACEMENT IN THIS ROOM. Construction refuses a mint whose
+            // declared parent is "neither planned nor live" — measured, with an
+            // invented id — and `placement:ground_gun_sword` is one
+            // `central_hub_complex` authors.
+            parent: "placement:ground_gun_sword".to_string(),
+            sequence: 1,
+            held_item: "javelin".to_string(),
+        }]);
+    }
+    // ⭐ THE PREMISE ON THE OTHER SIDE: nothing live can describe M, so a
+    // reconstruction can only have come from the candidate's own horizon.
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+            .is_empty(),
+        "the live minted baseline already describes something, so a rebuilt mint \
+         would not prove which horizon supplied its description"
+    );
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: None,
+    });
+
+    // ⛔⛤ **THE SUBJECT IS THE CANDIDATE'S OWN POPULATION, WHILE IT IS STILL
+    // HIDDEN — AND MEASURING THE END STATE INSTEAD IS HOW THE FIRST TWO
+    // VERSIONS OF THIS ARM FAILED.** POISONED with `minted: None` at the
+    // construction site, a query over the settled world STILL found the mint:
+    // `complete_durable_restore` asks for a checkpoint resume whenever the save
+    // carries rows, and that road rebuilds the room frames later from the LIVE
+    // baseline, which has adopted the same file by then. So the settled world is
+    // the union of both roads and can never tell them apart.
+    //
+    // ⭐ `candidate_carries_identity` asks the one question that can:
+    // does the population behind the barrier — nothing else can see it —
+    // already hold this identity, before anything was admitted or resumed.
+    let wanted = SimId::from_snapshot(minted_id.to_string());
+    let mut candidate_built_it = false;
+    let mut pending_frames = 0usize;
+    for _ in 0..240 {
+        app.update();
+        if ambition_platformer2d::platformer::construction::outstanding_candidates(
+            app.world_mut(),
+        ) == 0
+        {
+            continue;
+        }
+        pending_frames += 1;
+        candidate_built_it |=
+            ambition_platformer2d::platformer::construction::candidate_carries_identity(
+                app.world_mut(),
+                &wanted,
+            );
+    }
+
+    assert!(
+        pending_frames > 0,
+        "no candidate was ever outstanding, so nothing was built off to the side \
+         and this arm says nothing"
+    );
+    assert!(
+        candidate_built_it,
+        "⛔ THE CANDIDATE DID NOT BUILD THE MINT ITS OWN SAVE DESCRIBES. Across \
+         {pending_frames} frames in which a hidden candidate population existed, \
+         none of it carried `{minted_id}` — the file says the object is lying in \
+         the start room and says what it is, and the world the candidate \
+         prepared does not contain it"
+    );
+}
+
 /// ⛔⛤ **THE PREREQUISITE THAT MAKES CANDIDATE CONSTRUCTION SAFE, ASKED OF THE
 /// SHIPPED COMPOSITION — 2026-09-15 AUDIT, FINDING 4.**
 ///

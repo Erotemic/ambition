@@ -146,11 +146,70 @@ pub fn adopt_the_occurrence_ledger_at_activation(
 
 /// The adoption itself, so the activation edge and the `Update` chain cannot
 /// drift into reading the file two different ways.
-fn adopt_the_ledger(
+/// A candidate session's durable horizon, held as a VALUE.
+///
+/// ⛔⛤ **REVIEW FINDING 1, 2026-09-15: PREPARING A CANDIDATE MUST NOT WRITE THE
+/// LIVE SESSION'S CHECKPOINT STATE.** `adopt_the_ledger_for_a_pending_candidate`
+/// installed `AuthoredOccurrences`, `OccurrenceBaseline` and `CustodyBaseline`
+/// process-wide while the OUTGOING session was still the live one — and the two
+/// baselines are rollback-authoritative checkpoint state, deliberately NOT equal
+/// to the current save/live projection. A candidate that then refused left A
+/// playable with different death semantics than it had a moment before, which is
+/// precisely what the last-good-world invariant forbids.
+///
+/// ⇒ **THE SAME SHAPE `SessionMechanics` AND `MovingPlatformSet` ALREADY USE:**
+/// built from the save as a value, carried on the candidate, and installed by
+/// ADOPTION. A refused candidate drops it and A's resources were never touched.
+/// ⛔ Deliberately NOT another process-global `PendingFoo` mirror.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CandidateDurableHorizon {
+    occurrences: AuthoredOccurrences,
+    custody: BTreeMap<SimId, SimId>,
+}
+
+impl CandidateDurableHorizon {
+    /// Read the save into a value. Touches no resource.
+    pub fn from_save(save: &AmbitionGameSave) -> Self {
+        let (rows, custody) = ledger_from_save(save.data());
+        let mut occurrences = AuthoredOccurrences::default();
+        occurrences.adopt_rows(rows);
+        Self {
+            occurrences,
+            custody,
+        }
+    }
+
+    /// What the candidate's construction reads for `OccurrenceContinuity` —
+    /// the candidate's own ledger, never the live session's.
+    pub fn occurrences(&self) -> &AuthoredOccurrences {
+        &self.occurrences
+    }
+
+    /// Make this horizon authoritative. Called by ADOPTION and by nothing else.
+    pub fn install(self, world: &mut bevy::prelude::World) {
+        let Self {
+            occurrences,
+            custody,
+        } = self;
+        if let Some(mut live) = world.get_resource_mut::<AuthoredOccurrences>() {
+            *live = occurrences.clone();
+        }
+        if let Some(mut baseline) = world.get_resource_mut::<OccurrenceBaseline>() {
+            baseline.adopt(occurrences);
+        }
+        if let Some(mut baseline) = world.get_resource_mut::<CustodyBaseline>() {
+            baseline.adopt(custody);
+        }
+    }
+}
+
+/// The save's two ledgers, as plain maps. Pure: the half of `adopt_the_ledger`
+/// that reads, split out so a candidate can have the value without the write.
+fn ledger_from_save(
     data: &ambition_persistence::save_data::AmbitionGameSaveData,
-    mut occurrences: ResMut<AuthoredOccurrences>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
+) -> (
+    BTreeMap<SimId, OccurrenceWhereabouts>,
+    BTreeMap<SimId, SimId>,
 ) {
     let ledger_rows: BTreeMap<SimId, OccurrenceWhereabouts> = data
         .occurrences()
@@ -180,6 +239,16 @@ fn adopt_the_ledger(
         })
         .collect();
 
+    (ledger_rows, held)
+}
+
+fn adopt_the_ledger(
+    data: &ambition_persistence::save_data::AmbitionGameSaveData,
+    mut occurrences: ResMut<AuthoredOccurrences>,
+    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
+    custody_baseline: Option<ResMut<CustodyBaseline>>,
+) {
+    let (ledger_rows, held) = ledger_from_save(data);
     occurrences.adopt_rows(ledger_rows);
     if let Some(mut baseline) = occurrence_baseline {
         baseline.adopt(occurrences.clone());

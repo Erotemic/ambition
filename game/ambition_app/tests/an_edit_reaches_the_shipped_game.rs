@@ -861,6 +861,59 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         before_population > 0 && before_room.is_some(),
         "the premise: world N is a real, populated, roomed session"
     );
+    // ⛔⛤ **THE PREMISE FINDING 1 NEEDS: A'S DURABLE STATE MUST DIFFER FROM THE
+    // SAVE.** MEASURED — without this the poison PASSES: a fresh session's ledger
+    // and the save's are equal, so re-installing the save over A changes nothing
+    // and every assertion below is vacuously true. The checkpoint baselines are
+    // deliberately NOT the current projection, and that difference is the whole
+    // thing this arm is about. One synthetic row is the cheapest way to make A's
+    // horizon distinguishable; it establishes the PREMISE and fakes nothing about
+    // the subject.
+    {
+        use ambition_platformer2d::platformer::lifecycle::{
+            AuthoredOccurrences, OccurrenceWhereabouts,
+        };
+        // ⚠ THE BASELINE ONLY, NOT THE LIVE LEDGER. MEASURED: a row written into
+        // `AuthoredOccurrences` is persisted into the save by
+        // `persist_occurrence_horizon_to_save` within a frame, so the save and
+        // the live ledger cannot be made to differ from a test — re-installing
+        // the save over them is then a no-op and the poison passes. The CHECKPOINT
+        // baseline is the thing that legitimately differs from the save, which is
+        // exactly the state the finding is about.
+        let mut rows: std::collections::BTreeMap<_, _> = app
+            .world()
+            .resource::<AuthoredOccurrences>()
+            .rows()
+            .map(|(id, where_)| (id.clone(), where_.clone()))
+            .collect();
+        rows.insert(
+            ambition_platformer2d::platformer::sim_id::SimId::placement("a10_horizon_witness"),
+            OccurrenceWhereabouts::Consumed,
+        );
+        let mut remembered = AuthoredOccurrences::default();
+        remembered.adopt_rows(rows);
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .adopt(remembered);
+    }
+
+    // A's durable horizon as it stands while A is the only session.
+    let durable_before = (
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+            .cloned(),
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .cloned(),
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+            .cloned(),
+    );
+    assert!(
+        durable_before.0.is_some(),
+        "this composition installs no occurrence ledger, so the assertions below \
+         about a refused candidate not changing it say nothing"
+    );
 
     // ── two holders of one identity, in every session's world ───────────────
     // ⛔ TWO, NOT ONE, AND THE DIFFERENCE IS THE WHOLE MECHANISM. A single extra
@@ -925,6 +978,86 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         live_room(&mut app),
         before_room,
         "⛔ A REFUSED CANDIDATE SESSION CHANGED THE ROOM THE PLAYER IS IN"
+    );
+
+    // ⛔⛤ **AND A'S DURABLE STATE IS UNCHANGED — REVIEW FINDING 1, 2026-09-15.**
+    // Preparing a candidate used to install `AuthoredOccurrences`,
+    // `OccurrenceBaseline` and `CustodyBaseline` PROCESS-WIDE, while the outgoing
+    // session was still the live one. The two baselines are rollback-authoritative
+    // checkpoint state and are deliberately NOT equal to the current save/live
+    // projection, so a candidate that then refused left A playable with different
+    // DEATH SEMANTICS than it had a moment earlier. The candidate carries its
+    // horizon as a value now and adoption installs it; a refusal drops it.
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+            .cloned(),
+        durable_before.0,
+        "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S OCCURRENCE LEDGER"
+    );
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            .cloned(),
+        durable_before.1,
+        "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S CHECKPOINT OCCURRENCE \
+         BASELINE — rollback-authoritative state, for a world that was never built"
+    );
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+            .cloned(),
+        durable_before.2,
+        "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S CHECKPOINT CUSTODY \
+         BASELINE"
+    );
+
+    // ⛔⛤ **AND THE REFUSED CANDIDATE LEFT NO CONTROL-PLANE STATE BEHIND EITHER —
+    // REVIEW FINDING 3, 2026-09-15.** The world half of this arm was asserted
+    // from the start; the correlation half was not, and the refusal exit was the
+    // one door of four that released neither the reserved SCOPE nor the route
+    // HOLD. It leaked one `ShellActivationId -> SessionScopeId` per refusal,
+    // permanently: the route never activates, so nothing ever calls `take`.
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ReservedGameplayScopes>()
+            .outstanding(),
+        0,
+        "⛔ A REFUSED CANDIDATE LEAKED ITS RESERVED SCOPE. The route will never \
+         activate, so nothing will ever adopt this reservation"
+    );
+    assert_eq!(
+        ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        0,
+        "⛔ A REFUSED CANDIDATE'S HIDDEN ENTITIES ARE STILL IN THE WORLD"
+    );
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "⛔ A REFUSED CANDIDATE'S PUBLICATION RECEIPT IS STILL STANDING"
+    );
+    let gates = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellActivationGates>();
+    let leaked: Vec<u32> = (1..=6)
+        .filter(|n| {
+            let id = ambition_platformer2d::game_shell::ShellHoldId::new(format!(
+                "session-publication:{n}"
+            ));
+            gates.evaluator(&id).is_some()
+        })
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "⛔ A REFUSED CANDIDATE'S GATE EVALUATOR OUTLIVED IT: {leaked:?}"
+    );
+    let held = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+        .held(&ShellRouteId::new("ambition_gameplay"));
+    assert!(
+        held.is_empty(),
+        "⛔ A REFUSED CANDIDATE'S ROUTE HOLD OUTLIVED IT: {held:?}"
     );
 }
 
@@ -1366,5 +1499,90 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
         "⛔ A HIDDEN CANDIDATE OUTLIVED ITS TRANSACTION after a cancelled route \
          settled: neither published nor discarded, and invisible to everything \
          but this count"
+    );
+}
+
+/// ⛔⛤ **REVIEW FINDING 2: AN INNER PUBLICATION MUST NOT RELEASE AN OUTER ONE'S
+/// INVISIBILITY.**
+///
+/// A candidate ROOM inside a candidate SESSION is hidden for two independent
+/// reasons. With a unit `InactiveCandidate` those were the same component, so the
+/// room's own `publish_candidate` — which succeeds well before the shell decides
+/// anything — removed the SESSION's barrier with it, and the candidate session's
+/// room roots became visible to ordinary gameplay queries while the route was
+/// still pending.
+///
+/// ⚠ **IT IS NOT ENOUGH THAT NOTHING CURRENTLY LOOKS IN THAT INTERVAL.** That
+/// makes correctness depend on "nothing interesting happens between inner
+/// publication and outer publication" rather than on representing the nesting,
+/// and it does not survive `session -> region -> room`.
+///
+/// ⭐ The window is real and measurable on a COLD app: the first room publishes
+/// around frame 2 and the session starts around frame 12.
+#[test]
+fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: None,
+    });
+
+    // Every frame from the room's verdict to the session's start, an ORDINARY
+    // query — one with no `Allow<InactiveCandidate>` — must see nothing the
+    // candidate owns.
+    let mut room_published_at = None;
+    let mut session_started_at = None;
+    let mut worst: Option<(usize, usize)> = None;
+    for frame in 0..240 {
+        app.update();
+        let published = app
+            .world()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .is_some_and(|verification| verification.published);
+        if published && room_published_at.is_none() {
+            room_published_at = Some(frame);
+        }
+        let live = app
+            .world()
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+            .and_then(
+                ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::current,
+            );
+        if live.is_some() && session_started_at.is_none() {
+            session_started_at = Some(frame);
+        }
+        // Before the session is live, NOTHING it owns may answer an ordinary
+        // query. `population` is exactly such a query.
+        if session_started_at.is_none() {
+            let visible = {
+                let world = app.world_mut();
+                let mut query = world.query::<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>();
+                query.iter(world).count()
+            };
+            if visible > 0 && worst.is_none() {
+                worst = Some((frame, visible));
+            }
+        }
+    }
+
+    // ⭐ THE PREMISE: the window this arm is about actually opened.
+    let (published_at, started_at) = (
+        room_published_at.expect("the candidate's first room never published"),
+        session_started_at.expect("the session never started"),
+    );
+    assert!(
+        started_at > published_at,
+        "the room published at frame {published_at} and the session started at \
+         {started_at}, so there is no interval between the inner verdict and the \
+         outer one and this arm says nothing"
+    );
+    assert_eq!(
+        worst, None,
+        "⛔ AN INNER PUBLICATION RELEASED THE CANDIDATE SESSION'S INVISIBILITY. \
+         Ordinary gameplay queries saw session-owned entities while the route was \
+         still pending (room published at frame {published_at}, session started \
+         at {started_at})"
     );
 }

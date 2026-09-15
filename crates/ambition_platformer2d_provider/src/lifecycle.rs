@@ -134,9 +134,6 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // the one that is playing. `advance_pending_route` is where
                     // the router evaluates the gate, so preparation must precede
                     // it.
-                    adopt_the_ledger_for_a_pending_candidate
-                        .in_set(AmbitionLoadSet::Contributors)
-                        .before(prepare_candidate_platformer_session),
                     prepare_candidate_platformer_session
                         .in_set(AmbitionLoadSet::Contributors)
                         // ⛔ AFTER THE CONTENT IS PREPARED AND BEFORE THE ROUTER
@@ -1703,15 +1700,71 @@ fn release_candidate(
     holds.release(&route, &candidate_session_hold(activation));
     gates.forget(&candidate_session_hold(activation));
     commands.queue(move |world: &mut bevy::prelude::World| {
-        let discarded = ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
+        discard_candidate_world(world, root, scope, publication, &experience, activation, why);
+    });
+}
+
+/// The same four releases, from an EXCLUSIVE WORLD.
+///
+/// ⛔⛤ **THE REFUSAL EXIT COULD NOT USE THE `Commands` FORM, AND THAT IS WHY IT
+/// LEAKED — REVIEW FINDING 3, 2026-09-15.** `candidate_session_gate` runs with
+/// `&mut World` inside the router's activation operation, so it discarded the
+/// entities and retired the receipt by hand and released NOTHING else. Its
+/// reservation leaked permanently: the route never activates, so nothing ever
+/// calls `take`, and the gate had already cleared the slot, so the
+/// abandoned-cleanup could not find the candidate to release it either.
+///
+/// ⇒ **ONE CLEANUP, TWO CALLING CONVENTIONS** — a system reaches it through
+/// `release_candidate`, the gate reaches it here, and neither can forget a
+/// release the other performs.
+fn release_candidate_in_world(
+    world: &mut bevy::prelude::World,
+    candidate: PreparedCandidateSession,
+    why: &'static str,
+) {
+    let activation = candidate.activation_id;
+    let hold = candidate_session_hold(activation);
+    if let Some(mut reserved) = world.get_resource_mut::<ambition_game_shell::ReservedGameplayScopes>()
+    {
+        reserved.release(activation);
+    }
+    // ⚠ HOLD BEFORE EVALUATOR, the order measured in the supersession road: a
+    // hold the router cannot evaluate wedges the route forever.
+    if let Some(mut holds) = world.get_resource_mut::<ambition_game_shell::ShellRouteHolds>() {
+        holds.release(&candidate.route, &hold);
+    }
+    if let Some(mut gates) = world.get_resource_mut::<ambition_game_shell::ShellActivationGates>() {
+        gates.forget(&hold);
+    }
+    discard_candidate_world(
+        world,
+        candidate.root,
+        candidate.scope,
+        candidate.publication,
+        &candidate.experience,
+        activation,
+        why,
+    );
+}
+
+fn discard_candidate_world(
+    world: &mut bevy::prelude::World,
+    root: bevy::prelude::Entity,
+    scope: SessionScopeId,
+    publication: ambition_platformer2d_actor_monolith::rooms::PublicationHandle,
+    experience: &str,
+    activation: ambition_game_shell::ShellActivationId,
+    why: &'static str,
+) {
+    let discarded =
+        ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
             world, root, scope,
         );
-        ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
-        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-            "session-{why} experience={experience} activation={activation:?} \
-             ({discarded} entities discarded)"
-        ));
-    });
+    ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
+    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+        "session-{why} experience={experience} activation={activation:?} \
+         ({discarded} entities discarded)"
+    ));
 }
 
 fn candidate_session_hold(
@@ -1725,48 +1778,6 @@ fn candidate_session_hold(
 pub struct CandidateSessionGateEvaluator(
     pub bevy::ecs::system::SystemId<(), ambition_game_shell::ShellGateVerdict>,
 );
-
-/// Adopt the save's ledger before a candidate session's first room is planned.
-///
-/// ⛔⛤ **A10.5 MOVED THE MOMENT THIS HAS TO HAPPEN**, and the system that used
-/// to own it fires on `SessionScopeActivated` — too late once the first room is
-/// built during the pending phase. MEASURED: without this the shipped load
-/// authored `placement:ground_beam` into the start room on 2 frames after the
-/// file said it was lying somewhere else.
-///
-/// ⚠ **A SEPARATE SYSTEM, NOT A LINE IN THE PREPARER**, because the preparer's
-/// `PlatformerSessionBuilder` already READS `AuthoredOccurrences` and Bevy
-/// refuses a system that takes it both ways (`B0002`).
-///
-/// ⭐ It fires on any pending route, which is more often than necessary and
-/// harmless: the ledger is a projection of the SAVE, not of the session, and
-/// adoption is idempotent.
-fn adopt_the_ledger_for_a_pending_candidate(
-    router: Res<ambition_game_shell::ShellRouter>,
-    save: Option<
-        Res<ambition_platformer2d_actor_monolith::session::durable_horizon::AmbitionGameSave>,
-    >,
-    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    occurrence_baseline: Option<
-        ResMut<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
-    >,
-    custody_baseline: Option<
-        ResMut<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
-    >,
-) {
-    if router.pending.is_none() {
-        return;
-    }
-    let Some(save) = save else {
-        return;
-    };
-    ambition_platformer2d_actor_monolith::session::durable_horizon::adopt_the_occurrence_ledger_for_a_candidate(
-        &save,
-        occurrences,
-        occurrence_baseline,
-        custody_baseline,
-    );
-}
 
 /// ⛔⛤ **A10.5: PREPARE THE SESSION WHILE THE ROUTE IS STILL PENDING.**
 ///
@@ -1922,12 +1933,10 @@ fn candidate_session_gate(
         return ShellGateVerdict::Refuse;
     };
     let publication = candidate.publication;
-    let (root, scope, experience, activation_id) = (
-        candidate.root,
-        candidate.scope,
-        candidate.experience.clone(),
-        candidate.activation_id,
-    );
+    // Only the experience NAME is needed before the verdict; everything else the
+    // refusal exit used to copy out by hand is carried on the candidate and
+    // consumed by `release_candidate_in_world`.
+    let experience = candidate.experience.clone();
     match world
         .get::<ambition_platformer2d_actor_monolith::rooms::PublicationVerdict>(publication.0)
     {
@@ -1940,31 +1949,29 @@ fn candidate_session_gate(
             // the session that is playing right now was not retired, because the
             // retirement is an effect of an activation that is not going to
             // happen.
-            let discarded =
-                ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
-                    world, root, scope,
-                );
-            ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
-            if let Some(mut slot) = world.get_resource_mut::<CandidateSessionSlot>() {
-                slot.0 = None;
-            }
-            // ⛔ THE REFUSAL EXIT FORGETS ITS OWN REGISTRATION. See the note at
-            // the supersession exit: this hold id can never be held again
-            // (activation ids are monotonic), so a kept entry is pure growth.
-            if let Some(mut gates) = world.get_resource_mut::<ambition_game_shell::ShellActivationGates>()
-            {
-                gates.forget(&candidate_session_hold(activation_id));
-            }
-            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                "session-refused experience={experience} ({discarded} entities discarded; \
-                 the first room was not published, so the route does not activate)"
-            ));
+            //
+            // ⛔⛤ **AND IT GOES THROUGH THE SAME CLEANUP AS EVERY OTHER
+            // NON-ADOPTION EXIT — REVIEW FINDING 3, 2026-09-15.** This arm used
+            // to discard the entities, retire the receipt, clear the slot and
+            // forget the evaluator, all by hand, and release NEITHER the reserved
+            // SCOPE nor the route HOLD. The reservation leaked permanently: the
+            // route never activates so nothing calls `take`, and clearing the
+            // slot here meant the abandoned-cleanup could not find the candidate
+            // to release it either. Four releases spelled at four exits is three
+            // chances to forget one.
+            let Some(candidate) = world
+                .get_resource_mut::<CandidateSessionSlot>()
+                .and_then(|mut slot| slot.0.take())
+            else {
+                return ShellGateVerdict::Refuse;
+            };
             bevy::log::error!(
                 target: "ambition_platformer2d::construction",
                 "the candidate session for `{experience}` was REFUSED: its first room \
                  failed construction verification, so the route is cancelled and the \
                  session that is playing is untouched"
             );
+            release_candidate_in_world(world, candidate, "refused");
             ShellGateVerdict::Refuse
         }
     }
@@ -2103,6 +2110,14 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// to refuse to build a world.
     occurrences:
         Option<Res<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    /// ⛔⛤ **THE CANDIDATE'S OWN DURABLE HORIZON COMES FROM HERE, NOT FROM THE
+    /// LIVE LEDGER — REVIEW FINDING 1.** Reading `occurrences` above would read
+    /// the OUTGOING session's projection, and WRITING it during preparation (which
+    /// a separate system used to do) changed the playing session's checkpoint
+    /// semantics before anyone knew the candidate could be built.
+    save: Option<
+        Res<'w, ambition_platformer2d_actor_monolith::session::durable_horizon::AmbitionGameSave>,
+    >,
     minted: Option<
         Res<
             'w,
@@ -2149,6 +2164,13 @@ impl PlatformerSessionBuilder<'_, '_> {
         // can release that hold. See `PreparedCandidateSession::route`.
         route: ambition_game_shell::ShellRouteId,
     ) -> PreparedCandidateSession {
+        // ⛔ THE CANDIDATE'S DURABLE HORIZON, BUILT AS A VALUE BEFORE ANYTHING
+        // IS CONSTRUCTED. No resource is written here; `adopt` installs it if
+        // and only if this candidate becomes the live session.
+        let horizon = self.save.as_deref().map_or_else(
+            ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon::default,
+            ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon::from_save,
+        );
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         // The authoring format's own session state, installed beside the
         // canonical bundle rather than inside it. `None` for every
@@ -2279,13 +2301,13 @@ impl PlatformerSessionBuilder<'_, '_> {
                         // built wrong and corrected. The world's definitions
                         // ride along because a row may name an object minted by
                         // a record next door — see `OccurrenceContinuity`.
-                        self.occurrences.as_deref().map(|remembered| {
+                        Some(
                             ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
-                                remembered,
+                                remembered: horizon.occurrences(),
                                 world: &room_set.rooms,
                                 minted: self.minted.as_deref(),
-                            }
-                        }),
+                            },
+                        ),
                     ),
                 boss_catalog: &mechanical.bosses,
                 default_character_id,
@@ -2321,6 +2343,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             activation_id,
             experience: experience_id.as_str().to_owned(),
             route,
+            horizon,
             publication: built.publication,
             mechanics: mechanical.clone(),
             moving_platforms: built.moving_platforms,
@@ -2354,6 +2377,10 @@ pub struct PreparedCandidateSession {
     /// superseded by a route of a DIFFERENT name cannot be cleaned up from the
     /// superseding route's id, and releasing the wrong route's hold wedges it.
     route: ambition_game_shell::ShellRouteId,
+    /// The candidate's DURABLE horizon — its occurrence ledger and the two
+    /// checkpoint baselines — installed at adoption and at no other moment.
+    /// See `CandidateDurableHorizon`.
+    horizon: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
     /// The first room's moving platforms, installed at adoption.
@@ -2390,6 +2417,7 @@ impl PreparedCandidateSession {
             publication,
             mechanics,
             moving_platforms,
+            horizon,
             ..
         } = self;
         // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published; the receipt has
@@ -2397,6 +2425,11 @@ impl PreparedCandidateSession {
         ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);
         world.insert_resource(mechanics);
         world.insert_resource(moving_platforms);
+        // ⛔⛤ AND THE DURABLE HORIZON, HERE AND NOWHERE ELSE. Preparing this
+        // candidate read the save into a value; this is the line that makes it
+        // the world's. A refused candidate never reaches it, so the session that
+        // was playing keeps the checkpoint semantics it had.
+        horizon.install(world);
         let promoted =
             ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
                 world, root, scope,

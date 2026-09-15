@@ -436,6 +436,14 @@ impl std::error::Error for StagedWorldViolation {}
 fn verify_staged_world(
     world: &World,
     pending: &PendingWorldReplacement,
+    // ⛔⛤ **THE ROOT THIS TRANSACTION IS PUBLISHING INTO, RESOLVED BY ITS
+    // CALLER — 2026-09-15.** This asked `session_world_entity`, which answers
+    // *"which root is LIVE right now"*, and refused any staged replacement into a
+    // session that is itself still a candidate. `verify_and_publish` already
+    // resolves the right root by the transaction's own session scope, so the
+    // answer is handed in rather than asked for a second time — and the two ends
+    // cannot disagree about which session this publication belongs to.
+    publishing_into: Option<bevy::ecs::entity::Entity>,
 ) -> Result<(), Vec<StagedWorldViolation>> {
     use ambition_platformer2d_world::rooms::RoomSet;
 
@@ -443,9 +451,7 @@ fn verify_staged_world(
     // The set that would be live: the staged replacement's, or the one already
     // on the session root when this transaction replaces only the active room.
     let staged_rooms = pending.next_rooms.as_ref();
-    let live_rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
-        RoomSet,
-    >(world);
+    let live_rooms = publishing_into.and_then(|root| world.get::<RoomSet>(root));
     let rooms = match (staged_rooms, live_rooms) {
         (Some(next), _) => Some(&next.rooms),
         (None, Some(live)) => Some(&live.rooms),
@@ -453,7 +459,7 @@ fn verify_staged_world(
     };
     // ⛔ ASKED SEPARATELY FROM THE SET, because a replacement that BRINGS its own
     // room set still needs a root to put it on.
-    if ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_none() {
+    if publishing_into.is_none() {
         violations.push(StagedWorldViolation::NoSessionRootToPublishInto);
     }
     // ⛔ ONLY WHEN THERE IS SOMETHING TO PUBLISH. A room with no authored
@@ -1092,7 +1098,7 @@ fn verify_and_publish(
         Some(pending) => {
             // The borrow ends before the verifier reads the world again.
             let pending: &PendingWorldReplacement = pending;
-            let found = verify_staged_world(world, pending);
+            let found = verify_staged_world(world, pending, publishing_into);
             found.err().unwrap_or_default()
         }
         None => Vec::new(),

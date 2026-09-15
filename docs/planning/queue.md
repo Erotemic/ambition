@@ -387,12 +387,15 @@ room's transaction had opened; nothing stated that as a rule.
 and poison-verified: disabling the two exemptions refuses the room with
 `UnownedIdentity` AND `CandidateUnowned` about `session:7`.
 
-⚠ **AND IT NAMED A THIRD PLACE THE SAME RULE IS MISSING**, recorded rather than
-asserted away: `verify_staged_world` asks `session_world_entity` — *"which root is
-LIVE"* — so a staged world replacement into a candidate session refuses with
-`NoSessionRootToPublishInto`. `verify_and_publish`'s own root precondition already
-asks the scoped question (`session_root_for_scope`); the staged-world check has
-not been taught it, and it cannot be until it is handed the transaction's session.
+⇒ **AND THE THIRD PLACE IT NAMED IS CLOSED TOO.** `verify_staged_world` asked
+`session_world_entity` — *"which root is LIVE"* — so a staged world replacement
+into a candidate session refused with `NoSessionRootToPublishInto`, and its
+`RoomSet` read went to the live root rather than to this transaction's. Both now
+take the root `verify_and_publish` already resolved by the transaction's own
+session scope, handed in rather than asked for a second time, so the two ends
+cannot disagree about which session a publication belongs to. The arm uses a
+SCOPED plan and asserts the room PUBLISHES, which exercises all three checks at
+once.
 
 **Next implementation — session-scoped construction verification, then A10.5 again.**
 

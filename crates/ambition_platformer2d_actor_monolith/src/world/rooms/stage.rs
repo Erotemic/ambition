@@ -1142,6 +1142,16 @@ mod tests {
     }
 
     fn candidate_plan() -> RoomConstructionPlan {
+        candidate_plan_for(SessionSpawnScope::UNSCOPED)
+    }
+
+    /// The same plan, prepared under an explicit session.
+    ///
+    /// ⛔ A transaction's SESSION is what tells the verifiers which root it is
+    /// publishing into — see `session_root_for_scope`. An `UNSCOPED` plan can
+    /// only ask *"which root is live"*, which is the wrong question the moment
+    /// the root it belongs to is a hidden candidate.
+    fn candidate_plan_for(session: SessionSpawnScope) -> RoomConstructionPlan {
         let mut staging = features::RoomContentStagingRegistry::default();
         staging
             .register("candidate", "test_provider", "occ", "occ.v1", |_room| {
@@ -1170,7 +1180,7 @@ mod tests {
             &PlacementLoweringRegistry::default(),
             &staging,
             &ambition_boss_encounter::BossCatalog::default(),
-            SessionSpawnScope::UNSCOPED,
+            session,
             features::ActorConstructionContext::new(&recipes, &catalog, &sheets, Default::default())
                 .with_prepared(fixture_cast()),
         )
@@ -1413,12 +1423,26 @@ mod tests {
         )
         .expect("the hiding system runs");
 
-        stage_the_candidate(&mut app, candidate_plan(), outgoing);
+        // ⛔ A SCOPED PLAN, because the question the verifiers must ask is *"which
+        // root does THIS transaction publish into"*, and only a scoped plan can
+        // pose it. The fixture's root is `SessionRoot(SessionScopeId(0))`.
+        stage_the_candidate(
+            &mut app,
+            candidate_plan_for(SessionSpawnScope::scoped(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
+            )),
+            outgoing,
+        );
 
         let verification = app
             .world()
             .resource::<crate::features::LastConstructionVerification>()
             .clone();
+        assert!(
+            verification.published,
+            "⛔ A ROOM COULD NOT PUBLISH INTO ITS OWN SESSION while that session \
+             was still a hidden candidate: {verification:?}"
+        );
         let about_the_session = |violations: &[String]| -> Vec<String> {
             violations
                 .iter()

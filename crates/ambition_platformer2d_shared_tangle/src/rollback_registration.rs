@@ -163,9 +163,15 @@ where
     );
     registrar
         .rollback_component_canonical::<crate::lifecycle::RoomScopedEntity>(OWNER, "scope.room");
-    registrar.rollback_component_canonical::<crate::lifecycle::SessionScopedEntity>(
+    // ⛔ SNAPSHOTTED BUT NOT CHECKSUMMED. The value is a host-local activation
+    // count, so two peers with different session histories would disagree about
+    // a mechanically identical world if it entered the peer checksum. It still
+    // has to survive a rewind: `construction`'s scope gather reads it to filter
+    // another session's entities out of the scope.
+    registrar.rollback_component_clone_probed::<crate::lifecycle::SessionScopedEntity>(
         OWNER,
         "scope.session",
+        |scoped| scoped.0 .0,
     );
     // `InCustodyOf` is fully reprojected each tick from rollback-authoritative
     // custody/possession state. It contains an entity handle, so duplicating it

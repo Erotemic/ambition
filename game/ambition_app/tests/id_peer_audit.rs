@@ -28,14 +28,37 @@
 //! host counter directly.
 use crate::common;
 
-/// Host-local lifecycle / correlation identities. None of these may be
-/// rollback-registered: rollback state is compared between peers.
+/// Types whose VALUE is, or carries, a host-local lifecycle count. None may be
+/// registered with a kind that feeds the peer checksum.
+///
+/// ⚠ Wrappers are listed by their own name. `SessionScopedEntity` carries a
+/// `SessionScopeId` and reached the checksum while a list of identity names
+/// alone reported clean — a registered type never matches the name of the id it
+/// holds. New registrations are caught by `rollback_schema_baseline.txt`, which
+/// member-diffs every row; this list is what that baseline cannot know.
 const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "SessionScopeId",
+    "SessionScopedEntity",
     "ShellActivationId",
     "ShellRequestId",
     "ContentEpoch",
     "LoadId",
+];
+
+/// Registration kinds that contribute to the checksum peers compare.
+///
+/// Measured from the registrars: every `*Canonical`, `*Cursor` and `*Resolved`
+/// road calls `checksum_component`/`checksum_resource`; the plain `*Clone` roads
+/// do not. Snapshotting a host-local value is fine — comparing it is not.
+const CHECKSUMMED_KINDS: &[&str] = &[
+    "ComponentCanonical",
+    "ComponentCloneCursor",
+    "ComponentCloneResolved",
+    "ComponentCloneCanonicalChecksum",
+    "ComponentCloneCustomChecksum",
+    "ResourceCanonical",
+    "ResourceCloneCursor",
+    "ResourceCloneCustomChecksum",
 ];
 
 /// The one value that IS canonical while still being a function of host-local
@@ -85,10 +108,13 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
     let mut offenders: Vec<String> = Vec::new();
     for suspect in HOST_LOCAL_IDENTITIES {
         for (type_name, kind) in &registered {
-            // Match on the leaf type, so a module path merely MENTIONING the
-            // word does not count as the identity being registered.
             let leaf = type_name.rsplit("::").next().unwrap_or(type_name);
             if leaf != *suspect {
+                continue;
+            }
+            // Snapshotting a host-local value is legitimate: a rewind has to
+            // restore it. Only the checksummed kinds are a peer-visible defect.
+            if !CHECKSUMMED_KINDS.contains(&kind.as_str()) {
                 continue;
             }
             if RECORDED_DIVERGENCE.contains(&type_name.as_str()) {

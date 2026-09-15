@@ -40,11 +40,40 @@ pub struct ActiveSessionScope {
 }
 
 impl ActiveSessionScope {
-    /// Mint a fresh scope, make it current, and return it.
-    pub fn begin(&mut self) -> SessionScopeId {
+    /// Mint a fresh scope identity WITHOUT making it current.
+    ///
+    /// ⛔⛤ **ALLOCATING A SESSION IDENTITY AND SELECTING THE LIVE SESSION ARE
+    /// DIFFERENT OPERATIONS — SEPARATED 2026-09-14 (A10.5).** [`Self::begin`]
+    /// did both in one statement, which is right for a session that is live the
+    /// moment it exists and wrong for a CANDIDATE: a candidate needs an identity
+    /// to own its entities and its content binding long before anything has
+    /// decided it may be played. Calling `begin` for a candidate would make it
+    /// current before its verdict, which is the whole premise inverted.
+    ///
+    /// ⚠ **THIS IS NOT A SECOND CURRENT-SCOPE AUTHORITY.** There is still exactly
+    /// one `current`, written by [`Self::publish`] and [`Self::begin`] and
+    /// cleared by the two clears. A reserved scope that is never published is
+    /// simply an id nobody used, and gaps are legal.
+    pub fn reserve(&mut self) -> SessionScopeId {
         let id = SessionScopeId(self.next_raw);
         self.next_raw += 1;
+        id
+    }
+
+    /// Make a reserved scope the live one.
+    ///
+    /// ⛔ The publication half of the split above. A candidate session calls this
+    /// when — and only when — it has been admitted.
+    pub fn publish(&mut self, id: SessionScopeId) {
         self.current = Some(id);
+    }
+
+    /// Mint a fresh scope, make it current, and return it.
+    ///
+    /// The ordinary road, for a session that is live as soon as it exists.
+    pub fn begin(&mut self) -> SessionScopeId {
+        let id = self.reserve();
+        self.publish(id);
         id
     }
 

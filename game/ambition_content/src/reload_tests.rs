@@ -2344,6 +2344,7 @@ fn a_failure_of_another_transaction_cannot_discard_a_pending_reload() {
     // FAILS.
     app.world_mut().resource_mut::<ShellRouter>().pending =
         Some(ambition_platformer2d::game_shell::PendingShellRoute {
+            reserved_activation: ambition_platformer2d::game_shell::ShellActivationId(1),
             route_id: ShellRouteId::new("game"),
             push_history: false,
             barrier: ambient_barrier("shell.game.8"),
@@ -2424,6 +2425,7 @@ fn an_unrelated_rejection_while_our_own_load_is_pending_keeps_the_reload() {
     // ⛔ THE PREMISE: OUR OWN transaction is the one the router is waiting on.
     app.world_mut().resource_mut::<ShellRouter>().pending =
         Some(ambition_platformer2d::game_shell::PendingShellRoute {
+            reserved_activation: ambition_platformer2d::game_shell::ShellActivationId(1),
             route_id: ShellRouteId::new("game"),
             push_history: false,
             barrier: ambient_barrier("shell.game.7"),

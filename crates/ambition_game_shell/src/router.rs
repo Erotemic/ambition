@@ -124,6 +124,22 @@ pub struct ActiveShellExperience {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingShellRoute {
+    /// ⛔⛤ **THE ACTIVATION IDENTITY, DECIDED WHEN THE ROUTE GOES PENDING —
+    /// A10.5, 2026-09-14.** It was minted inside [`ShellRouter::activate`], in
+    /// the same statement that deactivates the outgoing route. A participant that
+    /// must PREPARE its material for this activation before the activation
+    /// happens — A10's candidate session, whose root carries
+    /// `SimId::singleton("session", activation_id)` — could not name the
+    /// activation it was preparing for.
+    ///
+    /// ⚠ **THIS DECIDES AN EXISTING ID EARLIER; IT DOES NOT INVENT ONE.** The
+    /// source and the sequence are unchanged, and A10 deliberately does not
+    /// re-key that `SimId` to something it finds more convenient — that question
+    /// belongs to the peer-stable identity campaign.
+    ///
+    /// ⭐ A pending route that never activates BURNS an id, and gaps are legal:
+    /// nothing derives meaning from consecutive activation ids.
+    pub reserved_activation: ShellActivationId,
     pub route_id: ShellRouteId,
     pub push_history: bool,
     pub barrier: LoadBarrierRef,
@@ -798,6 +814,11 @@ impl ShellRouter {
             )];
         };
 
+        // ⛔ RESERVED FOR WHATEVER PENDING ROUTE THIS CALL PRODUCES. Taken once,
+        // before the branches below, so every `PendingShellRoute` this function
+        // can build names the same reservation and no branch can forget to make
+        // one. See `PendingShellRoute::reserved_activation`.
+        let reserved = self.reserve_activation();
         let previous_pending = self.pending.take();
         let supersedes = previous_pending
             .as_ref()
@@ -838,6 +859,7 @@ impl ShellRouter {
             };
             prepared.request(transaction.clone());
             self.pending = Some(PendingShellRoute {
+                reserved_activation: reserved,
                 request: request.clone(),
                 route_id: route_id.clone(),
                 push_history,
@@ -886,6 +908,7 @@ impl ShellRouter {
                     | BarrierReadiness::Superseded),
                 ) => {
                     self.pending = Some(PendingShellRoute {
+                        reserved_activation: reserved,
                         request: request.clone(),
                         route_id: route_id.clone(),
                         push_history,
@@ -920,6 +943,7 @@ impl ShellRouter {
                 }
                 Some(BarrierReadiness::Preparing) | None => {
                     self.pending = Some(PendingShellRoute {
+                        reserved_activation: reserved,
                         request: request.clone(),
                         route_id: route_id.clone(),
                         push_history,
@@ -934,6 +958,23 @@ impl ShellRouter {
         }
         events.extend(self.activate(route_id, push_history, catalog, None, None));
         events
+    }
+
+    /// Reserve the identity the next pending route will activate under.
+    ///
+    /// ⛔ See [`PendingShellRoute::reserved_activation`]: a participant that must
+    /// prepare material FOR an activation cannot wait until the activation to
+    /// learn its name.
+    fn reserve_activation(&mut self) -> ShellActivationId {
+        self.next_activation = self.next_activation.saturating_add(1);
+        ShellActivationId(self.next_activation)
+    }
+
+    /// The identity the pending route will activate under, if one is pending.
+    pub fn pending_activation(&self) -> Option<ShellActivationId> {
+        self.pending
+            .as_ref()
+            .map(|pending| pending.reserved_activation)
     }
 
     fn activate(
@@ -954,9 +995,16 @@ impl ShellRouter {
             }
             events.push(ShellEvent::RouteDeactivated(old));
         }
-        self.next_activation = self.next_activation.saturating_add(1);
+        // ⛔ THE RESERVATION THE PENDING ROUTE ALREADY MADE, so a participant
+        // that prepared material for THIS activation named the same id the
+        // activation now carries. A route activated with no pending transaction
+        // (there are such roads) reserves one here.
+        let activation_id = match self.pending.as_ref() {
+            Some(pending) => pending.reserved_activation,
+            None => self.reserve_activation(),
+        };
         let active = ActiveShellExperience {
-            activation_id: ShellActivationId(self.next_activation),
+            activation_id,
             route_id,
             experience_id: route.experience.clone(),
             parameters: route.parameters.clone(),

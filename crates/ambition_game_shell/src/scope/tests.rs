@@ -28,6 +28,7 @@ fn active(route: &str, experience: &str) -> ActiveShellExperience {
 
 fn pending(route: &str) -> PendingShellRoute {
     PendingShellRoute {
+        reserved_activation: ShellActivationId(1),
         request: None,
         route_id: ShellRouteId::new(route),
         push_history: true,

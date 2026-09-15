@@ -622,6 +622,17 @@ pub struct LastConstructionVerification {
     /// that never opens one passes while measuring nothing. `0` on a refusal:
     /// nothing was superseded because nothing published.
     pub left_to_custodian: usize,
+    /// How many SUPERSESSIONS this transaction declared — a live body of the same
+    /// identity standing beside the candidate that will replace it.
+    ///
+    /// ⛔⛤ **IT IS THE PREMISE OF A10's SUPERSESSION CLAIM.** *"Validation
+    /// succeeds without first destroying A"* is provable from this plus
+    /// `published`: `ProjectionViolation::SupersededNotLive` exists precisely to
+    /// refuse a declared supersession whose live half is already gone, so a
+    /// declared supersession that PUBLISHED is one whose predecessor was still
+    /// standing when the projected world was verified. Without a count, a test
+    /// asserting that property cannot say a supersession happened at all.
+    pub supersessions: usize,
 }
 
 
@@ -914,6 +925,9 @@ fn verify_and_publish(
             staged_violations: Vec::new(),
             published: false,
             left_to_custodian: 0,
+            // This early road refuses BEFORE the transactions are known, so
+            // nothing has been declared yet.
+            supersessions: 0,
         });
     };
 
@@ -1178,6 +1192,7 @@ fn verify_and_publish(
     let published =
         violations.is_empty() && projection_violations.is_empty() && staged_violations.is_empty();
     let mut left_to_custodian = 0;
+    let supersessions = effects.supersessions().count();
     if published {
         let admitted: usize = transactions
             .iter()
@@ -1283,5 +1298,6 @@ fn verify_and_publish(
         staged_violations,
         published,
         left_to_custodian,
+        supersessions,
     });
 }

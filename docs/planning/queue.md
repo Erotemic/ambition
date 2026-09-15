@@ -118,6 +118,16 @@ because a census reporting 0 from a wrong query reads exactly like a clean world
 ⚠ Both return a COUNT, never a list: `RoomPublication` and `InactiveCandidate` stay
 `pub(crate)`, and that containment is worth more than a richer accessor.
 
+⛔⛤ **AND A10'S SUPERSESSION CASE HAS A PRODUCTION WITNESS.** The brief asks for
+one explicitly — *old A remains live while hidden B is verified and B declares it
+supersedes A* — and it is provable from two facts rather than by observing the
+world mid-verification: `ProjectionViolation::SupersededNotLive` refuses a declared
+supersession whose live half is already gone, so **a declared supersession that
+PUBLISHED is one whose predecessor was still standing when the projected world was
+verified**. `LastConstructionVerification::supersessions` records the count, and
+`a_custody_deferred_supersession_is_never_visible_as_two_holders` asserts it is
+`> 0` on a reset that re-authors an identity a hand is holding.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

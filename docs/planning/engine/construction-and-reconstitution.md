@@ -495,6 +495,19 @@ does not mean. For the handoff it says something a roster COUNT cannot: the
 retired session's world is genuinely gone rather than standing beside the one that
 replaced it.
 
+⛔⛤ **AND THE SUPERSESSION CASE HAS A PRODUCTION WITNESS (2026-09-15) — "old A
+remains live while hidden B is verified".** The brief asks for one explicitly, and
+the property is provable from two facts rather than by observing the world
+mid-verification: `ProjectionViolation::SupersededNotLive` exists precisely to
+REFUSE a declared supersession whose live half is already gone, so **a declared
+supersession that PUBLISHED is one whose predecessor was still standing when the
+projected post-publication world was verified**.
+`LastConstructionVerification::supersessions` records the declaration count so a
+test can say a supersession happened at all, and
+`a_custody_deferred_supersession_is_never_visible_as_two_holders` asserts it is
+`> 0` on a reset that re-authors an identity a hand is holding — the *old A live,
+hidden B verified, B declares it supersedes A* shape, on the shipped road.
+
 **6. The production tests proving failure leaves N untouched.** At SESSION scope,
 in the shipped app:
 `a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`

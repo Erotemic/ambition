@@ -1440,6 +1440,7 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
     let mut peak = 0usize;
     let mut worst_frame = 0usize;
     let mut custody_windows = 0usize;
+    let mut published_supersessions = 0usize;
     for frame in 0..240 {
         sim.step(base());
         let live = occurrences(&mut sim, &reward).len();
@@ -1449,6 +1450,14 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
         }
         // The MAX, never a sum: the record is last-writer-wins and persists, so
         // adding it up every frame would count one window 240 times.
+        if let Some(verification) = sim
+            .world()
+            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        {
+            if verification.published {
+                published_supersessions = published_supersessions.max(verification.supersessions);
+            }
+        }
         custody_windows = custody_windows.max(
             sim.world()
                 .get_resource::<
@@ -1462,6 +1471,20 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
     // predecessor to its custodian. Without this the assertion below is equally
     // true of a reset that never opened a custody window at all — and the whole
     // arm would be measuring nothing while passing.
+    // ⛔⛤ **A10'S SUPERSESSION CASE, IN PRODUCTION: validation succeeded WITHOUT
+    // first destroying the live body.** `ProjectionViolation::SupersededNotLive`
+    // exists precisely to refuse a declared supersession whose live half is
+    // already gone, so a declared supersession that PUBLISHED is one whose
+    // predecessor was still standing when the projected post-publication world
+    // was verified. The reset re-authors an identity a hand is holding, which is
+    // exactly the "old A live, hidden B verified, B declares it supersedes A"
+    // shape the campaign owes a production witness for.
+    assert!(
+        published_supersessions > 0,
+        "no publication in this reset declared a supersession that published, so \
+         nothing here witnesses a candidate verified while its predecessor was \
+         still live"
+    );
     assert!(
         custody_windows > 0,
         "no publication in this reset declared a custody-deferred departure, so \

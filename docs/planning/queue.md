@@ -37,6 +37,17 @@ fail as a straight inversion (`death_restores_the_checkpoint` 1/11,
 `two_persistence_authorities_for_one_item` with `still_owned=1`); it is a custody
 -domain restructuring, not an A10 ordering change.
 
+⭐ **AND ITS PRIORITY IS LOWER THAN IT LOOKED — MEASURED 2026-09-15.** The window
+is real (5 of 838 `app_it` publications declare one) but it is NOT OBSERVABLE:
+`a_custody_deferred_supersession_is_never_visible_as_two_holders` samples every
+frame of the reset and finds peak 1, and POISONING the custodian takes it to 2,
+so the arm is about a state that occurs and the custodian is what closes it inside
+the frame. ⇒ Model A buys a structural guarantee, not the removal of a duplicate
+anything can see. `LastConstructionVerification::left_to_custodian` was added so
+the PREMISE is assertable — the first version of that arm used an abbreviated
+fixture, opened NO window, and passed while measuring nothing; the premise
+assertion is what caught it.
+
 **ACCEPTANCE CRITERIA.** A production composition demonstrating (a) failed
 candidate construction/publication leaves the last-good world playable, and (b)
 successful replacement validates N+1 before retiring N. ⇒ **MET at room scope and

@@ -597,6 +597,16 @@ pub struct LastConstructionVerification {
     pub staged_violations: Vec<StagedWorldViolation>,
     /// Whether `RoomLoaded` was written.
     pub published: bool,
+    /// How many declared supersessions this publication left standing for
+    /// another authority to remove — `DepartureAuthority::Custodian`, A10's one
+    /// permitted duplicate.
+    ///
+    /// ⛔ **RECORDED BECAUSE THE WINDOW IS OTHERWISE UNASSERTABLE.** It used to
+    /// reach only the world log, so a test could not state the PREMISE *"this
+    /// publication actually opened a custody window"* — and a custody-window test
+    /// that never opens one passes while measuring nothing. `0` on a refusal:
+    /// nothing was superseded because nothing published.
+    pub left_to_custodian: usize,
 }
 
 
@@ -888,6 +898,7 @@ fn verify_and_publish(
             projection_violations: Vec::new(),
             staged_violations: Vec::new(),
             published: false,
+            left_to_custodian: 0,
         });
     };
 
@@ -1151,6 +1162,7 @@ fn verify_and_publish(
 
     let published =
         violations.is_empty() && projection_violations.is_empty() && staged_violations.is_empty();
+    let mut left_to_custodian = 0;
     if published {
         let admitted: usize = transactions
             .iter()
@@ -1190,6 +1202,7 @@ fn verify_and_publish(
         let superseded = ambition_platformer2d_shared_tangle::construction::retire_superseded(
             world, &effects, &baseline,
         );
+        left_to_custodian = superseded.left_to_custodian;
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id} ({admitted} roots admitted, \
              {} declared departures retired, {} left to their custodian)",
@@ -1254,5 +1267,6 @@ fn verify_and_publish(
         projection_violations,
         staged_violations,
         published,
+        left_to_custodian,
     });
 }

@@ -1384,3 +1384,105 @@ fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
          and the next crossing into '{NEIGHBOUR}' prepares from it"
     );
 }
+
+/// ⛔⛤ **A10: DOES THE CUSTODY-DEFERRED SUPERSESSION WINDOW EVER SHOW TWO
+/// AUTHORITATIVE HOLDERS OF ONE IDENTITY?**
+///
+/// Publication's projected verifier admits EXACTLY TWO occupants for an identity
+/// whose predecessor was declared to depart under `DepartureAuthority::Custodian`
+/// — the one place A10 permits a duplicate, because
+/// `restore_custody_to_checkpoint` unequips AND despawns as one operation keyed
+/// on that entity, so publication reaching in first destroys the key the other
+/// half is found by. That is Model B, and it is declared rather than hidden.
+///
+/// ⚠ **WHAT WAS NEVER MEASURED IS HOW WIDE THE WINDOW IS.** MEASURED 2026-09-15
+/// with a probe on `retire_superseded`'s caller: this exact fixture — room
+/// `central_hub_complex`, identity `placement:ground_gun_sword` — is one of the
+/// five publications in the whole `app_it` suite that declares one
+/// (`left_to_custodian=1`, `retired=0`). So the window is real here, and this
+/// samples EVERY FRAME of the reset rather than the settled state 240 frames
+/// later, which is the difference between "it closed eventually" and "no frame
+/// boundary ever saw two".
+#[test]
+fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+    let reward = SimId::placement(REWARD);
+
+    // ⚠ THE HISTORY IS THE FIXTURE, and an abbreviated one does NOT open the
+    // window — MEASURED: acquire-then-checkpoint-then-die alone declares no
+    // custody departure at all, and the premise assertion below is what caught
+    // that. The beats are the ones `a_death_returns_what_was_not_banked_and_keeps_what_was`
+    // runs up to its second death, which is the publication the probe saw declare
+    // one: the reward is acquired and given back by a first death, acquired
+    // AGAIN, and only then banked — so the rebuild re-authors an identity whose
+    // live holder is in another authority's custody.
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+    die(&mut sim);
+    let pedestal_again = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal_again, &reward);
+    commit_a_checkpoint(&mut sim);
+
+    let victim = body(&mut sim);
+    let (x, y) = body_pos(&mut sim);
+    sim.world_mut().write_message(
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+            victim,
+            pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
+            cause: ambition_platformer2d::combat::death_rules::DeathCause {
+                source: ambition_platformer2d::combat::HitSource::Hazard,
+                attacker: None,
+            },
+        },
+    );
+
+    let mut peak = 0usize;
+    let mut worst_frame = 0usize;
+    let mut custody_windows = 0usize;
+    for frame in 0..240 {
+        sim.step(base());
+        let live = occurrences(&mut sim, &reward).len();
+        if live > peak {
+            peak = live;
+            worst_frame = frame;
+        }
+        // The MAX, never a sum: the record is last-writer-wins and persists, so
+        // adding it up every frame would count one window 240 times.
+        custody_windows = custody_windows.max(
+            sim.world()
+                .get_resource::<
+                    ambition_platformer2d::actors::features::LastConstructionVerification,
+                >()
+                .map_or(0, |verification| verification.left_to_custodian),
+        );
+    }
+
+    // ⭐ THE PREMISE FIRST: a publication in this reset really did leave a
+    // predecessor to its custodian. Without this the assertion below is equally
+    // true of a reset that never opened a custody window at all — and the whole
+    // arm would be measuring nothing while passing.
+    assert!(
+        custody_windows > 0,
+        "no publication in this reset declared a custody-deferred departure, so \
+         this arm says nothing about the window Model B opens"
+    );
+    // ⛔⛤ AND THE WINDOW IS NARROWER THAN A FRAME BOUNDARY. MEASURED: peak 1.
+    // Publication leaves the predecessor standing and the custodian removes it
+    // without the sim schedule ever running in between, so the duplicate the
+    // projected verifier ADMITS is never observable to anything that steps.
+    assert_eq!(
+        peak, 1,
+        "⛔ A CUSTODY-DEFERRED SUPERSESSION WAS VISIBLE AS {peak} HOLDERS OF ONE \
+         IDENTITY at frame {worst_frame}. Model B permits publication to leave \
+         the predecessor standing, but only for a window no scheduled system \
+         observes; a frame boundary that sees two is a duplicate authoritative \
+         identity in the published world"
+    );
+    assert_still_held(
+        &mut sim,
+        &reward,
+        "the reset must leave the banked reward in the hand it was in at the \
+         checkpoint",
+    );
+}

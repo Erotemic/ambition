@@ -402,17 +402,33 @@ the gaps that remain beside it, none of which falsifies it.
   2026-09-15: the earlier wording here (*"the state machine advances to `playing`
   on a refusal"*) made this sound like an unhandled case. It is not — both hosts
   CANCEL. The eager host calls `cancel_eager_room_transition_transaction` (load
-  cancelled, `transition_state.active` cleared, the rollback intent spent) and the
+  cancelled, the active transition cleared, the rollback intent spent) and the
   confirmed host returns `CommitOutcome::Cancelled`; returning to `Playing` is the
   correct terminal policy, because the player is standing in a room that was never
   touched. What actually remains is that the refusal reaches only a `warn!` and a
   `room_commit_refused` world-log line: **the player is given no signal, and the
   door simply never opens.** That is a presentation gap, not a world-integrity
   one.
-- **Custody supersession is Model B**: publication may leave the predecessor and
-  the candidate both standing for the window in which custody removes the
-  predecessor. Declared rather than hidden, and not to be widened; Model A
-  remains the better end state, particularly for replication.
+- **Custody supersession is Model B, and the window is now MEASURED rather than
+  declared.** Publication leaves the predecessor standing when it declared
+  `DepartureAuthority::Custodian`, because `restore_custody_to_checkpoint`
+  unequips AND despawns as one operation keyed on that entity. MEASURED
+  2026-09-15: **5 of 838 publications in `app_it` open such a window**
+  (`left_to_custodian=1`, `retired=0`; room `central_hub_complex`, identities
+  `placement:ground_gun_sword` and `placement:ground_grapple`) — so it is real in
+  production, not theoretical. And
+  `a_custody_deferred_supersession_is_never_visible_as_two_holders` samples EVERY
+  frame of the reset and finds **peak 1**: the duplicate the projected verifier
+  ADMITS is never observable to anything that steps. POISON-VERIFIED — disabling
+  `apply_committed_checkpoint_restore` takes the peak to **2**, so the arm is
+  about a state that genuinely occurs and the custodian is genuinely what closes
+  it.
+  ⇒ Model A remains the better end state for replication, but the gap it closes
+  is narrower than this document used to imply: it is not an observable window,
+  it is a window whose closing depends on a second authority running.
+  `LastConstructionVerification::left_to_custodian` exists so the PREMISE is
+  assertable — a custody-window test that never opens one passes while measuring
+  nothing, which is exactly what the first version of that arm did.
 
 ## How the session scope got closed — the investigation, kept out of the queue row
 

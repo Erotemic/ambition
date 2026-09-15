@@ -64,6 +64,18 @@ exactly two), and a refused door telling the player nothing.
 this line is a receipt rather than a field; the five statements above are the
 row's current state.
 
+⚠ **FIVE BROKEN TEST CITATIONS REMAIN, IN FOUR OTHER CAMPAIGNS' DOCUMENTS — not
+mine to resolve, but nobody can see them without being told.** Run
+`scripts/check_planning_test_citations.py` for the list; today it is
+`agentic-character-runtime.md`, `authored-technique-admission.md`,
+`checkpoint-restoration-protocol.md` (two) and `pickup-carve-checklist.md`. ⛔ **Do
+not fix these by renaming.** Both A10 cases turned out differently from each
+other: one was a genuine rename, and one was a paragraph describing a hazard that
+had been closed BY CONSTRUCTION, where renaming would have preserved exactly the
+wrong thing. Ask whether the CLAIM still holds first. ⇒ The checker is gateable
+now (its one permanent false positive is gone) and should join
+`--maintenance` when these five are answered.
+
 ⚠ **AND A CITATION IN THIS CAMPAIGN'S OWN DOCUMENT POINTED AT A TEST THAT NEVER
 EXISTED.** The owner document named
 a&#95;hidden&#95;candidate&#95;session&#95;**root**&#95;…&#95;live&#95;**lookup**&#95;…

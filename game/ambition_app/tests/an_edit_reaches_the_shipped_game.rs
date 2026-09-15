@@ -515,6 +515,68 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
     );
 }
 
+/// Which canonical identities in the SHIPPED VISIBLE COMPOSITION have no session
+/// owner, across a handoff.
+///
+/// ⚠ **THE COMPOSITION IS THE POINT.** Its sibling in
+/// `walking_into_a_loading_zone` censuses the `fixed_60hz_sim` harness, which is
+/// a different program: a claim about "the shipped app" made there is a claim
+/// about the wrong population. This one boots `build_visible_app` and samples
+/// after a handoff, because the question it exists to answer — why three
+/// identities read as unowned to a candidate session's first room — was asked
+/// during a handoff in this composition.
+#[test]
+#[ignore = "probe: census of canonical identities with no session owner, visible composition"]
+fn probe_process_resident_canonical_identities_in_the_visible_app() {
+    fn census(app: &mut bevy::prelude::App, when: &str) {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            Option<&ambition_platformer2d::platformer::lifecycle::SessionScopedEntity>,
+        )>();
+        let mut rows: Vec<(String, Option<u64>)> = q
+            .iter(world)
+            .map(|(id, owner)| (id.as_str().to_string(), owner.map(|owner| owner.0 .0)))
+            .collect();
+        rows.sort();
+        let unscoped = rows.iter().filter(|(_, owner)| owner.is_none()).count();
+        eprintln!(
+            "[probe] {when}: {unscoped} of {} canonical identities carry NO session owner",
+            rows.len()
+        );
+        for (id, owner) in rows.iter().filter(|(_, owner)| owner.is_none()) {
+            eprintln!("[probe]   UNSCOPED {id} {owner:?}");
+        }
+        for (id, owner) in rows.iter().filter(|(id, _)| {
+            id.starts_with("encounter:") || id.starts_with("slot:") || id.starts_with("session:")
+        }) {
+            eprintln!("[probe]   {id} -> scope {owner:?}");
+        }
+    }
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    census(&mut app, "first session live");
+
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    census(&mut app, "after a handoff");
+}
+
 /// ⛔⛤ **A10 ON THE HANDOFF ROAD: THE INCOMING SESSION GETS A ROOM WITH THINGS
 /// IN IT.**
 ///

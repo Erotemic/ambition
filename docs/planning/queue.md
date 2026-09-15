@@ -371,12 +371,25 @@ identity already taken"* has to learn *"by whom"* before two sessions can coexis
 and that reaches beyond A10's room packet.
 
 ⚠ **AND THE OBVIOUS EXPLANATION FOR THOSE THREE IS MEASURED FALSE.** I wrote that
-they were process-resident identities with no `SessionScopedEntity`.
-`probe_process_resident_canonical_identities` (an `#[ignore]`d diagnostic in
-`walking_into_a_loading_zone`) says **0 of 22 canonical identities in the shipped
-app carry no session owner** — every one is scoped. So the three were owned by
-SOME session and the scoped gather still admitted them; which session, and why, is
-the first thing the next attempt must measure rather than assume.
+they were process-resident identities with no `SessionScopedEntity`. Two
+`#[ignore]`d probes say otherwise — one in the `fixed_60hz_sim` harness and one in
+the SHIPPED VISIBLE COMPOSITION, because a claim about "the shipped app" made in
+the harness is a claim about a different program. Both report **0 of N canonical
+identities with no session owner**, and the visible one names the three
+explicitly: `encounter:goblin_encounter`, `encounter:symmetry_attunement` and
+`slot:0` are scoped to the LIVE session (scope 0, then scope 1 after a handoff).
+
+⇒ **THE REAL CAUSE, MEASURED: THE ATTEMPT SCOPED 1 OF 3 GATHER SITES.**
+`AuthoritativeScope::gather` has three production callers —
+`features/ecs/spawn/capability_lanes.rs`, `features/ecs/spawn/mod.rs`'s
+`actor_scope`, and `world/rooms/transaction.rs`'s projection — and only the third
+was taught the session. The roster verifier's own scope was still process-wide, so
+the live session's entities were in it: hence `Duplicated` for every authored
+placement and `UnownedIdentity` for the three above.
+
+⇒ **THE NEXT ATTEMPT'S CHECKLIST IS THEREFORE CONCRETE**: scope all three gather
+sites and `TransactionBaseline::capture`, then re-measure. That is what
+"identities are unique within a session" costs, and it is why this is a packet.
 
 **Reverted to the A10.4 shape**: the candidate session is built at activation and
 published behind its first room's verdict. The three defects above were real and

@@ -320,6 +320,17 @@ CALLERS   every effect that MEANS the operation happened is queued behind
           body transit and presentation, the reset's whole sandbox wipe
 ```
 
+⭐ **AND THE BRACKET FLAG ITSELF NEEDS NO ASSERTION — MEASURED 2026-09-15, AND
+THE MEASUREMENT IS WHY THE ASSERTION WAS NOT WRITTEN.** `ROOM_CANDIDATE_BRACKET`
+is a `const bool` that turns the whole candidate road on, and the construction
+tests deliberately READ it rather than hardcoding `true`, so flipping it would
+take the tests with it — the shape of a control that switches itself off. It is
+not: poisoning it to `false` fails **26 `app_it` arms** (save/load custody,
+canonical reconstitution, death and checkpoint restore, the duel restage, the dev
+reload's committed arm). ⇒ **The flag is guarded by CONSEQUENCE, which is stronger
+than a guard on its value**, and a `assert!(ROOM_CANDIDATE_BRACKET)` would have
+added a line that fails second and explains less.
+
 ⛔⛤ **AND A SECOND CALLER WOULD BE A SECOND AUTHORITY, WHICH IS NOW A CONTRACT
 RATHER THAN A HABIT (2026-09-15).** MEASURED: each publication primitive has
 EXACTLY ONE production call site — `publish_candidate`, `retire_superseded` and

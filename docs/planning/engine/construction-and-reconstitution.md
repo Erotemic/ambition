@@ -204,6 +204,105 @@ into a successful refusal by printing a warning. If a fallback reconstructs the
 pinned old scenario, label it recovered rather than unchanged. If recovery is
 unavailable, stop normal simulation and report failure.
 
+### A10 checkpoint report — 2026-09-14
+
+**1. The candidate-world ownership model as implemented.** Two levels, the same
+shape at both.
+
+```text
+CANDIDATE SESSION                          CANDIDATE ROOM
+SessionRoot + InactiveCandidate            every root minted InactiveCandidate
+  + SessionScopedEntity(scope) on every      under ROOM_CANDIDATE_BRACKET,
+    entity spawned through                   stamped with the lane TransactionId
+    SessionSpawnScope::candidate(scope)
+  + ActiveContentBinding on the root       + PendingWorldReplacement on the
+  + the world bundle on the root             publication entity (CandidateState)
+  + process projections held as DATA in
+    CandidateSessionPublication
+```
+
+Visibility is `InactiveCandidate`, a registered disabling component that stays
+`pub(crate)` to `shared_tangle`; it is applied to session-owned entities by
+`SessionSpawnScope::apply_to`, which is the single point all six
+`spawn_*`/`insert_*` helpers pass through. Hiding the ROOT alone is not enough
+and was a real defect: Bevy's disabling components do not inherit through
+ownership, and the gameplay queries that find a body find it by its own markers.
+
+**2. How staged supersession is represented.** `TransactionBaseline::superseding`
+is a third declaration beside `capture`/`retiring`/`reconstructing` and keeps
+their meanings intact: the live body stands until publication.
+`transaction::open` splits the plan against the baseline it captured, per
+identity, and only under the candidate bracket. `PublicationEffects` carries
+`supersedes` (live → candidate, with a `DepartureAuthority` of `Publication` or
+`Custodian`), `retires` and `owners`. The departure authority is DECLARED from
+the baseline, not discovered at retirement.
+
+**3. What the projected verifier validates.** `project_post_publication_roster`
+builds `live − declared retirements − superseded live bodies + THIS publication's
+owned candidates`, and `verify_projected_roster` asks of that projection: exactly
+one authoritative occupant per identity (a declared deferred pair of exactly two
+is admitted, a third holder is not); no candidate stamped by nobody
+(`CandidateUnowned`); every declared supersession has both its participants; and
+the roster invariants `verify_committed_roster` already enforces. Beside it,
+`verify_staged_world` asks whether the non-entity world the publication would
+install is coherent, and the commit boundary compares the plan's generation
+against the `ActiveContentBinding` on the root it is publishing into.
+
+**4. What remains OUTSIDE candidate ownership.** `ActiveSessionScope::current`
+and `ActiveGameplaySession` are still written by the shell bridge at
+`RouteActivated`, before the provider builds anything — they are the process
+pointers the candidate cannot yet own. Everything else named in the A10 brief is
+candidate-owned: room state, geometry, moving-platform state, the content
+binding, prepared content, session mechanics, the player's mechanical transition
+state, and the construction roots.
+
+**5. The publication boundary.** One bounded authority per level, in a fixed
+order, inside one exclusive-world call so nothing scheduled observes a partial
+publication (atomic to SYSTEMS, not to hooks or observers — `InactiveCandidate`
+being `pub(crate)` is what closes that by making the marker unnameable outside
+the crate).
+
+```text
+ROOM      publish_candidate -> apply_world_replacement -> retire_superseded
+SESSION   install the aggregate's projections -> publish_candidate_session
+CALLERS   every effect that MEANS the operation happened is queued behind
+          publication_succeeded(P): the transition's finalize, the dev reload's
+          body transit and presentation, the reset's whole sandbox wipe
+```
+
+**6. The production tests proving failure leaves N untouched.** At ROOM scope,
+in the shipped app: `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`
+drives a real stale-generation refusal and asserts the active room, the geometry
+and the roster are unchanged, the body did not move across the verdict frame, the
+developer flash / arrival flash / room-visual request did not fire, no checkpoint
+restore is owed and the transaction is not reported committed —
+with `a_crossing_that_publishes_does_every_transition_effect` as the control that
+makes those assertions falsifiable. `the_shipped_apps_own_first_room_publishes`
+and `a_shell_handoff_publishes_the_incoming_sessions_room` are the admission
+controls. At SESSION scope there is no such test, and item 7 says why.
+
+**7. Remaining work before the strong last-good-world guarantee is complete.**
+One packet, A10.5, plus two named gaps.
+
+- **A10.5 — the shell activation boundary.** The candidate session is prepared
+  and verified INSIDE the activation frame, which is too late for the guarantee
+  (the outgoing session is retired in `SessionScopeSet::Cleanup` first) and, as
+  measured, leaves no seam at which a refusal can even be observed: the root is
+  spawned and its first room verified in one command flush. Preparing the
+  candidate while the shell route is still PENDING fixes both — a refused
+  candidate never activates, so N is never retired. The machinery exists:
+  `ShellActivationGates` + `ShellRouteHolds`, with a working precedent in
+  `ambition_content`'s publication lease. Prerequisites landed: the activation id
+  is reserved when the route goes pending, and `ActiveSessionScope` separates
+  `reserve` from `publish`.
+- **The transition state machine advances to `playing` on a refusal** as well as
+  on success, so a persistently refused door is a livelock rather than a
+  corrupted world.
+- **Custody supersession is Model B**: publication may leave the predecessor and
+  the candidate both standing for the window in which custody removes the
+  predecessor. Declared rather than hidden, and not to be widened; Model A
+  remains the better end state.
+
 ## Rollback, persistence and multiple rooms
 
 The existing confirmed room transition starts a new baseline; snapshots do not

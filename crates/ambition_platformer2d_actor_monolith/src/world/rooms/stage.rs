@@ -95,6 +95,105 @@ pub struct LastRoomConstructionCommit {
     pub moving_platform_count: usize,
 }
 
+/// What a committed room stamps on [`LastRoomConstructionCommit`] beyond its
+/// receipt. A harness that builds a feature plan directly has no such identity
+/// and passes `None`.
+pub(crate) struct RoomCommitStamp {
+    pub(crate) plan_id: RoomConstructionPlanId,
+    pub(crate) room_id: String,
+    pub(crate) moving_platform_count: usize,
+}
+
+/// Build one room's candidate population — INTO A WORLD THAT CAN HIDE ONE, and
+/// into no other.
+///
+/// ⛔⛤ **THE PREREQUISITE AND THE ACTION IT AUTHORIZES HAVE ONE OWNER —
+/// 2026-09-15 AUDIT, FINDING 4.** The construction used to be queued directly
+/// onto the caller's `Commands`, BEHIND `transaction::open`'s command. `open`
+/// runs first at flush and can discover that this world cannot hide a candidate;
+/// it could do nothing about the commands already sitting behind it:
+///
+/// ```text
+/// queue open -> queue construction -> queue close
+/// flush: open REFUSES; construction runs anyway — VISIBLY, because the refusal
+///        IS that nothing here is hidden; close then cleans up
+/// ```
+///
+/// A refusal that has to be repaired afterwards is not a refusal, and the window
+/// is not unobservable: `commit_inactive`'s own note records that component hooks
+/// and lifecycle observers DO run during `queue.apply`, even though no scheduled
+/// system does.
+///
+/// ⇒ The whole construction is ONE exclusive-world command. It consults the
+/// opening decision and applies its own command queue only if that decision was
+/// to proceed, so a world that cannot hide a candidate performs ZERO candidate
+/// construction. `verify_and_publish`'s retirement of already-built roots stays
+/// as the BACKSTOP rather than as the fix.
+///
+/// ⚠ **RECIPES GAIN NO `World` ACCESS FROM THIS.** They still execute through the
+/// constrained `RootScope`/`RelationScope` surface; what moved is WHERE the
+/// queue they fill gets applied.
+///
+/// ⛔ **THE TEST HARNESS CALLS THIS TOO**, and that is why it is a free function
+/// rather than a closure inside `spawn_contents_for`: `construction/tests.rs`
+/// used to spell the production sequence itself, and a harness holding its own
+/// copy of a road is how an arm goes on passing after production stops using it.
+pub(crate) fn construct_room_candidate(
+    commands: &mut Commands,
+    publication: transaction::PublicationHandle,
+    plan: &RoomFeatureConstructionPlan,
+    session_scope: SessionSpawnScope,
+    candidate_bracket: bool,
+    stamp: Option<RoomCommitStamp>,
+    predicted: Option<BTreeSet<String>>,
+) {
+    let plan = plan.clone();
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        if transaction::opening_refused(world, publication) {
+            // ⛔ BUILD NOTHING. Not "build, then retire".
+            return;
+        }
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let receipt = {
+            let mut inner = Commands::new(&mut queue, &*world);
+            let receipt = features::spawn_room_feature_entities_from_plan(
+                &mut inner,
+                &plan,
+                session_scope,
+                candidate_bracket,
+            );
+            // no platform VISUAL is spawned here any more. The commit installs
+            // platform STATE (the receipt counts it); the picture is reconciled
+            // by a render family from `MovingPlatformSet`, like every other room
+            // feature. That is what let the visual adapter leave the actor
+            // monolith at all — see `world::platforms`.
+            //
+            // ⛔ AND IT IS INSIDE THE AUTHORIZED BRANCH: a room that was refused
+            // committed nothing, so it must not leave a record saying it did.
+            if let Some(stamp) = stamp {
+                inner.insert_resource(LastRoomConstructionCommit {
+                    plan_id: stamp.plan_id,
+                    room_id: stamp.room_id,
+                    authoritative_ids: receipt.authoritative_ids().clone(),
+                    moving_platform_count: stamp.moving_platform_count,
+                });
+            }
+            receipt
+        };
+        queue.apply(world);
+        if let Some(predicted) = predicted {
+            debug_assert_eq!(
+                receipt.authoritative_ids(),
+                &predicted,
+                "room construction execution diverged from its prepared root roster",
+            );
+        }
+        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+            entity.insert(transaction::PendingConstructionReceipt(receipt));
+        }
+    });
+}
+
 /// The one prepared artifact for a room's authoritative simulation contents.
 #[derive(Clone)]
 pub struct RoomConstructionPlan {
@@ -396,33 +495,49 @@ impl RoomConstructionPlan {
         // and a refusal leaves the session with the room it was already playing.
         // ⚠ The SESSION scope is a different transaction and is not started; see
         // `docs/planning/queue.md`'s A10 row for what each half covers.
-        let receipt = features::spawn_room_feature_entities_from_plan(
+        // ⛔⛤ **THE CONSTRUCTION BOUNDARY OWNS BOTH THE PREREQUISITE AND THE
+        // ACTION IT AUTHORIZES — 2026-09-15 AUDIT, FINDING 4.**
+        //
+        // This used to call the spawn right here, which queued every candidate
+        // command BEHIND `open`'s. `open` runs first at flush and can discover
+        // that this world cannot hide a candidate — and could do nothing about
+        // the commands already sitting behind it:
+        //
+        //     queue open -> queue construction -> queue close
+        //     flush: open REFUSES; construction runs anyway (VISIBLY, because the
+        //            refusal IS that nothing here is hidden); close cleans up
+        //
+        // A refusal that has to be repaired afterwards is not a refusal. Worse,
+        // the window is not unobservable: `commit_inactive`'s own note records
+        // that component hooks and lifecycle observers DO run during
+        // `queue.apply`, even though no scheduled system does.
+        //
+        // ⇒ The whole construction is ONE exclusive-world command that consults
+        // the opening decision first and applies its own command queue only if
+        // that decision was to proceed. A world that cannot hide a candidate
+        // performs ZERO candidate construction — there is nothing to clean up,
+        // and `refuse`'s retirement stays as the backstop rather than the fix.
+        //
+        // ⚠ RECIPES GAIN NO `World` ACCESS FROM THIS. They still execute through
+        // the constrained `RootScope`/`RelationScope` surface; what moved is
+        // WHERE the queue they fill is applied.
+        construct_room_candidate(
             commands,
+            publication,
             &self.features,
             self.session_scope,
             candidate_bracket,
+            Some(RoomCommitStamp {
+                plan_id: self.id.clone(),
+                room_id: self.room_id().to_string(),
+                moving_platform_count: self.platform_states.len(),
+            }),
+            Some(self.predicted_authoritative_ids().clone()),
         );
-        debug_assert_eq!(
-            receipt.authoritative_ids(),
-            self.predicted_authoritative_ids(),
-            "room construction execution diverged from its prepared root roster",
-        );
-        // no platform VISUAL is spawned here any more. The commit installs
-        // platform STATE (the receipt below counts it); the picture is
-        // reconciled by a render family from `MovingPlatformSet`, like every
-        // other room feature. That is what let the visual adapter leave the
-        // actor monolith at all — see `world::platforms`.
-        commands.insert_resource(LastRoomConstructionCommit {
-            plan_id: self.id.clone(),
-            room_id: self.room_id().to_string(),
-            authoritative_ids: receipt.authoritative_ids().clone(),
-            moving_platform_count: self.platform_states.len(),
-        });
         transaction::close(
             commands,
             publication,
             &self.features,
-            &receipt,
             self.session_scope,
             candidate_bracket,
         );

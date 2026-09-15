@@ -39,6 +39,43 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 #[derive(Component)]
 pub(crate) struct PendingConstructionBaseline(Result<OpenedTransaction, OpenRefused>);
 
+/// What one room's candidate construction actually built, recorded by the
+/// construction boundary for the verdict to read.
+///
+/// ⛔⛤ **IT IS ON THE PUBLICATION BECAUSE CONSTRUCTION IS NOW DEFERRED —
+/// 2026-09-15 AUDIT, FINDING 4.** `close` used to take the receipt as a
+/// parameter, which was only possible because `spawn_contents_for` called the
+/// spawn at QUEUE time and got its receipt immediately. That is exactly what made
+/// the prerequisite unenforceable: the construction commands were already in the
+/// queue behind `open`, so an opening refusal could not stop them. Construction
+/// is one exclusive-world command now, and its receipt travels the way every
+/// other fact about a publication travels — on the publication.
+///
+/// ⚠ ABSENT MEANS NOTHING WAS BUILT. That is a refusal, not an empty room.
+#[derive(Component)]
+pub(crate) struct PendingConstructionReceipt(
+    pub(crate) crate::features::RoomFeatureConstructionReceipt,
+);
+
+/// Did this publication's OPENING refuse?
+///
+/// ⛔⛤ **ONE DECISION, READ ONCE — 2026-09-15 AUDIT, FINDING 4.** The room
+/// construction boundary asks this before it builds anything, rather than
+/// re-testing the world fact `open` already tested. Two spellings of one
+/// prerequisite is how the two ends of a bracket come to disagree, and this
+/// version also covers every OTHER reason an opening can refuse — a duplicate
+/// identity in the baseline included — instead of only the missing filter.
+///
+/// ⚠ FAIL-CLOSED. A publication with no opening record at all is treated as
+/// refused: the only way to reach that is a publication nothing opened, and
+/// building a candidate population for one of those is the outcome this exists
+/// to prevent.
+pub(crate) fn opening_refused(world: &World, publication: PublicationHandle) -> bool {
+    world
+        .get::<PendingConstructionBaseline>(publication.0)
+        .is_none_or(|opened| opened.0.is_err())
+}
+
 /// A caller's exact reference to the publication it started.
 ///
 /// ⚠ **HOST-LOCAL AND CONTROL-PLANE ONLY.** It is an `Entity`, never canonical
@@ -962,18 +999,20 @@ pub(crate) fn open(
 /// Queued last, so every command the transaction issued has applied by the time
 /// it runs — which is the only moment at which "what did this transaction
 /// actually build" is a question the world can answer.
+/// ⛔⛤ **NO `receipt` PARAMETER ANY MORE — 2026-09-15 AUDIT, FINDING 4.** The
+/// receipt is written by the construction boundary onto the publication, and read
+/// from there. A caller that could still hand one in could hand in a receipt for
+/// a construction that never ran.
 pub(crate) fn close(
     commands: &mut Commands,
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
-    receipt: &crate::features::RoomFeatureConstructionReceipt,
     session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
     let plan = plan.clone();
-    let receipt = receipt.clone();
     commands.queue(move |world: &mut World| {
-        verify_and_publish(world, publication, &plan, &receipt, session, candidate_bracket);
+        verify_and_publish(world, publication, &plan, session, candidate_bracket);
     });
 }
 
@@ -1112,7 +1151,6 @@ fn verify_and_publish(
     world: &mut World,
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
-    receipt: &crate::features::RoomFeatureConstructionReceipt,
     session: SessionSpawnScope,
     candidate_bracket: bool,
 ) {
@@ -1239,6 +1277,25 @@ fn verify_and_publish(
         }
     };
 
+    // ⛔⛤ **WHAT WAS BUILT IS READ OFF THE PUBLICATION — AUDIT FINDING 4.**
+    // Absent means the construction boundary declined to build, which is the
+    // outcome an opening refusal now produces. `refuse` above has already fired
+    // for every road that gets here that way; this is the backstop for a
+    // publication whose construction command never ran at all.
+    let Some(PendingConstructionReceipt(receipt)) = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<PendingConstructionReceipt>())
+    else {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "room `{room_id}` reached verification with an opened baseline and no \
+             construction receipt, so nothing was built for it to verify"
+        );
+        refuse(world, room_id);
+        return;
+    };
+    let receipt = &receipt;
     let mut violations = plan.verify_committed_construction(receipt, &baseline, world, session);
 
     // The commit-boundary staleness check: every lane was prepared against the

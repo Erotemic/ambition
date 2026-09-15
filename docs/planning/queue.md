@@ -52,7 +52,7 @@ each stands:
 | 1 | Nested non-entity/effect ownership | **CLOSED** — a verified publication freezes what it owes the world outside its own population; a nested room's bundle is consumed at the SESSION's boundary |
 | 2 | Exact per-publication custody ownership | **CLOSED** 2026-09-15 (`CustodyHandoffs` on the exact `RoomPublication`), and now consumed by the same deferred finalization as everything else in the bundle |
 | 3 | Candidate-owned minted reconstruction input | **CLOSED** structurally (`PlatformerSessionBuilder` holds no live durable resource at all) **and behaviourally** — `a_candidate_reconstructs_a_mint_only_its_own_save_describes`, poison-verified |
-| 4 | True pre-construction refusal / complete early cleanup | **CLOSED** — the prerequisite is preflighted at APP BUILD, which is strictly before any command a room queues, and the guard for it now exists; the transaction-level refusal is the backstop and now retires the roots `open` could not unqueue |
+| 4 | True pre-construction refusal / complete early cleanup | **CLOSED** — room candidate construction is ONE exclusive-world command that consults the opening decision and builds nothing if it refused (`construct_room_candidate`). Witnessed by a `TransactionId` INSERTION HOOK, not by inspecting the settled world |
 | 5 | One exact verification-and-application publication target | **CLOSED** — `apply_world_replacement` takes the target `verify_staged_world` validated, every sink it writes is preflighted on that exact entity, and two unit arms poison-verify both halves against a world holding a live root AND a candidate root |
 
 ⛔ **WHAT THE AUDIT RULED IS *NOT* UNFINISHED A10**, and I am not reopening any of
@@ -63,6 +63,34 @@ case), and the refused-door player feedback (presentation/product policy, not
 last-good-world correctness). Stale A10 passages in `status.md` and
 `actor-monolith-work-frontier.md` are documentation debt for the debloat owner,
 not an implementation reopening.
+
+⛔⛔ **AND I CLOSED FINDING 4 ONCE ON AN ARGUMENT THAT DID NOT HOLD.** The first
+answer was *"the prerequisite is preflighted at App build, which is earlier than
+any command a room queues"* — true of the shipped composition, and not a fix. The
+reviewer was right: that registration predates the audit (`917c3744`), the
+`4d83409` batch added a GUARD and a late CLEANUP rather than a construction
+boundary, and `RoomConstructionPlan::spawn_contents` is public through
+`ambition_platformer2d::actors`, so the generic engine operation still failed open
+transiently and repaired afterwards. ⇒ **A refusal that has to be repaired is not
+a refusal**, and the settled-world assertion could never have said otherwise —
+`commit_inactive`'s own note records that component hooks and lifecycle observers
+DO run during `queue.apply`, so an unhidden entity that exists for one flush is
+observable by exactly that mechanism.
+
+⭐ **THE FIX IS ONE OWNER FOR THE PREREQUISITE AND THE ACTION.**
+`construct_room_candidate` queues the whole construction as a single
+exclusive-world command; it reads `opening_refused` — which is the decision
+`transaction::open` already made, not a second test of the same world fact, so it
+also covers a refusal on a DUPLICATE IDENTITY and not only on a missing filter —
+and applies its own `CommandQueue` only if that decision was to proceed. Recipes
+gain no `World` access; what moved is where the queue they fill is applied. The
+receipt moved onto the publication with it, so `close` can no longer be handed a
+receipt for a construction that never ran.
+
+⭐⭐ **AND THE HARNESS MOVED WITH PRODUCTION.** `construction/tests.rs` spelled the
+old sequence itself; left alone, every arm under it — including the one about a
+world that cannot hide a candidate — would have gone on testing a road production
+had abandoned.
 
 ⛔⛔ **AND FINDING 4 UNCOVERED A GUARD THAT WAS ONLY A COMMENT.**
 `ambition_platformer2d_runtime` names

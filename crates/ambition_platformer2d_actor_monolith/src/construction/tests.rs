@@ -232,17 +232,26 @@ fn commit_bracketed(
             SessionSpawnScope::UNSCOPED,
             candidate_bracket,
         );
-        let receipt = crate::features::spawn_room_feature_entities_from_plan(
+        // ⛔⛤ **THE PRODUCTION CONSTRUCTION BOUNDARY, NOT A COPY OF IT —
+        // 2026-09-15 AUDIT, FINDING 4.** This harness used to call
+        // `spawn_room_feature_entities_from_plan` directly, which is the shape
+        // production had before the prerequisite moved. Keeping that here would
+        // have left every arm below testing a road production no longer uses —
+        // and the arm that matters most is precisely the one about a world that
+        // cannot hide a candidate.
+        crate::world::rooms::stage::construct_room_candidate(
             &mut commands,
+            publication,
             &plan,
             SessionSpawnScope::UNSCOPED,
             candidate_bracket,
+            None,
+            None,
         );
         crate::world::rooms::transaction::close(
             &mut commands,
             publication,
             &plan,
-            &receipt,
             SessionSpawnScope::UNSCOPED,
             candidate_bracket,
         );
@@ -3850,6 +3859,106 @@ fn a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate() {
         "⛔ CANDIDATE TRANSACTION STATE OUTLIVED ITS REFUSAL: {stamped} \
          entit(ies) still carry a `TransactionId` for a room that was refused, \
          so a later transaction gathering by scope can still find them"
+    );
+}
+
+/// Every `TransactionId` insertion observed by a hook, across the arm below.
+///
+/// ⚠ A HOOK IS A `fn` POINTER, NOT A CLOSURE, so the count travels through a
+/// static rather than by capture. It is only incremented in worlds this arm
+/// registered the hook on, so a parallel test inserting `TransactionId` in its
+/// own world cannot reach it.
+static CANDIDATE_INSERTIONS: std::sync::Mutex<usize> = std::sync::Mutex::new(0);
+
+fn count_candidate_insertions(world: &mut bevy::prelude::World) {
+    use bevy::ecs::lifecycle::HookContext;
+    use bevy::ecs::world::DeferredWorld;
+    world
+        .register_component_hooks::<
+            ambition_platformer2d_shared_tangle::construction::TransactionId,
+        >()
+        .on_insert(|_world: DeferredWorld, _ctx: HookContext| {
+            *CANDIDATE_INSERTIONS.lock().expect("insertions") += 1;
+        });
+}
+
+/// ⛔⛤ **A WORLD THAT CANNOT HIDE A CANDIDATE CONSTRUCTS NONE — 2026-09-15
+/// AUDIT, FINDING 4, AND THIS IS THE ASSERTION THE CLEANUP ARM CANNOT MAKE.**
+///
+/// `a_candidate_room_is_refused_by_a_world_that_cannot_hide_a_candidate` proves
+/// that after the flush nothing is left standing. It cannot prove that nothing
+/// was ever BUILT — and the difference is not academic here, because
+/// `commit_inactive`'s own note records that component hooks and lifecycle
+/// observers run during `queue.apply` even though no scheduled system does. An
+/// entity that exists for the length of a command flush, unhidden, is observable
+/// by exactly that mechanism.
+///
+/// ⭐ **SO THE INSTRUMENT IS THAT MECHANISM.** A hook on `TransactionId` — the
+/// stamp every constructed root carries — counts insertions as they happen
+/// rather than inspecting the settled world. Zero is the claim.
+///
+/// ⭐⭐ **AND THE POSITIVE CONTROL IS THE SAME PLAN IN THE SAME ARM.** A count of
+/// zero from a harness that constructs nothing for an unrelated reason reads
+/// identically to the fix working; the second half installs the filter and
+/// requires the count to be non-zero.
+#[test]
+fn a_world_that_cannot_hide_a_candidate_constructs_no_candidate_at_all() {
+    let recipes = engine_construction_registry();
+    let (room, staging) = duelling_room();
+    let plan = prepare(&room, &staging, &recipes).expect("the room plans");
+
+    *CANDIDATE_INSERTIONS.lock().expect("insertions") = 0;
+    let mut refused = commit_bracketed(plan.clone(), true, count_candidate_insertions);
+    let built_while_unhideable = *CANDIDATE_INSERTIONS.lock().expect("insertions");
+    assert!(
+        !refused
+            .world()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .published,
+        "the room PUBLISHED in a world that cannot hide a candidate, so this arm \
+         is not about a refusal at all"
+    );
+    assert_eq!(
+        built_while_unhideable, 0,
+        "⛔ A WORLD THAT CANNOT HIDE A CANDIDATE STILL CONSTRUCTED {built_while_unhideable} \
+         OF THEM. The roots existed — VISIBLY, because the refusal IS that \
+         nothing here is hidden — and were removed afterwards. Component hooks \
+         and lifecycle observers run during that flush, so \
+         \"cleaned up later\" is not the same statement as \"never built\""
+    );
+    // ⚠ The refusal must still settle its own state; that is the sibling arm's
+    // subject, asserted here only so a fix that constructs nothing by CRASHING
+    // cannot pass.
+    assert_eq!(
+        ambition_platformer2d_shared_tangle::construction::outstanding_candidates(
+            refused.world_mut()
+        ),
+        0,
+        "the refused world holds candidate roots"
+    );
+
+    // ⭐⭐ THE POSITIVE CONTROL: same plan, same bracket, one difference.
+    *CANDIDATE_INSERTIONS.lock().expect("insertions") = 0;
+    let control = commit_bracketed(plan, true, |world| {
+        ambition_platformer2d_shared_tangle::construction::register_inactive_candidate_filter(
+            world,
+        );
+        count_candidate_insertions(world);
+    });
+    let built_when_hideable = *CANDIDATE_INSERTIONS.lock().expect("insertions");
+    assert!(
+        built_when_hideable > 0,
+        "⛔ THE INSTRUMENT IS BLIND. The same plan, in a world that DOES hide \
+         candidates, constructed nothing the hook could see — so the zero \
+         asserted above is a claim about the hook rather than about the refusal"
+    );
+    assert!(
+        control
+            .world()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
+            .published,
+        "the control room was refused in a world that hides candidates, so the \
+         refusal above is about something other than the filter"
     );
 }
 

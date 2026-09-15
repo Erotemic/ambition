@@ -1060,3 +1060,71 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
          identities at all: {verification:?}"
     );
 }
+
+/// ⛔⛤ **A SUPERSEDED CANDIDATE SESSION IS DISCARDED, NOT DROPPED.**
+///
+/// `CandidateSessionSlot` is one deep. A second pending route replaces the first,
+/// and the assignment that does it used to overwrite a whole prepared session —
+/// hidden root, hidden first room, publication receipt and reserved scope, all
+/// alive and none of them reachable again. A candidate that is neither PUBLISHED
+/// nor DISCARDED is the state A10's lifecycle exists to make impossible.
+#[test]
+fn a_candidate_session_replaced_while_pending_is_discarded() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    let gameplay = ShellRouteId::new("ambition_gameplay");
+
+    // Two routes requested with only a few frames between them, so the second
+    // arrives while the first is still PENDING — the state that supersedes a
+    // prepared candidate instead of adopting it.
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay.clone(),
+        request: None,
+    });
+    for _ in 0..3 {
+        app.update();
+    }
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: gameplay,
+        request: None,
+    });
+    for _ in 0..360 {
+        app.update();
+    }
+
+    use ambition_platformer2d::platformer::lifecycle::{session_root_for_scope, SessionScopeId};
+
+    // ⭐ THE PREMISE, AND IT IS OBSERVABLE BECAUSE THE ALLOCATOR IS SEQUENTIAL.
+    // `ActiveSessionScope::reserve` hands out ids in order and only on a
+    // reservation, so a LIVE session at scope 1 means scope 0 was reserved by an
+    // activation that never became live — which is the supersession this arm is
+    // about. If the two routes had not overlapped, the live session would be at
+    // scope 0 and everything below would be vacuous.
+    let live = session_root_for_scope(app.world_mut(), SessionScopeId(1));
+    assert!(
+        live.is_some(),
+        "no session is live at scope 1, so the second route never superseded a \
+         prepared candidate and this arm says nothing"
+    );
+
+    // ⛔⛤ AND THE SUPERSEDED CANDIDATE IS GONE. `session_root_for_scope` looks
+    // through the disabling marker (`Allow<InactiveCandidate>`), so a candidate
+    // root that was merely HIDDEN would still be found here — which is exactly
+    // what this must refuse.
+    assert_eq!(
+        session_root_for_scope(app.world_mut(), SessionScopeId(0)),
+        None,
+        "⛔ A CANDIDATE SESSION REPLACED WHILE PENDING IS STILL IN THE WORLD. It \
+         was never published and never discarded, so its root, its first room and \
+         its publication receipt are alive and unreachable forever"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ReservedGameplayScopes>()
+            .outstanding(),
+        0,
+        "the reservation ledger still holds a scope for an activation that will \
+         never happen"
+    );
+}

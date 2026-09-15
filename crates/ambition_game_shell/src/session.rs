@@ -139,9 +139,15 @@ pub struct GameplaySessionWorldRoot {
 /// ⚠ **IT IS A RESERVATION LEDGER, NOT A SECOND ACTIVE-SCOPE AUTHORITY.**
 /// `ActiveSessionScope` still owns both the allocator (`reserve`) and the one
 /// `current` (`publish`); this only remembers which reserved scope belongs to
-/// which pending activation so the bridge can adopt it. A reservation whose
-/// activation never happens is dropped, and the scope id is simply never used.
-#[derive(Resource, Default)]
+/// which pending activation so the bridge can adopt it.
+///
+/// ⛔⛤ **A RESERVATION WHOSE ACTIVATION NEVER HAPPENS IS RELEASED — 2026-09-15.**
+/// This said such a reservation "is dropped, and the scope id is simply never
+/// used", which describes a leak in the voice of a policy: the row stayed in the
+/// map forever and the candidate that claimed it stayed hidden in the world. Its
+/// owner calls [`Self::release`] when a later pending route supersedes it, in the
+/// same statement that discards the candidate.
+#[derive(Resource, Default, Debug)]
 pub struct ReservedGameplayScopes(BTreeMap<ShellActivationId, SessionScopeId>);
 
 impl ReservedGameplayScopes {
@@ -158,6 +164,27 @@ impl ReservedGameplayScopes {
     /// Adopt the reservation, removing it.
     pub fn take(&mut self, activation: ShellActivationId) -> Option<SessionScopeId> {
         self.0.remove(&activation)
+    }
+
+    /// Give a reservation back unadopted: the candidate that claimed it was
+    /// superseded before its route ever activated.
+    ///
+    /// ⛔ SEPARATE FROM [`Self::take`] because the two mean opposite things and a
+    /// shared spelling would let a discard read as an adoption. This one is the
+    /// refusal half, and a ledger that only ever grows is a ledger that will one
+    /// day answer for an activation nobody is waiting for.
+    pub fn release(&mut self, activation: ShellActivationId) {
+        self.0.remove(&activation);
+    }
+
+    /// How many reservations are outstanding.
+    ///
+    /// ⛔ FOR ASSERTING THE LEDGER DOES NOT GROW. The doc above used to say a
+    /// reservation whose activation never happens "is dropped, and the scope id
+    /// is simply never used" — which described a leak in the voice of a policy.
+    /// Nothing could see it; now something can.
+    pub fn outstanding(&self) -> usize {
+        self.0.len()
     }
 }
 

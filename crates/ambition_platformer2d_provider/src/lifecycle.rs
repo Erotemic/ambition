@@ -1758,7 +1758,43 @@ fn prepare_candidate_platformer_session(
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
     holds.hold(pending.route_id.clone(), hold);
-    slot.0 = Some(candidate);
+    // ⛔⛤ **A SUPERSEDED CANDIDATE IS DISCARDED, NOT DROPPED — 2026-09-15.** The
+    // slot is one deep and a second pending route supersedes the first, so this
+    // assignment used to overwrite a whole prepared session: its hidden root, its
+    // hidden first room, its publication receipt and its reserved scope, all of
+    // them alive and none of them reachable by anything ever again. A candidate
+    // that is neither PUBLISHED nor DISCARDED is exactly the state A10's
+    // lifecycle exists to make impossible, and it was one `=` away.
+    //
+    // ⚠ Queued, because discarding needs `&mut World` and this is an ordinary
+    // system; it runs at this frame's flush, before any gate is evaluated.
+    if let Some(superseded) = slot.0.replace(candidate) {
+        let (root, scope, experience, publication, activation) = (
+            superseded.root,
+            superseded.scope,
+            superseded.experience.clone(),
+            superseded.publication,
+            superseded.activation_id,
+        );
+        reserved.release(activation);
+        builder
+            .commands
+            .queue(move |world: &mut bevy::prelude::World| {
+                let discarded =
+                    ambition_platformer2d_shared_tangle::construction::discard_candidate_session(
+                        world, root, scope,
+                    );
+                ambition_platformer2d_actor_monolith::rooms::retire_publication(
+                    world,
+                    publication,
+                );
+                ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                    "session-superseded experience={experience} activation={activation:?} \
+                     ({discarded} entities discarded; a later pending route replaced this \
+                     candidate before it was ever adopted)"
+                ));
+            });
+    }
 }
 
 /// The activation gate: did this candidate session's first room publish?

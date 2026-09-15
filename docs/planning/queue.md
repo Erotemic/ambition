@@ -53,6 +53,27 @@ candidate construction/publication leaves the last-good world playable, and (b)
 successful replacement validates N+1 before retiring N. ⇒ **MET at room scope and
 at session scope.**
 
+**A CANDIDATE REPLACED WHILE PENDING IS DISCARDED (2026-09-15).**
+`CandidateSessionSlot` is one deep and `slot.0 = Some(candidate)` overwrote it, so
+a second pending route dropped a whole prepared session — hidden root, hidden
+first room, publication receipt and reserved scope, all alive and none of them
+reachable again. ⇒ **A candidate that is neither PUBLISHED nor DISCARDED is the
+state A10's lifecycle exists to make impossible, and it was one `=` away.** The
+superseded candidate is now discarded through `discard_candidate_session`, its
+receipt retired and its reservation RELEASED — `ReservedGameplayScopes`' own doc
+said a reservation whose activation never happens "is dropped, and the scope id is
+simply never used", which describes a leak in the voice of a policy.
+
+MEASURED: the path fires **0 times in the whole `app_it` suite**, so it was
+unwitnessed as well as broken.
+`a_candidate_session_replaced_while_pending_is_discarded` reaches it in the
+shipped composition by issuing the second `ReplaceWith` three frames after the
+first, and it discards **20 entities**. POISON-VERIFIED: skipping the discard
+leaves `session_root_for_scope(SessionScopeId(0))` returning `Some(1489v0)` — that
+lookup deliberately sees THROUGH the disabling marker, so a merely-hidden root
+cannot pass it. Its premise is the sequential allocator: a live session at scope 1
+means scope 0 was reserved by an activation that never became live.
+
 **ACTUAL BLOCKER.** None for the criterion. What remains is listed under
 *Remaining work* in the owner document and is narrower in kind: custody Model B (a
 declared two-holder window on the SUCCESS path, admitted by the verifier as

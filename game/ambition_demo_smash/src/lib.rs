@@ -4746,14 +4746,13 @@ mod tests;
 /// and what each one picked. Every input is a select-screen result both sides
 /// hold.
 ///
-/// ⛔⛤ **IT TAKES ONLY `&SmashSelect`, AND THAT IS THE POINT.** The seed used to
-/// be `ShellActivationId` — a private monotonic counter incremented per route
-/// entry ON THIS HOST. That satisfied "no ambient RNG" and "survives a replay"
-/// (it is stable across a rewind here) and was NOT stable across PEERS: App A
-/// that opened three menus first and App B that started immediately carried
-/// different counts, so one agreed match seated a different fighter on each
-/// side. A function that cannot see the router, the clock or any counter cannot
-/// make that mistake again — the defect is unspellable rather than guarded.
+/// ⛔⛤ **NARROWING THE SIGNATURE DOES NOT MAKE THE INPUTS CANONICAL.** The seed
+/// used to be `ShellActivationId`, a per-route-entry counter on this host. Taking
+/// only `&SmashSelect` removes the router but not the problem: `SmashSelect`
+/// itself carries host-local facts, and the first version of this digest hashed
+/// `SlotOccupant::Controller { device }` — the LOCAL input source index. Every
+/// field mixed below has to be justified as peer-agreed on its own; the
+/// parameter list is not the argument.
 ///
 /// ⚠ FNV-1a over EXPLICIT TAGS rather than `Hash`: the value is a stated
 /// function of the agreed configuration rather than of whatever the standard
@@ -4780,7 +4779,10 @@ pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
         mix(match card.occupant {
             select::SlotOccupant::Absent => 1,
             select::SlotOccupant::Cpu => 2,
-            select::SlotOccupant::Controller { device } => 3 ^ ((device as u64) << 8),
+            // The CATEGORY, not the device index. `device` indexes the LOCAL
+            // input source order, so the same human on pad 0 here and pad 2
+            // there would otherwise seed two peers differently.
+            select::SlotOccupant::Controller { device: _ } => 3,
         });
         mix(match card.pick {
             None => 11,

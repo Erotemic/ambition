@@ -43,6 +43,14 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "ShellRequestId",
     "ContentEpoch",
     "LoadId",
+    // Derived from `ContentEpoch` + `SessionScopeId`.
+    "TransactionId",
+    // Carry `session`, `activated_on` and/or the local seat-topology generation.
+    "ActiveMatch",
+    "MatchInstance",
+    "StocksMatchSettled",
+    "SuddenDeathEntered",
+    "LiveMatchTicks",
 ];
 
 /// Registration kinds that contribute to the checksum peers compare.
@@ -68,8 +76,21 @@ const CHECKSUMMED_KINDS: &[&str] = &[
 /// (`shared_tangle::construction::tests`) proves the dependency on
 /// `ContentEpoch` and `SessionScopeId`. When that arm flips, delete this
 /// exception and the guard tightens by itself.
-const RECORDED_DIVERGENCE: &[&str] =
-    &["ambition_platformer2d_shared_tangle::construction::TransactionId"];
+const RECORDED_DIVERGENCE: &[&str] = &[
+    // Derived from `ContentEpoch` + `SessionScopeId`;
+    // `a_transaction_identity_still_depends_on_host_local_lineage_counters`
+    // (shared_tangle::construction::tests) holds the detail.
+    "ambition_platformer2d_shared_tangle::construction::TransactionId",
+    // ⛔ ONE ROOT CAUSE, FOUR REGISTRATIONS. Each encodes
+    // `MatchInstance::parts()` and writes the raw `SessionScopeId` into a
+    // checksummed snapshot; `ActiveMatch` also writes the local seat-topology
+    // generation, which moves when a host re-captures an IDENTICAL set of seats.
+    // Closing `MatchInstance`'s contribution closes all four.
+    "ambition_match::seating::ActiveMatch",
+    "ambition_match::settlement::StocksMatchSettled",
+    "ambition_match::settlement::SuddenDeathEntered",
+    "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
+];
 
 /// ⭐⭐ **THE CAMPAIGN'S STANDING GUARD: NO HOST-LOCAL IDENTITY IS CANONICAL.**
 ///
@@ -139,16 +160,22 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
     // ⚠ AND THE RECORDED EXCEPTION MUST STILL BE THERE. If `TransactionId` has
     // stopped being canonical, this exception is dead and keeping it would let a
     // future regression through silently.
-    let transaction_is_canonical = registered
+    let stale: Vec<&str> = RECORDED_DIVERGENCE
         .iter()
-        .any(|(type_name, _)| RECORDED_DIVERGENCE.contains(&type_name.as_str()));
+        .copied()
+        .filter(|recorded| {
+            !registered.iter().any(|(type_name, kind)| {
+                type_name == recorded && CHECKSUMMED_KINDS.contains(&kind.as_str())
+            })
+        })
+        .collect();
     assert!(
-        transaction_is_canonical,
-        "the recorded divergence `{}` is no longer rollback-registered. If the \
-         identities have been split, DELETE it from RECORDED_DIVERGENCE so this \
-         guard covers it again — an exception for a value that no longer exists \
-         is a hole with a comment over it.",
-        RECORDED_DIVERGENCE[0]
+        stale.is_empty(),
+        "these recorded divergences are no longer checksummed:\n  {}\n\n\
+         If a leak has been closed, DELETE its line from RECORDED_DIVERGENCE so \
+         this guard covers the type again. An exception for a value that no \
+         longer needs one is a hole with a comment over it.",
+        stale.join("\n  ")
     );
 }
 
@@ -351,5 +378,160 @@ fn a_different_agreed_configuration_draws_a_different_sequence() {
         seed(&two_way),
         seed(&two_way),
         "the agreed seed is not a function of the agreed configuration"
+    );
+}
+
+/// ⛔⛤ **LOCAL DEVICE WIRING IS NOT PART OF THE AGREED MATCH.** The same human on
+/// pad 0 here and pad 2 there is the same seat; `SlotOccupant::Controller`'s
+/// `device` indexes the LOCAL input source order. The first version of
+/// `agreed_match_seed` hashed it, which swapped one host-local term for another.
+#[test]
+fn different_local_device_wiring_seeds_the_same_agreed_match() {
+    use ambition_demo_smash::select::{SlotOccupant, SlotPick, SmashSelect};
+
+    let with_devices = |a: usize, b: usize| {
+        let mut s = SmashSelect::default();
+        s.set_occupant(0, SlotOccupant::Controller { device: a });
+        s.set_pick(0, SlotPick::Fighter(0));
+        s.set_occupant(1, SlotOccupant::Controller { device: b });
+        s.set_pick(1, SlotPick::Random);
+        s
+    };
+    // ⛔ THE PREMISE: the two hosts really do wire the pads differently.
+    let (host_a, host_b) = (with_devices(0, 1), with_devices(2, 3));
+    assert_ne!(
+        format!("{:?}", host_a.slot(0).occupant),
+        format!("{:?}", host_b.slot(0).occupant),
+        "the premise: the two hosts must bind different local device indices"
+    );
+    assert_eq!(
+        ambition_demo_smash::agreed_match_seed(&host_a),
+        ambition_demo_smash::agreed_match_seed(&host_b),
+        "two hosts whose seats hold the same ROLES but different local device \
+         indices computed different agreed seeds, so local input wiring is \
+         reaching the match's random draw"
+    );
+    // ⛔ AND THE CATEGORY STILL COUNTS: a human seat and a CPU seat are a
+    // mechanical difference, so collapsing the occupant entirely would be wrong.
+    let cpu_seated = {
+        let mut s = SmashSelect::default();
+        s.set_occupant(0, SlotOccupant::Cpu);
+        s.set_pick(0, SlotPick::Fighter(0));
+        s.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        s.set_pick(1, SlotPick::Random);
+        s
+    };
+    assert_ne!(
+        ambition_demo_smash::agreed_match_seed(&host_a),
+        ambition_demo_smash::agreed_match_seed(&cpu_seated),
+        "a human-seated and a CPU-seated match share one seed, so the occupant \
+         category is no longer reaching the digest"
+    );
+}
+
+/// ⭐⭐ **THE ACCEPTANCE, DRIVEN THROUGH THE SHIPPED MATCH-START ROAD.**
+///
+/// Two Apps aged differently, both taken to the select screen, given the same
+/// agreed lobby, and asked to start. The rosters the SYSTEM publishes must
+/// match.
+///
+/// ⛔⛤ THE HELPER-ONLY VERSION OF THIS WAS NOT A WITNESS. It called
+/// `agreed_match_seed` directly with a hand-built `SmashSelect` and took the
+/// host's activation id as an unused argument, so reverting the production call
+/// site to `router.active.activation_id` left it GREEN. A test that calls the
+/// helper proves the helper; only driving `start_the_battle_when_asked` proves
+/// the game.
+#[test]
+fn two_differently_aged_hosts_publish_the_same_roster_through_the_shipped_road() {
+    use ambition_demo_smash::select::{SlotOccupant, SlotPick, SmashSelect};
+    use ambition_demo_smash::select_screen::StartRequested;
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
+
+    fn published_roster(extra_visits: usize) -> (u64, Vec<String>) {
+        let mut app = ambition_app::app::build_visible_app(
+            ambition_app::app::VisibleRenderMode::NoWindow,
+            true,
+        );
+        for _ in 0..30 {
+            app.update();
+        }
+        let goto = |app: &mut bevy::prelude::App, route: &str| {
+            app.world_mut()
+                .write_message(ShellCommand::GoTo(ShellRouteId::new(route)));
+            for _ in 0..40 {
+                app.update();
+            }
+        };
+        // Age this host: each visit to the select route mints a new activation.
+        for _ in 0..extra_visits {
+            goto(&mut app, ambition_demo_smash::SMASH_SELECT_ROUTE);
+        }
+        goto(&mut app, ambition_demo_smash::SMASH_SELECT_ROUTE);
+
+        let activation = app
+            .world()
+            .get_resource::<ShellRouter>()
+            .and_then(|r| r.active.as_ref())
+            .map(|a| a.activation_id.0)
+            .expect("the shell is active on a route");
+
+        {
+            let mut select = app
+                .world_mut()
+                .get_resource_mut::<SmashSelect>()
+                .expect("the select screen owns its state on this route");
+            select.set_occupant(0, SlotOccupant::Cpu);
+            select.set_pick(0, SlotPick::Fighter(0));
+            select.set_occupant(1, SlotOccupant::Cpu);
+            select.set_pick(1, SlotPick::Random);
+            select.set_occupant(2, SlotOccupant::Cpu);
+            select.set_pick(2, SlotPick::Random);
+        }
+        app.world_mut().insert_resource(StartRequested(true));
+
+        let mut published = None;
+        for _ in 0..240 {
+            app.update();
+            if let Some(roster) = app
+                .world()
+                .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+            {
+                published = Some(
+                    roster
+                        .participants
+                        .iter()
+                        .map(|p| p.character.as_str().to_string())
+                        .collect::<Vec<String>>(),
+                );
+                break;
+            }
+        }
+        (
+            activation,
+            published.expect(
+                "the shipped match-start road published no roster, so this arm \
+                 never reached its subject",
+            ),
+        )
+    }
+
+    let (age_a, roster_a) = published_roster(3);
+    let (age_b, roster_b) = published_roster(0);
+
+    // ⛔ THE PREMISE: the two hosts really are differently aged.
+    assert_ne!(
+        age_a, age_b,
+        "both hosts report activation {age_a}, so this arm is not about prior \
+         local history"
+    );
+    assert!(
+        !roster_a.is_empty(),
+        "the published roster is empty, so the comparison below is vacuous"
+    );
+    assert_eq!(
+        roster_a, roster_b,
+        "two hosts that have burned different numbers of local route activations \
+         ({age_a} vs {age_b}) published DIFFERENT rosters for the same agreed \
+         lobby, so a random seat's fighter is drawn from host-local lineage"
     );
 }

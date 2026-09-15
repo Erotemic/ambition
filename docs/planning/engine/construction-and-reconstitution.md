@@ -248,13 +248,15 @@ the roster invariants `verify_committed_roster` already enforces. Beside it,
 install is coherent, and the commit boundary compares the plan's generation
 against the `ActiveContentBinding` on the root it is publishing into.
 
-**4. What remains OUTSIDE candidate ownership.** `ActiveSessionScope::current`
-and `ActiveGameplaySession` are still written by the shell bridge at
-`RouteActivated`, before the provider builds anything — they are the process
-pointers the candidate cannot yet own. Everything else named in the A10 brief is
-candidate-owned: room state, geometry, moving-platform state, the content
+**4. What remains OUTSIDE candidate ownership.** Nothing named in the A10 brief.
+A candidate session owns its room state, geometry, moving-platform state, content
 binding, prepared content, session mechanics, the player's mechanical transition
-state, and the construction roots.
+state and its construction roots; and as of A10.5 it owns its SCOPE IDENTITY
+before anything decides it may be played (`ActiveSessionScope::reserve` /
+`publish`, with the shell's `ReservedGameplayScopes` telling the bridge which
+reservation to adopt). `ActiveGameplaySession` is still created by the bridge at
+`RouteActivated` — but by then the candidate has already been verified, so the
+pointer is created for a session that is known to exist.
 
 **5. The publication boundary.** One bounded authority per level, in a fixed
 order, inside one exclusive-world call so nothing scheduled observes a partial
@@ -270,8 +272,21 @@ CALLERS   every effect that MEANS the operation happened is queued behind
           body transit and presentation, the reset's whole sandbox wipe
 ```
 
-**6. The production tests proving failure leaves N untouched.** At ROOM scope,
-in the shipped app: `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`
+**6. The production tests proving failure leaves N untouched.** At SESSION scope,
+in the shipped app:
+`a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`
+drives a real handoff with two process-resident holders of one identity standing,
+so the candidate's first room cannot be verified at all; it asserts the PREMISE
+(a transaction ran and was refused) and then that the live session keeps its
+activation id, its scope, its population and its room.
+`a_candidate_session_does_not_retire_the_playing_sessions_world` samples every
+frame of a successful handoff and asserts N's population is untouched while N is
+still the live scope — poison-verified at 163 against 181, the 18 bodies a
+process-wide baseline despawned before the verifiers were taught whose world they
+were looking at. The admission control is
+`a_shell_handoff_publishes_the_incoming_sessions_room`.
+
+At ROOM scope, in the shipped app: `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`
 drives a real stale-generation refusal and asserts the active room, the geometry
 and the roster are unchanged, the body did not move across the verdict frame, the
 developer flash / arrival flash / room-visual request did not fire, no checkpoint
@@ -279,29 +294,26 @@ restore is owed and the transaction is not reported committed —
 with `a_crossing_that_publishes_does_every_transition_effect` as the control that
 makes those assertions falsifiable. `the_shipped_apps_own_first_room_publishes`
 and `a_shell_handoff_publishes_the_incoming_sessions_room` are the admission
-controls. At SESSION scope there is no such test, and item 7 says why.
+controls.
 
-**7. Remaining work before the strong last-good-world guarantee is complete.**
-One packet, A10.5, plus two named gaps.
+**7. Remaining work.** The acceptance criterion is MET at both scopes; these are
+the gaps that remain beside it, none of which falsifies it.
 
-- **A10.5 — the shell activation boundary.** The candidate session is prepared
-  and verified INSIDE the activation frame, which is too late for the guarantee
-  (the outgoing session is retired in `SessionScopeSet::Cleanup` first) and, as
-  measured, leaves no seam at which a refusal can even be observed: the root is
-  spawned and its first room verified in one command flush. Preparing the
-  candidate while the shell route is still PENDING fixes both — a refused
-  candidate never activates, so N is never retired. The machinery exists:
-  `ShellActivationGates` + `ShellRouteHolds`, with a working precedent in
-  `ambition_content`'s publication lease. Prerequisites landed: the activation id
-  is reserved when the route goes pending, and `ActiveSessionScope` separates
-  `reserve` from `publish`.
+- **The dev LDtk hot reload has no end-to-end coverage in either direction.** Its
+  effects cross the publication receipt (A10.3) by construction and by reading,
+  not by measurement. Whoever owns dev-tool coverage owes the harness described
+  above.
 - **The transition state machine advances to `playing` on a refusal** as well as
   on success, so a persistently refused door is a livelock rather than a
   corrupted world.
 - **Custody supersession is Model B**: publication may leave the predecessor and
   the candidate both standing for the window in which custody removes the
   predecessor. Declared rather than hidden, and not to be widened; Model A
-  remains the better end state.
+  remains the better end state, particularly for replication.
+- **A10.5's fallback is still live**: an activation nobody prepared a candidate
+  for builds its own world inside the activation, with the pre-A10.5 guarantee.
+  The world log names which road each session took (`road=…`), so the fallback is
+  removed on evidence rather than on hope.
 
 ## Rollback, persistence and multiple rooms
 

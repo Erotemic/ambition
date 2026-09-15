@@ -231,7 +231,15 @@ into a successful refusal by printing a warning. If a fallback reconstructs the
 pinned old scenario, label it recovered rather than unchanged. If recovery is
 unavailable, stop normal simulation and report failure.
 
-### A10 checkpoint report — 2026-09-14
+### A10 checkpoint report — opened 2026-09-14, current as of 2026-09-15
+
+⭐ **THE SEVEN NUMBERED SECTIONS BELOW ARE THE REPORT THE CAMPAIGN OWED**, in the
+order it was asked for: the ownership model, how staged supersession is
+represented, what the projected verifier validates, what stays outside candidate
+ownership, the publication boundary, the production tests proving a failure leaves
+N untouched, and what remains. Each is kept CURRENT rather than dated — where a
+claim changed, the section says what it used to say and what measurement changed
+it, because "this was true on the 14th" is not something a reader can act on.
 
 **1. The candidate-world ownership model as implemented.** Two levels, the same
 shape at both.

@@ -36,7 +36,8 @@ pub use systems::{
     tick_portal_phases_system, ActiveRoomMetadataSynced,
 };
 pub use transaction::{
-    publication_succeeded, retire_publication, ActiveContentBinding, LastConstructionVerification,
+    outstanding_publications, publication_succeeded, retire_publication, ActiveContentBinding,
+    LastConstructionVerification,
     PublicationHandle, PublicationRetention, PublicationVerdict, StagedArrival,
     StagedWorldViolation,
 };

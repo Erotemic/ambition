@@ -649,6 +649,16 @@ fn a_committed_world_reload_applies_its_effects() {
          its effects no longer run behind the verdict at all, or this \
          discriminator is dead and the refusal arm below certifies nothing"
     );
+    // ⛔⛤ AND NO RECEIPT OUTLIVES ITS OPERATION ON THE ORDINARY ROAD EITHER. The
+    // session handoff, the first room and this reload each began a publication;
+    // every one of them is `UntilOwnerRetires`, so every one owes a
+    // `retire_publication`. MEASURED here rather than argued from five call
+    // sites — which is exactly how the candidate slot's missing exits hid.
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "a publication receipt is still standing after a committed reload settled"
+    );
     assert!(
         reload.last_status.contains("applied") && reload.last_errors.is_empty(),
         "the status a developer reads does not say a committed reload applied: \
@@ -1233,5 +1243,12 @@ fn a_candidate_session_whose_route_is_cancelled_is_discarded() {
     assert!(
         held.is_empty(),
         "the cancelled route is still held by its candidate's gate: {held:?}"
+    );
+    assert_eq!(
+        ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+        0,
+        "⛔ A PUBLICATION RECEIPT OUTLIVED ITS OPERATION. An `UntilOwnerRetires` \
+         receipt is an entity that stands until its owner retires it, and a \
+         cancelled candidate's owner is the discard"
     );
 }

@@ -323,6 +323,16 @@ exactly one exit and no frame boundary to be abandoned across. ⇒ When a lifecy
 moves from a call bracket into a resource, ENUMERATE THE EXITS — the compiler
 stops helping at exactly that moment.
 
+⭐ **AND THE RECEIPT HALF OF THAT RULE IS MEASURED NOW TOO.** A
+`PublicationRetention::UntilOwnerRetires` receipt is an ENTITY that stands until
+its owner calls `retire_publication`, and "every owner retires it" was a property
+held by reading five call sites — the same shape as the candidate-slot exits, and
+nothing could count them. `rooms::outstanding_publications` can: it is asserted to
+be **0** after a committed dev reload and after a cancelled candidate, and
+POISON-VERIFIED (dropping the reload's own retire leaves 1). ⚠ A COUNT, not a
+list — the receipts stay `pub(crate)`, because a reader outside that crate has no
+business holding one.
+
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,
 its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of

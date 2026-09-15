@@ -129,6 +129,21 @@ pub(crate) fn begin_publication(
     PublicationHandle(publication.id())
 }
 
+/// How many publication receipts are still standing.
+///
+/// ⛔⛤ **FOR ASSERTING THAT NONE OUTLIVES ITS OPERATION.** A
+/// `PublicationRetention::UntilOwnerRetires` receipt is an ENTITY that stands
+/// until its owner calls [`retire_publication`], and "every owner retires it" was
+/// a property held by reading five call sites. Nothing could count them, so
+/// nothing could notice a sixth owner that forgot — the same shape as the
+/// candidate-slot exits that leaked until they were enumerated.
+///
+/// ⚠ A count, not a list: the receipts themselves stay `pub(crate)`, because a
+/// reader outside this crate has no business holding one.
+pub fn outstanding_publications(world: &mut World) -> usize {
+    world.query::<&RoomPublication>().iter(world).count()
+}
+
 /// Did this exact publication publish?
 ///
 /// ⛔ **ABSENT IS `false`, AND SO IS AN UNFINISHED ONE.** A caller whose writes

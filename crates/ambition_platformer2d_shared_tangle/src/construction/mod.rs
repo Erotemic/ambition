@@ -2118,16 +2118,6 @@ pub fn verify_committed_roster<D: ConstructionDomain>(
         if planned_ids.contains(&member.sim_id) || baseline.contains(&member.sim_id) {
             continue;
         }
-        // ⛔⛤ **A SESSION ROOT IS NOT A ROOM-CONSTRUCTED IDENTITY — A10.5,
-        // 2026-09-14.** A PUBLISHED root is in the baseline and skipped above; a
-        // root that is still a hidden CANDIDATE is not, because the baseline is
-        // the live world by definition. MEASURED: without this, the first room of
-        // a candidate session refuses itself with
-        // `UnownedIdentity { sim_id: SimId("session:2") }` — the room calling its
-        // own session a stray.
-        if world.get::<crate::lifecycle::SessionRoot>(member.entity).is_some() {
-            continue;
-        }
         violations.push(match &member.classification {
             // Stamped by THIS transaction's executor, yet no plan row named it.
             ScopeClassification::TransactionAuthoritative => RosterViolation::Unplanned {
@@ -3621,21 +3611,6 @@ pub fn verify_projected_roster(
     // hidden forever and invisible to every ordinary query.
     for member in scope.members() {
         if member.visibility != ScopeVisibility::HiddenCandidate {
-            continue;
-        }
-        // ⛔⛤ **A CANDIDATE SESSION ROOT IS NOT AN UNOWNED ROOM CANDIDATE — A10.5,
-        // 2026-09-14.** It carries a canonical `SimId` and no room
-        // `TransactionId`, because the transaction that owns it is the SESSION's
-        // publication, not any room's. MEASURED: without this, the first room of
-        // a candidate session refuses itself —
-        // `CandidateUnowned { sim_id: SimId("session:2") }` — and the session can
-        // never be admitted.
-        //
-        // ⚠ **THE OLD CODE AVOIDED THIS BY ACCIDENT OF COMMAND ORDER**, hiding the
-        // root only after the room's transaction had already opened, so the
-        // projection saw it published. That is not a rule anything stated; this
-        // is.
-        if world.get::<crate::lifecycle::SessionRoot>(member.entity).is_some() {
             continue;
         }
         if world.get::<TransactionId>(member.entity).is_none() {

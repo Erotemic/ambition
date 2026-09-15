@@ -126,41 +126,6 @@ pub struct GameplaySessionWorldRoot {
     pub prepared: Option<PreparedSessionIdentity>,
 }
 
-/// Session scopes a provider RESERVED for activations that have not happened
-/// yet.
-///
-/// ⛔⛤ **A10.5: A CANDIDATE SESSION NEEDS ITS IDENTITY BEFORE IT IS ALLOWED TO
-/// BE PLAYED.** A provider that prepares a whole session off to the side — a
-/// hidden root, its first room, its content binding — must stamp all of it with
-/// the scope that session will own, and that is long before the shell decides
-/// the route may activate. Without this the bridge would mint a SECOND scope at
-/// activation and the prepared world would belong to nobody.
-///
-/// ⚠ **IT IS A RESERVATION LEDGER, NOT A SECOND ACTIVE-SCOPE AUTHORITY.**
-/// `ActiveSessionScope` still owns both the allocator (`reserve`) and the one
-/// `current` (`publish`); this only remembers which reserved scope belongs to
-/// which pending activation so the bridge can adopt it. A reservation whose
-/// activation never happens is dropped, and the scope id is simply never used.
-#[derive(Resource, Default)]
-pub struct ReservedGameplayScopes(BTreeMap<ShellActivationId, SessionScopeId>);
-
-impl ReservedGameplayScopes {
-    /// Claim a scope for the activation a pending route will produce.
-    pub fn reserve(&mut self, activation: ShellActivationId, scope: SessionScopeId) {
-        self.0.insert(activation, scope);
-    }
-
-    /// The scope reserved for this activation, if a provider claimed one.
-    pub fn get(&self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        self.0.get(&activation).copied()
-    }
-
-    /// Adopt the reservation, removing it.
-    pub fn take(&mut self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        self.0.remove(&activation)
-    }
-}
-
 /// Canonical identity of the one active top-level gameplay session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameplaySessionInstance {
@@ -254,43 +219,6 @@ impl ActiveGameplaySession {
             .id();
         instance.world = Some(entity);
         Some(entity)
-    }
-
-    /// Adopt a world that was built BEFORE this activation, as A10.5's candidate
-    /// session is.
-    ///
-    /// ⛔⛤ **`spawn_world_for` CANNOT DO THIS AND SHOULD NOT LEARN TO.** It
-    /// begins `let instance = self.0.as_mut()?` and validates against the
-    /// already-published session, which is right for its contract: it constructs
-    /// the world of the session that is live. A candidate is deliberately not
-    /// that session yet, so it builds its own root and hands it here.
-    ///
-    /// Returns the shell facts the caller must put ON that root — the activation
-    /// identity a candidate could not know — or `None` when this is not the
-    /// session being adopted into.
-    pub fn adopt_world(
-        &mut self,
-        activation: &ActiveShellExperience,
-        scope: SessionScopeId,
-        world: Entity,
-    ) -> Option<GameplaySessionWorldRoot> {
-        let instance = self.0.as_mut()?;
-        if instance.activation.activation_id != activation.activation_id
-            || instance.activation.experience_id != activation.experience_id
-            || instance.scope != scope
-            || instance.world.is_some()
-        {
-            return None;
-        }
-        instance.world = Some(world);
-        Some(GameplaySessionWorldRoot {
-            activation_id: activation.activation_id,
-            experience_id: activation.experience_id.clone(),
-            scope,
-            audio: instance.audio.clone(),
-            load: instance.load.clone(),
-            prepared: instance.prepared.clone(),
-        })
     }
 
     /// Retire only the exact activation. Delayed retirement for A cannot
@@ -392,7 +320,6 @@ impl Plugin for GameplaySessionBridgePlugin {
             .init_resource::<GameplaySessionRegistry>()
             .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
-            .init_resource::<ReservedGameplayScopes>()
             .init_resource::<ActiveFrontendAuthority>()
             .init_resource::<PresentationOwnershipPolicy>()
             .init_resource::<ActiveAudioSelection>()
@@ -604,9 +531,6 @@ fn translate_shell_session_lifecycle(
     mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
     mut active_scope: ResMut<ActiveSessionScope>,
-    // What a provider claimed for this activation before it happened — see
-    // [`ReservedGameplayScopes`].
-    mut reserved: ResMut<ReservedGameplayScopes>,
     mut links: ResMut<GameplaySessionLinks>,
     mut active_session: ResMut<ActiveGameplaySession>,
     mut loads: ResMut<ambition_load::LoadCoordinator>,
@@ -681,19 +605,7 @@ fn translate_shell_session_lifecycle(
                         .as_ref()
                         .map(|session| session.activation.activation_id),
                 );
-                // ⛔⛤ **ADOPT THE RESERVATION IF A PROVIDER MADE ONE.** A
-                // candidate session prepared before this activation stamped its
-                // root, its entities and its content binding with a scope it
-                // reserved; minting a second one here would leave that world
-                // owned by nobody. `begin` is still the ordinary road for an
-                // activation nobody prepared for.
-                let scope = match reserved.take(activation.activation_id) {
-                    Some(reserved) => {
-                        active_scope.publish(reserved);
-                        reserved
-                    }
-                    None => active_scope.begin(),
-                };
+                let scope = active_scope.begin();
                 // ⭐ BOTH EDGES ARE ANNOUNCED HERE. This is the one translator
                 // from shell routing to gameplay-session lifetime, so it is the
                 // one place that can say a session has begun before anything

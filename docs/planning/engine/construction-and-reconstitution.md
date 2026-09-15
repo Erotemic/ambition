@@ -306,6 +306,23 @@ once in 663 arms**, and that once is the supersession case —
 — so there are **zero false positives on the healthy activation path**, and no
 `Activated`-read-a-frame-late window exists to race.
 
+⇒ **AND THE ROOM LEVEL HAS NO SUCH PROBLEM, FOR A STRUCTURAL REASON WORTH
+NAMING.** `transaction::open` and `transaction::close` sit in ONE function with
+NOTHING between them but the closure that builds the room — MEASURED by reading
+`spawn_contents_for`: no `return`, no `?`, no `continue`, no `if`, no `match`
+between the two calls. A room candidate cannot escape its bracket because the
+bracket is straight-line code.
+
+⛔⛤ **A BRACKET HELD IN A RESOURCE ACROSS FRAMES HAS AS MANY EXITS AS THE WORLD
+HAS WAYS OF MOVING ON.** The session candidate's bracket spans frames and lives in
+`CandidateSessionSlot`, so "open" and "close" are not two statements a reader can
+see together, and two of its four exits were simply missing. The room's
+`PendingRoomTransitionFinalize` is the safe middle case: also a resource, but
+filled and drained by two `.chain()`ed systems in one schedule pass, so it has
+exactly one exit and no frame boundary to be abandoned across. ⇒ When a lifecycle
+moves from a call bracket into a resource, ENUMERATE THE EXITS — the compiler
+stops helping at exactly that moment.
+
 ⭐ **EACH EXIT OWES THE SAME FOUR RELEASES, and that is the thing to check when a
 fourth exit is ever added:** the candidate's entities, its publication receipt,
 its scope RESERVATION (`ReservedGameplayScopes::release`, the refusal half of

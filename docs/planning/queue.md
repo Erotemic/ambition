@@ -34,8 +34,10 @@ authority per level.
 `restore_custody_to_checkpoint` split so publication can despawn the predecessor
 while the custodian still finds its key. ⚠ Model A was ATTEMPTED and MEASURED to
 fail as a straight inversion (`death_restores_the_checkpoint` 1/11,
-`two_persistence_authorities_for_one_item` with `still_owned=1`); it is a custody
--domain restructuring, not an A10 ordering change.
+`two_persistence_authorities_for_one_item` with `still_owned=1`); it is a
+custody-domain restructuring, not an A10 ordering change. ⇒ **Its first step is
+the ledger DRAIN, not the record** — see the owner document: an undrained ledger
+leaves a permanently stale hand, which is worse than the window it replaces.
 
 ⭐ **AND ITS PRIORITY IS LOWER THAN IT LOOKED — MEASURED 2026-09-15.** The window
 is real (5 of 838 `app_it` publications declare one) but it is NOT OBSERVABLE:

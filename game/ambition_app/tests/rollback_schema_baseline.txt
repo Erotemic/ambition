@@ -426,7 +426,7 @@ projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snaps
 projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.accepted_checkpoint_restore	resource-clone-custom-checksum	AcceptedCheckpointRestore	bevy_ggrs clone snapshot + which operation was accepted and the occurrence population it reconstructs
 resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
-resource.active_match	resource-canonical-custom-checksum	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware checksum over the seat count and activation tick only, excluding the host-local session and seat-topology generations
+resource.active_match	resource-canonical-custom-checksum	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware checksum over the agreed seat count only, excluding the host-local session, seat-topology and activation-tick stamps
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -439,7 +439,7 @@ resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
-resource.live_match_ticks	resource-canonical-custom-checksum	LiveMatchTicks	bevy_ggrs canonical codec snapshot + checksum over the elapsed micros and the activation tick of the clocked match only, excluding the host-local session generation
+resource.live_match_ticks	resource-canonical-custom-checksum	LiveMatchTicks	bevy_ggrs canonical codec snapshot + checksum over the elapsed micros only, which are counted from the match's own start, excluding the host-local match stamp
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
@@ -464,8 +464,8 @@ resource.session_startup_resume	resource-clone-custom-checksum	SessionStartupRes
 resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.stocks_match_settled	resource-canonical-custom-checksum	StocksMatchSettled	bevy_ggrs canonical codec snapshot + checksum over the verdict and the activation tick of the decided match only, excluding the host-local session generation
-resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEntered	bevy_ggrs canonical codec snapshot + checksum over the activation tick of the latched match only, excluding the host-local session generation
+resource.stocks_match_settled	resource-canonical-custom-checksum	StocksMatchSettled	bevy_ggrs canonical codec snapshot + checksum over the verdict only, excluding the host-local match stamp
+resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEntered	bevy_ggrs canonical codec snapshot + checksum over whether a match is latched, excluding the host-local match stamp
 resource.switch_activation_queue	resource-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

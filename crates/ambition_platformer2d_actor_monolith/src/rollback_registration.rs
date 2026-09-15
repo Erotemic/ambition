@@ -103,17 +103,18 @@ where
         OWNER,
         "projectile.allegiance",
     );
-    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. Its `session`
-    // is a per-App activation count and its `seat_topology` is a local
-    // device-topology generation that moves when a host re-captures an identical
-    // set of seats; both must survive a rewind and neither is a fact two peers
-    // can agree on. `ActiveMatch::peer_stable_checksum` is the one place that
-    // decides which half is which.
+    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. THREE of its
+    // four fields count something local: `session` counts this App's
+    // activations, `seat_topology` its device-topology generations, and
+    // `activated_on` its sim steps (menus included — see
+    // `MatchInstance::activation_tick`). All three must survive a rewind and none
+    // is a fact two peers can agree on, so only the agreed seat count is
+    // compared. `ActiveMatch::peer_stable_checksum` decides which half is which.
     registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
-        "bevy_ggrs canonical codec snapshot + presence-aware checksum over the seat count and \
-         activation tick only, excluding the host-local session and seat-topology generations",
+        "bevy_ggrs canonical codec snapshot + presence-aware checksum over the agreed seat count \
+         only, excluding the host-local session, seat-topology and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
     // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
@@ -123,8 +124,8 @@ where
     registrar.rollback_resource_canonical_checksum::<ambition_match::StocksMatchSettled>(
         OWNER,
         "resource.stocks_match_settled",
-        "bevy_ggrs canonical codec snapshot + checksum over the verdict and the activation tick \
-         of the decided match only, excluding the host-local session generation",
+        "bevy_ggrs canonical codec snapshot + checksum over the verdict only, excluding the \
+         host-local match stamp",
         ambition_match::StocksMatchSettled::peer_stable_checksum,
     );
     // …and whether it refused to be settled. Sudden death is entered by NOT
@@ -133,8 +134,8 @@ where
     registrar.rollback_resource_canonical_checksum::<ambition_match::SuddenDeathEntered>(
         OWNER,
         "resource.sudden_death_entered",
-        "bevy_ggrs canonical codec snapshot + checksum over the activation tick of the latched \
-         match only, excluding the host-local session generation",
+        "bevy_ggrs canonical codec snapshot + checksum over whether a match is latched, excluding \
+         the host-local match stamp",
         ambition_match::SuddenDeathEntered::peer_stable_checksum,
     );
     // …and HOW LONG it has been fought. Counted, not derived: the timeout and
@@ -144,9 +145,8 @@ where
         .rollback_resource_canonical_checksum::<crate::character_runtime::live_match_clock::LiveMatchTicks>(
             OWNER,
             "resource.live_match_ticks",
-            "bevy_ggrs canonical codec snapshot + checksum over the elapsed micros and the \
-             activation tick of the clocked match only, excluding the host-local session \
-             generation",
+            "bevy_ggrs canonical codec snapshot + checksum over the elapsed micros only, which are \
+             counted from the match's own start, excluding the host-local match stamp",
             crate::character_runtime::live_match_clock::LiveMatchTicks::peer_stable_checksum,
         );
     // …and the announcement it makes once. Written inside the sim and read

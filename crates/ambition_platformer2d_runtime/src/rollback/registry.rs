@@ -403,14 +403,23 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `resource-canonical`. The two behaved differently and shared one label, so no
 /// guard could tell "every field is compared" from "these fields are" — which is
 /// the whole of the peer-agreement question. `ActiveMatch` moves with them.
-/// ⭐ 185 -> 186: the three remaining `MatchInstance`-stamped resources —
+/// ⭐ 185 -> 186: the four `MatchInstance`-stamped resources — `ActiveMatch`,
 /// `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks` — took
-/// peer-stable checksum projections. They all encoded `MatchInstance::parts()`,
-/// whose first term is the per-App session count, so a verdict, a sudden-death
-/// latch and a match clock that two peers fully agreed about still hashed
-/// differently. Each now checksums through `MatchInstance::peer_stable()` (the
-/// activation tick, which both peers simulate) plus its own mechanical fact,
-/// and each still snapshots whole so a rewind restores the local half.
+/// peer-stable checksum projections and now compare MECHANICAL FACTS ONLY: the
+/// agreed seat count, the verdict, whether sudden death is latched, and the
+/// micros elapsed since the match's own start. All four still snapshot whole, so
+/// a rewind restores every local field.
+/// ⛔⛤ THE FIRST VERSION OF THIS BUMP KEPT THE ACTIVATION TICK AND CALLED IT
+/// PEER-STABLE. It is not: `SimTick` has one writer, sits unconditionally at the
+/// head of the sim schedule and is never rebased, so it counts every step this
+/// App has run INCLUDING MENU FRAMES. Two peers who reached one lobby by
+/// different routes would have disagreed from the first compared frame. Found by
+/// the GPT architecture review of 2026-09-15.
+/// The same bump splits the KIND: a canonical snapshot whose checksum is a
+/// projection now reports `resource-canonical-custom-checksum`, not
+/// `resource-canonical`. The two behaved differently and shared one label, so no
+/// guard could tell "every field is compared" from "these fields are" — which is
+/// the whole of the peer-agreement question.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 186;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -439,6 +448,45 @@ pub enum RollbackEntryKind {
 }
 
 impl RollbackEntryKind {
+    /// Does this registration contribute to the checksum TWO PEERS COMPARE?
+    ///
+    /// ⛔⛤ **THIS LIVED IN A TEST AS A LIST OF STRINGS AND HID 25 OF 29
+    /// REGISTRATIONS.** `id_peer_audit.rs` kept its own `CHECKSUMMED_KINDS`
+    /// naming six variants; every `*CustomChecksum` kind was absent, so the
+    /// three checkpoint resources — which write a raw `SessionScopeId` into
+    /// their projection — were never examined by a guard whose whole subject is
+    /// host-local identity reaching a peer comparison.
+    ///
+    /// ⇒ The question belongs HERE, where the variant is added. A new kind
+    /// cannot be written without answering it.
+    ///
+    /// ⚠ **"FEEDS" IS NOT "IS COMPARED WHOLE".** A custom-checksum kind answers
+    /// TRUE and may still compare only part of the value — that is the point of
+    /// it. The kind cannot say WHICH fields; only the projection's own test can.
+    pub fn feeds_peer_checksum(self) -> bool {
+        match self {
+            Self::ComponentCanonical
+            | Self::ComponentCloneCursor
+            | Self::ComponentCloneResolved
+            | Self::ComponentCloneCanonicalChecksum
+            | Self::ComponentCloneCustomChecksum
+            | Self::ResourceCanonical
+            | Self::ResourceCanonicalCustomChecksum
+            | Self::ResourceCloneCursor
+            | Self::ResourceCloneCustomChecksum => true,
+            // Snapshotted but not hashed: a rewind restores them, no peer reads them.
+            Self::ComponentClone
+            | Self::ResourceClone
+            // These carry no value of their own.
+            | Self::MessageClear
+            | Self::EntityMapping
+            | Self::ResourceEntityMapping
+            | Self::RequiredRollback
+            | Self::Derived
+            | Self::DynamicAnchor => false,
+        }
+    }
+
     /// Whether this registration carries or reconstructs a value that rollback
     /// localization must observe. `Derived` counts because its reconstruction
     /// contract must also be checked across a resimulation boundary; message-clear,

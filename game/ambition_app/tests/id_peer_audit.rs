@@ -47,6 +47,12 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "TransactionId",
     // Carry `session`, `activated_on` and/or the local seat-topology generation.
     "ActiveMatch",
+    // ⛔ CARRIERS OF `CheckpointOperationKey`, whose ONE projection writes the
+    // raw `SessionScopeId`. Found by the GPT review of 2026-09-15, after this
+    // guard had reported the campaign complete twice: every one of them is a
+    // `*CustomChecksum` kind, which the old string list did not name.
+    "CheckpointOperationKey", "SessionStartupResume", "AcceptedCheckpointRestore",
+    "SessionCheckpointOutcomes", "OutstandingCheckpointRequest",
     "MatchInstance",
     "StocksMatchSettled",
     "SuddenDeathEntered",
@@ -56,15 +62,6 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
 /// Kinds that checksum the WHOLE value. Measured from the registrars: each of
 /// these calls `checksum_component`/`checksum_resource` with the type's own
 /// encoding, so a host-local field inside one is in the peer comparison.
-const CHECKSUMMED_KINDS: &[&str] = &[
-    "ComponentCanonical",
-    "ComponentCloneCursor",
-    "ComponentCloneResolved",
-    "ComponentCloneCanonicalChecksum",
-    "ResourceCanonical",
-    "ResourceCanonicalCustomChecksum",
-    "ResourceCloneCursor",
-];
 
 /// Carriers whose checksum is a stated PROJECTION that excludes the host-local
 /// part, read and confirmed by a human.
@@ -113,6 +110,20 @@ const RECORDED_DIVERGENCE: &[&str] = &[
     // `a_transaction_identity_still_depends_on_host_local_lineage_counters`
     // (shared_tangle::construction::tests) holds the detail.
     "ambition_platformer2d_shared_tangle::construction::TransactionId",
+    // ⛔⛤ ONE ROOT CAUSE, FOUR CARRIERS — found by the GPT review of 2026-09-15,
+    // after this guard had twice reported the campaign complete. Every value
+    // holding a `CheckpointOperationKey` reuses its ONE projection, and that
+    // projection writes the raw `SessionScopeId`; all four are
+    // `resource-clone-custom-checksum`, a kind the guard's old string list did
+    // not name, so none of them was ever examined.
+    //
+    // `a_checkpoint_operation_key_still_projects_the_host_local_session_scope`
+    // (`actor_monolith::session::checkpoint::tests`) holds the detail and flips
+    // when the peer/local split lands.
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionStartupResume",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointOutcomes",
+    "ambition_platformer2d_actor_monolith::session::checkpoint::OutstandingCheckpointRequest",
 ];
 
 /// ⭐⭐ **THE CAMPAIGN'S STANDING GUARD: NO HOST-LOCAL IDENTITY IS CANONICAL.**
@@ -122,7 +133,7 @@ const RECORDED_DIVERGENCE: &[&str] = &[
 /// actually installed.
 #[test]
 fn no_host_local_lifecycle_identity_is_rollback_registered() {
-    use ambition_platformer2d::rollback::RollbackRegistry;
+    use ambition_platformer2d::rollback::{RollbackEntryKind, RollbackRegistry};
 
     let mut sim = common::fixed_60hz_room_sim("proving_grounds");
     for _ in 0..10 {
@@ -132,9 +143,13 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .world()
         .get_resource::<RollbackRegistry>()
         .expect("the rollback registry is installed by the engine plugins");
-    let registered: Vec<(String, String)> = registry
+    // ⛔ THE KIND IS KEPT AS THE ENUM, NOT AS A STRING. Reproducing the
+    // registry's semantics here as a list of variant names is what hid the
+    // checkpoint family; `RollbackEntryKind::feeds_peer_checksum` owns the
+    // question and a new variant cannot be added without answering it.
+    let registered: Vec<(String, RollbackEntryKind)> = registry
         .descriptors()
-        .map(|d| (d.type_name.clone(), format!("{:?}", d.kind)))
+        .map(|d| (d.type_name.clone(), d.kind))
         .collect();
 
     // ⛔ THE ANTI-VACUITY FLOOR. An empty or tiny registry makes every
@@ -163,13 +178,13 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
             if PEER_STABLE_PROJECTION.contains(&type_name.as_str()) {
                 continue;
             }
-            if !CHECKSUMMED_KINDS.contains(&kind.as_str()) {
+            if !kind.feeds_peer_checksum() {
                 continue;
             }
             if RECORDED_DIVERGENCE.contains(&type_name.as_str()) {
                 continue;
             }
-            offenders.push(format!("{type_name} as {kind}"));
+            offenders.push(format!("{type_name} as {kind:?}"));
         }
     }
     assert!(
@@ -193,7 +208,7 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .copied()
         .filter(|recorded| {
             !registered.iter().any(|(type_name, kind)| {
-                type_name == recorded && CHECKSUMMED_KINDS.contains(&kind.as_str())
+                type_name == recorded && kind.feeds_peer_checksum()
             })
         })
         .collect();
@@ -214,16 +229,16 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
         .iter()
         .copied()
         .filter_map(|reviewed| {
-            let kinds: Vec<&str> = registered
+            let kinds: Vec<String> = registered
                 .iter()
                 .filter(|(type_name, _)| type_name == reviewed)
-                .map(|(_, kind)| kind.as_str())
+                .map(|(_, kind)| format!("{kind:?}"))
                 .collect();
             match kinds.as_slice() {
                 [] => Some(format!("{reviewed}: not registered at all")),
                 kinds if kinds
                     .iter()
-                    .all(|kind| PROJECTED_CHECKSUM_KINDS.contains(kind)) =>
+                    .all(|kind| PROJECTED_CHECKSUM_KINDS.contains(&kind.as_str())) =>
                 {
                     None
                 }

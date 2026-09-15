@@ -33,22 +33,16 @@ use crate::{ActiveMatch, MatchInstance};
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 
-/// Hash a peer-stable match identity plus a discriminant, for the checksum
-/// projections below.
+/// Hash a mechanical fact plus a discriminant, for the checksum projections
+/// below.
 ///
-/// ⛔ Only `MatchInstance::peer_stable()` — never `parts()`, whose first term is
-/// the per-App session count.
-fn peer_stable_digest(instance: Option<MatchInstance>, tag: u64, extra: u64) -> u64 {
-    let mut bytes = Vec::with_capacity(32);
+/// ⛔ NO PART OF `MatchInstance` REACHES THIS. Both its terms count something
+/// local — activations for `session`, sim steps for `activated_on` — so neither
+/// can be compared between peers. See `MatchInstance::activation_tick`.
+fn peer_stable_digest(tag: u64, extra: u64) -> u64 {
+    let mut bytes = Vec::with_capacity(16);
     bytes.extend_from_slice(&tag.to_le_bytes());
     bytes.extend_from_slice(&extra.to_le_bytes());
-    match instance.and_then(|instance| instance.peer_stable()) {
-        None => bytes.push(0),
-        Some(tick) => {
-            bytes.push(1);
-            bytes.extend_from_slice(&tick.to_le_bytes());
-        }
-    }
     ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
 }
 
@@ -56,10 +50,9 @@ impl StocksMatchSettled {
     /// What two PEERS may compare about this verdict: WHICH match was decided
     /// and HOW. The session half of the instance is a per-App count.
     pub fn peer_stable_checksum(&self) -> u64 {
-        let (instance, verdict) = match &self.0 {
-            None => (None, 0),
-            Some((instance, verdict)) => (
-                Some(*instance),
+        let verdict = match &self.0 {
+            None => 0,
+            Some((_local_stamp, verdict)) => {
                 match verdict {
                     ambition_combat::stocks::MatchVerdict::Draw => 1,
                     ambition_combat::stocks::MatchVerdict::NoContest => 2,
@@ -67,10 +60,10 @@ impl StocksMatchSettled {
                         3 ^ (ambition_platformer2d_core::snapshot::checksum_bytes(side.as_bytes())
                             << 8)
                     }
-                },
-            ),
+                }
+            }
         };
-        peer_stable_digest(instance, 0x5700_0000_0000_0001, verdict)
+        peer_stable_digest(0x5700_0000_0000_0001, verdict)
     }
 
     /// Has THIS match been decided? A verdict for a different match is not
@@ -162,7 +155,8 @@ pub struct SuddenDeathEntered(Option<MatchInstance>);
 impl SuddenDeathEntered {
     /// What two PEERS may compare: WHICH match entered sudden death.
     pub fn peer_stable_checksum(&self) -> u64 {
-        peer_stable_digest(self.0, 0x5D00_0000_0000_0002, 0)
+        // Latched or not: the stamp says WHICH match, and that is local.
+        peer_stable_digest(0x5D00_0000_0000_0002, u64::from(self.0.is_some()))
     }
 
     /// Is THIS match in sudden death?
@@ -212,6 +206,20 @@ mod peer_stable_projection_tests {
             "the verdict's checksum moves with the host's prior session count, so \
              two peers who agree on the outcome would desync"
         );
+        // ⛔⛤ AND THE ACTIVATION TICK IS THE SAME KIND OF TERM. It counts this
+        // App's sim steps, menus included, so two hosts that idled on the select
+        // screen for different numbers of frames stamp the same match
+        // differently. This arm FAILED before 2026-09-15.
+        assert_eq!(
+            settled(1).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(Some((
+                MatchInstance::from_snapshot(Some(SessionScopeId(1)), Some(999_999)),
+                MatchVerdict::Winner("left".to_string()),
+            )))
+            .peer_stable_checksum(),
+            "the verdict's checksum moves with the ABSOLUTE sim tick the match \
+             activated on, which counts menu frames"
+        );
         // ⛔ AND IT MUST STILL SEE THE OUTCOME, or the exclusion above would be
         // satisfied by a constant.
         assert_ne!(
@@ -235,16 +243,6 @@ mod peer_stable_projection_tests {
         );
         assert_ne!(
             settled(1).peer_stable_checksum(),
-            StocksMatchSettled::from_snapshot(Some((
-                stamp(1, 9_900),
-                MatchVerdict::Winner("left".to_string()),
-            )))
-            .peer_stable_checksum(),
-            "the same verdict about two different matches shares one checksum, so \
-             the activation tick is not reaching the projection"
-        );
-        assert_ne!(
-            settled(1).peer_stable_checksum(),
             StocksMatchSettled::from_snapshot(None).peer_stable_checksum(),
             "an undecided match and a decided one share one checksum"
         );
@@ -259,11 +257,10 @@ mod peer_stable_projection_tests {
             "the sudden-death latch's checksum moves with the host's prior \
              session count"
         );
-        assert_ne!(
+        assert_eq!(
             latched(1).peer_stable_checksum(),
             SuddenDeathEntered::from_snapshot(Some(stamp(1, 9_900))).peer_stable_checksum(),
-            "two matches latched on different ticks share one checksum, so the \
-             activation tick is not reaching the projection"
+            "the latch's checksum moves with the absolute activation tick"
         );
         assert_ne!(
             latched(1).peer_stable_checksum(),

@@ -113,17 +113,11 @@ impl LiveMatchTicks {
     /// What two PEERS may compare: WHICH match, and how long it has been
     /// fought. The session half of the instance is a per-App count.
     pub fn peer_stable_checksum(&self) -> u64 {
-        let (instance, micros) = self.parts();
-        let mut bytes = Vec::with_capacity(24);
-        bytes.extend_from_slice(&micros.to_le_bytes());
-        match instance.and_then(|instance| instance.peer_stable()) {
-            None => bytes.push(0),
-            Some(tick) => {
-                bytes.push(1);
-                bytes.extend_from_slice(&tick.to_le_bytes());
-            }
-        }
-        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+        // ⛔ ELAPSED time only. It is counted from the match's own start, so two
+        // peers at the same point in one fight agree; the `MatchInstance` stamp
+        // beside it counts this App's sim steps and cannot be compared.
+        let (_local_stamp, micros) = self.parts();
+        ambition_platformer2d_core::snapshot::checksum_bytes(&micros.to_le_bytes())
     }
 
     pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
@@ -245,15 +239,19 @@ mod tests {
             "two different elapsed times share one checksum, so the micros are \
              not reaching the projection"
         );
-        assert_ne!(
+        // ⛔⛤ AND THE ACTIVATION TICK IS THE SAME KIND OF TERM — it counts
+        // this App's sim steps, menus included. Both of these FAILED before
+        // 2026-09-15, when the projection still carried the stamp.
+        assert_eq!(
             clock(1, 50_000).peer_stable_checksum(),
             LiveMatchTicks::from_snapshot(Some(stamp(1, 9_900)), 50_000).peer_stable_checksum(),
-            "the same elapsed time in two different matches shares one checksum"
+            "the clock's checksum moves with the ABSOLUTE tick the match \
+             activated on, which counts menu frames"
         );
-        assert_ne!(
+        assert_eq!(
             clock(1, 50_000).peer_stable_checksum(),
             LiveMatchTicks::from_snapshot(None, 50_000).peer_stable_checksum(),
-            "an unstamped clock and a stamped one share one checksum"
+            "the clock's checksum moves with whether the match is stamped at all"
         );
     }
 

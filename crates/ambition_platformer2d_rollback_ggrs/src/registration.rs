@@ -252,6 +252,16 @@ pub trait AmbitionRollbackApp {
     where
         T: Resource<Mutability = Mutable> + SnapshotState;
 
+    fn rollback_resource_optional_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource<Mutability = Mutable> + SnapshotState;
+
     fn rollback_resource_cursor<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Resource<Mutability = Mutable> + Clone + SnapshotCursor;
@@ -751,6 +761,62 @@ impl AmbitionRollbackApp for App {
                 const ABSENT: u128 = 0x4142_5345_4E54_u128;
                 let part = bevy_ggrs::ChecksumPart(
                     resource.map_or(ABSENT, |value| state_checksum(value.as_ref()) as u128),
+                );
+                if let Ok(mut existing) = checksum.single_mut() {
+                    *existing = part;
+                } else {
+                    commands.spawn((part, bevy_ggrs::ChecksumFlag::<T>::default()));
+                }
+            };
+            self.add_systems(
+                bevy_ggrs::SaveWorld,
+                update.in_set(bevy_ggrs::SaveWorldSystems::Checksum),
+            );
+            record_probe(
+                self,
+                crate::ChecksumProbe::new(
+                    std::any::type_name::<T>(),
+                    crate::census_resource_state::<T>,
+                ),
+            );
+        }
+        self
+    }
+
+    fn rollback_resource_optional_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource<Mutability = Mutable> + SnapshotState,
+    {
+        if should_install_backend(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ResourceCanonical,
+                detail,
+            ),
+        ) {
+            self.add_plugins(ResourceSnapshotPlugin::<CanonicalCodecStrategy<T>>::default());
+            // Ambition's own checksum system rather than `RollbackApp::checksum_resource`,
+            // which installs the `Res<T>` one.
+            let update = move |mut commands: Commands,
+                               resource: Option<Res<T>>,
+                               mut checksum: Query<
+                &mut bevy_ggrs::ChecksumPart,
+                (
+                    Without<bevy_ggrs::RollbackId>,
+                    With<bevy_ggrs::ChecksumFlag<T>>,
+                ),
+            >| {
+                const ABSENT: u128 = 0x4142_5345_4E54_u128;
+                let part = bevy_ggrs::ChecksumPart(
+                    resource.map_or(ABSENT, |value| projection(value.as_ref()) as u128),
                 );
                 if let Ok(mut existing) = checksum.single_mut() {
                     *existing = part;

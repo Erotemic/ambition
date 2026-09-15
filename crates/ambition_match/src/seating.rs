@@ -171,12 +171,23 @@ impl MatchInstance {
     /// [`CONTEXT_UNSEEDED`](ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED),
     /// which is honest: it has no identity to draw against.
     pub fn random_context(&self) -> ambition_platformer2d_core::sim_random::RandomContext {
-        match (self.session, self.activated_on) {
+        match (self.session, self.peer_stable()) {
             (None, None) => ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
             (_, activated_on) => activated_on
                 .unwrap_or(0)
                 .wrapping_mul(0xD6E8_FEB8_6659_FD93),
         }
+    }
+
+    /// The part of this identity two PEERS can agree on.
+    ///
+    /// `session` is a per-App activation count and is deliberately absent: two
+    /// peers running the same match disagree about it, so anything compared
+    /// between peers — an RNG context, a canonical checksum — must project
+    /// through here rather than read the fields directly. The tick is peer-stable
+    /// and is what distinguishes one match from another.
+    pub fn peer_stable(&self) -> Option<u64> {
+        self.activated_on
     }
 
     /// Rebuild a present activation from rollback state; resource snapshotting separately restores absence.
@@ -194,6 +205,44 @@ impl MatchInstance {
 
 #[cfg(test)]
 mod match_context_tests {
+
+    /// ⛔ THE PROJECTION IS WHAT MAKES `ActiveMatch` PEER-SAFE, and a
+    /// registration kind cannot show that — `resource-clone-custom-checksum`
+    /// says a projection exists, not what it excludes. This is the arm that
+    /// says what it excludes.
+    #[test]
+    fn the_peer_stable_checksum_ignores_session_and_seat_topology() {
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+        let receipt = |session: u64, topology: Option<u64>| {
+            ActiveMatch::activated(2, topology, Some(SessionScopeId(session)), Some(4_200))
+        };
+        // Two hosts: different prior session counts, different local device
+        // topology generations, same match.
+        assert_eq!(
+            receipt(1, Some(7)).peer_stable_checksum(),
+            receipt(9, Some(31)).peer_stable_checksum(),
+            "the receipt's checksum moves with the host's session count or its \
+             local seat-topology generation, so two peers running one match \
+             would disagree"
+        );
+        // ⛔ AND IT MUST STILL SEE THE MECHANICAL FACTS, or excluding the local
+        // ones would be satisfied by a constant.
+        assert_ne!(
+            receipt(1, None).peer_stable_checksum(),
+            ActiveMatch::activated(3, None, Some(SessionScopeId(1)), Some(4_200))
+                .peer_stable_checksum(),
+            "a two-seat and a three-seat match share one checksum, so the seat \
+             count is not reaching the projection"
+        );
+        assert_ne!(
+            receipt(1, None).peer_stable_checksum(),
+            ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(9_900))
+                .peer_stable_checksum(),
+            "two matches activated on different ticks share one checksum, so the \
+             activation tick is not reaching the projection"
+        );
+    }
     use super::*;
     use ambition_platformer2d_core::sim_random::{sim_random, CONTEXT_UNSEEDED, DOMAIN_ITEM_SPAWN};
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
@@ -376,6 +425,25 @@ impl ActiveMatch {
 
     /// Which frozen topology decided this match's seating, if a session had
     /// frozen one when the roster was built.
+    /// What two PEERS may compare about this receipt.
+    ///
+    /// `session` is a per-App activation count and `seat_topology` is a LOCAL
+    /// device-topology generation that moves when a host re-captures an
+    /// identical set of seats — neither is mechanical identity, so neither may
+    /// enter a checksum. The seat COUNT and the activation tick are peer-stable.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        let mut bytes = Vec::with_capacity(24);
+        bytes.extend_from_slice(&(self.seats as u64).to_le_bytes());
+        match self.instance().peer_stable() {
+            None => bytes.push(0),
+            Some(tick) => {
+                bytes.push(1);
+                bytes.extend_from_slice(&tick.to_le_bytes());
+            }
+        }
+        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+    }
+
     pub fn seat_topology(&self) -> Option<u64> {
         self.seat_topology
     }

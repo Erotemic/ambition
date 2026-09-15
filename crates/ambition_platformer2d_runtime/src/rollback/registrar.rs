@@ -210,6 +210,26 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         self
     }
 
+    /// Presence-aware canonical snapshot whose CHECKSUM is a stated projection
+    /// rather than the whole encoded value.
+    ///
+    /// For a resource that must survive a rewind intact while holding a field
+    /// two peers cannot agree on. `detail` names what the projection covers, so
+    /// the schema baseline records the distinction rather than only the kind.
+    fn rollback_resource_optional_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical, detail);
+        self
+    }
+
     fn rollback_resource_clone<T>(&mut self, owner: &'static str, name: &'static str) -> &mut Self
     where
         T: Resource + Clone,

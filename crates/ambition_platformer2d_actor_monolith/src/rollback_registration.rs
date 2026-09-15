@@ -103,9 +103,18 @@ where
         OWNER,
         "projectile.allegiance",
     );
-    registrar.rollback_resource_optional_canonical::<ambition_match::ActiveMatch>(
+    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. Its `session`
+    // is a per-App activation count and its `seat_topology` is a local
+    // device-topology generation that moves when a host re-captures an identical
+    // set of seats; both must survive a rewind and neither is a fact two peers
+    // can agree on. `ActiveMatch::peer_stable_checksum` is the one place that
+    // decides which half is which.
+    registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
+        "bevy_ggrs canonical codec snapshot + presence-aware checksum over the seat count and \
+         activation tick only, excluding the host-local session and seat-topology generations",
+        ambition_match::ActiveMatch::peer_stable_checksum,
     );
     // The stocks ruleset's verdict is *the outcome for match X*, stamped with the
     // `MatchInstance` the receipt above publishes — so a rewind that restores one and not the

@@ -393,7 +393,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// histories disagree about a mechanically identical world. The value is still
 /// snapshotted — `construction`'s scope gather reads it to filter another
 /// session's entities — it is only out of the checksum.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 184;
+/// ⭐ 184 -> 185: `ActiveMatch` moved to a clone snapshot with a peer-stable
+/// checksum projection. Its `session` is a per-App activation count and its
+/// `seat_topology` is a local device-topology generation that moves when a host
+/// re-captures an identical set of seats; both still snapshot, neither is
+/// compared. `ActiveMatch::peer_stable_checksum` owns the split.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 185;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

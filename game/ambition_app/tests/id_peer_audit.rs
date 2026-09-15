@@ -53,20 +53,32 @@ const HOST_LOCAL_IDENTITIES: &[&str] = &[
     "LiveMatchTicks",
 ];
 
-/// Registration kinds that contribute to the checksum peers compare.
-///
-/// Measured from the registrars: every `*Canonical`, `*Cursor` and `*Resolved`
-/// road calls `checksum_component`/`checksum_resource`; the plain `*Clone` roads
-/// do not. Snapshotting a host-local value is fine — comparing it is not.
+/// Kinds that checksum the WHOLE value. Measured from the registrars: each of
+/// these calls `checksum_component`/`checksum_resource` with the type's own
+/// encoding, so a host-local field inside one is in the peer comparison.
 const CHECKSUMMED_KINDS: &[&str] = &[
     "ComponentCanonical",
     "ComponentCloneCursor",
     "ComponentCloneResolved",
     "ComponentCloneCanonicalChecksum",
-    "ComponentCloneCustomChecksum",
     "ResourceCanonical",
     "ResourceCloneCursor",
-    "ResourceCloneCustomChecksum",
+];
+
+/// Carriers whose checksum is a stated PROJECTION that excludes the host-local
+/// part, read and confirmed by a human.
+///
+/// ⛔ A KIND CANNOT SETTLE THIS, which is why the list exists. A projected
+/// checksum keeps the canonical snapshot — so the registration still reports
+/// `ResourceCanonical` — while comparing only some fields. Each entry is a
+/// claim someone checked; the guard cannot read a function body. What backs an
+/// entry is a VALUE-level arm in the owning crate, e.g.
+/// `the_peer_stable_checksum_ignores_session_and_seat_topology`.
+const PEER_STABLE_PROJECTION: &[&str] = &[
+    // `ActiveMatch::peer_stable_checksum` projects the seat count and the
+    // activation tick, excluding `session` and the local seat-topology
+    // generation. Both still snapshot, so a rewind restores them.
+    "ambition_match::seating::ActiveMatch",
 ];
 
 /// The one value that IS canonical while still being a function of host-local
@@ -86,7 +98,6 @@ const RECORDED_DIVERGENCE: &[&str] = &[
     // checksummed snapshot; `ActiveMatch` also writes the local seat-topology
     // generation, which moves when a host re-captures an IDENTICAL set of seats.
     // Closing `MatchInstance`'s contribution closes all four.
-    "ambition_match::seating::ActiveMatch",
     "ambition_match::settlement::StocksMatchSettled",
     "ambition_match::settlement::SuddenDeathEntered",
     "ambition_platformer2d_actor_monolith::character_runtime::live_match_clock::LiveMatchTicks",
@@ -135,6 +146,11 @@ fn no_host_local_lifecycle_identity_is_rollback_registered() {
             }
             // Snapshotting a host-local value is legitimate: a rewind has to
             // restore it. Only the checksummed kinds are a peer-visible defect.
+            // A reviewed projection excludes the host-local part, and no kind
+            // records that — see `PEER_STABLE_PROJECTION`.
+            if PEER_STABLE_PROJECTION.contains(&type_name.as_str()) {
+                continue;
+            }
             if !CHECKSUMMED_KINDS.contains(&kind.as_str()) {
                 continue;
             }

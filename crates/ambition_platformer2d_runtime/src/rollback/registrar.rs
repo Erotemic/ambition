@@ -210,6 +210,20 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
         self
     }
 
+    fn rollback_resource_canonical_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonicalCustomChecksum, detail);
+        self
+    }
+
     /// Presence-aware canonical snapshot whose CHECKSUM is a stated projection
     /// rather than the whole encoded value.
     ///
@@ -226,7 +240,7 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Resource + SnapshotState,
     {
-        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonical, detail);
+        self.record::<T>(owner, name, RollbackEntryKind::ResourceCanonicalCustomChecksum, detail);
         self
     }
 

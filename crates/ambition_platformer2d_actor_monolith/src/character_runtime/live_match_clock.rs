@@ -110,6 +110,22 @@ impl LiveMatchTicks {
 
     /// Rebuild from a rollback snapshot. See `snapshot_impls`.
     #[doc(hidden)]
+    /// What two PEERS may compare: WHICH match, and how long it has been
+    /// fought. The session half of the instance is a per-App count.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        let (instance, micros) = self.parts();
+        let mut bytes = Vec::with_capacity(24);
+        bytes.extend_from_slice(&micros.to_le_bytes());
+        match instance.and_then(|instance| instance.peer_stable()) {
+            None => bytes.push(0),
+            Some(tick) => {
+                bytes.push(1);
+                bytes.extend_from_slice(&tick.to_le_bytes());
+            }
+        }
+        ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+    }
+
     pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
         Self {
             of,
@@ -207,6 +223,40 @@ pub fn count_the_live_match_ticks(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_clock_checksum_ignores_the_session_count() {
+        use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+        let stamp = |session: u64, tick: u64| {
+            MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick))
+        };
+        let clock =
+            |session: u64, micros: u64| LiveMatchTicks::from_snapshot(Some(stamp(session, 4_200)), micros);
+        assert_eq!(
+            clock(1, 50_000).peer_stable_checksum(),
+            clock(9, 50_000).peer_stable_checksum(),
+            "the clock's checksum moves with the host's prior session count, so \
+             two peers at the same point in one match would desync"
+        );
+        // ⛔ AND IT MUST STILL SEE THE ELAPSED TIME AND WHICH MATCH.
+        assert_ne!(
+            clock(1, 50_000).peer_stable_checksum(),
+            clock(1, 50_001).peer_stable_checksum(),
+            "two different elapsed times share one checksum, so the micros are \
+             not reaching the projection"
+        );
+        assert_ne!(
+            clock(1, 50_000).peer_stable_checksum(),
+            LiveMatchTicks::from_snapshot(Some(stamp(1, 9_900)), 50_000).peer_stable_checksum(),
+            "the same elapsed time in two different matches shares one checksum"
+        );
+        assert_ne!(
+            clock(1, 50_000).peer_stable_checksum(),
+            LiveMatchTicks::from_snapshot(None, 50_000).peer_stable_checksum(),
+            "an unstamped clock and a stamped one share one checksum"
+        );
+    }
+
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
     use bevy::prelude::*;

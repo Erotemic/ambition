@@ -33,7 +33,46 @@ use crate::{ActiveMatch, MatchInstance};
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 
+/// Hash a peer-stable match identity plus a discriminant, for the checksum
+/// projections below.
+///
+/// ⛔ Only `MatchInstance::peer_stable()` — never `parts()`, whose first term is
+/// the per-App session count.
+fn peer_stable_digest(instance: Option<MatchInstance>, tag: u64, extra: u64) -> u64 {
+    let mut bytes = Vec::with_capacity(32);
+    bytes.extend_from_slice(&tag.to_le_bytes());
+    bytes.extend_from_slice(&extra.to_le_bytes());
+    match instance.and_then(|instance| instance.peer_stable()) {
+        None => bytes.push(0),
+        Some(tick) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&tick.to_le_bytes());
+        }
+    }
+    ambition_platformer2d_core::snapshot::checksum_bytes(&bytes)
+}
+
 impl StocksMatchSettled {
+    /// What two PEERS may compare about this verdict: WHICH match was decided
+    /// and HOW. The session half of the instance is a per-App count.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        let (instance, verdict) = match &self.0 {
+            None => (None, 0),
+            Some((instance, verdict)) => (
+                Some(*instance),
+                match verdict {
+                    ambition_combat::stocks::MatchVerdict::Draw => 1,
+                    ambition_combat::stocks::MatchVerdict::NoContest => 2,
+                    ambition_combat::stocks::MatchVerdict::Winner(side) => {
+                        3 ^ (ambition_platformer2d_core::snapshot::checksum_bytes(side.as_bytes())
+                            << 8)
+                    }
+                },
+            ),
+        };
+        peer_stable_digest(instance, 0x5700_0000_0000_0001, verdict)
+    }
+
     /// Has THIS match been decided? A verdict for a different match is not
     /// this match's, which is the whole reason the stamp is here.
     pub fn settled(&self, active: &ActiveMatch) -> bool {
@@ -121,6 +160,11 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
 pub struct SuddenDeathEntered(Option<MatchInstance>);
 
 impl SuddenDeathEntered {
+    /// What two PEERS may compare: WHICH match entered sudden death.
+    pub fn peer_stable_checksum(&self) -> u64 {
+        peer_stable_digest(self.0, 0x5D00_0000_0000_0002, 0)
+    }
+
     /// Is THIS match in sudden death?
     pub fn entered(&self, active: &ActiveMatch) -> bool {
         self.0 == Some(active.instance())
@@ -141,5 +185,107 @@ impl SuddenDeathEntered {
     #[doc(hidden)]
     pub fn from_snapshot(entered: Option<MatchInstance>) -> Self {
         Self(entered)
+    }
+}
+
+#[cfg(test)]
+mod peer_stable_projection_tests {
+    use super::*;
+    use ambition_combat::stocks::MatchVerdict;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
+
+    fn stamp(session: u64, tick: u64) -> MatchInstance {
+        MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick))
+    }
+
+    #[test]
+    fn the_verdict_checksum_ignores_the_session_count() {
+        let settled = |session: u64| {
+            StocksMatchSettled::from_snapshot(Some((
+                stamp(session, 4_200),
+                MatchVerdict::Winner("left".to_string()),
+            )))
+        };
+        assert_eq!(
+            settled(1).peer_stable_checksum(),
+            settled(9).peer_stable_checksum(),
+            "the verdict's checksum moves with the host's prior session count, so \
+             two peers who agree on the outcome would desync"
+        );
+        // ⛔ AND IT MUST STILL SEE THE OUTCOME, or the exclusion above would be
+        // satisfied by a constant.
+        assert_ne!(
+            settled(1).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(Some((
+                stamp(1, 4_200),
+                MatchVerdict::Winner("right".to_string()),
+            )))
+            .peer_stable_checksum(),
+            "two different winners share one checksum, so the verdict is not \
+             reaching the projection"
+        );
+        assert_ne!(
+            settled(1).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(Some((
+                stamp(1, 4_200),
+                MatchVerdict::Draw,
+            )))
+            .peer_stable_checksum(),
+            "a win and a draw share one checksum"
+        );
+        assert_ne!(
+            settled(1).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(Some((
+                stamp(1, 9_900),
+                MatchVerdict::Winner("left".to_string()),
+            )))
+            .peer_stable_checksum(),
+            "the same verdict about two different matches shares one checksum, so \
+             the activation tick is not reaching the projection"
+        );
+        assert_ne!(
+            settled(1).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(None).peer_stable_checksum(),
+            "an undecided match and a decided one share one checksum"
+        );
+    }
+
+    #[test]
+    fn the_sudden_death_checksum_ignores_the_session_count() {
+        let latched = |session: u64| SuddenDeathEntered::from_snapshot(Some(stamp(session, 4_200)));
+        assert_eq!(
+            latched(1).peer_stable_checksum(),
+            latched(9).peer_stable_checksum(),
+            "the sudden-death latch's checksum moves with the host's prior \
+             session count"
+        );
+        assert_ne!(
+            latched(1).peer_stable_checksum(),
+            SuddenDeathEntered::from_snapshot(Some(stamp(1, 9_900))).peer_stable_checksum(),
+            "two matches latched on different ticks share one checksum, so the \
+             activation tick is not reaching the projection"
+        );
+        assert_ne!(
+            latched(1).peer_stable_checksum(),
+            SuddenDeathEntered::from_snapshot(None).peer_stable_checksum(),
+            "a latched match and an unlatched one share one checksum"
+        );
+    }
+
+    // ⛔ The two projections must not collide: they are checksummed into the same
+    // frame, and a swap between them would then be invisible.
+    #[test]
+    fn the_two_settlement_projections_do_not_share_a_digest() {
+        assert_ne!(
+            StocksMatchSettled::from_snapshot(None).peer_stable_checksum(),
+            SuddenDeathEntered::from_snapshot(None).peer_stable_checksum(),
+            "the empty verdict and the empty latch hash identically"
+        );
+        assert_ne!(
+            SuddenDeathEntered::from_snapshot(Some(stamp(1, 4_200))).peer_stable_checksum(),
+            StocksMatchSettled::from_snapshot(Some((stamp(1, 4_200), MatchVerdict::Draw)))
+                .peer_stable_checksum(),
+            "a latch and a draw on the same match hash identically"
+        );
     }
 }

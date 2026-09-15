@@ -2124,6 +2124,7 @@ pub(crate) fn restored_resource_type_names(world: &World) -> BTreeSet<String> {
             matches!(
                 descriptor.kind,
                 RollbackEntryKind::ResourceCanonical
+                    | RollbackEntryKind::ResourceCanonicalCustomChecksum
                     | RollbackEntryKind::ResourceClone
                     | RollbackEntryKind::ResourceCloneCursor
                     | RollbackEntryKind::ResourceCloneCustomChecksum

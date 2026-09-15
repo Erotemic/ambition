@@ -642,6 +642,23 @@ pub trait RollbackRegistrar {
         panic!("RollbackRegistrar does not support rollback_resource_optional_canonical for {name}")
     }
 
+    /// Canonical snapshot whose CHECKSUM is a stated projection of the value.
+    ///
+    /// For an always-present resource that must rewind intact while holding a
+    /// field two peers cannot agree on.
+    fn rollback_resource_canonical_checksum<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _detail: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource<Mutability = bevy_ecs::component::Mutable> + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_canonical_checksum for {name}")
+    }
+
     /// Presence-aware canonical snapshot whose CHECKSUM is a stated projection
     /// of the value rather than the whole encoding — for a resource that must
     /// rewind intact while holding a field two peers cannot agree on.

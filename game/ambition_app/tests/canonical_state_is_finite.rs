@@ -25,9 +25,9 @@
 //! exactly what a walk kept by discipline has to keep up with.
 //!
 //! ⚠ **WHAT THIS DOES NOT COVER, and this file will not claim otherwise:
-//! values that are never ENCODED.** MEASURED 2026-09-10 against
-//! `rollback_schema_baseline.txt` (490 rows): **166 are `component-clone` and
-//! call `encode` on nothing.** 107 of those name another authoritative
+//! values that are never ENCODED.** MEASURED 2026-09-15 against
+//! `rollback_schema_baseline.txt` (493 rows): **167 are `component-clone` and
+//! call `encode` on nothing.** 108 of those name another authoritative
 //! projection that covers them; **59 say outright they are "not in the session
 //! checksum"**, and a non-finite float in one of those is seen by nothing at
 //! all. "The canonical state is finite" is NOT what a green run here means.

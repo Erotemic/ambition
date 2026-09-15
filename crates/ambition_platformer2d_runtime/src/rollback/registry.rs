@@ -398,7 +398,20 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `seat_topology` is a local device-topology generation that moves when a host
 /// re-captures an identical set of seats; both still snapshot, neither is
 /// compared. `ActiveMatch::peer_stable_checksum` owns the split.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 185;
+/// The same bump splits the KIND: a canonical snapshot whose checksum is a
+/// projection now reports `resource-canonical-custom-checksum`, not
+/// `resource-canonical`. The two behaved differently and shared one label, so no
+/// guard could tell "every field is compared" from "these fields are" — which is
+/// the whole of the peer-agreement question. `ActiveMatch` moves with them.
+/// ⭐ 185 -> 186: the three remaining `MatchInstance`-stamped resources —
+/// `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks` — took
+/// peer-stable checksum projections. They all encoded `MatchInstance::parts()`,
+/// whose first term is the per-App session count, so a verdict, a sudden-death
+/// latch and a match clock that two peers fully agreed about still hashed
+/// differently. Each now checksums through `MatchInstance::peer_stable()` (the
+/// activation tick, which both peers simulate) plus its own mechanical fact,
+/// and each still snapshots whole so a rewind restores the local half.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 186;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {
@@ -409,6 +422,11 @@ pub enum RollbackEntryKind {
     ComponentCloneCanonicalChecksum,
     ComponentCloneCustomChecksum,
     ResourceCanonical,
+    /// Canonical snapshot, but the CHECKSUM is a stated projection of the
+    /// value rather than the whole value. The kind is what tells a guard
+    /// that the two differ: `ResourceCanonical` means "every field is
+    /// compared between peers", and that claim is false here.
+    ResourceCanonicalCustomChecksum,
     ResourceCloneCursor,
     ResourceClone,
     ResourceCloneCustomChecksum,
@@ -434,6 +452,7 @@ impl RollbackEntryKind {
             | Self::ComponentCloneCanonicalChecksum
             | Self::ComponentCloneCustomChecksum
             | Self::ResourceCanonical
+            | Self::ResourceCanonicalCustomChecksum
             | Self::ResourceCloneCursor
             | Self::ResourceClone
             | Self::ResourceCloneCustomChecksum
@@ -455,6 +474,7 @@ impl RollbackEntryKind {
             Self::ComponentCloneCanonicalChecksum => "component-clone-canonical-checksum",
             Self::ComponentCloneCustomChecksum => "component-clone-custom-checksum",
             Self::ResourceCanonical => "resource-canonical",
+            Self::ResourceCanonicalCustomChecksum => "resource-canonical-custom-checksum",
             Self::ResourceCloneCursor => "resource-clone-cursor",
             Self::ResourceClone => "resource-clone",
             Self::ResourceCloneCustomChecksum => "resource-clone-custom-checksum",

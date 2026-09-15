@@ -2731,7 +2731,7 @@ impl TransactionBaseline {
     /// [`RosterViolation::ReconstructedOldSurvived`] BY DEFINITION — that is the
     /// declaration working, and it is the wrong declaration for a candidate
     /// world. MEASURED 2026-09-13: it is exactly why flipping
-    /// `ROOM_CANDIDATE_BRACKET` refused `death_restores_the_checkpoint`, with
+    /// the A10 candidate bracket on refused `death_restores_the_checkpoint`, with
     /// `Duplicated { placement:ground_gun_sword, count: 2 }` beside it.
     ///
     /// ⇒ Under this declaration the committed-roster check stops asking the

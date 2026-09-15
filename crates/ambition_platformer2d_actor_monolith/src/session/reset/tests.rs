@@ -213,8 +213,9 @@ fn min_app() -> App {
 
 /// As [`min_app`], choosing whether the world can hide an inactive candidate.
 ///
-/// ⛔ THE COMPOSITION PRODUCTION BUILDS IS `true`. `ROOM_CANDIDATE_BRACKET` mints
-/// every room root hidden and `transaction::open` REFUSES a world that cannot
+/// ⛔ THE COMPOSITION PRODUCTION BUILDS IS `true`. Room construction mints every
+/// root hidden — unconditionally, since 2026-09-15 — and `transaction::open`
+/// REFUSES a world that cannot
 /// hide one, rather than validating candidates in plain sight. `false` is that
 /// refusal — a real production one, on the road production uses, and the only
 /// injection this harness can make without a second content generation.

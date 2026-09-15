@@ -177,13 +177,11 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
-        // ⚠ `false` ON PURPOSE, and not the stale default the construction suite
-        // had. This arm is about the LOWERING REGISTRY, not the transaction: it
-        // calls the executor directly with no bracket at either end, and the
-        // marker it counts is found by an ORDINARY query — which a hidden
-        // candidate is excluded from by construction. Building visible is what
-        // lets the assertion see its subject at all.
-        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, false);
+        // ⚠ THIS ARM IS ABOUT THE LOWERING REGISTRY, NOT THE TRANSACTION. The
+        // marker it counts is found by an ORDINARY query, and this rig never
+        // calls `register_inactive_candidate_filter`, so the `InactiveCandidate`
+        // stamp is inert here and the query sees its subject.
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
     });
     app.update();
 

@@ -107,43 +107,29 @@ pub(crate) struct RoomCommitStamp {
 /// Build one room's candidate population — INTO A WORLD THAT CAN HIDE ONE, and
 /// into no other.
 ///
-/// ⛔⛤ **THE PREREQUISITE AND THE ACTION IT AUTHORIZES HAVE ONE OWNER —
-/// 2026-09-15 AUDIT, FINDING 4.** The construction used to be queued directly
-/// onto the caller's `Commands`, BEHIND `transaction::open`'s command. `open`
-/// runs first at flush and can discover that this world cannot hide a candidate;
-/// it could do nothing about the commands already sitting behind it:
+/// ⛔⛤ **THE PREREQUISITE AND THE ACTION IT AUTHORIZES HAVE ONE OWNER.** This is
+/// ONE exclusive-world command: it consults `opening_refused` and applies its own
+/// `CommandQueue` only if the opening decision was to proceed, so a world that
+/// cannot hide a candidate performs ZERO candidate construction.
 ///
-/// ```text
-/// queue open -> queue construction -> queue close
-/// flush: open REFUSES; construction runs anyway — VISIBLY, because the refusal
-///        IS that nothing here is hidden; close then cleans up
-/// ```
+/// ⛔ **DO NOT QUEUE THE CONSTRUCTION ONTO THE CALLER'S `Commands` AGAIN.** Queued
+/// behind `transaction::open`, an opening refusal cannot stop the commands
+/// already sitting behind it — the roots get built, VISIBLY in the
+/// filter-missing case, and cleaned up afterwards. A refusal that has to be
+/// repaired is not a refusal, and the window is observable: component hooks and
+/// lifecycle observers run during `queue.apply` even though no scheduled system
+/// does. `verify_and_publish`'s retirement is the BACKSTOP, not the fix.
 ///
-/// A refusal that has to be repaired afterwards is not a refusal, and the window
-/// is not unobservable: `commit_inactive`'s own note records that component hooks
-/// and lifecycle observers DO run during `queue.apply`, even though no scheduled
-/// system does.
+/// ⚠ Recipes gain no `World` access; only the queue's application point moved.
 ///
-/// ⇒ The whole construction is ONE exclusive-world command. It consults the
-/// opening decision and applies its own command queue only if that decision was
-/// to proceed, so a world that cannot hide a candidate performs ZERO candidate
-/// construction. `verify_and_publish`'s retirement of already-built roots stays
-/// as the BACKSTOP rather than as the fix.
-///
-/// ⚠ **RECIPES GAIN NO `World` ACCESS FROM THIS.** They still execute through the
-/// constrained `RootScope`/`RelationScope` surface; what moved is WHERE the
-/// queue they fill gets applied.
-///
-/// ⛔ **THE TEST HARNESS CALLS THIS TOO**, and that is why it is a free function
-/// rather than a closure inside `spawn_contents_for`: `construction/tests.rs`
-/// used to spell the production sequence itself, and a harness holding its own
-/// copy of a road is how an arm goes on passing after production stops using it.
+/// ⛔ A free function because the test harness calls it too — a harness holding
+/// its own copy of this road is how an arm keeps passing after production stops
+/// using it.
 pub(crate) fn construct_room_candidate(
     commands: &mut Commands,
     publication: transaction::PublicationHandle,
     plan: &RoomFeatureConstructionPlan,
     session_scope: SessionSpawnScope,
-    candidate_bracket: bool,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
 ) {
@@ -160,7 +146,6 @@ pub(crate) fn construct_room_candidate(
                 &mut inner,
                 &plan,
                 session_scope,
-                candidate_bracket,
             );
             // no platform VISUAL is spawned here any more. The commit installs
             // platform STATE (the receipt counts it); the picture is reconciled
@@ -413,19 +398,9 @@ impl RoomConstructionPlan {
     ) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
-        // ⛔ ONE DECISION, READ ONCE: the bracket's two ends — the opening
-        // refusal and the spawn's visibility — must agree, and a literal at each
-        // is two spellings of one fact.
-        let candidate_bracket = transaction::ROOM_CANDIDATE_BRACKET;
-        transaction::open(
-            commands,
-            publication,
-            &self.features,
-            self.session_scope,
-            candidate_bracket,
-        );
-        // ⛔⛤ **THE CANDIDATE ROAD IS LIVE — `ROOM_CANDIDATE_BRACKET` IS `true`
-        // AS OF 2026-09-14.** Every root in every lane is minted
+        transaction::open(commands, publication, &self.features, self.session_scope);
+        // ⛔⛤ **THE CANDIDATE ROAD IS THE ONLY ROAD — the rollout switch was
+        // deleted 2026-09-15.** Every root in every lane is minted
         // `InactiveCandidate`, so nothing this room builds is visible to an
         // ordinary query until `transaction::close` admits it, and a refused
         // room is DROPPED rather than left standing half-built.
@@ -526,7 +501,6 @@ impl RoomConstructionPlan {
             publication,
             &self.features,
             self.session_scope,
-            candidate_bracket,
             Some(RoomCommitStamp {
                 plan_id: self.id.clone(),
                 room_id: self.room_id().to_string(),
@@ -534,13 +508,7 @@ impl RoomConstructionPlan {
             }),
             Some(self.predicted_authoritative_ids().clone()),
         );
-        transaction::close(
-            commands,
-            publication,
-            &self.features,
-            self.session_scope,
-            candidate_bracket,
-        );
+        transaction::close(commands, publication, &self.features, self.session_scope);
     }
 
     /// Replace the live world with this prepared room, IF the room verifies.
@@ -765,7 +733,7 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. Room construction builds
         // every root hidden, and `transaction::open` REFUSES a world that cannot
         // hide one rather than validating candidates in plain sight — so a bare
         // `App` here is a fixture that never reaches the subject.
@@ -1002,7 +970,7 @@ mod tests {
         let expected_plan_id = plan.id().clone();
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. Room construction builds
         // every root hidden, and `transaction::open` REFUSES a world that cannot
         // hide one rather than validating candidates in plain sight — so a bare
         // `App` here is a fixture that never reaches the subject.
@@ -1129,7 +1097,7 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. Room construction builds
         // every root hidden, and `transaction::open` REFUSES a world that cannot
         // hide one rather than validating candidates in plain sight — so a bare
         // `App` here is a fixture that never reaches the subject.
@@ -2090,7 +2058,7 @@ mod tests {
 
         let mut app = bevy::prelude::App::new();
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
-        // ⛔ THE COMPOSITION PRODUCTION BUILDS. `ROOM_CANDIDATE_BRACKET` builds
+        // ⛔ THE COMPOSITION PRODUCTION BUILDS. Room construction builds
         // every root hidden, and `transaction::open` REFUSES a world that cannot
         // hide one rather than validating candidates in plain sight — so a bare
         // `App` here is a fixture that never reaches the subject.

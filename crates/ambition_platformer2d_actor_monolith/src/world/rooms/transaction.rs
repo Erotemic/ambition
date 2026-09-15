@@ -253,23 +253,12 @@ pub(crate) struct OpenedTransaction {
     effects: PublicationEffects,
 }
 
-/// ⛔⛤ **A10'S BRACKET FLAG, ON SINCE 2026-09-14.** `true` builds every root in
-/// every lane as an `InactiveCandidate`, so a room that fails verification is
-/// DROPPED rather than left standing half-built, and the projected
-/// post-publication roster below has a candidate population to project.
-///
-/// ⚠ It is a constant rather than a literal because it is read THREE times now —
-/// the bracket's opening refusal, the spawn's visibility, and whether [`close`]
-/// asks the projected question at all — and two spellings of one decision is how
-/// the ends come to disagree about whether a room is a candidate.
-///
-/// ⛔ **IT IS STILL A CONSTANT, AND THAT IS DELIBERATE.** Nothing chooses per
-/// room or per composition: a candidate world that some rooms opt out of is two
-/// lifecycles, and the refusal path is only trustworthy if every room takes it.
-/// The parameter exists so the harness in `construction/tests.rs` can commit the
-/// same plan LIVE and prove what the bracket changes — see
-/// `commit_bracketed`.
-pub(crate) const ROOM_CANDIDATE_BRACKET: bool = true;
+// ⛔ A ROOM IS A CANDIDATE UNTIL IT IS ADMITTED — unconditionally. There is no
+// flag and no parameter: `open`'s filter check, the supersession partition and
+// the projected-roster check below all run for every room.
+//
+// ⚠ A test that wants an UNHIDDEN population asks `ConstructionPlan::commit`,
+// the construction-layer primitive; it must not ask a room API to pretend.
 
 /// Why a room transaction refused before it built anything.
 ///
@@ -839,17 +828,15 @@ pub(crate) fn open(
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
-    candidate_bracket: bool,
 ) {
     let planned = plan.planned_sim_ids();
     commands.queue(move |world: &mut World| {
         // ⛔ ASKED BEFORE THE BASELINE, because a world that cannot hide a
         // candidate must refuse the room rather than build one it will then
         // validate in plain sight. See `OpenRefused`.
-        let captured = if candidate_bracket
-            && !ambition_platformer2d_shared_tangle::construction::inactive_candidate_filter_installed(
-                world,
-            ) {
+        let captured = if !ambition_platformer2d_shared_tangle::construction::inactive_candidate_filter_installed(
+            world,
+        ) {
             Err(OpenRefused::CandidateFilterNotInstalled)
         } else {
             // ⛔ THIS SESSION'S WORLD, NOT THE PROCESS'S. See
@@ -892,7 +879,7 @@ pub(crate) fn open(
                     let (superseding, reconstructing): (Vec<_>, Vec<_>) = planned
                         .iter()
                         .cloned()
-                        .partition(|sim_id| candidate_bracket && baseline.contains(sim_id));
+                        .partition(|sim_id| baseline.contains(sim_id));
                     // ⛔⛤ **THE DEPARTURE AUTHORITY IS DECLARED HERE, FROM THE
                     // BASELINE, NOT DISCOVERED AT RETIREMENT.** A predecessor in
                     // another entity's CUSTODY is removed by its custodian —
@@ -1008,11 +995,10 @@ pub(crate) fn close(
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
-    candidate_bracket: bool,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut World| {
-        verify_and_publish(world, publication, &plan, session, candidate_bracket);
+        verify_and_publish(world, publication, &plan, session);
     });
 }
 
@@ -1152,7 +1138,6 @@ fn verify_and_publish(
     publication: PublicationHandle,
     plan: &crate::features::RoomFeatureConstructionPlan,
     session: SessionSpawnScope,
-    candidate_bracket: bool,
 ) {
     // ⛔⛤ **WHAT THIS PUBLICATION IS ABOUT IS READ OFF THE PUBLICATION.** The
     // room's name and the set of lane transactions it owns were stated once, at
@@ -1493,7 +1478,7 @@ fn verify_and_publish(
     }
 
     let mut effects = effects;
-    let projection_violations = if candidate_bracket {
+    let projection_violations = {
         use ambition_platformer2d_shared_tangle::construction::{
             project_post_publication_roster, verify_projected_roster, AuthoritativeScope,
         };
@@ -1515,8 +1500,6 @@ fn verify_and_publish(
         verify_projected_roster(&projection, &effects, &baseline, &scope, world)
             .err()
             .unwrap_or_default()
-    } else {
-        Vec::new()
     };
     for violation in &projection_violations {
         bevy::log::error!(
@@ -1611,7 +1594,7 @@ fn verify_and_publish(
             .sum();
         // ⛔⛤ **A REFUSAL IS A WORLD EVENT, NOT ONLY A LOG LINE — 2026-09-14.**
         // This path wrote `bevy::log::error!` alone, and a harness without a log
-        // plugin surfaces nothing: measured, flipping `ROOM_CANDIDATE_BRACKET` on
+        // plugin surfaces nothing: measured, flipping the candidate bracket on
         // makes `death_restores_the_checkpoint` fail with the object NOWHERE and
         // prints no violation at all, so *"no violations printed"* could not be
         // told from *"the transaction published"*. A10 cannot be implemented

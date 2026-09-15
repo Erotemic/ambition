@@ -56,11 +56,6 @@ fn commit_lane<D>(
     commands: &mut Commands,
     session: SessionSpawnScope,
     domain_name: &'static str,
-    // ⛔ EVERY LANE OR NONE. A room committed as a candidate whose capability
-    // lanes were committed LIVE is a half-visible scene — precisely the state
-    // `commit_inactive` exists to prevent — so this rides through rather than
-    // being decided per lane.
-    hidden: bool,
 ) -> ConstructionReceipt
 where
     D: ConstructionDomain<Services = ()>,
@@ -71,11 +66,8 @@ where
         session,
         services: &(),
     };
-    let receipt = if hidden {
-        plan.commit_hidden(&mut ctx)
-    } else {
-        plan.commit(&mut ctx)
-    };
+    // ⛔ EVERY LANE, ALWAYS — see `RoomFeatureConstructionPlan::spawn`.
+    let receipt = plan.commit_hidden(&mut ctx);
     debug_assert_eq!(
         receipt.committed_ids(),
         plan.planned_ids(),
@@ -312,7 +304,6 @@ impl CapabilityLanes {
         &self,
         commands: &mut Commands,
         session: SessionSpawnScope,
-        hidden: bool,
     ) -> CapabilityReceipts {
         use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
@@ -326,7 +317,6 @@ impl CapabilityLanes {
                 commands,
                 session,
                 gravity_domain::GRAVITY_ZONE_CONSTRUCTION_DOMAIN,
-                hidden,
             ),
             #[cfg(feature = "portal")]
             portal: commit_lane(
@@ -334,7 +324,6 @@ impl CapabilityLanes {
                 commands,
                 session,
                 ambition_portal2d::PORTAL_GUN_CONSTRUCTION_DOMAIN,
-                hidden,
             ),
         }
     }

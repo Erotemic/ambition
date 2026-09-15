@@ -566,7 +566,7 @@ fn a_crossing_that_publishes_does_every_transition_effect() {
 
 /// ⛔⛤ **A10'S CONTROL IN THE SHIPPED COMPOSITION: THE FIRST ROOM PUBLISHES.**
 ///
-/// `ROOM_CANDIDATE_BRACKET` is `true`, so every room root is minted hidden and a
+/// Every room root is minted hidden, unconditionally since 2026-09-15, and a
 /// refused room is DROPPED. The refusal arm above proves that costs the running
 /// world nothing — but a bracket that refused EVERY room would satisfy it just as
 /// well, and the player would boot into an empty start room.

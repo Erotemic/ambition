@@ -356,14 +356,26 @@ gone and the function simply returns whichever root the query yielded first, per
 call, in silence. It logs an error now and keeps the assert; the choice is
 unchanged, but it is no longer unspoken.
 
-⚠ **AND TWO MORE ARE RECORDED RATHER THAN CHANGED:**
-`CapabilityLanes::debug_assert_binding` and the `debug_assert_eq!` beside it check
-that the construction lanes share a content BINDING — A10's two-generation
-contract, and exactly the thing a hot reload gets wrong. They are in the spawn
-path rather than in A10's own files, and changing them is a bigger surface than
-this campaign should take on unasked. ⇒ **The rule to carry forward: a
-`debug_assert` is the right tool for "this cannot happen"; it is the wrong one for
-"if this happens the shipped game silently picks an answer".**
+⭐ **AND THE OTHER TWO ARE CORRECT AS THEY STAND — CHECKED, NOT ASSUMED.**
+`CapabilityLanes::debug_assert_binding` (every lane judged against the same
+expected-live boundary) and the `debug_assert_eq!` that a lane's receipt matches
+its prepared roster are both in the spawn path, and both have a RELEASE-TIME GUARD
+DOWNSTREAM: the commit boundary compares the plan's generation against the
+`ActiveContentBinding` on the root it publishes into, and `verify_committed_roster`
+checks the committed roster against the baseline. ⇒ In a shipped build they are
+not the only thing standing between a divergence and a published world, which is
+exactly what makes a `debug_assert` the right tool there — and exactly what the
+two repaired above did NOT have.
+
+⇒ **THE RULE, AND THE CHEAP SWEEP THAT APPLIES IT: read the line AFTER each
+`debug_assert`.** If control continues past it into a CHOICE with no other guard,
+it belongs in the second row of this table:
+
+```text
+unreachable, or a contract the types enforce   -> debug_assert
+control continues and picks an answer          -> log it as well (keep the assert)
+control continues into data loss               -> handle it: discard, refuse, error
+```
 
 ⭐ **AND THE SLOT IS EMPTIED BY A DISCARD, NEVER BY AN ASSIGNMENT.** The four
 releases live in one `release_candidate`, and the tail of the preparer calls it on

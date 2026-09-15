@@ -1758,10 +1758,7 @@ fn prepare_candidate_platformer_session(
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
     holds.hold(pending.route_id.clone(), hold);
-    slot.0 = Some(PreparedCandidateSession {
-        prepared_before_activation: true,
-        ..candidate
-    });
+    slot.0 = Some(candidate);
 }
 
 /// The activation gate: did this candidate session's first room publish?
@@ -1777,9 +1774,20 @@ fn candidate_session_gate(
         .get_resource::<CandidateSessionSlot>()
         .and_then(|slot| slot.0.as_ref())
     else {
-        // Nothing prepared: this provider has no opinion, and holding forever
-        // would wedge a route it does not own.
-        return ShellGateVerdict::Admit;
+        // ⛔⛤ **REFUSE, NOT ADMIT — 2026-09-15.** This used to admit, on the
+        // reasoning that holding forever would wedge a route this provider does
+        // not own. It owns every route it is asked about: the evaluator is
+        // registered ONLY against `candidate_session_hold(activation_id)`, a hold
+        // this provider itself created beside the candidate it prepared. So an
+        // empty slot here does not mean *"not my route"* — it means the candidate
+        // for MY route is gone, and admitting would retire a playable session in
+        // favour of a world nobody built. It was the shell-side twin of the
+        // adopt-time fallback, and it goes with it.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "session-refused (no candidate is prepared for a held activation, so the \
+             route does not activate)"
+        ));
+        return ShellGateVerdict::Refuse;
     };
     let publication = candidate.publication;
     let (root, scope, experience) = (candidate.root, candidate.scope, candidate.experience.clone());
@@ -1822,19 +1830,24 @@ fn candidate_session_gate(
 /// been verified; what an activation adds is the shell identity a candidate
 /// could not know, and the permission to be seen.
 ///
-/// ⛔⛤ **AND IT STILL CONSTRUCTS WHEN NOBODY PREPARED — MEASURED 2026-09-14.**
-/// The first version of this system ONLY adopted, and 17 `app_it` arms failed
-/// with *"reached no session world"*: the previous system built a world for
-/// EVERY activation of an authored-catalog experience, and the candidate road
-/// fires only when a pending route published its prepared session first. Every
-/// activation that does not pass through that exact state got no world at all.
+/// ⛔⛤ **AND IT ONLY ADOPTS — THE FALLBACK IS GONE, 2026-09-15 ON MEASUREMENT.**
+/// A10.5 landed with a second road: an activation nobody prepared a candidate for
+/// built its world INSIDE the activation, which is the pre-A10.5 guarantee (the
+/// outgoing session was already retired by the time anyone knew whether this one
+/// could be built). It was kept deliberately — the first version of this system
+/// only adopted, and 17 `app_it` arms failed with *"reached no session world"* —
+/// and it was to be removed *"only when measurement says nothing uses it"*.
 ///
-/// ⇒ **THE CANDIDATE ROAD IS AN ADDITION, NOT A REPLACEMENT.** A route that
-/// prepared a candidate gets the strong guarantee — its session was verified
-/// before the outgoing one was retired. A route that did not still gets a world,
-/// built and adopted in this same flush, which is exactly what this road did
-/// before A10.5. The fallback is removed only when measurement says nothing uses
-/// it.
+/// ⇒ **MEASUREMENT SAID SO: 655 activations, 0 fallback.** 634 in
+/// `-p ambition_app --test app_it` and 21 in `--workspace --lib`, every one of
+/// them the prepared-and-verified road.
+///
+/// ⛔ **AND THE WORLD LOG COULD NOT HAVE ANSWERED IT.** The `road=` label this
+/// system used to print is capped at `WORLD_LOG_CAP` = 4000 lines PER PROCESS,
+/// and a single `app_it` run hit that cap: the log reported 458 of the 634
+/// activations it saw. A census read off it would have been a FLOOR — and a floor
+/// of zero in the bucket you are draining is not a zero. The count above comes
+/// from an uncapped probe with the strong road as its positive control.
 #[allow(clippy::too_many_arguments)]
 fn adopt_candidate_platformer_session(
     mut events: MessageReader<GameplaySessionEvent>,
@@ -1867,32 +1880,19 @@ fn adopt_candidate_platformer_session(
                 }
                 candidate
             }
-            // ⚠ THE FALLBACK: nobody prepared for this activation, so it is built
-            // now and adopted in the same flush — the pre-A10.5 behaviour, with
-            // the pre-A10.5 guarantee.
-            None => {
-                let Some(prepared) = activation.prepared_session.as_ref() else {
-                    panic!(
-                        "experience '{}' requires an exact prepared-session publication",
-                        experience_id.as_str()
-                    )
-                };
-                let Some(prepared) = sessions.take(prepared, &mut registry) else {
-                    panic!(
-                        "experience '{}' prepared data must match the authorized transaction",
-                        experience_id.as_str()
-                    )
-                };
-                let default_character = prepared.report.starting_character.clone();
-                builder.build_candidate(
-                    activation.activation_id,
-                    &experience_id,
-                    *scope,
-                    prepared.content,
-                    &prepared.mechanical,
-                    default_character.as_str(),
-                )
-            }
+            // ⛔⛤ **THERE IS NO SECOND ROAD — THE FALLBACK WAS DELETED
+            // 2026-09-15 ON MEASUREMENT.** It built the world INSIDE the
+            // activation, which is the pre-A10.5 guarantee: the outgoing session
+            // was already retired by the time anyone knew whether this one could
+            // be built.
+            None => panic!(
+                "experience '{}' activated with no prepared candidate session. \
+                 `prepare_candidate_platformer_session` runs `.after(PlatformerPreparationSet)` \
+                 and `.before(AmbitionGameShellSet::Pending)` precisely so this cannot \
+                 happen; reaching it means those edges no longer hold, and building a \
+                 world here would retire a playable session for one nobody verified",
+                experience_id.as_str()
+            ),
         };
         let Some(root) = active_session.adopt_world(activation, *scope, candidate.root) else {
             bevy::log::error!(
@@ -2171,8 +2171,6 @@ impl PlatformerSessionBuilder<'_, '_> {
             publication: built.publication,
             mechanics: mechanical.clone(),
             moving_platforms: built.moving_platforms,
-            // The caller says; `build_candidate` cannot know.
-            prepared_before_activation: false,
         }
     }
 }
@@ -2202,13 +2200,6 @@ pub struct PreparedCandidateSession {
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
     /// The first room's moving platforms, installed at adoption.
     moving_platforms: ambition_platformer2d_world::collision::MovingPlatformSet,
-    /// ⛔ WHICH ROAD THIS SESSION TOOK, so the world log says it rather than
-    /// leaving it to be inferred. `true` means the candidate was prepared and
-    /// VERIFIED before the route activated — the strong guarantee, because the
-    /// outgoing session was retired only after this one was known buildable.
-    /// `false` is the fallback: built and adopted inside the activation, which is
-    /// the pre-A10.5 behaviour and the pre-A10.5 guarantee.
-    prepared_before_activation: bool,
 }
 
 /// The one candidate session this provider has prepared and not yet adopted.
@@ -2241,7 +2232,6 @@ impl PreparedCandidateSession {
             publication,
             mechanics,
             moving_platforms,
-            prepared_before_activation,
             ..
         } = self;
         // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published; the receipt has
@@ -2253,14 +2243,11 @@ impl PreparedCandidateSession {
             ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
                 world, root, scope,
             );
+        // ⚠ NO `road=` ANY MORE: there is one road. The label existed to say
+        // which of two guarantees a session got, and the weaker one is deleted.
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "session-published experience={experience} activation={activation_id:?} \
-             ({promoted} entities promoted, road={})",
-            if prepared_before_activation {
-                "prepared-before-activation"
-            } else {
-                "built-at-activation"
-            }
+             ({promoted} entities promoted)"
         ));
     }
 }

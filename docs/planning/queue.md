@@ -157,6 +157,22 @@ the status a human READS; the other was issued BEFORE the function that owns the
 bracket was even called. A road's effects are not only the writes inside its
 transaction.
 
+**A10.5's fallback is DELETED (2026-09-15): there is ONE activation road.** An
+activation nobody prepared a candidate for built its world inside the activation,
+with the pre-A10.5 guarantee. MEASURED **655 activations, 0 fallback** (634
+`app_it`, 21 `--workspace --lib`); it is a `panic!` naming the schedule edges that
+make it unreachable, and 661 `app_it` arms pass without firing it. Its shell-side
+twin went too: `candidate_session_gate` admitted when nothing was prepared, which
+would have turned the deleted road into a crash; it refuses now, and the playing
+session survives. The `road=` label in the world log is retired with it.
+
+⛔ **THE EVIDENCE THE PLAN ASKED FOR WAS AN UNRELIABLE BUCKET.** The owner document
+said to remove the fallback on the world log's `road=` label. That log is capped at
+`WORLD_LOG_CAP` = 4000 lines PER PROCESS and one `app_it` run hits the cap: it
+reported **458** of the 634 activations it saw. ⇒ **A diagnostic log with a line
+cap is not a census instrument.** The count above is from an uncapped probe with
+the strong road as its positive control.
+
 ⇒ **And `close` no longer takes the room name.** `verify_and_publish` read the
 room id from a parameter and re-derived the owning lane transactions from the plan
 — two more spellings of facts `RoomPublication` already holds. Both are read off P

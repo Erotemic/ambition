@@ -323,6 +323,33 @@ makes those assertions falsifiable. `the_shipped_apps_own_first_room_publishes`
 and `a_shell_handoff_publishes_the_incoming_sessions_room` are the admission
 controls.
 
+**A10.5's fallback is DELETED, 2026-09-15 — there is one activation road.** An
+activation nobody prepared a candidate for used to build its own world INSIDE the
+activation, with the pre-A10.5 guarantee: the outgoing session was already retired
+by the time anyone knew whether the incoming one could be built. It was kept
+deliberately (the adopt-only first version failed 17 `app_it` arms with *"reached
+no session world"*) and was to go *"only when measurement says nothing uses it"*.
+
+MEASURED: **655 activations, 0 fallback** — 634 in `-p ambition_app --test app_it`
+and 21 in `--workspace --lib`. Reaching it is a `panic!` now that names the two
+schedule edges (`.after(PlatformerPreparationSet)`,
+`.before(AmbitionGameShellSet::Pending)`) which make it unreachable, and 661
+`app_it` arms pass without firing it. Its shell-side twin went with it:
+`candidate_session_gate` used to `Admit` when nothing was prepared, on the
+reasoning that holding would wedge a route it does not own — but the evaluator is
+registered ONLY against holds this provider created, so an empty slot means the
+candidate for ITS OWN route is gone. It refuses now, and the playing session
+survives.
+
+⛔ **AND THE EVIDENCE THIS DOCUMENT ASKED FOR COULD NOT HAVE ANSWERED IT.** The
+bullet removed here said to read the `road=` label out of the world log. That log
+is capped at `WORLD_LOG_CAP` = 4000 lines PER PROCESS, and one `app_it` run hits
+the cap: it reported **458** of the 634 activations it saw. A census read off it is
+a FLOOR, and a floor of zero in the bucket you are draining is not a zero — the
+count above comes from an uncapped probe whose positive control is the same
+strong-road bucket. ⇒ **A diagnostic log with a line cap is not a census
+instrument**, however precisely it labels what it does print.
+
 **7. Remaining work.** The acceptance criterion is MET at both scopes; these are
 the gaps that remain beside it, none of which falsifies it.
 
@@ -333,10 +360,6 @@ the gaps that remain beside it, none of which falsifies it.
   the candidate both standing for the window in which custody removes the
   predecessor. Declared rather than hidden, and not to be widened; Model A
   remains the better end state, particularly for replication.
-- **A10.5's fallback is still live**: an activation nobody prepared a candidate
-  for builds its own world inside the activation, with the pre-A10.5 guarantee.
-  The world log names which road each session took (`road=…`), so the fallback is
-  removed on evidence rather than on hope.
 
 ## Rollback, persistence and multiple rooms
 
